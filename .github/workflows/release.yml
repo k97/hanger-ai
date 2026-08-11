@@ -100,6 +100,43 @@ jobs:
           uploadUpdaterJson: true
           args: '--target universal-apple-darwin'
 
+      - name: Staple Notarisation Ticket to DMG
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+
+          DMG_FILES=(src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg)
+
+          if [ ${#DMG_FILES[@]} -eq 0 ]; then
+            echo "::error::No DMG file found matching src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg"
+            exit 1
+          fi
+
+          if [ ${#DMG_FILES[@]} -ne 1 ]; then
+            echo "::error::Expected exactly 1 DMG file, found ${#DMG_FILES[@]}: ${DMG_FILES[*]}"
+            exit 1
+          fi
+
+          DMG="${DMG_FILES[0]}"
+          echo "Found DMG for notarisation and stapling: $DMG"
+
+          echo "Submitting $DMG for notarisation..."
+          xcrun notarytool submit "$DMG" \
+            --apple-id "$APPLE_ID" \
+            --team-id "$APPLE_TEAM_ID" \
+            --password "$APPLE_PASSWORD" \
+            --wait
+
+          echo "Stapling ticket to $DMG..."
+          xcrun stapler staple "$DMG"
+
+          echo "Validating stapled ticket on $DMG..."
+          xcrun stapler validate "$DMG"
+
       - name: Upload DMG Artifact
         uses: actions/upload-artifact@v4
         with:
