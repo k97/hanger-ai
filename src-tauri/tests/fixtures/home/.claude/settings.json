@@ -1,0 +1,11 @@
+{
+  "env": {
+    "API_KEY": "FAKE_API_KEY_FOR_TESTS_DO_NOT_USE_secret123"
+  },
+  "mcpServers": {
+    "weather-global": {
+      "command": "node",
+      "url": "http://localhost:8080/mcp?key=123"
+    }
+  }
+}

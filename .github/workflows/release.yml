@@ -1,0 +1,107 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry Run (build, sign, and notarise without creating a GitHub release)'
+        required: true
+        type: boolean
+        default: true
+
+jobs:
+  release:
+    runs-on: macos-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Pre-flight Secrets Validation
+        run: |
+          echo "Checking required Apple signing, notarisation, and telemetry secrets..."
+          MISSING_SECRETS=()
+          if [ -z "${{ secrets.APPLE_CERTIFICATE }}" ]; then MISSING_SECRETS+=("APPLE_CERTIFICATE"); fi
+          if [ -z "${{ secrets.APPLE_SIGNING_IDENTITY }}" ]; then MISSING_SECRETS+=("APPLE_SIGNING_IDENTITY"); fi
+          if [ -z "${{ secrets.APPLE_ID }}" ]; then MISSING_SECRETS+=("APPLE_ID"); fi
+          if [ -z "${{ secrets.APPLE_PASSWORD }}" ]; then MISSING_SECRETS+=("APPLE_PASSWORD"); fi
+          if [ -z "${{ secrets.APPLE_TEAM_ID }}" ]; then MISSING_SECRETS+=("APPLE_TEAM_ID"); fi
+          if [ -z "${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}" ]; then MISSING_SECRETS+=("TAURI_SIGNING_PRIVATE_KEY"); fi
+
+          # Optional telemetry warning prints
+          if [ -z "${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}" ]; then echo "Warning: TAURI_SIGNING_PRIVATE_KEY_PASSWORD is absent"; fi
+          if [ -z "${{ secrets.SENTRY_DSN }}" ]; then echo "Warning: SENTRY_DSN is absent"; fi
+          if [ -z "${{ secrets.GA4_MEASUREMENT_ID }}" ]; then echo "Warning: GA4_MEASUREMENT_ID is absent"; fi
+          if [ -z "${{ secrets.GA4_API_SECRET }}" ]; then echo "Warning: GA4_API_SECRET is absent"; fi
+
+          if [ ${#MISSING_SECRETS[@]} -ne 0 ]; then
+            echo "::error::LOUD FAILURE: The following required signing/updater secrets are missing: ${MISSING_SECRETS[*]}"
+            echo "Please configure these secrets in your GitHub repository settings under Secrets & Variables -> Actions."
+            exit 1
+          fi
+          echo "All signing secrets present."
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+
+      - name: Install Frontend Dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Import Apple Developer Certificate
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+        run: |
+          echo "$APPLE_CERTIFICATE" | base64 --decode > certificate.p12
+          security create-keychain -p "build-pwd" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "build-pwd" build.keychain
+          security set-keychain-settings -t 3600 -u build.keychain
+          security import certificate.p12 -k build.keychain -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "build-pwd" build.keychain
+          security find-identity -v -p codesigning build.keychain
+
+      - name: Build and Package Tauri App
+        uses: tauri-apps/tauri-action@1deb371b0cd8bd54025b384f1cd735e725c4060f # v1.0.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
+          VITE_SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
+          GA4_MEASUREMENT_ID: ${{ secrets.GA4_MEASUREMENT_ID }}
+          GA4_API_SECRET: ${{ secrets.GA4_API_SECRET }}
+        with:
+          tagName: ${{ (github.event.inputs.dry_run == 'true') && '' || github.ref_name }}
+          releaseName: 'Release ${{ github.ref_name }}'
+          releaseBody: 'Production release of Hanger AI. Signed and notarised.'
+          releaseDraft: false
+          prerelease: false
+          uploadUpdaterJson: true
+          args: '--target universal-apple-darwin'
+
+      - name: Upload DMG Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Hanger-AI-macOS-DMG
+          path: src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg

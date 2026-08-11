@@ -1,0 +1,6 @@
+[tools.git-reader]
+command = "git"
+url = "http://fake-user:fake-pass@localhost:9000/codex?secret=abc&token=my_token"
+
+[tools.file-writer]
+command = "fs"

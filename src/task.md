@@ -1,0 +1,27 @@
+# Task List — Iteration U3: The Linking Gesture
+
+- [x] Implement backend changes in Rust:
+  - [x] Add `source_path: Option<String>` to `Skill`, `Tool`, and `Rule` in `domain.rs`
+  - [x] In `scanner.rs` `check_asset_drift`, resolve `source_path`:
+    - [x] Symlink: read targets using `fs::read_link`
+    - [x] Hard copy: match against `deploy_checksums`
+  - [x] Add backend scan deduplication inside `run_scan` in `lib.rs` (Skills by `path`, Agents by `id`, Tools by `config_path`, Rules by `path`, ProjectScans by `path`)
+  - [x] Implement `remove_deployed_asset(target_path)` in `lib.rs`:
+    - [x] Validate path has provenance (is a symlink OR has a matching `deploy_checksums` record). Refuse otherwise.
+    - [x] If hard-copy, back up target to `.hanger/backups/` before deleting.
+    - [x] Delete symlink/file/folder.
+    - [x] Clear database `deploy_checksums` entry.
+  - [x] Add `"source_scope"` parameter to `"asset_deployed"` telemetry event. Reject path leaking.
+- [x] Implement frontend changes in React:
+  - [x] Create `LinkAssetModal.tsx` selection dialog (supporting Symlink or Hard Copy, targets preflight warning/overwrites)
+  - [x] Link Rule family collision check: route to rules merge view instead of generic overwrite
+  - [x] Add "Link..." action button to Profile pane asset rows
+  - [x] Show provenance and drift in `RepoPane.tsx` asset listings
+  - [x] Show "Unlink" action button only on rows with resolved provenance, gating on confirmation prompt
+  - [x] Implement empty-repo CTA: "Link an asset from Profile" button opening `LinkAssetModal` pre-scoped to that repo
+- [x] Verification & Tests:
+  - [x] Rust: Add unit/integration tests for scanner deduplication and `remove_deployed_asset` validation + refusal logic
+  - [x] Rust: Extend GA4 telemetry leak tests for `asset_deployed` event payload
+  - [x] React: Add integration component tests for link/unlink flow
+  - [x] Run quality gates (`pnpm typecheck`, vitest, cargo test, clippy)
+  - [x] Manual drift round-trip validation and walkthrough.md update

@@ -1,0 +1,321 @@
+// @vitest-environment happy-dom
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { render, screen, fireEvent, waitFor, cleanup } from "@testing-library/react";
+import App from "../App";
+
+const mockPreferences: Record<string, string> = {
+  onboarding_complete: "true",
+  consent_crash: "true",
+  consent_usage: "true",
+  sidebar_collapsed: "false",
+  sidebar_width: "240",
+  selected_sidebar_item: "~/Work/demo",
+  inspector_open: "false",
+  inspector_width: "280",
+};
+
+const mockInventoryData = {
+  agents: [],
+  skills: [
+    {
+      id: "skill-1",
+      name: "Inspector Skill One",
+      description: "Sample skill for inspector test",
+      version: "1.2.0",
+      path: "~/Work/demo/skills/inspector-skill-1",
+      source_origin: "~/Source/skills/inspector-skill-1",
+      is_symlink: true,
+      scope: { Project: { agent: "claude", root: "~/Work/demo" } },
+    },
+  ],
+  tools: [
+    {
+      id: "tool-1",
+      name: "Inspector Tool One",
+      command: "node",
+      transport: "stdio",
+      config_path: "~/Work/demo/tools/inspector-tool-1.json",
+      scope: { Project: { agent: "claude", root: "~/Work/demo" } },
+      owning_agent: "claude",
+    },
+  ],
+  rules: [
+    {
+      id: "rule-1",
+      name: "Inspector Rule One",
+      path: "~/Work/demo/CLAUDE.md",
+      content: "Always write tests first",
+      scope: { Project: { agent: "claude", root: "~/Work/demo" } },
+    },
+  ],
+  subagents: [],
+  project_scans: [
+    {
+      path: "~/Work/demo",
+      layered: false,
+      rule_chains: {},
+      parse_warnings: [],
+    },
+  ],
+};
+
+const countsObj = { total: 1, global: 1, project: 0 };
+const mockAssetCounts = {
+  total_assets: 3,
+  total: 3,
+  skill: countsObj,
+  tool: countsObj,
+  rule: countsObj,
+  subagent: { total: 0, global: 0, project: 0 },
+  byCategory: {
+    skill: countsObj,
+    tool: countsObj,
+    rule: countsObj,
+    subagent: { total: 0, global: 0, project: 0 },
+  },
+  engines: {},
+};
+
+let eventListeners: Record<string, (evt: any) => void> = {};
+
+vi.mock("@tauri-apps/api/core", () => ({
+  invoke: vi.fn(async (cmd: string, args?: any) => {
+    if (cmd === "get_preference") {
+      return mockPreferences[args?.key] ?? null;
+    }
+    if (cmd === "set_preference") {
+      if (args?.key) {
+        mockPreferences[args.key] = String(args.value);
+      }
+      return null;
+    }
+    if (cmd === "get_linked_directories") return ["~/Work/demo"];
+    if (cmd === "get_asset_counts") return mockAssetCounts;
+    if (cmd === "get_inventory") return mockInventoryData;
+    if (cmd === "start_scan") {
+      if (eventListeners["scan://complete"]) {
+        eventListeners["scan://complete"]({ payload: { inventory: mockInventoryData } });
+      }
+      return "scan-123";
+    }
+    return null;
+  }),
+}));
+
+vi.mock("@tauri-apps/api/event", () => ({
+  listen: vi.fn((event: string, callback: any) => {
+    eventListeners[event] = callback;
+    return Promise.resolve(() => {
+      delete eventListeners[event];
+    });
+  }),
+}));
+
+vi.mock("@tauri-apps/plugin-dialog", () => ({
+  open: vi.fn(),
+}));
+
+vi.mock("@tauri-apps/plugin-log", () => ({
+  info: vi.fn(),
+  warn: vi.fn(),
+  error: vi.fn(),
+  debug: vi.fn(),
+  trace: vi.fn(),
+  attachConsole: vi.fn(() => Promise.resolve(() => {})),
+}));
+
+describe("Avionics A5 — Docked Right Inspector Integration", () => {
+  beforeEach(() => {
+    cleanup();
+    eventListeners = {};
+    mockPreferences.selected_sidebar_item = "~/Work/demo";
+    mockPreferences.inspector_open = "false";
+    mockPreferences.inspector_width = "280";
+  });
+
+  const setupMockInvoke = (inspectorOpenPref = "false", inspectorWidthPref = "280") => {
+    mockPreferences.inspector_open = inspectorOpenPref;
+    mockPreferences.inspector_width = inspectorWidthPref;
+  };
+
+  it("1. Toggle opens and closes the inspector", async () => {
+    setupMockInvoke("false");
+    render(<App />);
+
+    await screen.findByText("Inspector Skill One");
+
+    // Closed initially
+    expect(screen.queryByText("No Item Selected")).toBeNull();
+
+    // Click inspector toggle in header toolbar
+    const toggleBtn = screen.getByTitle("Toggle inspector");
+    fireEvent.click(toggleBtn);
+
+    // Inspector is now open and renders empty state (since no row selected yet)
+    await screen.findByText("No Item Selected");
+
+    // Click toggle again to close
+    fireEvent.click(toggleBtn);
+
+    await waitFor(() => {
+      expect(screen.queryByText("No Item Selected")).toBeNull();
+    });
+  });
+
+  it("2. Open state persists across a simulated restart", async () => {
+    setupMockInvoke("true", "300");
+    render(<App />);
+
+    // Inspector should be open immediately upon restart render
+    await screen.findByText("No Item Selected");
+  });
+
+  it("3. Selecting a row with the inspector closed does NOT open it", async () => {
+    setupMockInvoke("false");
+    render(<App />);
+
+    const skillRow = await screen.findByText("Inspector Skill One");
+
+    // Click an asset row
+    fireEvent.click(skillRow);
+
+    // Inspector MUST remain closed
+    expect(screen.queryByText("No Item Selected")).toBeNull();
+    expect(screen.queryByText("Path")).toBeNull();
+  });
+
+  it("4. With a row selected and the inspector open, the asset's full path string renders — asserts path text itself", async () => {
+    setupMockInvoke("true");
+    render(<App />);
+
+    const skillRow = await screen.findByText("Inspector Skill One");
+
+    // Select the skill row by clicking its row container div
+    const rowContainer = skillRow.closest("div") || skillRow;
+    fireEvent.click(rowContainer);
+
+    // Assert Path section and full path string render
+    await screen.findByText("Path");
+    await waitFor(() => {
+      expect(screen.getByText("~/Work/demo/skills/inspector-skill-1")).toBeDefined();
+    });
+  });
+
+  it("5. Inspector open with no selection renders an empty state", async () => {
+    setupMockInvoke("true");
+    render(<App />);
+
+    await screen.findByText("No Item Selected");
+    await screen.findByText("Select an asset or repository to inspect details.");
+  });
+
+  it("6. Content pane and inspector coexist; both render simultaneously", async () => {
+    setupMockInvoke("true");
+    render(<App />);
+
+    // Content pane renders asset rows
+    await screen.findByText("Inspector Skill One");
+    await screen.findByText("Inspector Tool One");
+    // Inspector pane renders simultaneously alongside content pane
+    await screen.findByText("No Item Selected");
+  });
+
+  it("7. Selecting a row sets the inspector to THAT asset — assert the asset's own path string renders, not merely that a path renders", async () => {
+    setupMockInvoke("true");
+    render(<App />);
+
+    const toolRow = await screen.findByText("Inspector Tool One");
+    fireEvent.click(toolRow);
+
+    await screen.findByText("Path");
+    await waitFor(() => {
+      expect(screen.getByText("~/Work/demo/tools/inspector-tool-1.json")).toBeDefined();
+      expect(screen.queryByText("~/Work/demo/skills/inspector-skill-1")).toBeNull();
+    });
+  });
+
+  it("8. Changing scope with the inspector open clears the selection. The inspector shows its empty state, not the previous scope's asset", async () => {
+    setupMockInvoke("true");
+    render(<App />);
+
+    // Select an asset in project scope
+    const skillRow = await screen.findByText("Inspector Skill One");
+    fireEvent.click(skillRow);
+
+    await screen.findByText("~/Work/demo/skills/inspector-skill-1");
+
+    // Change scope to User Profile in sidebar
+    const profileSidebarBtn = screen.getByText("User Profile");
+    fireEvent.click(profileSidebarBtn);
+
+    // Inspector MUST clear selection and return to empty state
+    await waitFor(() => {
+      expect(screen.queryByText("~/Work/demo/skills/inspector-skill-1")).toBeNull();
+      expect(screen.getByText("No Item Selected")).toBeDefined();
+    });
+  });
+
+  it("9. Changing category filter with the inspector open clears the selection", async () => {
+    setupMockInvoke("true");
+    render(<App />);
+
+    // Select an asset
+    const skillRow = await screen.findByText("Inspector Skill One");
+    fireEvent.click(skillRow);
+
+    await screen.findByText("~/Work/demo/skills/inspector-skill-1");
+
+    // Filter by Tools category
+    const toolsFilter = screen.getByText("Tools");
+    fireEvent.click(toolsFilter);
+
+    // Inspector MUST clear selection and return to empty state
+    await waitFor(() => {
+      expect(screen.queryByText("~/Work/demo/skills/inspector-skill-1")).toBeNull();
+      expect(screen.getByText("No Item Selected")).toBeDefined();
+    });
+  });
+
+  it("10. Row highlight and inspector content always reference the same asset", async () => {
+    setupMockInvoke("true");
+    render(<App />);
+
+    const toolRow = await screen.findByText("Inspector Tool One");
+    const skillRow = await screen.findByText("Inspector Skill One");
+
+    const toolContainer = toolRow.closest("div[data-selected]") || toolRow.closest("div")!;
+    const skillContainer = skillRow.closest("div[data-selected]") || skillRow.closest("div")!;
+
+    // Select tool row
+    fireEvent.click(toolRow);
+
+    await waitFor(() => {
+      expect(toolContainer.getAttribute("data-selected")).toBe("true");
+      expect(skillContainer.getAttribute("data-selected")).toBe("false");
+      expect(screen.getByText("~/Work/demo/tools/inspector-tool-1.json")).toBeDefined();
+    });
+
+    // Select skill row
+    fireEvent.click(skillRow);
+
+    await waitFor(() => {
+      expect(skillContainer.getAttribute("data-selected")).toBe("true");
+      expect(toolContainer.getAttribute("data-selected")).toBe("false");
+      expect(screen.getByText("~/Work/demo/skills/inspector-skill-1")).toBeDefined();
+    });
+  });
+
+  it("11. Skill and subagent render the same inspector field set (Path, Scope, no phantom Size field)", async () => {
+    setupMockInvoke("true");
+    render(<App />);
+
+    const skillRow = await screen.findByText("Inspector Skill One");
+    fireEvent.click(skillRow);
+
+    await waitFor(() => {
+      expect(screen.getByText("~/Work/demo/skills/inspector-skill-1")).toBeDefined();
+      expect(screen.queryByText(/Size:/i)).toBeNull();
+      expect(screen.queryByText(/characters/i)).toBeNull();
+    });
+  });
+});

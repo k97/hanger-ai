@@ -1,0 +1,342 @@
+use std::fs;
+use std::path::Path;
+use tauri_app_lib::preferences::PreferencesStore;
+
+#[test]
+fn test_v1_5_0_migration_clean_and_no_data_loss() {
+    let fixture_path = Path::new("tests/fixtures/v1_5_0_store.db");
+    assert!(
+        fixture_path.exists(),
+        "v1_5_0_store.db fixture must exist at src-tauri/tests/fixtures/v1_5_0_store.db"
+    );
+
+    let temp_dir = std::env::temp_dir().join("hanger_test_v1_5_0_migration");
+    let _ = fs::remove_dir_all(&temp_dir);
+    fs::create_dir_all(&temp_dir).unwrap();
+
+    let test_db_path = temp_dir.join("migrated_store.db");
+    fs::copy(fixture_path, &test_db_path).unwrap();
+
+    // Initialize PreferencesStore against the copied v1.5.0 database
+    let store = PreferencesStore::new(&test_db_path).expect("Store initialization/migration failed");
+
+    let conn = store.connect().expect("Failed to connect via store");
+
+    // 1. Verify PRAGMA user_version == 1
+    let version: i32 = conn
+        .query_row("PRAGMA user_version", [], |row| row.get(0))
+        .expect("PRAGMA user_version query should succeed");
+    assert_eq!(version, 1, "PRAGMA user_version must be 1 after migration");
+
+    // 2. Verify 'engines' table exists and has correct columns
+    let mut stmt = conn.prepare("PRAGMA table_info(engines)").unwrap();
+    let engine_cols: Vec<String> = stmt
+        .query_map([], |row| row.get(1))
+        .unwrap()
+        .map(|r| r.unwrap())
+        .collect();
+    assert!(
+        !engine_cols.is_empty(),
+        "Table 'engines' must exist"
+    );
+    for col in &["id", "key", "display_name", "config_root", "detected_at"] {
+        assert!(
+            engine_cols.contains(&col.to_string()),
+            "Table 'engines' missing column {}",
+            col
+        );
+    }
+
+    // 3. Verify 'roots' table exists and has correct columns
+    let mut stmt = conn.prepare("PRAGMA table_info(roots)").unwrap();
+    let root_cols: Vec<String> = stmt
+        .query_map([], |row| row.get(1))
+        .unwrap()
+        .map(|r| r.unwrap())
+        .collect();
+    assert!(
+        !root_cols.is_empty(),
+        "Table 'roots' must exist"
+    );
+    for col in &["id", "kind", "abs_path", "engine_id", "label", "added_at"] {
+        assert!(
+            root_cols.contains(&col.to_string()),
+            "Table 'roots' missing column {}",
+            col
+        );
+    }
+
+    // 4. Verify 'assets' table exists and has correct columns
+    let mut stmt = conn.prepare("PRAGMA table_info(assets)").unwrap();
+    let asset_cols: Vec<String> = stmt
+        .query_map([], |row| row.get(1))
+        .unwrap()
+        .map(|r| r.unwrap())
+        .collect();
+    assert!(
+        !asset_cols.is_empty(),
+        "Table 'assets' must exist"
+    );
+    for col in &[
+        "id",
+        "root_id",
+        "engine_id",
+        "category",
+        "scope",
+        "name",
+        "abs_path",
+        "version",
+        "content_hash",
+        "parse_status",
+        "parse_error",
+        "first_seen",
+        "last_seen",
+    ] {
+        assert!(
+            asset_cols.contains(&col.to_string()),
+            "Table 'assets' missing column {}",
+            col
+        );
+    }
+
+    // 5. Verify 'links' table exists and has correct columns
+    let mut stmt = conn.prepare("PRAGMA table_info(links)").unwrap();
+    let link_cols: Vec<String> = stmt
+        .query_map([], |row| row.get(1))
+        .unwrap()
+        .map(|r| r.unwrap())
+        .collect();
+    assert!(
+        !link_cols.is_empty(),
+        "Table 'links' must exist"
+    );
+    for col in &[
+        "id",
+        "asset_id",
+        "dest_root_id",
+        "dest_path",
+        "mechanism",
+        "source_hash",
+        "dest_hash",
+        "created_at",
+        "last_verified_at",
+    ] {
+        assert!(
+            link_cols.contains(&col.to_string()),
+            "Table 'links' missing column {}",
+            col
+        );
+    }
+
+    // 6. CRITICAL: Verify there is NO 'state' column on links
+    assert!(
+        !link_cols.contains(&"state".to_string()),
+        "Table 'links' MUST NOT have a 'state' column"
+    );
+
+    // 7. Verify migrated contents in 'roots' table
+    let (kind, abs_path, engine_id, label, added_at): (String, String, Option<i64>, String, i64) = conn
+        .query_row(
+            "SELECT kind, abs_path, engine_id, label, added_at FROM roots WHERE abs_path = '/Users/test/project-alpha'",
+            [],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?)),
+        )
+        .expect("Migrated root for project-alpha should exist");
+
+    assert_eq!(kind, "project", "Migrated root kind must be 'project'");
+    assert_eq!(abs_path, "/Users/test/project-alpha");
+    assert_eq!(engine_id, None, "Migrated root engine_id must be NULL");
+    assert_eq!(label, "project-alpha", "Migrated root label must be directory basename 'project-alpha'");
+    assert_eq!(added_at, 1700000000);
+
+    let (kind_b, label_b): (String, String) = conn
+        .query_row(
+            "SELECT kind, label FROM roots WHERE abs_path = '/Users/test/project-beta'",
+            [],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .expect("Migrated root for project-beta should exist");
+    assert_eq!(kind_b, "project");
+    assert_eq!(label_b, "project-beta", "Migrated root label must be directory basename 'project-beta'");
+
+    // 8. Verify legacy table data retention in database
+    // Explicitly verify linked_directories table rows survived in SQLite
+    let mut stmt = conn.prepare("SELECT path FROM linked_directories ORDER BY added_at ASC").unwrap();
+    let legacy_paths: Vec<String> = stmt.query_map([], |r| r.get(0)).unwrap().map(|r| r.unwrap()).collect();
+    assert_eq!(legacy_paths, vec!["/Users/test/project-alpha", "/Users/test/project-beta"]);
+
+    // Verify store getters for other legacy tables
+    let theme = store.get_preference("theme").unwrap();
+    assert_eq!(theme, Some("dark".to_string()));
+
+    let target_mem = store
+        .get_rules_target_memory("/Users/test/project-alpha", "/Users/test/.claude/rules/test.md")
+        .unwrap();
+    assert_eq!(target_mem, Some("CLAUDE.md".to_string()));
+
+    let class = store
+        .get_asset_classification("/Users/test/.claude/skills/deploy.md")
+        .unwrap();
+    assert_eq!(class, Some("skill".to_string()));
+
+    let checksum = store
+        .get_deploy_checksum(
+            "/Users/test/.claude/skills/deploy.md",
+            "/Users/test/project-alpha/.claude/skills/deploy.md",
+        )
+        .unwrap();
+    assert_eq!(checksum, Some("abc123blake3hash".to_string()));
+
+    let _ = fs::remove_dir_all(&temp_dir);
+}
+
+#[test]
+fn test_v1_5_0_migration_idempotency() {
+    let fixture_path = Path::new("tests/fixtures/v1_5_0_store.db");
+    assert!(fixture_path.exists());
+
+    let temp_dir = std::env::temp_dir().join("hanger_test_v1_5_0_idempotency");
+    let _ = fs::remove_dir_all(&temp_dir);
+    fs::create_dir_all(&temp_dir).unwrap();
+
+    let test_db_path = temp_dir.join("idempotency_store.db");
+    fs::copy(fixture_path, &test_db_path).unwrap();
+
+    // First migration run
+    let store1 = PreferencesStore::new(&test_db_path).expect("First store init failed");
+
+    // Second migration run on the exact same database file
+    let _store2 = PreferencesStore::new(&test_db_path).expect("Second store init failed");
+
+    let conn = store1.connect().expect("Failed to connect via store");
+
+    let version: i32 = conn
+        .query_row("PRAGMA user_version", [], |row| row.get(0))
+        .unwrap();
+    assert_eq!(version, 1, "User version must remain 1 after second migration");
+
+    let root_count: i64 = conn
+        .query_row("SELECT COUNT(*) FROM roots", [], |row| row.get(0))
+        .unwrap();
+    assert_eq!(
+        root_count, 2,
+        "Roots count must remain exactly 2 after second run (no duplicates)"
+    );
+
+    let _ = fs::remove_dir_all(&temp_dir);
+}
+
+#[test]
+fn test_foreign_keys_enforced() {
+    let temp_dir = std::env::temp_dir().join("hanger_test_foreign_keys");
+    let _ = fs::remove_dir_all(&temp_dir);
+    fs::create_dir_all(&temp_dir).unwrap();
+
+    let test_db_path = temp_dir.join("fk_test.db");
+    let store = PreferencesStore::new(&test_db_path).expect("Store init failed");
+    let conn = store.connect().expect("Failed to connect via PreferencesStore");
+
+    // Connections issued by PreferencesStore MUST have PRAGMA foreign_keys = ON;
+    // Assert that inserting an asset with non-existent root_id (999) and engine_id (999) fails
+    let res = conn.execute(
+        "INSERT INTO assets (root_id, engine_id, category, scope, name, abs_path, parse_status, first_seen, last_seen)
+         VALUES (999, 999, 'skill', 'project', 'test', '/tmp/test.md', 'ok', 1000, 1000)",
+        [],
+    );
+
+    assert!(
+        res.is_err(),
+        "Insert with non-existent root_id and engine_id MUST fail foreign key constraint check"
+    );
+
+    let _ = fs::remove_dir_all(&temp_dir);
+}
+
+#[test]
+fn test_roots_authoritative_for_linked_directories() {
+    let fixture_path = Path::new("tests/fixtures/v1_5_0_store.db");
+    assert!(fixture_path.exists());
+
+    let temp_dir = std::env::temp_dir().join("hanger_test_roots_authoritative");
+    let _ = fs::remove_dir_all(&temp_dir);
+    fs::create_dir_all(&temp_dir).unwrap();
+
+    let test_db_path = temp_dir.join("authoritative_store.db");
+    fs::copy(fixture_path, &test_db_path).unwrap();
+
+    let store = PreferencesStore::new(&test_db_path).expect("Store init failed");
+
+    // Add a new directory via store
+    store.link_directory("/Users/test/project-gamma").unwrap();
+
+    let dirs = store.get_linked_directories().unwrap();
+    assert_eq!(dirs.len(), 3);
+    assert_eq!(dirs[0], "/Users/test/project-alpha");
+    assert_eq!(dirs[1], "/Users/test/project-beta");
+    assert_eq!(dirs[2], "/Users/test/project-gamma");
+
+    // Verify directly in roots table that roots is authoritative
+    let conn = store.connect().unwrap();
+    let roots_count: i64 = conn
+        .query_row("SELECT COUNT(*) FROM roots WHERE kind = 'project'", [], |r| r.get(0))
+        .unwrap();
+    assert_eq!(roots_count, 3, "roots table must contain 3 project entries");
+
+    let _ = fs::remove_dir_all(&temp_dir);
+}
+
+#[test]
+fn test_relink_directory_preserves_root_id_and_fk_relations() {
+    let temp_dir = std::env::temp_dir().join("hanger_test_relink_fk_preservation");
+    let _ = fs::remove_dir_all(&temp_dir);
+    fs::create_dir_all(&temp_dir).unwrap();
+
+    let test_db_path = temp_dir.join("relink_test.db");
+    let store = PreferencesStore::new(&test_db_path).expect("Store init failed");
+
+    // 1. Link a directory
+    let proj_path = "/Users/test/project-delta";
+    store.link_directory(proj_path).unwrap();
+
+    let conn = store.connect().unwrap();
+
+    // Get initial root_id for project-delta
+    let initial_root_id: i64 = conn
+        .query_row("SELECT id FROM roots WHERE abs_path = ?1", [proj_path], |r| r.get(0))
+        .unwrap();
+
+    // 2. Insert dummy engine into engines table
+    conn.execute(
+        "INSERT INTO engines (key, display_name, config_root, detected_at) VALUES ('claude_code', 'Claude Code', '~/.claude', 1000)",
+        [],
+    ).unwrap();
+    let engine_id: i64 = conn.last_insert_rowid();
+
+    // 3. Insert asset referencing root_id and engine_id
+    conn.execute(
+        "INSERT INTO assets (root_id, engine_id, category, scope, name, abs_path, parse_status, first_seen, last_seen)
+         VALUES (?1, ?2, 'skill', 'project', 'delta-skill', '/Users/test/project-delta/SKILL.md', 'ok', 1000, 1000)",
+        [initial_root_id, engine_id],
+    ).unwrap();
+
+    // 4. Re-link the exact same directory path
+    store.link_directory(proj_path).unwrap();
+
+    // 5. Assert root_id is unchanged
+    let re_linked_root_id: i64 = conn
+        .query_row("SELECT id FROM roots WHERE abs_path = ?1", [proj_path], |r| r.get(0))
+        .unwrap();
+
+    assert_eq!(
+        initial_root_id, re_linked_root_id,
+        "Re-linking a directory MUST NOT replace/re-create the root row or change its id"
+    );
+
+    // 6. Assert asset still resolves cleanly
+    let asset_root_id: i64 = conn
+        .query_row("SELECT root_id FROM assets WHERE name = 'delta-skill'", [], |r| r.get(0))
+        .unwrap();
+    assert_eq!(asset_root_id, initial_root_id, "Asset FK relation must remain valid after re-linking");
+
+    let _ = fs::remove_dir_all(&temp_dir);
+}

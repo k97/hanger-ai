@@ -1,0 +1,8 @@
+[extend]
+useDefault = true
+
+[allowlist]
+paths = [
+    '''src-tauri/target''',
+    '''target'''
+]

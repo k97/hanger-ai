@@ -1,0 +1,54 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Hanger local data
+.hanger/
+target/
+src-tauri/target/
+*.db
+!src-tauri/tests/fixtures/*.db
+*.sqlite
+*.sqlite3
+*.sqlite-journal
+
+# Environment & Secret files
+.env
+.env.*
+*.p12
+*.mobileprovision
+*.cer
+*.key
+*.pem
+*.bak
+
+# Temporary test outputs
+evidence/
+scratch/
+
+# Local-only: pre-publication material, never committed
+docs/to-be-reviewed/
+
+# Local-only: internal documentation and design sources
+docs/

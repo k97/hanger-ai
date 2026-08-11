@@ -1,0 +1,7 @@
+{
+  "mcpServers": {
+    "gemini-global-tool": {
+      "command": "gemini-cli"
+    }
+  }
+}

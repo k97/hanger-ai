@@ -1,0 +1,39 @@
+[package]
+name = "tauri-app"
+version = "1.5.0"
+description = "A Tauri App"
+authors = ["you"]
+edition = "2021"
+
+[lib]
+name = "tauri_app_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-opener = "2"
+tauri-plugin-dialog = "=2.0.2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+serde_yaml = "0.9"
+toml = "0.8"
+walkdir = "2"
+ignore = "0.4"
+glob = "0.3"
+sha2 = "0.10"
+hex = "0.4"
+ureq = { version = "2", features = ["json"] }
+notify = "6.0"
+blake3 = "1.5"
+similar = { version = "2.5", features = ["inline"] }
+tokio = { version = "1", features = ["full"] }
+tempfile = "3.10"
+rusqlite = { version = "0.31", features = ["bundled"] }
+sentry = "0.34"
+reqwest = { version = "0.12", features = ["json", "blocking"] }
+uuid = { version = "1", features = ["v4", "serde"] }
+tauri-plugin-log = "2.9.0"
+tauri-plugin-updater = "2"

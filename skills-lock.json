@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "skills": {
+    "tauri-development": {
+      "source": "mindrally/skills",
+      "sourceType": "github",
+      "skillPath": "tauri-development/SKILL.md",
+      "computedHash": "0edb30d9211bebab653e1ced97835c77f5efd7bfe2922550ec52c47a6fa09ff9"
+    }
+  }
+}

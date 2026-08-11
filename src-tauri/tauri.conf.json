@@ -1,0 +1,48 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Hanger AI",
+  "version": "1.5.0",
+  "identifier": "com.rkarthik.hanger",
+  "mainBinaryName": "Hanger AI",
+  "build": {
+    "beforeDevCommand": "bun run dev",
+    "devUrl": "http://localhost:8397",
+    "beforeBuildCommand": "bun run build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [
+      {
+        "title": "Hanger AI",
+        "width": 1024,
+        "height": 700,
+        "minWidth": 860,
+        "minHeight": 500
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "createUpdaterArtifacts": true,
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ]
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IERERkRENUE5QTI4RjBGNEYKUldSUEQ0K2lxZFg5M2N0V0tCVGRlQ2k0LzFrZG12K3RoN2RHOGo4bzBsMUpGUXg3ajljRVB6UCsK",
+      "endpoints": [
+        "https://github.com/k97/hanger-ai/releases/latest/download/latest.json"
+      ]
+    }
+  }
+}

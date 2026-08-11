@@ -1,0 +1,7 @@
+{
+  "mcpServers": {
+    "project-local-tool": {
+      "command": "node"
+    }
+  }
+}

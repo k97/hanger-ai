@@ -1,0 +1,166 @@
+:root {
+  /* Canvas & Base Surfaces (Existing) */
+  --surface: #ffffff;             /* surface-canvas-light */
+  --surface-elevated: #f0f0f0;    /* elevated background cards (surface-press-light) */
+  --surface-press: #f0f0f0;       /* surface-press-light */
+
+  /* Ink Ladder (Existing) */
+  --ink-1: #150f23;               /* Sentry midnight violet - near-black */
+  --ink-2: #423d57;               /* soft dark-violet ink */
+  --ink-3: #79628c;               /* mid-violet (secondary tags/subtext) */
+  --ink-mute: #cfcfdb;            /* hairline-cool / faint text */
+  
+  /* Primary Action and Contrast (Existing) */
+  --accent: #150f23;              /* Sentry primary CTA (Midnight Violet) */
+  --on-accent: #ffffff;
+  --hairline: #e5e7eb;            /* hairline-cloud */
+  --scrim: rgba(21, 15, 35, 0.45);
+  --on-primary: #ffffff;
+
+  /* Brand Swatches (Existing) */
+  --brand-lime: #c2ef4e;          /* accent-lime */
+  --brand-pink: #fa7faa;          /* accent-pink */
+  --brand-violet: #6a5fc1;        /* accent-violet */
+  --brand-violet-deep: #422082;   /* accent-violet-deep */
+  
+  /* Semantic Alerts & Statuses (Existing) */
+  --warning-bg: #fffbeb;
+  --warning-border: #fde68a;
+  --warning-text: #a84d08;
+  --error-bg: #fff0f3;
+  --error-border: #ffc2d1;
+  --error-text: #b1164b;          /* ruby/pink error */
+  --success-bg: #f7fbe6;
+  --success-border: #d8f781;
+  --success-text: #4a7c00;
+
+  /* ==========================================================================
+     COCKPIT TOKEN LAYER (Loop W Specification)
+     ========================================================================== */
+
+  /* Neutral Ramp (Low saturation, purple-cool cast ~240 hue) */
+  --n-0: #ffffff;
+  --n-25: #fafafb;
+  --n-50: #f4f4f6;
+  --n-100: #e9e9ed;
+  --n-200: #d5d5dc;
+  --n-300: #b8b8c2;
+  --n-400: #8e8ea0;               /* mid stop */
+  --n-500: #73738a;
+  --n-600: #5c5c70;
+  --n-700: #474756;
+  --n-800: #33333e;
+  --n-900: #1e1e26;
+  --n-950: #121216;
+
+  /* Text Roles (Light Mode) */
+  --text-primary: var(--n-900);
+  --text-secondary: var(--n-700);
+  --text-muted: var(--n-600);
+
+  /* Semantic Roles (Light Mode) */
+  --success-fill: #3f7d63;
+  --success-tint: #eaf2ee;
+  --success-text-on-tint: #2b5744;
+
+  --warning-fill: #a3762c;
+  --warning-tint: #f7f0e2;
+  --warning-text-on-tint: #6f4f18;
+
+  --danger-fill: #a8484a;
+  --danger-tint: #f7ebeb;
+  --danger-text-on-tint: #743133;
+
+  --accent-fill: #4a5b8c;
+  --accent-tint: #ebeef6;
+  --accent-text-on-tint: #33406a;
+
+  /* Type Scale & Stacks */
+  --font-sans: system-ui, -apple-system, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, monospace;
+  --fs-row: 11px;
+  --fs-ui: 12px;
+  --fs-title: 13px;
+  --fw-regular: 400;
+  --fw-medium: 500;
+
+  /* Space Scale (8px grid, 4px half-step) */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+
+  /* Radius (6px default, 0 / 6 / pill) */
+  --radius-control: 6px;
+
+  /* Motion */
+  --duration-fast: 120ms;
+  --duration-panel: 180ms;
+  --duration-rail: 240ms;
+  --ease-base: ease;
+  --ease-enter: ease-out;
+
+  /* Elevation */
+  --hairline-width: 0.5px;
+}
+
+.dark {
+  /* Canvas & Base Surfaces (Existing Dark) */
+  --surface: #1f1633;             /* surface-canvas-dark / ink-deep canvas */
+  --surface-elevated: #150f23;    /* elevated dark panels / code-block / surface-night */
+  --surface-press: #1a1a1a;       /* ink-press */
+
+  /* Ink Ladder (Existing Dark) */
+  --ink-1: #ffffff;
+  --ink-2: #bdb8c0;               /* on-dark-muted */
+  --ink-3: #79628c;               /* mid-violet */
+  --ink-mute: #3f3849;            /* on-dark-faint */
+
+  /* Primary Action and Contrast (Existing Dark) */
+  --accent: #ffffff;              /* inverted primary CTA (white button on dark) */
+  --on-accent: #150f23;           /* dark text on white button */
+  --hairline: #362d59;            /* hairline-violet */
+  --scrim: rgba(11, 7, 20, 0.7);
+  --on-primary: #150f23;
+
+  /* Semantic Alerts & Statuses (Existing Dark) */
+  --warning-bg: #2d1a09;
+  --warning-border: #78350f;
+  --warning-text: #fef3c7;
+  --error-bg: #3c0b1f;
+  --error-border: #801a3d;
+  --error-text: #ffb3c6;
+  --success-bg: #1c270a;
+  --success-border: #4a7c00;
+  --success-text: #d8f781;
+
+  /* Cockpit Neutral Surface Inversions (Dark Mode) */
+  --n-0: var(--n-950);
+  --n-25: var(--n-900);
+  --n-50: #22222b;
+
+  /* Text Roles (Dark Mode) */
+  --text-primary: var(--n-100);
+  --text-secondary: var(--n-300);
+  --text-muted: var(--n-400);
+
+  /* Semantic Roles (Dark Mode - Tint and Text Inverted Within Ramp) */
+  --success-fill: #3f7d63;
+  --success-tint: #2b5744;
+  --success-text-on-tint: #eaf2ee;
+
+  --warning-fill: #a3762c;
+  --warning-tint: #6f4f18;
+  --warning-text-on-tint: #f7f0e2;
+
+  --danger-fill: #a8484a;
+  --danger-tint: #743133;
+  --danger-text-on-tint: #f7ebeb;
+
+  --accent-fill: #4a5b8c;
+  --accent-tint: #33406a;
+  --accent-text-on-tint: #ebeef6;
+}

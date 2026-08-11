@@ -1,0 +1,218 @@
+import { Inventory, Skill, Tool, Rule, Agent, Subagent } from "../App";
+
+export type CategoryType = "Skills" | "Agents" | "Tools" | "Rules" | "Subagents";
+
+export interface FilteredProfileResult {
+  skills: Skill[];
+  tools: Tool[];
+  rules: Rule[];
+  agents: Agent[];
+  subagents: Subagent[];
+  flatAgents: boolean;
+}
+
+function deduplicateSkills(skills: Skill[]): Skill[] {
+  const seen = new Set<string>();
+  return skills.filter((s) => {
+    if (seen.has(s.path)) return false;
+    seen.add(s.path);
+    return true;
+  });
+}
+
+function deduplicateTools(tools: Tool[]): Tool[] {
+  const seen = new Set<string>();
+  return tools.filter((t) => {
+    if (seen.has(t.config_path)) return false;
+    seen.add(t.config_path);
+    return true;
+  });
+}
+
+function deduplicateRules(rules: Rule[]): Rule[] {
+  const seen = new Set<string>();
+  return rules.filter((r) => {
+    if (seen.has(r.path)) return false;
+    seen.add(r.path);
+    return true;
+  });
+}
+
+function deduplicateAgents(agents: Agent[]): Agent[] {
+  const seen = new Set<string>();
+  return agents.filter((a) => {
+    if (seen.has(a.id)) return false;
+    seen.add(a.id);
+    return true;
+  });
+}
+
+function deduplicateSubagents(subagents: Subagent[]): Subagent[] {
+  const seen = new Set<string>();
+  return subagents.filter((sa) => {
+    if (seen.has(sa.path)) return false;
+    seen.add(sa.path);
+    return true;
+  });
+}
+
+export function filterProfileAssets(
+  inventory: Inventory | null,
+  selectedCategory: CategoryType | null
+): FilteredProfileResult {
+  const agents = deduplicateAgents(inventory?.agents || []);
+  const globalSkills = deduplicateSkills(inventory?.skills.filter((s) => s.scope?.Global) || []);
+  const globalTools = deduplicateTools(inventory?.tools.filter((t) => t.scope?.Global) || []);
+  const globalRules = deduplicateRules(inventory?.rules.filter((r) => r.scope?.Global) || []);
+  const globalSubagents = deduplicateSubagents(inventory?.subagents.filter((sa) => sa.scope?.Global) || []);
+
+  if (selectedCategory === "Skills") {
+    return {
+      skills: globalSkills,
+      tools: [],
+      rules: [],
+      agents,
+      subagents: [],
+      flatAgents: false,
+    };
+  }
+  if (selectedCategory === "Tools") {
+    return {
+      skills: [],
+      tools: globalTools,
+      rules: [],
+      agents,
+      subagents: [],
+      flatAgents: false,
+    };
+  }
+  if (selectedCategory === "Rules") {
+    return {
+      skills: [],
+      tools: [],
+      rules: globalRules,
+      agents,
+      subagents: [],
+      flatAgents: false,
+    };
+  }
+  if (selectedCategory === "Agents") {
+    return {
+      skills: [],
+      tools: [],
+      rules: [],
+      agents,
+      subagents: [],
+      flatAgents: true,
+    };
+  }
+  if (selectedCategory === "Subagents") {
+    return {
+      skills: [],
+      tools: [],
+      rules: [],
+      agents,
+      subagents: globalSubagents,
+      flatAgents: false,
+    };
+  }
+
+  // selectedCategory === null (All)
+  return {
+    skills: globalSkills,
+    tools: globalTools,
+    rules: globalRules,
+    subagents: globalSubagents,
+    agents: [],
+    flatAgents: false,
+  };
+}
+
+export interface FilteredRepoResult {
+  skills: Skill[];
+  tools: Tool[];
+  rules: Rule[];
+  agents: Agent[];
+  subagents: Subagent[];
+}
+
+export function filterRepoAssets(
+  inventory: Inventory | null,
+  repoPath: string,
+  selectedCategory: CategoryType | null
+): FilteredRepoResult {
+  const repoSkills = deduplicateSkills(inventory?.skills.filter(
+    (s) => s.scope?.Project?.root === repoPath
+  ) || []);
+
+  const repoTools = deduplicateTools(inventory?.tools.filter(
+    (t) => t.scope?.Project?.root === repoPath
+  ) || []);
+
+  const repoRules = deduplicateRules(inventory?.rules.filter(
+    (r) => r.scope?.Project?.root === repoPath
+  ) || []);
+
+  const repoAgents = deduplicateAgents(inventory?.agents.filter(
+    (a) => a.project_footprints.includes(repoPath)
+  ) || []);
+
+  const repoSubagents = deduplicateSubagents(inventory?.subagents.filter(
+    (sa) => sa.scope?.Project?.root === repoPath
+  ) || []);
+
+  if (selectedCategory === "Skills") {
+    return {
+      skills: repoSkills,
+      tools: [],
+      rules: [],
+      agents: [],
+      subagents: [],
+    };
+  }
+  if (selectedCategory === "Tools") {
+    return {
+      skills: [],
+      tools: repoTools,
+      rules: [],
+      agents: [],
+      subagents: [],
+    };
+  }
+  if (selectedCategory === "Rules") {
+    return {
+      skills: [],
+      tools: [],
+      rules: repoRules,
+      agents: [],
+      subagents: [],
+    };
+  }
+  if (selectedCategory === "Agents") {
+    return {
+      skills: [],
+      tools: [],
+      rules: [],
+      agents: repoAgents,
+      subagents: [],
+    };
+  }
+  if (selectedCategory === "Subagents") {
+    return {
+      skills: [],
+      tools: [],
+      rules: [],
+      agents: [],
+      subagents: repoSubagents,
+    };
+  }
+
+  // selectedCategory === null (All)
+  return {
+    skills: repoSkills,
+    tools: repoTools,
+    rules: repoRules,
+    agents: repoAgents,
+    subagents: repoSubagents,
+  };
+}

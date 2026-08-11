@@ -1,0 +1,4 @@
+# Synthesised test fixtures in src-tauri/tests/leak_tests.rs
+bb929e11450c38523fad9b79fc0e57e5314fbdf6:src-tauri/tests/leak_tests.rs:generic-api-key:8
+6bf2c1691e13879ac90f3cc98bc3105993338a92:src-tauri/tests/leak_tests.rs:generic-api-key:8
+src-tauri/tests/leak_tests.rs:generic-api-key:11
