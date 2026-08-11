@@ -95,7 +95,7 @@ jobs:
           tagName: ${{ (github.event.inputs.dry_run == 'true') && '' || github.ref_name }}
           releaseName: 'Release ${{ github.ref_name }}'
           releaseBody: 'Production release of Hanger AI. Signed and notarised.'
-          releaseDraft: false
+          releaseDraft: true
           prerelease: false
           uploadUpdaterJson: true
           args: '--target universal-apple-darwin'
