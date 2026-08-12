@@ -78,6 +78,12 @@ pub struct ProjectScan {
     pub layered: bool,
     pub rule_chains: std::collections::HashMap<String, Vec<String>>,
     pub parse_warnings: Vec<String>,
+    /// Directories beneath this root that qualify as repositories in their own
+    /// right. Collected during the walk this root already performs, so probing
+    /// costs nothing extra. Includes candidates that are already linked — the
+    /// frontend subtracts the linked set.
+    #[serde(default)]
+    pub nested_repo_candidates: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

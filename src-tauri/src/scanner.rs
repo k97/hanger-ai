@@ -679,6 +679,22 @@ pub fn is_excluded(path: &Path) -> bool {
     false
 }
 
+/// A directory qualifies as a repository candidate if it carries an engine
+/// configuration directory or any recognised rules file. This is the same test
+/// the standalone repo scan used, lifted so the ordinary project walk can apply
+/// it without a second traversal.
+pub fn qualifies_as_repo(dir: &Path) -> bool {
+    if dir.join(".git").exists()
+        || dir.join(".claude").exists()
+        || dir.join(".agents").exists()
+        || dir.join(".codex").exists()
+        || dir.join(".gemini").exists()
+    {
+        return true;
+    }
+    RULE_FILENAMES.iter().any(|r| dir.join(r).exists())
+}
+
 // BROAD-ROOT check helper
 pub fn is_broad_root(root: &Path) -> bool {
     let home = get_home_dir();
@@ -1204,6 +1220,11 @@ impl DirectoryScanner {
         let mut files_visited = 0;
         let mut dirs_visited = 0;
 
+        // Repository candidates beneath this root, collected as the walk passes
+        // through. The root never lists itself: it is already the linked root.
+        let mut nested_repo_candidates: Vec<String> = Vec::new();
+        let mut nested_candidate_set = std::collections::HashSet::new();
+
         for entry in walker {
             // Check cancellation token first
             if self.cancellation_token.load(Ordering::SeqCst) {
@@ -1257,6 +1278,17 @@ impl DirectoryScanner {
             if path.is_dir() {
                 dirs_visited += 1;
                 on_progress(dirs_visited, files_visited, &path_str);
+
+                if qualifies_as_repo(path) {
+                    let abs = fs::canonicalize(path)
+                        .unwrap_or_else(|_| path.to_path_buf())
+                        .to_string_lossy()
+                        .to_string();
+                    if abs != project_path_abs && nested_candidate_set.insert(abs.clone()) {
+                        nested_repo_candidates.push(abs);
+                    }
+                }
+
                 continue;
             }
 
@@ -1607,6 +1639,7 @@ impl DirectoryScanner {
             layered: is_layered,
             rule_chains,
             parse_warnings: parse_warnings.into_iter().map(|w| crate::preferences::sanitise_msg(&w)).collect(),
+            nested_repo_candidates,
         });
 
         Ok(inventory)
