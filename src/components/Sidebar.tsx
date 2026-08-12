@@ -1,7 +1,7 @@
 import React from "react";
 import { User, Folder, Globe, Settings, Plus, Search, Trash2 } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
-import { open, confirm } from "@tauri-apps/plugin-dialog";
+import { open } from "@tauri-apps/plugin-dialog";
 import { Inventory } from "../App";
 
 interface SidebarProps {
@@ -118,14 +118,8 @@ export default function Sidebar({
         multiple: false,
       });
       if (selected && typeof selected === "string") {
-        const isBroad = await invoke<boolean>("check_broad_root", { path: selected });
-        if (isBroad) {
-          const confirmProceed = await confirm(
-            `Warning: The selected folder is very broad (Home directory or contains >50 items). Scanning this may take time. Traversal will be capped at 6 levels deep. Would you like to proceed?`
-          );
-          if (!confirmProceed) return;
-        }
-
+        // Broad roots are allowed through: the scanner caps traversal at 6
+        // levels and surfaces the cap as a warning. No gate here.
         await invoke("link_directory", { path: selected });
         await loadLinkedRepos();
         setSelectedItem(selected);
@@ -138,23 +132,11 @@ export default function Sidebar({
   // Scan repositories trigger
   const handleScanRepos = async () => {
     try {
-      const confirmDialog = window.confirm(
-        "Note: macOS may display a standard system permission dialog for secure folders (like Downloads, Desktop, or Documents)."
-      );
-      if (!confirmDialog) return;
-
       const selected = await open({
         directory: true,
         multiple: false,
       });
       if (selected && typeof selected === "string") {
-        const isBroad = await invoke<boolean>("check_broad_root", { path: selected });
-        if (isBroad) {
-          const confirmProceed = window.confirm(
-            `Warning: The selected scan root is very broad (Home directory or contains >50 items). Scanning this may take time. Traversal will be capped at 6 levels deep. Would you like to proceed?`
-          );
-          if (!confirmProceed) return;
-        }
         onTriggerScan(selected);
       }
     } catch (err: any) {

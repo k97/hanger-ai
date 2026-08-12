@@ -188,7 +188,13 @@ export default function App() {
           setAvailableUpdate({
             version: update.version,
             install: async () => {
-              await update.downloadAndInstall();
+              try {
+                await update.downloadAndInstall();
+              } catch (err: any) {
+                // Signature or download failures must surface — an updater that
+                // fails silently is indistinguishable from a working one.
+                setError(`Update install failed: ${String(err?.message ?? err)}`);
+              }
             },
           });
         }
@@ -284,6 +290,10 @@ export default function App() {
   // Settings & maintenance Modal State
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [settingsError, setSettingsError] = useState<string | null>(null);
+  const [settingsNotice, setSettingsNotice] = useState<string | null>(null);
+  // Two-step destructive confirm for settings import: picker first, then an
+  // inline confirm state — never a blocking dialog.
+  const [pendingImportPath, setPendingImportPath] = useState<string | null>(null);
 
   // Link Asset Modal State
   const [isLinkModalOpen, setIsLinkModalOpen] = useState(false);
@@ -886,6 +896,8 @@ export default function App() {
                 onClick={() => {
                   setShowSettingsModal(false);
                   setSettingsError(null);
+                  setSettingsNotice(null);
+                  setPendingImportPath(null);
                 }}
                 className="p-1 rounded-full text-text-muted hover:text-text-primary hover:bg-n-50 transition-colors cursor-pointer"
               >
@@ -903,10 +915,17 @@ export default function App() {
               </div>
             )}
 
+            {settingsNotice && (
+              <div className="p-2.5 rounded-control bg-success-bg text-success-text border border-success-border text-xs leading-normal animate-fade-in">
+                {settingsNotice}
+              </div>
+            )}
+
             <div className="flex flex-col gap-3 mt-2">
               <button
                 onClick={async () => {
                   setSettingsError(null);
+                  setSettingsNotice(null);
                   try {
                     const exportPath = await save({
                       title: "Export Hanger Settings",
@@ -914,8 +933,7 @@ export default function App() {
                     });
                     if (exportPath) {
                       await invoke("export_preferences", { targetPath: exportPath });
-                      alert("Settings database exported successfully!");
-                      setShowSettingsModal(false);
+                      setSettingsNotice(`Settings exported to ${exportPath}`);
                     }
                   } catch (err: any) {
                     setSettingsError(`Export failed: ${err}`);
@@ -926,9 +944,46 @@ export default function App() {
                 Export Settings to JSON...
               </button>
 
+              {pendingImportPath && (
+                <div
+                  data-testid="import-confirm"
+                  className="p-2.5 rounded-control bg-error-bg border border-error-border text-xs leading-normal flex flex-col gap-2 animate-fade-in"
+                >
+                  <span className="text-error-text">
+                    Importing {pendingImportPath.split("/").pop()} overwrites classifications, target mappings, and checksums. The import is local and atomic.
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={async () => {
+                        setSettingsError(null);
+                        try {
+                          await invoke("import_preferences", { sourcePath: pendingImportPath });
+                          setPendingImportPath(null);
+                          setSettingsNotice("Settings imported — rescanning.");
+                          triggerScan();
+                        } catch (err: any) {
+                          setPendingImportPath(null);
+                          setSettingsError(`Import failed: ${err}`);
+                        }
+                      }}
+                      className="py-1.5 px-3 rounded-control bg-error-text text-on-accent font-medium text-xs cursor-pointer transition-opacity hover:opacity-90"
+                    >
+                      Confirm Import
+                    </button>
+                    <button
+                      onClick={() => setPendingImportPath(null)}
+                      className="py-1.5 px-3 rounded-control bg-surface border border-n-100 text-text-secondary hover:text-text-primary font-medium text-xs cursor-pointer transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+
               <button
                 onClick={async () => {
                   setSettingsError(null);
+                  setSettingsNotice(null);
                   try {
                     const importPath = await open({
                       title: "Import Hanger Settings",
@@ -936,14 +991,7 @@ export default function App() {
                       filters: [{ name: "JSON Backup", extensions: ["json"] }]
                     });
                     if (importPath && typeof importPath === "string") {
-                      const confirmImport = window.confirm(
-                        "Are you sure you want to import settings? This will overwrite classifications, target mappings, and checksums. The import is local and atomic."
-                      );
-                      if (!confirmImport) return;
-                      await invoke("import_preferences", { sourcePath: importPath });
-                      alert("Settings database imported successfully!");
-                      setShowSettingsModal(false);
-                      triggerScan();
+                      setPendingImportPath(importPath);
                     }
                   } catch (err: any) {
                     setSettingsError(`Import failed: ${err}`);
