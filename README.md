@@ -1,56 +1,53 @@
-# HANGER — AI Flight Deck
+# Hanger AI
 
-A high-performance, local-first visual flight control deck for the local AI developer environment. Built with Tauri v2, Vanilla TypeScript, and styled in a clean clinical notebook design system.
+Hanger AI is a local-first desktop application that inventories, monitors, and deploys AI agent assets across Claude Code, Codex, and Gemini CLI.
 
-## Architecture
+![IMAGE — main inventory view]
 
-Hanger uses a multi-tiered architecture to isolate visual presentation from filesystem mutations:
+## Requirements
 
-```mermaid
-graph TD
-    subgraph View Layer
-        A[React & Vite Frontend] -->|UI Actions| B[Tauri IPC Bridge]
-    end
+- **Operating System:** macOS.
+- **Architecture:** Apple silicon (arm64) and Intel (x86_64) universal binary.
 
-    subgraph Backend Kernel
-        B -->|Async Calls| C[Tauri Commands]
-        C --> D[State & Driver Layer]
-        D -->|AST / Checksums| E[Rust Core File Engine]
-        D -->|State Persistence| F[SQLite Preferences DB]
-    end
+## Installation
 
-    subgraph External System
-        E -->|Safe Walker| G[Workspace Filesystem]
-        E -->|Telemetry| H[Sentry & GA4 MP]
-    end
-```
+Download the latest `.dmg` installer from the official [Releases](https://github.com/k97/hanger-ai/releases) page, open the disk image, and drag Hanger AI into your Applications folder.
 
+## Asset Coverage and Detection
 
-## Local Development (Bun)
+Hanger AI scans local development and configuration directories to detect agent assets across nine categories:
 
-To run the application in a hot-reloading development environment, ensure you have **Bun** and **Rust** installed, then run:
+- **Categories:** Skills, Agents, Tools, Rules, Memory, Subagents, Hooks, Permissions, Plugins.
+- **Supported Engines:** Claude Code (`~/.claude`, `.claude`), Codex (`~/.codex`), and Gemini CLI (`~/.gemini`, `.gemini`).
 
-```bash
-# 1. Install dependencies
-bun install
-
-# 2. Run the application dev frame
-bun run tauri dev
-```
-
-To build the production desktop bundle:
-```bash
-bun run tauri build
-```
+Scanning respects `.gitignore` rules (`src-tauri/src/scanner.rs:34-120`) and never inspects `node_modules` or credential files.
 
 ## Asset Reaping Safeguards (`HANGER_ENABLE_REAP`)
 
-The asset reaping engine automatically cleans up stale database records when a root scan completes and assets previously recorded under that root no longer exist on disk.
+The stale-asset reaper cleans up database records when a root scan completes and recorded assets no longer exist on disk.
 
-- **Status:** **Disabled by default.**
-- **Rationale:** Automatic reaping is strictly gated behind the environment variable `HANGER_ENABLE_REAP` because two data-loss incidents occurred prior to gating (where transient filesystem unmounts or partial directory walks caused valid assets to be prematurely reaped from the database).
-- **How to enable:** To opt in to automatic stale-asset cleanup during scans, launch the application with the environment variable set to `1`:
+- **Default Status:** **Disabled.**
+- **Risk Notice:** Automatic reaping is disabled by default behind the `HANGER_ENABLE_REAP` environment variable because it caused data loss twice during initial development when transient directory unmounts or interrupted walks caused active assets to be incorrectly removed from the database.
+- **Enabling Reaper:** Enabling the reaper is strictly at the user's risk. To enable stale-asset cleanup, launch the application with:
   ```bash
-  HANGER_ENABLE_REAP=1 bun run tauri dev
+  HANGER_ENABLE_REAP=1 /Applications/Hanger\ AI.app/Contents/MacOS/Hanger\ AI
   ```
 
+## Local Development
+
+Building from source requires [Bun](https://bun.sh) and [Rust](https://www.rust-lang.org/):
+
+```bash
+# Install frontend dependencies
+bun install
+
+# Start local development server
+bun run tauri dev
+
+# Build production bundle
+bun run tauri build
+```
+
+## Licence
+
+Licensed under the [MIT License](LICENSE).

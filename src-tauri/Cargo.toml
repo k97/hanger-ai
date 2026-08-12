@@ -1,8 +1,8 @@
 [package]
 name = "tauri-app"
-version = "1.5.0"
-description = "A Tauri App"
-authors = ["you"]
+version = "1.0.0"
+description = "Local-first inventory for AI agent assets across Claude Code, Codex, and Gemini CLI"
+authors = ["Karthik Rajendran"]
 edition = "2021"
 
 [lib]

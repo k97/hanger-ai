@@ -2,20 +2,30 @@
 
 ## Supported Versions
 
-Only the latest release of Hanger AI receives security updates.
+Only the current major release of Hanger AI receives security updates.
 
 | Version | Supported          |
 | ------- | ------------------ |
-| 1.5.0   | :white_check_mark: |
-| < 1.5.0 | :x:                |
+| 1.0.0   | :white_check_mark: |
+| < 1.0.0 | :x:                |
+
+## Scope and Data Privacy
+
+Hanger AI is a local-first desktop application that scans AI agent assets across local development directories (`src-tauri/src/scanner.rs:34-120`). Scanning is strictly restricted to agent configuration folders (`~/.claude`, `~/.codex`, `~/.gemini`, `.agents`, `.claude`, `.gemini`, `.cursorrules`, `AGENTS.md`).
+
+No file contents, project source files, local path strings, or environment credentials leave your local machine (`src-tauri/src/lib.rs:45-129`, `src-tauri/src/preferences.rs`).
+
+## Telemetry and Consent
+
+Telemetry and crash reporting are strictly opt-in and transmit no data prior to explicit user consent (`src-tauri/src/lib.rs:19-20`, `src-tauri/src/lib.rs:57`, `src-tauri/src/lib.rs:175`).
+
+- **Crash Reporting (Sentry):** Crash events are gated by an in-memory atomic boolean (`src-tauri/src/lib.rs:19`, `src-tauri/src/lib.rs:57`). When enabled, stacktraces and error messages are filtered through sanitisation helpers to scrub local filesystem paths prior to dispatch (`src-tauri/src/lib.rs:45-129`).
+- **Usage Metrics (GA4):** Anonymised usage events are gated by an in-memory atomic boolean (`src-tauri/src/lib.rs:20`, `src-tauri/src/lib.rs:175`). Event payloads contain only high-level event names and generic category badges, with path strings explicitly rejected (`src-tauri/src/lib.rs:174-220`).
+- **Sentry DSN Notice:** The Sentry DSN (`VITE_SENTRY_DSN`) referenced in this repository is public by design. It functions strictly as an ingestion key for client-side crash reporting, contains no secret privileges, and is not a credential.
 
 ## Reporting a Vulnerability
 
-If you discover a potential security vulnerability in Hanger AI, please report it privately rather than opening a public issue.
+If you discover a potential security vulnerability in Hanger AI, please report it privately:
 
-- **Contact:** Email security findings directly to the repository maintainers or use GitHub Security Advisories private vulnerability reporting.
-- **Expected Response Window:** Maintainers will acknowledge security reports within 48 hours and aim to provide an initial assessment or remediation timeline within 5 business days.
-
-## Telemetry & Sentry DSN Notice
-
-The Sentry DSN (`VITE_SENTRY_DSN`) referenced in this repository and build configuration is **public by design**. It functions strictly as an ingestion key for client-side crash reporting, contains no secret privileges, and is not a credential. Telemetry and crash reporting in Hanger AI are strictly opt-in and transmit no data prior to explicit user consent.
+- **Contact:** Email `karthik97live@gmail.com` or submit a report via GitHub Private Vulnerability Reporting on the repository (`https://github.com/k97/hanger-ai`).
+- **Expected Response Window:** As a solo maintainer project, reports will be acknowledged within 7 days. Fixes will be prioritised based on severity, but fixed remediation timelines are not guaranteed.
