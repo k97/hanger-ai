@@ -35,6 +35,13 @@ const ALLOWLIST: AllowlistEntry[] = [
     reason: "Counts non-permission scan warning messages for DisclosureBanner",
   },
   {
+    file: "src/components/RepoPane.tsx",
+    linePattern: /count=\{unlinkedCandidates\.length\}/,
+    category: "ui",
+    reason:
+      "Counts nested repository PATHS for DisclosureBanner, not assets — same shape as the warnings count directly above",
+  },
+  {
     file: "src/components/Flyout.tsx",
     linePattern: /count:\s*filteredAssets\.length/,
     category: "asset",

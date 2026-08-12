@@ -85,15 +85,16 @@ describe("Avionics A9 — Narrow-Width Layout Tests", () => {
         linkedRepos={[]}
         loadLinkedRepos={async () => {}}
         onOpenSettings={() => {}}
-        onTriggerScan={() => {}}
         setError={() => {}}
       />
     );
 
-    const scanBtn = screen.getByText("Scan for repositories…");
+    // "Scan for repositories…" was removed: "Add repository…" now probes the
+    // folder it links, so a second button could only reintroduce the wrong
+    // choice. One action label remains, and it still must not wrap.
     const addBtn = screen.getByText("Add repository…");
-
-    expect(scanBtn.className).toContain("whitespace-nowrap");
     expect(addBtn.className).toContain("whitespace-nowrap");
+
+    expect(screen.queryByText("Scan for repositories…")).toBeNull();
   });
 });

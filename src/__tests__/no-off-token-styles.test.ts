@@ -320,21 +320,17 @@ const ALLOWLIST_RAW = [
   { file: "src/components/SidebarScanModal.tsx", lineText: "<div className=\"p-3 bg-error-bg border border-error-border text-error-text rounded-md text-xs font-mono break-all\">", category: "radius" as AllowlistCategory, reason: "Legacy radius styling" },
 
 
-  { file: "src/components/SidebarScanModal.tsx", lineText: "<span className=\"text-md font-bold text-text-primary\">Scan for Repositories</span>", category: "fontweight" as AllowlistCategory, reason: "Legacy fontweight/retiredtoken styling" },
 
 
+  { file: "src/components/SidebarScanModal.tsx", lineText: "<span className=\"text-md font-bold text-text-primary\">Promote Repositories</span>", category: "fontweight" as AllowlistCategory, reason: "Legacy fontweight/retiredtoken styling, carried over from the scan modal this replaced" },
+  { file: "src/components/SidebarScanModal.tsx", lineText: "<span className=\"text-sm font-semibold\">Nothing left to promote</span>", category: "fontweight" as AllowlistCategory, reason: "Legacy fontweight styling, carried over from the scan modal this replaced" },
   { file: "src/components/SidebarScanModal.tsx", lineText: "className=\"p-1 rounded-full hover:bg-n-50 text-text-muted hover:text-text-primary transition-colors\"", category: "radius" as AllowlistCategory, reason: "Legacy radius/retiredtoken styling" },
 
 
-  { file: "src/components/SidebarScanModal.tsx", lineText: "<span className=\"text-sm font-semibold text-text-primary\">", category: "fontweight" as AllowlistCategory, reason: "Legacy fontweight/retiredtoken styling" },
 
 
-  { file: "src/components/SidebarScanModal.tsx", lineText: "className=\"mt-4 px-4 py-1.5 rounded-full border border-n-100 hover:bg-n-50 text-xs font-bold text-text-secondary transition-all\"", category: "radius" as AllowlistCategory, reason: "Legacy radius/fontweight/retiredtoken styling" },
 
-  { file: "src/components/SidebarScanModal.tsx", lineText: "<div className=\"p-3 rounded-md border border-warning-border bg-warning-bg text-warning-text flex flex-col gap-1\">", category: "radius" as AllowlistCategory, reason: "Legacy radius styling" },
-  { file: "src/components/SidebarScanModal.tsx", lineText: "<span className=\"text-xs font-bold uppercase tracking-wider flex items-center gap-1.5\">", category: "fontweight" as AllowlistCategory, reason: "Legacy fontweight styling" },
 
-  { file: "src/components/SidebarScanModal.tsx", lineText: "<span className=\"text-sm font-semibold\">No repositories found</span>", category: "fontweight" as AllowlistCategory, reason: "Legacy fontweight styling" },
   { file: "src/components/SidebarScanModal.tsx", lineText: "className=\"px-4 py-1.5 rounded-full border border-n-100 hover:bg-n-50 text-xs font-bold text-text-secondary transition-all\"", category: "retiredtoken" as AllowlistCategory, reason: "Legacy retiredtoken styling" },
 
 
