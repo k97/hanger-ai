@@ -1,5 +1,5 @@
 import React from "react";
-import { User, Folder, FolderTree, Globe, Settings, Plus, Search, Trash2 } from "lucide-react";
+import { User, Folder, FolderTree, Globe, Settings, Plus, Trash2 } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import { Inventory, CategoryCounts } from "../App";
@@ -19,7 +19,6 @@ interface SidebarProps {
   linkedRepos: string[];
   loadLinkedRepos: () => Promise<void>;
   onOpenSettings: () => void;
-  onTriggerScan: (root: string) => void;
   onRefreshGlobalCounts?: () => Promise<void>;
   setError: (err: string) => void;
 }
@@ -37,7 +36,6 @@ export default function Sidebar({
   linkedRepos,
   loadLinkedRepos,
   onOpenSettings,
-  onTriggerScan,
   onRefreshGlobalCounts,
   setError,
 }: SidebarProps) {
@@ -137,21 +135,6 @@ export default function Sidebar({
         const linked = await invoke<string>("link_directory", { path: selected });
         await loadLinkedRepos();
         setSelectedItem(linked);
-      }
-    } catch (err: any) {
-      setError(String(err));
-    }
-  };
-
-  // Scan repositories trigger
-  const handleScanRepos = async () => {
-    try {
-      const selected = await open({
-        directory: true,
-        multiple: false,
-      });
-      if (selected && typeof selected === "string") {
-        onTriggerScan(selected);
       }
     } catch (err: any) {
       setError(String(err));
@@ -285,13 +268,6 @@ export default function Sidebar({
         >
           <Plus size={14} className="shrink-0" />
           <span className="whitespace-nowrap">Add repository…</span>
-        </button>
-        <button
-          onClick={handleScanRepos}
-          className="w-full flex items-center gap-2 px-3 py-1.5 rounded-control hover:bg-n-50 text-xs font-medium text-text-secondary transition-colors cursor-pointer"
-        >
-          <Search size={14} className="shrink-0" />
-          <span className="whitespace-nowrap">Scan for repositories…</span>
         </button>
       </div>
 

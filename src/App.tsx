@@ -118,6 +118,9 @@ export interface ProjectScan {
   layered: boolean;
   rule_chains: Record<string, string[]>;
   parse_warnings: string[];
+  /** Directories inside this root that are repositories in their own right.
+   *  Includes ones already linked — the consumer subtracts the linked set. */
+  nested_repo_candidates?: string[];
 }
 
 export interface Subagent {
@@ -184,7 +187,9 @@ export default function App() {
   const [selectedSidebarItem, setSelectedSidebarItem] = useState<string>("profile");
   const [sidebarWidth, setSidebarWidth] = useState<number>(260);
   const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(false);
-  const [scanRootForModal, setScanRootForModal] = useState<string | null>(null);
+  // Candidates handed to the promote modal. Already discovered by the scan,
+  // so opening it starts no walk.
+  const [promoteCandidates, setPromoteCandidates] = useState<string[] | null>(null);
 
   const toggleSidebar = () => {
     setSidebarCollapsed((prev) => {
@@ -726,7 +731,6 @@ export default function App() {
           linkedRepos={linkedDirectories}
           loadLinkedRepos={loadLinkedDirectories}
           onOpenSettings={() => setShowSettingsModal(true)}
-          onTriggerScan={(root) => setScanRootForModal(root)}
           onRefreshGlobalCounts={refreshGlobalCounts}
           setError={setError}
         />
@@ -790,6 +794,8 @@ export default function App() {
               onRefresh={triggerScan}
               onSelectAsset={handleSelectAsset}
               onLinkFromProfile={handleLinkFromProfile}
+              linkedRepos={linkedDirectories}
+              onPromoteCandidates={(candidates) => setPromoteCandidates(candidates)}
               onClearSelection={() => {
                 setSelectedAsset(null);
                 setSelectedBubble(null);
@@ -798,11 +804,16 @@ export default function App() {
           )}
 
           {/* Scan for Repositories Checklist Modal Overlay */}
-          {scanRootForModal && (
+          {promoteCandidates && (
             <SidebarScanModal
-              isOpen={!!scanRootForModal}
-              scanRoot={scanRootForModal}
-              onClose={() => setScanRootForModal(null)}
+              isOpen={!!promoteCandidates}
+              candidates={promoteCandidates}
+              depthCapped={
+                inventory?.project_scans
+                  .find((p) => p.path === selectedSidebarItem.split(":")[0])
+                  ?.parse_warnings.some((w) => w.includes("Scan depth capped")) ?? false
+              }
+              onClose={() => setPromoteCandidates(null)}
               onLinked={async () => {
                 await loadLinkedDirectories();
                 // Select newly linked directory if a new one was added

@@ -24,6 +24,9 @@ interface RepoPaneProps {
   onSelectAsset: (asset: { name: string; category: "Skills" | "Agents" | "Tools" | "Rules" | "Subagents"; path: string }) => void;
   onLinkFromProfile: (repoPath: string) => void;
   onClearSelection?: () => void;
+  /** Every linked root, used to subtract candidates that are already linked. */
+  linkedRepos?: string[];
+  onPromoteCandidates?: (candidates: string[]) => void;
 }
 
 export default function RepoPane({
@@ -40,6 +43,8 @@ export default function RepoPane({
   onSelectAsset,
   onLinkFromProfile,
   onClearSelection,
+  linkedRepos = [],
+  onPromoteCandidates,
 }: RepoPaneProps) {
   const [internalCategory, setInternalCategory] = useState<CategoryType | null>(null);
   const [internalSortField, setInternalSortField] = useState<SortField>("name");
@@ -101,6 +106,19 @@ export default function RepoPane({
   const rawWarnings = projectScan?.parse_warnings || [];
   const permissionDeniedWarnings = rawWarnings.filter(w => w.includes("Permission denied") || w.includes("permission denied"));
   const nonPermissionWarnings = rawWarnings.filter(w => !w.includes("Permission denied") && !w.includes("permission denied"));
+
+  // Repositories sitting inside this root that are not linked in their own
+  // right. Their assets currently roll up into this row, which is visible and
+  // correct but hides per-repo granularity.
+  const linkedSet = new Set(linkedRepos);
+  const unlinkedCandidates = (projectScan?.nested_repo_candidates || []).filter(
+    (candidate) => !linkedSet.has(candidate)
+  );
+
+  // On a broad root the walk stops at 6 levels, so the candidate list is a
+  // floor rather than a total. Saying so keeps the count from reading as a
+  // complete answer.
+  const depthCapped = rawWarnings.some((w) => w.includes("Scan depth capped"));
 
   // Filter project assets using the predicate utility
   const {
@@ -276,6 +294,47 @@ export default function RepoPane({
                 </li>
               ))}
             </ul>
+          </DisclosureBanner>
+        )}
+
+        {/* Nested repositories found inside this root. Info variant, collapsed,
+            and placed below the warnings so anything needing attention outranks it. */}
+        {unlinkedCandidates.length > 0 && (
+          <DisclosureBanner
+            variant="info"
+            summary="nested repo"
+            count={unlinkedCandidates.length}
+          >
+            <div className="flex flex-col gap-3">
+              <p className="text-xs text-text-secondary leading-relaxed">
+                These folders are repositories in their own right. Their assets currently
+                count towards this row. Promote them to track and deploy each separately.
+              </p>
+              {depthCapped && (
+                <p className="text-xs text-text-secondary leading-relaxed">
+                  This is a broad folder, so the search stopped at 6 levels — repositories
+                  deeper than that are not listed.
+                </p>
+              )}
+              <ul className="flex flex-col gap-1">
+                {unlinkedCandidates.map((candidate) => (
+                  <li
+                    key={candidate}
+                    className="text-xs text-text-secondary font-mono break-all leading-relaxed"
+                  >
+                    {candidate}
+                  </li>
+                ))}
+              </ul>
+              {onPromoteCandidates && (
+                <button
+                  onClick={() => onPromoteCandidates(unlinkedCandidates)}
+                  className="self-start px-3 py-1.5 rounded-control border border-n-100 hover:bg-n-50 text-xs font-medium text-text-secondary transition-colors cursor-pointer"
+                >
+                  Promote…
+                </button>
+              )}
+            </div>
           </DisclosureBanner>
         )}
 
