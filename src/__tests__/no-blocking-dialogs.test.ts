@@ -3,24 +3,25 @@ import { describe, it, expect } from "vitest";
 import fs from "fs";
 import path from "path";
 
-// The no-modal rule, enforced mechanically and totally:
-//  1. No blocking dialog calls anywhere in src/: window.confirm/alert/prompt,
-//     or the bare globals confirm(/alert(/prompt( — including aliased plugin imports.
-//  2. The only @tauri-apps/plugin-dialog APIs permitted are the file pickers
-//     `open` and `save`. confirm/ask/message are banned at the import site, so
-//     renamed imports cannot smuggle a modal past the call-site scan.
-// Scope is every .ts/.tsx under src/ except __tests__ — a detector scoped to one
-// function in one file is how five modals shipped unseen.
+// The problem this detector solves (2026-08-12): six webview dialogs —
+// window.confirm/alert and one bare plugin confirm — shipped unseen because
+// the old detector scanned one function in one file and only matched
+// window.-prefixed calls. Webview-global dialogs are unstyled WKWebView
+// panels the app cannot design; they are banned across src/.
+//
+// Native @tauri-apps/plugin-dialog surfaces (confirm/ask/message) are NOT
+// banned — whether a native dialog is the right surface is a per-use product
+// decision (ruled 2026-08-13). To keep call sites distinguishable from the
+// banned globals, import them under an aliased name (e.g.
+// `import { confirm as confirmDialog }`): a bare `confirm(` call is always
+// treated as the webview global and flagged.
 
 const SRC_ROOT = path.resolve(__dirname, "..");
-const ALLOWED_DIALOG_IMPORTS = new Set(["open", "save"]);
 
 // Matches window.confirm( / bare confirm( etc., but not foo.confirm( —
 // the optional `window.` group consumes its own dot, and the lookbehind
 // rejects any other property access or identifier prefix.
 const DIALOG_CALL = /(?<![.\w$])(?:window\s*\.\s*)?(confirm|alert|prompt)\s*\(/;
-
-const PLUGIN_DIALOG_IMPORT = /import\s*(?:type\s*)?\{([^}]*)\}\s*from\s*["']@tauri-apps\/plugin-dialog["']/g;
 
 function sourceFiles(dir: string): string[] {
   const out: string[] = [];
@@ -59,24 +60,27 @@ describe("No blocking dialogs anywhere in src/", () => {
     expect(violations, `Blocking dialog calls found:\n${violations.join("\n")}`).toEqual([]);
   });
 
-  it("imports nothing from @tauri-apps/plugin-dialog except open/save", () => {
+  it("plugin-dialog confirm/ask/message imports are aliased away from the global names", () => {
+    // Native dialogs are permitted; this only ensures their call sites cannot
+    // be mistaken for (or masked by) the banned webview globals.
+    const PLUGIN_DIALOG_IMPORT = /import\s*(?:type\s*)?\{([^}]*)\}\s*from\s*["']@tauri-apps\/plugin-dialog["']/g;
+    const GLOBAL_NAMES = new Set(["confirm", "alert", "prompt"]);
     const violations: string[] = [];
     for (const file of files) {
       const rel = path.relative(SRC_ROOT, file);
       const content = fs.readFileSync(file, "utf-8");
       for (const match of content.matchAll(PLUGIN_DIALOG_IMPORT)) {
-        const specifiers = match[1]
-          .split(",")
-          .map((s) => s.trim())
-          .filter(Boolean)
-          // `confirm as ask` is banned by its source name, whatever the alias
-          .map((s) => s.split(/\s+as\s+/)[0].trim());
-        const banned = specifiers.filter((s) => !ALLOWED_DIALOG_IMPORTS.has(s));
-        if (banned.length > 0) {
-          violations.push(`${rel}: imports {${banned.join(", ")}} from @tauri-apps/plugin-dialog`);
+        for (const spec of match[1].split(",").map((s) => s.trim()).filter(Boolean)) {
+          const [source, alias] = spec.split(/\s+as\s+/).map((s) => s.trim());
+          const localName = alias ?? source;
+          if (GLOBAL_NAMES.has(localName)) {
+            violations.push(
+              `${rel}: plugin-dialog \`${spec}\` binds the global name \`${localName}\` — alias it (e.g. \`${source} as ${source}Dialog\`)`
+            );
+          }
         }
       }
     }
-    expect(violations, `Banned plugin-dialog imports found:\n${violations.join("\n")}`).toEqual([]);
+    expect(violations, `Unaliased plugin-dialog imports found:\n${violations.join("\n")}`).toEqual([]);
   });
 });
