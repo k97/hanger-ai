@@ -696,6 +696,73 @@ pub fn is_broad_root(root: &Path) -> bool {
     false
 }
 
+// Engine-root guard: linking or scanning an engine's global configuration (or
+// the shared ~/.agents container) as a project re-stamps its assets with
+// project scope — the corruption class behind the 2,328 stale rows purged by
+// migration v2. Pure matcher plus a live wrapper for the tauri commands.
+pub fn match_protected_root(path: &Path, protected: &[(PathBuf, String)]) -> Option<String> {
+    // Compare raw and canonical forms on both sides: canonicalize fails on
+    // paths that do not exist yet, and macOS splits /var vs /private/var, so a
+    // single-form comparison misses real matches.
+    let raw = path.to_path_buf();
+    let canon = fs::canonicalize(path).unwrap_or_else(|_| raw.clone());
+    for (root, label) in protected {
+        let root_canon = fs::canonicalize(root).unwrap_or_else(|_| root.clone());
+        for candidate in [&raw, &canon] {
+            for protected_form in [root, &root_canon] {
+                if candidate.as_path() == protected_form.as_path()
+                    || candidate.starts_with(protected_form)
+                {
+                    return Some(label.clone());
+                }
+            }
+        }
+    }
+    None
+}
+
+pub fn protected_roots() -> Vec<(PathBuf, String)> {
+    let mut out = Vec::new();
+    for agent in get_global_agents() {
+        if let Some(g) = &agent.global_config_path {
+            out.push((
+                PathBuf::from(g),
+                format!("{}'s global configuration", agent.name),
+            ));
+        }
+    }
+    out.push((
+        get_home_dir().join(".agents"),
+        "the shared agent standards (~/.agents)".to_string(),
+    ));
+    out
+}
+
+pub fn guard_engine_root(path: &str) -> Result<(), String> {
+    if let Some(label) = match_protected_root(Path::new(path), &protected_roots()) {
+        return Err(format!(
+            "{} is {} — already inventoried under User Profile.",
+            path, label
+        ));
+    }
+    Ok(())
+}
+
+// A shared-standards container: an engine's skills/ or agents/ entry that is a
+// symlink resolving under ~/.agents. Assets there belong to ~/.agents — the
+// deepest real location — not to whichever engine happened to link them.
+pub fn shared_agents_container(walk_root: &Path) -> Option<std::path::PathBuf> {
+    let container = get_home_dir().join(".agents");
+    if fs::read_link(walk_root).is_ok() {
+        if let Ok(target) = fs::canonicalize(walk_root) {
+            if target.starts_with(&container) {
+                return Some(container);
+            }
+        }
+    }
+    None
+}
+
 fn has_parent_skill(path: &Path, root: &Path) -> bool {
     let mut curr = path.parent();
     while let Some(parent) = curr {
@@ -758,6 +825,25 @@ impl DirectoryScanner {
 
         // Engines are containers, not assets — inventory.agents is empty in asset stream
         inventory.agents = Vec::new();
+
+        // Root for shared ~/.agents assets, created lazily on first symlink hit.
+        // engine_id is NULL: shared standards render "Any agent".
+        let mut shared_agents_root_id: Option<i64> = None;
+        let ensure_shared_root = |store_opt: &Option<crate::preferences::PreferencesStore>,
+                                      shared_agents_root_id: &mut Option<i64>| {
+            if shared_agents_root_id.is_none() {
+                if let Some(store) = store_opt {
+                    let container = get_home_dir().join(".agents");
+                    let container_str = fs::canonicalize(&container)
+                        .unwrap_or(container)
+                        .to_string_lossy()
+                        .to_string();
+                    *shared_agents_root_id = store
+                        .upsert_root("engine_global", &container_str, None, ".agents", now)
+                        .ok();
+                }
+            }
+        };
         for agent in &detected_agents {
             if let Some(g_path) = &agent.global_config_path {
                 let mut global_has_skips = false;
@@ -852,6 +938,10 @@ impl DirectoryScanner {
 
                 // 3. Global Skills under skills/ folder
                 let skills_path = g_path_buf.join("skills");
+                let skills_shared = shared_agents_container(&skills_path).is_some();
+                if skills_shared {
+                    ensure_shared_root(&store_opt, &mut shared_agents_root_id);
+                }
                 if skills_path.exists() && skills_path.is_dir() {
                     let walker = WalkBuilder::new(&skills_path)
                         .hidden(false)
@@ -878,28 +968,48 @@ impl DirectoryScanner {
                                         parse_warnings.push(w);
                                     }
                                     let link_state = if drifted == Some(true) { Some(crate::domain::LinkState::Drifted) } else if is_sym == Some(true) || source_path.is_some() { Some(crate::domain::LinkState::Linked) } else { None };
-                                    inventory.skills.push(Skill {
-                                        id: parent_dir_str.clone(),
-                                        name: fm.name.clone(),
-                                        description: fm.description,
-                                        version: fm.version.clone().unwrap_or_else(|| "v0.0.0-draft".to_string()),
-                                        path: parent_dir_str.clone(),
-                                        source_origin: fm.source_origin,
-                                        scope: Some(Scope::Global {
-                                            agent: agent.id.clone(),
-                                        }),
-                                        drifted,
-                                        is_symlink: is_sym,
-                                        source_path,
-                                        parse_status: Some("ok".to_string()),
-                                        parse_error: None,
-                                        link_state,
-                                    });
-                                    if let (Some(store), Some(r_id)) = (&store_opt, global_root_id) {
-                                        let skill_engine_id = engine_db_ids.get(get_engine_key(&agent.id)).copied();
-                                        let _ = store.upsert_asset(
-                                            r_id, skill_engine_id, "skill", "global", &fm.name, &parent_dir_canon, fm.version.as_deref(), None, "ok", None, now, now
-                                        );
+                                    // Shared ~/.agents skills: canonical path as identity,
+                                    // empty agent (renders "Any agent"), one inventory row
+                                    // no matter how many engines link the container.
+                                    let (skill_identity, skill_agent) = if skills_shared {
+                                        (parent_dir_canon.clone(), String::new())
+                                    } else {
+                                        (parent_dir_str.clone(), agent.id.clone())
+                                    };
+                                    let already_present = skills_shared
+                                        && inventory.skills.iter().any(|s| s.id == skill_identity);
+                                    if !already_present {
+                                        inventory.skills.push(Skill {
+                                            id: skill_identity.clone(),
+                                            name: fm.name.clone(),
+                                            description: fm.description,
+                                            version: fm.version.clone().unwrap_or_else(|| "v0.0.0-draft".to_string()),
+                                            path: skill_identity.clone(),
+                                            source_origin: fm.source_origin,
+                                            scope: Some(Scope::Global {
+                                                agent: skill_agent,
+                                            }),
+                                            drifted,
+                                            is_symlink: is_sym,
+                                            source_path,
+                                            parse_status: Some("ok".to_string()),
+                                            parse_error: None,
+                                            link_state,
+                                        });
+                                    }
+                                    if let Some(store) = &store_opt {
+                                        if skills_shared {
+                                            if let Some(r_id) = shared_agents_root_id {
+                                                let _ = store.upsert_asset(
+                                                    r_id, None, "skill", "global", &fm.name, &parent_dir_canon, fm.version.as_deref(), None, "ok", None, now, now
+                                                );
+                                            }
+                                        } else if let Some(r_id) = global_root_id {
+                                            let skill_engine_id = engine_db_ids.get(get_engine_key(&agent.id)).copied();
+                                            let _ = store.upsert_asset(
+                                                r_id, skill_engine_id, "skill", "global", &fm.name, &parent_dir_canon, fm.version.as_deref(), None, "ok", None, now, now
+                                            );
+                                        }
                                     }
                                 }
                             }
@@ -938,6 +1048,10 @@ impl DirectoryScanner {
                 }
 
                 for subagents_path in agent_subagent_paths {
+                    let subagents_shared = shared_agents_container(&subagents_path).is_some();
+                    if subagents_shared {
+                        ensure_shared_root(&store_opt, &mut shared_agents_root_id);
+                    }
                     if subagents_path.exists() && subagents_path.is_dir() {
                         let walker = WalkBuilder::new(&subagents_path)
                             .hidden(false)
@@ -957,26 +1071,45 @@ impl DirectoryScanner {
                                 if let Ok(content) = fs::read_to_string(path) {
                                     let path_str = path.to_string_lossy().to_string();
                                     let path_canon = canonicalize_asset_path(path, &mut parse_warnings);
+                                    // Shared ~/.agents subagents: canonical identity, empty
+                                    // agent ("Any agent"), one row across linking engines.
+                                    let (sub_identity, sub_agent) = if subagents_shared {
+                                        (path_canon.clone(), String::new())
+                                    } else {
+                                        (path_str.clone(), agent.id.clone())
+                                    };
+                                    let already_present = subagents_shared
+                                        && inventory.subagents.iter().any(|sa| sa.id == sub_identity);
                                     match parse_subagent_frontmatter(&content) {
                                         Ok(fm) => {
-                                            inventory.subagents.push(Subagent {
-                                                id: path_str.clone(),
-                                                name: fm.name.clone(),
-                                                description: fm.description,
-                                                path: path_str.clone(),
-                                                declared_tools: fm.tools.unwrap_or_default(),
-                                                scope: Some(Scope::Global {
-                                                    agent: agent.id.clone(),
-                                                }),
-                                                source_path: None,
-                                                parse_status: Some("ok".to_string()),
-                                                parse_error: None,
-                                                link_state: None,
-                                            });
-                                            if let (Some(store), Some(r_id)) = (&store_opt, global_root_id) {
-                                                let _ = store.upsert_asset(
-                                                    r_id, Some(engine_id), "subagent", "global", &fm.name, &path_canon, None, None, "ok", None, now, now
-                                                );
+                                            if !already_present {
+                                                inventory.subagents.push(Subagent {
+                                                    id: sub_identity.clone(),
+                                                    name: fm.name.clone(),
+                                                    description: fm.description,
+                                                    path: sub_identity.clone(),
+                                                    declared_tools: fm.tools.unwrap_or_default(),
+                                                    scope: Some(Scope::Global {
+                                                        agent: sub_agent,
+                                                    }),
+                                                    source_path: None,
+                                                    parse_status: Some("ok".to_string()),
+                                                    parse_error: None,
+                                                    link_state: None,
+                                                });
+                                            }
+                                            if let Some(store) = &store_opt {
+                                                if subagents_shared {
+                                                    if let Some(r_id) = shared_agents_root_id {
+                                                        let _ = store.upsert_asset(
+                                                            r_id, None, "subagent", "global", &fm.name, &path_canon, None, None, "ok", None, now, now
+                                                        );
+                                                    }
+                                                } else if let Some(r_id) = global_root_id {
+                                                    let _ = store.upsert_asset(
+                                                        r_id, Some(engine_id), "subagent", "global", &fm.name, &path_canon, None, None, "ok", None, now, now
+                                                    );
+                                                }
                                             }
                                         }
                                         Err(e) => {
@@ -984,24 +1117,34 @@ impl DirectoryScanner {
                                                 "Failed to parse subagent frontmatter at {}: {}",
                                                 path_str, e
                                             ));
-                                            inventory.subagents.push(Subagent {
-                                                id: path_str.clone(),
-                                                name: filename.to_string(),
-                                                description: String::new(),
-                                                path: path_str.clone(),
-                                                declared_tools: Vec::new(),
-                                                scope: Some(Scope::Global {
-                                                    agent: agent.id.clone(),
-                                                }),
-                                                source_path: None,
-                                                parse_status: Some("failed".to_string()),
-                                                parse_error: Some(e.clone()),
-                                                link_state: Some(crate::domain::LinkState::Broken),
-                                            });
-                                            if let (Some(store), Some(r_id)) = (&store_opt, global_root_id) {
-                                                let _ = store.upsert_asset(
-                                                    r_id, Some(engine_id), "subagent", "global", filename, &path_str, None, None, "failed", Some(&e), now, now
-                                                );
+                                            if !already_present {
+                                                inventory.subagents.push(Subagent {
+                                                    id: sub_identity.clone(),
+                                                    name: filename.to_string(),
+                                                    description: String::new(),
+                                                    path: sub_identity.clone(),
+                                                    declared_tools: Vec::new(),
+                                                    scope: Some(Scope::Global {
+                                                        agent: sub_agent,
+                                                    }),
+                                                    source_path: None,
+                                                    parse_status: Some("failed".to_string()),
+                                                    parse_error: Some(e.clone()),
+                                                    link_state: Some(crate::domain::LinkState::Broken),
+                                                });
+                                            }
+                                            if let Some(store) = &store_opt {
+                                                if subagents_shared {
+                                                    if let Some(r_id) = shared_agents_root_id {
+                                                        let _ = store.upsert_asset(
+                                                            r_id, None, "subagent", "global", filename, &path_canon, None, None, "failed", Some(&e), now, now
+                                                        );
+                                                    }
+                                                } else if let Some(r_id) = global_root_id {
+                                                    let _ = store.upsert_asset(
+                                                        r_id, Some(engine_id), "subagent", "global", filename, &path_str, None, None, "failed", Some(&e), now, now
+                                                    );
+                                                }
                                             }
                                         }
                                     }

@@ -300,6 +300,32 @@ impl PreferencesStore {
             })?;
         }
 
+        // v2: purge project-scoped rows owned by engine_global roots. These are
+        // stamped when an engine root is fed to the project walk as a scan
+        // target (now rejected at link/scan time); scope is frozen at first
+        // INSERT and the deep engine-root paths are never revisited by the
+        // global walks, so the rows stay stale forever unless deleted.
+        if current_version < 2 {
+            let tx = conn.transaction().map_err(|_| {
+                SanitisedError("Failed to start database migration transaction".to_string())
+            })?;
+
+            tx.execute(
+                "DELETE FROM assets
+                 WHERE scope = 'project'
+                   AND root_id IN (SELECT id FROM roots WHERE kind = 'engine_global');",
+                [],
+            )
+            .map_err(|_| SanitisedError("Database migration failed".to_string()))?;
+
+            tx.execute_batch("PRAGMA user_version = 2;")
+                .map_err(|_| SanitisedError("Failed to set user_version".to_string()))?;
+
+            tx.commit().map_err(|_| {
+                SanitisedError("Failed to commit database migration transaction".to_string())
+            })?;
+        }
+
         Ok(())
     }
 
@@ -807,10 +833,13 @@ impl PreferencesStore {
     pub fn upsert_root(&self, kind: &str, abs_path: &str, engine_id: Option<i64>, label: &str, added_at: i64) -> Result<i64, SanitisedError> {
         let conn = self.connect()?;
         conn.execute(
+            // kind is deliberately NOT updated on conflict: a root's kind is
+            // set at creation and stays. Before this, a project walk over an
+            // engine root flipped its kind to 'project' and the next global
+            // scan flipped it back — last-writer-wins on identity.
             "INSERT INTO roots (kind, abs_path, engine_id, label, added_at)
              VALUES (?1, ?2, ?3, ?4, ?5)
              ON CONFLICT(abs_path) DO UPDATE SET
-               kind = excluded.kind,
                engine_id = excluded.engine_id,
                label = excluded.label,
                added_at = excluded.added_at;",

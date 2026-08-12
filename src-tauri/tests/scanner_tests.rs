@@ -1771,3 +1771,30 @@ fn test_count_tree_assets_shape() {
         }
     }
 }
+
+#[test]
+fn test_match_protected_root_guards_engine_roots() {
+    use std::path::PathBuf;
+    use tauri_app_lib::scanner::match_protected_root;
+
+    let temp = std::env::temp_dir().join("hanger_guard_test");
+    let _ = std::fs::remove_dir_all(&temp);
+    let engine_root = temp.join(".claude");
+    std::fs::create_dir_all(engine_root.join("plugins")).unwrap();
+    let elsewhere = temp.join("work");
+    std::fs::create_dir_all(&elsewhere).unwrap();
+
+    let protected = vec![(engine_root.clone(), "Claude Code's global configuration".to_string())];
+
+    // The root itself and any path inside it are rejected
+    assert!(match_protected_root(&engine_root, &protected).is_some());
+    assert!(match_protected_root(&engine_root.join("plugins"), &protected).is_some());
+    // Unrelated paths pass
+    assert!(match_protected_root(&elsewhere, &protected).is_none());
+    // A non-existent path with a protected prefix is still rejected (raw fallback)
+    assert!(match_protected_root(&engine_root.join("nope"), &protected).is_some());
+
+    let _ = std::fs::remove_dir_all(&temp);
+
+    let _unused: Option<PathBuf> = None;
+}

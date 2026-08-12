@@ -22,11 +22,11 @@ fn test_v1_5_0_migration_clean_and_no_data_loss() {
 
     let conn = store.connect().expect("Failed to connect via store");
 
-    // 1. Verify PRAGMA user_version == 1
+    // 1. Verify PRAGMA user_version == 2 (v1 schema + v2 engine-root purge)
     let version: i32 = conn
         .query_row("PRAGMA user_version", [], |row| row.get(0))
         .expect("PRAGMA user_version query should succeed");
-    assert_eq!(version, 1, "PRAGMA user_version must be 1 after migration");
+    assert_eq!(version, 2, "PRAGMA user_version must be 2 after migration");
 
     // 2. Verify 'engines' table exists and has correct columns
     let mut stmt = conn.prepare("PRAGMA table_info(engines)").unwrap();
@@ -213,7 +213,7 @@ fn test_v1_5_0_migration_idempotency() {
     let version: i32 = conn
         .query_row("PRAGMA user_version", [], |row| row.get(0))
         .unwrap();
-    assert_eq!(version, 1, "User version must remain 1 after second migration");
+    assert_eq!(version, 2, "User version must remain 2 after second migration");
 
     let root_count: i64 = conn
         .query_row("SELECT COUNT(*) FROM roots", [], |row| row.get(0))
@@ -337,6 +337,113 @@ fn test_relink_directory_preserves_root_id_and_fk_relations() {
         .query_row("SELECT root_id FROM assets WHERE name = 'delta-skill'", [], |r| r.get(0))
         .unwrap();
     assert_eq!(asset_root_id, initial_root_id, "Asset FK relation must remain valid after re-linking");
+
+    let _ = fs::remove_dir_all(&temp_dir);
+}
+
+#[test]
+fn test_v2_migration_purges_engine_root_project_rows() {
+    let temp_dir = std::env::temp_dir().join("hanger_test_v2_purge");
+    let _ = fs::remove_dir_all(&temp_dir);
+    fs::create_dir_all(&temp_dir).unwrap();
+    let db_path = temp_dir.join("store.db");
+
+    // Build a store, then plant the corruption shape and wind the version
+    // back to 1 so re-opening replays exactly the v2 migration.
+    {
+        let store = PreferencesStore::new(&db_path).expect("fresh store");
+        let conn = store.connect().unwrap();
+
+        conn.execute(
+            "INSERT INTO roots (kind, abs_path, engine_id, label, added_at)
+             VALUES ('engine_global', '/tmp/hanger-v2-test/.claude', NULL, 'Claude Code', 1)",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO roots (kind, abs_path, engine_id, label, added_at)
+             VALUES ('project', '/tmp/hanger-v2-test/work', NULL, 'work', 1)",
+            [],
+        )
+        .unwrap();
+        let engine_root: i64 = conn
+            .query_row("SELECT id FROM roots WHERE kind = 'engine_global'", [], |r| r.get(0))
+            .unwrap();
+        let project_root: i64 = conn
+            .query_row("SELECT id FROM roots WHERE kind = 'project'", [], |r| r.get(0))
+            .unwrap();
+
+        // Stale: project-scoped rows owned by the engine root (the Aug-9 shape)
+        conn.execute(
+            "INSERT INTO assets (root_id, engine_id, category, scope, name, abs_path, parse_status, first_seen, last_seen)
+             VALUES (?1, NULL, 'skill', 'project', 'stale-a', '/tmp/hanger-v2-test/.claude/plugins/a', 'ok', 1, 1),
+                    (?1, NULL, 'rule', 'project', 'stale-b', '/tmp/hanger-v2-test/.claude/plugins/b', 'ok', 1, 1)",
+            [engine_root],
+        )
+        .unwrap();
+        // Legitimate: a global row under the engine root, and project rows under a project root
+        conn.execute(
+            "INSERT INTO assets (root_id, engine_id, category, scope, name, abs_path, parse_status, first_seen, last_seen)
+             VALUES (?1, NULL, 'rule', 'global', 'keep-global', '/tmp/hanger-v2-test/.claude/CLAUDE.md', 'ok', 1, 1)",
+            [engine_root],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO assets (root_id, engine_id, category, scope, name, abs_path, parse_status, first_seen, last_seen)
+             VALUES (?1, NULL, 'skill', 'project', 'keep-project', '/tmp/hanger-v2-test/work/skill', 'ok', 1, 1)",
+            [project_root],
+        )
+        .unwrap();
+
+        conn.execute_batch("PRAGMA user_version = 1;").unwrap();
+    }
+
+    // Re-open: v2 replays and must purge exactly the stale rows.
+    let store = PreferencesStore::new(&db_path).expect("reopen runs v2");
+    let conn = store.connect().unwrap();
+
+    let version: i32 = conn.query_row("PRAGMA user_version", [], |r| r.get(0)).unwrap();
+    assert_eq!(version, 2, "user_version must be 2 after v2 replay");
+
+    let stale: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM assets WHERE scope = 'project'
+             AND root_id IN (SELECT id FROM roots WHERE kind = 'engine_global')",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(stale, 0, "engine-root project rows must be purged");
+
+    let kept: i64 = conn.query_row("SELECT COUNT(*) FROM assets", [], |r| r.get(0)).unwrap();
+    assert_eq!(kept, 2, "global row and legit project row must survive");
+
+    let _ = fs::remove_dir_all(&temp_dir);
+}
+
+#[test]
+fn test_upsert_root_kind_is_immutable() {
+    let temp_dir = std::env::temp_dir().join("hanger_test_kind_immutable");
+    let _ = fs::remove_dir_all(&temp_dir);
+    fs::create_dir_all(&temp_dir).unwrap();
+    let db_path = temp_dir.join("store.db");
+
+    let store = PreferencesStore::new(&db_path).unwrap();
+    let first = store
+        .upsert_root("engine_global", "/tmp/hanger-kind-test/.claude", None, "Claude Code", 1)
+        .unwrap();
+    // A project walk hitting the same abs_path must reuse the row without
+    // re-kinding it.
+    let second = store
+        .upsert_root("project", "/tmp/hanger-kind-test/.claude", None, ".claude", 2)
+        .unwrap();
+    assert_eq!(first, second, "same abs_path must resolve to the same root id");
+
+    let conn = store.connect().unwrap();
+    let kind: String = conn
+        .query_row("SELECT kind FROM roots WHERE id = ?1", [first], |r| r.get(0))
+        .unwrap();
+    assert_eq!(kind, "engine_global", "kind must not be rewritten by a later walk");
 
     let _ = fs::remove_dir_all(&temp_dir);
 }

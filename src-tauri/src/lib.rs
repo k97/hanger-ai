@@ -250,6 +250,7 @@ fn get_store(app: &AppHandle) -> Result<PreferencesStore, String> {
 
 #[tauri::command]
 fn link_directory(app: AppHandle, path: String) -> Result<(), String> {
+    scanner::guard_engine_root(&path)?;
     let store = get_store(&app)?;
     store.link_directory(&path).map_err(|e| e.to_string())?;
     Ok(())
@@ -795,6 +796,7 @@ fn start_repo_scan(
     path: String,
     state: tauri::State<'_, ScanManager>,
 ) -> Result<String, String> {
+    scanner::guard_engine_root(&path)?;
     let scan_id = next_scan_id();
     let cancel_token = Arc::new(AtomicBool::new(false));
 
