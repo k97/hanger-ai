@@ -25,6 +25,17 @@ If a Superpowers skill would have you declare a phase complete on evidence this 
 
 ---
 
+## Test gates (pinned)
+
+The gate commands, exactly as written, run from the repo root:
+
+- Frontend: `npx vitest run` — the full suite, no filters, no exclusions. `bun run vitest` is NOT the gate; it aborts at CWD resolution without include scoping.
+- Rust: `cargo test` from `src-tauri/`.
+- Typecheck: `bunx tsc --noEmit` — report the exit code.
+- Secrets: `gitleaks detect --source .` AND `gitleaks detect --source . --no-git -c .gitleaks.toml`, both from the repo root (the root `.gitleaks.toml` carries the allowlist; running from a subdirectory loses it and reports allowlisted findings as leaks).
+
+A figure quoted from any other invocation is not a gate result.
+
 ## What counts as evidence
 
 Ranked. Use the highest available.
