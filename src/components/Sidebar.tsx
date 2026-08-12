@@ -2,7 +2,8 @@ import React from "react";
 import { User, Folder, Globe, Settings, Plus, Search, Trash2 } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
-import { Inventory } from "../App";
+import { Inventory, CategoryCounts } from "../App";
+import { sumGlobalAssets } from "../utils/globalAssetCount";
 
 interface SidebarProps {
   width: number;
@@ -12,6 +13,8 @@ interface SidebarProps {
   selectedItem: string;
   setSelectedItem: (item: string) => void;
   inventory: Inventory | null;
+  assetCounts: CategoryCounts | null;
+  detectedEngines: { id: string; name: string }[];
   linkedRepos: string[];
   loadLinkedRepos: () => Promise<void>;
   onOpenSettings: () => void;
@@ -28,6 +31,8 @@ export default function Sidebar({
   selectedItem,
   setSelectedItem,
   inventory,
+  assetCounts,
+  detectedEngines,
   linkedRepos,
   loadLinkedRepos,
   onOpenSettings,
@@ -77,9 +82,13 @@ export default function Sidebar({
     window.addEventListener("mouseup", handleMouseUp);
   };
 
-  // Get active agents for profile subtitle
-  const activeAgents = inventory?.agents.map((a) => a.name) || [];
-  const agentsSubtitle = activeAgents.length > 0 ? activeAgents.join(", ") : "No active agents";
+  // Profile row: detected engines as the subtitle, global asset total as the
+  // badge — same count path as the profile pane (sumGlobalAssets), so the two
+  // figures cannot diverge. inventory.agents is empty by design (engines are
+  // containers, not assets) and must not be read for either.
+  const agentsSubtitle =
+    detectedEngines.length > 0 ? detectedEngines.map((e) => e.name).join(", ") : "No agents detected";
+  const globalAssetsTotal = sumGlobalAssets(assetCounts);
 
   // State for per-repository asset counts from backend IPC
   const [repoCounts, setRepoCounts] = React.useState<Record<string, number>>({});
@@ -173,7 +182,7 @@ export default function Sidebar({
             </div>
           </div>
           <span className="text-xs text-text-muted font-normal shrink-0">
-            {inventory?.agents.length || 0}
+            {globalAssetsTotal}
           </span>
         </div>
       </div>

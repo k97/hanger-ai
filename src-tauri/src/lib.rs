@@ -935,6 +935,11 @@ fn start_repo_scan(
 
 
 #[tauri::command]
+fn get_detected_engines() -> Vec<domain::Agent> {
+    scanner::get_global_agents()
+}
+
+#[tauri::command]
 fn check_broad_root(path: String) -> Result<bool, String> {
     let p = Path::new(&path);
     Ok(scanner::is_broad_root(p))
@@ -1114,7 +1119,13 @@ fn get_scan_status() -> scan::status::ScanStatus {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    let mut builder = tauri::Builder::default();
+    // Dev-only automation bridge for tauri-mcp; never registered in release builds.
+    #[cfg(debug_assertions)]
+    {
+        builder = builder.plugin(tauri_plugin_mcp_bridge::init());
+    }
+    builder
         .manage(ScanManager::default())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
@@ -1171,7 +1182,8 @@ pub fn run() {
             export_preferences,
             import_preferences,
             remove_deployed_asset,
-            get_scan_status
+            get_scan_status,
+            get_detected_engines
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

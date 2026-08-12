@@ -6,6 +6,7 @@ import AssetHeaderRow, { SortField, SortDirection } from "./AssetHeaderRow";
 import { Inventory, CategoryCounts } from "../App";
 import { filterProfileAssets } from "../utils/filterPredicate";
 import { sortAssetItems } from "../utils/sortUtils";
+import { sumGlobalAssets } from "../utils/globalAssetCount";
 
 interface ProfilePaneProps {
   inventory: Inventory | null;
@@ -73,13 +74,7 @@ export default function ProfilePane({
   const rawRules = inventory?.rules.filter((r) => r.scope?.Global) || [];
   const globalRules = rawRules.filter((r, idx) => rawRules.findIndex((other) => other.path === r.path) === idx);
 
-  const globalAssetsTotal =
-    assetCounts !== null && assetCounts !== undefined
-      ? (assetCounts.byCategory.skill?.global ?? 0) +
-        (assetCounts.byCategory.tool?.global ?? 0) +
-        (assetCounts.byCategory.rule?.global ?? 0) +
-        (assetCounts.byCategory.subagent?.global ?? 0)
-      : 0;
+  const globalAssetsTotal = sumGlobalAssets(assetCounts);
 
   const emptyState =
     assetCounts !== null && assetCounts !== undefined

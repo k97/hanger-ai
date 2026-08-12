@@ -17,12 +17,6 @@ export interface AllowlistEntry {
 const ALLOWLIST: AllowlistEntry[] = [
   {
     file: "src/components/Sidebar.tsx",
-    linePattern: /inventory\?\.\s*agents\.\s*length/,
-    category: "asset",
-    reason: "Counts detected agent roots in inventory",
-  },
-  {
-    file: "src/components/Sidebar.tsx",
     linePattern: /linkedRepos\.\s*length/,
     category: "ui",
     reason: "Counts linked project roots for sidebar selection",

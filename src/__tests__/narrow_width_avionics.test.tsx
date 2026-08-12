@@ -80,6 +80,8 @@ describe("Avionics A9 — Narrow-Width Layout Tests", () => {
         selectedItem="profile"
         setSelectedItem={() => {}}
         inventory={null}
+        assetCounts={null}
+        detectedEngines={[]}
         linkedRepos={[]}
         loadLinkedRepos={async () => {}}
         onOpenSettings={() => {}}

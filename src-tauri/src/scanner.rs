@@ -304,7 +304,7 @@ fn canonicalize_asset_path(path: &Path, parse_warnings: &mut Vec<String>) -> Str
     }
 }
 
-fn get_global_agents() -> Vec<Agent> {
+pub fn get_global_agents() -> Vec<Agent> {
     let home = get_home_dir();
     let mut agents = Vec::new();
     for config in AGENT_CONFIGS {

@@ -173,6 +173,7 @@ export default function App() {
   const [linkedDirectories, setLinkedDirectories] = useState<string[]>([]);
   const [inventory, setInventory] = useState<Inventory | null>(null);
   const [assetCounts, setAssetCounts] = useState<CategoryCounts | null>(null);
+  const [detectedEngines, setDetectedEngines] = useState<{ id: string; name: string }[]>([]);
   const [repoAssetCountsMap, setRepoAssetCountsMap] = useState<Record<string, CategoryCounts>>({});
   const [loading, setLoading] = useState(false);
   const [scanning, setScanning] = useState(false);
@@ -439,6 +440,9 @@ export default function App() {
   const initializeApp = async () => {
     setLoading(true);
     try {
+      invoke<{ id: string; name: string }[]>("get_detected_engines")
+        .then((engines) => setDetectedEngines(Array.isArray(engines) ? engines : []))
+        .catch(() => {});
       const onboarding = await invoke<string | null>("get_preference", { key: "onboarding_complete" });
       const crash = await invoke<string | null>("get_preference", { key: "consent_crash" });
       const usage = await invoke<string | null>("get_preference", { key: "consent_usage" });
@@ -766,6 +770,8 @@ export default function App() {
           selectedItem={selectedSidebarItem}
           setSelectedItem={handleSelectSidebarItem}
           inventory={inventory}
+          assetCounts={assetCounts}
+          detectedEngines={detectedEngines}
           linkedRepos={linkedDirectories}
           loadLinkedRepos={loadLinkedDirectories}
           onOpenSettings={() => setShowSettingsModal(true)}
