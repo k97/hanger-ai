@@ -39,7 +39,7 @@
   },
   "plugins": {
     "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IERERkRENUE5QTI4RjBGNEYKUldSUEQ0K2lxZFg5M2N0V0tCVGRlQ2k0LzFrZG12K3RoN2RHOGo4bzBsMUpGUXg3ajljRVB6UCsK",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDY3OTU5NDg4RTM1MDQwMTMKUldRVFFGRGppSlNWWjQ2NVcwYndXZmN2WGhleFJKbFRTUjdlaml5K1kwM1c4TEJKZkxCWmo3d3oK",
       "endpoints": [
         "https://github.com/k97/hanger-ai/releases/latest/download/latest.json"
       ]
