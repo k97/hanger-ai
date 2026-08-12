@@ -22,11 +22,12 @@ fn test_v1_5_0_migration_clean_and_no_data_loss() {
 
     let conn = store.connect().expect("Failed to connect via store");
 
-    // 1. Verify PRAGMA user_version == 2 (v1 schema + v2 engine-root purge)
+    // 1. Verify PRAGMA user_version == 3 (v1 schema + v2 engine-root purge +
+    //    v3 root-path canonicalisation)
     let version: i32 = conn
         .query_row("PRAGMA user_version", [], |row| row.get(0))
         .expect("PRAGMA user_version query should succeed");
-    assert_eq!(version, 2, "PRAGMA user_version must be 2 after migration");
+    assert_eq!(version, 3, "PRAGMA user_version must be 3 after migration");
 
     // 2. Verify 'engines' table exists and has correct columns
     let mut stmt = conn.prepare("PRAGMA table_info(engines)").unwrap();
@@ -213,7 +214,7 @@ fn test_v1_5_0_migration_idempotency() {
     let version: i32 = conn
         .query_row("PRAGMA user_version", [], |row| row.get(0))
         .unwrap();
-    assert_eq!(version, 2, "User version must remain 2 after second migration");
+    assert_eq!(version, 3, "User version must remain 3 after second migration");
 
     let root_count: i64 = conn
         .query_row("SELECT COUNT(*) FROM roots", [], |row| row.get(0))
@@ -403,7 +404,7 @@ fn test_v2_migration_purges_engine_root_project_rows() {
     let conn = store.connect().unwrap();
 
     let version: i32 = conn.query_row("PRAGMA user_version", [], |r| r.get(0)).unwrap();
-    assert_eq!(version, 2, "user_version must be 2 after v2 replay");
+    assert_eq!(version, 3, "user_version must be 3 after v2 replay and v3");
 
     let stale: i64 = conn
         .query_row(
