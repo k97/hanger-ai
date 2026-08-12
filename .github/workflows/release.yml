@@ -123,6 +123,7 @@ jobs:
 
           DMG="${DMG_FILES[0]}"
           echo "Found DMG for notarisation and stapling: $DMG"
+          echo "STAPLED_DMG=$DMG" >> "$GITHUB_ENV"
 
           echo "Submitting $DMG for notarisation..."
           xcrun notarytool submit "$DMG" \
@@ -136,6 +137,15 @@ jobs:
 
           echo "Validating stapled ticket on $DMG..."
           xcrun stapler validate "$DMG"
+
+      - name: Re-upload Stapled DMG to GitHub Release
+        if: github.event.inputs.dry_run != 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          echo "Re-uploading stapled DMG ($STAPLED_DMG) to release ${{ github.ref_name }}..."
+          gh release upload "${{ github.ref_name }}" "$STAPLED_DMG" --clobber
 
       - name: Upload DMG Artifact
         uses: actions/upload-artifact@v4
