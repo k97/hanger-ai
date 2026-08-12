@@ -44,8 +44,6 @@ import {
   PanelRight,
   RefreshCw
 } from "lucide-react";
-import { check } from "@tauri-apps/plugin-updater";
-import UpdateBanner from "./components/UpdateBanner";
 import Sidebar from "./components/Sidebar";
 import ProfilePane from "./components/ProfilePane";
 import RepoPane from "./components/RepoPane";
@@ -178,49 +176,10 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [availableUpdate, setAvailableUpdate] = useState<{ version: string; install: () => Promise<void> } | null>(null);
 
-  useEffect(() => {
-    // Silent check-on-launch (dev builds & offline fail silently)
-    const checkForUpdates = async () => {
-      try {
-        const update = await check();
-        if (update && update.available) {
-          setAvailableUpdate({
-            version: update.version,
-            install: async () => {
-              try {
-                await update.downloadAndInstall();
-              } catch (err: any) {
-                // Signature or download failures must surface — an updater that
-                // fails silently is indistinguishable from a working one.
-                setError(`Update install failed: ${String(err?.message ?? err)}`);
-              }
-            },
-          });
-        }
-      } catch (err: any) {
-        const msg = String(err?.message || err);
-        const lower = msg.toLowerCase();
-        // Silent for 404 (no release), network connection failures, or unbundled browser/dev environments
-        if (
-          lower.includes("could not fetch a valid release json") ||
-          lower.includes("404") ||
-          lower.includes("failed to fetch") ||
-          lower.includes("network") ||
-          lower.includes("connect") ||
-          lower.includes("invoke")
-        ) {
-          console.info("[Updater] Check on launch skipped or silent failure:", msg);
-        } else {
-          console.error("[Updater] Update check error:", msg);
-          setError(`Update check failed: ${msg}`);
-        }
-      }
-    };
-    checkForUpdates();
-  }, []);
-  
+  // Updates are owned entirely by the Rust side (src-tauri/src/updates.rs):
+  // silent launch check, "Check for Updates…" menu item, periodic re-check.
+
   // Sidebar and Panel Navigation State
   const [selectedSidebarItem, setSelectedSidebarItem] = useState<string>("profile");
   const [sidebarWidth, setSidebarWidth] = useState<number>(260);
@@ -716,15 +675,7 @@ export default function App() {
         </div>
 
         <div className="flex items-center gap-2">
-          {availableUpdate && (
-            <UpdateBanner
-              version={availableUpdate.version}
-              onInstall={availableUpdate.install}
-              onDismiss={() => setAvailableUpdate(null)}
-            />
-          )}
-
-          <button
+<button
             onClick={toggleInspector}
             aria-label="Toggle inspector"
             title="Toggle inspector"

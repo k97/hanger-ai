@@ -1,5 +1,6 @@
 pub mod domain;
 pub mod scanner;
+pub mod updates;
 mod transactional;
 pub mod preferences;
 pub mod watcher;
@@ -1139,6 +1140,10 @@ pub fn run() {
         .setup(|app| {
             let handle = app.handle();
             scan::status::set_app_handle(handle.clone());
+
+            // Updater: menu item, silent launch check, periodic re-check.
+            updates::install_menu(app)?;
+            updates::spawn_background_checks(handle.clone());
             if let Ok(store) = get_store(handle) {
                 let crash = store.get_preference("consent_crash").ok().flatten().unwrap_or_default() == "true";
                 let usage = store.get_preference("consent_usage").ok().flatten().unwrap_or_default() == "true";
