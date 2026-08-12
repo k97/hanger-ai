@@ -754,10 +754,41 @@ pub fn protected_roots() -> Vec<(PathBuf, String)> {
     out
 }
 
+// The downward half of the guard: a path that CONTAINS a protected root. The
+// upward matcher inspects only the path handed to it, and ~ is not itself
+// protected — so linking home walked the engine roots beneath it and re-parented
+// their assets onto the home row (verified in home_root_hazard_tests). Strict
+// descendants only; the equality case belongs to match_protected_root.
+pub fn contains_protected_root(path: &Path, protected: &[(PathBuf, String)]) -> Option<String> {
+    let raw = path.to_path_buf();
+    let canon = fs::canonicalize(path).unwrap_or_else(|_| raw.clone());
+    for (root, label) in protected {
+        let root_canon = fs::canonicalize(root).unwrap_or_else(|_| root.clone());
+        for protected_form in [root, &root_canon] {
+            for candidate in [&raw, &canon] {
+                if protected_form.starts_with(candidate)
+                    && protected_form.as_path() != candidate.as_path()
+                {
+                    return Some(label.clone());
+                }
+            }
+        }
+    }
+    None
+}
+
 pub fn guard_engine_root(path: &str) -> Result<(), String> {
-    if let Some(label) = match_protected_root(Path::new(path), &protected_roots()) {
+    let protected = protected_roots();
+    if let Some(label) = match_protected_root(Path::new(path), &protected) {
         return Err(format!(
             "{} is {} — already inventoried under User Profile.",
+            path, label
+        ));
+    }
+    if let Some(label) = contains_protected_root(Path::new(path), &protected) {
+        return Err(format!(
+            "{} contains {} — linking it would re-stamp those assets with project scope. \
+             Link the projects inside it instead.",
             path, label
         ));
     }
@@ -1220,6 +1251,21 @@ impl DirectoryScanner {
         let mut files_visited = 0;
         let mut dirs_visited = 0;
 
+        // Engine roots beneath a project root are walked by the global pass and
+        // must not be walked again here: upsert_asset's update branch rewrites
+        // root_id to the deepest matching PROJECT root, so a project walk that
+        // descends into ~/.claude re-parents those assets off the User Profile
+        // row. guard_engine_root now refuses such links, but a root linked
+        // before it existed is still in the store. Forms are precomputed —
+        // canonicalising per entry would be a syscall in the hot loop.
+        let protected_forms: Vec<PathBuf> = protected_roots()
+            .into_iter()
+            .flat_map(|(p, _)| {
+                let canon = fs::canonicalize(&p).unwrap_or_else(|_| p.clone());
+                [p, canon]
+            })
+            .collect();
+
         // Repository candidates beneath this root, collected as the walk passes
         // through. The root never lists itself: it is already the linked root.
         let mut nested_repo_candidates: Vec<String> = Vec::new();
@@ -1255,6 +1301,11 @@ impl DirectoryScanner {
                 if rel.components().any(|c| c.as_os_str() == "fixtures") {
                     continue;
                 }
+            }
+
+            // Never let a project walk descend into an engine root.
+            if protected_forms.iter().any(|pf| path.starts_with(pf)) {
+                continue;
             }
 
             // Apply broad-root depth limit check (cap at 6 levels, exempting recognised agent directories)
