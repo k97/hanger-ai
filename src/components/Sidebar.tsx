@@ -1,9 +1,10 @@
 import React from "react";
-import { User, Folder, Globe, Settings, Plus, Search, Trash2 } from "lucide-react";
+import { User, Folder, FolderTree, Globe, Settings, Plus, Search, Trash2 } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import { Inventory, CategoryCounts } from "../App";
 import { sumGlobalAssets } from "../utils/globalAssetCount";
+import { containerSubtitle, linkedDescendants } from "../utils/containerRoots";
 
 interface SidebarProps {
   width: number;
@@ -129,9 +130,13 @@ export default function Sidebar({
       if (selected && typeof selected === "string") {
         // Broad roots are allowed through: the scanner caps traversal at 6
         // levels and surfaces the cap as a warning. No gate here.
-        await invoke("link_directory", { path: selected });
+        //
+        // link_directory canonicalises before storing, so select the path it
+        // returns — selecting the picked path would highlight a row that does
+        // not exist when the pick came through a symlink.
+        const linked = await invoke<string>("link_directory", { path: selected });
         await loadLinkedRepos();
-        setSelectedItem(selected);
+        setSelectedItem(linked);
       }
     } catch (err: any) {
       setError(String(err));
@@ -210,6 +215,8 @@ export default function Sidebar({
               const isActive = selectedItem === repoPath;
               const folderName = repoPath.split("/").pop() || repoPath;
               const count = repoCounts[repoPath] || 0;
+              const childCount = linkedDescendants(repoPath, linkedRepos).length;
+              const container = childCount > 0;
               return (
                 <div
                   key={repoPath}
@@ -224,10 +231,21 @@ export default function Sidebar({
                   }`}
                 >
                   <div className="flex items-center gap-2 min-w-0">
-                    <Folder size={14} className="text-text-muted shrink-0" />
-                    <span className="truncate" title={repoPath}>
-                      {folderName}
-                    </span>
+                    {container ? (
+                      <FolderTree size={14} className="text-text-muted shrink-0" />
+                    ) : (
+                      <Folder size={14} className="text-text-muted shrink-0" />
+                    )}
+                    <div className="min-w-0">
+                      <span className="truncate block" title={repoPath}>
+                        {folderName}
+                      </span>
+                      {container && (
+                        <span className="text-[10px] text-text-muted truncate block">
+                          {containerSubtitle(childCount)}
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
                     <span className="text-xs text-text-muted font-normal">

@@ -11,7 +11,20 @@
 
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::{Mutex, MutexGuard, OnceLock};
 use tauri_app_lib::scanner::{self, DirectoryScanner, Scanner};
+
+// Every test here points HANGER_TEST_HOME at its own temp home, and
+// protected_roots() reads it live. Without serialisation these race inside the
+// shared test process and the guard sees another test's home.
+static ENV_MUTEX: OnceLock<Mutex<()>> = OnceLock::new();
+
+fn env_guard() -> MutexGuard<'static, ()> {
+    ENV_MUTEX
+        .get_or_init(|| Mutex::new(()))
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+}
 
 fn fresh_dir(name: &str) -> PathBuf {
     let dir = std::env::temp_dir().join(name);
@@ -36,6 +49,7 @@ fn build_home(base: &Path) -> PathBuf {
 
 #[test]
 fn test_linking_home_reparents_engine_assets_to_the_project_root() {
+    let _guard = env_guard();
     let base = fresh_dir("hanger_test_home_hazard");
     let home = build_home(&base);
     std::env::set_var("HANGER_TEST_HOME", &home);
@@ -87,6 +101,7 @@ fn test_linking_home_reparents_engine_assets_to_the_project_root() {
 
 #[test]
 fn test_guard_rejects_directory_containing_protected_roots() {
+    let _guard = env_guard();
     let base = fresh_dir("hanger_test_home_guard");
     let home = build_home(&base);
     std::env::set_var("HANGER_TEST_HOME", &home);
@@ -104,6 +119,7 @@ fn test_guard_still_permits_an_ordinary_project_directory() {
     // Control against over-blocking: widening the guard to look downward must
     // not start rejecting normal projects. A directory with a rules file and a
     // .git — but no engine root beneath it — stays linkable.
+    let _guard = env_guard();
     let base = fresh_dir("hanger_test_home_guard_control");
     let home = build_home(&base);
     std::env::set_var("HANGER_TEST_HOME", &home);

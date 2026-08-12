@@ -252,11 +252,14 @@ pub(crate) fn get_store(app: &AppHandle) -> Result<PreferencesStore, String> {
 }
 
 #[tauri::command]
-fn link_directory(app: AppHandle, path: String) -> Result<(), String> {
+fn link_directory(app: AppHandle, path: String) -> Result<String, String> {
     scanner::guard_engine_root(&path)?;
     let store = get_store(&app)?;
     store.link_directory(&path).map_err(|e| e.to_string())?;
-    Ok(())
+    // The stored path is canonical, which may differ from what the directory
+    // picker handed over. Return it so the caller can select the row that
+    // actually exists rather than the path the user clicked.
+    Ok(crate::preferences::PreferencesStore::canonical_root_path(&path))
 }
 
 #[tauri::command]
