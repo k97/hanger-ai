@@ -326,6 +326,100 @@ impl PreferencesStore {
             })?;
         }
 
+        // v3: canonicalise project root paths. Container status is derived by
+        // prefix comparison against the other linked roots, and prefix
+        // comparison is only sound on canonical paths — a root linked through
+        // a symlink before link_directory canonicalised would never
+        // prefix-match its own children. Engine roots are left alone: they are
+        // never prefix-compared, and match_protected_root already canonicalises
+        // both sides when it checks them.
+        if current_version < 3 {
+            let tx = conn.transaction().map_err(|_| {
+                SanitisedError("Failed to start database migration transaction".to_string())
+            })?;
+
+            let existing: Vec<(i64, String)> = {
+                let mut stmt = tx
+                    .prepare("SELECT id, abs_path FROM roots WHERE kind = 'project' ORDER BY id ASC")
+                    .map_err(|_| {
+                        SanitisedError("Database query failed during migration".to_string())
+                    })?;
+                let rows = stmt
+                    .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))
+                    .map_err(|_| {
+                        SanitisedError("Database query failed during migration".to_string())
+                    })?;
+                rows.flatten().collect()
+            };
+
+            let resolved: Vec<(i64, String, String)> = existing
+                .into_iter()
+                .map(|(id, path)| {
+                    let canonical = Self::canonical_root_path(&path);
+                    (id, path, canonical)
+                })
+                .collect();
+
+            // abs_path is UNIQUE, so two rows resolving to the same canonical
+            // path must merge rather than collide. Prefer the row that already
+            // holds the canonical path; otherwise the lowest id wins, so the
+            // outcome does not depend on row order.
+            let mut survivor: std::collections::HashMap<String, i64> =
+                std::collections::HashMap::new();
+            for (id, path, canonical) in &resolved {
+                match survivor.get(canonical) {
+                    None => {
+                        survivor.insert(canonical.clone(), *id);
+                    }
+                    Some(&held) if path == canonical && held != *id => {
+                        survivor.insert(canonical.clone(), *id);
+                    }
+                    _ => {}
+                }
+            }
+
+            // Merges first: an UPDATE onto a canonical path still occupied by a
+            // duplicate would violate the UNIQUE constraint and fail the whole
+            // migration, leaving the store unopenable.
+            for (id, _, canonical) in &resolved {
+                let keep = survivor[canonical];
+                if *id == keep {
+                    continue;
+                }
+                tx.execute(
+                    "UPDATE assets SET root_id = ?1 WHERE root_id = ?2",
+                    params![keep, id],
+                )
+                .map_err(|_| SanitisedError("Database migration failed".to_string()))?;
+                tx.execute(
+                    "UPDATE links SET dest_root_id = ?1 WHERE dest_root_id = ?2",
+                    params![keep, id],
+                )
+                .map_err(|_| SanitisedError("Database migration failed".to_string()))?;
+                tx.execute("DELETE FROM roots WHERE id = ?1", params![id])
+                    .map_err(|_| SanitisedError("Database migration failed".to_string()))?;
+            }
+
+            // Then rewrite the survivors that are not canonical yet, in place so
+            // roots.id is preserved and no asset is orphaned.
+            for (id, path, canonical) in &resolved {
+                if survivor[canonical] == *id && path != canonical {
+                    tx.execute(
+                        "UPDATE roots SET abs_path = ?1 WHERE id = ?2",
+                        params![canonical, id],
+                    )
+                    .map_err(|_| SanitisedError("Database migration failed".to_string()))?;
+                }
+            }
+
+            tx.execute_batch("PRAGMA user_version = 3;")
+                .map_err(|_| SanitisedError("Failed to set user_version".to_string()))?;
+
+            tx.commit().map_err(|_| {
+                SanitisedError("Failed to commit database migration transaction".to_string())
+            })?;
+        }
+
         Ok(())
     }
 
@@ -335,17 +429,22 @@ impl PreferencesStore {
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap_or_default()
             .as_secs();
-        let label = Path::new(path)
+
+        // Container status is derived by prefix comparison against the other
+        // linked roots, which is only sound on canonical paths: a root linked
+        // through a symlink would never prefix-match its own children.
+        let stored = Self::canonical_root_path(path);
+        let label = Path::new(&stored)
             .file_name()
             .and_then(|n| n.to_str())
-            .unwrap_or(path)
+            .unwrap_or(&stored)
             .to_string();
 
         conn.execute(
             "INSERT INTO roots (kind, abs_path, engine_id, label, added_at)
              VALUES ('project', ?1, NULL, ?2, ?3)
              ON CONFLICT(abs_path) DO UPDATE SET label = excluded.label",
-            params![path, label, now],
+            params![stored, label, now],
         ).map_err(|_| {
             SanitisedError("Failed to link directory in roots table".to_string())
         })?;
@@ -854,6 +953,15 @@ impl PreferencesStore {
 
         Ok(id)
     }
+
+/// Canonical form of a root path, falling back to the input when the path
+/// cannot be resolved (it may not exist yet, or may be unreadable). Never
+/// returns an empty string, so a root can never be silently blanked.
+pub fn canonical_root_path(path: &str) -> String {
+    fs::canonicalize(Path::new(path))
+        .map(|p| p.to_string_lossy().to_string())
+        .unwrap_or_else(|_| path.to_string())
+}
 
 pub fn resolve_deepest_root(asset_path: &Path, project_roots: &[(i64, String)]) -> Option<i64> {
     let mut best: Option<(i64, usize)> = None;
