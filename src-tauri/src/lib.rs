@@ -1,4 +1,6 @@
+pub mod diagnostics;
 pub mod domain;
+pub mod menu;
 pub mod scanner;
 pub mod updates;
 mod transactional;
@@ -237,14 +239,14 @@ pub fn track_event(app: AppHandle, name: &str, params: serde_json::Value) {
     });
 }
 
-fn get_db_path(app: &AppHandle) -> std::path::PathBuf {
+pub(crate) fn get_db_path(app: &AppHandle) -> std::path::PathBuf {
     app.path()
         .app_data_dir()
         .unwrap_or_else(|_| std::path::PathBuf::from("."))
         .join("hanger.db")
 }
 
-fn get_store(app: &AppHandle) -> Result<PreferencesStore, String> {
+pub(crate) fn get_store(app: &AppHandle) -> Result<PreferencesStore, String> {
     let db_path = get_db_path(app);
     PreferencesStore::new(&db_path).map_err(|e| e.to_string())
 }
@@ -942,6 +944,13 @@ fn get_detected_engines() -> Vec<domain::Agent> {
     scanner::get_global_agents()
 }
 
+// Same action as File → Copy Diagnostics, reachable from the webview so a
+// future settings surface (and automated verification) can trigger it.
+#[tauri::command]
+fn copy_diagnostics(app: AppHandle) {
+    diagnostics::copy_to_clipboard(&app);
+}
+
 #[tauri::command]
 fn check_broad_root(path: String) -> Result<bool, String> {
     let p = Path::new(&path);
@@ -1133,16 +1142,28 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
-        .plugin(tauri_plugin_log::Builder::new().targets([
-            tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::Stdout),
-            tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::LogDir { file_name: None }),
-        ]).build())
+        .plugin(tauri_plugin_clipboard_manager::init())
+        // Info globally (kills tao/hyper TRACE spam), Debug for our own
+        // crate. 5MB × 3 rotated files so Copy Diagnostics has real history
+        // to export — the 40KB discard-on-rotate default self-wipes in
+        // minutes.
+        .plugin(tauri_plugin_log::Builder::new()
+            .level(log::LevelFilter::Info)
+            .level_for("tauri_app_lib", log::LevelFilter::Debug)
+            .max_file_size(5_000_000)
+            .rotation_strategy(tauri_plugin_log::RotationStrategy::KeepSome(3))
+            .timezone_strategy(tauri_plugin_log::TimezoneStrategy::UseLocal)
+            .targets([
+                tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::Stdout),
+                tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::LogDir { file_name: None }),
+            ]).build())
         .setup(|app| {
             let handle = app.handle();
             scan::status::set_app_handle(handle.clone());
 
-            // Updater: menu item, silent launch check, periodic re-check.
-            updates::install_menu(app)?;
+            // Native menu (update check + diagnostics), then the updater's
+            // silent launch check and periodic re-check.
+            menu::install(app)?;
             updates::spawn_background_checks(handle.clone());
             if let Ok(store) = get_store(handle) {
                 let crash = store.get_preference("consent_crash").ok().flatten().unwrap_or_default() == "true";
@@ -1190,7 +1211,8 @@ pub fn run() {
             import_preferences,
             remove_deployed_asset,
             get_scan_status,
-            get_detected_engines
+            get_detected_engines,
+            copy_diagnostics
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
