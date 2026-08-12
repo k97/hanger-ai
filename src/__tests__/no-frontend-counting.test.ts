@@ -22,6 +22,13 @@ const ALLOWLIST: AllowlistEntry[] = [
     reason: "Counts linked project roots for sidebar selection",
   },
   {
+    file: "src/components/Sidebar.tsx",
+    linePattern: /linkedDescendants\(repoPath,\s*linkedRepos\)\.length/,
+    category: "ui",
+    reason:
+      "Counts linked descendant ROOTS to label a container row. These are paths from the linked set, not assets — no count command exists or should",
+  },
+  {
     file: "src/components/RepoPane.tsx",
     linePattern: /count=\{nonPermissionWarnings\.length\}/,
     category: "ui",
