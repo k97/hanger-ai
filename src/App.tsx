@@ -495,6 +495,12 @@ export default function App() {
 
   // Maps individual asset row clicks to detail Flyout opening
   const handleSelectAsset = (asset: { name: string; category: "Skills" | "Agents" | "Tools" | "Rules" | "Subagents"; path: string }) => {
+    // Tapping a row means "inspect this" — open the panel straight away
+    // rather than requiring the toolbar toggle first.
+    if (!inspectorOpen) {
+      setInspectorOpen(true);
+      invoke("set_preference", { key: "inspector_open", value: "true" }).catch(() => {});
+    }
     let fullAsset: any = null;
     if (asset.category === "Skills") {
       fullAsset = inventory?.skills.find((s) => s.path === asset.path);

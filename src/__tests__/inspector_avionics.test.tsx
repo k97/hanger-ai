@@ -2,6 +2,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor, cleanup } from "@testing-library/react";
 import App from "../App";
+import { invoke } from "@tauri-apps/api/core";
 
 const mockPreferences: Record<string, string> = {
   onboarding_complete: "true",
@@ -170,18 +171,26 @@ describe("Avionics A5 — Docked Right Inspector Integration", () => {
     await screen.findByText("No Item Selected");
   });
 
-  it("3. Selecting a row with the inspector closed does NOT open it", async () => {
+  it("3. Selecting a row with the inspector closed opens it straight away on that asset", async () => {
     setupMockInvoke("false");
     render(<App />);
 
     const skillRow = await screen.findByText("Inspector Skill One");
 
-    // Click an asset row
+    // Click an asset row — tapping a row means "inspect this"
     fireEvent.click(skillRow);
 
-    // Inspector MUST remain closed
+    // Inspector opens immediately, showing the tapped asset (not the empty state)
+    await screen.findByText("Path");
     expect(screen.queryByText("No Item Selected")).toBeNull();
-    expect(screen.queryByText("Path")).toBeNull();
+
+    // The open state persists like the toolbar toggle does
+    await waitFor(() => {
+      expect(invoke).toHaveBeenCalledWith("set_preference", {
+        key: "inspector_open",
+        value: "true",
+      });
+    });
   });
 
   it("4. With a row selected and the inspector open, the asset's full path string renders — asserts path text itself", async () => {
