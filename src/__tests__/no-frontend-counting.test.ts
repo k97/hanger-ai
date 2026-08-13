@@ -80,7 +80,11 @@ function isCountComputationLine(line: string): boolean {
   // Pattern 1: .length in a numeric sum (+ operator directly with .length) or assigned to identifier matching /count|total/i
   const hasLengthInSum = /\.length\s*\+|\+\s*[a-zA-Z0-9_$.?]*\.length|agentSkillsCount\s*\+/.test(line);
   const hasLengthCountAssignment = /([a-zA-Z0-9_$]*(count|total)[a-zA-Z0-9_$]*\s*[:=].*\.length|const\s+totalGlobalAssets\s*=)/i.test(line);
-  const hasInventoryLengthAccess = /(inventory\?\.[a-zA-Z0-9_$]+\.length|linkedRepos\.length(?!\s*(>|===|==|!=|!==)\s*0)|\bcount:\s*[a-zA-Z0-9_$]+\.length)/.test(line);
+  // `inventory\?\.` only caught optional chaining, so `inventory.skills.length`
+  // — and anything not assigned to a count/total-named identifier, e.g. a bare
+  // `return inventory.skills.length` — passed silently. Optional `?` and an
+  // optional intermediate property close both.
+  const hasInventoryLengthAccess = /(inventory\??\.[a-zA-Z0-9_$]+\.?[a-zA-Z0-9_$]*\.length|linkedRepos\.length(?!\s*(>|===|==|!=|!==)\s*0)|\bcount:\s*[a-zA-Z0-9_$]+\.length)/.test(line);
 
   // Pattern 2: .reduce( over array
   const hasReduce = /\.reduce\s*\(/.test(line);

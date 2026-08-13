@@ -346,6 +346,30 @@ const ALLOWLIST_RAW = [
 
 
   { file: "src/components/SidebarScanModal.tsx", lineText: "className=\"px-4 py-1.5 rounded-full bg-accent text-on-accent text-xs font-bold tracking-wide uppercase shadow-sm disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-95 transition-all\"", category: "radius" as AllowlistCategory, reason: "Legacy radius/shadow/fontweight styling" },
+
+  // Surfaced when the arbitrary-value rules above were repaired. These
+  // lines predate the repair and were never detectable; they are recorded
+  // as legacy so the rules start catching NEW off-token values.
+  { file: "src/App.tsx", lineText: "<span className=\"text-[10px] text-text-muted\">Send anonymised error traces.</span>", category: "fontsize" as AllowlistCategory, reason: "Legacy arbitrary font size, pre-existing and undetected while the text-[] rule was unreachable" },
+  { file: "src/App.tsx", lineText: "<span className=\"text-[10px] text-text-muted\">Share anonymised feature usage events.</span>", category: "fontsize" as AllowlistCategory, reason: "Legacy arbitrary font size, pre-existing and undetected while the text-[] rule was unreachable" },
+  { file: "src/components/DeployWizard.tsx", lineText: "<span className=\"text-[10px] text-text-muted mt-1 leading-normal\">", category: "fontsize" as AllowlistCategory, reason: "Legacy arbitrary font size, pre-existing and undetected while the text-[] rule was unreachable" },
+  { file: "src/components/DeployWizard.tsx", lineText: "<span className=\"text-[10px] text-text-muted mt-1 leading-normal\">", category: "fontsize" as AllowlistCategory, reason: "Legacy arbitrary font size, pre-existing and undetected while the text-[] rule was unreachable" },
+  { file: "src/components/DiscoveryPane.tsx", lineText: "<span className=\"text-[10px] text-text-muted\">Installs external tool configurations.</span>", category: "fontsize" as AllowlistCategory, reason: "Legacy arbitrary font size, pre-existing and undetected while the text-[] rule was unreachable" },
+  { file: "src/components/DiscoveryPane.tsx", lineText: "<span className=\"text-[10px] text-text-muted\">Extends Claude and Gemini environments.</span>", category: "fontsize" as AllowlistCategory, reason: "Legacy arbitrary font size, pre-existing and undetected while the text-[] rule was unreachable" },
+  { file: "src/components/DiscoveryPane.tsx", lineText: "<span className=\"text-[10px] text-text-muted\">Automated lifecycle event triggers.</span>", category: "fontsize" as AllowlistCategory, reason: "Legacy arbitrary font size, pre-existing and undetected while the text-[] rule was unreachable" },
+  { file: "src/components/Flyout.tsx", lineText: "<span className=\"text-[10px] font-mono font-medium text-text-muted px-1.5 py-0.2 border border-n-100 rounded-control bg-surface\">", category: "fontsize" as AllowlistCategory, reason: "Legacy arbitrary font size, pre-existing and undetected while the text-[] rule was unreachable" },
+  { file: "src/components/Flyout.tsx", lineText: "<span className=\"text-[10px] font-medium uppercase tracking-wider text-text-muted font-sans\">", category: "fontsize" as AllowlistCategory, reason: "Legacy arbitrary font size, pre-existing and undetected while the text-[] rule was unreachable" },
+  { file: "src/components/Flyout.tsx", lineText: "<span className=\"text-[10px] font-medium uppercase tracking-wider text-text-muted font-sans\">", category: "fontsize" as AllowlistCategory, reason: "Legacy arbitrary font size, pre-existing and undetected while the text-[] rule was unreachable" },
+  { file: "src/components/Flyout.tsx", lineText: "<span className=\"text-[10px] font-medium uppercase tracking-wider text-text-muted font-sans\">", category: "fontsize" as AllowlistCategory, reason: "Legacy arbitrary font size, pre-existing and undetected while the text-[] rule was unreachable" },
+  { file: "src/components/Flyout.tsx", lineText: "<span className=\"text-[10px] text-text-muted block truncate max-w-[300px] font-mono mt-0.5\">", category: "fontsize" as AllowlistCategory, reason: "Legacy arbitrary font size, pre-existing and undetected while the text-[] rule was unreachable" },
+  { file: "src/components/Flyout.tsx", lineText: "<span className=\"text-[10px] text-text-muted block truncate mt-0.5\">", category: "fontsize" as AllowlistCategory, reason: "Legacy arbitrary font size, pre-existing and undetected while the text-[] rule was unreachable" },
+  { file: "src/components/LinkAssetModal.tsx", lineText: "<span className=\"text-[10px] text-text-muted mt-1 leading-normal\">", category: "fontsize" as AllowlistCategory, reason: "Legacy arbitrary font size, pre-existing and undetected while the text-[] rule was unreachable" },
+  { file: "src/components/LinkAssetModal.tsx", lineText: "<span className=\"text-[10px] text-text-muted mt-1 leading-normal\">", category: "fontsize" as AllowlistCategory, reason: "Legacy arbitrary font size, pre-existing and undetected while the text-[] rule was unreachable" },
+  { file: "src/components/RepoPane.tsx", lineText: "<span className=\"text-[11px] font-mono break-all\">{repoPath}</span>", category: "fontsize" as AllowlistCategory, reason: "Legacy arbitrary font size, pre-existing and undetected while the text-[] rule was unreachable" },
+  { file: "src/components/RepoPane.tsx", lineText: "<p className=\"text-[11px] text-text-secondary leading-relaxed\">", category: "fontsize" as AllowlistCategory, reason: "Legacy arbitrary font size, pre-existing and undetected while the text-[] rule was unreachable" },
+  { file: "src/components/Sidebar.tsx", lineText: "<span className=\"text-[10px] text-text-muted truncate block\">", category: "fontsize" as AllowlistCategory, reason: "Legacy arbitrary font size, pre-existing and undetected while the text-[] rule was unreachable" },
+  { file: "src/components/Sidebar.tsx", lineText: "<span className=\"text-[10px] text-text-muted truncate block\">", category: "fontsize" as AllowlistCategory, reason: "Legacy arbitrary font size, pre-existing and undetected while the text-[] rule was unreachable" },
+  { file: "src/components/SidebarScanModal.tsx", lineText: "<span className=\"text-[10px] text-text-muted font-mono block truncate\">", category: "fontsize" as AllowlistCategory, reason: "Legacy arbitrary font size, pre-existing and undetected while the text-[] rule was unreachable" },
 ];
 
 const ALLOWLIST: AllowlistEntry[] = ALLOWLIST_RAW.map((e) => ({
@@ -466,7 +490,7 @@ function isOffTokenStyleLine(line: string): boolean {
     return true;
   }
 
-  const roundedArbRegex = /\brounded-\[([^\]]+)\]\b/g;
+  const roundedArbRegex = /\brounded-\[([^\]]+)\]/g;
   let rMatch: RegExpExecArray | null;
   while ((rMatch = roundedArbRegex.exec(line)) !== null) {
     const rVal = rMatch[1].trim();
@@ -475,7 +499,7 @@ function isOffTokenStyleLine(line: string): boolean {
     }
   }
 
-  const textArbRegex = /\btext-\[([^\]]+)\]\b/g;
+  const textArbRegex = /\btext-\[([^\]]+)\]/g;
   let tArbMatch: RegExpExecArray | null;
   while ((tArbMatch = textArbRegex.exec(line)) !== null) {
     const arbVal = tArbMatch[1].trim();
