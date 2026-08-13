@@ -92,7 +92,8 @@ describe("Cockpit Derived Token Contrast Check", () => {
       "xs", "sm", "base", "lg", "xl", "2xl", "3xl", "4xl", "5xl",
       "left", "center", "right", "justify", "uppercase", "lowercase",
       "capitalize", "wrap", "nowrap", "truncate", "clip", "ellipsis",
-      "micro", "fs-micro"
+      "micro", "fs-micro",
+      "small", "base-app", "lg-app", "display", "row", "ui", "title"
     ]);
 
     const findTsxFiles = (dir: string): string[] => {

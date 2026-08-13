@@ -1,8 +1,22 @@
-@import url('https://fonts.googleapis.com/css2?family=Rubik:ital,wght@0,300..900;1,300..900&display=swap');
 @import "tailwindcss";
 @import "./tokens.css";
 
 @theme {
+  /* ── Mono palette ── */
+  --color-page: var(--page);
+  --color-plane: var(--plane);
+  --color-plane-2: var(--plane-2);
+  --color-tint: var(--tint);
+  --color-tint-ink: var(--tint-ink);
+  --color-line: var(--line);
+  --color-line-2: var(--line-2);
+  --color-fill: var(--fill);
+  --color-on-fill: var(--on-fill);
+  --color-state-success: var(--state-success);
+  --color-state-warning: var(--state-warning);
+  --color-state-danger: var(--state-danger);
+
+  /* ── Legacy roles (revalued in tokens.css, retired as tasks migrate) ── */
   --color-surface: var(--surface);
   --color-surface-elevated: var(--surface-elevated);
   --color-surface-press: var(--surface-press);
@@ -31,7 +45,6 @@
   --color-success-border: var(--success-border);
   --color-success-text: var(--success-text);
 
-  /* Cockpit Neutral Ramp */
   --color-n-0: var(--n-0);
   --color-n-25: var(--n-25);
   --color-n-50: var(--n-50);
@@ -46,12 +59,10 @@
   --color-n-900: var(--n-900);
   --color-n-950: var(--n-950);
 
-  /* Cockpit Text Roles */
   --color-text-primary: var(--text-primary);
   --color-text-secondary: var(--text-secondary);
   --color-text-muted: var(--text-muted);
 
-  /* Cockpit Semantic Roles */
   --color-success-fill: var(--success-fill);
   --color-success-tint: var(--success-tint);
   --color-success-text-on-tint: var(--success-text-on-tint);
@@ -68,11 +79,21 @@
   --color-accent-tint: var(--accent-tint);
   --color-accent-text-on-tint: var(--accent-text-on-tint);
 
+  /* ── Type scale: 11 / 12 / 13 / 16 / 32 only ── */
+  --text-micro: var(--fs-micro);
+  --text-small: var(--fs-small);
+  --text-base-app: var(--fs-base);
+  --text-lg-app: var(--fs-lg);
+  --text-display: var(--fs-display);
+  /* Legacy size names (alias onto the same scale) */
   --text-row: var(--fs-row);
   --text-ui: var(--fs-ui);
   --text-title: var(--fs-title);
 
-  /* Cockpit Space Scale */
+  /* ── Faces ── */
+  --font-flex: var(--font-flex);
+
+  /* ── Space scale ── */
   --spacing-1: var(--space-1);
   --spacing-2: var(--space-2);
   --spacing-3: var(--space-3);
@@ -81,16 +102,29 @@
   --spacing-6: var(--space-6);
   --spacing-7: var(--space-7);
 
-  /* Radius */
+  /* ── Radii: pill / 12 / 16 (legacy control 6px retired with its users) ── */
+  --radius-plane: var(--radius-plane);
+  --radius-inner: var(--radius-inner);
+  --radius-pill: var(--radius-pill);
   --radius-control: var(--radius-control);
 
-  /* Radius mapping */
-  --radius-xs: 4px;
-  --radius-sm: 6px;
-  --radius-md: 6px;
-  --radius-lg: 10px;
-  --radius-xl: 12px;
-  --radius-xxl: 18px;
+  /* ── Motion ── */
+  --ease-spring: var(--spring);
+}
+
+/* Motion beats as first-class utilities (Tailwind v4 durations are not
+   themeable, so the three beats are declared directly). */
+@utility duration-hover {
+  transition-duration: var(--dur-hover);
+}
+@utility duration-nav {
+  transition-duration: var(--dur-nav);
+}
+@utility duration-press {
+  transition-duration: var(--dur-press);
+}
+@utility tabular {
+  font-variant-numeric: tabular-nums;
 }
 
 html,
@@ -101,8 +135,24 @@ body,
   overflow: hidden;
   margin: 0;
   padding: 0;
-  background-color: var(--surface);
+  background-color: var(--page);
   color: var(--ink-1);
-  font-family: 'Rubik', system-ui, -apple-system, sans-serif;
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
   transition: background-color 0.2s, color 0.2s;
+}
+
+:focus-visible {
+  outline: 2px solid var(--ink-1);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition: none !important;
+    animation: none !important;
+  }
 }

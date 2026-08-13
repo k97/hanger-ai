@@ -65,13 +65,11 @@ const ALLOWLIST_RAW = [
   { file: "src/components/Constellation.tsx", lineText: "<div className=\"flex items-center gap-3 bg-surface-elevated px-4 py-1.5 rounded-xs border border-hairline shadow-sm\">", category: "shadow" as AllowlistCategory, reason: "Legacy shadow/retiredtoken styling" },
   { file: "src/components/Constellation.tsx", lineText: "<span className=\"text-xs font-semibold text-ink-2\">", category: "fontweight" as AllowlistCategory, reason: "Legacy fontweight/retiredtoken styling" },
   { file: "src/components/Constellation.tsx", lineText: "className=\"flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-error-text hover:bg-error-bg/10 px-2 py-0.5 rounded transition-all cursor-pointer\"", category: "radius" as AllowlistCategory, reason: "Legacy radius/fontweight styling" },
-  { file: "src/components/Constellation.tsx", lineText: "<p className=\"text-xs text-ink-3\">Interactive nodes scaled by local assets count</p>", category: "retiredtoken" as AllowlistCategory, reason: "Legacy retiredtoken styling" },
   { file: "src/components/Constellation.tsx", lineText: "<div className=\"w-full min-h-[300px] border border-hairline bg-surface-elevated rounded-md p-8 flex flex-wrap items-center justify-center gap-8 shadow-inner relative overflow-hidden\">", category: "radius" as AllowlistCategory, reason: "Legacy radius/shadow/retiredtoken styling" },
   { file: "src/components/Constellation.tsx", lineText: "<div className=\"flex flex-col items-center gap-3 text-ink-mute py-12 w-full max-w-lg\">", category: "retiredtoken" as AllowlistCategory, reason: "Legacy retiredtoken styling" },
   { file: "src/components/Constellation.tsx", lineText: "<h4 className=\"text-sm font-semibold text-ink-2\">Traversing linked directories...</h4>", category: "fontweight" as AllowlistCategory, reason: "Legacy fontweight/retiredtoken styling" },
   { file: "src/components/Constellation.tsx", lineText: "<div className=\"w-full bg-surface border border-hairline rounded-md p-3 text-left\">", category: "radius" as AllowlistCategory, reason: "Legacy radius/retiredtoken styling" },
   { file: "src/components/Constellation.tsx", lineText: "<div className=\"text-[10px] font-bold uppercase text-ink-mute tracking-wider mb-1\">", category: "fontweight" as AllowlistCategory, reason: "Legacy fontweight/retiredtoken styling" },
-  { file: "src/components/Constellation.tsx", lineText: "<div className=\"font-mono text-xs text-ink-3 truncate leading-normal\" title={scanProgress.current}>", category: "retiredtoken" as AllowlistCategory, reason: "Legacy retiredtoken styling" },
   { file: "src/components/Constellation.tsx", lineText: "className=\"mt-2 px-5 py-1.5 rounded-md border border-error-border bg-error-bg text-error-text text-xs font-bold uppercase tracking-wider hover:opacity-95 transition-all cursor-pointer flex items-center gap-1.5 shadow-sm\"", category: "radius" as AllowlistCategory, reason: "Legacy radius/shadow/fontweight styling" },
   { file: "src/components/Constellation.tsx", lineText: "<div className=\"flex flex-col items-center gap-2 text-ink-mute\">", category: "retiredtoken" as AllowlistCategory, reason: "Legacy retiredtoken styling" },
   { file: "src/components/Constellation.tsx", lineText: "<div className=\"flex flex-col items-center gap-3 text-ink-mute py-12\">", category: "retiredtoken" as AllowlistCategory, reason: "Legacy retiredtoken styling" },
@@ -79,7 +77,6 @@ const ALLOWLIST_RAW = [
   { file: "src/components/Constellation.tsx", lineText: ": \"bg-surface border-2 border-hairline hover:border-accent text-ink-1 hover:scale-105\"", category: "retiredtoken" as AllowlistCategory, reason: "Legacy retiredtoken styling" },
   { file: "src/components/Constellation.tsx", lineText: "<span className=\"text-xs font-semibold truncate max-w-full\">", category: "fontweight" as AllowlistCategory, reason: "Legacy fontweight styling" },
   { file: "src/components/Constellation.tsx", lineText: "className={`text-2xl font-black mt-1 ${", category: "fontweight" as AllowlistCategory, reason: "Legacy fontweight styling" },
-  { file: "src/components/Constellation.tsx", lineText: "isSelected ? \"text-on-accent\" : \"text-ink-2\"", category: "retiredtoken" as AllowlistCategory, reason: "Legacy retiredtoken styling" },
   { file: "src/components/Constellation.tsx", lineText: "<span className=\"absolute -top-1 -right-1 w-5 h-5 rounded-full bg-warning-border text-warning-text text-[10px] font-bold flex items-center justify-center aspect-square ring-2 ring-surface-elevated\">", category: "radius" as AllowlistCategory, reason: "Legacy radius/fontweight/retiredtoken styling" },
   { file: "src/components/Constellation.tsx", lineText: "<span className=\"absolute -bottom-1 -right-1 px-1.5 py-0.5 rounded-xs bg-error-border text-error-text text-[9px] font-bold flex items-center justify-center ring-2 ring-surface-elevated uppercase\">", category: "fontweight" as AllowlistCategory, reason: "Legacy fontweight/retiredtoken styling" },
   { file: "src/components/Constellation.tsx", lineText: "className={`rounded-full flex flex-col items-center justify-center text-center p-3 transition-all duration-300 relative cursor-pointer group outline-none aspect-square shadow-sm ${", category: "radius" as AllowlistCategory, reason: "Legacy radius/shadow styling" },
@@ -87,7 +84,6 @@ const ALLOWLIST_RAW = [
   { file: "src/components/Constellation.tsx", lineText: "<span className=\"text-[10px] uppercase font-bold text-ink-mute group-hover:text-accent select-none\">", category: "fontweight" as AllowlistCategory, reason: "Legacy fontweight/retiredtoken styling" },
   { file: "src/components/Constellation.tsx", lineText: "<span className=\"text-xs font-semibold truncate max-w-full mt-0.5\">", category: "fontweight" as AllowlistCategory, reason: "Legacy fontweight styling" },
   { file: "src/components/Constellation.tsx", lineText: "className={`text-2xl font-black mt-0.5 ${", category: "fontweight" as AllowlistCategory, reason: "Legacy fontweight styling" },
-  { file: "src/components/Constellation.tsx", lineText: "isSelected ? \"text-on-accent\" : \"text-ink-2\"", category: "retiredtoken" as AllowlistCategory, reason: "Legacy retiredtoken styling" },
   { file: "src/components/DeployWizard.tsx", lineText: "<div className=\"flex flex-col gap-2 p-4 rounded border border-n-100 bg-n-50\">", category: "retiredtoken" as AllowlistCategory, reason: "Legacy retiredtoken styling" },
 
   { file: "src/components/DeployWizard.tsx", lineText: "<span className=\"text-[10px] font-bold uppercase tracking-wider text-accent\">", category: "fontweight" as AllowlistCategory, reason: "Legacy fontweight styling" },
@@ -165,12 +161,10 @@ const ALLOWLIST_RAW = [
   { file: "src/components/DiffChooser.tsx", lineText: ": \"border-hairline hover:border-accent bg-surface-elevated\"", category: "retiredtoken" as AllowlistCategory, reason: "Legacy retiredtoken styling" },
   { file: "src/components/DiffChooser.tsx", lineText: "<span className=\"text-[10px] font-bold uppercase tracking-wider text-accent flex items-center gap-1\">", category: "fontweight" as AllowlistCategory, reason: "Legacy fontweight styling" },
   { file: "src/components/DiffChooser.tsx", lineText: "<span className=\"text-[9px] font-bold uppercase text-error-text bg-error-bg px-1 rounded\">", category: "radius" as AllowlistCategory, reason: "Legacy radius/fontweight styling" },
-  { file: "src/components/DiffChooser.tsx", lineText: "<pre className=\"font-mono text-xs text-ink-2 whitespace-pre-wrap leading-relaxed break-all\">", category: "retiredtoken" as AllowlistCategory, reason: "Legacy retiredtoken styling" },
   { file: "src/components/DiffChooser.tsx", lineText: "className={`flex flex-col text-left border rounded-md p-3 overflow-y-auto cursor-pointer transition-all ${", category: "radius" as AllowlistCategory, reason: "Legacy radius styling" },
   { file: "src/components/DiffChooser.tsx", lineText: ": \"border-hairline hover:border-accent bg-surface-elevated\"", category: "retiredtoken" as AllowlistCategory, reason: "Legacy retiredtoken styling" },
   { file: "src/components/DiffChooser.tsx", lineText: "<span className=\"text-[10px] font-bold uppercase tracking-wider text-info-text flex items-center gap-1\">", category: "fontweight" as AllowlistCategory, reason: "Legacy fontweight styling" },
   { file: "src/components/DiffChooser.tsx", lineText: "<span className=\"text-[9px] font-bold uppercase text-error-text bg-error-bg px-1 rounded\">", category: "radius" as AllowlistCategory, reason: "Legacy radius/fontweight styling" },
-  { file: "src/components/DiffChooser.tsx", lineText: "<pre className=\"font-mono text-xs text-ink-2 whitespace-pre-wrap leading-relaxed break-all\">", category: "retiredtoken" as AllowlistCategory, reason: "Legacy retiredtoken styling" },
   { file: "src/components/DiffChooser.tsx", lineText: "<div className=\"border border-hairline bg-surface-elevated rounded-md p-3 flex flex-col min-h-0\">", category: "radius" as AllowlistCategory, reason: "Legacy radius/retiredtoken styling" },
   { file: "src/components/DiffChooser.tsx", lineText: "<span className=\"text-[10px] font-bold uppercase tracking-wider text-ink-3 flex items-center gap-1 select-none\">", category: "fontweight" as AllowlistCategory, reason: "Legacy fontweight/retiredtoken styling" },
   { file: "src/components/DiffChooser.tsx", lineText: "<div className=\"flex-1 overflow-y-auto border border-hairline bg-surface p-3 rounded font-mono text-[11px] text-ink-2 whitespace-pre-wrap leading-relaxed break-all\">", category: "radius" as AllowlistCategory, reason: "Legacy radius/retiredtoken styling" },
@@ -307,7 +301,6 @@ const ALLOWLIST_RAW = [
   { file: "src/components/RepoPane.tsx", lineText: "<div className=\"w-full max-w-sm bg-surface-elevated rounded-[21px] border border-hairline shadow-2xl p-6 relative flex flex-col gap-4 font-sans animate-in zoom-in-95 duration-150\">", category: "shadow" as AllowlistCategory, reason: "Legacy shadow/retiredtoken styling" },
   { file: "src/components/RepoPane.tsx", lineText: "<div className=\"flex justify-between items-center pb-2 border-b border-hairline\">", category: "retiredtoken" as AllowlistCategory, reason: "Legacy retiredtoken styling" },
   { file: "src/components/RepoPane.tsx", lineText: "<h3 className=\"text-sm font-bold text-ink-1 flex items-center gap-1.5\">", category: "fontweight" as AllowlistCategory, reason: "Legacy fontweight/retiredtoken styling" },
-  { file: "src/components/RepoPane.tsx", lineText: "<p className=\"text-xs text-ink-2 leading-relaxed\">", category: "retiredtoken" as AllowlistCategory, reason: "Legacy retiredtoken styling" },
   { file: "src/components/RepoPane.tsx", lineText: "Are you sure you want to unlink <span className=\"font-semibold\">{assetToUnlink.name}</span> from this repository?", category: "fontweight" as AllowlistCategory, reason: "Legacy fontweight styling" },
 
   { file: "src/components/RepoPane.tsx", lineText: "<p className=\"text-[10px] text-ink-3\">", category: "retiredtoken" as AllowlistCategory, reason: "Legacy retiredtoken styling" },
@@ -456,11 +449,13 @@ function resolveFontSize(suffix: string): number | null {
 }
 
 const RULED_FONT_SIZES = new Set([
-  resolveFontSize("row") || 11,
-  resolveFontSize("ui") || 12,
-  resolveFontSize("title") || 13,
+  resolveFontSize("micro") || 11,
+  resolveFontSize("small") || 12,
+  resolveFontSize("base-app") || 13,
+  resolveFontSize("lg-app") || 16,
+  resolveFontSize("display") || 32,
 ]);
-const RULED_RADII = new Set(["0", "0px", "6px", "9999px", "9999", "100%", "full"]);
+const RULED_RADII = new Set(["0", "0px", "6px", "12px", "16px", "9999px", "9999", "100%", "full"]);
 
 const NON_FONT_SIZE_TEXT_SUFFIXES = new Set([
   "center", "left", "right", "justify", "start", "end", "wrap", "nowrap", "balance", "pretty", "ellipsis", "clip",
@@ -469,14 +464,17 @@ const NON_FONT_SIZE_TEXT_SUFFIXES = new Set([
   "warning-bg", "warning-border", "warning-text", "warning-text-on-tint",
   "error-bg", "error-border", "error-text", "danger-text", "danger-text-on-tint",
   "success-bg", "success-border", "success-text", "success-text-on-tint",
-  "info-text", "text-primary", "text-secondary", "text-muted", "white", "muted"
+  "info-text", "text-primary", "text-secondary", "text-muted", "white", "muted",
+  "tint-ink", "state-success", "state-warning", "state-danger", "on-fill", "fill"
 ]);
 
 const OFF_SPEC_PATTERNS = [
   /\brounded(-(sm|md|lg|xl|2xl|3xl|full)|(?=[\s"']|$))\b/,
   /\b(shadow|shadow-sm|shadow-md|shadow-lg|shadow-xl|shadow-2xl|shadow-inner|shadow-none|shadow-\[[^\]]+\]|drop-shadow(-[a-z0-9_\[\]]+)?)\b/,
   /\bfont-(semibold|bold|black|thin|extralight|light|extrabold|\[\d+\])\b/,
-  /\b(ink-1|ink-2|ink-3|ink-mute|surface-elevated|hairline)\b/,
+  /* The mono redesign made the ink ladder canonical; only truly dead
+     Cockpit-era names stay retired. */
+  /\b(ink-mute|surface-elevated|surface-press|hairline)\b/,
   /\b(bg|text|border|ring|divide|fill|stroke)-(red|blue|green|yellow|purple|amber|pink|indigo|gray|slate|zinc|neutral|stone|orange|lime|emerald|teal|cyan|sky|violet|fuchsia|rose)-\d{2,3}(\/\d{1,3})?\b/,
 ];
 
