@@ -117,16 +117,17 @@ describe("ProfilePane Component-Level Filtering Integration", () => {
       />
     );
 
+    // Chips render "{label}{count}" — the count span carries the global figure.
     const skillsCard = screen.getAllByText("Skills").find(el => el.closest("[tabindex]"))?.closest("[tabindex]");
-    expect(skillsCard?.querySelector("h2")?.textContent).toBe("200");
+    expect(skillsCard?.textContent).toBe("Skills200");
 
     const toolsCard = screen.getAllByText("Tools").find(el => el.closest("[tabindex]"))?.closest("[tabindex]");
-    expect(toolsCard?.querySelector("h2")?.textContent).toBe("8");
+    expect(toolsCard?.textContent).toBe("Tools8");
 
     const rulesCard = screen.getAllByText("Rules").find(el => el.closest("[tabindex]"))?.closest("[tabindex]");
-    expect(rulesCard?.querySelector("h2")?.textContent).toBe("3");
+    expect(rulesCard?.textContent).toBe("Rules3");
 
     const subagentsCard = screen.getAllByText("Subagents").find(el => el.closest("[tabindex]"))?.closest("[tabindex]");
-    expect(subagentsCard?.querySelector("h2")?.textContent).toBe("1");
+    expect(subagentsCard?.textContent).toBe("Subagents1");
   });
 });

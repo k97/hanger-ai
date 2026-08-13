@@ -269,6 +269,7 @@ export default function RepoPane({
 
         {/* Category Cards interactive filter row */}
         <CategoryFilterCards
+          allCount={assetCounts?.total ?? 0}
           skillsCount={assetCounts?.byCategory.skill?.total ?? 0}
           toolsCount={assetCounts?.byCategory.tool?.total ?? 0}
           rulesCount={assetCounts?.byCategory.rule?.total ?? 0}

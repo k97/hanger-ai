@@ -1,8 +1,10 @@
-import { Award, Wrench, Scroll, Loader2, Workflow } from "lucide-react";
+import { Check, Loader2 } from "lucide-react";
 
 export type CategoryType = "Skills" | "Agents" | "Tools" | "Rules" | "Subagents";
 
 interface CategoryFilterCardsProps {
+  /** Backend-owned total for the All chip. */
+  allCount?: number;
   skillsCount?: number;
   toolsCount?: number;
   rulesCount?: number;
@@ -12,7 +14,16 @@ interface CategoryFilterCardsProps {
   loading: boolean;
 }
 
+const chipBaseClass =
+  "h-7 px-3.5 rounded-pill border border-line-2 font-flex text-small text-ink-2 whitespace-nowrap inline-flex items-center gap-2 cursor-pointer transition-colors duration-nav ease-spring hover:bg-plane-2";
+const chipPressedClass =
+  "h-7 pl-2.5 pr-3.5 rounded-pill border border-transparent bg-tint text-tint-ink font-medium whitespace-nowrap inline-flex items-center gap-2 cursor-pointer transition-colors duration-nav ease-spring font-flex text-small";
+
+/** The category decision line — M3 filter-chip behaviour on the mono palette.
+ *  Chips stay clickable at zero: filtering into an empty category shows its
+ *  empty state rather than dead-ending the control. */
 export default function CategoryFilterCards({
+  allCount,
   skillsCount,
   toolsCount,
   rulesCount,
@@ -21,88 +32,54 @@ export default function CategoryFilterCards({
   onSelectCategory,
   loading,
 }: CategoryFilterCardsProps) {
-  const cards = [
-    {
-      id: "Skills" as CategoryType,
-      label: "Skills",
-      count: skillsCount,
-      icon: Award,
-    },
-    {
-      id: "Tools" as CategoryType,
-      label: "Tools",
-      count: toolsCount,
-      icon: Wrench,
-    },
-    {
-      id: "Rules" as CategoryType,
-      label: "Rules",
-      count: rulesCount,
-      icon: Scroll,
-    },
-    {
-      id: "Subagents" as CategoryType,
-      label: "Subagents",
-      count: subagentsCount,
-      icon: Workflow,
-    },
+  const chips: Array<{ id: CategoryType | null; label: string; count: number | undefined }> = [
+    { id: null, label: "All", count: allCount },
+    { id: "Skills", label: "Skills", count: skillsCount },
+    { id: "Tools", label: "Tools", count: toolsCount },
+    { id: "Rules", label: "Rules", count: rulesCount },
+    { id: "Subagents", label: "Subagents", count: subagentsCount },
   ];
 
-  const handleCardClick = (id: CategoryType) => {
-    if (selectedCategory === id) {
+  const handleChipClick = (id: CategoryType | null) => {
+    if (id !== null && selectedCategory === id) {
       onSelectCategory(null);
     } else {
       onSelectCategory(id);
     }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent, id: CategoryType) => {
-    if (e.key === "Enter" || e.key === " ") {
-      e.preventDefault();
-      handleCardClick(id);
-    }
-  };
-
   return (
-    <section className="@container font-sans select-none shrink-0">
-      <div className="grid grid-cols-2 @[520px]:grid-cols-4 gap-3 @[520px]:gap-4">
-        {cards.map((card) => {
-          const isSelected = selectedCategory === card.id;
-          const Icon = card.icon;
-
+    <section
+      className="font-sans select-none shrink-0"
+      role="group"
+      aria-label="Filter by category"
+    >
+      <div className="flex items-center gap-[7px] overflow-x-auto">
+        {chips.map((chip) => {
+          const isPressed =
+            chip.id === null ? selectedCategory === null : selectedCategory === chip.id;
           return (
-            <div
-              key={card.id}
+            <button
+              key={chip.label}
               tabIndex={0}
-              onClick={() => handleCardClick(card.id)}
-              onKeyDown={(e) => handleKeyDown(e, card.id)}
-              className={`p-3 @[520px]:p-4 rounded-control border flex items-center justify-between cursor-pointer transition-colors duration-fast outline-none group ${
-                isSelected
-                  ? "bg-n-0 border-accent-fill text-text-primary"
-                  : "bg-n-25 border-n-100 hover:bg-n-0 hover:border-n-200 text-text-muted"
-              }`}
+              aria-pressed={isPressed}
+              onClick={() => handleChipClick(chip.id)}
+              className={isPressed ? chipPressedClass : chipBaseClass}
             >
-              <div className="min-w-0 flex-1 pr-1 @[520px]:pr-2">
-                <span className={`text-xs font-medium block transition-colors truncate ${
-                  isSelected ? "text-text-primary" : "text-text-muted group-hover:text-text-secondary"
-                }`}>
-                  {card.label}
-                </span>
-                <h2 className="text-title font-medium mt-1 text-text-primary truncate">
-                  {loading ? (
-                    <Loader2 className="animate-spin text-text-muted" size={20} />
-                  ) : (
-                    card.count ?? 0
-                  )}
-                </h2>
-              </div>
-              <Icon
-                className={`transition-colors shrink-0 hidden @[640px]:block ${
-                  isSelected ? "text-text-primary" : "text-text-muted group-hover:text-text-secondary"
+              {isPressed && <Check size={14} className="shrink-0" />}
+              <span>{chip.label}</span>
+              <span
+                className={`text-micro tabular ${
+                  isPressed ? "text-tint-ink opacity-70" : "text-ink-3"
                 }`}
-                size={24}
-              />
-            </div>
+              >
+                {chip.count === undefined && loading ? (
+                  <Loader2 className="animate-spin" size={11} />
+                ) : (
+                  chip.count ?? 0
+                )}
+              </span>
+            </button>
           );
         })}
       </div>

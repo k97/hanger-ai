@@ -148,6 +148,7 @@ describe("Avionics A6-R2 Defect Tests", () => {
   it("5. A zero count renders '0'", () => {
     render(
       <CategoryFilterCards
+        allCount={0}
         skillsCount={0}
         toolsCount={0}
         rulesCount={0}
@@ -158,8 +159,9 @@ describe("Avionics A6-R2 Defect Tests", () => {
       />
     );
 
+    // All + the four category chips each render an explicit zero.
     const zeros = screen.getAllByText("0");
-    expect(zeros.length).toBe(4);
+    expect(zeros.length).toBe(5);
     expect(screen.queryByText("—")).toBeNull();
   });
 

@@ -240,6 +240,7 @@ export default function ProfilePane({
         <CategoryFilterCards
           selectedCategory={selectedCategory}
           onSelectCategory={setSelectedCategory}
+          allCount={sumGlobalAssets(assetCounts)}
           skillsCount={assetCounts?.byCategory.skill?.global}
           toolsCount={assetCounts?.byCategory.tool?.global}
           rulesCount={assetCounts?.byCategory.rule?.global}
