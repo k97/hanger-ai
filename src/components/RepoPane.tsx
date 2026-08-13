@@ -9,6 +9,8 @@ import { filterRepoAssets } from "../utils/filterPredicate";
 import DisclosureBanner from "./DisclosureBanner";
 import { sortAssetItems } from "../utils/sortUtils";
 import { formatEngineLabel } from "../utils/engineUtils";
+import SummaryStrip from "./SummaryStrip";
+import { linkStateCounts, matchesStateFilter, StateFilter } from "../utils/linkStateCounts";
 
 interface RepoPaneProps {
   repoPath: string;
@@ -19,6 +21,11 @@ interface RepoPaneProps {
   loading: boolean;
   /** Toolbar filter text — rows whose name does not contain it are hidden. */
   filterText?: string;
+  /** Link-state filter from the rail badge or the strip legend. */
+  stateFilter?: StateFilter;
+  onStateFilterChange?: (filter: StateFilter) => void;
+  /** When the last scan completed — feeds the strip's scan stamp. */
+  scannedAt?: Date | null;
   sortField?: SortField;
   sortDirection?: SortDirection;
   onSortChange?: (field: SortField) => void;
@@ -39,6 +46,9 @@ export default function RepoPane({
   selectedAsset,
   loading,
   filterText,
+  stateFilter = null,
+  onStateFilterChange,
+  scannedAt = null,
   sortField: propSortField,
   sortDirection: propSortDirection,
   onSortChange,
@@ -137,10 +147,26 @@ export default function RepoPane({
   const nameMatches = (name: string) =>
     filterQuery === "" || name.toLowerCase().includes(filterQuery);
 
-  const filteredSkills = scopedSkills.filter((s) => nameMatches(s.name));
-  const filteredTools = scopedTools.filter((t) => nameMatches(t.name));
-  const filteredRules = scopedRules.filter((r) => nameMatches(r.name));
-  const filteredSubagents = scopedSubagents.filter((sa) => nameMatches(sa.name));
+  const filteredSkills = scopedSkills.filter(
+    (s) => nameMatches(s.name) && matchesStateFilter(s, stateFilter)
+  );
+  const filteredTools = scopedTools.filter(
+    (t) => nameMatches(t.name) && matchesStateFilter(t, stateFilter)
+  );
+  const filteredRules = scopedRules.filter(
+    (r) => nameMatches(r.name) && matchesStateFilter(r, stateFilter)
+  );
+  const filteredSubagents = scopedSubagents.filter(
+    (sa) => nameMatches(sa.name) && matchesStateFilter(sa, stateFilter)
+  );
+
+  // Strip data: backend-owned total, frontend-derived state split.
+  const repoFolderName = repoPath.split("/").pop() || repoPath;
+  const stripCounts = linkStateCounts(inventory, { kind: "repo", root: repoPath });
+  const engineCount = Object.keys(assetCounts?.engines ?? {}).filter((k) => k !== "none").length;
+  const stripSubtitle = `assets in ${repoFolderName} · ${engineCount} ${
+    engineCount === 1 ? "engine" : "engines"
+  }`;
 
   const showSkills = selectedCategory === null || selectedCategory === "Skills";
   const showTools = selectedCategory === null || selectedCategory === "Tools";
@@ -230,6 +256,17 @@ export default function RepoPane({
     <div className="flex-1 flex flex-col h-full overflow-hidden bg-surface animate-fade-in font-sans">
       {/* Pane Content - scrolls independently */}
       <div className="@container flex-1 overflow-y-auto p-6 flex flex-col gap-6">
+        {/* Inventory summary strip */}
+        <SummaryStrip
+          total={assetCounts?.total ?? 0}
+          subtitle={stripSubtitle}
+          scannedAt={scannedAt}
+          scanning={loading}
+          counts={stripCounts}
+          activeStateFilter={stateFilter}
+          onFilterState={(f) => onStateFilterChange?.(f)}
+        />
+
         {/* Category Cards interactive filter row */}
         <CategoryFilterCards
           skillsCount={assetCounts?.byCategory.skill?.total ?? 0}

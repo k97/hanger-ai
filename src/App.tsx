@@ -55,7 +55,7 @@ import Flyout from "./components/Flyout";
 import LinkAssetModal from "./components/LinkAssetModal";
 import { ScanStatusIndicator } from "./components/ScanStatusIndicator";
 import { SortField, SortDirection } from "./components/AssetHeaderRow";
-import { needsReviewCount } from "./utils/linkStateCounts";
+import { needsReviewCount, StateFilter } from "./utils/linkStateCounts";
 
 // --- Types ---
 export interface Scope {
@@ -206,8 +206,11 @@ export default function App() {
   const [inspectorWidth, setInspectorWidth] = useState<number>(280);
   // Toolbar filter — narrows the visible rows of the active pane by name.
   const [filterText, setFilterText] = useState<string>("");
-  // Machine-wide state filter driven by the icon rail's Needs review button.
-  const [stateFilter, setStateFilter] = useState<"needs-review" | null>(null);
+  // Machine-wide state filter driven by the icon rail's Needs review button
+  // and the summary strip's legend.
+  const [stateFilter, setStateFilter] = useState<StateFilter>(null);
+  // When the last completed scan landed — feeds the strip's scan stamp.
+  const [lastScanAt, setLastScanAt] = useState<Date | null>(null);
   const [sortField, setSortField] = useState<SortField>("name");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
 
@@ -378,6 +381,7 @@ export default function App() {
         setInventory(payload.inventory);
         setScanning(false);
         setLoading(false);
+        setLastScanAt(new Date());
 
         await refreshGlobalCounts();
 
@@ -823,6 +827,9 @@ export default function App() {
               selectedAsset={selectedAsset}
               loading={loading || scanning}
               filterText={filterText}
+              stateFilter={stateFilter}
+              onStateFilterChange={setStateFilter}
+              scannedAt={lastScanAt}
               sortField={sortField}
               sortDirection={sortDirection}
               onSortChange={handleSortChange}
@@ -852,6 +859,9 @@ export default function App() {
               assetCounts={repoAssetCountsMap[selectedSidebarItem.split(":")[0]] || null}
               loading={loading || scanning}
               filterText={filterText}
+              stateFilter={stateFilter}
+              onStateFilterChange={setStateFilter}
+              scannedAt={lastScanAt}
               sortField={sortField}
               sortDirection={sortDirection}
               onSortChange={handleSortChange}

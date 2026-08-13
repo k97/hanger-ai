@@ -1,5 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { needsReview, needsReviewCount } from "./linkStateCounts";
+import {
+  needsReview,
+  needsReviewCount,
+  classifyAsset,
+  matchesStateFilter,
+  linkStateCounts,
+} from "./linkStateCounts";
 import type { Inventory } from "../App";
 
 const emptyInventory: Inventory = {
@@ -54,5 +60,73 @@ describe("needsReviewCount", () => {
       ],
     };
     expect(needsReviewCount(inventory)).toBe(3);
+  });
+});
+
+describe("classifyAsset", () => {
+  it("gives broken precedence over drifted, and drifted over linked", () => {
+    expect(classifyAsset({ parse_status: "failed", drifted: true })).toBe("broken");
+    expect(classifyAsset({ link_state: "drifted", is_symlink: true })).toBe("drifted");
+    expect(classifyAsset({ link_state: "foreign" })).toBe("drifted");
+  });
+
+  it("treats symlinks and tracked copies as linked, both field spellings", () => {
+    expect(classifyAsset({ is_symlink: true })).toBe("linked");
+    expect(classifyAsset({ isSymlink: true })).toBe("linked");
+    expect(classifyAsset({ source_path: "/src" })).toBe("linked");
+    expect(classifyAsset({ sourcePath: "/src" })).toBe("linked");
+    expect(classifyAsset({})).toBe("local");
+  });
+});
+
+describe("matchesStateFilter", () => {
+  it("passes everything with no filter and maps needs-review to broken+drifted", () => {
+    expect(matchesStateFilter({}, null)).toBe(true);
+    expect(matchesStateFilter({ drifted: true }, "needs-review")).toBe(true);
+    expect(matchesStateFilter({ parse_status: "failed" }, "needs-review")).toBe(true);
+    expect(matchesStateFilter({ is_symlink: true }, "needs-review")).toBe(false);
+    expect(matchesStateFilter({ is_symlink: true }, "linked")).toBe(true);
+    expect(matchesStateFilter({}, "local")).toBe(true);
+    expect(matchesStateFilter({}, "linked")).toBe(false);
+  });
+});
+
+describe("linkStateCounts", () => {
+  const inventory: Inventory = {
+    ...emptyInventory,
+    skills: [
+      { id: "1", name: "g1", description: "", version: "1", path: "/g1", scope: { Global: { agent: "claude" } }, is_symlink: true },
+      { id: "2", name: "g2", description: "", version: "1", path: "/g2", scope: { Global: { agent: "claude" } }, drifted: true },
+      { id: "3", name: "p1", description: "", version: "1", path: "/repo/p1", scope: { Project: { agent: "claude", root: "/repo" } }, parse_status: "failed" },
+      { id: "4", name: "p2", description: "", version: "1", path: "/repo/p2", scope: { Project: { agent: "claude", root: "/repo" } } },
+      { id: "5", name: "other", description: "", version: "1", path: "/other/p", scope: { Project: { agent: "claude", root: "/other" } } },
+    ],
+    tools: [
+      { id: "6", name: "t", command: "", transport: "", config_path: "/gt", scope: { Global: { agent: "claude" } }, owning_agent: "claude" },
+    ],
+  };
+
+  it("splits the global scope by state", () => {
+    expect(linkStateCounts(inventory, { kind: "global" })).toEqual({
+      linked: 1,
+      drifted: 1,
+      broken: 0,
+      local: 1,
+      total: 3,
+    });
+  });
+
+  it("splits a repo scope by state and excludes other roots", () => {
+    expect(linkStateCounts(inventory, { kind: "repo", root: "/repo" })).toEqual({
+      linked: 0,
+      drifted: 0,
+      broken: 1,
+      local: 1,
+      total: 2,
+    });
+  });
+
+  it("returns zeros for a null inventory", () => {
+    expect(linkStateCounts(null, { kind: "global" }).total).toBe(0);
   });
 });

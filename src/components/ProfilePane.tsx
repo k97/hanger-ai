@@ -7,6 +7,8 @@ import { Inventory, CategoryCounts } from "../App";
 import { filterProfileAssets } from "../utils/filterPredicate";
 import { sortAssetItems } from "../utils/sortUtils";
 import { sumGlobalAssets } from "../utils/globalAssetCount";
+import SummaryStrip from "./SummaryStrip";
+import { linkStateCounts, matchesStateFilter, StateFilter } from "../utils/linkStateCounts";
 
 interface ProfilePaneProps {
   inventory: Inventory | null;
@@ -16,6 +18,11 @@ interface ProfilePaneProps {
   loading: boolean;
   /** Toolbar filter text — rows whose name does not contain it are hidden. */
   filterText?: string;
+  /** Link-state filter from the rail badge or the strip legend. */
+  stateFilter?: StateFilter;
+  onStateFilterChange?: (filter: StateFilter) => void;
+  /** When the last scan completed — feeds the strip's scan stamp. */
+  scannedAt?: Date | null;
   sortField?: SortField;
   sortDirection?: SortDirection;
   onSortChange?: (field: SortField) => void;
@@ -31,6 +38,9 @@ export default function ProfilePane({
   selectedAsset,
   loading,
   filterText,
+  stateFilter = null,
+  onStateFilterChange,
+  scannedAt = null,
   sortField: propSortField,
   sortDirection: propSortDirection,
   onSortChange,
@@ -98,10 +108,25 @@ export default function ProfilePane({
   const nameMatches = (name: string) =>
     filterQuery === "" || name.toLowerCase().includes(filterQuery);
 
-  const filteredSkills = scopedSkills.filter((s) => nameMatches(s.name));
-  const filteredTools = scopedTools.filter((t) => nameMatches(t.name));
-  const filteredRules = scopedRules.filter((r) => nameMatches(r.name));
-  const filteredSubagents = scopedSubagents.filter((sa) => nameMatches(sa.name));
+  const filteredSkills = scopedSkills.filter(
+    (s) => nameMatches(s.name) && matchesStateFilter(s, stateFilter)
+  );
+  const filteredTools = scopedTools.filter(
+    (t) => nameMatches(t.name) && matchesStateFilter(t, stateFilter)
+  );
+  const filteredRules = scopedRules.filter(
+    (r) => nameMatches(r.name) && matchesStateFilter(r, stateFilter)
+  );
+  const filteredSubagents = scopedSubagents.filter(
+    (sa) => nameMatches(sa.name) && matchesStateFilter(sa, stateFilter)
+  );
+
+  // Strip data: backend-owned total, frontend-derived state split.
+  const stripCounts = linkStateCounts(inventory, { kind: "global" });
+  const engineCount = Object.keys(assetCounts?.engines ?? {}).filter((k) => k !== "none").length;
+  const stripSubtitle = `assets in your user profile · ${engineCount} ${
+    engineCount === 1 ? "engine" : "engines"
+  }`;
 
   // Check if the selected category itself is empty
   const isCategoryEmpty =
@@ -199,6 +224,17 @@ export default function ProfilePane({
 
   return (
     <div className="@container flex-1 overflow-y-auto p-6 flex flex-col gap-6">
+      {/* Inventory summary strip */}
+      <SummaryStrip
+        total={sumGlobalAssets(assetCounts)}
+        subtitle={stripSubtitle}
+        scannedAt={scannedAt}
+        scanning={loading}
+        counts={stripCounts}
+        activeStateFilter={stateFilter}
+        onFilterState={(f) => onStateFilterChange?.(f)}
+      />
+
       {/* Category Filter Cards */}
       <div className="mb-6">
         <CategoryFilterCards

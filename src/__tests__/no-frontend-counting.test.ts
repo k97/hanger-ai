@@ -16,6 +16,20 @@ export interface AllowlistEntry {
 // Any allowlist entry that no longer matches ALSO fails.
 const ALLOWLIST: AllowlistEntry[] = [
   {
+    file: "src/components/ProfilePane.tsx",
+    linePattern: /const engineCount = Object\.keys\(assetCounts\?\.engines/,
+    category: "ui",
+    reason:
+      "Counts engine KEYS of the backend counts record for the strip subtitle — engine kinds, not assets; the asset total stays backend-owned",
+  },
+  {
+    file: "src/components/RepoPane.tsx",
+    linePattern: /const engineCount = Object\.keys\(assetCounts\?\.engines/,
+    category: "ui",
+    reason:
+      "Counts engine KEYS of the backend counts record for the strip subtitle — engine kinds, not assets; the asset total stays backend-owned",
+  },
+  {
     file: "src/components/Sidebar.tsx",
     linePattern: /linkedDescendants\(repoPath,\s*linkedRepos\)\.length/,
     category: "ui",
