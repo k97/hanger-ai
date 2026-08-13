@@ -1,5 +1,5 @@
 import React from "react";
-import { User, Folder, FolderTree, Globe, Settings, Plus, Trash2 } from "lucide-react";
+import { User, Folder, FolderTree, Plus, Trash2 } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import { Inventory, CategoryCounts } from "../App";
@@ -18,7 +18,6 @@ interface SidebarProps {
   detectedEngines: { id: string; name: string }[];
   linkedRepos: string[];
   loadLinkedRepos: () => Promise<void>;
-  onOpenSettings: () => void;
   onRefreshGlobalCounts?: () => Promise<void>;
   setError: (err: string) => void;
 }
@@ -35,7 +34,6 @@ export default function Sidebar({
   detectedEngines,
   linkedRepos,
   loadLinkedRepos,
-  onOpenSettings,
   onRefreshGlobalCounts,
   setError,
 }: SidebarProps) {
@@ -268,32 +266,6 @@ export default function Sidebar({
         >
           <Plus size={14} className="shrink-0" />
           <span className="whitespace-nowrap">Add repository…</span>
-        </button>
-      </div>
-
-      {/* Bottom Pinned Controls (Discovery & Settings) */}
-      <div className="p-3 border-t border-n-100 bg-n-50 flex items-center justify-between">
-        <div
-          onClick={() => {
-            setSelectedItem("discovery");
-            invoke("set_preference", { key: "selected_sidebar_item", value: "discovery" }).catch(() => {});
-          }}
-          className={`flex items-center gap-2 px-2.5 py-1.5 rounded-control cursor-pointer transition-colors text-xs font-medium ${
-            selectedItem === "discovery"
-              ? "bg-surface text-text-primary border border-n-100"
-              : "hover:bg-surface/50 text-text-secondary"
-          }`}
-        >
-          <Globe size={14} className="text-brand-lime" />
-          <span>Discovery</span>
-        </div>
-
-        <button
-          onClick={onOpenSettings}
-          className="p-1.5 rounded-control hover:bg-surface/50 text-text-muted hover:text-text-primary transition-colors cursor-pointer"
-          title="Settings"
-        >
-          <Settings size={16} />
         </button>
       </div>
 

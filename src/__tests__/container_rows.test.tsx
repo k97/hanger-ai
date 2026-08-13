@@ -34,7 +34,6 @@ function renderSidebar(linkedRepos: string[]) {
       detectedEngines={[]}
       linkedRepos={linkedRepos}
       loadLinkedRepos={async () => {}}
-      onOpenSettings={() => {}}
       setError={() => {}}
     />
   );
@@ -151,7 +150,6 @@ describe("sidebar container rows", () => {
         detectedEngines={[]}
         linkedRepos={[]}
         loadLinkedRepos={async () => {}}
-        onOpenSettings={() => {}}
           setError={() => {}}
       />
     );

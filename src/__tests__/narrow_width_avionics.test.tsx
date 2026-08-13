@@ -84,7 +84,6 @@ describe("Avionics A9 — Narrow-Width Layout Tests", () => {
         detectedEngines={[]}
         linkedRepos={[]}
         loadLinkedRepos={async () => {}}
-        onOpenSettings={() => {}}
         setError={() => {}}
       />
     );

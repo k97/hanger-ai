@@ -45,6 +45,7 @@ import {
   PanelRight,
   RefreshCw
 } from "lucide-react";
+import IconRail from "./components/IconRail";
 import Sidebar from "./components/Sidebar";
 import ProfilePane from "./components/ProfilePane";
 import RepoPane from "./components/RepoPane";
@@ -54,6 +55,7 @@ import Flyout from "./components/Flyout";
 import LinkAssetModal from "./components/LinkAssetModal";
 import { ScanStatusIndicator } from "./components/ScanStatusIndicator";
 import { SortField, SortDirection } from "./components/AssetHeaderRow";
+import { needsReviewCount } from "./utils/linkStateCounts";
 
 // --- Types ---
 export interface Scope {
@@ -204,6 +206,8 @@ export default function App() {
   const [inspectorWidth, setInspectorWidth] = useState<number>(280);
   // Toolbar filter — narrows the visible rows of the active pane by name.
   const [filterText, setFilterText] = useState<string>("");
+  // Machine-wide state filter driven by the icon rail's Needs review button.
+  const [stateFilter, setStateFilter] = useState<"needs-review" | null>(null);
   const [sortField, setSortField] = useState<SortField>("name");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
 
@@ -759,6 +763,24 @@ export default function App() {
 
       {/* Main Split Layout Body */}
       <div className="flex-1 flex overflow-hidden">
+        <IconRail
+          active={selectedSidebarItem === "discovery" ? "discovery" : "machine"}
+          needsReviewCount={needsReviewCount(inventory)}
+          needsReviewActive={stateFilter === "needs-review"}
+          onSelectMachine={() => {
+            handleSelectSidebarItem("profile");
+            invoke("set_preference", { key: "selected_sidebar_item", value: "profile" }).catch(() => {});
+          }}
+          onSelectDiscovery={() => {
+            handleSelectSidebarItem("discovery");
+            invoke("set_preference", { key: "selected_sidebar_item", value: "discovery" }).catch(() => {});
+          }}
+          onToggleNeedsReview={() =>
+            setStateFilter((prev) => (prev === "needs-review" ? null : "needs-review"))
+          }
+          onOpenSettings={() => setShowSettingsModal(true)}
+        />
+
         <Sidebar
           width={sidebarWidth}
           setWidth={setSidebarWidth}
@@ -771,7 +793,6 @@ export default function App() {
           detectedEngines={detectedEngines}
           linkedRepos={linkedDirectories}
           loadLinkedRepos={loadLinkedDirectories}
-          onOpenSettings={() => setShowSettingsModal(true)}
           onRefreshGlobalCounts={refreshGlobalCounts}
           setError={setError}
         />

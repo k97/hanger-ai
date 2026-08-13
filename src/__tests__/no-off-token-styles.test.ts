@@ -16,6 +16,9 @@ function escapeRegExp(str: string): string {
 }
 
 const ALLOWLIST_RAW = [
+  // Deliberate sub-scale exception: the rail's count badge is 15px tall and
+  // uses the prototype's 9px numeral (docs/hanger-mono-tight.html .ir-count).
+  { file: "src/components/IconRail.tsx", lineText: "<span className=\"absolute top-px right-0.5 min-w-[15px] h-[15px] px-1 rounded-pill bg-fill text-on-fill text-[9px] leading-[15px] font-flex tabular\">", category: "fontsize" as AllowlistCategory, reason: "Icon-rail count badge, prototype 9px numeral inside a 15px pill" },
   { file: "src/App.tsx", lineText: "<div className=\"w-full max-w-md bg-n-50 border border-n-100 rounded-lg shadow-2xl p-8 flex flex-col gap-6 text-center animate-in zoom-in-95 duration-200\">", category: "radius" as AllowlistCategory, reason: "Legacy radius/shadow/retiredtoken styling" },
 
   { file: "src/App.tsx", lineText: "<div className=\"w-14 h-14 rounded-full bg-accent flex items-center justify-center text-on-primary font-bold text-2xl mx-auto shadow-sm select-none\">", category: "radius" as AllowlistCategory, reason: "Legacy radius/shadow/fontweight styling" },
