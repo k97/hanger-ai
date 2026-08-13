@@ -14,6 +14,8 @@ interface ProfilePaneProps {
   selectedCategory?: CategoryType | null;
   selectedAsset?: { path: string } | null;
   loading: boolean;
+  /** Toolbar filter text — rows whose name does not contain it are hidden. */
+  filterText?: string;
   sortField?: SortField;
   sortDirection?: SortDirection;
   onSortChange?: (field: SortField) => void;
@@ -28,6 +30,7 @@ export default function ProfilePane({
   selectedCategory: propSelectedCategory,
   selectedAsset,
   loading,
+  filterText,
   sortField: propSortField,
   sortDirection: propSortDirection,
   onSortChange,
@@ -83,12 +86,22 @@ export default function ProfilePane({
 
   // Use the testable filter predicate utility
   const {
-    skills: filteredSkills,
-    tools: filteredTools,
-    rules: filteredRules,
+    skills: scopedSkills,
+    tools: scopedTools,
+    rules: scopedRules,
     agents: filteredAgents,
-    subagents: filteredSubagents,
+    subagents: scopedSubagents,
   } = filterProfileAssets(inventory, selectedCategory);
+
+  // Toolbar filter narrows by name only; empty text passes everything.
+  const filterQuery = (filterText ?? "").trim().toLowerCase();
+  const nameMatches = (name: string) =>
+    filterQuery === "" || name.toLowerCase().includes(filterQuery);
+
+  const filteredSkills = scopedSkills.filter((s) => nameMatches(s.name));
+  const filteredTools = scopedTools.filter((t) => nameMatches(t.name));
+  const filteredRules = scopedRules.filter((r) => nameMatches(r.name));
+  const filteredSubagents = scopedSubagents.filter((sa) => nameMatches(sa.name));
 
   // Check if the selected category itself is empty
   const isCategoryEmpty =

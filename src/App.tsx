@@ -38,6 +38,7 @@ import {
   AlertTriangle,
   X,
   Globe,
+  Search,
   Shield,
   Loader2,
   PanelLeft,
@@ -201,6 +202,8 @@ export default function App() {
 
   const [inspectorOpen, setInspectorOpen] = useState<boolean>(false);
   const [inspectorWidth, setInspectorWidth] = useState<number>(280);
+  // Toolbar filter — narrows the visible rows of the active pane by name.
+  const [filterText, setFilterText] = useState<string>("");
   const [sortField, setSortField] = useState<SortField>("name");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
 
@@ -650,68 +653,106 @@ export default function App() {
     );
   }
 
+  // Toolbar control voice: quiet 27px pills, tonal tint when pressed.
+  const tbBtnClass =
+    "h-[27px] min-w-[27px] px-2 rounded-pill inline-flex items-center justify-center text-ink-2 hover:bg-plane-2 hover:text-ink-1 transition-colors duration-hover ease-spring cursor-pointer";
+  const tbBtnActiveClass =
+    "h-[27px] min-w-[27px] px-2 rounded-pill inline-flex items-center justify-center bg-tint text-tint-ink transition-colors duration-hover ease-spring cursor-pointer";
+
+  // Crumb never shows a filesystem path — folder names only.
+  const crumbSegments: string[] =
+    selectedSidebarItem === "profile"
+      ? ["My machine", "User profile"]
+      : selectedSidebarItem === "global"
+      ? ["My machine", "Global"]
+      : selectedSidebarItem.startsWith("global:")
+      ? ["My machine", "Global", selectedSidebarItem.split(":")[1]]
+      : selectedSidebarItem === "discovery"
+      ? ["Discovery"]
+      : selectedSidebarItem.includes(":")
+      ? [
+          "My machine",
+          selectedSidebarItem.split(":")[0].split("/").pop() || selectedSidebarItem.split(":")[0],
+          selectedSidebarItem.split(":")[1],
+        ]
+      : ["My machine", selectedSidebarItem.split("/").pop() || selectedSidebarItem];
+
+  const activeTotal =
+    selectedSidebarItem.startsWith("/") || selectedSidebarItem.startsWith("~")
+      ? repoAssetCountsMap[selectedSidebarItem.split(":")[0]]?.total ?? 0
+      : assetCounts?.total ?? 0;
+
   return (
     <div className="h-screen w-screen bg-surface text-text-primary flex flex-col font-sans transition-colors duration-200 overflow-hidden">
-      {/* Top Application Header */}
-      <header className="h-[38px] min-h-[38px] max-h-[38px] border-b border-n-100 bg-surface px-4 flex items-center justify-between select-none z-30 shrink-0">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={toggleSidebar}
-            aria-label="Toggle sidebar"
-            title="Toggle sidebar (⌘⌥S)"
-            className="p-1 rounded-control text-text-secondary hover:text-text-primary hover:bg-n-50 transition-colors cursor-pointer"
-          >
-            <PanelLeft size={14} />
-          </button>
+      {/* Unified toolbar — thin top line, quiet pill controls, one filter */}
+      <header className="h-10 min-h-10 max-h-10 border-b border-line bg-page px-3 flex items-center gap-2.5 select-none z-30 shrink-0 font-flex">
+        <button
+          onClick={toggleSidebar}
+          aria-label="Toggle sidebar"
+          title="Toggle sidebar (⌘⌥S)"
+          className={tbBtnClass}
+        >
+          <PanelLeft size={15} />
+        </button>
 
-          <span className="text-xs font-medium text-text-primary font-sans">
-            {selectedSidebarItem === "profile"
-              ? "User Profile"
-              : selectedSidebarItem === "global"
-              ? "Global"
-              : selectedSidebarItem.startsWith("global:")
-              ? `Global › ${selectedSidebarItem.split(":")[1]}`
-              : selectedSidebarItem === "discovery"
-              ? "Discovery"
-              : selectedSidebarItem.includes(":")
-              ? `${selectedSidebarItem.split(":")[0].split("/").pop() || selectedSidebarItem.split(":")[0]} › ${selectedSidebarItem.split(":")[1]}`
-              : selectedSidebarItem.split("/").pop() || selectedSidebarItem}
-          </span>
+        <div className="flex items-center gap-[7px] text-small text-ink-3">
+          {crumbSegments.map((segment, idx) =>
+            idx === crumbSegments.length - 1 ? (
+              <b key={segment} className="font-medium text-ink-1">
+                {segment}
+              </b>
+            ) : (
+              <span key={segment} className="flex items-center gap-[7px]">
+                <span>{segment}</span>
+                <span>›</span>
+              </span>
+            )
+          )}
         </div>
 
-        <div className="flex items-center gap-2">
-<button
-            onClick={toggleInspector}
-            aria-label="Toggle inspector"
-            title="Toggle inspector"
-            className={`p-1 rounded-control transition-colors cursor-pointer ${
-              inspectorOpen
-                ? "bg-n-50 text-text-primary"
-                : "text-text-secondary hover:text-text-primary hover:bg-n-50"
-            }`}
-          >
-            <PanelRight size={14} />
-          </button>
+        <div className="ml-auto flex items-center gap-1">
+          <div className="relative w-[196px] h-[27px] mr-2">
+            <Search
+              size={12}
+              className="absolute left-2.5 top-2 text-ink-3 pointer-events-none"
+            />
+            <input
+              value={filterText}
+              onChange={(e) => setFilterText(e.target.value)}
+              aria-label="Filter assets"
+              placeholder={`Filter ${activeTotal} assets`}
+              className="w-full h-full rounded-pill border border-transparent bg-plane pl-[30px] pr-3.5 text-small text-ink-1 placeholder:text-ink-3 focus:outline-none focus:border-ink-1 focus:bg-page transition-colors duration-hover ease-spring"
+            />
+          </div>
 
           <button
             onClick={triggerScan}
             disabled={loading || scanning}
             aria-label="Refresh scan"
             title="Refresh scan"
-            className="p-1 rounded-control text-text-secondary hover:text-text-primary hover:bg-n-50 disabled:opacity-50 transition-colors cursor-pointer"
+            className={`${tbBtnClass} disabled:opacity-50`}
           >
-            <RefreshCw size={14} className={loading || scanning ? "animate-spin" : ""} />
+            <RefreshCw size={15} className={loading || scanning ? "animate-spin" : ""} />
           </button>
 
           <ScanStatusIndicator />
 
           <button
             onClick={() => setDarkMode(!darkMode)}
-            className="p-1 rounded-control border border-n-100 bg-surface hover:text-text-primary text-text-secondary transition-colors cursor-pointer aspect-square"
+            className={tbBtnClass}
             title="Toggle theme colour"
             aria-label="Toggle theme colour"
           >
-            {darkMode ? <Sun size={14} /> : <Moon size={14} />}
+            {darkMode ? <Sun size={15} /> : <Moon size={15} />}
+          </button>
+
+          <button
+            onClick={toggleInspector}
+            aria-label="Toggle inspector"
+            title="Toggle inspector"
+            className={inspectorOpen ? tbBtnActiveClass : tbBtnClass}
+          >
+            <PanelRight size={15} />
           </button>
         </div>
       </header>
@@ -760,6 +801,7 @@ export default function App() {
               }
               selectedAsset={selectedAsset}
               loading={loading || scanning}
+              filterText={filterText}
               sortField={sortField}
               sortDirection={sortDirection}
               onSortChange={handleSortChange}
@@ -788,6 +830,7 @@ export default function App() {
               inventory={inventory}
               assetCounts={repoAssetCountsMap[selectedSidebarItem.split(":")[0]] || null}
               loading={loading || scanning}
+              filterText={filterText}
               sortField={sortField}
               sortDirection={sortDirection}
               onSortChange={handleSortChange}

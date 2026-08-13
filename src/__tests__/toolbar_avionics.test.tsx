@@ -26,6 +26,9 @@ const mockPreferences: Record<string, string> = {
 
 let eventListeners: Record<string, Function> = {};
 
+// Mutable so individual tests can seed non-zero counts.
+let mockAssetCounts: any = { total: 0, byCategory: {}, engines: {} };
+
 vi.mock("@tauri-apps/api/event", () => ({
   listen: vi.fn((event: string, callback: any) => {
     eventListeners[event] = callback;
@@ -48,7 +51,7 @@ vi.mock("@tauri-apps/api/core", () => ({
     }
     if (cmd === "get_linked_directories") return ["/Users/test/project-alpha"];
     if (cmd === "get_asset_counts") {
-      return { total: 0, byCategory: {}, engines: {} };
+      return mockAssetCounts;
     }
     if (cmd === "get_inventory") {
       return { agents: [], skills: [], tools: [], rules: [], subagents: [], project_scans: [] };
@@ -71,6 +74,7 @@ describe("Avionics A3 Toolbar Verification", () => {
     eventListeners = {};
     mockPreferences.inspector_open = "false";
     mockPreferences.selected_sidebar_item = "profile";
+    mockAssetCounts = { total: 0, byCategory: {}, engines: {} };
   });
 
   it("renders exactly one theme control in the composed tree", async () => {
@@ -131,7 +135,56 @@ describe("Avionics A3 Toolbar Verification", () => {
 
     const newInspectorButton = await screen.findByTitle("Toggle inspector");
     expect(newInspectorButton).toBeTruthy();
-    expect(newInspectorButton.className).toContain("bg-n-50");
+    expect(newInspectorButton.className).toContain("bg-tint");
     second.unmount();
+  });
+
+  it("narrows visible rows through the toolbar filter field", async () => {
+    mockAssetCounts = {
+      total_assets: 2,
+      skill: { total: 2, global: 2, project: 0 },
+      engines: {},
+    };
+    const { unmount } = render(<App />);
+    await screen.findByTitle("Toggle theme colour");
+
+    const inventory = {
+      agents: [],
+      tools: [],
+      rules: [],
+      subagents: [],
+      project_scans: [],
+      skills: [
+        {
+          id: "1",
+          name: "alpha-skill",
+          description: "",
+          version: "1",
+          path: "/global/alpha",
+          scope: { Global: { agent: "claude" } },
+        },
+        {
+          id: "2",
+          name: "beta-skill",
+          description: "",
+          version: "1",
+          path: "/global/beta",
+          scope: { Global: { agent: "claude" } },
+        },
+      ],
+    };
+    eventListeners["scan://complete"]({ payload: { inventory } });
+
+    await screen.findByText("alpha-skill");
+    expect(screen.getByText("beta-skill")).toBeTruthy();
+
+    const filterInput = screen.getByLabelText("Filter assets");
+    fireEvent.change(filterInput, { target: { value: "alpha" } });
+
+    await waitFor(() => {
+      expect(screen.queryByText("beta-skill")).toBeNull();
+    });
+    expect(screen.getByText("alpha-skill")).toBeTruthy();
+    unmount();
   });
 });
