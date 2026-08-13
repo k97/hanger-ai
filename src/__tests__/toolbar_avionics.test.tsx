@@ -77,20 +77,34 @@ describe("Avionics A3 Toolbar Verification", () => {
     mockAssetCounts = { total: 0, byCategory: {}, engines: {} };
   });
 
-  it("renders exactly one theme control in the composed tree", async () => {
+  it("theme control lives in the settings panel, not the toolbar", async () => {
     const { unmount } = render(<App />);
-    const themeButton = await screen.findByTitle("Toggle theme colour");
-    expect(themeButton).toBeTruthy();
-    const themeButtons = screen.getAllByTitle("Toggle theme colour");
-    expect(themeButtons).toHaveLength(1);
+    await screen.findByTitle("Refresh scan");
+
+    // No theme control anywhere in the composed tree until settings opens
+    expect(screen.queryByTitle("Toggle theme colour")).toBeNull();
+    expect(screen.queryByText("Dark")).toBeNull();
+
+    // Open settings from the icon rail — the Light/Dark segment is the control
+    fireEvent.click(screen.getByTitle("Settings"));
+    const darkButton = await screen.findByText("Dark");
+    expect(screen.getAllByText("Dark")).toHaveLength(1);
+
+    // Choosing Dark persists the preference
+    fireEvent.click(darkButton);
+    await waitFor(() => {
+      expect(invoke).toHaveBeenCalledWith("set_preference", {
+        key: "dark_mode",
+        value: "true",
+      });
+    });
     unmount();
   });
 
   it("renders no filesystem path string in the toolbar region", async () => {
     mockPreferences.selected_sidebar_item = "/Users/test/project-alpha";
     const { unmount } = render(<App />);
-    const themeButton = await screen.findByTitle("Toggle theme colour");
-    expect(themeButton).toBeTruthy();
+    await screen.findByTitle("Refresh scan");
     const header = screen.getByRole("banner");
     expect(header.textContent).not.toContain("/Users/test/project-alpha");
     expect(header.textContent).toContain("project-alpha");
@@ -146,7 +160,7 @@ describe("Avionics A3 Toolbar Verification", () => {
       engines: {},
     };
     const { unmount } = render(<App />);
-    await screen.findByTitle("Toggle theme colour");
+    await screen.findByTitle("Refresh scan");
 
     const inventory = {
       agents: [],

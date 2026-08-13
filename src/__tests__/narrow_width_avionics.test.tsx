@@ -88,12 +88,11 @@ describe("Avionics A9 — Narrow-Width Layout Tests", () => {
       />
     );
 
-    // "Scan for repositories…" was removed: "Add repository…" now probes the
-    // folder it links, so a second button could only reintroduce the wrong
-    // choice. One action label remains, and it still must not wrap.
-    const addBtn = screen.getByText("Add repository…");
-    expect(addBtn.className).toContain("whitespace-nowrap");
-
+    // "Scan for repositories…" was removed, and the pinned footer button is
+    // gone too: the group header's + pill is the single add-repo affordance,
+    // so a second control could only reintroduce the wrong choice.
+    expect(screen.getByTitle("Add a repository")).toBeTruthy();
+    expect(screen.queryByText("Add repository…")).toBeNull();
     expect(screen.queryByText("Scan for repositories…")).toBeNull();
   });
 });

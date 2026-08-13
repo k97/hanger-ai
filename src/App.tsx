@@ -202,6 +202,12 @@ export default function App() {
     });
   };
 
+  // Theme lives in the settings panel and persists like every other layout choice.
+  const applyTheme = (dark: boolean) => {
+    setDarkMode(dark);
+    invoke("set_preference", { key: "dark_mode", value: dark ? "true" : "false" }).catch(() => {});
+  };
+
   const [inspectorOpen, setInspectorOpen] = useState<boolean>(false);
   const [inspectorWidth, setInspectorWidth] = useState<number>(396);
   // Toolbar filter — narrows the visible rows of the active pane by name.
@@ -438,6 +444,10 @@ export default function App() {
       const collapsedPref = await invoke<string | null>("get_preference", { key: "sidebar_collapsed" });
       if (collapsedPref === "true") {
         setSidebarCollapsed(true);
+      }
+      const darkPref = await invoke<string | null>("get_preference", { key: "dark_mode" });
+      if (darkPref === "true") {
+        setDarkMode(true);
       }
       const inspectorPref = await invoke<string | null>("get_preference", { key: "inspector_open" });
       if (inspectorPref === "true") {
@@ -752,15 +762,6 @@ export default function App() {
           <ScanStatusIndicator />
 
           <button
-            onClick={() => setDarkMode(!darkMode)}
-            className={tbBtnClass}
-            title="Toggle theme colour"
-            aria-label="Toggle theme colour"
-          >
-            {darkMode ? <Sun size={15} /> : <Moon size={15} />}
-          </button>
-
-          <button
             onClick={toggleInspector}
             aria-label="Toggle inspector"
             title="Toggle inspector"
@@ -1052,6 +1053,38 @@ export default function App() {
               >
                 Import Settings from JSON...
               </button>
+
+              <div className="border-t border-line pt-4 mt-2 flex flex-col gap-3">
+                <span className="text-micro font-medium uppercase tracking-[.06em] text-ink-3 font-flex">
+                  Appearance
+                </span>
+                <div className="flex gap-1.5 w-full" role="group" aria-label="Theme colour">
+                  <button
+                    aria-pressed={!darkMode}
+                    onClick={() => applyTheme(false)}
+                    className={
+                      !darkMode
+                        ? "flex-1 h-[30px] rounded-pill border border-transparent bg-tint text-tint-ink font-medium text-small font-flex cursor-pointer transition-colors duration-nav ease-spring inline-flex items-center justify-center gap-1.5"
+                        : "flex-1 h-[30px] rounded-pill border border-line-2 text-ink-2 text-small font-flex cursor-pointer transition-colors duration-nav ease-spring hover:bg-plane-2 inline-flex items-center justify-center gap-1.5"
+                    }
+                  >
+                    <Sun size={13} />
+                    Light
+                  </button>
+                  <button
+                    aria-pressed={darkMode}
+                    onClick={() => applyTheme(true)}
+                    className={
+                      darkMode
+                        ? "flex-1 h-[30px] rounded-pill border border-transparent bg-tint text-tint-ink font-medium text-small font-flex cursor-pointer transition-colors duration-nav ease-spring inline-flex items-center justify-center gap-1.5"
+                        : "flex-1 h-[30px] rounded-pill border border-line-2 text-ink-2 text-small font-flex cursor-pointer transition-colors duration-nav ease-spring hover:bg-plane-2 inline-flex items-center justify-center gap-1.5"
+                    }
+                  >
+                    <Moon size={13} />
+                    Dark
+                  </button>
+                </div>
+              </div>
 
               <div className="border-t border-line pt-4 mt-2 flex flex-col gap-3">
                 <span className="text-micro font-medium uppercase tracking-[.06em] text-ink-3 font-flex">

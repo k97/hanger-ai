@@ -295,17 +295,6 @@ export default function Sidebar({
         )}
       </div>
 
-      {/* Pinned bottom action */}
-      <div className="p-2.5 border-t border-line">
-        <button
-          onClick={handleAddRepo}
-          className="w-full flex items-center gap-2 h-[30px] px-3 rounded-pill hover:bg-plane-2 text-small font-medium text-ink-2 hover:text-ink-1 transition-colors duration-hover ease-spring cursor-pointer"
-        >
-          <Plus size={14} className="shrink-0" />
-          <span className="whitespace-nowrap">Add repository…</span>
-        </button>
-      </div>
-
       {/* Drag Resize Handle */}
       <div
         onMouseDown={handleMouseDown}
