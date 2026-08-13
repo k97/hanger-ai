@@ -32,6 +32,15 @@ export function isContainer(root: string, linked: string[]): boolean {
   return linkedDescendants(root, linked).length > 0;
 }
 
+/** Whether `root` sits inside another linked root — rendered as a child row. */
+export function hasLinkedAncestor(root: string, linked: string[]): boolean {
+  const self = stripTrailingSlash(root);
+  return linked.some((candidate) => {
+    const base = stripTrailingSlash(candidate);
+    return base !== self && self.startsWith(`${base}/`);
+  });
+}
+
 /** Subtitle for a container row, e.g. "Watched · 2 repos linked". */
 export function containerSubtitle(childCount: number): string {
   const noun = childCount === 1 ? "repo" : "repos";

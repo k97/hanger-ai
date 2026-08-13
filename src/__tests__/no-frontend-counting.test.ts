@@ -17,12 +17,6 @@ export interface AllowlistEntry {
 const ALLOWLIST: AllowlistEntry[] = [
   {
     file: "src/components/Sidebar.tsx",
-    linePattern: /linkedRepos\.\s*length/,
-    category: "ui",
-    reason: "Counts linked project roots for sidebar selection",
-  },
-  {
-    file: "src/components/Sidebar.tsx",
     linePattern: /linkedDescendants\(repoPath,\s*linkedRepos\)\.length/,
     category: "ui",
     reason:

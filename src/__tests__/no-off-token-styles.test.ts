@@ -363,8 +363,6 @@ const ALLOWLIST_RAW = [
   { file: "src/components/LinkAssetModal.tsx", lineText: "<span className=\"text-[10px] text-text-muted mt-1 leading-normal\">", category: "fontsize" as AllowlistCategory, reason: "Legacy arbitrary font size, pre-existing and undetected while the text-[] rule was unreachable" },
   { file: "src/components/RepoPane.tsx", lineText: "<span className=\"text-[11px] font-mono break-all\">{repoPath}</span>", category: "fontsize" as AllowlistCategory, reason: "Legacy arbitrary font size, pre-existing and undetected while the text-[] rule was unreachable" },
   { file: "src/components/RepoPane.tsx", lineText: "<p className=\"text-[11px] text-text-secondary leading-relaxed\">", category: "fontsize" as AllowlistCategory, reason: "Legacy arbitrary font size, pre-existing and undetected while the text-[] rule was unreachable" },
-  { file: "src/components/Sidebar.tsx", lineText: "<span className=\"text-[10px] text-text-muted truncate block\">", category: "fontsize" as AllowlistCategory, reason: "Legacy arbitrary font size, pre-existing and undetected while the text-[] rule was unreachable" },
-  { file: "src/components/Sidebar.tsx", lineText: "<span className=\"text-[10px] text-text-muted truncate block\">", category: "fontsize" as AllowlistCategory, reason: "Legacy arbitrary font size, pre-existing and undetected while the text-[] rule was unreachable" },
   { file: "src/components/SidebarScanModal.tsx", lineText: "<span className=\"text-[10px] text-text-muted font-mono block truncate\">", category: "fontsize" as AllowlistCategory, reason: "Legacy arbitrary font size, pre-existing and undetected while the text-[] rule was unreachable" },
 ];
 

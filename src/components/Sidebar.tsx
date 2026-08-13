@@ -4,7 +4,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import { Inventory, CategoryCounts } from "../App";
 import { sumGlobalAssets } from "../utils/globalAssetCount";
-import { containerSubtitle, linkedDescendants } from "../utils/containerRoots";
+import { containerSubtitle, linkedDescendants, hasLinkedAncestor } from "../utils/containerRoots";
 
 interface SidebarProps {
   width: number;
@@ -139,65 +139,89 @@ export default function Sidebar({
     }
   };
 
+  // Source-list row voice: 30px tonal pills, tint when current, micro counts.
+  const grpClass =
+    "flex items-center justify-between px-2.5 pt-[11px] pb-[5px] font-flex text-micro font-medium tracking-[.06em] uppercase text-ink-3";
+
   return (
     <div
       data-testid="sidebar"
       style={{ width }}
-      className="h-full flex flex-col bg-surface border-r border-n-100 relative select-none shrink-0 font-sans transition-[width] duration-240"
+      className="h-full flex flex-col bg-page border-r border-line relative select-none shrink-0 font-sans transition-[width] duration-240"
     >
-      {/* Sidebar Header: Profile selector */}
-      <div className="p-3 border-b border-n-100">
+      <div className="flex-1 overflow-y-auto px-2.5 pt-1 pb-3 min-h-0">
+        {/* Scope group */}
+        <div className={grpClass}>Scope</div>
         <div
           onClick={() => {
             setSelectedItem("profile");
             invoke("set_preference", { key: "selected_sidebar_item", value: "profile" }).catch(() => {});
           }}
-          className={`flex items-center justify-between p-2 rounded-control cursor-pointer transition-colors ${
-            selectedItem === "profile"
-              ? "bg-n-50 font-medium text-text-primary"
-              : "hover:bg-n-50/50 text-text-secondary"
+          tabIndex={0}
+          className={`flex items-center gap-2 min-h-[30px] px-3 py-0.5 rounded-pill cursor-pointer transition-colors duration-nav ease-spring ${
+            selectedItem === "profile" ? "bg-tint text-tint-ink" : "text-ink-2 hover:bg-plane-2"
           }`}
         >
-          <div className="flex items-center gap-2.5 min-w-0">
-            <User size={16} className="text-text-secondary shrink-0" />
-            <div className="truncate">
-              <span className="text-xs font-medium block">User Profile</span>
-              <span className="text-[10px] text-text-muted truncate block">
-                {agentsSubtitle}
-              </span>
-            </div>
+          <User
+            size={14}
+            className={`shrink-0 ${selectedItem === "profile" ? "text-tint-ink" : "text-ink-3"}`}
+          />
+          <div className="flex-1 min-w-0">
+            <span
+              className={`text-base-app truncate block ${
+                selectedItem === "profile" ? "font-medium" : ""
+              }`}
+            >
+              User Profile
+            </span>
+            <span
+              className={`text-micro truncate block ${
+                selectedItem === "profile" ? "text-tint-ink opacity-70" : "text-ink-3"
+              }`}
+            >
+              {agentsSubtitle}
+            </span>
           </div>
-          <span className="text-xs text-text-muted font-normal shrink-0">
+          <span
+            className={`text-micro tabular font-flex shrink-0 ${
+              selectedItem === "profile" ? "text-tint-ink opacity-70" : "text-ink-3"
+            }`}
+          >
             {globalAssetsTotal}
           </span>
         </div>
-      </div>
 
-      {/* Sidebar Body: Repositories List */}
-      <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-2 min-h-0">
-        <div className="flex items-center justify-between px-2 py-1 text-xs font-medium text-text-muted">
+        {/* Repositories group */}
+        <div className={grpClass}>
           <span>Repositories</span>
-          <span className="text-xs font-normal">({linkedRepos.length})</span>
+          <button
+            onClick={handleAddRepo}
+            title="Add a repository"
+            className="w-[22px] h-[22px] rounded-pill grid place-items-center text-ink-2 hover:bg-plane-2 hover:text-ink-1 transition-colors duration-hover ease-spring cursor-pointer"
+          >
+            <Plus size={14} />
+          </button>
         </div>
 
         {linkedRepos.length === 0 ? (
-          <div className="px-2 py-4 text-center text-xs text-text-muted flex flex-col gap-2 leading-relaxed">
+          <div className="px-2 py-4 text-center text-small text-ink-3 flex flex-col gap-2 leading-relaxed">
             <span>No repositories linked. Link a project folder to manage and deploy assets.</span>
             <button
               onClick={handleAddRepo}
-              className="text-xs font-medium text-accent hover:underline flex items-center gap-1 justify-center cursor-pointer"
+              className="text-small font-medium text-ink-1 hover:underline flex items-center gap-1 justify-center cursor-pointer"
             >
               <Plus size={12} /> Add Repo
             </button>
           </div>
         ) : (
-          <div className="flex flex-col gap-1">
+          <div className="flex flex-col gap-px">
             {linkedRepos.map((repoPath) => {
               const isActive = selectedItem === repoPath;
               const folderName = repoPath.split("/").pop() || repoPath;
               const count = repoCounts[repoPath] || 0;
               const childCount = linkedDescendants(repoPath, linkedRepos).length;
               const container = childCount > 0;
+              const child = hasLinkedAncestor(repoPath, linkedRepos);
               return (
                 <div
                   key={repoPath}
@@ -205,52 +229,65 @@ export default function Sidebar({
                     setSelectedItem(repoPath);
                     invoke("set_preference", { key: "selected_sidebar_item", value: repoPath }).catch(() => {});
                   }}
-                  className={`group flex items-center justify-between p-2 rounded-control cursor-pointer transition-colors text-xs ${
-                    isActive
-                      ? "bg-n-50 font-medium text-text-primary"
-                      : "hover:bg-n-50/50 text-text-secondary"
-                  }`}
+                  tabIndex={0}
+                  className={`group flex items-center gap-2 min-h-[30px] py-0.5 rounded-pill cursor-pointer transition-colors duration-nav ease-spring ${
+                    child ? "pl-[26px] pr-3" : "px-3"
+                  } ${isActive ? "bg-tint text-tint-ink" : "text-ink-2 hover:bg-plane-2"}`}
                 >
-                  <div className="flex items-center gap-2 min-w-0">
-                    {container ? (
-                      <FolderTree size={14} className="text-text-muted shrink-0" />
+                  {!child &&
+                    (container ? (
+                      <FolderTree
+                        size={14}
+                        className={`shrink-0 ${isActive ? "text-tint-ink" : "text-ink-3"}`}
+                      />
                     ) : (
-                      <Folder size={14} className="text-text-muted shrink-0" />
-                    )}
-                    <div className="min-w-0">
-                      <span className="truncate block" title={repoPath}>
-                        {folderName}
-                      </span>
-                      {container && (
-                        <span className="text-[10px] text-text-muted truncate block">
-                          {containerSubtitle(childCount)}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <span className="text-xs text-text-muted font-normal">
-                      {count}
-                    </span>
-                    <button
-                      onClick={async (e) => {
-                        e.stopPropagation();
-                        try {
-                          await invoke("unlink_directory", { path: repoPath });
-                          await loadLinkedRepos();
-                          if (onRefreshGlobalCounts) {
-                            await onRefreshGlobalCounts();
-                          }
-                        } catch (err: any) {
-                          setError(String(err));
-                        }
-                      }}
-                      className="p-1 rounded-control hover:bg-surface text-text-muted hover:text-text-primary opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity cursor-pointer"
-                      title="Unlink repository"
+                      <Folder
+                        size={14}
+                        className={`shrink-0 ${isActive ? "text-tint-ink" : "text-ink-3"}`}
+                      />
+                    ))}
+                  <div className="flex-1 min-w-0">
+                    <span
+                      className={`text-base-app truncate block ${isActive ? "font-medium" : ""}`}
+                      title={repoPath}
                     >
-                      <Trash2 size={12} />
-                    </button>
+                      {folderName}
+                    </span>
+                    {container && (
+                      <span
+                        className={`text-micro truncate block ${
+                          isActive ? "text-tint-ink opacity-70" : "text-ink-3"
+                        }`}
+                      >
+                        {containerSubtitle(childCount)}
+                      </span>
+                    )}
                   </div>
+                  <span
+                    className={`text-micro tabular font-flex shrink-0 ${
+                      isActive ? "text-tint-ink opacity-70" : "text-ink-3"
+                    }`}
+                  >
+                    {count}
+                  </span>
+                  <button
+                    onClick={async (e) => {
+                      e.stopPropagation();
+                      try {
+                        await invoke("unlink_directory", { path: repoPath });
+                        await loadLinkedRepos();
+                        if (onRefreshGlobalCounts) {
+                          await onRefreshGlobalCounts();
+                        }
+                      } catch (err: any) {
+                        setError(String(err));
+                      }
+                    }}
+                    className="p-1 rounded-pill hover:bg-plane-2 text-ink-3 hover:text-ink-1 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity duration-hover cursor-pointer shrink-0"
+                    title="Unlink repository"
+                  >
+                    <Trash2 size={12} />
+                  </button>
                 </div>
               );
             })}
@@ -258,11 +295,11 @@ export default function Sidebar({
         )}
       </div>
 
-      {/* Pinned Bottom Actions */}
-      <div className="p-3 border-t border-n-100 flex flex-col gap-1.5">
+      {/* Pinned bottom action */}
+      <div className="p-2.5 border-t border-line">
         <button
           onClick={handleAddRepo}
-          className="w-full flex items-center gap-2 px-3 py-1.5 rounded-control hover:bg-n-50 text-xs font-medium text-text-secondary transition-colors cursor-pointer"
+          className="w-full flex items-center gap-2 h-[30px] px-3 rounded-pill hover:bg-plane-2 text-small font-medium text-ink-2 hover:text-ink-1 transition-colors duration-hover ease-spring cursor-pointer"
         >
           <Plus size={14} className="shrink-0" />
           <span className="whitespace-nowrap">Add repository…</span>
@@ -272,7 +309,7 @@ export default function Sidebar({
       {/* Drag Resize Handle */}
       <div
         onMouseDown={handleMouseDown}
-        className="absolute top-0 right-0 w-1.5 h-full cursor-col-resize hover:bg-accent/40 select-none z-10 transition-colors"
+        className="absolute top-0 right-0 w-1.5 h-full cursor-col-resize hover:bg-line-2 select-none z-10 transition-colors duration-hover"
       />
     </div>
   );
