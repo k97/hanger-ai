@@ -40,6 +40,16 @@ interface DeployWizardProps {
   onCancel: () => void;
 }
 
+const labelClass =
+  "text-micro font-medium uppercase tracking-[.06em] text-ink-3 font-flex select-none";
+const selectClass =
+  "w-full px-2.5 py-2 rounded-inner border border-line-2 bg-page text-ink-1 text-small font-mono cursor-pointer focus:outline-none focus:border-ink-1";
+const mechBtnClass =
+  "flex-1 h-[30px] rounded-pill border border-line-2 text-ink-2 text-small font-flex cursor-pointer transition-colors duration-nav ease-spring hover:bg-plane-2";
+const mechBtnPressedClass =
+  "flex-1 h-[30px] rounded-pill border border-transparent bg-tint text-tint-ink font-medium text-small font-flex cursor-pointer transition-colors duration-nav ease-spring";
+
+/** Screen 2 of the inspector: the link flow, same panel, with a way back. */
 export default function DeployWizard({
   deployingAsset,
   linkedProjects,
@@ -62,35 +72,31 @@ export default function DeployWizard({
   onCancel
 }: DeployWizardProps) {
   return (
-    <div className="flex-1 p-6 flex flex-col gap-6 bg-surface overflow-y-auto relative font-sans">
-      <div className="flex justify-between items-center border-b border-n-100 pb-4">
-        <div>
-          <span className="text-[10px] font-bold uppercase tracking-wider text-accent">
-            Deploy Flow
-          </span>
-          <h3 className="text-title font-bold text-text-primary mt-1 truncate max-w-[280px]">
-            {deployingAsset.name}
-          </h3>
-        </div>
+    <div className="flex-1 p-[18px] flex flex-col gap-5 bg-page overflow-y-auto relative font-sans">
+      <div className="border-b border-line pb-3.5">
+        <span className={labelClass}>Link flow</span>
+        <h3 className="text-lg-app font-medium tracking-[-0.3px] text-ink-1 mt-1 truncate max-w-[280px]">
+          {deployingAsset.name}
+        </h3>
       </div>
 
       {deploySuccess ? (
-        <div className="flex-1 flex flex-col items-center justify-center gap-2 text-success-text">
-          <div className="w-12 h-12 rounded-full bg-success-bg border border-success-border flex items-center justify-center animate-bounce">
+        <div className="flex-1 flex flex-col items-center justify-center gap-2 animate-in fade-in zoom-in-95 duration-200">
+          <div className="w-12 h-12 rounded-pill bg-plane border border-line flex items-center justify-center text-state-success">
             <Check size={24} />
           </div>
-          <span className="text-sm font-bold font-sans mt-2">Asset Deployed Successfully!</span>
-          <span className="text-xs text-text-muted">Updating project inventory constellation...</span>
+          <span className="text-base-app font-medium text-ink-1 mt-2">Asset linked successfully</span>
+          <span className="text-small text-ink-3">Updating the project inventory…</span>
         </div>
       ) : (
-        <div className="flex-1 flex flex-col gap-6">
+        <div className="flex-1 flex flex-col gap-5">
           {/* Target Project Selection */}
           <div className="flex flex-col gap-2">
-            <label className="text-xs font-bold text-text-muted uppercase">Target Project</label>
+            <label className={labelClass}>Destination</label>
             <select
               value={selectedDestProject}
               onChange={(e) => setSelectedDestProject(e.target.value)}
-              className="w-full px-3 py-2 rounded border border-n-100 bg-surface text-text-secondary text-xs focus:ring-1 focus:ring-accent outline-none font-mono cursor-pointer"
+              className={selectClass}
             >
               <option value="">-- Choose destination root --</option>
               {linkedProjects.map((proj) => (
@@ -103,34 +109,34 @@ export default function DeployWizard({
 
           {/* Conditional Target Rule Chooser (if category is Rules and destination is chosen) */}
           {deployingAsset.category === "Rules" && selectedDestProject && (
-            <div className="flex flex-col gap-3 p-4 rounded bg-n-50 border border-n-100">
-              <span className="text-xs font-bold uppercase tracking-wider text-text-muted flex items-center gap-1.5 select-none">
+            <div className="flex flex-col gap-3 p-3.5 rounded-inner bg-plane border border-line">
+              <span className={`${labelClass} flex items-center gap-1.5`}>
                 <FileText size={12} />
-                Rule Destination Target Path
+                Rule destination target path
               </span>
-              
+
               {rememberedTarget ? (
-                <div className="flex items-center justify-between bg-surface border border-n-100 rounded p-2.5">
-                  <div className="flex flex-col gap-0.5">
-                    <span className="text-[10px] uppercase font-bold text-accent">Remembered Target</span>
-                    <span className="text-xs font-mono text-text-secondary truncate max-w-[280px]">{rememberedTarget}</span>
+                <div className="flex items-center justify-between bg-page border border-line rounded-inner p-2.5">
+                  <div className="flex flex-col gap-0.5 min-w-0">
+                    <span className={labelClass}>Remembered target</span>
+                    <span className="text-small font-mono text-ink-2 truncate max-w-[280px]">{rememberedTarget}</span>
                   </div>
                   <button
                     onClick={onResetTargetMemory}
-                    className="p-1 rounded text-text-muted hover:text-error-text hover:bg-n-50 transition-all cursor-pointer text-[10px] font-bold uppercase"
+                    className="px-2.5 h-[22px] rounded-pill text-micro font-medium font-flex text-ink-3 hover:text-ink-1 hover:bg-plane-2 transition-colors duration-hover cursor-pointer shrink-0"
                   >
                     Change
                   </button>
                 </div>
               ) : (
                 <div className="flex flex-col gap-2">
-                  <p className="text-xs text-text-muted">
+                  <p className="text-small text-ink-3 leading-[1.6]">
                     Select the specific destination rule file path in the target project. Subdirectories are listed root-to-deepest:
                   </p>
                   <select
                     value={selectedTargetRulePath}
                     onChange={(e) => setSelectedTargetRulePath(e.target.value)}
-                    className="w-full px-3 py-2 rounded border border-n-100 bg-surface text-text-secondary text-xs font-mono cursor-pointer"
+                    className={selectClass}
                   >
                     {destRules.map((r) => (
                       <option key={r.path} value={r.path}>
@@ -146,53 +152,46 @@ export default function DeployWizard({
             </div>
           )}
 
-          {/* Deploy Type Selector (hidden/disabled for Rules merge collisions) */}
+          {/* Mechanism (hidden for Rules merge collisions) */}
           {(!preflight?.collision || deployingAsset.category !== "Rules") && (
             <div className="flex flex-col gap-2">
-              <label className="text-xs font-bold text-text-muted uppercase">Deploy Type</label>
-              <div className="grid grid-cols-2 gap-3">
+              <label className={labelClass}>Mechanism</label>
+              <div className="flex gap-1.5 w-full">
                 <button
                   type="button"
+                  aria-pressed={deployType === "symlink"}
                   onClick={() => setDeployType("symlink")}
-                  className={`flex flex-col p-3 rounded-md border text-left cursor-pointer transition-all ${
-                    deployType === "symlink"
-                      ? "border-accent bg-accent/5 ring-1 ring-accent"
-                      : "border-n-100 hover:border-accent bg-n-50"
-                  }`}
+                  className={deployType === "symlink" ? mechBtnPressedClass : mechBtnClass}
                 >
-                  <span className="text-xs font-bold text-text-primary">Symlink</span>
-                  <span className="text-[10px] text-text-muted mt-1 leading-normal">
-                    Creates a local symbolic link. Best for unified team rule updates with zero drift.
-                  </span>
+                  Symlink
                 </button>
                 <button
                   type="button"
+                  aria-pressed={deployType === "copy"}
                   onClick={() => setDeployType("copy")}
-                  className={`flex flex-col p-3 rounded-md border text-left cursor-pointer transition-all ${
-                    deployType === "copy"
-                      ? "border-accent bg-accent/5 ring-1 ring-accent"
-                      : "border-n-100 hover:border-accent bg-n-50"
-                  }`}
+                  className={deployType === "copy" ? mechBtnPressedClass : mechBtnClass}
                 >
-                  <span className="text-xs font-bold text-text-primary">Hard Copy</span>
-                  <span className="text-[10px] text-text-muted mt-1 leading-normal">
-                    Copies the physical file. Allows project-level customizations but tracks version drift.
-                  </span>
+                  Tracked copy
                 </button>
               </div>
+              <p className="text-micro text-ink-3 leading-[1.6]">
+                A symlink stays in step with the source file, so an edit there reaches every
+                project at once. A tracked copy can be edited per project and Hanger tells you
+                when it drifts.
+              </p>
             </div>
           )}
 
           {/* Preflight Check Info Panel */}
           {selectedDestProject && (
-            <div className="flex flex-col gap-2 p-4 rounded border border-n-100 bg-n-50">
-              <span className="text-xs font-bold uppercase tracking-wider text-text-muted flex items-center gap-1.5 select-none">
+            <div className="flex flex-col gap-2 p-3.5 rounded-inner border border-line bg-plane">
+              <span className={`${labelClass} flex items-center gap-1.5`}>
                 <Globe size={12} />
-                Pre-flight Verification
+                What will happen
               </span>
 
               {preflightLoading ? (
-                <div className="flex items-center gap-2 text-text-muted text-xs py-2">
+                <div className="flex items-center gap-2 text-ink-3 text-small py-2">
                   <Loader2 className="animate-spin" size={12} />
                   Running pre-flight checks...
                 </div>
@@ -200,24 +199,24 @@ export default function DeployWizard({
                 <div className="flex flex-col gap-2 mt-1">
                   {preflight.collision ? (
                     deployingAsset.category === "Rules" ? (
-                      <div className="flex items-start gap-2 p-2 border border-warning-border bg-warning-bg text-warning-text text-xs rounded leading-normal">
+                      <div className="flex items-start gap-2 text-state-warning text-small leading-[1.6]">
                         <AlertTriangle size={14} className="shrink-0 mt-0.5" />
                         <div>
-                          <span className="font-bold">Collision Detected:</span> Merging conflicting Markdown heading blocks requires the Interactive Rules Diff Chooser. *Standard overwrite is disabled.*
+                          <span className="font-medium">Collision detected:</span> merging conflicting Markdown heading blocks requires the interactive rules diff chooser. Standard overwrite is disabled.
                         </div>
                       </div>
                     ) : (
-                      <div className="flex items-start gap-2 p-2 border border-error-border bg-error-bg text-error-text text-xs rounded leading-normal">
+                      <div className="flex items-start gap-2 text-state-danger text-small leading-[1.6]">
                         <AlertTriangle size={14} className="shrink-0 mt-0.5" />
                         <div>
-                          <span className="font-bold">Collision Warning:</span> Destination path already exists. Confirming will overwrite the existing version using transactional file replacements.
+                          <span className="font-medium">Collision warning:</span> the destination path already exists. Confirming will overwrite the existing version using transactional file replacements.
                         </div>
                       </div>
                     )
                   ) : (
-                    <div className="flex items-start gap-1.5 text-success-text text-xs font-semibold py-1">
+                    <div className="flex items-start gap-1.5 text-state-success text-small font-medium py-1">
                       <Check size={14} />
-                      Destination path clear. Safe to deploy.
+                      Destination path clear. Safe to link.
                     </div>
                   )}
                 </div>
@@ -227,41 +226,41 @@ export default function DeployWizard({
 
           {/* Actions */}
           {deployError && (
-            <div className="p-2 border border-error-border bg-error-bg text-error-text text-xs rounded font-mono">
+            <div className="p-2.5 rounded-inner border border-line bg-plane text-state-danger text-small font-mono break-all">
               {deployError}
             </div>
           )}
 
-          <div className="flex gap-3 justify-end mt-auto pt-6 border-t border-n-100">
+          <div className="flex gap-2 justify-end mt-auto pt-4 border-t border-line">
             {preflight?.collision && deployingAsset.category === "Rules" ? (
               <button
                 disabled={deployLoading || preflightLoading}
                 onClick={onOpenMergeChooser}
-                className="flex-1 py-2.5 rounded-md bg-accent text-on-accent font-semibold text-sm hover:opacity-95 transition-opacity disabled:opacity-50 cursor-pointer text-center shadow-sm"
+                className="flex-1 h-[30px] rounded-pill bg-fill text-on-fill text-small font-medium disabled:opacity-50 cursor-pointer text-center transition-transform duration-press ease-spring active:scale-[0.96]"
               >
-                Compare & Merge Rules...
+                Compare & merge rules…
               </button>
             ) : (
               <button
                 disabled={!selectedDestProject || deployLoading || preflightLoading}
                 onClick={onExecuteDeploy}
-                className="flex-1 py-2.5 rounded-md bg-accent text-on-accent font-semibold text-sm hover:opacity-95 transition-opacity disabled:opacity-50 cursor-pointer text-center shadow-sm"
+                className="flex-1 h-[30px] rounded-pill bg-fill text-on-fill text-small font-medium disabled:opacity-50 cursor-pointer text-center transition-transform duration-press ease-spring active:scale-[0.96]"
               >
                 {deployLoading ? (
                   <span className="flex items-center justify-center gap-2">
                     <Loader2 className="animate-spin" size={14} />
-                    Deploying...
+                    Linking…
                   </span>
                 ) : preflight?.collision ? (
-                  "Overwrite & Deploy"
+                  "Overwrite & link"
                 ) : (
-                  "Deploy Asset"
+                  "Link"
                 )}
               </button>
             )}
             <button
               onClick={onCancel}
-              className="px-6 py-2.5 rounded-md border border-n-100 bg-n-50 text-text-secondary hover:text-text-primary transition-colors text-sm font-medium cursor-pointer"
+              className="px-4 h-[30px] rounded-pill border border-line-2 text-ink-2 hover:bg-plane-2 hover:text-ink-1 transition-colors duration-hover ease-spring text-small font-medium cursor-pointer"
             >
               Cancel
             </button>

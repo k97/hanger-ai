@@ -6,7 +6,10 @@ import {
   AlertTriangle,
   Link as LinkIcon,
   Globe,
+  Copy,
+  SquareArrowOutUpRight,
 } from "lucide-react";
+import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import { Inventory } from "../App";
 import DeployWizard, { FlatAssetItem, PreflightResult } from "./DeployWizard";
 import DiffChooser, { AlignedSection } from "./DiffChooser";
@@ -526,41 +529,39 @@ export default function Flyout({
   return (
     <aside
       style={{ width: `${width}px` }}
-      className="h-full bg-surface border-l border-n-100 flex flex-col relative shrink-0 overflow-hidden"
+      className="h-full bg-page border-l border-line flex flex-col relative shrink-0 overflow-hidden"
     >
       {/* Drag Resize Handle on Left Edge */}
       <div
         onMouseDown={handleMouseDown}
-        className="absolute top-0 bottom-0 left-0 w-1.5 cursor-col-resize hover:bg-accent/40 active:bg-accent z-10 transition-colors"
+        className="absolute top-0 bottom-0 left-0 w-1.5 cursor-col-resize hover:bg-line-2 active:bg-line-2 z-10 transition-colors duration-hover"
       />
 
-      {/* Header */}
-      <div className="p-4 border-b border-n-100 flex justify-between items-center bg-surface shrink-0">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-medium uppercase tracking-wider text-text-primary px-2 py-0.5 rounded-full bg-n-50 border border-n-100">
-              {targetAsset ? targetAsset.category : selectedBubble ? `${selectedBubble.type} scope` : "Inspector"}
+      {/* Header — eyebrow voice, then the title */}
+      <div className="px-[18px] pt-4 pb-3 border-b border-line shrink-0">
+        <div className="flex items-center gap-2 font-flex text-micro font-medium tracking-[.06em] uppercase text-ink-3">
+          <span>
+            {targetAsset ? targetAsset.category : selectedBubble ? `${selectedBubble.type} scope` : "Inspector"}
+          </span>
+          {selectedProjectScan?.layered && (
+            <span className="flex items-center gap-1 text-state-danger normal-case tracking-normal">
+              <AlertTriangle size={10} />
+              Layered rules
             </span>
-            {selectedProjectScan?.layered && (
-              <span className="text-[10px] font-bold uppercase tracking-wider text-error-text bg-error-bg border border-error-border px-2 py-0.5 rounded-xs flex items-center gap-1 font-sans">
-                <AlertTriangle size={10} />
-                Layered Rules
-              </span>
-            )}
-          </div>
-          <h2 className="text-sm font-bold mt-1 text-text-primary truncate max-w-[280px] font-sans">
-            {targetAsset ? targetAsset.name : selectedBubble ? selectedBubble.name : "Asset Inspector"}
-          </h2>
+          )}
+          <button
+            onClick={() => {
+              if (onClose) onClose();
+              if (setSelectedBubble) setSelectedBubble(null);
+            }}
+            className="ml-auto w-[27px] h-[27px] rounded-pill grid place-items-center text-ink-2 hover:bg-plane-2 hover:text-ink-1 cursor-pointer transition-colors duration-hover ease-spring"
+          >
+            <X size={14} />
+          </button>
         </div>
-        <button
-          onClick={() => {
-            if (onClose) onClose();
-            if (setSelectedBubble) setSelectedBubble(null);
-          }}
-          className="p-1.5 rounded-full border border-n-100 bg-surface hover:text-text-primary text-text-secondary cursor-pointer transition-colors"
-        >
-          <X size={16} />
-        </button>
+        <h2 className="text-lg-app font-medium tracking-[-0.3px] mt-1 text-ink-1 truncate max-w-[280px] font-sans">
+          {targetAsset ? targetAsset.name : selectedBubble ? selectedBubble.name : "Asset Inspector"}
+        </h2>
       </div>
 
       {/* Conditional Sub-components Coordinator */}
@@ -610,46 +611,62 @@ export default function Flyout({
         </>
       ) : targetAsset ? (
         /* Selected Asset Detail View: Render full path in SF Mono without truncation */
-        <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-4 font-sans">
+        <div className="flex-1 overflow-y-auto p-[18px] flex flex-col gap-4 font-sans">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-text-secondary bg-surface px-2 py-0.5 rounded-control border border-n-100 font-sans">
+            <span className="text-small font-medium text-ink-2 font-flex px-2.5 py-0.5 rounded-pill bg-plane-2">
               {targetAsset.scopeBadge || "Project"}
             </span>
             {targetAsset.version && (
-              <span className="text-[10px] font-mono font-medium text-text-muted px-1.5 py-0.2 border border-n-100 rounded-control bg-surface">
+              <span className="text-micro font-mono text-ink-3 px-2 py-0.5 rounded-pill bg-plane-2">
                 {targetAsset.version}
               </span>
             )}
           </div>
 
           {/* Full Path Rendering in SF Mono (font-mono), no truncation, break-all */}
-          <div className="flex flex-col gap-1">
-            <span className="text-[10px] font-medium uppercase tracking-wider text-text-muted font-sans">
+          <div className="flex flex-col gap-1.5">
+            <span className="text-micro font-medium uppercase tracking-[.06em] text-ink-3 font-flex">
               Path
             </span>
-            <div className="text-xs font-mono text-text-primary bg-surface border border-n-100 p-2.5 rounded-control break-all leading-relaxed select-all">
-              {targetAsset.path}
+            <div className="flex items-start gap-1.5 bg-plane rounded-inner py-2 pl-2.5 pr-1.5">
+              <span className="flex-1 text-micro font-mono text-ink-2 break-all leading-relaxed select-all">
+                {targetAsset.path}
+              </span>
+              <button
+                title="Copy path"
+                onClick={() => navigator.clipboard?.writeText(targetAsset.path).catch(() => {})}
+                className="p-1 rounded-pill text-ink-3 hover:bg-plane-2 hover:text-ink-1 cursor-pointer transition-colors duration-hover shrink-0"
+              >
+                <Copy size={13} />
+              </button>
+              <button
+                title="Reveal in Finder"
+                onClick={() => revealItemInDir(targetAsset.path).catch(() => {})}
+                className="p-1 rounded-pill text-ink-3 hover:bg-plane-2 hover:text-ink-1 cursor-pointer transition-colors duration-hover shrink-0"
+              >
+                <SquareArrowOutUpRight size={13} />
+              </button>
             </div>
           </div>
 
           {/* Resolved Target Path (if symlink or has source_path/source_origin) */}
           {((targetAsset as any).source_path || (targetAsset as any).source_origin || (((targetAsset as any).isSymlink || (targetAsset as any).is_symlink) && targetAsset.details?.includes("Origin:"))) && (
-            <div className="flex flex-col gap-1">
-              <span className="text-[10px] font-medium uppercase tracking-wider text-text-muted font-sans">
+            <div className="flex flex-col gap-1.5">
+              <span className="text-micro font-medium uppercase tracking-[.06em] text-ink-3 font-flex">
                 Target Path
               </span>
-              <div className="text-xs font-mono text-text-primary bg-surface border border-n-100 p-2.5 rounded-control break-all leading-relaxed select-all">
+              <div className="text-micro font-mono text-ink-2 bg-plane p-2.5 rounded-inner break-all leading-relaxed select-all">
                 {(targetAsset as any).source_path || (targetAsset as any).source_origin || targetAsset.details?.replace("Origin: ", "")}
               </div>
             </div>
           )}
 
           {targetAsset.details && (
-            <div className="flex flex-col gap-1">
-              <span className="text-[10px] font-medium uppercase tracking-wider text-text-muted font-sans">
+            <div className="flex flex-col gap-1.5">
+              <span className="text-micro font-medium uppercase tracking-[.06em] text-ink-3 font-flex">
                 Details
               </span>
-              <p className="text-xs text-text-secondary font-sans">
+              <p className="text-small text-ink-2 leading-[1.65] font-sans">
                 {targetAsset.details}
               </p>
             </div>
@@ -658,23 +675,23 @@ export default function Flyout({
           {targetAsset.category !== "Agents" && targetAsset.category !== "Subagents" && (
             <button
               onClick={() => setDeployingAsset(targetAsset as FlatAssetItem)}
-              className="mt-2 py-2 px-4 rounded-control bg-accent text-on-accent text-xs font-medium tracking-wide uppercase transition-all cursor-pointer hover:opacity-95 text-center font-sans"
+              className="mt-2 h-[30px] px-4 rounded-pill bg-fill text-on-fill text-small font-medium transition-transform duration-press ease-spring active:scale-[0.96] cursor-pointer text-center font-sans self-start"
             >
-              Deploy Asset
+              Link to…
             </button>
           )}
         </div>
       ) : selectedBubble ? (
         /* Regular flyout content list for bubble scope */
-        <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-6 font-sans" ref={parentRef}>
+        <div className="flex-1 overflow-y-auto p-[18px] flex flex-col gap-4 font-sans" ref={parentRef}>
           {/* Display project-wide warnings/drift logs */}
           {selectedProjectScan && selectedProjectScan.parse_warnings.length > 0 && (
-            <div className="p-4 rounded-md border border-warning-border bg-warning-bg text-warning-text flex flex-col gap-2 shadow-sm">
-              <span className="text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 font-sans">
+            <div className="p-3.5 rounded-inner border border-line bg-plane flex flex-col gap-2">
+              <span className="text-micro font-medium uppercase tracking-[.06em] text-state-warning flex items-center gap-1.5 font-flex">
                 <AlertTriangle size={12} />
                 Warnings Captured during Scan ({selectedProjectScan.parse_warnings.length})
               </span>
-              <ul className="text-xs list-disc pl-4 flex flex-col gap-1">
+              <ul className="text-small text-ink-2 list-disc pl-4 flex flex-col gap-1">
                 {selectedProjectScan.parse_warnings.map((warning, idx) => (
                   <li key={idx} className="font-mono break-all leading-relaxed">
                     {warning}
@@ -685,9 +702,9 @@ export default function Flyout({
           )}
 
           {filteredAssets.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-20 text-text-muted">
+            <div className="flex flex-col items-center justify-center py-20 text-ink-3">
               <Globe className="stroke-[1.5] mb-2" size={40} />
-              <span className="text-ui font-sans">No assets resolved in this scope.</span>
+              <span className="text-small font-sans">No assets resolved in this scope.</span>
             </div>
           ) : (
             <div
@@ -713,38 +730,38 @@ export default function Flyout({
                     className="flex flex-col justify-center border-b border-transparent"
                   >
                     {item.type === "header" ? (
-                      <div className="text-xs font-bold text-text-muted uppercase tracking-wider py-2 border-b border-n-100 mt-3 first:mt-0 mb-1 font-sans">
+                      <div className="text-micro font-medium text-ink-3 uppercase tracking-[.06em] py-2 mt-3 first:mt-0 mb-1 font-flex">
                         {item.category}
                       </div>
                     ) : (
-                      <div className="flex items-center justify-between py-2 px-3 hover:bg-n-25 rounded-md border border-transparent hover:border-n-100 transition-all group font-sans">
+                      <div className="flex items-center justify-between py-2 px-3 hover:bg-plane-2 rounded-inner transition-colors duration-hover ease-spring group font-sans">
                         <div className="flex-1 min-w-0 pr-4">
                           <div className="flex items-center gap-2">
                             {item.isSymlink && (
                               <span title="Symlinked reference">
-                                <LinkIcon size={12} className="text-accent shrink-0" />
+                                <LinkIcon size={12} className="text-state-success shrink-0" />
                               </span>
                             )}
-                            <span className="text-sm font-semibold text-text-primary truncate block max-w-[200px]">
+                            <span className="text-base-app font-medium text-ink-1 truncate block max-w-[200px]">
                               {item.name}
                             </span>
                             {item.version && (
-                              <span className="text-[10px] font-mono font-bold text-text-muted px-1.5 py-0.2 border border-n-100 rounded bg-surface">
+                              <span className="text-micro font-mono text-ink-3 px-1.5 py-0.5 rounded-pill bg-plane-2">
                                 {item.version}
                               </span>
                             )}
                             {item.drifted && (
-                              <span className="text-[9px] font-bold uppercase tracking-wider text-warning-text bg-warning-bg border border-warning-border px-1.5 py-0.2 rounded flex items-center gap-0.5 shrink-0">
+                              <span className="text-micro font-medium text-state-warning flex items-center gap-0.5 shrink-0 font-flex">
                                 <AlertTriangle size={10} />
                                 drifted
                               </span>
                             )}
                           </div>
-                          <span className="text-[10px] text-text-muted block truncate max-w-[300px] font-mono mt-0.5">
+                          <span className="text-micro text-ink-3 block truncate max-w-[300px] font-mono mt-0.5">
                             {item.path}
                           </span>
                           {item.details && (
-                            <span className="text-[10px] text-text-muted block truncate mt-0.5">
+                            <span className="text-micro text-ink-3 block truncate mt-0.5">
                               {item.details}
                             </span>
                           )}
@@ -755,12 +772,12 @@ export default function Flyout({
                           {item.category !== "Agents" && item.category !== "Subagents" && (
                             <button
                               onClick={() => setDeployingAsset(item)}
-                              className="opacity-0 group-hover:opacity-100 px-3 py-1 rounded-md bg-accent text-on-accent text-[10px] font-bold tracking-wide uppercase transition-all cursor-pointer shadow-sm hover:opacity-95"
+                              className="opacity-0 group-hover:opacity-100 px-3 h-[22px] rounded-pill bg-fill text-on-fill text-micro font-medium transition-opacity duration-hover cursor-pointer"
                             >
-                              Deploy
+                              Link
                             </button>
                           )}
-                          <span className="text-[10px] font-semibold text-text-muted bg-surface px-2 py-0.5 rounded-xs border border-n-100 shadow-sm group-hover:hidden">
+                          <span className="text-micro font-medium text-ink-3 bg-plane-2 px-2 py-0.5 rounded-pill font-flex group-hover:hidden">
                             {item.scopeBadge}
                           </span>
                         </div>
@@ -774,10 +791,10 @@ export default function Flyout({
         </div>
       ) : (
         /* Empty Inspector State when no asset or bubble is selected */
-        <div className="flex-1 p-6 flex flex-col items-center justify-center text-center text-text-muted font-sans">
+        <div className="flex-1 p-6 flex flex-col items-center justify-center text-center text-ink-3 font-sans">
           <Globe className="stroke-[1.5] mb-2 opacity-50" size={36} />
-          <span className="text-xs text-text-primary font-sans">No Item Selected</span>
-          <span className="text-xs text-text-muted mt-1">Select an asset or repository to inspect details.</span>
+          <span className="text-small font-medium text-ink-1 font-sans">No Item Selected</span>
+          <span className="text-small text-ink-3 mt-1">Select an asset or repository to inspect details.</span>
         </div>
       )}
     </aside>

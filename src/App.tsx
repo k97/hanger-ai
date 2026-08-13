@@ -203,7 +203,7 @@ export default function App() {
   };
 
   const [inspectorOpen, setInspectorOpen] = useState<boolean>(false);
-  const [inspectorWidth, setInspectorWidth] = useState<number>(280);
+  const [inspectorWidth, setInspectorWidth] = useState<number>(396);
   // Toolbar filter — narrows the visible rows of the active pane by name.
   const [filterText, setFilterText] = useState<string>("");
   // Machine-wide state filter driven by the icon rail's Needs review button
