@@ -691,7 +691,7 @@ export default function App() {
       : assetCounts?.total ?? 0;
 
   return (
-    <div className="h-screen w-screen bg-surface text-text-primary flex flex-col font-sans transition-colors duration-200 overflow-hidden">
+    <div className="h-screen w-screen bg-page text-ink-1 flex flex-col font-sans transition-colors duration-200 overflow-hidden">
       {/* Unified toolbar — thin top line, quiet pill controls, one filter */}
       <header className="h-10 min-h-10 max-h-10 border-b border-line bg-page px-3 flex items-center gap-2.5 select-none z-30 shrink-0 font-flex">
         <button

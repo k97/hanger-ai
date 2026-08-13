@@ -26,9 +26,9 @@ export const ScanStatusIndicator: React.FC<ScanStatusIndicatorProps> = ({ status
   return (
     <div
       data-testid="scan-status-indicator"
-      className="flex items-center gap-2 text-xs text-text-muted select-none"
+      className="flex items-center gap-2 text-small text-ink-3 select-none font-flex"
     >
-      <span className="w-1.5 h-1.5 rounded-full bg-accent motion-safe:animate-pulse" />
+      <span className="w-1.5 h-1.5 rounded-pill bg-ink-2 motion-safe:animate-pulse" />
       <span>{label}</span>
     </div>
   );

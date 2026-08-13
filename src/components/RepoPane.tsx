@@ -311,7 +311,7 @@ export default function RepoPane({
                 })
                 .map((entry, idx) => (
                   <span key={`engine-${entry.key}`} className="flex items-center gap-1.5">
-                    {idx > 0 && <span className="text-text-muted select-none">·</span>}
+                    {idx > 0 && <span className="text-ink-3 select-none">·</span>}
                     <span>{entry.label} {entry.count}</span>
                   </span>
                 ))}
