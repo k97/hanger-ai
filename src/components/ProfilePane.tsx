@@ -222,21 +222,33 @@ export default function ProfilePane({
     sortDirection
   );
 
-  return (
-    <div className="@container flex-1 overflow-y-auto p-6 flex flex-col gap-6">
-      {/* Inventory summary strip */}
-      <SummaryStrip
-        total={sumGlobalAssets(assetCounts)}
-        subtitle={stripSubtitle}
-        scannedAt={scannedAt}
-        scanning={loading}
-        counts={stripCounts}
-        activeStateFilter={stateFilter}
-        onFilterState={(f) => onStateFilterChange?.(f)}
-      />
+  // Uppercase micro voice for section labels inside the list plane.
+  const secClass =
+    "px-3.5 pt-[11px] pb-[5px] font-flex text-micro font-medium tracking-[.06em] uppercase text-ink-3";
+  const emptyPlaneClass =
+    "flex-1 mx-[18px] mb-[18px] min-h-0 flex flex-col items-center justify-center text-center border border-dashed border-line rounded-plane bg-plane animate-in fade-in duration-200";
 
-      {/* Category Filter Cards */}
-      <div className="mb-6">
+  // Visible rows post-filter for the foot line — a display subset, never the
+  // asset total (which stays backend-owned).
+  const visibleCount = sortedSkills.length + sortedTools.length + sortedRules.length + sortedSubagents.length + (selectedCategory === "Agents" ? sortedAgents.length : 0);
+
+  return (
+    <div className="flex-1 flex flex-col min-h-0 overflow-hidden font-sans">
+      {/* Inventory summary strip */}
+      <div className="mx-[18px] mt-[18px]">
+        <SummaryStrip
+          total={sumGlobalAssets(assetCounts)}
+          subtitle={stripSubtitle}
+          scannedAt={scannedAt}
+          scanning={loading}
+          counts={stripCounts}
+          activeStateFilter={stateFilter}
+          onFilterState={(f) => onStateFilterChange?.(f)}
+        />
+      </div>
+
+      {/* Facet chips */}
+      <div className="px-[18px] pt-3 pb-2.5">
         <CategoryFilterCards
           selectedCategory={selectedCategory}
           onSelectCategory={setSelectedCategory}
@@ -249,28 +261,27 @@ export default function ProfilePane({
         />
       </div>
 
-      {/* Main Asset List Container */}
-      <div className="flex-1 flex flex-col min-w-0">
-        {emptyState ? (
-          <div className="flex-1 flex flex-col items-center justify-center py-16 text-center border border-dashed border-n-100 rounded-xl bg-n-25 animate-in fade-in duration-200">
-            <AlertCircle className="text-text-muted mb-2" size={40} />
-            <span className="text-sm font-bold text-text-primary">No developer agent folders detected</span>
-            <span className="text-xs text-text-muted max-w-sm mt-1">
-              Hanger scans your home folder for standard agent configurations (e.g. ~/.claude, ~/.gemini).
-            </span>
-          </div>
-        ) : isCategoryEmpty && selectedCategory ? (
-          /* Category-specific Empty State */
-          <div className="flex-1 flex flex-col items-center justify-center py-16 text-center border border-dashed border-n-100 rounded-xl bg-n-25 animate-in fade-in duration-200">
-            <AlertCircle className="text-text-muted mb-2" size={40} />
-            <span className="text-sm font-bold text-text-primary">No global {selectedCategory.toLowerCase()} found</span>
-            <span className="text-xs text-text-muted max-w-sm mt-1">
-              Select another category filter or click "All" to view all available assets.
-            </span>
-          </div>
-        ) : (
-          /* Table Layout with Sticky Header Row */
-          <div className="flex flex-col flex-1 min-w-0">
+      {emptyState ? (
+        <div className={emptyPlaneClass}>
+          <AlertCircle className="text-ink-3 mb-2" size={40} />
+          <span className="text-base-app font-medium text-ink-1">No developer agent folders detected</span>
+          <span className="text-small text-ink-3 max-w-sm mt-1">
+            Hanger scans your home folder for standard agent configurations (e.g. ~/.claude, ~/.gemini).
+          </span>
+        </div>
+      ) : isCategoryEmpty && selectedCategory ? (
+        /* Category-specific Empty State */
+        <div className={emptyPlaneClass}>
+          <AlertCircle className="text-ink-3 mb-2" size={40} />
+          <span className="text-base-app font-medium text-ink-1">No global {selectedCategory.toLowerCase()} found</span>
+          <span className="text-small text-ink-3 max-w-sm mt-1">
+            Select another category filter or click "All" to view all available assets.
+          </span>
+        </div>
+      ) : (
+        <>
+          {/* The list lives on its own plane */}
+          <div className="@container flex-1 min-h-0 overflow-y-auto mx-[18px] bg-plane border border-line rounded-tl-plane rounded-tr-plane pb-1.5">
             <AssetHeaderRow
               sortField={sortField}
               sortDirection={sortDirection}
@@ -278,114 +289,117 @@ export default function ProfilePane({
               onSort={handleSort}
             />
 
-            <div className="flex flex-col gap-6 pt-2">
-              {/* Agents Group */}
-              {selectedCategory === "Agents" && (
-                <div className="flex flex-col gap-2">
-                  <h3 className="text-xs font-medium text-text-muted py-1 border-b border-n-100 font-sans">
-                    Agents ({sortedAgents.length})
-                  </h3>
-                  <div className="flex flex-col gap-1.5">
-                    {sortedAgents.map((item) => (
-                      <AssetRow
-                        key={`agent-${item.name}`}
-                        isSelected={selectedAsset?.path === item.path}
-                        showKindColumn={false}
-                        item={item}
-                        onClick={() => onSelectAsset({ name: item.name, category: "Agents", path: item.path })}
-                      />
-                    ))}
-                  </div>
+            {/* Agents Group */}
+            {selectedCategory === "Agents" && (
+              <>
+                <h3 className={secClass}>Agents · {sortedAgents.length}</h3>
+                <div className="flex flex-col">
+                  {sortedAgents.map((item) => (
+                    <AssetRow
+                      key={`agent-${item.name}`}
+                      isSelected={selectedAsset?.path === item.path}
+                      showKindColumn={false}
+                      item={item}
+                      onClick={() => onSelectAsset({ name: item.name, category: "Agents", path: item.path })}
+                    />
+                  ))}
                 </div>
-              )}
+              </>
+            )}
 
-              {/* Skills Group */}
-              {showSkills && sortedSkills.length > 0 && (
-                <div className="flex flex-col gap-2">
-                  <h3 className="text-xs font-medium text-text-muted py-1 border-b border-n-100 font-sans">
-                    Skills ({assetCounts ? (assetCounts.byCategory.skill?.global ?? 0) : sortedSkills.length})
-                  </h3>
-                  <div className="flex flex-col gap-1.5">
-                    {sortedSkills.map((item, idx) => (
-                      <AssetRow
-                        key={`skill-${item.path}-${idx}`}
-                        isSelected={selectedAsset?.path === item.path}
-                        showKindColumn={!selectedCategory}
-                        item={item}
-                        onLink={() => onLinkAsset(item)}
-                        onClick={() => onSelectAsset({ name: item.name, category: "Skills", path: item.path })}
-                      />
-                    ))}
-                  </div>
+            {/* Skills Group */}
+            {showSkills && sortedSkills.length > 0 && (
+              <>
+                <h3 className={secClass}>
+                  Skills · {assetCounts ? (assetCounts.byCategory.skill?.global ?? 0) : sortedSkills.length}
+                </h3>
+                <div className="flex flex-col">
+                  {sortedSkills.map((item, idx) => (
+                    <AssetRow
+                      key={`skill-${item.path}-${idx}`}
+                      isSelected={selectedAsset?.path === item.path}
+                      showKindColumn={!selectedCategory}
+                      item={item}
+                      onLink={() => onLinkAsset(item)}
+                      onClick={() => onSelectAsset({ name: item.name, category: "Skills", path: item.path })}
+                    />
+                  ))}
                 </div>
-              )}
+              </>
+            )}
 
-              {/* Tools Group */}
-              {showTools && sortedTools.length > 0 && (
-                <div className="flex flex-col gap-2">
-                  <h3 className="text-xs font-medium text-text-muted py-1 border-b border-n-100 font-sans">
-                    Tools ({assetCounts ? (assetCounts.byCategory.tool?.global ?? 0) : sortedTools.length})
-                  </h3>
-                  <div className="flex flex-col gap-1.5">
-                    {sortedTools.map((item, idx) => (
-                      <AssetRow
-                        key={`tool-${item.path}-${idx}`}
-                        isSelected={selectedAsset?.path === item.path}
-                        showKindColumn={!selectedCategory}
-                        item={item}
-                        onLink={() => onLinkAsset(item)}
-                        onClick={() => onSelectAsset({ name: item.name, category: "Tools", path: item.path })}
-                      />
-                    ))}
-                  </div>
+            {/* Tools Group */}
+            {showTools && sortedTools.length > 0 && (
+              <>
+                <h3 className={secClass}>
+                  Tools · {assetCounts ? (assetCounts.byCategory.tool?.global ?? 0) : sortedTools.length}
+                </h3>
+                <div className="flex flex-col">
+                  {sortedTools.map((item, idx) => (
+                    <AssetRow
+                      key={`tool-${item.path}-${idx}`}
+                      isSelected={selectedAsset?.path === item.path}
+                      showKindColumn={!selectedCategory}
+                      item={item}
+                      onLink={() => onLinkAsset(item)}
+                      onClick={() => onSelectAsset({ name: item.name, category: "Tools", path: item.path })}
+                    />
+                  ))}
                 </div>
-              )}
+              </>
+            )}
 
-              {/* Rules Group */}
-              {showRules && sortedRules.length > 0 && (
-                <div className="flex flex-col gap-2">
-                  <h3 className="text-xs font-medium text-text-muted py-1 border-b border-n-100 font-sans">
-                    Rules ({assetCounts ? (assetCounts.byCategory.rule?.global ?? 0) : sortedRules.length})
-                  </h3>
-                  <div className="flex flex-col gap-1.5">
-                    {sortedRules.map((item, idx) => (
-                      <AssetRow
-                        key={`rule-${item.path}-${idx}`}
-                        isSelected={selectedAsset?.path === item.path}
-                        showKindColumn={!selectedCategory}
-                        item={item}
-                        onLink={() => onLinkAsset(item)}
-                        onClick={() => onSelectAsset({ name: item.name, category: "Rules", path: item.path })}
-                      />
-                    ))}
-                  </div>
+            {/* Rules Group */}
+            {showRules && sortedRules.length > 0 && (
+              <>
+                <h3 className={secClass}>
+                  Rules · {assetCounts ? (assetCounts.byCategory.rule?.global ?? 0) : sortedRules.length}
+                </h3>
+                <div className="flex flex-col">
+                  {sortedRules.map((item, idx) => (
+                    <AssetRow
+                      key={`rule-${item.path}-${idx}`}
+                      isSelected={selectedAsset?.path === item.path}
+                      showKindColumn={!selectedCategory}
+                      item={item}
+                      onLink={() => onLinkAsset(item)}
+                      onClick={() => onSelectAsset({ name: item.name, category: "Rules", path: item.path })}
+                    />
+                  ))}
                 </div>
-              )}
+              </>
+            )}
 
-              {/* Subagents Group */}
-              {showSubagents && sortedSubagents.length > 0 && (
-                <div className="flex flex-col gap-2">
-                  <h3 className="text-xs font-medium text-text-muted py-1 border-b border-n-100 font-sans">
-                    Subagents ({assetCounts ? (assetCounts.byCategory.subagent?.global ?? 0) : sortedSubagents.length})
-                  </h3>
-                  <div className="flex flex-col gap-1.5">
-                    {sortedSubagents.map((item, idx) => (
-                      <AssetRow
-                        key={`subagent-${item.path}-${idx}`}
-                        isSelected={selectedAsset?.path === item.path}
-                        showKindColumn={!selectedCategory}
-                        item={item}
-                        onLink={() => onLinkAsset(item)}
-                        onClick={() => onSelectAsset({ name: item.name, category: "Subagents", path: item.path })}
-                      />
-                    ))}
-                  </div>
+            {/* Subagents Group */}
+            {showSubagents && sortedSubagents.length > 0 && (
+              <>
+                <h3 className={secClass}>
+                  Subagents · {assetCounts ? (assetCounts.byCategory.subagent?.global ?? 0) : sortedSubagents.length}
+                </h3>
+                <div className="flex flex-col">
+                  {sortedSubagents.map((item, idx) => (
+                    <AssetRow
+                      key={`subagent-${item.path}-${idx}`}
+                      isSelected={selectedAsset?.path === item.path}
+                      showKindColumn={!selectedCategory}
+                      item={item}
+                      onLink={() => onLinkAsset(item)}
+                      onClick={() => onSelectAsset({ name: item.name, category: "Subagents", path: item.path })}
+                    />
+                  ))}
                 </div>
-              )}
-            </div>
+              </>
+            )}
           </div>
-        )}
-      </div>
+
+          {/* Foot line */}
+          <div className="h-[30px] shrink-0 px-[18px] flex items-center gap-4 font-flex text-micro text-ink-3">
+            <span>
+              Showing {visibleCount} of {sumGlobalAssets(assetCounts)}
+            </span>
+          </div>
+        </>
+      )}
     </div>
   );
 }

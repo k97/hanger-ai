@@ -58,7 +58,7 @@ describe("AssetRow Shell Spec Compliance", () => {
     expect(screen.getByText("Foreign")).not.toBeNull();
   });
 
-  it("renders failed asset with name in text-text-muted, state 'Won't parse', and no raw parse_error in text", () => {
+  it("renders failed asset with name in text-ink-3, state 'Won't parse', and no raw parse_error in text", () => {
     const failedItem: AssetItem = {
       name: "broken-skill",
       category: "Skills",
@@ -71,9 +71,9 @@ describe("AssetRow Shell Spec Compliance", () => {
     // State word must read "Won't parse"
     expect(screen.getByText("Won't parse")).not.toBeNull();
 
-    // Name must be rendered with text-text-muted class per shell spec
+    // Name must be rendered with text-ink-3 class per shell spec
     const nameEl = screen.getByText("broken-skill");
-    expect(nameEl.className).toContain("text-text-muted");
+    expect(nameEl.className).toContain("text-ink-3");
 
     // Raw parse_error string must NOT be rendered in the visible text
     expect(screen.queryByText("YAML parsing failed: invalid character")).toBeNull();

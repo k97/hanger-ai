@@ -100,10 +100,10 @@ describe("Per-repository count synchronization", () => {
       />
     );
 
-    expect(screen.getByText("Skills (244)")).toBeTruthy();
-    expect(screen.getByText("Tools (10)")).toBeTruthy();
-    expect(screen.getByText("Rules (5)")).toBeTruthy();
-    expect(screen.getByText("Subagents (2)")).toBeTruthy();
+    expect(screen.getByText("Skills · 244")).toBeTruthy();
+    expect(screen.getByText("Tools · 10")).toBeTruthy();
+    expect(screen.getByText("Rules · 5")).toBeTruthy();
+    expect(screen.getByText("Subagents · 2")).toBeTruthy();
   });
 
   it("RepoPane renders engine breakdown section from assetCounts.engines including Any agent bucket", () => {

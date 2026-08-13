@@ -219,9 +219,9 @@ describe("Avionics A6 Asset Table Spec Compliance", () => {
     // State column reads "Won't parse"
     expect(screen.getAllByText("Won't parse").length).toBeGreaterThan(0);
 
-    // Name element has text-text-muted
+    // Name element has text-ink-3
     const failedName = screen.getByText("Failed Skill");
-    expect(failedName.className).toContain("text-text-muted");
+    expect(failedName.className).toContain("text-ink-3");
 
     // Raw parse_error string is not rendered in visible text
     expect(screen.queryByText(/mapping values are not allowed/i)).toBeNull();

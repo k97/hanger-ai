@@ -17,6 +17,20 @@ export interface AllowlistEntry {
 const ALLOWLIST: AllowlistEntry[] = [
   {
     file: "src/components/ProfilePane.tsx",
+    linePattern: /const visibleCount = sortedSkills\.length/,
+    category: "ui",
+    reason:
+      "Counts VISIBLE rows post-filter for the foot line — a display subset, not the asset total (which stays backend-owned)",
+  },
+  {
+    file: "src/components/RepoPane.tsx",
+    linePattern: /const visibleCount = sortedSkills\.length/,
+    category: "ui",
+    reason:
+      "Counts VISIBLE rows post-filter for the foot line — a display subset, not the asset total (which stays backend-owned)",
+  },
+  {
+    file: "src/components/ProfilePane.tsx",
     linePattern: /const engineCount = Object\.keys\(assetCounts\?\.engines/,
     category: "ui",
     reason:

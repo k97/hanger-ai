@@ -252,11 +252,20 @@ export default function RepoPane({
     ? assetCounts.total === 0
     : (filteredSkills.length === 0 && filteredTools.length === 0 && filteredRules.length === 0 && filteredAgents.length === 0 && filteredSubagents.length === 0);
 
+  // Uppercase micro voice for section labels inside the list plane.
+  const secClass =
+    "px-3.5 pt-[11px] pb-[5px] font-flex text-micro font-medium tracking-[.06em] uppercase text-ink-3";
+  const emptyPlaneClass =
+    "flex-1 mx-[18px] mb-[18px] min-h-0 flex flex-col items-center justify-center text-center border border-dashed border-line rounded-plane bg-plane animate-in fade-in duration-200";
+
+  // Visible rows post-filter for the foot line — a display subset, never the
+  // asset total (which stays backend-owned).
+  const visibleCount = sortedSkills.length + sortedTools.length + sortedRules.length + sortedSubagents.length;
+
   return (
-    <div className="flex-1 flex flex-col h-full overflow-hidden bg-surface animate-fade-in font-sans">
-      {/* Pane Content - scrolls independently */}
-      <div className="@container flex-1 overflow-y-auto p-6 flex flex-col gap-6">
-        {/* Inventory summary strip */}
+    <div className="flex-1 flex flex-col min-h-0 overflow-hidden bg-page animate-fade-in font-sans">
+      {/* Inventory summary strip */}
+      <div className="mx-[18px] mt-[18px]">
         <SummaryStrip
           total={assetCounts?.total ?? 0}
           subtitle={stripSubtitle}
@@ -266,8 +275,10 @@ export default function RepoPane({
           activeStateFilter={stateFilter}
           onFilterState={(f) => onStateFilterChange?.(f)}
         />
+      </div>
 
-        {/* Category Cards interactive filter row */}
+      {/* Facet chips */}
+      <div className="px-[18px] pt-3 pb-2.5">
         <CategoryFilterCards
           allCount={assetCounts?.total ?? 0}
           skillsCount={assetCounts?.byCategory.skill?.total ?? 0}
@@ -278,14 +289,15 @@ export default function RepoPane({
           onSelectCategory={setSelectedCategory}
           loading={loading}
         />
+      </div>
 
+      {/* Engines line + anything needing attention, above the list plane */}
+      <div className="px-[18px] flex flex-col gap-2.5 empty:hidden shrink-0 max-h-[45%] overflow-y-auto">
         {/* Engines Group */}
         {assetCounts?.engines && (
-          <div className="flex flex-col gap-2">
-            <h3 className="text-xs font-medium text-text-muted py-1 border-b border-n-100 font-sans">
-              Engines
-            </h3>
-            <div className="text-xs text-text-secondary font-medium flex flex-wrap items-center gap-1.5 py-1">
+          <div className="flex items-baseline gap-2 font-flex text-micro text-ink-3">
+            <h3 className="font-medium tracking-[.06em] uppercase">Engines</h3>
+            <div className="flex flex-wrap items-center gap-1.5 text-small text-ink-2">
               {Object.entries(assetCounts.engines)
                 .map(([key, count]) => ({
                   key,
@@ -388,34 +400,36 @@ export default function RepoPane({
             </div>
           </DisclosureBanner>
         )}
+      </div>
 
-        {isRepoEmpty ? (
-          /* Empty State */
-          <div className="flex-1 flex flex-col items-center justify-center py-20 text-center border border-dashed border-n-100 rounded-xl bg-n-25 animate-in fade-in duration-200">
-            <Info className="text-text-muted mb-2" size={40} />
-            <span className="text-sm font-bold text-text-primary">No AI assets found in this repository</span>
-            <span className="text-xs text-text-muted max-w-sm mt-1 mb-4">
-              This repository contains no agent profiles, skills, tools, rules, or subagents.
-            </span>
-            <button
-              onClick={() => onLinkFromProfile(repoPath)}
-              className="px-4 py-2 bg-accent text-on-accent text-xs font-semibold rounded-full hover:bg-opacity-95 cursor-pointer transition-colors shadow-sm"
-            >
-              Link an asset from Profile
-            </button>
-          </div>
-        ) : isCategoryEmpty && selectedCategory ? (
-          /* Category-specific Empty State */
-          <div className="flex-1 flex flex-col items-center justify-center py-16 text-center border border-dashed border-n-100 rounded-xl bg-n-25 animate-in fade-in duration-200">
-            <Info className="text-text-muted mb-2" size={40} />
-            <span className="text-sm font-bold text-text-primary">No project-level {selectedCategory.toLowerCase()} found in this repository</span>
-            <span className="text-xs text-text-muted max-w-sm mt-1">
-              No configuration paths matched any project-level {selectedCategory.toLowerCase()} files.
-            </span>
-          </div>
-        ) : (
-          /* Table Layout with Sticky Header Row */
-          <div className="flex flex-col flex-1 min-w-0">
+      {isRepoEmpty ? (
+        /* Empty State */
+        <div className={`${emptyPlaneClass} mt-2.5`}>
+          <Info className="text-ink-3 mb-2" size={40} />
+          <span className="text-base-app font-medium text-ink-1">No AI assets found in this repository</span>
+          <span className="text-small text-ink-3 max-w-sm mt-1 mb-4">
+            This repository contains no agent profiles, skills, tools, rules, or subagents.
+          </span>
+          <button
+            onClick={() => onLinkFromProfile(repoPath)}
+            className="px-4 h-[30px] bg-fill text-on-fill text-small font-medium rounded-pill cursor-pointer transition-transform duration-press ease-spring active:scale-[0.96]"
+          >
+            Link an asset from Profile
+          </button>
+        </div>
+      ) : isCategoryEmpty && selectedCategory ? (
+        /* Category-specific Empty State */
+        <div className={`${emptyPlaneClass} mt-2.5`}>
+          <Info className="text-ink-3 mb-2" size={40} />
+          <span className="text-base-app font-medium text-ink-1">No project-level {selectedCategory.toLowerCase()} found in this repository</span>
+          <span className="text-small text-ink-3 max-w-sm mt-1">
+            No configuration paths matched any project-level {selectedCategory.toLowerCase()} files.
+          </span>
+        </div>
+      ) : (
+        <>
+          {/* The list lives on its own plane */}
+          <div className="@container flex-1 min-h-0 overflow-y-auto mx-[18px] mt-2.5 bg-plane border border-line rounded-tl-plane rounded-tr-plane pb-1.5">
             <AssetHeaderRow
               sortField={sortField}
               sortDirection={sortDirection}
@@ -423,93 +437,103 @@ export default function RepoPane({
               onSort={handleSort}
             />
 
-            <div className="flex flex-col gap-6 pt-2">
-              {/* Skills Group */}
-              {showSkills && sortedSkills.length > 0 && (
-                <div className="flex flex-col gap-2">
-                  <h3 className="text-xs font-medium text-text-muted py-1 border-b border-n-100 font-sans">
-                    Skills ({assetCounts ? (assetCounts.byCategory.skill?.total ?? 0) : sortedSkills.length})
-                  </h3>
-                  <div className="flex flex-col gap-1.5">
-                    {sortedSkills.map((item, idx) => (
-                      <AssetRow
-                        key={`skill-${item.path}-${idx}`}
-                        isSelected={selectedAsset?.path === item.path}
-                        showKindColumn={!selectedCategory}
-                        item={item}
-                        onUnlink={() => triggerUnlink(item.name, item.path, "Skills")}
-                        onClick={() => onSelectAsset({ name: item.name, category: "Skills", path: item.path })}
-                      />
-                    ))}
-                  </div>
+            {/* Skills Group */}
+            {showSkills && sortedSkills.length > 0 && (
+              <>
+                <h3 className={secClass}>
+                  Skills · {assetCounts ? (assetCounts.byCategory.skill?.total ?? 0) : sortedSkills.length}
+                </h3>
+                <div className="flex flex-col">
+                  {sortedSkills.map((item, idx) => (
+                    <AssetRow
+                      key={`skill-${item.path}-${idx}`}
+                      isSelected={selectedAsset?.path === item.path}
+                      showKindColumn={!selectedCategory}
+                      item={item}
+                      onUnlink={() => triggerUnlink(item.name, item.path, "Skills")}
+                      onClick={() => onSelectAsset({ name: item.name, category: "Skills", path: item.path })}
+                    />
+                  ))}
                 </div>
-              )}
+              </>
+            )}
 
-              {/* Tools Group */}
-              {showTools && sortedTools.length > 0 && (
-                <div className="flex flex-col gap-2">
-                  <h3 className="text-xs font-medium text-text-muted py-1 border-b border-n-100 font-sans">
-                    Tools ({assetCounts ? (assetCounts.byCategory.tool?.total ?? 0) : sortedTools.length})
-                  </h3>
-                  <div className="flex flex-col gap-1.5">
-                    {sortedTools.map((item, idx) => (
-                      <AssetRow
-                        key={`tool-${item.path}-${idx}`}
-                        isSelected={selectedAsset?.path === item.path}
-                        showKindColumn={!selectedCategory}
-                        item={item}
-                        onUnlink={() => triggerUnlink(item.name, item.path, "Tools")}
-                        onClick={() => onSelectAsset({ name: item.name, category: "Tools", path: item.path })}
-                      />
-                    ))}
-                  </div>
+            {/* Tools Group */}
+            {showTools && sortedTools.length > 0 && (
+              <>
+                <h3 className={secClass}>
+                  Tools · {assetCounts ? (assetCounts.byCategory.tool?.total ?? 0) : sortedTools.length}
+                </h3>
+                <div className="flex flex-col">
+                  {sortedTools.map((item, idx) => (
+                    <AssetRow
+                      key={`tool-${item.path}-${idx}`}
+                      isSelected={selectedAsset?.path === item.path}
+                      showKindColumn={!selectedCategory}
+                      item={item}
+                      onUnlink={() => triggerUnlink(item.name, item.path, "Tools")}
+                      onClick={() => onSelectAsset({ name: item.name, category: "Tools", path: item.path })}
+                    />
+                  ))}
                 </div>
-              )}
+              </>
+            )}
 
-              {/* Rules Group */}
-              {showRules && sortedRules.length > 0 && (
-                <div className="flex flex-col gap-2">
-                  <h3 className="text-xs font-medium text-text-muted py-1 border-b border-n-100 font-sans">
-                    Rules ({assetCounts ? (assetCounts.byCategory.rule?.total ?? 0) : sortedRules.length})
-                  </h3>
-                  <div className="flex flex-col gap-1.5">
-                    {sortedRules.map((item, idx) => (
-                      <AssetRow
-                        key={`rule-${item.path}-${idx}`}
-                        isSelected={selectedAsset?.path === item.path}
-                        showKindColumn={!selectedCategory}
-                        item={item}
-                        onUnlink={() => triggerUnlink(item.name, item.path, "Rules")}
-                        onClick={() => onSelectAsset({ name: item.name, category: "Rules", path: item.path })}
-                      />
-                    ))}
-                  </div>
+            {/* Rules Group */}
+            {showRules && sortedRules.length > 0 && (
+              <>
+                <h3 className={secClass}>
+                  Rules · {assetCounts ? (assetCounts.byCategory.rule?.total ?? 0) : sortedRules.length}
+                </h3>
+                <div className="flex flex-col">
+                  {sortedRules.map((item, idx) => (
+                    <AssetRow
+                      key={`rule-${item.path}-${idx}`}
+                      isSelected={selectedAsset?.path === item.path}
+                      showKindColumn={!selectedCategory}
+                      item={item}
+                      onUnlink={() => triggerUnlink(item.name, item.path, "Rules")}
+                      onClick={() => onSelectAsset({ name: item.name, category: "Rules", path: item.path })}
+                    />
+                  ))}
                 </div>
-              )}
+              </>
+            )}
 
-              {/* Subagents Group */}
-              {showSubagents && sortedSubagents.length > 0 && (
-                <div className="flex flex-col gap-2">
-                  <h3 className="text-xs font-medium text-text-muted py-1 border-b border-n-100 font-sans">
-                    Subagents ({assetCounts ? (assetCounts.byCategory.subagent?.total ?? 0) : sortedSubagents.length})
-                  </h3>
-                  <div className="flex flex-col gap-1.5">
-                    {sortedSubagents.map((item, idx) => (
-                      <AssetRow
-                        key={`subagent-${item.path}-${idx}`}
-                        isSelected={selectedAsset?.path === item.path}
-                        showKindColumn={!selectedCategory}
-                        item={item}
-                        onClick={() => onSelectAsset({ name: item.name, category: "Subagents", path: item.path })}
-                      />
-                    ))}
-                  </div>
+            {/* Subagents Group */}
+            {showSubagents && sortedSubagents.length > 0 && (
+              <>
+                <h3 className={secClass}>
+                  Subagents · {assetCounts ? (assetCounts.byCategory.subagent?.total ?? 0) : sortedSubagents.length}
+                </h3>
+                <div className="flex flex-col">
+                  {sortedSubagents.map((item, idx) => (
+                    <AssetRow
+                      key={`subagent-${item.path}-${idx}`}
+                      isSelected={selectedAsset?.path === item.path}
+                      showKindColumn={!selectedCategory}
+                      item={item}
+                      onClick={() => onSelectAsset({ name: item.name, category: "Subagents", path: item.path })}
+                    />
+                  ))}
                 </div>
-              )}
-            </div>
+              </>
+            )}
           </div>
-        )}
-      </div>
+
+          {/* Foot line */}
+          <div className="h-[30px] shrink-0 px-[18px] flex items-center gap-4 font-flex text-micro text-ink-3">
+            <span>
+              Showing {visibleCount} of {assetCounts?.total ?? visibleCount}
+            </span>
+            {unlinkedCandidates.length > 0 && (
+              <span>
+                {unlinkedCandidates.length} nested {unlinkedCandidates.length === 1 ? "repo" : "repos"} counted here
+              </span>
+            )}
+          </div>
+        </>
+      )}
 
       {showUnlinkConfirm && assetToUnlink && (
         <div className="fixed inset-0 bg-scrim flex items-center justify-center z-[100] animate-fade-in">

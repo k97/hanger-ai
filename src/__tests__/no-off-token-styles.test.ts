@@ -270,35 +270,26 @@ const ALLOWLIST_RAW = [
   { file: "src/components/LinkAssetModal.tsx", lineText: "className=\"flex-1 py-2.5 rounded-full bg-accent text-on-accent font-semibold text-xs hover:opacity-95 transition-opacity disabled:opacity-50 cursor-pointer text-center shadow-sm\"", category: "radius" as AllowlistCategory, reason: "Legacy radius/shadow/fontweight styling" },
   { file: "src/components/LinkAssetModal.tsx", lineText: "className=\"px-6 py-2.5 rounded-full border border-n-100 bg-n-50 text-text-secondary hover:text-text-primary transition-colors text-xs font-medium cursor-pointer\"", category: "radius" as AllowlistCategory, reason: "Legacy radius/retiredtoken styling" },
 
-  { file: "src/components/ProfilePane.tsx", lineText: "<div className=\"flex-1 flex flex-col items-center justify-center py-16 text-center border border-dashed border-n-100 rounded-xl bg-n-25 animate-in fade-in duration-200\">", category: "radius" as AllowlistCategory, reason: "Legacy radius/retiredtoken styling" },
 
 
-  { file: "src/components/ProfilePane.tsx", lineText: "<span className=\"text-sm font-bold text-text-primary\">No developer agent folders detected</span>", category: "fontweight" as AllowlistCategory, reason: "Legacy fontweight/retiredtoken styling" },
 
 
-  { file: "src/components/ProfilePane.tsx", lineText: "<div className=\"flex-1 flex flex-col items-center justify-center py-16 text-center border border-dashed border-n-100 rounded-xl bg-n-25 animate-in fade-in duration-200\">", category: "radius" as AllowlistCategory, reason: "Legacy radius/retiredtoken styling" },
 
 
-  { file: "src/components/ProfilePane.tsx", lineText: "<span className=\"text-sm font-bold text-text-primary\">No global {selectedCategory.toLowerCase()} found</span>", category: "fontweight" as AllowlistCategory, reason: "Legacy fontweight/retiredtoken styling" },
 
 
   { file: "src/components/RepoPane.tsx", lineText: "<div className=\"flex flex-col gap-4 p-4 border border-error-border bg-error-bg rounded-lg leading-relaxed animate-in fade-in duration-200 shadow-sm\">", category: "radius" as AllowlistCategory, reason: "Legacy radius/shadow styling" },
   { file: "src/components/RepoPane.tsx", lineText: "<span className=\"text-xs font-bold font-sans\">macOS Folder Scan Access Denied</span>", category: "fontweight" as AllowlistCategory, reason: "Legacy fontweight styling" },
   { file: "src/components/RepoPane.tsx", lineText: "className=\"self-start px-3 py-1.5 bg-accent text-on-accent font-semibold text-xs rounded-full hover:opacity-90 transition-opacity cursor-pointer shadow-sm flex items-center gap-1.5\"", category: "fontweight" as AllowlistCategory, reason: "Legacy fontweight/shadow styling" },
-  { file: "src/components/RepoPane.tsx", lineText: "<div className=\"flex-1 flex flex-col items-center justify-center py-16 text-center border border-dashed border-n-100 rounded-xl bg-n-25 animate-in fade-in duration-200\">", category: "retiredtoken" as AllowlistCategory, reason: "Legacy retiredtoken styling" },
 
 
 
 
-  { file: "src/components/RepoPane.tsx", lineText: "<span className=\"text-sm font-bold text-text-primary\">No project-level {selectedCategory.toLowerCase()} found in this repository</span>", category: "retiredtoken" as AllowlistCategory, reason: "Legacy retiredtoken styling" },
 
 
-  { file: "src/components/RepoPane.tsx", lineText: "<span className=\"text-sm font-bold text-text-primary\">No AI assets found in this repository</span>", category: "retiredtoken" as AllowlistCategory, reason: "Legacy retiredtoken styling" },
-
-  { file: "src/components/RepoPane.tsx", lineText: "className=\"px-4 py-2 bg-accent text-on-accent text-xs font-semibold rounded-full hover:bg-opacity-95 cursor-pointer transition-colors shadow-sm\"", category: "radius" as AllowlistCategory, reason: "Legacy radius/shadow/fontweight styling" },
 
 
-  { file: "src/components/RepoPane.tsx", lineText: "<div className=\"flex-1 flex flex-col items-center justify-center py-20 text-center border border-dashed border-n-100 rounded-xl bg-n-25 animate-in fade-in duration-200\">", category: "fontweight" as AllowlistCategory, reason: "Legacy fontweight/retiredtoken styling" },
+
 
 
   { file: "src/components/RepoPane.tsx", lineText: "<div className=\"w-full max-w-sm bg-surface-elevated rounded-[21px] border border-hairline shadow-2xl p-6 relative flex flex-col gap-4 font-sans animate-in zoom-in-95 duration-150\">", category: "shadow" as AllowlistCategory, reason: "Legacy shadow/retiredtoken styling" },
