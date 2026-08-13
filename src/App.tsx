@@ -573,70 +573,70 @@ export default function App() {
 
   if (onboardingComplete === null) {
     return (
-      <div className="min-h-screen bg-surface flex items-center justify-center font-sans">
-        <Loader2 className="animate-spin text-accent" size={32} />
+      <div className="min-h-screen bg-page flex items-center justify-center font-sans">
+        <Loader2 className="animate-spin text-ink-2" size={32} />
       </div>
     );
   }
 
   if (onboardingComplete === false) {
     return (
-      <div className="min-h-screen bg-surface flex items-center justify-center font-sans p-4 relative overflow-hidden transition-colors duration-200">
+      <div className="min-h-screen bg-page flex items-center justify-center font-sans p-4 relative overflow-hidden transition-colors duration-200">
         {/* Step 1: Welcome Screen */}
         {onboardingStep === 1 && (
-          <div className="w-full max-w-md bg-n-50 border border-n-100 rounded-lg shadow-2xl p-8 flex flex-col gap-6 text-center animate-in zoom-in-95 duration-200">
+          <div className="w-full max-w-md bg-plane border border-line rounded-plane p-8 flex flex-col gap-6 text-center animate-in zoom-in-95 duration-200">
             <div className="flex flex-col items-center gap-2">
-              <div className="w-14 h-14 rounded-full bg-accent flex items-center justify-center text-on-primary font-bold text-2xl mx-auto shadow-sm select-none">
+              <div className="w-14 h-14 rounded-pill bg-fill flex items-center justify-center text-on-fill mx-auto select-none">
                 <Shield size={24} />
               </div>
-              <h2 className="text-2xl font-bold text-text-primary">Welcome to Hanger</h2>
-              <p className="text-xs text-text-muted leading-relaxed">
+              <h2 className="text-display font-medium tracking-[-0.5px] text-ink-1 text-balance">Welcome to Hanger</h2>
+              <p className="text-small text-ink-2 leading-[1.65]">
                 Local-first developer asset manager. Scans, links, and manages agent capabilities across your machine.
               </p>
             </div>
             <button
               onClick={() => setOnboardingStep(2)}
-              className="px-6 py-2.5 rounded-md bg-accent text-on-accent text-xs font-bold uppercase tracking-wider hover:opacity-95 transition-opacity cursor-pointer text-center w-fit mx-auto mt-2"
+              className="px-6 h-[30px] rounded-pill bg-fill text-on-fill text-small font-medium transition-transform duration-press ease-spring active:scale-[0.96] cursor-pointer text-center w-fit mx-auto mt-2"
             >
-              Get Started
+              Get started
             </button>
           </div>
         )}
 
         {/* Step 2: Privacy & Telemetry Consent */}
         {onboardingStep === 2 && (
-          <div className="w-full max-w-md bg-n-50 border border-n-100 rounded-lg shadow-2xl p-8 flex flex-col gap-5 animate-in zoom-in-95 duration-200">
-            <div className="flex items-center gap-2 border-b border-n-100 pb-3">
-              <h2 className="text-title font-bold text-text-primary">Privacy & Telemetry Consent</h2>
-              <p className="text-xs text-text-muted leading-relaxed">
+          <div className="w-full max-w-md bg-plane border border-line rounded-plane p-8 flex flex-col gap-5 animate-in zoom-in-95 duration-200">
+            <div className="flex flex-col gap-1.5 border-b border-line pb-3.5">
+              <h2 className="text-lg-app font-medium tracking-[-0.3px] text-ink-1">Privacy & telemetry consent</h2>
+              <p className="text-small text-ink-2 leading-[1.65]">
                 Hanger is local-first. Scanned AI asset code, parameters, and prompt files stay exclusively on your local machine.
               </p>
             </div>
 
-            <div className="flex flex-col gap-4">
-              <label className="flex items-center justify-between text-xs text-text-secondary select-none cursor-pointer bg-surface border border-n-100 p-3 rounded-md hover:border-accent/40 transition-colors">
+            <div className="flex flex-col gap-3">
+              <label className="flex items-center justify-between text-small text-ink-2 select-none cursor-pointer bg-page border border-line p-3 rounded-inner hover:border-line-2 transition-colors duration-hover">
                 <div className="flex flex-col">
-                  <span className="font-semibold">Enable Crash Reporting</span>
-                  <span className="text-[10px] text-text-muted">Send anonymised error traces.</span>
+                  <span className="font-medium text-ink-1">Enable crash reporting</span>
+                  <span className="text-micro text-ink-3">Send anonymised error traces.</span>
                 </div>
                 <input
                   type="checkbox"
                   checked={consentCrash}
                   onChange={(e) => setConsentCrash(e.target.checked)}
-                  className="w-4 h-4 accent-accent rounded cursor-pointer"
+                  className="w-4 h-4 accent-[var(--fill)] cursor-pointer"
                 />
               </label>
 
-              <label className="flex items-center justify-between text-xs text-text-secondary select-none cursor-pointer bg-surface border border-n-100 p-3 rounded-md hover:border-accent/40 transition-colors">
+              <label className="flex items-center justify-between text-small text-ink-2 select-none cursor-pointer bg-page border border-line p-3 rounded-inner hover:border-line-2 transition-colors duration-hover">
                 <div className="flex flex-col">
-                  <span className="font-semibold">Enable Usage Analytics</span>
-                  <span className="text-[10px] text-text-muted">Share anonymised feature usage events.</span>
+                  <span className="font-medium text-ink-1">Enable usage analytics</span>
+                  <span className="text-micro text-ink-3">Share anonymised feature usage events.</span>
                 </div>
                 <input
                   type="checkbox"
                   checked={consentUsage}
                   onChange={(e) => setConsentUsage(e.target.checked)}
-                  className="w-4 h-4 accent-accent rounded cursor-pointer"
+                  className="w-4 h-4 accent-[var(--fill)] cursor-pointer"
                 />
               </label>
             </div>
@@ -651,7 +651,7 @@ export default function App() {
                 await invoke("set_preference", { key: "selected_sidebar_item", value: "profile" });
                 triggerScan();
               }}
-              className="w-full py-2.5 rounded-md bg-accent text-on-accent text-xs font-bold uppercase tracking-wider hover:opacity-95 transition-opacity cursor-pointer text-center mt-2 shadow-sm"
+              className="w-full h-[30px] rounded-pill bg-fill text-on-fill text-small font-medium transition-transform duration-press ease-spring active:scale-[0.96] cursor-pointer text-center mt-2"
             >
               Continue
             </button>
@@ -803,13 +803,16 @@ export default function App() {
 
         <main className="flex-1 flex flex-col min-w-0 h-full relative overflow-hidden">
           {error && (
-            <div className="absolute top-4 left-4 right-4 z-40 p-4 rounded-md border border-error-border bg-error-bg text-error-text flex items-center justify-between text-sm shadow-md animate-fade-in">
-              <div className="flex items-center gap-2">
-                <AlertTriangle size={16} />
-                <span>{error}</span>
+            <div className="absolute top-4 left-4 right-4 z-40 p-3.5 rounded-inner border border-line bg-plane text-state-danger flex items-center justify-between text-small animate-fade-in">
+              <div className="flex items-center gap-2 min-w-0">
+                <AlertTriangle size={16} className="shrink-0" />
+                <span className="break-all">{error}</span>
               </div>
-              <button onClick={() => setError(null)} className="text-ink-mute hover:text-ink-1">
-                <X size={16} />
+              <button
+                onClick={() => setError(null)}
+                className="w-[27px] h-[27px] rounded-pill grid place-items-center text-ink-3 hover:bg-plane-2 hover:text-ink-1 transition-colors duration-hover cursor-pointer shrink-0"
+              >
+                <X size={14} />
               </button>
             </div>
           )}
@@ -928,10 +931,10 @@ export default function App() {
       {/* Settings Modal Overlay */}
       {showSettingsModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-scrim p-4 animate-fade-in font-sans">
-          <div className="w-full max-w-md bg-surface border border-n-100 rounded-xl shadow-2xl p-6 flex flex-col gap-4">
-            <div className="flex justify-between items-center border-b border-n-100 pb-3">
-              <h3 className="text-sm font-bold text-text-primary flex items-center gap-2">
-                <Globe size={16} className="text-brand-violet" />
+          <div className="w-full max-w-md bg-page border border-line rounded-plane p-[18px] flex flex-col gap-4">
+            <div className="flex justify-between items-center border-b border-line pb-3">
+              <h3 className="text-base-app font-medium text-ink-1 flex items-center gap-2">
+                <Globe size={16} className="text-ink-2" />
                 Hanger Settings & Maintenance
               </h3>
               <button
@@ -941,24 +944,24 @@ export default function App() {
                   setSettingsNotice(null);
                   setPendingImportPath(null);
                 }}
-                className="p-1 rounded-full text-text-muted hover:text-text-primary hover:bg-n-50 transition-colors cursor-pointer"
+                className="w-[27px] h-[27px] rounded-pill grid place-items-center text-ink-3 hover:text-ink-1 hover:bg-plane-2 transition-colors duration-hover ease-spring cursor-pointer"
               >
-                <X size={16} />
+                <X size={14} />
               </button>
             </div>
-            
-            <p className="text-xs text-text-muted leading-relaxed">
+
+            <p className="text-small text-ink-3 leading-[1.65]">
               Export Hanger's local configurations, classifications, target-memory links, and drift checksums to a portable JSON backup file, or restore them atomically.
             </p>
 
             {settingsError && (
-              <div className="p-2.5 rounded bg-error-bg text-error-text border border-error-border text-xs leading-normal font-mono break-all animate-fade-in">
+              <div className="p-2.5 rounded-inner bg-plane text-state-danger border border-line text-small leading-normal font-mono break-all animate-fade-in">
                 {settingsError}
               </div>
             )}
 
             {settingsNotice && (
-              <div className="p-2.5 rounded-control bg-success-bg text-success-text border border-success-border text-xs leading-normal animate-fade-in">
+              <div className="p-2.5 rounded-inner bg-plane text-state-success border border-line text-small leading-normal animate-fade-in">
                 {settingsNotice}
               </div>
             )}
@@ -981,7 +984,7 @@ export default function App() {
                     setSettingsError(`Export failed: ${err}`);
                   }
                 }}
-                className="w-full py-2.5 px-4 rounded-md bg-accent text-on-accent font-semibold text-xs text-center cursor-pointer transition-opacity hover:opacity-95 shadow-sm"
+                className="w-full h-[30px] px-4 rounded-pill bg-fill text-on-fill font-medium text-small text-center cursor-pointer transition-transform duration-press ease-spring active:scale-[0.96]"
               >
                 Export Settings to JSON...
               </button>
@@ -989,9 +992,9 @@ export default function App() {
               {pendingImportPath && (
                 <div
                   data-testid="import-confirm"
-                  className="p-2.5 rounded-control bg-error-bg border border-error-border text-xs leading-normal flex flex-col gap-2 animate-fade-in"
+                  className="p-2.5 rounded-inner bg-plane border border-line text-small leading-normal flex flex-col gap-2 animate-fade-in"
                 >
-                  <span className="text-error-text">
+                  <span className="text-state-danger">
                     Importing {pendingImportPath.split("/").pop()} overwrites classifications, target mappings, and checksums. The import is local and atomic.
                   </span>
                   <div className="flex items-center gap-2">
@@ -1008,13 +1011,13 @@ export default function App() {
                           setSettingsError(`Import failed: ${err}`);
                         }
                       }}
-                      className="py-1.5 px-3 rounded-control bg-error-text text-on-accent font-medium text-xs cursor-pointer transition-opacity hover:opacity-90"
+                      className="h-[27px] px-3 rounded-pill bg-fill text-on-fill font-medium text-small cursor-pointer transition-transform duration-press ease-spring active:scale-[0.96]"
                     >
                       Confirm Import
                     </button>
                     <button
                       onClick={() => setPendingImportPath(null)}
-                      className="py-1.5 px-3 rounded-control bg-surface border border-n-100 text-text-secondary hover:text-text-primary font-medium text-xs cursor-pointer transition-colors"
+                      className="h-[27px] px-3 rounded-pill border border-line-2 text-ink-2 hover:text-ink-1 hover:bg-plane-2 font-medium text-small cursor-pointer transition-colors duration-hover ease-spring"
                     >
                       Cancel
                     </button>
@@ -1039,17 +1042,17 @@ export default function App() {
                     setSettingsError(`Import failed: ${err}`);
                   }
                 }}
-                className="w-full py-2.5 px-4 rounded-md bg-surface hover:bg-n-50 border border-n-100 text-text-secondary hover:text-text-primary font-semibold text-xs text-center cursor-pointer transition-colors shadow-sm"
+                className="w-full h-[30px] px-4 rounded-pill border border-line-2 hover:bg-plane-2 text-ink-2 hover:text-ink-1 font-medium text-small text-center cursor-pointer transition-colors duration-hover ease-spring"
               >
                 Import Settings from JSON...
               </button>
 
-              <div className="border-t border-n-100 pt-4 mt-2 flex flex-col gap-3">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-text-muted">
+              <div className="border-t border-line pt-4 mt-2 flex flex-col gap-3">
+                <span className="text-micro font-medium uppercase tracking-[.06em] text-ink-3 font-flex">
                   Telemetry & Analytics Consent
                 </span>
                 <div className="flex flex-col gap-2.5">
-                  <label className="flex items-center justify-between text-xs text-text-secondary select-none cursor-pointer">
+                  <label className="flex items-center justify-between text-small text-ink-2 select-none cursor-pointer">
                     <span>Enable Crash Reporting</span>
                     <input
                       type="checkbox"
@@ -1059,10 +1062,10 @@ export default function App() {
                         setConsentCrash(val);
                         await invoke("set_preference", { key: "consent_crash", value: val ? "true" : "false" });
                       }}
-                      className="w-4 h-4 accent-accent rounded cursor-pointer"
+                      className="w-4 h-4 accent-[var(--fill)] cursor-pointer"
                     />
                   </label>
-                  <label className="flex items-center justify-between text-xs text-text-secondary select-none cursor-pointer">
+                  <label className="flex items-center justify-between text-small text-ink-2 select-none cursor-pointer">
                     <span>Enable Usage Analytics</span>
                     <input
                       type="checkbox"
@@ -1072,7 +1075,7 @@ export default function App() {
                         setConsentUsage(val);
                         await invoke("set_preference", { key: "consent_usage", value: val ? "true" : "false" });
                       }}
-                      className="w-4 h-4 accent-accent rounded cursor-pointer"
+                      className="w-4 h-4 accent-[var(--fill)] cursor-pointer"
                     />
                   </label>
                 </div>

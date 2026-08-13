@@ -19,51 +19,27 @@ const ALLOWLIST_RAW = [
   // Deliberate sub-scale exception: the rail's count badge is 15px tall and
   // uses the prototype's 9px numeral (docs/hanger-mono-tight.html .ir-count).
   { file: "src/components/IconRail.tsx", lineText: "<span className=\"absolute top-px right-0.5 min-w-[15px] h-[15px] px-1 rounded-pill bg-fill text-on-fill text-[9px] leading-[15px] font-flex tabular\">", category: "fontsize" as AllowlistCategory, reason: "Icon-rail count badge, prototype 9px numeral inside a 15px pill" },
-  { file: "src/App.tsx", lineText: "<div className=\"w-full max-w-md bg-n-50 border border-n-100 rounded-lg shadow-2xl p-8 flex flex-col gap-6 text-center animate-in zoom-in-95 duration-200\">", category: "radius" as AllowlistCategory, reason: "Legacy radius/shadow/retiredtoken styling" },
-
-  { file: "src/App.tsx", lineText: "<div className=\"w-14 h-14 rounded-full bg-accent flex items-center justify-center text-on-primary font-bold text-2xl mx-auto shadow-sm select-none\">", category: "radius" as AllowlistCategory, reason: "Legacy radius/shadow/fontweight styling" },
-  { file: "src/App.tsx", lineText: "<h2 className=\"text-2xl font-bold text-text-primary\">Welcome to Hanger</h2>", category: "fontweight" as AllowlistCategory, reason: "Legacy fontweight/retiredtoken styling" },
-
-  { file: "src/App.tsx", lineText: "className=\"px-6 py-2.5 rounded-md bg-accent text-on-accent text-xs font-bold uppercase tracking-wider hover:opacity-95 transition-opacity cursor-pointer text-center w-fit mx-auto mt-2\"", category: "radius" as AllowlistCategory, reason: "Legacy radius/fontweight styling" },
-  { file: "src/App.tsx", lineText: "<div className=\"w-full max-w-md bg-n-50 border border-n-100 rounded-lg shadow-2xl p-8 flex flex-col gap-5 animate-in zoom-in-95 duration-200\">", category: "radius" as AllowlistCategory, reason: "Legacy radius/shadow/retiredtoken styling" },
-
-  { file: "src/App.tsx", lineText: "<h3 className=\"text-sm font-bold text-text-primary flex items-center gap-2\">", category: "retiredtoken" as AllowlistCategory, reason: "Legacy retiredtoken styling" },
-
-  { file: "src/App.tsx", lineText: "<h2 className=\"text-title font-bold text-text-primary\">Privacy & Telemetry Consent</h2>", category: "fontweight" as AllowlistCategory, reason: "Legacy fontweight/retiredtoken styling" },
-
-
-
-  { file: "src/App.tsx", lineText: "<span className=\"font-semibold\">Enable Crash Reporting</span>", category: "fontweight" as AllowlistCategory, reason: "Legacy fontweight styling" },
-
-  { file: "src/App.tsx", lineText: "className=\"w-4 h-4 accent-accent rounded cursor-pointer\"", category: "radius" as AllowlistCategory, reason: "Legacy radius styling" },
-  { file: "src/App.tsx", lineText: "<label className=\"flex items-center justify-between text-xs text-text-secondary select-none cursor-pointer bg-surface border border-n-100 p-3 rounded-md hover:border-accent/40 transition-colors\">", category: "radius" as AllowlistCategory, reason: "Legacy radius/retiredtoken styling" },
-
-  { file: "src/App.tsx", lineText: "<span className=\"font-semibold\">Enable Usage Analytics</span>", category: "fontweight" as AllowlistCategory, reason: "Legacy fontweight styling" },
-  { file: "src/App.tsx", lineText: "className=\"w-full py-2.5 px-4 rounded-md bg-surface hover:bg-n-50 border border-n-100 text-text-secondary hover:text-text-primary font-semibold text-xs text-center cursor-pointer transition-colors shadow-sm\"", category: "retiredtoken" as AllowlistCategory, reason: "Legacy retiredtoken styling" },
-
-  { file: "src/App.tsx", lineText: "className=\"w-4 h-4 accent-accent rounded cursor-pointer\"", category: "radius" as AllowlistCategory, reason: "Legacy radius styling" },
-  { file: "src/App.tsx", lineText: "className=\"w-full py-2.5 rounded-md bg-accent text-on-accent text-xs font-bold uppercase tracking-wider hover:opacity-95 transition-opacity cursor-pointer text-center mt-2 shadow-sm\"", category: "radius" as AllowlistCategory, reason: "Legacy radius/shadow/fontweight styling" },
-
-  { file: "src/App.tsx", lineText: "<div className=\"absolute top-4 left-4 right-4 z-40 p-4 rounded-md border border-error-border bg-error-bg text-error-text flex items-center justify-between text-sm shadow-md animate-fade-in\">", category: "radius" as AllowlistCategory, reason: "Legacy radius/shadow styling" },
-  { file: "src/App.tsx", lineText: "<button onClick={() => setError(null)} className=\"text-ink-mute hover:text-ink-1\">", category: "retiredtoken" as AllowlistCategory, reason: "Legacy retiredtoken styling" },
 
 
 
 
-  { file: "src/App.tsx", lineText: "className=\"p-1 rounded-full text-text-muted hover:text-text-primary hover:bg-n-50 transition-colors cursor-pointer\"", category: "retiredtoken" as AllowlistCategory, reason: "Legacy retiredtoken styling" },
-
-  { file: "src/App.tsx", lineText: "<div className=\"p-2.5 rounded bg-error-bg text-error-text border border-error-border text-xs leading-normal font-mono break-all animate-fade-in\">", category: "radius" as AllowlistCategory, reason: "Legacy radius styling" },
-  { file: "src/App.tsx", lineText: "className=\"w-full py-2.5 px-4 rounded-md bg-accent text-on-accent font-semibold text-xs text-center cursor-pointer transition-opacity hover:opacity-95 shadow-sm\"", category: "radius" as AllowlistCategory, reason: "Legacy radius/shadow/fontweight styling" },
-  { file: "src/App.tsx", lineText: "<label className=\"flex items-center justify-between text-xs text-text-secondary select-none cursor-pointer bg-surface border border-n-100 p-3 rounded-md hover:border-accent/40 transition-colors\">", category: "radius" as AllowlistCategory, reason: "Legacy radius/shadow/fontweight/retiredtoken styling" },
-
-  { file: "src/App.tsx", lineText: "<div className=\"w-full max-w-md bg-surface border border-n-100 rounded-xl shadow-2xl p-6 flex flex-col gap-4\">", category: "retiredtoken" as AllowlistCategory, reason: "Legacy retiredtoken styling" },
-
-  { file: "src/App.tsx", lineText: "<span className=\"text-[10px] font-bold uppercase tracking-wider text-text-muted\">", category: "fontweight" as AllowlistCategory, reason: "Legacy fontweight styling" },
 
 
-  { file: "src/App.tsx", lineText: "className=\"w-4 h-4 accent-accent rounded cursor-pointer\"", category: "radius" as AllowlistCategory, reason: "Legacy radius styling" },
 
-  { file: "src/App.tsx", lineText: "className=\"w-4 h-4 accent-accent rounded cursor-pointer\"", category: "radius" as AllowlistCategory, reason: "Legacy radius styling" },
+
+
+
+
+
+
+
+
+
+
+
+
+
+
   { file: "src/components/Constellation.tsx", lineText: "<h2 className=\"text-sm font-bold text-ink-1\">Project Constellation</h2>", category: "fontweight" as AllowlistCategory, reason: "Legacy fontweight/retiredtoken styling" },
   { file: "src/components/Constellation.tsx", lineText: "<div className=\"flex items-center gap-3 bg-surface-elevated px-4 py-1.5 rounded-xs border border-hairline shadow-sm\">", category: "shadow" as AllowlistCategory, reason: "Legacy shadow/retiredtoken styling" },
   { file: "src/components/Constellation.tsx", lineText: "<span className=\"text-xs font-semibold text-ink-2\">", category: "fontweight" as AllowlistCategory, reason: "Legacy fontweight/retiredtoken styling" },
@@ -178,68 +154,6 @@ const ALLOWLIST_RAW = [
 
 
 
-  { file: "src/components/LinkAssetModal.tsx", lineText: "<div className=\"w-full max-w-lg bg-surface rounded-[21px] border border-n-100 shadow-2xl p-6 relative flex flex-col max-h-[85vh] overflow-hidden font-sans\">", category: "shadow" as AllowlistCategory, reason: "Legacy shadow styling" },
-  { file: "src/components/LinkAssetModal.tsx", lineText: "<span className=\"text-[10px] font-bold uppercase tracking-wider text-accent\">", category: "fontweight" as AllowlistCategory, reason: "Legacy fontweight styling" },
-  { file: "src/components/LinkAssetModal.tsx", lineText: "<h3 className=\"text-title font-bold text-text-primary mt-1 truncate max-w-[320px]\">", category: "fontweight" as AllowlistCategory, reason: "Legacy fontweight/retiredtoken styling" },
-
-  { file: "src/components/LinkAssetModal.tsx", lineText: "className=\"p-1 rounded-full hover:bg-n-25 text-text-muted hover:text-text-primary transition-colors cursor-pointer\"", category: "radius" as AllowlistCategory, reason: "Legacy radius/retiredtoken styling" },
-
-  { file: "src/components/LinkAssetModal.tsx", lineText: "<div className=\"w-12 h-12 rounded-full bg-success-bg border border-success-border flex items-center justify-center animate-bounce\">", category: "radius" as AllowlistCategory, reason: "Legacy radius styling" },
-  { file: "src/components/LinkAssetModal.tsx", lineText: "<span className=\"text-sm font-bold mt-2\">Asset Linked Successfully!</span>", category: "fontweight" as AllowlistCategory, reason: "Legacy fontweight styling" },
-
-  { file: "src/components/LinkAssetModal.tsx", lineText: "<label className=\"text-xs font-bold text-text-muted uppercase\">Target Repository</label>", category: "fontweight" as AllowlistCategory, reason: "Legacy fontweight/retiredtoken styling" },
-
-  { file: "src/components/LinkAssetModal.tsx", lineText: "className=\"w-full px-3 py-2 rounded-full border border-n-100 bg-surface text-text-secondary text-xs focus:ring-1 focus:ring-accent outline-none font-mono cursor-pointer\"", category: "radius" as AllowlistCategory, reason: "Legacy radius/retiredtoken styling" },
-
-  { file: "src/components/LinkAssetModal.tsx", lineText: "<div className=\"flex flex-col gap-3 p-4 rounded-xl bg-surface border border-n-100 shrink-0\">", category: "radius" as AllowlistCategory, reason: "Legacy radius/retiredtoken styling" },
-
-  { file: "src/components/LinkAssetModal.tsx", lineText: "<span className=\"text-xs font-bold uppercase tracking-wider text-text-muted flex items-center gap-1.5 select-none\">", category: "fontweight" as AllowlistCategory, reason: "Legacy fontweight/retiredtoken styling" },
-
-  { file: "src/components/LinkAssetModal.tsx", lineText: "<div className=\"flex items-center justify-between bg-n-50 border border-n-100 rounded-xl p-2.5\">", category: "radius" as AllowlistCategory, reason: "Legacy radius/retiredtoken styling" },
-
-  { file: "src/components/LinkAssetModal.tsx", lineText: "<span className=\"text-[10px] uppercase font-bold text-accent\">Remembered Target</span>", category: "fontweight" as AllowlistCategory, reason: "Legacy fontweight styling" },
-
-  { file: "src/components/LinkAssetModal.tsx", lineText: "className=\"p-1 rounded text-text-muted hover:text-error-text hover:bg-n-25 transition-all cursor-pointer text-[10px] font-bold uppercase\"", category: "radius" as AllowlistCategory, reason: "Legacy radius/fontweight/retiredtoken styling" },
-
-
-  { file: "src/components/LinkAssetModal.tsx", lineText: "className=\"w-full px-3 py-2 rounded-full border border-n-100 bg-surface text-text-secondary text-xs font-mono cursor-pointer\"", category: "radius" as AllowlistCategory, reason: "Legacy radius/retiredtoken styling" },
-
-  { file: "src/components/LinkAssetModal.tsx", lineText: "<label className=\"text-xs font-bold text-text-muted uppercase\">Link Type</label>", category: "fontweight" as AllowlistCategory, reason: "Legacy fontweight/retiredtoken styling" },
-
-  { file: "src/components/LinkAssetModal.tsx", lineText: "className={`flex flex-col p-4 rounded-xl border text-left cursor-pointer transition-all ${", category: "radius" as AllowlistCategory, reason: "Legacy radius styling" },
-
-  { file: "src/components/LinkAssetModal.tsx", lineText: "<span className=\"text-xs font-bold text-text-primary\">Symlink</span>", category: "fontweight" as AllowlistCategory, reason: "Legacy fontweight/retiredtoken styling" },
-
-  { file: "src/components/LinkAssetModal.tsx", lineText: "className={`flex flex-col p-4 rounded-xl border text-left cursor-pointer transition-all ${", category: "radius" as AllowlistCategory, reason: "Legacy radius styling" },
-
-  { file: "src/components/LinkAssetModal.tsx", lineText: "<span className=\"text-xs font-bold text-text-primary\">Hard Copy</span>", category: "fontweight" as AllowlistCategory, reason: "Legacy fontweight/retiredtoken styling" },
-
-  { file: "src/components/LinkAssetModal.tsx", lineText: "<div className=\"flex flex-col gap-2 p-4 rounded-xl border border-n-100 bg-surface shrink-0\">", category: "radius" as AllowlistCategory, reason: "Legacy radius/retiredtoken styling" },
-
-  { file: "src/components/LinkAssetModal.tsx", lineText: "<span className=\"text-xs font-bold uppercase tracking-wider text-text-muted flex items-center gap-1.5 select-none\">", category: "fontweight" as AllowlistCategory, reason: "Legacy fontweight/retiredtoken styling" },
-
-
-  { file: "src/components/LinkAssetModal.tsx", lineText: "<div className=\"flex items-start gap-2 p-2 border border-warning-border bg-warning-bg text-warning-text text-xs rounded-xl leading-normal\">", category: "radius" as AllowlistCategory, reason: "Legacy radius styling" },
-  { file: "src/components/LinkAssetModal.tsx", lineText: "<span className=\"font-bold\">Collision:</span> Heading block conflict detected. Merging requires section diff merge chooser. Overwrite is disabled.", category: "fontweight" as AllowlistCategory, reason: "Legacy fontweight styling" },
-  { file: "src/components/LinkAssetModal.tsx", lineText: "<div className=\"flex items-start gap-2 p-2 border border-error-border bg-error-bg text-error-text text-xs rounded-xl leading-normal\">", category: "radius" as AllowlistCategory, reason: "Legacy radius styling" },
-  { file: "src/components/LinkAssetModal.tsx", lineText: "<span className=\"font-bold\">Collision Warning:</span> Destination path already exists. Confirming will overwrite the existing asset.", category: "fontweight" as AllowlistCategory, reason: "Legacy fontweight styling" },
-  { file: "src/components/LinkAssetModal.tsx", lineText: "<div className=\"flex items-start gap-1.5 text-success-text text-xs font-semibold py-1\">", category: "fontweight" as AllowlistCategory, reason: "Legacy fontweight styling" },
-  { file: "src/components/LinkAssetModal.tsx", lineText: "<div className=\"p-2.5 border border-error-border bg-error-bg text-error-text text-xs rounded-xl font-mono shrink-0\">", category: "radius" as AllowlistCategory, reason: "Legacy radius styling" },
-  { file: "src/components/LinkAssetModal.tsx", lineText: "className=\"flex-1 py-2.5 rounded-full bg-accent text-on-accent font-semibold text-xs hover:opacity-95 transition-opacity disabled:opacity-50 cursor-pointer text-center shadow-sm\"", category: "radius" as AllowlistCategory, reason: "Legacy radius/shadow/fontweight styling" },
-  { file: "src/components/LinkAssetModal.tsx", lineText: "className=\"flex-1 py-2.5 rounded-full bg-accent text-on-accent font-semibold text-xs hover:opacity-95 transition-opacity disabled:opacity-50 cursor-pointer text-center shadow-sm\"", category: "radius" as AllowlistCategory, reason: "Legacy radius/shadow/fontweight styling" },
-  { file: "src/components/LinkAssetModal.tsx", lineText: "className=\"px-6 py-2.5 rounded-full border border-n-100 bg-n-50 text-text-secondary hover:text-text-primary transition-colors text-xs font-medium cursor-pointer\"", category: "radius" as AllowlistCategory, reason: "Legacy radius/retiredtoken styling" },
-
-
-
-
-
-
-
-
-
-  { file: "src/components/RepoPane.tsx", lineText: "<div className=\"flex flex-col gap-4 p-4 border border-error-border bg-error-bg rounded-lg leading-relaxed animate-in fade-in duration-200 shadow-sm\">", category: "radius" as AllowlistCategory, reason: "Legacy radius/shadow styling" },
-  { file: "src/components/RepoPane.tsx", lineText: "<span className=\"text-xs font-bold font-sans\">macOS Folder Scan Access Denied</span>", category: "fontweight" as AllowlistCategory, reason: "Legacy fontweight styling" },
-  { file: "src/components/RepoPane.tsx", lineText: "className=\"self-start px-3 py-1.5 bg-accent text-on-accent font-semibold text-xs rounded-full hover:opacity-90 transition-opacity cursor-pointer shadow-sm flex items-center gap-1.5\"", category: "fontweight" as AllowlistCategory, reason: "Legacy fontweight/shadow styling" },
 
 
 
@@ -251,61 +165,60 @@ const ALLOWLIST_RAW = [
 
 
 
-  { file: "src/components/RepoPane.tsx", lineText: "<div className=\"w-full max-w-sm bg-surface-elevated rounded-[21px] border border-hairline shadow-2xl p-6 relative flex flex-col gap-4 font-sans animate-in zoom-in-95 duration-150\">", category: "shadow" as AllowlistCategory, reason: "Legacy shadow/retiredtoken styling" },
-  { file: "src/components/RepoPane.tsx", lineText: "<div className=\"flex justify-between items-center pb-2 border-b border-hairline\">", category: "retiredtoken" as AllowlistCategory, reason: "Legacy retiredtoken styling" },
-  { file: "src/components/RepoPane.tsx", lineText: "<h3 className=\"text-sm font-bold text-ink-1 flex items-center gap-1.5\">", category: "fontweight" as AllowlistCategory, reason: "Legacy fontweight/retiredtoken styling" },
-  { file: "src/components/RepoPane.tsx", lineText: "Are you sure you want to unlink <span className=\"font-semibold\">{assetToUnlink.name}</span> from this repository?", category: "fontweight" as AllowlistCategory, reason: "Legacy fontweight styling" },
-
-  { file: "src/components/RepoPane.tsx", lineText: "<p className=\"text-[10px] text-ink-3\">", category: "retiredtoken" as AllowlistCategory, reason: "Legacy retiredtoken styling" },
-  { file: "src/components/RepoPane.tsx", lineText: "<p className=\"text-[10px] text-text-muted font-mono bg-surface p-2.5 rounded-xl border border-n-100 break-all select-all\">", category: "radius" as AllowlistCategory, reason: "Legacy radius styling" },
-  { file: "src/components/RepoPane.tsx", lineText: "<div className=\"p-2 border border-error-border bg-error-bg text-error-text text-[10px] rounded-xl font-mono break-all\">", category: "radius" as AllowlistCategory, reason: "Legacy radius styling" },
-  { file: "src/components/RepoPane.tsx", lineText: "<div className=\"flex gap-3 justify-end pt-2 border-t border-hairline\">", category: "retiredtoken" as AllowlistCategory, reason: "Legacy retiredtoken styling" },
-  { file: "src/components/RepoPane.tsx", lineText: "className=\"px-4 py-2 rounded-full bg-error-bg text-error-text border border-error-border hover:bg-opacity-90 font-semibold text-xs cursor-pointer shadow-xs disabled:opacity-50 flex items-center gap-1\"", category: "fontweight" as AllowlistCategory, reason: "Legacy fontweight styling" },
-  { file: "src/components/RepoPane.tsx", lineText: "className=\"px-4 py-2 rounded-full border border-hairline bg-surface text-ink-2 text-xs font-medium cursor-pointer\"", category: "radius" as AllowlistCategory, reason: "Legacy radius/retiredtoken styling" },
-  { file: "src/components/SidebarScanModal.tsx", lineText: "<div className=\"w-full max-w-lg bg-surface border border-n-100 rounded-xl shadow-xl flex flex-col max-h-[85vh] overflow-hidden\">", category: "radius" as AllowlistCategory, reason: "Legacy radius/shadow/retiredtoken styling" },
-  { file: "src/components/SidebarScanModal.tsx", lineText: "<div className=\"p-3 bg-error-bg border border-error-border text-error-text rounded-md text-xs font-mono break-all\">", category: "radius" as AllowlistCategory, reason: "Legacy radius styling" },
-
-
-
-
-  { file: "src/components/SidebarScanModal.tsx", lineText: "<span className=\"text-md font-bold text-text-primary\">Promote Repositories</span>", category: "fontweight" as AllowlistCategory, reason: "Legacy fontweight/retiredtoken styling, carried over from the scan modal this replaced" },
-  { file: "src/components/SidebarScanModal.tsx", lineText: "<span className=\"text-sm font-semibold\">Nothing left to promote</span>", category: "fontweight" as AllowlistCategory, reason: "Legacy fontweight styling, carried over from the scan modal this replaced" },
-  { file: "src/components/SidebarScanModal.tsx", lineText: "className=\"p-1 rounded-full hover:bg-n-50 text-text-muted hover:text-text-primary transition-colors\"", category: "radius" as AllowlistCategory, reason: "Legacy radius/retiredtoken styling" },
 
 
 
 
 
 
-  { file: "src/components/SidebarScanModal.tsx", lineText: "className=\"px-4 py-1.5 rounded-full border border-n-100 hover:bg-n-50 text-xs font-bold text-text-secondary transition-all\"", category: "retiredtoken" as AllowlistCategory, reason: "Legacy retiredtoken styling" },
 
 
-  { file: "src/components/SidebarScanModal.tsx", lineText: "className=\"text-xs font-bold text-brand-violet hover:underline shrink-0 px-1\"", category: "fontweight" as AllowlistCategory, reason: "Legacy fontweight styling" },
-  { file: "src/components/SidebarScanModal.tsx", lineText: "className=\"w-full pl-8 pr-3 py-1 bg-n-50 border border-n-100 rounded-sm text-xs text-text-primary focus:outline-none focus:border-brand-violet font-sans\"", category: "radius" as AllowlistCategory, reason: "Legacy radius/retiredtoken styling" },
-
-  { file: "src/components/SidebarScanModal.tsx", lineText: "className=\"mt-0.5 accent-brand-violet rounded\"", category: "radius" as AllowlistCategory, reason: "Legacy radius styling" },
-  { file: "src/components/SidebarScanModal.tsx", lineText: "<span className=\"text-xs font-semibold text-text-primary block truncate\">", category: "fontweight" as AllowlistCategory, reason: "Legacy fontweight/retiredtoken styling" },
-
-  { file: "src/components/SidebarScanModal.tsx", lineText: "<div className=\"flex-1 overflow-y-auto border border-n-100 rounded-md bg-n-50 divide-y divide-n-100 min-h-[200px] max-h-[350px]\">", category: "retiredtoken" as AllowlistCategory, reason: "Legacy retiredtoken styling" },
-
-  { file: "src/components/SidebarScanModal.tsx", lineText: "<span className=\"text-xs text-text-muted font-semibold\">", category: "fontweight" as AllowlistCategory, reason: "Legacy fontweight/retiredtoken styling" },
 
 
-  { file: "src/components/SidebarScanModal.tsx", lineText: "className=\"px-4 py-1.5 rounded-full bg-accent text-on-accent text-xs font-bold tracking-wide uppercase shadow-sm disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-95 transition-all\"", category: "radius" as AllowlistCategory, reason: "Legacy radius/shadow/fontweight styling" },
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
   // Surfaced when the arbitrary-value rules above were repaired. These
   // lines predate the repair and were never detectable; they are recorded
   // as legacy so the rules start catching NEW off-token values.
-  { file: "src/App.tsx", lineText: "<span className=\"text-[10px] text-text-muted\">Send anonymised error traces.</span>", category: "fontsize" as AllowlistCategory, reason: "Legacy arbitrary font size, pre-existing and undetected while the text-[] rule was unreachable" },
-  { file: "src/App.tsx", lineText: "<span className=\"text-[10px] text-text-muted\">Share anonymised feature usage events.</span>", category: "fontsize" as AllowlistCategory, reason: "Legacy arbitrary font size, pre-existing and undetected while the text-[] rule was unreachable" },
   { file: "src/components/DiscoveryPane.tsx", lineText: "<span className=\"text-[10px] text-text-muted\">Installs external tool configurations.</span>", category: "fontsize" as AllowlistCategory, reason: "Legacy arbitrary font size, pre-existing and undetected while the text-[] rule was unreachable" },
   { file: "src/components/DiscoveryPane.tsx", lineText: "<span className=\"text-[10px] text-text-muted\">Extends Claude and Gemini environments.</span>", category: "fontsize" as AllowlistCategory, reason: "Legacy arbitrary font size, pre-existing and undetected while the text-[] rule was unreachable" },
   { file: "src/components/DiscoveryPane.tsx", lineText: "<span className=\"text-[10px] text-text-muted\">Automated lifecycle event triggers.</span>", category: "fontsize" as AllowlistCategory, reason: "Legacy arbitrary font size, pre-existing and undetected while the text-[] rule was unreachable" },
-  { file: "src/components/LinkAssetModal.tsx", lineText: "<span className=\"text-[10px] text-text-muted mt-1 leading-normal\">", category: "fontsize" as AllowlistCategory, reason: "Legacy arbitrary font size, pre-existing and undetected while the text-[] rule was unreachable" },
-  { file: "src/components/LinkAssetModal.tsx", lineText: "<span className=\"text-[10px] text-text-muted mt-1 leading-normal\">", category: "fontsize" as AllowlistCategory, reason: "Legacy arbitrary font size, pre-existing and undetected while the text-[] rule was unreachable" },
-  { file: "src/components/RepoPane.tsx", lineText: "<span className=\"text-[11px] font-mono break-all\">{repoPath}</span>", category: "fontsize" as AllowlistCategory, reason: "Legacy arbitrary font size, pre-existing and undetected while the text-[] rule was unreachable" },
-  { file: "src/components/RepoPane.tsx", lineText: "<p className=\"text-[11px] text-text-secondary leading-relaxed\">", category: "fontsize" as AllowlistCategory, reason: "Legacy arbitrary font size, pre-existing and undetected while the text-[] rule was unreachable" },
-  { file: "src/components/SidebarScanModal.tsx", lineText: "<span className=\"text-[10px] text-text-muted font-mono block truncate\">", category: "fontsize" as AllowlistCategory, reason: "Legacy arbitrary font size, pre-existing and undetected while the text-[] rule was unreachable" },
 ];
 
 const ALLOWLIST: AllowlistEntry[] = ALLOWLIST_RAW.map((e) => ({

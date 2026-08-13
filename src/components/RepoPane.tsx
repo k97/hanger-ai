@@ -321,21 +321,21 @@ export default function RepoPane({
 
         {/* macOS Permission denied TCC Fix Panel */}
         {permissionDeniedWarnings.length > 0 && (
-          <div className="flex flex-col gap-4 p-4 border border-error-border bg-error-bg rounded-lg leading-relaxed animate-in fade-in duration-200 shadow-sm">
-            <div className="flex gap-2 text-error-text">
+          <div className="flex flex-col gap-3 p-3.5 border border-line bg-plane rounded-inner leading-relaxed animate-in fade-in duration-200">
+            <div className="flex gap-2 text-state-danger">
               <AlertTriangle className="shrink-0 mt-0.5" size={16} />
-              <div className="flex flex-col gap-1">
-                <span className="text-xs font-bold font-sans">macOS Folder Scan Access Denied</span>
-                <span className="text-[11px] font-mono break-all">{repoPath}</span>
+              <div className="flex flex-col gap-1 min-w-0">
+                <span className="text-small font-medium font-sans">macOS Folder Scan Access Denied</span>
+                <span className="text-micro font-mono break-all text-ink-2">{repoPath}</span>
               </div>
             </div>
-            <p className="text-[11px] text-text-secondary leading-relaxed">
-              To proceed, grant Hanger permission to access this folder. Open <strong>System Settings → Privacy & Security → Files & Folders</strong> (or Full Disk Access), check <strong>Hanger</strong>, and then retry the scan.
+            <p className="text-small text-ink-2 leading-relaxed">
+              To proceed, grant Hanger permission to access this folder. Open <strong className="font-medium">System Settings → Privacy & Security → Files & Folders</strong> (or Full Disk Access), check <strong className="font-medium">Hanger</strong>, and then retry the scan.
             </p>
             <button
               disabled={loading}
               onClick={onRefresh}
-              className="self-start px-3 py-1.5 bg-accent text-on-accent font-semibold text-xs rounded-full hover:opacity-90 transition-opacity cursor-pointer shadow-sm flex items-center gap-1.5"
+              className="self-start px-4 h-[30px] bg-fill text-on-fill font-medium text-small rounded-pill transition-transform duration-press ease-spring active:scale-[0.96] cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
             >
               <RefreshCw size={12} className={loading ? "animate-spin" : ""} />
               <span>Retry Scan</span>
@@ -350,7 +350,7 @@ export default function RepoPane({
             summary="scan warning"
             count={nonPermissionWarnings.length}
           >
-            <ul className="list-disc list-inside space-y-1 text-xs text-text-secondary font-mono">
+            <ul className="list-disc list-inside space-y-1 text-small text-ink-2 font-mono">
               {nonPermissionWarnings.map((warning, idx) => (
                 <li key={idx} className="font-mono break-all leading-relaxed">
                   {warning}
@@ -369,12 +369,12 @@ export default function RepoPane({
             count={unlinkedCandidates.length}
           >
             <div className="flex flex-col gap-3">
-              <p className="text-xs text-text-secondary leading-relaxed">
+              <p className="text-small text-ink-2 leading-relaxed">
                 These folders are repositories in their own right. Their assets currently
                 count towards this row. Promote them to track and deploy each separately.
               </p>
               {depthCapped && (
-                <p className="text-xs text-text-secondary leading-relaxed">
+                <p className="text-small text-ink-2 leading-relaxed">
                   This is a broad folder, so the search stopped at 6 levels — repositories
                   deeper than that are not listed.
                 </p>
@@ -383,7 +383,7 @@ export default function RepoPane({
                 {unlinkedCandidates.map((candidate) => (
                   <li
                     key={candidate}
-                    className="text-xs text-text-secondary font-mono break-all leading-relaxed"
+                    className="text-small text-ink-2 font-mono break-all leading-relaxed"
                   >
                     {candidate}
                   </li>
@@ -392,7 +392,7 @@ export default function RepoPane({
               {onPromoteCandidates && (
                 <button
                   onClick={() => onPromoteCandidates(unlinkedCandidates)}
-                  className="self-start px-3 py-1.5 rounded-control border border-n-100 hover:bg-n-50 text-xs font-medium text-text-secondary transition-colors cursor-pointer"
+                  className="self-start px-4 h-[30px] rounded-pill border border-line-2 hover:bg-plane-2 text-small font-medium text-ink-2 hover:text-ink-1 transition-colors duration-hover ease-spring cursor-pointer"
                 >
                   Promote…
                 </button>
@@ -537,34 +537,34 @@ export default function RepoPane({
 
       {showUnlinkConfirm && assetToUnlink && (
         <div className="fixed inset-0 bg-scrim flex items-center justify-center z-[100] animate-fade-in">
-          <div className="w-full max-w-sm bg-surface-elevated rounded-[21px] border border-hairline shadow-2xl p-6 relative flex flex-col gap-4 font-sans animate-in zoom-in-95 duration-150">
-            <div className="flex justify-between items-center pb-2 border-b border-hairline">
-              <h3 className="text-sm font-bold text-ink-1 flex items-center gap-1.5">
-                <AlertTriangle className="text-warning-text animate-pulse" size={16} />
+          <div className="w-full max-w-sm bg-page rounded-plane border border-line p-[18px] relative flex flex-col gap-4 font-sans animate-in zoom-in-95 duration-150">
+            <div className="flex justify-between items-center pb-2 border-b border-line">
+              <h3 className="text-base-app font-medium text-ink-1 flex items-center gap-1.5">
+                <AlertTriangle className="text-state-warning" size={16} />
                 Unlink Asset
               </h3>
             </div>
-            <p className="text-xs text-ink-2 leading-relaxed">
-              Are you sure you want to unlink <span className="font-semibold">{assetToUnlink.name}</span> from this repository?
+            <p className="text-small text-ink-2 leading-[1.65]">
+              Are you sure you want to unlink <span className="font-medium text-ink-1">{assetToUnlink.name}</span> from this repository?
             </p>
-            <p className="text-[10px] text-text-muted font-mono bg-surface p-2.5 rounded-xl border border-n-100 break-all select-all">
+            <p className="text-micro text-ink-2 font-mono bg-plane p-2.5 rounded-inner break-all select-all">
               {assetToUnlink.path}
             </p>
-            <p className="text-[10px] text-ink-3">
+            <p className="text-micro text-ink-3 leading-[1.6]">
               * Note: This deletes the file/symlink. If it is a hard copy, Hanger will backup the file to <span className="font-mono">.hanger/backups/</span> first.
             </p>
 
             {unlinkError && (
-              <div className="p-2 border border-error-border bg-error-bg text-error-text text-[10px] rounded-xl font-mono break-all">
+              <div className="p-2.5 border border-line bg-plane text-state-danger text-micro rounded-inner font-mono break-all">
                 {unlinkError}
               </div>
             )}
 
-            <div className="flex gap-3 justify-end pt-2 border-t border-hairline">
+            <div className="flex gap-2 justify-end pt-2 border-t border-line">
               <button
                 disabled={unlinkLoading}
                 onClick={handleExecuteUnlink}
-                className="px-4 py-2 rounded-full bg-error-bg text-error-text border border-error-border hover:bg-opacity-90 font-semibold text-xs cursor-pointer shadow-xs disabled:opacity-50 flex items-center gap-1"
+                className="px-4 h-[30px] rounded-pill bg-fill text-on-fill font-medium text-small cursor-pointer disabled:opacity-50 flex items-center gap-1.5 transition-transform duration-press ease-spring active:scale-[0.96]"
               >
                 {unlinkLoading ? (
                   <>
@@ -581,7 +581,7 @@ export default function RepoPane({
                   setShowUnlinkConfirm(false);
                   setAssetToUnlink(null);
                 }}
-                className="px-4 py-2 rounded-full border border-hairline bg-surface text-ink-2 text-xs font-medium cursor-pointer"
+                className="px-4 h-[30px] rounded-pill border border-line-2 text-ink-2 hover:bg-plane-2 hover:text-ink-1 text-small font-medium cursor-pointer transition-colors duration-hover ease-spring"
               >
                 Cancel
               </button>

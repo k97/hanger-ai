@@ -274,8 +274,8 @@ export default function LinkAssetModal({
 
   return (
     <div className="fixed inset-0 bg-scrim flex items-center justify-center z-50 animate-fade-in">
-      <div className="w-full max-w-lg bg-surface rounded-[21px] border border-n-100 shadow-2xl p-6 relative flex flex-col max-h-[85vh] overflow-hidden font-sans">
-        
+      <div className="w-full max-w-lg bg-page rounded-plane border border-line p-[18px] relative flex flex-col max-h-[85vh] overflow-hidden font-sans">
+
         {showMergeChooser ? (
           <DiffChooser
             alignedSections={alignedSections}
@@ -292,42 +292,42 @@ export default function LinkAssetModal({
           />
         ) : (
           <>
-            <div className="flex justify-between items-center border-b border-n-100 pb-4 mb-4 shrink-0">
+            <div className="flex justify-between items-start border-b border-line pb-3.5 mb-4 shrink-0">
               <div>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-accent">
-                  Link Asset
+                <span className="text-micro font-medium uppercase tracking-[.06em] text-ink-3 font-flex">
+                  Link asset
                 </span>
-                <h3 className="text-title font-bold text-text-primary mt-1 truncate max-w-[320px]">
+                <h3 className="text-lg-app font-medium tracking-[-0.3px] text-ink-1 mt-1 truncate max-w-[320px]">
                   {asset.name}
                 </h3>
               </div>
               <button
                 onClick={onClose}
-                className="p-1 rounded-full hover:bg-n-25 text-text-muted hover:text-text-primary transition-colors cursor-pointer"
+                className="w-[27px] h-[27px] rounded-pill grid place-items-center text-ink-2 hover:bg-plane-2 hover:text-ink-1 transition-colors duration-hover ease-spring cursor-pointer"
               >
-                <X size={18} />
+                <X size={14} />
               </button>
             </div>
 
             {deploySuccess ? (
-              <div className="flex-1 flex flex-col items-center justify-center gap-2 text-success-text py-12 shrink-0">
-                <div className="w-12 h-12 rounded-full bg-success-bg border border-success-border flex items-center justify-center animate-bounce">
+              <div className="flex-1 flex flex-col items-center justify-center gap-2 py-12 shrink-0 animate-in fade-in zoom-in-95 duration-200">
+                <div className="w-12 h-12 rounded-pill bg-plane border border-line flex items-center justify-center text-state-success">
                   <Check size={24} />
                 </div>
-                <span className="text-sm font-bold mt-2">Asset Linked Successfully!</span>
-                <span className="text-xs text-text-muted">Updating repositories...</span>
+                <span className="text-base-app font-medium text-ink-1 mt-2">Asset linked successfully</span>
+                <span className="text-small text-ink-3">Updating repositories…</span>
               </div>
             ) : (
               <div className="flex-1 overflow-y-auto pr-1 flex flex-col gap-5 min-h-0">
                 {/* Repository dropdown */}
                 <div className="flex flex-col gap-2 shrink-0">
-                  <label className="text-xs font-bold text-text-muted uppercase">Target Repository</label>
+                  <label className="text-micro font-medium uppercase tracking-[.06em] text-ink-3 font-flex">Destination</label>
                   <select
                     id="link-repo-select"
                     value={selectedDestProject}
                     disabled={!!preSelectedRepo}
                     onChange={(e) => setSelectedDestProject(e.target.value)}
-                    className="w-full px-3 py-2 rounded-full border border-n-100 bg-surface text-text-secondary text-xs focus:ring-1 focus:ring-accent outline-none font-mono cursor-pointer"
+                    className="w-full px-2.5 py-2 rounded-inner border border-line-2 bg-page text-ink-1 text-small font-mono cursor-pointer focus:outline-none focus:border-ink-1 disabled:opacity-60"
                   >
                     <option value="">-- Choose destination root --</option>
                     {linkedProjects.map((proj) => (
@@ -340,34 +340,34 @@ export default function LinkAssetModal({
 
                 {/* Target Rule Chooser */}
                 {asset.category === "Rules" && selectedDestProject && (
-                  <div className="flex flex-col gap-3 p-4 rounded-xl bg-surface border border-n-100 shrink-0">
-                    <span className="text-xs font-bold uppercase tracking-wider text-text-muted flex items-center gap-1.5 select-none">
+                  <div className="flex flex-col gap-3 p-3.5 rounded-inner bg-plane border border-line shrink-0">
+                    <span className="text-micro font-medium uppercase tracking-[.06em] text-ink-3 font-flex flex items-center gap-1.5 select-none">
                       <FileText size={12} />
-                      Rule Destination Target Path
+                      Rule destination target path
                     </span>
 
                     {rememberedTarget ? (
-                      <div className="flex items-center justify-between bg-n-50 border border-n-100 rounded-xl p-2.5">
-                        <div className="flex flex-col gap-0.5">
-                          <span className="text-[10px] uppercase font-bold text-accent">Remembered Target</span>
-                          <span className="text-xs font-mono text-text-secondary truncate max-w-[280px]">{rememberedTarget}</span>
+                      <div className="flex items-center justify-between bg-page border border-line rounded-inner p-2.5">
+                        <div className="flex flex-col gap-0.5 min-w-0">
+                          <span className="text-micro font-medium uppercase tracking-[.06em] text-ink-3 font-flex">Remembered target</span>
+                          <span className="text-small font-mono text-ink-2 truncate max-w-[280px]">{rememberedTarget}</span>
                         </div>
                         <button
                           onClick={() => setRememberedTarget(null)}
-                          className="p-1 rounded text-text-muted hover:text-error-text hover:bg-n-25 transition-all cursor-pointer text-[10px] font-bold uppercase"
+                          className="px-2.5 h-[22px] rounded-pill text-micro font-medium font-flex text-ink-3 hover:text-ink-1 hover:bg-plane-2 transition-colors duration-hover cursor-pointer shrink-0"
                         >
                           Change
                         </button>
                       </div>
                     ) : (
                       <div className="flex flex-col gap-2">
-                        <p className="text-xs text-text-muted">
+                        <p className="text-small text-ink-3 leading-[1.6]">
                           Select the specific destination rule file path in the target project:
                         </p>
                         <select
                           value={selectedTargetRulePath}
                           onChange={(e) => setSelectedTargetRulePath(e.target.value)}
-                          className="w-full px-3 py-2 rounded-full border border-n-100 bg-surface text-text-secondary text-xs font-mono cursor-pointer"
+                          className="w-full px-2.5 py-2 rounded-inner border border-line-2 bg-page text-ink-1 text-small font-mono cursor-pointer focus:outline-none focus:border-ink-1"
                         >
                           {destRules.map((r) => (
                             <option key={r.path} value={r.path}>
@@ -383,53 +383,54 @@ export default function LinkAssetModal({
                   </div>
                 )}
 
-                {/* Symlink vs Copy Selector */}
+                {/* Mechanism */}
                 {(!preflight?.collision || asset.category !== "Rules") && (
                   <div className="flex flex-col gap-2 shrink-0">
-                    <label className="text-xs font-bold text-text-muted uppercase">Link Type</label>
-                    <div className="grid grid-cols-2 gap-3">
+                    <label className="text-micro font-medium uppercase tracking-[.06em] text-ink-3 font-flex">Mechanism</label>
+                    <div className="flex gap-1.5 w-full">
                       <button
                         type="button"
+                        aria-pressed={deployType === "symlink"}
                         onClick={() => setDeployType("symlink")}
-                        className={`flex flex-col p-4 rounded-xl border text-left cursor-pointer transition-all ${
+                        className={
                           deployType === "symlink"
-                            ? "border-accent bg-accent/5 ring-1 ring-accent"
-                            : "border-n-100 hover:border-accent bg-surface"
-                        }`}
+                            ? "flex-1 h-[30px] rounded-pill border border-transparent bg-tint text-tint-ink font-medium text-small font-flex cursor-pointer transition-colors duration-nav ease-spring"
+                            : "flex-1 h-[30px] rounded-pill border border-line-2 text-ink-2 text-small font-flex cursor-pointer transition-colors duration-nav ease-spring hover:bg-plane-2"
+                        }
                       >
-                        <span className="text-xs font-bold text-text-primary">Symlink</span>
-                        <span className="text-[10px] text-text-muted mt-1 leading-normal">
-                          Unified team rule updates with zero drift.
-                        </span>
+                        Symlink
                       </button>
                       <button
                         type="button"
+                        aria-pressed={deployType === "copy"}
                         onClick={() => setDeployType("copy")}
-                        className={`flex flex-col p-4 rounded-xl border text-left cursor-pointer transition-all ${
+                        className={
                           deployType === "copy"
-                            ? "border-accent bg-accent/5 ring-1 ring-accent"
-                            : "border-n-100 hover:border-accent bg-surface"
-                        }`}
+                            ? "flex-1 h-[30px] rounded-pill border border-transparent bg-tint text-tint-ink font-medium text-small font-flex cursor-pointer transition-colors duration-nav ease-spring"
+                            : "flex-1 h-[30px] rounded-pill border border-line-2 text-ink-2 text-small font-flex cursor-pointer transition-colors duration-nav ease-spring hover:bg-plane-2"
+                        }
                       >
-                        <span className="text-xs font-bold text-text-primary">Hard Copy</span>
-                        <span className="text-[10px] text-text-muted mt-1 leading-normal">
-                          Independent copy. Drift is tracked.
-                        </span>
+                        Tracked copy
                       </button>
                     </div>
+                    <p className="text-micro text-ink-3 leading-[1.6]">
+                      A symlink stays in step with the source file, so an edit there reaches every
+                      project at once. A tracked copy can be edited per project and Hanger tells you
+                      when it drifts.
+                    </p>
                   </div>
                 )}
 
                 {/* Preflight Checks */}
                 {selectedDestProject && (
-                  <div className="flex flex-col gap-2 p-4 rounded-xl border border-n-100 bg-surface shrink-0">
-                    <span className="text-xs font-bold uppercase tracking-wider text-text-muted flex items-center gap-1.5 select-none">
+                  <div className="flex flex-col gap-2 p-3.5 rounded-inner border border-line bg-plane shrink-0">
+                    <span className="text-micro font-medium uppercase tracking-[.06em] text-ink-3 font-flex flex items-center gap-1.5 select-none">
                       <Globe size={12} />
-                      Pre-flight Verification
+                      What will happen
                     </span>
 
                     {preflightLoading ? (
-                      <div className="flex items-center gap-2 text-text-muted text-xs py-2">
+                      <div className="flex items-center gap-2 text-ink-3 text-small py-2">
                         <Loader2 className="animate-spin" size={12} />
                         Running pre-flight checks...
                       </div>
@@ -437,22 +438,22 @@ export default function LinkAssetModal({
                       <div className="flex flex-col gap-2 mt-1">
                         {preflight.collision ? (
                           asset.category === "Rules" ? (
-                            <div className="flex items-start gap-2 p-2 border border-warning-border bg-warning-bg text-warning-text text-xs rounded-xl leading-normal">
+                            <div className="flex items-start gap-2 text-state-warning text-small leading-[1.6]">
                               <AlertTriangle size={14} className="shrink-0 mt-0.5" />
                               <div>
-                                <span className="font-bold">Collision:</span> Heading block conflict detected. Merging requires section diff merge chooser. Overwrite is disabled.
+                                <span className="font-medium">Collision:</span> heading block conflict detected. Merging requires the section diff merge chooser. Overwrite is disabled.
                               </div>
                             </div>
                           ) : (
-                            <div className="flex items-start gap-2 p-2 border border-error-border bg-error-bg text-error-text text-xs rounded-xl leading-normal">
+                            <div className="flex items-start gap-2 text-state-danger text-small leading-[1.6]">
                               <AlertTriangle size={14} className="shrink-0 mt-0.5" />
                               <div>
-                                <span className="font-bold">Collision Warning:</span> Destination path already exists. Confirming will overwrite the existing asset.
+                                <span className="font-medium">Collision warning:</span> the destination path already exists. Confirming will overwrite the existing asset.
                               </div>
                             </div>
                           )
                         ) : (
-                          <div className="flex items-start gap-1.5 text-success-text text-xs font-semibold py-1">
+                          <div className="flex items-start gap-1.5 text-state-success text-small font-medium py-1">
                             <Check size={14} />
                             Destination path clear. Safe to link.
                           </div>
@@ -464,27 +465,27 @@ export default function LinkAssetModal({
 
                 {/* Actions footer */}
                 {deployError && (
-                  <div className="p-2.5 border border-error-border bg-error-bg text-error-text text-xs rounded-xl font-mono shrink-0">
+                  <div className="p-2.5 border border-line bg-plane text-state-danger text-small rounded-inner font-mono break-all shrink-0">
                     {deployError}
                   </div>
                 )}
 
-                <div className="flex gap-3 justify-end mt-auto pt-4 border-t border-n-100 shrink-0">
+                <div className="flex gap-2 justify-end mt-auto pt-4 border-t border-line shrink-0">
                   {preflight?.collision && asset.category === "Rules" ? (
                     <button
                       id="link-merge-button"
                       disabled={deployLoading || preflightLoading}
                       onClick={handleOpenMergeChooser}
-                      className="flex-1 py-2.5 rounded-full bg-accent text-on-accent font-semibold text-xs hover:opacity-95 transition-opacity disabled:opacity-50 cursor-pointer text-center shadow-sm"
+                      className="flex-1 h-[30px] rounded-pill bg-fill text-on-fill text-small font-medium disabled:opacity-50 cursor-pointer text-center transition-transform duration-press ease-spring active:scale-[0.96]"
                     >
-                      Compare & Merge Rules...
+                      Compare & merge rules…
                     </button>
                   ) : (
                     <button
                       id="link-execute-button"
                       disabled={!selectedDestProject || deployLoading || preflightLoading}
                       onClick={handleExecuteDeploy}
-                      className="flex-1 py-2.5 rounded-full bg-accent text-on-accent font-semibold text-xs hover:opacity-95 transition-opacity disabled:opacity-50 cursor-pointer text-center shadow-sm"
+                      className="flex-1 h-[30px] rounded-pill bg-fill text-on-fill text-small font-medium disabled:opacity-50 cursor-pointer text-center transition-transform duration-press ease-spring active:scale-[0.96]"
                     >
                       {deployLoading ? (
                         <span className="flex items-center justify-center gap-2">
@@ -492,15 +493,15 @@ export default function LinkAssetModal({
                           Linking...
                         </span>
                       ) : preflight?.collision ? (
-                        "Overwrite & Link"
+                        "Overwrite & link"
                       ) : (
-                        "Link Asset"
+                        "Link"
                       )}
                     </button>
                   )}
                   <button
                     onClick={onClose}
-                    className="px-6 py-2.5 rounded-full border border-n-100 bg-n-50 text-text-secondary hover:text-text-primary transition-colors text-xs font-medium cursor-pointer"
+                    className="px-4 h-[30px] rounded-pill border border-line-2 text-ink-2 hover:bg-plane-2 hover:text-ink-1 transition-colors duration-hover ease-spring text-small font-medium cursor-pointer"
                   >
                     Cancel
                   </button>

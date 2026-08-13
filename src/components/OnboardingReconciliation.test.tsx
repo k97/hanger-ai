@@ -69,11 +69,11 @@ describe("Onboarding Reconciliation Flow", () => {
     });
 
     // Click Get Started
-    const getStartedBtn = screen.getByText("Get Started");
+    const getStartedBtn = screen.getByText("Get started");
     fireEvent.click(getStartedBtn);
 
     // Should transition to Step 2: Privacy & Telemetry Consent
-    expect(screen.getByText("Privacy & Telemetry Consent")).toBeDefined();
+    expect(screen.getByText("Privacy & telemetry consent")).toBeDefined();
 
     // Click Continue
     const continueBtn = screen.getByText("Continue");

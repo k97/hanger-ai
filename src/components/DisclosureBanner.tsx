@@ -18,15 +18,16 @@ export default function DisclosureBanner({
 }: DisclosureBannerProps) {
   const [isOpen, setIsOpen] = useState(defaultOpen);
 
+  // Neutral plane in every variant — the state carries the colour, not the ground.
   const getVariantStyles = () => {
     switch (variant) {
       case "warning":
-        return "border-warning-tint bg-warning-tint text-warning-text-on-tint";
+        return "border-line bg-plane text-state-warning";
       case "error":
-        return "border-danger-tint bg-danger-tint text-danger-text-on-tint";
+        return "border-line bg-plane text-state-danger";
       case "info":
       default:
-        return "border-n-100 bg-n-25 text-text-secondary";
+        return "border-line bg-plane text-ink-2";
     }
   };
 
@@ -59,16 +60,16 @@ export default function DisclosureBanner({
   })();
 
   return (
-    <div className={`rounded-control border text-row transition-colors ${getVariantStyles()}`}>
+    <div className={`rounded-inner border text-small transition-colors duration-hover ${getVariantStyles()}`}>
       <button
         type="button"
         aria-expanded={isOpen}
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex items-center gap-2 p-3 font-sans font-medium text-left cursor-pointer focus:outline-none rounded-control"
+        className="w-full flex items-center gap-2 p-3 font-sans font-medium text-left cursor-pointer focus:outline-none rounded-inner"
       >
         <ChevronRight
           size={14}
-          className={`shrink-0 transition-transform duration-fast ${
+          className={`shrink-0 transition-transform duration-hover ease-spring ${
             isOpen ? "rotate-90" : ""
           }`}
         />
@@ -78,7 +79,7 @@ export default function DisclosureBanner({
 
       {isOpen && (
         <div
-          className="overflow-y-auto px-3 pb-3 pt-1 border-t border-current/10 font-sans"
+          className="overflow-y-auto px-3 pb-3 pt-1 border-t border-line font-sans text-ink-2"
           style={{ maxHeight: "240px" }}
         >
           {children}
