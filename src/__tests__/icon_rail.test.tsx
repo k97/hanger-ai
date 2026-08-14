@@ -123,16 +123,47 @@ describe("Icon rail", () => {
     unmount();
   });
 
-  it("toggles the needs-review filter on click", async () => {
+  it("switches to Needs review as a section, and persists the selection", async () => {
     const { unmount } = render(<App />);
     const needsReview = await screen.findByTitle(/Needs review/);
     expect(needsReview.getAttribute("aria-current")).toBeNull();
 
     fireEvent.click(needsReview);
-    expect(needsReview.getAttribute("aria-current")).toBe("true");
 
-    fireEvent.click(needsReview);
-    expect(needsReview.getAttribute("aria-current")).toBeNull();
+    await waitFor(() => {
+      expect(invoke).toHaveBeenCalledWith("set_preference", {
+        key: "selected_sidebar_item",
+        value: "review",
+      });
+    });
+    expect(needsReview.getAttribute("aria-current")).toBe("true");
+    // The second column becomes the issue filter list, not the repository list.
+    expect(screen.getByTestId("review-sidebar")).toBeTruthy();
+    expect(screen.queryByTestId("sidebar")).toBeNull();
+    unmount();
+  });
+
+  it("counts duplicates in the badge, not just faults", async () => {
+    const { unmount } = render(<App />);
+    await screen.findByTitle(/Needs review/);
+
+    eventListeners["scan://complete"]({
+      payload: {
+        inventory: {
+          ...flaggedInventory,
+          skills: [
+            ...flaggedInventory.skills,
+            { id: "4", name: "shared", description: "", version: "1", path: "/one/shared", scope: { Project: { agent: "claude", root: "/one" } } },
+            { id: "5", name: "shared", description: "", version: "1", path: "/two/shared", scope: { Project: { agent: "claude", root: "/two" } } },
+          ],
+        },
+      },
+    });
+
+    // 2 drifted + 1 unparsed + 1 duplicate that spans two repositories
+    await waitFor(() => {
+      expect(screen.getByTitle("Needs review — 4 flagged").textContent).toBe("4");
+    });
     unmount();
   });
 });

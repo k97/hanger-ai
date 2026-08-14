@@ -1,10 +1,11 @@
 import React from "react";
-import { User, Folder, FolderTree, Plus, Trash2 } from "lucide-react";
+import { UserIcon, FolderIcon, FolderTreeIcon, PlusIcon, TrashIcon } from "./icons";
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import { Inventory, CategoryCounts } from "../App";
 import { sumGlobalAssets } from "../utils/globalAssetCount";
 import { containerSubtitle, linkedDescendants, hasLinkedAncestor } from "../utils/containerRoots";
+import SourceListShell from "./SourceListShell";
 
 interface SidebarProps {
   width: number;
@@ -37,48 +38,6 @@ export default function Sidebar({
   onRefreshGlobalCounts,
   setError,
 }: SidebarProps) {
-  if (collapsed) {
-    return null;
-  }
-
-  // Drag Resizing Logic with Finder snap-closed behavior
-  const handleMouseDown = (e: React.MouseEvent) => {
-    e.preventDefault();
-    const startX = e.clientX;
-    const startWidth = width;
-
-    const handleMouseMove = (moveEvent: MouseEvent) => {
-      const rawWidth = startWidth + (moveEvent.clientX - startX);
-      if (rawWidth < 160) {
-        setCollapsed(true);
-        invoke("set_preference", { key: "sidebar_collapsed", value: "true" }).catch(() => {});
-        return;
-      }
-      const newWidth = Math.max(200, Math.min(320, rawWidth));
-      setWidth(newWidth);
-    };
-
-    const handleMouseUp = (moveEvent: MouseEvent) => {
-      window.removeEventListener("mousemove", handleMouseMove);
-      window.removeEventListener("mouseup", handleMouseUp);
-      
-      const rawWidth = startWidth + (moveEvent.clientX - startX);
-      if (rawWidth < 160) {
-        setCollapsed(true);
-        invoke("set_preference", { key: "sidebar_collapsed", value: "true" }).catch(() => {});
-      } else {
-        const finalWidth = Math.max(200, Math.min(320, rawWidth));
-        setWidth(finalWidth);
-        invoke("set_preference", { key: "sidebar_width", value: String(finalWidth) }).catch((err) => {
-          console.error("Failed to save sidebar_width preference:", err);
-        });
-      }
-    };
-
-    window.addEventListener("mousemove", handleMouseMove);
-    window.addEventListener("mouseup", handleMouseUp);
-  };
-
   // Profile row: detected engines as the subtitle, global asset total as the
   // badge — same count path as the profile pane (sumGlobalAssets), so the two
   // figures cannot diverge. inventory.agents is empty by design (engines are
@@ -144,12 +103,13 @@ export default function Sidebar({
     "flex items-center justify-between px-2.5 pt-[11px] pb-[5px] font-flex text-micro font-medium tracking-[.06em] uppercase text-ink-3";
 
   return (
-    <div
-      data-testid="sidebar"
-      style={{ width }}
-      className="h-full flex flex-col bg-page border-r border-line relative select-none shrink-0 font-sans transition-[width] duration-240"
+    <SourceListShell
+      testId="sidebar"
+      width={width}
+      setWidth={setWidth}
+      collapsed={collapsed}
+      setCollapsed={setCollapsed}
     >
-      <div className="flex-1 overflow-y-auto px-2.5 pt-1 pb-3 min-h-0">
         {/* Scope group */}
         <div className={grpClass}>Scope</div>
         <div
@@ -162,7 +122,7 @@ export default function Sidebar({
             selectedItem === "profile" ? "bg-tint text-tint-ink" : "text-ink-2 hover:bg-plane-2"
           }`}
         >
-          <User
+          <UserIcon
             size={14}
             className={`shrink-0 ${selectedItem === "profile" ? "text-tint-ink" : "text-ink-3"}`}
           />
@@ -199,7 +159,7 @@ export default function Sidebar({
             title="Add a repository"
             className="w-[22px] h-[22px] rounded-pill grid place-items-center text-ink-2 hover:bg-plane-2 hover:text-ink-1 transition-colors duration-hover ease-spring cursor-pointer"
           >
-            <Plus size={14} />
+            <PlusIcon size={14} />
           </button>
         </div>
 
@@ -210,7 +170,7 @@ export default function Sidebar({
               onClick={handleAddRepo}
               className="text-small font-medium text-ink-1 hover:underline flex items-center gap-1 justify-center cursor-pointer"
             >
-              <Plus size={12} /> Add Repo
+              <PlusIcon size={12} /> Add Repo
             </button>
           </div>
         ) : (
@@ -236,12 +196,12 @@ export default function Sidebar({
                 >
                   {!child &&
                     (container ? (
-                      <FolderTree
+                      <FolderTreeIcon
                         size={14}
                         className={`shrink-0 ${isActive ? "text-tint-ink" : "text-ink-3"}`}
                       />
                     ) : (
-                      <Folder
+                      <FolderIcon
                         size={14}
                         className={`shrink-0 ${isActive ? "text-tint-ink" : "text-ink-3"}`}
                       />
@@ -286,20 +246,13 @@ export default function Sidebar({
                     className="p-1 rounded-pill hover:bg-plane-2 text-ink-3 hover:text-ink-1 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity duration-hover cursor-pointer shrink-0"
                     title="Unlink repository"
                   >
-                    <Trash2 size={12} />
+                    <TrashIcon size={12} />
                   </button>
                 </div>
               );
             })}
           </div>
         )}
-      </div>
-
-      {/* Drag Resize Handle */}
-      <div
-        onMouseDown={handleMouseDown}
-        className="absolute top-0 right-0 w-1.5 h-full cursor-col-resize hover:bg-line-2 select-none z-10 transition-colors duration-hover"
-      />
-    </div>
+    </SourceListShell>
   );
 }

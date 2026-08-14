@@ -312,6 +312,11 @@ describe("matchesIssueFilter", () => {
     expect(matchesIssueFilter({ ...issue, crossRepo: true }, null, "cross", "")).toBe(true);
   });
 
+  it("'repo' selects everything a single repository can resolve on its own", () => {
+    expect(matchesIssueFilter(issue, null, "repo", "")).toBe(true);
+    expect(matchesIssueFilter({ ...issue, crossRepo: true }, null, "repo", "")).toBe(false);
+  });
+
   it("searches the name, the problem and the paths", () => {
     expect(matchesIssueFilter(issue, null, null, "chrome")).toBe(true);
     expect(matchesIssueFilter(issue, null, null, "missing")).toBe(true);

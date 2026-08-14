@@ -334,8 +334,12 @@ export function matchesIssueFilter(
 ): boolean {
   if (kind !== null && issue.kind !== kind) return false;
 
+  // Two pseudo-places sit alongside the real ones: "cross" is every issue whose
+  // resolution reaches beyond one repository, "repo" is everything else.
   if (place === "cross") {
     if (!issue.crossRepo) return false;
+  } else if (place === "repo") {
+    if (issue.crossRepo) return false;
   } else if (place !== null && !issue.whereKeys.includes(place)) {
     return false;
   }

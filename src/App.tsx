@@ -33,29 +33,38 @@ function forwardConsole() {
 forwardConsole();
 
 import {
-  Sun,
-  Moon,
-  AlertTriangle,
-  X,
-  Globe,
-  Search,
-  Shield,
-  Loader2,
-  PanelLeft,
-  PanelRight,
-  RefreshCw
-} from "lucide-react";
+  SunIcon,
+  MoonIcon,
+  ExclamationTriangleIcon,
+  XMarkIcon,
+  GlobeAltIcon,
+  MagnifyingGlassIcon,
+  ShieldCheckIcon,
+  SpinnerIcon,
+  PanelLeftIcon,
+  PanelRightIcon,
+  ArrowPathIcon
+} from "./components/icons";
 import IconRail from "./components/IconRail";
 import Sidebar from "./components/Sidebar";
 import ProfilePane from "./components/ProfilePane";
 import RepoPane from "./components/RepoPane";
 import DiscoveryPane from "./components/DiscoveryPane";
+import NeedsReviewPane from "./components/NeedsReviewPane";
+import ReviewSidebar from "./components/ReviewSidebar";
+import ReviewInspector from "./components/ReviewInspector";
 import SidebarScanModal from "./components/SidebarScanModal";
 import Flyout from "./components/Flyout";
 import LinkAssetModal from "./components/LinkAssetModal";
 import { ScanStatusIndicator } from "./components/ScanStatusIndicator";
 import { SortField, SortDirection } from "./components/AssetHeaderRow";
-import { needsReviewCount, StateFilter } from "./utils/linkStateCounts";
+import { StateFilter } from "./utils/linkStateCounts";
+import {
+  deriveReviewIssues,
+  matchesIssueFilter,
+  type IssueKind,
+  type ReviewIssue,
+} from "./utils/reviewIssues";
 
 // --- Types ---
 export interface Scope {
@@ -207,6 +216,12 @@ export default function App() {
     setDarkMode(dark);
     invoke("set_preference", { key: "dark_mode", value: dark ? "true" : "false" }).catch(() => {});
   };
+
+  // Needs review is its own section: which kind of problem, which place,
+  // and which issue the inspector is explaining.
+  const [reviewKind, setReviewKind] = useState<IssueKind | null>(null);
+  const [reviewPlace, setReviewPlace] = useState<string | null>(null);
+  const [selectedIssue, setSelectedIssue] = useState<ReviewIssue | null>(null);
 
   const [inspectorOpen, setInspectorOpen] = useState<boolean>(false);
   const [inspectorWidth, setInspectorWidth] = useState<number>(396);
@@ -590,7 +605,7 @@ export default function App() {
   if (onboardingComplete === null) {
     return (
       <div className="min-h-screen bg-page flex items-center justify-center font-sans">
-        <Loader2 className="animate-spin text-ink-2" size={32} />
+        <SpinnerIcon className="animate-spin text-ink-2" size={32} />
       </div>
     );
   }
@@ -603,7 +618,7 @@ export default function App() {
           <div className="w-full max-w-md bg-plane border border-line rounded-plane p-8 flex flex-col gap-6 text-center animate-in zoom-in-95 duration-200">
             <div className="flex flex-col items-center gap-2">
               <div className="w-14 h-14 rounded-pill bg-fill flex items-center justify-center text-on-fill mx-auto select-none">
-                <Shield size={24} />
+                <ShieldCheckIcon size={24} />
               </div>
               <h2 className="text-display font-medium tracking-[-0.5px] text-ink-1 text-balance">Welcome to Hanger</h2>
               <p className="text-small text-ink-2 leading-[1.65]">
@@ -683,9 +698,18 @@ export default function App() {
   const tbBtnActiveClass =
     "h-[27px] min-w-[27px] px-2 rounded-pill inline-flex items-center justify-center bg-tint text-tint-ink transition-colors duration-hover ease-spring cursor-pointer";
 
+  // One derivation feeds the rail badge, the review filter list and the pane,
+  // so the three can never disagree about what needs a decision.
+  const review = deriveReviewIssues(inventory);
+  const reviewShown = review.issues.filter((issue) =>
+    matchesIssueFilter(issue, reviewKind, reviewPlace, filterText)
+  );
+
   // Crumb never shows a filesystem path — folder names only.
   const crumbSegments: string[] =
-    selectedSidebarItem === "profile"
+    selectedSidebarItem === "review"
+      ? ["My machine", "Needs review"]
+      : selectedSidebarItem === "profile"
       ? ["My machine", "User profile"]
       : selectedSidebarItem === "global"
       ? ["My machine", "Global"]
@@ -716,7 +740,7 @@ export default function App() {
           title="Toggle sidebar (⌘⌥S)"
           className={tbBtnClass}
         >
-          <PanelLeft size={15} />
+          <PanelLeftIcon size={15} />
         </button>
 
         <div className="flex items-center gap-[7px] text-small text-ink-3">
@@ -736,7 +760,7 @@ export default function App() {
 
         <div className="ml-auto flex items-center gap-1">
           <div className="relative w-[196px] h-[27px] mr-2">
-            <Search
+            <MagnifyingGlassIcon
               size={12}
               className="absolute left-2.5 top-2 text-ink-3 pointer-events-none"
             />
@@ -744,7 +768,13 @@ export default function App() {
               value={filterText}
               onChange={(e) => setFilterText(e.target.value)}
               aria-label="Filter assets"
-              placeholder={`Filter ${activeTotal} assets`}
+              placeholder={
+                selectedSidebarItem === "discovery"
+                  ? "Filter directories"
+                  : selectedSidebarItem === "review"
+                  ? `Filter ${review.counts.total} issues`
+                  : `Filter ${activeTotal} assets`
+              }
               className="w-full h-full rounded-pill border border-transparent bg-plane pl-[30px] pr-3.5 text-small text-ink-1 placeholder:text-ink-3 focus:outline-none focus:border-ink-1 focus:bg-page transition-colors duration-hover ease-spring"
             />
           </div>
@@ -756,7 +786,7 @@ export default function App() {
             title="Refresh scan"
             className={`${tbBtnClass} disabled:opacity-50`}
           >
-            <RefreshCw size={15} className={loading || scanning ? "animate-spin" : ""} />
+            <ArrowPathIcon size={15} className={loading || scanning ? "animate-spin" : ""} />
           </button>
 
           <ScanStatusIndicator />
@@ -767,7 +797,7 @@ export default function App() {
             title="Toggle inspector"
             className={inspectorOpen ? tbBtnActiveClass : tbBtnClass}
           >
-            <PanelRight size={15} />
+            <PanelRightIcon size={15} />
           </button>
         </div>
       </header>
@@ -775,9 +805,14 @@ export default function App() {
       {/* Main Split Layout Body */}
       <div className="flex-1 flex overflow-hidden">
         <IconRail
-          active={selectedSidebarItem === "discovery" ? "discovery" : "machine"}
-          needsReviewCount={needsReviewCount(inventory)}
-          needsReviewActive={stateFilter === "needs-review"}
+          active={
+            selectedSidebarItem === "discovery"
+              ? "discovery"
+              : selectedSidebarItem === "review"
+              ? "review"
+              : "machine"
+          }
+          needsReviewCount={review.counts.total}
           onSelectMachine={() => {
             handleSelectSidebarItem("profile");
             invoke("set_preference", { key: "selected_sidebar_item", value: "profile" }).catch(() => {});
@@ -786,12 +821,33 @@ export default function App() {
             handleSelectSidebarItem("discovery");
             invoke("set_preference", { key: "selected_sidebar_item", value: "discovery" }).catch(() => {});
           }}
-          onToggleNeedsReview={() =>
-            setStateFilter((prev) => (prev === "needs-review" ? null : "needs-review"))
-          }
+          onSelectReview={() => {
+            handleSelectSidebarItem("review");
+            invoke("set_preference", { key: "selected_sidebar_item", value: "review" }).catch(() => {});
+          }}
           onOpenSettings={() => setShowSettingsModal(true)}
         />
 
+        {selectedSidebarItem === "review" ? (
+          <ReviewSidebar
+            width={sidebarWidth}
+            setWidth={setSidebarWidth}
+            collapsed={sidebarCollapsed}
+            setCollapsed={setSidebarCollapsed}
+            counts={review.counts}
+            places={review.places}
+            kind={reviewKind}
+            place={reviewPlace}
+            onSelectKind={(kind) => {
+              setReviewKind(kind);
+              setSelectedIssue(null);
+            }}
+            onSelectPlace={(place) => {
+              setReviewPlace(place);
+              setSelectedIssue(null);
+            }}
+          />
+        ) : (
         <Sidebar
           width={sidebarWidth}
           setWidth={setSidebarWidth}
@@ -807,19 +863,20 @@ export default function App() {
           onRefreshGlobalCounts={refreshGlobalCounts}
           setError={setError}
         />
+        )}
 
         <main className="flex-1 flex flex-col min-w-0 h-full relative overflow-hidden">
           {error && (
             <div className="absolute top-4 left-4 right-4 z-40 p-3.5 rounded-inner border border-line bg-plane text-state-danger flex items-center justify-between text-small animate-fade-in">
               <div className="flex items-center gap-2 min-w-0">
-                <AlertTriangle size={16} className="shrink-0" />
+                <ExclamationTriangleIcon size={16} className="shrink-0" />
                 <span className="break-all">{error}</span>
               </div>
               <button
                 onClick={() => setError(null)}
                 className="w-[27px] h-[27px] rounded-pill grid place-items-center text-ink-3 hover:bg-plane-2 hover:text-ink-1 transition-colors duration-hover cursor-pointer shrink-0"
               >
-                <X size={14} />
+                <XMarkIcon size={14} />
               </button>
             </div>
           )}
@@ -853,7 +910,33 @@ export default function App() {
           )}
 
           {selectedSidebarItem === "discovery" && (
-            <DiscoveryPane />
+            <DiscoveryPane filterText={filterText} />
+          )}
+
+          {selectedSidebarItem === "review" && (
+            <NeedsReviewPane
+              issues={review.issues}
+              counts={review.counts}
+              kind={reviewKind}
+              place={reviewPlace}
+              filterText={filterText}
+              selectedId={selectedIssue?.id ?? null}
+              onSelectKind={(kind) => {
+                setReviewKind(kind);
+                setSelectedIssue(null);
+              }}
+              onSelectPlace={(place) => {
+                setReviewPlace(place);
+                setSelectedIssue(null);
+              }}
+              onSelectIssue={(issue) => {
+                setSelectedIssue(issue);
+                if (!inspectorOpen) {
+                  setInspectorOpen(true);
+                  invoke("set_preference", { key: "inspector_open", value: "true" }).catch(() => {});
+                }
+              }}
+            />
           )}
 
           {(selectedSidebarItem.startsWith("/") || selectedSidebarItem.startsWith("~")) && (
@@ -912,8 +995,29 @@ export default function App() {
           )}
         </main>
 
-        {/* Docked Inspector / Flyout Panel */}
-        {inspectorOpen && inventory && (
+        {/* Docked Inspector — provenance under review, the asset elsewhere */}
+        {inspectorOpen && selectedSidebarItem === "review" && (
+          <aside
+            style={{ width: inspectorWidth }}
+            className="shrink-0 border-l border-line bg-page h-full min-h-0"
+          >
+            <ReviewInspector
+              issue={selectedIssue}
+              position={selectedIssue ? reviewShown.indexOf(selectedIssue) + 1 : 0}
+              outOf={reviewShown.length}
+              onClose={() => {
+                setInspectorOpen(false);
+                invoke("set_preference", { key: "inspector_open", value: "false" }).catch(() => {});
+              }}
+              onSkip={() => {
+                const next = reviewShown[reviewShown.indexOf(selectedIssue as ReviewIssue) + 1];
+                setSelectedIssue(next ?? null);
+              }}
+            />
+          </aside>
+        )}
+
+        {inspectorOpen && selectedSidebarItem !== "review" && inventory && (
           <Flyout
             width={inspectorWidth}
             setWidth={setInspectorWidth}
@@ -941,7 +1045,7 @@ export default function App() {
           <div className="w-full max-w-md bg-page border border-line rounded-plane p-[18px] flex flex-col gap-4">
             <div className="flex justify-between items-center border-b border-line pb-3">
               <h3 className="text-base-app font-medium text-ink-1 flex items-center gap-2">
-                <Globe size={16} className="text-ink-2" />
+                <GlobeAltIcon size={16} className="text-ink-2" />
                 Hanger Settings & Maintenance
               </h3>
               <button
@@ -953,7 +1057,7 @@ export default function App() {
                 }}
                 className="w-[27px] h-[27px] rounded-pill grid place-items-center text-ink-3 hover:text-ink-1 hover:bg-plane-2 transition-colors duration-hover ease-spring cursor-pointer"
               >
-                <X size={14} />
+                <XMarkIcon size={14} />
               </button>
             </div>
 
@@ -1068,7 +1172,7 @@ export default function App() {
                         : "flex-1 h-[30px] rounded-pill border border-line-2 text-ink-2 text-small font-flex cursor-pointer transition-colors duration-nav ease-spring hover:bg-plane-2 inline-flex items-center justify-center gap-1.5"
                     }
                   >
-                    <Sun size={13} />
+                    <SunIcon size={13} />
                     Light
                   </button>
                   <button
@@ -1080,7 +1184,7 @@ export default function App() {
                         : "flex-1 h-[30px] rounded-pill border border-line-2 text-ink-2 text-small font-flex cursor-pointer transition-colors duration-nav ease-spring hover:bg-plane-2 inline-flex items-center justify-center gap-1.5"
                     }
                   >
-                    <Moon size={13} />
+                    <MoonIcon size={13} />
                     Dark
                   </button>
                 </div>
