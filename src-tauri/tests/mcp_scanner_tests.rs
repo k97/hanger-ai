@@ -201,3 +201,51 @@ fn real_home_profile_inventory() {
         println!("  {:<24} {}", n, tr);
     }
 }
+
+/// The merge step run_scan applies after combining per-root inventories.
+///
+/// Every other test in this file calls scanner.scan() directly and therefore
+/// never reaches this code. That gap let a dedup keyed on config_path survive
+/// here long after the same bug was fixed in the frontend: the database held 23
+/// servers, the pane's own heading said 23, and seven rows rendered -- one per
+/// config FILE.
+#[test]
+fn merging_scans_keeps_every_server_not_one_per_config_file() {
+    use tauri_app_lib::domain::{Inventory, Scope, Tool};
+
+    let tool = |name: &str, path: &str| Tool {
+        id: format!("{}-{}", path, name),
+        name: name.to_string(),
+        command: "node".to_string(),
+        args: vec![],
+        transport: "stdio".to_string(),
+        config_path: path.to_string(),
+        scope: Scope::Global { agent: "claude-code".to_string() },
+        owning_agent: "claude-code".to_string(),
+        drifted: None,
+        is_symlink: None,
+        source_path: None,
+        parse_status: Some("ok".to_string()),
+        parse_error: None,
+        link_state: None,
+    };
+
+    let mut inv = Inventory::default();
+    // One file declaring three servers -- the real shape of ~/.codex/config.toml
+    // and of ~/.claude.json.
+    inv.tools.push(tool("node_repl", "/home/.codex/config.toml"));
+    inv.tools.push(tool("computer-use", "/home/.codex/config.toml"));
+    inv.tools.push(tool("tauri", "/home/.codex/config.toml"));
+    // A genuine duplicate from scanning two roots: same file, same server.
+    inv.tools.push(tool("node_repl", "/home/.codex/config.toml"));
+
+    tauri_app_lib::dedupe_combined(&mut inv);
+
+    let mut names: Vec<&str> = inv.tools.iter().map(|t| t.name.as_str()).collect();
+    names.sort();
+    assert_eq!(
+        names,
+        vec!["computer-use", "node_repl", "tauri"],
+        "a config file is not an asset; each server in it is"
+    );
+}

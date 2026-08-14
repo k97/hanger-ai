@@ -305,6 +305,33 @@ fn get_linked_directories(app: AppHandle) -> Result<Vec<String>, String> {
     store.get_linked_directories().map_err(|e| e.to_string())
 }
 
+/// Collapse duplicates after combining the per-root scans.
+///
+/// A root can be scanned more than once (nested linked directories, a re-scan
+/// mid-flight), so the same asset can arrive twice and must be collapsed.
+///
+/// Every category but one is keyed on its path, because one path is one asset.
+/// Tools are the exception: a config FILE holds many servers, so keying tools
+/// on `config_path` kept one server per file and discarded the rest. That put
+/// 23 servers in the database and 7 rows on screen under a heading reading 23.
+/// `Tool.id` is `{config_path}-{name}`, which identifies a registration.
+pub fn dedupe_combined(inventory: &mut Inventory) {
+    let mut skill_paths = std::collections::HashSet::new();
+    inventory.skills.retain(|s| skill_paths.insert(s.path.clone()));
+
+    let mut agent_ids = std::collections::HashSet::new();
+    inventory.agents.retain(|a| agent_ids.insert(a.id.clone()));
+
+    let mut tool_ids = std::collections::HashSet::new();
+    inventory.tools.retain(|t| tool_ids.insert(t.id.clone()));
+
+    let mut rule_paths = std::collections::HashSet::new();
+    inventory.rules.retain(|r| rule_paths.insert(r.path.clone()));
+
+    let mut subagent_paths = std::collections::HashSet::new();
+    inventory.subagents.retain(|sa| subagent_paths.insert(sa.path.clone()));
+}
+
 #[tauri::command]
 fn run_scan(app: AppHandle) -> Result<Inventory, String> {
     let store = get_store(&app)?;
@@ -328,21 +355,7 @@ fn run_scan(app: AppHandle) -> Result<Inventory, String> {
         }
     }
 
-    // Backend Scan Deduplication to prevent double-scanned duplicate keys
-    let mut skill_paths = std::collections::HashSet::new();
-    combined_inventory.skills.retain(|s| skill_paths.insert(s.path.clone()));
-
-    let mut agent_ids = std::collections::HashSet::new();
-    combined_inventory.agents.retain(|a| agent_ids.insert(a.id.clone()));
-
-    let mut tool_configs = std::collections::HashSet::new();
-    combined_inventory.tools.retain(|t| tool_configs.insert(t.config_path.clone()));
-
-    let mut rule_paths = std::collections::HashSet::new();
-    combined_inventory.rules.retain(|r| rule_paths.insert(r.path.clone()));
-
-    let mut subagent_paths = std::collections::HashSet::new();
-    combined_inventory.subagents.retain(|sa| subagent_paths.insert(sa.path.clone()));
+    dedupe_combined(&mut combined_inventory);
 
     let mut scan_paths = std::collections::HashSet::new();
     combined_inventory.project_scans.retain(|p| scan_paths.insert(p.path.clone()));
