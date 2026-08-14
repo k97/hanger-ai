@@ -1,6 +1,6 @@
 {
   "mcpServers": {
-    "spades-audio": {"command": "node"},
+    "spades-audio": {"command": "node", "args": ["/Applications/Spades Audio.app/Contents/Resources/mcp-server/dist/index.js"]},
     "chrome-devtools": {"command": "npx"},
     "tauri": {"command": "npx @hypothesi/tauri-mcp-server"}
   },

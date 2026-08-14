@@ -101,3 +101,35 @@ fn local_tier_servers_do_not_leak_into_global_scope() {
     assert!(!global.contains(&"repo-local"), "local-tier server leaked into global: {:?}", global);
     assert!(!global.contains(&"stray"), "local-tier server leaked into global: {:?}", global);
 }
+
+/// The full data path: config file -> dialect -> Tool -> frontend.
+///
+/// Without this, `command` reaches the panel and `args` do not, and the Verify
+/// probe starts the wrong process. Tests of the probe alone cannot catch it --
+/// they supply args by hand.
+#[test]
+fn a_scanned_tool_carries_the_arguments_its_command_needs() {
+    let _guard = ENV_MUTEX.get_or_init(|| Mutex::new(())).lock().unwrap();
+    let _home = TestHome;
+    std::env::set_var("HANGER_TEST_HOME", "tests/fixtures/mcp_home");
+
+    let dir = tempfile::tempdir().unwrap();
+    let scanner = DirectoryScanner {
+        db_path: dir.path().join("hanger.db"),
+        cancellation_token: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
+    };
+    let inventory = scanner.scan(Path::new("tests/fixtures/project")).unwrap();
+
+    let spades = inventory
+        .tools
+        .iter()
+        .find(|t| t.name == "spades-audio" && t.config_path.ends_with(".claude.json"))
+        .expect("spades-audio from ~/.claude.json");
+
+    assert_eq!(spades.command, "node");
+    assert_eq!(
+        spades.args,
+        vec!["/Applications/Spades Audio.app/Contents/Resources/mcp-server/dist/index.js"],
+        "a command without its arguments starts the wrong process"
+    );
+}
