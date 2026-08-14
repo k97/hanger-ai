@@ -65,9 +65,10 @@ describe("McpServerDetail", () => {
   it("offers Verify and explains why tools are unknown when never verified", () => {
     render(<McpServerDetail server={base} />);
     expect(screen.getByRole("button", { name: /verify/i })).toBeTruthy();
-    // A config declares how to START a server, never what it provides. Say so,
-    // rather than showing an unexplained empty list.
-    expect(screen.getByText(/never what it provides/i)).toBeTruthy();
+    // One short line is enough to explain an empty section. The three-line
+    // version explained the design decision behind the button — read once,
+    // then noise on every remaining server.
+    expect(screen.getByText(/only known by asking the server/i)).toBeTruthy();
   });
 
   it("never renders an environment variable value", () => {

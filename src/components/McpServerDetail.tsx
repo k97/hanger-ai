@@ -185,26 +185,10 @@ export default function McpServerDetail({ server, onVerify, verifying = false }:
                 with "No such file or directory". */}
             {isConnector ? (
               <p className="text-small text-ink-2 leading-[1.5]">
-                Connected through your Claude.ai account, not configured on this machine. Its tools
-                are listed by Claude, and there is nothing local to inspect.
+                Connected through your Claude.ai account. Nothing local to inspect.
               </p>
             ) : (
               <>
-                <p className="text-small text-ink-2 leading-[1.5]">
-                  {isRemote ? (
-                    <>
-                      A config file gives the endpoint, never the tool list. Verify asks{" "}
-                      <span className="font-mono text-ink-1">{server.transport}</span> directly. No
-                      credentials are sent, so a protected server will say it needs them.
-                    </>
-                  ) : (
-                    <>
-                      A config file declares how to <em>start</em> a server, never what it provides.
-                      Verify starts a private copy, asks for its tool list, and stops it — no other
-                      host&rsquo;s session is touched.
-                    </>
-                  )}
-                </p>
                 <button
                   type="button"
                   onClick={onVerify}
@@ -213,6 +197,15 @@ export default function McpServerDetail({ server, onVerify, verifying = false }:
                 >
                   {verifying ? "Verifying…" : "Verify"}
                 </button>
+                {/* One line, not three. The long version explained the design
+                    decision behind the button — useful once, noise on every
+                    one of 23 servers. The credentials note stays for remote
+                    servers because it is a privacy claim, not a mechanism. */}
+                <p className="text-micro text-ink-3 leading-[1.45]">
+                  {isRemote
+                    ? "Asks the endpoint for its tool list. No credentials are sent."
+                    : "Tools are only known by asking the server."}
+                </p>
               </>
             )}
           </div>
