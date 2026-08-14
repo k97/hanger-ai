@@ -73,17 +73,11 @@ export default function McpServerDetail({ server, onVerify, verifying = false }:
 
   return (
     <div className="flex-1 min-h-0 flex flex-col font-sans text-base text-ink-1">
-      {/* No server name here. The Flyout's own chrome already titles the
-          selected asset; repeating it produced two <h2>s reading the same
-          text. The prototype needed a title because it was a standalone
-          window — embedded, that is the chrome's job. */}
-      <header className={`${SECTION} shrink-0`}>
-        <div className="flex items-center gap-2">
-          <span className="text-micro font-mono px-2 py-px rounded-pill bg-tint text-ink-1 whitespace-nowrap">
-            {server.transport}
-          </span>
-        </div>
-      </header>
+      {/* No header of its own. The Flyout's chrome carries both the server
+          name and the transport chip; this panel rendering either one again
+          produced a visible duplicate. Twice now — the <h2> first, then the
+          chip — so the rule is worth stating: the chrome owns identity, this
+          component owns content. */}
 
       {/* One scroll region for the whole panel, as in AssetDetail. The tools
           list used to cap itself at 240px, which meant two nested scrollbars

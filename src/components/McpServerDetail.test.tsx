@@ -132,4 +132,13 @@ describe("McpServerDetail", () => {
     render(<McpServerDetail server={base} verifying />);
     expect(screen.getByRole("button", { name: /verifying/i })).toHaveProperty("disabled", true);
   });
+
+  it("renders neither the server name nor the transport — the chrome owns those", () => {
+    // Twice this panel duplicated something the Flyout header already shows:
+    // first an <h2> with the server name, then the transport chip. Both were
+    // visible defects. The boundary: chrome owns identity, this owns content.
+    render(<McpServerDetail server={base} />);
+    expect(screen.queryByText("stdio")).toBeNull();
+    expect(screen.queryByRole("heading", { level: 2 })).toBeNull();
+  });
 });
