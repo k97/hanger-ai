@@ -31,6 +31,10 @@ export function useScanStatus(): ScanStatus {
         setStatus(event.payload);
       }
     });
+    // Handled at creation, as a branch rather than a chain: the cleanup's
+    // .catch below attaches only at unmount, which leaves any earlier
+    // rejection unhandled. Outside a Tauri webview listen() always rejects.
+    unlistenPromise.catch(() => {});
 
     return () => {
       unlistenPromise.then((unlisten) => unlisten()).catch(() => {});
