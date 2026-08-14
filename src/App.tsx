@@ -61,6 +61,7 @@ import SidebarScanModal from "./components/SidebarScanModal";
 import Flyout from "./components/Flyout";
 import { SortField, SortDirection } from "./components/AssetHeaderRow";
 import { StateFilter } from "./utils/linkStateCounts";
+import { registrationKey } from "./utils/mcpRegistration";
 import {
   deriveReviewIssues,
   matchesIssueFilter,
@@ -585,7 +586,7 @@ export default function App() {
   const [selectedAsset, setSelectedAsset] = useState<any>(null);
 
   // Maps individual asset row clicks to detail Flyout opening
-  const handleSelectAsset = (asset: { name: string; category: "Skills" | "Agents" | "Tools" | "Rules" | "Subagents"; path: string }) => {
+  const handleSelectAsset = (asset: { id?: string; name: string; category: "Skills" | "Agents" | "Tools" | "Rules" | "Subagents"; path: string }) => {
     // Tapping a row means "inspect this" — open the panel straight away
     // rather than requiring the toolbar toggle first.
     if (!inspectorOpen) {
@@ -596,7 +597,12 @@ export default function App() {
     if (asset.category === "Skills") {
       fullAsset = inventory?.skills.find((s) => s.path === asset.path);
     } else if (asset.category === "Tools") {
-      fullAsset = inventory?.tools.find((t) => t.config_path === asset.path);
+      // Resolve the exact registration. Matching on config_path returned the
+      // FIRST server in the file, so nine of the ten in ~/.claude.json opened
+      // the wrong server's detail.
+      fullAsset = asset.id
+        ? inventory?.tools.find((t) => registrationKey(t) === asset.id)
+        : inventory?.tools.find((t) => t.config_path === asset.path);
     } else if (asset.category === "Rules") {
       fullAsset = inventory?.rules.find((r) => r.path === asset.path);
     } else if (asset.category === "Subagents") {

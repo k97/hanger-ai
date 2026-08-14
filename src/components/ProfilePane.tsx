@@ -7,6 +7,7 @@ import { Inventory, CategoryCounts } from "../App";
 import { filterProfileAssets } from "../utils/filterPredicate";
 import { dedupeRegistrations } from "../utils/mcpRegistration";
 import { sortAssetItems } from "../utils/sortUtils";
+import { registrationKey } from "../utils/mcpRegistration";
 import { sumGlobalAssets } from "../utils/globalAssetCount";
 import SummaryStrip from "./SummaryStrip";
 import { ScanStatusIndicator } from "./ScanStatusIndicator";
@@ -29,7 +30,7 @@ interface ProfilePaneProps {
   sortField?: SortField;
   sortDirection?: SortDirection;
   onSortChange?: (field: SortField) => void;
-  onSelectAsset: (asset: { name: string; category: "Skills" | "Agents" | "Tools" | "Rules" | "Subagents"; path: string }) => void;
+  onSelectAsset: (asset: { id?: string; name: string; category: "Skills" | "Agents" | "Tools" | "Rules" | "Subagents"; path: string }) => void;
   onLinkAsset: (asset: any) => void;
   onClearSelection?: () => void;
 }
@@ -146,6 +147,13 @@ export default function ProfilePane({
   const showRules = selectedCategory === null || selectedCategory === "Rules";
   const showSubagents = selectedCategory === null || selectedCategory === "Subagents";
 
+  /** An asset row is selected by identity where it has one — many MCP servers
+      share a config file, so path alone marks all of them. */
+  const rowIsSelected = (item: AssetItem) =>
+    item.id && (selectedAsset as { id?: string } | null)?.id
+      ? (selectedAsset as { id?: string }).id === item.id
+      : selectedAsset?.path === item.path;
+
   // Map and sort category items
   const sortedSkills: AssetItem[] = sortAssetItems(
     filteredSkills.map((s) => ({
@@ -167,6 +175,10 @@ export default function ProfilePane({
     filteredTools.map((t) => ({
       name: t.name,
       category: "Tools",
+      // `path` stays the config FILE — it is what the row shows and what the
+      // inspector opens. Identity is separate: many servers share one file, so
+      // comparing paths marked every server in ~/.claude.json at once.
+      id: registrationKey(t),
       path: t.config_path,
       engine: t.scope?.Global?.agent || t.scope?.Project?.agent || t.owning_agent || null,
       details: `Command: ${t.command} (Transport: ${t.transport})`,
@@ -303,7 +315,7 @@ export default function ProfilePane({
                   {sortedAgents.map((item) => (
                     <AssetRow
                       key={`agent-${item.name}`}
-                      isSelected={selectedAsset?.path === item.path}
+                      isSelected={rowIsSelected(item)}
                       showKindColumn={false}
                       item={item}
                       onClick={() => onSelectAsset({ name: item.name, category: "Agents", path: item.path })}
@@ -323,7 +335,7 @@ export default function ProfilePane({
                   {sortedSkills.map((item, idx) => (
                     <AssetRow
                       key={`skill-${item.path}-${idx}`}
-                      isSelected={selectedAsset?.path === item.path}
+                      isSelected={rowIsSelected(item)}
                       showKindColumn={!selectedCategory}
                       item={item}
                       onLink={() => onLinkAsset(item)}
@@ -344,11 +356,11 @@ export default function ProfilePane({
                   {sortedTools.map((item, idx) => (
                     <AssetRow
                       key={`tool-${item.path}-${idx}`}
-                      isSelected={selectedAsset?.path === item.path}
+                      isSelected={rowIsSelected(item)}
                       showKindColumn={!selectedCategory}
                       item={item}
                       onLink={() => onLinkAsset(item)}
-                      onClick={() => onSelectAsset({ name: item.name, category: "Tools", path: item.path })}
+                      onClick={() => onSelectAsset({ id: item.id, name: item.name, category: "Tools", path: item.path })}
                     />
                   ))}
                 </div>
@@ -365,7 +377,7 @@ export default function ProfilePane({
                   {sortedRules.map((item, idx) => (
                     <AssetRow
                       key={`rule-${item.path}-${idx}`}
-                      isSelected={selectedAsset?.path === item.path}
+                      isSelected={rowIsSelected(item)}
                       showKindColumn={!selectedCategory}
                       item={item}
                       onLink={() => onLinkAsset(item)}
@@ -386,7 +398,7 @@ export default function ProfilePane({
                   {sortedSubagents.map((item, idx) => (
                     <AssetRow
                       key={`subagent-${item.path}-${idx}`}
-                      isSelected={selectedAsset?.path === item.path}
+                      isSelected={rowIsSelected(item)}
                       showKindColumn={!selectedCategory}
                       item={item}
                       onLink={() => onLinkAsset(item)}

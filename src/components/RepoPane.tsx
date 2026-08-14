@@ -8,6 +8,7 @@ import { Inventory, CategoryCounts } from "../App";
 import { filterRepoAssets } from "../utils/filterPredicate";
 import DisclosureBanner from "./DisclosureBanner";
 import { sortAssetItems } from "../utils/sortUtils";
+import { registrationKey } from "../utils/mcpRegistration";
 import { formatEngineLabel } from "../utils/engineUtils";
 import SummaryStrip from "./SummaryStrip";
 import { ScanStatusIndicator } from "./ScanStatusIndicator";
@@ -31,7 +32,7 @@ interface RepoPaneProps {
   sortDirection?: SortDirection;
   onSortChange?: (field: SortField) => void;
   onRefresh: () => void;
-  onSelectAsset: (asset: { name: string; category: "Skills" | "Agents" | "Tools" | "Rules" | "Subagents"; path: string }) => void;
+  onSelectAsset: (asset: { id?: string; name: string; category: "Skills" | "Agents" | "Tools" | "Rules" | "Subagents"; path: string }) => void;
   onLinkFromProfile: (repoPath: string) => void;
   onClearSelection?: () => void;
   /** Every linked root, used to subtract candidates that are already linked. */
@@ -174,6 +175,13 @@ export default function RepoPane({
   const showRules = selectedCategory === null || selectedCategory === "Rules";
   const showSubagents = selectedCategory === null || selectedCategory === "Subagents";
 
+  /** An asset row is selected by identity where it has one — many MCP servers
+      share a config file, so path alone marks all of them. */
+  const rowIsSelected = (item: AssetItem) =>
+    item.id && (selectedAsset as { id?: string } | null)?.id
+      ? (selectedAsset as { id?: string }).id === item.id
+      : selectedAsset?.path === item.path;
+
   // Map and sort category items
   const sortedSkills: AssetItem[] = sortAssetItems(
     filteredSkills.map((s) => ({
@@ -197,6 +205,10 @@ export default function RepoPane({
     filteredTools.map((t) => ({
       name: t.name,
       category: "Tools",
+      // `path` stays the config FILE — it is what the row shows and what the
+      // inspector opens. Identity is separate: many servers share one file, so
+      // comparing paths marked every server in ~/.claude.json at once.
+      id: registrationKey(t),
       path: t.config_path,
       engine: t.scope?.Project?.agent || t.scope?.Global?.agent || t.owning_agent || null,
       details: `Command: ${t.command} (Transport: ${t.transport})`,
@@ -454,7 +466,7 @@ export default function RepoPane({
                   {sortedSkills.map((item, idx) => (
                     <AssetRow
                       key={`skill-${item.path}-${idx}`}
-                      isSelected={selectedAsset?.path === item.path}
+                      isSelected={rowIsSelected(item)}
                       showKindColumn={!selectedCategory}
                       item={item}
                       onUnlink={() => triggerUnlink(item.name, item.path, "Skills")}
@@ -475,11 +487,11 @@ export default function RepoPane({
                   {sortedTools.map((item, idx) => (
                     <AssetRow
                       key={`tool-${item.path}-${idx}`}
-                      isSelected={selectedAsset?.path === item.path}
+                      isSelected={rowIsSelected(item)}
                       showKindColumn={!selectedCategory}
                       item={item}
                       onUnlink={() => triggerUnlink(item.name, item.path, "Tools")}
-                      onClick={() => onSelectAsset({ name: item.name, category: "Tools", path: item.path })}
+                      onClick={() => onSelectAsset({ id: item.id, name: item.name, category: "Tools", path: item.path })}
                     />
                   ))}
                 </div>
@@ -496,7 +508,7 @@ export default function RepoPane({
                   {sortedRules.map((item, idx) => (
                     <AssetRow
                       key={`rule-${item.path}-${idx}`}
-                      isSelected={selectedAsset?.path === item.path}
+                      isSelected={rowIsSelected(item)}
                       showKindColumn={!selectedCategory}
                       item={item}
                       onUnlink={() => triggerUnlink(item.name, item.path, "Rules")}
@@ -517,7 +529,7 @@ export default function RepoPane({
                   {sortedSubagents.map((item, idx) => (
                     <AssetRow
                       key={`subagent-${item.path}-${idx}`}
-                      isSelected={selectedAsset?.path === item.path}
+                      isSelected={rowIsSelected(item)}
                       showKindColumn={!selectedCategory}
                       item={item}
                       onClick={() => onSelectAsset({ name: item.name, category: "Subagents", path: item.path })}
