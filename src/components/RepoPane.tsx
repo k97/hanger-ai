@@ -281,12 +281,17 @@ export default function RepoPane({
 
       {/* Facet chips */}
       <div className="px-[18px] pt-3 pb-2.5">
+        {/* No `?? 0` here. The chip distinguishes "not counted yet"
+            (undefined) from "empty" (0) so it can keep a chip through a scan
+            and hide it only on a known zero. Collapsing undefined to 0 erased
+            that distinction and would blank the whole filter row whenever
+            assetCounts is absent. ProfilePane already passes these through. */}
         <CategoryFilterCards
-          allCount={assetCounts?.total ?? 0}
-          skillsCount={assetCounts?.byCategory.skill?.total ?? 0}
-          toolsCount={assetCounts?.byCategory.tool?.total ?? 0}
-          rulesCount={assetCounts?.byCategory.rule?.total ?? 0}
-          subagentsCount={assetCounts?.byCategory.subagent?.total ?? 0}
+          allCount={assetCounts?.total}
+          skillsCount={assetCounts?.byCategory.skill?.total}
+          toolsCount={assetCounts?.byCategory.tool?.total}
+          rulesCount={assetCounts?.byCategory.rule?.total}
+          subagentsCount={assetCounts?.byCategory.subagent?.total}
           selectedCategory={selectedCategory}
           onSelectCategory={setSelectedCategory}
           loading={loading}

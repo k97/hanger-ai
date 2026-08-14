@@ -20,8 +20,16 @@ const chipPressedClass =
   "h-7 pl-2.5 pr-3.5 rounded-pill border border-transparent bg-tint text-tint-ink font-medium whitespace-nowrap inline-flex items-center gap-2 cursor-pointer transition-colors duration-nav ease-spring font-flex text-small";
 
 /** The category decision line — M3 filter-chip behaviour on the mono palette.
- *  Chips stay clickable at zero: filtering into an empty category shows its
- *  empty state rather than dead-ending the control. */
+ *
+ *  Empty categories are not rendered. A chip reading `Subagents 0` spends the
+ *  decision line on a choice that leads nowhere; absence says the same thing
+ *  more quietly. This reverses the previous rule — "chips stay clickable at
+ *  zero so filtering into an empty category shows its empty state rather than
+ *  dead-ending the control" — which is owner-approved.
+ *
+ *  One piece of that reasoning survives: a chip the user has *selected* stays
+ *  rendered even at zero, because otherwise the only control that can clear
+ *  the filter disappears and the view is stranded. */
 export default function CategoryFilterCards({
   allCount,
   skillsCount,
@@ -43,6 +51,17 @@ export default function CategoryFilterCards({
     { id: "Subagents", label: "Subagents", count: subagentsCount },
   ];
 
+  const visibleChips = chips.filter((chip) => {
+    // "All" is the way back to an unfiltered view; it never hides.
+    if (chip.id === null) return true;
+    // A selected chip stays, or clearing the filter becomes impossible.
+    if (selectedCategory === chip.id) return true;
+    // undefined means "not counted yet", not "empty" — keep it while loading
+    // so chips do not pop in after every scan.
+    if (chip.count === undefined) return true;
+    return chip.count > 0;
+  });
+
   const handleChipClick = (id: CategoryType | null) => {
     if (id !== null && selectedCategory === id) {
       onSelectCategory(null);
@@ -58,7 +77,7 @@ export default function CategoryFilterCards({
       aria-label="Filter by category"
     >
       <div className="flex items-center gap-[7px] overflow-x-auto">
-        {chips.map((chip) => {
+        {visibleChips.map((chip) => {
           const isPressed =
             chip.id === null ? selectedCategory === null : selectedCategory === chip.id;
           return (
