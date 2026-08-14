@@ -56,7 +56,6 @@ import ReviewSidebar from "./components/ReviewSidebar";
 import ReviewInspector from "./components/ReviewInspector";
 import SidebarScanModal from "./components/SidebarScanModal";
 import Flyout from "./components/Flyout";
-import LinkAssetModal from "./components/LinkAssetModal";
 import { SortField, SortDirection } from "./components/AssetHeaderRow";
 import { StateFilter } from "./utils/linkStateCounts";
 import {
@@ -314,8 +313,9 @@ export default function App() {
   // inline confirm state — never a blocking dialog.
   const [pendingImportPath, setPendingImportPath] = useState<string | null>(null);
 
-  // Link Asset Modal State
-  const [isLinkModalOpen, setIsLinkModalOpen] = useState(false);
+  // The asset the inspector should arrive on its link screen for. Distinct
+  // from selectedAsset, which only says what is being inspected.
+  const [linkingAsset, setLinkingAsset] = useState<any | null>(null);
 
   const fetchRepoCounts = async (repoPath: string) => {
     try {
@@ -362,26 +362,33 @@ export default function App() {
     } catch {
       // Silent fallback on error
     }
-  };  const [linkingAsset, setLinkingAsset] = useState<any | null>(null);
+  };
+
   const [linkPreSelectedRepo, setLinkPreSelectedRepo] = useState<string | undefined>(undefined);
 
+  /**
+   * Linking happens in the inspector, not over the top of it.
+   *
+   * A row's Link action and the inspector's "Link to…" button asked the same
+   * question through two different surfaces, which meant two implementations
+   * of one flow kept in step by hand. Both now open the same panel on the
+   * same asset.
+   */
   const handleLinkAsset = (asset: any, preSelectedRepo?: string) => {
+    // Written unconditionally: a repo staged for an earlier link must not
+    // stay ticked for every link after it.
+    setLinkPreSelectedRepo(preSelectedRepo);
+    setSelectedAsset(asset);
     setLinkingAsset(asset);
-    if (preSelectedRepo) {
-      setLinkPreSelectedRepo(preSelectedRepo);
+    if (!inspectorOpen) {
+      setInspectorOpen(true);
+      invoke("set_preference", { key: "inspector_open", value: "true" }).catch(() => {});
     }
-    setIsLinkModalOpen(true);
   };
 
   const handleLinkFromProfile = (repoPath: string) => {
     setLinkPreSelectedRepo(repoPath);
     setSelectedSidebarItem("profile");
-  };
-
-  const handleCloseLinkModal = () => {
-    setIsLinkModalOpen(false);
-    setLinkingAsset(null);
-    setLinkPreSelectedRepo(undefined);
   };
 
   // Onboarding & Consent states
@@ -396,7 +403,6 @@ export default function App() {
     id: string;
     name: string;
   } | null>(null);
-  const [flyoutInitialAsset, setFlyoutInitialAsset] = useState<any | null>(null);
 
   // Track the OS appearance for as long as the app runs, not just at startup, so
   // flipping macOS between light and dark repaints Auto without a relaunch.
@@ -1061,10 +1067,15 @@ export default function App() {
             selectedBubble={selectedBubble}
             setSelectedBubble={(val) => {
               setSelectedBubble(val);
-              setFlyoutInitialAsset(null);
+              setLinkingAsset(null);
             }}
             selectedAsset={selectedAsset}
-            initialDeployingAsset={flyoutInitialAsset}
+            initialDeployingAsset={linkingAsset}
+            linkPreSelectedRepo={linkPreSelectedRepo}
+            onExitLinkFlow={() => {
+              setLinkingAsset(null);
+              setLinkPreSelectedRepo(undefined);
+            }}
             inventory={inventory}
             linkedProjects={linkedDirectories}
             onRefresh={triggerScan}
@@ -1253,16 +1264,6 @@ export default function App() {
           </div>
         </div>
       )}
-      {/* Link Asset Modal Overlay */}
-      <LinkAssetModal
-        isOpen={isLinkModalOpen}
-        onClose={handleCloseLinkModal}
-        asset={linkingAsset}
-        linkedProjects={linkedDirectories}
-        inventory={inventory}
-        onLinkComplete={triggerScan}
-        preSelectedRepo={linkPreSelectedRepo}
-      />
     </div>
   );
 }

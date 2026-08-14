@@ -1,5 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { parseSkillDocument, SPEC_FIELDS, toBlocks } from "./skillDocument";
+import {
+  documentKindFor,
+  formatJson,
+  parseSkillDocument,
+  SPEC_FIELDS,
+  toBlocks,
+} from "./skillDocument";
 
 describe("parseSkillDocument — frontmatter", () => {
   it("splits YAML frontmatter from the body", () => {
@@ -56,6 +62,34 @@ describe("parseSkillDocument — frontmatter", () => {
     expect(SPEC_FIELDS).toContain("metadata");
     expect(SPEC_FIELDS).toContain("allowed-tools");
     expect(SPEC_FIELDS).not.toContain("version");
+  });
+});
+
+describe("documentKindFor — how each kind of asset should be shown", () => {
+  it("reads prose kinds as prose", () => {
+    for (const kind of ["Skills", "Rules", "Subagents"]) {
+      expect(documentKindFor(kind), kind).toBe("markdown");
+    }
+  });
+
+  it("reads a tool as the config entry it is", () => {
+    expect(documentKindFor("Tools")).toBe("json");
+  });
+
+  it("offers no document for an agent, which has no file of its own", () => {
+    expect(documentKindFor("Agents")).toBe("none");
+  });
+});
+
+describe("formatJson", () => {
+  it("re-indents a config so it reads as structure", () => {
+    expect(formatJson('{"a":{"b":1}}')).toBe('{\n  "a": {\n    "b": 1\n  }\n}');
+  });
+
+  it("returns nothing for text that is not JSON, rather than throwing", () => {
+    // A config mid-edit is a real state, not an error to surface.
+    expect(formatJson("{ not json")).toBeNull();
+    expect(formatJson("")).toBeNull();
   });
 });
 

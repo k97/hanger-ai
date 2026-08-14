@@ -6,7 +6,13 @@ import Tooltip from "./Tooltip";
 import MarkdownDoc from "./MarkdownDoc";
 import type { Inventory } from "../App";
 import { engineLabel, provenanceOf, sourceLabel } from "../utils/assetProvenance";
-import { parseSkillDocument, SPEC_FIELDS, toBlocks } from "../utils/skillDocument";
+import {
+  documentKindFor,
+  formatJson,
+  parseSkillDocument,
+  SPEC_FIELDS,
+  toBlocks,
+} from "../utils/skillDocument";
 
 interface DetailAsset {
   category: string;
@@ -73,11 +79,20 @@ export default function AssetDetail({ asset, inventory, onLink }: AssetDetailPro
   const [docError, setDocError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
+  const kind = documentKindFor(asset.category);
+
   useEffect(() => {
     let cancelled = false;
     setText(null);
     setDocError(null);
     setTab("preview");
+
+    // An agent has no file of its own — it is a folder layout the scan
+    // inferred — so there is nothing to read and no pane to fill.
+    if (kind === "none") {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
 
     invoke<string>("read_asset_body", { path: asset.path })
@@ -94,10 +109,14 @@ export default function AssetDetail({ asset, inventory, onLink }: AssetDetailPro
     return () => {
       cancelled = true;
     };
-  }, [asset.path]);
+  }, [asset.path, kind]);
 
   const provenance = provenanceOf(asset as never, inventory);
-  const document = text === null ? null : parseSkillDocument(text);
+  const document = text === null || kind !== "markdown" ? null : parseSkillDocument(text);
+  // A config that will not parse keeps its Source tab and loses only the
+  // formatted view — the file is still the answer to "what is in there".
+  const pretty = text !== null && kind === "json" ? formatJson(text) : null;
+  const showsTabs = document !== null || pretty !== null;
 
   const meta: { key: string; value: string }[] = [
     { key: "Engine", value: engineLabel(asset as never) },
@@ -183,7 +202,7 @@ export default function AssetDetail({ asset, inventory, onLink }: AssetDetailPro
           ))}
         </dl>
 
-        {document && (
+        {showsTabs && (
           <>
             <div className="flex gap-1.5 mx-[18px]" role="group" aria-label="Document view">
               <button
@@ -202,8 +221,15 @@ export default function AssetDetail({ asset, inventory, onLink }: AssetDetailPro
               </button>
             </div>
 
-            {tab === "preview" ? (
+            {tab === "preview" && document ? (
               <MarkdownDoc blocks={toBlocks(document.body)} />
+            ) : tab === "preview" && pretty ? (
+              <pre
+                data-testid="asset-formatted"
+                className="mx-[18px] my-3 p-3 bg-plane rounded-inner overflow-x-auto font-mono text-micro text-ink-2 leading-[1.6] whitespace-pre"
+              >
+                <code>{pretty}</code>
+              </pre>
             ) : (
               <pre
                 data-testid="asset-source"
@@ -213,6 +239,18 @@ export default function AssetDetail({ asset, inventory, onLink }: AssetDetailPro
               </pre>
             )}
           </>
+        )}
+
+        {/* Read, but nothing to format — a config mid-edit, say. The file is
+            still the answer, so it is shown; there is just nothing to switch
+            between. */}
+        {text !== null && !showsTabs && (
+          <pre
+            data-testid="asset-source"
+            className="mx-[18px] my-3 p-3 bg-plane rounded-inner overflow-x-auto font-mono text-micro text-ink-2 leading-[1.6] whitespace-pre"
+          >
+            <code>{text}</code>
+          </pre>
         )}
 
         {loading && (

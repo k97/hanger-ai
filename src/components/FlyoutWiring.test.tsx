@@ -126,4 +126,34 @@ describe("Detail Flyout Wiring Integration", () => {
     fireEvent.click(ruleRow);
     expect(screen.getByRole("heading", { level: 2 }).textContent).toBe("CLAUDE.md");
   });
+
+  it("hosts the link flow inside the inspector, with a way back to the asset", async () => {
+    render(
+      <Flyout
+        selectedBubble={{ type: "project", id: "/home/user/project", name: "project" }}
+        setSelectedBubble={vi.fn()}
+        initialDeployingAsset={{
+          type: "asset",
+          category: "Tools",
+          name: "Global Node Tool",
+          path: "/home/user/project/tools.json",
+          scopeBadge: "Project",
+          isSymlink: false,
+          drifted: false,
+        }}
+        inventory={mockInventory}
+        linkedProjects={["/home/user/project"]}
+        onRefresh={vi.fn()}
+      />
+    );
+
+    // The link screen replaces the detail screen inside the same panel; it
+    // does not open over the top of it as the retired modal did.
+    expect(screen.getByRole("heading", { level: 2 }).textContent).toBe("Link to projects");
+    expect(document.querySelectorAll("h2")).toHaveLength(1);
+
+    // The eyebrow is the way back, and it names where back goes.
+    fireEvent.click(screen.getByRole("button", { name: "Back to Global Node Tool" }));
+    expect(screen.getByRole("heading", { level: 2 }).textContent).toBe("Global Node Tool");
+  });
 });

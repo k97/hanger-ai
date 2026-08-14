@@ -41,6 +41,11 @@ interface FlyoutProps {
   setSelectedBubble?: (val: null) => void;
   selectedAsset?: FlatAssetItem | { name: string; category: string; path: string; source_path?: string; is_symlink?: boolean; details?: string; scopeBadge?: string; version?: string } | null;
   initialDeployingAsset?: FlatAssetItem | null;
+  /** A repository to arrive with already ticked, when the link was started
+   *  from that repository's own empty state. */
+  linkPreSelectedRepo?: string;
+  /** The link flow was left. The owner clears what it staged for it. */
+  onExitLinkFlow?: () => void;
   inventory: Inventory;
   linkedProjects: string[];
   onRefresh: () => void;
@@ -60,6 +65,8 @@ export default function Flyout({
   setSelectedBubble,
   selectedAsset,
   initialDeployingAsset,
+  linkPreSelectedRepo,
+  onExitLinkFlow,
   inventory,
   linkedProjects,
   onRefresh
@@ -426,6 +433,9 @@ export default function Flyout({
     setLinking(null);
     setMerge(null);
     setMergeError(null);
+    // The owner staged this flow, so it is the owner that unstages it —
+    // otherwise a pre-ticked repository would follow every later link.
+    if (onExitLinkFlow) onExitLinkFlow();
   };
 
   const targetAsset = selectedAsset || (initialDeployingAsset ? initialDeployingAsset : null);
@@ -523,6 +533,7 @@ export default function Flyout({
               asset={linking}
               destinations={linkedProjects}
               inventory={inventory}
+              preSelected={linkPreSelectedRepo}
               onCancel={closeLinkFlow}
               onLinked={onRefresh}
               onMergeRules={openMergeChooser}
@@ -534,7 +545,7 @@ export default function Flyout({
           asset={targetAsset as any}
           inventory={inventory}
           onLink={
-            targetAsset.category !== "Agents"
+            targetAsset.category !== "Agents" && targetAsset.category !== "Subagents"
               ? () => setLinking(targetAsset as FlatAssetItem)
               : undefined
           }

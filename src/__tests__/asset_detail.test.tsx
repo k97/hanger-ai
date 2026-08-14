@@ -145,6 +145,49 @@ describe("Asset detail — the inspector's document screen", () => {
     expect(screen.queryByText("Link to…")).toBeNull();
   });
 
+  it("formats a tool's config instead of reading braces as prose", async () => {
+    bodyResult = { ok: true, text: '{"mcpServers":{"node":{"command":"node run"}}}' };
+    render(
+      <AssetDetail
+        asset={{ ...asset, category: "Tools", name: "node", path: "/home/me/.mcp.json" }}
+        inventory={{ ...inventory, skills: [] }}
+      />
+    );
+
+    const formatted = await screen.findByTestId("asset-formatted");
+    expect(formatted.textContent).toContain('"mcpServers"');
+    // Re-indented, not the single line it arrived as.
+    expect(formatted.textContent!.split("\n").length).toBeGreaterThan(3);
+  });
+
+  it("still shows a config it cannot format, rather than nothing", async () => {
+    bodyResult = { ok: true, text: "{ not json, mid-edit" };
+    render(
+      <AssetDetail
+        asset={{ ...asset, category: "Tools", name: "node", path: "/home/me/.mcp.json" }}
+        inventory={{ ...inventory, skills: [] }}
+      />
+    );
+
+    expect((await screen.findByTestId("asset-source")).textContent).toBe("{ not json, mid-edit");
+    // Nothing to switch between when only one view exists.
+    expect(screen.queryByRole("button", { name: "Preview" })).toBeNull();
+  });
+
+  it("does not invent a document for an agent, which has no file of its own", async () => {
+    render(
+      <AssetDetail
+        asset={{ ...asset, category: "Agents", name: "claude", path: "/home/me/.claude" }}
+        inventory={{ ...inventory, skills: [] }}
+      />
+    );
+
+    await screen.findByText("Open in editor");
+    expect(invoke).not.toHaveBeenCalledWith("read_asset_body", expect.anything());
+    expect(screen.queryByRole("button", { name: "Preview" })).toBeNull();
+    expect(screen.queryByText("Reading the file…")).toBeNull();
+  });
+
   it("says why when the file cannot be read, and still shows what it knows", async () => {
     bodyResult = { ok: false, error: "Refusing to read a file outside the folders Hanger scans" };
     render(<AssetDetail asset={asset} inventory={inventory} />);

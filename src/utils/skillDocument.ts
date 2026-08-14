@@ -16,6 +16,38 @@
  * extension, and spec-compliant readers ignore keys they do not know.
  */
 
+export type DocumentKind = "markdown" | "json" | "none";
+
+/**
+ * How an asset's file should be shown, decided by what the file actually is.
+ *
+ * Skills, rules and subagents are all prose with a YAML header, so they read
+ * the same way. A tool is an entry in a JSON config — rendering it as prose
+ * would show braces as paragraphs. An agent is not a file at all; it is a
+ * folder layout inferred from a scan, so there is nothing to preview and the
+ * panel does not pretend otherwise by offering an empty pane.
+ */
+export function documentKindFor(category: string): DocumentKind {
+  if (category === "Agents") return "none";
+  if (category === "Tools") return "json";
+  return "markdown";
+}
+
+/**
+ * Re-indents JSON so a config reads as structure rather than one long line.
+ *
+ * Returns null when the text is not JSON, which is a real case — a config
+ * file can be mid-edit or hand-written with comments — and the caller falls
+ * back to showing it verbatim rather than to an error.
+ */
+export function formatJson(text: string): string | null {
+  try {
+    return JSON.stringify(JSON.parse(text), null, 2);
+  } catch {
+    return null;
+  }
+}
+
 /** The keys the Agent Skills standard itself defines. */
 export const SPEC_FIELDS = [
   "name",
