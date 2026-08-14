@@ -10,6 +10,7 @@ import DisclosureBanner from "./DisclosureBanner";
 import { sortAssetItems } from "../utils/sortUtils";
 import { formatEngineLabel } from "../utils/engineUtils";
 import SummaryStrip from "./SummaryStrip";
+import { ScanStatusIndicator } from "./ScanStatusIndicator";
 import { linkStateCounts, matchesStateFilter, StateFilter } from "../utils/linkStateCounts";
 
 interface RepoPaneProps {
@@ -522,17 +523,6 @@ export default function RepoPane({
             )}
           </div>
 
-          {/* Foot line */}
-          <div className="h-[30px] shrink-0 px-[18px] flex items-center gap-4 font-flex text-micro text-ink-3">
-            <span>
-              Showing {visibleCount} of {assetCounts?.total ?? visibleCount}
-            </span>
-            {unlinkedCandidates.length > 0 && (
-              <span>
-                {unlinkedCandidates.length} nested {unlinkedCandidates.length === 1 ? "repo" : "repos"} counted here
-              </span>
-            )}
-          </div>
         </>
       )}
 
@@ -590,6 +580,24 @@ export default function RepoPane({
           </div>
         </div>
       )}
+
+      {/* Foot line. Unconditional: scan progress needs a home in the empty
+          state too, which is precisely when a scan is running. */}
+      <div className="h-[30px] shrink-0 px-[18px] flex items-center gap-4 font-flex text-micro text-ink-3">
+        {(assetCounts?.total ?? 0) > 0 && (
+          <span>
+            Showing {visibleCount} of {assetCounts?.total ?? visibleCount}
+          </span>
+        )}
+        {unlinkedCandidates.length > 0 && (
+          <span>
+            {unlinkedCandidates.length} nested {unlinkedCandidates.length === 1 ? "repo" : "repos"} counted here
+          </span>
+        )}
+        <span className="ml-auto">
+          <ScanStatusIndicator />
+        </span>
+      </div>
     </div>
   );
 }

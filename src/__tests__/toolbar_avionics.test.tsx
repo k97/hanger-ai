@@ -79,14 +79,14 @@ describe("Avionics A3 Toolbar Verification", () => {
 
   it("theme control lives in the settings panel, not the toolbar", async () => {
     const { unmount } = render(<App />);
-    await screen.findByTitle("Refresh scan");
+    await screen.findByLabelText("Refresh scan");
 
     // No theme control anywhere in the composed tree until settings opens
-    expect(screen.queryByTitle("Toggle theme colour")).toBeNull();
+    expect(screen.queryByLabelText("Toggle theme colour")).toBeNull();
     expect(screen.queryByText("Dark")).toBeNull();
 
     // Open settings from the icon rail — the Light/Dark segment is the control
-    fireEvent.click(screen.getByTitle("Settings"));
+    fireEvent.click(screen.getByLabelText("Settings"));
     const darkButton = await screen.findByText("Dark");
     expect(screen.getAllByText("Dark")).toHaveLength(1);
 
@@ -104,7 +104,7 @@ describe("Avionics A3 Toolbar Verification", () => {
   it("renders no filesystem path string in the toolbar region", async () => {
     mockPreferences.selected_sidebar_item = "/Users/test/project-alpha";
     const { unmount } = render(<App />);
-    await screen.findByTitle("Refresh scan");
+    await screen.findByLabelText("Refresh scan");
     const header = screen.getByRole("banner");
     expect(header.textContent).not.toContain("/Users/test/project-alpha");
     expect(header.textContent).toContain("project-alpha");
@@ -113,7 +113,7 @@ describe("Avionics A3 Toolbar Verification", () => {
 
   it("puts rescan in the summary strip, not the toolbar, and fires its handler", async () => {
     const { unmount } = render(<App />);
-    const refreshButton = await screen.findByTitle("Refresh scan");
+    const refreshButton = await screen.findByLabelText("Refresh scan");
     expect(refreshButton).toBeTruthy();
 
     // It sits with the figure it refreshes, not in the window chrome.
@@ -131,7 +131,7 @@ describe("Avionics A3 Toolbar Verification", () => {
   it("persists inspector state across simulated restart", async () => {
     // 1. Initial render - inspector closed
     const first = render(<App />);
-    const inspectorButton = await screen.findByTitle("Toggle inspector");
+    const inspectorButton = await screen.findByLabelText("Toggle inspector");
     expect(inspectorButton).toBeTruthy();
 
     // Click inspector toggle
@@ -151,7 +151,7 @@ describe("Avionics A3 Toolbar Verification", () => {
     mockPreferences.inspector_open = "true";
     const second = render(<App />);
 
-    const newInspectorButton = await screen.findByTitle("Toggle inspector");
+    const newInspectorButton = await screen.findByLabelText("Toggle inspector");
     expect(newInspectorButton).toBeTruthy();
     expect(newInspectorButton.className).toContain("bg-tint");
     second.unmount();
@@ -164,7 +164,7 @@ describe("Avionics A3 Toolbar Verification", () => {
       engines: {},
     };
     const { unmount } = render(<App />);
-    await screen.findByTitle("Refresh scan");
+    await screen.findByLabelText("Refresh scan");
 
     const inventory = {
       agents: [],

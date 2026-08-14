@@ -45,6 +45,7 @@ import {
   PanelRightIcon
 } from "./components/icons";
 import IconRail from "./components/IconRail";
+import Tooltip from "./components/Tooltip";
 import Sidebar from "./components/Sidebar";
 import ProfilePane from "./components/ProfilePane";
 import RepoPane from "./components/RepoPane";
@@ -55,7 +56,6 @@ import ReviewInspector from "./components/ReviewInspector";
 import SidebarScanModal from "./components/SidebarScanModal";
 import Flyout from "./components/Flyout";
 import LinkAssetModal from "./components/LinkAssetModal";
-import { ScanStatusIndicator } from "./components/ScanStatusIndicator";
 import { SortField, SortDirection } from "./components/AssetHeaderRow";
 import { StateFilter } from "./utils/linkStateCounts";
 import {
@@ -733,14 +733,13 @@ export default function App() {
     <div className="h-screen w-screen bg-page text-ink-1 flex flex-col font-sans transition-colors duration-200 overflow-hidden">
       {/* Unified toolbar — thin top line, quiet pill controls, one filter */}
       <header className="h-10 min-h-10 max-h-10 border-b border-line bg-page px-3 flex items-center gap-2.5 select-none z-30 shrink-0 font-flex">
-        <button
-          onClick={toggleSidebar}
-          aria-label="Toggle sidebar"
-          title="Toggle sidebar (⌘⌥S)"
-          className={tbBtnClass}
-        >
-          <PanelLeftIcon size={15} />
-        </button>
+        {selectedSidebarItem !== "discovery" && (
+          <Tooltip label="Toggle sidebar  ⌘⌥S" placement="bottom">
+            <button onClick={toggleSidebar} aria-label="Toggle sidebar" className={tbBtnClass}>
+              <PanelLeftIcon size={15} aria-hidden="true" />
+            </button>
+          </Tooltip>
+        )}
 
         <div className="flex items-center gap-[7px] text-small text-ink-3">
           {crumbSegments.map((segment, idx) =>
@@ -778,16 +777,17 @@ export default function App() {
             />
           </div>
 
-          <ScanStatusIndicator />
-
-          <button
-            onClick={toggleInspector}
-            aria-label="Toggle inspector"
-            title="Toggle inspector"
-            className={inspectorOpen ? tbBtnActiveClass : tbBtnClass}
-          >
-            <PanelRightIcon size={15} />
-          </button>
+          {selectedSidebarItem !== "discovery" && (
+            <Tooltip label="Toggle inspector" placement="bottom">
+              <button
+                onClick={toggleInspector}
+                aria-label="Toggle inspector"
+                className={inspectorOpen ? tbBtnActiveClass : tbBtnClass}
+              >
+                <PanelRightIcon size={15} aria-hidden="true" />
+              </button>
+            </Tooltip>
+          )}
         </div>
       </header>
 
@@ -817,7 +817,7 @@ export default function App() {
           onOpenSettings={() => setShowSettingsModal(true)}
         />
 
-        {selectedSidebarItem === "review" ? (
+        {selectedSidebarItem === "discovery" ? null : selectedSidebarItem === "review" ? (
           <ReviewSidebar
             width={sidebarWidth}
             setWidth={setSidebarWidth}
@@ -1009,7 +1009,10 @@ export default function App() {
           </aside>
         )}
 
-        {inspectorOpen && selectedSidebarItem !== "review" && inventory && (
+        {inspectorOpen &&
+          selectedSidebarItem !== "review" &&
+          selectedSidebarItem !== "discovery" &&
+          inventory && (
           <Flyout
             width={inspectorWidth}
             setWidth={setInspectorWidth}

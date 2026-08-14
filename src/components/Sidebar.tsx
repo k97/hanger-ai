@@ -6,6 +6,7 @@ import { Inventory, CategoryCounts } from "../App";
 import { sumGlobalAssets } from "../utils/globalAssetCount";
 import { containerSubtitle, linkedDescendants, hasLinkedAncestor } from "../utils/containerRoots";
 import SourceListShell from "./SourceListShell";
+import Tooltip from "./Tooltip";
 
 interface SidebarProps {
   width: number;
@@ -154,13 +155,15 @@ export default function Sidebar({
         {/* Repositories group */}
         <div className={grpClass}>
           <span>Repositories</span>
-          <button
-            onClick={handleAddRepo}
-            title="Add a repository"
-            className="w-[22px] h-[22px] rounded-pill grid place-items-center text-ink-2 hover:bg-plane-2 hover:text-ink-1 transition-colors duration-hover ease-spring cursor-pointer"
-          >
-            <PlusIcon size={14} />
-          </button>
+          <Tooltip label="Add a repository" placement="bottom">
+            <button
+              onClick={handleAddRepo}
+              aria-label="Add a repository"
+              className="w-[22px] h-[22px] rounded-pill grid place-items-center text-ink-2 hover:bg-plane-2 hover:text-ink-1 transition-colors duration-hover ease-spring cursor-pointer"
+            >
+              <PlusIcon size={14} aria-hidden="true" />
+            </button>
+          </Tooltip>
         </div>
 
         {linkedRepos.length === 0 ? (
@@ -230,6 +233,7 @@ export default function Sidebar({
                   >
                     {count}
                   </span>
+                  <Tooltip label="Unlink repository" placement="bottom">
                   <button
                     onClick={async (e) => {
                       e.stopPropagation();
@@ -244,10 +248,11 @@ export default function Sidebar({
                       }
                     }}
                     className="p-1 rounded-pill hover:bg-plane-2 text-ink-3 hover:text-ink-1 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity duration-hover cursor-pointer shrink-0"
-                    title="Unlink repository"
+                    aria-label="Unlink repository"
                   >
-                    <TrashIcon size={12} />
+                    <TrashIcon size={12} aria-hidden="true" />
                   </button>
+                  </Tooltip>
                 </div>
               );
             })}

@@ -1,6 +1,7 @@
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import { ArrowTopRightOnSquareIcon, Square2StackIcon, XMarkIcon } from "./icons";
 import type { IssueKind, ReviewIssue } from "../utils/reviewIssues";
+import Tooltip from "./Tooltip";
 
 interface ReviewInspectorProps {
   issue: ReviewIssue | null;
@@ -95,13 +96,17 @@ export default function ReviewInspector({
           <span>{EYEBROW[issue.kind]}</span>
           <span>·</span>
           <span>{issue.category}</span>
-          <button
-            onClick={onClose}
-            title="Close"
-            className="ml-auto w-[27px] h-[27px] rounded-pill grid place-items-center text-ink-3 hover:bg-plane-2 hover:text-ink-1 transition-colors duration-hover ease-spring cursor-pointer"
-          >
-            <XMarkIcon size={13} />
-          </button>
+          <span className="ml-auto">
+            <Tooltip label="Close inspector" placement="bottom">
+              <button
+                onClick={onClose}
+                aria-label="Close inspector"
+                className="w-[27px] h-[27px] rounded-pill grid place-items-center text-ink-3 hover:bg-plane-2 hover:text-ink-1 transition-colors duration-hover ease-spring cursor-pointer"
+              >
+                <XMarkIcon size={13} aria-hidden="true" />
+              </button>
+            </Tooltip>
+          </span>
         </div>
 
         <h2 className="text-lg-app font-medium tracking-[-0.3px] text-ink-1 mb-2">{issue.name}</h2>
@@ -123,20 +128,24 @@ export default function ReviewInspector({
 
         <div className="flex items-center gap-2 bg-plane rounded-inner pl-2.5 pr-1.5 py-2 font-mono text-micro text-ink-2">
           <span className="flex-1 min-w-0 truncate">{issue.path}</span>
-          <button
-            title="Copy"
-            onClick={() => navigator.clipboard?.writeText(issue.path).catch(() => {})}
-            className="p-1 rounded-pill grid place-items-center text-ink-3 hover:bg-plane-2 hover:text-ink-1 transition-colors duration-hover cursor-pointer"
-          >
-            <Square2StackIcon size={13} />
-          </button>
-          <button
-            title="Reveal"
-            onClick={() => revealItemInDir(parentOf(issue.path)).catch(() => {})}
-            className="p-1 rounded-pill grid place-items-center text-ink-3 hover:bg-plane-2 hover:text-ink-1 transition-colors duration-hover cursor-pointer"
-          >
-            <ArrowTopRightOnSquareIcon size={13} />
-          </button>
+          <Tooltip label="Copy path" placement="bottom">
+            <button
+              aria-label="Copy path"
+              onClick={() => navigator.clipboard?.writeText(issue.path).catch(() => {})}
+              className="p-1 rounded-pill grid place-items-center text-ink-3 hover:bg-plane-2 hover:text-ink-1 transition-colors duration-hover cursor-pointer"
+            >
+              <Square2StackIcon size={13} aria-hidden="true" />
+            </button>
+          </Tooltip>
+          <Tooltip label="Reveal in Finder" placement="bottom">
+            <button
+              aria-label="Reveal in Finder"
+              onClick={() => revealItemInDir(parentOf(issue.path)).catch(() => {})}
+              className="p-1 rounded-pill grid place-items-center text-ink-3 hover:bg-plane-2 hover:text-ink-1 transition-colors duration-hover cursor-pointer"
+            >
+              <ArrowTopRightOnSquareIcon size={13} aria-hidden="true" />
+            </button>
+          </Tooltip>
         </div>
       </div>
 

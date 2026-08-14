@@ -1,4 +1,5 @@
 import { ComputerDesktopIcon, GlobeAltIcon, ExclamationTriangleIcon, Cog6ToothIcon } from "./icons";
+import Tooltip from "./Tooltip";
 
 interface IconRailProps {
   active: "machine" | "discovery" | "review";
@@ -33,45 +34,53 @@ export default function IconRail({
       data-testid="icon-rail"
       className="w-14 shrink-0 border-r border-line bg-page flex flex-col items-center py-2 gap-[3px]"
     >
-      <button
-        title="My machine"
-        aria-current={active === "machine" ? "true" : undefined}
-        onClick={onSelectMachine}
-        className={active === "machine" ? railBtnActiveClass : railBtnClass}
-      >
-        <ComputerDesktopIcon size={17} />
-      </button>
+      <Tooltip label="My machine">
+        <button
+          aria-label="My machine"
+          aria-current={active === "machine" ? "true" : undefined}
+          onClick={onSelectMachine}
+          className={active === "machine" ? railBtnActiveClass : railBtnClass}
+        >
+          <ComputerDesktopIcon size={17} aria-hidden="true" />
+        </button>
+      </Tooltip>
 
-      <button
-        title="Discovery"
-        aria-current={active === "discovery" ? "true" : undefined}
-        onClick={onSelectDiscovery}
-        className={active === "discovery" ? railBtnActiveClass : railBtnClass}
-      >
-        <GlobeAltIcon size={17} />
-      </button>
+      <Tooltip label="Discovery">
+        <button
+          aria-label="Discovery"
+          aria-current={active === "discovery" ? "true" : undefined}
+          onClick={onSelectDiscovery}
+          className={active === "discovery" ? railBtnActiveClass : railBtnClass}
+        >
+          <GlobeAltIcon size={17} aria-hidden="true" />
+        </button>
+      </Tooltip>
 
       <div className="w-6 h-px bg-line my-2" />
 
-      <button
-        title={`Needs review — ${needsReviewCount} flagged`}
-        aria-current={active === "review" ? "true" : undefined}
-        onClick={onSelectReview}
-        className={active === "review" ? railBtnActiveClass : railBtnClass}
-      >
-        {needsReviewCount > 0 && (
-          <span className="absolute top-px right-0.5 min-w-[15px] h-[15px] px-1 rounded-pill bg-fill text-on-fill text-[9px] leading-[15px] font-flex tabular">
-            {needsReviewCount}
-          </span>
-        )}
-        <ExclamationTriangleIcon size={17} />
-      </button>
+      <Tooltip label={`Needs review — ${needsReviewCount} flagged`}>
+        <button
+          aria-label={`Needs review — ${needsReviewCount} flagged`}
+          aria-current={active === "review" ? "true" : undefined}
+          onClick={onSelectReview}
+          className={active === "review" ? railBtnActiveClass : railBtnClass}
+        >
+          {needsReviewCount > 0 && (
+            <span aria-hidden="true" className="absolute top-px right-0.5 min-w-[15px] h-[15px] px-1 rounded-pill bg-fill text-on-fill text-[9px] leading-[15px] font-flex tabular">
+              {needsReviewCount}
+            </span>
+          )}
+          <ExclamationTriangleIcon size={17} aria-hidden="true" />
+        </button>
+      </Tooltip>
 
       <div className="flex-1" />
 
-      <button title="Settings" onClick={onOpenSettings} className={railBtnClass}>
-        <Cog6ToothIcon size={17} />
-      </button>
+      <Tooltip label="Settings">
+        <button aria-label="Settings" onClick={onOpenSettings} className={railBtnClass}>
+          <Cog6ToothIcon size={17} aria-hidden="true" />
+        </button>
+      </Tooltip>
     </nav>
   );
 }

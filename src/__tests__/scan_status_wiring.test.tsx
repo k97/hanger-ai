@@ -51,7 +51,7 @@ vi.mock("@tauri-apps/api/event", () => ({
   }),
 }));
 
-describe("Scan status toolbar wiring", () => {
+describe("Scan status wiring", () => {
   beforeEach(() => {
     mockScanStatus = {
       phase: "idle",
@@ -63,7 +63,7 @@ describe("Scan status toolbar wiring", () => {
     }
   });
 
-  it("renders status in the composed App toolbar when status updates to scanning with queue", async () => {
+  it("renders status in the foot line, not the title bar, when scanning with a queue", async () => {
     mockScanStatus = {
       phase: "scanning",
       activeRootLabel: "hanger-ai",
@@ -76,10 +76,13 @@ describe("Scan status toolbar wiring", () => {
     expect(indicator).toBeTruthy();
     expect(indicator.textContent).toContain("Scanning hanger-ai · 1 queued");
 
+    // It sits with the figures it is in the middle of changing.
+    expect(screen.getByRole("banner").contains(indicator)).toBe(false);
+
     unmount();
   });
 
-  it("updates toolbar text when a scan-status event is received by the app", async () => {
+  it("updates the foot text when a scan-status event is received by the app", async () => {
     const { unmount } = render(<App />);
 
     await waitFor(() => {

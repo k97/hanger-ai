@@ -111,7 +111,9 @@ describe("Avionics A6-R2 Defect Tests", () => {
     // Rescan now lives in the summary strip rather than the toolbar — it is the
     // control that changes the figure it sits under. The rule the original test
     // protected still holds: exactly one, never two competing affordances.
-    const refreshButtons = container.querySelectorAll("button[title*='Rescan'], button[title*='Refresh']");
+    const refreshButtons = container.querySelectorAll(
+      "button[aria-label*='Rescan'], button[aria-label*='Refresh']"
+    );
     expect(refreshButtons.length).toBe(1);
     expect(refreshButtons[0].textContent).toContain("Rescan");
   });

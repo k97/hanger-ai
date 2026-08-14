@@ -149,7 +149,7 @@ describe("Avionics A5 — Docked Right Inspector Integration", () => {
     expect(screen.queryByText("No Item Selected")).toBeNull();
 
     // Click inspector toggle in header toolbar
-    const toggleBtn = screen.getByTitle("Toggle inspector");
+    const toggleBtn = screen.getByLabelText("Toggle inspector");
     fireEvent.click(toggleBtn);
 
     // Inspector is now open and renders empty state (since no row selected yet)

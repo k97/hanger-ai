@@ -1,4 +1,5 @@
 import { ArrowPathIcon, ArrowRightIcon, CheckIcon } from "./icons";
+import { ScanStatusIndicator } from "./ScanStatusIndicator";
 import {
   matchesIssueFilter,
   type IssueKind,
@@ -144,7 +145,6 @@ export default function NeedsReviewPane({
                 onClick={onRescan}
                 disabled={scanning}
                 aria-label="Refresh scan"
-                title="Refresh scan"
                 className="h-[30px] pl-3 pr-3.5 inline-flex items-center gap-2 rounded-pill border border-line-2 text-small font-medium text-ink-1 cursor-pointer transition-[background-color,transform] duration-hover ease-spring hover:bg-plane-2 active:scale-[0.96] disabled:opacity-50 disabled:cursor-default"
               >
                 <ArrowPathIcon size={13} className={scanning ? "animate-spin" : ""} />
@@ -279,6 +279,9 @@ export default function NeedsReviewPane({
           {shown.length === counts.total
             ? `${counts.total} issues across ${locations.size} locations`
             : `${shown.length} of ${counts.total} issues`}
+        </span>
+        <span className="ml-auto">
+          <ScanStatusIndicator />
         </span>
       </div>
     </div>

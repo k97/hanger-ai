@@ -633,14 +633,14 @@ export default function Flyout({
                 {targetAsset.path}
               </span>
               <button
-                title="Copy path"
+                aria-label="Copy path"
                 onClick={() => navigator.clipboard?.writeText(targetAsset.path).catch(() => {})}
                 className="p-1 rounded-pill text-ink-3 hover:bg-plane-2 hover:text-ink-1 cursor-pointer transition-colors duration-hover shrink-0"
               >
                 <Square2StackIcon size={13} />
               </button>
               <button
-                title="Reveal in Finder"
+                aria-label="Reveal in Finder"
                 onClick={() => revealItemInDir(targetAsset.path).catch(() => {})}
                 className="p-1 rounded-pill text-ink-3 hover:bg-plane-2 hover:text-ink-1 cursor-pointer transition-colors duration-hover shrink-0"
               >

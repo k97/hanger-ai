@@ -154,7 +154,7 @@ describe("sidebar container rows", () => {
       />
     );
 
-    fireEvent.click(screen.getByTitle("Add a repository"));
+    fireEvent.click(screen.getByLabelText("Add a repository"));
 
     await waitFor(() => {
       expect(setSelectedItem).toHaveBeenCalledWith(canonical);

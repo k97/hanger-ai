@@ -88,16 +88,16 @@ describe("Icon rail", () => {
 
   it("renders the four rail sections", async () => {
     const { unmount } = render(<App />);
-    await screen.findByTitle("My machine");
-    expect(screen.getByTitle("Discovery")).toBeTruthy();
-    expect(screen.getByTitle(/Needs review/)).toBeTruthy();
-    expect(screen.getByTitle("Settings")).toBeTruthy();
+    await screen.findByLabelText("My machine");
+    expect(screen.getByLabelText("Discovery")).toBeTruthy();
+    expect(screen.getByLabelText(/Needs review/)).toBeTruthy();
+    expect(screen.getByLabelText("Settings")).toBeTruthy();
     unmount();
   });
 
   it("switches to Discovery and persists the selection", async () => {
     const { unmount } = render(<App />);
-    const discovery = await screen.findByTitle("Discovery");
+    const discovery = await screen.findByLabelText("Discovery");
     fireEvent.click(discovery);
 
     await waitFor(() => {
@@ -112,20 +112,20 @@ describe("Icon rail", () => {
 
   it("shows the flagged-asset count badge only when something needs review", async () => {
     const { unmount } = render(<App />);
-    const needsReview = await screen.findByTitle(/Needs review/);
+    const needsReview = await screen.findByLabelText(/Needs review/);
     expect(needsReview.textContent).toBe("");
 
     eventListeners["scan://complete"]({ payload: { inventory: flaggedInventory } });
 
     await waitFor(() => {
-      expect(screen.getByTitle("Needs review — 3 flagged").textContent).toBe("3");
+      expect(screen.getByLabelText("Needs review — 3 flagged").textContent).toBe("3");
     });
     unmount();
   });
 
   it("switches to Needs review as a section, and persists the selection", async () => {
     const { unmount } = render(<App />);
-    const needsReview = await screen.findByTitle(/Needs review/);
+    const needsReview = await screen.findByLabelText(/Needs review/);
     expect(needsReview.getAttribute("aria-current")).toBeNull();
 
     fireEvent.click(needsReview);
@@ -145,7 +145,7 @@ describe("Icon rail", () => {
 
   it("counts duplicates in the badge, not just faults", async () => {
     const { unmount } = render(<App />);
-    await screen.findByTitle(/Needs review/);
+    await screen.findByLabelText(/Needs review/);
 
     eventListeners["scan://complete"]({
       payload: {
@@ -162,8 +162,34 @@ describe("Icon rail", () => {
 
     // 2 drifted + 1 unparsed + 1 duplicate that spans two repositories
     await waitFor(() => {
-      expect(screen.getByTitle("Needs review — 4 flagged").textContent).toBe("4");
+      expect(screen.getByLabelText("Needs review — 4 flagged").textContent).toBe("4");
     });
+    unmount();
+  });
+
+  it("Discovery drops the columns that belong to My machine", async () => {
+    // Both columns are present on My machine, so their absence is a real change
+    // rather than a state that happened to be off already.
+    mockPreferences.inspector_open = "true";
+    const { unmount } = render(<App />);
+
+    expect(await screen.findByTestId("sidebar")).toBeTruthy();
+    expect(screen.getByLabelText("Toggle inspector")).toBeTruthy();
+
+    fireEvent.click(screen.getByLabelText("Discovery"));
+
+    await screen.findByText("Where the ecosystem publishes agent assets");
+
+    // No repository list: Discovery holds neither repositories nor assets.
+    expect(screen.queryByTestId("sidebar")).toBeNull();
+    expect(screen.queryByTestId("review-sidebar")).toBeNull();
+    expect(screen.queryByText("Repositories")).toBeNull();
+
+    // Nothing for an inspector to inspect, so no inspector and no toggles
+    // that would do nothing if pressed.
+    expect(screen.queryByText("No Item Selected")).toBeNull();
+    expect(screen.queryByLabelText("Toggle inspector")).toBeNull();
+    expect(screen.queryByLabelText(/Toggle sidebar/)).toBeNull();
     unmount();
   });
 });

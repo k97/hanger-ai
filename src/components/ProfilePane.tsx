@@ -8,6 +8,7 @@ import { filterProfileAssets } from "../utils/filterPredicate";
 import { sortAssetItems } from "../utils/sortUtils";
 import { sumGlobalAssets } from "../utils/globalAssetCount";
 import SummaryStrip from "./SummaryStrip";
+import { ScanStatusIndicator } from "./ScanStatusIndicator";
 import { linkStateCounts, matchesStateFilter, StateFilter } from "../utils/linkStateCounts";
 
 interface ProfilePaneProps {
@@ -395,14 +396,21 @@ export default function ProfilePane({
             )}
           </div>
 
-          {/* Foot line */}
-          <div className="h-[30px] shrink-0 px-[18px] flex items-center gap-4 font-flex text-micro text-ink-3">
-            <span>
-              Showing {visibleCount} of {sumGlobalAssets(assetCounts)}
-            </span>
-          </div>
         </>
       )}
+
+      {/* Foot line. Unconditional: scan progress needs a home in the empty
+          state too, which is precisely when a scan is running. */}
+      <div className="h-[30px] shrink-0 px-[18px] flex items-center gap-4 font-flex text-micro text-ink-3">
+        {sumGlobalAssets(assetCounts) > 0 && (
+          <span>
+            Showing {visibleCount} of {sumGlobalAssets(assetCounts)}
+          </span>
+        )}
+        <span className="ml-auto">
+          <ScanStatusIndicator />
+        </span>
+      </div>
     </div>
   );
 }
