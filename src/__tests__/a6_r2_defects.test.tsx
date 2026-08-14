@@ -150,7 +150,16 @@ describe("Avionics A6-R2 Defect Tests", () => {
     expect(screen.getByText("Claude Code")).toBeDefined();
   });
 
-  it("5. A zero count renders '0'", () => {
+  // SUPERSEDED. This began as defect A6-R2 #5: zero counts were not rendering,
+  // and the fix made every chip show an explicit '0' so filtering into an empty
+  // category reached its empty state rather than dead-ending the control.
+  //
+  // That rule is now reversed by owner decision -- an empty category is better
+  // expressed by absence than by a zero. The original intent is not wholly
+  // discarded: a chip the user has SELECTED still renders at zero, because
+  // otherwise the only control that can clear the filter disappears. That was
+  // the dead-ending the first fix was protecting against.
+  it("5. A zero count hides its chip; All keeps its zero", () => {
     render(
       <CategoryFilterCards
         allCount={0}
@@ -164,9 +173,12 @@ describe("Avionics A6-R2 Defect Tests", () => {
       />
     );
 
-    // All + the four category chips each render an explicit zero.
+    // Only All survives at zero, and it still shows its count.
     const zeros = screen.getAllByText("0");
-    expect(zeros.length).toBe(5);
+    expect(zeros.length).toBe(1);
+    expect(screen.getByText("All")).toBeTruthy();
+    expect(screen.queryByText("Skills")).toBeNull();
+    expect(screen.queryByText("Subagents")).toBeNull();
     expect(screen.queryByText("—")).toBeNull();
   });
 
