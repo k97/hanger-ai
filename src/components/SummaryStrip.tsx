@@ -58,9 +58,11 @@ export default function SummaryStrip({
     return () => clearInterval(interval);
   }, []);
 
-  const scanStamp = scanning
-    ? "Scanning…"
-    : scannedAt
+  // The stamp answers one question and keeps answering it: how old is the
+  // figure above. It stays an age during a scan — the button beside it is
+  // already saying that a scan is running, and saying it twice in one banner
+  // reads as two different pieces of news.
+  const scanStamp = scannedAt
     ? `Scanned ${timeAgo(scannedAt, new Date())}`
     : "Not scanned yet";
 
@@ -119,7 +121,7 @@ export default function SummaryStrip({
               onClick={onRescan}
               disabled={scanning}
               aria-label="Refresh scan"
-              className="h-[30px] pl-3 pr-3.5 inline-flex items-center gap-2 rounded-pill border border-line-2 text-small font-medium text-ink-1 cursor-pointer transition-[background-color,transform] duration-hover ease-spring hover:bg-plane-2 active:scale-[0.96] disabled:opacity-50 disabled:cursor-default"
+              className="h-[30px] min-w-[108px] px-3.5 inline-flex items-center justify-center gap-2 rounded-pill border border-line-2 text-small font-medium text-ink-1 cursor-pointer transition-[background-color,transform] duration-hover ease-spring hover:bg-plane-2 active:scale-[0.96] disabled:opacity-50 disabled:cursor-default"
             >
               <ArrowPathIcon size={13} className={scanning ? "animate-spin" : ""} />
               {scanning ? "Scanning" : "Rescan"}

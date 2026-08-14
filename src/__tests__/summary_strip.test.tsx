@@ -69,8 +69,21 @@ describe("SummaryStrip", () => {
     expect(onFilterState).toHaveBeenCalledWith("needs-review");
   });
 
-  it("shows Scanning… while a scan runs", () => {
-    renderStrip({ scanning: true });
-    expect(screen.getByText("Scanning…")).toBeTruthy();
+  it("says a scan is running exactly once, in the button", () => {
+    const scannedAt = new Date(Date.now() - 4 * 60_000);
+    renderStrip({ scanning: true, scannedAt, onRescan: () => {} });
+
+    // The button carries the live state…
+    expect(screen.getByLabelText("Refresh scan").textContent).toContain("Scanning");
+    // …and the stamp keeps answering its own question: how old is the figure.
+    expect(screen.getByText("Scanned 4 min ago")).toBeTruthy();
+    // One banner, one statement that a scan is running.
+    expect(screen.getAllByText(/Scanning/)).toHaveLength(1);
+  });
+
+  it("keeps the stamp an age, never a status", () => {
+    renderStrip({ scanning: false, scannedAt: new Date(Date.now() - 4 * 60_000) });
+    expect(screen.getByText("Scanned 4 min ago")).toBeTruthy();
+    expect(screen.queryByText("Scanning…")).toBeNull();
   });
 });
