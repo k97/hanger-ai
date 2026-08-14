@@ -84,8 +84,13 @@ export default function ProfilePane({
   const rawSkills = inventory?.skills.filter((s) => s.scope?.Global) || [];
   const globalSkills = rawSkills.filter((s, idx) => rawSkills.findIndex((other) => other.path === s.path) === idx);
 
+  // Per registration, not per config file. One file declaring three servers is
+  // three rows; the same server registered by two hosts is two rows. See
+  // deduplicateTools in filterPredicate.ts for the shared rule.
   const rawTools = inventory?.tools.filter((t) => t.scope?.Global) || [];
-  const globalTools = rawTools.filter((t, idx) => rawTools.findIndex((other) => other.config_path === t.config_path) === idx);
+  const globalTools = rawTools.filter(
+    (t, idx) => rawTools.findIndex((other) => (other.id ?? other.config_path) === (t.id ?? t.config_path)) === idx
+  );
 
   const rawRules = inventory?.rules.filter((r) => r.scope?.Global) || [];
   const globalRules = rawRules.filter((r, idx) => rawRules.findIndex((other) => other.path === r.path) === idx);
@@ -336,7 +341,7 @@ export default function ProfilePane({
             {showTools && sortedTools.length > 0 && (
               <>
                 <h3 className={secClass}>
-                  Tools · {assetCounts ? (assetCounts.byCategory.tool?.global ?? 0) : sortedTools.length}
+                  MCP servers · {assetCounts ? (assetCounts.byCategory.tool?.global ?? 0) : sortedTools.length}
                 </h3>
                 <div className="flex flex-col">
                   {sortedTools.map((item, idx) => (

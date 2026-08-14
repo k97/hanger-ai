@@ -212,3 +212,49 @@ describe("filterRepoAssets Utility", () => {
     expect(result.agents.length).toBe(0);
   });
 });
+
+describe("MCP server rows are per registration, not per file", () => {
+  const threeInOneFile: Inventory = {
+    agents: [], skills: [], rules: [], subagents: [], project_scans: [],
+    tools: [
+      { id: "/home/.codex/config.toml-node_repl", name: "node_repl", command: "node",
+        transport: "stdio", config_path: "/home/.codex/config.toml",
+        scope: { Global: { agent: "codex" } }, owning_agent: "codex" },
+      { id: "/home/.codex/config.toml-computer-use", name: "computer-use", command: "codex",
+        transport: "stdio", config_path: "/home/.codex/config.toml",
+        scope: { Global: { agent: "codex" } }, owning_agent: "codex" },
+      { id: "/home/.codex/config.toml-tauri", name: "tauri", command: "npx",
+        transport: "stdio", config_path: "/home/.codex/config.toml",
+        scope: { Global: { agent: "codex" } }, owning_agent: "codex" },
+    ],
+  } as unknown as Inventory;
+
+  it("keeps every server declared by a single config file", () => {
+    // Deduplicating on config_path collapsed a three-server file to one row.
+    // A config file is not an asset; each server in it is.
+    const { tools } = filterProfileAssets(threeInOneFile, null);
+    expect(tools.map((t) => t.name).sort()).toEqual(["computer-use", "node_repl", "tauri"]);
+  });
+
+  it("still collapses a genuinely repeated registration", () => {
+    const doubled = {
+      ...threeInOneFile,
+      tools: [...threeInOneFile.tools, threeInOneFile.tools[0]],
+    } as unknown as Inventory;
+    const { tools } = filterProfileAssets(doubled, null);
+    expect(tools.length).toBe(3);
+  });
+
+  it("keeps the same server registered by two different files", () => {
+    const twoFiles = {
+      ...threeInOneFile,
+      tools: [
+        threeInOneFile.tools[0],
+        { ...threeInOneFile.tools[0], id: "/home/.claude/mcp.json-node_repl",
+          config_path: "/home/.claude/mcp.json" },
+      ],
+    } as unknown as Inventory;
+    const { tools } = filterProfileAssets(twoFiles, null);
+    expect(tools.length).toBe(2);
+  });
+});

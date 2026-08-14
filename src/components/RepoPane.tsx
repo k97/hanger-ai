@@ -464,7 +464,7 @@ export default function RepoPane({
             {showTools && sortedTools.length > 0 && (
               <>
                 <h3 className={secClass}>
-                  Tools · {assetCounts ? (assetCounts.byCategory.tool?.total ?? 0) : sortedTools.length}
+                  MCP servers · {assetCounts ? (assetCounts.byCategory.tool?.total ?? 0) : sortedTools.length}
                 </h3>
                 <div className="flex flex-col">
                   {sortedTools.map((item, idx) => (

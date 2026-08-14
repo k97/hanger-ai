@@ -21,11 +21,23 @@ function deduplicateSkills(skills: Skill[]): Skill[] {
   });
 }
 
+/**
+ * Deduplicate MCP server rows by *registration*, not by config file.
+ *
+ * This keyed on `config_path`, which meant one file declaring three servers
+ * rendered as a single row — `~/.codex/config.toml` has three, `~/.claude.json`
+ * has three. A config file is not an asset; each server declared in it is.
+ *
+ * `Tool.id` is the backend's own identity for a registration
+ * (`{config_path}-{name}`), so the same server registered by two different
+ * hosts stays two rows. That cross-host coverage is the feature.
+ */
 function deduplicateTools(tools: Tool[]): Tool[] {
   const seen = new Set<string>();
   return tools.filter((t) => {
-    if (seen.has(t.config_path)) return false;
-    seen.add(t.config_path);
+    const key = t.id ?? `${t.config_path}-${t.name}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
     return true;
   });
 }

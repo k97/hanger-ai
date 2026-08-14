@@ -49,7 +49,7 @@ function placeOf(asset: ScopedAsset): string {
 const KINDS: Record<string, string> = {
   Skills: "Skill",
   Subagents: "Subagent",
-  Tools: "Tool",
+  Tools: "MCP server",
   Rules: "Rule",
   Agents: "Agent",
 };

@@ -35,7 +35,10 @@ export default function CategoryFilterCards({
   const chips: Array<{ id: CategoryType | null; label: string; count: number | undefined }> = [
     { id: null, label: "All", count: allCount },
     { id: "Skills", label: "Skills", count: skillsCount },
-    { id: "Tools", label: "Tools", count: toolsCount },
+    // Display label only. The `id` stays "Tools" -- it is the discriminant
+    // wired through filterPredicate and the count commands, and assets.category
+    // stays the literal 'tool' in the database. Rename is display-layer.
+    { id: "Tools", label: "MCP servers", count: toolsCount },
     { id: "Rules", label: "Rules", count: rulesCount },
     { id: "Subagents", label: "Subagents", count: subagentsCount },
   ];
