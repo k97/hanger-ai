@@ -25,6 +25,20 @@ const HOST_NAMES: Record<string, string> = {
   zed: "Zed",
 };
 
+/**
+ * Where a server that is not configured on this machine is actually managed.
+ *
+ * A Claude.ai connector runs on Anthropic's infrastructure: there is no file to
+ * open and nothing local to verify. Saying only "nothing local to inspect"
+ * leaves the reader at a dead end when the place to go is knowable.
+ */
+export const MANAGE_URL: Record<string, { label: string; url: string }> = {
+  "claude-ai": {
+    label: "Open Claude.ai connectors",
+    url: "https://claude.ai/settings/connectors",
+  },
+};
+
 /** A loose config declares no owner; the scanner leaves it unattributed. */
 function hostLabel(id: string | null | undefined): string {
   if (!id) return "Any agent";

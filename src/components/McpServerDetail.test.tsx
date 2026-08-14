@@ -3,6 +3,9 @@ import { render, screen, cleanup, fireEvent } from "@testing-library/react";
 import { describe, it, expect, afterEach, vi } from "vitest";
 import McpServerDetail, { McpServerView } from "./McpServerDetail";
 
+const openUrl = vi.fn().mockResolvedValue(undefined);
+vi.mock("@tauri-apps/plugin-opener", () => ({ openUrl: (u: string) => openUrl(u) }));
+
 const base: McpServerView = {
   name: "spades-audio",
   command: "node",
@@ -154,10 +157,16 @@ describe("McpServerDetail", () => {
     expect(screen.getByText(/no credentials are sent/i)).toBeTruthy();
   });
 
-  it("does not offer Verify for a claude.ai connector", () => {
+  it("sends a claude.ai connector where it is actually managed", () => {
+    // No file to open and nothing to verify — but "nothing local to inspect"
+    // left the reader at a dead end when the destination is knowable.
     render(<McpServerDetail server={{ ...base, name: "Notion", command: "", args: [],
       transport: "claude.ai" }} />);
     expect(screen.queryByRole("button", { name: /verify/i })).toBeNull();
-    expect(screen.getByText(/account/i)).toBeTruthy();
+    expect(screen.getByText(/runs on anthropic/i)).toBeTruthy();
+
+    const link = screen.getByRole("button", { name: /open claude\.ai connectors/i });
+    link.click();
+    expect(openUrl).toHaveBeenCalledWith("https://claude.ai/settings/connectors");
   });
 });

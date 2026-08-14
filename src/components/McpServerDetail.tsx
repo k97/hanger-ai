@@ -1,3 +1,6 @@
+import { openUrl } from "@tauri-apps/plugin-opener";
+import { MANAGE_URL } from "../utils/mcpServerView";
+
 /**
  * The inspector panel for one MCP server.
  *
@@ -184,9 +187,24 @@ export default function McpServerDetail({ server, onVerify, verifying = false }:
                 so offering the button would invite a click that can only fail
                 with "No such file or directory". */}
             {isConnector ? (
-              <p className="text-small text-ink-2 leading-[1.5]">
-                Connected through your Claude.ai account. Nothing local to inspect.
-              </p>
+              <>
+                <p className="text-small text-ink-2 leading-[1.5]">
+                  Runs on Anthropic&rsquo;s servers, not on this machine.
+                </p>
+                {/* A dead end should still point somewhere. There is no file to
+                    open and nothing to verify, but the place this is managed is
+                    knowable, so offer it rather than stopping at "nothing
+                    local to inspect". */}
+                {MANAGE_URL["claude-ai"] && (
+                  <button
+                    type="button"
+                    onClick={() => openUrl(MANAGE_URL["claude-ai"].url).catch(() => {})}
+                    className="text-micro font-mono border border-line-2 px-[10px] py-px rounded-pill cursor-pointer hover:bg-plane-2 transition-colors duration-hover"
+                  >
+                    {MANAGE_URL["claude-ai"].label} ↗
+                  </button>
+                )}
+              </>
             ) : (
               <>
                 <button
