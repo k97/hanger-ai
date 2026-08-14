@@ -196,7 +196,9 @@ export default function App() {
 
   // Sidebar and Panel Navigation State
   const [selectedSidebarItem, setSelectedSidebarItem] = useState<string>("profile");
-  const [sidebarWidth, setSidebarWidth] = useState<number>(260);
+  // 240px is the prototype's --rail-src. A persisted preference still wins;
+  // this is only what a machine that has never been resized starts at.
+  const [sidebarWidth, setSidebarWidth] = useState<number>(240);
   const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(false);
   // Candidates handed to the promote modal. Already discovered by the scan,
   // so opening it starts no walk.

@@ -93,14 +93,14 @@
   /* ── Faces ── */
   --font-flex: var(--font-flex);
 
-  /* ── Space scale ── */
-  --spacing-1: var(--space-1);
-  --spacing-2: var(--space-2);
-  --spacing-3: var(--space-3);
-  --spacing-4: var(--space-4);
-  --spacing-5: var(--space-5);
-  --spacing-6: var(--space-6);
-  --spacing-7: var(--space-7);
+  /* ── Space ──
+     Deliberately NOT registered. Tailwind resolves `h-7` to `--spacing-7`
+     when that name exists and to `calc(var(--spacing) * 7)` when it does not.
+     The Cockpit scale ran 4/8/12/16/24/32/48, so registering it under this
+     namespace silently redefined every numeric utility from 5 upward — `h-7`
+     rendered chips at 48px against a 28px spec. The mono system states any
+     off-grid value explicitly (`h-[30px]`, `px-[18px]`), so the numeric
+     utilities are left meaning exactly what they say: N × 4px. */
 
   /* ── Radii: pill / 12 / 16 (legacy control 6px retired with its users) ── */
   --radius-plane: var(--radius-plane);
