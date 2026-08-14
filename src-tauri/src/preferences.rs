@@ -120,6 +120,21 @@ pub struct EngineRow {
     pub detected_at: i64,
 }
 
+/// What became of a symlink the project walk offered to the links table.
+/// The declines are the accounting: every symlink the walk meets either
+/// records a row or carries one of these reasons.
+#[derive(Debug, PartialEq, Eq)]
+pub enum WalkSymlinkOutcome {
+    Recorded(i64),
+    /// The resolved target has no asset row. Hanger has not scanned the
+    /// source, and inventing an asset row here would repeat the re-parenting
+    /// defect (findings.md F26) — record_deploy_link declines the same way.
+    TargetNotInStore,
+    /// The link resolves to an asset the destination root already owns:
+    /// nothing crosses a boundary, so there is no edge to record.
+    TargetInSameRoot,
+}
+
 pub struct PreferencesStore {
     db_path: PathBuf,
 }
@@ -589,6 +604,64 @@ impl PreferencesStore {
                 .map(Some),
             _ => Ok(None),
         }
+    }
+
+    /// Offer a symlink the project walk met to the links table. Records a
+    /// `symlink` link row when the canonical target is an asset owned by a
+    /// DIFFERENT root; declines with the reason otherwise. Never creates an
+    /// asset row — a link is not ownership (findings.md F26).
+    ///
+    /// The hash is best-effort, mirroring the deploy path: for a directory
+    /// target the SKILL.md inside it, for a file the file itself.
+    /// resolve_state judges a symlink by its target, not its hash.
+    pub fn record_walk_symlink(
+        &self,
+        dest_root_id: i64,
+        link_path: &str,
+        canonical_target: &str,
+        now: i64,
+    ) -> Result<WalkSymlinkOutcome, SanitisedError> {
+        let conn = self.connect()?;
+
+        let asset_id = Self::find_asset_id_by_path(&conn, canonical_target)
+            .map_err(|_| SanitisedError("Failed to resolve symlink target asset".to_string()))?;
+        let Some(asset_id) = asset_id else {
+            return Ok(WalkSymlinkOutcome::TargetNotInStore);
+        };
+
+        let asset_root_id: i64 = conn
+            .query_row(
+                "SELECT root_id FROM assets WHERE id = ?1",
+                params![asset_id],
+                |r| r.get(0),
+            )
+            .map_err(|_| SanitisedError("Failed to read symlink target root".to_string()))?;
+        if asset_root_id == dest_root_id {
+            return Ok(WalkSymlinkOutcome::TargetInSameRoot);
+        }
+
+        let target = Path::new(canonical_target);
+        let hash_target = if target.is_dir() {
+            target.join("SKILL.md")
+        } else {
+            target.to_path_buf()
+        };
+        let hash = fs::read(&hash_target)
+            .map(|c| blake3::hash(&c).to_hex().to_string())
+            .unwrap_or_default();
+
+        drop(conn);
+        self.upsert_link(
+            asset_id,
+            dest_root_id,
+            link_path,
+            "symlink",
+            &hash,
+            Some(&hash),
+            now,
+            Some(now),
+        )
+        .map(WalkSymlinkOutcome::Recorded)
     }
 
     pub fn link_directory(&self, path: &str) -> Result<(), SanitisedError> {
