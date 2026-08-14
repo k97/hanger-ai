@@ -264,6 +264,25 @@ fn link_directory(app: AppHandle, path: String) -> Result<String, String> {
     Ok(crate::preferences::PreferencesStore::canonical_root_path(&path))
 }
 
+/// Start a private copy of an MCP server, ask what it provides, and stop it.
+///
+/// A config file declares how to *start* a server, never what it provides, and
+/// nothing on disk records a tool list. This handshake is the only way to learn
+/// one. It touches no other host's session — Hanger spawns its own child and
+/// kills it before returning.
+///
+/// Always `Ok`; a failed probe is reported inside `ProbeResult.error` so the
+/// panel can explain itself rather than showing an unaccountably empty list.
+#[tauri::command]
+async fn verify_mcp_server(
+    command: String,
+    args: Vec<String>,
+) -> Result<crate::mcp::probe::ProbeResult, String> {
+    // 20s is generous for a handshake and short enough that a wedged server
+    // does not look like a frozen panel.
+    Ok(crate::mcp::probe::probe(&command, &args, std::time::Duration::from_secs(20)).await)
+}
+
 #[tauri::command]
 fn unlink_directory(app: AppHandle, path: String) -> Result<(), String> {
     let store = get_store(&app)?;
@@ -1138,6 +1157,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             link_directory,
             unlink_directory,
+            verify_mcp_server,
             get_linked_directories,
             run_scan,
             get_inventory,
