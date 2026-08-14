@@ -1,0 +1,6 @@
+[mcp_servers.node_repl]
+command = "node"
+[mcp_servers.computer-use]
+command = "codex"
+[mcp_servers.tauri]
+command = "npx @hypothesi/tauri-mcp-server"

@@ -264,3 +264,130 @@ fn scanner_and_registry_agree_on_every_engine_key_they_both_know() {
         }
     }
 }
+
+// ─── Discovery ───────────────────────────────────────────────────────────────
+
+use std::path::Path;
+use tauri_app_lib::mcp::discover;
+
+fn fixture_home() -> &'static Path {
+    Path::new("tests/fixtures/mcp_home")
+}
+
+#[test]
+fn discovery_finds_every_registration_in_the_fixture_home() {
+    let result = discover::discover_machine(fixture_home());
+    assert_eq!(
+        result.registrations.len(),
+        14,
+        "expected 14 registrations, got {:#?}",
+        result.registrations.iter().map(|r| (&r.server.name, r.host_id)).collect::<Vec<_>>()
+    );
+}
+
+#[test]
+fn library_resident_sources_are_read_despite_the_walk_exclusion() {
+    let result = discover::discover_machine(fixture_home());
+    let desktop: Vec<&str> = result
+        .registrations
+        .iter()
+        .filter(|r| r.host_id == "claude-desktop")
+        .map(|r| r.server.name.as_str())
+        .collect();
+    assert_eq!(desktop, vec!["spades-audio"]);
+
+    let vscode: Vec<&str> = result
+        .registrations
+        .iter()
+        .filter(|r| r.host_id == "vscode")
+        .map(|r| r.server.name.as_str())
+        .collect();
+    assert_eq!(vscode, vec!["figma"], "VS Code's `servers` key must be read");
+}
+
+#[test]
+fn the_walk_exclusion_itself_is_unchanged() {
+    // The carve-out is "open registry paths directly", NOT "weaken
+    // is_excluded". A Library path presented to the walk guard must still be
+    // excluded.
+    assert!(tauri_app_lib::scanner::is_excluded(Path::new(
+        "/Users/x/Library/Application Support/Code/User/mcp.json"
+    )));
+}
+
+#[test]
+fn one_host_registering_the_same_server_twice_yields_two_registrations() {
+    let result = discover::discover_machine(fixture_home());
+    let spades: Vec<&str> = result
+        .registrations
+        .iter()
+        .filter(|r| r.server.name == "spades-audio" && r.host_id == "claude-code")
+        .map(|r| r.config_path.as_str())
+        .collect();
+    assert_eq!(
+        spades.len(),
+        2,
+        "expected .claude.json and .claude/mcp.json, got {:?}",
+        spades
+    );
+}
+
+#[test]
+fn plugin_marketplace_servers_are_discovered_through_the_glob() {
+    let result = discover::discover_machine(fixture_home());
+    let names: Vec<&str> = result
+        .registrations
+        .iter()
+        .filter(|r| r.config_path.contains("marketplaces"))
+        .map(|r| r.server.name.as_str())
+        .collect();
+    assert_eq!(names.len(), 2, "expected github and context7, got {:?}", names);
+}
+
+#[test]
+fn local_tier_registrations_carry_their_project_root() {
+    let result = discover::discover_machine(fixture_home());
+    let local: Vec<(&str, &str)> = result
+        .registrations
+        .iter()
+        .filter(|r| r.tier == ScopeTier::Local)
+        .map(|r| (r.server.name.as_str(), r.server.project_root.as_deref().unwrap()))
+        .collect();
+    assert!(local.contains(&("repo-local", "/repo/tracked")), "got {:?}", local);
+    assert!(local.contains(&("stray", "/repo/untracked")), "got {:?}", local);
+}
+
+#[test]
+fn nothing_outside_the_two_mcp_keys_is_read_from_claude_json() {
+    let result = discover::discover_machine(fixture_home());
+    let rendered = format!("{:#?}", result.registrations);
+    assert!(!rendered.contains("must never be read"));
+}
+
+#[test]
+fn a_recognised_source_yielding_no_servers_warns_instead_of_vanishing() {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::create_dir_all(dir.path().join(".claude")).unwrap();
+    // Valid JSON, recognised path, zero servers — the exact shape that made
+    // VS Code's figma server disappear without trace.
+    std::fs::write(dir.path().join(".claude/mcp.json"), "{}").unwrap();
+
+    let result = discover::discover_machine(dir.path());
+    assert!(
+        result.warnings.iter().any(|w| w.contains("mcp.json")),
+        "expected a warning naming the empty source, got {:?}",
+        result.warnings
+    );
+}
+
+#[test]
+fn a_missing_source_is_silent() {
+    let dir = tempfile::tempdir().unwrap();
+    let result = discover::discover_machine(dir.path());
+    assert!(result.registrations.is_empty());
+    assert!(
+        result.warnings.is_empty(),
+        "absent files must not warn: {:?}",
+        result.warnings
+    );
+}

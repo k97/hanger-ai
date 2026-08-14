@@ -1,0 +1,1 @@
+{"mcpServers": {"tauri": {"command": "npx @hypothesi/tauri-mcp-server"}}}

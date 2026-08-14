@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "spades-audio": {"command": "node"},
+    "chrome-devtools": {"command": "npx"},
+    "tauri": {"command": "npx @hypothesi/tauri-mcp-server"}
+  },
+  "projects": {
+    "/repo/tracked": {"mcpServers": {"repo-local": {"command": "node"}}},
+    "/repo/untracked": {"mcpServers": {"stray": {"command": "node"}}}
+  },
+  "history": [{"display": "must never be read"}]
+}

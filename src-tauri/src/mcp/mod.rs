@@ -5,4 +5,5 @@
 //! should be a row in `registry::SOURCES` and nothing else.
 
 pub mod dialect;
+pub mod discover;
 pub mod registry;
