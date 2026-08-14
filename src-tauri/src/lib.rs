@@ -1,6 +1,7 @@
 pub mod dev_icon;
 pub mod diagnostics;
 pub mod domain;
+pub mod mcp;
 pub mod menu;
 pub mod scanner;
 pub mod updates;
