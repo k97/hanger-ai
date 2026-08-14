@@ -10,6 +10,8 @@ import {
 } from "./icons";
 import { Inventory } from "../App";
 import AssetDetail from "./AssetDetail";
+import McpServerDetail from "./McpServerDetail";
+import { buildMcpServerView } from "../utils/mcpServerView";
 import LinkPanel from "./LinkPanel";
 import DiffChooser, { AlignedSection } from "./DiffChooser";
 import { kindLabel, provenanceOf } from "../utils/assetProvenance";
@@ -540,6 +542,13 @@ export default function Flyout({
             />
           )}
         </>
+      ) : targetAsset && targetAsset.category === "Tools" &&
+           buildMcpServerView(inventory?.tools, targetAsset.name) ? (
+        /* An MCP server has N config paths, no version until a handshake, and
+           17-20 tools. AssetDetail's flat one-name-one-path shape cannot hold
+           it, so this category gets its own panel rather than widening that
+           component into a dumping ground. */
+        <McpServerDetail server={buildMcpServerView(inventory?.tools, targetAsset.name)!} />
       ) : targetAsset ? (
         <AssetDetail
           asset={targetAsset as any}
