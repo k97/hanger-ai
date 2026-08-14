@@ -238,9 +238,34 @@ async fn real_remote_probe_reports_authentication_clearly() {
     .await;
     println!("error={:?} tools={}", r.error, r.tools.len());
     let msg = r.error.expect("an OAuth-protected endpoint must report why");
-    assert!(
-        msg.to_lowercase().contains("authentic") || msg.contains("401"),
-        "unhelpful error: {}",
-        msg
+    let lower = msg.to_lowercase();
+    // Name the scheme, the scopes the server asked for, and why the same tools
+    // are visible in Claude. "Requires authentication" alone tells the reader
+    // less than the 401 did.
+    assert!(lower.contains("oauth"), "scheme not named: {}", msg);
+    assert!(lower.contains("scope"), "scopes not named: {}", msg);
+    assert!(lower.contains("claude"), "does not explain why Claude can see them: {}", msg);
+}
+
+#[test]
+fn the_auth_challenge_yields_where_to_look_up_what_is_required() {
+    // A 401 carries WWW-Authenticate, and MCP servers point it at
+    // oauth-protected-resource metadata that names the scopes. Reporting
+    // "requires authentication" while ignoring the detail the server just
+    // handed us is a worse answer than the server gave.
+    let h = r#"Bearer realm="OAuth", resource_metadata="https://example.com/.well-known/oauth-protected-resource", error="invalid_token""#;
+    assert_eq!(
+        probe::resource_metadata_url(h).as_deref(),
+        Some("https://example.com/.well-known/oauth-protected-resource")
     );
+    assert_eq!(probe::resource_metadata_url("Bearer realm=\"OAuth\""), None);
+    assert_eq!(probe::resource_metadata_url(""), None);
+}
+
+#[test]
+fn scopes_are_read_from_the_metadata_document() {
+    let doc = r#"{"resource":"https://x","scopes_supported":["read","write"],"bearer_methods_supported":["header"]}"#;
+    assert_eq!(probe::scopes_from_metadata(doc), vec!["read", "write"]);
+    assert!(probe::scopes_from_metadata("{}").is_empty());
+    assert!(probe::scopes_from_metadata("not json").is_empty());
 }

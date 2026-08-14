@@ -126,6 +126,32 @@ pub fn extract_rpc(body: &str) -> Option<serde_json::Value> {
     None
 }
 
+/// The metadata document a 401 points at, from its `WWW-Authenticate` header.
+///
+/// MCP servers answer an unauthenticated request with
+/// `Bearer realm="OAuth", resource_metadata="https://…/.well-known/…"`.
+/// That document names the scopes required, so reporting only "needs auth"
+/// discards detail the server volunteered.
+pub fn resource_metadata_url(www_authenticate: &str) -> Option<String> {
+    let key = "resource_metadata=\"";
+    let start = www_authenticate.find(key)? + key.len();
+    let rest = &www_authenticate[start..];
+    let end = rest.find('"')?;
+    Some(rest[..end].to_string())
+}
+
+/// The scopes an OAuth-protected resource declares it needs.
+pub fn scopes_from_metadata(body: &str) -> Vec<String> {
+    serde_json::from_str::<serde_json::Value>(body)
+        .ok()
+        .and_then(|v| {
+            v.get("scopes_supported")
+                .and_then(|s| s.as_array())
+                .map(|a| a.iter().filter_map(|x| x.as_str().map(str::to_string)).collect())
+        })
+        .unwrap_or_default()
+}
+
 /// Verify a remote server over Streamable HTTP.
 ///
 /// A remote server has no process to spawn — it is dialled, not launched. The
@@ -168,16 +194,36 @@ pub async fn probe_http(url: &str, timeout: Duration) -> ProbeResult {
     };
 
     if resp.status() == reqwest::StatusCode::UNAUTHORIZED {
-        // Say what is wrong and where to fix it. The realm names the scheme.
-        let realm = resp
+        let challenge = resp
             .headers()
             .get("www-authenticate")
             .and_then(|v| v.to_str().ok())
-            .unwrap_or("");
-        let scheme = if realm.to_lowercase().contains("oauth") { "OAuth" } else { "a token" };
+            .unwrap_or("")
+            .to_string();
+
+        // Follow the pointer the server gave us and name the scopes, rather
+        // than reporting a bare "needs auth" that is less specific than the
+        // 401 already was.
+        let mut detail = String::new();
+        if let Some(url) = resource_metadata_url(&challenge) {
+            if let Ok(meta) = client.get(&url).send().await {
+                if let Ok(body) = meta.text().await {
+                    let scopes = scopes_from_metadata(&body);
+                    if !scopes.is_empty() {
+                        detail = format!(" It asks for the {} scope{}.",
+                            scopes.join(" and "),
+                            if scopes.len() == 1 { "" } else { "s" });
+                    }
+                }
+            }
+        }
+
+        let scheme = if challenge.to_lowercase().contains("oauth") { "OAuth" } else { "a bearer token" };
         return ProbeResult::failed(format!(
-            "This server requires authentication ({}). Hanger sends no credentials, so it cannot list the tools of a protected endpoint.",
-            scheme
+            "This server is protected by {} and refuses the handshake without a token.{} \
+             Hanger holds no credentials, so it cannot list these tools. They appear in \
+             Claude because Claude signed in to this server and holds a token of its own.",
+            scheme, detail
         ));
     }
     if !resp.status().is_success() {
