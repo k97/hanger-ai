@@ -1,6 +1,4 @@
-# AGENTS.md — addendum
-
-Append to the existing `AGENTS.md` at repo root. Commit before Loop V handover.
+# AGENTS.md
 
 ## Standing Instructions
 - **Package manager:** Bun. This project uses bun, never npm/pnpm/yarn. The harness shell does not source the login profile, so invoke it as ~/.bun/bin/bun or export PATH first.
@@ -10,6 +8,7 @@ Append to the existing `AGENTS.md` at repo root. Commit before Loop V handover.
 - A guard, detector or allowlist change is unverified until a planted violation outside its scope is shown to still fail. Green alone proves nothing.
 - Numeric exit criteria are run in the dispatch that reports them. A figure copied from a previous log is fabricated evidence.
 - A control that fails to fire is a finding about the detector and is reported. Replacing it with a control that fires, without disclosure, is fabricated evidence.
+- **Specs Describe Intent:** Specifications and briefs describe intent, not implemented behaviour. Reconcile them against the code before acting. Where they disagree, the code is the fact and the disagreement is the report.
 
 
 
@@ -59,9 +58,9 @@ Nothing else is evidence.
 - Stacking fixes on top of a diverged tree: when a verified baseline works and later changes break it, revert to the baseline before patching forward.
 - A control proves only the artefact it ran against. A guard config validated on a scratch branch and re-authored on trunk is unproven.
 
-## Loop V specifically
+## Backend-only work
 
-Loop V changes no meaningful UI. **No screenshot is acceptable evidence for any Loop V exit criterion.** If a checkpoint contains an image, the checkpoint is rejected without review.
+When a task changes no meaningful UI, **no screenshot is acceptable evidence for its exit criteria.** If such a checkpoint contains an image, the checkpoint is rejected without review.
 
 ---
 
@@ -80,13 +79,12 @@ Loop V changes no meaningful UI. **No screenshot is acceptable evidence for any 
 
 ## Technical Debt
 
-- `project_footprints` (Agent type, 8 files across frontend/tests) retains pre-Loop-V vocabulary. Rename to `project_paths` (or drop with the Agent type) during Loop W's pane rework. Not user-visible.
-- The frontend must never compute an asset count. A count is produced by a count command and rendered. `.length` on a filtered array is a counting implementation and is forbidden.
-- 16 counting sites are enumerated in `diagnostics/count-paths.md`. Consolidating them is Cockpit section 1, before any rail is drawn.
-- Open question for Cockpit: `get_inventory` omits rows with `parse_status = 'failed'`; `get_asset_counts` includes them. The two must agree. Provisional decision: failed assets ARE assets and must be surfaced, per the Broken row state in `LOOP_W_shell.md`.
-- Unverified claim from the count-paths diagnostic: a 1-asset delta attributed to "client-side deduplication in RepoPane.tsx" with no line quoted. Unproven. Resolve in Cockpit.
+- `project_footprints` (Agent type, 8 files across frontend/tests) retains retired vocabulary. Rename to `project_paths` (or drop with the Agent type) the next time that pane area is reworked. Not user-visible.
+- The frontend renders counts. It never computes them. A count is produced by a count command and rendered as received. `.length` on a filtered array, a `reduce` over inventory, or any sum of category arrays is a counting implementation and is forbidden. Counts come from `get_asset_counts`.
+- 16 counting sites are enumerated in `docs/to-be-reviewed/diagnostics/count-paths.md`. Consolidating them precedes building any new counting surface.
+- Open question: `get_inventory` omits rows with `parse_status = 'failed'`; `get_asset_counts` includes them. The two must agree. Provisional decision: failed assets ARE assets and must be surfaced.
+- Unverified claim from the count-paths diagnostic: a 1-asset delta attributed to "client-side deduplication in RepoPane.tsx" with no line quoted. Unproven. Resolve alongside the counting-site consolidation.
 - Scan warnings panel shows 10 warnings for a root with 9 failed rows. A warning from another scope is leaking into a project-scoped panel.
-- The frontend renders counts. It never computes them. `.length` on a filtered array, a `reduce` over inventory, or any sum of category arrays is a counting implementation and is forbidden. Counts come from get_asset_counts and are rendered as received.
 - Non-blocking diagnostics use DisclosureBanner. Do not build a new banner, alert, or modal for warnings, parse errors, or status notices. See DESIGN.md.
 - When a production change causes an existing test to fail, STOP and report the failure. Do not edit the test, and never edit a detector, matcher, or guard to make a violation invisible. Exceptions go in an explicit allowlist with a stated reason. Karthik decides whether the test or the change is wrong.
 
