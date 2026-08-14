@@ -273,7 +273,7 @@ describe("Avionics A5 — Docked Right Inspector Integration", () => {
     await screen.findByText("~/Work/demo/skills/inspector-skill-1");
 
     // Filter by Tools category
-    const toolsFilter = screen.getByText("Tools");
+    const toolsFilter = screen.getByText("MCP servers");
     fireEvent.click(toolsFilter);
 
     // Inspector MUST clear selection and return to empty state

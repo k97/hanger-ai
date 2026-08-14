@@ -69,8 +69,8 @@ describe("ProfilePane Component-Level Filtering Integration", () => {
     expect(screen.getByText("Node Runner Tool")).toBeTruthy();
     expect(screen.getByText("CLAUDE.md")).toBeTruthy();
 
-    // Click on "Tools" card
-    const toolsCard = screen.getAllByText("Tools").find(el => el.closest("[tabindex]"))?.closest("[tabindex]");
+    // Click on the MCP servers card
+    const toolsCard = screen.getAllByText("MCP servers").find(el => el.closest("[tabindex]"))?.closest("[tabindex]");
     expect(toolsCard).toBeTruthy();
     fireEvent.click(toolsCard!);
 
@@ -121,8 +121,8 @@ describe("ProfilePane Component-Level Filtering Integration", () => {
     const skillsCard = screen.getAllByText("Skills").find(el => el.closest("[tabindex]"))?.closest("[tabindex]");
     expect(skillsCard?.textContent).toBe("Skills200");
 
-    const toolsCard = screen.getAllByText("Tools").find(el => el.closest("[tabindex]"))?.closest("[tabindex]");
-    expect(toolsCard?.textContent).toBe("Tools8");
+    const toolsCard = screen.getAllByText("MCP servers").find(el => el.closest("[tabindex]"))?.closest("[tabindex]");
+    expect(toolsCard?.textContent).toBe("MCP servers8");
 
     const rulesCard = screen.getAllByText("Rules").find(el => el.closest("[tabindex]"))?.closest("[tabindex]");
     expect(rulesCard?.textContent).toBe("Rules3");

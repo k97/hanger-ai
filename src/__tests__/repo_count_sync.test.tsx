@@ -101,7 +101,7 @@ describe("Per-repository count synchronization", () => {
     );
 
     expect(screen.getByText("Skills · 244")).toBeTruthy();
-    expect(screen.getByText("Tools · 10")).toBeTruthy();
+    expect(screen.getByText("MCP servers · 10")).toBeTruthy();
     expect(screen.getByText("Rules · 5")).toBeTruthy();
     expect(screen.getByText("Subagents · 2")).toBeTruthy();
   });

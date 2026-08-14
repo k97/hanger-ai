@@ -22,7 +22,7 @@ describe("Avionics A9 — Narrow-Width Layout Tests", () => {
 
     // Verify all 4 category labels render legibly
     expect(screen.getByText("Skills")).toBeDefined();
-    expect(screen.getByText("Tools")).toBeDefined();
+    expect(screen.getByText("MCP servers")).toBeDefined();
     expect(screen.getByText("Rules")).toBeDefined();
     expect(screen.getByText("Subagents")).toBeDefined();
 
