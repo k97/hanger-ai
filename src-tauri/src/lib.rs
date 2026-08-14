@@ -1,6 +1,7 @@
 pub mod dev_icon;
 pub mod diagnostics;
 pub mod domain;
+pub mod linkmap;
 pub mod mcp;
 pub mod menu;
 pub mod scanner;
@@ -330,6 +331,13 @@ pub fn dedupe_combined(inventory: &mut Inventory) {
 
     let mut subagent_paths = std::collections::HashSet::new();
     inventory.subagents.retain(|sa| subagent_paths.insert(sa.path.clone()));
+}
+
+/// The link map's one data source. Computed in Rust end to end: the
+/// frontend renders what it is given (see linkmap.rs for why).
+#[tauri::command]
+fn link_graph(app: AppHandle, focus_asset_id: Option<i64>) -> Result<linkmap::LinkGraph, String> {
+    linkmap::build_link_graph(&get_db_path(&app), focus_asset_id)
 }
 
 #[tauri::command]
@@ -1215,6 +1223,7 @@ pub fn run() {
             get_asset_counts,
             read_asset_body,
             get_tree_counts,
+            link_graph,
             deploy_asset,
             check_deploy_target,
             execute_deploy,
