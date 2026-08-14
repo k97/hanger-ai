@@ -93,7 +93,8 @@ export function linkStateCounts(inventory: Inventory | null, scope: CountScope):
 
   const assets: ReviewableAsset[] = [
     ...dedupeBy(inventory.skills.filter(inScope), (s) => s.path),
-    ...dedupeBy(inventory.tools.filter(inScope), (t) => t.config_path),
+    // By registration, not by config file: one file declares many servers.
+    ...dedupeBy(inventory.tools.filter(inScope), (t) => t.id ?? `${t.config_path}-${t.name}`),
     ...dedupeBy(inventory.rules.filter(inScope), (r) => r.path),
     ...dedupeBy(inventory.subagents.filter(inScope), (sa) => sa.path),
   ];

@@ -836,18 +836,9 @@ fn start_scan(
             }
         }
 
-        // Deduplicate lists before emitting
-        let mut skill_paths = std::collections::HashSet::new();
-        combined_inventory.skills.retain(|s| skill_paths.insert(s.path.clone()));
-
-        let mut tool_configs = std::collections::HashSet::new();
-        combined_inventory.tools.retain(|t| tool_configs.insert(t.config_path.clone()));
-
-        let mut rule_paths = std::collections::HashSet::new();
-        combined_inventory.rules.retain(|r| rule_paths.insert(r.path.clone()));
-
-        let mut subagent_paths = std::collections::HashSet::new();
-        combined_inventory.subagents.retain(|sa| subagent_paths.insert(sa.path.clone()));
+        // Deduplicate lists before emitting. Shared with run_scan -- this was a
+        // second copy of the same logic, and so a second copy of the same bug.
+        dedupe_combined(&mut combined_inventory);
 
         let mut scan_paths = std::collections::HashSet::new();
         combined_inventory.project_scans.retain(|p| scan_paths.insert(p.path.clone()));
