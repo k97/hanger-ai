@@ -10,7 +10,7 @@
 use std::fs;
 use std::os::unix::fs as unix_fs;
 use std::path::PathBuf;
-use tauri_app_lib::linkmap::{build_link_graph, EdgeMechanism, EdgeState, NodeKind};
+use tauri_app_lib::linkmap::{build_link_graph, EdgeMechanism, EdgeState, GraphEmptyState, NodeKind};
 use tauri_app_lib::preferences::PreferencesStore;
 
 fn now() -> i64 {
@@ -314,6 +314,44 @@ fn real_store_graph_shape() {
     for w in &graph.warnings {
         println!("warning: {}", w);
     }
+}
+
+/// Which empty state the view is in is a fact about the data, so the
+/// backend names it; the renderer switches on the name and derives nothing.
+#[test]
+fn test_empty_states_are_named_by_the_backend() {
+    // Roots exist, nothing links anywhere: the view must explain itself.
+    let f = fixture("hanger_test_lg_empty_states");
+    let graph = build_link_graph(&f.db_path, None).unwrap();
+    assert_eq!(graph.empty_state, Some(GraphEmptyState::NoLinksAtAll));
+
+    // An engine-root symlink appears: store→engine is real, but per-asset
+    // project links are still unrecorded — the likely state on a machine
+    // that root-links its engines.
+    let engine_dir = f.store_abs.parent().unwrap().join("dot-claude");
+    fs::create_dir_all(&engine_dir).unwrap();
+    unix_fs::symlink(f.store_abs.join("rules"), engine_dir.join("rules")).unwrap();
+    let t = now();
+    let engine_id = f
+        .store
+        .upsert_engine("claude_code", "Claude Code", engine_dir.to_str().unwrap(), t)
+        .unwrap();
+    f.store
+        .upsert_root(
+            "engine_global",
+            fs::canonicalize(&engine_dir).unwrap().to_str().unwrap(),
+            Some(engine_id),
+            "Claude Code",
+            t,
+        )
+        .unwrap();
+    let graph = build_link_graph(&f.db_path, None).unwrap();
+    assert_eq!(graph.empty_state, Some(GraphEmptyState::NoProjectEdges));
+
+    // A recorded project deployment ends the empty states.
+    symlink_deploy(&f, "alpha.md", "alpha.md");
+    let graph = build_link_graph(&f.db_path, None).unwrap();
+    assert_eq!(graph.empty_state, None);
 }
 
 #[test]

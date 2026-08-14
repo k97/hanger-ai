@@ -70,11 +70,28 @@ pub struct GraphEdge {
     pub dest_path: Option<String>,
 }
 
+/// Which designed empty state the map is in — a fact about the data, named
+/// here so the renderer never derives it (no counts, no predicates over
+/// edges in TypeScript).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum GraphEmptyState {
+    /// Nothing links anywhere: no engine-root symlinks, no recorded
+    /// deployments. The view explains what will appear once something is
+    /// deployed.
+    NoLinksAtAll,
+    /// Store→engine edges are real, but no per-asset project link has been
+    /// recorded — links are written at deploy time and when a scan meets a
+    /// qualifying symlink; neither has happened yet.
+    NoProjectEdges,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct LinkGraph {
     pub nodes: Vec<GraphNode>,
     pub edges: Vec<GraphEdge>,
     pub warnings: Vec<String>,
+    pub empty_state: Option<GraphEmptyState>,
 }
 
 /// Path equality across macOS's /private aliasing, matching how the store
@@ -380,7 +397,22 @@ pub fn build_link_graph(db_path: &Path, focus_asset_id: Option<i64>) -> Result<L
             .cmp(&(b.source, b.dest, b.mechanism, b.state, &b.dest_path))
     });
 
-    Ok(LinkGraph { nodes, edges, warnings })
+    let empty_state = if edges.is_empty() {
+        Some(GraphEmptyState::NoLinksAtAll)
+    } else {
+        let project_ids: std::collections::HashSet<i64> = roots
+            .iter()
+            .filter(|r| r.kind == NodeKind::Project)
+            .map(|r| r.id)
+            .collect();
+        if edges.iter().any(|e| project_ids.contains(&e.dest)) {
+            None
+        } else {
+            Some(GraphEmptyState::NoProjectEdges)
+        }
+    };
+
+    Ok(LinkGraph { nodes, edges, warnings, empty_state })
 }
 
 fn parse_mechanism(raw: &str) -> Option<EdgeMechanism> {
