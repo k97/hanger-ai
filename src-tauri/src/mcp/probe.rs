@@ -104,6 +104,147 @@ fn widened_path() -> String {
     dirs.join(":")
 }
 
+/// Pull a JSON-RPC message out of a Streamable HTTP reply.
+///
+/// A POST may be answered with plain JSON or with an SSE frame, and servers
+/// choose freely. Reading only one shape makes half of them look broken. SSE
+/// carries the payload on `data:` lines, interleaved with comments (`:`),
+/// `event:` and `id:` lines that must be skipped.
+pub fn extract_rpc(body: &str) -> Option<serde_json::Value> {
+    if let Ok(v) = serde_json::from_str::<serde_json::Value>(body.trim()) {
+        if v.is_object() {
+            return Some(v);
+        }
+    }
+    for line in body.lines() {
+        if let Some(payload) = line.strip_prefix("data:") {
+            if let Ok(v) = serde_json::from_str::<serde_json::Value>(payload.trim()) {
+                return Some(v);
+            }
+        }
+    }
+    None
+}
+
+/// Verify a remote server over Streamable HTTP.
+///
+/// A remote server has no process to spawn — it is dialled, not launched. The
+/// exchange is the same three JSON-RPC messages, POSTed to the endpoint instead
+/// of written to a pipe.
+///
+/// Nothing is sent but the handshake: no credentials are read from disk or
+/// invented. An endpoint behind OAuth answers 401, and saying so is a better
+/// answer than an empty tool list.
+pub async fn probe_http(url: &str, timeout: Duration) -> ProbeResult {
+    let client = match reqwest::Client::builder().timeout(timeout).build() {
+        Ok(c) => c,
+        Err(e) => return ProbeResult::failed(format!("Could not build an HTTP client: {}", e)),
+    };
+
+    let post = |body: serde_json::Value, session: Option<String>| {
+        let mut req = client
+            .post(url)
+            .header("Content-Type", "application/json")
+            .header("Accept", "application/json, text/event-stream")
+            .json(&body);
+        if let Some(sid) = session {
+            req = req.header("Mcp-Session-Id", sid);
+        }
+        req.send()
+    };
+
+    let init = serde_json::json!({
+        "jsonrpc": "2.0", "id": 1, "method": "initialize",
+        "params": {
+            "protocolVersion": CLIENT_PROTOCOL_VERSION,
+            "capabilities": {},
+            "clientInfo": { "name": "hanger-probe", "version": "0.1" }
+        }
+    });
+
+    let resp = match post(init, None).await {
+        Ok(r) => r,
+        Err(e) => return ProbeResult::failed(format!("Could not reach {}: {}", url, e)),
+    };
+
+    if resp.status() == reqwest::StatusCode::UNAUTHORIZED {
+        // Say what is wrong and where to fix it. The realm names the scheme.
+        let realm = resp
+            .headers()
+            .get("www-authenticate")
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or("");
+        let scheme = if realm.to_lowercase().contains("oauth") { "OAuth" } else { "a token" };
+        return ProbeResult::failed(format!(
+            "This server requires authentication ({}). Hanger sends no credentials, so it cannot list the tools of a protected endpoint.",
+            scheme
+        ));
+    }
+    if !resp.status().is_success() {
+        return ProbeResult::failed(format!("{} answered {}", url, resp.status()));
+    }
+
+    let session = resp
+        .headers()
+        .get("mcp-session-id")
+        .and_then(|v| v.to_str().ok())
+        .map(str::to_string);
+
+    let body = match resp.text().await {
+        Ok(b) => b,
+        Err(e) => return ProbeResult::failed(format!("Could not read the reply: {}", e)),
+    };
+    let Some(msg) = extract_rpc(&body) else {
+        return ProbeResult::failed("The server's reply carried no JSON-RPC payload".to_string());
+    };
+
+    let mut out = ProbeResult::default();
+    let result = msg.get("result");
+    out.protocol_version = result
+        .and_then(|r| r.get("protocolVersion"))
+        .and_then(|v| v.as_str())
+        .map(str::to_string);
+    if let Some(info) = result.and_then(|r| r.get("serverInfo")) {
+        out.server_name = info.get("name").and_then(|v| v.as_str()).map(str::to_string);
+        out.server_version = info.get("version").and_then(|v| v.as_str()).map(str::to_string);
+    }
+    if let Some(caps) = result.and_then(|r| r.get("capabilities")).and_then(|v| v.as_object()) {
+        out.capabilities = caps.keys().cloned().collect();
+        out.capabilities.sort();
+    }
+
+    let _ = post(
+        serde_json::json!({ "jsonrpc": "2.0", "method": "notifications/initialized" }),
+        session.clone(),
+    )
+    .await;
+
+    let list = serde_json::json!({ "jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {} });
+    let resp = match post(list, session).await {
+        Ok(r) => r,
+        Err(e) => {
+            out.error = Some(format!("Could not request the tool list: {}", e));
+            return out;
+        }
+    };
+    let body = resp.text().await.unwrap_or_default();
+    if let Some(msg) = extract_rpc(&body) {
+        if let Some(tools) = msg.get("result").and_then(|r| r.get("tools")).and_then(|v| v.as_array())
+        {
+            out.tools = tools
+                .iter()
+                .filter_map(|t| {
+                    let name = t.get("name").and_then(|v| v.as_str())?.to_string();
+                    let description =
+                        t.get("description").and_then(|v| v.as_str()).map(str::to_string);
+                    Some(ProbedTool { name, description })
+                })
+                .collect();
+        }
+    }
+    out
+}
+
 /// Run the exchange, or return a `ProbeResult` carrying the reason it could not.
 ///
 /// The child is killed on every exit path, including timeout and error. A

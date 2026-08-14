@@ -279,8 +279,10 @@ fn discovery_finds_every_registration_in_the_fixture_home() {
     let result = discover::discover_machine(fixture_home());
     assert_eq!(
         result.registrations.len(),
-        14,
-        "expected 14 registrations, got {:#?}",
+        16,
+        // 14 servers plus 2 Claude.ai connectors read from the same
+        // ~/.claude.json by a different dialect.
+        "expected 16 registrations, got {:#?}",
         result.registrations.iter().map(|r| (&r.server.name, r.host_id)).collect::<Vec<_>>()
     );
 }

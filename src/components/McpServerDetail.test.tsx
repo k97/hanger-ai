@@ -142,14 +142,15 @@ describe("McpServerDetail", () => {
     expect(screen.queryByRole("heading", { level: 2 })).toBeNull();
   });
 
-  it("does not offer Verify for a remote server", () => {
-    // mei-recipes is declared as {"url": "https://…/mcp"} with no command.
-    // Offering Verify invites a click that can only fail with ENOENT, because
-    // there is no local process to start.
+  it("offers Verify for a remote server and says it sends no credentials", () => {
+    // Superseded within the hour. This first asserted remote servers get no
+    // Verify button, true only while the probe was stdio-only. A remote server
+    // is dialled rather than spawned, so it IS verifiable -- and the copy must
+    // be honest that a protected endpoint will refuse.
     render(<McpServerDetail server={{ ...base, command: "", args: [],
       transport: "https://mei-recipes-api.example.workers.dev/mcp" }} />);
-    expect(screen.queryByRole("button", { name: /verify/i })).toBeNull();
-    expect(screen.getByText(/runs remotely/i)).toBeTruthy();
+    expect(screen.getByRole("button", { name: /verify/i })).toBeTruthy();
+    expect(screen.getByText(/no credentials are sent/i)).toBeTruthy();
   });
 
   it("does not offer Verify for a claude.ai connector", () => {

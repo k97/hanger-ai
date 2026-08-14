@@ -101,7 +101,7 @@ export default function Flyout({
   const [mcpVerifying, setMcpVerifying] = useState<string | null>(null);
 
   /** Start a private copy of the server, ask what it provides, stop it. */
-  const runMcpVerify = async (view: { name: string; command: string; args: string[] }) => {
+  const runMcpVerify = async (view: { name: string; command: string; args: string[]; transport: string }) => {
     setMcpVerifying(view.name);
     try {
       const r = await invoke<{
@@ -111,7 +111,11 @@ export default function Flyout({
         capabilities: string[];
         tools: Array<{ name: string; description?: string }>;
         error?: string;
-      }>("verify_mcp_server", { command: view.command, args: view.args });
+      }>("verify_mcp_server", {
+        command: view.command,
+        args: view.args,
+        transport: view.transport,
+      });
       setMcpVerified((prev) => ({
         ...prev,
         [view.name]: {

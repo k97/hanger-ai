@@ -277,10 +277,19 @@ fn link_directory(app: AppHandle, path: String) -> Result<String, String> {
 async fn verify_mcp_server(
     command: String,
     args: Vec<String>,
+    transport: Option<String>,
 ) -> Result<crate::mcp::probe::ProbeResult, String> {
     // 20s is generous for a handshake and short enough that a wedged server
     // does not look like a frozen panel.
-    Ok(crate::mcp::probe::probe(&command, &args, std::time::Duration::from_secs(20)).await)
+    let timeout = std::time::Duration::from_secs(20);
+
+    // A remote server is dialled, not launched. Routing on the transport keeps
+    // one Verify control meaning one thing to the user, whatever the server is.
+    let url = transport.filter(|t| t.starts_with("http://") || t.starts_with("https://"));
+    Ok(match (command.trim().is_empty(), url) {
+        (true, Some(u)) => crate::mcp::probe::probe_http(&u, timeout).await,
+        _ => crate::mcp::probe::probe(&command, &args, timeout).await,
+    })
 }
 
 #[tauri::command]

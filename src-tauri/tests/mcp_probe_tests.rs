@@ -197,3 +197,50 @@ async fn real_server_probe_handles_a_self_contained_command() {
     assert_eq!(r.error, None);
     assert!(r.tools.len() >= 15, "expected tauri's tool list, got {}", r.tools.len());
 }
+
+// ─── Remote (HTTP) servers ───────────────────────────────────────────────────
+
+#[test]
+fn a_streamable_http_reply_is_read_whether_json_or_sse() {
+    // Streamable HTTP servers may answer a POST with plain JSON or with an SSE
+    // frame. Reading only one shape makes half of them look broken.
+    let plain = r#"{"jsonrpc":"2.0","id":1,"result":{"serverInfo":{"name":"remote","version":"2.0"}}}"#;
+    let v = probe::extract_rpc(plain).expect("plain JSON");
+    assert_eq!(v["result"]["serverInfo"]["name"], "remote");
+
+    let sse = "event: message\ndata: {\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{\"serverInfo\":{\"name\":\"remote\",\"version\":\"2.0\"}}}\n\n";
+    let v = probe::extract_rpc(sse).expect("SSE frame");
+    assert_eq!(v["result"]["serverInfo"]["name"], "remote");
+}
+
+#[test]
+fn sse_noise_before_the_payload_is_skipped() {
+    let sse = ": ping\nevent: message\nid: 7\ndata: {\"jsonrpc\":\"2.0\",\"id\":2,\"result\":{\"tools\":[{\"name\":\"alpha\"}]}}\n\n";
+    let v = probe::extract_rpc(sse).expect("payload after noise");
+    assert_eq!(v["result"]["tools"][0]["name"], "alpha");
+}
+
+#[test]
+fn a_body_with_no_json_payload_is_none() {
+    assert!(probe::extract_rpc(": keepalive\n\n").is_none());
+    assert!(probe::extract_rpc("").is_none());
+}
+
+/// The real endpoint from the mei-recipes repo. It requires OAuth, so the
+/// probe must report that clearly rather than an opaque failure.
+#[tokio::test]
+#[ignore]
+async fn real_remote_probe_reports_authentication_clearly() {
+    let r = probe::probe_http(
+        "https://mei-recipes-api.karthik-rk.workers.dev/mcp",
+        Duration::from_secs(30),
+    )
+    .await;
+    println!("error={:?} tools={}", r.error, r.tools.len());
+    let msg = r.error.expect("an OAuth-protected endpoint must report why");
+    assert!(
+        msg.to_lowercase().contains("authentic") || msg.contains("401"),
+        "unhelpful error: {}",
+        msg
+    );
+}

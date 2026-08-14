@@ -75,7 +75,12 @@ export default function McpServerDetail({ server, onVerify, verifying = false }:
   // remote server answers over HTTP. Both are real MCP servers; neither is a
   // local process.
   const isConnector = server.transport === "claude.ai";
-  const isRemote = !isConnector && server.command.trim() === "";
+  // Remote servers ARE verifiable now — dialled rather than spawned. Only a
+  // Claude.ai connector has nothing Hanger can reach at all.
+  const isRemote =
+    !isConnector &&
+    server.command.trim() === "" &&
+    /^https?:\/\//.test(server.transport);
 
   return (
     <div className="flex-1 min-h-0 flex flex-col font-sans text-base text-ink-1">
@@ -183,19 +188,22 @@ export default function McpServerDetail({ server, onVerify, verifying = false }:
                 Connected through your Claude.ai account, not configured on this machine. Its tools
                 are listed by Claude, and there is nothing local to inspect.
               </p>
-            ) : isRemote ? (
-              <p className="text-small text-ink-2 leading-[1.5]">
-                This server runs remotely at{" "}
-                <span className="font-mono text-ink-1">{server.transport}</span>. Verify starts a
-                local process, so it cannot reach one — asking a remote endpoint for its tool list
-                is not supported yet.
-              </p>
             ) : (
               <>
                 <p className="text-small text-ink-2 leading-[1.5]">
-                  A config file declares how to <em>start</em> a server, never what it provides.
-                  Verify starts a private copy, asks for its tool list, and stops it — no other
-                  host&rsquo;s session is touched.
+                  {isRemote ? (
+                    <>
+                      A config file gives the endpoint, never the tool list. Verify asks{" "}
+                      <span className="font-mono text-ink-1">{server.transport}</span> directly. No
+                      credentials are sent, so a protected server will say it needs them.
+                    </>
+                  ) : (
+                    <>
+                      A config file declares how to <em>start</em> a server, never what it provides.
+                      Verify starts a private copy, asks for its tool list, and stops it — no other
+                      host&rsquo;s session is touched.
+                    </>
+                  )}
                 </p>
                 <button
                   type="button"

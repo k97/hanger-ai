@@ -1149,12 +1149,21 @@ impl DirectoryScanner {
                         .map(|p| p.to_path_buf())
                         .unwrap_or_else(|| Path::new(&reg.config_path).to_path_buf());
 
-                    // Never root at $HOME. ~/.claude.json's parent is the home
-                    // directory itself, and a root there would swallow the
-                    // whole machine on the next walk.
-                    if config_dir == home_dir {
-                        None
+                    // Never root at $HOME -- a root there would swallow the
+                    // whole machine on the next walk. But refusing outright
+                    // dropped the asset entirely: ~/.claude.json's parent IS
+                    // the home directory, so Claude.ai connectors were
+                    // discovered and then never persisted, leaving counts and
+                    // rendered rows disagreeing. Root at the config file
+                    // itself instead. engine_global roots are never walked --
+                    // the agent loop reads AGENT_CONFIGS, not this table -- so
+                    // a file path here is inert.
+                    let config_dir = if config_dir == home_dir {
+                        Path::new(&reg.config_path).to_path_buf()
                     } else {
+                        config_dir
+                    };
+                    {
                         let config_dir = config_dir.to_string_lossy().to_string();
                         let eid = store
                             .upsert_engine(&engine_key, host.display_name, &config_dir, now)

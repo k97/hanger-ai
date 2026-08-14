@@ -133,3 +133,40 @@ fn a_scanned_tool_carries_the_arguments_its_command_needs() {
         "a command without its arguments starts the wrong process"
     );
 }
+
+/// Connectors must reach the profile like any other global server.
+#[test]
+fn claude_ai_connectors_reach_the_global_inventory() {
+    let _guard = ENV_MUTEX.get_or_init(|| Mutex::new(())).lock().unwrap();
+    let _home = TestHome;
+    std::env::set_var("HANGER_TEST_HOME", "tests/fixtures/mcp_home");
+
+    let dir = tempfile::tempdir().unwrap();
+    let db = dir.path().join("hanger.db");
+    let scanner = DirectoryScanner {
+        db_path: db.clone(),
+        cancellation_token: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
+    };
+    let inventory = scanner.scan(Path::new("tests/fixtures/project")).unwrap();
+
+    let global: Vec<&str> = inventory
+        .tools
+        .iter()
+        .filter(|t| matches!(t.scope, Scope::Global { .. }))
+        .map(|t| t.name.as_str())
+        .collect();
+    assert!(global.contains(&"Notion"), "connector missing from inventory: {:?}", global);
+
+    // And it must be COUNTED, not merely listed. get_asset_counts reads the
+    // database; if the row never lands there the pane renders more rows than
+    // its own heading claims.
+    let conn = rusqlite::Connection::open(&db).unwrap();
+    let persisted: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM assets WHERE category='tool' AND name='Notion'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(persisted, 1, "connector discovered but never persisted");
+}
