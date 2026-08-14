@@ -76,6 +76,10 @@ function sizeOf(text: string): string {
 export default function AssetDetail({ asset, inventory, onLink }: AssetDetailProps) {
   const [tab, setTab] = useState<"preview" | "source">("preview");
   const [text, setText] = useState<string | null>(null);
+  // What the backend actually read. A skill's own path is the folder that
+  // holds it, so the document sits one level in and the panel says so rather
+  // than showing a directory above a rendered file.
+  const [documentPath, setDocumentPath] = useState<string | null>(null);
   const [docError, setDocError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -84,6 +88,7 @@ export default function AssetDetail({ asset, inventory, onLink }: AssetDetailPro
   useEffect(() => {
     let cancelled = false;
     setText(null);
+    setDocumentPath(null);
     setDocError(null);
     setTab("preview");
 
@@ -95,9 +100,11 @@ export default function AssetDetail({ asset, inventory, onLink }: AssetDetailPro
     }
     setLoading(true);
 
-    invoke<string>("read_asset_body", { path: asset.path })
+    invoke<{ path: string; text: string }>("read_asset_body", { path: asset.path })
       .then((body) => {
-        if (!cancelled) setText(body);
+        if (cancelled) return;
+        setText(body.text);
+        setDocumentPath(body.path);
       })
       .catch((err) => {
         if (!cancelled) setDocError(String(err));
@@ -112,6 +119,7 @@ export default function AssetDetail({ asset, inventory, onLink }: AssetDetailPro
   }, [asset.path, kind]);
 
   const provenance = provenanceOf(asset as never, inventory);
+  const shownPath = documentPath ?? asset.path;
   const document = text === null || kind !== "markdown" ? null : parseSkillDocument(text);
   // A config that will not parse keeps its Source tab and loses only the
   // formatted view — the file is still the answer to "what is in there".
@@ -157,13 +165,13 @@ export default function AssetDetail({ asset, inventory, onLink }: AssetDetailPro
         </div>
 
         <div className="flex items-center gap-2 bg-plane rounded-inner pl-2.5 pr-1.5 py-2 font-mono text-micro text-ink-2">
-          <span className="flex-1 min-w-0 truncate select-all" title={asset.path}>
-            {asset.path}
+          <span className="flex-1 min-w-0 truncate select-all" title={shownPath}>
+            {shownPath}
           </span>
           <Tooltip label="Copy path" placement="bottom">
             <button
               aria-label="Copy path"
-              onClick={() => navigator.clipboard?.writeText(asset.path).catch(() => {})}
+              onClick={() => navigator.clipboard?.writeText(shownPath).catch(() => {})}
               className="p-1 rounded-pill grid place-items-center text-ink-3 hover:bg-plane-2 hover:text-ink-1 transition-colors duration-hover cursor-pointer"
             >
               <Square2StackIcon size={13} aria-hidden="true" />
@@ -172,7 +180,7 @@ export default function AssetDetail({ asset, inventory, onLink }: AssetDetailPro
           <Tooltip label="Reveal in Finder" placement="bottom">
             <button
               aria-label="Reveal in Finder"
-              onClick={() => revealItemInDir(parentOf(asset.path)).catch(() => {})}
+              onClick={() => revealItemInDir(parentOf(shownPath)).catch(() => {})}
               className="p-1 rounded-pill grid place-items-center text-ink-3 hover:bg-plane-2 hover:text-ink-1 transition-colors duration-hover cursor-pointer"
             >
               <ArrowTopRightOnSquareIcon size={13} aria-hidden="true" />
@@ -187,7 +195,7 @@ export default function AssetDetail({ asset, inventory, onLink }: AssetDetailPro
             Link to…
           </button>
         )}
-        <button onClick={() => openPath(asset.path).catch(() => {})} className={btnClass}>
+        <button onClick={() => openPath(shownPath).catch(() => {})} className={btnClass}>
           Open in editor
         </button>
       </div>

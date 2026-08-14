@@ -827,11 +827,36 @@ fn is_within_known_root(path: &Path, roots: &[PathBuf]) -> bool {
     roots.iter().any(|root| path.starts_with(root))
 }
 
+/// The file to show for an asset.
+///
+/// A skill is identified by the folder that holds it, not by the document
+/// inside — the folder is the unit that gets linked, and the Agent Skills
+/// standard lets it carry scripts and references alongside SKILL.md. So the
+/// path an asset records is a directory, and the reader steps in one level to
+/// find the document. Every other kind records its file and passes straight
+/// through.
+fn document_for(path: &Path) -> Option<PathBuf> {
+    if !path.is_dir() {
+        return Some(path.to_path_buf());
+    }
+    let entry = path.join("SKILL.md");
+    entry.is_file().then_some(entry)
+}
+
+#[derive(serde::Serialize)]
+pub struct AssetBody {
+    /// What was read. A skill's folder resolves to the document inside it, and
+    /// the panel shows the file it is actually displaying rather than the
+    /// directory it started from.
+    pub path: String,
+    pub text: String,
+}
+
 /// Reads an asset's file so the inspector can show it. Bounded three ways:
 /// the path must canonicalise inside a scanned root, the file must be within
 /// MAX_ASSET_BODY_BYTES, and it must be valid UTF-8.
 #[tauri::command]
-fn read_asset_body(app: AppHandle, path: String) -> Result<String, String> {
+fn read_asset_body(app: AppHandle, path: String) -> Result<AssetBody, String> {
     let store = get_store(&app)?;
     let linked = store.get_linked_directories().map_err(|e| e.to_string())?;
 
@@ -858,12 +883,21 @@ fn read_asset_body(app: AppHandle, path: String) -> Result<String, String> {
         return Err("Refusing to read a file outside the folders Hanger scans".to_string());
     }
 
-    let meta = fs::metadata(&canonical).map_err(|_| "File not readable".to_string())?;
+    // A skill's path is the folder that holds it, so the document is one level
+    // in. Resolved after the root check, which the folder has already passed.
+    let document = document_for(&canonical)
+        .ok_or_else(|| "This folder has no SKILL.md to show".to_string())?;
+
+    let meta = fs::metadata(&document).map_err(|_| "File not readable".to_string())?;
     if meta.len() > MAX_ASSET_BODY_BYTES {
         return Err("File is too large to preview".to_string());
     }
 
-    fs::read_to_string(&canonical).map_err(|_| "File is not text".to_string())
+    let text = fs::read_to_string(&document).map_err(|_| "File is not text".to_string())?;
+    Ok(AssetBody {
+        path: document.to_string_lossy().to_string(),
+        text,
+    })
 }
 
 #[tauri::command]
@@ -1242,8 +1276,50 @@ mod deploy_target_tests {
 
 #[cfg(test)]
 mod asset_body_tests {
-    use super::is_within_known_root;
+    use super::{document_for, is_within_known_root};
+    use std::fs;
     use std::path::{Path, PathBuf};
+
+    #[test]
+    fn a_skill_folder_resolves_to_the_document_inside_it() {
+        let dir = tempfile::tempdir().unwrap();
+        let skill = dir.path().join("agent-browser");
+        fs::create_dir(&skill).unwrap();
+        fs::write(skill.join("SKILL.md"), "body").unwrap();
+
+        // The scanner identifies a skill by its folder, so this is the path
+        // the panel hands over; reading it directly is EISDIR.
+        assert_eq!(document_for(&skill), Some(skill.join("SKILL.md")));
+    }
+
+    #[test]
+    fn a_file_is_its_own_document() {
+        let dir = tempfile::tempdir().unwrap();
+        let rule = dir.path().join("CLAUDE.md");
+        fs::write(&rule, "body").unwrap();
+
+        assert_eq!(document_for(&rule), Some(rule));
+    }
+
+    #[test]
+    fn a_folder_with_no_skill_document_resolves_to_nothing() {
+        let dir = tempfile::tempdir().unwrap();
+        let empty = dir.path().join("scripts");
+        fs::create_dir(&empty).unwrap();
+
+        // Better a plain "no document here" than reading the directory and
+        // reporting that it is not text.
+        assert_eq!(document_for(&empty), None);
+    }
+
+    #[test]
+    fn a_directory_named_skill_md_is_not_a_document() {
+        let dir = tempfile::tempdir().unwrap();
+        let skill = dir.path().join("odd");
+        fs::create_dir_all(skill.join("SKILL.md")).unwrap();
+
+        assert_eq!(document_for(&skill), None);
+    }
 
     #[test]
     fn accepts_a_file_inside_a_scanned_root() {

@@ -31,11 +31,14 @@ const DOC = [
 ].join("\n");
 
 let bodyResult: { ok: true; text: string } | { ok: false; error: string } = { ok: true, text: DOC };
+// The backend answers with the file it read, which for a skill is the
+// document inside the folder the panel handed it.
+let bodyPath = SOURCE;
 
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: vi.fn(async (cmd: string) => {
     if (cmd === "read_asset_body") {
-      if (bodyResult.ok) return bodyResult.text;
+      if (bodyResult.ok) return { path: bodyPath, text: bodyResult.text };
       throw bodyResult.error;
     }
     return null;
@@ -74,6 +77,7 @@ describe("Asset detail — the inspector's document screen", () => {
     cleanup();
     vi.clearAllMocks();
     bodyResult = { ok: true, text: DOC };
+    bodyPath = SOURCE;
   });
 
   it("states the file's relationships in one line", async () => {
@@ -143,6 +147,20 @@ describe("Asset detail — the inspector's document screen", () => {
     render(<AssetDetail asset={asset} inventory={inventory} />);
     await screen.findByText("Open in editor");
     expect(screen.queryByText("Link to…")).toBeNull();
+  });
+
+  it("shows the document it read, not the folder it was handed", async () => {
+    // A skill is identified by its folder, so that is what the panel receives.
+    // Showing a directory above a rendered file reads as a mistake.
+    const folder = "/home/me/.agents/skills/agent-browser";
+    bodyPath = `${folder}/SKILL.md`;
+    render(<AssetDetail asset={{ ...asset, path: folder }} inventory={inventory} />);
+
+    expect(await screen.findByTitle(`${folder}/SKILL.md`)).toBeTruthy();
+    fireEvent.click(screen.getByText("Open in editor"));
+    await waitFor(() => {
+      expect(openPath).toHaveBeenCalledWith(`${folder}/SKILL.md`);
+    });
   });
 
   it("formats a tool's config instead of reading braces as prose", async () => {
