@@ -81,11 +81,11 @@ When a task changes no meaningful UI, **no screenshot is acceptable evidence for
 
 - `project_footprints` (Agent type, 8 files across frontend/tests) retains retired vocabulary. Rename to `project_paths` (or drop with the Agent type) the next time that pane area is reworked. Not user-visible.
 - The frontend renders counts. It never computes them. A count is produced by a count command and rendered as received. `.length` on a filtered array, a `reduce` over inventory, or any sum of category arrays is a counting implementation and is forbidden. Counts come from `get_asset_counts`.
-- 16 counting sites are enumerated in `docs/to-be-reviewed/diagnostics/count-paths.md`. Consolidating them precedes building any new counting surface.
+- 16 counting sites are enumerated in `docs/diagnostics/count-paths.md`. Consolidating them precedes building any new counting surface.
 - Open question: `get_inventory` omits rows with `parse_status = 'failed'`; `get_asset_counts` includes them. The two must agree. Provisional decision: failed assets ARE assets and must be surfaced.
 - Unverified claim from the count-paths diagnostic: a 1-asset delta attributed to "client-side deduplication in RepoPane.tsx" with no line quoted. Unproven. Resolve alongside the counting-site consolidation.
 - Scan warnings panel shows 10 warnings for a root with 9 failed rows. A warning from another scope is leaking into a project-scoped panel.
-- Non-blocking diagnostics use DisclosureBanner. Do not build a new banner, alert, or modal for warnings, parse errors, or status notices. See DESIGN.md.
+- Non-blocking diagnostics use DisclosureBanner. Do not build a new banner, alert, or modal for warnings, parse errors, or status notices. See `.claude/DESIGN.md`.
 - When a production change causes an existing test to fail, STOP and report the failure. Do not edit the test, and never edit a detector, matcher, or guard to make a violation invisible. Exceptions go in an explicit allowlist with a stated reason. Karthik decides whether the test or the change is wrong.
 
 ## Exit

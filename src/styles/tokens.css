@@ -1,7 +1,7 @@
 :root {
   /* ══ Mono palette — ink and paper only. Every neutral is a value step,
      never a hue. Semantic colour survives in exactly one place: system
-     state. Spec: docs/hanger-mono-tight.html ══ */
+     state. Spec: docs/v3/hanger-mono-tight.html ══ */
   --page: #ffffff;
   --plane: #f7f7f7;          /* the plane is a value step, not a colour */
   --plane-2: #efefef;
