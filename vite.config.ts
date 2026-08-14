@@ -19,7 +19,11 @@ export default defineConfig(async () => ({
   server: {
     port: 8397,
     strictPort: true,
-    host: host || false,
+    // `false` fell through to Vite's default, which binds [::1] only. Tauri
+    // probes devUrl over 127.0.0.1, never saw the frontend come up, and
+    // `tauri dev` hung with no window and no error. TAURI_DEV_HOST still wins
+    // when set, for device testing over the network.
+    host: host || "127.0.0.1",
     hmr: host
       ? {
           protocol: "ws",
