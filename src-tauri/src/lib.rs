@@ -530,6 +530,28 @@ fn execute_deploy(
             Ok(())
         })
         .map_err(|e| e.to_string())?;
+
+        // Record the deployment as a link row. Non-fatal by design: the
+        // files are already on disk, so failing the deploy over bookkeeping
+        // would lie in the other direction; the scan-time backfill is the
+        // reconciler for anything missed here. Hash is best-effort for
+        // symlinks — resolve_state judges a symlink by its target, not its
+        // hash.
+        let hash_target = if src.is_dir() { src.join("SKILL.md") } else { src.to_path_buf() };
+        let source_hash = fs::read(&hash_target)
+            .map(|c| blake3::hash(&c).to_hex().to_string())
+            .unwrap_or_default();
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs() as i64;
+        let _ = store.record_deploy_link(
+            &source_path,
+            &dst.to_string_lossy(),
+            "symlink",
+            &source_hash,
+            now,
+        );
     } else if deploy_type == "copy" {
         let hash_target = if src.is_dir() {
             src.join("SKILL.md")
@@ -557,6 +579,22 @@ fn execute_deploy(
         store
             .set_deploy_checksum(&source_path, &dst.to_string_lossy(), &hash)
             .map_err(|e| e.to_string())?;
+
+        // Record the deployment as a link row alongside the checksum.
+        // deploy_checksums keeps working in parallel; retiring it is a
+        // separate decision. Non-fatal for the same reason as the symlink
+        // branch — the backfill reconciles.
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs() as i64;
+        let _ = store.record_deploy_link(
+            &source_path,
+            &dst.to_string_lossy(),
+            "tracked_copy",
+            &hash,
+            now,
+        );
     } else {
         return Err(format!("Unknown deploy type: {}", deploy_type));
     }

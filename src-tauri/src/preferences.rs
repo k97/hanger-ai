@@ -420,7 +420,175 @@ impl PreferencesStore {
             })?;
         }
 
+        // v4: links becomes writable in production. Three parts, one
+        // transaction. (1) upsert_link was INSERT-only with no unique
+        // constraint, so every historical caller could append duplicates —
+        // dedupe keeping the newest row per (asset_id, dest_path), then pin
+        // the pair UNIQUE so the new ON CONFLICT upsert has a target.
+        // (2) An index on dest_root_id: edge queries group by destination and
+        // would full-scan without it (asset_id lookups ride the unique
+        // index's prefix). (3) Backfill tracked copies from deploy_checksums:
+        // those rows are the only durable record of past deploys, and without
+        // this the table stays empty on every machine that deployed before
+        // v4. Symlink deployments have no checksum trail and are backfilled
+        // by the scanner at walk time, not here.
+        if current_version < 4 {
+            let tx = conn.transaction().map_err(|_| {
+                SanitisedError("Failed to start database migration transaction".to_string())
+            })?;
+
+            tx.execute(
+                "DELETE FROM links WHERE id NOT IN (
+                     SELECT MAX(id) FROM links GROUP BY asset_id, dest_path
+                 );",
+                [],
+            )
+            .map_err(|_| SanitisedError("Database migration failed".to_string()))?;
+
+            tx.execute_batch(
+                "CREATE UNIQUE INDEX IF NOT EXISTS idx_links_asset_dest
+                     ON links(asset_id, dest_path);
+                 CREATE INDEX IF NOT EXISTS idx_links_dest_root
+                     ON links(dest_root_id);",
+            )
+            .map_err(|_| SanitisedError("Database migration failed".to_string()))?;
+
+            let now = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_secs() as i64;
+
+            let checksums: Vec<(String, String, String)> = {
+                let mut stmt = tx
+                    .prepare("SELECT source_path, destination_path, blake3_hash FROM deploy_checksums")
+                    .map_err(|_| SanitisedError("Database query failed during migration".to_string()))?;
+                let rows = stmt
+                    .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))
+                    .map_err(|_| SanitisedError("Database query failed during migration".to_string()))?;
+                rows.flatten().collect()
+            };
+
+            for (source_path, dest_path, hash) in &checksums {
+                let asset_id = Self::find_asset_id_by_path(&tx, source_path)
+                    .map_err(|_| SanitisedError("Database migration failed".to_string()))?;
+                let dest_root_id = Self::find_root_id_for_dest(&tx, dest_path)
+                    .map_err(|_| SanitisedError("Database migration failed".to_string()))?;
+                // A checksum row whose asset or destination root is unknown
+                // stays unbackfilled on purpose: inventing an asset row here
+                // would repeat the re-parenting class of defect. The
+                // accounting query in tests reports exactly which rows were
+                // skipped and why.
+                if let (Some(asset_id), Some(dest_root_id)) = (asset_id, dest_root_id) {
+                    tx.execute(
+                        "INSERT INTO links (asset_id, dest_root_id, dest_path, mechanism, source_hash, dest_hash, created_at, last_verified_at)
+                         VALUES (?1, ?2, ?3, 'tracked_copy', ?4, NULL, ?5, NULL)
+                         ON CONFLICT(asset_id, dest_path) DO NOTHING",
+                        params![asset_id, dest_root_id, dest_path, hash, now],
+                    )
+                    .map_err(|_| SanitisedError("Database migration failed".to_string()))?;
+                }
+            }
+
+            tx.execute_batch("PRAGMA user_version = 4;")
+                .map_err(|_| SanitisedError("Failed to set user_version".to_string()))?;
+
+            tx.commit().map_err(|_| {
+                SanitisedError("Failed to commit database migration transaction".to_string())
+            })?;
+        }
+
         Ok(())
+    }
+
+    /// The forms a stored path may take: as given, canonicalized, and
+    /// canonicalized with the macOS /private prefix stripped — the same
+    /// normalisation upsert_asset applies before writing abs_path.
+    fn path_variants(path: &str) -> Vec<String> {
+        let mut out = vec![path.to_string()];
+        if let Ok(canon) = fs::canonicalize(Path::new(path)) {
+            let canon = canon.to_string_lossy().to_string();
+            if canon.starts_with("/private/") && !path.starts_with("/private/") {
+                if let Some(stripped) = canon.strip_prefix("/private") {
+                    if !out.contains(&stripped.to_string()) {
+                        out.push(stripped.to_string());
+                    }
+                }
+            }
+            if !out.contains(&canon) {
+                out.push(canon);
+            }
+        }
+        out
+    }
+
+    /// Asset lookup by any variant of its source path. Read-only.
+    fn find_asset_id_by_path(conn: &Connection, source_path: &str) -> Result<Option<i64>, rusqlite::Error> {
+        for variant in Self::path_variants(source_path) {
+            let found: Option<i64> = conn
+                .query_row(
+                    "SELECT id FROM assets WHERE abs_path = ?1",
+                    params![variant],
+                    |r| r.get(0),
+                )
+                .optional()?;
+            if found.is_some() {
+                return Ok(found);
+            }
+        }
+        Ok(None)
+    }
+
+    /// The root owning a destination path: the longest root abs_path that
+    /// prefixes it, in any path variant. Read-only.
+    fn find_root_id_for_dest(conn: &Connection, dest_path: &str) -> Result<Option<i64>, rusqlite::Error> {
+        let roots: Vec<(i64, String)> = {
+            let mut stmt = conn.prepare("SELECT id, abs_path FROM roots")?;
+            let rows = stmt.query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?;
+            rows.flatten().collect()
+        };
+        let variants = Self::path_variants(dest_path);
+        let mut best: Option<(i64, usize)> = None;
+        for (id, root_path) in &roots {
+            for v in &variants {
+                if Path::new(v).starts_with(Path::new(root_path)) {
+                    let len = Path::new(root_path).components().count();
+                    if best.map(|(_, l)| len > l).unwrap_or(true) {
+                        best = Some((*id, len));
+                    }
+                }
+            }
+        }
+        Ok(best.map(|(id, _)| id))
+    }
+
+    /// Record a deployment as a link row, resolving the asset by source path
+    /// and the destination root by longest prefix. Returns Ok(None) — and
+    /// writes nothing — when either cannot be resolved: a deploy that lands
+    /// before its source is scanned has no asset row yet, and inventing one
+    /// here would repeat the re-parenting defect (findings.md F26). The
+    /// scan-time backfill is the reconciler for those.
+    pub fn record_deploy_link(
+        &self,
+        source_path: &str,
+        dest_path: &str,
+        mechanism: &str,
+        source_hash: &str,
+        now: i64,
+    ) -> Result<Option<i64>, SanitisedError> {
+        let conn = self.connect()?;
+        let asset_id = Self::find_asset_id_by_path(&conn, source_path)
+            .map_err(|_| SanitisedError("Failed to resolve deploy source asset".to_string()))?;
+        let dest_root_id = Self::find_root_id_for_dest(&conn, dest_path)
+            .map_err(|_| SanitisedError("Failed to resolve deploy destination root".to_string()))?;
+        match (asset_id, dest_root_id) {
+            (Some(asset_id), Some(dest_root_id)) => self
+                .upsert_link(
+                    asset_id, dest_root_id, dest_path, mechanism, source_hash, None, now,
+                    Some(now),
+                )
+                .map(Some),
+            _ => Ok(None),
+        }
     }
 
     pub fn link_directory(&self, path: &str) -> Result<(), SanitisedError> {
@@ -1124,12 +1292,29 @@ pub fn resolve_deepest_root(asset_path: &Path, project_roots: &[(i64, String)]) 
         last_verified_at: Option<i64>,
     ) -> Result<i64, SanitisedError> {
         let conn = self.connect()?;
+        // A real upsert since v4: re-deploying the same asset to the same
+        // destination refreshes the row rather than appending a duplicate.
+        // created_at is deliberately absent from the update list — it records
+        // the first deployment, not the latest.
         conn.execute(
             "INSERT INTO links (asset_id, dest_root_id, dest_path, mechanism, source_hash, dest_hash, created_at, last_verified_at)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
+             ON CONFLICT(asset_id, dest_path) DO UPDATE SET
+                 dest_root_id = excluded.dest_root_id,
+                 mechanism = excluded.mechanism,
+                 source_hash = excluded.source_hash,
+                 dest_hash = excluded.dest_hash,
+                 last_verified_at = excluded.last_verified_at",
             params![asset_id, dest_root_id, dest_path, mechanism, source_hash, dest_hash, created_at, last_verified_at],
-        ).map_err(|_| SanitisedError("Failed to insert link row".to_string()))?;
-        Ok(conn.last_insert_rowid())
+        ).map_err(|_| SanitisedError("Failed to upsert link row".to_string()))?;
+        let id: i64 = conn
+            .query_row(
+                "SELECT id FROM links WHERE asset_id = ?1 AND dest_path = ?2",
+                params![asset_id, dest_path],
+                |r| r.get(0),
+            )
+            .map_err(|_| SanitisedError("Failed to read back link row".to_string()))?;
+        Ok(id)
     }
 
     pub fn get_hydrated_links(&self) -> Result<Vec<crate::domain::HydratedLink>, SanitisedError> {
