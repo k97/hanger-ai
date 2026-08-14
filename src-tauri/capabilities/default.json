@@ -10,6 +10,14 @@
     "opener:default",
     "dialog:default",
     "log:default",
-    "mcp-bridge:default"
+    "mcp-bridge:default",
+    {
+      "identifier": "opener:allow-open-path",
+      "allow": [
+        {
+          "path": "$HOME/**"
+        }
+      ]
+    }
   ]
 }

@@ -181,7 +181,7 @@ describe("Avionics A5 — Docked Right Inspector Integration", () => {
     fireEvent.click(skillRow);
 
     // Inspector opens immediately, showing the tapped asset (not the empty state)
-    await screen.findByText("Path");
+    await screen.findByText("~/Work/demo/skills/inspector-skill-1");
     expect(screen.queryByText("No Item Selected")).toBeNull();
 
     // The open state persists like the toolbar toggle does
@@ -203,8 +203,7 @@ describe("Avionics A5 — Docked Right Inspector Integration", () => {
     const rowContainer = skillRow.closest("div") || skillRow;
     fireEvent.click(rowContainer);
 
-    // Assert Path section and full path string render
-    await screen.findByText("Path");
+    // Assert the full path string renders
     await waitFor(() => {
       expect(screen.getByText("~/Work/demo/skills/inspector-skill-1")).toBeDefined();
     });
@@ -236,7 +235,6 @@ describe("Avionics A5 — Docked Right Inspector Integration", () => {
     const toolRow = await screen.findByText("Inspector Tool One");
     fireEvent.click(toolRow);
 
-    await screen.findByText("Path");
     await waitFor(() => {
       expect(screen.getByText("~/Work/demo/tools/inspector-tool-1.json")).toBeDefined();
       expect(screen.queryByText("~/Work/demo/skills/inspector-skill-1")).toBeNull();

@@ -6,12 +6,10 @@ import {
   ExclamationTriangleIcon,
   LinkIcon,
   GlobeAltIcon,
-  Square2StackIcon,
-  ArrowTopRightOnSquareIcon,
 } from "./icons";
-import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import { Inventory } from "../App";
 import DeployWizard, { FlatAssetItem, PreflightResult } from "./DeployWizard";
+import AssetDetail from "./AssetDetail";
 import DiffChooser, { AlignedSection } from "./DiffChooser";
 
 interface FlyoutProps {
@@ -610,77 +608,15 @@ export default function Flyout({
           )}
         </>
       ) : targetAsset ? (
-        /* Selected Asset Detail View: Render full path in SF Mono without truncation */
-        <div className="flex-1 overflow-y-auto p-[18px] flex flex-col gap-4 font-sans">
-          <div className="flex items-center justify-between">
-            <span className="text-small font-medium text-ink-2 font-flex px-2.5 py-0.5 rounded-pill bg-plane-2">
-              {targetAsset.scopeBadge || "Project"}
-            </span>
-            {targetAsset.version && (
-              <span className="text-micro font-mono text-ink-3 px-2 py-0.5 rounded-pill bg-plane-2">
-                {targetAsset.version}
-              </span>
-            )}
-          </div>
-
-          {/* Full Path Rendering in SF Mono (font-mono), no truncation, break-all */}
-          <div className="flex flex-col gap-1.5">
-            <span className="text-micro font-medium uppercase tracking-[.06em] text-ink-3 font-flex">
-              Path
-            </span>
-            <div className="flex items-start gap-1.5 bg-plane rounded-inner py-2 pl-2.5 pr-1.5">
-              <span className="flex-1 text-micro font-mono text-ink-2 break-all leading-relaxed select-all">
-                {targetAsset.path}
-              </span>
-              <button
-                aria-label="Copy path"
-                onClick={() => navigator.clipboard?.writeText(targetAsset.path).catch(() => {})}
-                className="p-1 rounded-pill text-ink-3 hover:bg-plane-2 hover:text-ink-1 cursor-pointer transition-colors duration-hover shrink-0"
-              >
-                <Square2StackIcon size={13} />
-              </button>
-              <button
-                aria-label="Reveal in Finder"
-                onClick={() => revealItemInDir(targetAsset.path).catch(() => {})}
-                className="p-1 rounded-pill text-ink-3 hover:bg-plane-2 hover:text-ink-1 cursor-pointer transition-colors duration-hover shrink-0"
-              >
-                <ArrowTopRightOnSquareIcon size={13} />
-              </button>
-            </div>
-          </div>
-
-          {/* Resolved Target Path (if symlink or has source_path/source_origin) */}
-          {((targetAsset as any).source_path || (targetAsset as any).source_origin || (((targetAsset as any).isSymlink || (targetAsset as any).is_symlink) && targetAsset.details?.includes("Origin:"))) && (
-            <div className="flex flex-col gap-1.5">
-              <span className="text-micro font-medium uppercase tracking-[.06em] text-ink-3 font-flex">
-                Target Path
-              </span>
-              <div className="text-micro font-mono text-ink-2 bg-plane p-2.5 rounded-inner break-all leading-relaxed select-all">
-                {(targetAsset as any).source_path || (targetAsset as any).source_origin || targetAsset.details?.replace("Origin: ", "")}
-              </div>
-            </div>
-          )}
-
-          {targetAsset.details && (
-            <div className="flex flex-col gap-1.5">
-              <span className="text-micro font-medium uppercase tracking-[.06em] text-ink-3 font-flex">
-                Details
-              </span>
-              <p className="text-small text-ink-2 leading-[1.65] font-sans">
-                {targetAsset.details}
-              </p>
-            </div>
-          )}
-
-          {targetAsset.category !== "Agents" && targetAsset.category !== "Subagents" && (
-            <button
-              onClick={() => setDeployingAsset(targetAsset as FlatAssetItem)}
-              className="mt-2 h-[30px] px-4 rounded-pill bg-fill text-on-fill text-small font-medium transition-transform duration-press ease-spring active:scale-[0.96] cursor-pointer text-center font-sans self-start"
-            >
-              Link to…
-            </button>
-          )}
-        </div>
+        <AssetDetail
+          asset={targetAsset as any}
+          inventory={inventory}
+          onLink={
+            targetAsset.category !== "Agents" && targetAsset.category !== "Subagents"
+              ? () => setDeployingAsset(targetAsset as FlatAssetItem)
+              : undefined
+          }
+        />
       ) : selectedBubble ? (
         /* Regular flyout content list for bubble scope */
         <div className="flex-1 overflow-y-auto p-[18px] flex flex-col gap-4 font-sans" ref={parentRef}>

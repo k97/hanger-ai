@@ -1,3 +1,4 @@
+pub mod dev_icon;
 pub mod diagnostics;
 pub mod domain;
 pub mod menu;
@@ -783,6 +784,57 @@ fn copy_diagnostics(app: AppHandle) {
     diagnostics::copy_to_clipboard(&app);
 }
 
+/// The largest document the inspector will pull into the webview. A SKILL.md
+/// is prose; past this it is not something the panel can usefully show, and
+/// reading it would stall the UI on the main thread.
+const MAX_ASSET_BODY_BYTES: u64 = 512 * 1024;
+
+/// True when `path` sits inside one of the roots Hanger already scans.
+///
+/// A path arriving from the webview is never trusted on its own: the inspector
+/// may only read files the scanner could itself have surfaced. `starts_with`
+/// compares whole path components, so `/srv/data` does not match `/srv/database`.
+fn is_within_known_root(path: &Path, roots: &[PathBuf]) -> bool {
+    roots.iter().any(|root| path.starts_with(root))
+}
+
+/// Reads an asset's file so the inspector can show it. Bounded three ways:
+/// the path must canonicalise inside a scanned root, the file must be within
+/// MAX_ASSET_BODY_BYTES, and it must be valid UTF-8.
+#[tauri::command]
+fn read_asset_body(app: AppHandle, path: String) -> Result<String, String> {
+    let store = get_store(&app)?;
+    let linked = store.get_linked_directories().map_err(|e| e.to_string())?;
+
+    let mut roots: Vec<PathBuf> = Vec::new();
+    for dir in &linked {
+        if let Ok(canonical) = fs::canonicalize(dir) {
+            roots.push(canonical);
+        }
+    }
+    for agent in scanner::get_global_agents() {
+        if let Some(config_root) = agent.global_config_path {
+            if let Ok(canonical) = fs::canonicalize(&config_root) {
+                roots.push(canonical);
+            }
+        }
+    }
+
+    // Canonicalise before comparing, so a path reaching the root through a
+    // symlink cannot be used to step outside it.
+    let canonical = fs::canonicalize(&path).map_err(|_| "File not found".to_string())?;
+    if !is_within_known_root(&canonical, &roots) {
+        return Err("Refusing to read a file outside the folders Hanger scans".to_string());
+    }
+
+    let meta = fs::metadata(&canonical).map_err(|_| "File not readable".to_string())?;
+    if meta.len() > MAX_ASSET_BODY_BYTES {
+        return Err("File is too large to preview".to_string());
+    }
+
+    fs::read_to_string(&canonical).map_err(|_| "File is not text".to_string())
+}
+
 #[tauri::command]
 fn check_broad_root(path: String) -> Result<bool, String> {
     let p = Path::new(&path);
@@ -1024,6 +1076,7 @@ pub fn run() {
             run_scan,
             get_inventory,
             get_asset_counts,
+            read_asset_body,
             get_tree_counts,
             deploy_asset,
             check_deploy_target,
@@ -1044,6 +1097,65 @@ pub fn run() {
             get_detected_engines,
             copy_diagnostics
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|_app, event| {
+            // Tauri sets the dev Dock icon from bundle.icon while converting the
+            // runtime's Ready event, so ours has to land after that — setup() is
+            // too early and gets overwritten. See src/dev_icon.rs.
+            if let tauri::RunEvent::Ready = event {
+                dev_icon::install();
+            }
+        });
+}
+
+#[cfg(test)]
+mod asset_body_tests {
+    use super::is_within_known_root;
+    use std::path::{Path, PathBuf};
+
+    #[test]
+    fn accepts_a_file_inside_a_scanned_root() {
+        let roots = vec![PathBuf::from("/home/me/.claude")];
+        assert!(is_within_known_root(
+            Path::new("/home/me/.claude/skills/agent-browser/SKILL.md"),
+            &roots
+        ));
+    }
+
+    #[test]
+    fn rejects_a_file_outside_every_root() {
+        let roots = vec![PathBuf::from("/home/me/.claude")];
+        assert!(!is_within_known_root(Path::new("/etc/passwd"), &roots));
+        assert!(!is_within_known_root(
+            Path::new("/home/me/.ssh/id_rsa"),
+            &roots
+        ));
+    }
+
+    #[test]
+    fn compares_whole_components_so_a_sibling_prefix_does_not_match() {
+        let roots = vec![PathBuf::from("/srv/data")];
+        assert!(!is_within_known_root(
+            Path::new("/srv/database/secret.md"),
+            &roots
+        ));
+    }
+
+    #[test]
+    fn accepts_a_file_in_any_one_of_several_roots() {
+        let roots = vec![
+            PathBuf::from("/home/me/.claude"),
+            PathBuf::from("/home/me/Work/repo"),
+        ];
+        assert!(is_within_known_root(
+            Path::new("/home/me/Work/repo/.claude/skills/x/SKILL.md"),
+            &roots
+        ));
+    }
+
+    #[test]
+    fn rejects_everything_when_no_root_is_known() {
+        assert!(!is_within_known_root(Path::new("/home/me/a.md"), &[]));
+    }
 }

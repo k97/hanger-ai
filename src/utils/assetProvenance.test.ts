@@ -1,0 +1,124 @@
+import { describe, it, expect } from "vitest";
+import type { Inventory } from "../App";
+import { engineLabel, provenanceOf, sourceLabel } from "./assetProvenance";
+
+const SOURCE = "/home/me/.agents/skills/agent-browser";
+
+const skill = (over: Record<string, unknown>) =>
+  ({ id: "x", name: "agent-browser", description: "", version: "1", path: "/p", ...over }) as never;
+
+function inventoryOf(skills: unknown[]): Inventory {
+  return {
+    agents: [],
+    tools: [],
+    rules: [],
+    subagents: [],
+    project_scans: [],
+    skills: skills as Inventory["skills"],
+  };
+}
+
+describe("provenanceOf", () => {
+  it("counts the projects a source has been symlinked into", () => {
+    const inventory = inventoryOf([
+      skill({ path: SOURCE, scope: { Global: { agent: "claude" } } }),
+      skill({ path: "/one/.claude/skills/agent-browser", scope: { Project: { agent: "claude", root: "/one" } }, is_symlink: true, source_path: SOURCE }),
+      skill({ path: "/two/.claude/skills/agent-browser", scope: { Project: { agent: "claude", root: "/two" } }, is_symlink: true, source_path: SOURCE }),
+      skill({ path: "/three/.claude/skills/agent-browser", scope: { Project: { agent: "claude", root: "/three" } }, is_symlink: true, source_path: SOURCE }),
+    ]);
+
+    const source = provenanceOf(inventory.skills[0] as never, inventory);
+    expect(source.linkedInto).toEqual(["one", "two", "three"]);
+    expect(source.statement).toBe("The source for 3 copies");
+    expect(source.place).toBe("User profile");
+  });
+
+  it("reads the same relationship from the link's end", () => {
+    const inventory = inventoryOf([
+      skill({ path: SOURCE, scope: { Global: { agent: "claude" } } }),
+      skill({ path: "/one/x", scope: { Project: { agent: "claude", root: "/one" } }, is_symlink: true, source_path: SOURCE }),
+      skill({ path: "/two/x", scope: { Project: { agent: "claude", root: "/two" } }, is_symlink: true, source_path: SOURCE }),
+    ]);
+
+    const link = provenanceOf(inventory.skills[1] as never, inventory);
+    expect(link.statement).toBe("Symlinked into 2 projects");
+    expect(link.source).toBe(SOURCE);
+    expect(link.place).toBe("one");
+  });
+
+  it("names the single project rather than counting to one", () => {
+    const inventory = inventoryOf([
+      skill({ path: SOURCE, scope: { Global: { agent: "claude" } } }),
+      skill({ path: "/metrics-board/x", scope: { Project: { agent: "claude", root: "/metrics-board" } }, is_symlink: true, source_path: SOURCE }),
+    ]);
+    expect(provenanceOf(inventory.skills[0] as never, inventory).statement).toBe(
+      "The source for the copy in metrics-board"
+    );
+  });
+
+  it("says plainly when nothing links to a local file", () => {
+    const inventory = inventoryOf([skill({ path: "/solo", scope: { Global: { agent: "claude" } } })]);
+    const p = provenanceOf(inventory.skills[0] as never, inventory);
+    expect(p.state).toBe("local");
+    expect(p.statement).toBe("Local only · nothing links to it");
+    expect(p.linkedInto).toEqual([]);
+  });
+
+  it("leads with the fault when there is one", () => {
+    const inventory = inventoryOf([
+      skill({ path: "/one/x", scope: { Project: { agent: "claude", root: "/one" } }, link_state: "broken", source_path: SOURCE }),
+    ]);
+    expect(provenanceOf(inventory.skills[0] as never, inventory).statement).toBe(
+      "Symlink points at a file that no longer exists"
+    );
+
+    const drifted = inventoryOf([
+      skill({ path: "/one/x", scope: { Project: { agent: "claude", root: "/one" } }, link_state: "drifted" }),
+    ]);
+    expect(provenanceOf(drifted.skills[0] as never, drifted).statement).toBe(
+      "The copy no longer matches the source it came from"
+    );
+  });
+
+  it("counts a project once even when it holds several copies", () => {
+    const inventory = inventoryOf([
+      skill({ path: SOURCE, scope: { Global: { agent: "claude" } } }),
+      skill({ path: "/one/.claude/x", scope: { Project: { agent: "claude", root: "/one" } }, source_path: SOURCE }),
+      skill({ path: "/one/.gemini/x", scope: { Project: { agent: "gemini", root: "/one" } }, source_path: SOURCE }),
+    ]);
+    expect(provenanceOf(inventory.skills[0] as never, inventory).linkedInto).toEqual(["one"]);
+  });
+
+  it("copes with no inventory at all", () => {
+    const p = provenanceOf(skill({ path: "/a", scope: { Global: { agent: "claude" } } }), null);
+    expect(p.linkedInto).toEqual([]);
+    expect(p.place).toBe("User profile");
+  });
+});
+
+describe("engineLabel", () => {
+  it("gives an engine its product name", () => {
+    expect(engineLabel(skill({ scope: { Global: { agent: "claude" } } }))).toBe("Claude Code");
+    expect(engineLabel(skill({ scope: { Project: { agent: "gemini", root: "/r" } } }))).toBe("Gemini CLI");
+  });
+
+  it("passes an unknown engine through rather than inventing a name", () => {
+    expect(engineLabel(skill({ scope: { Global: { agent: "zed" } } }))).toBe("zed");
+  });
+
+  it("says any agent when nothing claims it", () => {
+    expect(engineLabel(skill({}))).toBe("Any agent");
+  });
+});
+
+describe("sourceLabel", () => {
+  it("names the origin when the file records one", () => {
+    expect(sourceLabel(skill({ source_origin: "github.com/anthropics/skills" }))).toBe(
+      "github.com/anthropics/skills"
+    );
+  });
+
+  it("says local rather than leaving a blank", () => {
+    expect(sourceLabel(skill({}))).toBe("Local · not from a registry");
+  });
+});
