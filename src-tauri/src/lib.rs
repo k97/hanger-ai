@@ -327,6 +327,14 @@ pub struct PreflightResult {
     pub collision: bool,
     pub has_permissions: bool,
     pub warning: Option<String>,
+    /// Where the asset would land. The panel lists this per destination, and
+    /// only this module knows how a source path maps onto a project, so the
+    /// answer travels with the check rather than being re-derived up front.
+    pub target_path: String,
+    /// True when a link back to this exact source already sits at the target.
+    /// Distinguishing it from a plain collision is what lets the panel say
+    /// "Already linked" instead of offering to replace a file with itself.
+    pub already_linked: bool,
 }
 
 fn resolve_target_path(
@@ -354,6 +362,22 @@ fn resolve_target_path(
         tgt_project.join(".agents").join(filename)
     } else {
         tgt_project.join(filename)
+    }
+}
+
+/// Whether the destination is already a link resolving to this exact source.
+///
+/// Deliberately checks the link itself before following it: a regular file
+/// that merely happens to have identical contents is a copy, not a link, and
+/// replacing it is a real change the panel must still offer.
+fn links_to_source(target: &Path, source: &Path) -> bool {
+    match fs::symlink_metadata(target) {
+        Ok(meta) if meta.file_type().is_symlink() => {}
+        _ => return false,
+    }
+    match (fs::canonicalize(target), fs::canonicalize(source)) {
+        (Ok(resolved), Ok(origin)) => resolved == origin,
+        _ => false,
     }
 }
 
@@ -400,8 +424,11 @@ fn check_deploy_target(
     let linked_dirs = store.get_linked_directories().map_err(|e| e.to_string())?;
     let target_path = resolve_target_path(&source_path, &target_project_path, &linked_dirs);
 
-    let target_exists = target_path.exists();
-    let collision = target_exists;
+    // symlink_metadata, not exists(): a symlink whose target has been deleted
+    // still occupies the destination and would still have to be replaced.
+    let target_exists = fs::symlink_metadata(&target_path).is_ok();
+    let already_linked = links_to_source(&target_path, Path::new(&source_path));
+    let collision = target_exists && !already_linked;
 
     let parent = target_path.parent().unwrap_or(Path::new(&target_project_path));
     let has_permissions = match fs::metadata(parent) {
@@ -426,6 +453,8 @@ fn check_deploy_target(
         collision,
         has_permissions,
         warning,
+        target_path: target_path.to_string_lossy().to_string(),
+        already_linked,
     })
 }
 
@@ -1099,14 +1128,114 @@ pub fn run() {
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
-        .run(|_app, event| {
+        .run(|_app, event| match event {
             // Tauri sets the dev Dock icon from bundle.icon while converting the
             // runtime's Ready event, so ours has to land after that — setup() is
             // too early and gets overwritten. See src/dev_icon.rs.
-            if let tauri::RunEvent::Ready = event {
-                dev_icon::install();
-            }
+            tauri::RunEvent::Ready => dev_icon::install(),
+
+            // The dev icon is resolved for the appearance current at the time it
+            // was fetched, so it has to be re-fetched when the system flips.
+            tauri::RunEvent::WindowEvent {
+                event: tauri::WindowEvent::ThemeChanged(_),
+                ..
+            } => dev_icon::install(),
+
+            _ => {}
         });
+}
+
+#[cfg(test)]
+mod deploy_target_tests {
+    use super::{links_to_source, resolve_target_path};
+    use std::fs;
+    use std::path::Path;
+
+    #[test]
+    fn mirrors_the_path_relative_to_a_known_root() {
+        let roots = vec!["/home/me/.agents".to_string()];
+        let target = resolve_target_path(
+            "/home/me/.agents/skills/agent-browser/SKILL.md",
+            "/work/mei-recipes",
+            &roots,
+        );
+        assert_eq!(
+            target,
+            Path::new("/work/mei-recipes/skills/agent-browser/SKILL.md")
+        );
+    }
+
+    #[test]
+    fn falls_back_to_the_engine_folder_the_source_lives_under() {
+        let target = resolve_target_path(
+            "/home/me/.claude/skills/agent-browser",
+            "/work/mei-recipes",
+            &[],
+        );
+        assert_eq!(
+            target,
+            Path::new("/work/mei-recipes/.claude/agent-browser")
+        );
+    }
+
+    #[test]
+    fn a_symlink_pointing_at_the_source_is_recognised_as_already_linked() {
+        let dir = tempfile::tempdir().unwrap();
+        let source = dir.path().join("SKILL.md");
+        fs::write(&source, "body").unwrap();
+        let link = dir.path().join("linked");
+        std::os::unix::fs::symlink(&source, &link).unwrap();
+
+        assert!(links_to_source(&link, &source));
+    }
+
+    #[test]
+    fn a_plain_copy_is_not_a_link_even_with_identical_contents() {
+        let dir = tempfile::tempdir().unwrap();
+        let source = dir.path().join("SKILL.md");
+        fs::write(&source, "body").unwrap();
+        let copy = dir.path().join("copy.md");
+        fs::write(&copy, "body").unwrap();
+
+        // Replacing a copy is a real change; the panel must still offer it.
+        assert!(!links_to_source(&copy, &source));
+    }
+
+    #[test]
+    fn a_symlink_to_some_other_file_is_not_a_link_to_this_source() {
+        let dir = tempfile::tempdir().unwrap();
+        let source = dir.path().join("ours.md");
+        let other = dir.path().join("theirs.md");
+        fs::write(&source, "a").unwrap();
+        fs::write(&other, "b").unwrap();
+        let link = dir.path().join("linked");
+        std::os::unix::fs::symlink(&other, &link).unwrap();
+
+        assert!(!links_to_source(&link, &source));
+    }
+
+    #[test]
+    fn a_broken_symlink_is_not_reported_as_already_linked() {
+        let dir = tempfile::tempdir().unwrap();
+        let source = dir.path().join("SKILL.md");
+        fs::write(&source, "body").unwrap();
+        let link = dir.path().join("linked");
+        std::os::unix::fs::symlink(dir.path().join("gone.md"), &link).unwrap();
+
+        // It still occupies the destination, so it is a collision — but it is
+        // emphatically not the job already done.
+        assert!(!links_to_source(&link, &source));
+        assert!(fs::symlink_metadata(&link).is_ok());
+    }
+
+    #[test]
+    fn nothing_at_the_destination_is_not_a_link() {
+        let dir = tempfile::tempdir().unwrap();
+        let source = dir.path().join("SKILL.md");
+        fs::write(&source, "body").unwrap();
+
+        assert!(!links_to_source(&dir.path().join("absent"), &source));
+    }
 }
 
 #[cfg(test)]
