@@ -152,10 +152,26 @@ or do not count edges.
 the only asset struct without them; its `link_state` derivation differs from
 the other seven sites. Accidental asymmetry or unwritten rule; needs a ruling.
 
-**F26 — `upsert_asset` re-parents project-scope assets to the deepest
-matching root** (`preferences.rs:1045-1050`) with `abs_path` as the dedup key
-and no canonicalisation for project scope (`preferences.rs:1027-1028`).
-Consequence for deployments probed in item 7 of this run; see the run report.
+**F26 — `upsert_asset` re-parenting: RULED A BUG, 2026-08-14** (established,
+not yet fixed). Mechanism, proven by `tests/reparenting_probe_tests.rs`
+against real behaviour: the project walk canonicalizes a symlinked asset's
+path (`scanner.rs::canonicalize_asset_path` resolves symlinks), so the upsert
+arrives with the store's canonical path; `abs_path` dedup finds the existing
+store row (`preferences.rs:1052-1057`); `resolve_deepest_root` cannot match a
+store path to any project root and falls back to the passed project root id
+(`preferences.rs:1045-1050`); the existing-row UPDATE then **moves `root_id`
+to the project while `scope` is not in its column list**
+(`preferences.rs:1068-1071`). Result: one row, root stolen last-walk-wins,
+`scope='global'` frozen under a project root — the store's count silently
+loses the asset and the project gains it in its *global* bucket. This is the
+mechanism behind shipped count disagreements of the 121-vs-329 class. Intent
+witnesses all point the other way: the walk's own comment defends against
+exactly this re-parenting (`scanner.rs:1298-1304`), the v2 migration purged
+the mirror-image incoherence, and the deepest-real-location doctrine
+(`scanner.rs:830-843`) puts the row with the store. Fix belongs in
+`upsert_asset`: when the existing row's canonical path lies outside every
+project root, keep the existing `root_id`. The probe test asserts the
+defective behaviour on purpose and must flip into the fix's red/green pair.
 
 **F29 — Mixed-theme render on OS appearance change (running release build).**
 Observed 2026-08-14 while capturing item-6 evidence: with `theme=auto`, an OS
