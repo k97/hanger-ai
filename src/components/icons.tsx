@@ -19,6 +19,7 @@ import {
   ArrowTopRightOnSquareIcon as HeroArrowTopRightOnSquare,
   CheckIcon as HeroCheck,
   ChevronDownIcon as HeroChevronDown,
+  ChevronLeftIcon as HeroChevronLeft,
   ChevronRightIcon as HeroChevronRight,
   ChevronUpIcon as HeroChevronUp,
   Cog6ToothIcon as HeroCog6Tooth,
@@ -97,6 +98,7 @@ export const ArrowRightIcon = sized(HeroArrowRight, 0.79);
 export const ArrowTopRightOnSquareIcon = sized(HeroArrowTopRightOnSquare);
 export const CheckIcon = sized(HeroCheck, 1.07);
 export const ChevronDownIcon = sized(HeroChevronDown, 0.81);
+export const ChevronLeftIcon = sized(HeroChevronLeft, 0.8);
 export const ChevronRightIcon = sized(HeroChevronRight, 0.8);
 export const ChevronUpIcon = sized(HeroChevronUp, 0.81);
 export const Cog6ToothIcon = sized(HeroCog6Tooth, 1.12);

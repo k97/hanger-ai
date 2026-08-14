@@ -43,6 +43,25 @@ function placeOf(asset: ScopedAsset): string {
   return root ? basename(root) : "User profile";
 }
 
+const KINDS: Record<string, string> = {
+  Skills: "Skill",
+  Subagents: "Subagent",
+  Tools: "Tool",
+  Rules: "Rule",
+  Agents: "Agent",
+};
+
+/**
+ * The eyebrow's word for a category.
+ *
+ * The lists are plural because they hold many; the inspector is looking at
+ * exactly one, and reading "Skills" above a single skill is a small lie the
+ * panel does not need to tell.
+ */
+export function kindLabel(category: string): string {
+  return KINDS[category] ?? category;
+}
+
 /** The engine an asset belongs to, in the words the panel uses. */
 export function engineLabel(asset: ScopedAsset): string {
   const agent = asset.scope?.Project?.agent ?? asset.scope?.Global?.agent;

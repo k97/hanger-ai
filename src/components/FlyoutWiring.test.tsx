@@ -96,7 +96,7 @@ function TestAppHarness() {
             setSelectedBubble(val);
             setFlyoutInitialAsset(null);
           }}
-          initialDeployingAsset={flyoutInitialAsset}
+          selectedAsset={flyoutInitialAsset}
           inventory={mockInventory}
           linkedProjects={["/home/user/project"]}
           onRefresh={vi.fn()}
@@ -116,20 +116,14 @@ describe("Detail Flyout Wiring Integration", () => {
     expect(toolRow).toBeTruthy();
     expect(ruleRow).toBeTruthy();
 
-    // Click the Tools row
+    // The inspector titles whatever is selected, so the heading is the thing
+    // that must change — asserting the name appears "somewhere" would pass on
+    // the row that was already on screen.
     fireEvent.click(toolRow);
+    expect(screen.getByRole("heading", { level: 2 }).textContent).toBe("Global Node Tool");
 
-    // It should open the Flyout details. In the DeployWizard, the heading contains the asset's name
-    expect(screen.getAllByText("Global Node Tool").length).toBeGreaterThan(0);
-
-    // Close/Cancel the deploy wizard to return to flyout list
-    const cancelButton = screen.getByText("Cancel");
-    fireEvent.click(cancelButton);
-
-    // Now click the Rules row
+    // Selecting a second asset must replace the first, not sit on top of it.
     fireEvent.click(ruleRow);
-
-    // The Flyout details should now display the Rule name instead of the Tool name!
-    expect(screen.getAllByText("CLAUDE.md").length).toBeGreaterThan(0);
+    expect(screen.getByRole("heading", { level: 2 }).textContent).toBe("CLAUDE.md");
   });
 });

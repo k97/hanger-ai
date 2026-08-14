@@ -6,6 +6,7 @@ import {
   planFor,
   projectName,
   selectable,
+  shortPath,
   tagFor,
   type DestinationPlan,
   type PreflightResult,
@@ -64,6 +65,28 @@ describe("planFor — reading one destination's preflight", () => {
     expect(planFor("/Users/me/Work/mei-recipes", preflight()).name).toBe("mei-recipes");
     expect(projectName("/Users/me/Work/skills/")).toBe("skills");
     expect(projectName("skills")).toBe("skills");
+  });
+});
+
+describe("shortPath — the path with the shared prefix removed", () => {
+  it("writes the destination the way the panel shows it", () => {
+    const plan = planFor(
+      "/Users/me/Work/mei-recipes",
+      preflight({ target_path: "/Users/me/Work/mei-recipes/.claude/skills/agent-browser" })
+    );
+    // Truncating the absolute path from the right would show only the prefix
+    // every row shares.
+    expect(shortPath(plan)).toBe("mei-recipes/.claude/skills/agent-browser");
+  });
+
+  it("leaves a path it cannot place inside the root alone", () => {
+    const plan = planFor("/Users/me/Work/skills", preflight({ target_path: "/elsewhere/x" }));
+    expect(shortPath(plan)).toBe("/elsewhere/x");
+  });
+
+  it("survives a root written with a trailing slash", () => {
+    const plan = planFor("/work/skills", preflight({ target_path: "/work/skills//.claude/a" }));
+    expect(shortPath(plan)).toBe("skills/.claude/a");
   });
 });
 

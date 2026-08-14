@@ -3,14 +3,35 @@ import { invoke } from "@tauri-apps/api/core";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import {
   XMarkIcon,
+  ChevronLeftIcon,
   ExclamationTriangleIcon,
   LinkIcon,
   GlobeAltIcon,
 } from "./icons";
 import { Inventory } from "../App";
-import DeployWizard, { FlatAssetItem, PreflightResult } from "./DeployWizard";
 import AssetDetail from "./AssetDetail";
+import LinkPanel from "./LinkPanel";
 import DiffChooser, { AlignedSection } from "./DiffChooser";
+import { kindLabel, provenanceOf } from "../utils/assetProvenance";
+
+export interface FlatAssetItem {
+  type: "header" | "asset";
+  category: string;
+  name: string;
+  path: string;
+  scopeBadge: string;
+  isSymlink: boolean;
+  drifted: boolean;
+  version?: string;
+  details?: string;
+}
+
+/** The merge chooser's working state, alive only while a rule is being merged. */
+interface RuleMerge {
+  destination: string;
+  targetPath: string;
+  sections: AlignedSection[];
+}
 
 interface FlyoutProps {
   width?: number;
@@ -43,32 +64,18 @@ export default function Flyout({
   linkedProjects,
   onRefresh
 }: FlyoutProps) {
-  const [deployingAsset, setDeployingAsset] = useState<FlatAssetItem | null>(null);
+  const [linking, setLinking] = useState<FlatAssetItem | null>(null);
 
   useEffect(() => {
-    if (initialDeployingAsset) {
-      setDeployingAsset(initialDeployingAsset);
-    } else {
-      setDeployingAsset(null);
-    }
+    setLinking(initialDeployingAsset ?? null);
   }, [initialDeployingAsset]);
 
-  const [selectedDestProject, setSelectedDestProject] = useState<string>("");
-  const [deployType, setDeployType] = useState<"symlink" | "copy">("symlink");
-  const [preflightLoading, setPreflightLoading] = useState(false);
-  const [preflight, setPreflight] = useState<PreflightResult | null>(null);
-  const [deployLoading, setDeployLoading] = useState(false);
-  const [deployError, setDeployError] = useState<string | null>(null);
-  const [deploySuccess, setDeploySuccess] = useState(false);
-
-  // Rules target memory state
-  const [rememberedTarget, setRememberedTarget] = useState<string | null>(null);
-  const [selectedTargetRulePath, setSelectedTargetRulePath] = useState<string>("");
-  
-  const [showMergeChooser, setShowMergeChooser] = useState(false);
-  const [alignedSections, setAlignedSections] = useState<AlignedSection[]>([]);
+  const [merge, setMerge] = useState<RuleMerge | null>(null);
   const [sectionChoices, setSectionChoices] = useState<Record<string, "source" | "target" | "skip" | "both">>({});
   const [activeSectionIndex, setActiveSectionIndex] = useState<number>(0);
+  const [mergeError, setMergeError] = useState<string | null>(null);
+  const [mergeRunning, setMergeRunning] = useState(false);
+  const [mergeDone, setMergeDone] = useState(false);
 
   // Drag Resizing Logic for docked right inspector
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -296,116 +303,19 @@ export default function Flyout({
       ? inventory.project_scans.find((s) => s.path === selectedBubble.id)
       : null;
 
-  // Resolve matching rules at destination
-  const getDestRules = () => {
-    if (!deployingAsset || !selectedDestProject) return [];
-    return inventory.rules
-      .filter(
-        (r) => r.scope?.Project?.root === selectedDestProject && r.name === deployingAsset.name
-      )
-      .sort((a, b) => {
-        return a.path.split("/").length - b.path.split("/").length;
-      });
-  };
-
-  const destRules = getDestRules();
-
-  // Load target memory when dest project changes
-  useEffect(() => {
-    if (deployingAsset?.category === "Rules" && selectedDestProject) {
-      invoke<string | null>("get_rules_target_memory", {
-        projectPath: selectedDestProject,
-        rulePath: deployingAsset.name
-      }).then((res) => {
-        setRememberedTarget(res);
-        if (res && destRules.some((r) => r.path === res)) {
-          setSelectedTargetRulePath(res);
-        } else if (destRules.length > 0) {
-          setSelectedTargetRulePath(destRules[0].path);
-        } else {
-          setSelectedTargetRulePath("");
-        }
-      });
-    } else {
-      setRememberedTarget(null);
-      setSelectedTargetRulePath("");
-    }
-  }, [selectedDestProject, deployingAsset]);
-
-  // Run pre-flight check when destination changes
-  useEffect(() => {
-    if (!deployingAsset || !selectedDestProject) {
-      setPreflight(null);
-      return;
-    }
-    const runPreflight = async () => {
-      setPreflightLoading(true);
-      setDeployError(null);
-      try {
-        const res = await invoke<PreflightResult>("check_deploy_target", {
-          sourcePath: deployingAsset.path,
-          targetProjectPath: selectedDestProject
-        });
-        setPreflight(res);
-      } catch (err: any) {
-        setDeployError(String(err));
-      } finally {
-        setPreflightLoading(false);
-      }
-    };
-    runPreflight();
-  }, [selectedDestProject, deployingAsset]);
-
-  const handleExecuteDeploy = async () => {
-    if (!deployingAsset || !selectedDestProject) return;
-    setDeployLoading(true);
-    setDeployError(null);
-    setDeploySuccess(false);
-    try {
-      await invoke("execute_deploy", {
-        sourcePath: deployingAsset.path,
-        targetProjectPath: selectedDestProject,
-        deployType
-      });
-      setDeploySuccess(true);
-      onRefresh();
-      setTimeout(() => {
-        setDeployingAsset(null);
-        setDeploySuccess(false);
-        setPreflight(null);
-        setSelectedDestProject("");
-      }, 1500);
-    } catch (err: any) {
-      setDeployError(String(err));
-    } finally {
-      setDeployLoading(false);
-    }
-  };
-
-  const handleResetTargetMemory = async () => {
-    if (!deployingAsset || !selectedDestProject) return;
-    try {
-      await invoke("clear_rules_target_memory", {
-        projectPath: selectedDestProject,
-        rulePath: deployingAsset.name
-      });
-      setRememberedTarget(null);
-      if (destRules.length > 0) {
-        setSelectedTargetRulePath(destRules[0].path);
-      }
-    } catch (err: any) {
-      setDeployError(String(err));
-    }
-  };
-
-  // Open rules merge diff view
-  const handleOpenMergeChooser = async () => {
-    if (!deployingAsset || !selectedTargetRulePath) return;
-    setDeployError(null);
+  /**
+   * Merging a rule is the one thing the link panel cannot finish on its own.
+   * Every other kind is a file that either lands or does not; a rule has to be
+   * reconciled section by section against whatever is already there, so the
+   * panel hands the destination over and the chooser takes the conversation.
+   */
+  const openMergeChooser = async (destination: string, targetPath: string) => {
+    if (!linking) return;
+    setMergeError(null);
     try {
       const data = await invoke<any>("get_rule_sections", {
-        sourcePath: deployingAsset.path,
-        targetPath: selectedTargetRulePath
+        sourcePath: linking.path,
+        targetPath
       });
 
       const sourceSecs: RuleSection[] = data.source_sections;
@@ -447,32 +357,24 @@ export default function Flyout({
         }
       });
 
-      setAlignedSections(list);
-
       const initialChoices: Record<string, "source" | "target" | "skip" | "both"> = {};
       list.forEach((sec) => {
-        const key = sec.heading || "__preamble";
-        if (sec.sourceContent === sec.targetContent) {
-          initialChoices[key] = "target";
-        } else if (sec.sourceContent && !sec.targetContent) {
-          initialChoices[key] = "source";
-        } else if (sec.targetContent && !sec.sourceContent) {
-          initialChoices[key] = "target";
-        } else {
-          initialChoices[key] = "target";
-        }
+        // Keeping what is already there is the safe default; only a section
+        // the destination does not have yet arrives from the source.
+        initialChoices[sec.heading || "__preamble"] =
+          sec.sourceContent && !sec.targetContent ? "source" : "target";
       });
 
       setSectionChoices(initialChoices);
       setActiveSectionIndex(0);
-      setShowMergeChooser(true);
+      setMerge({ destination, targetPath, sections: list });
     } catch (err: any) {
-      setDeployError(String(err));
+      setMergeError(String(err));
     }
   };
 
   const getMergedPreviewContent = () => {
-    return alignedSections
+    return (merge?.sections ?? [])
       .map((sec) => {
         const key = sec.heading || "__preamble";
         const choice = sectionChoices[key] || "target";
@@ -488,41 +390,46 @@ export default function Flyout({
   };
 
   const handleApplyMergeDeploy = async () => {
-    if (!selectedTargetRulePath || !deployingAsset || !selectedDestProject) return;
-    setDeployLoading(true);
-    setDeployError(null);
+    if (!merge || !linking) return;
+    setMergeRunning(true);
+    setMergeError(null);
     try {
-      const mergedText = getMergedPreviewContent();
-
       await invoke("execute_deploy_merged_rule", {
-        targetPath: selectedTargetRulePath,
-        mergedContent: mergedText
+        targetPath: merge.targetPath,
+        mergedContent: getMergedPreviewContent()
       });
 
+      // Remember which file in that project this rule belongs to, so the next
+      // merge does not ask again.
       await invoke("set_rules_target_memory", {
-        projectPath: selectedDestProject,
-        rulePath: deployingAsset.name,
-        targetFile: selectedTargetRulePath
+        projectPath: merge.destination,
+        rulePath: linking.name,
+        targetFile: merge.targetPath
       });
 
-      setDeploySuccess(true);
+      setMergeDone(true);
       onRefresh();
-      
+
       setTimeout(() => {
-        setShowMergeChooser(false);
-        setDeployingAsset(null);
-        setDeploySuccess(false);
-        setPreflight(null);
-        setSelectedDestProject("");
+        setMerge(null);
+        setLinking(null);
+        setMergeDone(false);
       }, 1200);
     } catch (err: any) {
-      setDeployError(String(err));
+      setMergeError(String(err));
     } finally {
-      setDeployLoading(false);
+      setMergeRunning(false);
     }
   };
 
+  const closeLinkFlow = () => {
+    setLinking(null);
+    setMerge(null);
+    setMergeError(null);
+  };
+
   const targetAsset = selectedAsset || (initialDeployingAsset ? initialDeployingAsset : null);
+  const provenance = targetAsset ? provenanceOf(targetAsset as never, inventory) : null;
 
   return (
     <aside
@@ -535,12 +442,37 @@ export default function Flyout({
         className="absolute top-0 bottom-0 left-0 w-1.5 cursor-col-resize hover:bg-line-2 active:bg-line-2 z-10 transition-colors duration-hover"
       />
 
-      {/* Header — eyebrow voice, then the title */}
+      {/* Header — the eyebrow says where you are, the title says what you are
+          looking at. In the link flow the eyebrow becomes the way back, so the
+          panel never grows a second header for its second screen. */}
       <div className="px-[18px] pt-4 pb-3 border-b border-line shrink-0">
         <div className="flex items-center gap-2 font-flex text-micro font-medium tracking-[.06em] uppercase text-ink-3">
-          <span>
-            {targetAsset ? targetAsset.category : selectedBubble ? `${selectedBubble.type} scope` : "Inspector"}
-          </span>
+          {linking ? (
+            <button
+              onClick={closeLinkFlow}
+              aria-label={`Back to ${linking.name}`}
+              className="flex items-center gap-1.5 tracking-[.06em] uppercase text-ink-3 hover:text-ink-1 cursor-pointer transition-colors duration-hover ease-spring min-w-0"
+            >
+              <ChevronLeftIcon size={12} aria-hidden="true" className="shrink-0" />
+              <span className="truncate">{linking.name}</span>
+            </button>
+          ) : (
+            <>
+              <span>
+                {targetAsset
+                  ? kindLabel(targetAsset.category)
+                  : selectedBubble
+                  ? `${selectedBubble.type} scope`
+                  : "Inspector"}
+              </span>
+              {provenance && (
+                <>
+                  <span aria-hidden="true">·</span>
+                  <span className="truncate">{provenance.place}</span>
+                </>
+              )}
+            </>
+          )}
           {selectedProjectScan?.layered && (
             <span className="flex items-center gap-1 text-state-danger normal-case tracking-normal">
               <ExclamationTriangleIcon size={10} />
@@ -552,58 +484,48 @@ export default function Flyout({
               if (onClose) onClose();
               if (setSelectedBubble) setSelectedBubble(null);
             }}
-            className="ml-auto w-[27px] h-[27px] rounded-pill grid place-items-center text-ink-2 hover:bg-plane-2 hover:text-ink-1 cursor-pointer transition-colors duration-hover ease-spring"
+            aria-label="Close inspector"
+            className="ml-auto shrink-0 w-[27px] h-[27px] rounded-pill grid place-items-center text-ink-2 hover:bg-plane-2 hover:text-ink-1 cursor-pointer transition-colors duration-hover ease-spring"
           >
             <XMarkIcon size={14} />
           </button>
         </div>
         <h2 className="text-lg-app font-medium tracking-[-0.3px] mt-1 text-ink-1 truncate max-w-[280px] font-sans">
-          {targetAsset ? targetAsset.name : selectedBubble ? selectedBubble.name : "Asset Inspector"}
+          {linking
+            ? "Link to projects"
+            : targetAsset
+            ? targetAsset.name
+            : selectedBubble
+            ? selectedBubble.name
+            : "Asset Inspector"}
         </h2>
       </div>
 
       {/* Conditional Sub-components Coordinator */}
-      {deployingAsset ? (
+      {linking ? (
         <>
-          {showMergeChooser ? (
+          {merge ? (
             <DiffChooser
-              alignedSections={alignedSections}
+              alignedSections={merge.sections}
               sectionChoices={sectionChoices}
               setSectionChoices={setSectionChoices}
               activeSectionIndex={activeSectionIndex}
               setActiveSectionIndex={setActiveSectionIndex}
               getMergedPreviewContent={getMergedPreviewContent}
               onApplyMerge={handleApplyMergeDeploy}
-              onBack={() => setShowMergeChooser(false)}
-              deployError={deployError}
-              deployLoading={deployLoading}
-              deploySuccess={deploySuccess}
+              onBack={() => setMerge(null)}
+              deployError={mergeError}
+              deployLoading={mergeRunning}
+              deploySuccess={mergeDone}
             />
           ) : (
-            <DeployWizard
-              deployingAsset={deployingAsset}
-              linkedProjects={linkedProjects}
-              selectedDestProject={selectedDestProject}
-              setSelectedDestProject={setSelectedDestProject}
-              destRules={destRules}
-              rememberedTarget={rememberedTarget}
-              selectedTargetRulePath={selectedTargetRulePath}
-              setSelectedTargetRulePath={setSelectedTargetRulePath}
-              deployType={deployType}
-              setDeployType={setDeployType}
-              preflightLoading={preflightLoading}
-              preflight={preflight}
-              deployLoading={deployLoading}
-              deploySuccess={deploySuccess}
-              deployError={deployError}
-              onExecuteDeploy={handleExecuteDeploy}
-              onOpenMergeChooser={handleOpenMergeChooser}
-              onResetTargetMemory={handleResetTargetMemory}
-              onCancel={() => {
-                setDeployingAsset(null);
-                setPreflight(null);
-                setSelectedDestProject("");
-              }}
+            <LinkPanel
+              asset={linking}
+              destinations={linkedProjects}
+              inventory={inventory}
+              onCancel={closeLinkFlow}
+              onLinked={onRefresh}
+              onMergeRules={openMergeChooser}
             />
           )}
         </>
@@ -612,8 +534,8 @@ export default function Flyout({
           asset={targetAsset as any}
           inventory={inventory}
           onLink={
-            targetAsset.category !== "Agents" && targetAsset.category !== "Subagents"
-              ? () => setDeployingAsset(targetAsset as FlatAssetItem)
+            targetAsset.category !== "Agents"
+              ? () => setLinking(targetAsset as FlatAssetItem)
               : undefined
           }
         />
@@ -707,7 +629,7 @@ export default function Flyout({
                         <div className="flex items-center gap-2 shrink-0">
                           {item.category !== "Agents" && item.category !== "Subagents" && (
                             <button
-                              onClick={() => setDeployingAsset(item)}
+                              onClick={() => setLinking(item)}
                               className="opacity-0 group-hover:opacity-100 px-3 h-[22px] rounded-pill bg-fill text-on-fill text-micro font-medium transition-opacity duration-hover cursor-pointer"
                             >
                               Link

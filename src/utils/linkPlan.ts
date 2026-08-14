@@ -87,6 +87,20 @@ export function planFor(root: string, preflight: PreflightResult): DestinationPl
 }
 
 /**
+ * The destination path written the way the panel shows it: the project folder
+ * and the path beneath it.
+ *
+ * Absolute paths in this list all share a long prefix, so truncating one from
+ * the right shows the reader only the part every row has in common. Dropping
+ * the shared root leaves the half that actually differs.
+ */
+export function shortPath(plan: DestinationPlan): string {
+  if (!plan.targetPath.startsWith(plan.root)) return plan.targetPath;
+  const inside = plan.targetPath.slice(plan.root.length).replace(/^\/+/, "");
+  return inside ? `${plan.name}/${inside}` : plan.name;
+}
+
+/**
  * The destinations a link would actually change.
  *
  * Already-linked and unwritable rows stay visible — seeing that a project is
