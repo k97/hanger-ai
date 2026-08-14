@@ -1,3 +1,4 @@
+import { dedupeRegistrations } from "./mcpRegistration";
 import { isGlobalScope, isRepoScope, type Scope } from "./scopeAccess";
 import { Inventory, Skill, Tool, Rule, Agent, Subagent } from "../App";
 
@@ -21,26 +22,6 @@ function deduplicateSkills(skills: Skill[]): Skill[] {
   });
 }
 
-/**
- * Deduplicate MCP server rows by *registration*, not by config file.
- *
- * This keyed on `config_path`, which meant one file declaring three servers
- * rendered as a single row — `~/.codex/config.toml` has three, `~/.claude.json`
- * has three. A config file is not an asset; each server declared in it is.
- *
- * `Tool.id` is the backend's own identity for a registration
- * (`{config_path}-{name}`), so the same server registered by two different
- * hosts stays two rows. That cross-host coverage is the feature.
- */
-function deduplicateTools(tools: Tool[]): Tool[] {
-  const seen = new Set<string>();
-  return tools.filter((t) => {
-    const key = t.id ?? `${t.config_path}-${t.name}`;
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
-}
 
 function deduplicateRules(rules: Rule[]): Rule[] {
   const seen = new Set<string>();
@@ -75,7 +56,7 @@ export function filterProfileAssets(
 ): FilteredProfileResult {
   const agents = deduplicateAgents(inventory?.agents || []);
   const globalSkills = deduplicateSkills(inventory?.skills.filter((s) => isGlobalScope(s.scope as Scope)) || []);
-  const globalTools = deduplicateTools(inventory?.tools.filter((t) => isGlobalScope(t.scope as Scope)) || []);
+  const globalTools = dedupeRegistrations(inventory?.tools.filter((t) => isGlobalScope(t.scope as Scope)) || []);
   const globalRules = deduplicateRules(inventory?.rules.filter((r) => isGlobalScope(r.scope as Scope)) || []);
   const globalSubagents = deduplicateSubagents(inventory?.subagents.filter((sa) => isGlobalScope(sa.scope as Scope)) || []);
 
@@ -158,7 +139,7 @@ export function filterRepoAssets(
     (s) => isRepoScope(s.scope as Scope, repoPath)
   ) || []);
 
-  const repoTools = deduplicateTools(inventory?.tools.filter(
+  const repoTools = dedupeRegistrations(inventory?.tools.filter(
     (t) => isRepoScope(t.scope as Scope, repoPath)
   ) || []);
 

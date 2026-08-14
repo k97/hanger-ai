@@ -323,7 +323,7 @@ pub fn dedupe_combined(inventory: &mut Inventory) {
     inventory.agents.retain(|a| agent_ids.insert(a.id.clone()));
 
     let mut tool_ids = std::collections::HashSet::new();
-    inventory.tools.retain(|t| tool_ids.insert(t.id.clone()));
+    inventory.tools.retain(|t| tool_ids.insert(t.registration_key()));
 
     let mut rule_paths = std::collections::HashSet::new();
     inventory.rules.retain(|r| rule_paths.insert(r.path.clone()));

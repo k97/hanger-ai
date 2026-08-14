@@ -1,3 +1,4 @@
+import { registrationKey } from "./mcpRegistration";
 import { isGlobalScope, isRepoScope, type Scope } from "./scopeAccess";
 import type { Inventory } from "../App";
 
@@ -93,8 +94,7 @@ export function linkStateCounts(inventory: Inventory | null, scope: CountScope):
 
   const assets: ReviewableAsset[] = [
     ...dedupeBy(inventory.skills.filter(inScope), (s) => s.path),
-    // By registration, not by config file: one file declares many servers.
-    ...dedupeBy(inventory.tools.filter(inScope), (t) => t.id ?? `${t.config_path}-${t.name}`),
+    ...dedupeBy(inventory.tools.filter(inScope), registrationKey),
     ...dedupeBy(inventory.rules.filter(inScope), (r) => r.path),
     ...dedupeBy(inventory.subagents.filter(inScope), (sa) => sa.path),
   ];

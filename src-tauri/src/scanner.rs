@@ -306,6 +306,36 @@ fn get_home_dir() -> PathBuf {
     PathBuf::from(".")
 }
 
+/// Offer a walk entry to the links backfill if it is a symlink. Quiet on
+/// declines: the typed outcome is the accounting (see
+/// PreferencesStore::record_walk_symlink), and a project's stray symlinks
+/// (virtualenvs, node tooling) must not flood scan warnings. A dangling
+/// symlink has no canonical form and no asset identity; if a link row
+/// already exists for its destination, read-time state derivation reports
+/// it dangling — nothing to record here.
+fn offer_walk_symlink(
+    store: &crate::preferences::PreferencesStore,
+    dest_root_id: i64,
+    path: &Path,
+    now: i64,
+) {
+    let is_link = path
+        .symlink_metadata()
+        .map(|m| m.file_type().is_symlink())
+        .unwrap_or(false);
+    if !is_link {
+        return;
+    }
+    if let Ok(canonical) = fs::canonicalize(path) {
+        let _ = store.record_walk_symlink(
+            dest_root_id,
+            &path.to_string_lossy(),
+            &canonical.to_string_lossy(),
+            now,
+        );
+    }
+}
+
 fn canonicalize_asset_path(path: &Path, parse_warnings: &mut Vec<String>) -> String {
     match fs::canonicalize(path) {
         Ok(canonical_p) => canonical_p.to_string_lossy().to_string(),
@@ -422,8 +452,8 @@ fn tool_from_registration(
     reg: &crate::mcp::discover::Registration,
     scope: Scope,
 ) -> Tool {
-    Tool {
-        id: format!("{}-{}", reg.config_path, reg.server.name),
+    let mut tool = Tool {
+        id: String::new(),
         name: reg.server.name.clone(),
         command: reg.server.command.clone(),
         args: reg.server.args.clone(),
@@ -437,7 +467,10 @@ fn tool_from_registration(
         parse_status: Some("ok".to_string()),
         parse_error: None,
         link_state: None,
-    }
+    };
+    // Identity comes from the domain, not from a format! repeated per call site.
+    tool.id = tool.registration_key();
+    tool
 }
 
 

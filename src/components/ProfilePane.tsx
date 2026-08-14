@@ -5,6 +5,7 @@ import AssetRow, { AssetItem } from "./AssetRow";
 import AssetHeaderRow, { SortField, SortDirection } from "./AssetHeaderRow";
 import { Inventory, CategoryCounts } from "../App";
 import { filterProfileAssets } from "../utils/filterPredicate";
+import { dedupeRegistrations } from "../utils/mcpRegistration";
 import { sortAssetItems } from "../utils/sortUtils";
 import { sumGlobalAssets } from "../utils/globalAssetCount";
 import SummaryStrip from "./SummaryStrip";
@@ -84,12 +85,8 @@ export default function ProfilePane({
   const rawSkills = inventory?.skills.filter((s) => s.scope?.Global) || [];
   const globalSkills = rawSkills.filter((s, idx) => rawSkills.findIndex((other) => other.path === s.path) === idx);
 
-  // Per registration, not per config file. One file declaring three servers is
-  // three rows; the same server registered by two hosts is two rows. See
-  // deduplicateTools in filterPredicate.ts for the shared rule.
-  const rawTools = inventory?.tools.filter((t) => t.scope?.Global) || [];
-  const globalTools = rawTools.filter(
-    (t, idx) => rawTools.findIndex((other) => (other.id ?? other.config_path) === (t.id ?? t.config_path)) === idx
+  const globalTools = dedupeRegistrations(
+    inventory?.tools.filter((t) => t.scope?.Global) || []
   );
 
   const rawRules = inventory?.rules.filter((r) => r.scope?.Global) || [];

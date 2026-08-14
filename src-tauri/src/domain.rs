@@ -67,6 +67,22 @@ pub struct Tool {
     pub link_state: Option<LinkState>,
 }
 
+impl Tool {
+    /// What makes one MCP server registration distinct from another.
+    ///
+    /// A config FILE is not an asset — it declares many servers, and
+    /// `~/.claude.json` alone declares ten. Identity is the pair (file, server
+    /// name): the same server registered by two hosts is two registrations,
+    /// and that cross-host coverage is the feature Hanger exists to show.
+    ///
+    /// This lives on the type because four separate modules previously each
+    /// decided the answer for themselves and three chose `config_path`, which
+    /// kept one server per file and silently discarded the rest.
+    pub fn registration_key(&self) -> String {
+        format!("{}-{}", self.config_path, self.name)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Rule {
     pub id: String,
