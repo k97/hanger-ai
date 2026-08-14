@@ -846,6 +846,7 @@ export default function App() {
               : "machine"
           }
           needsReviewCount={review.counts.total}
+          darkMode={darkMode}
           onSelectMachine={() => {
             handleSelectSidebarItem("profile");
             invoke("set_preference", { key: "selected_sidebar_item", value: "profile" }).catch(() => {});

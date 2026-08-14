@@ -1,9 +1,14 @@
 import { ComputerDesktopIcon, GlobeAltIcon, ExclamationTriangleIcon, Cog6ToothIcon } from "./icons";
+import HangerMark from "./HangerMark";
 import Tooltip from "./Tooltip";
 
 interface IconRailProps {
   active: "machine" | "discovery" | "review";
   needsReviewCount: number;
+  /** The resolved appearance, so the brand mark can pick the variant that
+   *  stays legible on the rail. Passed rather than read from a media query
+   *  because the theme can be pinned against the OS. */
+  darkMode: boolean;
   onSelectMachine: () => void;
   onSelectDiscovery: () => void;
   onSelectReview: () => void;
@@ -23,6 +28,7 @@ const railBtnActiveClass =
 export default function IconRail({
   active,
   needsReviewCount,
+  darkMode,
   onSelectMachine,
   onSelectDiscovery,
   onSelectReview,
@@ -34,6 +40,10 @@ export default function IconRail({
       data-testid="icon-rail"
       className="w-14 shrink-0 border-r border-line bg-page flex flex-col items-center py-2 gap-[3px]"
     >
+      <HangerMark onDark={darkMode} size={23} className="pt-2" />
+
+      <div className="w-6 h-px bg-line my-2" />
+
       <Tooltip label="My machine">
         <button
           aria-label="My machine"
