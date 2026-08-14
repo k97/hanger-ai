@@ -35,6 +35,7 @@ forwardConsole();
 import {
   SunIcon,
   MoonIcon,
+  ComputerDesktopIcon,
   ExclamationTriangleIcon,
   XMarkIcon,
   GlobeAltIcon,
@@ -180,8 +181,27 @@ export interface CategoryCounts {
   engines?: Record<string, number>;
 }
 
+type ThemePref = "light" | "dark" | "auto";
+
+// A webview without media query support is treated as light rather than as a
+// reason to crash on startup.
+const prefersDark = (): boolean =>
+  typeof window !== "undefined" && typeof window.matchMedia === "function"
+    ? window.matchMedia("(prefers-color-scheme: dark)").matches
+    : false;
+
+const THEME_OPTIONS: { value: ThemePref; label: string; Icon: typeof SunIcon }[] = [
+  { value: "light", label: "Light", Icon: SunIcon },
+  { value: "dark", label: "Dark", Icon: MoonIcon },
+  { value: "auto", label: "Auto", Icon: ComputerDesktopIcon },
+];
+
 export default function App() {
-  const [darkMode, setDarkMode] = useState(false);
+  // Appearance is a three-way choice: pin light, pin dark, or follow the OS.
+  // Auto is the default, so a fresh install matches the rest of the desktop.
+  const [themePref, setThemePref] = useState<ThemePref>("auto");
+  const [systemDark, setSystemDark] = useState<boolean>(prefersDark);
+  const darkMode = themePref === "auto" ? systemDark : themePref === "dark";
   const [linkedDirectories, setLinkedDirectories] = useState<string[]>([]);
   const [inventory, setInventory] = useState<Inventory | null>(null);
   const [assetCounts, setAssetCounts] = useState<CategoryCounts | null>(null);
@@ -213,9 +233,11 @@ export default function App() {
   };
 
   // Theme lives in the settings panel and persists like every other layout choice.
-  const applyTheme = (dark: boolean) => {
-    setDarkMode(dark);
-    invoke("set_preference", { key: "dark_mode", value: dark ? "true" : "false" }).catch(() => {});
+  // "auto" is written out rather than left absent, so choosing it after an
+  // explicit Light or Dark still survives a restart.
+  const applyTheme = (pref: ThemePref) => {
+    setThemePref(pref);
+    invoke("set_preference", { key: "theme", value: pref }).catch(() => {});
   };
 
   // Needs review is its own section: which kind of problem, which place,
@@ -376,14 +398,16 @@ export default function App() {
   } | null>(null);
   const [flyoutInitialAsset, setFlyoutInitialAsset] = useState<any | null>(null);
 
-  // Setup theme toggle
+  // Track the OS appearance for as long as the app runs, not just at startup, so
+  // flipping macOS between light and dark repaints Auto without a relaunch.
   useEffect(() => {
-    if (darkMode) {
-      document.documentElement.classList.add("dark");
-    } else {
-      document.documentElement.classList.remove("dark");
-    }
-  }, [darkMode]);
+    if (typeof window.matchMedia !== "function") return;
+    const query = window.matchMedia("(prefers-color-scheme: dark)");
+    const onChange = (e: MediaQueryListEvent) => setSystemDark(e.matches);
+    query.addEventListener("change", onChange);
+    setSystemDark(query.matches);
+    return () => query.removeEventListener("change", onChange);
+  }, []);
 
 
 
@@ -461,9 +485,19 @@ export default function App() {
       if (collapsedPref === "true") {
         setSidebarCollapsed(true);
       }
-      const darkPref = await invoke<string | null>("get_preference", { key: "dark_mode" });
-      if (darkPref === "true") {
-        setDarkMode(true);
+      // `theme` supersedes the old boolean `dark_mode` key. A stored dark_mode is
+      // only ever written by the old switcher's two buttons, so it records a
+      // deliberate choice and outranks the new Auto default.
+      const themeStored = await invoke<string | null>("get_preference", { key: "theme" });
+      if (themeStored === "light" || themeStored === "dark" || themeStored === "auto") {
+        setThemePref(themeStored);
+      } else {
+        const darkPref = await invoke<string | null>("get_preference", { key: "dark_mode" });
+        if (darkPref === "true") {
+          setThemePref("dark");
+        } else if (darkPref === "false") {
+          setThemePref("light");
+        }
       }
       const inspectorPref = await invoke<string | null>("get_preference", { key: "inspector_open" });
       if (inspectorPref === "true") {
@@ -599,6 +633,8 @@ export default function App() {
     setSelectedSidebarItem(item);
   };
 
+  // The one place the resolved appearance reaches the DOM, whether it came from
+  // an explicit pick or from the OS by way of Auto.
   useEffect(() => {
     document.documentElement.classList.toggle("dark", darkMode);
   }, [darkMode]);
@@ -1160,30 +1196,23 @@ export default function App() {
                   Appearance
                 </span>
                 <div className="flex gap-1.5 w-full" role="group" aria-label="Theme colour">
-                  <button
-                    aria-pressed={!darkMode}
-                    onClick={() => applyTheme(false)}
-                    className={
-                      !darkMode
-                        ? "flex-1 h-[30px] rounded-pill border border-transparent bg-tint text-tint-ink font-medium text-small font-flex cursor-pointer transition-colors duration-nav ease-spring inline-flex items-center justify-center gap-1.5"
-                        : "flex-1 h-[30px] rounded-pill border border-line-2 text-ink-2 text-small font-flex cursor-pointer transition-colors duration-nav ease-spring hover:bg-plane-2 inline-flex items-center justify-center gap-1.5"
-                    }
-                  >
-                    <SunIcon size={13} />
-                    Light
-                  </button>
-                  <button
-                    aria-pressed={darkMode}
-                    onClick={() => applyTheme(true)}
-                    className={
-                      darkMode
-                        ? "flex-1 h-[30px] rounded-pill border border-transparent bg-tint text-tint-ink font-medium text-small font-flex cursor-pointer transition-colors duration-nav ease-spring inline-flex items-center justify-center gap-1.5"
-                        : "flex-1 h-[30px] rounded-pill border border-line-2 text-ink-2 text-small font-flex cursor-pointer transition-colors duration-nav ease-spring hover:bg-plane-2 inline-flex items-center justify-center gap-1.5"
-                    }
-                  >
-                    <MoonIcon size={13} />
-                    Dark
-                  </button>
+                  {THEME_OPTIONS.map(({ value, label, Icon }) => (
+                    <button
+                      key={value}
+                      // Reflects the preference, not the painted result, so Auto
+                      // reads as chosen even while it is resolving to dark.
+                      aria-pressed={themePref === value}
+                      onClick={() => applyTheme(value)}
+                      className={
+                        themePref === value
+                          ? "flex-1 h-[30px] rounded-pill border border-transparent bg-tint text-tint-ink font-medium text-small font-flex cursor-pointer transition-colors duration-nav ease-spring inline-flex items-center justify-center gap-1.5"
+                          : "flex-1 h-[30px] rounded-pill border border-line-2 text-ink-2 text-small font-flex cursor-pointer transition-colors duration-nav ease-spring hover:bg-plane-2 inline-flex items-center justify-center gap-1.5"
+                      }
+                    >
+                      <Icon size={13} />
+                      {label}
+                    </button>
+                  ))}
                 </div>
               </div>
 

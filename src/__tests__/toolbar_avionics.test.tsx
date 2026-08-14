@@ -94,8 +94,8 @@ describe("Avionics A3 Toolbar Verification", () => {
     fireEvent.click(darkButton);
     await waitFor(() => {
       expect(invoke).toHaveBeenCalledWith("set_preference", {
-        key: "dark_mode",
-        value: "true",
+        key: "theme",
+        value: "dark",
       });
     });
     unmount();
