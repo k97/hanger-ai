@@ -136,11 +136,21 @@ that audit should re-verify its other findings first.
 
 ## Data layer (carried from the stop report, still open)
 
-**F23 — `links` has no production writer.** One row-creation path
-(`upsert_link`, `preferences.rs:1128`), test callers only; `execute_deploy`
-writes nothing on the symlink branch and only `deploy_checksums` on the copy
-branch. Behind the shipped `0 linked · 121 local only`. Items 7–8 of this run
-address it; outcome in the run report.
+**F23 — `links` has no production writer. PARTIALLY FIXED 2026-08-14.**
+Was: one row-creation path (`upsert_link`), test callers only; behind the
+shipped `0 linked · 121 local only`. Landed: the v4 migration (dedup,
+`UNIQUE(asset_id, dest_path)`, `dest_root_id` index, tracked-copy backfill
+from `deploy_checksums`), a real upsert preserving `created_at`, and
+deploy-time recording on both `execute_deploy` branches via
+`record_deploy_link`, which declines when the source was never scanned
+rather than inventing an asset row (see F26). Real-machine accounting on a
+store copy: `user_version 4`, 0 checksum rows → 0 backfilled links, fully
+accounted. **Still open: the scan-time symlink backfill** — it lives in the
+scanner walk, which a concurrent session held throughout this run. Until it
+lands, symlinks deployed before v4 (chezmoi-era per-asset links, if any) have
+no rows, and the map under-reports exactly those. Root-level engine symlinks
+stay out of `links` permanently by design: one filesystem object must not
+become N rows; engine reachability derives from `roots` at read time.
 
 **F24 — `count_assets` has no destination axis** (`scanner.rs:9-23`): one
 parameter filtering the owning root; edges (source→destination) are
