@@ -697,6 +697,11 @@ impl DirectoryScanner {
         let mut seen_registrations: std::collections::HashSet<(String, String)> =
             std::collections::HashSet::new();
 
+        // Agent id -> its engine_global root, so registry-discovered servers
+        // can attach to a root that already exists rather than minting one.
+        let mut agent_root_ids: std::collections::HashMap<String, i64> =
+            std::collections::HashMap::new();
+
         // 0. Load deploy checksums for drift checking
         let mut checksums = Vec::new();
         if self.db_path.exists() {
@@ -768,6 +773,13 @@ impl DirectoryScanner {
                 let global_root_id = store_opt.as_ref().and_then(|s| {
                     s.upsert_root("engine_global", g_path, Some(engine_id), &agent.name, now).ok()
                 });
+                // Retained so the registry pass can attach ~/.claude.json's
+                // servers to Claude Code's existing root. Its parent directory
+                // is $HOME, and a root there is a hazard this codebase already
+                // guards against — see home_root_hazard_tests.rs.
+                if let Some(rid) = global_root_id {
+                    agent_root_ids.insert(agent.id.clone(), rid);
+                }
 
                 let g_path_buf = Path::new(g_path);
                 if let Ok(entries) = fs::read_dir(g_path_buf) {
@@ -1080,6 +1092,110 @@ impl DirectoryScanner {
                     } else {
                         parse_warnings.push(format!("Reap skipped for global root {}: walk contained skipped or unreadable entries", agent.name));
                     }
+                }
+            }
+        }
+
+        // ── Machine-level MCP registrations, from the registry ──────────────
+        //
+        // The per-agent sweep above only reaches inside an agent's own config
+        // root. Two whole classes of registration are invisible to it: the five
+        // MCP-only hosts, which have no agent root at all, and ~/.claude.json,
+        // which sits *beside* ~/.claude rather than inside it and is where
+        // `claude mcp add` writes by default.
+        //
+        // Registry paths are opened directly by absolute path. The directory
+        // walk never sees them, so is_excluded is neither consulted nor
+        // weakened — proven by a planted control in mcp_discovery_tests.
+        {
+            let machine = crate::mcp::discover::discover_machine(&get_home_dir());
+            parse_warnings.extend(machine.warnings);
+
+            let home_dir = get_home_dir();
+            let mut host_root_ids: std::collections::HashMap<&'static str, i64> =
+                std::collections::HashMap::new();
+
+            for reg in machine.registrations {
+                // Local tier is keyed to a repository. The project pass emits
+                // it as Scope::Local; it must not appear in the profile.
+                if reg.tier == crate::mcp::registry::ScopeTier::Local {
+                    continue;
+                }
+                if !seen_registrations.insert((reg.config_path.clone(), reg.server.name.clone())) {
+                    continue;
+                }
+                let Some(host) = crate::mcp::registry::host_by_id(reg.host_id) else {
+                    continue;
+                };
+
+                inventory.tools.push(tool_from_registration(
+                    &reg,
+                    Scope::Global { agent: reg.host_id.to_string() },
+                ));
+
+                let Some(store) = &store_opt else { continue };
+
+                let engine_key = host.engine_key();
+                let root_id = if let Some(rid) = agent_root_ids.get(host.id) {
+                    // A detected agent already owns a root; reuse it rather
+                    // than creating a second one for the same engine.
+                    Some(*rid)
+                } else if let Some(rid) = host_root_ids.get(host.id) {
+                    Some(*rid)
+                } else {
+                    let config_dir = Path::new(&reg.config_path)
+                        .parent()
+                        .map(|p| p.to_path_buf())
+                        .unwrap_or_else(|| Path::new(&reg.config_path).to_path_buf());
+
+                    // Never root at $HOME. ~/.claude.json's parent is the home
+                    // directory itself, and a root there would swallow the
+                    // whole machine on the next walk.
+                    if config_dir == home_dir {
+                        None
+                    } else {
+                        let config_dir = config_dir.to_string_lossy().to_string();
+                        let eid = store
+                            .upsert_engine(&engine_key, host.display_name, &config_dir, now)
+                            .ok();
+                        if let Some(eid) = eid {
+                            engine_db_ids.entry(engine_key.clone()).or_insert(eid);
+                        }
+                        let rid = eid.and_then(|eid| {
+                            store
+                                .upsert_root(
+                                    "engine_global",
+                                    &config_dir,
+                                    Some(eid),
+                                    host.display_name,
+                                    now,
+                                )
+                                .ok()
+                        });
+                        if let Some(rid) = rid {
+                            host_root_ids.insert(host.id, rid);
+                        }
+                        rid
+                    }
+                };
+
+                if let Some(r_id) = root_id {
+                    let engine_id = engine_db_ids.get(&engine_key).copied();
+                    let asset_path = format!("{}:{}", reg.config_path, reg.server.name);
+                    let _ = store.upsert_asset(
+                        r_id,
+                        engine_id,
+                        "tool",
+                        "global",
+                        &reg.server.name,
+                        &asset_path,
+                        None,
+                        None,
+                        "ok",
+                        None,
+                        now,
+                        now,
+                    );
                 }
             }
         }
