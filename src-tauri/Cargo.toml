@@ -40,3 +40,10 @@ tauri-plugin-log = "2.9.0"
 tauri-plugin-clipboard-manager = "2"
 tauri-plugin-updater = "2"
 tauri-plugin-mcp-bridge = "0.12"
+
+# AppKit access for the dev-only Dock icon override (see src/dev_icon.rs).
+# Already in the tree via tauri; naming them here just makes them reachable.
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = "0.6"
+objc2-foundation = "0.3"
+objc2-app-kit = { version = "0.3", features = ["NSApplication", "NSImage"] }
