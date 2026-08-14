@@ -1362,6 +1362,13 @@ impl DirectoryScanner {
                 dirs_visited += 1;
                 on_progress(dirs_visited, files_visited, &path_str);
 
+                // A symlinked directory is yielded but never descended
+                // (follow_links is off), so this entry is the only chance to
+                // record a deployed skill dir as a link.
+                if let (Some(store), Some(r_id)) = (&store_opt, project_root_id) {
+                    offer_walk_symlink(store, r_id, path, now);
+                }
+
                 if qualifies_as_repo(path) {
                     let abs = fs::canonicalize(path)
                         .unwrap_or_else(|_| path.to_path_buf())
@@ -1377,6 +1384,10 @@ impl DirectoryScanner {
 
             files_visited += 1;
             on_progress(dirs_visited, files_visited, &path_str);
+
+            if let (Some(store), Some(r_id)) = (&store_opt, project_root_id) {
+                offer_walk_symlink(store, r_id, path, now);
+            }
 
             let filename = match path.file_name().and_then(|n| n.to_str()) {
                 Some(f) => f,

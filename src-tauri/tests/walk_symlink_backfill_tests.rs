@@ -175,10 +175,6 @@ fn test_record_walk_symlink_outcomes_are_the_stated_reasons() {
 }
 
 #[test]
-#[ignore = "the walk-side call sites are blocked: scanner.rs is held by a concurrent \
-            session (2026-08-14). offer_walk_symlink exists (swept into commit e394bf5) \
-            but nothing calls it yet. Un-ignore when the two call sites land — this test \
-            is the backfill's accounting and must go green unchanged."]
 fn test_project_walk_accounts_for_every_symlink_it_meets() {
     use tauri_app_lib::scanner::{DirectoryScanner, Scanner};
 
