@@ -226,7 +226,7 @@ with an `interface <Name>Props` declared directly above. Views are suffixed
 
 ### Shell
 
-**`IconRail`** (`IconRail.tsx:5-16`) — `active: "machine" | "discovery" | "review"`,
+**`IconRail`** (`IconRail.tsx:5-18`) — `active: "machine" | "linkmap" | "discovery" | "review"`,
 `needsReviewCount: number`, `darkMode: boolean`, `onSelectMachine`,
 `onSelectDiscovery`, `onSelectReview`, `onOpenSettings`. Fixed 56px column
 (`w-14`, `IconRail.tsx:40`). Buttons are `w-[38px] h-8 rounded-pill`
@@ -264,6 +264,21 @@ drift apart on sizing (`:18-21`).
 **`DiscoveryPane`** (`DiscoveryPane.tsx:13-15`) — `filterText?` only. Renders
 from static data in `src/data/directories.ts`.
 
+**`LinkMapPane`** (`LinkMapPane.tsx:20-26`) — `graph`, `loading`,
+`selectedEdge`, `onSelectEdge`, `onRescan`. The map: three SVG columns at a
+fixed logical width of 880 scaled by viewBox (`LinkMapPane.tsx:18`), so
+layout is deterministic whatever the window does. Stroke carries mechanism
+(solid symlink, dashed tracked copy), colour carries state (`text-ink-2`,
+`text-state-warning`, `text-state-danger` — `LinkMapPane.tsx:34-56`). The
+legend maps the same exhaustive enum lists the renderer matches on
+(`linkMapLayout.ts:49-50`, consumed at `LinkMapPane.tsx:277`, `:293`), so it
+cannot describe a style that is never drawn. Geometry is a pure function,
+`layoutLinkGraph(graph, width)` (`linkMapLayout.ts:101`): stable sort on
+(label, id) within columns, bézier paths from endpoint coordinates only.
+The graph itself — nodes, counts, edge states, even which empty state the
+view is in — arrives computed from the backend `link_graph` command
+(`src-tauri/src/linkmap.rs`); the pane derives nothing.
+
 ### Inspectors
 
 Two inspectors exist with different payloads, mounted per view rather than one
@@ -277,6 +292,14 @@ generic panel: `AssetDetail` for assets (`AssetDetail.tsx:26-31`: `asset`,
 
 `Flyout` is the asset inspector's coordinator and owns its own `<aside>`
 (@b383a08).
+
+**`LinkMapInspector`** is the fourth (`LinkMapInspector.tsx:5-9`: `edge`,
+`nodes`, `onClose`), following `ReviewInspector`'s anatomy — eyebrow, title,
+state dot and line, path chip, key-value `dl`. It deliberately carries no
+provenance: nothing records who created a link or when, and inventing that
+was a defect in the prototype (`LinkMapInspector.tsx:30-34`). Its count row
+is labelled by what actually travels the edge — assets to a project,
+root-level symlinks to an engine (`LinkMapInspector.tsx:52`).
 
 ### Surfaces and controls
 

@@ -145,25 +145,42 @@ deploy-time recording on both `execute_deploy` branches via
 `record_deploy_link`, which declines when the source was never scanned
 rather than inventing an asset row (see F26). Real-machine accounting on a
 store copy: `user_version 4`, 0 checksum rows → 0 backfilled links, fully
-accounted. **Still open: the scan-time symlink backfill** — it lives in the
-scanner walk, which a concurrent session held throughout this run. Until it
-lands, symlinks deployed before v4 (chezmoi-era per-asset links, if any) have
-no rows, and the map under-reports exactly those. Root-level engine symlinks
-stay out of `links` permanently by design: one filesystem object must not
-become N rows; engine reachability derives from `roots` at read time.
+accounted. **The scan-time symlink backfill landed 2026-08-14 evening**
+(86c7c70 store half: `record_walk_symlink` with typed decline reasons;
+2fbaa2c walk half: call sites on dir and file entries — a symlinked skill
+directory is yielded but never descended, so the dir entry is the only
+chance to see it). Verification is an accounting, pinned by
+`tests/walk_symlink_backfill_tests.rs`: every symlink the walk meets either
+records a row or carries a typed reason (TargetNotInStore, TargetInSameRoot,
+unresolvable). F23 is now CLOSED except by later regression. Root-level
+engine symlinks stay out of `links` permanently by design: one filesystem
+object must not become N rows; engine reachability derives from `roots` at
+read time — which is exactly how the link map draws its store→engine edges.
 
 **F24 — `count_assets` has no destination axis** (`scanner.rs:9-23`): one
 parameter filtering the owning root; edges (source→destination) are
 inexpressible without modification. Any second counting path is how the
 sidebar and header once came to disagree — extend the function, in the open,
-or do not count edges.
+or do not count edges. *Outcome 2026-08-14: the link map counts neither.*
+Its edge counts are counts of LINKS (rows in `links`, root-level symlinks
+for engine edges — `linkmap.rs`), a different quantity; its node asset
+counts come from `count_assets` per root. The destination axis for asset
+counts remains absent, and nothing new counts assets.
 
 **F25 — `Subagent` lacks `drifted`/`is_symlink`** (`domain.rs:95-110`) —
 the only asset struct without them; its `link_state` derivation differs from
 the other seven sites. Accidental asymmetry or unwritten rule; needs a ruling.
 
-**F26 — `upsert_asset` re-parenting: RULED A BUG, 2026-08-14** (established,
-not yet fixed). Mechanism, proven by `tests/reparenting_probe_tests.rs`
+**F26 — `upsert_asset` re-parenting: RULED A BUG, 2026-08-14. FIXED the same
+evening** (4a8a248): when the existing row's canonical path lies outside
+every project root, the row keeps its root_id — a project walk that reaches
+such a path has followed a symlink, and a link is not ownership. The probe
+flipped from documenting the defect to guarding the fix (red pasted:
+root_id 2≠1; then green), with a companion pinning that genuine nested
+project assets still resolve to the deepest root. Real-store accounting on
+a live-DB copy: 351 assets, every per-root count identical before and after
+a full rescan — no stolen rows existed on this machine, and the fixed walk
+steals nothing. Original mechanism, proven by `tests/reparenting_probe_tests.rs`
 against real behaviour: the project walk canonicalizes a symlinked asset's
 path (`scanner.rs::canonicalize_asset_path` resolves symlinks), so the upsert
 arrives with the store's canonical path; `abs_path` dedup finds the existing
@@ -194,6 +211,37 @@ inverse) and not reproduced from the current tree. Screenshot retained in the
 run report. Needs its own diagnosis: candidates include a `.dark`-scoped
 subtree that misses the toggle, or a surface reading the OS scheme directly
 instead of the resolved `darkMode` state.
+
+**F30 — Link map edge labels can collide near a shared source anchor.**
+Observed in the running build (2026-08-14 screenshots, dark, 1280 and 860):
+several long edges leaving one store node place their "N symlink(s)" labels
+at curve midpoints, and two labels overlap where the curves run close.
+Legible at 1280, tight at 860. Labels are positioned from endpoints only —
+the same determinism rule that keeps the map from reshuffling — so any fix
+is deliberate label layout, not jitter. Polish task; the data is right.
+
+**F31 — `test_write_transactional_validation_failure_rollback` is
+load-flaky.** Failed once ("Expected ValidationFailed error" — a different
+`TransactionError` variant came back) while three gate processes ran in
+parallel, then passed 3/3 in isolation and in the full serial suite, twice.
+`transactional.rs` is untouched since the initial commit. Suggests
+`write_transactional` can surface a non-validation error under filesystem
+contention; worth a look at its error taxonomy before anyone trusts a red
+from a busy machine.
+
+**F32 — HEAD did not compile from a fresh clone between 12:02 and ~20:45
+on 2026-08-14. FIXED** (recorded so the class is remembered, not the
+instance): commit 4dcccfc referenced `dev_icon.rs` and, at compile time,
+`include_bytes!("../icons/dev-Assets.car")` while both stayed untracked in
+the shared working tree — every clone since failed `cargo build`. Traced by
+a concurrent session (`git log -S "pub mod dev_icon"`), surfaced to the
+user, and landed properly as b5ab6e4 with an explicit tracked-vs-generated
+decision. The class: in a shared checkout, a commit can silently depend on
+a neighbour's uncommitted files, and `cargo test` run locally will never
+notice. The same day also produced e394bf5 (swept an in-flight function)
+and ac54d57 (swept a staged 70-file set; reset within the minute, recommitted
+clean as d6e5dd4). Only `git commit -- <paths>` is safe here, and a red gate
+is not trustworthy without checking mtimes of what it read.
 
 ## Mechanism / state vocabulary (recorded earlier, unchanged)
 
