@@ -274,6 +274,7 @@ export default function RepoPane({
           counts={stripCounts}
           activeStateFilter={stateFilter}
           onFilterState={(f) => onStateFilterChange?.(f)}
+          onRescan={onRefresh}
         />
       </div>
 

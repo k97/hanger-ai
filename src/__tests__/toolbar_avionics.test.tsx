@@ -111,10 +111,14 @@ describe("Avionics A3 Toolbar Verification", () => {
     unmount();
   });
 
-  it("provides a reachable refresh control in toolbar that fires its handler", async () => {
+  it("puts rescan in the summary strip, not the toolbar, and fires its handler", async () => {
     const { unmount } = render(<App />);
     const refreshButton = await screen.findByTitle("Refresh scan");
     expect(refreshButton).toBeTruthy();
+
+    // It sits with the figure it refreshes, not in the window chrome.
+    expect(screen.getByRole("banner").contains(refreshButton)).toBe(false);
+    expect(screen.getByLabelText("Inventory summary").contains(refreshButton)).toBe(true);
 
     fireEvent.click(refreshButton);
 

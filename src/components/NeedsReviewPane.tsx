@@ -1,4 +1,4 @@
-import { ArrowRightIcon, CheckIcon } from "./icons";
+import { ArrowPathIcon, ArrowRightIcon, CheckIcon } from "./icons";
 import {
   matchesIssueFilter,
   type IssueKind,
@@ -16,6 +16,10 @@ interface NeedsReviewPaneProps {
   onSelectKind: (kind: IssueKind | null) => void;
   onSelectPlace: (place: string | null) => void;
   onSelectIssue: (issue: ReviewIssue) => void;
+  /** Same placement as the machine strip: the control that refreshes the
+   *  figure sits beside it. */
+  onRescan?: () => void;
+  scanning?: boolean;
 }
 
 /** Kinds in the order they are worth acting on, with their strip vocabulary. */
@@ -60,6 +64,8 @@ export default function NeedsReviewPane({
   onSelectKind,
   onSelectPlace,
   onSelectIssue,
+  onRescan,
+  scanning = false,
 }: NeedsReviewPaneProps) {
   const shown = issues.filter((issue) => matchesIssueFilter(issue, kind, place, filterText));
 
@@ -132,15 +138,30 @@ export default function NeedsReviewPane({
             ) : null
           )}
 
-          {counts.crossRepo > 0 && (
-            <button
-              onClick={() => onSelectPlace(place === "cross" ? null : "cross")}
-              className="ml-auto h-[27px] px-4 rounded-pill bg-fill text-on-fill text-small font-medium cursor-pointer transition-transform duration-press ease-spring active:scale-[0.96] inline-flex items-center gap-1.5"
-            >
-              Show {counts.crossRepo} cross-repo
-              <ArrowRightIcon size={13} />
-            </button>
-          )}
+          <div className="ml-auto flex items-center gap-2">
+            {onRescan && (
+              <button
+                onClick={onRescan}
+                disabled={scanning}
+                aria-label="Refresh scan"
+                title="Refresh scan"
+                className="h-[30px] pl-3 pr-3.5 inline-flex items-center gap-2 rounded-pill border border-line-2 text-small font-medium text-ink-1 cursor-pointer transition-[background-color,transform] duration-hover ease-spring hover:bg-plane-2 active:scale-[0.96] disabled:opacity-50 disabled:cursor-default"
+              >
+                <ArrowPathIcon size={13} className={scanning ? "animate-spin" : ""} />
+                {scanning ? "Scanning" : "Rescan"}
+              </button>
+            )}
+
+            {counts.crossRepo > 0 && (
+              <button
+                onClick={() => onSelectPlace(place === "cross" ? null : "cross")}
+                className="h-[30px] px-4 rounded-pill bg-fill text-on-fill text-small font-medium tabular cursor-pointer transition-[transform] duration-press ease-spring hover:-translate-y-px active:scale-[0.96] inline-flex items-center gap-1.5"
+              >
+                Show {counts.crossRepo} cross-repo
+                <ArrowRightIcon size={13} />
+              </button>
+            )}
+          </div>
         </div>
       </section>
 

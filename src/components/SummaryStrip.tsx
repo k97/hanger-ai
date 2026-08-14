@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import Particles from "./Particles";
+import { ArrowPathIcon } from "./icons";
 import type { StateCounts, StateFilter, LinkState } from "../utils/linkStateCounts";
 
 interface SummaryStripProps {
@@ -11,6 +11,10 @@ interface SummaryStripProps {
   counts: StateCounts;
   activeStateFilter: StateFilter;
   onFilterState: (filter: StateFilter) => void;
+  /** Rescan lives here rather than in the toolbar: it is the control that
+   *  changes the figure directly above it, and the strip already says how old
+   *  that figure is. */
+  onRescan?: () => void;
 }
 
 function timeAgo(from: Date, now: Date): string {
@@ -36,7 +40,7 @@ const SEGMENTS: Array<{ state: LinkState; barClass: string; dotClass: string; la
   },
 ];
 
-/** One large typographic anchor on the tinted plane, with the particle field. */
+/** One large typographic anchor on the tinted plane. */
 export default function SummaryStrip({
   total,
   subtitle,
@@ -45,6 +49,7 @@ export default function SummaryStrip({
   counts,
   activeStateFilter,
   onFilterState,
+  onRescan,
 }: SummaryStripProps) {
   // Re-render every 30s so the scan stamp keeps pace without a scan event.
   const [, setTick] = useState(0);
@@ -68,11 +73,9 @@ export default function SummaryStrip({
   return (
     <section
       aria-label="Inventory summary"
-      className="px-4 py-3.5 bg-plane border border-line rounded-plane relative overflow-hidden shrink-0"
+      className="px-4 py-3.5 bg-plane border border-line rounded-plane shrink-0"
     >
-      <Particles />
-
-      <div className="relative z-[1] flex items-baseline gap-3 mb-3">
+      <div className="flex items-baseline gap-3 mb-3">
         <span className="text-display font-medium tabular tracking-[-0.5px] leading-[1.1] text-ink-1">
           {total}
         </span>
@@ -81,7 +84,7 @@ export default function SummaryStrip({
       </div>
 
       {counts.total > 0 && (
-        <div className="relative z-[1] flex h-2 gap-[3px]" role="img" aria-label={barLabel}>
+        <div className="flex h-2 gap-[3px]" role="img" aria-label={barLabel}>
           {SEGMENTS.map(
             ({ state, barClass }) =>
               counts[state] > 0 && (
@@ -95,7 +98,7 @@ export default function SummaryStrip({
         </div>
       )}
 
-      <div className="relative z-[1] flex items-center gap-4 mt-2.5 flex-wrap">
+      <div className="flex items-center gap-4 mt-2.5 flex-wrap">
         {SEGMENTS.map(({ state, dotClass, label }) => (
           <button
             key={state}
@@ -110,17 +113,32 @@ export default function SummaryStrip({
           </button>
         ))}
 
-        {reviewCount > 0 && (
-          <button
-            onClick={() =>
-              onFilterState(activeStateFilter === "needs-review" ? null : "needs-review")
-            }
-            aria-pressed={activeStateFilter === "needs-review"}
-            className="ml-auto text-small font-medium bg-fill text-on-fill rounded-pill px-[15px] py-1.5 cursor-pointer transition-transform duration-press ease-spring hover:-translate-y-px active:scale-[0.96]"
-          >
-            Review {reviewCount} →
-          </button>
-        )}
+        <div className="ml-auto flex items-center gap-2">
+          {onRescan && (
+            <button
+              onClick={onRescan}
+              disabled={scanning}
+              aria-label="Refresh scan"
+              title="Refresh scan"
+              className="h-[30px] pl-3 pr-3.5 inline-flex items-center gap-2 rounded-pill border border-line-2 text-small font-medium text-ink-1 cursor-pointer transition-[background-color,transform] duration-hover ease-spring hover:bg-plane-2 active:scale-[0.96] disabled:opacity-50 disabled:cursor-default"
+            >
+              <ArrowPathIcon size={13} className={scanning ? "animate-spin" : ""} />
+              {scanning ? "Scanning" : "Rescan"}
+            </button>
+          )}
+
+          {reviewCount > 0 && (
+            <button
+              onClick={() =>
+                onFilterState(activeStateFilter === "needs-review" ? null : "needs-review")
+              }
+              aria-pressed={activeStateFilter === "needs-review"}
+              className="h-[30px] px-[15px] inline-flex items-center text-small font-medium tabular bg-fill text-on-fill rounded-pill cursor-pointer transition-[transform] duration-press ease-spring hover:-translate-y-px active:scale-[0.96]"
+            >
+              Review {reviewCount} →
+            </button>
+          )}
+        </div>
       </div>
     </section>
   );

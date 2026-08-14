@@ -23,6 +23,7 @@ interface ProfilePaneProps {
   onStateFilterChange?: (filter: StateFilter) => void;
   /** When the last scan completed — feeds the strip's scan stamp. */
   scannedAt?: Date | null;
+  onRescan?: () => void;
   sortField?: SortField;
   sortDirection?: SortDirection;
   onSortChange?: (field: SortField) => void;
@@ -41,6 +42,7 @@ export default function ProfilePane({
   stateFilter = null,
   onStateFilterChange,
   scannedAt = null,
+  onRescan,
   sortField: propSortField,
   sortDirection: propSortDirection,
   onSortChange,
@@ -244,6 +246,7 @@ export default function ProfilePane({
           counts={stripCounts}
           activeStateFilter={stateFilter}
           onFilterState={(f) => onStateFilterChange?.(f)}
+          onRescan={onRescan}
         />
       </div>
 

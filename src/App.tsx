@@ -42,8 +42,7 @@ import {
   ShieldCheckIcon,
   SpinnerIcon,
   PanelLeftIcon,
-  PanelRightIcon,
-  ArrowPathIcon
+  PanelRightIcon
 } from "./components/icons";
 import IconRail from "./components/IconRail";
 import Sidebar from "./components/Sidebar";
@@ -779,16 +778,6 @@ export default function App() {
             />
           </div>
 
-          <button
-            onClick={triggerScan}
-            disabled={loading || scanning}
-            aria-label="Refresh scan"
-            title="Refresh scan"
-            className={`${tbBtnClass} disabled:opacity-50`}
-          >
-            <ArrowPathIcon size={15} className={loading || scanning ? "animate-spin" : ""} />
-          </button>
-
           <ScanStatusIndicator />
 
           <button
@@ -897,6 +886,7 @@ export default function App() {
               stateFilter={stateFilter}
               onStateFilterChange={setStateFilter}
               scannedAt={lastScanAt}
+              onRescan={triggerScan}
               sortField={sortField}
               sortDirection={sortDirection}
               onSortChange={handleSortChange}
@@ -921,6 +911,8 @@ export default function App() {
               place={reviewPlace}
               filterText={filterText}
               selectedId={selectedIssue?.id ?? null}
+              onRescan={triggerScan}
+              scanning={loading || scanning}
               onSelectKind={(kind) => {
                 setReviewKind(kind);
                 setSelectedIssue(null);
