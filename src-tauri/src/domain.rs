@@ -3,7 +3,13 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum Scope {
     Global { agent: String },
+    /// Committed to the repository — `.mcp.json` and friends. Shared with the
+    /// team.
     Project { agent: String, root: String },
+    /// Declared in a machine-level file but keyed to one repository —
+    /// `~/.claude.json` `projects[root]`. Private to this user; never in
+    /// version control. Renders in the repo pane, not the profile.
+    Local { agent: String, root: String },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -350,6 +356,21 @@ mod tests {
         assert_eq!(tool.link_state, Some(LinkState::Foreign));
         assert_eq!(rule.link_state, Some(LinkState::Broken));
         assert_eq!(subagent.link_state, None);
+    }
+
+    #[test]
+    fn local_scope_serialises_distinctly_from_project_scope() {
+        let local = Scope::Local { agent: "claude-code".into(), root: "/repo/a".into() };
+        let project = Scope::Project { agent: "claude-code".into(), root: "/repo/a".into() };
+
+        let local_json = serde_json::to_string(&local).unwrap();
+        let project_json = serde_json::to_string(&project).unwrap();
+
+        assert!(local_json.contains("Local"), "got {}", local_json);
+        assert_ne!(local_json, project_json, "Local must not serialise as Project");
+
+        let round_tripped: Scope = serde_json::from_str(&local_json).unwrap();
+        assert_eq!(round_tripped, local);
     }
 }
 
