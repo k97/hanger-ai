@@ -460,3 +460,106 @@ fn a_server_with_no_args_gets_an_empty_list_not_a_missing_field() {
     let servers = dialect::parse(body, Dialect::McpServers, ScopeTier::Global).unwrap();
     assert!(servers[0].args.is_empty());
 }
+
+// ─── Claude.ai connectors ────────────────────────────────────────────────────
+
+#[test]
+fn claude_ai_connectors_are_discovered_from_the_breadcrumb() {
+    // Account-level connectors live on Anthropic's servers, not on disk, so
+    // there is no config file to read. What IS on disk is the list of ones ever
+    // connected. Ignoring it means Hanger claims to show every MCP server while
+    // silently omitting seven of them.
+    let body = r#"{
+      "claudeAiMcpEverConnected": [
+        "claude.ai Google Drive",
+        "claude.ai mei-recipes",
+        "claude.ai Notion"
+      ],
+      "mcpServers": {"local-one": {"command": "node"}}
+    }"#;
+    let servers = dialect::parse(body, Dialect::ClaudeAiConnectors, ScopeTier::Global).unwrap();
+    assert_eq!(names(&servers), vec!["Google Drive", "Notion", "mei-recipes"]);
+}
+
+#[test]
+fn a_connector_carries_no_command_because_there_is_nothing_local_to_run() {
+    let body = r#"{"claudeAiMcpEverConnected": ["claude.ai Gmail"]}"#;
+    let servers = dialect::parse(body, Dialect::ClaudeAiConnectors, ScopeTier::Global).unwrap();
+    assert_eq!(servers[0].name, "Gmail");
+    assert!(servers[0].command.is_empty());
+    assert!(servers[0].args.is_empty());
+    assert_eq!(
+        servers[0].transport, "claude.ai",
+        "transport must say where it actually lives"
+    );
+}
+
+#[test]
+fn a_file_with_no_connector_breadcrumb_yields_none() {
+    let servers = dialect::parse(r#"{"mcpServers":{}}"#, Dialect::ClaudeAiConnectors, ScopeTier::Global).unwrap();
+    assert!(servers.is_empty());
+}
+
+#[test]
+fn the_registry_declares_claude_ai_as_a_host() {
+    let host = registry::host_by_id("claude-ai").expect("claude-ai host");
+    assert_eq!(host.kind, HostKind::McpHost);
+    assert!(
+        registry::SOURCES.iter().any(|s| s.dialect == Dialect::ClaudeAiConnectors),
+        "no source reads the connector breadcrumb"
+    );
+}
+
+// ─── Transports ──────────────────────────────────────────────────────────────
+
+/// Every dialect must read a `url` declaration as a remote server, not skip it.
+/// A server is a server whether it is spawned or dialled.
+#[test]
+fn http_servers_are_discovered_by_every_json_dialect() {
+    let cases = [
+        (Dialect::McpServers, r#"{"mcpServers":{"remote":{"url":"https://api.example.com/mcp"}}}"#),
+        (Dialect::VsCodeServers, r#"{"servers":{"remote":{"type":"http","url":"https://api.example.com/mcp"}}}"#),
+        (Dialect::ZedContextServers, r#"{"context_servers":{"remote":{"url":"https://api.example.com/mcp"}}}"#),
+        (Dialect::ClaudeJson, r#"{"mcpServers":{"remote":{"url":"https://api.example.com/mcp"}}}"#),
+    ];
+    for (dialect, body) in cases {
+        let servers = dialect::parse(body, dialect, ScopeTier::Global)
+            .unwrap_or_else(|e| panic!("{:?} failed: {}", dialect, e));
+        assert_eq!(servers.len(), 1, "{:?} found no remote server", dialect);
+        assert_eq!(servers[0].transport, "https://api.example.com/mcp", "{:?}", dialect);
+        assert!(servers[0].command.is_empty(), "{:?} invented a command", dialect);
+    }
+}
+
+#[test]
+fn codex_toml_discovers_http_servers_too() {
+    let body = r#"
+[mcp_servers.remote]
+url = "https://api.example.com/mcp"
+
+[mcp_servers.local]
+command = "node"
+args = ["server.js"]
+"#;
+    let servers = dialect::parse(body, Dialect::CodexToml, ScopeTier::Global).unwrap();
+    let remote = servers.iter().find(|s| s.name == "remote").unwrap();
+    let local = servers.iter().find(|s| s.name == "local").unwrap();
+    assert_eq!(remote.transport, "https://api.example.com/mcp");
+    assert_eq!(local.transport, "stdio");
+    assert_eq!(local.args, vec!["server.js"]);
+}
+
+#[test]
+fn a_mixed_file_yields_both_transports_side_by_side() {
+    // The real shape of a repo .mcp.json next to a machine config: stdio and
+    // http servers coexist and both must be listed.
+    let body = r#"{"mcpServers": {
+        "mei-recipes": {"url": "https://mei-recipes-api.example.workers.dev/mcp"},
+        "spades-audio": {"command": "node", "args": ["/Applications/x/index.js"]}
+    }}"#;
+    let servers = dialect::parse(body, Dialect::McpServers, ScopeTier::Project).unwrap();
+    assert_eq!(names(&servers), vec!["mei-recipes", "spades-audio"]);
+    let remote = servers.iter().find(|s| s.name == "mei-recipes").unwrap();
+    assert!(remote.transport.starts_with("https://"));
+    assert!(remote.command.is_empty(), "a remote server has nothing to spawn");
+}

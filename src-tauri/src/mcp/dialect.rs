@@ -190,6 +190,37 @@ fn parse_codex_toml(body: &str) -> Result<Vec<McpServer>, String> {
     Ok(out)
 }
 
+/// Read `claudeAiMcpEverConnected` — the connectors this account has attached.
+///
+/// Entries look like `"claude.ai Notion"`. The prefix names the host, which the
+/// registration already records, so it is stripped from the server name.
+///
+/// There is deliberately no command: a connector runs on Anthropic's servers
+/// and nothing local can start it. `transport` says "claude.ai" so the panel
+/// can be honest about where it lives rather than implying a local process.
+fn parse_claude_ai_connectors(body: &str) -> Result<Vec<McpServer>, String> {
+    let root: serde_json::Value =
+        serde_json::from_str(body).map_err(|e| format!("Failed to parse JSON: {}", e))?;
+
+    Ok(root
+        .get("claudeAiMcpEverConnected")
+        .and_then(|v| v.as_array())
+        .map(|list| {
+            list.iter()
+                .filter_map(|v| v.as_str())
+                .map(|raw| McpServer {
+                    name: raw.strip_prefix("claude.ai ").unwrap_or(raw).to_string(),
+                    command: String::new(),
+                    args: Vec::new(),
+                    transport: "claude.ai".to_string(),
+                    env_keys: Vec::new(),
+                    project_root: None,
+                })
+                .collect()
+        })
+        .unwrap_or_default())
+}
+
 /// Parse `body` according to `dialect`.
 ///
 /// `Ok(vec![])` means the file was well-formed but declared no servers — the
@@ -201,5 +232,6 @@ pub fn parse(body: &str, dialect: Dialect, tier: ScopeTier) -> Result<Vec<McpSer
         Dialect::ZedContextServers => parse_json_map(body, "context_servers"),
         Dialect::CodexToml => parse_codex_toml(body),
         Dialect::ClaudeJson => parse_claude_json(body, tier),
+        Dialect::ClaudeAiConnectors => parse_claude_ai_connectors(body),
     }
 }

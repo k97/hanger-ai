@@ -141,4 +141,21 @@ describe("McpServerDetail", () => {
     expect(screen.queryByText("stdio")).toBeNull();
     expect(screen.queryByRole("heading", { level: 2 })).toBeNull();
   });
+
+  it("does not offer Verify for a remote server", () => {
+    // mei-recipes is declared as {"url": "https://…/mcp"} with no command.
+    // Offering Verify invites a click that can only fail with ENOENT, because
+    // there is no local process to start.
+    render(<McpServerDetail server={{ ...base, command: "", args: [],
+      transport: "https://mei-recipes-api.example.workers.dev/mcp" }} />);
+    expect(screen.queryByRole("button", { name: /verify/i })).toBeNull();
+    expect(screen.getByText(/runs remotely/i)).toBeTruthy();
+  });
+
+  it("does not offer Verify for a claude.ai connector", () => {
+    render(<McpServerDetail server={{ ...base, name: "Notion", command: "", args: [],
+      transport: "claude.ai" }} />);
+    expect(screen.queryByRole("button", { name: /verify/i })).toBeNull();
+    expect(screen.getByText(/account/i)).toBeTruthy();
+  });
 });

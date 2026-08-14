@@ -40,6 +40,13 @@ pub enum Dialect {
     ZedContextServers,
     /// `mcpServers` plus `projects[abs_path].mcpServers` — Claude Code.
     ClaudeJson,
+    /// `claudeAiMcpEverConnected` — account-level Claude.ai connectors.
+    ///
+    /// These run on Anthropic's servers, so no config file describes them and
+    /// nothing local can be started. The breadcrumb is the only on-disk trace
+    /// they exist, and without it Hanger claims to show every MCP server while
+    /// omitting them.
+    ClaudeAiConnectors,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -76,6 +83,9 @@ pub const HOSTS: &[McpHost] = &[
     McpHost { id: "cursor", display_name: "Cursor", kind: HostKind::McpHost },
     McpHost { id: "windsurf", display_name: "Windsurf", kind: HostKind::McpHost },
     McpHost { id: "zed", display_name: "Zed", kind: HostKind::McpHost },
+    // Account-level, not machine configuration. Its servers run on
+    // Anthropic's infrastructure; only the fact of connection is on disk.
+    McpHost { id: "claude-ai", display_name: "Claude.ai", kind: HostKind::McpHost },
 ];
 
 use Dialect::*;
@@ -91,6 +101,9 @@ pub const SOURCES: &[McpSource] = &[
     McpSource { host_id: "claude-code", location: MachineAbsolute, path: ".claude/plugins/marketplaces/*/.mcp.json", tier: Global, dialect: McpServers },
     McpSource { host_id: "claude-code", location: RepoRelative, path: ".mcp.json", tier: Project, dialect: McpServers },
     McpSource { host_id: "claude-code", location: RepoRelative, path: ".claude/settings.json", tier: Project, dialect: McpServers },
+
+    // Claude.ai — account-level connectors, not machine configuration.
+    McpSource { host_id: "claude-ai", location: MachineAbsolute, path: ".claude.json", tier: Global, dialect: ClaudeAiConnectors },
 
     // Codex
     McpSource { host_id: "codex", location: MachineAbsolute, path: ".codex/config.toml", tier: Global, dialect: CodexToml },

@@ -71,6 +71,12 @@ export default function McpServerDetail({ server, onVerify, verifying = false }:
   // read as a bug. The prototype said "3 hosts" and was simply wrong.
   const regCount = server.registrations.length;
 
+  // Nothing to spawn: a Claude.ai connector lives on Anthropic's servers, a
+  // remote server answers over HTTP. Both are real MCP servers; neither is a
+  // local process.
+  const isConnector = server.transport === "claude.ai";
+  const isRemote = !isConnector && server.command.trim() === "";
+
   return (
     <div className="flex-1 min-h-0 flex flex-col font-sans text-base text-ink-1">
       {/* No header of its own. The Flyout's chrome carries both the server
@@ -168,19 +174,39 @@ export default function McpServerDetail({ server, onVerify, verifying = false }:
           </div>
         ) : (
           <div className="border border-dashed border-line-2 rounded-inner px-[14px] py-[18px] flex flex-col gap-2 items-start">
-            <p className="text-small text-ink-2 leading-[1.5]">
-              A config file declares how to <em>start</em> a server, never what it provides. Verify
-              starts a private copy, asks for its tool list, and stops it — no other host&rsquo;s
-              session is touched.
-            </p>
-            <button
-              type="button"
-              onClick={onVerify}
-              disabled={verifying}
-              className="text-micro font-mono bg-fill text-on-fill border border-line-2 px-[10px] py-px rounded-pill cursor-pointer"
-            >
-              {verifying ? "Verifying…" : "Verify"}
-            </button>
+            {/* Verify spawns a local process. A server with no command has
+                nothing to spawn — a remote endpoint or a Claude.ai connector —
+                so offering the button would invite a click that can only fail
+                with "No such file or directory". */}
+            {isConnector ? (
+              <p className="text-small text-ink-2 leading-[1.5]">
+                Connected through your Claude.ai account, not configured on this machine. Its tools
+                are listed by Claude, and there is nothing local to inspect.
+              </p>
+            ) : isRemote ? (
+              <p className="text-small text-ink-2 leading-[1.5]">
+                This server runs remotely at{" "}
+                <span className="font-mono text-ink-1">{server.transport}</span>. Verify starts a
+                local process, so it cannot reach one — asking a remote endpoint for its tool list
+                is not supported yet.
+              </p>
+            ) : (
+              <>
+                <p className="text-small text-ink-2 leading-[1.5]">
+                  A config file declares how to <em>start</em> a server, never what it provides.
+                  Verify starts a private copy, asks for its tool list, and stops it — no other
+                  host&rsquo;s session is touched.
+                </p>
+                <button
+                  type="button"
+                  onClick={onVerify}
+                  disabled={verifying}
+                  className="text-micro font-mono bg-fill text-on-fill border border-line-2 px-[10px] py-px rounded-pill cursor-pointer"
+                >
+                  {verifying ? "Verifying…" : "Verify"}
+                </button>
+              </>
+            )}
           </div>
         )}
       </section>
