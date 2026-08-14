@@ -385,86 +385,61 @@ fn parse_subagent_frontmatter(content: &str) -> Result<SubagentFrontmatter, Stri
 }
 
 
-fn is_tool_config_file(filename: &str) -> bool {
+/// Filenames the directory sweep treats as possible MCP config.
+///
+/// The registry (`mcp::registry`) declares where *known hosts* keep their
+/// config, with a known dialect. This list is the second source: it finds
+/// loose, ad-hoc config in non-standard paths, which the PRD names as a
+/// product goal and which fixed registry paths would silently drop —
+/// `.agents/mcp.json`, `~/.gemini/mcp.json`, deeply nested `src/ai/mcp.json`.
+///
+/// Both sources feed one dedup set keyed on (config path, server name), so a
+/// file reachable either way is counted once.
+fn is_swept_mcp_config(filename: &str) -> bool {
     matches!(
         filename,
         "mcp.json" | ".mcp.json" | "mcp_config.json" | "config.toml" | "settings.json"
     )
 }
 
-fn sanitise_url(url_str: &str) -> String {
-    if !url_str.contains("://") {
-        return url_str.to_string();
-    }
-    let parts: Vec<&str> = url_str.split("://").collect();
-    if parts.len() != 2 {
-        return url_str.to_string();
-    }
-    let scheme = parts[0];
-    let rest = parts[1];
-
-    let rest_no_query = rest.split('?').next().unwrap_or(rest);
-
-    if let Some(at_idx) = rest_no_query.find('@') {
-        let host_part = &rest_no_query[at_idx + 1..];
-        format!("{}://{}", scheme, host_part)
-    } else {
-        format!("{}://{}", scheme, rest_no_query)
+/// Borrow a `'static` host id for an agent id, so swept registrations can carry
+/// one. Anything unrecognised is unattributed — the empty string, matching the
+/// prior `owning_agent = String::new()` behaviour for loose configs.
+fn agent_id_static(agent_id: &str) -> &'static str {
+    match agent_id {
+        "claude-code" | "claude_code" => "claude-code",
+        "codex" => "codex",
+        "gemini" => "gemini",
+        _ => "",
     }
 }
 
-fn parse_toml_tools(content: &str) -> Vec<(String, String, String)> {
-    let mut results = Vec::new();
-    if let Ok(toml_val) = toml::from_str::<toml::Value>(content) {
-        if let Some(tools_arr) = toml_val.get("tools").and_then(|v| v.as_array()) {
-            for t in tools_arr {
-                if let Some(name) = t.get("name").and_then(|v| v.as_str()) {
-                    let cmd = t
-                        .get("command")
-                        .and_then(|v| v.as_str())
-                        .unwrap_or("")
-                        .to_string();
-                    let transport = t
-                        .get("transport")
-                        .or_else(|| t.get("url"))
-                        .and_then(|v| v.as_str())
-                        .map(sanitise_url)
-                        .unwrap_or_else(|| {
-                            if cmd.is_empty() {
-                                "unknown".to_string()
-                            } else {
-                                "stdio".to_string()
-                            }
-                        });
-                    results.push((name.to_string(), cmd, transport));
-                }
-            }
-        }
-        else if let Some(tools_map) = toml_val.get("tools").and_then(|v| v.as_table()) {
-            for (name, val) in tools_map {
-                let cmd = val
-                    .get("command")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("")
-                    .to_string();
-                let transport = val
-                    .get("transport")
-                    .or_else(|| val.get("url"))
-                    .and_then(|v| v.as_str())
-                    .map(sanitise_url)
-                    .unwrap_or_else(|| {
-                        if cmd.is_empty() {
-                            "unknown".to_string()
-                        } else {
-                            "stdio".to_string()
-                        }
-                    });
-                results.push((name.clone(), cmd, transport));
-            }
-        }
+/// Build a `Tool` domain row from a discovered registration.
+///
+/// One place so the registry pass and the sweep cannot drift apart in what
+/// they produce.
+fn tool_from_registration(
+    reg: &crate::mcp::discover::Registration,
+    scope: Scope,
+) -> Tool {
+    Tool {
+        id: format!("{}-{}", reg.config_path, reg.server.name),
+        name: reg.server.name.clone(),
+        command: reg.server.command.clone(),
+        transport: reg.server.transport.clone(),
+        config_path: reg.config_path.clone(),
+        scope,
+        owning_agent: reg.host_id.to_string(),
+        drifted: None,
+        is_symlink: None,
+        source_path: None,
+        parse_status: Some("ok".to_string()),
+        parse_error: None,
+        link_state: None,
     }
-    results
 }
+
+
 
 fn check_asset_drift(
     path: &Path,
@@ -523,162 +498,6 @@ fn check_asset_drift(
     (None, Some(false), None, None)
 }
 
-fn parse_and_append_tools(
-    path: &Path,
-    scope: Scope,
-    agent_id: &str,
-    tools: &mut Vec<Tool>,
-    warnings: &mut Vec<String>,
-    checksums: &[(String, String, String)],
-) -> Result<usize, String> {
-    let filename = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
-    let path_str = path.to_string_lossy().to_string();
-
-    if filename == "config.toml"
-        && !path_str.contains(".codex")
-        && !path_str.contains(".agents")
-        && !path_str.contains(".claude")
-    {
-        return Ok(0);
-    }
-
-    if filename == "settings.json" {
-        if let Ok(content) = fs::read_to_string(path) {
-            if !content.contains("mcpServers") {
-                return Ok(0);
-            }
-        }
-    }
-
-    let content = match fs::read_to_string(path) {
-        Ok(c) => c,
-        Err(e) => {
-            let msg = format!("Failed to read tool config at {}: {}", path_str, e);
-            warnings.push(msg.clone());
-            return Err(msg);
-        }
-    };
-
-    let (drifted, is_sym, warning, source_path) = check_asset_drift(path, checksums);
-    if let Some(w) = warning {
-        warnings.push(w);
-    }
-
-    let initial_len = tools.len();
-
-    if filename.ends_with(".toml") {
-        let toml_tools = parse_toml_tools(&content);
-        if toml_tools.is_empty() {
-            if let Err(e) = toml::from_str::<toml::Value>(&content) {
-                let msg = format!("Failed to parse TOML at {}: {}", path_str, e);
-                warnings.push(msg.clone());
-                return Err(msg);
-            }
-        }
-        for (name, cmd, transport) in toml_tools {
-            let link_state = if drifted == Some(true) { Some(crate::domain::LinkState::Drifted) } else if is_sym == Some(true) || source_path.is_some() { Some(crate::domain::LinkState::Linked) } else { None };
-            tools.push(Tool {
-                id: format!("{}-{}", path_str, name),
-                name,
-                command: cmd,
-                transport,
-                config_path: path_str.clone(),
-                scope: scope.clone(),
-                owning_agent: agent_id.to_string(),
-                drifted,
-                is_symlink: is_sym,
-                source_path: source_path.clone(),
-                parse_status: Some("ok".to_string()),
-                parse_error: None,
-                link_state,
-            });
-        }
-    } else {
-        match serde_json::from_str::<serde_json::Value>(&content) {
-            Ok(json_val) => {
-                let mut found = false;
-
-                if let Some(servers) = json_val
-                    .get("mcpServers")
-                    .or_else(|| json_val.get("mcp_servers"))
-                    .and_then(|v| v.as_object())
-                {
-                    for (name, server) in servers {
-                        found = true;
-                        let cmd = server
-                            .get("command")
-                            .and_then(|v| v.as_str())
-                            .unwrap_or("")
-                            .to_string();
-                        let transport_str = server
-                            .get("url")
-                            .and_then(|v| v.as_str())
-                            .map(sanitise_url)
-                            .unwrap_or_else(|| {
-                                if cmd.is_empty() {
-                                    "unknown".to_string()
-                                } else {
-                                    "stdio".to_string()
-                                }
-                            });
-
-                        let link_state = if drifted == Some(true) { Some(crate::domain::LinkState::Drifted) } else if is_sym == Some(true) || source_path.is_some() { Some(crate::domain::LinkState::Linked) } else { None };
-                        tools.push(Tool {
-                            id: format!("{}-{}", path_str, name),
-                            name: name.clone(),
-                            command: cmd,
-                            transport: transport_str,
-                            config_path: path_str.clone(),
-                            scope: scope.clone(),
-                            owning_agent: agent_id.to_string(),
-                            drifted,
-                            is_symlink: is_sym,
-                            source_path: source_path.clone(),
-                            parse_status: Some("ok".to_string()),
-                            parse_error: None,
-                            link_state,
-                        });
-                    }
-                }
-
-                if !found {
-                    if let Some(tools_arr) = json_val.get("tools").and_then(|v| v.as_array()) {
-                        for (i, t) in tools_arr.iter().enumerate() {
-                            let name = t
-                                .get("name")
-                                .and_then(|v| v.as_str())
-                                .unwrap_or("unnamed_tool")
-                                .to_string();
-                            let link_state = if drifted == Some(true) { Some(crate::domain::LinkState::Drifted) } else if is_sym == Some(true) || source_path.is_some() { Some(crate::domain::LinkState::Linked) } else { None };
-                            tools.push(Tool {
-                                id: format!("{}-{}", path_str, i),
-                                name,
-                                command: "internal".to_string(),
-                                transport: "stdio".to_string(),
-                                config_path: path_str.clone(),
-                                scope: scope.clone(),
-                                owning_agent: agent_id.to_string(),
-                                drifted,
-                                is_symlink: is_sym,
-                                source_path: source_path.clone(),
-                                parse_status: Some("ok".to_string()),
-                                parse_error: None,
-                                link_state,
-                            });
-                        }
-                    }
-                }
-            }
-            Err(e) => {
-                let msg = format!("Failed to parse JSON at {}: {}", path_str, e);
-                warnings.push(msg.clone());
-                return Err(msg);
-            }
-        }
-    }
-
-    Ok(tools.len() - initial_len)
-}
 
 // EXCLUSION LIST: platform aware checks
 pub fn is_excluded(path: &Path) -> bool {
@@ -871,6 +690,13 @@ impl DirectoryScanner {
 
         let mut inventory = Inventory::default();
 
+        // Discovery has two sources — the registry of known host locations and
+        // the filename sweep for loose config. A file reachable by both must
+        // yield one row, not two. Keyed on (config path, server name) because
+        // one file legitimately declares many servers.
+        let mut seen_registrations: std::collections::HashSet<(String, String)> =
+            std::collections::HashSet::new();
+
         // 0. Load deploy checksums for drift checking
         let mut checksums = Vec::new();
         if self.db_path.exists() {
@@ -948,43 +774,46 @@ impl DirectoryScanner {
                     for entry in entries.flatten() {
                         let path = entry.path();
                         let filename = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
-                        // 1. Global Tools
-                        if is_tool_config_file(filename) {
-                            let scope = Scope::Global {
-                                agent: agent.id.clone(),
-                            };
-                            let initial_tools_count = inventory.tools.len();
-                            let canon_path = canonicalize_asset_path(&path, &mut parse_warnings);
+                        // 1. Global MCP servers, by filename sweep.
+                        //
+                        // The registry pass below covers known host + dialect
+                        // locations. This sweep covers everything else in an
+                        // agent's config root — ~/.gemini/mcp.json,
+                        // ~/.codex/mcp_config.json and friends — which fixed
+                        // registry paths would silently drop. Both feed the
+                        // same dedup set.
+                        if is_swept_mcp_config(filename) {
                             let tool_engine_id = if filename == "mcp.json" {
-                                None // MCP server definitions (mcp.json) are engine-agnostic shared standards
+                                None // engine-agnostic shared standard
                             } else {
                                 Some(engine_id)
                             };
-
-                            match parse_and_append_tools(
+                            let swept = crate::mcp::discover::read_swept(
                                 &path,
-                                scope,
-                                &agent.id,
-                                &mut inventory.tools,
-                                &mut parse_warnings,
-                                &checksums,
-                            ) {
-                                Ok(_) => {
-                                    if let (Some(store), Some(r_id)) = (&store_opt, global_root_id) {
-                                        for t in &inventory.tools[initial_tools_count..] {
-                                            let t_path = format!("{}:{}", canonicalize_asset_path(Path::new(&t.config_path), &mut parse_warnings), t.name);
-                                            let _ = store.upsert_asset(
-                                                r_id, tool_engine_id, "tool", "global", &t.name, &t_path, None, None, "ok", None, now, now
-                                            );
-                                        }
-                                    }
+                                agent_id_static(&agent.id),
+                                crate::mcp::registry::ScopeTier::Global,
+                            );
+                            parse_warnings.extend(swept.warnings);
+
+                            for reg in swept.registrations {
+                                let key = (reg.config_path.clone(), reg.server.name.clone());
+                                if !seen_registrations.insert(key) {
+                                    continue;
                                 }
-                                Err(err_msg) => {
-                                    if let (Some(store), Some(r_id)) = (&store_opt, global_root_id) {
-                                        let _ = store.upsert_asset(
-                                            r_id, tool_engine_id, "tool", "global", filename, &canon_path, None, None, "failed", Some(&err_msg), now, now
-                                        );
-                                    }
+                                inventory.tools.push(tool_from_registration(
+                                    &reg,
+                                    Scope::Global { agent: agent.id.clone() },
+                                ));
+                                if let (Some(store), Some(r_id)) = (&store_opt, global_root_id) {
+                                    let t_path = format!(
+                                        "{}:{}",
+                                        canonicalize_asset_path(Path::new(&reg.config_path), &mut parse_warnings),
+                                        reg.server.name
+                                    );
+                                    let _ = store.upsert_asset(
+                                        r_id, tool_engine_id, "tool", "global",
+                                        &reg.server.name, &t_path, None, None, "ok", None, now, now,
+                                    );
                                 }
                             }
                         }
@@ -1483,7 +1312,7 @@ impl DirectoryScanner {
                 }
             }
 
-            if is_tool_config_file(filename) {
+            if is_swept_mcp_config(filename) {
                 found_tools.push(path.to_path_buf());
             }
 
@@ -1602,15 +1431,23 @@ impl DirectoryScanner {
                 None
             };
 
-            match parse_and_append_tools(
+            match crate::mcp::discover::parse_swept(
                 &tool_path,
-                scope.clone(),
-                &owning_agent,
-                &mut inventory.tools,
-                &mut parse_warnings,
-                &checksums,
+                agent_id_static(&owning_agent),
+                crate::mcp::registry::ScopeTier::Project,
             ) {
-                Ok(_) => {
+                Ok(regs) => {
+                    for reg in regs {
+                        let key = (reg.config_path.clone(), reg.server.name.clone());
+                        if !seen_registrations.insert(key) {
+                            continue;
+                        }
+                        let mut tool = tool_from_registration(&reg, scope.clone());
+                        // The sweep attributes ownership by footprint
+                        // directory; the registration itself has no host.
+                        tool.owning_agent = owning_agent.clone();
+                        inventory.tools.push(tool);
+                    }
                     if let (Some(store), Some(r_id)) = (&store_opt, project_root_id) {
                         for t in &inventory.tools[initial_tools_count..] {
                             let t_canon = format!("{}:{}", canonicalize_asset_path(Path::new(&t.config_path), &mut parse_warnings), t.name);
@@ -1621,6 +1458,9 @@ impl DirectoryScanner {
                     }
                 }
                 Err(err_msg) => {
+                    // The row keeps a broken config visible; the warning puts it
+                    // in the project's DisclosureBanner. Both, as before.
+                    parse_warnings.push(err_msg.clone());
                     let t_canon = canonicalize_asset_path(&tool_path, &mut parse_warnings);
                     inventory.tools.push(Tool {
                         id: t_canon.clone(),

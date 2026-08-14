@@ -58,49 +58,140 @@ fn resolve_paths(base: &Path, rel: &str) -> Vec<PathBuf> {
     out
 }
 
-fn read_source(base: &Path, source: &'static McpSource, out: &mut DiscoveryResult) {
-    for path in resolve_paths(base, source.path) {
-        let path_str = path.to_string_lossy().to_string();
+/// True when a file exists *solely* to declare MCP servers, so declaring none
+/// is worth a diagnostic.
+///
+/// A `settings.json` or `config.toml` legitimately carries unrelated
+/// configuration and usually has no MCP block at all — warning on those would
+/// bury the real signal in noise.
+fn is_mcp_dedicated(path: &Path) -> bool {
+    matches!(
+        path.file_name().and_then(|n| n.to_str()),
+        Some("mcp.json") | Some(".mcp.json") | Some("mcp_config.json")
+            | Some("claude_desktop_config.json")
+    )
+}
 
-        let body = match fs::read_to_string(&path) {
-            Ok(b) => b,
-            Err(e) => {
-                out.warnings.push(format!(
-                    "Failed to read MCP config at {}: {}",
-                    crate::preferences::sanitise_path(&path_str),
-                    e
-                ));
-                continue;
-            }
-        };
+/// Dialect for a file found by filename sweep rather than declared by the
+/// registry. Only the extension is available to go on.
+fn dialect_for_swept(path: &Path) -> dialect::Dialect {
+    match path.extension().and_then(|e| e.to_str()) {
+        Some("toml") => dialect::Dialect::CodexToml,
+        _ => dialect::Dialect::McpServers,
+    }
+}
 
-        match dialect::parse(&body, source.dialect, source.tier) {
-            Ok(servers) if servers.is_empty() => {
-                // The file exists and parsed, but declared nothing. Previously
-                // this was an indistinguishable Ok(0) and the source vanished
-                // without any diagnostic.
+fn read_one(
+    path: &Path,
+    dial: dialect::Dialect,
+    host_id: &'static str,
+    tier: ScopeTier,
+    out: &mut DiscoveryResult,
+) {
+    let path_str = path.to_string_lossy().to_string();
+
+    let body = match fs::read_to_string(path) {
+        Ok(b) => b,
+        Err(e) => {
+            out.warnings.push(format!(
+                "Failed to read MCP config at {}: {}",
+                crate::preferences::sanitise_path(&path_str),
+                e
+            ));
+            return;
+        }
+    };
+
+    match dialect::parse(&body, dial, tier) {
+        Ok(servers) if servers.is_empty() => {
+            // Parsed cleanly, declared nothing. Previously an indistinguishable
+            // Ok(0), which is how VS Code's server vanished without trace.
+            // Only worth saying for files whose whole purpose is MCP.
+            if is_mcp_dedicated(path) {
                 out.warnings.push(format!(
                     "No MCP servers found in {}, which Hanger expects to declare them",
                     crate::preferences::sanitise_path(&path_str)
                 ));
             }
-            Ok(servers) => {
-                for server in servers {
-                    out.registrations.push(Registration {
-                        server,
-                        host_id: source.host_id,
-                        tier: source.tier,
-                        config_path: path_str.clone(),
-                    });
-                }
-            }
-            Err(e) => out.warnings.push(format!(
-                "Failed to parse MCP config at {}: {}",
-                crate::preferences::sanitise_path(&path_str),
-                e
-            )),
         }
+        Ok(servers) => {
+            for server in servers {
+                out.registrations.push(Registration {
+                    server,
+                    host_id,
+                    tier,
+                    config_path: path_str.clone(),
+                });
+            }
+        }
+        Err(e) => out.warnings.push(format!(
+            "Failed to parse MCP config at {}: {}",
+            crate::preferences::sanitise_path(&path_str),
+            e
+        )),
     }
+}
+
+fn read_source(base: &Path, source: &'static McpSource, out: &mut DiscoveryResult) {
+    for path in resolve_paths(base, source.path) {
+        read_one(&path, source.dialect, source.host_id, source.tier, out);
+    }
+}
+
+/// Read a config file located by filename sweep rather than declared by the
+/// registry.
+///
+/// The registry says where known hosts keep their config. The sweep exists
+/// because Hanger also surfaces loose, ad-hoc configs in non-standard paths —
+/// a stated product goal, and the only reason `.agents/mcp.json` and deeply
+/// nested `mcp.json` files are found at all. Dropping it in favour of fixed
+/// paths would take the fixture from 4 global tools to 1.
+///
+/// `host_id` is `""` when no footprint directory identifies an owner.
+pub fn read_swept(path: &Path, host_id: &'static str, tier: ScopeTier) -> DiscoveryResult {
+    let mut out = DiscoveryResult::default();
+    read_one(path, dialect_for_swept(path), host_id, tier, &mut out);
+    out
+}
+
+/// Like [`read_swept`], but surfaces a parse failure as `Err` instead of a
+/// warning.
+///
+/// The scanner records a *failed asset row* for a config it cannot parse, so a
+/// broken file stays visible instead of silently disappearing. That needs the
+/// failure distinguished from "parsed fine, declared nothing" — the two were
+/// indistinguishable before this module existed.
+pub fn parse_swept(
+    path: &Path,
+    host_id: &'static str,
+    tier: ScopeTier,
+) -> Result<Vec<Registration>, String> {
+    let path_str = path.to_string_lossy().to_string();
+    let body = fs::read_to_string(path).map_err(|e| {
+        format!(
+            "Failed to read tool config at {}: {}",
+            crate::preferences::sanitise_path(&path_str),
+            e
+        )
+    })?;
+
+    let servers = dialect::parse(&body, dialect_for_swept(path), tier).map_err(|e| {
+        format!(
+            "Failed to parse {} at {}",
+            path.extension().and_then(|x| x.to_str()).unwrap_or("config"),
+            crate::preferences::sanitise_path(&path_str)
+        ) + &format!(": {}", e)
+    })?;
+
+    Ok(servers
+        .into_iter()
+        .map(|server| Registration {
+            server,
+            host_id,
+            tier,
+            config_path: path_str.clone(),
+        })
+        .collect())
 }
 
 /// Every machine-level registration under `home`.
