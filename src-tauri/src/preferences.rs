@@ -1210,23 +1210,39 @@ pub fn resolve_deepest_root(asset_path: &Path, project_roots: &[(i64, String)]) 
             res
         };
 
-        let effective_root_id = if scope == "project" {
+        // None when the canonical path lies outside every project root —
+        // which a project walk can only produce by resolving a symlink that
+        // points out of the project.
+        let resolved_project_root = if scope == "project" {
             Self::resolve_deepest_root(Path::new(&canonical_abs_path), &project_roots)
-                .unwrap_or(root_id)
+        } else {
+            None
+        };
+        let effective_root_id = if scope == "project" {
+            resolved_project_root.unwrap_or(root_id)
         } else {
             root_id
         };
 
-        let existing: Option<(i64, Option<i64>)> = conn
+        let existing: Option<(i64, Option<i64>, i64)> = conn
             .query_row(
-                "SELECT id, engine_id FROM assets WHERE abs_path = ?1",
+                "SELECT id, engine_id, root_id FROM assets WHERE abs_path = ?1",
                 params![canonical_abs_path],
-                |r| Ok((r.get(0)?, r.get(1)?)),
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
             )
             .optional()
             .map_err(|_| SanitisedError("Failed to query existing asset".to_string()))?;
 
-        if let Some((existing_id, existing_engine_id)) = existing {
+        if let Some((existing_id, existing_engine_id, existing_root_id)) = existing {
+            // An existing row whose canonical path no project root contains
+            // keeps its root_id: the project walk reached it through a
+            // symlink, and a link is not ownership. Re-parenting here stole
+            // store rows while scope stayed frozen at INSERT (F26).
+            let update_root_id = if scope == "project" && resolved_project_root.is_none() {
+                existing_root_id
+            } else {
+                effective_root_id
+            };
             let new_engine_id = if existing_engine_id != engine_id {
                 None
             } else {
@@ -1235,7 +1251,7 @@ pub fn resolve_deepest_root(asset_path: &Path, project_roots: &[(i64, String)]) 
 
             conn.execute(
                 "UPDATE assets SET root_id = ?1, engine_id = ?2, parse_status = ?3, parse_error = ?4, last_seen = ?5 WHERE id = ?6",
-                params![effective_root_id, new_engine_id, parse_status, parse_error, last_seen, existing_id],
+                params![update_root_id, new_engine_id, parse_status, parse_error, last_seen, existing_id],
             ).map_err(|_| SanitisedError("Failed to update existing asset row".to_string()))?;
 
             Ok(existing_id)
