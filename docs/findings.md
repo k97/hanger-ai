@@ -157,6 +157,18 @@ matching root** (`preferences.rs:1045-1050`) with `abs_path` as the dedup key
 and no canonicalisation for project scope (`preferences.rs:1027-1028`).
 Consequence for deployments probed in item 7 of this run; see the run report.
 
+**F29 — Mixed-theme render on OS appearance change (running release build).**
+Observed 2026-08-14 while capturing item-6 evidence: with `theme=auto`, an OS
+dark→light flip left the running app (release bundle, pid 68229) in a mixed
+state six seconds later — titlebar, sidebar, and inspector light; the content
+column's ground and the selected row still dark. Six seconds is 30× the app's
+200ms colour transition, so this is unlikely to be a transient paint frame.
+Not the F11 ramp defect (that would be light values in dark; this is the
+inverse) and not reproduced from the current tree. Screenshot retained in the
+run report. Needs its own diagnosis: candidates include a `.dark`-scoped
+subtree that misses the toggle, or a surface reading the OS scheme directly
+instead of the resolved `darkMode` state.
+
 ## Mechanism / state vocabulary (recorded earlier, unchanged)
 
 **F27 — `Mechanism::Copy` is unreachable in production** and the watcher
