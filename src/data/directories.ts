@@ -10,6 +10,10 @@
  * count") rather than asserting a live number the app cannot verify.
  */
 
+/** When the catalogue below was last checked by hand. Shown in the lead so a
+ *  stale list reads as stale rather than as live. */
+export const CATALOGUE_CHECKED = "August 2026";
+
 export type Tier = "Standard" | "Official" | "Community";
 
 export interface Directory {

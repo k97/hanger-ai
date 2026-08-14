@@ -127,6 +127,39 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* Entrance beats. A sheet drops from the title bar the way a macOS sheet does;
+   a toast rises from the foot. Both run on the press beat and the shared
+   spring, and both are killed by the reduced-motion rule at the foot of this
+   file. Neither carries positioning — the caller centres its own element. */
+@utility animate-drop {
+  animation: hanger-drop var(--dur-press) var(--spring);
+}
+@utility animate-rise {
+  animation: hanger-rise var(--dur-press) var(--spring);
+}
+
+@keyframes hanger-drop {
+  from {
+    transform: translateY(-16px);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+
+@keyframes hanger-rise {
+  from {
+    transform: translateY(8px);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+
 html,
 body,
 #root {
