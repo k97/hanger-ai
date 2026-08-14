@@ -18,6 +18,7 @@ interface Registration {
   tier: string;
   configPath: string;
   command: string;
+  args?: string[];
 }
 
 interface VerifiedIdentity {
@@ -32,6 +33,10 @@ interface VerifiedIdentity {
 
 export interface McpServerView {
   name: string;
+  /** Executable Verify will run. */
+  command: string;
+  /** Arguments it needs. `node` without these is a REPL, not a server. */
+  args: string[];
   transport: string;
   registrations: Registration[];
   verified?: VerifiedIdentity;

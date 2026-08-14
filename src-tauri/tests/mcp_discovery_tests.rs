@@ -417,3 +417,46 @@ command = "node"
         "userinfo and query string must be stripped"
     );
 }
+
+// ─── Arguments ───────────────────────────────────────────────────────────────
+
+#[test]
+fn args_are_captured_because_a_command_alone_cannot_start_a_server() {
+    // ~/.claude.json declares spades-audio as `node <path>`. Storing only
+    // "node" makes the Verify probe launch a bare Node REPL that never speaks
+    // MCP -- the command is meaningless without its arguments.
+    let body = r#"{"mcpServers": {"spades-audio": {
+        "command": "node",
+        "args": ["/Applications/Spades Audio.app/Contents/Resources/mcp-server/dist/index.js"]
+    }}}"#;
+    let servers = dialect::parse(body, Dialect::McpServers, ScopeTier::Global).unwrap();
+    assert_eq!(
+        servers[0].args,
+        vec!["/Applications/Spades Audio.app/Contents/Resources/mcp-server/dist/index.js"]
+    );
+}
+
+#[test]
+fn codex_toml_captures_args_from_both_spellings() {
+    let body = r#"
+[mcp_servers.computer-use]
+command = "codex"
+args = ["mcp"]
+
+[tools.legacy]
+command = "git"
+args = ["--version", "--quiet"]
+"#;
+    let servers = dialect::parse(body, Dialect::CodexToml, ScopeTier::Global).unwrap();
+    let modern = servers.iter().find(|s| s.name == "computer-use").unwrap();
+    assert_eq!(modern.args, vec!["mcp"]);
+    let legacy = servers.iter().find(|s| s.name == "legacy").unwrap();
+    assert_eq!(legacy.args, vec!["--version", "--quiet"]);
+}
+
+#[test]
+fn a_server_with_no_args_gets_an_empty_list_not_a_missing_field() {
+    let body = r#"{"mcpServers": {"bare": {"command": "node"}}}"#;
+    let servers = dialect::parse(body, Dialect::McpServers, ScopeTier::Global).unwrap();
+    assert!(servers[0].args.is_empty());
+}

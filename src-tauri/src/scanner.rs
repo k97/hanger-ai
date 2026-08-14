@@ -426,6 +426,7 @@ fn tool_from_registration(
         id: format!("{}-{}", reg.config_path, reg.server.name),
         name: reg.server.name.clone(),
         command: reg.server.command.clone(),
+        args: reg.server.args.clone(),
         transport: reg.server.transport.clone(),
         config_path: reg.config_path.clone(),
         scope,
@@ -1582,6 +1583,8 @@ impl DirectoryScanner {
                         id: t_canon.clone(),
                         name: tool_filename.to_string(),
                         command: String::new(),
+                        // A config that would not parse has no launch to record.
+                        args: Vec::new(),
                         transport: String::new(),
                         config_path: t_canon.clone(),
                         scope: scope.clone(),

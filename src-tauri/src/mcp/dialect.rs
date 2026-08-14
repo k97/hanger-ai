@@ -16,6 +16,12 @@ pub struct McpServer {
     pub name: String,
     /// Executable or script. Empty for URL-only remote servers.
     pub command: String,
+    /// Arguments the command needs to actually be a server.
+    ///
+    /// Not decoration: `~/.claude.json` declares spades-audio as
+    /// `node <path-to-index.js>`. Keeping only the command would make Verify
+    /// launch a bare Node REPL that never speaks MCP.
+    pub args: Vec<String>,
     /// `"stdio"`, `"unknown"`, or a sanitised URL for remote transports.
     pub transport: String,
     /// Environment variable NAMES only. Values are never read.
@@ -58,6 +64,18 @@ fn env_keys_json(entry: &serde_json::Value) -> Vec<String> {
         .unwrap_or_default()
 }
 
+fn args_json(entry: &serde_json::Value) -> Vec<String> {
+    entry
+        .get("args")
+        .and_then(|v| v.as_array())
+        .map(|a| {
+            a.iter()
+                .filter_map(|x| x.as_str().map(str::to_string))
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
 fn server_from_json(name: &str, entry: &serde_json::Value) -> McpServer {
     let command = entry
         .get("command")
@@ -69,6 +87,7 @@ fn server_from_json(name: &str, entry: &serde_json::Value) -> McpServer {
         name: name.to_string(),
         transport: transport_for(&command, url),
         command,
+        args: args_json(entry),
         env_keys: env_keys_json(entry),
         project_root: None,
     }
@@ -132,10 +151,20 @@ fn servers_from_toml_table(table: &toml::value::Table, out: &mut Vec<McpServer>)
             .and_then(|v| v.as_table())
             .map(|t| t.keys().cloned().collect())
             .unwrap_or_default();
+        let args = entry
+            .get("args")
+            .and_then(|v| v.as_array())
+            .map(|a| {
+                a.iter()
+                    .filter_map(|x| x.as_str().map(str::to_string))
+                    .collect()
+            })
+            .unwrap_or_default();
         out.push(McpServer {
             name: name.clone(),
             transport: transport_for(&command, url),
             command,
+            args,
             env_keys,
             project_root: None,
         });

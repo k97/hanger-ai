@@ -5,6 +5,7 @@ import { scopeAgent, scopeRoot, type Scope } from "./scopeAccess";
 interface ToolRow {
   name: string;
   command?: string;
+  args?: string[];
   transport?: string;
   config_path: string;
   owning_agent?: string;
@@ -58,10 +59,15 @@ export function buildMcpServerView(
     tier: tierOf(t.scope),
     configPath: t.config_path,
     command: t.command ?? "",
+    args: t.args ?? [],
   }));
 
   return {
     name: serverName,
+    // The launch Verify will use. A command without its arguments starts the
+    // wrong process entirely -- `node` alone is a REPL, not a server.
+    command: matches[0].command ?? "",
+    args: matches[0].args ?? [],
     transport: matches[0].transport ?? "unknown",
     registrations,
     // Env var names are not carried on the Tool row today; the panel renders

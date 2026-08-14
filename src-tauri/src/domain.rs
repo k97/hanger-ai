@@ -45,6 +45,13 @@ pub struct Tool {
     pub id: String,
     pub name: String,
     pub command: String,
+    /// Arguments the command needs to actually be a server.
+    ///
+    /// `~/.claude.json` declares spades-audio as `node <path-to-index.js>`.
+    /// Without the arguments the Verify probe launches a bare Node REPL that
+    /// never speaks MCP, so the panel's tool list can never populate.
+    #[serde(default)]
+    pub args: Vec<String>,
     pub transport: String,
     pub config_path: String,
     pub scope: Scope,
@@ -315,6 +322,7 @@ mod tests {
             id: "t1".into(),
             name: "test-tool".into(),
             command: "".into(),
+            args: vec![],
             transport: "".into(),
             config_path: "/path".into(),
             scope: Scope::Global { agent: "claude".into() },

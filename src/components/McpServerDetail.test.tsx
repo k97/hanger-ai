@@ -1,11 +1,12 @@
 // @vitest-environment happy-dom
-import { render, screen } from "@testing-library/react";
-import { describe, it, expect, afterEach } from "vitest";
-import { cleanup } from "@testing-library/react";
+import { render, screen, cleanup, fireEvent } from "@testing-library/react";
+import { describe, it, expect, afterEach, vi } from "vitest";
 import McpServerDetail, { McpServerView } from "./McpServerDetail";
 
 const base: McpServerView = {
   name: "spades-audio",
+  command: "node",
+  args: ["/Applications/Spades Audio.app/Contents/Resources/mcp-server/dist/index.js"],
   transport: "stdio",
   registrations: [
     { host: "Claude Code", tier: "user", configPath: "~/.claude.json", command: "node" },
@@ -111,5 +112,24 @@ describe("McpServerDetail", () => {
     );
     expect(screen.getByText("2024-11-05")).toBeTruthy();
     expect(screen.getByText("prompts, tools")).toBeTruthy();
+});
+
+  it("hands the command AND its arguments to Verify", () => {
+    // The gap this test exists to close: the panel shipped with an inert
+    // button, and the Tool row carried no args. Probing `node` with no
+    // arguments starts a REPL that never speaks MCP, so the tool list could
+    // never populate no matter how long you waited.
+    const onVerify = vi.fn();
+    render(<McpServerDetail server={base} onVerify={onVerify} />);
+    fireEvent.click(screen.getByRole("button", { name: /verify/i }));
+    expect(onVerify).toHaveBeenCalledTimes(1);
+    expect(base.command).toBe("node");
+    expect(base.args).toHaveLength(1);
+    expect(base.args[0]).toMatch(/index\.js$/);
+  });
+
+  it("disables the button while a probe is in flight", () => {
+    render(<McpServerDetail server={base} verifying />);
+    expect(screen.getByRole("button", { name: /verifying/i })).toHaveProperty("disabled", true);
   });
 });

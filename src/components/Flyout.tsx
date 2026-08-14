@@ -86,6 +86,58 @@ export default function Flyout({
   const [mergeRunning, setMergeRunning] = useState(false);
   const [mergeDone, setMergeDone] = useState(false);
 
+  /* Verify results, keyed by server name, so switching between servers in the
+     inspector does not lose a probe already run. Session-lived on purpose:
+     nothing on disk records a tool list, and a cached one would go stale the
+     moment a server is upgraded. */
+  const [mcpVerified, setMcpVerified] = useState<Record<string, {
+    serverVersion?: string;
+    protocolVersion?: string;
+    capabilities: string[];
+    tools: Array<{ name: string; description?: string }>;
+    verifiedAt: number;
+    error?: string;
+  }>>({});
+  const [mcpVerifying, setMcpVerifying] = useState<string | null>(null);
+
+  /** Start a private copy of the server, ask what it provides, stop it. */
+  const runMcpVerify = async (view: { name: string; command: string; args: string[] }) => {
+    setMcpVerifying(view.name);
+    try {
+      const r = await invoke<{
+        server_name?: string;
+        server_version?: string;
+        protocol_version?: string;
+        capabilities: string[];
+        tools: Array<{ name: string; description?: string }>;
+        error?: string;
+      }>("verify_mcp_server", { command: view.command, args: view.args });
+      setMcpVerified((prev) => ({
+        ...prev,
+        [view.name]: {
+          serverVersion: r.server_version,
+          protocolVersion: r.protocol_version,
+          capabilities: r.capabilities ?? [],
+          tools: r.tools ?? [],
+          verifiedAt: Date.now(),
+          error: r.error ?? undefined,
+        },
+      }));
+    } catch (e) {
+      setMcpVerified((prev) => ({
+        ...prev,
+        [view.name]: {
+          capabilities: [],
+          tools: [],
+          verifiedAt: Date.now(),
+          error: String(e),
+        },
+      }));
+    } finally {
+      setMcpVerifying(null);
+    }
+  };
+
   // Drag Resizing Logic for docked right inspector
   const handleMouseDown = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -548,7 +600,14 @@ export default function Flyout({
            17-20 tools. AssetDetail's flat one-name-one-path shape cannot hold
            it, so this category gets its own panel rather than widening that
            component into a dumping ground. */
-        <McpServerDetail server={buildMcpServerView(inventory?.tools, targetAsset.name)!} />
+        <McpServerDetail
+          server={{
+            ...buildMcpServerView(inventory?.tools, targetAsset.name)!,
+            verified: mcpVerified[targetAsset.name],
+          }}
+          verifying={mcpVerifying === targetAsset.name}
+          onVerify={() => runMcpVerify(buildMcpServerView(inventory?.tools, targetAsset.name)!)}
+        />
       ) : targetAsset ? (
         <AssetDetail
           asset={targetAsset as any}
