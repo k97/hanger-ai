@@ -841,11 +841,13 @@ fn read_asset_body(app: AppHandle, path: String) -> Result<String, String> {
             roots.push(canonical);
         }
     }
-    for agent in scanner::get_global_agents() {
-        if let Some(config_root) = agent.global_config_path {
-            if let Ok(canonical) = fs::canonicalize(&config_root) {
-                roots.push(canonical);
-            }
+    // The scanner's own list, not a second one assembled here. Reading the
+    // engine config directories alone missed the shared ~/.agents container
+    // that engines symlink their skills/ into — which is where the assets
+    // actually are, so every one of them was refused.
+    for root in scanner::global_asset_roots() {
+        if let Ok(canonical) = fs::canonicalize(&root) {
+            roots.push(canonical);
         }
     }
 
@@ -1286,5 +1288,29 @@ mod asset_body_tests {
     #[test]
     fn rejects_everything_when_no_root_is_known() {
         assert!(!is_within_known_root(Path::new("/home/me/a.md"), &[]));
+    }
+
+    #[test]
+    fn the_shared_agents_container_is_a_root_the_reader_accepts() {
+        // An engine's skills/ is commonly a symlink into ~/.agents, and the
+        // scanner records those assets under the container they resolve to.
+        // Leaving it out of the reader's roots refused every one of them.
+        let roots = crate::scanner::global_asset_roots();
+        assert!(
+            roots.iter().any(|root| root.ends_with(".agents")),
+            "expected ~/.agents among {roots:?}"
+        );
+    }
+
+    #[test]
+    fn the_reader_and_the_scanner_agree_on_which_folders_are_ours() {
+        // Two lists that must never drift: one decides what may be read, the
+        // other what may not be unlinked.
+        let readable = crate::scanner::global_asset_roots();
+        let protected: Vec<_> = crate::scanner::protected_roots()
+            .into_iter()
+            .map(|(path, _)| path)
+            .collect();
+        assert_eq!(readable, protected);
     }
 }

@@ -737,7 +737,14 @@ pub fn match_protected_root(path: &Path, protected: &[(PathBuf, String)]) -> Opt
     None
 }
 
-pub fn protected_roots() -> Vec<(PathBuf, String)> {
+/// Every folder Hanger reads global assets out of, each with a human label.
+///
+/// The engine configuration directories, plus the shared ~/.agents container.
+/// That container is not an extra: an engine's skills/ or agents/ entry is
+/// often a symlink into it, and shared_agents_container attributes anything
+/// found that way to ~/.agents rather than to whichever engine linked it — so
+/// the recorded paths live under ~/.agents and it is where those files are.
+fn global_asset_roots_labelled() -> Vec<(PathBuf, String)> {
     let mut out = Vec::new();
     for agent in get_global_agents() {
         if let Some(g) = &agent.global_config_path {
@@ -752,6 +759,18 @@ pub fn protected_roots() -> Vec<(PathBuf, String)> {
         "the shared agent standards (~/.agents)".to_string(),
     ));
     out
+}
+
+/// The same set, for callers that only need to ask "is this file one of ours".
+pub fn global_asset_roots() -> Vec<PathBuf> {
+    global_asset_roots_labelled()
+        .into_iter()
+        .map(|(path, _)| path)
+        .collect()
+}
+
+pub fn protected_roots() -> Vec<(PathBuf, String)> {
+    global_asset_roots_labelled()
 }
 
 // The downward half of the guard: a path that CONTAINS a protected root. The
