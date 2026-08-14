@@ -391,3 +391,29 @@ fn a_missing_source_is_silent() {
         result.warnings
     );
 }
+
+#[test]
+fn codex_toml_reads_both_mcp_servers_and_the_legacy_tools_table() {
+    // Current Codex writes [mcp_servers.*]. Hanger's own fixture -- and the
+    // URL-credential sanitisation assertion attached to it -- uses [tools.*].
+    // Supporting both is strictly additive and loses nothing.
+    let body = r#"
+[tools.git-reader]
+command = "git"
+url = "http://fake-user:fake-pass@localhost:9000/codex?secret=abc&token=my_token"
+
+[tools.file-writer]
+command = "fs"
+
+[mcp_servers.modern]
+command = "node"
+"#;
+    let servers = dialect::parse(body, Dialect::CodexToml, ScopeTier::Global).unwrap();
+    assert_eq!(names(&servers), vec!["file-writer", "git-reader", "modern"]);
+
+    let git = servers.iter().find(|s| s.name == "git-reader").unwrap();
+    assert_eq!(
+        git.transport, "http://localhost:9000/codex",
+        "userinfo and query string must be stripped"
+    );
+}

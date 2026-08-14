@@ -115,18 +115,11 @@ fn parse_claude_json(body: &str, tier: ScopeTier) -> Result<Vec<McpServer>, Stri
     }
 }
 
-fn parse_codex_toml(body: &str) -> Result<Vec<McpServer>, String> {
-    let root: toml::Value =
-        toml::from_str(body).map_err(|e| format!("Failed to parse TOML: {}", e))?;
-
-    let Some(table) = root.get("mcp_servers").and_then(|v| v.as_table()) else {
-        return Ok(Vec::new());
-    };
-
-    let mut out = Vec::new();
+/// Read servers from one TOML table of `{name = {command, url, env}}`.
+fn servers_from_toml_table(table: &toml::value::Table, out: &mut Vec<McpServer>) {
     for (name, entry) in table {
-        // `[mcp_servers]` itself may hold non-table keys; skip anything that
-        // is not a server table.
+        // The table may hold non-table keys (`[tools] web_search = true`);
+        // anything that is not a server table is skipped.
         let Some(entry) = entry.as_table() else { continue };
         let command = entry
             .get("command")
@@ -146,6 +139,24 @@ fn parse_codex_toml(body: &str) -> Result<Vec<McpServer>, String> {
             env_keys,
             project_root: None,
         });
+    }
+}
+
+/// Codex TOML, both spellings.
+///
+/// Current Codex writes `[mcp_servers.*]`. `[tools.*]` is the older spelling
+/// and is still what Hanger's own fixture carries, including the
+/// credential-laden URL that covers `docs/scanning.md` §7. Reading both is
+/// strictly additive: a file may use either or both, and nothing is lost.
+fn parse_codex_toml(body: &str) -> Result<Vec<McpServer>, String> {
+    let root: toml::Value =
+        toml::from_str(body).map_err(|e| format!("Failed to parse TOML: {}", e))?;
+
+    let mut out = Vec::new();
+    for key in ["mcp_servers", "tools"] {
+        if let Some(table) = root.get(key).and_then(|v| v.as_table()) {
+            servers_from_toml_table(table, &mut out);
+        }
     }
     Ok(out)
 }
