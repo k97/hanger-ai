@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { AlertCircle } from "lucide-react";
+import { ExclamationCircleIcon } from "./icons";
 import CategoryFilterCards, { CategoryType } from "./CategoryFilterCards";
 import AssetRow, { AssetItem } from "./AssetRow";
 import AssetHeaderRow, { SortField, SortDirection } from "./AssetHeaderRow";
@@ -263,7 +263,7 @@ export default function ProfilePane({
 
       {emptyState ? (
         <div className={emptyPlaneClass}>
-          <AlertCircle className="text-ink-3 mb-2" size={40} />
+          <ExclamationCircleIcon className="text-ink-3 mb-2" size={40} />
           <span className="text-base-app font-medium text-ink-1">No developer agent folders detected</span>
           <span className="text-small text-ink-3 max-w-sm mt-1">
             Hanger scans your home folder for standard agent configurations (e.g. ~/.claude, ~/.gemini).
@@ -272,7 +272,7 @@ export default function ProfilePane({
       ) : isCategoryEmpty && selectedCategory ? (
         /* Category-specific Empty State */
         <div className={emptyPlaneClass}>
-          <AlertCircle className="text-ink-3 mb-2" size={40} />
+          <ExclamationCircleIcon className="text-ink-3 mb-2" size={40} />
           <span className="text-base-app font-medium text-ink-1">No global {selectedCategory.toLowerCase()} found</span>
           <span className="text-small text-ink-3 max-w-sm mt-1">
             Select another category filter or click "All" to view all available assets.

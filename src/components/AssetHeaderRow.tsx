@@ -1,4 +1,4 @@
-import { ChevronUp, ChevronDown } from "lucide-react";
+import { ChevronUpIcon, ChevronDownIcon } from "./icons";
 
 export type SortField = "name" | "kind" | "engine" | "state";
 export type SortDirection = "asc" | "desc";
@@ -27,9 +27,9 @@ export default function AssetHeaderRow({
         <span>{label}</span>
         {isActive && (
           sortDirection === "asc" ? (
-            <ChevronUp size={12} className="shrink-0" data-testid="sort-chevron-asc" />
+            <ChevronUpIcon size={12} className="shrink-0" data-testid="sort-chevron-asc" />
           ) : (
-            <ChevronDown size={12} className="shrink-0" data-testid="sort-chevron-desc" />
+            <ChevronDownIcon size={12} className="shrink-0" data-testid="sort-chevron-desc" />
           )
         )}
       </button>

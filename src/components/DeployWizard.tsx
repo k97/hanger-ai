@@ -1,4 +1,4 @@
-import { AlertTriangle, Check, Loader2, Globe, FileText } from "lucide-react";
+import { ExclamationTriangleIcon, CheckIcon, SpinnerIcon, GlobeAltIcon, DocumentTextIcon } from "./icons";
 
 export interface FlatAssetItem {
   type: "header" | "asset";
@@ -83,7 +83,7 @@ export default function DeployWizard({
       {deploySuccess ? (
         <div className="flex-1 flex flex-col items-center justify-center gap-2 animate-in fade-in zoom-in-95 duration-200">
           <div className="w-12 h-12 rounded-pill bg-plane border border-line flex items-center justify-center text-state-success">
-            <Check size={24} />
+            <CheckIcon size={24} />
           </div>
           <span className="text-base-app font-medium text-ink-1 mt-2">Asset linked successfully</span>
           <span className="text-small text-ink-3">Updating the project inventory…</span>
@@ -111,7 +111,7 @@ export default function DeployWizard({
           {deployingAsset.category === "Rules" && selectedDestProject && (
             <div className="flex flex-col gap-3 p-3.5 rounded-inner bg-plane border border-line">
               <span className={`${labelClass} flex items-center gap-1.5`}>
-                <FileText size={12} />
+                <DocumentTextIcon size={12} />
                 Rule destination target path
               </span>
 
@@ -186,13 +186,13 @@ export default function DeployWizard({
           {selectedDestProject && (
             <div className="flex flex-col gap-2 p-3.5 rounded-inner border border-line bg-plane">
               <span className={`${labelClass} flex items-center gap-1.5`}>
-                <Globe size={12} />
+                <GlobeAltIcon size={12} />
                 What will happen
               </span>
 
               {preflightLoading ? (
                 <div className="flex items-center gap-2 text-ink-3 text-small py-2">
-                  <Loader2 className="animate-spin" size={12} />
+                  <SpinnerIcon className="animate-spin" size={12} />
                   Running pre-flight checks...
                 </div>
               ) : preflight ? (
@@ -200,14 +200,14 @@ export default function DeployWizard({
                   {preflight.collision ? (
                     deployingAsset.category === "Rules" ? (
                       <div className="flex items-start gap-2 text-state-warning text-small leading-[1.6]">
-                        <AlertTriangle size={14} className="shrink-0 mt-0.5" />
+                        <ExclamationTriangleIcon size={14} className="shrink-0 mt-0.5" />
                         <div>
                           <span className="font-medium">Collision detected:</span> merging conflicting Markdown heading blocks requires the interactive rules diff chooser. Standard overwrite is disabled.
                         </div>
                       </div>
                     ) : (
                       <div className="flex items-start gap-2 text-state-danger text-small leading-[1.6]">
-                        <AlertTriangle size={14} className="shrink-0 mt-0.5" />
+                        <ExclamationTriangleIcon size={14} className="shrink-0 mt-0.5" />
                         <div>
                           <span className="font-medium">Collision warning:</span> the destination path already exists. Confirming will overwrite the existing version using transactional file replacements.
                         </div>
@@ -215,7 +215,7 @@ export default function DeployWizard({
                     )
                   ) : (
                     <div className="flex items-start gap-1.5 text-state-success text-small font-medium py-1">
-                      <Check size={14} />
+                      <CheckIcon size={14} />
                       Destination path clear. Safe to link.
                     </div>
                   )}
@@ -248,7 +248,7 @@ export default function DeployWizard({
               >
                 {deployLoading ? (
                   <span className="flex items-center justify-center gap-2">
-                    <Loader2 className="animate-spin" size={14} />
+                    <SpinnerIcon className="animate-spin" size={14} />
                     Linking…
                   </span>
                 ) : preflight?.collision ? (

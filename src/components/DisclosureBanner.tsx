@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { ChevronRight, AlertTriangle, AlertCircle, Info } from "lucide-react";
+import { ChevronRightIcon, ExclamationTriangleIcon, ExclamationCircleIcon, InformationCircleIcon } from "./icons";
 
 export interface DisclosureBannerProps {
   variant: "warning" | "error" | "info";
@@ -34,12 +34,12 @@ export default function DisclosureBanner({
   const renderVariantIcon = () => {
     switch (variant) {
       case "warning":
-        return <AlertTriangle size={14} className="shrink-0" />;
+        return <ExclamationTriangleIcon size={14} className="shrink-0" />;
       case "error":
-        return <AlertCircle size={14} className="shrink-0" />;
+        return <ExclamationCircleIcon size={14} className="shrink-0" />;
       case "info":
       default:
-        return <Info size={14} className="shrink-0" />;
+        return <InformationCircleIcon size={14} className="shrink-0" />;
     }
   };
 
@@ -67,7 +67,7 @@ export default function DisclosureBanner({
         onClick={() => setIsOpen(!isOpen)}
         className="w-full flex items-center gap-2 p-3 font-sans font-medium text-left cursor-pointer focus:outline-none rounded-inner"
       >
-        <ChevronRight
+        <ChevronRightIcon
           size={14}
           className={`shrink-0 transition-transform duration-hover ease-spring ${
             isOpen ? "rotate-90" : ""

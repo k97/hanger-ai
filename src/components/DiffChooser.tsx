@@ -1,4 +1,4 @@
-import { ArrowRight, Check, FileText, GitMerge } from "lucide-react";
+import { ArrowRightIcon, CheckIcon, DocumentTextIcon, GitMergeIcon } from "./icons";
 
 export interface AlignedSection {
   heading: string | null;
@@ -39,7 +39,7 @@ export default function DiffChooser({
     <div className="absolute inset-0 bg-page flex flex-col z-[60] p-6 border-t border-line animate-in fade-in slide-in-from-bottom duration-200">
       <div className="flex justify-between items-center border-b border-line pb-4 mb-4">
         <div className="flex items-center gap-2 text-ink-1 font-medium">
-          <GitMerge size={18} />
+          <GitMergeIcon size={18} />
           <span className="text-lg-app font-medium font-sans">Interactive Rules Diff Merge</span>
         </div>
       </div>
@@ -47,7 +47,7 @@ export default function DiffChooser({
       {deploySuccess ? (
         <div className="flex-1 flex flex-col items-center justify-center gap-2 text-state-success">
           <div className="w-12 h-12 rounded-pill bg-plane border border-line flex items-center justify-center animate-in fade-in zoom-in-95 duration-200">
-            <Check size={24} />
+            <CheckIcon size={24} />
           </div>
           <span className="text-base-app font-medium font-sans mt-2">Deploying merged rule...</span>
           <span className="text-xs text-ink-3">Updating project inventory constellation...</span>
@@ -178,7 +178,7 @@ export default function DiffChooser({
               >
                 <div className="flex justify-between items-center mb-2">
                   <span className="text-micro font-medium uppercase tracking-[.06em] text-ink-1 flex items-center gap-1">
-                    <ArrowRight size={10} />
+                    <ArrowRightIcon size={10} />
                     Source (Incoming)
                   </span>
                   {!currentSection?.sourceContent && (
@@ -208,7 +208,7 @@ export default function DiffChooser({
               >
                 <div className="flex justify-between items-center mb-2">
                   <span className="text-micro font-medium uppercase tracking-[.06em] text-ink-2 flex items-center gap-1">
-                    <Check size={10} />
+                    <CheckIcon size={10} />
                     Destination (Current)
                   </span>
                   {!currentSection?.targetContent && (
@@ -227,7 +227,7 @@ export default function DiffChooser({
             <div className="border border-line bg-plane rounded-inner p-3 flex flex-col min-h-0">
               <div className="flex justify-between items-center mb-2">
                 <span className="text-micro font-medium uppercase tracking-[.06em] text-ink-3 flex items-center gap-1 select-none">
-                  <FileText size={10} />
+                  <DocumentTextIcon size={10} />
                   Live Merged Preview
                 </span>
               </div>

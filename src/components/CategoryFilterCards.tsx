@@ -1,4 +1,4 @@
-import { Check, Loader2 } from "lucide-react";
+import { CheckIcon, SpinnerIcon } from "./icons";
 
 export type CategoryType = "Skills" | "Agents" | "Tools" | "Rules" | "Subagents";
 
@@ -66,7 +66,7 @@ export default function CategoryFilterCards({
               onClick={() => handleChipClick(chip.id)}
               className={isPressed ? chipPressedClass : chipBaseClass}
             >
-              {isPressed && <Check size={14} className="shrink-0" />}
+              {isPressed && <CheckIcon size={14} className="shrink-0" />}
               <span>{chip.label}</span>
               <span
                 className={`text-micro tabular ${
@@ -74,7 +74,7 @@ export default function CategoryFilterCards({
                 }`}
               >
                 {chip.count === undefined && loading ? (
-                  <Loader2 className="animate-spin" size={11} />
+                  <SpinnerIcon className="animate-spin" size={11} />
                 ) : (
                   chip.count ?? 0
                 )}

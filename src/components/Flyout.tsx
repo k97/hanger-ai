@@ -2,13 +2,13 @@ import { useState, useRef, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import {
-  X,
-  AlertTriangle,
-  Link as LinkIcon,
-  Globe,
-  Copy,
-  SquareArrowOutUpRight,
-} from "lucide-react";
+  XMarkIcon,
+  ExclamationTriangleIcon,
+  LinkIcon,
+  GlobeAltIcon,
+  Square2StackIcon,
+  ArrowTopRightOnSquareIcon,
+} from "./icons";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import { Inventory } from "../App";
 import DeployWizard, { FlatAssetItem, PreflightResult } from "./DeployWizard";
@@ -545,7 +545,7 @@ export default function Flyout({
           </span>
           {selectedProjectScan?.layered && (
             <span className="flex items-center gap-1 text-state-danger normal-case tracking-normal">
-              <AlertTriangle size={10} />
+              <ExclamationTriangleIcon size={10} />
               Layered rules
             </span>
           )}
@@ -556,7 +556,7 @@ export default function Flyout({
             }}
             className="ml-auto w-[27px] h-[27px] rounded-pill grid place-items-center text-ink-2 hover:bg-plane-2 hover:text-ink-1 cursor-pointer transition-colors duration-hover ease-spring"
           >
-            <X size={14} />
+            <XMarkIcon size={14} />
           </button>
         </div>
         <h2 className="text-lg-app font-medium tracking-[-0.3px] mt-1 text-ink-1 truncate max-w-[280px] font-sans">
@@ -637,14 +637,14 @@ export default function Flyout({
                 onClick={() => navigator.clipboard?.writeText(targetAsset.path).catch(() => {})}
                 className="p-1 rounded-pill text-ink-3 hover:bg-plane-2 hover:text-ink-1 cursor-pointer transition-colors duration-hover shrink-0"
               >
-                <Copy size={13} />
+                <Square2StackIcon size={13} />
               </button>
               <button
                 title="Reveal in Finder"
                 onClick={() => revealItemInDir(targetAsset.path).catch(() => {})}
                 className="p-1 rounded-pill text-ink-3 hover:bg-plane-2 hover:text-ink-1 cursor-pointer transition-colors duration-hover shrink-0"
               >
-                <SquareArrowOutUpRight size={13} />
+                <ArrowTopRightOnSquareIcon size={13} />
               </button>
             </div>
           </div>
@@ -688,7 +688,7 @@ export default function Flyout({
           {selectedProjectScan && selectedProjectScan.parse_warnings.length > 0 && (
             <div className="p-3.5 rounded-inner border border-line bg-plane flex flex-col gap-2">
               <span className="text-micro font-medium uppercase tracking-[.06em] text-state-warning flex items-center gap-1.5 font-flex">
-                <AlertTriangle size={12} />
+                <ExclamationTriangleIcon size={12} />
                 Warnings Captured during Scan ({selectedProjectScan.parse_warnings.length})
               </span>
               <ul className="text-small text-ink-2 list-disc pl-4 flex flex-col gap-1">
@@ -703,7 +703,7 @@ export default function Flyout({
 
           {filteredAssets.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 text-ink-3">
-              <Globe className="stroke-[1.5] mb-2" size={40} />
+              <GlobeAltIcon className="mb-2" size={40} />
               <span className="text-small font-sans">No assets resolved in this scope.</span>
             </div>
           ) : (
@@ -752,7 +752,7 @@ export default function Flyout({
                             )}
                             {item.drifted && (
                               <span className="text-micro font-medium text-state-warning flex items-center gap-0.5 shrink-0 font-flex">
-                                <AlertTriangle size={10} />
+                                <ExclamationTriangleIcon size={10} />
                                 drifted
                               </span>
                             )}
@@ -792,7 +792,7 @@ export default function Flyout({
       ) : (
         /* Empty Inspector State when no asset or bubble is selected */
         <div className="flex-1 p-6 flex flex-col items-center justify-center text-center text-ink-3 font-sans">
-          <Globe className="stroke-[1.5] mb-2 opacity-50" size={36} />
+          <GlobeAltIcon className="mb-2 opacity-50" size={36} />
           <span className="text-small font-medium text-ink-1 font-sans">No Item Selected</span>
           <span className="text-small text-ink-3 mt-1">Select an asset or repository to inspect details.</span>
         </div>

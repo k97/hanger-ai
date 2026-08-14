@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { X, Loader2, AlertTriangle, Check, Globe, FileText } from "lucide-react";
+import { XMarkIcon, SpinnerIcon, ExclamationTriangleIcon, CheckIcon, GlobeAltIcon, DocumentTextIcon } from "./icons";
 import { AssetItem } from "./AssetRow";
 import DiffChooser, { AlignedSection } from "./DiffChooser";
 import { Inventory } from "../App";
@@ -305,14 +305,14 @@ export default function LinkAssetModal({
                 onClick={onClose}
                 className="w-[27px] h-[27px] rounded-pill grid place-items-center text-ink-2 hover:bg-plane-2 hover:text-ink-1 transition-colors duration-hover ease-spring cursor-pointer"
               >
-                <X size={14} />
+                <XMarkIcon size={14} />
               </button>
             </div>
 
             {deploySuccess ? (
               <div className="flex-1 flex flex-col items-center justify-center gap-2 py-12 shrink-0 animate-in fade-in zoom-in-95 duration-200">
                 <div className="w-12 h-12 rounded-pill bg-plane border border-line flex items-center justify-center text-state-success">
-                  <Check size={24} />
+                  <CheckIcon size={24} />
                 </div>
                 <span className="text-base-app font-medium text-ink-1 mt-2">Asset linked successfully</span>
                 <span className="text-small text-ink-3">Updating repositories…</span>
@@ -342,7 +342,7 @@ export default function LinkAssetModal({
                 {asset.category === "Rules" && selectedDestProject && (
                   <div className="flex flex-col gap-3 p-3.5 rounded-inner bg-plane border border-line shrink-0">
                     <span className="text-micro font-medium uppercase tracking-[.06em] text-ink-3 font-flex flex items-center gap-1.5 select-none">
-                      <FileText size={12} />
+                      <DocumentTextIcon size={12} />
                       Rule destination target path
                     </span>
 
@@ -425,13 +425,13 @@ export default function LinkAssetModal({
                 {selectedDestProject && (
                   <div className="flex flex-col gap-2 p-3.5 rounded-inner border border-line bg-plane shrink-0">
                     <span className="text-micro font-medium uppercase tracking-[.06em] text-ink-3 font-flex flex items-center gap-1.5 select-none">
-                      <Globe size={12} />
+                      <GlobeAltIcon size={12} />
                       What will happen
                     </span>
 
                     {preflightLoading ? (
                       <div className="flex items-center gap-2 text-ink-3 text-small py-2">
-                        <Loader2 className="animate-spin" size={12} />
+                        <SpinnerIcon className="animate-spin" size={12} />
                         Running pre-flight checks...
                       </div>
                     ) : preflight ? (
@@ -439,14 +439,14 @@ export default function LinkAssetModal({
                         {preflight.collision ? (
                           asset.category === "Rules" ? (
                             <div className="flex items-start gap-2 text-state-warning text-small leading-[1.6]">
-                              <AlertTriangle size={14} className="shrink-0 mt-0.5" />
+                              <ExclamationTriangleIcon size={14} className="shrink-0 mt-0.5" />
                               <div>
                                 <span className="font-medium">Collision:</span> heading block conflict detected. Merging requires the section diff merge chooser. Overwrite is disabled.
                               </div>
                             </div>
                           ) : (
                             <div className="flex items-start gap-2 text-state-danger text-small leading-[1.6]">
-                              <AlertTriangle size={14} className="shrink-0 mt-0.5" />
+                              <ExclamationTriangleIcon size={14} className="shrink-0 mt-0.5" />
                               <div>
                                 <span className="font-medium">Collision warning:</span> the destination path already exists. Confirming will overwrite the existing asset.
                               </div>
@@ -454,7 +454,7 @@ export default function LinkAssetModal({
                           )
                         ) : (
                           <div className="flex items-start gap-1.5 text-state-success text-small font-medium py-1">
-                            <Check size={14} />
+                            <CheckIcon size={14} />
                             Destination path clear. Safe to link.
                           </div>
                         )}
@@ -489,7 +489,7 @@ export default function LinkAssetModal({
                     >
                       {deployLoading ? (
                         <span className="flex items-center justify-center gap-2">
-                          <Loader2 className="animate-spin" size={12} />
+                          <SpinnerIcon className="animate-spin" size={12} />
                           Linking...
                         </span>
                       ) : preflight?.collision ? (

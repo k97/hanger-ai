@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { X, Search, Folder } from "lucide-react";
+import { XMarkIcon, MagnifyingGlassIcon, FolderIcon } from "./icons";
 
 interface SidebarScanModalProps {
   isOpen: boolean;
@@ -104,7 +104,7 @@ export default function SidebarScanModal({
             onClick={onClose}
             className="w-[27px] h-[27px] rounded-pill grid place-items-center text-ink-2 hover:bg-plane-2 hover:text-ink-1 transition-colors duration-hover ease-spring cursor-pointer"
           >
-            <X size={14} />
+            <XMarkIcon size={14} />
           </button>
         </div>
 
@@ -118,7 +118,7 @@ export default function SidebarScanModal({
 
           {candidates.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-center text-ink-3">
-              <Folder size={36} className="mb-2 stroke-[1.5]" />
+              <FolderIcon size={36} className="mb-2" />
               <span className="text-base-app font-medium text-ink-1">Nothing left to promote</span>
               <span className="text-small max-w-xs mt-1">
                 Every repository found inside this folder is already linked.
@@ -135,7 +135,7 @@ export default function SidebarScanModal({
 
               <div className="flex items-center justify-between gap-2">
                 <div className="relative flex-1 h-[27px]">
-                  <Search
+                  <MagnifyingGlassIcon
                     size={12}
                     className="absolute left-2.5 top-1/2 -translate-y-1/2 text-ink-3 pointer-events-none"
                   />

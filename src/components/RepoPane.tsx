@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { RefreshCw, AlertTriangle, Info, Loader2 } from "lucide-react";
+import { ArrowPathIcon, ExclamationTriangleIcon, InformationCircleIcon, SpinnerIcon } from "./icons";
 import { invoke } from "@tauri-apps/api/core";
 import CategoryFilterCards, { CategoryType } from "./CategoryFilterCards";
 import AssetRow, { AssetItem } from "./AssetRow";
@@ -323,7 +323,7 @@ export default function RepoPane({
         {permissionDeniedWarnings.length > 0 && (
           <div className="flex flex-col gap-3 p-3.5 border border-line bg-plane rounded-inner leading-relaxed animate-in fade-in duration-200">
             <div className="flex gap-2 text-state-danger">
-              <AlertTriangle className="shrink-0 mt-0.5" size={16} />
+              <ExclamationTriangleIcon className="shrink-0 mt-0.5" size={16} />
               <div className="flex flex-col gap-1 min-w-0">
                 <span className="text-small font-medium font-sans">macOS Folder Scan Access Denied</span>
                 <span className="text-micro font-mono break-all text-ink-2">{repoPath}</span>
@@ -337,7 +337,7 @@ export default function RepoPane({
               onClick={onRefresh}
               className="self-start px-4 h-[30px] bg-fill text-on-fill font-medium text-small rounded-pill transition-transform duration-press ease-spring active:scale-[0.96] cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
             >
-              <RefreshCw size={12} className={loading ? "animate-spin" : ""} />
+              <ArrowPathIcon size={12} className={loading ? "animate-spin" : ""} />
               <span>Retry Scan</span>
             </button>
           </div>
@@ -405,7 +405,7 @@ export default function RepoPane({
       {isRepoEmpty ? (
         /* Empty State */
         <div className={`${emptyPlaneClass} mt-2.5`}>
-          <Info className="text-ink-3 mb-2" size={40} />
+          <InformationCircleIcon className="text-ink-3 mb-2" size={40} />
           <span className="text-base-app font-medium text-ink-1">No AI assets found in this repository</span>
           <span className="text-small text-ink-3 max-w-sm mt-1 mb-4">
             This repository contains no agent profiles, skills, tools, rules, or subagents.
@@ -420,7 +420,7 @@ export default function RepoPane({
       ) : isCategoryEmpty && selectedCategory ? (
         /* Category-specific Empty State */
         <div className={`${emptyPlaneClass} mt-2.5`}>
-          <Info className="text-ink-3 mb-2" size={40} />
+          <InformationCircleIcon className="text-ink-3 mb-2" size={40} />
           <span className="text-base-app font-medium text-ink-1">No project-level {selectedCategory.toLowerCase()} found in this repository</span>
           <span className="text-small text-ink-3 max-w-sm mt-1">
             No configuration paths matched any project-level {selectedCategory.toLowerCase()} files.
@@ -540,7 +540,7 @@ export default function RepoPane({
           <div className="w-full max-w-sm bg-page rounded-plane border border-line p-[18px] relative flex flex-col gap-4 font-sans animate-in zoom-in-95 duration-150">
             <div className="flex justify-between items-center pb-2 border-b border-line">
               <h3 className="text-base-app font-medium text-ink-1 flex items-center gap-1.5">
-                <AlertTriangle className="text-state-warning" size={16} />
+                <ExclamationTriangleIcon className="text-state-warning" size={16} />
                 Unlink Asset
               </h3>
             </div>
@@ -568,7 +568,7 @@ export default function RepoPane({
               >
                 {unlinkLoading ? (
                   <>
-                    <Loader2 className="animate-spin" size={12} />
+                    <SpinnerIcon className="animate-spin" size={12} />
                     Unlinking...
                   </>
                 ) : (
