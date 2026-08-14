@@ -1,3 +1,4 @@
+import { isGlobalScope, isRepoScope, type Scope } from "./scopeAccess";
 import { Inventory, Skill, Tool, Rule, Agent, Subagent } from "../App";
 
 export type CategoryType = "Skills" | "Agents" | "Tools" | "Rules" | "Subagents";
@@ -61,10 +62,10 @@ export function filterProfileAssets(
   selectedCategory: CategoryType | null
 ): FilteredProfileResult {
   const agents = deduplicateAgents(inventory?.agents || []);
-  const globalSkills = deduplicateSkills(inventory?.skills.filter((s) => s.scope?.Global) || []);
-  const globalTools = deduplicateTools(inventory?.tools.filter((t) => t.scope?.Global) || []);
-  const globalRules = deduplicateRules(inventory?.rules.filter((r) => r.scope?.Global) || []);
-  const globalSubagents = deduplicateSubagents(inventory?.subagents.filter((sa) => sa.scope?.Global) || []);
+  const globalSkills = deduplicateSkills(inventory?.skills.filter((s) => isGlobalScope(s.scope as Scope)) || []);
+  const globalTools = deduplicateTools(inventory?.tools.filter((t) => isGlobalScope(t.scope as Scope)) || []);
+  const globalRules = deduplicateRules(inventory?.rules.filter((r) => isGlobalScope(r.scope as Scope)) || []);
+  const globalSubagents = deduplicateSubagents(inventory?.subagents.filter((sa) => isGlobalScope(sa.scope as Scope)) || []);
 
   if (selectedCategory === "Skills") {
     return {
@@ -142,15 +143,15 @@ export function filterRepoAssets(
   selectedCategory: CategoryType | null
 ): FilteredRepoResult {
   const repoSkills = deduplicateSkills(inventory?.skills.filter(
-    (s) => s.scope?.Project?.root === repoPath
+    (s) => isRepoScope(s.scope as Scope, repoPath)
   ) || []);
 
   const repoTools = deduplicateTools(inventory?.tools.filter(
-    (t) => t.scope?.Project?.root === repoPath
+    (t) => isRepoScope(t.scope as Scope, repoPath)
   ) || []);
 
   const repoRules = deduplicateRules(inventory?.rules.filter(
-    (r) => r.scope?.Project?.root === repoPath
+    (r) => isRepoScope(r.scope as Scope, repoPath)
   ) || []);
 
   const repoAgents = deduplicateAgents(inventory?.agents.filter(
@@ -158,7 +159,7 @@ export function filterRepoAssets(
   ) || []);
 
   const repoSubagents = deduplicateSubagents(inventory?.subagents.filter(
-    (sa) => sa.scope?.Project?.root === repoPath
+    (sa) => isRepoScope(sa.scope as Scope, repoPath)
   ) || []);
 
   if (selectedCategory === "Skills") {

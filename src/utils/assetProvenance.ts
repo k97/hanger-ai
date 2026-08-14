@@ -1,3 +1,4 @@
+import { scopeRoot, scopeAgent, type Scope } from "./scopeAccess";
 import type { Inventory } from "../App";
 import { classifyAsset, type LinkState, type ReviewableAsset } from "./linkStateCounts";
 
@@ -39,7 +40,9 @@ function pathOf(asset: ScopedAsset): string {
 }
 
 function placeOf(asset: ScopedAsset): string {
-  const root = asset.scope?.Project?.root;
+  // Local-scoped assets belong to a repo too, despite living in a
+  // machine-level file. scopeRoot knows all three variants.
+  const root = scopeRoot(asset.scope as Scope);
   return root ? basename(root) : "User profile";
 }
 
@@ -64,7 +67,7 @@ export function kindLabel(category: string): string {
 
 /** The engine an asset belongs to, in the words the panel uses. */
 export function engineLabel(asset: ScopedAsset): string {
-  const agent = asset.scope?.Project?.agent ?? asset.scope?.Global?.agent;
+  const agent = scopeAgent(asset.scope as Scope);
   if (!agent) return "Any agent";
   const NAMES: Record<string, string> = {
     claude: "Claude Code",

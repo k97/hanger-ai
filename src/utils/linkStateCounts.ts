@@ -1,3 +1,4 @@
+import { isGlobalScope, isRepoScope, type Scope } from "./scopeAccess";
 import type { Inventory } from "../App";
 
 /** The four render states a row can be in, plus the rail's review preset. */
@@ -85,10 +86,10 @@ export function linkStateCounts(inventory: Inventory | null, scope: CountScope):
   const counts: StateCounts = { linked: 0, drifted: 0, broken: 0, local: 0, total: 0 };
   if (!inventory) return counts;
 
-  const inScope = (asset: { scope?: { Global?: unknown; Project?: { root: string } } }) =>
+  const inScope = (asset: { scope?: unknown }) =>
     scope.kind === "global"
-      ? Boolean(asset.scope?.Global)
-      : asset.scope?.Project?.root === scope.root;
+      ? isGlobalScope(asset.scope as Scope)
+      : isRepoScope(asset.scope as Scope, scope.root);
 
   const assets: ReviewableAsset[] = [
     ...dedupeBy(inventory.skills.filter(inScope), (s) => s.path),

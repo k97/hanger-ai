@@ -1,3 +1,4 @@
+import { scopeRoot, type Scope } from "./scopeAccess";
 import type { Inventory } from "../App";
 
 /**
@@ -103,8 +104,8 @@ function placeLabel(root: string | null): string {
   return root === null ? "User profile" : basename(root);
 }
 
-function rootOf(scope: { Global?: unknown; Project?: { root: string } } | undefined): string | null {
-  return scope?.Project?.root ?? null;
+function rootOf(scope: unknown): string | null {
+  return scopeRoot(scope as Scope);
 }
 
 /** Flattens the inventory into one shape, deduplicated by path within a category. */
