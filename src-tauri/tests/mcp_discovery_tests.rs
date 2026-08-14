@@ -202,3 +202,30 @@ fn a_recognised_file_with_no_servers_is_an_empty_success_not_an_error() {
 fn malformed_json_is_an_error() {
     assert!(dialect::parse("{ not json", Dialect::McpServers, ScopeTier::Global).is_err());
 }
+
+// ─── Host kind is derived, never stored ──────────────────────────────────────
+
+#[test]
+fn engine_kind_derives_from_the_registry_not_the_database() {
+    // `kind` is a compile-time fact about what a program IS, not per-machine
+    // state. Storing it in the `engines` table would duplicate this registry
+    // in SQLite and require a schema migration to correct a typo.
+    assert_eq!(registry::host_by_engine_key("claude_code").unwrap().kind, HostKind::Agent);
+    assert_eq!(registry::host_by_engine_key("codex").unwrap().kind, HostKind::Agent);
+    assert_eq!(registry::host_by_engine_key("claude_desktop").unwrap().kind, HostKind::McpHost);
+    assert_eq!(registry::host_by_engine_key("vscode").unwrap().kind, HostKind::McpHost);
+    assert!(registry::host_by_engine_key("nonexistent").is_none());
+}
+
+#[test]
+fn engine_keys_are_underscored_and_round_trip_to_their_host() {
+    for host in registry::HOSTS {
+        let key = host.engine_key();
+        assert!(!key.contains('-'), "engine key {} must not contain hyphens", key);
+        assert_eq!(
+            registry::host_by_engine_key(&key).unwrap().id,
+            host.id,
+            "engine key {} did not round-trip", key
+        );
+    }
+}

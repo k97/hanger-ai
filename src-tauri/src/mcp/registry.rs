@@ -118,6 +118,27 @@ pub const SOURCES: &[McpSource] = &[
     McpSource { host_id: "zed", location: MachineAbsolute, path: ".config/zed/settings.json", tier: Global, dialect: ZedContextServers },
 ];
 
+impl McpHost {
+    /// The stable `engines.key` for this host.
+    ///
+    /// The database uses underscores where registry ids use hyphens.
+    pub fn engine_key(&self) -> String {
+        self.id.replace('-', "_")
+    }
+}
+
 pub fn host_by_id(id: &str) -> Option<&'static McpHost> {
     HOSTS.iter().find(|h| h.id == id)
+}
+
+/// Resolve a host from its `engines.key`.
+///
+/// `kind` is derived through this lookup rather than stored as a column.
+/// Whether VS Code is an MCP-only host is a fact about VS Code, fixed at
+/// compile time — not per-machine state. Persisting it would duplicate this
+/// table inside SQLite, put the two copies out of sync the moment one changed,
+/// and demand a schema migration to correct what is really a typo in a
+/// constant.
+pub fn host_by_engine_key(key: &str) -> Option<&'static McpHost> {
+    HOSTS.iter().find(|h| h.engine_key() == key)
 }
