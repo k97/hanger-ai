@@ -170,3 +170,34 @@ fn claude_ai_connectors_reach_the_global_inventory() {
         .unwrap();
     assert_eq!(persisted, 1, "connector discovered but never persisted");
 }
+
+/// Diagnostic against the REAL home directory, not a fixture.
+///
+/// #[ignore] because it depends on the developer's own machine. Run when the
+/// app disagrees with the database:
+///   cargo test --test mcp_scanner_tests -- --ignored --nocapture real_home
+#[test]
+#[ignore]
+fn real_home_profile_inventory() {
+    let _guard = ENV_MUTEX.get_or_init(|| Mutex::new(())).lock().unwrap();
+    std::env::remove_var("HANGER_TEST_HOME");
+
+    let dir = tempfile::tempdir().unwrap();
+    let scanner = DirectoryScanner {
+        db_path: dir.path().join("hanger.db"),
+        cancellation_token: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
+    };
+    let inventory = scanner.scan(Path::new("/Users/karthik/Work/Labs/hanger-ai")).unwrap();
+
+    let mut global: Vec<(&str, &str)> = inventory
+        .tools
+        .iter()
+        .filter(|t| matches!(t.scope, Scope::Global { .. }))
+        .map(|t| (t.name.as_str(), t.transport.as_str()))
+        .collect();
+    global.sort();
+    println!("GLOBAL TOOLS IN INVENTORY: {}", global.len());
+    for (n, tr) in &global {
+        println!("  {:<24} {}", n, tr);
+    }
+}
