@@ -72,18 +72,23 @@ export default function McpServerDetail({ server, onVerify, verifying = false }:
   const regCount = server.registrations.length;
 
   return (
-    <div className="font-sans text-base text-ink-1">
+    <div className="flex-1 min-h-0 flex flex-col font-sans text-base text-ink-1">
       {/* No server name here. The Flyout's own chrome already titles the
           selected asset; repeating it produced two <h2>s reading the same
           text. The prototype needed a title because it was a standalone
           window — embedded, that is the chrome's job. */}
-      <header className={SECTION}>
+      <header className={`${SECTION} shrink-0`}>
         <div className="flex items-center gap-2">
           <span className="text-micro font-mono px-2 py-px rounded-pill bg-tint text-ink-1 whitespace-nowrap">
             {server.transport}
           </span>
         </div>
       </header>
+
+      {/* One scroll region for the whole panel, as in AssetDetail. The tools
+          list used to cap itself at 240px, which meant two nested scrollbars
+          and a list you could only read a sixth of at a time. */}
+      <div className="flex-1 min-h-0 overflow-y-auto">
 
       <section className={SECTION}>
         <div className="flex items-baseline justify-between gap-2 mb-[10px]">
@@ -149,10 +154,10 @@ export default function McpServerDetail({ server, onVerify, verifying = false }:
         {verified?.error ? (
           <p className="text-micro text-state-danger leading-[1.5]">{verified.error}</p>
         ) : verified ? (
-          // Height-capped with internal scroll: descriptions are long enough to
-          // force two-line rows, so 17-20 tools exceed a panel. DESIGN.md fixes
-          // 240px for disclosed regions.
-          <div className="max-h-[240px] overflow-y-auto border border-line rounded-inner flex flex-col">
+          // Not height-capped. DESIGN.md's 240px rule covers DisclosureBanner
+          // regions; this is the panel's primary content, and a nested
+          // scrollbar inside a scrolling panel is worse than a long page.
+          <div className="border border-line rounded-inner flex flex-col">
             {verified.tools.map((tool, i) => (
               <div
                 key={tool.name}
@@ -207,6 +212,7 @@ export default function McpServerDetail({ server, onVerify, verifying = false }:
           </p>
         </section>
       )}
+      </div>
     </div>
   );
 }
