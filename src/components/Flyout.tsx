@@ -493,6 +493,15 @@ export default function Flyout({
   };
 
   const targetAsset = selectedAsset || (initialDeployingAsset ? initialDeployingAsset : null);
+
+  /* Built once: the heading row needs the transport chip and the panel needs
+     the whole view. Three calls to buildMcpServerView per render was wasteful
+     and let the two drift apart. */
+  const mcpView =
+    targetAsset && targetAsset.category === "Tools"
+      ? buildMcpServerView(inventory?.tools, targetAsset.name)
+      : null;
+
   const provenance = targetAsset ? provenanceOf(targetAsset as never, inventory) : null;
 
   return (
@@ -554,15 +563,24 @@ export default function Flyout({
             <XMarkIcon size={14} />
           </button>
         </div>
-        <h2 className="text-lg-app font-medium tracking-[-0.3px] mt-1 text-ink-1 truncate max-w-[280px] font-sans">
-          {linking
-            ? "Link to projects"
-            : targetAsset
-            ? targetAsset.name
-            : selectedBubble
-            ? selectedBubble.name
-            : "Asset Inspector"}
-        </h2>
+        <div className="flex items-center gap-2 mt-1 min-w-0">
+          <h2 className="text-lg-app font-medium tracking-[-0.3px] text-ink-1 truncate max-w-[280px] font-sans">
+            {linking
+              ? "Link to projects"
+              : targetAsset
+              ? targetAsset.name
+              : selectedBubble
+              ? selectedBubble.name
+              : "Asset Inspector"}
+          </h2>
+          {/* Transport rides the heading rather than owning a row of its own —
+              one short token does not earn 18px of vertical padding. */}
+          {!linking && mcpView && (
+            <span className="shrink-0 text-micro font-mono px-2 py-px rounded-pill bg-tint text-ink-1 whitespace-nowrap">
+              {mcpView.transport}
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Conditional Sub-components Coordinator */}
@@ -594,19 +612,18 @@ export default function Flyout({
             />
           )}
         </>
-      ) : targetAsset && targetAsset.category === "Tools" &&
-           buildMcpServerView(inventory?.tools, targetAsset.name) ? (
+      ) : mcpView ? (
         /* An MCP server has N config paths, no version until a handshake, and
            17-20 tools. AssetDetail's flat one-name-one-path shape cannot hold
            it, so this category gets its own panel rather than widening that
            component into a dumping ground. */
         <McpServerDetail
           server={{
-            ...buildMcpServerView(inventory?.tools, targetAsset.name)!,
-            verified: mcpVerified[targetAsset.name],
+            ...mcpView,
+            verified: mcpVerified[mcpView.name],
           }}
-          verifying={mcpVerifying === targetAsset.name}
-          onVerify={() => runMcpVerify(buildMcpServerView(inventory?.tools, targetAsset.name)!)}
+          verifying={mcpVerifying === mcpView.name}
+          onVerify={() => runMcpVerify(mcpView)}
         />
       ) : targetAsset ? (
         <AssetDetail

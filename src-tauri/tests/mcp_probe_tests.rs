@@ -143,3 +143,57 @@ async fn real_server_probe_lists_tools() {
     assert_eq!(r.server_name.as_deref(), Some("spades-audio"));
     assert_eq!(r.tools.len(), 17);
 }
+
+// ─── Launch resolution ───────────────────────────────────────────────────────
+
+#[test]
+fn a_command_carrying_its_own_arguments_is_split() {
+    // Real configs on this machine declare tauri as a single string:
+    //   {"command": "npx @hypothesi/tauri-mcp-server"}   (~/.claude.json)
+    //   command = "npx @hypothesi/tauri-mcp-server"      (~/.codex/config.toml)
+    // Passed verbatim, Command::new looks for a binary with that literal name
+    // and fails with ENOENT.
+    let (prog, args) = probe::split_launch("npx @hypothesi/tauri-mcp-server", &[]);
+    assert_eq!(prog, "npx");
+    assert_eq!(args, vec!["@hypothesi/tauri-mcp-server"]);
+}
+
+#[test]
+fn an_explicit_args_list_is_never_second_guessed() {
+    let given = vec!["/some/server.js".to_string()];
+    let (prog, args) = probe::split_launch("node", &given);
+    assert_eq!(prog, "node");
+    assert_eq!(args, given);
+}
+
+#[test]
+fn a_path_with_spaces_is_left_alone() {
+    // "/Applications/Spades Audio.app/..." must not be torn in half. An
+    // absolute path is a path, whatever whitespace it contains.
+    let cmd = "/Applications/Spades Audio.app/Contents/MacOS/server";
+    let (prog, args) = probe::split_launch(cmd, &[]);
+    assert_eq!(prog, cmd);
+    assert!(args.is_empty());
+}
+
+#[test]
+fn a_bare_command_with_no_arguments_is_unchanged() {
+    let (prog, args) = probe::split_launch("node", &[]);
+    assert_eq!(prog, "node");
+    assert!(args.is_empty());
+}
+
+/// The exact declaration that failed with ENOENT in the running app:
+/// `{"command": "npx @hypothesi/tauri-mcp-server"}` with no args.
+#[cfg(unix)]
+#[tokio::test]
+#[ignore]
+async fn real_server_probe_handles_a_self_contained_command() {
+    let r = probe::probe("npx @hypothesi/tauri-mcp-server", &[], Duration::from_secs(45)).await;
+    println!(
+        "server={:?} v{:?} protocol={:?} caps={:?} tools={} error={:?}",
+        r.server_name, r.server_version, r.protocol_version, r.capabilities, r.tools.len(), r.error
+    );
+    assert_eq!(r.error, None);
+    assert!(r.tools.len() >= 15, "expected tauri's tool list, got {}", r.tools.len());
+}

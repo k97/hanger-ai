@@ -54,6 +54,56 @@ impl ProbeResult {
     }
 }
 
+/// Resolve a declaration into an executable and its arguments.
+///
+/// Configs are inconsistent about where the arguments live. `~/.claude.json`
+/// declares spades-audio as `{"command": "node", "args": [...]}` but tauri as
+/// `{"command": "npx @hypothesi/tauri-mcp-server"}` with no args at all, and
+/// `~/.codex/config.toml` does the same with an explicitly empty `args = []`.
+/// Passed verbatim, the second form makes `Command::new` search for a binary
+/// named "npx @hypothesi/tauri-mcp-server" and fail with ENOENT.
+///
+/// Splitting is confined to the case that needs it: no arguments were given,
+/// the command contains whitespace, and it is not a path. An absolute or
+/// relative path is left whole however much whitespace it carries, so
+/// "/Applications/Spades Audio.app/..." survives intact.
+pub fn split_launch(command: &str, args: &[String]) -> (String, Vec<String>) {
+    let looks_like_path =
+        command.starts_with('/') || command.starts_with('.') || command.starts_with('~');
+
+    if args.is_empty() && !looks_like_path && command.split_whitespace().count() > 1 {
+        let mut parts = command.split_whitespace();
+        let prog = parts.next().unwrap_or(command).to_string();
+        return (prog, parts.map(str::to_string).collect());
+    }
+
+    (command.to_string(), args.to_vec())
+}
+
+/// PATH for the child, widened beyond what a GUI process inherits.
+///
+/// An app launched from Finder gets `/usr/bin:/bin:/usr/sbin:/sbin` — not the
+/// shell's PATH. Every common MCP launcher lives outside that set: npx and node
+/// under /usr/local/bin, uvx under ~/.local/bin, bunx under ~/.bun/bin. Without
+/// this, Verify reports "No such file or directory" for servers that run
+/// perfectly well from a terminal.
+fn widened_path() -> String {
+    let home = std::env::var("HOME").unwrap_or_default();
+    let mut dirs: Vec<String> = vec![
+        format!("{}/.local/bin", home),
+        format!("{}/.bun/bin", home),
+        format!("{}/.cargo/bin", home),
+        "/opt/homebrew/bin".to_string(),
+        "/usr/local/bin".to_string(),
+    ];
+    if let Ok(existing) = std::env::var("PATH") {
+        dirs.push(existing);
+    } else {
+        dirs.push("/usr/bin:/bin:/usr/sbin:/sbin".to_string());
+    }
+    dirs.join(":")
+}
+
 /// Run the exchange, or return a `ProbeResult` carrying the reason it could not.
 ///
 /// The child is killed on every exit path, including timeout and error. A
@@ -71,8 +121,11 @@ pub async fn probe(command: &str, args: &[String], timeout: Duration) -> ProbeRe
 async fn exchange(command: &str, args: &[String]) -> ProbeResult {
     // stderr is discarded rather than inherited or piped. Servers log freely to
     // it, and an unread pipe fills and deadlocks the child.
-    let mut child = match Command::new(command)
-        .args(args)
+    let (program, argv) = split_launch(command, args);
+
+    let mut child = match Command::new(&program)
+        .args(&argv)
+        .env("PATH", widened_path())
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::null())
@@ -80,7 +133,12 @@ async fn exchange(command: &str, args: &[String]) -> ProbeResult {
         .spawn()
     {
         Ok(c) => c,
-        Err(e) => return ProbeResult::failed(format!("Could not start the server: {}", e)),
+        Err(e) => {
+            return ProbeResult::failed(format!(
+                "Could not start `{}`: {}",
+                program, e
+            ))
+        }
     };
 
     let Some(mut stdin) = child.stdin.take() else {
