@@ -199,7 +199,7 @@ export default function LinkPanel({
     setRunning(false);
     const anyFailed = Object.values(landed).some((outcome) => !outcome.ok);
     if (anyFailed) {
-      setFailure("Some destinations were left unchanged. Each is marked below.");
+      setFailure("Some destinations were left unchanged. Each row says what happened.");
     }
     onLinked();
   };
