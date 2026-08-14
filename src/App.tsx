@@ -54,6 +54,9 @@ import DiscoveryPane from "./components/DiscoveryPane";
 import NeedsReviewPane from "./components/NeedsReviewPane";
 import ReviewSidebar from "./components/ReviewSidebar";
 import ReviewInspector from "./components/ReviewInspector";
+import LinkMapPane from "./components/LinkMapPane";
+import LinkMapInspector from "./components/LinkMapInspector";
+import type { LinkGraph, PositionedEdge } from "./utils/linkMapLayout";
 import SidebarScanModal from "./components/SidebarScanModal";
 import Flyout from "./components/Flyout";
 import { SortField, SortDirection } from "./components/AssetHeaderRow";
@@ -254,6 +257,11 @@ export default function App() {
   const [stateFilter, setStateFilter] = useState<StateFilter>(null);
   // When the last completed scan landed — feeds the strip's scan stamp.
   const [lastScanAt, setLastScanAt] = useState<Date | null>(null);
+
+  // Link map: the graph arrives computed from the backend and is rendered
+  // verbatim; selection is the only state the frontend owns.
+  const [linkGraph, setLinkGraph] = useState<LinkGraph | null>(null);
+  const [selectedLinkEdge, setSelectedLinkEdge] = useState<PositionedEdge | null>(null);
   const [sortField, setSortField] = useState<SortField>("name");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
 
@@ -545,6 +553,23 @@ export default function App() {
     }
   };
 
+  // The link graph is re-read on entering the view and after every scan —
+  // link rows and edge states both move when the scanner runs.
+  useEffect(() => {
+    if (selectedSidebarItem !== "linkmap") return;
+    let cancelled = false;
+    invoke<LinkGraph>("link_graph", { focusAssetId: null })
+      .then((g) => {
+        if (!cancelled) setLinkGraph(g);
+      })
+      .catch((e) => {
+        if (!cancelled) setError(`Could not read the link graph: ${e}`);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedSidebarItem, lastScanAt]);
+
   const triggerScan = async () => {
     setScanning(true);
     setError(null);
@@ -760,6 +785,8 @@ export default function App() {
       ? ["My machine", "Global", selectedSidebarItem.split(":")[1]]
       : selectedSidebarItem === "discovery"
       ? ["Discovery"]
+      : selectedSidebarItem === "linkmap"
+      ? ["My machine", "Link map"]
       : selectedSidebarItem.includes(":")
       ? [
           "My machine",
@@ -777,7 +804,7 @@ export default function App() {
     <div className="h-screen w-screen bg-page text-ink-1 flex flex-col font-sans transition-colors duration-200 overflow-hidden">
       {/* Unified toolbar — thin top line, quiet pill controls, one filter */}
       <header className="h-10 min-h-10 max-h-10 border-b border-line bg-page px-3 flex items-center gap-2.5 select-none z-30 shrink-0 font-flex">
-        {selectedSidebarItem !== "discovery" && (
+        {selectedSidebarItem !== "discovery" && selectedSidebarItem !== "linkmap" && (
           <Tooltip label="Toggle sidebar  ⌘⌥S" placement="bottom">
             <button onClick={toggleSidebar} aria-label="Toggle sidebar" className={tbBtnClass}>
               <PanelLeftIcon size={15} aria-hidden="true" />
@@ -801,6 +828,8 @@ export default function App() {
         </div>
 
         <div className="ml-auto flex items-center gap-1">
+          {/* The map has no text filter yet; an inert input would lie. */}
+          {selectedSidebarItem !== "linkmap" && (
           <div className="relative w-[196px] h-[27px] mr-2">
             <MagnifyingGlassIcon
               size={12}
@@ -820,6 +849,7 @@ export default function App() {
               className="w-full h-full rounded-pill border border-transparent bg-plane pl-[30px] pr-3.5 text-small text-ink-1 placeholder:text-ink-3 focus:outline-none focus:border-ink-1 focus:bg-page transition-colors duration-hover ease-spring"
             />
           </div>
+          )}
 
           {selectedSidebarItem !== "discovery" && (
             <Tooltip label="Toggle inspector" placement="bottom">
@@ -843,6 +873,8 @@ export default function App() {
               ? "discovery"
               : selectedSidebarItem === "review"
               ? "review"
+              : selectedSidebarItem === "linkmap"
+              ? "linkmap"
               : "machine"
           }
           needsReviewCount={review.counts.total}
@@ -850,6 +882,10 @@ export default function App() {
           onSelectMachine={() => {
             handleSelectSidebarItem("profile");
             invoke("set_preference", { key: "selected_sidebar_item", value: "profile" }).catch(() => {});
+          }}
+          onSelectLinkMap={() => {
+            handleSelectSidebarItem("linkmap");
+            invoke("set_preference", { key: "selected_sidebar_item", value: "linkmap" }).catch(() => {});
           }}
           onSelectDiscovery={() => {
             handleSelectSidebarItem("discovery");
@@ -862,7 +898,7 @@ export default function App() {
           onOpenSettings={() => setShowSettingsModal(true)}
         />
 
-        {selectedSidebarItem === "discovery" ? null : selectedSidebarItem === "review" ? (
+        {selectedSidebarItem === "discovery" || selectedSidebarItem === "linkmap" ? null : selectedSidebarItem === "review" ? (
           <ReviewSidebar
             width={sidebarWidth}
             setWidth={setSidebarWidth}
@@ -946,6 +982,22 @@ export default function App() {
 
           {selectedSidebarItem === "discovery" && (
             <DiscoveryPane filterText={filterText} />
+          )}
+
+          {selectedSidebarItem === "linkmap" && (
+            <LinkMapPane
+              graph={linkGraph}
+              loading={loading || scanning}
+              selectedEdge={selectedLinkEdge}
+              onSelectEdge={(edge) => {
+                setSelectedLinkEdge(edge);
+                if (!inspectorOpen) {
+                  setInspectorOpen(true);
+                  invoke("set_preference", { key: "inspector_open", value: "true" }).catch(() => {});
+                }
+              }}
+              onRescan={triggerScan}
+            />
           )}
 
           {selectedSidebarItem === "review" && (
@@ -1033,6 +1085,22 @@ export default function App() {
         </main>
 
         {/* Docked Inspector — provenance under review, the asset elsewhere */}
+        {inspectorOpen && selectedSidebarItem === "linkmap" && (
+          <aside
+            style={{ width: inspectorWidth }}
+            className="shrink-0 border-l border-line bg-page h-full min-h-0"
+          >
+            <LinkMapInspector
+              edge={selectedLinkEdge}
+              nodes={linkGraph?.nodes ?? []}
+              onClose={() => {
+                setInspectorOpen(false);
+                invoke("set_preference", { key: "inspector_open", value: "false" }).catch(() => {});
+              }}
+            />
+          </aside>
+        )}
+
         {inspectorOpen && selectedSidebarItem === "review" && (
           <aside
             style={{ width: inspectorWidth }}
@@ -1057,6 +1125,7 @@ export default function App() {
         {inspectorOpen &&
           selectedSidebarItem !== "review" &&
           selectedSidebarItem !== "discovery" &&
+          selectedSidebarItem !== "linkmap" &&
           inventory && (
           <Flyout
             width={inspectorWidth}

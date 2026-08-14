@@ -45,6 +45,7 @@ import {
   XMarkIcon as HeroXMark,
 } from "@heroicons/react/24/outline";
 import {
+  FolderSymlink as LucideFolderSymlink,
   FolderTree as LucideFolderTree,
   GitMerge as LucideGitMerge,
   PanelLeft as LucidePanelLeft,
@@ -130,6 +131,7 @@ export const XMarkIcon = sized(HeroXMark);
  */
 export const SpinnerIcon = ArrowPathIcon;
 
+export const FolderSymlinkIcon = sized(LucideFolderSymlink as SvgIcon);
 export const FolderTreeIcon = sized(LucideFolderTree as SvgIcon);
 export const GitMergeIcon = sized(LucideGitMerge as SvgIcon);
 export const PanelLeftIcon = sized(LucidePanelLeft as SvgIcon);

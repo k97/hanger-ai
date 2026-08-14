@@ -1,15 +1,16 @@
-import { ComputerDesktopIcon, GlobeAltIcon, ExclamationTriangleIcon, Cog6ToothIcon } from "./icons";
+import { ComputerDesktopIcon, GlobeAltIcon, ExclamationTriangleIcon, Cog6ToothIcon, FolderSymlinkIcon } from "./icons";
 import HangerMark from "./HangerMark";
 import Tooltip from "./Tooltip";
 
 interface IconRailProps {
-  active: "machine" | "discovery" | "review";
+  active: "machine" | "linkmap" | "discovery" | "review";
   needsReviewCount: number;
   /** The resolved appearance, so the brand mark can pick the variant that
    *  stays legible on the rail. Passed rather than read from a media query
    *  because the theme can be pinned against the OS. */
   darkMode: boolean;
   onSelectMachine: () => void;
+  onSelectLinkMap: () => void;
   onSelectDiscovery: () => void;
   onSelectReview: () => void;
   onOpenSettings: () => void;
@@ -30,6 +31,7 @@ export default function IconRail({
   needsReviewCount,
   darkMode,
   onSelectMachine,
+  onSelectLinkMap,
   onSelectDiscovery,
   onSelectReview,
   onOpenSettings,
@@ -52,6 +54,17 @@ export default function IconRail({
           className={active === "machine" ? railBtnActiveClass : railBtnClass}
         >
           <ComputerDesktopIcon size={17} aria-hidden="true" />
+        </button>
+      </Tooltip>
+
+      <Tooltip label="Link map">
+        <button
+          aria-label="Link map"
+          aria-current={active === "linkmap" ? "true" : undefined}
+          onClick={onSelectLinkMap}
+          className={active === "linkmap" ? railBtnActiveClass : railBtnClass}
+        >
+          <FolderSymlinkIcon size={17} aria-hidden="true" />
         </button>
       </Tooltip>
 

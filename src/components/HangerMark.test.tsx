@@ -89,6 +89,7 @@ describe("the rail's brand mark", () => {
         needsReviewCount={0}
         darkMode={darkMode}
         onSelectMachine={() => {}}
+        onSelectLinkMap={() => {}}
         onSelectDiscovery={() => {}}
         onSelectReview={() => {}}
         onOpenSettings={() => {}}
@@ -114,6 +115,9 @@ describe("the rail's brand mark", () => {
 
   it("adds no new interactive target to the rail", () => {
     rail(false);
-    expect(screen.getAllByRole("button")).toHaveLength(4);
+    // 5 = the four sections plus settings. The mark itself contributes none
+    // of these; this pin moved 4 → 5 when the Link map entry landed, not
+    // because the mark grew behaviour.
+    expect(screen.getAllByRole("button")).toHaveLength(5);
   });
 });
