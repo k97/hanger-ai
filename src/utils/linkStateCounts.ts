@@ -51,16 +51,10 @@ export function matchesStateFilter(asset: ReviewableAsset, filter: StateFilter):
   return classifyAsset(asset) === filter;
 }
 
-/** How many assets across the whole inventory need attention. */
-export function needsReviewCount(inventory: Inventory | null): number {
-  if (!inventory) return 0;
-  return [
-    ...inventory.skills,
-    ...inventory.tools,
-    ...inventory.rules,
-    ...inventory.subagents,
-  ].filter(needsReview).length;
-}
+/* The machine-wide "how many need review" figure lives in reviewIssues.ts —
+   it also counts duplicates, which are a relationship between assets rather
+   than a state one asset can be in. Two functions answering that question
+   would eventually answer it differently. */
 
 export type CountScope = { kind: "global" } | { kind: "repo"; root: string };
 
