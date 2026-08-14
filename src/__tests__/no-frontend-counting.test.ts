@@ -16,6 +16,13 @@ export interface AllowlistEntry {
 // Any allowlist entry that no longer matches ALSO fails.
 const ALLOWLIST: AllowlistEntry[] = [
   {
+    file: "src/components/McpServerDetail.tsx",
+    linePattern: /const regCount = server\.registrations\.length/,
+    category: "ui",
+    reason:
+      "Counts the registration rows this panel itself renders \u2014 a display subset of one server's own prop, not an asset total. No backend command counts a single server's registrations, and get_asset_counts stays the authority for every category total.",
+  },
+  {
     file: "src/components/ProfilePane.tsx",
     linePattern: /const visibleCount = sortedSkills\.length/,
     category: "ui",
