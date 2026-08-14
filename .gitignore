@@ -50,6 +50,13 @@ scratch/
 # Local-only: pre-publication material, never committed
 docs/to-be-reviewed/
 
-# Local-only: internal documentation and design sources
-docs/
+# Local-only: harness artefacts and machine noise under docs/
+docs/.DS_Store
+docs/superpowers/
+docs/evidence/
+
+# Never committed: third-party published articles with named authors
+docs/references/
+
+# Apple auth key
 *.p8

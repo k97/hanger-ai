@@ -1,0 +1,426 @@
+<meta charset="utf-8">
+<title>MCP Server Inspector</title>
+<style>
+/* ══ MCP server inspector — panel study ═══════════════════════════════════
+   Palette and type are taken verbatim from src/styles/tokens.css. No new
+   typeface, no new colour. The only saturated ink in the app stays reserved
+   for system state, which is exactly what health and divergence are.
+
+   The study exists to answer one question: where does a server's depth live?
+   A server carries 17-20 tools, N registrations across hosts, a protocol
+   revision and a capability set. That is not row data. It is panel data.
+
+   Every value shown is real, probed from this machine on 2026-08-14 via
+   initialize + tools/list over stdio. No placeholder content.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+:root{
+  --page:#ffffff;
+  --plane:#f7f7f7;
+  --plane-2:#efefef;
+  --tint:#e8e8e8;
+  --line:rgba(0,0,0,.09);
+  --line-2:rgba(0,0,0,.20);
+  --ink-1:#000000;
+  --ink-2:#4d4d4d;
+  --ink-3:#6a6a6a;
+  --fill:#000000;
+  --on-fill:#ffffff;
+  --state-success:#0f7a52;
+  --state-warning:#8a5a00;
+  --state-danger:#b3261e;
+  --ground:#e8e8e8;
+
+  --font-sans:-apple-system,BlinkMacSystemFont,system-ui,sans-serif;
+  --font-mono:ui-monospace,"SF Mono",Menlo,monospace;
+  --fs-micro:11px; --fs-small:12px; --fs-base:13px; --fs-lg:16px;
+  --fw-regular:400; --fw-medium:500;
+  --radius-plane:16px; --radius-inner:12px; --radius-pill:9999px;
+  --gutter:18px; --step:8px;
+  --inspector:396px;
+  --spring:cubic-bezier(.2,.85,.25,1);
+  --dur-hover:160ms;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --page:#000000; --plane:#0e0e0e; --plane-2:#171717; --tint:#232323;
+    --line:rgba(255,255,255,.12); --line-2:rgba(255,255,255,.22);
+    --ink-1:#ffffff; --ink-2:#b3b3b3; --ink-3:#8a8a8a;
+    --fill:#ffffff; --on-fill:#000000;
+    --state-success:#4ec08c; --state-warning:#d9a441; --state-danger:#e8635b;
+    --ground:#141414;
+  }
+}
+:root[data-theme="dark"]{
+  --page:#000000; --plane:#0e0e0e; --plane-2:#171717; --tint:#232323;
+  --line:rgba(255,255,255,.12); --line-2:rgba(255,255,255,.22);
+  --ink-1:#ffffff; --ink-2:#b3b3b3; --ink-3:#8a8a8a;
+  --fill:#ffffff; --on-fill:#000000;
+  --state-success:#4ec08c; --state-warning:#d9a441; --state-danger:#e8635b;
+  --ground:#141414;
+}
+
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+  font-family:var(--font-sans); font-size:var(--fs-base);
+  color:var(--ink-1); background:var(--ground);
+  padding:28px; -webkit-font-smoothing:antialiased;
+}
+:focus-visible{outline:2px solid var(--ink-1);outline-offset:2px;border-radius:4px}
+
+.sheet{max-width:1400px;margin:0 auto;display:flex;flex-direction:column;gap:28px}
+
+.legend{max-width:64ch;display:flex;flex-direction:column;gap:6px}
+.legend h1{font-size:var(--fs-lg);font-weight:var(--fw-medium);letter-spacing:-.01em}
+.legend p{font-size:var(--fs-small);color:var(--ink-2);line-height:1.55}
+.legend code{font-family:var(--font-mono);font-size:var(--fs-micro);color:var(--ink-1)}
+
+.rack{display:flex;gap:20px;align-items:flex-start;overflow-x:auto;padding-bottom:8px}
+.slot{display:flex;flex-direction:column;gap:8px;flex:0 0 auto}
+.slot > .caption{
+  font-size:var(--fs-micro);color:var(--ink-3);text-transform:uppercase;
+  letter-spacing:.08em;padding-left:2px;
+}
+
+/* ══ the panel ═════════════════════════════════════════════════════════ */
+.panel{
+  width:var(--inspector); background:var(--page);
+  border:1px solid var(--line); border-radius:var(--radius-plane);
+  overflow:hidden; display:flex; flex-direction:column;
+}
+
+.head{
+  padding:var(--gutter); display:flex; flex-direction:column; gap:6px;
+  border-bottom:1px solid var(--line);
+}
+.head .row{display:flex;align-items:center;gap:8px}
+.head h2{
+  font-size:var(--fs-lg);font-weight:var(--fw-medium);letter-spacing:-.01em;
+  font-family:var(--font-mono);
+}
+.chip{
+  font-size:var(--fs-micro);font-family:var(--font-mono);
+  padding:2px 8px;border-radius:var(--radius-pill);
+  background:var(--tint);color:var(--ink-1);white-space:nowrap;
+}
+.state{
+  font-size:var(--fs-small);color:var(--ink-2);
+  display:flex;align-items:center;gap:6px;font-variant-numeric:tabular-nums;
+}
+.dot{width:6px;height:6px;border-radius:50%;flex:0 0 auto}
+.dot.live{background:var(--state-success)}
+.dot.idle{background:var(--line-2)}
+
+/* ── sections ── */
+.sec{padding:var(--gutter);border-bottom:1px solid var(--line)}
+.sec:last-child{border-bottom:0}
+.sec > header{
+  display:flex;align-items:baseline;justify-content:space-between;gap:8px;
+  margin-bottom:10px;
+}
+.sec h3{
+  font-size:var(--fs-micro);font-weight:var(--fw-medium);color:var(--ink-3);
+  text-transform:uppercase;letter-spacing:.08em;
+}
+.count{
+  font-size:var(--fs-micro);font-family:var(--font-mono);color:var(--ink-2);
+  font-variant-numeric:tabular-nums;
+}
+
+/* ── registrations: the cross-host story, as a table ── */
+.regs{display:flex;flex-direction:column;gap:1px;background:var(--line);
+  border:1px solid var(--line);border-radius:var(--radius-inner);overflow:hidden}
+.reg{background:var(--page);padding:9px 11px;display:flex;flex-direction:column;gap:3px}
+.reg .top{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.reg .host{font-size:var(--fs-small);font-weight:var(--fw-medium)}
+.reg .tier{
+  font-size:var(--fs-micro);font-family:var(--font-mono);color:var(--ink-3);
+  text-transform:uppercase;letter-spacing:.06em;
+}
+.reg .path{
+  font-size:var(--fs-micro);font-family:var(--font-mono);color:var(--ink-3);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.reg.diverged{box-shadow:inset 2px 0 0 var(--state-warning)}
+.reg.diverged .path{color:var(--state-warning)}
+
+/* ── identity strip ── */
+.idy{
+  display:flex;flex-wrap:wrap;gap:6px;
+}
+.idy .kv{
+  font-size:var(--fs-micro);font-family:var(--font-mono);
+  background:var(--plane);border:1px solid var(--line);
+  padding:3px 8px;border-radius:var(--radius-pill);color:var(--ink-2);
+}
+.idy .kv b{font-weight:var(--fw-medium);color:var(--ink-1)}
+
+/* ── tools: the reason the panel exists ── */
+.verify{
+  font-size:var(--fs-micro);font-family:var(--font-mono);
+  border:1px solid var(--line-2);background:transparent;color:var(--ink-1);
+  padding:3px 10px;border-radius:var(--radius-pill);cursor:pointer;
+  transition:background var(--dur-hover) var(--spring);
+}
+.verify:hover{background:var(--plane-2)}
+.verify.primary{background:var(--fill);color:var(--on-fill);border-color:var(--fill)}
+
+.tools{
+  max-height:240px; overflow-y:auto;
+  border:1px solid var(--line); border-radius:var(--radius-inner);
+  display:flex; flex-direction:column;
+}
+.tool{padding:8px 11px;display:flex;flex-direction:column;gap:2px}
+.tool + .tool{border-top:1px solid var(--line)}
+.tool .n{font-family:var(--font-mono);font-size:var(--fs-small);color:var(--ink-1)}
+.tool .d{font-size:var(--fs-micro);color:var(--ink-3);line-height:1.45}
+
+.budget{
+  margin-top:8px;font-size:var(--fs-micro);color:var(--ink-3);
+  display:flex;align-items:center;gap:7px;
+}
+.bar{flex:1;height:2px;background:var(--plane-2);border-radius:2px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--ink-3)}
+.bar.warn i{background:var(--state-warning)}
+
+/* ── empty / unverified ── */
+.empty{
+  border:1px dashed var(--line-2);border-radius:var(--radius-inner);
+  padding:18px 14px;display:flex;flex-direction:column;gap:8px;align-items:flex-start;
+}
+.empty p{font-size:var(--fs-small);color:var(--ink-2);line-height:1.5}
+
+.note{font-size:var(--fs-micro);color:var(--ink-3);line-height:1.5;margin-top:8px}
+.warnline{
+  display:flex;gap:7px;align-items:flex-start;
+  font-size:var(--fs-micro);color:var(--state-warning);line-height:1.5;margin-top:8px;
+}
+</style>
+
+<div class="sheet">
+
+  <div class="legend">
+    <h1>MCP server inspector</h1>
+    <p>
+      The list gives you servers. This panel gives you a server. Everything here is real —
+      probed from this machine via <code>initialize</code> + <code>tools/list</code> over stdio.
+      Three states: verified, verified-with-divergence, and never-verified.
+    </p>
+  </div>
+
+  <div class="rack">
+
+    <!-- ══ A · verified, running ══════════════════════════════════════ -->
+    <div class="slot">
+      <div class="caption">A · verified · running</div>
+      <div class="panel">
+
+        <div class="head">
+          <div class="row">
+            <h2>spades-audio</h2>
+            <span class="chip">stdio</span>
+          </div>
+          <div class="state"><span class="dot live"></span> running · pid 8269 · spawned by Claude Desktop</div>
+        </div>
+
+        <div class="sec">
+          <header><h3>Registered in</h3><span class="count">3 hosts</span></header>
+          <div class="regs">
+            <div class="reg">
+              <div class="top"><span class="host">Claude Code</span><span class="tier">user</span></div>
+              <div class="path">~/.claude.json</div>
+            </div>
+            <div class="reg">
+              <div class="top"><span class="host">Claude Code</span><span class="tier">global</span></div>
+              <div class="path">~/.claude/mcp.json</div>
+            </div>
+            <div class="reg">
+              <div class="top"><span class="host">Claude Desktop</span><span class="tier">global</span></div>
+              <div class="path">~/Library/…/claude_desktop_config.json</div>
+            </div>
+          </div>
+          <p class="note">Registered twice by Claude Code. Both entries run <code>node</code>; the commands agree.</p>
+        </div>
+
+        <div class="sec">
+          <header><h3>Identity</h3><span class="count">verified 2m ago</span></header>
+          <div class="idy">
+            <span class="kv">server <b>v1.0.0</b></span>
+            <span class="kv">MCP <b>2025-06-18</b></span>
+            <span class="kv">caps <b>tools</b></span>
+          </div>
+        </div>
+
+        <div class="sec">
+          <header>
+            <h3>Tools</h3>
+            <span class="count">17</span>
+          </header>
+          <div class="tools">
+            <div class="tool"><span class="n">get_system_volume</span><span class="d">Get the current macOS system volume level (0–100) and mute state.</span></div>
+            <div class="tool"><span class="n">set_system_volume</span><span class="d">Set the macOS system volume to a specific level (0–100).</span></div>
+            <div class="tool"><span class="n">get_output_devices</span><span class="d">List all available audio output devices and which one is currently active.</span></div>
+            <div class="tool"><span class="n">set_output_device</span><span class="d">Switch the active audio output device by name or UID.</span></div>
+            <div class="tool"><span class="n">list_audio_apps</span><span class="d">List all running apps that can produce audio, with their current volume.</span></div>
+            <div class="tool"><span class="n">set_app_volume</span><span class="d">Set the volume for a specific app (0–100).</span></div>
+            <div class="tool"><span class="n">set_app_mute</span><span class="d">Mute or unmute a specific app. Requires Spades Audio Pro.</span></div>
+            <div class="tool"><span class="n">set_app_output_device</span><span class="d">Route a specific app's audio to a specific output device.</span></div>
+            <div class="tool"><span class="n">set_app_eq</span><span class="d">Configure EQ for a specific app. Can enable/disable or apply a preset.</span></div>
+            <div class="tool"><span class="n">set_device_eq</span><span class="d">Configure system-wide EQ for an output device — shapes ALL audio.</span></div>
+            <div class="tool"><span class="n">set_app_balance</span><span class="d">Set left/right audio balance for a specific app. −100 is full left.</span></div>
+            <div class="tool"><span class="n">set_app_boost</span><span class="d">Set volume boost multiplier for a specific app. 1.0 is normal, up to 5.0.</span></div>
+            <div class="tool"><span class="n">toggle_global_mute</span><span class="d">Mute or unmute all apps at once. Requires Spades Audio Pro.</span></div>
+            <div class="tool"><span class="n">play_pause_app</span><span class="d">Toggle play/pause for a specific app.</span></div>
+            <div class="tool"><span class="n">next_track_app</span><span class="d">Skip to the next track for a music player app.</span></div>
+            <div class="tool"><span class="n">set_app_mic_volume</span><span class="d">Set the microphone volume for a specific app (0–100).</span></div>
+            <div class="tool"><span class="n">set_app_mic_mute</span><span class="d">Mute or unmute a specific app's microphone input.</span></div>
+          </div>
+          <div class="budget">
+            <span>17 of ~40</span>
+            <span class="bar"><i style="width:42%"></i></span>
+            <span>context budget</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ══ B · verified, older protocol ═══════════════════════════════ -->
+    <div class="slot">
+      <div class="caption">B · verified · older protocol</div>
+      <div class="panel">
+
+        <div class="head">
+          <div class="row">
+            <h2>tauri</h2>
+            <span class="chip">stdio</span>
+          </div>
+          <div class="state"><span class="dot idle"></span> not running</div>
+        </div>
+
+        <div class="sec">
+          <header><h3>Registered in</h3><span class="count">3 hosts</span></header>
+          <div class="regs">
+            <div class="reg">
+              <div class="top"><span class="host">Claude Code</span><span class="tier">user</span></div>
+              <div class="path">~/.claude.json</div>
+            </div>
+            <div class="reg">
+              <div class="top"><span class="host">Codex</span><span class="tier">global</span></div>
+              <div class="path">~/.codex/config.toml</div>
+            </div>
+            <div class="reg">
+              <div class="top"><span class="host">Gemini</span><span class="tier">global</span></div>
+              <div class="path">~/.gemini/settings.json</div>
+            </div>
+          </div>
+          <p class="note">All three run <code>npx @hypothesi/tauri-mcp-server</code>. No divergence.</p>
+        </div>
+
+        <div class="sec">
+          <header><h3>Identity</h3><span class="count">verified 1m ago</span></header>
+          <div class="idy">
+            <span class="kv">server <b>v0.12.0</b></span>
+            <span class="kv">MCP <b>2024-11-05</b></span>
+            <span class="kv">caps <b>tools, prompts</b></span>
+          </div>
+          <div class="warnline">
+            <span>⚠</span>
+            <span>Speaks MCP 2024-11-05; spades-audio speaks 2025-06-18. Not a fault — worth knowing when a host drops an old revision.</span>
+          </div>
+        </div>
+
+        <div class="sec">
+          <header><h3>Tools</h3><span class="count">20</span></header>
+          <div class="tools">
+            <div class="tool"><span class="n">get_setup_instructions</span><span class="d">Return setup guidance for driving a Tauri app under test.</span></div>
+            <div class="tool"><span class="n">list_devices</span><span class="d">List attached devices and simulators available to the driver.</span></div>
+            <div class="tool"><span class="n">driver_session</span><span class="d">Open or close a WebDriver session against the app.</span></div>
+            <div class="tool"><span class="n">webview_find_element</span><span class="d">Locate an element in the webview by selector.</span></div>
+            <div class="tool"><span class="n">read_logs</span><span class="d">Read the application log stream.</span></div>
+            <div class="tool"><span class="n">webview_interact</span><span class="d">Click, type into, or otherwise interact with a located element.</span></div>
+            <div class="tool"><span class="n">webview_screenshot</span><span class="d">Capture a screenshot of the current webview.</span></div>
+            <div class="tool"><span class="n">webview_keyboard</span><span class="d">Send keyboard input to the webview.</span></div>
+            <div class="tool"><span class="n">webview_wait_for</span><span class="d">Wait for a condition in the webview before continuing.</span></div>
+            <div class="tool"><span class="n">webview_get_styles</span><span class="d">Read computed styles for an element.</span></div>
+            <div class="tool"><span class="n">webview_execute_js</span><span class="d">Evaluate JavaScript in the webview context.</span></div>
+            <div class="tool"><span class="n">webview_dom_snapshot</span><span class="d">Capture a structural snapshot of the DOM.</span></div>
+            <div class="tool"><span class="n">webview_select_element</span><span class="d">Select an element for subsequent operations.</span></div>
+            <div class="tool"><span class="n">webview_get_pointed_element</span><span class="d">Return the element under the pointer.</span></div>
+            <div class="tool"><span class="n">ipc_execute_command</span><span class="d">Invoke a Tauri IPC command directly.</span></div>
+            <div class="tool"><span class="n">ipc_monitor</span><span class="d">Start capturing IPC traffic.</span></div>
+            <div class="tool"><span class="n">ipc_get_captured</span><span class="d">Return IPC traffic captured since monitoring began.</span></div>
+            <div class="tool"><span class="n">ipc_emit_event</span><span class="d">Emit an event onto the Tauri event bus.</span></div>
+            <div class="tool"><span class="n">ipc_get_backend_state</span><span class="d">Read backend state exposed by the app.</span></div>
+            <div class="tool"><span class="n">manage_window</span><span class="d">Resize, move, focus or close an application window.</span></div>
+          </div>
+          <div class="budget">
+            <span>37 of ~40</span>
+            <span class="bar warn"><i style="width:92%"></i></span>
+            <span>across 2 verified servers</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ══ C · never verified ═════════════════════════════════════════ -->
+    <div class="slot">
+      <div class="caption">C · never verified</div>
+      <div class="panel">
+
+        <div class="head">
+          <div class="row">
+            <h2>chrome-devtools</h2>
+            <span class="chip">stdio</span>
+          </div>
+          <div class="state"><span class="dot live"></span> healthy · checked 4m ago · reported by Claude Code</div>
+        </div>
+
+        <div class="sec">
+          <header><h3>Registered in</h3><span class="count">1 host</span></header>
+          <div class="regs">
+            <div class="reg">
+              <div class="top"><span class="host">Claude Code</span><span class="tier">user</span></div>
+              <div class="path">~/.claude.json</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="sec">
+          <header><h3>Identity</h3><span class="count">unknown</span></header>
+          <div class="idy">
+            <span class="kv">command <b>npx</b></span>
+          </div>
+          <p class="note">Version, protocol revision and capabilities are only knowable by handshake. Nothing on disk records them.</p>
+        </div>
+
+        <div class="sec">
+          <header><h3>Tools</h3><span class="count">—</span></header>
+          <div class="empty">
+            <p>
+              A config file declares how to <em>start</em> a server, never what it provides.
+              Verify starts a private copy, asks for its tool list, and stops it — no other
+              host's session is touched.
+            </p>
+            <button class="verify primary" type="button">Verify</button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+
+  <div class="legend">
+    <p>
+      <b>What the study settles.</b> Tool names are identifiers, so they are set in the mono face —
+      semantic, not decorative. Descriptions are real and long enough to force two-line rows, which
+      makes 17–20 tools taller than a panel, so the list is height-capped with internal scroll per
+      <code>DESIGN.md</code>. The registration table is where cross-host divergence becomes visible;
+      that is the job the nested-row design was straining to do. Health and protocol drift are the
+      only places saturated colour appears, matching the token comment reserving it for system state.
+    </p>
+  </div>
+
+</div>
