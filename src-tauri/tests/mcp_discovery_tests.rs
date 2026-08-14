@@ -229,3 +229,38 @@ fn engine_keys_are_underscored_and_round_trip_to_their_host() {
         );
     }
 }
+
+// ─── Engine key resolution ───────────────────────────────────────────────────
+
+#[test]
+fn unknown_engine_ids_are_not_silently_filed_under_gemini() {
+    assert_eq!(tauri_app_lib::scanner::get_engine_key("claude-code"), Some("claude_code"));
+    assert_eq!(tauri_app_lib::scanner::get_engine_key("codex"), Some("codex"));
+    assert_eq!(tauri_app_lib::scanner::get_engine_key("gemini"), Some("gemini"));
+
+    // The regression this test exists for: these previously all returned
+    // "gemini" via a `_ =>` catch-all, which would misattribute every
+    // MCP-only host's servers to the Gemini engine while looking like it
+    // worked.
+    assert_eq!(tauri_app_lib::scanner::get_engine_key("claude-desktop"), None);
+    assert_eq!(tauri_app_lib::scanner::get_engine_key("vscode"), None);
+    assert_eq!(tauri_app_lib::scanner::get_engine_key("totally-unknown"), None);
+}
+
+#[test]
+fn scanner_and_registry_agree_on_every_engine_key_they_both_know() {
+    // scanner::get_engine_key covers every engine Hanger records, including
+    // rules-only ones like copilot that declare no MCP servers. The MCP
+    // registry covers MCP hosts. The sets overlap but are not equal, so the
+    // invariant to enforce is agreement on the intersection, not identity.
+    for host in registry::HOSTS {
+        if let Some(scanner_key) = tauri_app_lib::scanner::get_engine_key(host.id) {
+            assert_eq!(
+                scanner_key,
+                host.engine_key(),
+                "scanner and registry disagree on the engine key for {}",
+                host.id
+            );
+        }
+    }
+}

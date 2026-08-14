@@ -269,14 +269,27 @@ pub const AGENT_CONFIGS: &[AgentConfig] = &[
     },
 ];
 
-fn get_engine_key(id_str: &str) -> &'static str {
+/// Map an agent id to its stable `engines.key`.
+///
+/// Returns `None` for ids with no engine row rather than guessing. The prior
+/// `_ => "gemini"` catch-all silently filed every unrecognised id under Gemini
+/// — a misattribution that produced plausible-looking rows under the wrong
+/// engine and would have mislabelled all five MCP-only hosts. Callers must
+/// handle `None` explicitly.
+///
+/// This covers every engine Hanger records, including rules-only ones such as
+/// `copilot` that declare no MCP servers at all. `mcp::registry` covers MCP
+/// hosts. The two sets overlap without being equal; they are held in agreement
+/// on the intersection by
+/// `scanner_and_registry_agree_on_every_engine_key_they_both_know`.
+pub fn get_engine_key(id_str: &str) -> Option<&'static str> {
     match id_str {
-        "claude-code" | "claude_code" => "claude_code",
-        "codex" => "codex",
-        "gemini" => "gemini",
-        "cursor" => "cursor",
-        "copilot" => "copilot",
-        _ => "gemini",
+        "claude-code" | "claude_code" => Some("claude_code"),
+        "codex" => Some("codex"),
+        "gemini" => Some("gemini"),
+        "cursor" => Some("cursor"),
+        "copilot" => Some("copilot"),
+        _ => None,
     }
 }
 
@@ -881,7 +894,12 @@ impl DirectoryScanner {
         if let Some(store) = &store_opt {
             for agent in &detected_agents {
                 if let Some(g_path) = &agent.global_config_path {
-                    let key = get_engine_key(&agent.id);
+                    // AGENT_CONFIGS ids are all declared in get_engine_key.
+                    // Panic rather than fall back, so adding an agent without
+                    // its engine key fails loudly here instead of silently
+                    // filing its assets under the wrong engine.
+                    let key = get_engine_key(&agent.id)
+                        .expect("every AGENT_CONFIGS id must have an engine key");
                     if let Ok(id) = store.upsert_engine(key, &agent.name, g_path, now) {
                         engine_db_ids.insert(key.to_string(), id);
                     }
@@ -913,7 +931,13 @@ impl DirectoryScanner {
         for agent in &detected_agents {
             if let Some(g_path) = &agent.global_config_path {
                 let mut global_has_skips = false;
-                let engine_key = get_engine_key(&agent.id);
+                let engine_key = get_engine_key(&agent.id)
+                    .expect("every AGENT_CONFIGS id must have an engine key");
+                // FIXME(mcp): `unwrap_or(1)` files assets under whichever
+                // engine holds row id 1 when the key is absent — the same
+                // class of silent misattribution as the removed `_ =>
+                // "gemini"` fallback. Reached when store_opt is None and
+                // engine_db_ids is empty. Left as-is here; out of scope.
                 let engine_id = engine_db_ids.get(engine_key).copied().unwrap_or(1);
                 let global_root_id = store_opt.as_ref().and_then(|s| {
                     s.upsert_root("engine_global", g_path, Some(engine_id), &agent.name, now).ok()
@@ -1071,7 +1095,8 @@ impl DirectoryScanner {
                                                 );
                                             }
                                         } else if let Some(r_id) = global_root_id {
-                                            let skill_engine_id = engine_db_ids.get(get_engine_key(&agent.id)).copied();
+                                            let skill_engine_id = get_engine_key(&agent.id)
+                                                .and_then(|k| engine_db_ids.get(k).copied());
                                             let _ = store.upsert_asset(
                                                 r_id, skill_engine_id, "skill", "global", &fm.name, &parent_dir_canon, fm.version.as_deref(), None, "ok", None, now, now
                                             );
@@ -1485,8 +1510,8 @@ impl DirectoryScanner {
 
             if let Some(agent_id) = is_subagent {
                 if let Ok(content) = fs::read_to_string(path) {
-                    let subagent_engine_key = get_engine_key(agent_id);
-                    let subagent_engine_id = engine_db_ids.get(subagent_engine_key).copied();
+                    let subagent_engine_id =
+                        get_engine_key(agent_id).and_then(|k| engine_db_ids.get(k).copied());
                     match parse_subagent_frontmatter(&content) {
                         Ok(fm) => {
                             let (_, _, _, source_path) = check_asset_drift(path, &checksums);
