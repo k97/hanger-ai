@@ -167,9 +167,10 @@ describe("Icon rail", () => {
     unmount();
   });
 
-  it("Discovery drops the columns that belong to My machine", async () => {
-    // Both columns are present on My machine, so their absence is a real change
-    // rather than a state that happened to be off already.
+  it("Discovery swaps My machine's columns for its own source list", async () => {
+    // Discovery once dropped the second column entirely; Karthik reversed
+    // that on 2026-08-15 — the category facets are now its source list.
+    // The machine sidebar must still go, replaced rather than joined.
     mockPreferences.inspector_open = "true";
     const { unmount } = render(<App />);
 
@@ -180,16 +181,18 @@ describe("Icon rail", () => {
 
     await screen.findByText("Where the ecosystem publishes agent assets");
 
-    // No repository list: Discovery holds neither repositories nor assets.
+    // The machine's repository list is gone; the catalogue's facets are in.
     expect(screen.queryByTestId("sidebar")).toBeNull();
     expect(screen.queryByTestId("review-sidebar")).toBeNull();
     expect(screen.queryByText("Repositories")).toBeNull();
+    expect(screen.getByTestId("discovery-sidebar")).toBeTruthy();
+    expect(screen.getByText("Categories")).toBeTruthy();
 
-    // Nothing for an inspector to inspect, so no inspector and no toggles
-    // that would do nothing if pressed.
+    // A source list means the sidebar toggle earns its place again; the
+    // inspector still has nothing to inspect, so it stays gone.
+    expect(screen.getByLabelText(/Toggle sidebar/)).toBeTruthy();
     expect(screen.queryByText("No Item Selected")).toBeNull();
     expect(screen.queryByLabelText("Toggle inspector")).toBeNull();
-    expect(screen.queryByLabelText(/Toggle sidebar/)).toBeNull();
     unmount();
   });
 });
