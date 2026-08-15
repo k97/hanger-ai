@@ -99,7 +99,7 @@ describe("deriveReviewIssues — repo-level problems", () => {
     expect(counts.parse).toBe(1);
   });
 
-  it("labels a global asset as the user profile, not as a repository", () => {
+  it("labels a global asset as Global, not as a repository", () => {
     const inventory: Inventory = {
       ...EMPTY,
       skills: [
@@ -113,7 +113,7 @@ describe("deriveReviewIssues — repo-level problems", () => {
     };
 
     const { issues } = deriveReviewIssues(inventory);
-    expect(issues[0].whereLabel).toBe("User profile");
+    expect(issues[0].whereLabel).toBe("Global");
     expect(issues[0].whereKeys).toEqual(["global"]);
   });
 
@@ -277,7 +277,7 @@ describe("deriveReviewIssues — places", () => {
     const { places } = deriveReviewIssues(inventory);
     expect(places).toEqual([
       { key: "/one", label: "one", count: 2 },
-      { key: "global", label: "User profile", count: 1 },
+      { key: "global", label: "Global", count: 1 },
     ]);
   });
 });

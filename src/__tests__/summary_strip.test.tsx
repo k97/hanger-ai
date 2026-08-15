@@ -12,7 +12,7 @@ function renderStrip(overrides: Partial<Parameters<typeof SummaryStrip>[0]> = {}
   const utils = render(
     <SummaryStrip
       total={121}
-      subtitle="assets in your user profile · 2 engines"
+      subtitle="assets in the global store · 2 engines"
       scannedAt={new Date(Date.now() - 4 * 60_000)}
       scanning={false}
       counts={counts}
@@ -30,7 +30,7 @@ describe("SummaryStrip", () => {
   it("renders the total, subtitle, scan stamp and state bar", () => {
     renderStrip();
     expect(screen.getByText("121")).toBeTruthy();
-    expect(screen.getByText("assets in your user profile · 2 engines")).toBeTruthy();
+    expect(screen.getByText("assets in the global store · 2 engines")).toBeTruthy();
     expect(screen.getByText("Scanned 4 min ago")).toBeTruthy();
     expect(
       screen.getByRole("img", { name: "9 linked, 2 drifted, 1 broken, 109 local only" })

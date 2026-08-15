@@ -30,7 +30,7 @@ describe("provenanceOf", () => {
     const source = provenanceOf(inventory.skills[0] as never, inventory);
     expect(source.linkedInto).toEqual(["one", "two", "three"]);
     expect(source.statement).toBe("The source for 3 copies");
-    expect(source.place).toBe("User profile");
+    expect(source.place).toBe("Global");
   });
 
   it("reads the same relationship from the link's end", () => {
@@ -92,7 +92,7 @@ describe("provenanceOf", () => {
   it("copes with no inventory at all", () => {
     const p = provenanceOf(skill({ path: "/a", scope: { Global: { agent: "claude" } } }), null);
     expect(p.linkedInto).toEqual([]);
-    expect(p.place).toBe("User profile");
+    expect(p.place).toBe("Global");
   });
 });
 

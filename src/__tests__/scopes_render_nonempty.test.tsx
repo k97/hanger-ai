@@ -119,8 +119,8 @@ describe("Sidebar Scope Asset List Verification", () => {
       expect(screen.getByText("demo-user-skill-1")).toBeTruthy();
     }, { timeout: 3000 });
 
-    // 3. User Profile Scope
-    const profileBtn = await screen.findByText("User Profile", {}, { timeout: 3000 });
+    // 3. Global scope
+    const profileBtn = await screen.findByText("Global", {}, { timeout: 3000 });
     fireEvent.click(profileBtn);
 
     await waitFor(() => {

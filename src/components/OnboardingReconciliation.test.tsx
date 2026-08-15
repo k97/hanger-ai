@@ -112,7 +112,7 @@ describe("Onboarding Reconciliation Flow", () => {
 
     // Should skip welcome and directly render main application
     await waitFor(() => {
-      expect(screen.getAllByText("User Profile").length).toBeGreaterThan(0);
+      expect(screen.getAllByText("Global").length).toBeGreaterThan(0);
     });
     
     expect(screen.queryByText("Welcome to Hanger")).toBeNull();

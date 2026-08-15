@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent, waitFor, cleanup } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, cleanup, within } from "@testing-library/react";
 import App from "../App";
 import { invoke } from "@tauri-apps/api/core";
 
@@ -251,8 +251,10 @@ describe("Avionics A5 — Docked Right Inspector Integration", () => {
 
     await screen.findByText("~/Work/demo/skills/inspector-skill-1");
 
-    // Change scope to User Profile in sidebar
-    const profileSidebarBtn = screen.getByText("User Profile");
+    // Change scope to the Global store in the sidebar. "Global" also renders
+    // in the inspector's provenance eyebrow, so scope the query to the
+    // sidebar landmark.
+    const profileSidebarBtn = within(screen.getByTestId("sidebar")).getByText("Global");
     fireEvent.click(profileSidebarBtn);
 
     // Inspector MUST clear selection and return to empty state
