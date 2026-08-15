@@ -774,14 +774,24 @@ export default function App() {
   }
 
   // Toolbar control voice: quiet 27px pills, tonal tint when pressed.
+  // `relative` lifts each control above its cap's drag overlay: Tauri only
+  // starts a window drag when the pointer's exact target carries
+  // data-tauri-drag-region, so the caps lay an overlay under everything
+  // inert and the controls must sit above it to stay clickable.
   const tbBtnClass =
-    "h-[27px] min-w-[27px] px-2 rounded-pill inline-flex items-center justify-center text-ink-2 hover:bg-plane-2 hover:text-ink-1 transition-colors duration-hover ease-spring cursor-pointer";
+    "relative h-[27px] min-w-[27px] px-2 rounded-pill inline-flex items-center justify-center text-ink-2 hover:bg-plane-2 hover:text-ink-1 transition-colors duration-hover ease-spring cursor-pointer";
   const tbBtnActiveClass =
-    "h-[27px] min-w-[27px] px-2 rounded-pill inline-flex items-center justify-center bg-tint text-tint-ink transition-colors duration-hover ease-spring cursor-pointer";
+    "relative h-[27px] min-w-[27px] px-2 rounded-pill inline-flex items-center justify-center bg-tint text-tint-ink transition-colors duration-hover ease-spring cursor-pointer";
   // On the plane the toggle is a plain glyph — the plane already reads as a
   // chrome zone, so hover tints with --tint-plane and pressed adds nothing.
   const tbBtnPlaneClass =
-    "h-[27px] min-w-[27px] px-2 rounded-pill inline-flex items-center justify-center text-ink-2 hover:bg-tint-plane hover:text-ink-1 transition-colors duration-hover ease-spring cursor-pointer";
+    "relative h-[27px] min-w-[27px] px-2 rounded-pill inline-flex items-center justify-center text-ink-2 hover:bg-tint-plane hover:text-ink-1 transition-colors duration-hover ease-spring cursor-pointer";
+
+  // Every cap shares this: an inert layer that owns window dragging, so the
+  // pointer can land anywhere in the 40px strip that is not a control.
+  const capDragOverlay = (
+    <div data-tauri-drag-region className="absolute inset-0" aria-hidden="true" />
+  );
 
   // One close for every inspector variant: the cap owns it, the bodies do not.
   const closeInspector = () => {
@@ -867,7 +877,13 @@ export default function App() {
               : 0),
         }}
       >
-        <div data-tauri-drag-region className="h-10 w-[118px] shrink-0 flex items-center select-none z-30">
+        {/* z-40: collapsed, the toggle overflows over the content column's
+            cap (z-30); without winning the stack, clicks on it would start a
+            window drag instead of reopening the sidebar. The cap stretches to
+            the column so the whole 40px band drags; its contents overflow the
+            56px rail when collapsed. */}
+        <div data-tauri-drag-region className="relative z-40 h-10 shrink-0 flex items-center select-none">
+          {capDragOverlay}
           <div className="w-[76px] shrink-0" aria-hidden="true" />
           {selectedSidebarItem !== "discovery" && selectedSidebarItem !== "linkmap" && (
             <Tooltip label="Toggle sidebar  ⌘⌥S" placement="bottom">
@@ -951,7 +967,8 @@ export default function App() {
         {/* Content cap: breadcrumb left; filter and inspector toggle right.
             A <header> on purpose — it is the content column's banner, and the
             toolbar guards assert against that landmark. */}
-        <header data-tauri-drag-region className="h-10 shrink-0 flex items-center gap-2.5 select-none z-30 font-flex">
+        <header data-tauri-drag-region className="relative h-10 shrink-0 flex items-center gap-2.5 select-none z-30 font-flex">
+          {capDragOverlay}
           {/* When the source list is collapsed the sidebar toggle overflows
               the 56px rail into this cap; the crumb steps aside for it. */}
           <div
@@ -1182,13 +1199,14 @@ export default function App() {
           />
           <div
             data-tauri-drag-region
-            className="h-10 shrink-0 flex items-center pl-[18px] pr-3 select-none font-flex text-micro font-medium tracking-[.06em] uppercase text-ink-3"
+            className="relative h-10 shrink-0 flex items-center pl-[18px] pr-3 select-none font-flex text-micro font-medium tracking-[.06em] uppercase text-ink-3"
           >
+            {capDragOverlay}
             <span>Inspector</span>
             <button
               onClick={closeInspector}
               aria-label="Close inspector"
-              className="ml-auto w-[27px] h-[27px] rounded-pill grid place-items-center text-ink-3 hover:bg-plane-2 hover:text-ink-1 transition-colors duration-hover ease-spring cursor-pointer"
+              className="relative ml-auto w-[27px] h-[27px] rounded-pill grid place-items-center text-ink-3 hover:bg-plane-2 hover:text-ink-1 transition-colors duration-hover ease-spring cursor-pointer"
             >
               <XMarkIcon size={13} aria-hidden="true" />
             </button>
