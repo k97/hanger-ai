@@ -252,7 +252,12 @@ const NON_FONT_SIZE_TEXT_SUFFIXES = new Set([
 
 const OFF_SPEC_PATTERNS = [
   /\brounded(-(sm|md|lg|xl|2xl|3xl|full)|(?=[\s"']|$))\b/,
-  /\b(shadow|shadow-sm|shadow-md|shadow-lg|shadow-xl|shadow-2xl|shadow-inner|shadow-none|shadow-\[[^\]]+\]|drop-shadow(-[a-z0-9_\[\]]+)?)\b/,
+  // `shadow-overlay` is the single permitted elevation: it is the tokened
+  // --overlay-shadow (tokens.css, Overlay block), ruled in 2026-08-15 for
+  // surfaces that appear on request above the map canvas. Every other
+  // shadow — the raw Tailwind scale, arbitrary values, drop-shadow —
+  // remains off-token.
+  /\b(shadow(?!-overlay\b)|shadow-sm|shadow-md|shadow-lg|shadow-xl|shadow-2xl|shadow-inner|shadow-none|shadow-\[[^\]]+\]|drop-shadow(-[a-z0-9_\[\]]+)?)\b/,
   /\bfont-(semibold|bold|black|thin|extralight|light|extrabold|\[\d+\])\b/,
   /* The mono redesign made the ink ladder canonical; only truly dead
      Cockpit-era names stay retired. */
