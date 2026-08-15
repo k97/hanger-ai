@@ -52,6 +52,7 @@ import Sidebar from "./components/Sidebar";
 import ProfilePane from "./components/ProfilePane";
 import RepoPane from "./components/RepoPane";
 import DiscoveryPane from "./components/DiscoveryPane";
+import DiscoverySidebar from "./components/DiscoverySidebar";
 import NeedsReviewPane from "./components/NeedsReviewPane";
 import ReviewSidebar from "./components/ReviewSidebar";
 import ReviewInspector from "./components/ReviewInspector";
@@ -257,6 +258,9 @@ export default function App() {
   const [inspectorWidth, setInspectorWidth] = useState<number>(384);
   // Toolbar filter — narrows the visible rows of the active pane by name.
   const [filterText, setFilterText] = useState<string>("");
+  // Discovery's category facet — owned here because DiscoverySidebar sets it
+  // and DiscoveryPane filters by it (the chips moved into the second column).
+  const [discoveryKind, setDiscoveryKind] = useState<string>("All");
   // Machine-wide state filter driven by the icon rail's Needs review button
   // and the summary strip's legend.
   const [stateFilter, setStateFilter] = useState<StateFilter>(null);
@@ -926,9 +930,7 @@ export default function App() {
         style={{
           width:
             56 +
-            (selectedSidebarItem !== "discovery" &&
-            selectedSidebarItem !== "linkmap" &&
-            !sidebarCollapsed
+            (selectedSidebarItem !== "linkmap" && !sidebarCollapsed
               ? sidebarWidth
               : 0),
         }}
@@ -941,7 +943,7 @@ export default function App() {
         <div data-tauri-drag-region className="relative z-40 h-10 shrink-0 flex items-center select-none">
           {capDragOverlay}
           <div className="w-[76px] shrink-0" aria-hidden="true" />
-          {selectedSidebarItem !== "discovery" && selectedSidebarItem !== "linkmap" && (
+          {selectedSidebarItem !== "linkmap" && (
             <Tooltip label="Toggle sidebar  ⌘⌥S" placement="bottom">
               <button onClick={toggleSidebar} aria-label="Toggle sidebar" className={tbBtnPlaneClass}>
                 <PanelLeftIcon size={15} aria-hidden="true" />
@@ -980,7 +982,16 @@ export default function App() {
           onOpenSettings={() => setShowSettingsModal(true)}
         />
 
-        {selectedSidebarItem === "discovery" || selectedSidebarItem === "linkmap" ? null : selectedSidebarItem === "review" ? (
+        {selectedSidebarItem === "linkmap" ? null : selectedSidebarItem === "discovery" ? (
+          <DiscoverySidebar
+            width={sidebarWidth}
+            setWidth={setSidebarWidth}
+            collapsed={sidebarCollapsed}
+            setCollapsed={setSidebarCollapsed}
+            kind={discoveryKind}
+            onSelectKind={setDiscoveryKind}
+          />
+        ) : selectedSidebarItem === "review" ? (
           <ReviewSidebar
             width={sidebarWidth}
             setWidth={setSidebarWidth}
@@ -1029,9 +1040,7 @@ export default function App() {
               the 56px rail into this cap; the crumb steps aside for it. */}
           <div
             className={`flex items-center gap-[7px] text-small text-ink-3 whitespace-nowrap shrink-0 ${
-              selectedSidebarItem !== "discovery" &&
-              selectedSidebarItem !== "linkmap" &&
-              sidebarCollapsed
+              selectedSidebarItem !== "linkmap" && sidebarCollapsed
                 ? "pl-[56px]"
                 : "pl-[18px]"
             }`}
@@ -1153,7 +1162,7 @@ export default function App() {
           )}
 
           {selectedSidebarItem === "discovery" && (
-            <DiscoveryPane filterText={filterText} />
+            <DiscoveryPane filterText={filterText} kind={discoveryKind} />
           )}
 
           {selectedSidebarItem === "linkmap" && (

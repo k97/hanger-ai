@@ -1,24 +1,22 @@
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { ArrowTopRightOnSquareIcon, CheckIcon, Square2StackIcon } from "./icons";
+import { ArrowTopRightOnSquareIcon, Square2StackIcon } from "./icons";
 import {
   CATALOGUE_CHECKED,
   DIRECTORIES,
   TIERS,
   type Directory,
 } from "../data/directories";
-import { kindCounts, matchesDirectory } from "../utils/directoryFacets";
+import { matchesDirectory } from "../utils/directoryFacets";
 
 interface DiscoveryPaneProps {
   /** The toolbar filter field, shared with the asset panes. */
   filterText?: string;
+  /** The category facet, owned by DiscoverySidebar since the chips moved
+   *  into the second column (Karthik's ruling, 2026-08-15). */
+  kind?: string;
 }
-
-const chipBaseClass =
-  "h-7 px-3.5 rounded-pill border border-line-2 font-flex text-small text-ink-2 whitespace-nowrap inline-flex items-center gap-2 cursor-pointer transition-colors duration-nav ease-spring hover:bg-plane-2";
-const chipPressedClass =
-  "h-7 pl-2.5 pr-3.5 rounded-pill border border-transparent bg-tint text-tint-ink font-medium whitespace-nowrap inline-flex items-center gap-2 cursor-pointer transition-colors duration-nav ease-spring font-flex text-small";
 
 const btnClass =
   "h-[30px] px-4 rounded-pill border border-line-2 text-small font-medium text-ink-1 cursor-pointer transition-colors duration-nav ease-spring hover:bg-plane-2";
@@ -40,8 +38,7 @@ function bare(url: string): string {
  * Hanger deliberately does not fetch from these directories. Leaving the app is
  * therefore a real decision, and gets a confirmation the user can switch off.
  */
-export default function DiscoveryPane({ filterText = "" }: DiscoveryPaneProps) {
-  const [kind, setKind] = useState<string>("All");
+export default function DiscoveryPane({ filterText = "", kind = "All" }: DiscoveryPaneProps) {
   const [confirmBeforeOpening, setConfirmBeforeOpening] = useState(true);
   const [pending, setPending] = useState<Directory | null>(null);
   const [remember, setRemember] = useState(false);
@@ -61,7 +58,6 @@ export default function DiscoveryPane({ filterText = "" }: DiscoveryPaneProps) {
     return () => clearTimeout(timer);
   }, [toast]);
 
-  const facets = kindCounts(DIRECTORIES);
   const shown = DIRECTORIES.filter((dir) => matchesDirectory(dir, kind, filterText));
 
   const setConfirmPreference = (next: boolean) => {
@@ -113,36 +109,7 @@ export default function DiscoveryPane({ filterText = "" }: DiscoveryPaneProps) {
         </p>
       </header>
 
-      <div
-        className="flex items-center gap-[7px] px-[18px] pt-3.5 pb-2.5 overflow-x-auto shrink-0"
-        role="group"
-        aria-label="Filter by what a directory holds"
-      >
-        {facets.map((facet) => {
-          const pressed = facet.kind === kind;
-          return (
-            <button
-              key={facet.kind}
-              tabIndex={0}
-              aria-pressed={pressed}
-              onClick={() => setKind(facet.kind)}
-              className={pressed ? chipPressedClass : chipBaseClass}
-            >
-              {pressed && <CheckIcon size={14} className="shrink-0" />}
-              <span>{facet.kind}</span>
-              <span
-                className={`text-micro tabular ${
-                  pressed ? "text-tint-ink opacity-70" : "text-ink-3"
-                }`}
-              >
-                {facet.count}
-              </span>
-            </button>
-          );
-        })}
-      </div>
-
-      <div className="flex-1 min-h-0 overflow-y-auto mx-[18px] p-1.5 border border-line rounded-tl-plane rounded-tr-plane">
+      <div className="flex-1 min-h-0 overflow-y-auto mx-[18px] mt-3.5 p-1.5 border border-line rounded-tl-plane rounded-tr-plane">
         {shown.length === 0 ? (
           <p className="py-9 px-3 text-center text-small text-ink-3">
             No directory matches that filter.

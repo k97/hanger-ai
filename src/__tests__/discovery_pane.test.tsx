@@ -53,11 +53,13 @@ describe("Discovery — the row is the interaction", () => {
     expect(await screen.findByText(`${DIRECTORIES.length} directories`)).toBeTruthy();
   });
 
-  it("narrows to one kind through the facet chips", async () => {
-    render(<DiscoveryPane filterText="" />);
+  it("narrows to one kind through the sidebar's facet", async () => {
+    // The facet rows live in DiscoverySidebar since the chips moved into
+    // the second column; the pane is a controlled consumer of `kind`.
+    const { rerender } = render(<DiscoveryPane filterText="" />);
     await screen.findByText("skills.sh");
 
-    fireEvent.click(screen.getByRole("button", { name: /^Rules/ }));
+    rerender(<DiscoveryPane filterText="" kind="Rules" />);
 
     await waitFor(() => {
       expect(screen.queryByText("Smithery")).toBeNull();
