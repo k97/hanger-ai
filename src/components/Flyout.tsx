@@ -484,10 +484,15 @@ export default function Flyout({
       {/* Header — the eyebrow says where you are, the title says what you are
           looking at. In the link flow the eyebrow becomes the way back, so the
           panel never grows a second header for its second screen. With nothing
-          selected the header would only repeat the cap's "Inspector" eyebrow,
-          so the empty state stands alone. */}
+          selected the empty state stands alone.
+
+          Sits tight under the cap. The cap used to carry the word "Inspector",
+          so this header needed its own top padding to read as a separate
+          block; with the cap now bearing only the close control, that padding
+          was a gap between two empty things. The heading is what the panel
+          opens with, and every pixel taken here comes off the content. */}
       {(linking || targetAsset || selectedBubble) && (
-      <div className="px-[18px] pt-4 pb-3 border-b border-line shrink-0">
+      <div className="px-[18px] pt-0.5 pb-3 border-b border-line shrink-0">
         <div className="flex items-center gap-2 font-flex text-micro font-medium tracking-[.06em] uppercase text-ink-3">
           {linking ? (
             <button

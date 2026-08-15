@@ -1301,8 +1301,13 @@ export default function App() {
             data-tauri-drag-region
             className="relative h-10 shrink-0 flex items-center pl-[18px] pr-3 select-none font-flex text-micro font-medium tracking-[.06em] uppercase text-ink-3"
           >
+            {/* No label. "Inspector" named the furniture, not the contents,
+                and the panel's own eyebrow already says what is being
+                inspected — so the word cost a row and told you nothing. The
+                row itself stays: it is the window drag region for this column
+                and it holds the close control, and its height keeps the panel
+                aligned with the toolbar beside it. */}
             {capDragOverlay}
-            <span>Inspector</span>
             <button
               onClick={closeInspector}
               aria-label="Close inspector"
