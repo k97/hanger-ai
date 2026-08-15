@@ -254,6 +254,46 @@ so it is recorded rather than flipped in passing — flipping it changes
 which thread a boot-critical path runs on and deserves its own red/green.
 Lead credit: the MCP session, 2026-08-15.
 
+**F34 — Warning banners explain faults in two places; Needs Review should be
+the only one. RECOMMENDED, deliberately not built (2026-08-15).** Today a
+diagnostic gets a DisclosureBanner body in whichever pane noticed it *and*
+a ReviewInspector body in Needs Review — two anatomies for one fault, and
+neither authoritative. The proposal (Karthik's, this session): banners keep
+their summary line and gain an action that navigates to Needs Review with
+the exact issue selected and the inspector open; the accordion body goes
+away. Doctrine agrees — the rail already frames Needs Review as "what is
+wrong with them" — and App already holds `reviewKind`, `reviewPlace`,
+`selectedIssue` and `inspectorOpen`, so the navigation itself is a helper,
+not new plumbing.
+
+Not built because the prerequisite is a model change, not a UI move:
+`ReviewIssue` is per-asset (`reviewIssues.ts:27-51`) and
+`deriveReviewIssues` reads only `Inventory`, while three of the four banner
+payloads have no asset to key on — RepoPane's scan warnings are walk events
+(`project_scans.parse_warnings`), ProfilePane's undeclared MCP servers are
+processes outside `Inventory` entirely, and the link map's graph warnings
+are Rust-side strings, one of which reports that the asset row itself is
+gone. Each needs a new `IssueKind` and its own derivation before it can be
+selected.
+
+Three consequences to accept first: the rail badge inflates (scan warnings
+alone move 91 upward — arguably more honest, but the number changes
+meaning); `AGENTS.md:88` currently *mandates* DisclosureBanner for
+non-blocking diagnostics, so this is a governance amendment (see F6, which
+notes the rule has no detector); and DisclosureBanner's accordion becomes
+dead weight, reducing it to a one-line notice with an action across
+ProfilePane and RepoPane.
+
+**One banner must not move**: the link map's "Per-asset project links have
+not been recorded yet" is an empty-state explainer, not a fault — sending
+someone to Needs Review to find nothing is worse than the accordion.
+
+Suggested order if taken up: grow the review model to hold non-asset faults
+(load-bearing, independently testable) → navigate-to-issue helper → flip
+banners one pane at a time → amend AGENTS.md and DESIGN.md → simplify
+DisclosureBanner last. Sequencing note: `NeedsReviewPane.tsx` was claimed
+by a concurrent session on 2026-08-15.
+
 ## Mechanism / state vocabulary (recorded earlier, unchanged)
 
 **F27 — `Mechanism::Copy` is unreachable in production** and the watcher
