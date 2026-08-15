@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { ExclamationCircleIcon } from "./icons";
 import CategoryFilterCards, { CategoryType } from "./CategoryFilterCards";
-import AssetRow, { AssetItem } from "./AssetRow";
+import AssetRow, { AssetItem, AssetAnnotationView } from "./AssetRow";
 import AssetHeaderRow, { SortField, SortDirection } from "./AssetHeaderRow";
 import { Inventory, CategoryCounts } from "../App";
 import { filterProfileAssets } from "../utils/filterPredicate";
@@ -15,6 +15,9 @@ import { linkStateCounts, matchesStateFilter, StateFilter } from "../utils/linkS
 
 interface ProfilePaneProps {
   inventory: Inventory | null;
+  /** Backend-derived per-asset annotations (mechanism, reach, beyond) for
+   *  the glyph and the Reach / Beyond the store columns. Rendered verbatim. */
+  annotations?: AssetAnnotationView[] | null;
   assetCounts?: CategoryCounts | null;
   selectedCategory?: CategoryType | null;
   selectedAsset?: { path: string } | null;
@@ -37,6 +40,7 @@ interface ProfilePaneProps {
 
 export default function ProfilePane({
   inventory,
+  annotations,
   assetCounts,
   selectedCategory: propSelectedCategory,
   selectedAsset,
@@ -56,6 +60,14 @@ export default function ProfilePane({
   const [internalCategory, setInternalCategory] = useState<CategoryType | null>(null);
   const [internalSortField, setInternalSortField] = useState<SortField>("name");
   const [internalSortDirection, setInternalSortDirection] = useState<SortDirection>("asc");
+
+  // Lookup only — keyed by the backend's own asset_path. A row without an
+  // entry renders empty annotation cells rather than a guessed state.
+  const annotationByPath = new Map<string, AssetAnnotationView>(
+    (annotations ?? []).map((a) => [a.asset_path, a])
+  );
+  const annotationFor = (path: string): AssetAnnotationView | null =>
+    annotationByPath.get(path) ?? null;
 
   const selectedCategory = propSelectedCategory ?? internalCategory;
   const sortField = propSortField ?? internalSortField;
@@ -243,7 +255,7 @@ export default function ProfilePane({
   const secClass =
     "px-3.5 pt-[11px] pb-[5px] font-flex text-micro font-medium tracking-[.06em] uppercase text-ink-3";
   const emptyPlaneClass =
-    "flex-1 mx-[18px] mb-[18px] min-h-0 flex flex-col items-center justify-center text-center border border-dashed border-line rounded-plane bg-plane animate-in fade-in duration-200";
+    "flex-1 mx-[18px] mb-[18px] min-h-0 flex flex-col items-center justify-center text-center border border-dashed border-line rounded-plane animate-in fade-in duration-200";
 
   // Visible rows post-filter for the foot line — a display subset, never the
   // asset total (which stays backend-owned).
@@ -299,11 +311,14 @@ export default function ProfilePane({
       ) : (
         <>
           {/* The list lives on its own plane */}
-          <div className="@container flex-1 min-h-0 overflow-y-auto mx-[18px] bg-plane border border-line rounded-tl-plane rounded-tr-plane pb-1.5">
+          {/* Table background dropped by Karthik's ruling (2026-08-15):
+              flat on the page, edge drawn by the --line border alone. */}
+          <div className="@container flex-1 min-h-0 overflow-y-auto mx-[18px] border border-line rounded-tl-plane rounded-tr-plane pb-1.5">
             <AssetHeaderRow
               sortField={sortField}
               sortDirection={sortDirection}
               showKindColumn={!selectedCategory}
+              showReachColumns
               onSort={handleSort}
             />
 
@@ -318,6 +333,7 @@ export default function ProfilePane({
                       isSelected={rowIsSelected(item)}
                       showKindColumn={false}
                       item={item}
+                      annotation={annotationFor(item.path)}
                       onClick={() => onSelectAsset({ name: item.name, category: "Agents", path: item.path })}
                     />
                   ))}
@@ -338,6 +354,7 @@ export default function ProfilePane({
                       isSelected={rowIsSelected(item)}
                       showKindColumn={!selectedCategory}
                       item={item}
+                      annotation={annotationFor(item.path)}
                       onLink={() => onLinkAsset(item)}
                       onClick={() => onSelectAsset({ name: item.name, category: "Skills", path: item.path })}
                     />
@@ -359,6 +376,7 @@ export default function ProfilePane({
                       isSelected={rowIsSelected(item)}
                       showKindColumn={!selectedCategory}
                       item={item}
+                      annotation={annotationFor(item.path)}
                       onLink={() => onLinkAsset(item)}
                       onClick={() => onSelectAsset({ id: item.id, name: item.name, category: "Tools", path: item.path })}
                     />
@@ -380,6 +398,7 @@ export default function ProfilePane({
                       isSelected={rowIsSelected(item)}
                       showKindColumn={!selectedCategory}
                       item={item}
+                      annotation={annotationFor(item.path)}
                       onLink={() => onLinkAsset(item)}
                       onClick={() => onSelectAsset({ name: item.name, category: "Rules", path: item.path })}
                     />
@@ -401,6 +420,7 @@ export default function ProfilePane({
                       isSelected={rowIsSelected(item)}
                       showKindColumn={!selectedCategory}
                       item={item}
+                      annotation={annotationFor(item.path)}
                       onLink={() => onLinkAsset(item)}
                       onClick={() => onSelectAsset({ name: item.name, category: "Subagents", path: item.path })}
                     />

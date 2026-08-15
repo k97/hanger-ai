@@ -59,6 +59,7 @@ import LinkMapInspector from "./components/LinkMapInspector";
 import type { LinkGraph, PositionedEdge } from "./utils/linkMapLayout";
 import SidebarScanModal from "./components/SidebarScanModal";
 import Flyout from "./components/Flyout";
+import type { AssetAnnotationView } from "./components/AssetRow";
 import { SortField, SortDirection } from "./components/AssetHeaderRow";
 import { StateFilter } from "./utils/linkStateCounts";
 import { registrationKey } from "./utils/mcpRegistration";
@@ -261,6 +262,17 @@ export default function App() {
   // When the last completed scan landed — feeds the strip's scan stamp.
   const [lastScanAt, setLastScanAt] = useState<Date | null>(null);
 
+  // Per-asset annotations (mechanism, reach, beyond-the-store) arrive
+  // computed from the backend and are rendered verbatim (dispatch item 8).
+  const [annotations, setAnnotations] = useState<AssetAnnotationView[] | null>(null);
+  const refreshAnnotations = async () => {
+    try {
+      setAnnotations(await invoke<AssetAnnotationView[]>("get_asset_annotations"));
+    } catch {
+      setAnnotations(null);
+    }
+  };
+
   // Link map: the graph arrives computed from the backend and is rendered
   // verbatim; selection is the only state the frontend owns.
   const [linkGraph, setLinkGraph] = useState<LinkGraph | null>(null);
@@ -447,6 +459,7 @@ export default function App() {
         setLastScanAt(new Date());
 
         await refreshGlobalCounts();
+        await refreshAnnotations();
 
         // If onboarding was incomplete, mark it complete now!
         setOnboardingComplete((prev) => {
@@ -1051,6 +1064,7 @@ export default function App() {
           {(selectedSidebarItem === "profile" || selectedSidebarItem.startsWith("global")) && (
             <ProfilePane
               inventory={inventory}
+              annotations={annotations}
               assetCounts={assetCounts}
               selectedCategory={
                 selectedSidebarItem.includes(":")

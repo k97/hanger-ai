@@ -1,4 +1,17 @@
 import { formatEngineLabel } from "../utils/engineUtils";
+import MechanismGlyph, { MechanismWord } from "./MechanismGlyph";
+import EngineReachTiles, { EngineReachInfo } from "./EngineReachTiles";
+
+/** One asset's backend-derived annotation: the glyph word, the reach list,
+ *  and the beyond-the-store note whose count is backend-owned. Arrives from
+ *  get_asset_annotations and is rendered verbatim — the frontend never
+ *  derives mechanism or reach from paths or link state (dispatch item 8). */
+export interface AssetAnnotationView {
+  asset_path: string;
+  mechanism: MechanismWord;
+  reach: EngineReachInfo[];
+  beyond: { kind: string; count: number; places: string[] } | null;
+}
 
 export interface AssetItem {
   id?: string;
@@ -23,9 +36,40 @@ interface AssetRowProps {
   item: AssetItem;
   isSelected?: boolean;
   showKindColumn?: boolean;
+  /** Present on panes that fetch backend annotations (the Global pane):
+   *  switches the row to glyph + Reach tiles + Beyond the store. Null means
+   *  the backend had no verdict for this row — the cells stay empty rather
+   *  than invent one. Undefined keeps the legacy dot/state columns. */
+  annotation?: AssetAnnotationView | null;
   onClick?: () => void;
   onLink?: () => void;
   onUnlink?: () => void;
+}
+
+/** The Beyond the store cell, written from the backend note alone. The
+ *  count is the note's own; pluralisation is the only thing decided here. */
+function beyondCell(annotation: AssetAnnotationView): { text: string; cls: string } {
+  const note = annotation.beyond;
+  if (note) {
+    switch (note.kind) {
+      case "broken":
+        return { text: "Target missing", cls: "text-state-danger font-medium" };
+      case "drifted":
+        return { text: `Drifted in ${note.places.join(", ")}`, cls: "text-state-warning font-medium" };
+      case "copies":
+        return { text: `Tracked copy in ${note.count === 1 ? "1 project" : `${note.count} projects`}`, cls: "text-ink-2" };
+      default:
+        return { text: note.count === 1 ? "In 1 project" : `In ${note.count} projects`, cls: "text-ink-2" };
+    }
+  }
+  const formatLimited = annotation.reach.some((r) => r.reason === "format");
+  if (formatLimited) {
+    const readers = annotation.reach.filter((r) => r.reached).map((r) => r.engine_name);
+    if (readers[0]) {
+      return { text: `${readers.join(", ")} only`, cls: "text-ink-2" };
+    }
+  }
+  return { text: "—", cls: "text-ink-3 opacity-45" };
 }
 
 export function getSingularType(category: string): string {
@@ -83,7 +127,7 @@ export function getRowState(item: AssetItem) {
   }
 }
 
-export default function AssetRow({ item, isSelected, showKindColumn = true, onClick }: AssetRowProps) {
+export default function AssetRow({ item, isSelected, showKindColumn = true, annotation, onClick }: AssetRowProps) {
   const { dotClass, word, wordClass, rowClass } = getRowState(item);
   const activeClass = isSelected ? "bg-tint" : rowClass;
   const nameColor = item.parseStatus === "failed"
@@ -92,6 +136,8 @@ export default function AssetRow({ item, isSelected, showKindColumn = true, onCl
     ? "text-tint-ink font-medium"
     : "text-ink-1";
   const engineLabel = formatEngineLabel(item.engine);
+  const annotated = annotation !== undefined;
+  const beyond = annotation ? beyondCell(annotation) : null;
 
   return (
     <div
@@ -100,14 +146,24 @@ export default function AssetRow({ item, isSelected, showKindColumn = true, onCl
       data-selected={isSelected ? "true" : "false"}
       className={`flex items-center gap-3 h-8 mx-1.5 px-2.5 rounded-pill transition-colors duration-hover ease-spring cursor-pointer text-small font-sans focus:outline-none ${activeClass}`}
     >
-      {/* 0: State Dot + Name Column (flex-1 min-w-[180px]) */}
+      {/* 0: Mechanism glyph (annotated) or state dot + Name */}
       <div className="flex items-center gap-2.5 flex-1 min-w-[180px] overflow-hidden">
-        <div
-          data-testid="state-dot"
-          className={dotClass}
-          style={{ borderRadius: "9999px" }}
-          title={item.parseError || word}
-        />
+        {annotated ? (
+          annotation ? (
+            <MechanismGlyph mechanism={annotation.mechanism} places={annotation.beyond?.places} />
+          ) : (
+            /* The backend had no verdict for this row; an empty slot keeps
+               the column honest and the names aligned. */
+            <span className="w-3.5 shrink-0" aria-hidden="true" />
+          )
+        ) : (
+          <div
+            data-testid="state-dot"
+            className={dotClass}
+            style={{ borderRadius: "9999px" }}
+            title={item.parseError || word}
+          />
+        )}
         <span className={`text-base-app ${nameColor} truncate`}>
           {item.name}
         </span>
@@ -120,15 +176,31 @@ export default function AssetRow({ item, isSelected, showKindColumn = true, onCl
         </span>
       )}
 
-      {/* 2: Engine Column (110px) */}
-      <span className="text-small font-normal text-ink-3 font-flex shrink-0 w-[110px] text-left truncate hidden @[580px]:block">
-        {engineLabel}
-      </span>
+      {annotated ? (
+        <>
+          {/* 2: Reach — engine tiles, rendered from the backend list. */}
+          <span className="shrink-0 w-[100px] text-left hidden @[580px]:flex">
+            {annotation ? <EngineReachTiles reach={annotation.reach} /> : null}
+          </span>
 
-      {/* 3: State Column (110px) */}
-      <span className={`text-small font-flex shrink-0 w-[110px] text-left ${wordClass} truncate`}>
-        {word}
-      </span>
+          {/* 3: Beyond the store — the backend note, count and all. */}
+          <span className={`text-small font-flex shrink-0 w-[150px] text-left truncate ${beyond?.cls ?? ""}`}>
+            {beyond?.text ?? ""}
+          </span>
+        </>
+      ) : (
+        <>
+          {/* 2: Engine Column (110px) */}
+          <span className="text-small font-normal text-ink-3 font-flex shrink-0 w-[110px] text-left truncate hidden @[580px]:block">
+            {engineLabel}
+          </span>
+
+          {/* 3: State Column (110px) */}
+          <span className={`text-small font-flex shrink-0 w-[110px] text-left ${wordClass} truncate`}>
+            {word}
+          </span>
+        </>
+      )}
     </div>
   );
 }
