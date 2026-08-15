@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { save, open } from "@tauri-apps/plugin-dialog";
@@ -63,6 +63,7 @@ import type { AssetAnnotationView } from "./components/AssetRow";
 import { SortField, SortDirection } from "./components/AssetHeaderRow";
 import { StateFilter } from "./utils/linkStateCounts";
 import { registrationKey } from "./utils/mcpRegistration";
+import { unaccountedProcesses, type ProcessMatch } from "./utils/mcpServerView";
 import {
   deriveReviewIssues,
   matchesIssueFilter,
@@ -272,6 +273,18 @@ export default function App() {
       setAnnotations(null);
     }
   };
+
+  /* Which MCP servers are running, and which are running with no config
+     behind them. Owned here because two surfaces need the same answer — the
+     profile's disclosure and the inspector's per-registration state — and
+     `get_mcp_processes` rescans to derive its registration keys, so fetching
+     it in both would walk the filesystem twice.
+
+     Deliberately lazy: nothing outside the Tools view uses it, and paying for
+     a scan at startup for a panel most sessions never open is the wrong
+     trade. Fetched once, on the first look at Tools. */
+  const [mcpProcesses, setMcpProcesses] = useState<ProcessMatch[] | null>(null);
+  const mcpProcessesRequested = useRef(false);
 
   // Link map: the graph arrives computed from the backend and is rendered
   // verbatim; the projects toggle is the only map state the shell owns —
@@ -610,6 +623,20 @@ export default function App() {
   };
 
   const [selectedAsset, setSelectedAsset] = useState<any>(null);
+
+  /* Ask what is running the first time the user looks at Tools, and never
+     before. Failure is silent on purpose: running state enriches the view,
+     and a profile that refused to render because the process table could not
+     be read would be a worse outcome than one without pids. */
+  const lookingAtTools =
+    selectedSidebarItem.endsWith(":Tools") || selectedAsset?.category === "Tools";
+  useEffect(() => {
+    if (!lookingAtTools || mcpProcessesRequested.current) return;
+    mcpProcessesRequested.current = true;
+    invoke<ProcessMatch[]>("get_mcp_processes")
+      .then(setMcpProcesses)
+      .catch(() => setMcpProcesses([]));
+  }, [lookingAtTools]);
 
   // Maps individual asset row clicks to detail Flyout opening
   const handleSelectAsset = (asset: { id?: string; name: string; category: "Skills" | "Agents" | "Tools" | "Rules" | "Subagents"; path: string }) => {
@@ -1106,6 +1133,7 @@ export default function App() {
               onSortChange={handleSortChange}
               onSelectAsset={handleSelectAsset}
               onLinkAsset={handleLinkAsset}
+              unaccountedProcesses={unaccountedProcesses(mcpProcesses ?? undefined)}
               onClearSelection={() => {
                 setSelectedAsset(null);
                 setSelectedBubble(null);
@@ -1267,6 +1295,7 @@ export default function App() {
               <Flyout
                 selectedBubble={selectedBubble}
                 selectedAsset={selectedAsset}
+                mcpProcesses={mcpProcesses}
                 initialDeployingAsset={linkingAsset}
                 linkPreSelectedRepo={linkPreSelectedRepo}
                 onExitLinkFlow={() => {

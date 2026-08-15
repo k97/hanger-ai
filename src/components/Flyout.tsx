@@ -10,7 +10,7 @@ import {
 import { Inventory } from "../App";
 import AssetDetail from "./AssetDetail";
 import McpServerDetail from "./McpServerDetail";
-import { buildMcpServerView } from "../utils/mcpServerView";
+import { buildMcpServerView, type ProcessMatch } from "../utils/mcpServerView";
 import LinkPanel from "./LinkPanel";
 import DiffChooser, { AlignedSection } from "./DiffChooser";
 import { kindLabel, provenanceOf } from "../utils/assetProvenance";
@@ -44,6 +44,9 @@ interface FlyoutProps {
   /** The link flow was left. The owner clears what it staged for it. */
   onExitLinkFlow?: () => void;
   inventory: Inventory;
+  /** Running MCP processes, from `get_mcp_processes`. Owned by App because the
+   *  profile's disclosure needs the same answer and the command rescans. */
+  mcpProcesses?: ProcessMatch[] | null;
   linkedProjects: string[];
   onRefresh: () => void;
 }
@@ -61,6 +64,7 @@ export default function Flyout({
   linkPreSelectedRepo,
   onExitLinkFlow,
   inventory,
+  mcpProcesses,
   linkedProjects,
   onRefresh
 }: FlyoutProps) {
@@ -90,6 +94,7 @@ export default function Flyout({
     error?: string;
   }>>({});
   const [mcpVerifying, setMcpVerifying] = useState<string | null>(null);
+
 
   /** Start a private copy of the server, ask what it provides, stop it. */
   const runMcpVerify = async (view: { name: string; command: string; args: string[]; transport: string }) => {
@@ -461,12 +466,13 @@ export default function Flyout({
 
   const targetAsset = selectedAsset || (initialDeployingAsset ? initialDeployingAsset : null);
 
+
   /* Built once: the heading row needs the transport chip and the panel needs
      the whole view. Three calls to buildMcpServerView per render was wasteful
      and let the two drift apart. */
   const mcpView =
     targetAsset && targetAsset.category === "Tools"
-      ? buildMcpServerView(inventory?.tools, targetAsset.name)
+      ? buildMcpServerView(inventory?.tools, targetAsset.name, mcpProcesses ?? [])
       : null;
 
   const provenance = targetAsset ? provenanceOf(targetAsset as never, inventory) : null;

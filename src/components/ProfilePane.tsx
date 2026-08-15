@@ -8,6 +8,8 @@ import { filterProfileAssets } from "../utils/filterPredicate";
 import { dedupeRegistrations } from "../utils/mcpRegistration";
 import { sortAssetItems } from "../utils/sortUtils";
 import { registrationKey } from "../utils/mcpRegistration";
+import { groupProcesses, type ProcessMatch } from "../utils/mcpServerView";
+import DisclosureBanner from "./DisclosureBanner";
 import { sumGlobalAssets } from "../utils/globalAssetCount";
 import SummaryStrip from "./SummaryStrip";
 import { ScanStatusIndicator } from "./ScanStatusIndicator";
@@ -36,6 +38,10 @@ interface ProfilePaneProps {
   onSelectAsset: (asset: { id?: string; name: string; category: "Skills" | "Agents" | "Tools" | "Rules" | "Subagents"; path: string }) => void;
   onLinkAsset: (asset: any) => void;
   onClearSelection?: () => void;
+  /** MCP servers running with no config behind them, from `get_mcp_processes`.
+   *  They have no registration, so they cannot be rows — a row implies
+   *  something to open, and there is nothing. */
+  unaccountedProcesses?: ProcessMatch[] | null;
 }
 
 export default function ProfilePane({
@@ -56,6 +62,7 @@ export default function ProfilePane({
   onSelectAsset,
   onLinkAsset,
   onClearSelection,
+  unaccountedProcesses,
 }: ProfilePaneProps) {
   const [internalCategory, setInternalCategory] = useState<CategoryType | null>(null);
   const [internalSortField, setInternalSortField] = useState<SortField>("name");
@@ -68,6 +75,11 @@ export default function ProfilePane({
   );
   const annotationFor = (path: string): AssetAnnotationView | null =>
     annotationByPath.get(path) ?? null;
+
+  /* Already filtered to the unaccounted by the caller; grouped here so one
+     leaked launch reads as one row with a multiplier rather than as eighty. */
+  const unaccounted = unaccountedProcesses ?? [];
+  const unaccountedGroups = groupProcesses(unaccounted);
 
   const selectedCategory = propSelectedCategory ?? internalCategory;
   const sortField = propSortField ?? internalSortField;
@@ -294,6 +306,46 @@ export default function ProfilePane({
           loading={loading}
         />
       </div>
+
+      {/* A server running with no config behind it is disclosed rather than
+          listed: it has no registration, so a row would imply something to
+          open that does not exist. DESIGN.md fixes DisclosureBanner for
+          exactly this — non-blocking diagnostics, never a modal.
+
+          This is the cross-host view no single host can produce. Claude Code
+          knows its own children and nothing else's, and none of them know
+          about the servers that outlived whatever started them. */}
+      {unaccounted.length > 0 && (
+        <div className="px-[18px] pb-2.5">
+          {/* `summary` is a bare singular noun: the banner prepends the count
+              and pluralises by appending "s", as with "scan warning" and
+              "nested repo". A sentence here renders as "…accounts fors". */}
+          <DisclosureBanner
+            variant="warning"
+            summary="undeclared MCP server"
+            count={unaccounted.length}
+          >
+            <div className="flex flex-col gap-1.5">
+              <p className="text-small text-ink-2 leading-relaxed">
+                Running now, with no entry in any config Hanger reads. Every host sees
+                only the servers it started itself, so nothing else on this machine
+                accounts for these.
+              </p>
+              {unaccountedGroups.map((g) => (
+                <div key={g.commandLine} className="flex flex-col gap-px">
+                  <span className="text-micro font-mono text-ink-1">
+                    {g.pids.length > 1
+                      ? `${g.pids.length} processes · pid ${g.pids[0]} ×${g.pids.length}`
+                      : `pid ${g.pids[0]}`}
+                    {g.spawningHost ? ` · ${g.spawningHost}` : ""}
+                  </span>
+                  <span className="text-micro font-mono text-ink-3 truncate">{g.commandLine}</span>
+                </div>
+              ))}
+            </div>
+          </DisclosureBanner>
+        </div>
+      )}
 
       {emptyState ? (
         <div className={emptyPlaneClass}>

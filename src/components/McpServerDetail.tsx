@@ -22,6 +22,14 @@ interface Registration {
   configPath: string;
   command: string;
   args?: string[];
+  /**
+   * Present only while a process matching this launch is running.
+   *
+   * Absent is the ordinary state, not a fault: stdio servers are started on
+   * demand by whichever host needs them, so most registrations are idle most
+   * of the time.
+   */
+  running?: { pid: number; spawningHost?: string };
 }
 
 interface VerifiedIdentity {
@@ -150,6 +158,15 @@ export default function McpServerDetail({ server, onVerify, verifying = false }:
                   }`}
                 >
                   {launchOf(reg)}
+                </span>
+              )}
+              {/* Shown only when true. Most servers are started on demand, so
+                  "not running" is the normal state and badging every row with
+                  it would read as an error rather than as information. */}
+              {reg.running && (
+                <span className="text-micro font-mono text-state-success">
+                  {`running · pid ${reg.running.pid}`}
+                  {reg.running.spawningHost ? ` · ${reg.running.spawningHost}` : ""}
                 </span>
               )}
             </div>

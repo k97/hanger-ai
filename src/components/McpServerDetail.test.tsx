@@ -203,4 +203,31 @@ describe("McpServerDetail", () => {
     const openers = screen.getAllByRole("button", { name: /reveal|open config/i });
     expect(openers.length).toBe(base.registrations.length);
   });
+
+  it("shows which host is running a registration, with its pid", () => {
+    render(
+      <McpServerDetail
+        server={{
+          ...base,
+          registrations: [
+            { ...base.registrations[0], running: { pid: 8269, spawningHost: "Claude Code" } },
+            base.registrations[1],
+            base.registrations[2],
+          ],
+        }}
+      />
+    );
+    expect(screen.getByText(/8269/)).toBeTruthy();
+    // "Claude Code" is also a host label on two rows, so assert on the
+    // running line specifically rather than on the name alone.
+    expect(screen.getByText(/running · pid 8269 · Claude Code/)).toBeTruthy();
+  });
+
+  it("says nothing about running state when nothing is running", () => {
+    // An absent process is not evidence of a broken server — most are started
+    // on demand. A "not running" badge on every row would read as an error.
+    render(<McpServerDetail server={base} />);
+    expect(screen.queryByText(/not running/i)).toBeNull();
+    expect(screen.queryByText(/running · pid/)).toBeNull();
+  });
 });

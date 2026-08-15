@@ -36,4 +36,34 @@ describe("buildMcpServerView", () => {
     expect(buildMcpServerView(tools, "nonexistent")).toBeNull();
     expect(buildMcpServerView(undefined, "spades-audio")).toBeNull();
   });
+
+  it("attaches a running process to the registration it belongs to", () => {
+    // The key is the backend's own registration_key — (config path, name) —
+    // so the process lands on the Claude Code row and not on the Claude
+    // Desktop one, even though both declare the same server.
+    const view = buildMcpServerView(tools, "spades-audio", [
+      {
+        registration_key: "/home/.claude.json-spades-audio",
+        pid: 8269,
+        command_line: "node /Applications/Spades Audio.app/index.js",
+        spawning_host: "Claude Code",
+      },
+    ])!;
+    expect(view.registrations[0].running).toEqual({ pid: 8269, spawningHost: "Claude Code" });
+    expect(view.registrations[1].running).toBeUndefined();
+  });
+
+  it("ignores unaccounted processes when attaching running state", () => {
+    // An unaccounted process has an empty registration_key. Matching on it
+    // would attach it to whichever registration also stringified to "".
+    const view = buildMcpServerView(tools, "spades-audio", [
+      { registration_key: "", pid: 1649, command_line: "macos-mcp serve" },
+    ])!;
+    expect(view.registrations.every((r) => r.running === undefined)).toBe(true);
+  });
+
+  it("leaves running state absent when no processes are supplied", () => {
+    const view = buildMcpServerView(tools, "spades-audio")!;
+    expect(view.registrations.every((r) => r.running === undefined)).toBe(true);
+  });
 });
