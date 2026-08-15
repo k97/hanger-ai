@@ -304,16 +304,19 @@ export default function LinkMapPane({
       )}
 
       {showProjects && graph.empty_state === "no_project_edges" && (
-        <div className="mx-[18px] mt-2.5 px-3.5 py-2.5 rounded-plane shrink-0">
-          <p className="text-small text-ink-2 leading-[1.6]">
-            <span className="text-ink-1 font-medium">
-              Per-asset project links have not been recorded yet.
-            </span>{" "}
-            Hanger records a link when it deploys an asset and when a scan meets a symlink that
-            resolves into the store — neither has seen one so far. The store-to-engine edges below
-            are real: they come from the engine roots themselves, not from records. Rescan a
-            project that contains symlinks into the store to backfill its links.
-          </p>
+        <div className="px-[18px] pt-2.5 shrink-0">
+          <DisclosureBanner
+            variant="info"
+            summary="Per-asset project links have not been recorded yet"
+          >
+            <p className="text-small text-ink-2 leading-[1.6]">
+              Hanger records a link when it deploys an asset and when a scan meets a symlink
+              that resolves into the store — neither has seen one so far. The store-to-engine
+              edges below are real: they come from the engine roots themselves, not from
+              records. Rescan a project that contains symlinks into the store to backfill its
+              links.
+            </p>
+          </DisclosureBanner>
         </div>
       )}
 

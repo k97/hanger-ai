@@ -45,6 +45,18 @@ describe("DisclosureBanner", () => {
     expect(scrollContainer?.getAttribute("style")).toContain("max-height: 240px");
   });
 
+  it("renders the summary verbatim when no count is given — a sentence, not a tally", () => {
+    const { container } = render(
+      <DisclosureBanner variant="info" summary="Per-asset project links have not been recorded yet">
+        <div>Why and what to do</div>
+      </DisclosureBanner>
+    );
+
+    const button = container.querySelector("button");
+    // No count prefix, no pluralisation surgery on the sentence.
+    expect(button?.textContent).toBe("Per-asset project links have not been recorded yet");
+  });
+
   it("supports defaultOpen prop", () => {
     render(
       <DisclosureBanner variant="error" summary="error notice" count={1} defaultOpen={true}>

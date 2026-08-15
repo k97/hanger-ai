@@ -4,7 +4,10 @@ import { ChevronRightIcon, ExclamationTriangleIcon, ExclamationCircleIcon, Infor
 export interface DisclosureBannerProps {
   variant: "warning" | "error" | "info";
   summary: string;
-  count: number;
+  /** How many items the body lists; prefixed onto the summary with
+   *  pluralisation. Omit for a notice that is a sentence, not a tally —
+   *  the summary then renders verbatim. */
+  count?: number;
   children: React.ReactNode;
   defaultOpen?: boolean;
 }
@@ -44,6 +47,9 @@ export default function DisclosureBanner({
   };
 
   const formattedSummary = (() => {
+    if (count === undefined) {
+      return summary.trim();
+    }
     const isPlural = count !== 1;
     const base = summary.trim();
     if (isPlural) {
