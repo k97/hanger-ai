@@ -30,6 +30,8 @@
   --color-on-accent: var(--on-accent);
   --color-hairline: var(--hairline);
   --color-scrim: var(--scrim);
+  /* Registers the shadow-overlay utility — the system's one elevation. */
+  --shadow-overlay: var(--overlay-shadow);
   --color-on-primary: var(--on-primary);
 
   --color-brand-lime: var(--brand-lime);

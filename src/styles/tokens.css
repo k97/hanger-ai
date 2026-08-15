@@ -34,6 +34,13 @@
 
   /* Overlay */
   --scrim: rgba(0, 0, 0, 0.55);
+  /* The one elevation in the system, for surfaces that appear on request
+   * above a canvas (the map's detail card, its layers panel). Apple's
+   * floating-surface recipe: a tight contact shadow for edge definition
+   * under a large, soft, low-opacity ambient (the App Store card measures
+   * ~0 10px 30px at 10%; macOS popovers pair it with a contact ring).
+   * Everything else in the mono system stays flat — ruled 2026-08-15. */
+  --overlay-shadow: 0 0 3px rgba(0, 0, 0, 0.05), 0 11px 34px rgba(0, 0, 0, 0.16);
 
   /* Type — content voice and utility voice share the system stack */
   --font-sans: -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
@@ -157,6 +164,9 @@
   --bar-track: rgba(255, 255, 255, 0.07);
 
   --scrim: rgba(0, 0, 0, 0.8);
+  /* Same geometry, ~3x the weight: on a dark ground the shadow is the only
+   * depth cue left. */
+  --overlay-shadow: 0 0 3px rgba(0, 0, 0, 0.4), 0 11px 34px rgba(0, 0, 0, 0.55);
 
   /* Legacy role aliases (dark) */
   --surface: var(--page);

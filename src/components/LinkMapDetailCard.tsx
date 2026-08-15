@@ -106,7 +106,7 @@ export default function LinkMapDetailCard({
     return (
       <div
         data-testid="map-detail-card"
-        className="absolute left-3 top-3 bottom-3 w-[300px] z-20 flex flex-col bg-page border border-line rounded-plane overflow-hidden"
+        className="absolute left-3 top-3 bottom-3 w-[300px] z-20 flex flex-col bg-page border border-line rounded-plane overflow-hidden shadow-overlay"
       >
         <div className="px-4 pt-3.5 pb-3 border-b border-line shrink-0">
           <div className="flex items-center gap-2 font-flex text-micro tracking-[.06em] uppercase text-ink-3 mb-1.5">
@@ -172,7 +172,7 @@ export default function LinkMapDetailCard({
   return (
     <div
       data-testid="map-detail-card"
-      className="absolute left-3 top-3 bottom-3 w-[300px] z-20 flex flex-col bg-page border border-line rounded-plane overflow-hidden"
+      className="absolute left-3 top-3 bottom-3 w-[300px] z-20 flex flex-col bg-page border border-line rounded-plane overflow-hidden shadow-overlay"
     >
       <div className="px-4 pt-3.5 pb-3 border-b border-line shrink-0">
         <div className="flex items-center gap-2 font-flex text-micro tracking-[.06em] uppercase text-ink-3 mb-1.5">

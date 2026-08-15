@@ -470,7 +470,7 @@ export default function LinkMapPane({
             {layersOpen && (
               <div
                 data-testid="map-layers-panel"
-                className="w-[190px] bg-page border border-line rounded-inner p-2"
+                className="w-[190px] bg-page border border-line rounded-inner p-2 shadow-overlay"
               >
                 <div className="font-flex text-micro tracking-[.06em] uppercase text-ink-3 px-1.5 pt-0.5 pb-1.5">
                   Show on map

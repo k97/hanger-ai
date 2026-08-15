@@ -168,6 +168,14 @@ so rows scrolling beneath stay hidden. `--plane` remains the fill of the
 shell's left column (rail + source list), of control chrome (the filter
 field), and of inline code and pathline chips — those are not page cards.
 
+One exception to flatness (Karthik's ruling, 2026-08-15): surfaces that
+appear **on request above the map canvas** — the detail card, the layers
+panel — carry `--overlay-shadow` (`tokens.css`, Overlay block; registered
+as the `shadow-overlay` utility, the only shadow the off-token guard
+permits). The value is Apple's floating-surface recipe: a tight contact
+shadow under a large soft ambient, ~3× heavier in dark where shadow is the
+only depth cue. In-canvas SVG content and every static card stay flat.
+
 ### Motion — one spring, three beats
 
 ```
