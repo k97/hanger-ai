@@ -6,41 +6,22 @@ import IconRail from "./IconRail";
 
 afterEach(cleanup);
 
-const gradientStops = (container: HTMLElement) =>
-  Array.from(container.querySelectorAll("stop")).map((s) => ({
-    color: s.getAttribute("stop-color"),
-    opacity: s.getAttribute("stop-opacity"),
-  }));
-
 describe("HangerMark", () => {
-  it("draws the teal glyph on a light rail, where white would be invisible", () => {
+  // The dispatch's item 4: the mark is flat --brand, and --brand is the only
+  // place the teal exists. The token itself carries the light/dark values
+  // (#00c3bf / #2fd8d4, tokens.css), so the component owns no variant logic.
+  it("fills with currentColor and takes its colour from the brand token class", () => {
     const { container } = render(<HangerMark />);
-    expect(screen.getByTestId("hanger-mark").getAttribute("data-variant")).toBe("on-light");
-    expect(gradientStops(container)).toEqual([
-      { color: "#0EC7C6", opacity: null },
-      { color: "#169B9C", opacity: null },
-    ]);
+    const svg = screen.getByTestId("hanger-mark");
+    expect(svg.getAttribute("class")).toContain("text-brand");
+    expect(container.querySelector("path")!.getAttribute("fill")).toBe("currentColor");
   });
 
-  it("draws the white glyph on a dark rail, where teal is the app-icon variant", () => {
-    const { container } = render(<HangerMark onDark />);
-    expect(screen.getByTestId("hanger-mark").getAttribute("data-variant")).toBe("on-dark");
-    expect(gradientStops(container)).toEqual([
-      { color: "#ffffff", opacity: null },
-      { color: "#ffffff", opacity: "0.5" },
-    ]);
-  });
-
-  it("points the fill at a gradient that the same document actually defines", () => {
-    for (const onDark of [false, true]) {
-      cleanup();
-      const { container } = render(<HangerMark onDark={onDark} />);
-      const fill = container.querySelector("path")!.getAttribute("fill")!;
-      const id = fill.replace(/^url\(#/, "").replace(/\)$/, "");
-      expect(container.querySelector(`linearGradient#${id}`)).toBeTruthy();
-      // Only the variant in use is emitted, so the ids can never collide.
-      expect(container.querySelectorAll("linearGradient")).toHaveLength(1);
-    }
+  it("draws one flat path — no gradients, no per-theme variants", () => {
+    const { container } = render(<HangerMark />);
+    expect(container.querySelector("linearGradient")).toBeNull();
+    expect(container.querySelector("defs")).toBeNull();
+    expect(screen.getByTestId("hanger-mark").getAttribute("data-variant")).toBeNull();
   });
 
   it("crops the viewBox to the glyph so size means the mark, not the icon padding", () => {
@@ -50,8 +31,6 @@ describe("HangerMark", () => {
     expect(svg.getAttribute("width")).toBe("32");
   });
 
-  // Measured off the reference screenshot: the mark reads at roughly 24px
-  // against the rail's 38px-wide selection pill.
   it("defaults to the reference design's 24px", () => {
     render(<HangerMark />);
     const svg = screen.getByTestId("hanger-mark");
@@ -62,7 +41,7 @@ describe("HangerMark", () => {
   it("passes a layout className through to the svg without dropping its own attributes", () => {
     render(<HangerMark className="pt-2" size={22} />);
     const svg = screen.getByTestId("hanger-mark");
-    expect(svg.getAttribute("class")).toBe("pt-2");
+    expect(svg.getAttribute("class")).toBe("text-brand pt-2");
     expect(svg.getAttribute("width")).toBe("22");
     expect(svg.getAttribute("aria-hidden")).toBe("true");
   });
@@ -82,12 +61,11 @@ describe("HangerMark", () => {
 });
 
 describe("the rail's brand mark", () => {
-  const rail = (darkMode: boolean) =>
+  const rail = () =>
     render(
       <IconRail
         active="machine"
         needsReviewCount={0}
-        darkMode={darkMode}
         onSelectMachine={() => {}}
         onSelectLinkMap={() => {}}
         onSelectDiscovery={() => {}}
@@ -97,7 +75,7 @@ describe("the rail's brand mark", () => {
     );
 
   it("sits at the top of the rail, above the section buttons", () => {
-    rail(false);
+    rail();
     const nav = screen.getByTestId("icon-rail");
     const mark = screen.getByTestId("hanger-mark");
     const machine = screen.getByLabelText("My machine");
@@ -105,16 +83,8 @@ describe("the rail's brand mark", () => {
     expect(mark.compareDocumentPosition(machine) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
-  it("follows the app's resolved appearance rather than the OS preference", () => {
-    rail(false);
-    expect(screen.getByTestId("hanger-mark").getAttribute("data-variant")).toBe("on-light");
-    cleanup();
-    rail(true);
-    expect(screen.getByTestId("hanger-mark").getAttribute("data-variant")).toBe("on-dark");
-  });
-
   it("adds no new interactive target to the rail", () => {
-    rail(false);
+    rail();
     // 5 = the four sections plus settings. The mark itself contributes none
     // of these; this pin moved 4 → 5 when the Link map entry landed, not
     // because the mark grew behaviour.

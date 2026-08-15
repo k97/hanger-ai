@@ -166,7 +166,7 @@ describe("Review inspector — provenance", () => {
 
   it("explains a broken link as a relationship, not a status word", () => {
     render(
-      <ReviewInspector issue={broken} position={1} outOf={4} onClose={vi.fn()} onSkip={vi.fn()} />
+      <ReviewInspector issue={broken} position={1} outOf={4} onSkip={vi.fn()} />
     );
 
     expect(screen.getByText("Broken link")).toBeTruthy();
@@ -178,7 +178,7 @@ describe("Review inspector — provenance", () => {
 
   it("names the other links the same broken source feeds", () => {
     render(
-      <ReviewInspector issue={broken} position={1} outOf={4} onClose={vi.fn()} onSkip={vi.fn()} />
+      <ReviewInspector issue={broken} position={1} outOf={4} onSkip={vi.fn()} />
     );
 
     expect(screen.getByText("The same source also feeds")).toBeTruthy();
@@ -189,7 +189,7 @@ describe("Review inspector — provenance", () => {
 
   it("lists every copy of a duplicate rather than nominating a winner", () => {
     render(
-      <ReviewInspector issue={duplicate} position={2} outOf={4} onClose={vi.fn()} onSkip={vi.fn()} />
+      <ReviewInspector issue={duplicate} position={2} outOf={4} onSkip={vi.fn()} />
     );
 
     expect(screen.getAllByText("Copy")).toHaveLength(2);
@@ -201,14 +201,14 @@ describe("Review inspector — provenance", () => {
 
   it("says where it is in the list it is stepping through", () => {
     render(
-      <ReviewInspector issue={broken} position={1} outOf={4} onClose={vi.fn()} onSkip={vi.fn()} />
+      <ReviewInspector issue={broken} position={1} outOf={4} onSkip={vi.fn()} />
     );
     expect(screen.getByText("1 of 4")).toBeTruthy();
   });
 
   it("asks for a selection rather than showing an empty shell", () => {
     render(
-      <ReviewInspector issue={null} position={0} outOf={0} onClose={vi.fn()} onSkip={vi.fn()} />
+      <ReviewInspector issue={null} position={0} outOf={0} onSkip={vi.fn()} />
     );
     expect(screen.getByText("Nothing selected")).toBeTruthy();
   });

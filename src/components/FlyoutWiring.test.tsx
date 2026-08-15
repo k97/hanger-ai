@@ -92,10 +92,6 @@ function TestAppHarness() {
       {selectedBubble && (
         <Flyout
           selectedBubble={selectedBubble}
-          setSelectedBubble={(val) => {
-            setSelectedBubble(val);
-            setFlyoutInitialAsset(null);
-          }}
           selectedAsset={flyoutInitialAsset}
           inventory={mockInventory}
           linkedProjects={["/home/user/project"]}
@@ -131,7 +127,6 @@ describe("Detail Flyout Wiring Integration", () => {
     render(
       <Flyout
         selectedBubble={{ type: "project", id: "/home/user/project", name: "project" }}
-        setSelectedBubble={vi.fn()}
         initialDeployingAsset={{
           type: "asset",
           category: "Tools",

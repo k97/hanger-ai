@@ -108,7 +108,7 @@ describe("LinkMapInspector", () => {
 
   it("shows what the edge is, where it goes, how it travels, and its state", () => {
     const edge = layout.edges.find((e) => e.dest === 4 && e.state === "drifted")!;
-    render(<LinkMapInspector edge={edge} nodes={graph().nodes} onClose={() => {}} />);
+    render(<LinkMapInspector edge={edge} nodes={graph().nodes} />);
     expect(screen.getByText(".agents → metrics-board")).toBeTruthy();
     // Named in the eyebrow AND spelled out in the detail row.
     expect(screen.getAllByText(/Tracked copy/).length).toBeGreaterThanOrEqual(2);
@@ -118,28 +118,28 @@ describe("LinkMapInspector", () => {
   it("labels the count by what actually travels: assets to a project, root links to an engine", () => {
     const projectEdge = layout.edges.find((e) => e.dest === 4 && e.state === "linked")!;
     const { unmount } = render(
-      <LinkMapInspector edge={projectEdge} nodes={graph().nodes} onClose={() => {}} />,
+      <LinkMapInspector edge={projectEdge} nodes={graph().nodes} />,
     );
     expect(screen.getByText("Assets travelling")).toBeTruthy();
     expect(screen.getByText("3")).toBeTruthy();
     unmount();
 
     const engineEdge = layout.edges.find((e) => e.dest === 2)!;
-    render(<LinkMapInspector edge={engineEdge} nodes={graph().nodes} onClose={() => {}} />);
+    render(<LinkMapInspector edge={engineEdge} nodes={graph().nodes} />);
     expect(screen.getByText("Root-level symlinks")).toBeTruthy();
     expect(screen.getByText("2")).toBeTruthy();
   });
 
   it("invents no provenance — nothing records who created a link or when", () => {
     const edge = layout.edges[0];
-    render(<LinkMapInspector edge={edge} nodes={graph().nodes} onClose={() => {}} />);
+    render(<LinkMapInspector edge={edge} nodes={graph().nodes} />);
     for (const phantom of [/created/i, /last verified/i, /by whom/i]) {
       expect(screen.queryByText(phantom)).toBeNull();
     }
   });
 
   it("asks for a selection when no edge is chosen", () => {
-    render(<LinkMapInspector edge={null} nodes={[]} onClose={() => {}} />);
+    render(<LinkMapInspector edge={null} nodes={[]} />);
     expect(screen.getByText(/Nothing selected/i)).toBeTruthy();
   });
 });
