@@ -196,7 +196,7 @@ describe("Avionics A3 Toolbar Verification", () => {
     await screen.findByText("alpha-skill");
     expect(screen.getByText("beta-skill")).toBeTruthy();
 
-    const filterInput = screen.getByLabelText("Filter assets");
+    const filterInput = screen.getByLabelText("Search");
     fireEvent.change(filterInput, { target: { value: "alpha" } });
 
     await waitFor(() => {

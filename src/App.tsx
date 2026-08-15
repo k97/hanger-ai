@@ -1067,16 +1067,21 @@ export default function App() {
                 size={12}
                 className="absolute left-2.5 top-2 text-ink-3 pointer-events-none"
               />
+              {/* "Search", not "Filter": the field sits in the shell's cap,
+                  not inside any one screen, and a cap-mounted field is a
+                  search field by macOS convention (Finder, Mail, System
+                  Settings). The object keeps the placeholder honest about
+                  what the field actually reaches. Karthik's call, 2026-08-15. */}
               <input
                 value={filterText}
                 onChange={(e) => setFilterText(e.target.value)}
-                aria-label="Filter assets"
+                aria-label="Search"
                 placeholder={
                   selectedSidebarItem === "discovery"
-                    ? "Filter directories"
+                    ? "Search directories"
                     : selectedSidebarItem === "review"
-                    ? `Filter ${review.counts.total} issues`
-                    : `Filter ${activeTotal} assets`
+                    ? `Search ${review.counts.total} issues`
+                    : `Search ${activeTotal} assets`
                 }
                 className="w-full h-full rounded-pill border border-transparent bg-plane pl-[30px] pr-3.5 text-small text-ink-1 placeholder:text-ink-3 focus:outline-none focus:border-ink-1 focus:bg-page transition-colors duration-hover ease-spring"
               />
