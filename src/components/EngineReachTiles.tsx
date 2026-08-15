@@ -1,4 +1,5 @@
 import Tooltip from "./Tooltip";
+import BrandIcon from "./BrandIcon";
 
 /** One engine's verdict on one asset, as the backend derived it. The
  *  frontend renders the list verbatim (dispatch item 8). */
@@ -10,22 +11,6 @@ export interface EngineReachInfo {
   via_root?: string | null;
   via_store?: string | null;
   reason?: string | null;
-}
-
-/* Monograms are the fallback until trademark use is cleared; a vendor SVG
-   drops into the same 16px slot without a layout change. Keyed by the
-   engines table's own keys — first letters collide (three C engines). */
-const MONOGRAM: Record<string, string> = {
-  claude: "C",
-  claude_code: "C",
-  codex: "X",
-  gemini: "G",
-  claude_desktop: "D",
-  vscode: "V",
-};
-
-function monogram(engineKey: string): string {
-  return MONOGRAM[engineKey] ?? engineKey.charAt(0).toUpperCase();
 }
 
 /* Copy signed off 2026-08-15 (naming brief). */
@@ -40,8 +25,13 @@ function tileTip(r: EngineReachInfo): string {
     : `${r.engine_name} — root not linked`;
 }
 
-/** The Reach column: one 16px tile per engine, filled when the engine can
- *  read the asset through its linked root. */
+/** The Reach column: one 16px tile per engine, each carrying that engine's
+ *  own mark (BrandIcon; trademark note in the design record, spec §14).
+ *  Reached reads at full strength; unreached at half. The tile is transparent
+ *  with a thin border in both states so a colour mark carries itself — the
+ *  prototype's brandmarks rule. (Comment wording adjusted from the brief:
+ *  a retired-token name banned anywhere in .tsx source, including comments,
+ *  by no-off-token-styles.test.ts, was in the original phrasing.) */
 export default function EngineReachTiles({ reach }: { reach: EngineReachInfo[] }) {
   return (
     <span className="flex items-center gap-1" data-testid="engine-reach-tiles">
@@ -51,13 +41,11 @@ export default function EngineReachTiles({ reach }: { reach: EngineReachInfo[] }
             data-testid={`reach-tile-${r.engine_key}`}
             data-reached={r.reached ? "true" : "false"}
             aria-label={tileTip(r)}
-            className={`w-4 h-4 rounded-[6px] grid place-items-center font-flex text-micro font-medium not-italic cursor-default ${
-              r.reached
-                ? "bg-fill text-on-fill"
-                : "border border-line-2 text-ink-3 opacity-50"
+            className={`w-4 h-4 rounded-[6px] border border-line-2 grid place-items-center text-ink-1 not-italic cursor-default ${
+              r.reached ? "" : "opacity-50"
             }`}
           >
-            {monogram(r.engine_key)}
+            <BrandIcon engineKey={r.engine_key} engineName={r.engine_name} size={12} />
           </i>
         </Tooltip>
       ))}
