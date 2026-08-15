@@ -16,9 +16,10 @@ function escapeRegExp(str: string): string {
 }
 
 const ALLOWLIST_RAW = [
-  // Deliberate sub-scale exception: the rail's count badge is 15px tall and
-  // uses the prototype's 9px numeral (docs/v3/hanger-mono-tight.html .ir-count).
-  { file: "src/components/IconRail.tsx", lineText: "<span aria-hidden=\"true\" className=\"absolute top-px right-0.5 min-w-[15px] h-[15px] px-1 rounded-pill bg-fill text-on-fill text-[9px] leading-[15px] font-flex tabular\">", category: "fontsize" as AllowlistCategory, reason: "Icon-rail count badge, prototype 9px numeral inside a 15px pill" },
+  // Deliberate sub-scale exception: the rail's count badge is 16px tall at
+  // the icon corner with a 2px plane ring, and uses the prototype's 9px
+  // numeral (docs/v3/hanger-mono-tight.html .ir-count).
+  { file: "src/components/IconRail.tsx", lineText: "<span aria-hidden=\"true\" className=\"absolute -top-[3px] -right-1 min-w-4 h-4 px-1 rounded-pill bg-fill text-on-fill text-[9px] leading-4 font-flex tabular ring-2 ring-plane\">", category: "fontsize" as AllowlistCategory, reason: "Icon-rail count badge, prototype 9px numeral inside a 16px pill" },
 
 
 
