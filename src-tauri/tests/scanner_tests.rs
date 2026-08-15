@@ -1798,3 +1798,29 @@ fn test_match_protected_root_guards_engine_roots() {
 
     let _unused: Option<PathBuf> = None;
 }
+
+#[test]
+fn a_parse_failure_is_not_a_link_state() {
+    // Root-cause fix, ruled 2026-08-15: the scanner stamped
+    // LinkState::Broken onto parse-failed assets, so the review pane filed
+    // them as "Broken links · Target missing" instead of "Won't parse".
+    // A parse failure carries parse_status; it says nothing about links.
+    let _guard = ENV_MUTEX.get_or_init(|| Mutex::new(())).lock().unwrap();
+    std::env::set_var("HANGER_TEST_HOME", "tests/fixtures/home");
+
+    let scanner = DirectoryScanner {
+        db_path: Path::new("tests/fixtures/home/hanger.db").to_path_buf(),
+        cancellation_token: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
+    };
+    let inventory = scanner.scan(Path::new("tests/fixtures/project")).unwrap();
+
+    let failed = inventory
+        .skills
+        .iter()
+        .find(|s| s.parse_status.as_deref() == Some("failed"))
+        .expect("the fixture set carries one parse-failed skill");
+    assert_eq!(
+        failed.link_state, None,
+        "a parse failure must not wear a link state; it files under parse, not broken links"
+    );
+}
