@@ -181,12 +181,23 @@ export default function ProfilePane({
   const showRules = selectedCategory === null || selectedCategory === "Rules";
   const showSubagents = selectedCategory === null || selectedCategory === "Subagents";
 
-  /** An asset row is selected by identity where it has one — many MCP servers
-      share a config file, so path alone marks all of them. */
-  const rowIsSelected = (item: AssetItem) =>
-    item.id && (selectedAsset as { id?: string } | null)?.id
-      ? (selectedAsset as { id?: string }).id === item.id
-      : selectedAsset?.path === item.path;
+  /**
+   * An asset row is selected by identity where it has one — many MCP servers
+   * share a config file, so path alone marks all of them.
+   *
+   * A row that carries an id is compared on the id and nothing else. The
+   * fallback previously also applied when the SELECTION lacked an id, which
+   * silently converted a dropped field upstream into "every server declared in
+   * this file is selected" — six rows lit for one click. Failing closed makes
+   * that same mistake show up as a row that does not light: visibly wrong
+   * rather than plausibly wrong.
+   */
+  const rowIsSelected = (item: AssetItem) => {
+    const selected = selectedAsset as { id?: string; path?: string } | null;
+    if (!selected) return false;
+    if (item.id) return selected.id === item.id;
+    return selected.path === item.path;
+  };
 
   // Map and sort category items
   const sortedSkills: AssetItem[] = sortAssetItems(

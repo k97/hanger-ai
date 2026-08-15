@@ -678,6 +678,12 @@ export default function App() {
 
     if (fullAsset) {
       const selectedItem = {
+        // Carried through, not dropped. Resolving by registrationKey above and
+        // then storing only `path` put the file back in charge of identity:
+        // ProfilePane compares what it is given, and for a tool `path` is the
+        // config FILE, so clicking one server in ~/.claude.json marked every
+        // server declared in it.
+        id: asset.id,
         name: fullAsset.name,
         category: asset.category,
         path: asset.path,
