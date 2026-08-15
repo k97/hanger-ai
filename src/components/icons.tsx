@@ -34,6 +34,7 @@ import {
   InformationCircleIcon as HeroInformationCircle,
   LinkIcon as HeroLink,
   MagnifyingGlassIcon as HeroMagnifyingGlass,
+  MapIcon as HeroMap,
   MinusIcon as HeroMinus,
   MoonIcon as HeroMoon,
   PlusIcon as HeroPlus,
@@ -116,6 +117,7 @@ export const GlobeAltIcon = sized(HeroGlobeAlt, 1.09);
 export const InformationCircleIcon = sized(HeroInformationCircle, 1.11);
 export const LinkIcon = sized(HeroLink);
 export const MagnifyingGlassIcon = sized(HeroMagnifyingGlass);
+export const MapIcon = sized(HeroMap);
 export const MinusIcon = sized(HeroMinus, 0.93);
 export const MoonIcon = sized(HeroMoon, 0.96);
 export const PlusIcon = sized(HeroPlus, 0.93);

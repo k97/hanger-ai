@@ -93,13 +93,16 @@ describe("LinkMapPane", () => {
     expect(node.textContent).toContain("not linked");
   });
 
-  it("hides projects until the chip asks for them, and their edges go too", () => {
+  it("hides projects until the layers control asks for them, and their edges go too", () => {
     const callbacks = renderPane(graph(), { showProjects: false });
     expect(screen.queryByTestId("map-node-4")).toBeNull();
     // Only the store→engine edge survives; the three project edges left
     // with their column.
     expect(screen.getAllByTestId("map-edge")).toHaveLength(1);
 
+    // The toggle lives on the map, behind the layers button — Maps style.
+    expect(screen.queryByTestId("map-layers-panel")).toBeNull();
+    fireEvent.click(screen.getByTestId("map-layers"));
     const chip = screen.getByTestId("chip-projects");
     expect(chip.getAttribute("aria-pressed")).toBe("false");
     fireEvent.click(chip);
@@ -117,6 +120,18 @@ describe("LinkMapPane", () => {
     expect(callbacks.onSelect).toHaveBeenCalledTimes(1);
     expect(callbacks.onSelect.mock.calls[0][0].kind).toBe("edge");
     expect(screen.queryByTestId("map-popover")).toBeNull();
+  });
+
+  it("still opens the popover when the click follows a full pointer sequence", () => {
+    // The real bug this pins: pointer capture taken on pointerdown retargets
+    // the ensuing click to the svg in WebKit, so no node ever received it.
+    // Capture must only be taken once a drag actually starts.
+    renderPane(graph());
+    const node = screen.getByTestId("map-node-2");
+    fireEvent.pointerDown(node, { button: 0, clientX: 100, clientY: 100 });
+    fireEvent.pointerUp(node, { clientX: 100, clientY: 100 });
+    fireEvent.click(node);
+    expect(screen.getByTestId("map-popover")).toBeTruthy();
   });
 
   it("opens a popover on node click with the full untruncated path", () => {

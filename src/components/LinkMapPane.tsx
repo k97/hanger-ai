@@ -5,6 +5,7 @@ import {
   ArrowRightIcon,
   ArrowsPointingOutIcon,
   CheckIcon,
+  MapIcon,
   MinusIcon,
   PlusIcon,
   XMarkIcon,
@@ -135,14 +136,10 @@ function edgeSummary(edge: PositionedEdge): string {
   return `${edge.count} ${noun}${state}`;
 }
 
-// CategoryFilterCards' chip anatomy, hoisted for the map's one toggle.
-const chipBaseClass =
-  "h-7 px-3.5 rounded-pill border border-line-2 font-flex text-small text-ink-2 whitespace-nowrap inline-flex items-center gap-2 cursor-pointer transition-colors duration-nav ease-spring hover:bg-plane-2";
-const chipPressedClass =
-  "h-7 pl-2.5 pr-3.5 rounded-pill border border-transparent bg-tint text-tint-ink font-medium whitespace-nowrap inline-flex items-center gap-2 cursor-pointer transition-colors duration-nav ease-spring font-flex text-small";
-
 const zoomBtnClass =
   "w-7 h-7 rounded-pill border border-line-2 bg-page grid place-items-center text-ink-2 hover:bg-plane-2 hover:text-ink-1 transition-colors duration-hover ease-spring cursor-pointer";
+const zoomBtnActiveClass =
+  "w-7 h-7 rounded-pill border border-transparent bg-tint grid place-items-center text-tint-ink transition-colors duration-hover ease-spring cursor-pointer";
 
 interface Popover {
   selection: LinkMapSelection;
@@ -171,6 +168,7 @@ export default function LinkMapPane({
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const [viewport, setViewport] = useState<Size>({ width: 880, height: 520 });
   const [popover, setPopover] = useState<Popover | null>(null);
+  const [layersOpen, setLayersOpen] = useState(false);
 
   const kinds: readonly NodeKind[] = showProjects
     ? ["store", "engine_root", "project"]
@@ -231,13 +229,20 @@ export default function LinkMapPane({
 
   // Drag to pan. A drag past the threshold swallows the click it ends with,
   // so panning never selects.
-  const dragRef = useRef<{ x: number; y: number; dragged: boolean } | null>(null);
+  //
+  // Pointer capture is taken only once the threshold is crossed, never on
+  // pointerdown: capturing immediately retargets the ensuing click to the
+  // svg in WebKit, so no node or edge ever receives it — a plain click
+  // opened nothing and the popovers were unreachable in the running app
+  // while every synthetic-click test stayed green.
+  const dragRef = useRef<{ x: number; y: number; dragged: boolean; pointerId: number } | null>(
+    null,
+  );
   const suppressClickRef = useRef(false);
 
   const onPointerDown = useCallback((e: React.PointerEvent) => {
     if (e.button !== 0) return;
-    dragRef.current = { x: e.clientX, y: e.clientY, dragged: false };
-    (e.currentTarget as Element).setPointerCapture?.(e.pointerId);
+    dragRef.current = { x: e.clientX, y: e.clientY, dragged: false, pointerId: e.pointerId };
   }, []);
 
   const onPointerMove = useCallback(
@@ -247,7 +252,10 @@ export default function LinkMapPane({
       const dx = e.clientX - drag.x;
       const dy = e.clientY - drag.y;
       if (!drag.dragged && Math.hypot(dx, dy) < 4) return;
-      drag.dragged = true;
+      if (!drag.dragged) {
+        drag.dragged = true;
+        (e.currentTarget as Element).setPointerCapture?.(drag.pointerId);
+      }
       drag.x = e.clientX;
       drag.y = e.clientY;
       setCamera((c) => panBy(c, -dx, -dy, content, viewport));
@@ -308,21 +316,6 @@ export default function LinkMapPane({
         </button>
       </div>
 
-      {/* What the map includes. Store and engines are the always-on core;
-          projects join on request so the first view answers the first
-          question — is the store reaching the engines — without noise. */}
-      <div className="px-[18px] pt-2.5 shrink-0 flex items-center gap-2">
-        <button
-          data-testid="chip-projects"
-          aria-pressed={showProjects}
-          onClick={onToggleProjects}
-          className={showProjects ? chipPressedClass : chipBaseClass}
-        >
-          {showProjects && <CheckIcon size={12} aria-hidden="true" />}
-          Projects
-        </button>
-      </div>
-
       {warningBadge > 0 && (
         <div className="px-[18px] pt-2 shrink-0">
           <DisclosureBanner
@@ -358,7 +351,14 @@ export default function LinkMapPane({
       <div className="flex-1 min-h-0 px-[18px] pb-2 pt-3 flex flex-col">
         <div
           ref={viewportRef}
-          className="relative flex-1 min-h-0 border border-line rounded-plane overflow-hidden"
+          className="relative flex-1 min-h-0 border border-line rounded-plane overflow-hidden bg-page"
+          style={{
+            // A quiet dot grid gives the camera something to move against.
+            // Dots are drawn in --line, so the grid follows the theme.
+            backgroundImage: "radial-gradient(var(--line) 1px, transparent 0)",
+            backgroundSize: "15px 15px",
+            backgroundPosition: "-5px -5px",
+          }}
         >
           <svg
             viewBox={viewBoxOf(camera, viewport)}
@@ -488,6 +488,41 @@ export default function LinkMapPane({
               </g>
             ))}
           </svg>
+
+          {/* Layers, the Maps way: what the map includes lives on the map.
+              Store and engines are the always-on core; projects join on
+              request, so the first view answers the first question — is the
+              store reaching the engines — without noise. */}
+          <div className="absolute top-3 right-3 flex flex-col items-end gap-1.5">
+            <button
+              aria-label="Map layers"
+              aria-expanded={layersOpen}
+              data-testid="map-layers"
+              onClick={() => setLayersOpen((v) => !v)}
+              className={layersOpen ? zoomBtnActiveClass : zoomBtnClass}
+            >
+              <MapIcon size={14} aria-hidden="true" />
+            </button>
+            {layersOpen && (
+              <div
+                data-testid="map-layers-panel"
+                className="w-[190px] bg-page border border-line rounded-inner p-2"
+              >
+                <div className="font-flex text-micro tracking-[.06em] uppercase text-ink-3 px-1.5 pt-0.5 pb-1.5">
+                  Show on map
+                </div>
+                <button
+                  data-testid="chip-projects"
+                  aria-pressed={showProjects}
+                  onClick={onToggleProjects}
+                  className="w-full h-7 px-1.5 rounded-soft flex items-center justify-between font-flex text-small text-ink-1 hover:bg-plane-2 transition-colors duration-hover cursor-pointer"
+                >
+                  Projects
+                  {showProjects && <CheckIcon size={12} aria-hidden="true" />}
+                </button>
+              </div>
+            )}
+          </div>
 
           {/* Camera controls, Maps corner. */}
           <div className="absolute bottom-3 right-3 flex flex-col gap-1.5">
