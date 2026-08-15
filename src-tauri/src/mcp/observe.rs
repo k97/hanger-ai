@@ -8,7 +8,7 @@
 //! Read-only. Nothing is started, signalled or stopped.
 
 use serde::{Deserialize, Serialize};
-use sysinfo::{ProcessesToUpdate, System};
+use sysinfo::{ProcessRefreshKind, ProcessesToUpdate, System, UpdateKind};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RunningProcess {
@@ -67,6 +67,49 @@ pub fn redact(command_line: &str) -> String {
     out.join(" ")
 }
 
+/// Is this argv element an environment assignment rather than an argument?
+///
+/// macOS hands argv and the environment back in one buffer, and sysinfo only
+/// separates them when `environ` is refreshed alongside `cmd`. Requesting both
+/// fixes the split for the ordinary case, but not for every process: some
+/// still arrive with an assignment sitting in argv. Since environment *values*
+/// are never captured, the shape is rejected wherever it appears rather than
+/// trusted to have been filtered upstream.
+///
+/// A real flag starts with `-`, so `--client-type=persistent` is kept and
+/// `HOME=/Users/karthik` is not.
+fn is_env_assignment(token: &str) -> bool {
+    if token.starts_with('-') {
+        return false;
+    }
+    let Some(eq) = token.find('=') else {
+        return false;
+    };
+    let name = &token[..eq];
+    !name.is_empty()
+        && name
+            .chars()
+            .next()
+            .is_some_and(|c| c.is_ascii_alphabetic() || c == '_')
+        && name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
+}
+
+/// Turn a process's raw argv into a command line safe to store and show.
+///
+/// Two passes, because there are two ways a credential arrives: the whole
+/// environment riding along in argv (dropped), and a secret passed as a flag
+/// value (redacted). Operating on argv elements rather than on a joined string
+/// matters — an environment value containing a space would otherwise split
+/// into fragments that no longer look like assignments.
+pub fn sanitise_argv(argv: &[String]) -> String {
+    let kept: Vec<&str> = argv
+        .iter()
+        .map(String::as_str)
+        .filter(|t| !is_env_assignment(t))
+        .collect();
+    redact(&kept.join(" "))
+}
+
 /// Does this running process correspond to that declared launch?
 ///
 /// Matching on the executable alone is useless: every Node MCP server starts
@@ -96,26 +139,104 @@ pub fn matches_launch(command_line: &str, command: &str, args: &[String]) -> boo
 /// Every process currently running, redacted.
 pub fn running_processes() -> Vec<RunningProcess> {
     let mut sys = System::new();
-    sys.refresh_processes(ProcessesToUpdate::All, true);
+    // Two non-obvious requirements, both found by reading the live table.
+    //
+    // `cmd`: `refresh_processes` does NOT populate the command line — it
+    // refreshes memory, cpu, disk usage and exe. Every argv then reads as ""
+    // and the whole feature silently reports nothing running and nothing
+    // unaccounted, with no error anywhere.
+    //
+    // `environ`: macOS returns argv and the environment in one buffer, and
+    // sysinfo only knows where to cut when environ is refreshed too. Ask for
+    // cmd alone and the entire environment is appended to every command line.
+    // Nothing here reads `environ()`; it is requested so that `cmd()` is
+    // correct, and `sanitise_argv` rejects the assignment shape regardless.
+    sys.refresh_processes_specifics(
+        ProcessesToUpdate::All,
+        true,
+        ProcessRefreshKind::nothing()
+            .with_cmd(UpdateKind::Always)
+            .with_environ(UpdateKind::Always),
+    );
 
     sys.processes()
         .iter()
         .map(|(pid, proc_)| {
-            let line = proc_
+            let argv: Vec<String> = proc_
                 .cmd()
                 .iter()
                 .map(|s| s.to_string_lossy().to_string())
-                .collect::<Vec<_>>()
-                .join(" ");
+                .collect();
             let parent = proc_.parent().map(|p| p.as_u32()).unwrap_or(0);
             RunningProcess {
                 pid: pid.as_u32(),
                 parent_pid: parent,
-                command_line: redact(&line),
+                command_line: sanitise_argv(&argv),
                 spawning_host: spawning_host(&sys, parent),
             }
         })
         .collect()
+}
+
+/// A running process, and the registration it belongs to if any.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProcessMatch {
+    /// Empty when nothing on disk accounts for this process.
+    pub registration_key: String,
+    pub pid: u32,
+    pub command_line: String,
+    pub spawning_host: Option<String>,
+}
+
+/// Which MCP servers are running, and which running servers nobody declared.
+///
+/// The second half is the interesting one. A server with no config behind it
+/// is invisible to every host — each knows only its own children — and to
+/// Hanger's own scan, which reads files. It shows up only here.
+///
+/// `regs` is `(registration_key, command, args)`.
+pub fn match_processes(
+    regs: &[(String, String, Vec<String>)],
+    procs: &[RunningProcess],
+) -> Vec<ProcessMatch> {
+    let mut out = Vec::new();
+
+    for p in procs {
+        let matched = regs
+            .iter()
+            .find(|(_, cmd, args)| matches_launch(&p.command_line, cmd, args));
+
+        match matched {
+            Some((key, _, _)) => out.push(ProcessMatch {
+                registration_key: key.clone(),
+                pid: p.pid,
+                command_line: p.command_line.clone(),
+                spawning_host: p.spawning_host.clone(),
+            }),
+            // Only report an unmatched process when it looks like an MCP
+            // server. Every process on the machine is not a finding.
+            None if looks_like_mcp(&p.command_line) => out.push(ProcessMatch {
+                registration_key: String::new(),
+                pid: p.pid,
+                command_line: p.command_line.clone(),
+                spawning_host: p.spawning_host.clone(),
+            }),
+            None => {}
+        }
+    }
+
+    out
+}
+
+/// A heuristic, and deliberately a narrow one.
+///
+/// There is no protocol-level way to tell an MCP server from any other process
+/// without speaking to it, and probing every process on the machine is not
+/// acceptable. Naming is the available signal: servers are conventionally
+/// `*-mcp`, `mcp-*`, or launched with an `mcp` subcommand.
+fn looks_like_mcp(command_line: &str) -> bool {
+    let l = command_line.to_lowercase();
+    l.contains("-mcp") || l.contains("mcp-") || l.contains(" mcp ") || l.ends_with(" mcp")
 }
 
 /// Walk up the parent chain to the application that owns this process.

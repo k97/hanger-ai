@@ -294,6 +294,29 @@ async fn verify_mcp_server(
     })
 }
 
+/// Which MCP servers are running right now, and which are running unaccounted.
+///
+/// Read-only. Nothing is started or stopped — see spec §8 for why start/stop is
+/// meaningless here: stdio servers are not daemons, each host spawns a private
+/// child, and killing one breaks that host's session rather than stopping a
+/// service.
+///
+/// Rescans rather than taking registrations from the caller, so the keys it
+/// returns are the ones `Tool::registration_key` produces and identity stays in
+/// one place. That costs a filesystem walk per call, which is why this is
+/// invoked on demand and not on a timer.
+#[tauri::command]
+fn get_mcp_processes(app: AppHandle) -> Result<Vec<crate::mcp::observe::ProcessMatch>, String> {
+    let inventory = run_scan(app)?;
+    let regs: Vec<(String, String, Vec<String>)> = inventory
+        .tools
+        .iter()
+        .map(|t| (t.registration_key(), t.command.clone(), t.args.clone()))
+        .collect();
+    let procs = crate::mcp::observe::running_processes();
+    Ok(crate::mcp::observe::match_processes(&regs, &procs))
+}
+
 #[tauri::command]
 fn unlink_directory(app: AppHandle, path: String) -> Result<(), String> {
     let store = get_store(&app)?;
@@ -1226,6 +1249,7 @@ pub fn run() {
             link_directory,
             unlink_directory,
             verify_mcp_server,
+            get_mcp_processes,
             get_linked_directories,
             run_scan,
             get_inventory,
