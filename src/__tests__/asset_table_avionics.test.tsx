@@ -2,6 +2,7 @@
 import { render, screen, fireEvent, cleanup } from "@testing-library/react";
 import { describe, it, expect, vi, afterEach } from "vitest";
 import ProfilePane from "../components/ProfilePane";
+import AssetRow from "../components/AssetRow";
 import { Inventory } from "../App";
 
 // Mock Tauri invoke for preference calls
@@ -71,6 +72,9 @@ describe("Avionics A6 Asset Table Spec Compliance", () => {
     project_scans: [],
   };
 
+  // Column set ruled 2026-08-15 (item 8): the Global pane renders Reach and
+  // Beyond the store in place of Engine and State; those two live on in the
+  // repo pane's legacy variant.
   it("1. Header row renders all four column labels when unfiltered", () => {
     render(
       <ProfilePane
@@ -85,9 +89,18 @@ describe("Avionics A6 Asset Table Spec Compliance", () => {
     expect(header).not.toBeNull();
     expect(header.textContent).toContain("Name");
     expect(header.textContent).toContain("Kind");
-    expect(header.textContent).toContain("Engine");
-    expect(header.textContent).toContain("State");
+    expect(header.textContent).toContain("Reach");
+    expect(header.textContent).toContain("Beyond the store");
+    expect(header.textContent).not.toContain("Engine");
+    expect(header.textContent).not.toContain("State");
   });
+
+  // Annotated rows carry a mechanism slot, not a state dot, so row order is
+  // read from the rows themselves (the name span is the row's first cell).
+  const rowNames = () =>
+    Array.from(document.querySelectorAll("div[data-selected]")).map(
+      (row) => row.querySelector("span.truncate")?.textContent?.trim()
+    );
 
   it("2. Clicking a header sorts; clicking again reverses. Assert row ORDER.", () => {
     render(
@@ -101,8 +114,7 @@ describe("Avionics A6 Asset Table Spec Compliance", () => {
     );
 
     // Initial Skills order (Name asc): Alpha Skill, Bravo Skill, Failed Skill
-    let stateDots = screen.getAllByTestId("state-dot");
-    let names = stateDots.map((dot) => dot.nextElementSibling?.textContent?.trim());
+    let names = rowNames();
     expect(names[0]).toBe("Alpha Skill");
     expect(names[2]).toBe("Failed Skill");
 
@@ -111,8 +123,7 @@ describe("Avionics A6 Asset Table Spec Compliance", () => {
     fireEvent.click(nameHeader);
 
     // Order reverses (Name desc): Failed Skill, Bravo Skill, Alpha Skill
-    stateDots = screen.getAllByTestId("state-dot");
-    names = stateDots.map((dot) => dot.nextElementSibling?.textContent?.trim());
+    names = rowNames();
     expect(names[0]).toBe("Failed Skill");
     expect(names[2]).toBe("Alpha Skill");
   });
@@ -131,9 +142,10 @@ describe("Avionics A6 Asset Table Spec Compliance", () => {
       />
     );
 
-    // Engine descending for Skills: "Codex" (Bravo Skill), "Claude" (Alpha Skill), "Any agent" (Failed Skill)
-    const stateDots = screen.getAllByTestId("state-dot");
-    const names = stateDots.map((dot) => dot.nextElementSibling?.textContent?.trim());
+    // Engine descending for Skills: "Codex" (Bravo Skill), "Claude" (Alpha
+    // Skill), "Any agent" (Failed Skill). The engine column left the Global
+    // pane by ruling, but a persisted engine sort still orders the rows.
+    const names = rowNames();
     expect(names[0]).toBe("Bravo Skill");
     expect(names[1]).toBe("Alpha Skill");
     expect(names[2]).toBe("Failed Skill");
@@ -166,8 +178,7 @@ describe("Avionics A6 Asset Table Spec Compliance", () => {
     );
 
     // Skills sorted name desc: Failed Skill, Bravo Skill, Alpha Skill
-    const stateDots = screen.getAllByTestId("state-dot");
-    const names = stateDots.map((dot) => dot.nextElementSibling?.textContent?.trim());
+    const names = rowNames();
     expect(names[0]).toBe("Failed Skill");
     expect(names[1]).toBe("Bravo Skill");
     expect(names[2]).toBe("Alpha Skill");
@@ -187,25 +198,28 @@ describe("Avionics A6 Asset Table Spec Compliance", () => {
     const header = screen.getByTestId("asset-header-row");
     expect(header.textContent).toContain("Name");
     expect(header.textContent).not.toContain("Kind");
-    expect(header.textContent).toContain("Engine");
-    expect(header.textContent).toContain("State");
+    expect(header.textContent).toContain("Reach");
+    expect(header.textContent).toContain("Beyond the store");
   });
 
-  it("6. An asset with NULL engine renders 'Any agent', not blank", () => {
+  it("6. An asset with NULL engine renders 'Any agent' in the legacy variant, not blank", () => {
+    // The engine column left the Global pane by ruling; the behaviour lives
+    // on in the un-annotated variant the repo pane renders.
     render(
-      <ProfilePane
-        inventory={sampleInventory}
-        selectedCategory="Skills"
-        loading={false}
-        onSelectAsset={() => {}}
-        onLinkAsset={() => {}}
+      <AssetRow
+        item={{
+          name: "Anyone Skill",
+          category: "Skills",
+          path: "/path/to/anyone/SKILL.md",
+          engine: null,
+        }}
       />
     );
 
     expect(screen.getAllByText("Any agent").length).toBeGreaterThan(0);
   });
 
-  it("7. A parse-failed asset renders as a row with its failure state and no raw error text", () => {
+  it("7. A parse-failed asset renders as a row with a dimmed name and no raw error text", () => {
     render(
       <ProfilePane
         inventory={sampleInventory}
@@ -216,10 +230,8 @@ describe("Avionics A6 Asset Table Spec Compliance", () => {
       />
     );
 
-    // State column reads "Won't parse"
-    expect(screen.getAllByText("Won't parse").length).toBeGreaterThan(0);
-
-    // Name element has text-ink-3
+    // The row is present, dimmed — the state word moved to the review pane
+    // when the Global pane's State column became Beyond the store (ruling).
     const failedName = screen.getByText("Failed Skill");
     expect(failedName.className).toContain("text-ink-3");
 

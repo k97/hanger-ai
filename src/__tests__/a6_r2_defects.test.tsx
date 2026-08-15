@@ -195,7 +195,7 @@ describe("Avionics A6-R2 Defect Tests", () => {
     expect(button?.textContent).not.toContain("7 7");
   });
 
-  it("7. ProfilePane and RepoPane render the same four column headers", () => {
+  it("7. ProfilePane renders the ruled Reach columns; RepoPane keeps Engine and State", () => {
     const { container: profileContainer } = render(
       <ProfilePane
         inventory={mockInventory}
@@ -223,12 +223,18 @@ describe("Avionics A6-R2 Defect Tests", () => {
       return Array.from(headerButtons).map((btn) => btn.textContent?.trim());
     };
 
+    // Ruled 2026-08-15 (item 8): the Global pane's columns became Reach and
+    // Beyond the store; the repo pane keeps Engine and State until its own
+    // content is designed. The panes now differ on purpose.
     const profileHeaders = getHeaderTitles(profileContainer);
     const repoHeaders = getHeaderTitles(repoContainer);
 
-    expect(profileHeaders).toEqual(["Name", "Kind", "Engine", "State"]);
+    expect(profileHeaders).toEqual(["Name", "Kind"]);
+    const profileHeaderText =
+      profileContainer.querySelector("[data-testid='asset-header-row']")?.textContent ?? "";
+    expect(profileHeaderText).toContain("Reach");
+    expect(profileHeaderText).toContain("Beyond the store");
     expect(repoHeaders).toEqual(["Name", "Kind", "Engine", "State"]);
-    expect(profileHeaders).toEqual(repoHeaders);
   });
 
   it("8. An engine whose display_name differs from a title-cased key renders database value (Gemini / Antigravity)", () => {
