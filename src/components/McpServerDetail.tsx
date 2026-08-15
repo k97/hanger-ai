@@ -1,4 +1,4 @@
-import { openUrl } from "@tauri-apps/plugin-opener";
+import { openUrl, revealItemInDir } from "@tauri-apps/plugin-opener";
 import { MANAGE_URL } from "../utils/mcpServerView";
 
 /**
@@ -77,6 +77,17 @@ export default function McpServerDetail({ server, onVerify, verifying = false }:
   // Nothing to spawn: a Claude.ai connector lives on Anthropic's servers, a
   // remote server answers over HTTP. Both are real MCP servers; neither is a
   // local process.
+  /** What a registration actually launches, for comparison across hosts. */
+  const launchOf = (r: { command: string; args?: string[] }) =>
+    [r.command, ...(r.args ?? [])].join(" ").trim();
+
+  /* The reason this panel exists rather than nested rows: the same server can
+     be wired differently by different hosts, and nothing else on the machine
+     can see across them. Silent when they agree — a "no divergence" badge on
+     every server would be noise. */
+  const launches = new Set(server.registrations.map(launchOf).filter(Boolean));
+  const diverges = launches.size > 1;
+
   const isConnector = server.transport === "claude.ai";
   // Remote servers ARE verifiable now — dialled rather than spawned. Only a
   // Claude.ai connector has nothing Hanger can reach at all.
@@ -114,10 +125,42 @@ export default function McpServerDetail({ server, onVerify, verifying = false }:
                   {reg.tier}
                 </span>
               </div>
-              <span className="text-micro font-mono text-ink-3 truncate">{reg.configPath}</span>
+              <div className="flex items-center gap-1.5 min-w-0">
+                <span className="text-micro font-mono text-ink-3 truncate flex-1">
+                  {reg.configPath}
+                </span>
+                {/* Naming a file without letting you reach it is the same dead
+                    end the connector state had. */}
+                <button
+                  type="button"
+                  aria-label={`Reveal ${reg.configPath}`}
+                  onClick={() => revealItemInDir(reg.configPath).catch(() => {})}
+                  className="shrink-0 text-micro font-mono text-ink-3 px-1.5 rounded-pill cursor-pointer hover:bg-plane-2 hover:text-ink-1 transition-colors duration-hover"
+                >
+                  reveal
+                </button>
+              </div>
+              {/* What it launches. Without this the panel could not show the
+                  divergence it was designed to surface, and could not answer
+                  "what does this actually run?" after a failed Verify. */}
+              {launchOf(reg) && (
+                <span
+                  className={`text-micro font-mono truncate ${
+                    diverges ? "text-state-warning" : "text-ink-3"
+                  }`}
+                >
+                  {launchOf(reg)}
+                </span>
+              )}
             </div>
           ))}
         </div>
+        {diverges && (
+          <p className="text-micro text-state-warning leading-[1.45] mt-2">
+            These hosts launch {server.name} differently. Whichever you are using decides
+            which version you get.
+          </p>
+        )}
       </section>
 
       <section className={SECTION}>

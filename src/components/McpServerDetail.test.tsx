@@ -169,4 +169,38 @@ describe("McpServerDetail", () => {
     link.click();
     expect(openUrl).toHaveBeenCalledWith("https://claude.ai/settings/connectors");
   });
+
+  it("shows what each registration actually runs", () => {
+    // The panel's stated job is making cross-host differences visible, and the
+    // row rendered host/tier/path with no command at all — so the one thing it
+    // existed to show was invisible. It also answers "what does this launch?",
+    // which is the question behind every failed Verify.
+    render(<McpServerDetail server={base} />);
+    expect(screen.getAllByText(/node/).length).toBeGreaterThan(0);
+  });
+
+  it("says nothing about divergence when the registrations agree", () => {
+    render(<McpServerDetail server={base} />);
+    expect(screen.queryByText(/differ/i)).toBeNull();
+  });
+
+  it("flags when the same server is launched differently by different hosts", () => {
+    const diverged = {
+      ...base,
+      registrations: [
+        { host: "Codex", tier: "global", configPath: "~/.codex/config.toml",
+          command: "npx", args: ["@hypothesi/tauri-mcp-server"] },
+        { host: "Gemini", tier: "global", configPath: "~/.gemini/settings.json",
+          command: "npx", args: ["tauri-mcp@0.9"] },
+      ],
+    };
+    render(<McpServerDetail server={diverged} />);
+    expect(screen.getByText(/differ/i)).toBeTruthy();
+  });
+
+  it("lets you open the config file a registration came from", () => {
+    render(<McpServerDetail server={base} />);
+    const openers = screen.getAllByRole("button", { name: /reveal|open config/i });
+    expect(openers.length).toBe(base.registrations.length);
+  });
 });
