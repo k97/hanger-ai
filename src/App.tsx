@@ -285,6 +285,8 @@ export default function App() {
      trade. Fetched once, on the first look at Tools. */
   const [mcpProcesses, setMcpProcesses] = useState<ProcessMatch[] | null>(null);
   const mcpProcessesRequested = useRef(false);
+  /** The facet chip's category, which ProfilePane owns and reports back. */
+  const [profileCategory, setProfileCategory] = useState<string | null>(null);
 
   // Link map: the graph arrives computed from the backend and is rendered
   // verbatim; the projects toggle is the only map state the shell owns —
@@ -628,8 +630,16 @@ export default function App() {
      before. Failure is silent on purpose: running state enriches the view,
      and a profile that refused to render because the process table could not
      be read would be a worse outcome than one without pids. */
+  /* Three ways in, because the category has two owners. The sidebar encodes it
+     in selectedSidebarItem; the facet chip keeps it inside ProfilePane and
+     reports it through onCategoryChange. Watching only the first two meant
+     clicking "MCP servers" fetched nothing and the banner stayed invisible
+     until an individual server was opened — seen in the running app, not in
+     any test, because a test hands the pane its props directly. */
   const lookingAtTools =
-    selectedSidebarItem.endsWith(":Tools") || selectedAsset?.category === "Tools";
+    selectedSidebarItem.endsWith(":Tools") ||
+    selectedAsset?.category === "Tools" ||
+    profileCategory === "Tools";
   useEffect(() => {
     if (!lookingAtTools || mcpProcessesRequested.current) return;
     mcpProcessesRequested.current = true;
@@ -1133,6 +1143,7 @@ export default function App() {
               onSortChange={handleSortChange}
               onSelectAsset={handleSelectAsset}
               onLinkAsset={handleLinkAsset}
+              onCategoryChange={(c) => setProfileCategory(c)}
               unaccountedProcesses={unaccountedProcesses(mcpProcesses ?? undefined)}
               onClearSelection={() => {
                 setSelectedAsset(null);

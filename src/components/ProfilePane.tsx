@@ -38,6 +38,10 @@ interface ProfilePaneProps {
   onSelectAsset: (asset: { id?: string; name: string; category: "Skills" | "Agents" | "Tools" | "Rules" | "Subagents"; path: string }) => void;
   onLinkAsset: (asset: any) => void;
   onClearSelection?: () => void;
+  /** The facet chip owns category selection internally, so the owner is told
+   *  when it changes. Without this the shell cannot know the user is looking
+   *  at Tools, and anything it fetches lazily for that view never fires. */
+  onCategoryChange?: (category: CategoryType | null) => void;
   /** MCP servers running with no config behind them, from `get_mcp_processes`.
    *  They have no registration, so they cannot be rows — a row implies
    *  something to open, and there is nothing. */
@@ -62,6 +66,7 @@ export default function ProfilePane({
   onSelectAsset,
   onLinkAsset,
   onClearSelection,
+  onCategoryChange,
   unaccountedProcesses,
 }: ProfilePaneProps) {
   const [internalCategory, setInternalCategory] = useState<CategoryType | null>(null);
@@ -87,6 +92,7 @@ export default function ProfilePane({
 
   const setSelectedCategory = (cat: CategoryType | null) => {
     setInternalCategory(cat);
+    onCategoryChange?.(cat);
     if (onClearSelection) onClearSelection();
   };
 
@@ -334,8 +340,11 @@ export default function ProfilePane({
               {unaccountedGroups.map((g) => (
                 <div key={g.commandLine} className="flex flex-col gap-px">
                   <span className="text-micro font-mono text-ink-1">
+                    {/* The count once appeared twice — "79 processes · pid
+                        24149 ×79". One number, then a pid you can actually
+                        look up. */}
                     {g.pids.length > 1
-                      ? `${g.pids.length} processes · pid ${g.pids[0]} ×${g.pids.length}`
+                      ? `${g.pids.length} processes · e.g. pid ${g.pids[0]}`
                       : `pid ${g.pids[0]}`}
                     {g.spawningHost ? ` · ${g.spawningHost}` : ""}
                   </span>

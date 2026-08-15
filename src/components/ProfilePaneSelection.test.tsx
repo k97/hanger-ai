@@ -73,6 +73,24 @@ describe("servers running with no config behind them", () => {
     expect(screen.getByText(/macos-mcp serve/)).toBeTruthy();
   });
 
+  it("tells the owner when the category changes, so the process fetch can fire", () => {
+    // The facet chip sets ProfilePane's INTERNAL category; App's
+    // selectedSidebarItem does not move. Without this callback the owner never
+    // learns the user is looking at Tools, so it never fetches, and the banner
+    // stays invisible until an individual server is opened. Verified against
+    // the running app: clicking the chip produced no banner, clicking a row
+    // produced "166 undeclared MCP servers".
+    const onCategoryChange = vi.fn();
+    render(
+      <ProfilePane {...base} inventory={inventory} onCategoryChange={onCategoryChange} />
+    );
+    const chip = [...document.querySelectorAll("button")].find((b) =>
+      /MCP servers/i.test(b.textContent ?? "")
+    );
+    fireEvent.click(chip as HTMLElement);
+    expect(onCategoryChange).toHaveBeenCalledWith("Tools");
+  });
+
   it("says nothing when every running server is accounted for", () => {
     // Silence is the ordinary state. A banner reading "0 unaccounted" on every
     // launch would train the reader to ignore the one that matters.
@@ -91,6 +109,7 @@ describe("servers running with no config behind them", () => {
     render(<ProfilePane {...base} inventory={inventory} unaccountedProcesses={many as any} />);
     fireEvent.click(screen.getByRole("button", { name: /undeclared MCP server/i }));
     expect(screen.getAllByText(/chroma-mcp --client-type/)).toHaveLength(1);
-    expect(screen.getByText(/×\s*4/)).toBeTruthy();
+    // One number, not two. The first form read "4 processes · pid 2000 ×4".
+    expect(screen.getByText(/4 processes · e\.g\. pid 2000/)).toBeTruthy();
   });
 });
