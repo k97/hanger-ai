@@ -49,6 +49,11 @@ export interface LinkGraph {
 export const EDGE_MECHANISMS: readonly EdgeMechanism[] = ["symlink", "tracked_copy"];
 export const EDGE_STATES: readonly EdgeState[] = ["linked", "drifted", "dangling"];
 
+/** What the map can hand to the inspector: an edge or a node, never both. */
+export type LinkMapSelection =
+  | { kind: "edge"; edge: PositionedEdge }
+  | { kind: "node"; node: GraphNode };
+
 // ---- Geometry -------------------------------------------------------------
 
 export const NODE_W = 192;
@@ -80,11 +85,22 @@ export interface LinkMapLayout {
   height: number;
 }
 
-const COLUMN_OF: Record<NodeKind, number> = {
-  store: 0,
-  engine_root: 1,
-  project: 2,
-};
+/** Canonical column order; a kinds filter keeps this order, never reorders. */
+const KIND_ORDER: readonly NodeKind[] = ["store", "engine_root", "project"];
+
+/** Middle-ellipsis to a character budget, weighted toward the tail — the
+ *  end of a path is what identifies it. Deterministic; display only. */
+export function middleTruncate(text: string, maxChars: number): string {
+  if (text.length <= maxChars) return text;
+  const head = Math.floor((maxChars - 1) * 0.4);
+  const tail = maxChars - 1 - head;
+  return `${text.slice(0, head)}…${text.slice(text.length - tail)}`;
+}
+
+export interface LayoutOptions {
+  /** Which node kinds to lay out; hidden kinds take their edges with them. */
+  kinds?: readonly NodeKind[];
+}
 
 /** Stable order within a column: label, then id — node fields only. */
 function byLabelThenId(a: GraphNode, b: GraphNode): number {
@@ -98,13 +114,23 @@ function bezier(x1: number, y1: number, x2: number, y2: number): string {
   return `M ${x1} ${y1} C ${mx} ${y1}, ${mx} ${y2}, ${x2} ${y2}`;
 }
 
-export function layoutLinkGraph(graph: LinkGraph, width: number): LinkMapLayout {
+export function layoutLinkGraph(
+  graph: LinkGraph,
+  width: number,
+  options?: LayoutOptions,
+): LinkMapLayout {
+  const visibleKinds = KIND_ORDER.filter((k) => options?.kinds?.includes(k) ?? true);
+  const columnOf = new Map(visibleKinds.map((k, i) => [k, i]));
+  const spread = Math.max(1, visibleKinds.length - 1);
   const columnX = (column: number): number =>
-    MARGIN_X + (column * (width - 2 * MARGIN_X - NODE_W)) / 2;
+    MARGIN_X + (column * (width - 2 * MARGIN_X - NODE_W)) / spread;
 
-  const columns: GraphNode[][] = [[], [], []];
+  const columns: GraphNode[][] = visibleKinds.map(() => []);
   for (const n of graph.nodes) {
-    columns[COLUMN_OF[n.kind]].push(n);
+    const column = columnOf.get(n.kind);
+    if (column !== undefined) {
+      columns[column].push(n);
+    }
   }
 
   const nodes: PositionedNode[] = [];

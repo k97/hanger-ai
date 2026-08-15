@@ -17,6 +17,7 @@ import {
   ArrowPathIcon as HeroArrowPath,
   ArrowRightIcon as HeroArrowRight,
   ArrowTopRightOnSquareIcon as HeroArrowTopRightOnSquare,
+  ArrowsPointingOutIcon as HeroArrowsPointingOut,
   CheckIcon as HeroCheck,
   ChevronDownIcon as HeroChevronDown,
   ChevronLeftIcon as HeroChevronLeft,
@@ -33,6 +34,7 @@ import {
   InformationCircleIcon as HeroInformationCircle,
   LinkIcon as HeroLink,
   MagnifyingGlassIcon as HeroMagnifyingGlass,
+  MinusIcon as HeroMinus,
   MoonIcon as HeroMoon,
   PlusIcon as HeroPlus,
   ServerIcon as HeroServer,
@@ -97,6 +99,7 @@ function sized(Icon: SvgIcon, optical = 1) {
 export const ArrowPathIcon = sized(HeroArrowPath);
 export const ArrowRightIcon = sized(HeroArrowRight, 0.79);
 export const ArrowTopRightOnSquareIcon = sized(HeroArrowTopRightOnSquare);
+export const ArrowsPointingOutIcon = sized(HeroArrowsPointingOut);
 export const CheckIcon = sized(HeroCheck, 1.07);
 export const ChevronDownIcon = sized(HeroChevronDown, 0.81);
 export const ChevronLeftIcon = sized(HeroChevronLeft, 0.8);
@@ -113,6 +116,7 @@ export const GlobeAltIcon = sized(HeroGlobeAlt, 1.09);
 export const InformationCircleIcon = sized(HeroInformationCircle, 1.11);
 export const LinkIcon = sized(HeroLink);
 export const MagnifyingGlassIcon = sized(HeroMagnifyingGlass);
+export const MinusIcon = sized(HeroMinus, 0.93);
 export const MoonIcon = sized(HeroMoon, 0.96);
 export const PlusIcon = sized(HeroPlus, 0.93);
 export const ServerIcon = sized(HeroServer);

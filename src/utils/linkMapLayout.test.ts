@@ -3,6 +3,7 @@
 import { describe, it, expect } from "vitest";
 import {
   layoutLinkGraph,
+  middleTruncate,
   EDGE_MECHANISMS,
   EDGE_STATES,
   type LinkGraph,
@@ -97,6 +98,35 @@ describe("layoutLinkGraph", () => {
     expect(layout.nodes.length).toBe(5);
     expect(layout.edges.length).toBe(0);
     expect(layout.height).toBeGreaterThan(0);
+  });
+
+  it("lays out only the requested kinds, re-spreading the columns", () => {
+    const layout = layoutLinkGraph(baseGraph(), 1280, { kinds: ["store", "engine_root"] });
+    expect(layout.nodes.every((n) => n.kind !== "project")).toBe(true);
+
+    // Edges to hidden nodes are dropped, not guessed.
+    expect(layout.edges).toHaveLength(1);
+    expect(layout.edges[0].dest).toBe(5);
+
+    // Two columns spread across the full width, not squeezed into thirds.
+    const x = (id: number) => layout.nodes.find((n) => n.id === id)!.x;
+    const three = layoutLinkGraph(baseGraph(), 1280);
+    const engineXInThree = three.nodes.find((n) => n.id === 5)!.x;
+    expect(x(5)).toBeGreaterThan(engineXInThree);
+
+    // Same graph, same kinds, same answer.
+    expect(layoutLinkGraph(baseGraph(), 1280, { kinds: ["store", "engine_root"] })).toEqual(layout);
+  });
+
+  it("truncates long text in the middle, keeping the tail that identifies it", () => {
+    expect(middleTruncate("~/Library/Application Support/Claude", 24)).toBe(
+      "~/Library…Support/Claude",
+    );
+    expect(middleTruncate("short", 24)).toBe("short");
+    expect(middleTruncate("~/Work/Projects/rkarthik/mei-recipes", 24).length).toBeLessThanOrEqual(24);
+    expect(middleTruncate("~/Work/Projects/rkarthik/mei-recipes", 24).endsWith("mei-recipes")).toBe(
+      true,
+    );
   });
 
   it("exports the exhaustive enum lists the legend renders from", () => {

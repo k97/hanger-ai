@@ -56,7 +56,7 @@ import ReviewSidebar from "./components/ReviewSidebar";
 import ReviewInspector from "./components/ReviewInspector";
 import LinkMapPane from "./components/LinkMapPane";
 import LinkMapInspector from "./components/LinkMapInspector";
-import type { LinkGraph, PositionedEdge } from "./utils/linkMapLayout";
+import type { LinkGraph, LinkMapSelection } from "./utils/linkMapLayout";
 import SidebarScanModal from "./components/SidebarScanModal";
 import Flyout from "./components/Flyout";
 import type { AssetAnnotationView } from "./components/AssetRow";
@@ -274,9 +274,11 @@ export default function App() {
   };
 
   // Link map: the graph arrives computed from the backend and is rendered
-  // verbatim; selection is the only state the frontend owns.
+  // verbatim; selection and the projects toggle are the only state the
+  // frontend owns.
   const [linkGraph, setLinkGraph] = useState<LinkGraph | null>(null);
-  const [selectedLinkEdge, setSelectedLinkEdge] = useState<PositionedEdge | null>(null);
+  const [selectedLinkTarget, setSelectedLinkTarget] = useState<LinkMapSelection | null>(null);
+  const [linkMapShowProjects, setLinkMapShowProjects] = useState<boolean>(false);
   const [sortField, setSortField] = useState<SortField>("name");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
 
@@ -506,6 +508,10 @@ export default function App() {
       const activeItem = await invoke<string | null>("get_preference", { key: "selected_sidebar_item" });
       if (activeItem) {
         setSelectedSidebarItem(activeItem);
+      }
+      const showProjectsPref = await invoke<string | null>("get_preference", { key: "linkmap_show_projects" });
+      if (showProjectsPref === "true") {
+        setLinkMapShowProjects(true);
       }
       const widthPref = await invoke<string | null>("get_preference", { key: "sidebar_width" });
       if (widthPref) {
@@ -1098,13 +1104,27 @@ export default function App() {
             <LinkMapPane
               graph={linkGraph}
               loading={loading || scanning}
-              selectedEdge={selectedLinkEdge}
-              onSelectEdge={(edge) => {
-                setSelectedLinkEdge(edge);
+              selection={selectedLinkTarget}
+              onSelect={(target) => {
+                setSelectedLinkTarget(target);
                 if (!inspectorOpen) {
                   setInspectorOpen(true);
                   invoke("set_preference", { key: "inspector_open", value: "true" }).catch(() => {});
                 }
+              }}
+              showProjects={linkMapShowProjects}
+              onToggleProjects={() => {
+                setLinkMapShowProjects((v) => {
+                  invoke("set_preference", {
+                    key: "linkmap_show_projects",
+                    value: String(!v),
+                  }).catch(() => {});
+                  return !v;
+                });
+              }}
+              onOpenProject={(path) => {
+                handleSelectSidebarItem(path);
+                invoke("set_preference", { key: "selected_sidebar_item", value: path }).catch(() => {});
               }}
               onRescan={triggerScan}
             />
@@ -1227,7 +1247,14 @@ export default function App() {
           </div>
           <div className="flex-1 min-h-0 flex flex-col">
             {selectedSidebarItem === "linkmap" ? (
-              <LinkMapInspector edge={selectedLinkEdge} nodes={linkGraph?.nodes ?? []} />
+              <LinkMapInspector
+                selection={selectedLinkTarget}
+                nodes={linkGraph?.nodes ?? []}
+                onOpenProject={(path) => {
+                  handleSelectSidebarItem(path);
+                  invoke("set_preference", { key: "selected_sidebar_item", value: path }).catch(() => {});
+                }}
+              />
             ) : selectedSidebarItem === "review" ? (
               <ReviewInspector
                 issue={selectedIssue}
