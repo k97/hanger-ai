@@ -206,11 +206,57 @@ pub fn asset_annotations(db_path: &Path) -> Result<Vec<AssetAnnotation>, String>
 
     let root_by_id: BTreeMap<i64, &RootRow> = roots.iter().map(|r| (r.id, r)).collect();
 
+    // ---- Project reachability through directory links, from the
+    // filesystem at read time (ruled 2026-08-15). Real deployments mount
+    // whole store directories — <repo>/.claude/skills → ~/.agents/skills —
+    // so no per-asset link row exists or needs to. Each project's
+    // conventional engine dirs are read for top-level symlinks resolving
+    // under a store root; an asset beneath such a target is in that
+    // project. (project label, resolved target dir) pairs.
+    const PROJECT_MOUNT_DIRS: [&str; 4] = [".claude", ".agents", ".gemini", ".codex"];
+    let mut project_mounts: Vec<(String, String)> = Vec::new();
+    for project in roots.iter().filter(|r| r.kind == "project") {
+        for mount_dir in PROJECT_MOUNT_DIRS {
+            let dir = Path::new(&project.path).join(mount_dir);
+            let Ok(entries) = fs::read_dir(&dir) else {
+                continue;
+            };
+            let mut entry_paths: Vec<_> = entries.flatten().map(|e| e.path()).collect();
+            entry_paths.sort();
+            for entry in entry_paths {
+                let is_link = entry
+                    .symlink_metadata()
+                    .map(|m| m.file_type().is_symlink())
+                    .unwrap_or(false);
+                if !is_link {
+                    continue;
+                }
+                let Ok(resolved) = fs::canonicalize(&entry) else {
+                    continue;
+                };
+                let resolved = resolved.to_string_lossy().to_string();
+                if store_roots.iter().any(|s| path_under(&resolved, &s.path)) {
+                    project_mounts.push((project.label.clone(), resolved));
+                }
+            }
+        }
+    }
+
     let mut out = Vec::with_capacity(assets.len());
     for asset in &assets {
         let links = asset_links(&conn, asset)?;
-        let mechanism = mechanism_word(&links);
-        let beyond = beyond_note(&links);
+        let dir_places: Vec<String> = {
+            let mut places: Vec<String> = project_mounts
+                .iter()
+                .filter(|(_, target)| path_under(&asset.abs_path, target))
+                .map(|(label, _)| label.clone())
+                .collect();
+            places.sort();
+            places.dedup();
+            places
+        };
+        let mechanism = mechanism_word(&links, !dir_places.is_empty());
+        let beyond = beyond_note(&links, &dir_places);
         let reach = engine_reach(asset, &engines, &engine_links, &root_by_id);
         out.push(AssetAnnotation {
             asset_path: asset.abs_path.clone(),
@@ -292,9 +338,10 @@ fn asset_links(conn: &Connection, asset: &AssetRow) -> Result<Vec<LinkRow>, Stri
 
 /// Glyph precedence: broken > drift > symlink > copy > none. Foreign — a
 /// destination someone edited out from under the mechanism — renders as
-/// drift, the same judgement the review pane already makes.
-fn mechanism_word(links: &[LinkRow]) -> &'static str {
-    if links.is_empty() {
+/// drift, the same judgement the review pane already makes. A directory
+/// link one level up counts as travelling by symlink.
+fn mechanism_word(links: &[LinkRow], dir_linked: bool) -> &'static str {
+    if links.is_empty() && !dir_linked {
         return "none";
     }
     if links.iter().any(|l| l.state == LinkState::Broken) {
@@ -306,14 +353,14 @@ fn mechanism_word(links: &[LinkRow]) -> &'static str {
     {
         return "drift";
     }
-    if links.iter().any(|l| l.mechanism == Mechanism::Symlink) {
+    if dir_linked || links.iter().any(|l| l.mechanism == Mechanism::Symlink) {
         return "symlink";
     }
     "copy"
 }
 
-fn beyond_note(links: &[LinkRow]) -> Option<BeyondNote> {
-    if links.is_empty() {
+fn beyond_note(links: &[LinkRow], dir_places: &[String]) -> Option<BeyondNote> {
+    if links.is_empty() && dir_places.is_empty() {
         return None;
     }
     let places_of = |pred: &dyn Fn(&LinkRow) -> bool| -> Vec<String> {
@@ -331,8 +378,11 @@ fn beyond_note(links: &[LinkRow]) -> Option<BeyondNote> {
     if !drifted.is_empty() {
         return Some(BeyondNote { kind: "drifted".into(), count: drifted.len() as i64, places: drifted });
     }
-    let all = places_of(&|_| true);
-    let kind = if links.iter().any(|l| l.mechanism == Mechanism::Symlink) {
+    let mut all = places_of(&|_| true);
+    all.extend(dir_places.iter().cloned());
+    all.sort();
+    all.dedup();
+    let kind = if !dir_places.is_empty() || links.iter().any(|l| l.mechanism == Mechanism::Symlink) {
         "projects"
     } else {
         "copies"
