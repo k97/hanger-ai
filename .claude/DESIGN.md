@@ -30,23 +30,28 @@ light palette declares eleven neutral roles (`tokens.css:5-16`):
 | `--plane` | `#f7f7f7` | `#0e0e0e` | list and card surface |
 | `--plane-2` | `#efefef` | `#171717` | hover / press step |
 | `--tint` | `#e8e8e8` | `#232323` | tonal container for selection |
+| `--tint-plane` | `#e0e0e0` | `#262626` | tonal container on the plane (`tokens.css:9`); `--tint` disappears there |
 | `--tint-ink` | `#000000` | `#ffffff` | text on `--tint` |
 | `--line` | `rgba(0,0,0,.09)` | `rgba(255,255,255,.12)` | hairline |
 | `--line-2` | `rgba(0,0,0,.20)` | `rgba(255,255,255,.22)` | stronger border |
 | `--ink-1` | `#000000` | `#ffffff` | primary text |
 | `--ink-2` | `#4d4d4d` | `#b0b0b0` | secondary text |
-| `--ink-3` | `#6a6a6a` | `#8c8c8c` | muted text |
+| `--ink-3` | `#636363` | `#8c8c8c` | muted text |
 | `--fill` / `--on-fill` | `#000000` / `#ffffff` | `#ffffff` / `#000000` | the single strong action |
 
 Light values are at `tokens.css:5-16`; dark at `tokens.css:122-133`.
 
 `--ink-2` and `--ink-3` are solid hex rather than alpha, and the comments state
 why: they are the prototype's 66% and 44% inks quantised, with `--ink-3`
-deliberately darkened to clear 4.5:1 on `--plane-2` (`tokens.css:13-14`).
+deliberately darkened to clear 4.5:1 on `--tint-plane`, the darkest tonal
+surface it sits on (`tokens.css:15-16`).
 
-### Saturated colour appears in exactly one place
+### Saturated colour appears in exactly two places
 
-System state is the only place colour survives (`tokens.css:3-4, 18`):
+System state, and the brand mark. `--brand` — `#00c3bf` light, `#2fd8d4` dark
+(`tokens.css:19`, dark block) — paints the hanger mark in the rail and
+nothing else; the token's own comment forbids it as a UI state. State colour
+(`tokens.css:21-24`):
 
 - `--state-success` `#0f7a52` light / `#4ec08c` dark (`tokens.css:19`, `:135`)
 - `--state-warning` `#8a5a00` light / `#d9a441` dark (`tokens.css:20`, `:136`)
@@ -147,9 +152,21 @@ controls. A fourth, `--radius-control: 6px`, is declared as legacy
 (`tokens.css:112`) and marked in the theme block as "retired with its users"
 (`index.css:105`).
 
-Controls are pills. Every button class in the codebase uses `rounded-pill` —
-the rail button (`IconRail.tsx:19`), the toolbar button (`App.tsx:740`), the
-filter chip (`CategoryFilterCards.tsx:17`).
+Controls are pills — with one squared exception. `--radius-soft` (10px,
+`tokens.css:45`) rounds the icon rail's 32×32 buttons (`IconRail.tsx:18-20`),
+per the prototype's `--r-soft`. Every other button class uses `rounded-pill` —
+the toolbar buttons, the filter chips (`CategoryFilterCards.tsx:17`).
+
+### Flat cards on the page
+
+Card surfaces on content panes — the summary strip, list/table containers,
+empty-state placeholders, the link map canvas — carry no fill: the `--line`
+border and radius draw the edge alone (Karthik's ruling, 2026-08-15; e.g.
+`SummaryStrip.tsx`, `ProfilePane.tsx`, `NeedsReviewPane.tsx`,
+`DiscoveryPane.tsx`, `LinkMapPane.tsx`). Sticky table headers are `bg-page`
+so rows scrolling beneath stay hidden. `--plane` remains the fill of the
+shell's left column (rail + source list), of control chrome (the filter
+field), and of inline code and pathline chips — those are not page cards.
 
 ### Motion — one spring, three beats
 
@@ -309,6 +326,18 @@ root-level symlinks to an engine (`LinkMapInspector.tsx:52`).
 "Backend-owned asset total for the scope — never derived on the frontend"
 (`:6-7`), and Rescan lives here rather than in the toolbar because it is the
 control that changes the figure directly above it (`:14-16`).
+
+**`MechanismGlyph`** (`MechanismGlyph.tsx`) — the per-row attachment glyph:
+one of five backend words (`symlink | copy | drift | broken | none`), drawn
+as a 14px stroke icon with a signed one-line tooltip. The component renders
+the word verbatim; deriving a mechanism from paths or link state in
+TypeScript is forbidden (dispatch item 8).
+
+**`EngineReachTiles`** (`EngineReachTiles.tsx`) — the Reach column: one 16px
+tile per engine from the backend's reach list, filled when the engine reads
+the asset through its linked root. Monograms are a fallback keyed by the
+engines table's own keys (first letters collide); a vendor SVG drops into
+the same slot without a layout change once trademark use is cleared.
 
 **`CategoryFilterCards`** (`CategoryFilterCards.tsx:5-15`) — per-category
 counts, `selectedCategory`, `onSelectCategory`, `loading`. `allCount` is
