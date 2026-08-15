@@ -28,13 +28,19 @@ function timeAgo(from: Date, now: Date): string {
   return days === 1 ? "1 day ago" : `${days} days ago`;
 }
 
-const SEGMENTS: Array<{ state: LinkState; barClass: string; dotClass: string; label: (n: number) => string }> = [
-  { state: "linked", barClass: "bg-state-success", dotClass: "bg-state-success", label: () => "linked" },
+/* The meter is a glassy retro-Aqua gel (Karthik's rulings, 2026-08-15).
+   The aqua gel is the PROGRESS fill — it paints the linked share, so the
+   bar fills aqua as assets get linked and an all-local store reads as
+   quiet neutral glass, never as achievement. Drifted and broken keep
+   their semantic colours under the same gloss; local is inert glass.
+   Tokens: --gel-aqua, --gel-gloss, --bar-track. */
+const SEGMENTS: Array<{ state: LinkState; aqua?: boolean; barClass: string; dotClass: string; label: (n: number) => string }> = [
+  { state: "linked", aqua: true, barClass: "", dotClass: "", label: () => "linked" },
   { state: "drifted", barClass: "bg-state-warning", dotClass: "bg-state-warning", label: () => "drifted" },
   { state: "broken", barClass: "bg-state-danger", dotClass: "bg-state-danger", label: () => "broken" },
   {
     state: "local",
-    barClass: "bg-line-2",
+    barClass: "",
     dotClass: "bg-transparent border-2 border-line-2",
     label: () => "local only",
   },
@@ -88,14 +94,24 @@ export default function SummaryStrip({
       </div>
 
       {counts.total > 0 && (
-        <div className="flex h-2 gap-[3px]" role="img" aria-label={barLabel}>
+        <div
+          role="img"
+          aria-label={barLabel}
+          className="flex h-2.5 gap-[3px] p-px rounded-pill border border-line"
+          style={{ background: "var(--bar-track)" }}
+        >
           {SEGMENTS.map(
-            ({ state, barClass }) =>
+            ({ state, aqua, barClass }) =>
               counts[state] > 0 && (
                 <span
                   key={state}
                   className={`block h-full rounded-pill ${barClass}`}
-                  style={{ flex: counts[state] }}
+                  style={{
+                    flex: counts[state],
+                    backgroundImage: aqua
+                      ? "var(--gel-gloss), var(--gel-aqua)"
+                      : "var(--gel-gloss)",
+                  }}
                 />
               )
           )}
@@ -103,7 +119,7 @@ export default function SummaryStrip({
       )}
 
       <div className="flex items-center gap-4 mt-2.5 flex-wrap">
-        {SEGMENTS.map(({ state, dotClass, label }) => (
+        {SEGMENTS.map(({ state, aqua, dotClass, label }) => (
           <button
             key={state}
             onClick={() => toggle(state)}
@@ -112,7 +128,10 @@ export default function SummaryStrip({
               activeStateFilter === state ? "text-ink-1" : "text-ink-2 hover:text-ink-1"
             }`}
           >
-            <i className={`w-2 h-2 rounded-pill shrink-0 ${dotClass}`} />
+            <i
+              className={`w-2 h-2 rounded-pill shrink-0 ${dotClass}`}
+              style={aqua ? { backgroundImage: "var(--gel-aqua)" } : undefined}
+            />
             <b className="font-medium tabular text-ink-1">{counts[state]}</b> {label(counts[state])}
           </button>
         ))}

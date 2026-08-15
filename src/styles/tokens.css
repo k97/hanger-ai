@@ -23,6 +23,15 @@
   --state-warning: #8a5a00;
   --state-danger:  #b3261e;
 
+  /* The strip's meter — glassy with a retro-Aqua gel (Karthik, 2026-08-15).
+     The aqua is the brand hue put to work as the meter's neutral segment;
+     state segments keep their semantic colours under the same gloss. Pure
+     background layers: the guard forbids shadow utilities, so the gel is
+     painted, not cast. */
+  --gel-gloss: linear-gradient(180deg, rgba(255,255,255,.70) 0%, rgba(255,255,255,.22) 45%, rgba(255,255,255,0) 52%, rgba(0,0,0,.06) 100%);
+  --gel-aqua: linear-gradient(180deg, #6fe3e0 0%, #00c3bf 55%, #00a19e 100%);
+  --bar-track: rgba(0, 0, 0, 0.05);
+
   /* Overlay */
   --scrim: rgba(0, 0, 0, 0.55);
 
@@ -142,6 +151,10 @@
   --state-success: #4ec08c;
   --state-warning: #d9a441;
   --state-danger:  #e8635b;
+
+  --gel-gloss: linear-gradient(180deg, rgba(255,255,255,.32) 0%, rgba(255,255,255,.10) 45%, rgba(255,255,255,0) 52%, rgba(0,0,0,.20) 100%);
+  --gel-aqua: linear-gradient(180deg, #3ee6e2 0%, #12b3af 55%, #0b8a87 100%);
+  --bar-track: rgba(255, 255, 255, 0.07);
 
   --scrim: rgba(0, 0, 0, 0.8);
 
