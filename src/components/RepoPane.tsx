@@ -269,7 +269,7 @@ export default function RepoPane({
   const secClass =
     "px-3.5 pt-[11px] pb-[5px] font-flex text-micro font-medium tracking-[.06em] uppercase text-ink-3";
   const emptyPlaneClass =
-    "flex-1 mx-[18px] mb-[18px] min-h-0 flex flex-col items-center justify-center text-center border border-dashed border-line rounded-plane bg-plane animate-in fade-in duration-200";
+    "flex-1 mx-[18px] mb-[18px] min-h-0 flex flex-col items-center justify-center text-center border border-dashed border-line rounded-plane animate-in fade-in duration-200";
 
   // Visible rows post-filter for the foot line — a display subset, never the
   // asset total (which stays backend-owned).
@@ -340,7 +340,7 @@ export default function RepoPane({
 
         {/* macOS Permission denied TCC Fix Panel */}
         {permissionDeniedWarnings.length > 0 && (
-          <div className="flex flex-col gap-3 p-3.5 border border-line bg-plane rounded-inner leading-relaxed animate-in fade-in duration-200">
+          <div className="flex flex-col gap-3 p-3.5 border border-line rounded-inner leading-relaxed animate-in fade-in duration-200">
             <div className="flex gap-2 text-state-danger">
               <ExclamationTriangleIcon className="shrink-0 mt-0.5" size={16} />
               <div className="flex flex-col gap-1 min-w-0">
@@ -448,7 +448,9 @@ export default function RepoPane({
       ) : (
         <>
           {/* The list lives on its own plane */}
-          <div className="@container flex-1 min-h-0 overflow-y-auto mx-[18px] mt-2.5 bg-plane border border-line rounded-tl-plane rounded-tr-plane pb-1.5">
+          {/* Table background dropped by Karthik's ruling (2026-08-15):
+              flat on the page, edge drawn by the --line border alone. */}
+          <div className="@container flex-1 min-h-0 overflow-y-auto mx-[18px] mt-2.5 border border-line rounded-tl-plane rounded-tr-plane pb-1.5">
             <AssetHeaderRow
               sortField={sortField}
               sortDirection={sortDirection}

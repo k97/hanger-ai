@@ -75,7 +75,9 @@ export default function SummaryStrip({
   return (
     <section
       aria-label="Inventory summary"
-      className="px-4 py-3.5 bg-plane border border-line rounded-plane shrink-0"
+      // Background dropped by Karthik's ruling (2026-08-15): the hero sits
+      // flat on the page; the --line border and radius still draw its edge.
+      className="px-4 py-3.5 border border-line rounded-plane shrink-0"
     >
       <div className="flex items-baseline gap-3 mb-3">
         <span className="text-display font-medium tabular tracking-[-0.5px] leading-[1.1] text-ink-1">

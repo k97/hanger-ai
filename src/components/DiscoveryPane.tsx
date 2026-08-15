@@ -142,7 +142,7 @@ export default function DiscoveryPane({ filterText = "" }: DiscoveryPaneProps) {
         })}
       </div>
 
-      <div className="flex-1 min-h-0 overflow-y-auto mx-[18px] p-1.5 bg-plane border border-line rounded-tl-plane rounded-tr-plane">
+      <div className="flex-1 min-h-0 overflow-y-auto mx-[18px] p-1.5 border border-line rounded-tl-plane rounded-tr-plane">
         {shown.length === 0 ? (
           <p className="py-9 px-3 text-center text-small text-ink-3">
             No directory matches that filter.

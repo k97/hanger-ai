@@ -80,7 +80,7 @@ export default function NeedsReviewPane({
     <div className="flex-1 flex flex-col h-full min-h-0 overflow-hidden bg-page font-sans">
       <section
         aria-label="Review summary"
-        className="mx-[18px] mt-[18px] px-4 py-3.5 bg-plane border border-line rounded-plane shrink-0"
+        className="mx-[18px] mt-[18px] px-4 py-3.5 border border-line rounded-plane shrink-0"
       >
         <div className="flex items-baseline gap-3 mb-3">
           <span
@@ -196,10 +196,10 @@ export default function NeedsReviewPane({
         })}
       </div>
 
-      <div className="flex-1 min-h-0 overflow-y-auto mx-[18px] bg-plane border border-line rounded-tl-plane rounded-tr-plane">
+      <div className="flex-1 min-h-0 overflow-y-auto mx-[18px] border border-line rounded-tl-plane rounded-tr-plane">
         <div
           data-testid="review-header-row"
-          className="h-8 sticky top-0 z-[2] bg-plane border-b border-line grid grid-cols-[1fr_150px_128px_1fr] gap-3 items-center px-3.5 font-flex text-micro tracking-[.06em] uppercase text-ink-3"
+          className="h-8 sticky top-0 z-[2] bg-page border-b border-line grid grid-cols-[1fr_150px_128px_1fr] gap-3 items-center px-3.5 font-flex text-micro tracking-[.06em] uppercase text-ink-3"
         >
           <span>Asset</span>
           <span>Problem</span>

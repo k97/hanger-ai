@@ -157,7 +157,7 @@ export default function LinkMapPane({
       )}
 
       {graph.empty_state === "no_project_edges" && (
-        <div className="mx-[18px] mt-2 px-3.5 py-2.5 bg-plane rounded-plane shrink-0">
+        <div className="mx-[18px] mt-2 px-3.5 py-2.5 rounded-plane shrink-0">
           <p className="text-small text-ink-2 leading-[1.6]">
             <span className="text-ink-1 font-medium">
               Per-asset project links have not been recorded yet.
@@ -171,7 +171,7 @@ export default function LinkMapPane({
       )}
 
       <div className="flex-1 min-h-0 overflow-auto px-[18px] pb-[18px] pt-3 relative">
-        <div className="bg-plane border border-line rounded-plane p-1.5">
+        <div className="border border-line rounded-plane p-1.5">
           <svg
             viewBox={`0 0 ${MAP_WIDTH} ${Math.max(layout.height, 320)}`}
             className="block w-full h-auto"
