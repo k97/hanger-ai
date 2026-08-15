@@ -98,13 +98,19 @@ fn is_env_assignment(token: &str) -> bool {
 ///
 /// Two passes, because there are two ways a credential arrives: the whole
 /// environment riding along in argv (dropped), and a secret passed as a flag
-/// value (redacted). Operating on argv elements rather than on a joined string
-/// matters — an environment value containing a space would otherwise split
-/// into fragments that no longer look like assignments.
+/// value (redacted).
+///
+/// The filter runs per whitespace-separated word, not per argv element. An
+/// element is not reliably one word: a server launched through a shell arrives
+/// as `zsh -c '<entire script>'`, one element holding a whole command line with
+/// its assignments inside it. Testing the element as a unit, the name-before-
+/// the-first-`=` spans a space, the element does not look like an assignment,
+/// and every `KEY=value` in it survives into storage. Found by the live guard
+/// in mcp_observe_tests, which watches the real process table for exactly this.
 pub fn sanitise_argv(argv: &[String]) -> String {
     let kept: Vec<&str> = argv
         .iter()
-        .map(String::as_str)
+        .flat_map(|e| e.split_whitespace())
         .filter(|t| !is_env_assignment(t))
         .collect();
     redact(&kept.join(" "))

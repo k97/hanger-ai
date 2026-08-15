@@ -182,6 +182,28 @@ fn real_arguments_that_contain_equals_are_kept() {
 }
 
 #[test]
+fn an_assignment_buried_inside_a_shell_wrapper_is_still_dropped() {
+    // A server started through a shell is ONE argv element holding a whole
+    // script. Testing the element as a unit, the name before the first `=`
+    // spans a space, so it does not look like an assignment and every KEY=value
+    // inside it survives. The live guard caught this on a real process; the
+    // shape that matters is a credential rather than the PATH seen there.
+    let argv = vec![
+        "/bin/zsh".to_string(),
+        "-c".to_string(),
+        "API_KEY=REDACT_ME_4 PATH=/usr/bin exec some-mcp --port 8000".to_string(),
+    ];
+    let out = observe::sanitise_argv(&argv);
+    assert!(!out.contains("REDACT_ME_4"), "credential survived: {}", out);
+    assert!(!out.contains("PATH=/usr/bin"), "PATH survived: {}", out);
+    assert!(
+        out.contains("exec some-mcp --port 8000"),
+        "ate the command: {}",
+        out
+    );
+}
+
+#[test]
 fn sanitise_argv_still_redacts_secret_flags() {
     // The two sanitisers compose: environment assignments are dropped, and
     // secret-bearing flags in what remains are still redacted.
