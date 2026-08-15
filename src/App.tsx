@@ -42,6 +42,7 @@ import {
   MagnifyingGlassIcon,
   ShieldCheckIcon,
   SpinnerIcon,
+  ArrowPathIcon,
   PanelLeftIcon,
   PanelRightIcon
 } from "./components/icons";
@@ -55,8 +56,7 @@ import NeedsReviewPane from "./components/NeedsReviewPane";
 import ReviewSidebar from "./components/ReviewSidebar";
 import ReviewInspector from "./components/ReviewInspector";
 import LinkMapPane from "./components/LinkMapPane";
-import LinkMapInspector from "./components/LinkMapInspector";
-import type { LinkGraph, LinkMapSelection } from "./utils/linkMapLayout";
+import type { LinkGraph } from "./utils/linkMapLayout";
 import SidebarScanModal from "./components/SidebarScanModal";
 import Flyout from "./components/Flyout";
 import type { AssetAnnotationView } from "./components/AssetRow";
@@ -274,10 +274,10 @@ export default function App() {
   };
 
   // Link map: the graph arrives computed from the backend and is rendered
-  // verbatim; selection and the projects toggle are the only state the
-  // frontend owns.
+  // verbatim; the projects toggle is the only map state the shell owns —
+  // selection lives inside the pane, whose detail card is the view's only
+  // detail surface (the map has no inspector column).
   const [linkGraph, setLinkGraph] = useState<LinkGraph | null>(null);
-  const [selectedLinkTarget, setSelectedLinkTarget] = useState<LinkMapSelection | null>(null);
   const [linkMapShowProjects, setLinkMapShowProjects] = useState<boolean>(false);
   const [sortField, setSortField] = useState<SortField>("name");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
@@ -1037,7 +1037,24 @@ export default function App() {
             </div>
             )}
 
-            {selectedSidebarItem !== "discovery" && (
+            {/* The map view has no inspector column — its detail card lives
+                on the canvas — so its toolbar slot holds Rescan instead. */}
+            {selectedSidebarItem === "linkmap" ? (
+              <Tooltip label="Rescan" placement="bottom">
+                <button
+                  onClick={triggerScan}
+                  disabled={loading || scanning}
+                  aria-label="Rescan"
+                  className={tbBtnClass}
+                >
+                  <ArrowPathIcon
+                    size={15}
+                    aria-hidden="true"
+                    className={loading || scanning ? "animate-spin" : ""}
+                  />
+                </button>
+              </Tooltip>
+            ) : selectedSidebarItem !== "discovery" && (
               <Tooltip label="Toggle inspector" placement="bottom">
                 <button
                   onClick={toggleInspector}
@@ -1104,14 +1121,6 @@ export default function App() {
             <LinkMapPane
               graph={linkGraph}
               loading={loading || scanning}
-              selection={selectedLinkTarget}
-              onSelect={(target) => {
-                setSelectedLinkTarget(target);
-                if (!inspectorOpen) {
-                  setInspectorOpen(true);
-                  invoke("set_preference", { key: "inspector_open", value: "true" }).catch(() => {});
-                }
-              }}
               showProjects={linkMapShowProjects}
               onToggleProjects={() => {
                 setLinkMapShowProjects((v) => {
@@ -1126,7 +1135,6 @@ export default function App() {
                 handleSelectSidebarItem(path);
                 invoke("set_preference", { key: "selected_sidebar_item", value: path }).catch(() => {});
               }}
-              onRescan={triggerScan}
             />
           )}
 
@@ -1220,9 +1228,8 @@ export default function App() {
           the same way. ══ */}
       {inspectorOpen &&
         selectedSidebarItem !== "discovery" &&
-        (selectedSidebarItem === "linkmap" ||
-          selectedSidebarItem === "review" ||
-          inventory) && (
+        selectedSidebarItem !== "linkmap" &&
+        (selectedSidebarItem === "review" || inventory) && (
         <aside
           style={{ width: inspectorWidth }}
           className="shrink-0 h-full min-h-0 border-l border-line bg-page flex flex-col relative"
@@ -1246,16 +1253,7 @@ export default function App() {
             </button>
           </div>
           <div className="flex-1 min-h-0 flex flex-col">
-            {selectedSidebarItem === "linkmap" ? (
-              <LinkMapInspector
-                selection={selectedLinkTarget}
-                nodes={linkGraph?.nodes ?? []}
-                onOpenProject={(path) => {
-                  handleSelectSidebarItem(path);
-                  invoke("set_preference", { key: "selected_sidebar_item", value: path }).catch(() => {});
-                }}
-              />
-            ) : selectedSidebarItem === "review" ? (
+            {selectedSidebarItem === "review" ? (
               <ReviewInspector
                 issue={selectedIssue}
                 position={selectedIssue ? reviewShown.indexOf(selectedIssue) + 1 : 0}

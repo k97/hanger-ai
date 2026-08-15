@@ -1,14 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import DisclosureBanner from "./DisclosureBanner";
+import LinkMapDetailCard from "./LinkMapDetailCard";
 import {
-  ArrowPathIcon,
-  ArrowRightIcon,
   ArrowsPointingOutIcon,
   CheckIcon,
   MapIcon,
   MinusIcon,
   PlusIcon,
-  XMarkIcon,
 } from "./icons";
 import {
   layoutLinkGraph,
@@ -28,11 +26,9 @@ import {
 import {
   fitCamera,
   panBy,
-  toViewport,
   viewBoxOf,
   zoomAt,
   type Camera,
-  type Point,
   type Size,
 } from "../utils/linkMapCamera";
 
@@ -46,12 +42,9 @@ const PATH_CHARS = 25;
 interface LinkMapPaneProps {
   graph: LinkGraph | null;
   loading: boolean;
-  selection: LinkMapSelection | null;
-  onSelect: (selection: LinkMapSelection) => void;
   showProjects: boolean;
   onToggleProjects: () => void;
   onOpenProject: (path: string) => void;
-  onRescan: () => void;
 }
 
 function assertNever(value: never): never {
@@ -141,33 +134,26 @@ const zoomBtnClass =
 const zoomBtnActiveClass =
   "w-7 h-7 rounded-pill border border-transparent bg-tint grid place-items-center text-tint-ink transition-colors duration-hover ease-spring cursor-pointer";
 
-interface Popover {
-  selection: LinkMapSelection;
-  /** World-coordinate anchor, so the card tracks pan and zoom. */
-  world: Point;
-}
-
 /**
  * The link map: three columns, edges whose stroke carries mechanism and
  * whose colour carries state, under an Apple-Maps camera — drag pans,
  * ⌘/ctrl-wheel and pinch zoom at the cursor, two-finger scroll pans, and
- * the controls sit in the corner. Pure presentation — the graph arrives
- * computed from the backend's link_graph command, the layout and camera are
- * deterministic geometry. Nothing here counts, aggregates, or derives.
+ * the controls sit in the corners. Selecting a box or an edge docks a
+ * detail card inside the canvas, Maps-style; the map view has no inspector
+ * column. Pure presentation — the graph arrives computed from the
+ * backend's link_graph command, the layout and camera are deterministic
+ * geometry. Nothing here counts, aggregates, or derives.
  */
 export default function LinkMapPane({
   graph,
   loading,
-  selection,
-  onSelect,
   showProjects,
   onToggleProjects,
   onOpenProject,
-  onRescan,
 }: LinkMapPaneProps) {
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const [viewport, setViewport] = useState<Size>({ width: 880, height: 520 });
-  const [popover, setPopover] = useState<Popover | null>(null);
+  const [selection, setSelection] = useState<LinkMapSelection | null>(null);
   const [layersOpen, setLayersOpen] = useState(false);
 
   const kinds: readonly NodeKind[] = showProjects
@@ -190,7 +176,7 @@ export default function LinkMapPane({
   // Refit when the world or the window changes shape.
   useEffect(() => {
     setCamera(fitCamera(content, viewport));
-    setPopover(null);
+    setSelection(null);
   }, [content, viewport.width, viewport.height]);
 
   // Track the viewport element's real size.
@@ -233,7 +219,7 @@ export default function LinkMapPane({
   // Pointer capture is taken only once the threshold is crossed, never on
   // pointerdown: capturing immediately retargets the ensuing click to the
   // svg in WebKit, so no node or edge ever receives it — a plain click
-  // opened nothing and the popovers were unreachable in the running app
+  // opened nothing and the detail card was unreachable in the running app
   // while every synthetic-click test stayed green.
   const dragRef = useRef<{ x: number; y: number; dragged: boolean; pointerId: number } | null>(
     null,
@@ -268,15 +254,15 @@ export default function LinkMapPane({
     dragRef.current = null;
   }, []);
 
-  // Escape dismisses a pinned popover.
+  // Escape dismisses the detail card.
   useEffect(() => {
-    if (!popover) return;
+    if (!selection) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setPopover(null);
+      if (e.key === "Escape") setSelection(null);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [popover]);
+  }, [selection]);
 
   if (!graph || !layout) {
     return (
@@ -289,35 +275,18 @@ export default function LinkMapPane({
   }
 
   const warningBadge = graph.warnings.length;
-  const selectedKey =
-    selection?.kind === "edge" ? edgeKey(selection.edge) : null;
+  const selectedKey = selection?.kind === "edge" ? edgeKey(selection.edge) : null;
   const selectedNodeId = selection?.kind === "node" ? selection.node.id : null;
 
-  const openPopover = (sel: LinkMapSelection, world: Point) => {
+  const select = (target: LinkMapSelection) => {
     if (suppressClickRef.current) return;
-    setPopover({ selection: sel, world });
+    setSelection(target);
   };
-
-  const popoverScreen = popover ? toViewport(popover.world, camera) : null;
 
   return (
     <div className="h-full flex flex-col bg-page min-h-0">
-      <div className="px-[18px] pt-3 shrink-0 flex items-center gap-2">
-        <span className="font-flex text-micro tracking-[.06em] uppercase text-ink-3">
-          How everything is actually attached
-        </span>
-        <button
-          onClick={onRescan}
-          disabled={loading}
-          className="ml-auto h-[27px] px-3 rounded-pill border border-line-2 text-small font-medium text-ink-1 cursor-pointer transition-colors duration-nav ease-spring hover:bg-plane-2 disabled:opacity-50 flex items-center gap-1.5"
-        >
-          <ArrowPathIcon size={12} aria-hidden="true" className={loading ? "animate-spin" : ""} />
-          Rescan
-        </button>
-      </div>
-
       {warningBadge > 0 && (
-        <div className="px-[18px] pt-2 shrink-0">
+        <div className="px-[18px] pt-2.5 shrink-0">
           <DisclosureBanner
             variant="warning"
             summary="Some recorded links could not be drawn"
@@ -335,7 +304,7 @@ export default function LinkMapPane({
       )}
 
       {showProjects && graph.empty_state === "no_project_edges" && (
-        <div className="mx-[18px] mt-2 px-3.5 py-2.5 rounded-plane shrink-0">
+        <div className="mx-[18px] mt-2.5 px-3.5 py-2.5 rounded-plane shrink-0">
           <p className="text-small text-ink-2 leading-[1.6]">
             <span className="text-ink-1 font-medium">
               Per-asset project links have not been recorded yet.
@@ -348,7 +317,7 @@ export default function LinkMapPane({
         </div>
       )}
 
-      <div className="flex-1 min-h-0 px-[18px] pb-2 pt-3 flex flex-col">
+      <div className="flex-1 min-h-0 px-[18px] pb-2 pt-2.5 flex flex-col">
         <div
           ref={viewportRef}
           className="relative flex-1 min-h-0 border border-line rounded-plane overflow-hidden bg-page"
@@ -370,7 +339,7 @@ export default function LinkMapPane({
             onPointerMove={onPointerMove}
             onPointerUp={onPointerUp}
             onClick={(e) => {
-              if (e.target === e.currentTarget && !suppressClickRef.current) setPopover(null);
+              if (e.target === e.currentTarget && !suppressClickRef.current) setSelection(null);
             }}
           >
             {COLUMN_HEADS.map(({ kind, label }) => {
@@ -390,10 +359,7 @@ export default function LinkMapPane({
 
             {layout.edges.map((edge) => {
               const active = selectedKey === edgeKey(edge);
-              const world = {
-                x: (edge.x1 + edge.x2) / 2,
-                y: (edge.y1 + edge.y2) / 2,
-              };
+              const mid = { x: (edge.x1 + edge.x2) / 2, y: (edge.y1 + edge.y2) / 2 };
               return (
                 <g key={edgeKey(edge)} className="group">
                   <path
@@ -408,10 +374,10 @@ export default function LinkMapPane({
                     } group-hover:opacity-100 transition-opacity duration-hover`}
                   />
                   <text
-                    x={world.x}
-                    y={world.y - 6}
+                    x={mid.x}
+                    y={mid.y - 6}
                     textAnchor="middle"
-                    onClick={() => openPopover({ kind: "edge", edge }, world)}
+                    onClick={() => select({ kind: "edge", edge })}
                     className={`font-flex text-micro cursor-pointer select-none ${
                       active ? "fill-ink-1" : "fill-ink-3"
                     } group-hover:fill-ink-1`}
@@ -425,7 +391,7 @@ export default function LinkMapPane({
                     stroke="transparent"
                     strokeWidth={14}
                     className="cursor-pointer"
-                    onClick={() => openPopover({ kind: "edge", edge }, world)}
+                    onClick={() => select({ kind: "edge", edge })}
                   />
                 </g>
               );
@@ -435,12 +401,7 @@ export default function LinkMapPane({
               <g
                 key={node.id}
                 data-testid={`map-node-${node.id}`}
-                onClick={() =>
-                  openPopover(
-                    { kind: "node", node },
-                    { x: node.x + NODE_W / 2, y: node.y },
-                  )
-                }
+                onClick={() => select({ kind: "node", node })}
                 className="cursor-pointer"
               >
                 <rect
@@ -560,86 +521,15 @@ export default function LinkMapPane({
             </button>
           </div>
 
-          {popover && popoverScreen && (
-            <div
-              data-testid="map-popover"
-              className="absolute z-20 w-[260px] bg-page border border-line rounded-inner px-3.5 py-3"
-              style={{
-                left: Math.min(Math.max(popoverScreen.x, 138), Math.max(viewport.width - 138, 138)),
-                top: Math.max(popoverScreen.y, 8),
-                transform: "translate(-50%, calc(-100% - 10px))",
-              }}
-            >
-              <div className="flex items-start gap-2">
-                <div className="min-w-0 flex-1">
-                  {popover.selection.kind === "node" ? (
-                    <>
-                      <div className="font-flex text-small font-medium text-ink-1 truncate">
-                        {popover.selection.node.label}
-                      </div>
-                      <div className="font-flex text-micro text-ink-3 mt-0.5">
-                        {popover.selection.node.kind === "store"
-                          ? "Canonical store"
-                          : popover.selection.node.kind === "project"
-                          ? "Project"
-                          : popover.selection.node.linked
-                          ? "Engine root · linked"
-                          : "Engine root · not linked"}
-                        {popover.selection.node.linked === false
-                          ? ""
-                          : ` · ${popover.selection.node.asset_count} assets`}
-                      </div>
-                      <div className="font-mono text-micro text-ink-2 mt-1.5 break-all">
-                        {tildify(popover.selection.node.path)}
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <div className="font-flex text-small font-medium text-ink-1">
-                        {edgeSummary(popover.selection.edge)}
-                      </div>
-                      <div className={`font-flex text-micro mt-0.5 ${inkFor(popover.selection.edge.state)}`}>
-                        {stateLabel(popover.selection.edge.state)}
-                      </div>
-                      {popover.selection.edge.dest_path && (
-                        <div className="font-mono text-micro text-ink-2 mt-1.5 break-all">
-                          {tildify(popover.selection.edge.dest_path)}
-                        </div>
-                      )}
-                    </>
-                  )}
-                </div>
-                <button
-                  aria-label="Close"
-                  onClick={() => setPopover(null)}
-                  className="shrink-0 w-6 h-6 rounded-pill grid place-items-center text-ink-3 hover:bg-plane-2 hover:text-ink-1 transition-colors duration-hover cursor-pointer"
-                >
-                  <XMarkIcon size={11} aria-hidden="true" />
-                </button>
-              </div>
-
-              <div className="flex items-center gap-2 mt-2.5">
-                <button
-                  onClick={() => {
-                    onSelect(popover.selection);
-                    setPopover(null);
-                  }}
-                  className="h-6.5 px-3 rounded-pill border border-line-2 font-flex text-micro font-medium text-ink-1 cursor-pointer transition-colors duration-nav ease-spring hover:bg-plane-2 inline-flex items-center gap-1"
-                >
-                  Details
-                  <ArrowRightIcon size={10} aria-hidden="true" />
-                </button>
-                {popover.selection.kind === "node" &&
-                  popover.selection.node.kind === "project" && (
-                    <button
-                      onClick={() => onOpenProject((popover.selection as { kind: "node"; node: PositionedNode }).node.path)}
-                      className="h-6.5 px-3 rounded-pill border border-line-2 font-flex text-micro font-medium text-ink-1 cursor-pointer transition-colors duration-nav ease-spring hover:bg-plane-2"
-                    >
-                      Open project
-                    </button>
-                  )}
-              </div>
-            </div>
+          {/* The Maps-style detail card, docked in the canvas. It replaces
+              both the popover and the inspector column for this view. */}
+          {selection && (
+            <LinkMapDetailCard
+              selection={selection}
+              nodes={graph.nodes}
+              onClose={() => setSelection(null)}
+              onOpenProject={onOpenProject}
+            />
           )}
 
           {graph.empty_state === "no_links_at_all" && (

@@ -2,8 +2,7 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { render, screen, cleanup, fireEvent } from "@testing-library/react";
 import LinkMapPane from "./LinkMapPane";
-import LinkMapInspector from "./LinkMapInspector";
-import { layoutLinkGraph, type LinkGraph, type LinkMapSelection } from "../utils/linkMapLayout";
+import type { LinkGraph } from "../utils/linkMapLayout";
 
 afterEach(cleanup);
 
@@ -14,6 +13,8 @@ const graph = (overrides: Partial<LinkGraph> = {}): LinkGraph => ({
     { id: 3, kind: "engine_root", label: "Claude Desktop", path: "/u/k/Library/Claude", asset_count: 1, linked: false },
     { id: 4, kind: "project", label: "metrics-board", path: "/u/k/w/metrics-board", asset_count: 82, linked: null },
   ],
+  // Order matters to the tests below: the layout preserves it, so hit-path
+  // N is edges[N].
   edges: [
     { source: 1, dest: 2, mechanism: "symlink", state: "linked", count: 2, dest_path: null },
     { source: 1, dest: 4, mechanism: "symlink", state: "linked", count: 3, dest_path: null },
@@ -26,7 +27,6 @@ const graph = (overrides: Partial<LinkGraph> = {}): LinkGraph => ({
 });
 
 interface Callbacks {
-  onSelect: ReturnType<typeof vi.fn>;
   onToggleProjects: ReturnType<typeof vi.fn>;
   onOpenProject: ReturnType<typeof vi.fn>;
 }
@@ -36,7 +36,6 @@ const renderPane = (
   { showProjects = true }: { showProjects?: boolean } = {},
 ): Callbacks => {
   const callbacks: Callbacks = {
-    onSelect: vi.fn(),
     onToggleProjects: vi.fn(),
     onOpenProject: vi.fn(),
   };
@@ -44,12 +43,9 @@ const renderPane = (
     <LinkMapPane
       graph={g}
       loading={false}
-      selection={null}
-      onSelect={callbacks.onSelect}
       showProjects={showProjects}
       onToggleProjects={callbacks.onToggleProjects}
       onOpenProject={callbacks.onOpenProject}
-      onRescan={() => {}}
     />,
   );
   return callbacks;
@@ -109,20 +105,27 @@ describe("LinkMapPane", () => {
     expect(callbacks.onToggleProjects).toHaveBeenCalledTimes(1);
   });
 
-  it("opens a popover on edge click; its Details action reports the selection", () => {
-    const callbacks = renderPane(graph());
+  it("docks the detail card on edge click — the Maps pattern, no popover hop", () => {
+    renderPane(graph());
     fireEvent.click(screen.getAllByTestId("map-edge-hit")[0]);
-    const popover = screen.getByTestId("map-popover");
-    expect(popover.textContent).toContain("symlink");
-    expect(callbacks.onSelect).not.toHaveBeenCalled();
-
-    fireEvent.click(screen.getByText("Details"));
-    expect(callbacks.onSelect).toHaveBeenCalledTimes(1);
-    expect(callbacks.onSelect.mock.calls[0][0].kind).toBe("edge");
-    expect(screen.queryByTestId("map-popover")).toBeNull();
+    const card = screen.getByTestId("map-detail-card");
+    // A store→engine edge: what it is, its state, and what travels it.
+    expect(card.textContent).toContain(".agents → Claude Code");
+    expect(card.textContent).toContain("Resolves to its source");
+    expect(card.textContent).toContain("Root-level symlinks");
+    expect(card.textContent).toContain("2");
   });
 
-  it("still opens the popover when the click follows a full pointer sequence", () => {
+  it("labels a project edge's count by what travels it, and carries drift", () => {
+    renderPane(graph());
+    fireEvent.click(screen.getAllByTestId("map-edge-hit")[2]);
+    const card = screen.getByTestId("map-detail-card");
+    expect(card.textContent).toContain("Tracked copy");
+    expect(card.textContent).toContain("no longer matches");
+    expect(card.textContent).toContain("Assets travelling");
+  });
+
+  it("still docks the card when the click follows a full pointer sequence", () => {
     // The real bug this pins: pointer capture taken on pointerdown retargets
     // the ensuing click to the svg in WebKit, so no node ever received it.
     // Capture must only be taken once a drag actually starts.
@@ -131,16 +134,25 @@ describe("LinkMapPane", () => {
     fireEvent.pointerDown(node, { button: 0, clientX: 100, clientY: 100 });
     fireEvent.pointerUp(node, { clientX: 100, clientY: 100 });
     fireEvent.click(node);
-    expect(screen.getByTestId("map-popover")).toBeTruthy();
+    expect(screen.getByTestId("map-detail-card")).toBeTruthy();
   });
 
-  it("opens a popover on node click with the full untruncated path", () => {
+  it("shows a node's full untruncated path and its reach in the card", () => {
     renderPane(graph());
     fireEvent.click(screen.getByTestId("map-node-2"));
-    const popover = screen.getByTestId("map-popover");
-    expect(popover.textContent).toContain("Claude Code");
-    expect(popover.textContent).toContain("/u/k/.claude");
-    expect(popover.textContent).toContain("Engine root · linked");
+    const card = screen.getByTestId("map-detail-card");
+    expect(card.textContent).toContain("Claude Code");
+    expect(card.textContent).toContain("/u/k/.claude");
+    expect(card.textContent).toContain("Reaches the store through a root-level symlink");
+    expect(card.textContent).toContain("10");
+  });
+
+  it("says when an engine root reaches nothing", () => {
+    renderPane(graph());
+    fireEvent.click(screen.getByTestId("map-node-3"));
+    expect(screen.getByTestId("map-detail-card").textContent).toContain(
+      "Nothing at this root points into the store",
+    );
   });
 
   it("offers Open project on project nodes, wired to the callback", () => {
@@ -148,6 +160,22 @@ describe("LinkMapPane", () => {
     fireEvent.click(screen.getByTestId("map-node-4"));
     fireEvent.click(screen.getByText("Open project"));
     expect(callbacks.onOpenProject).toHaveBeenCalledWith("/u/k/w/metrics-board");
+  });
+
+  it("closes the card from its own close control", () => {
+    renderPane(graph());
+    fireEvent.click(screen.getByTestId("map-node-2"));
+    fireEvent.click(screen.getByLabelText("Close details"));
+    expect(screen.queryByTestId("map-detail-card")).toBeNull();
+  });
+
+  it("invents no provenance — nothing records who created a link or when", () => {
+    renderPane(graph());
+    fireEvent.click(screen.getAllByTestId("map-edge-hit")[0]);
+    const card = screen.getByTestId("map-detail-card");
+    for (const phantom of [/created/i, /last verified/i, /by whom/i]) {
+      expect(phantom.test(card.textContent ?? "")).toBe(false);
+    }
   });
 
   it("shows zoom controls that never obscure what they operate on", () => {
@@ -181,95 +209,5 @@ describe("LinkMapPane", () => {
       { showProjects: false },
     );
     expect(screen.queryByText(/project links.*not been recorded/i)).toBeNull();
-  });
-});
-
-describe("LinkMapInspector", () => {
-  const layout = layoutLinkGraph(graph(), 880);
-  const edgeSel = (predicate: (e: (typeof layout.edges)[number]) => boolean): LinkMapSelection => ({
-    kind: "edge",
-    edge: layout.edges.find(predicate)!,
-  });
-
-  it("shows what the edge is, where it goes, how it travels, and its state", () => {
-    render(
-      <LinkMapInspector
-        selection={edgeSel((e) => e.dest === 4 && e.state === "drifted")}
-        nodes={graph().nodes}
-        onOpenProject={() => {}}
-      />,
-    );
-    expect(screen.getByText(".agents → metrics-board")).toBeTruthy();
-    expect(screen.getAllByText(/Tracked copy/).length).toBeGreaterThanOrEqual(2);
-    expect(screen.getByText(/no longer matches/i)).toBeTruthy();
-  });
-
-  it("labels the count by what actually travels: assets to a project, root links to an engine", () => {
-    const { unmount } = render(
-      <LinkMapInspector
-        selection={edgeSel((e) => e.dest === 4 && e.state === "linked")}
-        nodes={graph().nodes}
-        onOpenProject={() => {}}
-      />,
-    );
-    expect(screen.getByText("Assets travelling")).toBeTruthy();
-    expect(screen.getByText("3")).toBeTruthy();
-    unmount();
-
-    render(
-      <LinkMapInspector
-        selection={edgeSel((e) => e.dest === 2)}
-        nodes={graph().nodes}
-        onOpenProject={() => {}}
-      />,
-    );
-    expect(screen.getByText("Root-level symlinks")).toBeTruthy();
-    expect(screen.getByText("2")).toBeTruthy();
-  });
-
-  it("inspects a node: its facts, and Open project for projects", () => {
-    const onOpenProject = vi.fn();
-    const projectNode = graph().nodes.find((n) => n.id === 4)!;
-    render(
-      <LinkMapInspector
-        selection={{ kind: "node", node: projectNode }}
-        nodes={graph().nodes}
-        onOpenProject={onOpenProject}
-      />,
-    );
-    expect(screen.getByText("metrics-board")).toBeTruthy();
-    expect(screen.getByText("82")).toBeTruthy();
-    fireEvent.click(screen.getByText("Open project"));
-    expect(onOpenProject).toHaveBeenCalledWith("/u/k/w/metrics-board");
-  });
-
-  it("says whether an engine root actually reaches the store", () => {
-    const unlinked = graph().nodes.find((n) => n.id === 3)!;
-    render(
-      <LinkMapInspector
-        selection={{ kind: "node", node: unlinked }}
-        nodes={graph().nodes}
-        onOpenProject={() => {}}
-      />,
-    );
-    expect(screen.getByText(/Nothing at this root points into the store/i)).toBeTruthy();
-  });
-
-  it("invents no provenance — nothing records who created a link or when", () => {
-    render(
-      <LinkMapInspector
-        selection={edgeSel(() => true)}
-        nodes={graph().nodes}
-        onOpenProject={() => {}}
-      />,
-    );
-    for (const phantom of [/created/i, /last verified/i, /by whom/i]) {
-      expect(screen.queryByText(phantom)).toBeNull();
-    }
-  });
-
-  it("asks for a selection when nothing is chosen", () => {
-    render(<LinkMapInspector selection={null} nodes={[]} onOpenProject={() => {}} />);
-    expect(screen.getByText(/Nothing selected/i)).toBeTruthy();
   });
 });
