@@ -281,19 +281,31 @@ drift apart on sizing (`:18-21`).
 **`DiscoveryPane`** (`DiscoveryPane.tsx:13-15`) — `filterText?` only. Renders
 from static data in `src/data/directories.ts`.
 
-**`LinkMapPane`** (`LinkMapPane.tsx:20-26`) — `graph`, `loading`,
-`selectedEdge`, `onSelectEdge`, `onRescan`. The map: three SVG columns at a
-fixed logical width of 880 scaled by viewBox (`LinkMapPane.tsx:18`), so
-layout is deterministic whatever the window does. Stroke carries mechanism
-(solid symlink, dashed tracked copy), colour carries state (`text-ink-2`,
-`text-state-warning`, `text-state-danger` — `LinkMapPane.tsx:34-56`). The
-legend maps the same exhaustive enum lists the renderer matches on
-(`linkMapLayout.ts:49-50`, consumed at `LinkMapPane.tsx:277`, `:293`), so it
-cannot describe a style that is never drawn. Geometry is a pure function,
-`layoutLinkGraph(graph, width)` (`linkMapLayout.ts:101`): stable sort on
-(label, id) within columns, bézier paths from endpoint coordinates only.
-The graph itself — nodes, counts, edge states, even which empty state the
-view is in — arrives computed from the backend `link_graph` command
+**`LinkMapPane`** (`LinkMapPane.tsx`, props at `interface LinkMapPaneProps`)
+— `graph`, `loading`, `selection`, `onSelect`, `showProjects`,
+`onToggleProjects`, `onOpenProject`, `onRescan`. The map: SVG columns at a
+fixed logical width of 880, viewed through an Apple-Maps camera — drag
+pans, pinch and ⌘/ctrl-wheel zoom at the cursor, two-finger scroll pans,
+`+`/`−`/Fit controls in the corner. Camera arithmetic is a pure module
+(`src/utils/linkMapCamera.ts`): anchored zoom keeps the world point under
+the cursor stationary; clamping allows half-a-window of overscroll; scale
+is bounded `MIN_SCALE`–`MAX_SCALE`. Stroke carries mechanism (solid
+symlink, dashed tracked copy), colour carries state (`text-ink-2`,
+`text-state-warning`, `text-state-danger`). The legend maps the same
+exhaustive enum lists the renderer matches on (`linkMapLayout.ts`,
+`EDGE_MECHANISMS`/`EDGE_STATES`), so it cannot describe a style that is
+never drawn. Projects are a filter chip (CategoryFilterCards' chip anatomy,
+default off, persisted as `linkmap_show_projects`); hiding them takes their
+edges and re-spreads the columns (`layoutLinkGraph` `kinds` option). Node
+text truncates in the middle toward the tail (`middleTruncate`) so paths
+stay inside their boxes; the popover and inspector carry the full path.
+Clicking a box or an edge label pins a popover (bg-page, border, no
+shadow) anchored in world coordinates so it tracks the camera; its Details
+action hands a `LinkMapSelection` to the inspector, and project popovers
+add Open project. Geometry is a pure function: stable sort on (label, id)
+within columns, bézier paths from endpoint coordinates only. The graph
+itself — nodes, counts, edge states, even which empty state the view is in
+— arrives computed from the backend `link_graph` command
 (`src-tauri/src/linkmap.rs`); the pane derives nothing.
 
 ### Inspectors
@@ -310,13 +322,17 @@ generic panel: `AssetDetail` for assets (`AssetDetail.tsx:26-31`: `asset`,
 `Flyout` is the asset inspector's coordinator and owns its own `<aside>`
 (@b383a08).
 
-**`LinkMapInspector`** is the fourth (`LinkMapInspector.tsx:5-9`: `edge`,
-`nodes`, `onClose`), following `ReviewInspector`'s anatomy — eyebrow, title,
-state dot and line, path chip, key-value `dl`. It deliberately carries no
-provenance: nothing records who created a link or when, and inventing that
-was a defect in the prototype (`LinkMapInspector.tsx:30-34`). Its count row
-is labelled by what actually travels the edge — assets to a project,
-root-level symlinks to an engine (`LinkMapInspector.tsx:52`).
+**`LinkMapInspector`** is the fourth (`LinkMapInspector.tsx`: `selection:
+LinkMapSelection | null`, `nodes`, `onOpenProject`), following
+`ReviewInspector`'s anatomy — eyebrow, title, state dot and line, path
+chip, key-value `dl`. The selection is an edge or a node
+(`linkMapLayout.ts`, `LinkMapSelection`); node bodies state kind, asset
+count and — for engines — whether the root actually reaches the store, and
+project nodes carry an Open project action into the repository view. It
+deliberately carries no provenance on either body: nothing records who
+created a link or when, and inventing that was a defect in the prototype.
+Its edge count row is labelled by what actually travels the edge — assets
+to a project, root-level symlinks to an engine.
 
 ### Surfaces and controls
 
