@@ -1,5 +1,6 @@
 import { ArrowRightIcon, Square2StackIcon, XMarkIcon } from "./icons";
 import Tooltip from "./Tooltip";
+import EngineLabel from "./EngineLabel";
 import type {
   EdgeState,
   GraphNode,
@@ -182,7 +183,13 @@ export default function LinkMapDetailCard({
           <span className="ml-auto">{closeButton}</span>
         </div>
         <h2 className="text-base-app font-medium tracking-[-0.2px] text-ink-1 mb-1.5">
-          {node.label}
+          {node.kind === "engine_root" ? (
+            <EngineLabel engineKey={node.label} size={14}>
+              {node.label}
+            </EngineLabel>
+          ) : (
+            node.label
+          )}
         </h2>
         <div className="flex items-center gap-[7px]">
           {node.kind === "engine_root" && (

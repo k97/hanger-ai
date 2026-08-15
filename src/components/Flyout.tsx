@@ -10,6 +10,7 @@ import {
 import { Inventory } from "../App";
 import AssetDetail from "./AssetDetail";
 import McpServerDetail from "./McpServerDetail";
+import BrandIcon from "./BrandIcon";
 import { buildMcpServerView, type ProcessMatch } from "../utils/mcpServerView";
 import LinkPanel from "./LinkPanel";
 import DiffChooser, { AlignedSection } from "./DiffChooser";
@@ -528,6 +529,9 @@ export default function Flyout({
           )}
         </div>
         <div className="flex items-center gap-2 mt-1 min-w-0">
+          {!linking && !targetAsset && selectedBubble?.type === "agent" && (
+            <BrandIcon engineKey={selectedBubble.id} engineName={selectedBubble.name} size={16} />
+          )}
           <h2 className="text-lg-app font-medium tracking-[-0.3px] text-ink-1 truncate max-w-[280px] font-sans">
             {linking
               ? "Link to projects"

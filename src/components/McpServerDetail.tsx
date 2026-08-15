@@ -1,5 +1,6 @@
 import { openUrl, revealItemInDir } from "@tauri-apps/plugin-opener";
 import { MANAGE_URL } from "../utils/mcpServerView";
+import EngineLabel from "./EngineLabel";
 
 /**
  * The inspector panel for one MCP server.
@@ -128,7 +129,10 @@ export default function McpServerDetail({ server, onVerify, verifying = false }:
           {server.registrations.map((reg, i) => (
             <div key={`${reg.configPath}-${i}`} className="bg-page px-[11px] py-[9px] flex flex-col gap-[3px]">
               <div className="flex items-center justify-between gap-2">
-                <span className="text-small font-medium">{reg.host}</span>
+                {/* reg.host is the display name (hostLabel); the map resolves names too. */}
+                <EngineLabel engineKey={reg.host} className="text-small font-medium">
+                  {reg.host}
+                </EngineLabel>
                 <span className="text-micro font-mono text-ink-3 uppercase tracking-[0.06em]">
                   {reg.tier}
                 </span>
