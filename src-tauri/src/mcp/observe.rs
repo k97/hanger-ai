@@ -214,13 +214,31 @@ pub fn match_processes(
                 spawning_host: p.spawning_host.clone(),
             }),
             // Only report an unmatched process when it looks like an MCP
-            // server. Every process on the machine is not a finding.
-            None if looks_like_mcp(&p.command_line) => out.push(ProcessMatch {
-                registration_key: String::new(),
-                pid: p.pid,
-                command_line: p.command_line.clone(),
-                spawning_host: p.spawning_host.clone(),
-            }),
+            // server AND nothing spawned it. Every process on the machine is
+            // not a finding, and neither is one a host started.
+            //
+            // The spawning-host clause is load-bearing. Measured against the
+            // live process table: 230 processes matched no registration, but
+            // 64 of them had a host — Claude Code, Cursor, VS Code. Those are
+            // declared; Hanger just cannot say by which registration, because
+            // npx and uvx rewrite argv past recognition (`npx
+            // @playwright/mcp@0.0.69` runs as `node
+            // ~/.npm/_npx/<hash>/node_modules/.bin/playwright-mcp`). Calling
+            // them undeclared put a 230-strong warning in front of the user
+            // where the true figure was the 166 nothing owns.
+            //
+            // Known gap, stated rather than papered over: a host-spawned
+            // process Hanger cannot match appears in neither list. Widening
+            // the match to fix that is how `node` starts claiming every Node
+            // server on the machine.
+            None if p.spawning_host.is_none() && looks_like_mcp(&p.command_line) => {
+                out.push(ProcessMatch {
+                    registration_key: String::new(),
+                    pid: p.pid,
+                    command_line: p.command_line.clone(),
+                    spawning_host: p.spawning_host.clone(),
+                })
+            }
             None => {}
         }
     }

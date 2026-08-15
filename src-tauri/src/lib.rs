@@ -305,7 +305,14 @@ async fn verify_mcp_server(
 /// returns are the ones `Tool::registration_key` produces and identity stays in
 /// one place. That costs a filesystem walk per call, which is why this is
 /// invoked on demand and not on a timer.
-#[tauri::command]
+///
+/// `(async)` is not decoration. Tauri runs a plain sync command on the main
+/// thread, and this one measured 11.2s against the real machine — the whole
+/// window froze for eleven seconds, which is how the freeze was found at all
+/// (the automation bridge's own script timeout fired). The annotation moves the
+/// body off the main thread; `start_scan` reaches the same end by returning
+/// immediately and doing its work in `async_runtime::spawn`.
+#[tauri::command(async)]
 fn get_mcp_processes(app: AppHandle) -> Result<Vec<crate::mcp::observe::ProcessMatch>, String> {
     let inventory = run_scan(app)?;
     let regs: Vec<(String, String, Vec<String>)> = inventory

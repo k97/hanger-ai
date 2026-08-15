@@ -112,6 +112,30 @@ fn a_server_running_with_no_config_behind_it_is_reported() {
 }
 
 #[test]
+fn a_host_spawned_server_is_never_called_undeclared() {
+    // Measured in the running app on 2026-08-15: of 230 processes reported as
+    // unaccounted, 64 had a spawning host — 54 Claude Code, 7 Cursor, 3 VS
+    // Code. A process Claude Code started is not undeclared; Claude Code read
+    // a config to start it. Hanger simply cannot say WHICH registration,
+    // because npx and uvx rewrite argv beyond recognition: `npx
+    // @playwright/mcp@0.0.69` runs as
+    // `node ~/.npm/_npx/<hash>/node_modules/.bin/playwright-mcp --extension`.
+    //
+    // Reporting those as findings would have put "230 undeclared MCP servers"
+    // in front of the user, which is the banner nobody reads twice.
+    let regs: Vec<(String, String, Vec<String>)> = vec![];
+    let procs = vec![proc(
+        12294,
+        "node /Users/k/.npm/_npx/a80a913f4f8f2557/node_modules/.bin/playwright-mcp --extension",
+        Some("Claude Code"),
+    )];
+    assert!(
+        match_processes(&regs, &procs).is_empty(),
+        "a process with a known spawning host must not be reported as undeclared"
+    );
+}
+
+#[test]
 fn processes_unrelated_to_mcp_are_not_reported() {
     let regs: Vec<(String, String, Vec<String>)> = vec![];
     let procs = vec![proc(500, "/usr/sbin/cfprefsd agent", None)];
