@@ -322,17 +322,21 @@ generic panel: `AssetDetail` for assets (`AssetDetail.tsx:26-31`: `asset`,
 `Flyout` is the asset inspector's coordinator and owns its own `<aside>`
 (@b383a08).
 
-**`LinkMapInspector`** is the fourth (`LinkMapInspector.tsx`: `selection:
-LinkMapSelection | null`, `nodes`, `onOpenProject`), following
-`ReviewInspector`'s anatomy — eyebrow, title, state dot and line, path
-chip, key-value `dl`. The selection is an edge or a node
+The link map is the exception: it has **no inspector column**. Selection
+docks **`LinkMapDetailCard`** inside the canvas instead
+(`LinkMapDetailCard.tsx`: `selection: LinkMapSelection`, `nodes`,
+`onClose`, `onOpenProject`) — the Apple Maps pattern, keeping
+`ReviewInspector`'s anatomy at card scale: eyebrow, title, state dot and
+line, path chip with copy, facts grid. The selection is an edge or a node
 (`linkMapLayout.ts`, `LinkMapSelection`); node bodies state kind, asset
 count and — for engines — whether the root actually reaches the store, and
 project nodes carry an Open project action into the repository view. It
 deliberately carries no provenance on either body: nothing records who
 created a link or when, and inventing that was a defect in the prototype.
 Its edge count row is labelled by what actually travels the edge — assets
-to a project, root-level symlinks to an engine.
+to a project, root-level symlinks to an engine. With the column gone, the
+map view's toolbar slot holds Rescan instead of the inspector toggle
+(`App.tsx`, toolbar).
 
 ### Surfaces and controls
 
