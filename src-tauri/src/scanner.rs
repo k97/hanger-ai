@@ -1096,7 +1096,9 @@ impl DirectoryScanner {
                                                     source_path: None,
                                                     parse_status: Some("failed".to_string()),
                                                     parse_error: Some(e.clone()),
-                                                    link_state: Some(crate::domain::LinkState::Broken),
+                                                    // A parse failure is not a link state (ruled 2026-08-15): it files
+                                // under parse_status, never under broken links.
+                                link_state: None,
                                                 });
                                             }
                                             if let Some(store) = &store_opt {
@@ -1470,7 +1472,9 @@ impl DirectoryScanner {
                                 source_path: None,
                                 parse_status: Some("failed".to_string()),
                                 parse_error: Some(e.clone()),
-                                link_state: Some(crate::domain::LinkState::Broken),
+                                // A parse failure is not a link state (ruled 2026-08-15): it files
+                                // under parse_status, never under broken links.
+                                link_state: None,
                             });
                             if let (Some(store), Some(r_id)) = (&store_opt, project_root_id) {
                                 let _ = store.upsert_asset(
@@ -1556,7 +1560,9 @@ impl DirectoryScanner {
                                 source_path: None,
                                 parse_status: Some("failed".to_string()),
                                 parse_error: Some(e.clone()),
-                                link_state: Some(crate::domain::LinkState::Broken),
+                                // A parse failure is not a link state (ruled 2026-08-15): it files
+                                // under parse_status, never under broken links.
+                                link_state: None,
                             });
                             if let (Some(store), Some(r_id)) = (&store_opt, project_root_id) {
                                 let _ = store.upsert_asset(
@@ -1647,7 +1653,9 @@ impl DirectoryScanner {
                         source_path: None,
                         parse_status: Some("failed".to_string()),
                         parse_error: Some(err_msg.clone()),
-                        link_state: Some(crate::domain::LinkState::Broken),
+                        // A parse failure is not a link state (ruled 2026-08-15): it files
+                                // under parse_status, never under broken links.
+                                link_state: None,
                     });
                     if let (Some(store), Some(r_id)) = (&store_opt, project_root_id) {
                         let _ = store.upsert_asset(

@@ -260,6 +260,52 @@ fn reach_follows_engine_root_links_from_the_filesystem() {
 }
 
 #[test]
+fn a_directory_link_reaches_every_asset_beneath_its_target() {
+    // The shape real deployments use (ruled 2026-08-15): the project mounts
+    // the store's skills directory wholesale — one symlink, no per-asset
+    // link rows at all. Every asset beneath the mounted directory is in
+    // that project; assets outside it are not.
+    let f = fixture("hanger_test_ann_dirlink");
+    let mount_parent = f.project_abs.join(".claude");
+    fs::create_dir_all(&mount_parent).unwrap();
+    unix_fs::symlink(f.store_abs.join("skills"), mount_parent.join("skills")).unwrap();
+
+    // A store asset outside the mounted directory, to prove the boundary.
+    fs::create_dir_all(f.store_abs.join("rules")).unwrap();
+    fs::write(f.store_abs.join("rules").join("omega.md"), "# omega").unwrap();
+    let omega_canon = fs::canonicalize(f.store_abs.join("rules").join("omega.md")).unwrap();
+    let store_root_id: i64 = f
+        .store
+        .connect()
+        .unwrap()
+        .query_row(
+            "SELECT id FROM roots WHERE abs_path = ?1",
+            [f.store_abs.to_str().unwrap()],
+            |r| r.get(0),
+        )
+        .unwrap();
+    f.store
+        .upsert_asset(
+            store_root_id, None, "rule", "global", "omega.md",
+            omega_canon.to_str().unwrap(), None, None, "ok", None, now(), now(),
+        )
+        .unwrap();
+
+    let all = asset_annotations(&f.db_path).unwrap();
+
+    let alpha = annotation_for(&all, "alpha.md");
+    assert_eq!(alpha.mechanism, "symlink", "it travels by symlink, one level up");
+    let note = alpha.beyond.as_ref().expect("dir-linked asset carries a note");
+    assert_eq!(note.kind, "projects");
+    assert_eq!(note.count, 1, "one project mounts the directory");
+    assert_eq!(note.places, vec!["project".to_string()]);
+
+    let omega = annotation_for(&all, "omega.md");
+    assert_eq!(omega.mechanism, "none", "the mount does not cover rules/");
+    assert!(omega.beyond.is_none());
+}
+
+#[test]
 fn reach_lists_only_engines_with_a_directory_root() {
     let f = fixture("hanger_test_ann_rootless");
     // An engine known to the registry but with no global root at all, and
