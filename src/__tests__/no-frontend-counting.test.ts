@@ -64,6 +64,13 @@ const ALLOWLIST: AllowlistEntry[] = [
     reason: "Counts non-permission scan warning messages for DisclosureBanner",
   },
   {
+    file: "src/components/ProfilePane.tsx",
+    linePattern: /count=\{unaccounted\.length\}/,
+    category: "ui",
+    reason:
+      "Counts running PROCESSES for DisclosureBanner, not assets — the same shape as the two RepoPane banner counts. These are not in the inventory and no count command owns them: they are the processes nothing on disk accounts for, so a backend asset count could not describe them by definition.",
+  },
+  {
     file: "src/components/RepoPane.tsx",
     linePattern: /count=\{unlinkedCandidates\.length\}/,
     category: "ui",
