@@ -3,6 +3,7 @@ import { ArrowPathIcon, ExclamationTriangleIcon, InformationCircleIcon, SpinnerI
 import { invoke } from "@tauri-apps/api/core";
 import CategoryFilterCards, { CategoryType } from "./CategoryFilterCards";
 import AssetRow, { AssetItem } from "./AssetRow";
+import EngineLabel from "./EngineLabel";
 import AssetHeaderRow, { SortField, SortDirection } from "./AssetHeaderRow";
 import { Inventory, CategoryCounts } from "../App";
 import { filterRepoAssets } from "../utils/filterPredicate";
@@ -331,7 +332,7 @@ export default function RepoPane({
                 .map((entry, idx) => (
                   <span key={`engine-${entry.key}`} className="flex items-center gap-1.5">
                     {idx > 0 && <span className="text-ink-3 select-none">·</span>}
-                    <span>{entry.label} {entry.count}</span>
+                    <EngineLabel engineKey={entry.key}>{entry.label} {entry.count}</EngineLabel>
                   </span>
                 ))}
             </div>

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import type { ReactNode } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { openPath, revealItemInDir } from "@tauri-apps/plugin-opener";
 import { ArrowTopRightOnSquareIcon, Square2StackIcon } from "./icons";
@@ -6,6 +7,8 @@ import Tooltip from "./Tooltip";
 import MarkdownDoc from "./MarkdownDoc";
 import type { Inventory } from "../App";
 import { engineLabel, provenanceOf, sourceLabel } from "../utils/assetProvenance";
+import { scopeAgent, type Scope } from "../utils/scopeAccess";
+import EngineLabel from "./EngineLabel";
 import {
   documentKindFor,
   formatJson,
@@ -21,6 +24,10 @@ interface DetailAsset {
   scopeBadge?: string;
   version?: string;
   details?: string;
+  /** Present on inventory items; absent on the flattened list shapes some
+   *  callers pass. `scopeAgent` and `engineLabel` both treat a missing scope
+   *  as "no agent", so the mark and the text stay in sync either way. */
+  scope?: Scope;
 }
 
 interface AssetDetailProps {
@@ -126,8 +133,15 @@ export default function AssetDetail({ asset, inventory, onLink }: AssetDetailPro
   const pretty = text !== null && kind === "json" ? formatJson(text) : null;
   const showsTabs = document !== null || pretty !== null;
 
-  const meta: { key: string; value: string }[] = [
-    { key: "Engine", value: engineLabel(asset as never) },
+  const meta: { key: string; value: ReactNode }[] = [
+    {
+      key: "Engine",
+      value: (
+        <EngineLabel engineKey={scopeAgent(asset.scope as Scope)} size={14}>
+          {engineLabel(asset as never)}
+        </EngineLabel>
+      ),
+    },
     { key: "Scope", value: provenance.place },
     ...(provenance.linkedInto.length > 0
       ? [{ key: "Linked into", value: provenance.linkedInto.join(", ") }]

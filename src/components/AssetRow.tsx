@@ -1,6 +1,7 @@
 import { formatEngineLabel } from "../utils/engineUtils";
 import MechanismGlyph, { MechanismWord } from "./MechanismGlyph";
 import EngineReachTiles, { EngineReachInfo } from "./EngineReachTiles";
+import EngineLabel from "./EngineLabel";
 
 /** One asset's backend-derived annotation: the glyph word, the reach list,
  *  and the beyond-the-store note whose count is backend-owned. Arrives from
@@ -190,9 +191,9 @@ export default function AssetRow({ item, isSelected, showKindColumn = true, anno
         </>
       ) : (
         <>
-          {/* 2: Engine Column (110px) */}
+          {/* 2: Engine Column (110px) — the engine's mark then its name. */}
           <span className="text-small font-normal text-ink-3 font-flex shrink-0 w-[110px] text-left truncate hidden @[580px]:block">
-            {engineLabel}
+            <EngineLabel engineKey={item.engine}>{engineLabel}</EngineLabel>
           </span>
 
           {/* 3: State Column (110px) */}
