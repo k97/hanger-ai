@@ -219,9 +219,9 @@ export default function App() {
 
   // Sidebar and Panel Navigation State
   const [selectedSidebarItem, setSelectedSidebarItem] = useState<string>("profile");
-  // 240px is the prototype's --rail-src. A persisted preference still wins;
+  // 216px is the prototype's --rail-src. A persisted preference still wins;
   // this is only what a machine that has never been resized starts at.
-  const [sidebarWidth, setSidebarWidth] = useState<number>(240);
+  const [sidebarWidth, setSidebarWidth] = useState<number>(216);
   const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(false);
   // Candidates handed to the promote modal. Already discovered by the scan,
   // so opening it starts no walk.
@@ -250,7 +250,9 @@ export default function App() {
   const [selectedIssue, setSelectedIssue] = useState<ReviewIssue | null>(null);
 
   const [inspectorOpen, setInspectorOpen] = useState<boolean>(false);
-  const [inspectorWidth, setInspectorWidth] = useState<number>(396);
+  // 384 is the prototype's --inspector and the floor: narrower truncates the
+  // link-flow preview paths, the one thing that panel exists to show.
+  const [inspectorWidth, setInspectorWidth] = useState<number>(384);
   // Toolbar filter — narrows the visible rows of the active pane by name.
   const [filterText, setFilterText] = useState<string>("");
   // Machine-wide state filter driven by the icon rail's Needs review button
@@ -494,7 +496,11 @@ export default function App() {
       }
       const widthPref = await invoke<string | null>("get_preference", { key: "sidebar_width" });
       if (widthPref) {
-        setSidebarWidth(parseInt(widthPref, 10));
+        const w = parseInt(widthPref, 10);
+        // Persisted widths from before the 216 floor are clamped up, not honoured.
+        if (!isNaN(w)) {
+          setSidebarWidth(Math.max(216, Math.min(320, w)));
+        }
       }
       const collapsedPref = await invoke<string | null>("get_preference", { key: "sidebar_collapsed" });
       if (collapsedPref === "true") {
@@ -521,8 +527,9 @@ export default function App() {
       const inspectorWidthPref = await invoke<string | null>("get_preference", { key: "inspector_width" });
       if (inspectorWidthPref) {
         const w = parseInt(inspectorWidthPref, 10);
-        if (!isNaN(w) && w >= 220 && w <= 480) {
-          setInspectorWidth(w);
+        // Persisted widths from before the 384 floor are clamped up, not honoured.
+        if (!isNaN(w)) {
+          setInspectorWidth(Math.max(384, Math.min(480, w)));
         }
       }
 
@@ -771,6 +778,39 @@ export default function App() {
     "h-[27px] min-w-[27px] px-2 rounded-pill inline-flex items-center justify-center text-ink-2 hover:bg-plane-2 hover:text-ink-1 transition-colors duration-hover ease-spring cursor-pointer";
   const tbBtnActiveClass =
     "h-[27px] min-w-[27px] px-2 rounded-pill inline-flex items-center justify-center bg-tint text-tint-ink transition-colors duration-hover ease-spring cursor-pointer";
+  // On the plane the toggle is a plain glyph — the plane already reads as a
+  // chrome zone, so hover tints with --tint-plane and pressed adds nothing.
+  const tbBtnPlaneClass =
+    "h-[27px] min-w-[27px] px-2 rounded-pill inline-flex items-center justify-center text-ink-2 hover:bg-tint-plane hover:text-ink-1 transition-colors duration-hover ease-spring cursor-pointer";
+
+  // One close for every inspector variant: the cap owns it, the bodies do not.
+  const closeInspector = () => {
+    setInspectorOpen(false);
+    invoke("set_preference", { key: "inspector_open", value: "false" }).catch(() => {});
+    setSelectedBubble(null);
+  };
+
+  // The inspector column resizes as one surface regardless of which body it
+  // is showing. 384 is the floor: below it the link-flow preview paths — the
+  // one thing the panel exists to show — truncate.
+  const handleInspectorResizeStart = (e: React.MouseEvent) => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startWidth = inspectorWidth;
+    const clamp = (w: number) => Math.max(384, Math.min(480, w));
+    const onMove = (ev: MouseEvent) => {
+      setInspectorWidth(clamp(startWidth - (ev.clientX - startX)));
+    };
+    const onUp = (ev: MouseEvent) => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+      const finalWidth = clamp(startWidth - (ev.clientX - startX));
+      setInspectorWidth(finalWidth);
+      invoke("set_preference", { key: "inspector_width", value: String(finalWidth) }).catch(() => {});
+    };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+  };
 
   // One derivation feeds the rail badge, the review filter list and the pane,
   // so the three can never disagree about what needs a decision.
@@ -784,7 +824,7 @@ export default function App() {
     selectedSidebarItem === "review"
       ? ["My machine", "Needs review"]
       : selectedSidebarItem === "profile"
-      ? ["My machine", "User profile"]
+      ? ["My machine", "Global"]
       : selectedSidebarItem === "global"
       ? ["My machine", "Global"]
       : selectedSidebarItem.startsWith("global:")
@@ -807,72 +847,37 @@ export default function App() {
       : assetCounts?.total ?? 0;
 
   return (
-    <div className="h-screen w-screen bg-page text-ink-1 flex flex-col font-sans transition-colors duration-200 overflow-hidden">
-      {/* Unified toolbar — thin top line, quiet pill controls, one filter */}
-      <header className="h-10 min-h-10 max-h-10 border-b border-line bg-page px-3 flex items-center gap-2.5 select-none z-30 shrink-0 font-flex">
-        {selectedSidebarItem !== "discovery" && selectedSidebarItem !== "linkmap" && (
-          <Tooltip label="Toggle sidebar  ⌘⌥S" placement="bottom">
-            <button onClick={toggleSidebar} aria-label="Toggle sidebar" className={tbBtnClass}>
-              <PanelLeftIcon size={15} aria-hidden="true" />
-            </button>
-          </Tooltip>
-        )}
-
-        <div className="flex items-center gap-[7px] text-small text-ink-3">
-          {crumbSegments.map((segment, idx) =>
-            idx === crumbSegments.length - 1 ? (
-              <b key={segment} className="font-medium text-ink-1">
-                {segment}
-              </b>
-            ) : (
-              <span key={segment} className="flex items-center gap-[7px]">
-                <span>{segment}</span>
-                <span>›</span>
-              </span>
-            )
-          )}
-        </div>
-
-        <div className="ml-auto flex items-center gap-1">
-          {/* The map has no text filter yet; an inert input would lie. */}
-          {selectedSidebarItem !== "linkmap" && (
-          <div className="relative w-[196px] h-[27px] mr-2">
-            <MagnifyingGlassIcon
-              size={12}
-              className="absolute left-2.5 top-2 text-ink-3 pointer-events-none"
-            />
-            <input
-              value={filterText}
-              onChange={(e) => setFilterText(e.target.value)}
-              aria-label="Filter assets"
-              placeholder={
-                selectedSidebarItem === "discovery"
-                  ? "Filter directories"
-                  : selectedSidebarItem === "review"
-                  ? `Filter ${review.counts.total} issues`
-                  : `Filter ${activeTotal} assets`
-              }
-              className="w-full h-full rounded-pill border border-transparent bg-plane pl-[30px] pr-3.5 text-small text-ink-1 placeholder:text-ink-3 focus:outline-none focus:border-ink-1 focus:bg-page transition-colors duration-hover ease-spring"
-            />
-          </div>
-          )}
-
-          {selectedSidebarItem !== "discovery" && (
-            <Tooltip label="Toggle inspector" placement="bottom">
-              <button
-                onClick={toggleInspector}
-                aria-label="Toggle inspector"
-                className={inspectorOpen ? tbBtnActiveClass : tbBtnClass}
-              >
-                <PanelRightIcon size={15} aria-hidden="true" />
+    <div className="h-screen w-screen bg-page text-ink-1 flex font-sans transition-colors duration-200 overflow-hidden">
+      {/* ══ Left column: rail + source list share one plane and carry their
+          own 40px cap, so the column edge runs uninterrupted top to bottom.
+          The native traffic lights overlay the first ~66px of the cap
+          (trafficLightPosition in tauri.conf.json); the cap leads with a
+          spacer rather than drawing lights of its own. The cap's contents
+          keep their position when the source list collapses, overflowing the
+          56px rail on purpose — the toggle must stay reachable to reopen. */}
+      <div
+        className="shrink-0 h-full bg-plane border-r border-line flex flex-col min-h-0 transition-[width] duration-240"
+        style={{
+          width:
+            56 +
+            (selectedSidebarItem !== "discovery" &&
+            selectedSidebarItem !== "linkmap" &&
+            !sidebarCollapsed
+              ? sidebarWidth
+              : 0),
+        }}
+      >
+        <div data-tauri-drag-region className="h-10 w-[118px] shrink-0 flex items-center select-none z-30">
+          <div className="w-[76px] shrink-0" aria-hidden="true" />
+          {selectedSidebarItem !== "discovery" && selectedSidebarItem !== "linkmap" && (
+            <Tooltip label="Toggle sidebar  ⌘⌥S" placement="bottom">
+              <button onClick={toggleSidebar} aria-label="Toggle sidebar" className={tbBtnPlaneClass}>
+                <PanelLeftIcon size={15} aria-hidden="true" />
               </button>
             </Tooltip>
           )}
         </div>
-      </header>
-
-      {/* Main Split Layout Body */}
-      <div className="flex-1 flex overflow-hidden">
+        <div className="flex-1 flex min-h-0">
         <IconRail
           active={
             selectedSidebarItem === "discovery"
@@ -884,7 +889,6 @@ export default function App() {
               : "machine"
           }
           needsReviewCount={review.counts.total}
-          darkMode={darkMode}
           onSelectMachine={() => {
             handleSelectSidebarItem("profile");
             invoke("set_preference", { key: "selected_sidebar_item", value: "profile" }).catch(() => {});
@@ -940,8 +944,77 @@ export default function App() {
           setError={setError}
         />
         )}
+        </div>
+      </div>
 
-        <main className="flex-1 flex flex-col min-w-0 h-full relative overflow-hidden">
+      <main className="flex-1 flex flex-col min-w-0 h-full relative overflow-hidden bg-page">
+        {/* Content cap: breadcrumb left; filter and inspector toggle right.
+            A <header> on purpose — it is the content column's banner, and the
+            toolbar guards assert against that landmark. */}
+        <header data-tauri-drag-region className="h-10 shrink-0 flex items-center gap-2.5 select-none z-30 font-flex">
+          {/* When the source list is collapsed the sidebar toggle overflows
+              the 56px rail into this cap; the crumb steps aside for it. */}
+          <div
+            className={`flex items-center gap-[7px] text-small text-ink-3 whitespace-nowrap shrink-0 ${
+              selectedSidebarItem !== "discovery" &&
+              selectedSidebarItem !== "linkmap" &&
+              sidebarCollapsed
+                ? "pl-[56px]"
+                : "pl-[18px]"
+            }`}
+          >
+            {crumbSegments.map((segment, idx) =>
+              idx === crumbSegments.length - 1 ? (
+                <b key={segment} className="font-medium text-ink-1">
+                  {segment}
+                </b>
+              ) : (
+                <span key={segment} className="flex items-center gap-[7px]">
+                  <span>{segment}</span>
+                  <span>›</span>
+                </span>
+              )
+            )}
+          </div>
+
+          <div className="ml-auto flex items-center gap-1 pr-3">
+            {/* The map has no text filter yet; an inert input would lie. */}
+            {selectedSidebarItem !== "linkmap" && (
+            <div className="relative w-[214px] min-w-[120px] shrink h-[27px] mr-1.5">
+              <MagnifyingGlassIcon
+                size={12}
+                className="absolute left-2.5 top-2 text-ink-3 pointer-events-none"
+              />
+              <input
+                value={filterText}
+                onChange={(e) => setFilterText(e.target.value)}
+                aria-label="Filter assets"
+                placeholder={
+                  selectedSidebarItem === "discovery"
+                    ? "Filter directories"
+                    : selectedSidebarItem === "review"
+                    ? `Filter ${review.counts.total} issues`
+                    : `Filter ${activeTotal} assets`
+                }
+                className="w-full h-full rounded-pill border border-transparent bg-plane pl-[30px] pr-3.5 text-small text-ink-1 placeholder:text-ink-3 focus:outline-none focus:border-ink-1 focus:bg-page transition-colors duration-hover ease-spring"
+              />
+            </div>
+            )}
+
+            {selectedSidebarItem !== "discovery" && (
+              <Tooltip label="Toggle inspector" placement="bottom">
+                <button
+                  onClick={toggleInspector}
+                  aria-label="Toggle inspector"
+                  className={inspectorOpen ? tbBtnActiveClass : tbBtnClass}
+                >
+                  <PanelRightIcon size={15} aria-hidden="true" />
+                </button>
+              </Tooltip>
+            )}
+          </div>
+        </header>
+
           {error && (
             <div className="absolute top-4 left-4 right-4 z-40 p-3.5 rounded-inner border border-line bg-plane text-state-danger flex items-center justify-between text-small animate-fade-in">
               <div className="flex items-center gap-2 min-w-0">
@@ -1090,74 +1163,67 @@ export default function App() {
           )}
         </main>
 
-        {/* Docked Inspector — provenance under review, the asset elsewhere */}
-        {inspectorOpen && selectedSidebarItem === "linkmap" && (
-          <aside
-            style={{ width: inspectorWidth }}
-            className="shrink-0 border-l border-line bg-page h-full min-h-0"
-          >
-            <LinkMapInspector
-              edge={selectedLinkEdge}
-              nodes={linkGraph?.nodes ?? []}
-              onClose={() => {
-                setInspectorOpen(false);
-                invoke("set_preference", { key: "inspector_open", value: "false" }).catch(() => {});
-              }}
-            />
-          </aside>
-        )}
-
-        {inspectorOpen && selectedSidebarItem === "review" && (
-          <aside
-            style={{ width: inspectorWidth }}
-            className="shrink-0 border-l border-line bg-page h-full min-h-0"
-          >
-            <ReviewInspector
-              issue={selectedIssue}
-              position={selectedIssue ? reviewShown.indexOf(selectedIssue) + 1 : 0}
-              outOf={reviewShown.length}
-              onClose={() => {
-                setInspectorOpen(false);
-                invoke("set_preference", { key: "inspector_open", value: "false" }).catch(() => {});
-              }}
-              onSkip={() => {
-                const next = reviewShown[reviewShown.indexOf(selectedIssue as ReviewIssue) + 1];
-                setSelectedIssue(next ?? null);
-              }}
-            />
-          </aside>
-        )}
-
-        {inspectorOpen &&
-          selectedSidebarItem !== "review" &&
-          selectedSidebarItem !== "discovery" &&
-          selectedSidebarItem !== "linkmap" &&
-          inventory && (
-          <Flyout
-            width={inspectorWidth}
-            setWidth={setInspectorWidth}
-            onClose={() => {
-              setInspectorOpen(false);
-              invoke("set_preference", { key: "inspector_open", value: "false" }).catch(() => {});
-            }}
-            selectedBubble={selectedBubble}
-            setSelectedBubble={(val) => {
-              setSelectedBubble(val);
-              setLinkingAsset(null);
-            }}
-            selectedAsset={selectedAsset}
-            initialDeployingAsset={linkingAsset}
-            linkPreSelectedRepo={linkPreSelectedRepo}
-            onExitLinkFlow={() => {
-              setLinkingAsset(null);
-              setLinkPreSelectedRepo(undefined);
-            }}
-            inventory={inventory}
-            linkedProjects={linkedDirectories}
-            onRefresh={triggerScan}
+      {/* ══ Inspector column: one surface with its own cap regardless of
+          which body it is showing. The cap owns the eyebrow and the close;
+          the resize handle spans the whole column so every variant sizes
+          the same way. ══ */}
+      {inspectorOpen &&
+        selectedSidebarItem !== "discovery" &&
+        (selectedSidebarItem === "linkmap" ||
+          selectedSidebarItem === "review" ||
+          inventory) && (
+        <aside
+          style={{ width: inspectorWidth }}
+          className="shrink-0 h-full min-h-0 border-l border-line bg-page flex flex-col relative"
+        >
+          <div
+            onMouseDown={handleInspectorResizeStart}
+            className="absolute top-0 bottom-0 left-0 w-1.5 cursor-col-resize hover:bg-line-2 active:bg-line-2 z-10 transition-colors duration-hover"
           />
-        )}
-      </div>
+          <div
+            data-tauri-drag-region
+            className="h-10 shrink-0 flex items-center pl-[18px] pr-3 select-none font-flex text-micro font-medium tracking-[.06em] uppercase text-ink-3"
+          >
+            <span>Inspector</span>
+            <button
+              onClick={closeInspector}
+              aria-label="Close inspector"
+              className="ml-auto w-[27px] h-[27px] rounded-pill grid place-items-center text-ink-3 hover:bg-plane-2 hover:text-ink-1 transition-colors duration-hover ease-spring cursor-pointer"
+            >
+              <XMarkIcon size={13} aria-hidden="true" />
+            </button>
+          </div>
+          <div className="flex-1 min-h-0 flex flex-col">
+            {selectedSidebarItem === "linkmap" ? (
+              <LinkMapInspector edge={selectedLinkEdge} nodes={linkGraph?.nodes ?? []} />
+            ) : selectedSidebarItem === "review" ? (
+              <ReviewInspector
+                issue={selectedIssue}
+                position={selectedIssue ? reviewShown.indexOf(selectedIssue) + 1 : 0}
+                outOf={reviewShown.length}
+                onSkip={() => {
+                  const next = reviewShown[reviewShown.indexOf(selectedIssue as ReviewIssue) + 1];
+                  setSelectedIssue(next ?? null);
+                }}
+              />
+            ) : (
+              <Flyout
+                selectedBubble={selectedBubble}
+                selectedAsset={selectedAsset}
+                initialDeployingAsset={linkingAsset}
+                linkPreSelectedRepo={linkPreSelectedRepo}
+                onExitLinkFlow={() => {
+                  setLinkingAsset(null);
+                  setLinkPreSelectedRepo(undefined);
+                }}
+                inventory={inventory as Inventory}
+                linkedProjects={linkedDirectories}
+                onRefresh={triggerScan}
+              />
+            )}
+          </div>
+        </aside>
+      )}
 
       {/* Settings Modal Overlay */}
       {showSettingsModal && (

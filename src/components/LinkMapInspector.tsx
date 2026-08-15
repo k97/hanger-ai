@@ -1,11 +1,10 @@
-import { XMarkIcon, Square2StackIcon } from "./icons";
+import { Square2StackIcon } from "./icons";
 import Tooltip from "./Tooltip";
 import type { EdgeState, GraphNode, PositionedEdge } from "../utils/linkMapLayout";
 
 interface LinkMapInspectorProps {
   edge: PositionedEdge | null;
   nodes: GraphNode[];
-  onClose: () => void;
 }
 
 const STATE_LINE: Record<EdgeState, string> = {
@@ -32,7 +31,7 @@ const STATE_DOT: Record<EdgeState, string> = {
  * records who created a link or when, and inventing that was a defect in
  * the prototype this view replaced.
  */
-export default function LinkMapInspector({ edge, nodes, onClose }: LinkMapInspectorProps) {
+export default function LinkMapInspector({ edge, nodes }: LinkMapInspectorProps) {
   if (!edge) {
     return (
       <div className="h-full flex flex-col items-center justify-center gap-2 px-6 text-center bg-page">
@@ -58,17 +57,6 @@ export default function LinkMapInspector({ edge, nodes, onClose }: LinkMapInspec
           <span>Edge</span>
           <span>·</span>
           <span>{mechanismName}</span>
-          <span className="ml-auto">
-            <Tooltip label="Close inspector" placement="bottom">
-              <button
-                onClick={onClose}
-                aria-label="Close inspector"
-                className="w-[27px] h-[27px] rounded-pill grid place-items-center text-ink-3 hover:bg-plane-2 hover:text-ink-1 transition-colors duration-hover ease-spring cursor-pointer"
-              >
-                <XMarkIcon size={13} aria-hidden="true" />
-              </button>
-            </Tooltip>
-          </span>
         </div>
 
         <h2 className="text-lg-app font-medium tracking-[-0.3px] text-ink-1 mb-2">{title}</h2>

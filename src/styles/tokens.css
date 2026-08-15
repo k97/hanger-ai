@@ -6,14 +6,17 @@
   --plane: #f7f7f7;          /* the plane is a value step, not a colour */
   --plane-2: #efefef;
   --tint: #e8e8e8;           /* tonal container for selection, neutral */
+  --tint-plane: #e0e0e0;     /* tonal container on the plane — one step darker.
+                                --tint disappears against --plane; never reuse it there. */
   --tint-ink: #000000;
   --line: rgba(0, 0, 0, 0.09);
   --line-2: rgba(0, 0, 0, 0.20);
   --ink-1: #000000;
   --ink-2: #4d4d4d;          /* prototype ink at 66%, quantised to solid hex */
-  --ink-3: #6a6a6a;          /* prototype ink at 44%, darkened to clear 4.5:1 on --plane-2 */
+  --ink-3: #636363;          /* prototype ink at 44%, darkened to clear 4.5:1 on --tint-plane */
   --fill: #000000;           /* the single strong action */
   --on-fill: #ffffff;
+  --brand: #00c3bf;          /* the hanger mark only, never a UI state */
 
   /* System state — the only saturated colour in the app */
   --state-success: #0f7a52;
@@ -35,9 +38,11 @@
   --fw-regular: 400;
   --fw-medium: 500;
 
-  /* Geometry — pill for controls, 12px inner surfaces, 16px planes */
+  /* Geometry — pill for controls, 12px inner surfaces, 16px planes,
+     10px for the rail's square-ish buttons */
   --radius-plane: 16px;
   --radius-inner: 12px;
+  --radius-soft: 10px;
   --radius-pill: 9999px;
   --gutter: 18px;
   --step: 8px;
@@ -123,6 +128,7 @@
   --plane: #0e0e0e;
   --plane-2: #171717;
   --tint: #232323;
+  --tint-plane: #262626;
   --tint-ink: #ffffff;
   --line: rgba(255, 255, 255, 0.12);
   --line-2: rgba(255, 255, 255, 0.22);
@@ -131,6 +137,7 @@
   --ink-3: #8c8c8c;
   --fill: #ffffff;
   --on-fill: #000000;
+  --brand: #2fd8d4;
 
   --state-success: #4ec08c;
   --state-warning: #d9a441;

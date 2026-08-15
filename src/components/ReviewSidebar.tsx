@@ -43,8 +43,8 @@ export default function ReviewSidebar({
   onSelectPlace,
 }: ReviewSidebarProps) {
   const row = (active: boolean) =>
-    `flex items-center gap-2 min-h-[30px] px-3 py-0.5 rounded-pill cursor-pointer transition-colors duration-nav ease-spring ${
-      active ? "bg-tint text-tint-ink" : "text-ink-2 hover:bg-plane-2"
+    `flex items-center gap-2 h-8 px-3 rounded-pill cursor-pointer transition-colors duration-nav ease-spring ${
+      active ? "bg-tint-plane text-tint-ink" : "text-ink-2 hover:bg-tint-plane"
     }`;
 
   const tally = (active: boolean) =>

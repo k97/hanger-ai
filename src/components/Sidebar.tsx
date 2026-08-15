@@ -1,5 +1,5 @@
 import React from "react";
-import { UserIcon, FolderIcon, FolderTreeIcon, PlusIcon, TrashIcon } from "./icons";
+import { GlobeAltIcon, FolderIcon, FolderTreeIcon, PlusIcon, TrashIcon } from "./icons";
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import { Inventory, CategoryCounts } from "../App";
@@ -119,12 +119,12 @@ export default function Sidebar({
             invoke("set_preference", { key: "selected_sidebar_item", value: "profile" }).catch(() => {});
           }}
           tabIndex={0}
-          className={`flex items-center gap-2 min-h-[30px] px-3 py-0.5 rounded-pill cursor-pointer transition-colors duration-nav ease-spring ${
-            selectedItem === "profile" ? "bg-tint text-tint-ink" : "text-ink-2 hover:bg-plane-2"
+          className={`flex items-center gap-2 h-[46px] px-3 rounded-pill cursor-pointer transition-colors duration-nav ease-spring ${
+            selectedItem === "profile" ? "bg-tint-plane text-tint-ink" : "text-ink-2 hover:bg-tint-plane"
           }`}
         >
-          <UserIcon
-            size={14}
+          <GlobeAltIcon
+            size={15}
             className={`shrink-0 ${selectedItem === "profile" ? "text-tint-ink" : "text-ink-3"}`}
           />
           <div className="flex-1 min-w-0">
@@ -133,7 +133,7 @@ export default function Sidebar({
                 selectedItem === "profile" ? "font-medium" : ""
               }`}
             >
-              User Profile
+              Global
             </span>
             <span
               className={`text-micro truncate block ${
@@ -159,7 +159,7 @@ export default function Sidebar({
             <button
               onClick={handleAddRepo}
               aria-label="Add a repository"
-              className="w-[22px] h-[22px] rounded-pill grid place-items-center text-ink-2 hover:bg-plane-2 hover:text-ink-1 transition-colors duration-hover ease-spring cursor-pointer"
+              className="w-[22px] h-[22px] rounded-pill grid place-items-center text-ink-2 hover:bg-tint-plane hover:text-ink-1 transition-colors duration-hover ease-spring cursor-pointer"
             >
               <PlusIcon size={14} aria-hidden="true" />
             </button>
@@ -193,19 +193,23 @@ export default function Sidebar({
                     invoke("set_preference", { key: "selected_sidebar_item", value: repoPath }).catch(() => {});
                   }}
                   tabIndex={0}
-                  className={`group flex items-center gap-2 min-h-[30px] py-0.5 rounded-pill cursor-pointer transition-colors duration-nav ease-spring ${
-                    child ? "pl-[26px] pr-3" : "px-3"
-                  } ${isActive ? "bg-tint text-tint-ink" : "text-ink-2 hover:bg-plane-2"}`}
+                  className={`group flex items-center gap-2 ${container ? "h-[46px]" : "h-8"} rounded-pill cursor-pointer transition-colors duration-nav ease-spring ${
+                    // A repository inside a watched folder does not indent one
+                    // level deeper — the folder's subtitle states its reach.
+                    // Iconless rows align to the icon column, not the padding
+                    // edge: 12px pad + 15px icon + 9px gap = 36px.
+                    child ? "pl-9 pr-3" : "px-3"
+                  } ${isActive ? "bg-tint-plane text-tint-ink" : "text-ink-2 hover:bg-tint-plane"}`}
                 >
                   {!child &&
                     (container ? (
                       <FolderTreeIcon
-                        size={14}
+                        size={15}
                         className={`shrink-0 ${isActive ? "text-tint-ink" : "text-ink-3"}`}
                       />
                     ) : (
                       <FolderIcon
-                        size={14}
+                        size={15}
                         className={`shrink-0 ${isActive ? "text-tint-ink" : "text-ink-3"}`}
                       />
                     ))}
@@ -247,7 +251,7 @@ export default function Sidebar({
                         setError(String(err));
                       }
                     }}
-                    className="p-1 rounded-pill hover:bg-plane-2 text-ink-3 hover:text-ink-1 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity duration-hover cursor-pointer shrink-0"
+                    className="p-1 rounded-pill hover:bg-tint-plane text-ink-3 hover:text-ink-1 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity duration-hover cursor-pointer shrink-0"
                     aria-label="Unlink repository"
                   >
                     <TrashIcon size={12} aria-hidden="true" />

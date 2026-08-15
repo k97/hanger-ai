@@ -48,7 +48,7 @@ export default function SourceListShell({
         collapse();
         return;
       }
-      setWidth(Math.max(200, Math.min(320, rawWidth)));
+      setWidth(Math.max(216, Math.min(320, rawWidth)));
     };
 
     const handleMouseUp = (moveEvent: MouseEvent) => {
@@ -60,7 +60,7 @@ export default function SourceListShell({
         collapse();
         return;
       }
-      const finalWidth = Math.max(200, Math.min(320, rawWidth));
+      const finalWidth = Math.max(216, Math.min(320, rawWidth));
       setWidth(finalWidth);
       invoke("set_preference", { key: "sidebar_width", value: String(finalWidth) }).catch((err) => {
         console.error("Failed to save sidebar_width preference:", err);
@@ -72,12 +72,16 @@ export default function SourceListShell({
   };
 
   return (
+    // The source list is a card on the shared plane: --line borders on top
+    // and left (the parent column's border-r closes the third side), a
+    // 16px radius on the top-left corner only, bleeding off the bottom
+    // edge — the same treatment as the strip and the table.
     <div
       data-testid={testId}
       style={{ width }}
-      className="h-full flex flex-col bg-page border-r border-line relative select-none shrink-0 font-sans transition-[width] duration-240"
+      className="h-full flex flex-col border-t border-l border-line rounded-tl-plane relative select-none shrink-0 font-sans transition-[width] duration-240"
     >
-      <div className="flex-1 overflow-y-auto px-2.5 pt-1 pb-3 min-h-0">{children}</div>
+      <div className="flex-1 overflow-y-auto px-2 pt-1.5 pb-3 min-h-0">{children}</div>
 
       <div
         onMouseDown={handleMouseDown}

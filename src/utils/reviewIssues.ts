@@ -101,7 +101,7 @@ function placeKey(root: string | null): string {
 }
 
 function placeLabel(root: string | null): string {
-  return root === null ? "User profile" : basename(root);
+  return root === null ? "Global" : basename(root);
 }
 
 function rootOf(scope: unknown): string | null {
@@ -310,7 +310,7 @@ export function deriveReviewIssues(inventory: Inventory | null): ReviewDerivatio
       } else {
         tally.set(key, {
           key,
-          label: key === "global" ? "User profile" : basename(key),
+          label: key === "global" ? "Global" : basename(key),
           count: 1,
         });
       }

@@ -43,7 +43,7 @@ function placeOf(asset: ScopedAsset): string {
   // Local-scoped assets belong to a repo too, despite living in a
   // machine-level file. scopeRoot knows all three variants.
   const root = scopeRoot(asset.scope as Scope);
-  return root ? basename(root) : "User profile";
+  return root ? basename(root) : "Global";
 }
 
 const KINDS: Record<string, string> = {

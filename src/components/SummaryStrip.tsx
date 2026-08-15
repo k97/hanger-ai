@@ -31,7 +31,7 @@ function timeAgo(from: Date, now: Date): string {
 const SEGMENTS: Array<{ state: LinkState; barClass: string; dotClass: string; label: (n: number) => string }> = [
   { state: "linked", barClass: "bg-state-success", dotClass: "bg-state-success", label: () => "linked" },
   { state: "drifted", barClass: "bg-state-warning", dotClass: "bg-state-warning", label: () => "drifted" },
-  { state: "broken", barClass: "bg-state-danger", dotClass: "bg-state-danger", label: () => "won't parse" },
+  { state: "broken", barClass: "bg-state-danger", dotClass: "bg-state-danger", label: () => "broken" },
   {
     state: "local",
     barClass: "bg-line-2",

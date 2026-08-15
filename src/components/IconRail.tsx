@@ -5,10 +5,6 @@ import Tooltip from "./Tooltip";
 interface IconRailProps {
   active: "machine" | "linkmap" | "discovery" | "review";
   needsReviewCount: number;
-  /** The resolved appearance, so the brand mark can pick the variant that
-   *  stays legible on the rail. Passed rather than read from a media query
-   *  because the theme can be pinned against the OS. */
-  darkMode: boolean;
   onSelectMachine: () => void;
   onSelectLinkMap: () => void;
   onSelectDiscovery: () => void;
@@ -16,10 +12,12 @@ interface IconRailProps {
   onOpenSettings: () => void;
 }
 
+// 32×32, radius 10 (--radius-soft), tonal --tint-plane fill on current: the
+// rail sits on the plane, where --tint would disappear.
 const railBtnClass =
-  "relative w-[38px] h-8 rounded-pill grid place-items-center text-ink-2 hover:bg-plane-2 hover:text-ink-1 transition-colors duration-nav ease-spring cursor-pointer";
+  "relative w-8 h-8 rounded-soft grid place-items-center text-ink-2 hover:bg-tint-plane hover:text-ink-1 transition-colors duration-nav ease-spring cursor-pointer";
 const railBtnActiveClass =
-  "relative w-[38px] h-8 rounded-pill grid place-items-center bg-tint text-tint-ink transition-colors duration-nav ease-spring cursor-pointer";
+  "relative w-8 h-8 rounded-soft grid place-items-center bg-tint-plane text-tint-ink transition-colors duration-nav ease-spring cursor-pointer";
 
 /** Leftmost shell column: the three sections, plus settings.
  *
@@ -29,7 +27,6 @@ const railBtnActiveClass =
 export default function IconRail({
   active,
   needsReviewCount,
-  darkMode,
   onSelectMachine,
   onSelectLinkMap,
   onSelectDiscovery,
@@ -40,11 +37,11 @@ export default function IconRail({
     <nav
       aria-label="Sections"
       data-testid="icon-rail"
-      className="w-14 shrink-0 border-r border-line bg-page flex flex-col items-center py-2 gap-[3px]"
+      className="w-14 shrink-0 flex flex-col items-center pb-2.5 gap-[3px]"
     >
-      <HangerMark onDark={darkMode} size={23} className="pt-2" />
+      <HangerMark size={22} className="mt-0.5" />
 
-      <div className="w-6 h-px bg-line my-2" />
+      <div className="w-6 h-px bg-line-2 opacity-45 my-[9px]" />
 
       <Tooltip label="My machine">
         <button
@@ -79,7 +76,7 @@ export default function IconRail({
         </button>
       </Tooltip>
 
-      <div className="w-6 h-px bg-line my-2" />
+      <div className="w-6 h-px bg-line-2 opacity-45 my-[9px]" />
 
       <Tooltip label={`Needs review — ${needsReviewCount} flagged`}>
         <button
@@ -89,7 +86,7 @@ export default function IconRail({
           className={active === "review" ? railBtnActiveClass : railBtnClass}
         >
           {needsReviewCount > 0 && (
-            <span aria-hidden="true" className="absolute top-px right-0.5 min-w-[15px] h-[15px] px-1 rounded-pill bg-fill text-on-fill text-[9px] leading-[15px] font-flex tabular">
+            <span aria-hidden="true" className="absolute -top-[3px] -right-1 min-w-4 h-4 px-1 rounded-pill bg-fill text-on-fill text-[9px] leading-4 font-flex tabular ring-2 ring-plane">
               {needsReviewCount}
             </span>
           )}

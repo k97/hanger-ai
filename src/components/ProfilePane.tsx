@@ -130,7 +130,7 @@ export default function ProfilePane({
   // Strip data: backend-owned total, frontend-derived state split.
   const stripCounts = linkStateCounts(inventory, { kind: "global" });
   const engineCount = Object.keys(assetCounts?.engines ?? {}).filter((k) => k !== "none").length;
-  const stripSubtitle = `assets in your user profile · ${engineCount} ${
+  const stripSubtitle = `assets in the global store · ${engineCount} ${
     engineCount === 1 ? "engine" : "engines"
   }`;
 

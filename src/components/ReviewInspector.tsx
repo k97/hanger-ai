@@ -1,5 +1,5 @@
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
-import { ArrowTopRightOnSquareIcon, Square2StackIcon, XMarkIcon } from "./icons";
+import { ArrowTopRightOnSquareIcon, Square2StackIcon } from "./icons";
 import type { IssueKind, ReviewIssue } from "../utils/reviewIssues";
 import Tooltip from "./Tooltip";
 
@@ -9,7 +9,6 @@ interface ReviewInspectorProps {
    *  a total of anything — the list is already a filtered view. */
   position: number;
   outOf: number;
-  onClose: () => void;
   onSkip: () => void;
 }
 
@@ -54,7 +53,6 @@ export default function ReviewInspector({
   issue,
   position,
   outOf,
-  onClose,
   onSkip,
 }: ReviewInspectorProps) {
   if (!issue) {
@@ -96,17 +94,6 @@ export default function ReviewInspector({
           <span>{EYEBROW[issue.kind]}</span>
           <span>·</span>
           <span>{issue.category}</span>
-          <span className="ml-auto">
-            <Tooltip label="Close inspector" placement="bottom">
-              <button
-                onClick={onClose}
-                aria-label="Close inspector"
-                className="w-[27px] h-[27px] rounded-pill grid place-items-center text-ink-3 hover:bg-plane-2 hover:text-ink-1 transition-colors duration-hover ease-spring cursor-pointer"
-              >
-                <XMarkIcon size={13} aria-hidden="true" />
-              </button>
-            </Tooltip>
-          </span>
         </div>
 
         <h2 className="text-lg-app font-medium tracking-[-0.3px] text-ink-1 mb-2">{issue.name}</h2>

@@ -7,7 +7,9 @@
   --color-plane: var(--plane);
   --color-plane-2: var(--plane-2);
   --color-tint: var(--tint);
+  --color-tint-plane: var(--tint-plane);
   --color-tint-ink: var(--tint-ink);
+  --color-brand: var(--brand);
   --color-line: var(--line);
   --color-line-2: var(--line-2);
   --color-fill: var(--fill);
@@ -102,9 +104,10 @@
      off-grid value explicitly (`h-[30px]`, `px-[18px]`), so the numeric
      utilities are left meaning exactly what they say: N × 4px. */
 
-  /* ── Radii: pill / 12 / 16 (legacy control 6px retired with its users) ── */
+  /* ── Radii: pill / 10 / 12 / 16 (legacy control 6px retired with its users) ── */
   --radius-plane: var(--radius-plane);
   --radius-inner: var(--radius-inner);
+  --radius-soft: var(--radius-soft);
   --radius-pill: var(--radius-pill);
   --radius-control: var(--radius-control);
 

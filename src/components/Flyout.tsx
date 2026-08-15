@@ -2,7 +2,6 @@ import { useState, useRef, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import {
-  XMarkIcon,
   ChevronLeftIcon,
   ExclamationTriangleIcon,
   LinkIcon,
@@ -36,11 +35,7 @@ interface RuleMerge {
 }
 
 interface FlyoutProps {
-  width?: number;
-  setWidth?: (w: number) => void;
-  onClose?: () => void;
   selectedBubble?: { type: "project" | "agent"; id: string; name: string } | null;
-  setSelectedBubble?: (val: null) => void;
   selectedAsset?: FlatAssetItem | { name: string; category: string; path: string; source_path?: string; is_symlink?: boolean; details?: string; scopeBadge?: string; version?: string } | null;
   initialDeployingAsset?: FlatAssetItem | null;
   /** A repository to arrive with already ticked, when the link was started
@@ -60,11 +55,7 @@ interface RuleSection {
 }
 
 export default function Flyout({
-  width = 280,
-  setWidth,
-  onClose,
   selectedBubble,
-  setSelectedBubble,
   selectedAsset,
   initialDeployingAsset,
   linkPreSelectedRepo,
@@ -140,34 +131,6 @@ export default function Flyout({
     } finally {
       setMcpVerifying(null);
     }
-  };
-
-  // Drag Resizing Logic for docked right inspector
-  const handleMouseDown = (e: React.MouseEvent) => {
-    e.preventDefault();
-    const startX = e.clientX;
-    const startWidth = width;
-
-    const handleMouseMove = (moveEvent: MouseEvent) => {
-      const rawWidth = startWidth - (moveEvent.clientX - startX);
-      const newWidth = Math.max(220, Math.min(480, rawWidth));
-      if (setWidth) setWidth(newWidth);
-    };
-
-    const handleMouseUp = (moveEvent: MouseEvent) => {
-      window.removeEventListener("mousemove", handleMouseMove);
-      window.removeEventListener("mouseup", handleMouseUp);
-      
-      const rawWidth = startWidth - (moveEvent.clientX - startX);
-      const finalWidth = Math.max(220, Math.min(480, rawWidth));
-      if (setWidth) setWidth(finalWidth);
-      invoke("set_preference", { key: "inspector_width", value: String(finalWidth) }).catch((err) => {
-        console.error("Failed to save inspector_width preference:", err);
-      });
-    };
-
-    window.addEventListener("mousemove", handleMouseMove);
-    window.addEventListener("mouseup", handleMouseUp);
   };
 
   // Compile flat asset rows for Virtualizer
@@ -509,19 +472,15 @@ export default function Flyout({
   const provenance = targetAsset ? provenanceOf(targetAsset as never, inventory) : null;
 
   return (
-    <aside
-      style={{ width: `${width}px` }}
-      className="h-full bg-page border-l border-line flex flex-col relative shrink-0 overflow-hidden"
-    >
-      {/* Drag Resize Handle on Left Edge */}
-      <div
-        onMouseDown={handleMouseDown}
-        className="absolute top-0 bottom-0 left-0 w-1.5 cursor-col-resize hover:bg-line-2 active:bg-line-2 z-10 transition-colors duration-hover"
-      />
-
+    // Column chrome (width, resize, the cap and its close) lives in App.tsx:
+    // this component is only the inspector's body for the machine views.
+    <div className="h-full bg-page flex flex-col relative overflow-hidden">
       {/* Header — the eyebrow says where you are, the title says what you are
           looking at. In the link flow the eyebrow becomes the way back, so the
-          panel never grows a second header for its second screen. */}
+          panel never grows a second header for its second screen. With nothing
+          selected the header would only repeat the cap's "Inspector" eyebrow,
+          so the empty state stands alone. */}
+      {(linking || targetAsset || selectedBubble) && (
       <div className="px-[18px] pt-4 pb-3 border-b border-line shrink-0">
         <div className="flex items-center gap-2 font-flex text-micro font-medium tracking-[.06em] uppercase text-ink-3">
           {linking ? (
@@ -556,16 +515,6 @@ export default function Flyout({
               Layered rules
             </span>
           )}
-          <button
-            onClick={() => {
-              if (onClose) onClose();
-              if (setSelectedBubble) setSelectedBubble(null);
-            }}
-            aria-label="Close inspector"
-            className="ml-auto shrink-0 w-[27px] h-[27px] rounded-pill grid place-items-center text-ink-2 hover:bg-plane-2 hover:text-ink-1 cursor-pointer transition-colors duration-hover ease-spring"
-          >
-            <XMarkIcon size={14} />
-          </button>
         </div>
         <div className="flex items-center gap-2 mt-1 min-w-0">
           <h2 className="text-lg-app font-medium tracking-[-0.3px] text-ink-1 truncate max-w-[280px] font-sans">
@@ -586,6 +535,7 @@ export default function Flyout({
           )}
         </div>
       </div>
+      )}
 
       {/* Conditional Sub-components Coordinator */}
       {linking ? (
@@ -755,6 +705,6 @@ export default function Flyout({
           <span className="text-small text-ink-3 mt-1">Select an asset or repository to inspect details.</span>
         </div>
       )}
-    </aside>
+    </div>
   );
 }
