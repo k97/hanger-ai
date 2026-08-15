@@ -366,7 +366,12 @@ pub fn dedupe_combined(inventory: &mut Inventory) {
 
 /// The link map's one data source. Computed in Rust end to end: the
 /// frontend renders what it is given (see linkmap.rs for why).
-#[tauri::command]
+///
+/// `(async)` because a plain command runs on the main thread and this one
+/// does filesystem work — per-root counts, engine-root read_dirs, a stat
+/// per link destination. Small today; the same shape froze the webview
+/// for 11 seconds in get_mcp_processes (93e2b90) once the payload grew.
+#[tauri::command(async)]
 fn link_graph(app: AppHandle, focus_asset_id: Option<i64>) -> Result<linkmap::LinkGraph, String> {
     linkmap::build_link_graph(&get_db_path(&app), focus_asset_id)
 }

@@ -243,6 +243,17 @@ and ac54d57 (swept a staged 70-file set; reset within the minute, recommitted
 clean as d6e5dd4). Only `git commit -- <paths>` is safe here, and a red gate
 is not trustworthy without checking mtimes of what it read.
 
+**F33 — `get_inventory` is a sync command that runs a full scan on the main
+thread.** `#[tauri::command] fn get_inventory` (lib.rs) calls `run_scan`,
+the same shape that froze the webview for a measured 11.2 seconds in
+`get_mcp_processes` until 93e2b90 made that command `(async)`. Every sync
+command runs on the main thread in Tauri 2; any that touch the filesystem
+inherit the hazard. `link_graph` had the shape and was fixed the same day;
+`get_inventory` predates every current session and is load-bearing at boot,
+so it is recorded rather than flipped in passing — flipping it changes
+which thread a boot-critical path runs on and deserves its own red/green.
+Lead credit: the MCP session, 2026-08-15.
+
 ## Mechanism / state vocabulary (recorded earlier, unchanged)
 
 **F27 — `Mechanism::Copy` is unreachable in production** and the watcher
