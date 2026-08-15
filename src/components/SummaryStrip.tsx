@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { ArrowPathIcon } from "./icons";
+import GelMeter from "./GelMeter";
 import type { StateCounts, StateFilter, LinkState } from "../utils/linkStateCounts";
 
 interface SummaryStripProps {
@@ -28,12 +29,11 @@ function timeAgo(from: Date, now: Date): string {
   return days === 1 ? "1 day ago" : `${days} days ago`;
 }
 
-/* The meter is a glassy retro-Aqua gel (Karthik's rulings, 2026-08-15).
-   The aqua gel is the PROGRESS fill — it paints the linked share, so the
-   bar fills aqua as assets get linked and an all-local store reads as
-   quiet neutral glass, never as achievement. Drifted and broken keep
-   their semantic colours under the same gloss; local is inert glass.
-   Tokens: --gel-aqua, --gel-gloss, --bar-track. */
+/* The meter is the design system's GelMeter. The aqua gel is the PROGRESS
+   fill — it paints the linked share, so the bar fills aqua as assets get
+   linked and an all-local store reads as quiet neutral glass, never as
+   achievement. Drifted and broken keep their semantic colours under the
+   same gloss; local is inert glass. */
 const SEGMENTS: Array<{ state: LinkState; aqua?: boolean; barClass: string; dotClass: string; label: (n: number) => string }> = [
   { state: "linked", aqua: true, barClass: "", dotClass: "", label: () => "linked" },
   { state: "drifted", barClass: "bg-state-warning", dotClass: "bg-state-warning", label: () => "drifted" },
@@ -94,28 +94,15 @@ export default function SummaryStrip({
       </div>
 
       {counts.total > 0 && (
-        <div
-          role="img"
-          aria-label={barLabel}
-          className="flex h-2.5 gap-[3px] p-px rounded-pill border border-line"
-          style={{ background: "var(--bar-track)" }}
-        >
-          {SEGMENTS.map(
-            ({ state, aqua, barClass }) =>
-              counts[state] > 0 && (
-                <span
-                  key={state}
-                  className={`block h-full rounded-pill ${barClass}`}
-                  style={{
-                    flex: counts[state],
-                    backgroundImage: aqua
-                      ? "var(--gel-gloss), var(--gel-aqua)"
-                      : "var(--gel-gloss)",
-                  }}
-                />
-              )
-          )}
-        </div>
+        <GelMeter
+          label={barLabel}
+          segments={SEGMENTS.map(({ state, aqua, barClass }) => ({
+            key: state,
+            value: counts[state],
+            barClass,
+            aqua,
+          }))}
+        />
       )}
 
       <div className="flex items-center gap-4 mt-2.5 flex-wrap">

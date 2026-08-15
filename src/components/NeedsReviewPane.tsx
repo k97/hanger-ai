@@ -1,4 +1,5 @@
 import { ArrowPathIcon, ArrowRightIcon, CheckIcon } from "./icons";
+import GelMeter from "./GelMeter";
 import { ScanStatusIndicator } from "./ScanStatusIndicator";
 import {
   matchesIssueFilter,
@@ -100,29 +101,25 @@ export default function NeedsReviewPane({
         </div>
 
         {counts.total > 0 && (
-          <div
-            role="img"
-            aria-label={`${counts.broken} broken, ${counts.drifted} drifted, ${counts.duplicate} duplicated, ${counts.parse} won't parse`}
-            className="flex h-2 gap-[3px]"
-          >
-            {LEGEND.map((entry) =>
-              counts[entry.of] > 0 ? (
-                <span
-                  key={entry.kind}
-                  style={{ flex: counts[entry.of] }}
-                  className={`block h-full rounded-pill ${
-                    entry.kind === "broken"
-                      ? "bg-state-danger"
-                      : entry.kind === "drifted"
-                      ? "bg-state-warning"
-                      : entry.kind === "duplicate"
-                      ? "bg-line-2"
-                      : "bg-line"
-                  }`}
-                />
-              ) : null
-            )}
-          </div>
+          /* The design system's meter. No aqua here on purpose: nothing in
+             this strip is a linked share, and every kind keeps the ground it
+             had — problems in state colours, the neutral kinds as glass in
+             two depths. */
+          <GelMeter
+            label={`${counts.broken} broken, ${counts.drifted} drifted, ${counts.duplicate} duplicated, ${counts.parse} won't parse`}
+            segments={LEGEND.map((entry) => ({
+              key: entry.kind,
+              value: counts[entry.of],
+              barClass:
+                entry.kind === "broken"
+                  ? "bg-state-danger"
+                  : entry.kind === "drifted"
+                  ? "bg-state-warning"
+                  : entry.kind === "duplicate"
+                  ? "bg-line-2"
+                  : "bg-line",
+            }))}
+          />
         )}
 
         <div className="flex items-center gap-4 mt-2.5 flex-wrap">

@@ -46,12 +46,15 @@ why: they are the prototype's 66% and 44% inks quantised, with `--ink-3`
 deliberately darkened to clear 4.5:1 on `--tint-plane`, the darkest tonal
 surface it sits on (`tokens.css:15-16`).
 
-### Saturated colour appears in exactly two places
+### Saturated colour appears in exactly three places
 
-System state, and the brand mark. `--brand` — `#00c3bf` light, `#2fd8d4` dark
-(`tokens.css:19`, dark block) — paints the hanger mark in the rail and
-nothing else; the token's own comment forbids it as a UI state. State colour
-(`tokens.css:21-24`):
+System state, the brand mark, and the meter's aqua gel. `--brand` —
+`#00c3bf` light, `#2fd8d4` dark (`tokens.css:19`, dark block) — paints the
+hanger mark in the rail and nothing else; the token's own comment forbids it
+as a UI state. `--gel-aqua` (`tokens.css:32`, `:163`) is a brand-family
+gradient that exists only inside `GelMeter`, and only as the linked share's
+progress fill — never an all-quiet or empty state (Karthik's ruling,
+2026-08-15). State colour (`tokens.css:21-24`):
 
 - `--state-success` `#0f7a52` light / `#4ec08c` dark (`tokens.css:19`, `:135`)
 - `--state-warning` `#8a5a00` light / `#d9a441` dark (`tokens.css:20`, `:136`)
@@ -354,6 +357,17 @@ map view's toolbar slot holds Rescan instead of the inspector toggle
 "Backend-owned asset total for the scope — never derived on the frontend"
 (`:6-7`), and Rescan lives here rather than in the toolbar because it is the
 control that changes the figure directly above it (`:14-16`).
+
+**`GelMeter`** (`GelMeter.tsx`) — the design system's one meter: a glassy
+retro-Aqua gel on a recessed track (`--gel-gloss`, `--gel-aqua`,
+`--bar-track`, `tokens.css:31-33`, `:162-164`). Segments are
+`{key, value, barClass?, aqua?}` — `value` is a backend-owned count that
+sets the segment's flex share, zero-count segments are omitted, and `aqua`
+may mark only the linked share. Both strips draw through it
+(`SummaryStrip.tsx`, `NeedsReviewPane.tsx`); a proportional bar styled by
+hand is a divergence, not a variant. The glass is painted with stacked
+gradients, not cast — the system's one elevation (`--overlay-shadow`)
+belongs to the map's overlays, not to bars.
 
 **`MechanismGlyph`** (`MechanismGlyph.tsx`) — the per-row attachment glyph:
 one of five backend words (`symlink | copy | drift | broken | none`), drawn
