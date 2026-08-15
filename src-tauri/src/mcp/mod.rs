@@ -6,5 +6,6 @@
 
 pub mod dialect;
 pub mod discover;
+pub mod observe;
 pub mod probe;
 pub mod registry;

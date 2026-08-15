@@ -28,6 +28,9 @@ hex = "0.4"
 ureq = { version = "2", features = ["json"] }
 notify = "6.0"
 blake3 = "1.5"
+# Process table only (src/mcp/observe.rs). default-features pulls in disk,
+# network, component and user probes this app never reads.
+sysinfo = { version = "0.39", default-features = false, features = ["system"] }
 similar = { version = "2.5", features = ["inline"] }
 tokio = { version = "1", features = ["full"] }
 tempfile = "3.10"
