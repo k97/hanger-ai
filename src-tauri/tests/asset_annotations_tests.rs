@@ -260,6 +260,34 @@ fn reach_follows_engine_root_links_from_the_filesystem() {
 }
 
 #[test]
+fn reach_lists_only_engines_with_a_directory_root() {
+    let f = fixture("hanger_test_ann_rootless");
+    // An engine known to the registry but with no global root at all, and
+    // one whose "root" is a config file: neither can hold a root link, so
+    // the reach question does not apply to them.
+    let t = now();
+    f.store.upsert_engine("cursor", "Cursor", "/nonexistent", t).unwrap();
+    let file_root = f.store_abs.join("claude.json");
+    fs::write(&file_root, "{}").unwrap();
+    let ai_id = f
+        .store
+        .upsert_engine("claude_ai", "Claude.ai", file_root.to_str().unwrap(), t)
+        .unwrap();
+    f.store
+        .upsert_root("engine_global", file_root.to_str().unwrap(), Some(ai_id), "Claude.ai", t)
+        .unwrap();
+
+    let all = asset_annotations(&f.db_path).unwrap();
+    let alpha = annotation_for(&all, "alpha.md");
+
+    let keys: Vec<&str> = alpha.reach.iter().map(|r| r.engine_key.as_str()).collect();
+    assert!(keys.contains(&"claude"), "directory-rooted engines stay: {keys:?}");
+    assert!(keys.contains(&"gemini"), "unlinked but directory-rooted engines stay: {keys:?}");
+    assert!(!keys.contains(&"cursor"), "no root, no reach question: {keys:?}");
+    assert!(!keys.contains(&"claude_ai"), "a file root cannot hold a root link: {keys:?}");
+}
+
+#[test]
 fn a_format_restricted_asset_reaches_only_its_own_engine() {
     let f = fixture("hanger_test_ann_format");
 
