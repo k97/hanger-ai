@@ -243,6 +243,52 @@ pub fn track_event(app: AppHandle, name: &str, params: serde_json::Value) {
     });
 }
 
+/// An engine key the webview could not map to a brand mark, shaped for the
+/// `engine_icon_unmapped` event. Keys are product identifiers the backend
+/// itself minted (`cursor`, `kiro`), never paths or user text; anything
+/// outside that shape is dropped here, before it can reach `track_event`.
+pub fn sanitise_engine_key(raw: &str) -> Option<String> {
+    let key = raw.trim().to_ascii_lowercase();
+    if key.is_empty() || key.chars().count() > 48 {
+        return None;
+    }
+    if !key
+        .chars()
+        .all(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '.' | '-'))
+    {
+        return None;
+    }
+    Some(key)
+}
+
+/// `{ engine_key, engine_name? }` — the name is a backend display_name or the
+/// raw identifier the UI held, trimmed and capped at 64 chars; a path is never
+/// a name and is dropped.
+pub fn unmapped_engine_payload(engine_key: &str, engine_name: Option<&str>) -> serde_json::Value {
+    let name: Option<String> = engine_name
+        .map(str::trim)
+        .filter(|n| !n.is_empty() && !n.contains('/') && !n.contains('\\'))
+        .map(|n| n.chars().take(64).collect());
+    match name {
+        Some(n) => serde_json::json!({ "engine_key": engine_key, "engine_name": n }),
+        None => serde_json::json!({ "engine_key": engine_key }),
+    }
+}
+
+/// The webview drew the generic mark for an engine it could not map. Consent,
+/// client id and the debug endpoint are all `track_event`'s concern.
+#[tauri::command]
+fn report_unmapped_engine(app: AppHandle, engine_key: String, engine_name: Option<String>) {
+    let Some(key) = sanitise_engine_key(&engine_key) else {
+        return;
+    };
+    track_event(
+        app,
+        "engine_icon_unmapped",
+        unmapped_engine_payload(&key, engine_name.as_deref()),
+    );
+}
+
 pub(crate) fn get_db_path(app: &AppHandle) -> std::path::PathBuf {
     app.path()
         .app_data_dir()
@@ -1287,7 +1333,8 @@ pub fn run() {
             remove_deployed_asset,
             get_scan_status,
             get_detected_engines,
-            copy_diagnostics
+            copy_diagnostics,
+            report_unmapped_engine
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
@@ -1515,5 +1562,56 @@ mod asset_body_tests {
             .map(|(path, _)| path)
             .collect();
         assert_eq!(readable, protected);
+    }
+}
+
+#[cfg(test)]
+mod unmapped_engine_tests {
+    use super::{sanitise_engine_key, unmapped_engine_payload};
+
+    #[test]
+    fn accepts_a_backend_shaped_key_and_lowercases_it() {
+        assert_eq!(sanitise_engine_key(" Kiro "), Some("kiro".to_string()));
+        assert_eq!(sanitise_engine_key("claude-code"), Some("claude-code".to_string()));
+        assert_eq!(sanitise_engine_key("claude_desktop"), Some("claude_desktop".to_string()));
+        assert_eq!(sanitise_engine_key("claude.ai"), Some("claude.ai".to_string()));
+        assert_eq!(sanitise_engine_key(&"k".repeat(48)), Some("k".repeat(48)));
+    }
+
+    #[test]
+    fn drops_anything_that_is_not_a_key() {
+        assert_eq!(sanitise_engine_key(""), None);
+        assert_eq!(sanitise_engine_key("   "), None);
+        assert_eq!(sanitise_engine_key("../etc/passwd"), None);
+        assert_eq!(sanitise_engine_key("/Users/k/.claude"), None);
+        assert_eq!(sanitise_engine_key("Claude Code"), None);
+        assert_eq!(sanitise_engine_key(&"k".repeat(49)), None);
+    }
+
+    #[test]
+    fn payload_carries_the_key_and_an_optional_trimmed_truncated_name() {
+        assert_eq!(
+            unmapped_engine_payload("kiro", None),
+            serde_json::json!({ "engine_key": "kiro" })
+        );
+        assert_eq!(
+            unmapped_engine_payload("kiro", Some("   ")),
+            serde_json::json!({ "engine_key": "kiro" })
+        );
+        assert_eq!(
+            unmapped_engine_payload("kiro", Some(" Kiro IDE ")),
+            serde_json::json!({ "engine_key": "kiro", "engine_name": "Kiro IDE" })
+        );
+        let long = "n".repeat(100);
+        let p = unmapped_engine_payload("kiro", Some(&long));
+        assert_eq!(p["engine_name"].as_str().unwrap().chars().count(), 64);
+    }
+
+    #[test]
+    fn payload_never_carries_a_path_as_a_name() {
+        let p = unmapped_engine_payload("kiro", Some("/Users/k/.kiro"));
+        assert_eq!(p, serde_json::json!({ "engine_key": "kiro" }));
+        let p = unmapped_engine_payload("kiro", Some("C:\\Users\\k"));
+        assert_eq!(p, serde_json::json!({ "engine_key": "kiro" }));
     }
 }
