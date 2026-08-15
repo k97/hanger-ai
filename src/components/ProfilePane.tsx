@@ -11,7 +11,7 @@ import { registrationKey } from "../utils/mcpRegistration";
 import { sumGlobalAssets } from "../utils/globalAssetCount";
 import SummaryStrip from "./SummaryStrip";
 import { ScanStatusIndicator } from "./ScanStatusIndicator";
-import { linkStateCounts, matchesStateFilter, StateFilter } from "../utils/linkStateCounts";
+import { annotationStateCounts, linkStateCounts, matchesStateFilter, StateFilter } from "../utils/linkStateCounts";
 
 interface ProfilePaneProps {
   inventory: Inventory | null;
@@ -139,8 +139,12 @@ export default function ProfilePane({
     (sa) => nameMatches(sa.name) && matchesStateFilter(sa, stateFilter)
   );
 
-  // Strip data: backend-owned total, frontend-derived state split.
-  const stripCounts = linkStateCounts(inventory, { kind: "global" });
+  // Strip data: backend-owned total; the state split prefers the backend's
+  // annotations (which see directory-level links) and falls back to the
+  // inventory classification while they load.
+  const stripCounts = annotations
+    ? annotationStateCounts(annotations)
+    : linkStateCounts(inventory, { kind: "global" });
   const engineCount = Object.keys(assetCounts?.engines ?? {}).filter((k) => k !== "none").length;
   const stripSubtitle = `assets in the global store · ${engineCount} ${
     engineCount === 1 ? "engine" : "engines"

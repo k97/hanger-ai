@@ -60,6 +60,26 @@ export function matchesStateFilter(asset: ReviewableAsset, filter: StateFilter):
 
 export type CountScope = { kind: "global" } | { kind: "repo"; root: string };
 
+/** State split from backend annotations, for panes that receive them: the
+ *  same category of derivation as linkStateCounts — a frontend split over
+ *  backend-owned rows — but sourced from the backend's own mechanism words
+ *  instead of re-classifying inventory fields. Directory-level links (ruled
+ *  2026-08-15) only exist in the annotations, so this is what lets the strip
+ *  say "linked" for a store mounted wholesale into projects. */
+export function annotationStateCounts(
+  annotations: Array<{ mechanism: string }>
+): StateCounts {
+  const counts: StateCounts = { linked: 0, drifted: 0, broken: 0, local: 0, total: 0 };
+  for (const a of annotations) {
+    if (a.mechanism === "broken") counts.broken += 1;
+    else if (a.mechanism === "drift") counts.drifted += 1;
+    else if (a.mechanism === "symlink" || a.mechanism === "copy") counts.linked += 1;
+    else counts.local += 1;
+    counts.total += 1;
+  }
+  return counts;
+}
+
 export interface StateCounts {
   linked: number;
   drifted: number;

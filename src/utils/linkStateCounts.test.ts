@@ -101,3 +101,18 @@ describe("linkStateCounts", () => {
     expect(linkStateCounts(null, { kind: "global" }).total).toBe(0);
   });
 });
+
+describe("annotationStateCounts", () => {
+  it("splits by the backend's mechanism words, symlink and copy both counting as linked", async () => {
+    const { annotationStateCounts } = await import("./linkStateCounts");
+    const counts = annotationStateCounts([
+      { mechanism: "symlink" },
+      { mechanism: "copy" },
+      { mechanism: "drift" },
+      { mechanism: "broken" },
+      { mechanism: "none" },
+      { mechanism: "none" },
+    ]);
+    expect(counts).toEqual({ linked: 2, drifted: 1, broken: 1, local: 2, total: 6 });
+  });
+});
