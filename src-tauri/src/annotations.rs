@@ -121,6 +121,22 @@ pub fn asset_annotations(db_path: &Path) -> Result<Vec<AssetAnnotation>, String>
         rows
     };
 
+    // The reach question only applies to engines whose global root is a
+    // directory: a registry entry with no root, or a config-file root like
+    // ~/.claude.json, cannot hold a root link (the same boundary the link
+    // map draws when it skips file roots). Everyone else is noise in the
+    // tiles, not an unlinked engine.
+    let engines: Vec<EngineRow> = engines
+        .into_iter()
+        .filter(|e| {
+            roots.iter().any(|r| {
+                r.kind == "engine_global"
+                    && r.engine_id == Some(e.id)
+                    && Path::new(&r.path).is_dir()
+            })
+        })
+        .collect();
+
     let store_roots: Vec<&RootRow> = roots
         .iter()
         .filter(|r| r.kind == "engine_global" && r.engine_id.is_none())
