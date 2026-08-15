@@ -34,7 +34,11 @@ describe("McpServerDetail", () => {
     // Two Claude Code registrations is a real condition, not duplication to
     // collapse -- it is what the config_path dedup bug was hiding.
     expect(screen.getAllByText("Claude Code")).toHaveLength(2);
-    expect(screen.getByText("Claude Desktop")).toBeTruthy();
+    const desktopHost = screen.getByText("Claude Desktop");
+    expect(desktopHost).toBeTruthy();
+    // Paired with the host label above: its mark must resolve to Claude
+    // Desktop specifically, not the generic mark or a different host.
+    expect(desktopHost.parentElement?.querySelector("svg")?.getAttribute("data-brand")).toBe("claude_desktop");
     expect(screen.getByText("~/.claude/mcp.json")).toBeTruthy();
     expect(screen.getByText("3 registrations")).toBeTruthy();
   });

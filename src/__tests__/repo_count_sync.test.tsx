@@ -139,6 +139,11 @@ describe("Per-repository count synchronization", () => {
     expect(screen.getByText("Cursor 17")).toBeTruthy();
     expect(screen.getByText("Any agent 44")).toBeTruthy();
 
+    // Paired with the label above: the mark beside "Claude Code 200" must
+    // resolve to that engine specifically, not just be present.
+    const claudeEntry = screen.getByText("Claude Code 200");
+    expect(claudeEntry.parentElement?.querySelector("svg")?.getAttribute("data-brand")).toBe("claude_code");
+
     const headings = Array.from(container.querySelectorAll("h3")).map((h) => h.textContent?.trim());
     const enginesIndex = headings.findIndex((h) => h === "Engines");
     const skillsIndex = headings.findIndex((h) => h?.startsWith("Skills"));

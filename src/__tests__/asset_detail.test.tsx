@@ -217,4 +217,17 @@ describe("Asset detail — the inspector's document screen", () => {
     // With no document there is nothing to switch between.
     expect(screen.queryByText("Preview")).toBeNull();
   });
+
+  it("the Engine row's mark matches the asset's own scope agent, not a generic glyph", () => {
+    // The fixture `asset` above has no scope, so its Engine row reads "Any
+    // agent" and draws no mark at all — not a useful case for this check.
+    // This scoped variant pins the row to a real, unambiguous agent.
+    const scopedAsset = { ...asset, scope: { Global: { agent: "claude" } } };
+    render(<AssetDetail asset={scopedAsset} inventory={inventory} />);
+
+    const engineDt = screen.getByText("Engine");
+    const engineDd = engineDt.nextElementSibling as HTMLElement;
+    expect(engineDd.textContent).toBe("Claude Code");
+    expect(engineDd.querySelector("svg")?.getAttribute("data-brand")).toBe("claude_code");
+  });
 });

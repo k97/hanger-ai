@@ -58,6 +58,23 @@ describe("AssetRow Shell Spec Compliance", () => {
     expect(screen.getByText("Foreign")).not.toBeNull();
   });
 
+  it("draws the row's own engine mark in the Engine column, not a generic or missing one", () => {
+    const codexItem: AssetItem = {
+      name: "codex-tool",
+      category: "Tools",
+      path: "/path/to/codex-tool",
+      engine: "codex",
+    };
+    render(<AssetRow item={codexItem} />);
+
+    // Paired with the existing text check: the Engine column already reads
+    // the raw key (formatEngineLabel does not rename it), and the mark next
+    // to it must resolve to that same engine, not the generic fallback.
+    const engineText = screen.getByText("codex");
+    const mark = engineText.parentElement?.querySelector("svg");
+    expect(mark?.getAttribute("data-brand")).toBe("codex");
+  });
+
   it("renders failed asset with name in text-ink-3, state 'Won't parse', and no raw parse_error in text", () => {
     const failedItem: AssetItem = {
       name: "broken-skill",

@@ -151,4 +151,22 @@ describe("Detail Flyout Wiring Integration", () => {
     fireEvent.click(screen.getByRole("button", { name: "Back to Global Node Tool" }));
     expect(screen.getByRole("heading", { level: 2 }).textContent).toBe("Global Node Tool");
   });
+
+  it("draws the agent's own mark beside the bubble heading, not a generic one", () => {
+    render(
+      <Flyout
+        selectedBubble={{ type: "agent", id: "claude_code", name: "Claude Code" }}
+        inventory={mockInventory}
+        linkedProjects={[]}
+        onRefresh={vi.fn()}
+      />
+    );
+
+    const heading = screen.getByRole("heading", { level: 2 });
+    expect(heading.textContent).toBe("Claude Code");
+    // Paired with the heading text: the mark riding beside it must resolve
+    // to this agent specifically.
+    const headingRow = heading.parentElement as HTMLElement;
+    expect(headingRow.querySelector("svg")?.getAttribute("data-brand")).toBe("claude_code");
+  });
 });

@@ -145,6 +145,12 @@ describe("LinkMapPane", () => {
     expect(card.textContent).toContain("/u/k/.claude");
     expect(card.textContent).toContain("Reaches the store through a root-level symlink");
     expect(card.textContent).toContain("10");
+
+    // Paired with the "Claude Code" check above: the node heading's mark
+    // must resolve to that engine specifically, not a generic glyph.
+    const heading = card.querySelector("h2");
+    expect(heading?.textContent).toBe("Claude Code");
+    expect(heading?.querySelector("svg")?.getAttribute("data-brand")).toBe("claude_code");
   });
 
   it("says when an engine root reaches nothing", () => {
