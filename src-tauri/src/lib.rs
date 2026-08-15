@@ -1,3 +1,4 @@
+pub mod annotations;
 pub mod dev_icon;
 pub mod diagnostics;
 pub mod domain;
@@ -338,6 +339,14 @@ pub fn dedupe_combined(inventory: &mut Inventory) {
 #[tauri::command]
 fn link_graph(app: AppHandle, focus_asset_id: Option<i64>) -> Result<linkmap::LinkGraph, String> {
     linkmap::build_link_graph(&get_db_path(&app), focus_asset_id)
+}
+
+/// Per-asset mechanism, engine reach and the beyond-the-store note — all
+/// derived at read time in Rust; the frontend renders what it is given
+/// (see annotations.rs for why).
+#[tauri::command]
+fn get_asset_annotations(app: AppHandle) -> Result<Vec<annotations::AssetAnnotation>, String> {
+    annotations::asset_annotations(&get_db_path(&app))
 }
 
 #[tauri::command]
@@ -1224,6 +1233,7 @@ pub fn run() {
             read_asset_body,
             get_tree_counts,
             link_graph,
+            get_asset_annotations,
             deploy_asset,
             check_deploy_target,
             execute_deploy,
