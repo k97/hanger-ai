@@ -1,0 +1,100 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  gates:
+    # macOS everywhere, deliberately, though tsc and vitest would run on Linux
+    # for a tenth of the cost. Hanger targets one platform until it is stable
+    # there; a split matrix optimises a bill that a single-platform product does
+    # not yet have, and adds a second environment for failures to hide in.
+    # Revisit when a second platform is actually supported — see README.
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # gitleaks scans history. The default shallow clone gives it one
+          # commit, so it would pass by having nothing to look at.
+          fetch-depth: 0
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Install frontend dependencies
+        run: bun install --frozen-lockfile
+
+      # Each gate runs even if an earlier one fails, so one push reports every
+      # problem instead of one per round trip.
+      - name: Typecheck
+        if: always()
+        run: bunx tsc --noEmit
+
+      - name: Frontend tests
+        if: always()
+        run: npx vitest run
+
+      - name: Rust tests
+        if: always()
+        working-directory: src-tauri
+        run: cargo test
+
+      # k97/hanger-ai is user-owned and open source, so gitleaks-action needs
+      # no GITLEAKS_LICENSE. That requirement applies to organisation-owned
+      # repositories, and would fail the job on the day this moves to an org.
+      - name: Secret scan (history)
+        if: always()
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # The compile-breaking class this workflow exists for: a module declared
+      # in source whose file was never tracked builds fine locally, because the
+      # file is sitting untracked on disk, and fails only on a clean checkout.
+      #
+      # Every `mod foo;` is checked, not just `pub mod` in lib.rs. The two
+      # declarations that form would miss are both real: lib.rs declares
+      # `mod transactional;` without `pub`, and mcp/mod.rs declares its
+      # submodules one level down.
+      - name: Every declared module is committed
+        if: always()
+        run: |
+          missing=0
+          # Process substitution feeds the loop, not a pipe: a pipe runs the
+          # loop body in a subshell, where `missing=1` is set and then lost,
+          # and the step passes having found the thing it was looking for.
+          while IFS= read -r decl; do
+            file="${decl%%:*}"
+            name="$(printf '%s' "${decl#*:}" | sed -E 's/^[[:space:]]*(pub(\([^)]*\))?[[:space:]]+)?mod[[:space:]]+([a-zA-Z0-9_]+);.*/\3/')"
+
+            # Rust module resolution: lib.rs, main.rs and mod.rs own their own
+            # directory; any other file owns a subdirectory named after itself.
+            dir="$(dirname "$file")"
+            base="$(basename "$file" .rs)"
+            case "$base" in
+              lib|main|mod) ;;
+              *) dir="$dir/$base" ;;
+            esac
+
+            # Tracked-ness, not existence on disk. `-f` would pass on the
+            # developer's machine in the one case that matters — the file
+            # sitting there untracked — and fail only after the push. Asking
+            # git makes this step mean the same thing run locally as in CI.
+            if ! git ls-files --error-unmatch "$dir/$name.rs" >/dev/null 2>&1 \
+               && ! git ls-files --error-unmatch "$dir/$name/mod.rs" >/dev/null 2>&1; then
+              echo "::error file=$file::module '$name' is declared here but $dir/$name.rs is not tracked by git"
+              missing=1
+            fi
+          done < <(git ls-files 'src-tauri/src/*.rs' \
+            | xargs grep -nE '^[[:space:]]*(pub(\([^)]*\))?[[:space:]]+)?mod[[:space:]]+[a-zA-Z0-9_]+;' \
+            | cut -d: -f1,3-)
+          exit $missing
