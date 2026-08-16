@@ -4,6 +4,8 @@ import { render, screen, cleanup, fireEvent } from "@testing-library/react";
 import LinkMapPane from "./LinkMapPane";
 import type { LinkGraph } from "../utils/linkMapLayout";
 
+vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn(async () => undefined) }));
+
 afterEach(cleanup);
 
 const graph = (overrides: Partial<LinkGraph> = {}): LinkGraph => ({
@@ -113,6 +115,10 @@ describe("LinkMapPane", () => {
     expect(card.textContent).toContain(".agents → Claude Code");
     expect(card.textContent).toContain("Resolves to its source");
     expect(card.textContent).toContain("Root-level symlinks");
+    // Edge card: ".agents → Claude Code" — only the engine end is a product.
+    const marks = Array.from(card.querySelectorAll("svg[data-brand]")).map((s) => s.getAttribute("data-brand"));
+    expect(marks).toEqual(["claude_code"]);
+    expect(card.textContent).toContain(".agents");
     expect(card.textContent).toContain("2");
   });
 
@@ -195,6 +201,29 @@ describe("LinkMapPane", () => {
     renderPane(graph({ edges: [], empty_state: "no_links_at_all" }));
     expect(screen.getByText(/Nothing is linked yet/i)).toBeTruthy();
     expect(screen.getAllByTestId(/^map-node-/)).toHaveLength(4);
+  });
+
+  it("draws an engine-root node's mark inside the node and shifts its label right", () => {
+    renderPane(graph());
+    const claude = screen.getByTestId("map-node-2");
+    const mark = claude.querySelector("svg[data-brand]");
+    expect(mark?.getAttribute("data-brand")).toBe("claude_code");
+    expect(mark?.querySelector("use")?.getAttribute("href")).toBe("#brand-claude_code");
+    const store = screen.getByTestId("map-node-1");
+    expect(store.querySelector("svg[data-brand]")).toBeNull();
+    // Each node is measured against its OWN rect: store and engine_root sit in
+    // different columns (KIND_ORDER in linkMapLayout.ts), so their x values are
+    // unrelated. The label moves right of the 12px mark; the path line does not.
+    const claudeX = Number(claude.querySelector("rect")!.getAttribute("x"));
+    const [claudeLabel, claudePath] = Array.from(claude.querySelectorAll("text"));
+    expect(Number(claudeLabel.getAttribute("x"))).toBe(claudeX + 29);
+    expect(Number(claudePath.getAttribute("x"))).toBe(claudeX + 13);
+    // The store keeps the original inset on both lines.
+    const storeX = Number(store.querySelector("rect")!.getAttribute("x"));
+    const [storeLabel] = Array.from(store.querySelectorAll("text"));
+    expect(Number(storeLabel.getAttribute("x"))).toBe(storeX + 13);
+    // The mark sits inside its node's box.
+    expect(Number(mark!.getAttribute("x"))).toBe(claudeX + 13);
   });
 
   it("says plainly when project links are unrecorded — but only while projects show", () => {

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import DisclosureBanner from "./DisclosureBanner";
 import LinkMapDetailCard from "./LinkMapDetailCard";
+import BrandIcon from "./BrandIcon";
 import {
   ArrowsPointingOutIcon,
   CheckIcon,
@@ -427,8 +428,14 @@ export default function LinkMapPane({
                       : "fill-page stroke-line-2"
                   }
                 />
+                {node.kind === "engine_root" && (
+                  // Engine-root labels are the engines table's display_name,
+                  // which the brand map resolves. A nested <svg> positions
+                  // itself with x/y inside the canvas; no foreignObject.
+                  <BrandIcon engineKey={node.label} x={node.x + 13} y={node.y + 12} size={12} />
+                )}
                 <text
-                  x={node.x + 13}
+                  x={node.x + (node.kind === "engine_root" ? 29 : 13)}
                   y={node.y + 21}
                   className="font-flex text-small fill-ink-1 select-none"
                 >

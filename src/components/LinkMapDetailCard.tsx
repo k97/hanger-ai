@@ -116,8 +116,24 @@ export default function LinkMapDetailCard({
             <span>{mechanismName}</span>
             <span className="ml-auto">{closeButton}</span>
           </div>
-          <h2 className="text-base-app font-medium tracking-[-0.2px] text-ink-1 mb-1.5">
-            {source?.label ?? "?"} → {dest?.label ?? "?"}
+          <h2 className="text-base-app font-medium tracking-[-0.2px] text-ink-1 mb-1.5 flex items-center gap-1.5 min-w-0">
+            {/* Only an engine root gets a mark — store and project labels are
+                directory names, not products. */}
+            {source?.kind === "engine_root" ? (
+              <EngineLabel engineKey={source.label} size={14}>
+                {source.label}
+              </EngineLabel>
+            ) : (
+              <span className="truncate">{source?.label ?? "?"}</span>
+            )}{" "}
+            <span aria-hidden="true">→</span>{" "}
+            {dest?.kind === "engine_root" ? (
+              <EngineLabel engineKey={dest.label} size={14}>
+                {dest.label}
+              </EngineLabel>
+            ) : (
+              <span className="truncate">{dest?.label ?? "?"}</span>
+            )}
           </h2>
           <div className="flex items-center gap-[7px]">
             <i className={`w-2 h-2 rounded-pill shrink-0 ${STATE_DOT[edge.state]}`} />
