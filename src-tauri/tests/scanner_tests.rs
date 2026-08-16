@@ -66,7 +66,9 @@ fn test_scanner_fixtures() {
     // - git-reader, file-writer (Codex)
     // - gemini-global-tool (Gemini)
     // Expected project tools:
-    // - project-local-tool (Gemini, footprint: .agents)
+    // - project-local-tool (no owner: .agents is the shared, vendor-neutral
+    //   convention directory — ownership is exclusive and belongs to no
+    //   single agent, see agents.rs)
     let global_tools: Vec<_> = inventory.tools.iter().filter(|t| matches!(t.scope, Scope::Global { .. })).collect();
     let project_tools: Vec<_> = inventory.tools.iter().filter(|t| matches!(t.scope, Scope::Project { .. })).collect();
 
@@ -82,6 +84,22 @@ fn test_scanner_fixtures() {
 
     let project_tool_names: Vec<String> = project_tools.iter().map(|t| t.name.clone()).collect();
     assert!(project_tool_names.contains(&"project-local-tool".to_string()));
+
+    // Pin the owner, not just the name: project-local-tool lives under
+    // .agents/, the shared vendor-neutral directory, so it must have no
+    // owning agent. This is the regression this task exists to prevent —
+    // .agents/ used to be filed under "Gemini / Antigravity" via
+    // AgentConfig::footprint_dir.
+    let project_local_tool = project_tools
+        .iter()
+        .find(|t| t.name == "project-local-tool")
+        .expect("project-local-tool must be present");
+    match &project_local_tool.scope {
+        Scope::Project { agent, .. } => {
+            assert_eq!(agent, "", "project-local-tool under .agents/ must have no owning agent, got {:?}", agent)
+        }
+        other => panic!("expected project-local-tool to have Scope::Project, got {:?}", other),
+    }
 
     // Verify decoys are ignored: cargo.toml ( Rust crate decoy) and package.json must not be present
     let tool_ids: Vec<String> = inventory.tools.iter().map(|t| t.id.clone()).collect();
