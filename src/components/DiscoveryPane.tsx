@@ -8,14 +8,22 @@ import {
   TIERS,
   type Directory,
 } from "../data/directories";
+import { DISCOVERY_ICONS } from "../data/discoveryIcons";
 import { matchesDirectory } from "../utils/directoryFacets";
+import FavouriteHeart from "./FavouriteHeart";
 
 interface DiscoveryPaneProps {
   /** The toolbar filter field, shared with the asset panes. */
   filterText?: string;
   /** The category facet, owned by DiscoverySidebar since the chips moved
-   *  into the second column (Karthik's ruling, 2026-08-15). */
+   *  into the second column (Karthik's ruling, 2026-08-15). "Favourites" is
+   *  one more facet value alongside the kinds — selecting it behaves like
+   *  any other row in the sidebar. */
   kind?: string;
+  /** Favourited marks, most-recently-favourited first — owned by App.tsx so
+   *  DiscoverySidebar's count and this pane's hearts never drift apart. */
+  favourites?: string[];
+  onToggleFavourite?: (mark: string) => void;
 }
 
 const btnClass =
@@ -28,17 +36,111 @@ function bare(url: string): string {
   return url.replace(/^https?:\/\//, "");
 }
 
+interface RowProps {
+  dir: Directory;
+  favourited: boolean;
+  onToggleFavourite: () => void;
+  onOpen: () => void;
+  onCopyFetch: (command: string) => void;
+}
+
+/** One catalogue entry. Shared between the tier-grouped browse view and the
+ *  flat, recency-ordered Favourites view so the two markups never drift. */
+function Row({ dir, favourited, onToggleFavourite, onOpen, onCopyFetch }: RowProps) {
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={onOpen}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onOpen();
+        }
+      }}
+      className="group w-full grid grid-cols-[26px_1fr_40px] gap-3 items-start px-3 py-[11px] rounded-inner text-left cursor-pointer transition-colors duration-hover ease-spring hover:bg-plane-2 active:bg-tint"
+    >
+      <span className="w-[26px] h-[26px] rounded-[6px] bg-page border border-line-2 grid place-items-center overflow-hidden">
+        {DISCOVERY_ICONS[dir.mark] ? (
+          <img
+            src={DISCOVERY_ICONS[dir.mark]}
+            alt=""
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <span className="font-flex text-micro font-medium text-ink-2">
+            {dir.mark}
+          </span>
+        )}
+      </span>
+
+      <span className="min-w-0">
+        <span className="flex items-baseline gap-[9px] flex-wrap mb-[3px]">
+          <span className="text-base-app font-medium text-ink-1">{dir.name}</span>
+          {/* Several directories are named after their domain.
+              Printing it twice is noise, so the url only shows
+              when it says something the name does not. */}
+          {bare(dir.url).toLowerCase() !== dir.name.toLowerCase() && (
+            <span className="font-mono text-micro text-ink-3">{bare(dir.url)}</span>
+          )}
+        </span>
+        <span className="block text-small text-ink-2 leading-[1.5] mb-[7px] max-w-[78ch]">
+          {dir.desc}
+        </span>
+        <span className="flex items-center gap-[7px] flex-wrap">
+          {dir.kinds.map((k) => (
+            <span
+              key={k}
+              className="font-flex text-micro px-2 py-0.5 rounded-pill bg-plane-2 text-ink-2 group-hover:bg-page transition-colors duration-hover"
+            >
+              {k}
+            </span>
+          ))}
+          <button
+            title="Copy this command"
+            onClick={(e) => {
+              e.stopPropagation();
+              onCopyFetch(dir.fetch);
+            }}
+            className="font-mono text-micro text-ink-3 px-[7px] py-[3px] rounded-[6px] inline-flex items-center gap-[5px] cursor-pointer transition-colors duration-hover ease-spring hover:bg-page hover:text-ink-2"
+          >
+            {dir.fetch}
+            <Square2StackIcon
+              size={11}
+              className="opacity-0 group-hover:opacity-50 transition-opacity duration-hover"
+            />
+          </button>
+        </span>
+      </span>
+
+      <span className="flex items-center justify-end gap-1.5 mt-[3px]">
+        <FavouriteHeart favourited={favourited} name={dir.name} onToggle={onToggleFavourite} />
+        <ArrowTopRightOnSquareIcon
+          size={14}
+          className="text-ink-3 opacity-0 group-hover:opacity-100 transition-opacity duration-hover"
+        />
+      </span>
+    </div>
+  );
+}
+
 /**
  * Discovery — where the ecosystem publishes agent assets.
  *
- * The row is the whole interaction: it navigates. The fetch command is the one
+ * The row is the whole interaction: it navigates. The fetch command is one
  * exception — it copies rather than navigating, because that string is what the
- * user actually needs in a terminal.
+ * user actually needs in a terminal. The favourite heart is the other exception:
+ * it toggles in place and never leaves the app.
  *
  * Hanger deliberately does not fetch from these directories. Leaving the app is
  * therefore a real decision, and gets a confirmation the user can switch off.
  */
-export default function DiscoveryPane({ filterText = "", kind = "All" }: DiscoveryPaneProps) {
+export default function DiscoveryPane({
+  filterText = "",
+  kind = "All",
+  favourites = [],
+  onToggleFavourite = () => {},
+}: DiscoveryPaneProps) {
   const [confirmBeforeOpening, setConfirmBeforeOpening] = useState(true);
   const [pending, setPending] = useState<Directory | null>(null);
   const [remember, setRemember] = useState(false);
@@ -58,7 +160,16 @@ export default function DiscoveryPane({ filterText = "", kind = "All" }: Discove
     return () => clearTimeout(timer);
   }, [toast]);
 
-  const shown = DIRECTORIES.filter((dir) => matchesDirectory(dir, kind, filterText));
+  const isFavouritesView = kind === "Favourites";
+
+  // Favourites keeps its own order (most-recently-favourited first) instead
+  // of the tier grouping the browse view uses — the point is finding what
+  // you starred, not re-browsing the catalogue (Karthik's ruling, 2026-08-16).
+  const shown = isFavouritesView
+    ? favourites
+        .map((mark) => DIRECTORIES.find((dir) => dir.mark === mark))
+        .filter((dir): dir is Directory => !!dir && matchesDirectory(dir, "All", filterText))
+    : DIRECTORIES.filter((dir) => matchesDirectory(dir, kind, filterText));
 
   const setConfirmPreference = (next: boolean) => {
     setConfirmBeforeOpening(next);
@@ -92,6 +203,12 @@ export default function DiscoveryPane({ filterText = "", kind = "All" }: Discove
     setToast("Command copied");
   };
 
+  const footCount = isFavouritesView
+    ? `${shown.length} favourite${shown.length === 1 ? "" : "s"}`
+    : shown.length === DIRECTORIES.length
+      ? `${DIRECTORIES.length} directories`
+      : `${shown.length} of ${DIRECTORIES.length} directories`;
+
   return (
     <div className="flex-1 flex flex-col h-full min-h-0 overflow-hidden bg-page font-sans relative">
       <header className="px-[18px] pt-5 pb-1 shrink-0">
@@ -112,8 +229,23 @@ export default function DiscoveryPane({ filterText = "", kind = "All" }: Discove
       <div className="flex-1 min-h-0 overflow-y-auto mx-[18px] mt-3.5 p-1.5 border border-line rounded-tl-plane rounded-tr-plane">
         {shown.length === 0 ? (
           <p className="py-9 px-3 text-center text-small text-ink-3">
-            No directory matches that filter.
+            {isFavouritesView
+              ? "No favourite matches that filter."
+              : "No directory matches that filter."}
           </p>
+        ) : isFavouritesView ? (
+          <section>
+            {shown.map((dir) => (
+              <Row
+                key={dir.mark}
+                dir={dir}
+                favourited
+                onToggleFavourite={() => onToggleFavourite(dir.mark)}
+                onOpen={() => requestOpen(dir)}
+                onCopyFetch={copyFetch}
+              />
+            ))}
+          </section>
         ) : (
           TIERS.map((tier) => {
             const rows = shown.filter((dir) => dir.tier === tier.tier);
@@ -129,67 +261,14 @@ export default function DiscoveryPane({ filterText = "", kind = "All" }: Discove
                 </div>
 
                 {rows.map((dir) => (
-                  <div
-                    key={dir.name}
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => requestOpen(dir)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === " ") {
-                        e.preventDefault();
-                        requestOpen(dir);
-                      }
-                    }}
-                    className="group w-full grid grid-cols-[26px_1fr_16px] gap-3 items-start px-3 py-[11px] rounded-inner text-left cursor-pointer transition-colors duration-hover ease-spring hover:bg-plane-2 active:bg-tint"
-                  >
-                    <span className="w-[26px] h-[26px] rounded-[6px] bg-page border border-line-2 grid place-items-center font-flex text-micro font-medium text-ink-2">
-                      {dir.mark}
-                    </span>
-
-                    <span className="min-w-0">
-                      <span className="flex items-baseline gap-[9px] flex-wrap mb-[3px]">
-                        <span className="text-base-app font-medium text-ink-1">{dir.name}</span>
-                        {/* Several directories are named after their domain.
-                            Printing it twice is noise, so the url only shows
-                            when it says something the name does not. */}
-                        {bare(dir.url).toLowerCase() !== dir.name.toLowerCase() && (
-                          <span className="font-mono text-micro text-ink-3">{bare(dir.url)}</span>
-                        )}
-                      </span>
-                      <span className="block text-small text-ink-2 leading-[1.5] mb-[7px] max-w-[78ch]">
-                        {dir.desc}
-                      </span>
-                      <span className="flex items-center gap-[7px] flex-wrap">
-                        {dir.kinds.map((k) => (
-                          <span
-                            key={k}
-                            className="font-flex text-micro px-2 py-0.5 rounded-pill bg-plane-2 text-ink-2 group-hover:bg-page transition-colors duration-hover"
-                          >
-                            {k}
-                          </span>
-                        ))}
-                        <button
-                          title="Copy this command"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            copyFetch(dir.fetch);
-                          }}
-                          className="font-mono text-micro text-ink-3 px-[7px] py-[3px] rounded-[6px] inline-flex items-center gap-[5px] cursor-pointer transition-colors duration-hover ease-spring hover:bg-page hover:text-ink-2"
-                        >
-                          {dir.fetch}
-                          <Square2StackIcon
-                            size={11}
-                            className="opacity-0 group-hover:opacity-50 transition-opacity duration-hover"
-                          />
-                        </button>
-                      </span>
-                    </span>
-
-                    <ArrowTopRightOnSquareIcon
-                      size={14}
-                      className="text-ink-3 opacity-0 group-hover:opacity-100 transition-opacity duration-hover mt-[3px]"
-                    />
-                  </div>
+                  <Row
+                    key={dir.mark}
+                    dir={dir}
+                    favourited={favourites.includes(dir.mark)}
+                    onToggleFavourite={() => onToggleFavourite(dir.mark)}
+                    onOpen={() => requestOpen(dir)}
+                    onCopyFetch={copyFetch}
+                  />
                 ))}
               </section>
             );
@@ -198,11 +277,7 @@ export default function DiscoveryPane({ filterText = "", kind = "All" }: Discove
       </div>
 
       <div className="h-8 shrink-0 flex items-center px-[18px] gap-3.5 font-flex text-micro text-ink-3">
-        <span>
-          {shown.length === DIRECTORIES.length
-            ? `${DIRECTORIES.length} directories`
-            : `${shown.length} of ${DIRECTORIES.length} directories`}
-        </span>
+        <span>{footCount}</span>
         <button
           onClick={() => setConfirmPreference(!confirmBeforeOpening)}
           className="ml-auto font-flex text-micro text-ink-3 px-2.5 py-1 rounded-pill inline-flex items-center gap-1.5 cursor-pointer transition-colors duration-hover ease-spring hover:bg-plane-2 hover:text-ink-1"

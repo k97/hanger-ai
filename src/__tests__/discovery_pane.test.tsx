@@ -165,4 +165,54 @@ describe("Discovery — the row is the interaction", () => {
     render(<DiscoveryPane filterText="" />);
     expect(await screen.findByText(/doesn't fetch from them/)).toBeTruthy();
   });
+
+  it("shows a heart on every row, filled only for favourited marks", async () => {
+    render(<DiscoveryPane filterText="" favourites={["sy"]} />);
+    await screen.findByText("Smithery");
+
+    expect(
+      screen.getByRole("button", { name: "Remove Smithery from favourites" }).getAttribute("aria-pressed")
+    ).toBe("true");
+    expect(
+      screen.getByRole("button", { name: "Add Glama to favourites" }).getAttribute("aria-pressed")
+    ).toBe("false");
+  });
+
+  it("toggling the heart reports the mark without navigating", async () => {
+    const onToggleFavourite = vi.fn();
+    render(<DiscoveryPane filterText="" onToggleFavourite={onToggleFavourite} />);
+    await screen.findByText("Smithery");
+
+    fireEvent.click(screen.getByRole("button", { name: "Add Smithery to favourites" }));
+
+    expect(onToggleFavourite).toHaveBeenCalledWith("sy");
+    expect(openUrl).not.toHaveBeenCalled();
+    expect(screen.queryByText(/in your browser\?/)).toBeNull();
+  });
+
+  it("the Favourites facet shows only favourited listings, newest first, without tier headings", async () => {
+    render(<DiscoveryPane filterText="" kind="Favourites" favourites={["gl", "sy"]} />);
+
+    const names = (
+      await screen.findAllByRole("button", { name: /^Remove .+ from favourites$/ })
+    ).map((el) => el.getAttribute("aria-label"));
+    expect(names).toEqual(["Remove Glama from favourites", "Remove Smithery from favourites"]);
+    expect(screen.queryByText("Standard")).toBeNull();
+    expect(screen.queryByText("Official")).toBeNull();
+    expect(screen.queryByText("Community")).toBeNull();
+  });
+
+  it("the Favourites facet still narrows by the filter text", async () => {
+    render(
+      <DiscoveryPane filterText="cursor" kind="Favourites" favourites={["sy", "cd"]} />
+    );
+
+    await screen.findByText("cursor.directory");
+    expect(screen.queryByText("Smithery")).toBeNull();
+  });
+
+  it("the footer counts favourites honestly, not against the whole catalogue", async () => {
+    render(<DiscoveryPane filterText="" kind="Favourites" favourites={["sy", "gl"]} />);
+    expect(await screen.findByText("2 favourites")).toBeTruthy();
+  });
 });
