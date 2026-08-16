@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { resolveBrand } from "../data/brands";
+import { BRANDS, resolveBrand } from "../data/brands";
 import { isAnyAgent } from "../utils/engineUtils";
 import { reportUnmappedEngine } from "../utils/reportUnmappedEngine";
 
@@ -34,6 +34,7 @@ export default function BrandIcon({ engineKey, engineName, size = 12, className,
 
   if (anyAgent) return null;
   const id = brand ?? "generic";
+  const hasDark = brand !== undefined && BRANDS[brand].darkSvg !== undefined;
   return (
     <svg
       width={size}
@@ -45,7 +46,11 @@ export default function BrandIcon({ engineKey, engineName, size = 12, className,
       data-brand={id}
       className={`shrink-0 ${className ?? ""}`}
     >
-      <use href={`#brand-${id}`} />
+      {/* A brand with a dark variant ships both marks and lets the theme class
+          choose (see index.css). Doing it in CSS rather than in state means the
+          swap rides the .dark toggle with no re-render and no flash. */}
+      <use href={`#brand-${id}`} className={hasDark ? "brand-light-only" : undefined} />
+      {hasDark && <use href={`#brand-${id}-dark`} className="brand-dark-only" />}
     </svg>
   );
 }

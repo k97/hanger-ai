@@ -1,9 +1,15 @@
 import { BRANDS, BRAND_IDS, GENERIC_MARK } from "../data/brands";
 import { toSymbol } from "../utils/svgSymbol";
 
-/** Every brand mark as a <symbol>, joined once at module load. */
+/** Every brand mark as a <symbol>, joined once at module load. A brand with a
+ *  dark variant contributes two: `#brand-<id>` and `#brand-<id>-dark`. */
 export const SPRITE: string = [
-  ...BRAND_IDS.map((id) => toSymbol(id, BRANDS[id].svg)),
+  ...BRAND_IDS.flatMap((id) => {
+    const mark = BRANDS[id];
+    const symbols = [toSymbol(id, mark.svg)];
+    if (mark.darkSvg) symbols.push(toSymbol(`${id}-dark`, mark.darkSvg));
+    return symbols;
+  }),
   toSymbol("generic", GENERIC_MARK.svg),
 ].join("");
 

@@ -50,6 +50,20 @@ describe("BRANDS", () => {
     expect(usesCurrentColor(GENERIC_MARK.svg)).toBe(true);
     expect((BRAND_IDS as readonly string[]).includes("generic")).toBe(false);
   });
+
+  it("gives Codex a dark-mode mark, because its colour file paints a white plate", () => {
+    expect(BRANDS.codex.darkSvg).toBeTypeOf("string");
+    expect(BRANDS.codex.darkSvg).toMatch(/^\s*<svg\b/);
+    // The dark mark is the vendor's own monochrome file: it follows --ink.
+    expect(BRANDS.codex.darkSvg).toContain("currentColor");
+    // The light mark keeps the plate; we do not edit vendor artwork.
+    expect(BRANDS.codex.svg).toContain('fill="#fff"');
+  });
+
+  it("gives no other brand a dark variant — none of them needs one", () => {
+    const withDark = BRAND_IDS.filter((id) => BRANDS[id].darkSvg !== undefined);
+    expect(withDark).toEqual(["codex"]);
+  });
 });
 
 describe("normaliseBrandKey", () => {

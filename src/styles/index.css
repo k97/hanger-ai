@@ -117,6 +117,15 @@
   --ease-spring: var(--spring);
 }
 
+/* Brand marks with a per-theme variant ship both and hide one. The app's theme
+   is a .dark class on <html> (App.tsx) and this project declares no
+   `@custom-variant dark`, so a `dark:` utility would silently do nothing —
+   these two rules are the mechanism. `display` on an SVG <use> is honoured;
+   `inline` is its initial value. */
+.brand-dark-only { display: none; }
+.dark .brand-light-only { display: none; }
+.dark .brand-dark-only { display: inline; }
+
 /* Motion beats as first-class utilities (Tailwind v4 durations are not
    themeable, so the three beats are declared directly). */
 @utility duration-hover {

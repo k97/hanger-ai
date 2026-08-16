@@ -8,6 +8,7 @@
  */
 import claudeCodeSvg from "@lobehub/icons-static-svg/icons/claudecode-color.svg?raw";
 import codexSvg from "@lobehub/icons-static-svg/icons/codex-color.svg?raw";
+import codexMonoSvg from "@lobehub/icons-static-svg/icons/codex.svg?raw";
 import geminiSvg from "@lobehub/icons-static-svg/icons/gemini-color.svg?raw";
 import claudeSvg from "@lobehub/icons-static-svg/icons/claude-color.svg?raw";
 import cursorSvg from "@lobehub/icons-static-svg/icons/cursor.svg?raw";
@@ -34,6 +35,10 @@ export type BrandId =
 export interface BrandMark {
   /** Raw file contents. */
   svg: string;
+  /** The mark to use on a dark page, when the light one does not survive it.
+   *  Only Codex needs this: its colour file paints a white plate that glares
+   *  on --page dark. Absent means the one mark serves both themes. */
+  darkSvg?: string;
   /** true = the vendor's currentColor form (follows --ink); false = fixed brand colour. */
   ink: boolean;
   source: "lobe" | "vendored";
@@ -41,7 +46,10 @@ export interface BrandMark {
 
 export const BRANDS: Record<BrandId, BrandMark> = {
   claude_code: { svg: claudeCodeSvg, ink: false, source: "lobe" },
-  codex: { svg: codexSvg, ink: false, source: "lobe" },
+  // The colour file paints a white 24x24 plate behind the blob. Invisible on
+  // --page light, a glaring square on --page dark, so the dark page gets the
+  // vendor's own monochrome mark (ruling 2026-08-16).
+  codex: { svg: codexSvg, darkSvg: codexMonoSvg, ink: false, source: "lobe" },
   // The sparkle, not the CLI tile: the tile is illegible at 12px and the
   // label already says "Gemini / Antigravity" (ruling 2026-08-15).
   gemini: { svg: geminiSvg, ink: false, source: "lobe" },

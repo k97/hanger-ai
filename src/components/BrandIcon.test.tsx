@@ -70,4 +70,22 @@ describe("BrandIcon", () => {
     expect(inner.getAttribute("y")).toBe("12");
     expect(inner.querySelector("use")?.getAttribute("href")).toBe("#brand-gemini");
   });
+
+  it("draws both marks for a brand with a dark variant, letting CSS choose", () => {
+    const { container } = render(<BrandIcon engineKey="codex" />);
+    const hrefs = Array.from(container.querySelectorAll("use")).map((u) => u.getAttribute("href"));
+    expect(hrefs).toEqual(["#brand-codex", "#brand-codex-dark"]);
+    const [light, dark] = Array.from(container.querySelectorAll("use"));
+    expect(light.getAttribute("class")).toContain("brand-light-only");
+    expect(dark.getAttribute("class")).toContain("brand-dark-only");
+    // Still one svg, still one data-brand — call sites and their tests are untouched.
+    expect(container.querySelectorAll("svg")).toHaveLength(1);
+    expect(container.querySelector("svg")?.getAttribute("data-brand")).toBe("codex");
+  });
+
+  it("draws a single use for a brand with no dark variant", () => {
+    const { container } = render(<BrandIcon engineKey="claude_code" />);
+    const hrefs = Array.from(container.querySelectorAll("use")).map((u) => u.getAttribute("href"));
+    expect(hrefs).toEqual(["#brand-claude_code"]);
+  });
 });
