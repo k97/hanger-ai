@@ -298,6 +298,9 @@ export default function App() {
   // detail surface (the map has no inspector column).
   const [linkGraph, setLinkGraph] = useState<LinkGraph | null>(null);
   const [linkMapShowProjects, setLinkMapShowProjects] = useState<boolean>(false);
+  // Signature of the link map's notice set as last read. Persisted so the
+  // unread dot does not return every time the view is revisited.
+  const [linkMapNoticesSeen, setLinkMapNoticesSeen] = useState<string | null>(null);
   const [sortField, setSortField] = useState<SortField>("name");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
 
@@ -531,6 +534,10 @@ export default function App() {
       const showProjectsPref = await invoke<string | null>("get_preference", { key: "linkmap_show_projects" });
       if (showProjectsPref === "true") {
         setLinkMapShowProjects(true);
+      }
+      const noticesSeenPref = await invoke<string | null>("get_preference", { key: "linkmap_notices_seen" });
+      if (noticesSeenPref) {
+        setLinkMapNoticesSeen(noticesSeenPref);
       }
       const widthPref = await invoke<string | null>("get_preference", { key: "sidebar_width" });
       if (widthPref) {
@@ -1205,6 +1212,14 @@ export default function App() {
                   }).catch(() => {});
                   return !v;
                 });
+              }}
+              noticesSeen={linkMapNoticesSeen}
+              onNoticesSeen={(signature) => {
+                setLinkMapNoticesSeen(signature);
+                invoke("set_preference", {
+                  key: "linkmap_notices_seen",
+                  value: signature,
+                }).catch(() => {});
               }}
               onOpenProject={(path) => {
                 handleSelectSidebarItem(path);

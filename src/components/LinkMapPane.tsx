@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import LinkMapDetailCard, { type MapNotice } from "./LinkMapDetailCard";
+import LinkMapPlacecard, { type MapNotice } from "./LinkMapPlacecard";
 import BrandIcon from "./BrandIcon";
 import {
   ArrowsPointingOutIcon,
@@ -47,6 +47,9 @@ interface LinkMapPaneProps {
   showProjects: boolean;
   onToggleProjects: () => void;
   onOpenProject: (path: string) => void;
+  /** Signature of the notice set last read, persisted by App. */
+  noticesSeen: string | null;
+  onNoticesSeen: (signature: string) => void;
 }
 
 function assertNever(value: never): never {
@@ -156,6 +159,8 @@ export default function LinkMapPane({
   showProjects,
   onToggleProjects,
   onOpenProject,
+  noticesSeen,
+  onNoticesSeen,
 }: LinkMapPaneProps) {
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const [viewport, setViewport] = useState<Size>({ width: 880, height: 520 });
@@ -322,6 +327,13 @@ export default function LinkMapPane({
   // A notices selection outlives its notices when a layer toggle removes the
   // last one, so what shows is derived, never assumed from the selection.
   const noticesShown = selection?.kind === "notices" && notices.length > 0;
+
+  // What "seen" means, macOS-badge style: this exact set of notices, by
+  // identity AND content. Reading them clears the dot; a rescan that turns
+  // up a warning nobody has read raises it again, because the signature
+  // changed. Persisted by App, so the dot does not return on every visit.
+  const noticeSignature = `${notices.map((n) => n.id).join("|")}#${graph.warnings.join("|")}`;
+  const noticesUnread = notices.length > 0 && noticeSignature !== noticesSeen;
 
   const selectedKey = selection?.kind === "edge" ? edgeKey(selection.edge) : null;
   const selectedNodeId = selection?.kind === "node" ? selection.node.id : null;
@@ -492,20 +504,36 @@ export default function LinkMapPane({
                 map has one detail surface, not one per kind of thing. */}
             {notices.length > 0 && (
               <button
-                aria-label={hasWarningNotice ? "Map warnings" : "Map notices"}
+                aria-label={`${hasWarningNotice ? "Map warnings" : "Map notices"}${
+                  noticesUnread ? ", unread" : ""
+                }`}
                 aria-pressed={noticesShown}
                 data-testid="map-notices"
-                onClick={() =>
-                  setSelection((s) => (s?.kind === "notices" ? null : { kind: "notices" }))
-                }
-                className={
+                onClick={() => {
+                  if (!noticesShown) onNoticesSeen(noticeSignature);
+                  setSelection((s) => (s?.kind === "notices" ? null : { kind: "notices" }));
+                }}
+                className={`relative ${
                   noticesShown ? zoomBtnActiveClass : hasWarningNotice ? alertBtnClass : zoomBtnClass
-                }
+                }`}
               >
                 {hasWarningNotice ? (
                   <ExclamationTriangleIcon size={14} aria-hidden="true" />
                 ) : (
                   <InformationCircleIcon size={14} aria-hidden="true" />
+                )}
+                {/* The unread dot, macOS notification style: red regardless
+                    of variant, ringed in the ground so it reads as sitting
+                    above the control. Same anatomy as the rail's count
+                    badge (IconRail.tsx), one size down and without a
+                    numeral — how many notices there are is not the point,
+                    that you have not read them is. */}
+                {noticesUnread && (
+                  <span
+                    data-testid="map-notices-dot"
+                    aria-hidden="true"
+                    className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-pill bg-state-danger ring-2 ring-page"
+                  />
                 )}
               </button>
             )}
@@ -570,7 +598,7 @@ export default function LinkMapPane({
               both the popover and the inspector column for this view, and it
               is where notices land too — one detail surface, three bodies. */}
           {selection && (selection.kind !== "notices" || noticesShown) && (
-            <LinkMapDetailCard
+            <LinkMapPlacecard
               selection={selection}
               nodes={graph.nodes}
               notices={notices}

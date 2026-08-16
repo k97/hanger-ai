@@ -362,13 +362,26 @@ control in the canvas's top-right corner (default off, persisted as
 columns (`layoutLinkGraph` `kinds` option). Node text truncates in the
 middle toward the tail (`middleTruncate`) so paths stay inside their boxes;
 the detail card carries the full path. Clicking a box or an edge label
-docks `LinkMapDetailCard` (below).
+docks `LinkMapPlacecard` (below).
 
 **The map states its own diagnostics in one place.** Directly under the
 layers control sits an alert control that appears only when the map has
 something to say — a warning triangle in `text-state-warning` when a
 recorded link could not be drawn, an info circle otherwise. It opens the
-same docked card, with the notices as its body. The map view carries **no
+same docked placecard, with the notices as its body.
+
+Unread notices carry a **macOS-style dot** at the control's corner:
+`w-2 h-2 rounded-pill bg-state-danger ring-2 ring-page`, the icon rail's
+count-badge anatomy (`IconRail.tsx:105`) one size down and without a
+numeral — how many notices there are is not the point, that you have not
+read them is. It is red in both variants, badge convention over severity
+semantics, so `--state-danger` here means unread rather than dangerous. The
+control's `aria-label` gains ", unread" so the dot is not colour-only.
+"Read" is the exact notice set — ids plus warning strings — recorded as a
+signature and persisted by App under `linkmap_notices_seen`, mirroring
+`linkmap_show_projects`. So opening the placecard clears the dot for good,
+revisiting the view does not raise it, and a rescan that turns up a warning
+nobody has read does. The map view carries **no
 `DisclosureBanner` strip**: it is the one view whose whole content is a
 canvas, and a permanently expanded notice above it costs the height the
 canvas exists for. Both the control and the card body render from a single
@@ -396,9 +409,13 @@ generic panel: `AssetDetail` for assets (`AssetDetail.tsx:26-31`: `asset`,
 (@b383a08).
 
 The link map is the exception: it has **no inspector column**. Selection
-docks **`LinkMapDetailCard`** inside the canvas instead
-(`LinkMapDetailCard.tsx`: `selection: LinkMapSelection`, `nodes`,
-`notices`, `onClose`, `onOpenProject`) — the Apple Maps pattern, keeping
+docks **`LinkMapPlacecard`** inside the canvas instead
+(`LinkMapPlacecard.tsx`: `selection: LinkMapSelection`, `nodes`,
+`notices`, `onClose`, `onOpenProject`). The name is Apple's own: the panel
+Maps opens beside its sidebar for a selected place is a **place card**
+(Apple Business Connect, "Configure a place card"; the Maps user guides use
+it throughout). It fits what this surface is — every node on the link map
+is a place on the machine. It keeps
 `ReviewInspector`'s anatomy at card scale: eyebrow, title, state dot and
 line, path chip with copy, facts grid. One dock, one shape (`cardClass`),
 three bodies: an edge, a node, or the map's own notices
@@ -684,7 +701,7 @@ returns `TccRelocation.test.tsx`, `DisclosureBanner.test.tsx`,
 `nested_repo_banner.test.tsx`. The rule is real and honoured, but by
 convention only. One view states an exception rather than a violation: the
 link map has no banner strip and puts the same notices behind an alert
-control in the canvas, docked in `LinkMapDetailCard` (see `LinkMapPane`
+control in the canvas, docked in `LinkMapPlacecard` (see `LinkMapPane`
 above). Nothing detects that either.
 
 **There is no panel-height rule to point at.** `McpServerDetail` carries a

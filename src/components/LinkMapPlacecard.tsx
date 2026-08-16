@@ -27,7 +27,7 @@ export interface MapNotice {
   detail: ReactNode;
 }
 
-interface LinkMapDetailCardProps {
+interface LinkMapPlacecardProps {
   selection: LinkMapSelection;
   nodes: GraphNode[];
   /** Read only by the notices body; the pane owns the list. */
@@ -105,13 +105,13 @@ function Facts({ rows }: { rows: Array<[string, React.ReactNode]> }) {
  * records who created a link or when, and inventing that was a defect in
  * the prototype this view replaced.
  */
-export default function LinkMapDetailCard({
+export default function LinkMapPlacecard({
   selection,
   nodes,
   notices,
   onClose,
   onOpenProject,
-}: LinkMapDetailCardProps) {
+}: LinkMapPlacecardProps) {
   const closeButton = (
     <button
       onClick={onClose}
@@ -128,7 +128,7 @@ export default function LinkMapDetailCard({
     const worst = notices.some((n) => n.variant === "warning") ? "warning" : "info";
 
     return (
-      <div data-testid="map-detail-card" className={cardClass}>
+      <div data-testid="map-placecard" className={cardClass}>
         <div className="px-4 pt-3.5 pb-3 border-b border-line shrink-0">
           <div className="flex items-center gap-2 font-flex text-micro tracking-[.06em] uppercase text-ink-3 mb-1.5">
             <span>Map</span>
@@ -190,7 +190,7 @@ export default function LinkMapDetailCard({
 
     return (
       <div
-        data-testid="map-detail-card"
+        data-testid="map-placecard"
         className={cardClass}
       >
         <div className="px-4 pt-3.5 pb-3 border-b border-line shrink-0">
@@ -272,7 +272,7 @@ export default function LinkMapDetailCard({
 
   return (
     <div
-      data-testid="map-detail-card"
+      data-testid="map-placecard"
       className={cardClass}
     >
       <div className="px-4 pt-3.5 pb-3 border-b border-line shrink-0">

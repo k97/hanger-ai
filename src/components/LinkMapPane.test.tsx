@@ -31,6 +31,7 @@ const graph = (overrides: Partial<LinkGraph> = {}): LinkGraph => ({
 interface Callbacks {
   onToggleProjects: ReturnType<typeof vi.fn>;
   onOpenProject: ReturnType<typeof vi.fn>;
+  onNoticesSeen: ReturnType<typeof vi.fn>;
 }
 
 /** Renders with a handle that re-renders the SAME tree, so state survives. */
@@ -42,6 +43,8 @@ const renderPaneRaw = (g: LinkGraph, showProjects: boolean) => {
       showProjects={sp}
       onToggleProjects={vi.fn()}
       onOpenProject={vi.fn()}
+      noticesSeen={null}
+      onNoticesSeen={vi.fn()}
     />
   );
   const view = render(pane(showProjects));
@@ -50,11 +53,12 @@ const renderPaneRaw = (g: LinkGraph, showProjects: boolean) => {
 
 const renderPane = (
   g: LinkGraph | null,
-  { showProjects = true }: { showProjects?: boolean } = {},
+  { showProjects = true, noticesSeen = null }: { showProjects?: boolean; noticesSeen?: string | null } = {},
 ): Callbacks => {
   const callbacks: Callbacks = {
     onToggleProjects: vi.fn(),
     onOpenProject: vi.fn(),
+    onNoticesSeen: vi.fn(),
   };
   render(
     <LinkMapPane
@@ -63,6 +67,8 @@ const renderPane = (
       showProjects={showProjects}
       onToggleProjects={callbacks.onToggleProjects}
       onOpenProject={callbacks.onOpenProject}
+      noticesSeen={noticesSeen}
+      onNoticesSeen={callbacks.onNoticesSeen}
     />,
   );
   return callbacks;
@@ -125,7 +131,7 @@ describe("LinkMapPane", () => {
   it("docks the detail card on edge click — the Maps pattern, no popover hop", () => {
     renderPane(graph());
     fireEvent.click(screen.getAllByTestId("map-edge-hit")[0]);
-    const card = screen.getByTestId("map-detail-card");
+    const card = screen.getByTestId("map-placecard");
     // A store→engine edge: what it is, its state, and what travels it.
     expect(card.textContent).toContain(".agents → Claude Code");
     expect(card.textContent).toContain("Resolves to its source");
@@ -140,7 +146,7 @@ describe("LinkMapPane", () => {
   it("labels a project edge's count by what travels it, and carries drift", () => {
     renderPane(graph());
     fireEvent.click(screen.getAllByTestId("map-edge-hit")[2]);
-    const card = screen.getByTestId("map-detail-card");
+    const card = screen.getByTestId("map-placecard");
     expect(card.textContent).toContain("Tracked copy");
     expect(card.textContent).toContain("no longer matches");
     expect(card.textContent).toContain("Assets travelling");
@@ -155,13 +161,13 @@ describe("LinkMapPane", () => {
     fireEvent.pointerDown(node, { button: 0, clientX: 100, clientY: 100 });
     fireEvent.pointerUp(node, { clientX: 100, clientY: 100 });
     fireEvent.click(node);
-    expect(screen.getByTestId("map-detail-card")).toBeTruthy();
+    expect(screen.getByTestId("map-placecard")).toBeTruthy();
   });
 
   it("shows a node's full untruncated path and its reach in the card", () => {
     renderPane(graph());
     fireEvent.click(screen.getByTestId("map-node-2"));
-    const card = screen.getByTestId("map-detail-card");
+    const card = screen.getByTestId("map-placecard");
     expect(card.textContent).toContain("Claude Code");
     expect(card.textContent).toContain("/u/k/.claude");
     expect(card.textContent).toContain("Reaches the store through a root-level symlink");
@@ -177,7 +183,7 @@ describe("LinkMapPane", () => {
   it("says when an engine root reaches nothing", () => {
     renderPane(graph());
     fireEvent.click(screen.getByTestId("map-node-3"));
-    expect(screen.getByTestId("map-detail-card").textContent).toContain(
+    expect(screen.getByTestId("map-placecard").textContent).toContain(
       "Nothing at this root points into the store",
     );
   });
@@ -193,13 +199,13 @@ describe("LinkMapPane", () => {
     renderPane(graph());
     fireEvent.click(screen.getByTestId("map-node-2"));
     fireEvent.click(screen.getByLabelText("Close details"));
-    expect(screen.queryByTestId("map-detail-card")).toBeNull();
+    expect(screen.queryByTestId("map-placecard")).toBeNull();
   });
 
   it("invents no provenance — nothing records who created a link or when", () => {
     renderPane(graph());
     fireEvent.click(screen.getAllByTestId("map-edge-hit")[0]);
-    const card = screen.getByTestId("map-detail-card");
+    const card = screen.getByTestId("map-placecard");
     for (const phantom of [/created/i, /last verified/i, /by whom/i]) {
       expect(phantom.test(card.textContent ?? "")).toBe(false);
     }
@@ -247,7 +253,7 @@ describe("LinkMapPane", () => {
 
     cleanup();
     renderPane(graph({ warnings: ["link 4 → /gone: destination missing"] }));
-    const alert = screen.getByLabelText("Map warnings");
+    const alert = screen.getByTestId("map-notices");
     expect(alert.getAttribute("class")).toContain("text-state-warning");
 
     // It sits directly below the layers button in the same corner stack.
@@ -259,16 +265,44 @@ describe("LinkMapPane", () => {
     ]);
 
     fireEvent.click(alert);
-    expect(screen.getByTestId("map-detail-card").textContent).toContain(
+    expect(screen.getByTestId("map-placecard").textContent).toContain(
       "link 4 → /gone: destination missing",
     );
+  });
+
+  it("carries an unread dot until the placecard has actually been opened", () => {
+    const warned = () => graph({ warnings: ["link 4 → /gone: destination missing"] });
+
+    const callbacks = renderPane(warned());
+    expect(screen.getByTestId("map-notices-dot")).toBeTruthy();
+    expect(screen.getByLabelText("Map warnings, unread")).toBeTruthy();
+
+    fireEvent.click(screen.getByTestId("map-notices"));
+    // Reading is what clears it, and the signature travels up to be stored.
+    expect(callbacks.onNoticesSeen).toHaveBeenCalledTimes(1);
+    const signature = callbacks.onNoticesSeen.mock.calls[0][0];
+    expect(signature).toContain("undrawable-links");
+    cleanup();
+
+    // Coming back with that signature already read: no dot.
+    renderPane(warned(), { noticesSeen: signature });
+    expect(screen.queryByTestId("map-notices-dot")).toBeNull();
+    expect(screen.getByLabelText("Map warnings")).toBeTruthy();
+    cleanup();
+
+    // A warning nobody has read is a different notice set, so it raises the
+    // dot again even though the notice's id has not changed.
+    renderPane(graph({ warnings: ["link 9 → /also-gone: destination missing"] }), {
+      noticesSeen: signature,
+    });
+    expect(screen.getByTestId("map-notices-dot")).toBeTruthy();
   });
 
   it("lands notices in the docked card, not a second popover of their own", () => {
     renderPane(graph({ warnings: ["link 4 → /gone: destination missing"] }));
     fireEvent.click(screen.getByTestId("map-notices"));
 
-    const card = screen.getByTestId("map-detail-card");
+    const card = screen.getByTestId("map-placecard");
     expect(card.textContent).toContain("Not everything could be drawn");
     expect(screen.queryByTestId("map-notices-panel")).toBeNull();
 
@@ -276,7 +310,7 @@ describe("LinkMapPane", () => {
     // gives way to a node — one detail surface, not two stacked.
     expect(screen.getByTestId("map-notices").getAttribute("aria-pressed")).toBe("true");
     fireEvent.click(screen.getByTestId("map-node-2"));
-    expect(screen.getByTestId("map-detail-card").textContent).toContain("Claude Code");
+    expect(screen.getByTestId("map-placecard").textContent).toContain("Claude Code");
     expect(screen.getByTestId("map-notices").getAttribute("aria-pressed")).toBe("false");
   });
 
@@ -288,10 +322,10 @@ describe("LinkMapPane", () => {
       true,
     );
     fireEvent.click(screen.getByTestId("map-notices"));
-    expect(screen.getByTestId("map-detail-card")).toBeTruthy();
+    expect(screen.getByTestId("map-placecard")).toBeTruthy();
 
     setShowProjects(false);
-    expect(screen.queryByTestId("map-detail-card")).toBeNull();
+    expect(screen.queryByTestId("map-placecard")).toBeNull();
     expect(screen.queryByTestId("map-notices")).toBeNull();
   });
 
