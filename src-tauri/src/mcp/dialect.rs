@@ -33,7 +33,7 @@ pub struct McpServer {
 
 /// Strip userinfo and query parameters from a URL so credentials never reach
 /// storage. Mirrors the pre-existing `scanner::sanitise_url` behaviour.
-fn sanitise_url(url_str: &str) -> String {
+pub(crate) fn sanitise_url(url_str: &str) -> String {
     if !url_str.contains("://") {
         return url_str.to_string();
     }
