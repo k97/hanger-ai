@@ -199,6 +199,55 @@ fn parse_json_map(body: &str, key: &str) -> Result<Vec<McpServer>, String> {
     Ok(collect_named_servers(root.get(key)))
 }
 
+/// OpenCode's `type: "local"` servers declare `command` as `["run", "me"]` —
+/// the executable and its arguments together in one array — where every other
+/// dialect `server_from_json` reads uses a string `command` plus a separate
+/// `args` array. Left alone, `entry.get("command")` finds an array where it
+/// expects a string, `.as_str()` returns `None`, and the server is emitted
+/// with an empty command: present in the inventory with nothing to run, and
+/// no error anywhere.
+///
+/// Rewritten here, before the entry reaches the shared parser, so
+/// `server_from_json` never has to know a second shape exists — it stays the
+/// one function `McpServers`, `VsCodeServers`, `ZedContextServers`,
+/// `ClaudeJson` and `AmpSettingsKey` also rely on, unwidened.
+fn normalise_opencode_command(entry: &serde_json::Value) -> serde_json::Value {
+    let Some(parts) = entry.get("command").and_then(|v| v.as_array()) else {
+        // Not array-shaped — a remote server's `url`-only entry, or already
+        // the string form. Nothing to normalise.
+        return entry.clone();
+    };
+    let mut strings = parts.iter().filter_map(|v| v.as_str());
+    let Some(command) = strings.next() else {
+        return entry.clone();
+    };
+    let args: Vec<serde_json::Value> =
+        strings.map(|s| serde_json::Value::String(s.to_string())).collect();
+
+    let mut normalised = entry.clone();
+    if let Some(obj) = normalised.as_object_mut() {
+        obj.insert("command".to_string(), serde_json::Value::String(command.to_string()));
+        obj.insert("args".to_string(), serde_json::Value::Array(args));
+    }
+    normalised
+}
+
+/// OpenCode's `mcp` key, with array-shaped `command` normalised first.
+fn parse_opencode_mcp(body: &str) -> Result<Vec<McpServer>, String> {
+    let root: serde_json::Value = serde_json::from_str(&strip_jsonc(body))
+        .map_err(|e| format!("Failed to parse JSON: {}", e))?;
+    let servers = root
+        .get("mcp")
+        .and_then(|v| v.as_object())
+        .map(|m| {
+            m.iter()
+                .map(|(name, entry)| server_from_json(name, &normalise_opencode_command(entry)))
+                .collect()
+        })
+        .unwrap_or_default();
+    Ok(servers)
+}
+
 fn parse_claude_json(body: &str, tier: ScopeTier) -> Result<Vec<McpServer>, String> {
     let root: serde_json::Value = serde_json::from_str(&strip_jsonc(body))
         .map_err(|e| format!("Failed to parse JSON: {}", e))?;
@@ -324,7 +373,7 @@ pub fn parse(body: &str, dialect: Dialect, tier: ScopeTier) -> Result<Vec<McpSer
         Dialect::CodexToml => parse_codex_toml(body),
         Dialect::ClaudeJson => parse_claude_json(body, tier),
         Dialect::ClaudeAiConnectors => parse_claude_ai_connectors(body),
-        Dialect::OpenCodeMcp => parse_json_map(body, "mcp"),
+        Dialect::OpenCodeMcp => parse_opencode_mcp(body),
         Dialect::AmpSettingsKey => parse_json_map(body, "amp.mcpServers"),
     }
 }

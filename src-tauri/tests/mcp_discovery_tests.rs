@@ -260,6 +260,61 @@ fn jsonc_stripping_leaves_a_double_slash_inside_a_string_intact() {
     assert_eq!(servers[0].transport, "https://example.test/mcp");
 }
 
+#[test]
+fn opencode_array_command_becomes_command_plus_args() {
+    // `server_from_json` only reads `command` as a string; left alone this
+    // silently drops both the executable and its arguments to empty, for a
+    // `type: "local"` server where the command IS the actionable content.
+    let json = r#"{
+      "mcp": {
+        "local-tool": { "type": "local", "command": ["run", "me", "now"] }
+      }
+    }"#;
+    let servers = dialect::parse(json, Dialect::OpenCodeMcp, ScopeTier::Global).expect("must parse");
+    assert_eq!(servers.len(), 1);
+    assert_eq!(servers[0].command, "run");
+    assert_eq!(servers[0].args, vec!["me", "now"]);
+}
+
+#[test]
+fn opencode_single_element_array_command_has_no_args() {
+    let json = r#"{
+      "mcp": {
+        "solo": { "type": "local", "command": ["serve"] }
+      }
+    }"#;
+    let servers = dialect::parse(json, Dialect::OpenCodeMcp, ScopeTier::Global).expect("must parse");
+    assert_eq!(servers[0].command, "serve");
+    assert!(servers[0].args.is_empty());
+}
+
+#[test]
+fn opencode_remote_type_is_unaffected_by_command_normalisation() {
+    let json = r#"{
+      "mcp": {
+        "remote-tool": { "type": "remote", "url": "https://example.test/mcp" }
+      }
+    }"#;
+    let servers = dialect::parse(json, Dialect::OpenCodeMcp, ScopeTier::Global).expect("must parse");
+    assert_eq!(servers[0].command, "");
+    assert_eq!(servers[0].transport, "https://example.test/mcp");
+}
+
+#[test]
+fn opencode_string_command_is_unaffected_by_array_normalisation() {
+    // The normalisation is additive: an entry that already matches the
+    // string-command shape every other dialect uses must pass through
+    // untouched, not get rewritten into something else.
+    let json = r#"{
+      "mcp": {
+        "classic": { "command": "notes-mcp" }
+      }
+    }"#;
+    let servers = dialect::parse(json, Dialect::OpenCodeMcp, ScopeTier::Global).expect("must parse");
+    assert_eq!(servers[0].command, "notes-mcp");
+    assert!(servers[0].args.is_empty());
+}
+
 // ─── Host kind is derived, never stored ──────────────────────────────────────
 
 #[test]
