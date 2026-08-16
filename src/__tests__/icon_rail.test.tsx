@@ -110,6 +110,45 @@ describe("Icon rail", () => {
     unmount();
   });
 
+  it("the hanger mark is the home button: any inner screen back to Global", async () => {
+    // Karthik's ruling, 2026-08-15: the mark and the crumb's "My machine"
+    // always land on My machine › Global.
+    mockPreferences.selected_sidebar_item = "discovery";
+    const { unmount } = render(<App />);
+    await screen.findByText("Where the ecosystem publishes agent assets");
+
+    fireEvent.click(screen.getByLabelText("Hanger"));
+
+    await waitFor(() => {
+      expect(invoke).toHaveBeenCalledWith("set_preference", {
+        key: "selected_sidebar_item",
+        value: "profile",
+      });
+    });
+    expect(await screen.findByTestId("sidebar")).toBeTruthy();
+    unmount();
+  });
+
+  it("the crumb's My machine is the same home button", async () => {
+    const { within } = await import("@testing-library/react");
+    mockPreferences.selected_sidebar_item = "review";
+    const { unmount } = render(<App />);
+    await screen.findByText(/needs? a decision from you/);
+
+    // Scoped to the content cap: the rail's machine button shares the name.
+    const cap = screen.getByRole("banner");
+    fireEvent.click(within(cap).getByRole("button", { name: "My machine" }));
+
+    await waitFor(() => {
+      expect(invoke).toHaveBeenCalledWith("set_preference", {
+        key: "selected_sidebar_item",
+        value: "profile",
+      });
+    });
+    expect(await screen.findByTestId("sidebar")).toBeTruthy();
+    unmount();
+  });
+
   it("shows the flagged-asset count badge only when something needs review", async () => {
     const { unmount } = render(<App />);
     const needsReview = await screen.findByLabelText(/Needs review/);

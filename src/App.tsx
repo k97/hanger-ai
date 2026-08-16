@@ -743,6 +743,14 @@ export default function App() {
     setSelectedSidebarItem(item);
   };
 
+  /** Home, by ruling (Karthik, 2026-08-15): the hanger mark, the rail's
+   *  machine button and the crumb's "My machine" all land on
+   *  My machine › Global, from any inner screen or repository. */
+  const goToGlobal = () => {
+    handleSelectSidebarItem("profile");
+    invoke("set_preference", { key: "selected_sidebar_item", value: "profile" }).catch(() => {});
+  };
+
   // The one place the resolved appearance reaches the DOM, whether it came from
   // an explicit pick or from the OS by way of Auto.
   useEffect(() => {
@@ -969,10 +977,7 @@ export default function App() {
               : "machine"
           }
           needsReviewCount={review.counts.total}
-          onSelectMachine={() => {
-            handleSelectSidebarItem("profile");
-            invoke("set_preference", { key: "selected_sidebar_item", value: "profile" }).catch(() => {});
-          }}
+          onSelectMachine={goToGlobal}
           onSelectLinkMap={() => {
             handleSelectSidebarItem("linkmap");
             invoke("set_preference", { key: "selected_sidebar_item", value: "linkmap" }).catch(() => {});
@@ -1058,7 +1063,18 @@ export default function App() {
                 </b>
               ) : (
                 <span key={segment} className="flex items-center gap-[7px]">
-                  <span>{segment}</span>
+                  {segment === "My machine" ? (
+                    /* relative: lifts the button above the cap's drag
+                       overlay; the rest of the crumb stays draggable. */
+                    <button
+                      onClick={goToGlobal}
+                      className="relative cursor-pointer hover:text-ink-1 transition-colors duration-hover ease-spring"
+                    >
+                      {segment}
+                    </button>
+                  ) : (
+                    <span>{segment}</span>
+                  )}
                   <span>›</span>
                 </span>
               )

@@ -39,7 +39,18 @@ export default function IconRail({
       data-testid="icon-rail"
       className="w-14 shrink-0 flex flex-col items-center pb-2.5 gap-[3px]"
     >
-      <HangerMark size={22} className="mt-0.5" />
+      {/* The mark is the home button (Karthik's ruling, 2026-08-15): from
+          any inner screen it lands on My machine › Global, same as the
+          machine button below it. Visually it stays the bare brand mark. */}
+      <Tooltip label="My machine › Global">
+        <button
+          aria-label="Hanger"
+          onClick={onSelectMachine}
+          className="mt-0.5 cursor-pointer transition-opacity duration-hover ease-spring hover:opacity-75"
+        >
+          <HangerMark size={22} />
+        </button>
+      </Tooltip>
 
       <div className="w-6 h-px bg-line-2 opacity-45 my-[9px]" />
 

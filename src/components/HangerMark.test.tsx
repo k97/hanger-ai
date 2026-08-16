@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
-import { describe, it, expect, afterEach } from "vitest";
-import { render, screen, cleanup } from "@testing-library/react";
+import { describe, it, expect, afterEach, vi } from "vitest";
+import { render, screen, cleanup, fireEvent } from "@testing-library/react";
 import HangerMark from "./HangerMark";
 import IconRail from "./IconRail";
 
@@ -83,11 +83,26 @@ describe("the rail's brand mark", () => {
     expect(mark.compareDocumentPosition(machine) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
-  it("adds no new interactive target to the rail", () => {
-    rail();
-    // 5 = the four sections plus settings. The mark itself contributes none
-    // of these; this pin moved 4 → 5 when the Link map entry landed, not
-    // because the mark grew behaviour.
-    expect(screen.getAllByRole("button")).toHaveLength(5);
+  it("is the home button, and the only target the mark adds", () => {
+    // Reversed by ruling (Karthik, 2026-08-15): the mark went from inert to
+    // home — it fires the same handler as the machine button, so the two can
+    // never disagree about where home is. 6 = that, the four sections, and
+    // settings; the pin should move again only for a new section.
+    const onSelectMachine = vi.fn();
+    render(
+      <IconRail
+        active="discovery"
+        needsReviewCount={0}
+        onSelectMachine={onSelectMachine}
+        onSelectLinkMap={() => {}}
+        onSelectDiscovery={() => {}}
+        onSelectReview={() => {}}
+        onOpenSettings={() => {}}
+      />
+    );
+    expect(screen.getAllByRole("button")).toHaveLength(6);
+
+    fireEvent.click(screen.getByLabelText("Hanger"));
+    expect(onSelectMachine).toHaveBeenCalledTimes(1);
   });
 });
