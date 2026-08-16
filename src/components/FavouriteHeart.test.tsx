@@ -9,13 +9,13 @@ describe("FavouriteHeart", () => {
   it("is labelled to add when not favourited", () => {
     render(<FavouriteHeart favourited={false} name="Smithery" onToggle={() => {}} />);
     const button = screen.getByRole("button", { name: "Add Smithery to favourites" });
-    expect(button).toHaveAttribute("aria-pressed", "false");
+    expect(button.getAttribute("aria-pressed")).toBe("false");
   });
 
   it("is labelled to remove when favourited", () => {
     render(<FavouriteHeart favourited={true} name="Smithery" onToggle={() => {}} />);
     const button = screen.getByRole("button", { name: "Remove Smithery from favourites" });
-    expect(button).toHaveAttribute("aria-pressed", "true");
+    expect(button.getAttribute("aria-pressed")).toBe("true");
   });
 
   it("reports the toggle without letting the click reach a parent row", () => {
