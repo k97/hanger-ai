@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 
 const PREFERENCE_KEY = "discovery_favourites";
@@ -22,11 +22,17 @@ function parseFavourites(raw: string | null): string[] {
 
 export function useFavourites(): FavouritesState {
   const [favourites, setFavourites] = useState<string[]>([]);
+  const loadedRef = useRef(false);
 
   useEffect(() => {
     invoke<string | null>("get_preference", { key: PREFERENCE_KEY })
-      .then((value) => setFavourites(parseFavourites(value)))
-      .catch(() => {});
+      .then((value) => {
+        setFavourites(parseFavourites(value));
+        loadedRef.current = true;
+      })
+      .catch(() => {
+        loadedRef.current = true;
+      });
   }, []);
 
   const persist = (next: string[]) => {
@@ -35,6 +41,7 @@ export function useFavourites(): FavouritesState {
   };
 
   const toggleFavourite = (mark: string) => {
+    if (!loadedRef.current) return;
     persist(
       favourites.includes(mark) ? favourites.filter((m) => m !== mark) : [mark, ...favourites]
     );

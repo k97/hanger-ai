@@ -76,4 +76,20 @@ describe("useFavourites", () => {
     const { result } = renderHook(() => useFavourites());
     await waitFor(() => expect(result.current.favourites).toEqual([]));
   });
+
+  it("ignores toggleFavourite before initial load completes to prevent data loss", async () => {
+    vi.mocked(invoke).mockImplementation(
+      (cmd: string) =>
+        new Promise(() => {
+          /* never resolves */
+        })
+    );
+
+    const { result } = renderHook(() => useFavourites());
+
+    act(() => result.current.toggleFavourite("sy"));
+
+    expect(result.current.favourites).toEqual([]);
+    expect(vi.mocked(invoke)).not.toHaveBeenCalledWith("set_preference", expect.anything());
+  });
 });
