@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "memory": { "command": "npx", "args": ["-y", "@modelcontextprotocol/server-memory"] },
+    "protected": {
+      "command": "npx",
+      "args": ["mcp-remote", "https://example.com/sse", "--header", "Authorization: Bearer REDACT_ME_1"]
+    }
+  }
+}

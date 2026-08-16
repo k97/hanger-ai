@@ -907,3 +907,56 @@ fn a_format_we_choose_not_to_parse_reports_itself_rather_than_reading_as_empty()
     assert_eq!(result.problems.len(), 1);
     assert!(matches!(result.problems[0].kind, ConfigProblemKind::FormatUnread));
 }
+
+// ─── Fixture machines ────────────────────────────────────────────────────────
+//
+// Spec §4.7: proven against machines that are not this one. Assertions here
+// are relationships the fixtures make true, not counts that happen to be true
+// today — the registry gained seven hosts while this plan ran and will gain
+// more.
+
+#[test]
+fn each_fixture_machine_reports_what_it_declares() {
+    let base = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures");
+
+    let claude_only = discover::discover_machine(&base.join("claude_only_home"));
+    assert!(claude_only.problems.is_empty(), "{:?}", claude_only.problems);
+    let names: Vec<&str> = claude_only.registrations.iter().map(|r| r.server.name.as_str()).collect();
+    assert!(names.contains(&"memory") && names.contains(&"protected"), "{:?}", names);
+
+    let jsonc = discover::discover_machine(&base.join("jsonc_home"));
+    assert!(jsonc.problems.is_empty(), "JSONC must parse cleanly: {:?}", jsonc.problems);
+
+    // Zed's nested command survived normalisation into a runnable launch.
+    let spades = jsonc.registrations.iter().find(|r| r.server.name == "spades")
+        .expect("Zed's server must be discovered");
+    assert_eq!(spades.server.command, "node");
+    assert_eq!(spades.server.env_keys, vec!["SPADES_TOKEN".to_string()]);
+
+    // The bridged Zed entry and the direct VS Code entry are the same endpoint.
+    // This is the cross-engine reading the whole feature exists for: without the
+    // mcp-remote unwrap they are two unrelated servers.
+    let linear: Vec<&str> = jsonc.registrations.iter()
+        .filter(|r| r.server.name == "linear")
+        .map(|r| r.server.transport.as_str()).collect();
+    assert_eq!(linear.len(), 2, "both hosts must declare it: {:?}", linear);
+    assert_eq!(linear[0], linear[1], "bridged and direct must agree: {:?}", linear);
+    assert!(linear[0].starts_with("https://"), "{:?}", linear);
+
+    let empty = discover::discover_machine(&base.join("empty_home"));
+    assert!(empty.registrations.is_empty());
+    assert!(empty.problems.is_empty(), "an empty machine is not a broken one: {:?}", empty.problems);
+}
+
+#[test]
+fn no_fixture_credential_survives_into_a_displayable_launch() {
+    let base = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures");
+    for machine in ["claude_only_home", "jsonc_home", "empty_home"] {
+        for reg in discover::discover_machine(&base.join(machine)).registrations {
+            let shown = tauri_app_lib::mcp::redact::redact_launch(&reg.server.command, &reg.server.args);
+            for secret in ["REDACT_ME_1", "REDACT_ME_2", "REDACT_ME_3"] {
+                assert!(!shown.contains(secret), "{} leaked in {}: {}", secret, machine, shown);
+            }
+        }
+    }
+}

@@ -1,0 +1,6 @@
+{
+  "servers": {
+    /* VS Code permits comments here too. */
+    "linear": { "url": "https://mcp.linear.app/sse" },
+  }
+}
