@@ -268,6 +268,8 @@ pub fn get_engine_key(id_str: &str) -> Option<&'static str> {
         "opencode" => Some("opencode"),
         "amp" => Some("amp"),
         "zed" => Some("zed"),
+        "roocode" => Some("roocode"),
+        "kilocode" => Some("kilocode"),
         _ => None,
     }
 }

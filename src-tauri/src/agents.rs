@@ -121,6 +121,31 @@ pub const AGENT_CONFIGS: &[AgentConfig] = &[
         subagents: None,
         reads_agents_dir: true,
     },
+    AgentConfig {
+        id: "roocode",
+        // Upstream archived 2026-05-15; built for the assets already on disk,
+        // not for growth. Roo Code passed 3M installs, and archiving a
+        // repository does not delete anything from a user's machine.
+        name: "Roo Code",
+        global_roots: &[".roo"],
+        project_roots: &[".roo"],
+        skills: Some("skills"),
+        rules: Some("rules"),
+        subagents: None,
+        reads_agents_dir: true,
+    },
+    AgentConfig {
+        id: "kilocode",
+        // The live successor. It does NOT read `.roo` — it rebuilt its config
+        // on an OpenCode base, so it needs its own row.
+        name: "Kilo Code",
+        global_roots: &[".kilocode"],
+        project_roots: &[".kilocode"],
+        skills: None,
+        rules: Some("rules"),
+        subagents: None,
+        reads_agents_dir: false,
+    },
 ];
 
 /// Split a path into its string components, skipping the root and any

@@ -389,3 +389,30 @@ fn kiro_subagent_ownership_requires_the_agents_dir_directly_under_the_root() {
         "an agents/ directory nested a level deeper under .kiro must not resolve"
     );
 }
+
+#[test]
+fn roo_and_kilo_do_not_share_directories() {
+    // Kilo Code forked Roo Code but rebuilt its config. An implementation that
+    // assumed the fork inherited the parent's paths would find nothing and
+    // report zero (spec §9.2).
+    let roo = engine_for_path(Path::new("/Users/test/.roo/rules/demo.md"))
+        .expect("Roo must claim .roo");
+    assert_eq!(roo.id, "roocode");
+
+    let kilo = engine_for_path(Path::new("/repo/proj/.kilocode/rules/demo.md"))
+        .expect("Kilo must claim .kilocode");
+    assert_eq!(kilo.id, "kilocode");
+
+    assert!(
+        engine_for_path(Path::new("/Users/test/.roo/rules/demo.md")).map(|c| c.id) != Some("kilocode"),
+        "Kilo must not claim Roo's directory"
+    );
+}
+
+#[test]
+fn roo_reaches_the_shared_dir_and_kilo_does_not() {
+    let roo = tauri_app_lib::agents::config_for_id("roocode").unwrap();
+    let kilo = tauri_app_lib::agents::config_for_id("kilocode").unwrap();
+    assert!(roo.reads_agents_dir, "Roo Code reads .agents/ alongside its own dir");
+    assert!(!kilo.reads_agents_dir, "Kilo's .agents/ support is unconfirmed");
+}

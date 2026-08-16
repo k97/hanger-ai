@@ -96,6 +96,8 @@ pub const HOSTS: &[McpHost] = &[
     McpHost { id: "trae", display_name: "Trae", kind: HostKind::Agent },
     McpHost { id: "opencode", display_name: "OpenCode", kind: HostKind::Agent },
     McpHost { id: "amp", display_name: "Amp", kind: HostKind::Agent },
+    McpHost { id: "roocode", display_name: "Roo Code", kind: HostKind::Agent },
+    McpHost { id: "kilocode", display_name: "Kilo Code", kind: HostKind::Agent },
 ];
 
 use Dialect::*;
@@ -153,6 +155,14 @@ pub const SOURCES: &[McpSource] = &[
 
     // Amp — servers nest inside a settings file Amp does not own.
     McpSource { host_id: "amp", location: MachineAbsolute, path: ".config/amp/settings.json", tier: Global, dialect: AmpSettingsKey },
+
+    // Roo Code
+    McpSource { host_id: "roocode", location: RepoRelative, path: ".roo/mcp.json", tier: Project, dialect: McpServers },
+
+    // Kilo Code — JSONC, and `.kilo/kilo.jsonc` wins over the root file.
+    McpSource { host_id: "kilocode", location: MachineAbsolute, path: ".config/kilo/kilo.jsonc", tier: Global, dialect: OpenCodeMcp },
+    McpSource { host_id: "kilocode", location: RepoRelative, path: ".kilo/kilo.jsonc", tier: Project, dialect: OpenCodeMcp },
+    McpSource { host_id: "kilocode", location: RepoRelative, path: "kilo.jsonc", tier: Project, dialect: OpenCodeMcp },
 ];
 
 impl McpHost {
