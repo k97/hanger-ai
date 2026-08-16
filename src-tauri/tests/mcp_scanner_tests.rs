@@ -218,6 +218,7 @@ fn merging_scans_keeps_every_server_not_one_per_config_file() {
         name: name.to_string(),
         command: "node".to_string(),
         args: vec![],
+        launch_display: String::new(),
         transport: "stdio".to_string(),
         config_path: path.to_string(),
         scope: Scope::Global { agent: "claude-code".to_string() },
@@ -248,4 +249,41 @@ fn merging_scans_keeps_every_server_not_one_per_config_file() {
         vec!["computer-use", "node_repl", "tauri"],
         "a config file is not an asset; each server in it is"
     );
+}
+
+#[test]
+fn a_tool_carries_a_redacted_launch_for_display() {
+    // Spec §4.1: the panel renders this string instead of joining args, so the
+    // redaction happens once, in Rust, rather than at each render site.
+    use tauri_app_lib::mcp::dialect::McpServer;
+    use tauri_app_lib::mcp::discover::Registration;
+    use tauri_app_lib::mcp::registry::ScopeTier;
+
+    let reg = Registration {
+        server: McpServer {
+            name: "protected".to_string(),
+            command: "npx".to_string(),
+            args: vec![
+                "mcp-remote".to_string(),
+                "https://example.com/sse".to_string(),
+                "--header".to_string(),
+                "Authorization: Bearer REDACT_ME_1".to_string(),
+            ],
+            transport: "stdio".to_string(),
+            env_keys: vec![],
+            project_root: None,
+        },
+        host_id: "claude-code",
+        tier: ScopeTier::Global,
+        config_path: "/tmp/mcp.json".to_string(),
+    };
+
+    let tool = tauri_app_lib::scanner::tool_from_registration(
+        &reg,
+        tauri_app_lib::domain::Scope::Global { agent: "claude-code".to_string() },
+    );
+
+    assert!(!tool.launch_display.contains("REDACT_ME_1"));
+    assert!(tool.launch_display.contains("Authorization: <redacted>"));
+    assert!(tool.launch_display.starts_with("npx mcp-remote"));
 }

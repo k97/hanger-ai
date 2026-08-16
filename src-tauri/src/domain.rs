@@ -52,6 +52,13 @@ pub struct Tool {
     /// never speaks MCP, so the panel's tool list can never populate.
     #[serde(default)]
     pub args: Vec<String>,
+    /// The launch, redacted, for display.
+    ///
+    /// A config file can carry a bearer token in `--header` or `--api-key`.
+    /// Rendering `[command, ...args].join(" ")` in the panel printed it. The
+    /// redaction happens once here rather than at each render site, and once
+    /// `args` is gone (spec §4.1) the frontend has nothing left to leak.
+    pub launch_display: String,
     pub transport: String,
     pub config_path: String,
     pub scope: Scope,
@@ -339,6 +346,7 @@ mod tests {
             name: "test-tool".into(),
             command: "".into(),
             args: vec![],
+            launch_display: String::new(),
             transport: "".into(),
             config_path: "/path".into(),
             scope: Scope::Global { agent: "claude".into() },

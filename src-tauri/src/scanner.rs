@@ -427,7 +427,7 @@ fn agent_id_static(agent_id: &str) -> &'static str {
 ///
 /// One place so the registry pass and the sweep cannot drift apart in what
 /// they produce.
-fn tool_from_registration(
+pub fn tool_from_registration(
     reg: &crate::mcp::discover::Registration,
     scope: Scope,
 ) -> Tool {
@@ -436,6 +436,10 @@ fn tool_from_registration(
         name: reg.server.name.clone(),
         command: reg.server.command.clone(),
         args: reg.server.args.clone(),
+        launch_display: crate::mcp::redact::redact_launch(
+            &reg.server.command,
+            &reg.server.args,
+        ),
         transport: reg.server.transport.clone(),
         config_path: reg.config_path.clone(),
         scope,
@@ -1614,6 +1618,7 @@ impl DirectoryScanner {
                         command: String::new(),
                         // A config that would not parse has no launch to record.
                         args: Vec::new(),
+                        launch_display: String::new(),
                         transport: String::new(),
                         config_path: t_canon.clone(),
                         scope: scope.clone(),
