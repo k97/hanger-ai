@@ -342,18 +342,35 @@ rather than swapping views.
 
 ### Panes
 
-**`ProfilePane`** (`ProfilePane.tsx:14-34`) — `inventory`, `assetCounts?`,
+**`ProfilePane`** (`ProfilePane.tsx:18-55`) — `inventory`, `assetCounts?`,
 `selectedCategory?`, `selectedAsset?`, `loading`, `filterText?`, `stateFilter?`,
-`onStateFilterChange?`, `scannedAt?`, `onRescan?`, `sortField?`,
-`sortDirection?`, `onSortChange?`, `onSelectAsset`, `onLinkAsset`,
-`onClearSelection?`.
+`onStateFilterChange?`, `scannedAt?`, `detectedEngines?`, `onRescan?`,
+`sortField?`, `sortDirection?`, `onSortChange?`, `onSelectAsset`,
+`onLinkAsset`, `onClearSelection?`.
 
-**`RepoPane`** (`RepoPane.tsx:16-40`) — the same shape plus `repoPath`,
+**`RepoPane`** (`RepoPane.tsx:18-42`) — the same shape plus `repoPath`,
 `onRefresh`, `onLinkFromProfile`, `linkedRepos?`, `onPromoteCandidates?`.
 
-**`NeedsReviewPane`** (`NeedsReviewPane.tsx:10-20`) — `issues`, `counts`,
+**`NeedsReviewPane`** (`NeedsReviewPane.tsx:11-29`) — `issues`, `counts`,
 `kind`, `place`, `filterText`, `selectedId`, `onSelectKind`, `onSelectPlace`,
-`onSelectIssue`.
+`onSelectIssue`, `onRescan?`, `scanning?`, `scannedAt?`.
+
+**Empty is a finding, pending is not.** All three panes gate their negative
+copy on `scannedAt !== null` — App's `lastScanAt`, set only on
+`scan://complete` — so an empty store before the first scan finishes renders
+a pending plane instead: `SpinnerIcon` at 40 (spinning while `loading`),
+"Scanning your machine / Results appear as roots finish." while a scan runs,
+"Not scanned yet / Rescan to look again." otherwise, both under
+`data-testid="scan-pending"` (`ProfilePane.tsx:135-148`, `:394-406`;
+`RepoPane.tsx:265-275`, `:433-444`; `NeedsReviewPane.tsx:213-227`, where it
+is the list plane's centred `<p>`). Only `empty && hasScanned` shows the old
+copy. ProfilePane's headline then branches on `detectedEngines` (the
+`get_detected_engines` filesystem probe): folders present but empty → "No
+assets in the global store"; no folders → "No developer agent folders
+detected" (`ProfilePane.tsx:150-155`, `:407-424`). Not `assetCounts.engines`,
+which is built from asset rows and is empty whenever the store is
+(`scanner.rs:34-46,76`). Pinned by `ProfilePaneIntegration.test.tsx`,
+`RepoPaneIntegration.test.tsx`, `needs_review_pane.test.tsx`.
 
 **`DiscoveryPane`** (`DiscoveryPane.tsx`) — `filterText?`, `kind?`. Renders
 from static data in `src/data/directories.ts`; the kind facet is owned by
