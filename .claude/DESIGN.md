@@ -244,6 +244,56 @@ file's name — mapping the names literally would paint the white glyph onto
 `--page` and lose the mark (`src/components/HangerMark.tsx:1-11`, props
 `:24-33`).
 
+**Brand marks.** Engines and MCP hosts are drawn with the vendor's own mark
+(`src/components/BrandIcon.tsx`), colour where the brand has colour, the
+vendor's `currentColor` form where it is monochrome — `ink: true` for
+Cursor, Windsurf, Zed, Copilot, OpenCode (`src/data/brands.ts:59-64`, the
+field's doc comment at `:42`). Eleven marks — nine from
+`@lobehub/icons-static-svg`, VS Code and Zed vendored in `src/assets/brand/`
+(`brands.ts:9-20`) — plus one in-house generic `>_` fallback are joined into
+a sprite at module load (`BrandSprite.tsx:6-14`), mounted once in
+`main.tsx:19` (import `:7`), and referenced everywhere by `<use
+href="#brand-…">` (`BrandIcon.tsx:52-53`), so a mark's geometry exists once
+in the document however many rows show it. `src/data/brands.ts` resolves
+every identifier the UI holds — engine keys, host ids, scope agent ids,
+display names — through one alias table (`brands.ts:80-100`, `resolveBrand`
+`:103-108`). `src/__tests__/brand-coverage.test.ts` parses the Rust
+registries the backend draws engine and host ids from — `registry.rs`
+HOSTS, `scanner.rs` AGENT_CONFIGS and `get_engine_key` — and fails when one
+resolves to no mark (`brand-coverage.test.ts:72-79`), with a floor per
+extraction source so a reformat of those Rust arrays cannot make the guard
+silently under-collect (`:60-69`). An unmapped id draws the generic mark
+(`BrandIcon.tsx:36`) and is reported once per session
+(`engine_icon_unmapped`, via `reportUnmappedEngine`,
+`src/utils/reportUnmappedEngine.ts:15-22`).
+
+One brand ships a second mark for the dark page: Codex's colour file paints
+a white plate that glares on `--page` dark, so `BrandMark` carries an
+optional `darkSvg` — "absent means the one mark serves both themes"
+(`brands.ts:38-41`) — and only `codex` sets it, to the vendor's own
+monochrome `codex.svg` (`brands.ts:52`). The sprite then emits a second
+symbol, `#brand-codex-dark` (`BrandSprite.tsx:6-14`), and `BrandIcon`
+renders two `<use>` elements whenever a brand has one (`BrandIcon.tsx:37`,
+`:52-53`). The swap is CSS, not state, so it rides the `.dark` toggle with
+no re-render and no flash (`BrandIcon.tsx:49-51`): three rules —
+`.brand-dark-only { display: none }`, `.dark .brand-light-only { display:
+none }`, `.dark .brand-dark-only { display: inline }`
+(`src/styles/index.css:125-127`) — because this project's dark mode is a
+`.dark` class on `<html>` (§1, Theming mechanism) and declares no
+`@custom-variant dark` (`index.css:120-122`), under which a Tailwind
+`dark:` utility would silently do nothing.
+
+Reach tiles hold the same mark at 12px, one 16px slot per engine
+(`EngineReachTiles.tsx`). A reached engine is the mark alone — no ring, no
+fill, no dimming, because a vendor logo carries itself and a ring around it
+only competes; an unreached one is an empty slot, a `border-line` ring plus
+`opacity-40`, so absence reads as absence rather than a fainter presence
+(`EngineReachTiles.tsx:28-36` states the reasoning, `:46-50` the
+conditional, `:52` the 12px mark). `--line` (`.09` light / `.12` dark,
+`tokens.css:12`, `:149`) rather than `--line-2` (`.20`/`.22`, `tokens.css:13`,
+`:150`) is the design system's subtle-outline weight for this slot. Design
+record: `docs/superpowers/specs/2026-08-15-brand-icons-design.md`.
+
 ---
 
 ## 5. Component inventory
@@ -377,9 +427,22 @@ TypeScript is forbidden (dispatch item 8).
 
 **`EngineReachTiles`** (`EngineReachTiles.tsx`) — the Reach column: one 16px
 tile per engine from the backend's reach list, filled when the engine reads
-the asset through its linked root. Monograms are a fallback keyed by the
-engines table's own keys (first letters collide); a vendor SVG drops into
-the same slot without a layout change once trademark use is cleared.
+the asset through its linked root. Each tile carries the engine's own mark
+(`BrandIcon`), the generic mark for one the map cannot draw.
+
+**`BrandSprite`** (`BrandSprite.tsx:25-35`) — the hidden `<svg>` of
+`<symbol>`s, mounted once in `main.tsx:19` (import `:7`); `SPRITE` is built
+at module load from `src/data/brands.ts` via `toSymbol`
+(`src/utils/svgSymbol.ts:22-42`, `BrandSprite.tsx:6-14`).
+
+**`BrandIcon`** (`BrandIcon.tsx:6-18` props, `:26-56` component) —
+`engineKey`, `engineName?`, `size = 12`, `className?`, `x?`/`y?` (inside an
+SVG canvas). Renders `<use href="#brand-…">`; nothing for any-agent;
+`#brand-generic` for an unmapped id (`:36`). Decorative (`aria-hidden`,
+`:44`).
+
+**`EngineLabel`** (`EngineLabel.tsx:4-22`) — `BrandIcon` + children in an
+`inline-flex items-center gap-1.5` (`:17`); the one icon-plus-name compound.
 
 **`CategoryFilterCards`** (`CategoryFilterCards.tsx:5-15`) — per-category
 counts, `selectedCategory`, `onSelectCategory`, `loading`. `allCount` is
@@ -429,6 +492,24 @@ The second column is view-dependent: Discovery renders none, review renders
 Views are switched by a single string state, not a router — `App.tsx:217`
 holds `selectedSidebarItem`, persisted under `selected_sidebar_item`
 (`App.tsx:851` and each rail handler).
+
+### Window chrome — one vertical baseline
+
+Every cap — the sidebar cap (`App.tsx:957`), the content header (`App.tsx:1048`),
+the inspector cap (`App.tsx:1317`) — is `h-10 flex items-center`: a 40px band
+with its contents optically centered on the same line, 20px from the cap's
+top. The native traffic lights are tuned to sit on that identical line:
+`trafficLightPosition.y: 22` in `tauri.conf.json:26` was set by measuring the
+rendered dot centre against the sidebar toggle button's centre in a live
+screenshot (dot centre landed ~8.5pt above the toggle before the fix) and is
+not derived from any documented Apple/Tauri formula — the OS does not expose
+one, so this value is empirical and window-height-dependent. If the cap
+height (`h-10`) ever changes, `trafficLightPosition.y` must be re-measured
+against it, not recomputed by formula.
+
+Any future cap, toolbar, or menubar row must keep this same `h-10
+flex items-center` shape so its contents land on this baseline by
+construction, rather than each screen re-deriving its own vertical rhythm.
 
 ### Pane composition
 
@@ -572,3 +653,11 @@ The token and the literal have to be kept in agreement by hand.
 registered as a utility, and the spacing comment states the system is
 deliberately on Tailwind's 4px grid (`index.css:96-103`). An 8px step token
 sits alongside a 4px grid with nothing reading it.
+
+**Per-theme brand-mark files, for ten of the eleven brands.** `BrandMark`'s
+`darkSvg` field is optional and, by its own doc comment, "absent means the
+one mark serves both themes" (`src/data/brands.ts:38-41`). Only `codex` sets
+it, to the vendor's monochrome `codex.svg` (`brands.ts:52`); the other ten —
+`claude_code`, `gemini`, `claude_desktop`, `claude_ai`, `vscode`, `cursor`,
+`windsurf`, `zed`, `copilot`, `opencode` (`BRANDS`, `brands.ts:47-65`) —
+have no per-theme variant, and none is needed.

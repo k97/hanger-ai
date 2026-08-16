@@ -65,7 +65,8 @@ src/              React frontend
   components/     24 components, flat, one per file, PascalCase
   utils/          pure functions, heavily unit-tested
   hooks/          useScanStatus only
-  data/           static data (Discovery directory listing)
+  data/           static data (Discovery directory listing, brand-mark map)
+  assets/brand/   vendored brand SVGs (VS Code, Zed), the generic fallback, SOURCES.md
   styles/         tokens.css (CSS variables) + index.css (Tailwind @theme)
   __tests__/      integration and guard suites
 src-tauri/src/    Rust backend
