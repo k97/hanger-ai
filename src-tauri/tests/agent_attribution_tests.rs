@@ -367,3 +367,25 @@ fn multi_segment_roots_resolve_subagent_ownership_directly_but_not_when_nested_d
         "an agent/ directory nested a level deeper under .config/opencode must not resolve"
     );
 }
+
+/// Kiro is the newest single-segment participant in `subagent_owner_for_path`
+/// (`subagents: Some("agents")`), and unlike claude-code, codex and opencode
+/// it had no direct coverage of its own — claude-code and codex came from
+/// Task 2, opencode from the multi-segment test above, and Kiro fell through
+/// the cracks. Given the whole task turns on that function's safety, its
+/// newest participant should not ship with zero direct coverage: a
+/// regression here could silently misattribute or drop Kiro subagents while
+/// the rest of the suite stayed green.
+#[test]
+fn kiro_subagent_ownership_requires_the_agents_dir_directly_under_the_root() {
+    let direct = Path::new("/Users/test/.kiro/agents/reviewer.md");
+    let found = subagent_owner_for_path(direct)
+        .expect("agents/ directly under .kiro/ must resolve");
+    assert_eq!(found.id, "kiro");
+
+    let nested = Path::new("/Users/test/.kiro/plugins/foo/agents/reviewer.md");
+    assert!(
+        subagent_owner_for_path(nested).is_none(),
+        "an agents/ directory nested a level deeper under .kiro must not resolve"
+    );
+}

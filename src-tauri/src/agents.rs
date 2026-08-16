@@ -207,6 +207,12 @@ pub fn engine_for_path(path: &Path) -> Option<&'static AgentConfig> {
 /// string (e.g. a future agent rooted at plain `opencode` without the dot, or
 /// two configs both rooted at a bare `agents`-adjacent name) — at that point
 /// this must switch to longest-root-wins, matching `engine_for_path`.
+///
+/// This is not just true today: the participant set is not expected to grow
+/// either. Roo Code, Kilo Code and Cline — the remaining rows the agent-
+/// detection plan adds after this one — all declare `subagents: None`, so
+/// the property above survives the rest of the plan as written, not only
+/// this snapshot of the table.
 pub fn subagent_owner_for_path(path: &Path) -> Option<&'static AgentConfig> {
     let comps = components(path);
     if comps.is_empty() || comps.iter().any(|c| *c == SHARED_AGENTS_DIR) {
