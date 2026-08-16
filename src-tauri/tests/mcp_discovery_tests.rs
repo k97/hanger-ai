@@ -952,7 +952,16 @@ fn each_fixture_machine_reports_what_it_declares() {
 fn no_fixture_credential_survives_into_a_displayable_launch() {
     let base = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures");
     for machine in ["claude_only_home", "jsonc_home", "empty_home"] {
-        for reg in discover::discover_machine(&base.join(machine)).registrations {
+        let registrations = discover::discover_machine(&base.join(machine)).registrations;
+        // A regression that made discovery return nothing would make this loop
+        // iterate zero times and the test would report ok while proving the
+        // opposite of what its name claims. claude_only_home and jsonc_home
+        // both declare servers, so both must actually yield some; empty_home
+        // legitimately has none and is exempt.
+        if machine != "empty_home" {
+            assert!(!registrations.is_empty(), "{} declares servers but discovery found none", machine);
+        }
+        for reg in registrations {
             let shown = tauri_app_lib::mcp::redact::redact_launch(&reg.server.command, &reg.server.args);
             for secret in ["REDACT_ME_1", "REDACT_ME_2", "REDACT_ME_3"] {
                 assert!(!shown.contains(secret), "{} leaked in {}: {}", secret, machine, shown);
