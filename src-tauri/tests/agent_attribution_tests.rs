@@ -200,3 +200,90 @@ fn scanner_has_no_hardcoded_attribution_chains() {
         );
     }
 }
+
+/// The invariant Task 3 exists to guarantee: `execute_deploy` must resolve —
+/// and be free to refuse — the target before it touches the filesystem.
+/// `deploy_refuses_without_writing_anything_to_disk` above pins
+/// `resolve_target_path`'s own contract as a pure function, but that function
+/// never wrote anything in either the old or new implementation; the real
+/// risk is a refactor of `execute_deploy` that hoists a write (most plausibly
+/// `fs::create_dir_all`) above the `resolve_target_path(...)?` call, which
+/// would reintroduce the exact stray write this task removed while leaving
+/// every other test green. There is no `AppHandle` test harness to call
+/// `execute_deploy` directly, so — in the same idiom as
+/// `scanner_has_no_hardcoded_attribution_chains` above, and the
+/// no-frontend-counting / no-blocking-dialogs guards in `src/__tests__/` —
+/// this is a source scan: it isolates `execute_deploy`'s own body by brace
+/// depth (so a write call in a *different* function can never satisfy it)
+/// and asserts the `resolve_target_path` call's byte offset precedes every
+/// known filesystem-write call's byte offset within it.
+#[test]
+fn execute_deploy_resolves_the_target_before_writing_anything() {
+    let src = include_str!("../src/lib.rs");
+    let fn_start = src
+        .find("fn execute_deploy(")
+        .expect("execute_deploy must exist in lib.rs");
+
+    let body_start = src[fn_start..]
+        .find('{')
+        .map(|i| fn_start + i)
+        .expect("execute_deploy must have a body");
+
+    // Brace-balance from the opening `{` to find this function's own closing
+    // `}`, so the scan cannot spill into a later function (e.g.
+    // execute_deploy_merged_rule) and match a write call that isn't this
+    // function's.
+    let mut depth: i32 = 0;
+    let mut body_end = None;
+    for (offset, ch) in src[body_start..].char_indices() {
+        match ch {
+            '{' => depth += 1,
+            '}' => {
+                depth -= 1;
+                if depth == 0 {
+                    body_end = Some(body_start + offset + 1);
+                    break;
+                }
+            }
+            _ => {}
+        }
+    }
+    let body = &src[body_start..body_end.expect("execute_deploy's braces must balance")];
+
+    let resolve_at = body
+        .find("resolve_target_path(")
+        .expect("execute_deploy must call resolve_target_path");
+
+    // Every way this function is allowed to reach the filesystem with a
+    // write. Deliberately explicit rather than a generic `fs::` scan — reads
+    // like `src.exists()` are fine ahead of the refusal check; only writes
+    // matter for this invariant.
+    let write_calls = [
+        "fs::create_dir_all(",
+        "fs::write(",
+        "fs::copy(",
+        "fs::rename(",
+        "fs::remove_file(",
+        "fs::remove_dir_all(",
+        "write_transactional(",
+        "write_transactional_dir(",
+        "::symlink(",
+        "symlink_dir(",
+        "symlink_file(",
+    ];
+    let first_write = write_calls
+        .iter()
+        .filter_map(|needle| body.find(needle))
+        .min()
+        .expect(
+            "execute_deploy must write the asset somewhere — \
+             this guard has nothing to order resolve_target_path against",
+        );
+
+    assert!(
+        resolve_at < first_write,
+        "resolve_target_path (byte {resolve_at} of the function body) must run before the \
+         first filesystem write (byte {first_write}) in execute_deploy — a write hoisted above \
+         the refusal check would silently reintroduce the stray write Task 3 removed"
+    );
+}

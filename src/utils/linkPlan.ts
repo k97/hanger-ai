@@ -25,7 +25,7 @@ export interface PreflightResult {
   already_linked: boolean;
 }
 
-export type Disposition = "new" | "replaces" | "already-linked" | "unwritable";
+export type Disposition = "new" | "replaces" | "already-linked" | "unwritable" | "undeployable";
 
 export type Outcome = { ok: true } | { ok: false; reason: string };
 
@@ -38,6 +38,12 @@ export interface DestinationPlan {
   /** Where the asset would land inside that project. */
   targetPath: string;
   disposition: Disposition;
+  /**
+   * Why this row is `undeployable` — the backend's `SanitisedError` message
+   * from a `check_deploy_target` call that failed outright, e.g. because no
+   * agent claims the asset's source. Unset for every other disposition.
+   */
+  reason?: string;
   /** Set once the link has been attempted. */
   outcome?: Outcome;
 }
@@ -47,6 +53,7 @@ const TAGS: Record<Disposition, string> = {
   replaces: "Replaces a copy",
   "already-linked": "Already linked",
   unwritable: "Not writable",
+  undeployable: "Not deployable",
 };
 
 /** The word the row carries, in the panel's voice. */
@@ -87,6 +94,24 @@ export function planFor(root: string, preflight: PreflightResult): DestinationPl
 }
 
 /**
+ * A row for a destination whose preflight failed outright rather than
+ * returning a verdict — e.g. `check_deploy_target` rejected because no agent
+ * claims the asset's source, so there is no per-engine directory to resolve
+ * into. There is no `PreflightResult` to read in that case; the row carries
+ * the backend's own reason instead, so the panel can say why rather than
+ * simply omitting the destination.
+ */
+export function planForFailure(root: string, reason: string): DestinationPlan {
+  return {
+    root,
+    name: projectName(root),
+    targetPath: "",
+    disposition: "undeployable",
+    reason,
+  };
+}
+
+/**
  * The destination path written the way the panel shows it: the project folder
  * and the path beneath it.
  *
@@ -105,13 +130,15 @@ export function shortPath(plan: DestinationPlan): string {
  *
  * Already-linked and unwritable rows stay visible — seeing that a project is
  * already covered is the answer to a real question — but neither is ever
- * acted on.
+ * acted on. Undeployable rows are the same: there is nothing to act on when
+ * the backend never resolved a target in the first place.
  */
 export function actionable(plans: DestinationPlan[]): DestinationPlan[] {
   const doable: DestinationPlan[] = [];
   for (const plan of plans) {
     if (plan.disposition === "already-linked") continue;
     if (plan.disposition === "unwritable") continue;
+    if (plan.disposition === "undeployable") continue;
     doable.push(plan);
   }
   return doable;
@@ -119,7 +146,11 @@ export function actionable(plans: DestinationPlan[]): DestinationPlan[] {
 
 /** Whether a row can be chosen at all, or is only there to be read. */
 export function selectable(plan: DestinationPlan): boolean {
-  return plan.disposition !== "already-linked" && plan.disposition !== "unwritable";
+  return (
+    plan.disposition !== "already-linked" &&
+    plan.disposition !== "unwritable" &&
+    plan.disposition !== "undeployable"
+  );
 }
 
 /**

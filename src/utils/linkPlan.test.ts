@@ -4,6 +4,7 @@ import {
   allowsManyDestinations,
   footLine,
   planFor,
+  planForFailure,
   projectName,
   selectable,
   shortPath,
@@ -96,6 +97,7 @@ describe("actionable — what the button would really touch", () => {
     { root: "/b", name: "b", targetPath: "/b/x", disposition: "replaces" },
     { root: "/c", name: "c", targetPath: "/c/x", disposition: "already-linked" },
     { root: "/d", name: "d", targetPath: "/d/x", disposition: "unwritable" },
+    planForFailure("/e", "Cannot deploy: no agent claims this asset's source directory"),
   ];
 
   it("acts on new and replaced destinations only", () => {
@@ -107,6 +109,27 @@ describe("actionable — what the button would really touch", () => {
     expect(selectable(plans[1])).toBe(true);
     expect(selectable(plans[2])).toBe(false);
     expect(selectable(plans[3])).toBe(false);
+    expect(selectable(plans[4])).toBe(false);
+  });
+});
+
+describe("planForFailure — a destination whose preflight rejected outright", () => {
+  // check_deploy_target can refuse rather than return a verdict, e.g. when
+  // resolve_target_path finds no agent claims the source. There is no
+  // PreflightResult to read in that case; the row is built straight from the
+  // backend's own SanitisedError text so the panel can say why, rather than
+  // dropping the destination and leaving the panel looking empty.
+  it("carries the backend's reason and stays unselectable", () => {
+    const plan = planForFailure(
+      "/work/mei-recipes",
+      "Cannot deploy: no agent claims this asset's source directory"
+    );
+    expect(plan.disposition).toBe("undeployable");
+    expect(plan.reason).toBe("Cannot deploy: no agent claims this asset's source directory");
+    expect(plan.name).toBe("mei-recipes");
+    expect(tagFor(plan.disposition)).toBe("Not deployable");
+    expect(selectable(plan)).toBe(false);
+    expect(actionable([plan])).toEqual([]);
   });
 });
 

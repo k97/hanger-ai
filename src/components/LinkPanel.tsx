@@ -6,6 +6,7 @@ import {
   allowsManyDestinations,
   footLine,
   planFor,
+  planForFailure,
   selectable,
   shortPath,
   tagFor,
@@ -84,6 +85,11 @@ export default function LinkPanel({
   const many = allowsManyDestinations(asset.category);
 
   const [preflights, setPreflights] = useState<Record<string, PreflightResult>>({});
+  // A destination whose check_deploy_target call rejected outright — e.g. no
+  // agent claims the asset's source, so the backend never resolved a target.
+  // Keyed apart from `preflights` because there is no PreflightResult to
+  // store; the row is built from the reason instead of a verdict.
+  const [preflightErrors, setPreflightErrors] = useState<Record<string, string>>({});
   const [reading, setReading] = useState(true);
   const [chosen, setChosen] = useState<string[]>(preSelected ? [preSelected] : []);
   const [mechanism, setMechanism] = useState<"symlink" | "copy">("symlink");
@@ -98,10 +104,20 @@ export default function LinkPanel({
 
   // Every destination is checked up front. They are filesystem stats, and
   // knowing the answer before the tick is the whole point of the screen.
+  //
+  // check_deploy_target can reject outright — the backend refuses to resolve
+  // a target at all, e.g. when no agent claims the asset's source. That is a
+  // SanitisedError, not a missing destination, and it must reach the panel
+  // as a row that says why rather than being swallowed: an asset sourced
+  // from the shared `.agents/` convention fails this way for every
+  // destination, since resolution depends on the source path, not the
+  // target, and dropping every one of those rows would leave the panel
+  // wrongly claiming nothing is linked.
   useEffect(() => {
     let cancelled = false;
     setReading(true);
     setPreflights({});
+    setPreflightErrors({});
 
     Promise.all(
       destinations.map((root) =>
@@ -109,16 +125,19 @@ export default function LinkPanel({
           sourcePath: asset.path,
           targetProjectPath: root,
         })
-          .then((result) => [root, result] as const)
-          .catch(() => null)
+          .then((result) => ({ root, ok: true as const, result }))
+          .catch((err) => ({ root, ok: false as const, reason: String(err) }))
       )
     ).then((results) => {
       if (cancelled) return;
       const found: Record<string, PreflightResult> = {};
+      const failed: Record<string, string> = {};
       for (const entry of results) {
-        if (entry) found[entry[0]] = entry[1];
+        if (entry.ok) found[entry.root] = entry.result;
+        else failed[entry.root] = entry.reason;
       }
       setPreflights(found);
+      setPreflightErrors(failed);
       setReading(false);
     });
 
@@ -131,18 +150,34 @@ export default function LinkPanel({
     const built: DestinationPlan[] = [];
     for (const root of destinations) {
       const preflight = preflights[root];
-      if (!preflight) continue;
-      const plan = planFor(root, preflight);
-      built.push(outcomes[root] ? { ...plan, outcome: outcomes[root] } : plan);
+      if (preflight) {
+        const plan = planFor(root, preflight);
+        built.push(outcomes[root] ? { ...plan, outcome: outcomes[root] } : plan);
+        continue;
+      }
+      const reason = preflightErrors[root];
+      if (reason) built.push(planForFailure(root, reason));
     }
     return built;
-  }, [destinations, preflights, outcomes]);
+  }, [destinations, preflights, preflightErrors, outcomes]);
 
   const picked = useMemo(
     () => rows.filter((plan) => chosen.includes(plan.root) && selectable(plan)),
     [rows, chosen]
   );
   const work = actionable(picked);
+
+  // Distinct reasons behind every undeployable row, deduplicated: the source
+  // is the same asset for every destination, so a resolution failure is
+  // ordinarily identical across all of them and worth saying once rather
+  // than once per row.
+  const undeployableReasons = useMemo(() => {
+    const seen = new Set<string>();
+    for (const plan of rows) {
+      if (plan.disposition === "undeployable" && plan.reason) seen.add(plan.reason);
+    }
+    return Array.from(seen);
+  }, [rows]);
 
   // Candidate rule files already in the chosen project, root-to-deepest.
   const ruleCandidates = useMemo(() => {
@@ -235,6 +270,7 @@ export default function LinkPanel({
                 return (
                   <label
                     key={plan.root}
+                    title={plan.disposition === "undeployable" ? plan.reason : undefined}
                     className={`flex items-center gap-2.5 h-[30px] px-2.5 text-small ${
                       index > 0 ? "border-t border-line" : ""
                     } ${open ? "cursor-pointer hover:bg-plane-2" : "cursor-default"} transition-colors duration-hover`}
@@ -259,6 +295,14 @@ export default function LinkPanel({
                 );
               })}
             </div>
+          )}
+
+          {undeployableReasons.length > 0 && (
+            <p className={helpClass} data-testid="link-undeployable-reason">
+              {undeployableReasons.length === 1
+                ? undeployableReasons[0]
+                : "Some destinations can't be resolved. Point at a row for why."}
+            </p>
           )}
 
           {!many && (

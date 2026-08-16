@@ -25,12 +25,16 @@ function preflight(over: Partial<PreflightResult> = {}): PreflightResult {
 }
 
 let checks: Record<string, PreflightResult> = {};
+// A destination whose check_deploy_target call rejects outright, the way
+// resolve_target_path now does when no agent claims the asset's source.
+let checkFails: Record<string, string> = {};
 let deployFails: Record<string, string> = {};
 let deployed: { source: string; target: string; type: string }[] = [];
 
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: vi.fn(async (cmd: string, args: any) => {
     if (cmd === "check_deploy_target") {
+      if (checkFails[args.targetProjectPath]) throw checkFails[args.targetProjectPath];
       const found = checks[args.targetProjectPath];
       if (!found) throw "unknown destination";
       return found;
@@ -83,6 +87,7 @@ describe("Link panel — choosing where a file should also live", () => {
     vi.clearAllMocks();
     deployed = [];
     deployFails = {};
+    checkFails = {};
     checks = {
       "/work/mei-recipes": preflight({ target_path: "/work/mei-recipes/.claude/skills/agent-browser" }),
       "/work/metrics-board": preflight({ target_path: "/work/metrics-board/.claude/skills/agent-browser" }),
@@ -245,5 +250,37 @@ describe("Link panel — choosing where a file should also live", () => {
     checks = {};
     mount({ destinations: [] });
     expect(await screen.findByText(/No repositories are linked yet/)).toBeTruthy();
+  });
+
+  it("shows a destination whose preflight refused outright, and says why, instead of dropping the row", async () => {
+    checkFails["/work/mei-recipes"] = "Cannot deploy: no agent claims this asset's source directory";
+    mount();
+
+    const row = (await screen.findByText("mei-recipes")).closest("label")!;
+    expect(within(row).getByText("Not deployable")).toBeTruthy();
+    expect(within(row).getByRole("checkbox")).toHaveProperty("disabled", true);
+    expect(
+      await screen.findByText("Cannot deploy: no agent claims this asset's source directory")
+    ).toBeTruthy();
+  });
+
+  it("does not falsely claim nothing is linked when every destination's preflight refuses", async () => {
+    // The concrete regression: an asset sourced from the shared .agents/
+    // convention fails resolve_target_path for every destination, because
+    // resolution depends on the source path, not the target. Before this
+    // fix every row was silently dropped and the panel fell back to "No
+    // repositories are linked yet", which is false when repos are linked.
+    for (const root of DESTINATIONS) {
+      checkFails[root] = "Cannot deploy: no agent claims this asset's source directory";
+    }
+    mount();
+
+    await waitFor(() => {
+      expect(
+        screen.getByText("Cannot deploy: no agent claims this asset's source directory")
+      ).toBeTruthy();
+    });
+    expect(screen.queryByText(/No repositories are linked yet/)).toBeNull();
+    expect(screen.getByRole("button", { name: "Link" })).toHaveProperty("disabled", true);
   });
 });
