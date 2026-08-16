@@ -287,3 +287,83 @@ fn execute_deploy_resolves_the_target_before_writing_anything() {
          the refusal check would silently reintroduce the stray write Task 3 removed"
     );
 }
+
+#[test]
+fn the_five_clean_rows_are_present_and_own_their_directories() {
+    for (id, sample) in [
+        ("kiro", "/Users/test/.kiro/skills/demo/SKILL.md"),
+        ("trae", "/repo/proj/.trae/skills/demo/SKILL.md"),
+        ("opencode", "/Users/test/.config/opencode/agent/demo.md"),
+        ("amp", "/Users/test/.config/amp/AGENTS.md"),
+    ] {
+        let found = engine_for_path(Path::new(sample))
+            .unwrap_or_else(|| panic!("{id} did not claim {sample}"));
+        assert_eq!(found.id, id, "{sample} resolved to {}", found.id);
+    }
+}
+
+#[test]
+fn zed_owns_nothing_and_reaches_the_shared_dir() {
+    // Zed's only skills location is the vendor-neutral convention. Giving it a
+    // root would either steal `.agents/` from the store or invent a directory
+    // that does not exist.
+    let zed = tauri_app_lib::agents::config_for_id("zed").expect("zed must be in the table");
+    assert!(zed.global_roots.is_empty(), "Zed owns no global root");
+    assert!(zed.project_roots.is_empty(), "Zed owns no project root");
+    assert!(zed.reads_agents_dir, "Zed reads the shared convention");
+
+    let reach: Vec<&str> = tauri_app_lib::agents::agents_reading_shared_dir()
+        .iter()
+        .map(|c| c.id)
+        .collect();
+    assert!(reach.contains(&"zed"));
+    assert!(reach.contains(&"amp"));
+}
+
+#[test]
+fn similar_looking_paths_are_not_claimed_by_the_new_agents() {
+    for p in [
+        "/srv/kiroshi/skills/demo/SKILL.md",
+        "/Users/test/.traefik/rules/demo.md",
+        "/Users/test/.config/opencoded/agent/demo.md",
+        "/Users/test/.amplify/AGENTS.md",
+    ] {
+        assert!(
+            engine_for_path(Path::new(p)).is_none(),
+            "{p} must not be claimed — whole-component matching only"
+        );
+    }
+}
+
+/// Carried from Task 2: no test anywhere exercised a multi-segment root
+/// (`.config/claude`, and now `.config/opencode`) through
+/// `subagent_owner_for_path`, in either direction. `match_run` splits the
+/// needle on `/` and matches whole components regardless of segment count,
+/// so this was believed correct but unpinned. Both directions, both roots:
+/// the subagents directory sitting directly under the multi-segment root
+/// resolves, and one nested a level deeper (a `plugins/foo/agent/` shape)
+/// does not — the same adjacency rule single-segment roots already get.
+#[test]
+fn multi_segment_roots_resolve_subagent_ownership_directly_but_not_when_nested_deeper() {
+    let claude_direct = Path::new("/Users/test/.config/claude/agents/reviewer.md");
+    let found = subagent_owner_for_path(claude_direct)
+        .expect("agents/ directly under the multi-segment .config/claude root must resolve");
+    assert_eq!(found.id, "claude-code");
+
+    let claude_nested = Path::new("/Users/test/.config/claude/plugins/foo/agents/reviewer.md");
+    assert!(
+        subagent_owner_for_path(claude_nested).is_none(),
+        "an agents/ directory nested a level deeper under .config/claude must not resolve"
+    );
+
+    let opencode_direct = Path::new("/Users/test/.config/opencode/agent/reviewer.md");
+    let found = subagent_owner_for_path(opencode_direct)
+        .expect("agent/ directly under the multi-segment .config/opencode root must resolve");
+    assert_eq!(found.id, "opencode");
+
+    let opencode_nested = Path::new("/Users/test/.config/opencode/plugins/foo/agent/reviewer.md");
+    assert!(
+        subagent_owner_for_path(opencode_nested).is_none(),
+        "an agent/ directory nested a level deeper under .config/opencode must not resolve"
+    );
+}

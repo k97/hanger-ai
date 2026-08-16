@@ -263,6 +263,11 @@ pub fn get_engine_key(id_str: &str) -> Option<&'static str> {
         "gemini" => Some("gemini"),
         "cursor" => Some("cursor"),
         "copilot" => Some("copilot"),
+        "kiro" => Some("kiro"),
+        "trae" => Some("trae"),
+        "opencode" => Some("opencode"),
+        "amp" => Some("amp"),
+        "zed" => Some("zed"),
         _ => None,
     }
 }

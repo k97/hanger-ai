@@ -64,6 +64,63 @@ pub const AGENT_CONFIGS: &[AgentConfig] = &[
         subagents: None,
         reads_agents_dir: true,
     },
+    AgentConfig {
+        id: "kiro",
+        name: "Kiro",
+        global_roots: &[".kiro"],
+        project_roots: &[".kiro"],
+        skills: Some("skills"),
+        rules: Some("steering"),
+        subagents: Some("agents"),
+        reads_agents_dir: false,
+    },
+    AgentConfig {
+        id: "trae",
+        name: "Trae",
+        global_roots: &[".trae"],
+        project_roots: &[".trae"],
+        skills: Some("skills"),
+        rules: Some("rules"),
+        // Trae's subagents directory is unconfirmed in vendor docs, so it
+        // ships without subagent support rather than on a guess (spec §11).
+        subagents: None,
+        reads_agents_dir: false,
+    },
+    AgentConfig {
+        id: "opencode",
+        name: "OpenCode",
+        global_roots: &[".config/opencode"],
+        project_roots: &[".opencode"],
+        skills: None,
+        rules: None,
+        subagents: Some("agent"),
+        reads_agents_dir: false,
+    },
+    AgentConfig {
+        id: "amp",
+        name: "Amp",
+        global_roots: &[".config/amp"],
+        project_roots: &[".amp"],
+        skills: None,
+        rules: None,
+        subagents: None,
+        // Amp defaults to the shared convention — that is where its skills
+        // live, and reach is how the UI expresses it.
+        reads_agents_dir: true,
+    },
+    AgentConfig {
+        id: "zed",
+        name: "Zed",
+        // Zed owns nothing. It replaced its own Rules Library with the
+        // vendor-neutral convention, and is detected by
+        // ~/.config/zed/settings.json, already in mcp::registry::SOURCES.
+        global_roots: &[],
+        project_roots: &[],
+        skills: None,
+        rules: None,
+        subagents: None,
+        reads_agents_dir: true,
+    },
 ];
 
 /// Split a path into its string components, skipping the root and any
@@ -136,6 +193,20 @@ pub fn engine_for_path(path: &Path) -> Option<&'static AgentConfig> {
 /// `agents` directory both appear somewhere in the path. This restores the
 /// adjacency the old `contains("/.claude/agents/")` chain enforced by
 /// construction, without reintroducing a substring check.
+///
+/// Unlike `engine_for_path`, this returns on the first `(config, root)` pair
+/// whose `root/subagents` needle matches, rather than preferring the longest
+/// match. That is safe today only because every config with `subagents:
+/// Some(_)` (claude-code, codex, kiro, opencode) has a distinct leaf root
+/// component name — `.claude`, `.config/claude`, `.codex`, `.kiro`,
+/// `.config/opencode`, `.opencode` — so no two configs' needles can both
+/// match the same path: `match_run` requires the *whole* needle to equal a
+/// contiguous run of components, and none of these needles is a component-
+/// wise suffix of another. It would stop being safe the moment two
+/// subagent-bearing configs shared a root whose last path segment is the same
+/// string (e.g. a future agent rooted at plain `opencode` without the dot, or
+/// two configs both rooted at a bare `agents`-adjacent name) — at that point
+/// this must switch to longest-root-wins, matching `engine_for_path`.
 pub fn subagent_owner_for_path(path: &Path) -> Option<&'static AgentConfig> {
     let comps = components(path);
     if comps.is_empty() || comps.iter().any(|c| *c == SHARED_AGENTS_DIR) {

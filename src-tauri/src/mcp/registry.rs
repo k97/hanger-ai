@@ -92,6 +92,10 @@ pub const HOSTS: &[McpHost] = &[
     // Account-level, not machine configuration. Its servers run on
     // Anthropic's infrastructure; only the fact of connection is on disk.
     McpHost { id: "claude-ai", display_name: "Claude.ai", kind: HostKind::McpHost },
+    McpHost { id: "kiro", display_name: "Kiro", kind: HostKind::Agent },
+    McpHost { id: "trae", display_name: "Trae", kind: HostKind::Agent },
+    McpHost { id: "opencode", display_name: "OpenCode", kind: HostKind::Agent },
+    McpHost { id: "amp", display_name: "Amp", kind: HostKind::Agent },
 ];
 
 use Dialect::*;
@@ -135,6 +139,20 @@ pub const SOURCES: &[McpSource] = &[
 
     // Zed
     McpSource { host_id: "zed", location: MachineAbsolute, path: ".config/zed/settings.json", tier: Global, dialect: ZedContextServers },
+
+    // Kiro
+    McpSource { host_id: "kiro", location: MachineAbsolute, path: ".kiro/settings/mcp.json", tier: Global, dialect: McpServers },
+    McpSource { host_id: "kiro", location: RepoRelative, path: ".kiro/settings/mcp.json", tier: Project, dialect: McpServers },
+
+    // Trae
+    McpSource { host_id: "trae", location: RepoRelative, path: ".trae/mcp.json", tier: Project, dialect: McpServers },
+
+    // OpenCode
+    McpSource { host_id: "opencode", location: MachineAbsolute, path: ".config/opencode/opencode.json", tier: Global, dialect: OpenCodeMcp },
+    McpSource { host_id: "opencode", location: RepoRelative, path: "opencode.json", tier: Project, dialect: OpenCodeMcp },
+
+    // Amp — servers nest inside a settings file Amp does not own.
+    McpSource { host_id: "amp", location: MachineAbsolute, path: ".config/amp/settings.json", tier: Global, dialect: AmpSettingsKey },
 ];
 
 impl McpHost {
