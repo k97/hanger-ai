@@ -87,7 +87,10 @@ pub const HOSTS: &[McpHost] = &[
     McpHost { id: "claude-desktop", display_name: "Claude Desktop", kind: HostKind::McpHost },
     McpHost { id: "vscode", display_name: "VS Code", kind: HostKind::McpHost },
     McpHost { id: "cursor", display_name: "Cursor", kind: HostKind::McpHost },
-    McpHost { id: "windsurf", display_name: "Windsurf", kind: HostKind::McpHost },
+    // Rebranded from Windsurf on 2026-06-02. The id stays `windsurf` because
+    // it keys existing rows and ids are internal; only the label is user-
+    // facing, and it names a product that no longer exists.
+    McpHost { id: "windsurf", display_name: "Devin Desktop", kind: HostKind::McpHost },
     McpHost { id: "zed", display_name: "Zed", kind: HostKind::McpHost },
     // Account-level, not machine configuration. Its servers run on
     // Anthropic's infrastructure; only the fact of connection is on disk.
@@ -137,8 +140,14 @@ pub const SOURCES: &[McpSource] = &[
     McpSource { host_id: "cursor", location: MachineAbsolute, path: ".cursor/mcp.json", tier: Global, dialect: McpServers },
     McpSource { host_id: "cursor", location: RepoRelative, path: ".cursor/mcp.json", tier: Project, dialect: McpServers },
 
-    // Windsurf
+    // Devin Desktop (formerly Windsurf).
+    // Legacy Cascade agent — still read, so still declared.
     McpSource { host_id: "windsurf", location: MachineAbsolute, path: ".codeium/windsurf/mcp_config.json", tier: Global, dialect: McpServers },
+    // Devin Local, the default agent for new tabs. Without these three a
+    // Devin Desktop user on the default agent sees zero servers.
+    McpSource { host_id: "windsurf", location: MachineAbsolute, path: ".config/devin/config.json", tier: Global, dialect: McpServers },
+    McpSource { host_id: "windsurf", location: RepoRelative, path: ".devin/config.json", tier: Project, dialect: McpServers },
+    McpSource { host_id: "windsurf", location: RepoRelative, path: ".devin/mcp_config.json", tier: Project, dialect: McpServers },
 
     // Zed
     McpSource { host_id: "zed", location: MachineAbsolute, path: ".config/zed/settings.json", tier: Global, dialect: ZedContextServers },

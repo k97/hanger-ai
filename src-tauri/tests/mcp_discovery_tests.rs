@@ -734,6 +734,32 @@ args = ["server.js"]
     assert_eq!(local.args, vec!["server.js"]);
 }
 
+// ─── Windsurf is Devin Desktop ───────────────────────────────────────────────
+
+#[test]
+fn the_windsurf_host_is_named_devin_desktop_and_keeps_its_id() {
+    use tauri_app_lib::mcp::registry::{HOSTS, SOURCES};
+
+    let host = HOSTS
+        .iter()
+        .find(|h| h.id == "windsurf")
+        .expect("the host id stays `windsurf` — it keys existing rows");
+    assert_eq!(host.display_name, "Devin Desktop");
+
+    let paths: Vec<&str> = SOURCES
+        .iter()
+        .filter(|s| s.host_id == "windsurf")
+        .map(|s| s.path)
+        .collect();
+
+    // Legacy, not dead: Cascade still reads it.
+    assert!(paths.contains(&".codeium/windsurf/mcp_config.json"));
+    // Devin Local — the default agent — reads these.
+    assert!(paths.contains(&".config/devin/config.json"));
+    assert!(paths.contains(&".devin/config.json"));
+    assert!(paths.contains(&".devin/mcp_config.json"));
+}
+
 #[test]
 fn a_mixed_file_yields_both_transports_side_by_side() {
     // The real shape of a repo .mcp.json next to a machine config: stdio and

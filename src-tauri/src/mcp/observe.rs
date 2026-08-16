@@ -336,6 +336,7 @@ fn host_for_process_name(name: &str) -> Option<&'static str> {
         ("Claude", "Claude Desktop"),
         ("Cursor", "Cursor"),
         ("Windsurf", "Windsurf"),
+        ("Devin", "Windsurf"),
         ("Code Helper", "VS Code"),
         ("Code", "VS Code"),
     ] {
@@ -373,6 +374,15 @@ mod tests {
         // read the config, so `claude` must be reachable before `Code`.
         assert_eq!(host("Code Helper (Plugin)"), Some("VS Code"));
         assert_eq!(host("claude"), Some("Claude Code"));
+    }
+
+    #[test]
+    fn devin_desktop_is_recognised_under_either_process_name() {
+        // Cognition rebranded Windsurf to Devin Desktop on 2026-06-02, but the
+        // binary and its process name did not necessarily follow in lockstep
+        // on every install — both are matched.
+        assert_eq!(host("Windsurf"), Some("Windsurf"));
+        assert_eq!(host("Devin"), Some("Windsurf"));
     }
 
     #[test]
