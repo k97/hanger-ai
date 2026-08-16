@@ -53,30 +53,26 @@ pub fn redact_launch(command: &str, args: &[String]) -> String {
 
     for arg in args {
         if let Some(p) = pending.take() {
-            // A flag that looks like it takes a value is not always given
-            // one — `--oauth` looks secret but is often a valueless toggle.
-            // If the very next token is itself a flag this function
-            // recognises, the PRECEDING flag was valueless: leave it bare
-            // (it is already in `out`, unmarked) and fall through to weigh
-            // this token on its own merits, rather than swallowing it as a
-            // value and letting its own real value go unredacted.
-            //
-            // Whether the next token IS a flag is a question of shape, not
-            // content: a `--word` flag (or a known header short form) is
-            // structurally a flag; a single-dash token is a value no matter
-            // how secret-shaped its text (`-secretXvalue` is a value, not a
-            // flag). Testing "looks secret" instead of shape would misfire
-            // on exactly that value, leave it unredacted with a dangling
-            // `pending`, and reopen the leak this guard exists to close.
-            let next_is_a_recognised_flag = HEADER_FLAGS.contains(&arg.as_str())
-                || (arg.starts_with("--") && looks_secret(arg));
-            if !next_is_a_recognised_flag {
-                match p {
-                    Pending::Header => out.push(redact_header_value(arg)),
-                    Pending::Value => out.push("<redacted>".to_string()),
-                }
-                continue;
+            // Invariant: a token in a pending-value position is never
+            // emitted verbatim. Two rounds of trying to first decide "is this
+            // token actually a flag, not a value" each left a
+            // differently-shaped secret exposed (`-secretX`, then
+            // `--secretX`), because a flag and a value can share any shape —
+            // no shape test can tell them apart in general. Redact
+            // unconditionally instead. Then, if this same token could ALSO
+            // have started a fresh secret capture of its own — it is a
+            // header flag, or itself looks like a secret flag — keep the
+            // streak going so the token after it is redacted too. Never fall
+            // through to the flag-detection branches below for a token
+            // consumed here.
+            match p {
+                Pending::Header => out.push(redact_header_value(arg)),
+                Pending::Value => out.push("<redacted>".to_string()),
             }
+            if HEADER_FLAGS.contains(&arg.as_str()) || (arg.starts_with('-') && looks_secret(arg)) {
+                pending = Some(Pending::Value);
+            }
+            continue;
         }
 
         if HEADER_FLAGS.contains(&arg.as_str()) {
