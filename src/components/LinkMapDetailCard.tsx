@@ -1,4 +1,11 @@
-import { ArrowRightIcon, Square2StackIcon, XMarkIcon } from "./icons";
+import type { ReactNode } from "react";
+import {
+  ArrowRightIcon,
+  ExclamationTriangleIcon,
+  InformationCircleIcon,
+  Square2StackIcon,
+  XMarkIcon,
+} from "./icons";
 import Tooltip from "./Tooltip";
 import EngineLabel from "./EngineLabel";
 import type {
@@ -8,9 +15,23 @@ import type {
   PositionedEdge,
 } from "../utils/linkMapLayout";
 
+/**
+ * A thing the map has to say about itself. Built where the graph is read;
+ * this card and the banner strip are the two places it renders, so neither
+ * restates the other's copy.
+ */
+export interface MapNotice {
+  id: string;
+  variant: "warning" | "info";
+  summary: string;
+  detail: ReactNode;
+}
+
 interface LinkMapDetailCardProps {
   selection: LinkMapSelection;
   nodes: GraphNode[];
+  /** Read only by the notices body; the pane owns the list. */
+  notices: MapNotice[];
   onClose: () => void;
   /** Project nodes only: jump to the repository's own view. */
   onOpenProject: (path: string) => void;
@@ -42,6 +63,10 @@ const NODE_KIND_LABEL: Record<GraphNode["kind"], string> = {
 
 const actionBtnClass =
   "h-[30px] px-4 rounded-pill border border-line-2 text-small font-medium text-ink-1 cursor-pointer transition-colors duration-nav ease-spring hover:bg-plane-2 inline-flex items-center gap-1.5";
+
+/** One dock, one shape — whatever the card is showing. */
+const cardClass =
+  "absolute left-3 top-3 bottom-3 w-[300px] z-20 flex flex-col bg-page border border-line rounded-plane overflow-hidden shadow-overlay";
 
 function PathChip({ text }: { text: string }) {
   return (
@@ -83,6 +108,7 @@ function Facts({ rows }: { rows: Array<[string, React.ReactNode]> }) {
 export default function LinkMapDetailCard({
   selection,
   nodes,
+  notices,
   onClose,
   onOpenProject,
 }: LinkMapDetailCardProps) {
@@ -96,6 +122,64 @@ export default function LinkMapDetailCard({
     </button>
   );
 
+  // Notices dock in the same card as a node or an edge. They are the map
+  // talking about itself, so they get the same surface, not a second one.
+  if (selection.kind === "notices") {
+    const worst = notices.some((n) => n.variant === "warning") ? "warning" : "info";
+
+    return (
+      <div data-testid="map-detail-card" className={cardClass}>
+        <div className="px-4 pt-3.5 pb-3 border-b border-line shrink-0">
+          <div className="flex items-center gap-2 font-flex text-micro tracking-[.06em] uppercase text-ink-3 mb-1.5">
+            <span>Map</span>
+            <span>·</span>
+            <span>Notices</span>
+            <span className="ml-auto">{closeButton}</span>
+          </div>
+          <h2 className="text-base-app font-medium tracking-[-0.2px] text-ink-1 mb-1.5">
+            {worst === "warning" ? "Not everything could be drawn" : "About this map"}
+          </h2>
+          <div className="flex items-center gap-[7px]">
+            <i
+              className={`w-2 h-2 rounded-pill shrink-0 ${
+                worst === "warning" ? "bg-state-warning" : "bg-state-success"
+              }`}
+            />
+            <span className="font-flex text-small text-ink-2">
+              {worst === "warning"
+                ? "Recorded links the map had to leave out"
+                : "Nothing is wrong — context for what you see"}
+            </span>
+          </div>
+        </div>
+
+        <div className="flex-1 min-h-0 overflow-y-auto">
+          {notices.map((notice) => (
+            <div
+              key={notice.id}
+              data-testid={`map-notice-${notice.id}`}
+              className="mx-4 mt-3 last:mb-3.5 px-3 py-2.5 bg-plane rounded-inner"
+            >
+              <div
+                className={`flex items-start gap-1.5 font-flex text-small font-medium ${
+                  notice.variant === "warning" ? "text-state-warning" : "text-ink-1"
+                }`}
+              >
+                {notice.variant === "warning" ? (
+                  <ExclamationTriangleIcon size={13} className="shrink-0 mt-0.5" aria-hidden="true" />
+                ) : (
+                  <InformationCircleIcon size={13} className="shrink-0 mt-0.5" aria-hidden="true" />
+                )}
+                <span>{notice.summary}</span>
+              </div>
+              <div className="pt-1.5">{notice.detail}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   if (selection.kind === "edge") {
     const edge: PositionedEdge = selection.edge;
     const source = nodes.find((n) => n.id === edge.source);
@@ -107,7 +191,7 @@ export default function LinkMapDetailCard({
     return (
       <div
         data-testid="map-detail-card"
-        className="absolute left-3 top-3 bottom-3 w-[300px] z-20 flex flex-col bg-page border border-line rounded-plane overflow-hidden shadow-overlay"
+        className={cardClass}
       >
         <div className="px-4 pt-3.5 pb-3 border-b border-line shrink-0">
           <div className="flex items-center gap-2 font-flex text-micro tracking-[.06em] uppercase text-ink-3 mb-1.5">
@@ -189,7 +273,7 @@ export default function LinkMapDetailCard({
   return (
     <div
       data-testid="map-detail-card"
-      className="absolute left-3 top-3 bottom-3 w-[300px] z-20 flex flex-col bg-page border border-line rounded-plane overflow-hidden shadow-overlay"
+      className={cardClass}
     >
       <div className="px-4 pt-3.5 pb-3 border-b border-line shrink-0">
         <div className="flex items-center gap-2 font-flex text-micro tracking-[.06em] uppercase text-ink-3 mb-1.5">

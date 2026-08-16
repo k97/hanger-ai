@@ -33,6 +33,21 @@ interface Callbacks {
   onOpenProject: ReturnType<typeof vi.fn>;
 }
 
+/** Renders with a handle that re-renders the SAME tree, so state survives. */
+const renderPaneRaw = (g: LinkGraph, showProjects: boolean) => {
+  const pane = (sp: boolean) => (
+    <LinkMapPane
+      graph={g}
+      loading={false}
+      showProjects={sp}
+      onToggleProjects={vi.fn()}
+      onOpenProject={vi.fn()}
+    />
+  );
+  const view = render(pane(showProjects));
+  return { setShowProjects: (sp: boolean) => view.rerender(pane(sp)) };
+};
+
 const renderPane = (
   g: LinkGraph | null,
   { showProjects = true }: { showProjects?: boolean } = {},
@@ -226,23 +241,77 @@ describe("LinkMapPane", () => {
     expect(Number(mark!.getAttribute("x"))).toBe(claudeX + 13);
   });
 
+  it("puts an alert control under the layers button, but only when there is something to say", () => {
+    renderPane(graph());
+    expect(screen.queryByTestId("map-notices")).toBeNull();
+
+    cleanup();
+    renderPane(graph({ warnings: ["link 4 → /gone: destination missing"] }));
+    const alert = screen.getByLabelText("Map warnings");
+    expect(alert.getAttribute("class")).toContain("text-state-warning");
+
+    // It sits directly below the layers button in the same corner stack.
+    const stack = alert.parentElement!;
+    const buttons = Array.from(stack.children).filter((c) => c.tagName === "BUTTON");
+    expect(buttons.map((b) => b.getAttribute("data-testid"))).toEqual([
+      "map-layers",
+      "map-notices",
+    ]);
+
+    fireEvent.click(alert);
+    expect(screen.getByTestId("map-detail-card").textContent).toContain(
+      "link 4 → /gone: destination missing",
+    );
+  });
+
+  it("lands notices in the docked card, not a second popover of their own", () => {
+    renderPane(graph({ warnings: ["link 4 → /gone: destination missing"] }));
+    fireEvent.click(screen.getByTestId("map-notices"));
+
+    const card = screen.getByTestId("map-detail-card");
+    expect(card.textContent).toContain("Not everything could be drawn");
+    expect(screen.queryByTestId("map-notices-panel")).toBeNull();
+
+    // The control reads as pressed while its card is up, and the same card
+    // gives way to a node — one detail surface, not two stacked.
+    expect(screen.getByTestId("map-notices").getAttribute("aria-pressed")).toBe("true");
+    fireEvent.click(screen.getByTestId("map-node-2"));
+    expect(screen.getByTestId("map-detail-card").textContent).toContain("Claude Code");
+    expect(screen.getByTestId("map-notices").getAttribute("aria-pressed")).toBe("false");
+  });
+
+  it("drops a notices card when a layer toggle takes its last notice away", () => {
+    // The info notice belongs to the projects layer. Hiding projects must not
+    // leave an empty card docked, claiming the map has something to say.
+    const { setShowProjects } = renderPaneRaw(
+      graph({ edges: [], empty_state: "no_project_edges" }),
+      true,
+    );
+    fireEvent.click(screen.getByTestId("map-notices"));
+    expect(screen.getByTestId("map-detail-card")).toBeTruthy();
+
+    setShowProjects(false);
+    expect(screen.queryByTestId("map-detail-card")).toBeNull();
+    expect(screen.queryByTestId("map-notices")).toBeNull();
+  });
+
   it("says plainly when project links are unrecorded — but only while projects show", () => {
-    renderPane(
+    const unrecorded = () =>
       graph({
         edges: [{ source: 1, dest: 2, mechanism: "symlink", state: "linked", count: 2, dest_path: null }],
         empty_state: "no_project_edges",
-      }),
-    );
+      });
+
+    renderPane(unrecorded());
+    // The map keeps its full height: the explainer waits behind the control
+    // rather than sitting in a banner strip above the canvas.
+    expect(screen.queryByText(/project links.*not been recorded/i)).toBeNull();
+    fireEvent.click(screen.getByTestId("map-notices"));
     expect(screen.getByText(/project links.*not been recorded/i)).toBeTruthy();
     cleanup();
 
-    renderPane(
-      graph({
-        edges: [{ source: 1, dest: 2, mechanism: "symlink", state: "linked", count: 2, dest_path: null }],
-        empty_state: "no_project_edges",
-      }),
-      { showProjects: false },
-    );
+    renderPane(unrecorded(), { showProjects: false });
+    expect(screen.queryByTestId("map-notices")).toBeNull();
     expect(screen.queryByText(/project links.*not been recorded/i)).toBeNull();
   });
 });

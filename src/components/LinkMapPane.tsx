@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import DisclosureBanner from "./DisclosureBanner";
-import LinkMapDetailCard from "./LinkMapDetailCard";
+import LinkMapDetailCard, { type MapNotice } from "./LinkMapDetailCard";
 import BrandIcon from "./BrandIcon";
 import {
   ArrowsPointingOutIcon,
   CheckIcon,
+  ExclamationTriangleIcon,
+  InformationCircleIcon,
   MapIcon,
   MinusIcon,
   PlusIcon,
@@ -130,10 +131,14 @@ function edgeSummary(edge: PositionedEdge): string {
   return `${edge.count} ${noun}${state}`;
 }
 
-const zoomBtnClass =
-  "w-7 h-7 rounded-pill border border-line-2 bg-page grid place-items-center text-ink-2 hover:bg-plane-2 hover:text-ink-1 transition-colors duration-hover ease-spring cursor-pointer";
+// One control shape for every corner button; only the ink differs, so a
+// warning can tint its own control without redefining the affordance.
+const mapCtlClass =
+  "w-7 h-7 rounded-pill border border-line-2 bg-page grid place-items-center hover:bg-plane-2 transition-colors duration-hover ease-spring cursor-pointer";
+const zoomBtnClass = `${mapCtlClass} text-ink-2 hover:text-ink-1`;
 const zoomBtnActiveClass =
   "w-7 h-7 rounded-pill border border-transparent bg-tint grid place-items-center text-tint-ink transition-colors duration-hover ease-spring cursor-pointer";
+const alertBtnClass = `${mapCtlClass} text-state-warning`;
 
 /**
  * The link map: three columns, edges whose stroke carries mechanism and
@@ -276,6 +281,48 @@ export default function LinkMapPane({
   }
 
   const warningBadge = graph.warnings.length;
+
+  // What the map has to say about itself. It says it in one place — the
+  // alert control on the canvas, opening the docked card — and not in a
+  // banner strip above the map: the map view trades height for canvas, and
+  // a notice that is always expanded is a notice nobody reads twice.
+  const notices: MapNotice[] = [];
+  if (warningBadge > 0) {
+    notices.push({
+      id: "undrawable-links",
+      variant: "warning",
+      summary: "Some recorded links could not be drawn",
+      detail: (
+        <ul className="list-none">
+          {graph.warnings.map((w) => (
+            <li key={w} className="font-mono text-micro text-ink-2 py-0.5 break-all">
+              {w}
+            </li>
+          ))}
+        </ul>
+      ),
+    });
+  }
+  if (showProjects && graph.empty_state === "no_project_edges") {
+    notices.push({
+      id: "no-project-edges",
+      variant: "info",
+      summary: "Per-asset project links have not been recorded yet",
+      detail: (
+        <p className="text-small text-ink-2 leading-[1.6]">
+          Hanger records a link when it deploys an asset and when a scan meets a symlink that
+          resolves into the store — neither has seen one so far. The store-to-engine edges below
+          are real: they come from the engine roots themselves, not from records. Rescan a
+          project that contains symlinks into the store to backfill its links.
+        </p>
+      ),
+    });
+  }
+  const hasWarningNotice = notices.some((n) => n.variant === "warning");
+  // A notices selection outlives its notices when a layer toggle removes the
+  // last one, so what shows is derived, never assumed from the selection.
+  const noticesShown = selection?.kind === "notices" && notices.length > 0;
+
   const selectedKey = selection?.kind === "edge" ? edgeKey(selection.edge) : null;
   const selectedNodeId = selection?.kind === "node" ? selection.node.id : null;
 
@@ -286,41 +333,6 @@ export default function LinkMapPane({
 
   return (
     <div className="h-full flex flex-col bg-page min-h-0">
-      {warningBadge > 0 && (
-        <div className="px-[18px] pt-2.5 shrink-0">
-          <DisclosureBanner
-            variant="warning"
-            summary="Some recorded links could not be drawn"
-            count={warningBadge}
-          >
-            <ul className="list-none">
-              {graph.warnings.map((w) => (
-                <li key={w} className="font-mono text-micro text-ink-2 py-0.5 break-all">
-                  {w}
-                </li>
-              ))}
-            </ul>
-          </DisclosureBanner>
-        </div>
-      )}
-
-      {showProjects && graph.empty_state === "no_project_edges" && (
-        <div className="px-[18px] pt-2.5 shrink-0">
-          <DisclosureBanner
-            variant="info"
-            summary="Per-asset project links have not been recorded yet"
-          >
-            <p className="text-small text-ink-2 leading-[1.6]">
-              Hanger records a link when it deploys an asset and when a scan meets a symlink
-              that resolves into the store — neither has seen one so far. The store-to-engine
-              edges below are real: they come from the engine roots themselves, not from
-              records. Rescan a project that contains symlinks into the store to backfill its
-              links.
-            </p>
-          </DisclosureBanner>
-        </div>
-      )}
-
       <div className="flex-1 min-h-0 px-[18px] pb-2 pt-2.5 flex flex-col">
         <div
           ref={viewportRef}
@@ -474,6 +486,29 @@ export default function LinkMapPane({
             >
               <MapIcon size={14} aria-hidden="true" />
             </button>
+            {/* The alert sits under layers and appears only when the map has
+                something to say. A control that is always lit says nothing.
+                It opens the same docked card a node or an edge opens — the
+                map has one detail surface, not one per kind of thing. */}
+            {notices.length > 0 && (
+              <button
+                aria-label={hasWarningNotice ? "Map warnings" : "Map notices"}
+                aria-pressed={noticesShown}
+                data-testid="map-notices"
+                onClick={() =>
+                  setSelection((s) => (s?.kind === "notices" ? null : { kind: "notices" }))
+                }
+                className={
+                  noticesShown ? zoomBtnActiveClass : hasWarningNotice ? alertBtnClass : zoomBtnClass
+                }
+              >
+                {hasWarningNotice ? (
+                  <ExclamationTriangleIcon size={14} aria-hidden="true" />
+                ) : (
+                  <InformationCircleIcon size={14} aria-hidden="true" />
+                )}
+              </button>
+            )}
             {layersOpen && (
               <div
                 data-testid="map-layers-panel"
@@ -532,11 +567,13 @@ export default function LinkMapPane({
           </div>
 
           {/* The Maps-style detail card, docked in the canvas. It replaces
-              both the popover and the inspector column for this view. */}
-          {selection && (
+              both the popover and the inspector column for this view, and it
+              is where notices land too — one detail surface, three bodies. */}
+          {selection && (selection.kind !== "notices" || noticesShown) && (
             <LinkMapDetailCard
               selection={selection}
               nodes={graph.nodes}
+              notices={notices}
               onClose={() => setSelection(null)}
               onOpenProject={onOpenProject}
             />

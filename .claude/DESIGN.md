@@ -344,8 +344,8 @@ drift apart on sizing (`:18-21`).
 from static data in `src/data/directories.ts`.
 
 **`LinkMapPane`** (`LinkMapPane.tsx`, props at `interface LinkMapPaneProps`)
-— `graph`, `loading`, `selection`, `onSelect`, `showProjects`,
-`onToggleProjects`, `onOpenProject`, `onRescan`. The map: SVG columns at a
+— `graph`, `loading`, `showProjects`, `onToggleProjects`, `onOpenProject`.
+Selection is the pane's own state, not a prop. The map: SVG columns at a
 fixed logical width of 880, viewed through an Apple-Maps camera — drag
 pans, pinch and ⌘/ctrl-wheel zoom at the cursor, two-finger scroll pans,
 `+`/`−`/Fit controls in the corner. Camera arithmetic is a pure module
@@ -356,15 +356,26 @@ symlink, dashed tracked copy), colour carries state (`text-ink-2`,
 `text-state-warning`, `text-state-danger`). The legend maps the same
 exhaustive enum lists the renderer matches on (`linkMapLayout.ts`,
 `EDGE_MECHANISMS`/`EDGE_STATES`), so it cannot describe a style that is
-never drawn. Projects are a filter chip (CategoryFilterCards' chip anatomy,
-default off, persisted as `linkmap_show_projects`); hiding them takes their
-edges and re-spreads the columns (`layoutLinkGraph` `kinds` option). Node
-text truncates in the middle toward the tail (`middleTruncate`) so paths
-stay inside their boxes; the popover and inspector carry the full path.
-Clicking a box or an edge label pins a popover (bg-page, border, no
-shadow) anchored in world coordinates so it tracks the camera; its Details
-action hands a `LinkMapSelection` to the inspector, and project popovers
-add Open project. Geometry is a pure function: stable sort on (label, id)
+never drawn. Projects are a layer, toggled inside a Maps-style layers
+control in the canvas's top-right corner (default off, persisted as
+`linkmap_show_projects`); hiding them takes their edges and re-spreads the
+columns (`layoutLinkGraph` `kinds` option). Node text truncates in the
+middle toward the tail (`middleTruncate`) so paths stay inside their boxes;
+the detail card carries the full path. Clicking a box or an edge label
+docks `LinkMapDetailCard` (below).
+
+**The map states its own diagnostics in one place.** Directly under the
+layers control sits an alert control that appears only when the map has
+something to say — a warning triangle in `text-state-warning` when a
+recorded link could not be drawn, an info circle otherwise. It opens the
+same docked card, with the notices as its body. The map view carries **no
+`DisclosureBanner` strip**: it is the one view whose whole content is a
+canvas, and a permanently expanded notice above it costs the height the
+canvas exists for. Both the control and the card body render from a single
+`MapNotice[]` built where the graph is read, so no copy is stated twice.
+This is a stated exception to the AGENTS.md rule that non-blocking
+diagnostics use `DisclosureBanner`, not a new banner component. Geometry is
+a pure function: stable sort on (label, id)
 within columns, bézier paths from endpoint coordinates only. The graph
 itself — nodes, counts, edge states, even which empty state the view is in
 — arrives computed from the backend `link_graph` command
@@ -387,12 +398,17 @@ generic panel: `AssetDetail` for assets (`AssetDetail.tsx:26-31`: `asset`,
 The link map is the exception: it has **no inspector column**. Selection
 docks **`LinkMapDetailCard`** inside the canvas instead
 (`LinkMapDetailCard.tsx`: `selection: LinkMapSelection`, `nodes`,
-`onClose`, `onOpenProject`) — the Apple Maps pattern, keeping
+`notices`, `onClose`, `onOpenProject`) — the Apple Maps pattern, keeping
 `ReviewInspector`'s anatomy at card scale: eyebrow, title, state dot and
-line, path chip with copy, facts grid. The selection is an edge or a node
-(`linkMapLayout.ts`, `LinkMapSelection`); node bodies state kind, asset
-count and — for engines — whether the root actually reaches the store, and
-project nodes carry an Open project action into the repository view. It
+line, path chip with copy, facts grid. One dock, one shape (`cardClass`),
+three bodies: an edge, a node, or the map's own notices
+(`linkMapLayout.ts`, `LinkMapSelection`, whose `notices` variant carries no
+payload — the list is built where the graph is read). Node bodies state
+kind, asset count and — for engines — whether the root actually reaches the
+store, and project nodes carry an Open project action into the repository
+view. The notices body leads with the worst variant present: a warning dot
+and "Not everything could be drawn", or a success dot and "Nothing is
+wrong — context for what you see". It
 deliberately carries no provenance on either body: nothing records who
 created a link or when, and inventing that was a defect in the prototype.
 Its edge count row is labelled by what actually travels the edge — assets
@@ -496,7 +512,7 @@ holds `selectedSidebarItem`, persisted under `selected_sidebar_item`
 
 ### Window chrome — one vertical baseline
 
-Every cap — the sidebar cap (`App.tsx:957`), the content header (`App.tsx:1048`),
+Every cap — the sidebar cap (`App.tsx:961`), the content header (`App.tsx:1052`),
 the inspector cap (`App.tsx:1317`) — is `h-10 flex items-center`: a 40px band
 with its contents optically centered on the same line, 20px from the cap's
 top. The native traffic lights are tuned to sit on that identical line:
@@ -511,6 +527,38 @@ against it, not recomputed by formula.
 Any future cap, toolbar, or menubar row must keep this same `h-10
 flex items-center` shape so its contents land on this baseline by
 construction, rather than each screen re-deriving its own vertical rhythm.
+
+**Toolbar buttons must carry `shrink-0`, or a squeezed cap silently shrinks
+the icon inside them.** `tbBtnClass` / `tbBtnActiveClass` / `tbBtnPlaneClass`
+(`App.tsx:859-867`) all declare it. This was found the hard way: the sidebar
+cap leads with a spacer (`w-[76px] shrink-0`, `App.tsx:963`) so the toggle
+button stays reachable when the source list is collapsed and the cap's
+content overflows its 56px rail on purpose (`App.tsx:956-960`). Without
+`shrink-0` on the button, that overflow's negative free space fell through to
+the button — clamped there by `min-w-[27px]` — and then into the icon inside
+it, rendering the same `size={15}` icon at ~10pt instead of ~13pt with no
+change to its props at all; `react-dom/server` output for the two icons was
+byte-identical, so the bug was purely this missing shrink guard, confirmed by
+pixel-measuring the live window before and after. Any button meant to
+overflow a shrinking container needs this same guard, or its icon silently
+shrinks instead of the button just overflowing as intended.
+
+**The leading gap after the traffic lights is tuned to match the gap between
+the lights themselves — not derived, measured.** The three native dots keep
+~9.5pt between each other. `App.tsx:963`'s spacer (`w-[76px]`) lands the
+toggle icon's own ink ~11.5pt after the dot cluster ends, and the collapsed
+crumb's `pl-[51px]` (`App.tsx:1064`, only when `sidebarCollapsed`; `pl-[18px]`
+otherwise) lands the breadcrumb text ~10.5pt after the icon's ink — three
+gaps within ~2pt of each other, read as one uniform rhythm rather than three
+independently-guessed numbers. None of these three values can be derived from
+the others by formula (native traffic lights aren't in the DOM, and glyph ink
+extent isn't the same as box width), so every one of them was set by
+measuring a live, running window pixel-by-pixel, not by eyeballing a
+screenshot or computing from CSS box models alone. If the spacer, the button
+padding, the icon size, or `trafficLightPosition.x` ever change, re-measure
+the live window and retune both the spacer and the crumb's collapsed padding
+together — they drifted out of sync once already from being changed one at a
+time.
 
 ### Pane composition
 
@@ -634,7 +682,10 @@ know: `rg -ln "DisclosureBanner" src/__tests__/ src/components/*.test.tsx`
 returns `TccRelocation.test.tsx`, `DisclosureBanner.test.tsx`,
 `no-frontend-counting.test.ts`, `a6_r2_defects.test.tsx`,
 `nested_repo_banner.test.tsx`. The rule is real and honoured, but by
-convention only.
+convention only. One view states an exception rather than a violation: the
+link map has no banner strip and puts the same notices behind an alert
+control in the canvas, docked in `LinkMapDetailCard` (see `LinkMapPane`
+above). Nothing detects that either.
 
 **There is no panel-height rule to point at.** `McpServerDetail` carries a
 comment saying two-line rows mean 17–20 tools exceed a panel and that

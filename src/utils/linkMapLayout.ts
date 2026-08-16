@@ -52,7 +52,10 @@ export const EDGE_STATES: readonly EdgeState[] = ["linked", "drifted", "dangling
 /** What the map can hand to the inspector: an edge or a node, never both. */
 export type LinkMapSelection =
   | { kind: "edge"; edge: PositionedEdge }
-  | { kind: "node"; node: GraphNode };
+  | { kind: "node"; node: GraphNode }
+  // What the map has to say about itself. It carries no payload: the
+  // notices are built where the graph is read, not stored in a selection.
+  | { kind: "notices" };
 
 // ---- Geometry -------------------------------------------------------------
 
