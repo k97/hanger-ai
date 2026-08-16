@@ -416,3 +416,35 @@ fn roo_reaches_the_shared_dir_and_kilo_does_not() {
     assert!(roo.reads_agents_dir, "Roo Code reads .agents/ alongside its own dir");
     assert!(!kilo.reads_agents_dir, "Kilo's .agents/ support is unconfirmed");
 }
+
+#[test]
+fn cline_claims_all_three_of_its_homes() {
+    for p in [
+        "/Users/test/.cline/skills/demo/SKILL.md",
+        "/repo/proj/.clinerules/demo.md",
+        "/Users/test/Documents/Cline/Rules/demo.md",
+    ] {
+        let found = engine_for_path(Path::new(p))
+            .unwrap_or_else(|| panic!("Cline did not claim {p}"));
+        assert_eq!(found.id, "cline", "{p} resolved to {}", found.id);
+    }
+}
+
+#[test]
+fn clines_global_storage_path_is_declared_not_guessed() {
+    // Medium-confidence and keyed by an extension id that can change. This is
+    // the detector most likely to silently find nothing, so the id is pinned
+    // here: when it changes, this test says so rather than the UI reporting
+    // zero servers (spec §11).
+    let sources = tauri_app_lib::mcp::registry::SOURCES
+        .iter()
+        .filter(|s| s.host_id == "cline")
+        .count();
+    assert!(sources > 0, "Cline must declare at least one MCP source");
+    assert!(
+        tauri_app_lib::mcp::registry::SOURCES
+            .iter()
+            .any(|s| s.host_id == "cline" && s.path.contains("saoudrizwan.claude-dev")),
+        "Cline's globalStorage extension id must be declared explicitly"
+    );
+}

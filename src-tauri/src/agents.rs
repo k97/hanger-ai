@@ -146,6 +146,19 @@ pub const AGENT_CONFIGS: &[AgentConfig] = &[
         subagents: None,
         reads_agents_dir: false,
     },
+    AgentConfig {
+        id: "cline",
+        name: "Cline",
+        // Three unrelated homes: a vendor dir, a bare rules dir, and a folder
+        // under Documents. Longest-root-wins in engine_for_path is what keeps
+        // `.clinerules` from being shadowed.
+        global_roots: &[".cline", "Documents/Cline"],
+        project_roots: &[".cline", ".clinerules"],
+        skills: Some("skills"),
+        rules: Some("Rules"),
+        subagents: None,
+        reads_agents_dir: false,
+    },
 ];
 
 /// Split a path into its string components, skipping the root and any

@@ -98,6 +98,7 @@ pub const HOSTS: &[McpHost] = &[
     McpHost { id: "amp", display_name: "Amp", kind: HostKind::Agent },
     McpHost { id: "roocode", display_name: "Roo Code", kind: HostKind::Agent },
     McpHost { id: "kilocode", display_name: "Kilo Code", kind: HostKind::Agent },
+    McpHost { id: "cline", display_name: "Cline", kind: HostKind::Agent },
 ];
 
 use Dialect::*;
@@ -163,6 +164,11 @@ pub const SOURCES: &[McpSource] = &[
     McpSource { host_id: "kilocode", location: MachineAbsolute, path: ".config/kilo/kilo.jsonc", tier: Global, dialect: OpenCodeMcp },
     McpSource { host_id: "kilocode", location: RepoRelative, path: ".kilo/kilo.jsonc", tier: Project, dialect: OpenCodeMcp },
     McpSource { host_id: "kilocode", location: RepoRelative, path: "kilo.jsonc", tier: Project, dialect: OpenCodeMcp },
+
+    // Cline — its MCP settings live in VS Code's extension storage, keyed by
+    // an extension id that can change. Declared explicitly so a change breaks
+    // a test rather than silently reporting zero servers.
+    McpSource { host_id: "cline", location: MachineAbsolute, path: "Library/Application Support/Code/User/globalStorage/saoudrizwan.claude-dev/settings/cline_mcp_settings.json", tier: Global, dialect: McpServers },
 ];
 
 impl McpHost {
