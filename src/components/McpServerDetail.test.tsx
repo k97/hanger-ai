@@ -9,7 +9,6 @@ vi.mock("@tauri-apps/plugin-opener", () => ({ openUrl: (u: string) => openUrl(u)
 const base: McpServerView = {
   name: "spades-audio",
   command: "node",
-  args: ["/Applications/Spades Audio.app/Contents/Resources/mcp-server/dist/index.js"],
   transport: "stdio",
   registrations: [
     { key: "cc-user", host: "Claude Code", tier: "user", configPath: "~/.claude.json", command: "node", launchDisplay: "node" },
@@ -179,11 +178,13 @@ describe("McpServerDetail", () => {
     expect(slot.textContent).toMatch(/^verified .+ · (Codex|Gemini) · global$/);
   });
 
-  it("hands the command AND its arguments to Verify", () => {
-    // The gap this test exists to close: the panel shipped with an inert
-    // button, and the Tool row carried no args. Probing `node` with no
-    // arguments starts a REPL that never speaks MCP, so the tool list could
-    // never populate no matter how long you waited.
+  it("hands the registration key to Verify", () => {
+    // Superseded by Task 4: this used to assert the panel passed the real
+    // command and its arguments to Verify, back when the frontend resolved
+    // the launch itself. Probing now happens backend-side from a
+    // registration key (`Tool.args` no longer even crosses IPC -- see
+    // ipc_boundary_tests.rs), so the thing worth asserting here is that the
+    // click hands Verify the key it needs to find that registration again.
     // Scoped to one registration -- see the "never verified" test above for
     // why base's three agreeing, unverified registrations cannot share a
     // singular button query.
@@ -191,9 +192,8 @@ describe("McpServerDetail", () => {
     render(<McpServerDetail server={{ ...base, registrations: [base.registrations[0]] }} onVerify={onVerify} />);
     fireEvent.click(screen.getByRole("button", { name: /verify/i }));
     expect(onVerify).toHaveBeenCalledTimes(1);
+    expect(onVerify).toHaveBeenCalledWith(base.registrations[0].key);
     expect(base.command).toBe("node");
-    expect(base.args).toHaveLength(1);
-    expect(base.args[0]).toMatch(/index\.js$/);
   });
 
   it("disables the button while a probe is in flight", () => {
@@ -216,7 +216,7 @@ describe("McpServerDetail", () => {
     // is dialled rather than spawned, so it IS verifiable -- and the copy must
     // be honest that a protected endpoint will refuse.
     // Scoped to one registration -- see the "never verified" test above.
-    render(<McpServerDetail server={{ ...base, command: "", args: [],
+    render(<McpServerDetail server={{ ...base, command: "",
       transport: "https://mei-recipes-api.example.workers.dev/mcp",
       registrations: [base.registrations[0]] }} />);
     expect(screen.getByRole("button", { name: /verify/i })).toBeTruthy();
@@ -227,7 +227,7 @@ describe("McpServerDetail", () => {
     // No file to open and nothing to verify — but "nothing local to inspect"
     // left the reader at a dead end when the destination is knowable.
     // Scoped to one registration -- see the "never verified" test above.
-    render(<McpServerDetail server={{ ...base, name: "Notion", command: "", args: [],
+    render(<McpServerDetail server={{ ...base, name: "Notion", command: "",
       transport: "claude.ai", registrations: [base.registrations[0]] }} />);
     expect(screen.queryByRole("button", { name: /verify/i })).toBeNull();
     expect(screen.getByText(/runs on anthropic/i)).toBeTruthy();
