@@ -79,3 +79,24 @@ fn agent_ids_are_unique() {
     ids.dedup();
     assert_eq!(before, ids.len(), "duplicate agent id in AGENT_CONFIGS");
 }
+
+/// The chains this refactor exists to delete. A forgotten branch in one of
+/// them fails silently: on the read side an asset files under the wrong
+/// engine, on the write side lib.rs:504 wrote into the project root. Pin
+/// their absence so they cannot grow back.
+#[test]
+fn scanner_has_no_hardcoded_attribution_chains() {
+    let src = include_str!("../src/scanner.rs");
+    for needle in [
+        "contains(\"/.claude/\")",
+        "contains(\"/.codex/\")",
+        "contains(\"/.gemini/\")",
+        "contains(\"/.claude/agents/\")",
+        "contains(\"/.codex/agents/\")",
+    ] {
+        assert!(
+            !src.contains(needle),
+            "scanner.rs still hardcodes {needle} — use agents::engine_for_path"
+        );
+    }
+}

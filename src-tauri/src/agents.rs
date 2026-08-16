@@ -134,3 +134,20 @@ pub fn agents_reading_shared_dir() -> Vec<&'static AgentConfig> {
 pub fn config_for_id(id: &str) -> Option<&'static AgentConfig> {
     AGENT_CONFIGS.iter().find(|c| c.id == id)
 }
+
+/// Rules files that name their own agent. Unlike directories, a rules file is
+/// attributed by filename — `.cursorrules` says "Cursor" wherever it sits.
+/// `AGENTS.md` is deliberately absent: it is the vendor-neutral convention
+/// several agents read, so like `.agents/` it has no owner.
+pub const RULE_FILE_OWNERS: &[(&str, &str, &str)] = &[
+    (".cursorrules", "cursor", "Cursor"),
+    ("copilot-instructions.md", "copilot", "GitHub Copilot"),
+];
+
+/// The engine key and display name that own this rules filename, if any.
+pub fn engine_for_rule_file(filename: &str) -> Option<(&'static str, &'static str)> {
+    RULE_FILE_OWNERS
+        .iter()
+        .find(|(name, _, _)| *name == filename)
+        .map(|(_, key, display)| (*key, *display))
+}

@@ -1,0 +1,7 @@
+{
+  "mcpServers": {
+    "claude-project-tool": {
+      "command": "node"
+    }
+  }
+}

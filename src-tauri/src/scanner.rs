@@ -1382,15 +1382,9 @@ impl DirectoryScanner {
                     let parent_dir = path.parent().unwrap_or(root);
                     let parent_dir_str = parent_dir.to_string_lossy().to_string();
 
-                    let skill_engine_id = if parent_dir_str.contains("/.claude/") {
-                        engine_db_ids.get("claude_code").copied()
-                    } else if parent_dir_str.contains("/.codex/") {
-                        engine_db_ids.get("codex").copied()
-                    } else if parent_dir_str.contains("/.gemini/") {
-                        engine_db_ids.get("gemini").copied()
-                    } else {
-                        None
-                    };
+                    let skill_engine_id = crate::agents::engine_for_path(parent_dir)
+                        .and_then(|c| get_engine_key(c.id))
+                        .and_then(|k| engine_db_ids.get(k).copied());
 
                     match parse_skill_frontmatter(&content) {
                         Ok(fm) => {
@@ -1464,22 +1458,29 @@ impl DirectoryScanner {
                 found_tools.push(path.to_path_buf());
             }
 
+            // A subagent is a `.md` file directly inside an agent's subagents
+            // directory, or inside the shared `.agents/` root. The shared case
+            // has no owner: several agents read it, and ownership is exclusive
+            // (spec §4.4). It is still a subagent — it just belongs to the
+            // store. `Some("")` is that case: a real subagent, no owning
+            // engine. It reads oddly in isolation, but it matches the
+            // convention already used for skills and rules a few lines away
+            // (`Scope::Project { agent: "".to_string(), .. }` = no owner), and
+            // it flows straight into `get_engine_key("")`, which returns
+            // `None`, so the asset lands with `engine_id: None` exactly as
+            // intended.
             let is_subagent = if filename.ends_with(".md") {
-                let path_str = path.to_string_lossy().to_string();
-                if path_str.contains("/.claude/agents/") {
-                    Some("claude-code")
-                } else if path_str.contains("/.codex/agents/") {
-                    Some("codex")
-                } else if path_str.contains("/.agents/") && !path_str.contains("/.agents/skills/") {
-                    let parent = path.parent();
-                    let parent_name = parent.and_then(|p| p.file_name()).and_then(|n| n.to_str());
-                    if parent_name == Some(".agents") || parent_name == Some("agents") {
-                        Some("gemini")
-                    } else {
-                        None
-                    }
-                } else {
-                    None
+                let parent_name = path
+                    .parent()
+                    .and_then(|p| p.file_name())
+                    .and_then(|n| n.to_str());
+                match crate::agents::engine_for_path(path) {
+                    Some(config) => match (config.subagents, parent_name) {
+                        (Some(dir), Some(name)) if name == dir => Some(config.id),
+                        _ => None,
+                    },
+                    None if parent_name == Some(crate::agents::SHARED_AGENTS_DIR) => Some(""),
+                    None => None,
                 }
             } else {
                 None
@@ -1553,7 +1554,6 @@ impl DirectoryScanner {
 
         for tool_path in found_tools {
             let mut owning_agent = String::new();
-            let path_str = tool_path.to_string_lossy().to_string();
             let tool_filename = tool_path.file_name().and_then(|n| n.to_str()).unwrap_or("");
 
             if let Some(config) = crate::agents::engine_for_path(&tool_path) {
@@ -1567,14 +1567,10 @@ impl DirectoryScanner {
             let initial_tools_count = inventory.tools.len();
             let tool_engine_id = if tool_filename == "mcp.json" {
                 None // MCP server definitions (mcp.json) are engine-agnostic shared standards
-            } else if path_str.contains("/.claude/") {
-                engine_db_ids.get("claude_code").copied()
-            } else if path_str.contains("/.codex/") {
-                engine_db_ids.get("codex").copied()
-            } else if path_str.contains("/.gemini/") {
-                engine_db_ids.get("gemini").copied()
             } else {
-                None
+                crate::agents::engine_for_path(&tool_path)
+                    .and_then(|c| get_engine_key(c.id))
+                    .and_then(|k| engine_db_ids.get(k).copied())
             };
 
             match crate::mcp::discover::parse_swept(
@@ -1689,13 +1685,10 @@ impl DirectoryScanner {
                             parse_error: None,
                             link_state,
                         });
-                        let rule_engine_id = if name.contains(".cursor") {
-                            store_opt.as_ref().and_then(|s| s.upsert_engine("cursor", "Cursor", "", now).ok())
-                        } else if name.contains("copilot") {
-                            store_opt.as_ref().and_then(|s| s.upsert_engine("copilot", "GitHub Copilot", "", now).ok())
-                        } else {
-                            None
-                        };
+                        let rule_engine_id = crate::agents::engine_for_rule_file(&name)
+                            .and_then(|(key, display)| {
+                                store_opt.as_ref().and_then(|s| s.upsert_engine(key, display, "", now).ok())
+                            });
                         if let (Some(store), Some(r_id)) = (&store_opt, project_root_id) {
                             let rule_canon = canonicalize_asset_path(Path::new(p_str), &mut parse_warnings);
                             let _ = store.upsert_asset(

@@ -38,7 +38,8 @@ export function backendEngineIds(): { id: string; from: string }[] {
   const keyFn = block(scanner, "pub fn get_engine_key", "_ => None", "scanner.rs get_engine_key");
   for (const m of keyFn.matchAll(/=> Some\("([^"]+)"\)/g)) out.push({ id: m[1], from: "scanner.rs get_engine_key" });
 
-  for (const m of scanner.matchAll(/upsert_engine\("([^"]+)"/g)) out.push({ id: m[1], from: "scanner.rs upsert_engine literal" });
+  const ruleOwners = block(agentsSource, "pub const RULE_FILE_OWNERS", "];", "agents.rs RULE_FILE_OWNERS");
+  for (const m of ruleOwners.matchAll(/\("[^"]+", "([^"]+)", "[^"]+"\)/g)) out.push({ id: m[1], from: "agents.rs RULE_FILE_OWNERS" });
 
   return out;
 }
@@ -58,12 +59,14 @@ describe("brand coverage", () => {
     // string-duplicates of ids HOSTS already yields. Counted directly from
     // the Rust files, not guessed: registry.rs HOSTS has 9 McpHost entries,
     // agents.rs AGENT_CONFIGS has 3, get_engine_key's match arms yield 5
-    // Some(...) results, and there are 2 string-literal upsert_engine calls.
+    // Some(...) results, and agents.rs RULE_FILE_OWNERS has 2 tuples (the
+    // filename-attributed rules engines, cursor and copilot — moved here from
+    // scanner.rs's old string-literal upsert_engine calls).
     const floors: Record<string, number> = {
       "registry.rs HOSTS": 9,
       "agents.rs AGENT_CONFIGS": 3,
       "scanner.rs get_engine_key": 5,
-      "scanner.rs upsert_engine literal": 2,
+      "agents.rs RULE_FILE_OWNERS": 2,
     };
     for (const [source, floor] of Object.entries(floors)) {
       const count = ids.filter((x) => x.from === source).length;

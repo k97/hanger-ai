@@ -69,12 +69,14 @@ fn test_scanner_fixtures() {
     // - project-local-tool (no owner: .agents is the shared, vendor-neutral
     //   convention directory — ownership is exclusive and belongs to no
     //   single agent, see agents.rs)
+    // - claude-project-tool (owned by Claude Code: .claude is an agent-owned
+    //   project root, see agents.rs)
     let global_tools: Vec<_> = inventory.tools.iter().filter(|t| matches!(t.scope, Scope::Global { .. })).collect();
     let project_tools: Vec<_> = inventory.tools.iter().filter(|t| matches!(t.scope, Scope::Project { .. })).collect();
 
     assert_eq!(global_tools.len(), 4, "Expected 4 global tools");
-    assert_eq!(project_tools.iter().filter(|t| t.parse_status.as_deref() == Some("ok")).count(), 1, "Expected 1 valid project tool");
-    assert_eq!(project_tools.len(), 2, "Expected 2 total project tools (1 valid + 1 failed)");
+    assert_eq!(project_tools.iter().filter(|t| t.parse_status.as_deref() == Some("ok")).count(), 2, "Expected 2 valid project tools");
+    assert_eq!(project_tools.len(), 3, "Expected 3 total project tools (2 valid + 1 failed)");
 
     let global_tool_names: Vec<String> = global_tools.iter().map(|t| t.name.clone()).collect();
     assert!(global_tool_names.contains(&"weather-global".to_string()));
@@ -84,6 +86,7 @@ fn test_scanner_fixtures() {
 
     let project_tool_names: Vec<String> = project_tools.iter().map(|t| t.name.clone()).collect();
     assert!(project_tool_names.contains(&"project-local-tool".to_string()));
+    assert!(project_tool_names.contains(&"claude-project-tool".to_string()));
 
     // Pin the owner, not just the name: project-local-tool lives under
     // .agents/, the shared vendor-neutral directory, so it must have no
@@ -99,6 +102,22 @@ fn test_scanner_fixtures() {
             assert_eq!(agent, "", "project-local-tool under .agents/ must have no owning agent, got {:?}", agent)
         }
         other => panic!("expected project-local-tool to have Scope::Project, got {:?}", other),
+    }
+
+    // The other half of that regression: a tool under an agent-owned project
+    // root (.claude/mcp.json) must actually get its owner through the same
+    // engine_for_path wiring, not just correctly withhold one for .agents/.
+    // Without this, deleting the attribution assignment outright would go
+    // unnoticed — every existing assertion here only pins the no-owner case.
+    let claude_project_tool = project_tools
+        .iter()
+        .find(|t| t.name == "claude-project-tool")
+        .expect("claude-project-tool must be present");
+    match &claude_project_tool.scope {
+        Scope::Project { agent, .. } => {
+            assert_eq!(agent, "Claude Code", "claude-project-tool under .claude/ must be owned by Claude Code, got {:?}", agent)
+        }
+        other => panic!("expected claude-project-tool to have Scope::Project, got {:?}", other),
     }
 
     // Verify decoys are ignored: cargo.toml ( Rust crate decoy) and package.json must not be present
@@ -592,9 +611,16 @@ fn test_scanner_emits_assets_table_rows() {
     assert_eq!(skill_count, 4, "Expected 4 skill rows in assets table");
     assert_eq!(rule_count, 3, "Expected 3 rule rows in assets table");
     assert_eq!(subagent_count, 4, "Expected 4 subagent rows (3 ok + 1 failed) in assets table");
-    assert_eq!(tool_count, 6, "Expected 6 tool rows (5 ok + 1 failed) in assets table");
+    assert_eq!(tool_count, 7, "Expected 7 tool rows (6 ok + 1 failed) in assets table");
     assert_eq!(failed_count, 3, "Expected 3 failed parse asset rows (broken-skill, broken_subagent.md, mcp.json)");
-    assert_eq!(null_engine_count, 8, "Expected 8 shared standard asset rows to have engine_id IS NULL");
+    // 9, not 8: claude-project-tool's config is literally named mcp.json, which
+    // the store layer always treats as an engine-agnostic shared standard
+    // (tool_filename == "mcp.json" branch) regardless of which agent's
+    // directory it sits in -- same as project-local-tool and
+    // gemini-global-tool above it. Its Scope::Project.agent is still "Claude
+    // Code" (see test_scanner_fixtures): that ownership is a separate, correct
+    // signal from the store's per-row engine_id.
+    assert_eq!(null_engine_count, 9, "Expected 9 shared standard asset rows to have engine_id IS NULL");
 
     if db_path.exists() {
         let _ = std::fs::remove_file(db_path);
@@ -1071,9 +1097,11 @@ fn test_count_assets_ground_truth() {
     assert_eq!(counts.skill, Some(tauri_app_lib::domain::CategoryCount { total: 4, global: 0, project: 4 }));
     assert_eq!(counts.rule, Some(tauri_app_lib::domain::CategoryCount { total: 3, global: 0, project: 3 }));
     assert_eq!(counts.subagent, Some(tauri_app_lib::domain::CategoryCount { total: 4, global: 2, project: 2 }));
-    assert_eq!(counts.tool, Some(tauri_app_lib::domain::CategoryCount { total: 6, global: 4, project: 2 }));
+    // 4 global + 3 project (project-local-tool under .agents/, claude-project-tool
+    // under .claude/, and the failed src/ai/mcp.json decoy).
+    assert_eq!(counts.tool, Some(tauri_app_lib::domain::CategoryCount { total: 7, global: 4, project: 3 }));
 
-    assert_eq!(counts.total_assets, 17, "total_assets must equal arithmetic sum 17");
+    assert_eq!(counts.total_assets, 18, "total_assets must equal arithmetic sum 18");
 }
 
 #[test]
@@ -1528,7 +1556,7 @@ fn test_deepest_linked_root_owns_asset() {
             .unwrap();
 
         assert_eq!(inner_count, 3, "Order 1: Inner root must own exactly 3 assets under src/ai");
-        assert_eq!(outer_count, 8, "Order 1: Outer root must own exactly 8 assets outside src/ai");
+        assert_eq!(outer_count, 9, "Order 1: Outer root must own exactly 9 assets outside src/ai");
     }
 
     // Run order 2: Scan Inner first, then Scan Outer
@@ -1561,7 +1589,7 @@ fn test_deepest_linked_root_owns_asset() {
             .unwrap();
 
         assert_eq!(inner_count, 3, "Order 2: Inner root must own exactly 3 assets under src/ai");
-        assert_eq!(outer_count, 8, "Order 2: Outer root must own exactly 8 assets outside src/ai");
+        assert_eq!(outer_count, 9, "Order 2: Outer root must own exactly 9 assets outside src/ai");
     }
 }
 
