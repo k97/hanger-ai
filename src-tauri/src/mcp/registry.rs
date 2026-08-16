@@ -169,7 +169,11 @@ pub const SOURCES: &[McpSource] = &[
     // Roo Code
     McpSource { host_id: "roocode", location: RepoRelative, path: ".roo/mcp.json", tier: Project, dialect: McpServers },
 
-    // Kilo Code — JSONC, and `.kilo/kilo.jsonc` wins over the root file.
+    // Kilo Code — JSONC. `discover.rs` reads every source that resolves to an
+    // existing file and appends all registrations; Hanger enforces no
+    // precedence between `.kilo/kilo.jsonc` and the root `kilo.jsonc` below.
+    // Kilo Code itself prefers `.kilo/kilo.jsonc` when both are present, but
+    // a user with both and an overlapping server name sees both entries here.
     McpSource { host_id: "kilocode", location: MachineAbsolute, path: ".config/kilo/kilo.jsonc", tier: Global, dialect: OpenCodeMcp },
     McpSource { host_id: "kilocode", location: RepoRelative, path: ".kilo/kilo.jsonc", tier: Project, dialect: OpenCodeMcp },
     McpSource { host_id: "kilocode", location: RepoRelative, path: "kilo.jsonc", tier: Project, dialect: OpenCodeMcp },
