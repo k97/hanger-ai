@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ExclamationCircleIcon } from "./icons";
+import { ExclamationCircleIcon, SpinnerIcon } from "./icons";
 import CategoryFilterCards, { CategoryType } from "./CategoryFilterCards";
 import AssetRow, { AssetItem, AssetAnnotationView } from "./AssetRow";
 import AssetHeaderRow, { SortField, SortDirection } from "./AssetHeaderRow";
@@ -125,10 +125,20 @@ export default function ProfilePane({
 
   const globalAssetsTotal = sumGlobalAssets(assetCounts);
 
-  const emptyState =
+  const storeEmpty =
     assetCounts !== null && assetCounts !== undefined
       ? globalAssetsTotal === 0
       : inventory === null || (globalSkills.length === 0 && globalTools.length === 0 && globalRules.length === 0);
+
+  // A negative claim needs a completed scan behind it. `scannedAt` is set
+  // only when a scan finishes (App.tsx, scan://complete), so before then an
+  // empty store means "not looked yet", not "nothing there" — the slot
+  // reports the scan instead of asserting an absence. Seen 2026-08-16: the
+  // first scan on a fresh store rendered "No developer agent folders
+  // detected" while the sidebar was already showing engine marks.
+  const hasScanned = scannedAt !== null;
+  const pendingState = storeEmpty && !hasScanned;
+  const emptyState = storeEmpty && hasScanned;
 
   // Use the testable filter predicate utility
   const {
@@ -367,7 +377,20 @@ export default function ProfilePane({
         </div>
       )}
 
-      {emptyState ? (
+      {pendingState ? (
+        /* Pending: no claim either way. Live root-by-root progress already
+           lives in the foot line's ScanStatusIndicator, so this plane only
+           says what the store's silence means right now. */
+        <div className={emptyPlaneClass} data-testid="scan-pending">
+          <SpinnerIcon className={`text-ink-3 mb-2 ${loading ? "animate-spin" : ""}`} size={40} />
+          <span className="text-base-app font-medium text-ink-1">
+            {loading ? "Scanning your machine" : "Not scanned yet"}
+          </span>
+          <span className="text-small text-ink-3 max-w-sm mt-1">
+            {loading ? "Results appear as roots finish." : "Rescan to look again."}
+          </span>
+        </div>
+      ) : emptyState ? (
         <div className={emptyPlaneClass}>
           <ExclamationCircleIcon className="text-ink-3 mb-2" size={40} />
           <span className="text-base-app font-medium text-ink-1">No developer agent folders detected</span>

@@ -262,9 +262,17 @@ export default function RepoPane({
     (selectedCategory === "Agents" && filteredAgents.length === 0) ||
     (selectedCategory === "Subagents" && filteredSubagents.length === 0);
 
-  const isRepoEmpty = assetCounts !== undefined && assetCounts !== null
+  const storeEmpty = assetCounts !== undefined && assetCounts !== null
     ? assetCounts.total === 0
     : (filteredSkills.length === 0 && filteredTools.length === 0 && filteredRules.length === 0 && filteredAgents.length === 0 && filteredSubagents.length === 0);
+
+  // Same gate as ProfilePane: "No AI assets found" is a finding, and a
+  // finding needs a finished scan. Until `scannedAt` is set the slot reports
+  // the scan rather than the absence — seen 2026-08-16 mid-scan with the
+  // sidebar already counting 82 for this repository.
+  const hasScanned = scannedAt !== null;
+  const isRepoPending = storeEmpty && !hasScanned;
+  const isRepoEmpty = storeEmpty && hasScanned;
 
   // Uppercase micro voice for section labels inside the list plane.
   const secClass =
@@ -422,7 +430,19 @@ export default function RepoPane({
         )}
       </div>
 
-      {isRepoEmpty ? (
+      {isRepoPending ? (
+        /* Pending: no claim either way. Root-by-root progress already lives
+           in the foot line's ScanStatusIndicator. */
+        <div className={`${emptyPlaneClass} mt-2.5`} data-testid="scan-pending">
+          <SpinnerIcon className={`text-ink-3 mb-2 ${loading ? "animate-spin" : ""}`} size={40} />
+          <span className="text-base-app font-medium text-ink-1">
+            {loading ? "Scanning your machine" : "Not scanned yet"}
+          </span>
+          <span className="text-small text-ink-3 max-w-sm mt-1">
+            {loading ? "Results appear as roots finish." : "Rescan to look again."}
+          </span>
+        </div>
+      ) : isRepoEmpty ? (
         /* Empty State */
         <div className={`${emptyPlaneClass} mt-2.5`}>
           <InformationCircleIcon className="text-ink-3 mb-2" size={40} />

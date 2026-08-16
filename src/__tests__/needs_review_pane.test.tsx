@@ -130,23 +130,35 @@ describe("Needs review — repo-level and cross-repo in one list", () => {
     expect(screen.queryByText("agent-browser")).toBeNull();
   });
 
-  it("says plainly when the machine is clean", () => {
-    render(
-      <NeedsReviewPane
-        issues={[]}
-        counts={{ broken: 0, drifted: 0, duplicate: 0, parse: 0, crossRepo: 0, total: 0 }}
-        kind={null}
-        place={null}
-        filterText=""
-        selectedId={null}
-        onSelectKind={vi.fn()}
-        onSelectPlace={vi.fn()}
-        onSelectIssue={vi.fn()}
-      />
-    );
+  const clean = { broken: 0, drifted: 0, duplicate: 0, parse: 0, crossRepo: 0, total: 0 };
+
+  it("says plainly when the machine is clean — after a scan has actually looked", () => {
+    renderPane({ issues: [], counts: clean, scannedAt: new Date() });
     expect(
       screen.getByText("Nothing needs a decision. Every link resolves and every file parses.")
     ).toBeTruthy();
+    expect(screen.queryByTestId("scan-pending")).toBeNull();
+  });
+
+  it("makes no claim before the first scan completes", () => {
+    // Zero issues from a null inventory is not a clean machine, it is an
+    // unscanned one. Seen 2026-08-16 during the first scan on a fresh store.
+    renderPane({ issues: [], counts: clean, scanning: true, scannedAt: null });
+    expect(screen.getByTestId("scan-pending")).toBeTruthy();
+    expect(screen.getByText("Scanning your machine — results appear as roots finish.")).toBeTruthy();
+    expect(screen.queryByText(/Nothing needs a decision/)).toBeNull();
+  });
+
+  it("with no scan running and none finished, says so rather than 'clean'", () => {
+    renderPane({ issues: [], counts: clean, scanning: false, scannedAt: null });
+    expect(screen.getByText("Not scanned yet. Rescan to look again.")).toBeTruthy();
+    expect(screen.queryByText(/Nothing needs a decision/)).toBeNull();
+  });
+
+  it("a filter that matches nothing is still 'no match', scanned or not", () => {
+    renderPane({ filterText: "zzz-no-such-asset", scannedAt: null });
+    expect(screen.getByText("No issue matches that filter.")).toBeTruthy();
+    expect(screen.queryByTestId("scan-pending")).toBeNull();
   });
 
   it("hands the whole issue to the inspector when a row is tapped", () => {

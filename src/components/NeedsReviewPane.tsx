@@ -22,6 +22,10 @@ interface NeedsReviewPaneProps {
    *  figure sits beside it. */
   onRescan?: () => void;
   scanning?: boolean;
+  /** When the last scan completed. "Nothing needs a decision" is a finding
+   *  and needs a finished scan behind it; until then the pane says the scan
+   *  is what stands between it and an answer. */
+  scannedAt?: Date | null;
 }
 
 /** Kinds in the order they are worth acting on, with their strip vocabulary. */
@@ -68,8 +72,10 @@ export default function NeedsReviewPane({
   onSelectIssue,
   onRescan,
   scanning = false,
+  scannedAt = null,
 }: NeedsReviewPaneProps) {
   const shown = issues.filter((issue) => matchesIssueFilter(issue, kind, place, filterText));
+  const hasScanned = scannedAt !== null;
 
   // Places touched by what is on screen — the foot's second figure.
   const locations = new Set<string>();
@@ -205,9 +211,18 @@ export default function NeedsReviewPane({
         </div>
 
         {shown.length === 0 ? (
-          <p className="py-9 px-3.5 text-center text-small text-ink-3">
+          <p
+            className="py-9 px-3.5 text-center text-small text-ink-3"
+            data-testid={counts.total === 0 && !hasScanned ? "scan-pending" : undefined}
+          >
+            {/* Zero issues before the first scan finishes is not a clean
+                machine, it is an unscanned one; the claim waits for scannedAt. */}
             {counts.total === 0
-              ? "Nothing needs a decision. Every link resolves and every file parses."
+              ? hasScanned
+                ? "Nothing needs a decision. Every link resolves and every file parses."
+                : scanning
+                ? "Scanning your machine — results appear as roots finish."
+                : "Not scanned yet. Rescan to look again."
               : "No issue matches that filter."}
           </p>
         ) : (

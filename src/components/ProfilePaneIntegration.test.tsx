@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { render, screen, fireEvent, cleanup } from "@testing-library/react";
+import { render, screen, fireEvent, cleanup, within } from "@testing-library/react";
 import ProfilePane from "./ProfilePane";
 import { Inventory } from "../App";
 
@@ -129,5 +129,44 @@ describe("ProfilePane Component-Level Filtering Integration", () => {
 
     const subagentsCard = screen.getAllByText("Subagents").find(el => el.closest("[tabindex]"))?.closest("[tabindex]");
     expect(subagentsCard?.textContent).toBe("Subagents1");
+  });
+});
+
+describe("ProfilePane — the empty state is a finding, not a default", () => {
+  const renderGlobal = (over: Partial<React.ComponentProps<typeof ProfilePane>>) =>
+    render(
+      <ProfilePane
+        inventory={null}
+        loading={false}
+        onSelectAsset={vi.fn()}
+        onLinkAsset={vi.fn()}
+        {...over}
+      />
+    );
+
+  it("makes no claim before the first scan completes", () => {
+    // Seen 2026-08-16: the first scan on a fresh store rendered "No
+    // developer agent folders detected" while the sidebar showed engine marks.
+    renderGlobal({ loading: true, scannedAt: null });
+    expect(screen.getByTestId("scan-pending")).toBeTruthy();
+    expect(screen.getByText("Scanning your machine")).toBeTruthy();
+    expect(screen.queryByText("No developer agent folders detected")).toBeNull();
+  });
+
+  it("with no scan running and none finished, says so rather than 'nothing here'", () => {
+    renderGlobal({ loading: false, scannedAt: null });
+    // The strip's stamp says the same words; the claim under test is the plane's.
+    expect(within(screen.getByTestId("scan-pending")).getByText("Not scanned yet")).toBeTruthy();
+    expect(screen.queryByText("No developer agent folders detected")).toBeNull();
+  });
+
+  it("claims the store is empty only after a completed scan finds nothing", () => {
+    renderGlobal({
+      loading: false,
+      scannedAt: new Date(),
+      assetCounts: { total: 0, byCategory: {} },
+    });
+    expect(screen.queryByTestId("scan-pending")).toBeNull();
+    expect(screen.getByText("No developer agent folders detected")).toBeTruthy();
   });
 });

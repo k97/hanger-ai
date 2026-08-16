@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { render, screen, fireEvent, cleanup } from "@testing-library/react";
+import { render, screen, fireEvent, cleanup, within } from "@testing-library/react";
 import RepoPane from "./RepoPane";
 import { Inventory } from "../App";
 
@@ -81,6 +81,7 @@ describe("RepoPane Linking Gestures Integration", () => {
         repoPath="/home/user/empty-project"
         inventory={emptyInventory}
         loading={false}
+        scannedAt={new Date()}
         onRefresh={handleRefresh}
         onSelectAsset={handleSelectAsset}
         onLinkFromProfile={handleLinkFromProfile}
@@ -94,5 +95,52 @@ describe("RepoPane Linking Gestures Integration", () => {
     fireEvent.click(ctaButton);
     expect(handleLinkFromProfile).toHaveBeenCalledTimes(1);
     expect(handleLinkFromProfile).toHaveBeenCalledWith("/home/user/empty-project");
+  });
+});
+
+describe("RepoPane — the empty state is a finding, not a default", () => {
+  const emptyInventory: Inventory = {
+    agents: [],
+    skills: [],
+    tools: [],
+    rules: [],
+    subagents: [],
+    project_scans: [],
+  };
+
+  const renderRepo = (over: Partial<React.ComponentProps<typeof RepoPane>>) =>
+    render(
+      <RepoPane
+        repoPath="/home/user/empty-project"
+        inventory={emptyInventory}
+        loading={false}
+        onRefresh={vi.fn()}
+        onSelectAsset={vi.fn()}
+        onLinkFromProfile={vi.fn()}
+        {...over}
+      />
+    );
+
+  it("makes no claim before the first scan completes", () => {
+    // Seen 2026-08-16: mid-scan the pane said "No AI assets found in this
+    // repository" while the sidebar was already counting 82 for it.
+    renderRepo({ loading: true, scannedAt: null });
+    expect(screen.getByTestId("scan-pending")).toBeTruthy();
+    expect(screen.getByText("Scanning your machine")).toBeTruthy();
+    expect(screen.queryByText("No AI assets found in this repository")).toBeNull();
+    expect(screen.queryByText("Link an asset from Profile")).toBeNull();
+  });
+
+  it("with no scan running and none finished, says so rather than 'nothing here'", () => {
+    renderRepo({ loading: false, scannedAt: null });
+    // The strip's stamp says the same words; the claim under test is the plane's.
+    expect(within(screen.getByTestId("scan-pending")).getByText("Not scanned yet")).toBeTruthy();
+    expect(screen.queryByText("No AI assets found in this repository")).toBeNull();
+  });
+
+  it("claims the repository is empty only after a completed scan finds nothing", () => {
+    renderRepo({ loading: false, scannedAt: new Date(), assetCounts: { total: 0, byCategory: {} } });
+    expect(screen.queryByTestId("scan-pending")).toBeNull();
+    expect(screen.getByText("No AI assets found in this repository")).toBeTruthy();
   });
 });

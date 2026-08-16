@@ -1289,6 +1289,7 @@ export default function App() {
               selectedId={selectedIssue?.id ?? null}
               onRescan={triggerScan}
               scanning={loading || scanning}
+              scannedAt={lastScanAt}
               onSelectKind={(kind) => {
                 setReviewKind(kind);
                 setSelectedIssue(null);
