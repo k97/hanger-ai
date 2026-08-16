@@ -7,9 +7,11 @@ interface ToolRow {
   id?: string;
   name: string;
   command?: string;
-  /** Raw arguments. Still used for the view-level launch handed to Verify
-   * (`verify_mcp_server` needs the real process args); never read when
-   * building a per-registration display string — that reads `launch_display`. */
+  /** Raw arguments. No longer read to build the view: `mcp_probe` resolves the
+   * real launch backend-side from a registration key, so the frontend never
+   * holds args at all. Never read when building a per-registration display
+   * string either — that reads `launch_display`. Kept on `McpServerView` for
+   * now; Task 5 removes it. */
   args?: string[];
   /** The launch, already redacted by the backend, for display only. */
   launch_display?: string;
@@ -142,6 +144,7 @@ export function buildMcpServerView(
     const key = registrationKey(t);
     const hit = key ? processes.find((p) => p.registration_key === key) : undefined;
     return {
+      key,
       host: hostLabel(scopeAgent(t.scope as Scope) || t.owning_agent),
       tier: tierOf(t.scope),
       configPath: t.config_path,

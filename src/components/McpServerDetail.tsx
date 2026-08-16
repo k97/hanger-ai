@@ -17,6 +17,8 @@ import EngineLabel from "./EngineLabel";
  */
 
 interface Registration {
+  /** `(config_path, server_name)` — this registration's identity. */
+  key: string;
   host: string;
   /** `global` | `user` | `local` | `project` — where the declaration lives. */
   tier: string;
@@ -52,15 +54,18 @@ export interface McpServerView {
   args: string[];
   transport: string;
   registrations: Registration[];
-  verified?: VerifiedIdentity;
   /** Variable NAMES only. Values are never read from disk (scanning.md §7). */
   envKeys: string[];
 }
 
 interface Props {
   server: McpServerView;
-  onVerify?: () => void;
-  verifying?: boolean;
+  /** Probe results by REGISTRATION key. Two hosts can launch the same server
+   *  differently, so there is no such thing as the server's tool list. */
+  verified?: Record<string, VerifiedIdentity>;
+  onVerify?: (registrationKey: string) => void;
+  /** The registration key currently in flight, or null. */
+  verifying?: string | null;
 }
 
 const SECTION = "px-[18px] py-[18px] border-b border-line";
@@ -77,12 +82,102 @@ function relativeTime(then: number): string {
   return `${Math.round(hours / 24)}d ago`;
 }
 
-export default function McpServerDetail({ server, onVerify, verifying = false }: Props) {
-  const { verified } = server;
+/**
+ * The Verify affordance for one registration, or its probed result — a
+ * quiet button when unprobed, "N tools" or "verify failed" once it has been.
+ *
+ * Lives on the "Registered in" row rather than in a Tools block of its own.
+ * Ruled 2026-08-16: that row already renders this registration's whole
+ * identity (host, tier, config path, launch), so a second block below it,
+ * labelled the same way, duplicates whichever field it chose to repeat —
+ * config path collided with an unrelated test, host collided with the
+ * "two from the same host" case, launch collided with the row Task 3 added.
+ * There is no label that doesn't repeat something the row already says. The
+ * control that acts on one registration belongs where that registration's
+ * identity already lives — the third time this file records having to learn
+ * that rule (see the header comment on the panel below).
+ */
+function RegistrationVerifyStatus({
+  registration,
+  result,
+  verifying,
+  onVerify,
+}: {
+  registration: Registration;
+  result?: VerifiedIdentity;
+  verifying: boolean;
+  onVerify?: (registrationKey: string) => void;
+}) {
+  if (!result) {
+    return (
+      <button
+        type="button"
+        onClick={() => onVerify?.(registration.key)}
+        disabled={verifying}
+        className="shrink-0 text-micro font-mono text-ink-3 px-1.5 rounded-pill cursor-pointer hover:bg-plane-2 hover:text-ink-1 transition-colors duration-hover disabled:opacity-60 disabled:cursor-default"
+      >
+        {verifying ? "Verifying…" : "Verify"}
+      </button>
+    );
+  }
+  if (result.error) {
+    return <span className="text-micro font-mono text-state-danger">verify failed</span>;
+  }
+  return (
+    <span className="text-micro font-mono text-ink-3">
+      {result.tools.length === 1 ? "1 tool" : `${result.tools.length} tools`}
+    </span>
+  );
+}
+
+/** A probed registration's result: its tool list, or the error the handshake
+ *  reported instead. Shared by the Tools section's single-probed (unlabelled)
+ *  and multi-probed (labelled) layouts, so the two never drift apart. */
+function ProbedToolList({ result }: { result: VerifiedIdentity }) {
+  if (result.error) {
+    return <p className="text-micro text-state-danger leading-[1.5]">{result.error}</p>;
+  }
+  return (
+    // Not height-capped. DESIGN.md's 240px rule covers DisclosureBanner
+    // regions; this is the panel's primary content, and a nested scrollbar
+    // inside a scrolling panel is worse than a long page.
+    <div className="border border-line rounded-inner flex flex-col">
+      {result.tools.map((tool, i) => (
+        <div
+          key={tool.name}
+          className={`px-[11px] py-2 flex flex-col gap-px ${i > 0 ? "border-t border-line" : ""}`}
+        >
+          {/* Tool names are code identifiers, so the mono face is semantic
+              here rather than decorative. */}
+          <span className="font-mono text-small text-ink-1">{tool.name}</span>
+          {tool.description && (
+            <span className="text-micro text-ink-3 leading-[1.45]">{tool.description}</span>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export default function McpServerDetail({ server, verified, onVerify, verifying = null }: Props) {
   // Counts the rows below, not unique hosts. spades-audio is 3 registrations
   // across 2 hosts -- a count that disagreed with the visible row count would
   // read as a bug. The prototype said "3 hosts" and was simply wrong.
   const regCount = server.registrations.length;
+
+  // Protocol revision and capabilities come from the same handshake as a
+  // tool list, so the Identity section reads whichever registration answered
+  // first rather than trying to reconcile several.
+  const anyVerified = server.registrations
+    .map((r) => verified?.[r.key])
+    .find((v) => v && !v.error);
+
+  // Every registration that has been probed, in order. The Tools section's
+  // shape depends only on how many of these there are -- see the section
+  // below.
+  const probed = server.registrations
+    .map((reg) => ({ reg, result: verified?.[reg.key] }))
+    .filter((p): p is { reg: Registration; result: VerifiedIdentity } => !!p.result);
 
   // Nothing to spawn: a Claude.ai connector lives on Anthropic's servers, a
   // remote server answers over HTTP. Both are real MCP servers; neither is a
@@ -164,6 +259,16 @@ export default function McpServerDetail({ server, onVerify, verifying = false }:
                   {launchOf(reg)}
                 </span>
               )}
+              {/* The control that probes THIS registration. Absent for a
+                  Claude.ai connector -- there is nothing local to spawn. */}
+              {!isConnector && (
+                <RegistrationVerifyStatus
+                  registration={reg}
+                  result={verified?.[reg.key]}
+                  verifying={verifying === reg.key}
+                  onVerify={onVerify}
+                />
+              )}
               {/* Shown only when true. Most servers are started on demand, so
                   "not running" is the normal state and badging every row with
                   it would read as an error rather than as information. */}
@@ -188,24 +293,24 @@ export default function McpServerDetail({ server, onVerify, verifying = false }:
         <div className="flex items-baseline justify-between gap-2 mb-[10px]">
           <h3 className={HEADING}>Identity</h3>
           <span className={COUNT}>
-            {verified ? `verified ${relativeTime(verified.verifiedAt)}` : "unknown"}
+            {anyVerified ? `verified ${relativeTime(anyVerified.verifiedAt)}` : "unknown"}
           </span>
         </div>
-        {verified && !verified.error ? (
+        {anyVerified ? (
           <div className="flex flex-wrap gap-[6px]">
-            {verified.serverVersion && (
+            {anyVerified.serverVersion && (
               <span className="text-micro font-mono bg-plane border border-line px-2 py-px rounded-pill text-ink-2">
-                server <b className="font-medium text-ink-1">{verified.serverVersion}</b>
+                server <b className="font-medium text-ink-1">{anyVerified.serverVersion}</b>
               </span>
             )}
-            {verified.protocolVersion && (
+            {anyVerified.protocolVersion && (
               <span className="text-micro font-mono bg-plane border border-line px-2 py-px rounded-pill text-ink-2">
-                MCP <b className="font-medium text-ink-1">{verified.protocolVersion}</b>
+                MCP <b className="font-medium text-ink-1">{anyVerified.protocolVersion}</b>
               </span>
             )}
-            {verified.capabilities.length > 0 && (
+            {anyVerified.capabilities.length > 0 && (
               <span className="text-micro font-mono bg-plane border border-line px-2 py-px rounded-pill text-ink-2">
-                caps <b className="font-medium text-ink-1">{verified.capabilities.join(", ")}</b>
+                caps <b className="font-medium text-ink-1">{anyVerified.capabilities.join(", ")}</b>
               </span>
             )}
           </div>
@@ -220,36 +325,19 @@ export default function McpServerDetail({ server, onVerify, verifying = false }:
       <section className={SECTION}>
         <div className="flex items-baseline justify-between gap-2 mb-[10px]">
           <h3 className={HEADING}>Tools</h3>
-          <span className={COUNT}>{verified && !verified.error ? verified.tools.length : "—"}</span>
+          {/* Never a tool count. Two registrations can expose two different
+              tool surfaces, and one number in this slot reads as the server's. */}
+          <span className={COUNT}>
+            {regCount === 1 ? "1 registration" : `${regCount} registrations`}
+          </span>
         </div>
-
-        {verified?.error ? (
-          <p className="text-micro text-state-danger leading-[1.5]">{verified.error}</p>
-        ) : verified ? (
-          // Not height-capped. DESIGN.md's 240px rule covers DisclosureBanner
-          // regions; this is the panel's primary content, and a nested
-          // scrollbar inside a scrolling panel is worse than a long page.
-          <div className="border border-line rounded-inner flex flex-col">
-            {verified.tools.map((tool, i) => (
-              <div
-                key={tool.name}
-                className={`px-[11px] py-2 flex flex-col gap-px ${i > 0 ? "border-t border-line" : ""}`}
-              >
-                {/* Tool names are code identifiers, so the mono face is
-                    semantic here rather than decorative. */}
-                <span className="font-mono text-small text-ink-1">{tool.name}</span>
-                {tool.description && (
-                  <span className="text-micro text-ink-3 leading-[1.45]">{tool.description}</span>
-                )}
-              </div>
-            ))}
-          </div>
-        ) : (
+        {probed.length === 0 ? (
           <div className="border border-dashed border-line-2 rounded-inner px-[14px] py-[18px] flex flex-col gap-2 items-start">
             {/* Verify spawns a local process. A server with no command has
                 nothing to spawn — a remote endpoint or a Claude.ai connector —
                 so offering the button would invite a click that can only fail
-                with "No such file or directory". */}
+                with "No such file or directory". The control itself now lives
+                on each registration's row above, not here. */}
             {isConnector ? (
               <>
                 <p className="text-small text-ink-2 leading-[1.5]">
@@ -270,26 +358,34 @@ export default function McpServerDetail({ server, onVerify, verifying = false }:
                 )}
               </>
             ) : (
-              <>
-                <button
-                  type="button"
-                  onClick={onVerify}
-                  disabled={verifying}
-                  className="text-micro font-mono bg-fill text-on-fill border border-line-2 px-[10px] py-px rounded-pill cursor-pointer"
-                >
-                  {verifying ? "Verifying…" : "Verify"}
-                </button>
-                {/* One line, not three. The long version explained the design
-                    decision behind the button — useful once, noise on every
-                    one of 23 servers. The credentials note stays for remote
-                    servers because it is a privacy claim, not a mechanism. */}
-                <p className="text-micro text-ink-3 leading-[1.45]">
-                  {isRemote
-                    ? "Asks the endpoint for its tool list. No credentials are sent."
-                    : "Tools are only known by asking the server."}
-                </p>
-              </>
+              <p className="text-micro text-ink-3 leading-[1.45]">
+                {isRemote
+                  ? "Asks the endpoint for its tool list. No credentials are sent."
+                  : "Tools are only known by asking the server."}
+              </p>
             )}
+          </div>
+        ) : probed.length === 1 ? (
+          // Nothing to disambiguate: only one registration has been probed,
+          // so labelling its result would repeat what the row above it
+          // already shows plainly (that only one of N was probed).
+          <ProbedToolList result={probed[0].result} />
+        ) : (
+          <div className="flex flex-col gap-3">
+            {probed.map(({ reg, result }) => (
+              <div key={reg.key} className="flex flex-col gap-1.5">
+                <div className="flex items-baseline justify-between gap-2">
+                  {/* Host + tier, not the path and not the launch -- both are
+                      already this row's own identity one section up, and
+                      re-labelling with either duplicates it verbatim. */}
+                  <span className="text-micro font-mono text-ink-3 truncate">
+                    {reg.host} · {reg.tier}
+                  </span>
+                  <span className={COUNT}>{result.error ? "—" : result.tools.length}</span>
+                </div>
+                <ProbedToolList result={result} />
+              </div>
+            ))}
           </div>
         )}
       </section>

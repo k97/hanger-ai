@@ -82,10 +82,10 @@ export default function Flyout({
   const [mergeRunning, setMergeRunning] = useState(false);
   const [mergeDone, setMergeDone] = useState(false);
 
-  /* Verify results, keyed by server name, so switching between servers in the
-     inspector does not lose a probe already run. Session-lived on purpose:
-     nothing on disk records a tool list, and a cached one would go stale the
-     moment a server is upgraded. */
+  /* Verify results, keyed by REGISTRATION key. Keyed by server name until
+     2026-08-16, which was a single slot that could not hold two answers when
+     two hosts launch the same server differently. Session-lived; the persisted
+     table is stage 2. */
   const [mcpVerified, setMcpVerified] = useState<Record<string, {
     serverVersion?: string;
     protocolVersion?: string;
@@ -96,10 +96,9 @@ export default function Flyout({
   }>>({});
   const [mcpVerifying, setMcpVerifying] = useState<string | null>(null);
 
-
-  /** Start a private copy of the server, ask what it provides, stop it. */
-  const runMcpVerify = async (view: { name: string; command: string; args: string[]; transport: string }) => {
-    setMcpVerifying(view.name);
+  /** Start a private copy of one registration's server, ask what it provides. */
+  const runMcpVerify = async (registrationKey: string) => {
+    setMcpVerifying(registrationKey);
     try {
       const r = await invoke<{
         server_name?: string;
@@ -108,14 +107,10 @@ export default function Flyout({
         capabilities: string[];
         tools: Array<{ name: string; description?: string }>;
         error?: string;
-      }>("verify_mcp_server", {
-        command: view.command,
-        args: view.args,
-        transport: view.transport,
-      });
+      }>("mcp_probe", { registrationKey });
       setMcpVerified((prev) => ({
         ...prev,
-        [view.name]: {
+        [registrationKey]: {
           serverVersion: r.server_version,
           protocolVersion: r.protocol_version,
           capabilities: r.capabilities ?? [],
@@ -127,7 +122,7 @@ export default function Flyout({
     } catch (e) {
       setMcpVerified((prev) => ({
         ...prev,
-        [view.name]: {
+        [registrationKey]: {
           capabilities: [],
           tools: [],
           verifiedAt: Date.now(),
@@ -587,12 +582,10 @@ export default function Flyout({
            it, so this category gets its own panel rather than widening that
            component into a dumping ground. */
         <McpServerDetail
-          server={{
-            ...mcpView,
-            verified: mcpVerified[mcpView.name],
-          }}
-          verifying={mcpVerifying === mcpView.name}
-          onVerify={() => runMcpVerify(mcpView)}
+          server={mcpView}
+          verified={mcpVerified}
+          verifying={mcpVerifying}
+          onVerify={runMcpVerify}
         />
       ) : targetAsset ? (
         <AssetDetail
