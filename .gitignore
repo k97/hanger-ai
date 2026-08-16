@@ -60,3 +60,6 @@ docs/references/
 
 # Apple auth key
 *.p8
+
+# Local-only: isolated worktrees for subagent-driven plan execution
+.worktrees/
