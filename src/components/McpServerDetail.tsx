@@ -165,19 +165,28 @@ export default function McpServerDetail({ server, verified, onVerify, verifying 
   // read as a bug. The prototype said "3 hosts" and was simply wrong.
   const regCount = server.registrations.length;
 
-  // Protocol revision and capabilities come from the same handshake as a
-  // tool list, so the Identity section reads whichever registration answered
-  // first rather than trying to reconcile several.
-  const anyVerified = server.registrations
-    .map((r) => verified?.[r.key])
-    .find((v) => v && !v.error);
-
   // Every registration that has been probed, in order. The Tools section's
   // shape depends only on how many of these there are -- see the section
   // below.
   const probed = server.registrations
     .map((reg) => ({ reg, result: verified?.[reg.key] }))
     .filter((p): p is { reg: Registration; result: VerifiedIdentity } => !!p.result);
+
+  // Protocol revision and capabilities come from the same handshake as a
+  // tool list, so the Identity section reads whichever registration answered
+  // first rather than trying to reconcile several. That pick is the same
+  // class of ambiguity this task exists to close, just moved from the tool
+  // list to server version/protocol/capabilities -- and unlike the tool
+  // list, nothing else on screen flags when it matters (the divergence
+  // banner fires on launchDisplay, not on a handshake result, so two
+  // identically-launched registrations can still answer differently with
+  // nothing above saying so). Attribution, not reconciliation: when more
+  // than one registration answered, the count slot below names which one
+  // this is -- it does not compare them or flag disagreement, which is a
+  // stage-2 concern with its own mechanism.
+  const succeeded = probed.filter((p) => !p.result.error);
+  const anyVerifiedEntry = succeeded[0];
+  const anyVerified = anyVerifiedEntry?.result;
 
   // Nothing to spawn: a Claude.ai connector lives on Anthropic's servers, a
   // remote server answers over HTTP. Both are real MCP servers; neither is a
@@ -293,7 +302,16 @@ export default function McpServerDetail({ server, verified, onVerify, verifying 
         <div className="flex items-baseline justify-between gap-2 mb-[10px]">
           <h3 className={HEADING}>Identity</h3>
           <span className={COUNT}>
-            {anyVerified ? `verified ${relativeTime(anyVerified.verifiedAt)}` : "unknown"}
+            {anyVerified
+              ? `verified ${relativeTime(anyVerified.verifiedAt)}${
+                  // More than one registration answered, so this could be any
+                  // of them -- name whose result is showing, same "host ·
+                  // tier" convention the Tools section uses below.
+                  succeeded.length > 1
+                    ? ` · ${anyVerifiedEntry.reg.host} · ${anyVerifiedEntry.reg.tier}`
+                    : ""
+                }`
+              : "unknown"}
           </span>
         </div>
         {anyVerified ? (
@@ -361,7 +379,7 @@ export default function McpServerDetail({ server, verified, onVerify, verifying 
               <p className="text-micro text-ink-3 leading-[1.45]">
                 {isRemote
                   ? "Asks the endpoint for its tool list. No credentials are sent."
-                  : "Tools are only known by asking the server."}
+                  : "Tools are only known by asking the server — use Verify on a registration above."}
               </p>
             )}
           </div>

@@ -145,6 +145,40 @@ describe("McpServerDetail", () => {
     expect(screen.getByText("prompts, tools")).toBeTruthy();
 });
 
+  it("names whose result the Identity section is showing when more than one registration answered", () => {
+    // The Identity slot picks whichever registration answered first -- the
+    // same class of ambiguity this task exists to close, just moved from the
+    // tool list to server version/protocol/capabilities. Two registrations
+    // can answer differently even when their launch is identical (a floating
+    // @latest resolving differently at different times), so the divergence
+    // banner -- which fires on launchDisplay -- would say nothing. This test
+    // asserts attribution only: the slot must name ONE of the two
+    // registrations it could be. It must not assert WHICH one -- array order
+    // is an implementation detail, and stage 2 (which reconciles disagreeing
+    // handshakes) is free to reorder or change the pick.
+    const diverged: McpServerView = {
+      ...base,
+      registrations: [
+        { key: "a", host: "Codex", tier: "global", configPath: "~/.codex/config.toml",
+          command: "npx", launchDisplay: "npx tauri-mcp@latest" },
+        { key: "b", host: "Gemini", tier: "global", configPath: "~/.gemini/settings.json",
+          command: "npx", launchDisplay: "npx tauri-mcp@latest" },
+      ],
+    };
+    render(
+      <McpServerDetail
+        server={diverged}
+        verified={{
+          a: { protocolVersion: "2025-06-18", capabilities: [], tools: [], verifiedAt: 1_700_000_000_000 },
+          b: { protocolVersion: "2024-11-05", capabilities: [], tools: [], verifiedAt: 1_700_000_000_000 },
+        }}
+      />
+    );
+    const identitySection = screen.getByText("Identity").closest("section")!;
+    const slot = within(identitySection).getByText(/^verified /);
+    expect(slot.textContent).toMatch(/^verified .+ · (Codex|Gemini) · global$/);
+  });
+
   it("hands the command AND its arguments to Verify", () => {
     // The gap this test exists to close: the panel shipped with an inert
     // button, and the Tool row carried no args. Probing `node` with no
