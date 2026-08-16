@@ -79,7 +79,7 @@ describe("useFavourites", () => {
 
   it("ignores toggleFavourite before initial load completes to prevent data loss", async () => {
     vi.mocked(invoke).mockImplementation(
-      (cmd: string) =>
+      () =>
         new Promise(() => {
           /* never resolves */
         })
