@@ -7,12 +7,6 @@ interface ToolRow {
   id?: string;
   name: string;
   command?: string;
-  /** Raw arguments. No longer read to build the view: `mcp_probe` resolves the
-   * real launch backend-side from a registration key, so the frontend never
-   * holds args at all. Never read when building a per-registration display
-   * string either — that reads `launch_display`. Kept on `McpServerView` for
-   * now; Task 5 removes it. */
-  args?: string[];
   /** The launch, already redacted by the backend, for display only. */
   launch_display?: string;
   transport?: string;
@@ -159,7 +153,6 @@ export function buildMcpServerView(
     // The launch Verify will use. A command without its arguments starts the
     // wrong process entirely -- `node` alone is a REPL, not a server.
     command: matches[0].command ?? "",
-    args: matches[0].args ?? [],
     transport: matches[0].transport ?? "unknown",
     registrations,
     // Env var names are not carried on the Tool row today; the panel renders

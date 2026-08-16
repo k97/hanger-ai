@@ -50,8 +50,6 @@ export interface McpServerView {
   name: string;
   /** Executable Verify will run. */
   command: string;
-  /** Arguments it needs. `node` without these is a REPL, not a server. */
-  args: string[];
   transport: string;
   registrations: Registration[];
   /** Variable NAMES only. Values are never read from disk (scanning.md §7). */
