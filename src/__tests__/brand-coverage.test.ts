@@ -48,7 +48,7 @@ describe("brand coverage", () => {
   it("finds the registries it reads", () => {
     const ids = backendEngineIds();
     const distinct = new Set(ids.map((x) => x.id));
-    // 9 hosts + 3 agents + 5 canonical keys + 2 literals, overlapping to ~11 distinct.
+    // 9 hosts + 3 agents + 5 canonical keys + 2 rule-file owners, overlapping to ~11 distinct.
     expect(distinct.size).toBeGreaterThanOrEqual(10);
     expect(distinct.has("windsurf")).toBe(true);
     expect(distinct.has("copilot")).toBe(true);

@@ -124,6 +124,39 @@ pub fn engine_for_path(path: &Path) -> Option<&'static AgentConfig> {
     best.map(|(c, _)| c)
 }
 
+/// The agent that owns this *subagent file*, requiring its containing
+/// `agents`-style directory to sit directly under the agent's own root — no
+/// intervening directories.
+///
+/// `engine_for_path` only requires the root to appear *somewhere* in the
+/// path, which is correct for skills, rules and tools: a Claude Code plugin
+/// legitimately nests a `skills/` directory several levels under `.claude/`.
+/// It is wrong for subagents — `.claude/plugins/foo/agents/bar.md` must not
+/// resolve as a Claude Code subagent merely because `.claude` and some
+/// `agents` directory both appear somewhere in the path. This restores the
+/// adjacency the old `contains("/.claude/agents/")` chain enforced by
+/// construction, without reintroducing a substring check.
+pub fn subagent_owner_for_path(path: &Path) -> Option<&'static AgentConfig> {
+    let comps = components(path);
+    if comps.is_empty() || comps.iter().any(|c| *c == SHARED_AGENTS_DIR) {
+        return None;
+    }
+    for config in AGENT_CONFIGS {
+        let Some(dir) = config.subagents else { continue };
+        for root in config.global_roots.iter().chain(config.project_roots.iter()) {
+            let needle = format!("{root}/{dir}");
+            // The file itself must be the component immediately after the
+            // matched run: the subagents directory holds subagent files
+            // directly, not further nesting, and nothing may sit between the
+            // root and it.
+            if match_run(&comps, &needle) == Some(comps.len() - 1) {
+                return Some(config);
+            }
+        }
+    }
+    None
+}
+
 /// Every agent that reads the shared `.agents/` directory. This is the reach
 /// set for store-owned convention assets — never an ownership answer.
 pub fn agents_reading_shared_dir() -> Vec<&'static AgentConfig> {

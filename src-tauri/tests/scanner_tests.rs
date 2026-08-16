@@ -146,13 +146,19 @@ fn test_scanner_fixtures() {
     assert_eq!(git_reader_tool.transport, "http://localhost:9000/codex");
 
     // 6. Verify Subagents
-    assert_eq!(inventory.subagents.iter().filter(|sa| sa.parse_status.as_deref() == Some("ok")).count(), 3, "Expected exactly 3 valid subagents");
-    assert_eq!(inventory.subagents.len(), 4, "Expected 4 total subagents (3 valid + 1 failed)");
-    
+    // - Global Research Agent, Global Coder Agent (Claude Code, global)
+    // - Local Research Agent (Claude Code, project)
+    // - Shared Reviewer (no owner: a bare .md directly under .agents/, the
+    //   shared vendor-neutral convention directory -- same ownership rule as
+    //   project-local-tool above, see agents.rs)
+    assert_eq!(inventory.subagents.iter().filter(|sa| sa.parse_status.as_deref() == Some("ok")).count(), 4, "Expected exactly 4 valid subagents");
+    assert_eq!(inventory.subagents.len(), 5, "Expected 5 total subagents (4 valid + 1 failed)");
+
     let subagent_names: Vec<String> = inventory.subagents.iter().map(|sa| sa.name.clone()).collect();
     assert!(subagent_names.contains(&"Global Research Agent".to_string()));
     assert!(subagent_names.contains(&"Global Coder Agent".to_string()));
     assert!(subagent_names.contains(&"Local Research Agent".to_string()));
+    assert!(subagent_names.contains(&"Shared Reviewer".to_string()));
 
     // Verify declared tools
     let global_researcher = inventory.subagents.iter().find(|sa| sa.name == "Global Research Agent").unwrap();
@@ -161,6 +167,24 @@ fn test_scanner_fixtures() {
 
     let local_researcher = inventory.subagents.iter().find(|sa| sa.name == "Local Research Agent").unwrap();
     assert!(matches!(local_researcher.scope, Some(Scope::Project { .. })));
+
+    // Both halves of the shared-subagent regression: it must be present (the
+    // scan must not silently drop a bare .md under .agents/) AND ownerless
+    // (it must not be misattributed to whichever engine's arm happens to run
+    // last). Mirrors the claude-project-tool positive assertion above --
+    // same wiring (crate::agents::subagent_owner_for_path via is_subagent in
+    // scanner.rs), opposite expected owner.
+    let shared_reviewer = inventory
+        .subagents
+        .iter()
+        .find(|sa| sa.name == "Shared Reviewer")
+        .expect("Shared Reviewer must be present: a bare .md directly under .agents/ is still a subagent");
+    match &shared_reviewer.scope {
+        Some(Scope::Project { agent, .. }) => {
+            assert_eq!(agent, "", "Shared Reviewer under .agents/ must have no owning agent, got {:?}", agent)
+        }
+        other => panic!("expected Shared Reviewer to have Scope::Project, got {:?}", other),
+    }
 
     // 7. Verify Project Scan Metadata & Warnings
     assert_eq!(inventory.project_scans.len(), 1);
@@ -610,17 +634,19 @@ fn test_scanner_emits_assets_table_rows() {
 
     assert_eq!(skill_count, 4, "Expected 4 skill rows in assets table");
     assert_eq!(rule_count, 3, "Expected 3 rule rows in assets table");
-    assert_eq!(subagent_count, 4, "Expected 4 subagent rows (3 ok + 1 failed) in assets table");
+    assert_eq!(subagent_count, 5, "Expected 5 subagent rows (4 ok + 1 failed) in assets table");
     assert_eq!(tool_count, 7, "Expected 7 tool rows (6 ok + 1 failed) in assets table");
     assert_eq!(failed_count, 3, "Expected 3 failed parse asset rows (broken-skill, broken_subagent.md, mcp.json)");
-    // 9, not 8: claude-project-tool's config is literally named mcp.json, which
+    // 10, not 8: claude-project-tool's config is literally named mcp.json, which
     // the store layer always treats as an engine-agnostic shared standard
     // (tool_filename == "mcp.json" branch) regardless of which agent's
     // directory it sits in -- same as project-local-tool and
     // gemini-global-tool above it. Its Scope::Project.agent is still "Claude
     // Code" (see test_scanner_fixtures): that ownership is a separate, correct
-    // signal from the store's per-row engine_id.
-    assert_eq!(null_engine_count, 9, "Expected 9 shared standard asset rows to have engine_id IS NULL");
+    // signal from the store's per-row engine_id. Shared Reviewer (a bare .md
+    // directly under .agents/) adds the tenth: it is a real subagent with no
+    // owning engine by design, same as project-local-tool.
+    assert_eq!(null_engine_count, 10, "Expected 10 shared standard asset rows to have engine_id IS NULL");
 
     if db_path.exists() {
         let _ = std::fs::remove_file(db_path);
@@ -1096,12 +1122,14 @@ fn test_count_assets_ground_truth() {
 
     assert_eq!(counts.skill, Some(tauri_app_lib::domain::CategoryCount { total: 4, global: 0, project: 4 }));
     assert_eq!(counts.rule, Some(tauri_app_lib::domain::CategoryCount { total: 3, global: 0, project: 3 }));
-    assert_eq!(counts.subagent, Some(tauri_app_lib::domain::CategoryCount { total: 4, global: 2, project: 2 }));
+    // 2 global + 3 project (Local Research Agent under .claude/agents/, Shared
+    // Reviewer under .agents/, and the failed broken_subagent.md decoy).
+    assert_eq!(counts.subagent, Some(tauri_app_lib::domain::CategoryCount { total: 5, global: 2, project: 3 }));
     // 4 global + 3 project (project-local-tool under .agents/, claude-project-tool
     // under .claude/, and the failed src/ai/mcp.json decoy).
     assert_eq!(counts.tool, Some(tauri_app_lib::domain::CategoryCount { total: 7, global: 4, project: 3 }));
 
-    assert_eq!(counts.total_assets, 18, "total_assets must equal arithmetic sum 18");
+    assert_eq!(counts.total_assets, 19, "total_assets must equal arithmetic sum 19");
 }
 
 #[test]
@@ -1556,7 +1584,7 @@ fn test_deepest_linked_root_owns_asset() {
             .unwrap();
 
         assert_eq!(inner_count, 3, "Order 1: Inner root must own exactly 3 assets under src/ai");
-        assert_eq!(outer_count, 9, "Order 1: Outer root must own exactly 9 assets outside src/ai");
+        assert_eq!(outer_count, 10, "Order 1: Outer root must own exactly 10 assets outside src/ai");
     }
 
     // Run order 2: Scan Inner first, then Scan Outer
@@ -1589,7 +1617,7 @@ fn test_deepest_linked_root_owns_asset() {
             .unwrap();
 
         assert_eq!(inner_count, 3, "Order 2: Inner root must own exactly 3 assets under src/ai");
-        assert_eq!(outer_count, 9, "Order 2: Outer root must own exactly 9 assets outside src/ai");
+        assert_eq!(outer_count, 10, "Order 2: Outer root must own exactly 10 assets outside src/ai");
     }
 }
 
@@ -1624,6 +1652,61 @@ fn test_broad_root_reaches_nested_agent_directories() {
     assert!(
         inventory.skills.iter().any(|s| s.name == "deep-skill"),
         "Broad root scan MUST discover skills located 7 components deep inside agent directories"
+    );
+}
+
+/// `engine_for_path` only requires a root to appear *somewhere* in the path,
+/// which is right for skills/rules/tools but was accidentally reused for
+/// subagent ownership too: `.claude/plugins/foo/agents/bar.md` would resolve
+/// as a Claude Code subagent even though the `agents` directory is nested
+/// under a plugin, not a direct child of `.claude`. The old
+/// `contains("/.claude/agents/")` chain required contiguity by construction;
+/// `subagent_owner_for_path` (agent_attribution_tests.rs pins the function
+/// directly) restores it. This is the same check exercised end to end
+/// through a real scan, so a regression in the scanner's wiring -- not just
+/// the function -- would still be caught.
+#[test]
+fn test_nested_plugin_agents_dir_is_not_attributed_as_a_subagent() {
+    let _guard = ENV_MUTEX.get_or_init(|| Mutex::new(())).lock().unwrap();
+
+    let temp = tempfile::tempdir().unwrap();
+    let root = temp.path().join("project");
+    fs::create_dir_all(&root).unwrap();
+
+    // Direct: agents/ sits right under .claude/ -- a real user subagent.
+    let direct_dir = root.join(".claude/agents");
+    fs::create_dir_all(&direct_dir).unwrap();
+    fs::write(
+        direct_dir.join("direct-agent.md"),
+        "---\nname: Direct Agent\ndescription: A real subagent directly under .claude/agents\n---\n",
+    )
+    .unwrap();
+
+    // Nested: a plugin's own agents/ directory, several levels under .claude/.
+    // Claude Code plugins legitimately ship an agents/ directory; it is not
+    // the user's own subagent and must not be attributed to Claude Code.
+    let nested_dir = root.join(".claude/plugins/some-plugin/agents");
+    fs::create_dir_all(&nested_dir).unwrap();
+    fs::write(
+        nested_dir.join("nested-agent.md"),
+        "---\nname: Nested Plugin Agent\ndescription: Ships inside a plugin, not a user subagent\n---\n",
+    )
+    .unwrap();
+
+    let db_path = temp.path().join("test_nested_plugin.db");
+    let scanner = DirectoryScanner {
+        db_path,
+        cancellation_token: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
+    };
+    let inventory = scanner.scan(&root).expect("Scan should complete");
+
+    assert!(
+        inventory.subagents.iter().any(|sa| sa.name == "Direct Agent"),
+        "A subagent directly under .claude/agents/ must still be discovered"
+    );
+    assert!(
+        !inventory.subagents.iter().any(|sa| sa.name == "Nested Plugin Agent"),
+        "A plugin's own agents/ directory, nested under .claude/, must not be attributed as a Claude Code subagent"
     );
 }
 

@@ -1459,8 +1459,10 @@ impl DirectoryScanner {
             }
 
             // A subagent is a `.md` file directly inside an agent's subagents
-            // directory, or inside the shared `.agents/` root. The shared case
-            // has no owner: several agents read it, and ownership is exclusive
+            // directory (with that directory sitting directly under the
+            // agent's own root — see subagent_owner_for_path), or directly
+            // inside the shared `.agents/` root. The shared case has no
+            // owner: several agents read it, and ownership is exclusive
             // (spec §4.4). It is still a subagent — it just belongs to the
             // store. `Some("")` is that case: a real subagent, no owning
             // engine. It reads oddly in isolation, but it matches the
@@ -1474,11 +1476,8 @@ impl DirectoryScanner {
                     .parent()
                     .and_then(|p| p.file_name())
                     .and_then(|n| n.to_str());
-                match crate::agents::engine_for_path(path) {
-                    Some(config) => match (config.subagents, parent_name) {
-                        (Some(dir), Some(name)) if name == dir => Some(config.id),
-                        _ => None,
-                    },
+                match crate::agents::subagent_owner_for_path(path) {
+                    Some(config) => Some(config.id),
                     None if parent_name == Some(crate::agents::SHARED_AGENTS_DIR) => Some(""),
                     None => None,
                 }

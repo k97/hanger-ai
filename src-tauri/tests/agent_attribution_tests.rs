@@ -1,5 +1,5 @@
 use std::path::Path;
-use tauri_app_lib::agents::{engine_for_path, AGENT_CONFIGS};
+use tauri_app_lib::agents::{engine_for_path, subagent_owner_for_path, AGENT_CONFIGS};
 
 #[test]
 fn every_declared_root_resolves_to_its_own_agent() {
@@ -78,6 +78,37 @@ fn agent_ids_are_unique() {
     let before = ids.len();
     ids.dedup();
     assert_eq!(before, ids.len(), "duplicate agent id in AGENT_CONFIGS");
+}
+
+/// `engine_for_path` alone is too loose for subagent ownership: it only
+/// requires the root to appear *somewhere* in the path, so
+/// `.claude/plugins/foo/agents/bar.md` would resolve as a Claude Code
+/// subagent even though the `agents` directory is nested three levels under
+/// a plugin, not a direct child of `.claude`. The old
+/// `contains("/.claude/agents/")` chain required contiguity by construction;
+/// `subagent_owner_for_path` restores it deliberately, and this pins both
+/// directions so neither regresses silently.
+#[test]
+fn subagent_ownership_requires_the_agents_dir_directly_under_the_root() {
+    let direct = Path::new("/Users/test/.claude/agents/reviewer.md");
+    let found = subagent_owner_for_path(direct).expect("agents/ directly under .claude/ must resolve");
+    assert_eq!(found.id, "claude-code");
+
+    let nested = Path::new("/Users/test/.claude/plugins/foo/agents/reviewer.md");
+    assert!(
+        subagent_owner_for_path(nested).is_none(),
+        "an agents/ directory nested under a plugin must not resolve to an owner — Claude Code ships plugin agents/ dirs that are not the user's own subagents"
+    );
+
+    let project_direct = Path::new("/repo/proj/.codex/agents/reviewer.md");
+    let found = subagent_owner_for_path(project_direct).expect("agents/ directly under .codex/ must resolve");
+    assert_eq!(found.id, "codex");
+
+    let project_nested = Path::new("/repo/proj/.codex/plugins/foo/agents/reviewer.md");
+    assert!(
+        subagent_owner_for_path(project_nested).is_none(),
+        "same nesting problem, project-scoped"
+    );
 }
 
 /// The chains this refactor exists to delete. A forgotten branch in one of
