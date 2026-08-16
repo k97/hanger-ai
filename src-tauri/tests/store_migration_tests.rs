@@ -22,12 +22,13 @@ fn test_v1_5_0_migration_clean_and_no_data_loss() {
 
     let conn = store.connect().expect("Failed to connect via store");
 
-    // 1. Verify PRAGMA user_version == 4 (v1 schema + v2 engine-root purge +
-    //    v3 root-path canonicalisation + v4 links constraints and backfill)
+    // 1. Verify PRAGMA user_version == 5 (v1 schema + v2 engine-root purge +
+    //    v3 root-path canonicalisation + v4 links constraints and backfill +
+    //    v5 .agents/ misattribution clear and re-attribution unstick)
     let version: i32 = conn
         .query_row("PRAGMA user_version", [], |row| row.get(0))
         .expect("PRAGMA user_version query should succeed");
-    assert_eq!(version, 4, "PRAGMA user_version must be 4 after migration");
+    assert_eq!(version, 5, "PRAGMA user_version must be 5 after migration");
 
     // 2. Verify 'engines' table exists and has correct columns
     let mut stmt = conn.prepare("PRAGMA table_info(engines)").unwrap();
@@ -214,7 +215,7 @@ fn test_v1_5_0_migration_idempotency() {
     let version: i32 = conn
         .query_row("PRAGMA user_version", [], |row| row.get(0))
         .unwrap();
-    assert_eq!(version, 4, "User version must remain 4 after second migration");
+    assert_eq!(version, 5, "User version must remain 5 after second migration");
 
     let root_count: i64 = conn
         .query_row("SELECT COUNT(*) FROM roots", [], |row| row.get(0))
@@ -404,7 +405,7 @@ fn test_v2_migration_purges_engine_root_project_rows() {
     let conn = store.connect().unwrap();
 
     let version: i32 = conn.query_row("PRAGMA user_version", [], |r| r.get(0)).unwrap();
-    assert_eq!(version, 4, "user_version must be 4 after v2 replay, v3, and v4");
+    assert_eq!(version, 5, "user_version must be 5 after v2 replay, v3, v4, and v5");
 
     let stale: i64 = conn
         .query_row(
@@ -447,4 +448,118 @@ fn test_upsert_root_kind_is_immutable() {
     assert_eq!(kind, "engine_global", "kind must not be rewritten by a later walk");
 
     let _ = fs::remove_dir_all(&temp_dir);
+}
+
+#[test]
+fn v5_clears_agents_dir_misattribution_and_unsticks_reattribution() {
+    let dir = tempfile::tempdir().unwrap();
+    let db_path = dir.path().join("prefs.db");
+    let abs_path = "/Users/test/.agents/skills/demo/SKILL.md";
+
+    // A v4 database with a `.agents/` asset wrongly attributed to Gemini —
+    // exactly what shipped installs hold today (spec §3.1).
+    {
+        let store = PreferencesStore::new(&db_path).unwrap();
+        let now = 1_700_000_000i64;
+        let engine_id = store.upsert_engine("gemini", "Gemini / Antigravity", "", now).unwrap();
+        let root_id = store.upsert_root("engine_global", "/Users/test/.agents", None, ".agents", now).unwrap();
+        store.upsert_asset(
+            root_id, Some(engine_id), "skill", "global", "demo", abs_path,
+            None, None, "ok", None, now, now,
+        ).unwrap();
+
+        // Force the db back to v4, as a shipped install's database actually
+        // is. Without this, PreferencesStore::new on a brand-new path
+        // bootstraps straight to the latest version before the misattributed
+        // row above even exists, and the migration never touches it.
+        let conn = store.connect().unwrap();
+        conn.execute_batch("PRAGMA user_version = 4;").unwrap();
+    }
+
+    // Reopening runs the migration.
+    let store = PreferencesStore::new(&db_path).unwrap();
+    let conn = store.connect().unwrap();
+
+    let version: i32 = conn.query_row("PRAGMA user_version", [], |r| r.get(0)).unwrap();
+    assert_eq!(version, 5, "user_version must be 5 after the agent-detection migration");
+
+    let engine_id: Option<i64> = conn
+        .query_row("SELECT engine_id FROM assets WHERE abs_path = ?1", [abs_path], |r| r.get(0))
+        .unwrap();
+    assert_eq!(
+        engine_id, None,
+        "a .agents/ asset is store-owned — its engine_id must be NULL, not Gemini"
+    );
+}
+
+#[test]
+fn reattribution_between_two_known_engines_takes_the_new_value() {
+    let dir = tempfile::tempdir().unwrap();
+    let db_path = dir.path().join("prefs.db");
+    let store = PreferencesStore::new(&db_path).unwrap();
+    let now = 1_700_000_000i64;
+
+    let codex = store.upsert_engine("codex", "Codex", "", now).unwrap();
+    let claude = store.upsert_engine("claude_code", "Claude Code", "", now).unwrap();
+    let root_id = store.upsert_root("project", "/repo/proj", None, "proj", now).unwrap();
+
+    let path = "/repo/proj/.claude/skills/demo/SKILL.md";
+    store.upsert_asset(root_id, Some(codex), "skill", "project", "demo", path, None, None, "ok", None, now, now).unwrap();
+    // A rescan now computes a different, known engine.
+    store.upsert_asset(root_id, Some(claude), "skill", "project", "demo", path, None, None, "ok", None, now, now).unwrap();
+
+    let conn = store.connect().unwrap();
+    let engine_id: Option<i64> = conn
+        .query_row("SELECT engine_id FROM assets WHERE abs_path = ?1", [path], |r| r.get(0))
+        .unwrap();
+    assert_eq!(
+        engine_id, Some(claude),
+        "two known engines disagreeing must take the new value, not NULL forever"
+    );
+}
+
+#[test]
+fn reattribution_from_known_to_unknown_still_yields_null() {
+    // The genuine "walks disagree" case the original rule was written for.
+    let dir = tempfile::tempdir().unwrap();
+    let db_path = dir.path().join("prefs.db");
+    let store = PreferencesStore::new(&db_path).unwrap();
+    let now = 1_700_000_000i64;
+
+    let codex = store.upsert_engine("codex", "Codex", "", now).unwrap();
+    let root_id = store.upsert_root("project", "/repo/proj2", None, "proj2", now).unwrap();
+    let path = "/repo/proj2/.codex/skills/demo/SKILL.md";
+
+    store.upsert_asset(root_id, Some(codex), "skill", "project", "demo", path, None, None, "ok", None, now, now).unwrap();
+    store.upsert_asset(root_id, None, "skill", "project", "demo", path, None, None, "ok", None, now, now).unwrap();
+
+    let conn = store.connect().unwrap();
+    let engine_id: Option<i64> = conn
+        .query_row("SELECT engine_id FROM assets WHERE abs_path = ?1", [path], |r| r.get(0))
+        .unwrap();
+    assert_eq!(engine_id, None, "Some -> None must still clear the attribution");
+}
+
+#[test]
+fn reattribution_from_unknown_to_known_takes_the_new_value() {
+    // No previous owner, now a known one: None -> Some must take the new
+    // engine, not stay NULL forever.
+    let dir = tempfile::tempdir().unwrap();
+    let db_path = dir.path().join("prefs.db");
+    let store = PreferencesStore::new(&db_path).unwrap();
+    let now = 1_700_000_000i64;
+
+    let claude = store.upsert_engine("claude_code", "Claude Code", "", now).unwrap();
+    let root_id = store.upsert_root("project", "/repo/proj3", None, "proj3", now).unwrap();
+    let path = "/repo/proj3/.claude/skills/demo/SKILL.md";
+
+    store.upsert_asset(root_id, None, "skill", "project", "demo", path, None, None, "ok", None, now, now).unwrap();
+    // A rescan now resolves a known engine where none was known before.
+    store.upsert_asset(root_id, Some(claude), "skill", "project", "demo", path, None, None, "ok", None, now, now).unwrap();
+
+    let conn = store.connect().unwrap();
+    let engine_id: Option<i64> = conn
+        .query_row("SELECT engine_id FROM assets WHERE abs_path = ?1", [path], |r| r.get(0))
+        .unwrap();
+    assert_eq!(engine_id, Some(claude), "None -> Some must take the new value, not stay NULL");
 }

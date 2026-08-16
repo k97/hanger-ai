@@ -4,7 +4,9 @@
 //! (asset_id, dest_path) rows planted, because that is exactly the state the
 //! INSERT-only upsert_link could produce. Opening the store must dedupe
 //! keeping the newest row, pin the pair unique, backfill tracked copies from
-//! deploy_checksums, and land at user_version 4.
+//! deploy_checksums, land at user_version 4, then replay straight through to
+//! v5 (`.agents/` misattribution clear) since that migration also runs on
+//! open.
 
 use rusqlite::{params, Connection};
 use tauri_app_lib::preferences::PreferencesStore;
@@ -131,7 +133,7 @@ fn test_v4_migration_dedupes_pins_unique_and_backfills_checksums() {
     let conn = store.connect().unwrap();
 
     let version: i64 = conn.query_row("PRAGMA user_version", [], |r| r.get(0)).unwrap();
-    assert_eq!(version, 4, "PRAGMA user_version must be 4 after migration");
+    assert_eq!(version, 5, "PRAGMA user_version must be 5 after migration");
 
     // Duplicates collapsed keeping the newest (source_hash 'new-hash').
     let dup_dest = project_dir.join("skill.md");
@@ -325,5 +327,5 @@ fn accounting_against_store_copy() {
             println!("UNACCOUNTED {dst} — {reason}");
         }
     }
-    assert_eq!(version, 4);
+    assert_eq!(version, 5);
 }
