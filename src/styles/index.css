@@ -203,6 +203,10 @@
 }
 @utility animate-heart-ring {
   animation: hanger-heart-ring var(--dur-press) ease-out;
+  /* Holds the ring's final (invisible) frame instead of snapping back to
+     its 0% frame for the one paint between the animation ending and React
+     unmounting the <span> — a one-frame flash risk under normal motion. */
+  animation-fill-mode: forwards;
 }
 
 @keyframes hanger-heart-pop {
