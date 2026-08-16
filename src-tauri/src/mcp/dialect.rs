@@ -136,6 +136,14 @@ pub fn strip_jsonc(input: &str) -> String {
                     if prev == '*' && n == '/' {
                         break;
                     }
+                    // Newlines inside the comment are kept so a diagnostic line
+                    // number still points at the right line of the ORIGINAL
+                    // file. The `//` branch above already does this; without
+                    // the same here, every line after a multi-line block
+                    // comment reports short by the comment's height.
+                    if n == '\n' {
+                        out.push('\n');
+                    }
                     prev = n;
                 }
             }

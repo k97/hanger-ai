@@ -451,7 +451,7 @@ fn scanner_and_registry_agree_on_every_engine_key_they_both_know() {
 // ─── Discovery ───────────────────────────────────────────────────────────────
 
 use std::path::Path;
-use tauri_app_lib::mcp::discover;
+use tauri_app_lib::mcp::discover::{self, ConfigProblemKind};
 
 fn fixture_home() -> &'static Path {
     Path::new("tests/fixtures/mcp_home")
@@ -559,9 +559,10 @@ fn a_recognised_source_yielding_no_servers_warns_instead_of_vanishing() {
 
     let result = discover::discover_machine(dir.path());
     assert!(
-        result.warnings.iter().any(|w| w.contains("mcp.json")),
-        "expected a warning naming the empty source, got {:?}",
-        result.warnings
+        result.problems.iter().any(|p| matches!(p.kind, ConfigProblemKind::DeclaredNothing)
+            && p.path.contains("mcp.json")),
+        "expected a DeclaredNothing problem naming the empty source, got {:?}",
+        result.problems
     );
 }
 
@@ -571,9 +572,9 @@ fn a_missing_source_is_silent() {
     let result = discover::discover_machine(dir.path());
     assert!(result.registrations.is_empty());
     assert!(
-        result.warnings.is_empty(),
+        result.problems.is_empty(),
         "absent files must not warn: {:?}",
-        result.warnings
+        result.problems
     );
 }
 
@@ -773,4 +774,74 @@ fn a_mixed_file_yields_both_transports_side_by_side() {
     let remote = servers.iter().find(|s| s.name == "mei-recipes").unwrap();
     assert!(remote.transport.starts_with("https://"));
     assert!(remote.command.is_empty(), "a remote server has nothing to spawn");
+}
+
+// ─── Config problems ─────────────────────────────────────────────────────────
+
+use std::io::Write;
+
+#[test]
+fn an_unreadable_config_is_a_different_problem_from_an_unparseable_one() {
+    // Collapsed into one Vec<String> until now. They have different fixes:
+    // one is chmod, the other is an editor. A user told only "there was a
+    // problem" has to guess which.
+    let dir = tempfile::tempdir().expect("tempdir");
+
+    let bad = dir.path().join("mcp.json");
+    let mut f = std::fs::File::create(&bad).expect("create");
+    writeln!(f, "{{ \"mcpServers\": {{ \"a\": {{ }}").expect("write");
+
+    let result = discover::read_swept(&bad, "claude-code", dialect::ScopeTier::Global);
+    assert_eq!(result.problems.len(), 1);
+    assert!(matches!(result.problems[0].kind, ConfigProblemKind::Unparseable));
+    assert!(
+        result.problems[0].line.is_some(),
+        "an unparseable file without a location is a dead end"
+    );
+
+    let missing = dir.path().join("gone.json");
+    let result = discover::read_swept(&missing, "claude-code", dialect::ScopeTier::Global);
+    assert_eq!(result.problems.len(), 1);
+    assert!(matches!(result.problems[0].kind, ConfigProblemKind::Unreadable));
+    assert!(result.problems[0].line.is_none());
+}
+
+#[test]
+fn a_well_formed_file_declaring_nothing_is_its_own_state() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let empty = dir.path().join("mcp.json");
+    std::fs::write(&empty, "{}").expect("write");
+
+    let result = discover::read_swept(&empty, "claude-code", dialect::ScopeTier::Global);
+    assert_eq!(result.problems.len(), 1);
+    assert!(matches!(result.problems[0].kind, ConfigProblemKind::DeclaredNothing));
+}
+
+#[test]
+fn a_line_number_survives_a_multi_line_block_comment() {
+    // strip_jsonc rewrites the body before serde sees it. Its `//` branch keeps
+    // the newline it consumes; its `/* */` branch did not, so every line number
+    // after a multi-line comment came back short — pointing the user at the
+    // wrong line of a file they then have to search by hand.
+    //
+    // The fixture: the comment opens on line 2 and closes on line 4, so it
+    // CONTAINS two newlines (ending lines 2 and 3). The `*/` terminator does not
+    // carry one, so the shift is two, not three. The syntax error — an unquoted
+    // value — is on line 7. Before the fix serde reports 5; after it, 7.
+    let dir = tempfile::tempdir().expect("tempdir");
+    let path = dir.path().join("mcp.json");
+    std::fs::write(
+        &path,
+        "{\n  /* one\n     two\n     three */\n  \"mcpServers\": {\n    \"a\": {\n      \"command\": x\n    }\n  }\n}\n",
+    )
+    .expect("write");
+
+    let result = discover::read_swept(&path, "claude-code", dialect::ScopeTier::Global);
+    assert_eq!(result.problems.len(), 1);
+    assert!(matches!(result.problems[0].kind, ConfigProblemKind::Unparseable));
+    assert_eq!(
+        result.problems[0].line,
+        Some(7),
+        "line number must point at the original file, not the stripped one"
+    );
 }

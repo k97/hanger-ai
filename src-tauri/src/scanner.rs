@@ -825,7 +825,9 @@ impl DirectoryScanner {
                                 agent_id_static(&agent.id),
                                 crate::mcp::registry::ScopeTier::Global,
                             );
-                            parse_warnings.extend(swept.warnings);
+                            parse_warnings.extend(
+                                swept.problems.iter().map(|p| format!("{}: {}", p.path, p.detail)),
+                            );
 
                             for reg in swept.registrations {
                                 let key = (reg.config_path.clone(), reg.server.name.clone());
@@ -1131,7 +1133,9 @@ impl DirectoryScanner {
         // weakened — proven by a planted control in mcp_discovery_tests.
         {
             let machine = crate::mcp::discover::discover_machine(&get_home_dir());
-            parse_warnings.extend(machine.warnings);
+            parse_warnings.extend(
+                machine.problems.iter().map(|p| format!("{}: {}", p.path, p.detail)),
+            );
 
             let home_dir = get_home_dir();
             let mut host_root_ids: std::collections::HashMap<&'static str, i64> =
