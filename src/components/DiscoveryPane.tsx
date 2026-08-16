@@ -8,7 +8,6 @@ import {
   TIERS,
   type Directory,
 } from "../data/directories";
-import { DISCOVERY_ICONS } from "../data/discoveryIcons";
 import { matchesDirectory } from "../utils/directoryFacets";
 import FavouriteHeart from "./FavouriteHeart";
 
@@ -60,18 +59,8 @@ function Row({ dir, favourited, onToggleFavourite, onOpen, onCopyFetch }: RowPro
       }}
       className="group w-full grid grid-cols-[26px_1fr_40px] gap-3 items-start px-3 py-[11px] rounded-inner text-left cursor-pointer transition-colors duration-hover ease-spring hover:bg-plane-2 active:bg-tint"
     >
-      <span className="w-[26px] h-[26px] rounded-[6px] bg-page border border-line-2 grid place-items-center overflow-hidden">
-        {DISCOVERY_ICONS[dir.mark] ? (
-          <img
-            src={DISCOVERY_ICONS[dir.mark]}
-            alt=""
-            className="w-full h-full object-cover"
-          />
-        ) : (
-          <span className="font-flex text-micro font-medium text-ink-2">
-            {dir.mark}
-          </span>
-        )}
+      <span className="w-[26px] h-[26px] rounded-[6px] bg-page border border-line-2 grid place-items-center font-flex text-micro font-medium text-ink-2">
+        {dir.mark}
       </span>
 
       <span className="min-w-0">
