@@ -42,6 +42,7 @@ import {
   ShieldCheckIcon as HeroShieldCheck,
   Square2StackIcon as HeroSquare2Stack,
   SunIcon as HeroSun,
+  SwatchIcon as HeroSwatch,
   TrashIcon as HeroTrash,
   UserIcon as HeroUser,
   WrenchScrewdriverIcon as HeroWrenchScrewdriver,
@@ -125,6 +126,9 @@ export const ServerIcon = sized(HeroServer);
 export const ShieldCheckIcon = sized(HeroShieldCheck, 1.09);
 export const Square2StackIcon = sized(HeroSquare2Stack, 1.2);
 export const SunIcon = sized(HeroSun, 1.11);
+// Not measured against a lucide twin — the rail had no design-system entry
+// before this mark, so its coverage stands unadjusted at 1 until it is.
+export const SwatchIcon = sized(HeroSwatch);
 export const TrashIcon = sized(HeroTrash);
 export const UserIcon = sized(HeroUser, 0.93);
 export const WrenchScrewdriverIcon = sized(HeroWrenchScrewdriver);

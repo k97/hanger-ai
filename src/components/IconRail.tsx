@@ -1,14 +1,18 @@
-import { ComputerDesktopIcon, GlobeAltIcon, ExclamationTriangleIcon, Cog6ToothIcon, FolderSymlinkIcon } from "./icons";
+import { ComputerDesktopIcon, GlobeAltIcon, ExclamationTriangleIcon, Cog6ToothIcon, FolderSymlinkIcon, SwatchIcon } from "./icons";
 import HangerMark from "./HangerMark";
 import Tooltip from "./Tooltip";
 
 interface IconRailProps {
-  active: "machine" | "linkmap" | "discovery" | "review";
+  active: "machine" | "linkmap" | "discovery" | "review" | "design";
   needsReviewCount: number;
   onSelectMachine: () => void;
   onSelectLinkMap: () => void;
   onSelectDiscovery: () => void;
   onSelectReview: () => void;
+  /** The design-system page. Present in dev builds only — the shell passes
+   *  it under import.meta.env.DEV and the entry does not otherwise exist
+   *  (Karthik's ruling, 2026-08-16). */
+  onSelectDesign?: () => void;
   onOpenSettings: () => void;
 }
 
@@ -31,6 +35,7 @@ export default function IconRail({
   onSelectLinkMap,
   onSelectDiscovery,
   onSelectReview,
+  onSelectDesign,
   onOpenSettings,
 }: IconRailProps) {
   return (
@@ -106,6 +111,21 @@ export default function IconRail({
       </Tooltip>
 
       <div className="flex-1" />
+
+      {/* Below the spacer with Settings: it is about the app, not a place
+          where assets are. */}
+      {onSelectDesign && (
+        <Tooltip label="Design system">
+          <button
+            aria-label="Design system"
+            aria-current={active === "design" ? "true" : undefined}
+            onClick={onSelectDesign}
+            className={active === "design" ? railBtnActiveClass : railBtnClass}
+          >
+            <SwatchIcon size={17} aria-hidden="true" />
+          </button>
+        </Tooltip>
+      )}
 
       <Tooltip label="Settings">
         <button aria-label="Settings" onClick={onOpenSettings} className={railBtnClass}>

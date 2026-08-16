@@ -149,6 +149,43 @@ describe("Icon rail", () => {
     unmount();
   });
 
+  it("Design system: a dev-build entry beside Settings that opens the page whole", async () => {
+    // vitest runs with import.meta.env.DEV = true, so this is the dev rail.
+    const { unmount } = render(<App />);
+    const entry = await screen.findByLabelText("Design system");
+    fireEvent.click(entry);
+
+    await waitFor(() => {
+      expect(invoke).toHaveBeenCalledWith("set_preference", {
+        key: "selected_sidebar_item",
+        value: "design",
+      });
+    });
+    expect(entry.getAttribute("aria-current")).toBe("true");
+    // The TOC replaces the machine sidebar; the page has no search and no
+    // inspector — nothing on it is an asset to filter or inspect.
+    expect(await screen.findByTestId("design-sidebar")).toBeTruthy();
+    expect(screen.queryByTestId("sidebar")).toBeNull();
+    expect(screen.getByText("The system, rendered by the app that uses it")).toBeTruthy();
+    expect(screen.queryByLabelText("Search")).toBeNull();
+    expect(screen.queryByLabelText("Toggle inspector")).toBeNull();
+    unmount();
+  });
+
+  it("outside dev builds the entry does not exist, and a stale preference lands on Global", async () => {
+    vi.stubEnv("DEV", false);
+    mockPreferences.selected_sidebar_item = "design";
+    try {
+      const { unmount } = render(<App />);
+      expect(await screen.findByTestId("sidebar")).toBeTruthy();
+      expect(screen.queryByLabelText("Design system")).toBeNull();
+      expect(screen.queryByTestId("design-sidebar")).toBeNull();
+      unmount();
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
   it("shows the flagged-asset count badge only when something needs review", async () => {
     const { unmount } = render(<App />);
     const needsReview = await screen.findByLabelText(/Needs review/);

@@ -53,6 +53,9 @@ import ProfilePane from "./components/ProfilePane";
 import RepoPane from "./components/RepoPane";
 import DiscoveryPane from "./components/DiscoveryPane";
 import DiscoverySidebar from "./components/DiscoverySidebar";
+import DesignSystemPane from "./components/DesignSystemPane";
+import DesignSystemSidebar from "./components/DesignSystemSidebar";
+import type { DesignSectionId } from "./data/designSystemFixtures";
 import NeedsReviewPane from "./components/NeedsReviewPane";
 import ReviewSidebar from "./components/ReviewSidebar";
 import ReviewInspector from "./components/ReviewInspector";
@@ -261,6 +264,11 @@ export default function App() {
   // Discovery's category facet — owned here because DiscoverySidebar sets it
   // and DiscoveryPane filters by it (the chips moved into the second column).
   const [discoveryKind, setDiscoveryKind] = useState<string>("All");
+  // The design-system page exists in dev builds only (Karthik's ruling,
+  // 2026-08-16): the rail entry is not rendered otherwise, and a persisted
+  // selection pointing at it falls back to Global on load.
+  const designSystemAvailable = import.meta.env.DEV;
+  const [designSection, setDesignSection] = useState<DesignSectionId>("colour");
   // Machine-wide state filter driven by the icon rail's Needs review button
   // and the summary strip's legend.
   const [stateFilter, setStateFilter] = useState<StateFilter>(null);
@@ -528,7 +536,9 @@ export default function App() {
 
       // Load persistent layout state (selection & width)
       const activeItem = await invoke<string | null>("get_preference", { key: "selected_sidebar_item" });
-      if (activeItem) {
+      if (activeItem === "design" && !designSystemAvailable) {
+        setSelectedSidebarItem("profile");
+      } else if (activeItem) {
         setSelectedSidebarItem(activeItem);
       }
       const showProjectsPref = await invoke<string | null>("get_preference", { key: "linkmap_show_projects" });
@@ -924,6 +934,8 @@ export default function App() {
       ? ["Discovery"]
       : selectedSidebarItem === "linkmap"
       ? ["My machine", "Link map"]
+      : selectedSidebarItem === "design"
+      ? ["Design system"]
       : selectedSidebarItem.includes(":")
       ? [
           "My machine",
@@ -981,6 +993,8 @@ export default function App() {
               ? "review"
               : selectedSidebarItem === "linkmap"
               ? "linkmap"
+              : selectedSidebarItem === "design"
+              ? "design"
               : "machine"
           }
           needsReviewCount={review.counts.total}
@@ -997,10 +1011,27 @@ export default function App() {
             handleSelectSidebarItem("review");
             invoke("set_preference", { key: "selected_sidebar_item", value: "review" }).catch(() => {});
           }}
+          onSelectDesign={
+            designSystemAvailable
+              ? () => {
+                  handleSelectSidebarItem("design");
+                  invoke("set_preference", { key: "selected_sidebar_item", value: "design" }).catch(() => {});
+                }
+              : undefined
+          }
           onOpenSettings={() => setShowSettingsModal(true)}
         />
 
-        {selectedSidebarItem === "linkmap" ? null : selectedSidebarItem === "discovery" ? (
+        {selectedSidebarItem === "linkmap" ? null : selectedSidebarItem === "design" ? (
+          <DesignSystemSidebar
+            width={sidebarWidth}
+            setWidth={setSidebarWidth}
+            collapsed={sidebarCollapsed}
+            setCollapsed={setSidebarCollapsed}
+            section={designSection}
+            onSelectSection={setDesignSection}
+          />
+        ) : selectedSidebarItem === "discovery" ? (
           <DiscoverySidebar
             width={sidebarWidth}
             setWidth={setSidebarWidth}
@@ -1089,8 +1120,9 @@ export default function App() {
           </div>
 
           <div className="ml-auto flex items-center gap-1 pr-3">
-            {/* The map has no text filter yet; an inert input would lie. */}
-            {selectedSidebarItem !== "linkmap" && (
+            {/* The map has no text filter yet, and the design-system page
+                none at all; an inert input would lie. */}
+            {selectedSidebarItem !== "linkmap" && selectedSidebarItem !== "design" && (
             <div className="relative w-[214px] min-w-[120px] shrink h-[27px] mr-1.5">
               <MagnifyingGlassIcon
                 size={12}
@@ -1134,7 +1166,7 @@ export default function App() {
                   />
                 </button>
               </Tooltip>
-            ) : selectedSidebarItem !== "discovery" && (
+            ) : selectedSidebarItem !== "discovery" && selectedSidebarItem !== "design" && (
               <Tooltip label="Toggle inspector" placement="bottom">
                 <button
                   onClick={toggleInspector}
@@ -1197,6 +1229,10 @@ export default function App() {
 
           {selectedSidebarItem === "discovery" && (
             <DiscoveryPane filterText={filterText} kind={discoveryKind} />
+          )}
+
+          {selectedSidebarItem === "design" && designSystemAvailable && (
+            <DesignSystemPane section={designSection} />
           )}
 
           {selectedSidebarItem === "linkmap" && (
@@ -1319,6 +1355,7 @@ export default function App() {
       {inspectorOpen &&
         selectedSidebarItem !== "discovery" &&
         selectedSidebarItem !== "linkmap" &&
+        selectedSidebarItem !== "design" &&
         (selectedSidebarItem === "review" || inventory) && (
         <aside
           style={{ width: inspectorWidth }}
