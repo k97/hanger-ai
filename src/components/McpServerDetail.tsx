@@ -22,7 +22,8 @@ interface Registration {
   tier: string;
   configPath: string;
   command: string;
-  args?: string[];
+  /** What this registration launches, already redacted by the backend. */
+  launchDisplay: string;
   /**
    * Present only while a process matching this launch is running.
    *
@@ -86,9 +87,8 @@ export default function McpServerDetail({ server, onVerify, verifying = false }:
   // Nothing to spawn: a Claude.ai connector lives on Anthropic's servers, a
   // remote server answers over HTTP. Both are real MCP servers; neither is a
   // local process.
-  /** What a registration actually launches, for comparison across hosts. */
-  const launchOf = (r: { command: string; args?: string[] }) =>
-    [r.command, ...(r.args ?? [])].join(" ").trim();
+  /** What a registration launches, as the backend redacted it. */
+  const launchOf = (r: { launchDisplay: string }) => r.launchDisplay;
 
   /* The reason this panel exists rather than nested rows: the same server can
      be wired differently by different hosts, and nothing else on the machine

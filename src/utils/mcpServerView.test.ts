@@ -66,4 +66,21 @@ describe("buildMcpServerView", () => {
     const view = buildMcpServerView(tools, "spades-audio")!;
     expect(view.registrations.every((r) => r.running === undefined)).toBe(true);
   });
+
+  it("carries the backend's redacted launch onto each registration", () => {
+    const view = buildMcpServerView(
+      [
+        {
+          id: "/tmp/mcp.json-protected",
+          name: "protected",
+          command: "npx",
+          launch_display: "npx mcp-remote https://example.com/sse --header Authorization: <redacted>",
+          transport: "stdio",
+          config_path: "/tmp/mcp.json",
+        },
+      ],
+      "protected"
+    );
+    expect(view?.registrations[0].launchDisplay).toContain("<redacted>");
+  });
 });

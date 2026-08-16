@@ -7,7 +7,12 @@ interface ToolRow {
   id?: string;
   name: string;
   command?: string;
+  /** Raw arguments. Still used for the view-level launch handed to Verify
+   * (`verify_mcp_server` needs the real process args); never read when
+   * building a per-registration display string — that reads `launch_display`. */
   args?: string[];
+  /** The launch, already redacted by the backend, for display only. */
+  launch_display?: string;
   transport?: string;
   config_path: string;
   owning_agent?: string;
@@ -138,7 +143,7 @@ export function buildMcpServerView(
       tier: tierOf(t.scope),
       configPath: t.config_path,
       command: t.command ?? "",
-      args: t.args ?? [],
+      launchDisplay: t.launch_display ?? "",
       ...(hit ? { running: { pid: hit.pid, spawningHost: hit.spawning_host } } : {}),
     };
   });

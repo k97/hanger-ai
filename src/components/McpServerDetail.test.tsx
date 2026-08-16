@@ -12,13 +12,14 @@ const base: McpServerView = {
   args: ["/Applications/Spades Audio.app/Contents/Resources/mcp-server/dist/index.js"],
   transport: "stdio",
   registrations: [
-    { host: "Claude Code", tier: "user", configPath: "~/.claude.json", command: "node" },
-    { host: "Claude Code", tier: "global", configPath: "~/.claude/mcp.json", command: "node" },
+    { host: "Claude Code", tier: "user", configPath: "~/.claude.json", command: "node", launchDisplay: "node" },
+    { host: "Claude Code", tier: "global", configPath: "~/.claude/mcp.json", command: "node", launchDisplay: "node" },
     {
       host: "Claude Desktop",
       tier: "global",
       configPath: "~/Library/Application Support/Claude/claude_desktop_config.json",
       command: "node",
+      launchDisplay: "node",
     },
   ],
   envKeys: [],
@@ -193,9 +194,9 @@ describe("McpServerDetail", () => {
       ...base,
       registrations: [
         { host: "Codex", tier: "global", configPath: "~/.codex/config.toml",
-          command: "npx", args: ["@hypothesi/tauri-mcp-server"] },
+          command: "npx", launchDisplay: "npx @hypothesi/tauri-mcp-server" },
         { host: "Gemini", tier: "global", configPath: "~/.gemini/settings.json",
-          command: "npx", args: ["tauri-mcp@0.9"] },
+          command: "npx", launchDisplay: "npx tauri-mcp@0.9" },
       ],
     };
     render(<McpServerDetail server={diverged} />);
@@ -233,5 +234,29 @@ describe("McpServerDetail", () => {
     render(<McpServerDetail server={base} />);
     expect(screen.queryByText(/not running/i)).toBeNull();
     expect(screen.queryByText(/running · pid/)).toBeNull();
+  });
+
+  it("renders the backend's redacted launch and never joins arguments itself", () => {
+    // The panel used to build `[command, ...args].join(" ")`, which printed a
+    // --header bearer token. It now renders a string the backend already
+    // redacted, so there is nothing here that could leak.
+    render(
+      <McpServerDetail
+        server={{
+          ...base,
+          registrations: [
+            {
+              host: "Claude Code",
+              tier: "user",
+              configPath: "~/.claude.json",
+              command: "npx",
+              launchDisplay: "npx mcp-remote https://example.com/sse --header Authorization: <redacted>",
+            },
+          ],
+        }}
+      />
+    );
+    expect(screen.getByText(/Authorization: <redacted>/)).toBeTruthy();
+    expect(screen.queryByText(/Bearer/)).toBeNull();
   });
 });
