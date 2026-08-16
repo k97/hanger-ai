@@ -72,3 +72,47 @@ fn an_empty_command_yields_only_the_arguments() {
     let out = redact_launch("", &args(&["--flag"]));
     assert_eq!(out, "--flag");
 }
+
+#[test]
+fn a_secret_shaped_toggle_does_not_swallow_the_next_secret_flag() {
+    // `--oauth` looks secret (it contains "auth") but is a realistic valueless
+    // toggle. If it consumes the next token as its own value, that token's
+    // real flag and value are never recognised at all, and the value that
+    // follows falls through unredacted.
+    let out = redact_launch("npx", &args(&["--oauth", "--client-secret", "REDACT_ME_1"]));
+    assert!(!out.contains("REDACT_ME_1"), "secret survived: {}", out);
+    assert!(out.contains("--oauth"), "toggle lost: {}", out);
+    assert!(out.contains("--client-secret <redacted>"), "value not redacted under its own flag: {}", out);
+}
+
+#[test]
+fn a_pending_header_does_not_swallow_the_next_secret_flag() {
+    // Same failure mode, but for a header flag with no value in front of a
+    // secret-shaped flag.
+    let out = redact_launch("npx", &args(&["-H", "--api-key", "REDACT_ME_2"]));
+    assert!(!out.contains("REDACT_ME_2"), "secret survived: {}", out);
+    assert!(out.contains("-H"), "header flag lost: {}", out);
+    assert!(out.contains("--api-key <redacted>"), "value not redacted under its own flag: {}", out);
+}
+
+#[test]
+fn a_secret_flags_value_that_starts_with_a_dash_is_still_redacted() {
+    // The guard against swallowing only fires when the next token is itself a
+    // RECOGNISED flag (a header flag, or secret-shaped). An ordinary
+    // dash-prefixed value must still be consumed as the value it is.
+    let out = redact_launch("server", &args(&["--api-key", "-REDACT_ME_3"]));
+    assert!(!out.contains("REDACT_ME_3"), "{}", out);
+    assert!(out.contains("--api-key <redacted>"), "{}", out);
+}
+
+#[test]
+fn a_trailing_secret_flag_with_no_value_leaves_no_stray_marker() {
+    let out = redact_launch("server", &args(&["--api-key"]));
+    assert_eq!(out, "server --api-key");
+}
+
+#[test]
+fn a_trailing_header_flag_with_no_value_leaves_no_stray_marker() {
+    let out = redact_launch("npx", &args(&["-H"]));
+    assert_eq!(out, "npx -H");
+}

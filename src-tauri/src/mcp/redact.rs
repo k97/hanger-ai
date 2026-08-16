@@ -52,16 +52,23 @@ pub fn redact_launch(command: &str, args: &[String]) -> String {
     let mut pending: Option<Pending> = None;
 
     for arg in args {
-        match pending.take() {
-            Some(Pending::Header) => {
-                out.push(redact_header_value(arg));
+        if let Some(p) = pending.take() {
+            // A flag that looks like it takes a value is not always given
+            // one — `--oauth` looks secret but is often a valueless toggle.
+            // If the very next token is itself a flag this function
+            // recognises, the PRECEDING flag was valueless: leave it bare
+            // (it is already in `out`, unmarked) and fall through to weigh
+            // this token on its own merits, rather than swallowing it as a
+            // value and letting its own real value go unredacted.
+            let next_is_a_recognised_flag = HEADER_FLAGS.contains(&arg.as_str())
+                || (arg.starts_with('-') && looks_secret(arg));
+            if !next_is_a_recognised_flag {
+                match p {
+                    Pending::Header => out.push(redact_header_value(arg)),
+                    Pending::Value => out.push("<redacted>".to_string()),
+                }
                 continue;
             }
-            Some(Pending::Value) => {
-                out.push("<redacted>".to_string());
-                continue;
-            }
-            None => {}
         }
 
         if HEADER_FLAGS.contains(&arg.as_str()) {
