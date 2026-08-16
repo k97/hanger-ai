@@ -38,7 +38,14 @@ fn tool_with_a_credential() -> Tool {
 
 #[test]
 fn a_serialised_tool_carries_no_launch_arguments() {
-    let json = serde_json::to_string(&tool_with_a_credential()).expect("serialise");
+    let tool = tool_with_a_credential();
+    // The fixture must actually carry the credential, or the assertion below
+    // passes for the wrong reason. A guard that cannot fail is not a guard.
+    assert!(
+        tool.args.iter().any(|a| a.contains("REDACT_ME_1")),
+        "the fixture stopped carrying a credential; this test now proves nothing"
+    );
+    let json = serde_json::to_string(&tool).expect("serialise");
     assert!(
         !json.contains("REDACT_ME_1"),
         "a credential from the config reached the IPC payload: {}",
