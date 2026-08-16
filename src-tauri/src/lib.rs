@@ -16,7 +16,7 @@ pub mod scan;
 use domain::Inventory;
 use scanner::{DirectoryScanner, Scanner};
 use transactional::write_transactional;
-use preferences::PreferencesStore;
+use preferences::{PreferencesStore, SanitisedError};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
@@ -478,32 +478,58 @@ pub struct PreflightResult {
     pub already_linked: bool,
 }
 
+/// Where a deployed asset lands in the target project.
+///
+/// Returns `Err` when no agent claims the source. The prior version fell
+/// through to `tgt_project.join(filename)`, writing the asset into the
+/// project root — a silent wrong write on a stranger's disk. Per-agent
+/// directories come from `agents::AGENT_CONFIGS`, the same table the read
+/// side uses; there is no second source of truth.
 fn resolve_target_path(
     source_path: &str,
     target_project_path: &str,
     linked_dirs: &[String],
-) -> PathBuf {
+) -> Result<PathBuf, SanitisedError> {
     let src = Path::new(source_path);
     let tgt_project = Path::new(target_project_path);
 
     for dir in linked_dirs {
         if let Ok(rel) = src.strip_prefix(dir) {
-            return tgt_project.join(rel);
+            return Ok(tgt_project.join(rel));
         }
     }
 
-    let filename = src.file_name().and_then(|n| n.to_str()).unwrap_or("");
-    let src_str = src.to_string_lossy();
+    let filename = src
+        .file_name()
+        .and_then(|n| n.to_str())
+        .ok_or_else(|| SanitisedError("Source path has no filename".to_string()))?;
 
-    if src_str.contains(".claude") {
-        tgt_project.join(".claude").join(filename)
-    } else if src_str.contains(".codex") {
-        tgt_project.join(".codex").join(filename)
-    } else if src_str.contains(".gemini") || src_str.contains(".agents") {
-        tgt_project.join(".agents").join(filename)
-    } else {
-        tgt_project.join(filename)
+    match crate::agents::engine_for_path(src) {
+        Some(config) => {
+            let root = config
+                .project_roots
+                .first()
+                .ok_or_else(|| SanitisedError(format!(
+                    "{} declares no project directory to deploy into",
+                    config.name
+                )))?;
+            Ok(tgt_project.join(root).join(filename))
+        }
+        None => Err(SanitisedError(
+            "Cannot deploy: no agent claims this asset's source directory".to_string(),
+        )),
     }
+}
+
+/// Test-only re-export. Integration tests live outside the crate and cannot
+/// reach a private fn.
+#[doc(hidden)]
+pub fn resolve_target_path_for_test(
+    source_path: &str,
+    target_project_path: &str,
+    linked_dirs: &[String],
+) -> Result<PathBuf, SanitisedError> {
+    resolve_target_path(source_path, target_project_path, linked_dirs)
 }
 
 /// Whether the destination is already a link resolving to this exact source.
@@ -563,7 +589,8 @@ fn check_deploy_target(
 ) -> Result<PreflightResult, String> {
     let store = get_store(&app)?;
     let linked_dirs = store.get_linked_directories().map_err(|e| e.to_string())?;
-    let target_path = resolve_target_path(&source_path, &target_project_path, &linked_dirs);
+    let target_path = resolve_target_path(&source_path, &target_project_path, &linked_dirs)
+        .map_err(|e| e.to_string())?;
 
     // symlink_metadata, not exists(): a symlink whose target has been deleted
     // still occupies the destination and would still have to be replaced.
@@ -608,7 +635,8 @@ fn execute_deploy(
 ) -> Result<(), String> {
     let store = get_store(&app)?;
     let linked_dirs = store.get_linked_directories().map_err(|e| e.to_string())?;
-    let target_path = resolve_target_path(&source_path, &target_project_path, &linked_dirs);
+    let target_path = resolve_target_path(&source_path, &target_project_path, &linked_dirs)
+        .map_err(|e| e.to_string())?;
 
     let src = Path::new(&source_path);
     let dst = &target_path;
@@ -1369,7 +1397,8 @@ mod deploy_target_tests {
             "/home/me/.agents/skills/agent-browser/SKILL.md",
             "/work/mei-recipes",
             &roots,
-        );
+        )
+        .expect("an explicitly linked dir must resolve");
         assert_eq!(
             target,
             Path::new("/work/mei-recipes/skills/agent-browser/SKILL.md")
@@ -1382,7 +1411,8 @@ mod deploy_target_tests {
             "/home/me/.claude/skills/agent-browser",
             "/work/mei-recipes",
             &[],
-        );
+        )
+        .expect("a source under a known agent root must resolve");
         assert_eq!(
             target,
             Path::new("/work/mei-recipes/.claude/agent-browser")

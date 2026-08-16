@@ -1,5 +1,6 @@
 use std::path::Path;
 use tauri_app_lib::agents::{engine_for_path, subagent_owner_for_path, AGENT_CONFIGS};
+use tauri_app_lib::resolve_target_path_for_test as resolve_target_path;
 
 #[test]
 fn every_declared_root_resolves_to_its_own_agent() {
@@ -109,6 +110,74 @@ fn subagent_ownership_requires_the_agents_dir_directly_under_the_root() {
         subagent_owner_for_path(project_nested).is_none(),
         "same nesting problem, project-scoped"
     );
+}
+
+#[test]
+fn deploy_refuses_a_source_no_agent_claims() {
+    // The old `else` branch wrote the file into the project root, which is
+    // both wrong and silent. Refusing is the whole point.
+    let err = resolve_target_path("/Users/test/Downloads/random.md", "/repo/proj", &[])
+        .expect_err("an unclaimed source must not resolve to a target");
+    let msg = format!("{err:?}");
+    assert!(
+        msg.contains("no agent"),
+        "the error must say why it refused, got: {msg}"
+    );
+}
+
+#[test]
+fn deploy_resolves_a_claimed_source_into_that_agents_directory() {
+    let target = resolve_target_path("/Users/test/.claude/skills/demo/SKILL.md", "/repo/proj", &[])
+        .expect("a claimed source must resolve");
+    assert_eq!(target, Path::new("/repo/proj/.claude/SKILL.md"));
+}
+
+#[test]
+fn deploy_prefers_an_explicit_linked_dir_over_the_table() {
+    let linked = vec!["/Users/test/store".to_string()];
+    let target = resolve_target_path("/Users/test/store/skills/demo/SKILL.md", "/repo/proj", &linked)
+        .expect("a linked dir must resolve");
+    assert_eq!(target, Path::new("/repo/proj/skills/demo/SKILL.md"));
+}
+
+#[test]
+fn deploy_refuses_a_shared_convention_source() {
+    // `.agents/` has no owner, so there is no agent directory to deploy into.
+    let err = resolve_target_path("/Users/test/.agents/skills/demo/SKILL.md", "/repo/proj", &[])
+        .expect_err("a store-owned source has no single agent target");
+    assert!(format!("{err:?}").contains("no agent"));
+}
+
+#[test]
+fn deploy_refuses_without_writing_anything_to_disk() {
+    // A test that only checked the return value would still pass if the
+    // function wrote the file before returning an error. Assert the
+    // filesystem, not just the Result.
+    let tmp = std::env::temp_dir().join(format!(
+        "hanger-deploy-refuse-test-{}",
+        std::process::id()
+    ));
+    let _ = std::fs::remove_dir_all(&tmp);
+    std::fs::create_dir_all(&tmp).expect("failed to create temp project dir");
+
+    let target_project_path = tmp.to_string_lossy().to_string();
+    let err = resolve_target_path(
+        "/Users/test/Downloads/random.md",
+        &target_project_path,
+        &[],
+    )
+    .expect_err("an unclaimed source must not resolve to a target");
+    assert!(format!("{err:?}").contains("no agent"));
+
+    let entries: Vec<_> = std::fs::read_dir(&tmp)
+        .expect("temp project dir must still exist")
+        .collect();
+    assert!(
+        entries.is_empty(),
+        "deploy refusal must not write anything to disk, found: {entries:?}"
+    );
+
+    std::fs::remove_dir_all(&tmp).expect("failed to clean up temp project dir");
 }
 
 /// The chains this refactor exists to delete. A forgotten branch in one of
