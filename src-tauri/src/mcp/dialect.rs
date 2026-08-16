@@ -184,8 +184,7 @@ fn strip_trailing_commas(input: &str) -> String {
 
 /// Turn a `{name: {...}}` object into servers. Shared by every dialect whose
 /// servers live under one flat key — `McpServers`, `VsCodeServers`,
-/// `ZedContextServers`, `OpenCodeMcp`, `AmpSettingsKey`, and the non-local
-/// tier of `ClaudeJson`.
+/// `OpenCodeMcp`, `AmpSettingsKey`, and the non-local tier of `ClaudeJson`.
 fn collect_named_servers(map: Option<&serde_json::Value>) -> Vec<McpServer> {
     map.and_then(|v| v.as_object())
         .map(|m| m.iter().map(|(n, e)| server_from_json(n, e)).collect())
@@ -242,6 +241,59 @@ fn parse_opencode_mcp(body: &str) -> Result<Vec<McpServer>, String> {
         .map(|m| {
             m.iter()
                 .map(|(name, entry)| server_from_json(name, &normalise_opencode_command(entry)))
+                .collect()
+        })
+        .unwrap_or_default();
+    Ok(servers)
+}
+
+/// Zed nests the launch under `command`: `{path, args, env}`, where every
+/// other dialect `server_from_json` reads puts a string `command` at the entry
+/// root with `args` and `env` beside it. Left alone, `entry.get("command")`
+/// finds an object where it expects a string, `.as_str()` returns `None`, and
+/// the server is emitted with an empty command and an "unknown" transport:
+/// present in the inventory with nothing to run, and no error anywhere.
+///
+/// Rewritten here, before the entry reaches the shared parser, so
+/// `server_from_json` never has to know a second shape exists.
+///
+/// Both shapes are in the wild — newer Zed writes the flat form — so an entry
+/// that is already flat passes through untouched.
+fn normalise_zed_command(entry: &serde_json::Value) -> serde_json::Value {
+    let Some(nested) = entry.get("command").and_then(|v| v.as_object()) else {
+        // Already flat, or a `url`-only remote entry. Nothing to normalise.
+        return entry.clone();
+    };
+    let Some(path) = nested.get("path").and_then(|v| v.as_str()) else {
+        return entry.clone();
+    };
+
+    let mut normalised = entry.clone();
+    if let Some(obj) = normalised.as_object_mut() {
+        obj.insert("command".to_string(), serde_json::Value::String(path.to_string()));
+        // `args` and `env` are lifted out of the nested object too. Leaving
+        // them there would read the entry root instead, where Zed puts
+        // nothing — an empty arg list and no env names at all.
+        if let Some(args) = nested.get("args") {
+            obj.insert("args".to_string(), args.clone());
+        }
+        if let Some(env) = nested.get("env") {
+            obj.insert("env".to_string(), env.clone());
+        }
+    }
+    normalised
+}
+
+/// Zed's `context_servers` key, with a nested `command` normalised first.
+fn parse_zed_context_servers(body: &str) -> Result<Vec<McpServer>, String> {
+    let root: serde_json::Value = serde_json::from_str(&strip_jsonc(body))
+        .map_err(|e| format!("Failed to parse JSON: {}", e))?;
+    let servers = root
+        .get("context_servers")
+        .and_then(|v| v.as_object())
+        .map(|m| {
+            m.iter()
+                .map(|(name, entry)| server_from_json(name, &normalise_zed_command(entry)))
                 .collect()
         })
         .unwrap_or_default();
@@ -369,7 +421,7 @@ pub fn parse(body: &str, dialect: Dialect, tier: ScopeTier) -> Result<Vec<McpSer
     match dialect {
         Dialect::McpServers => parse_json_map(body, "mcpServers"),
         Dialect::VsCodeServers => parse_json_map(body, "servers"),
-        Dialect::ZedContextServers => parse_json_map(body, "context_servers"),
+        Dialect::ZedContextServers => parse_zed_context_servers(body),
         Dialect::CodexToml => parse_codex_toml(body),
         Dialect::ClaudeJson => parse_claude_json(body, tier),
         Dialect::ClaudeAiConnectors => parse_claude_ai_connectors(body),

@@ -157,6 +157,77 @@ fn zed_context_servers_key_is_read() {
 }
 
 #[test]
+fn zed_declares_its_command_as_an_object_and_still_yields_a_runnable_launch() {
+    // The read was `.as_str()` on an object, which returns None. The command
+    // came out empty and transport_for called it "unknown", so every Zed
+    // server rendered as a blank row.
+    let body = r#"{
+  "context_servers": {
+    "spades": {
+      "command": {
+        "path": "node",
+        "args": ["/tmp/index.js"],
+        "env": { "SPADES_TOKEN": "REDACT_ME_1" }
+      }
+    }
+  }
+}"#;
+    let servers = dialect::parse(body, dialect::Dialect::ZedContextServers, dialect::ScopeTier::Global)
+        .expect("nested command must parse");
+    assert_eq!(servers.len(), 1);
+    assert_eq!(servers[0].command, "node");
+    assert_eq!(servers[0].args, vec!["/tmp/index.js".to_string()]);
+    assert_eq!(servers[0].transport, "stdio");
+    // Lifted from inside the nested object. Reading the entry root would find
+    // nothing and report a server with no environment at all.
+    assert_eq!(servers[0].env_keys, vec!["SPADES_TOKEN".to_string()]);
+    // The standing constraint: names only, never values.
+    assert!(!format!("{:?}", servers[0]).contains("REDACT_ME_1"));
+}
+
+#[test]
+fn zeds_flat_command_shape_keeps_working() {
+    // Newer Zed writes the flat shape. Both are in the wild, so both parse.
+    let body = r#"{
+  "context_servers": {
+    "spades": { "command": "node", "args": ["/tmp/index.js"] }
+  }
+}"#;
+    let servers = dialect::parse(body, dialect::Dialect::ZedContextServers, dialect::ScopeTier::Global)
+        .expect("flat command must parse");
+    assert_eq!(servers[0].command, "node");
+    assert_eq!(servers[0].args, vec!["/tmp/index.js".to_string()]);
+}
+
+#[test]
+fn a_zed_remote_entry_without_a_command_is_untouched() {
+    // A `url`-only entry has no `command` at all. The normaliser must pass it
+    // through rather than assuming the nested shape.
+    let body = r#"{
+  "context_servers": { "linear": { "url": "https://mcp.linear.app/sse" } }
+}"#;
+    let servers = dialect::parse(body, dialect::Dialect::ZedContextServers, dialect::ScopeTier::Global)
+        .expect("remote entry must parse");
+    assert_eq!(servers[0].command, "");
+    assert_eq!(servers[0].transport, "https://mcp.linear.app/sse");
+}
+
+#[test]
+fn a_zed_config_with_comments_still_parses() {
+    // Zed ships settings.json with comments by default. This is covered by
+    // strip_jsonc, but Zed is the reason it matters, so it is pinned here too.
+    let body = r#"{
+  // The MCP servers Zed can reach.
+  "context_servers": {
+    "spades": { "command": { "path": "node", "args": [] } },
+  },
+}"#;
+    let servers = dialect::parse(body, dialect::Dialect::ZedContextServers, dialect::ScopeTier::Global)
+        .expect("JSONC must parse");
+    assert_eq!(servers[0].command, "node");
+}
+
+#[test]
 fn claude_json_user_tier_reads_only_top_level_mcp_servers() {
     let body = r#"{
       "mcpServers": {"spades-audio": {"command": "node"}, "tauri": {"command": "npx tauri-mcp"}},
