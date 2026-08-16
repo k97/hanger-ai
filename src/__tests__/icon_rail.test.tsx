@@ -164,9 +164,10 @@ describe("Icon rail", () => {
     expect(entry.getAttribute("aria-current")).toBe("true");
     // The TOC replaces the machine sidebar; the page has no search and no
     // inspector — nothing on it is an asset to filter or inspect.
+    // Both arrive through lazy imports (dev-only chunks), so await them.
     expect(await screen.findByTestId("design-sidebar")).toBeTruthy();
     expect(screen.queryByTestId("sidebar")).toBeNull();
-    expect(screen.getByText("The system, rendered by the app that uses it")).toBeTruthy();
+    expect(await screen.findByText("The system, rendered by the app that uses it")).toBeTruthy();
     expect(screen.queryByLabelText("Search")).toBeNull();
     expect(screen.queryByLabelText("Toggle inspector")).toBeNull();
     unmount();

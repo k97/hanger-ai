@@ -783,7 +783,13 @@ borrow a real control's accessible name (`design_system_pane.test.tsx`).
 
 **Gating.** `App.tsx` passes `IconRail`'s `onSelectDesign` only under
 `import.meta.env.DEV`; a persisted `selected_sidebar_item` of `design` in a
-release build falls back to `profile` on load (`icon_rail.test.tsx`).
+release build falls back to `profile` on load (`icon_rail.test.tsx`). The
+page, its sidebar and its fixtures are dynamic imports behind the same
+build-time constant, so a production `vite build` emits no chunk for them —
+verified 2026-08-16: zero occurrences of the page's strings in the built
+bundle. Only `IconRail`'s own label string survives, because the rail
+cannot know at build time whether it will be handed the handler; it never
+is.
 
 **Known gaps, recorded rather than fixed here.** The pill pair, the cap
 button and the cap field are hoisted class strings in `DiscoveryPane.tsx`

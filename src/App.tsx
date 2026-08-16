@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, lazy, Suspense } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { save, open } from "@tauri-apps/plugin-dialog";
@@ -53,9 +53,18 @@ import ProfilePane from "./components/ProfilePane";
 import RepoPane from "./components/RepoPane";
 import DiscoveryPane from "./components/DiscoveryPane";
 import DiscoverySidebar from "./components/DiscoverySidebar";
-import DesignSystemPane from "./components/DesignSystemPane";
-import DesignSystemSidebar from "./components/DesignSystemSidebar";
 import type { DesignSectionId } from "./data/designSystemFixtures";
+
+// The design-system page ships in dev builds only (Karthik's ruling,
+// 2026-08-16) — and "ships" means the code, not just the rail entry. Behind
+// a build-time constant these dynamic imports are dead in production, so
+// Vite emits no chunk for the page, its sidebar, or its fixtures.
+const DesignSystemPane = import.meta.env.DEV
+  ? lazy(() => import("./components/DesignSystemPane"))
+  : null;
+const DesignSystemSidebar = import.meta.env.DEV
+  ? lazy(() => import("./components/DesignSystemSidebar"))
+  : null;
 import NeedsReviewPane from "./components/NeedsReviewPane";
 import ReviewSidebar from "./components/ReviewSidebar";
 import ReviewInspector from "./components/ReviewInspector";
@@ -1023,14 +1032,18 @@ export default function App() {
         />
 
         {selectedSidebarItem === "linkmap" ? null : selectedSidebarItem === "design" ? (
-          <DesignSystemSidebar
-            width={sidebarWidth}
-            setWidth={setSidebarWidth}
-            collapsed={sidebarCollapsed}
-            setCollapsed={setSidebarCollapsed}
-            section={designSection}
-            onSelectSection={setDesignSection}
-          />
+          DesignSystemSidebar && (
+            <Suspense fallback={null}>
+              <DesignSystemSidebar
+                width={sidebarWidth}
+                setWidth={setSidebarWidth}
+                collapsed={sidebarCollapsed}
+                setCollapsed={setSidebarCollapsed}
+                section={designSection}
+                onSelectSection={setDesignSection}
+              />
+            </Suspense>
+          )
         ) : selectedSidebarItem === "discovery" ? (
           <DiscoverySidebar
             width={sidebarWidth}
@@ -1231,8 +1244,10 @@ export default function App() {
             <DiscoveryPane filterText={filterText} kind={discoveryKind} />
           )}
 
-          {selectedSidebarItem === "design" && designSystemAvailable && (
-            <DesignSystemPane section={designSection} />
+          {selectedSidebarItem === "design" && DesignSystemPane && (
+            <Suspense fallback={null}>
+              <DesignSystemPane section={designSection} />
+            </Suspense>
           )}
 
           {selectedSidebarItem === "linkmap" && (
