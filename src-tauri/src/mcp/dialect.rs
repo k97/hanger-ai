@@ -421,6 +421,12 @@ fn parse_claude_ai_connectors(body: &str) -> Result<Vec<McpServer>, String> {
         .unwrap_or_default())
 }
 
+/// The marker `parse` returns for a format that is detected but not read.
+/// `discover::read_one` maps it to `ConfigProblemKind::FormatUnread` rather
+/// than the generic `Unparseable` every other `Err` becomes — the file is not
+/// malformed, Hanger just has no reader for it yet.
+pub const FORMAT_UNREAD: &str = "__hanger_format_unread__";
+
 /// Parse `body` according to `dialect`.
 ///
 /// `Ok(vec![])` means the file was well-formed but declared no servers — the
@@ -435,5 +441,6 @@ pub fn parse(body: &str, dialect: Dialect, tier: ScopeTier) -> Result<Vec<McpSer
         Dialect::ClaudeAiConnectors => parse_claude_ai_connectors(body),
         Dialect::OpenCodeMcp => parse_opencode_mcp(body),
         Dialect::AmpSettingsKey => parse_json_map(body, "amp.mcpServers"),
+        Dialect::Unsupported => Err(FORMAT_UNREAD.to_string()),
     }
 }

@@ -35,9 +35,9 @@ pub enum ConfigProblemKind {
     Unreadable,
     /// Malformed. `line` carries a location where the parser gives one.
     Unparseable,
-    /// The format is known and deliberately not parsed. Nothing produces this
-    /// yet — Task 9 adds `Dialect::Unsupported`, whose first user is a config
-    /// format Hanger detects but does not read.
+    /// The format is known and deliberately not parsed. Produced by
+    /// `Dialect::Unsupported` — a config format Hanger detects but does not
+    /// read.
     FormatUnread,
     /// Well-formed, zero servers declared.
     DeclaredNothing,
@@ -158,6 +158,12 @@ fn read_one(
                 });
             }
         }
+        Err(e) if e == dialect::FORMAT_UNREAD => out.problems.push(ConfigProblem {
+            kind: ConfigProblemKind::FormatUnread,
+            path: crate::preferences::sanitise_path(&path_str),
+            detail: "config format not yet supported".to_string(),
+            line: None,
+        }),
         Err(e) => {
             let line = parsed_line(&e);
             out.problems.push(ConfigProblem {
@@ -184,6 +190,19 @@ fn parsed_line(message: &str) -> Option<u32> {
     let rest = message.split("at line ").nth(1)?;
     let digits: String = rest.chars().take_while(char::is_ascii_digit).collect();
     digits.parse().ok()
+}
+
+/// `read_one` for tests that need to name the dialect directly rather than go
+/// through a registry row.
+pub fn read_one_for_test(
+    path: &Path,
+    dial: dialect::Dialect,
+    host_id: &'static str,
+    tier: ScopeTier,
+) -> DiscoveryResult {
+    let mut out = DiscoveryResult::default();
+    read_one(path, dial, host_id, tier, &mut out);
+    out
 }
 
 fn read_source(base: &Path, source: &'static McpSource, out: &mut DiscoveryResult) {

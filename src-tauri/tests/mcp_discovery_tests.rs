@@ -845,3 +845,23 @@ fn a_line_number_survives_a_multi_line_block_comment() {
         "line number must point at the original file, not the stripped one"
     );
 }
+
+#[test]
+fn a_format_we_choose_not_to_parse_reports_itself_rather_than_reading_as_empty() {
+    // Zero servers and "we cannot read this file" look identical to a user.
+    // The second is a fact about Hanger, and saying so is the difference
+    // between an honest gap and an app that looks broken.
+    let dir = tempfile::tempdir().expect("tempdir");
+    let path = dir.path().join("config.yaml");
+    std::fs::write(&path, "mcpServers:\n  - name: x\n").expect("write");
+
+    let result = discover::read_one_for_test(
+        &path,
+        dialect::Dialect::Unsupported,
+        "continue",
+        dialect::ScopeTier::Global,
+    );
+    assert!(result.registrations.is_empty());
+    assert_eq!(result.problems.len(), 1);
+    assert!(matches!(result.problems[0].kind, ConfigProblemKind::FormatUnread));
+}

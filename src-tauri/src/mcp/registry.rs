@@ -53,6 +53,14 @@ pub enum Dialect {
     /// `{"amp.mcpServers": {name: {...}}}` — Amp nests its servers under a
     /// dotted key inside a general settings file rather than owning the file.
     AmpSettingsKey,
+    /// A format Hanger detects but deliberately does not parse.
+    ///
+    /// Zero servers and "we cannot read this file" are indistinguishable to a
+    /// user, and the second is a fact about Hanger rather than about their
+    /// machine. Naming it turns a silent gap into a stated one, and every
+    /// engine that ships after us inherits the honest state rather than
+    /// looking broken.
+    Unsupported,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -182,6 +190,13 @@ pub const SOURCES: &[McpSource] = &[
     // an extension id that can change. Declared explicitly so a change breaks
     // a test rather than silently reporting zero servers.
     McpSource { host_id: "cline", location: MachineAbsolute, path: "Library/Application Support/Code/User/globalStorage/saoudrizwan.claude-dev/settings/cline_mcp_settings.json", tier: Global, dialect: McpServers },
+
+    // Continue is NOT registered here. Its format and path were verified
+    // against upstream docs and qualify ("YAML at a path we can name" —
+    // ~/.continue/config.yaml, top-level `mcpServers` key), but adding the
+    // HOSTS entry fails `src/__tests__/brand-coverage.test.ts`, which
+    // requires every host id to resolve to a mark in `src/data/brands.ts` —
+    // a file outside this task's touch scope. See task-9-report.md.
 ];
 
 impl McpHost {
