@@ -9,6 +9,9 @@ interface DiscoverySidebarProps {
   setCollapsed: (collapsed: boolean) => void;
   kind: string;
   onSelectKind: (kind: string) => void;
+  /** Owned by App.tsx alongside the favourited marks themselves, so this
+   *  count and DiscoveryPane's hearts never drift apart. */
+  favouritesCount?: number;
 }
 
 const grpClass =
@@ -21,6 +24,11 @@ const grpClass =
  * asset panes already speak (CategoryFilterCards' "Filter by category");
  * the row set comes from kindCounts, the one sanctioned tally over the
  * static catalogue.
+ *
+ * Favourites is a second, separate group above Categories rather than one
+ * more kind chip: it filters by what the user did, not what a listing is,
+ * and it exists only while it has something in it (Karthik's ruling,
+ * 2026-08-16) — no dead row for a feature nobody has used yet.
  */
 export default function DiscoverySidebar({
   width,
@@ -29,6 +37,7 @@ export default function DiscoverySidebar({
   setCollapsed,
   kind,
   onSelectKind,
+  favouritesCount = 0,
 }: DiscoverySidebarProps) {
   const row = (active: boolean) =>
     `flex items-center gap-2 h-8 px-3 rounded-pill cursor-pointer transition-colors duration-nav ease-spring ${
@@ -46,6 +55,34 @@ export default function DiscoverySidebar({
       collapsed={collapsed}
       setCollapsed={setCollapsed}
     >
+      {favouritesCount > 0 && (
+        <>
+          <div className={grpClass}>Favourites</div>
+          <div
+            role="button"
+            tabIndex={0}
+            aria-current={kind === "Favourites" ? "true" : undefined}
+            onClick={() => onSelectKind("Favourites")}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onSelectKind("Favourites");
+              }
+            }}
+            className={row(kind === "Favourites")}
+          >
+            <span
+              className={`flex-1 min-w-0 truncate text-base-app ${
+                kind === "Favourites" ? "font-medium" : ""
+              }`}
+            >
+              Favourites
+            </span>
+            <span className={tally(kind === "Favourites")}>{favouritesCount}</span>
+          </div>
+        </>
+      )}
+
       <div className={grpClass}>Categories</div>
       {kindCounts(DIRECTORIES).map((facet) => {
         const active = kind === facet.kind;
