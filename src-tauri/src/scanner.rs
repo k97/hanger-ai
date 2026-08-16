@@ -241,33 +241,7 @@ pub const RULE_FILENAMES: &[&str] = &[
     ".windsurfrules",
 ];
 
-pub struct AgentConfig {
-    pub id: &'static str,
-    pub name: &'static str,
-    pub global_paths: &'static [&'static str],
-    pub footprint_dir: &'static str,
-}
-
-pub const AGENT_CONFIGS: &[AgentConfig] = &[
-    AgentConfig {
-        id: "claude-code",
-        name: "Claude Code",
-        global_paths: &[".claude", ".config/claude"],
-        footprint_dir: ".claude",
-    },
-    AgentConfig {
-        id: "codex",
-        name: "Codex",
-        global_paths: &[".codex"],
-        footprint_dir: ".codex",
-    },
-    AgentConfig {
-        id: "gemini",
-        name: "Gemini / Antigravity",
-        global_paths: &[".gemini"],
-        footprint_dir: ".agents",
-    },
-];
+pub use crate::agents::{AgentConfig, AGENT_CONFIGS};
 
 /// Map an agent id to its stable `engines.key`.
 ///
@@ -352,7 +326,7 @@ pub fn get_global_agents() -> Vec<Agent> {
     let mut agents = Vec::new();
     for config in AGENT_CONFIGS {
         let mut resolved_path = None;
-        for rel_path in config.global_paths {
+        for rel_path in config.global_roots {
             let path = home.join(rel_path);
             if path.exists() {
                 resolved_path = Some(path.to_string_lossy().to_string());
@@ -1582,12 +1556,8 @@ impl DirectoryScanner {
             let path_str = tool_path.to_string_lossy().to_string();
             let tool_filename = tool_path.file_name().and_then(|n| n.to_str()).unwrap_or("");
 
-            for config in AGENT_CONFIGS {
-                let pattern = format!("/{}/", config.footprint_dir);
-                if path_str.contains(&pattern) {
-                    owning_agent = config.name.to_string();
-                    break;
-                }
+            if let Some(config) = crate::agents::engine_for_path(&tool_path) {
+                owning_agent = config.name.to_string();
             }
 
             let scope = Scope::Project {

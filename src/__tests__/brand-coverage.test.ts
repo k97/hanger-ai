@@ -31,8 +31,9 @@ export function backendEngineIds(): { id: string; from: string }[] {
   for (const m of hosts.matchAll(/McpHost \{ id: "([^"]+)"/g)) out.push({ id: m[1], from: "registry.rs HOSTS" });
 
   const scanner = read("src-tauri/src/scanner.rs");
-  const agents = block(scanner, "pub const AGENT_CONFIGS", "];", "scanner.rs AGENT_CONFIGS");
-  for (const m of agents.matchAll(/\bid: "([^"]+)"/g)) out.push({ id: m[1], from: "scanner.rs AGENT_CONFIGS" });
+  const agentsSource = read("src-tauri/src/agents.rs");
+  const agents = block(agentsSource, "pub const AGENT_CONFIGS", "];", "agents.rs AGENT_CONFIGS");
+  for (const m of agents.matchAll(/\bid: "([^"]+)"/g)) out.push({ id: m[1], from: "agents.rs AGENT_CONFIGS" });
 
   const keyFn = block(scanner, "pub fn get_engine_key", "_ => None", "scanner.rs get_engine_key");
   for (const m of keyFn.matchAll(/=> Some\("([^"]+)"\)/g)) out.push({ id: m[1], from: "scanner.rs get_engine_key" });
@@ -56,11 +57,11 @@ describe("brand coverage", () => {
     // fails loudly here instead of hiding behind AGENT_CONFIGS' 3 ids being
     // string-duplicates of ids HOSTS already yields. Counted directly from
     // the Rust files, not guessed: registry.rs HOSTS has 9 McpHost entries,
-    // scanner.rs AGENT_CONFIGS has 3, get_engine_key's match arms yield 5
+    // agents.rs AGENT_CONFIGS has 3, get_engine_key's match arms yield 5
     // Some(...) results, and there are 2 string-literal upsert_engine calls.
     const floors: Record<string, number> = {
       "registry.rs HOSTS": 9,
-      "scanner.rs AGENT_CONFIGS": 3,
+      "agents.rs AGENT_CONFIGS": 3,
       "scanner.rs get_engine_key": 5,
       "scanner.rs upsert_engine literal": 2,
     };

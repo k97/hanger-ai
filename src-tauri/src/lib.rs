@@ -1,3 +1,4 @@
+pub mod agents;
 pub mod annotations;
 pub mod dev_icon;
 pub mod diagnostics;
