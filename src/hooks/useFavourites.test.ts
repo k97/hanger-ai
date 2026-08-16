@@ -77,6 +77,38 @@ describe("useFavourites", () => {
     await waitFor(() => expect(result.current.favourites).toEqual([]));
   });
 
+  it("prunes marks the catalogue no longer has and writes the pruned list back", async () => {
+    mockPreferences.discovery_favourites = JSON.stringify(["sy", "zzz-orphaned"]);
+    const { result } = renderHook(() => useFavourites());
+
+    await waitFor(() => expect(result.current.favourites).toEqual(["sy"]));
+
+    await waitFor(() => {
+      expect(invoke).toHaveBeenCalledWith("set_preference", {
+        key: "discovery_favourites",
+        value: JSON.stringify(["sy"]),
+      });
+    });
+    // Pruning must persist exactly once, not on every render — an untouched
+    // list should never generate a spurious write.
+    const setPreferenceCalls = vi
+      .mocked(invoke)
+      .mock.calls.filter(([cmd]) => cmd === "set_preference");
+    expect(setPreferenceCalls).toHaveLength(1);
+  });
+
+  it("leaves a fully valid list untouched, with no pruning write", async () => {
+    mockPreferences.discovery_favourites = JSON.stringify(["sy", "gl"]);
+    const { result } = renderHook(() => useFavourites());
+
+    await waitFor(() => expect(result.current.favourites).toEqual(["sy", "gl"]));
+
+    const setPreferenceCalls = vi
+      .mocked(invoke)
+      .mock.calls.filter(([cmd]) => cmd === "set_preference");
+    expect(setPreferenceCalls).toHaveLength(0);
+  });
+
   it("ignores toggleFavourite before initial load completes to prevent data loss", async () => {
     vi.mocked(invoke).mockImplementation(
       () =>
