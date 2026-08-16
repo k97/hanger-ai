@@ -14,6 +14,7 @@ import { sumGlobalAssets } from "../utils/globalAssetCount";
 import SummaryStrip from "./SummaryStrip";
 import { ScanStatusIndicator } from "./ScanStatusIndicator";
 import { annotationStateCounts, linkStateCounts, matchesStateFilter, StateFilter } from "../utils/linkStateCounts";
+import { categoryNoun, joinNames } from "../utils/prose";
 
 interface ProfilePaneProps {
   inventory: Inventory | null;
@@ -152,7 +153,8 @@ export default function ProfilePane({
   // engines were there but their global folders held nothing — the sidebar
   // showed the engine marks while the plane denied the folders existed.
   // Boolean only: whether any engine home folder exists, never a count.
-  const enginesDetected = (detectedEngines ?? []).length > 0;
+  const engineNames = (detectedEngines ?? []).map((e) => e.name);
+  const enginesDetected = engineNames.length > 0;
 
   // Use the testable filter predicate utility
   const {
@@ -167,6 +169,9 @@ export default function ProfilePane({
   const filterQuery = (filterText ?? "").trim().toLowerCase();
   const nameMatches = (name: string) =>
     filterQuery === "" || name.toLowerCase().includes(filterQuery);
+  // Whether anything is narrowing the rows — the category-empty copy says
+  // "matches that filter" only when a filter is what emptied it.
+  const filterActive = filterQuery !== "" || stateFilter !== null;
 
   const filteredSkills = scopedSkills.filter(
     (s) => nameMatches(s.name) && matchesStateFilter(s, stateFilter)
@@ -394,43 +399,68 @@ export default function ProfilePane({
       {pendingState ? (
         /* Pending: no claim either way. Live root-by-root progress already
            lives in the foot line's ScanStatusIndicator, so this plane only
-           says what the store's silence means right now. */
+           says what the store's silence means right now. "Once the scan
+           finishes" is literal: App sets inventory on scan://complete and
+           ignores scan://progress, so nothing lands here root by root. */
         <div className={emptyPlaneClass} data-testid="scan-pending">
           <SpinnerIcon className={`text-ink-3 mb-2 ${loading ? "animate-spin" : ""}`} size={40} />
           <span className="text-base-app font-medium text-ink-1">
             {loading ? "Scanning your machine" : "Not scanned yet"}
           </span>
           <span className="text-small text-ink-3 max-w-sm mt-1">
-            {loading ? "Results appear as roots finish." : "Rescan to look again."}
+            {loading
+              ? "Assets in the global store show up here once the scan finishes."
+              : "Rescan when you're ready."}
           </span>
         </div>
       ) : emptyState ? (
         <div className={emptyPlaneClass}>
           <ExclamationCircleIcon className="text-ink-3 mb-2" size={40} />
           {enginesDetected ? (
+            /* The engines are here; their global folders are not empty of
+               files, just of anything Hanger tracks. Name them: the sidebar
+               already shows their marks, and the line should agree with it. */
             <>
-              <span className="text-base-app font-medium text-ink-1">No assets in the global store</span>
+              <span className="text-base-app font-medium text-ink-1">Nothing in the global store yet</span>
               <span className="text-small text-ink-3 max-w-sm mt-1">
-                Hanger looked in the engines' global folders and found no skills, rules, MCP servers or subagents.
+                {joinNames(engineNames)} {engineNames.length === 1 ? "is" : "are"} here, but{" "}
+                {engineNames.length === 1 ? "its global folder holds" : "their global folders hold"} no
+                skills, rules, MCP servers or subagents yet. Discovery lists places to find some.
               </span>
             </>
           ) : (
+            /* None of ~/.claude, ~/.config/claude, ~/.codex or ~/.gemini
+               exists (scanner::get_global_agents). The three names are the
+               engines Hanger reads today; revisit when more are added. */
             <>
-              <span className="text-base-app font-medium text-ink-1">No developer agent folders detected</span>
+              <span className="text-base-app font-medium text-ink-1">No engine folders on this machine yet</span>
               <span className="text-small text-ink-3 max-w-sm mt-1">
-                Hanger scans your home folder for standard agent configurations (e.g. ~/.claude, ~/.gemini).
+                Hanger looks in your home directory for the folders Claude Code, Codex and Gemini keep
+                there, and found none. Run one of them once, then rescan.
               </span>
             </>
           )}
         </div>
       ) : isCategoryEmpty && selectedCategory ? (
-        /* Category-specific Empty State */
+        /* Category-specific empty state. Two different reasons share it and
+           the copy tells them apart: a filter that hides every row is not
+           the same as a category with nothing in it. */
         <div className={emptyPlaneClass}>
           <ExclamationCircleIcon className="text-ink-3 mb-2" size={40} />
-          <span className="text-base-app font-medium text-ink-1">No global {selectedCategory.toLowerCase()} found</span>
-          <span className="text-small text-ink-3 max-w-sm mt-1">
-            Select another category filter or click "All" to view all available assets.
-          </span>
+          {filterActive ? (
+            <span className="text-base-app font-medium text-ink-1">
+              No {categoryNoun(selectedCategory, "one")} matches that filter
+            </span>
+          ) : (
+            <>
+              <span className="text-base-app font-medium text-ink-1">
+                No {categoryNoun(selectedCategory)} in the global store
+              </span>
+              <span className="text-small text-ink-3 max-w-sm mt-1">
+                Nothing under this category yet. Pick another, or All.
+              </span>
+            </>
+          )}
         </div>
       ) : (
         <>

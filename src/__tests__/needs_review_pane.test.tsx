@@ -145,13 +145,13 @@ describe("Needs review — repo-level and cross-repo in one list", () => {
     // unscanned one. Seen 2026-08-16 during the first scan on a fresh store.
     renderPane({ issues: [], counts: clean, scanning: true, scannedAt: null });
     expect(screen.getByTestId("scan-pending")).toBeTruthy();
-    expect(screen.getByText("Scanning your machine — results appear as roots finish.")).toBeTruthy();
+    expect(screen.getByText("Scanning your machine. Anything that needs a decision shows up here once the scan finishes.")).toBeTruthy();
     expect(screen.queryByText(/Nothing needs a decision/)).toBeNull();
   });
 
   it("with no scan running and none finished, says so rather than 'clean'", () => {
     renderPane({ issues: [], counts: clean, scanning: false, scannedAt: null });
-    expect(screen.getByText("Not scanned yet. Rescan to look again.")).toBeTruthy();
+    expect(screen.getByText("Not scanned yet. Rescan when you're ready.")).toBeTruthy();
     expect(screen.queryByText(/Nothing needs a decision/)).toBeNull();
   });
 

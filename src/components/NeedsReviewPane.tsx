@@ -221,8 +221,8 @@ export default function NeedsReviewPane({
               ? hasScanned
                 ? "Nothing needs a decision. Every link resolves and every file parses."
                 : scanning
-                ? "Scanning your machine — results appear as roots finish."
-                : "Not scanned yet. Rescan to look again."
+                ? "Scanning your machine. Anything that needs a decision shows up here once the scan finishes."
+                : "Not scanned yet. Rescan when you're ready."
               : "No issue matches that filter."}
           </p>
         ) : (

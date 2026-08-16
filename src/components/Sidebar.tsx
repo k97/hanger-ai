@@ -44,8 +44,10 @@ export default function Sidebar({
   // badge — same count path as the profile pane (sumGlobalAssets), so the two
   // figures cannot diverge. inventory.agents is empty by design (engines are
   // containers, not assets) and must not be read for either.
+  // "engines", the word the strip, the Engine column and the Engines eyebrow
+  // use; "agents" would collide with the Agents category and the subagents.
   const agentsSubtitle =
-    detectedEngines.length > 0 ? detectedEngines.map((e) => e.name).join(", ") : "No agents detected";
+    detectedEngines.length > 0 ? detectedEngines.map((e) => e.name).join(", ") : "No engines yet";
   const globalAssetsTotal = sumGlobalAssets(assetCounts);
 
   // State for per-repository asset counts from backend IPC

@@ -13,6 +13,7 @@ import { registrationKey } from "../utils/mcpRegistration";
 import { formatEngineLabel } from "../utils/engineUtils";
 import SummaryStrip from "./SummaryStrip";
 import { ScanStatusIndicator } from "./ScanStatusIndicator";
+import { categoryNoun } from "../utils/prose";
 import { linkStateCounts, matchesStateFilter, StateFilter } from "../utils/linkStateCounts";
 
 interface RepoPaneProps {
@@ -149,6 +150,9 @@ export default function RepoPane({
   const filterQuery = (filterText ?? "").trim().toLowerCase();
   const nameMatches = (name: string) =>
     filterQuery === "" || name.toLowerCase().includes(filterQuery);
+  // Whether anything is narrowing the rows — the category-empty copy says
+  // "matches that filter" only when a filter is what emptied it.
+  const filterActive = filterQuery !== "" || stateFilter !== null;
 
   const filteredSkills = scopedSkills.filter(
     (s) => nameMatches(s.name) && matchesStateFilter(s, stateFilter)
@@ -262,9 +266,14 @@ export default function RepoPane({
     (selectedCategory === "Agents" && filteredAgents.length === 0) ||
     (selectedCategory === "Subagents" && filteredSubagents.length === 0);
 
+  // The fallback (no backend count yet) must look at everything the repo
+  // holds, not the rows left after the category and search filters — it once
+  // read the filtered arrays, so a search that hid every row, or a category
+  // with nothing in it, flipped the whole repository to "empty".
+  const unscoped = filterRepoAssets(inventory, repoPath, null);
   const storeEmpty = assetCounts !== undefined && assetCounts !== null
     ? assetCounts.total === 0
-    : (filteredSkills.length === 0 && filteredTools.length === 0 && filteredRules.length === 0 && filteredAgents.length === 0 && filteredSubagents.length === 0);
+    : (unscoped.skills.length === 0 && unscoped.tools.length === 0 && unscoped.rules.length === 0 && unscoped.agents.length === 0 && unscoped.subagents.length === 0);
 
   // Same gate as ProfilePane: "No AI assets found" is a finding, and a
   // finding needs a finished scan. Until `scannedAt` is set the slot reports
@@ -432,39 +441,57 @@ export default function RepoPane({
 
       {isRepoPending ? (
         /* Pending: no claim either way. Root-by-root progress already lives
-           in the foot line's ScanStatusIndicator. */
+           in the foot line's ScanStatusIndicator; "once the scan finishes" is
+           literal (inventory lands on scan://complete, not per root). */
         <div className={`${emptyPlaneClass} mt-2.5`} data-testid="scan-pending">
           <SpinnerIcon className={`text-ink-3 mb-2 ${loading ? "animate-spin" : ""}`} size={40} />
           <span className="text-base-app font-medium text-ink-1">
             {loading ? "Scanning your machine" : "Not scanned yet"}
           </span>
           <span className="text-small text-ink-3 max-w-sm mt-1">
-            {loading ? "Results appear as roots finish." : "Rescan to look again."}
+            {loading
+              ? `Assets in ${repoFolderName} show up here once the scan finishes.`
+              : "Rescan when you're ready."}
           </span>
         </div>
       ) : isRepoEmpty ? (
-        /* Empty State */
+        /* Empty, after a scan. The two ways out are both named: link from
+           the global store, or add files here and rescan. */
         <div className={`${emptyPlaneClass} mt-2.5`}>
           <InformationCircleIcon className="text-ink-3 mb-2" size={40} />
-          <span className="text-base-app font-medium text-ink-1">No AI assets found in this repository</span>
+          <span className="text-base-app font-medium text-ink-1">Nothing in {repoFolderName} yet</span>
           <span className="text-small text-ink-3 max-w-sm mt-1 mb-4">
-            This repository contains no agent profiles, skills, tools, rules, or subagents.
+            Hanger found no skills, rules, MCP servers or subagents in this repository. Link one from
+            the global store, or add files here and rescan.
           </span>
+          {/* "Global", not "Profile": the crumb and the sidebar call it Global
+              (Karthik's ruling on the naming). */}
           <button
             onClick={() => onLinkFromProfile(repoPath)}
             className="px-4 h-[30px] bg-fill text-on-fill text-small font-medium rounded-pill cursor-pointer transition-transform duration-press ease-spring active:scale-[0.96]"
           >
-            Link an asset from Profile
+            Link an asset from Global
           </button>
         </div>
       ) : isCategoryEmpty && selectedCategory ? (
-        /* Category-specific Empty State */
+        /* Category-specific empty state; a filter that hides every row is
+           told apart from a category with nothing in it. */
         <div className={`${emptyPlaneClass} mt-2.5`}>
           <InformationCircleIcon className="text-ink-3 mb-2" size={40} />
-          <span className="text-base-app font-medium text-ink-1">No project-level {selectedCategory.toLowerCase()} found in this repository</span>
-          <span className="text-small text-ink-3 max-w-sm mt-1">
-            No configuration paths matched any project-level {selectedCategory.toLowerCase()} files.
-          </span>
+          {filterActive ? (
+            <span className="text-base-app font-medium text-ink-1">
+              No {categoryNoun(selectedCategory, "one")} matches that filter
+            </span>
+          ) : (
+            <>
+              <span className="text-base-app font-medium text-ink-1">
+                No {categoryNoun(selectedCategory)} in {repoFolderName}
+              </span>
+              <span className="text-small text-ink-3 max-w-sm mt-1">
+                Nothing under this category here yet. Pick another, or All.
+              </span>
+            </>
+          )}
         </div>
       ) : (
         <>

@@ -359,18 +359,52 @@ rather than swapping views.
 copy on `scannedAt !== null` — App's `lastScanAt`, set only on
 `scan://complete` — so an empty store before the first scan finishes renders
 a pending plane instead: `SpinnerIcon` at 40 (spinning while `loading`),
-"Scanning your machine / Results appear as roots finish." while a scan runs,
-"Not scanned yet / Rescan to look again." otherwise, both under
-`data-testid="scan-pending"` (`ProfilePane.tsx:135-148`, `:394-406`;
-`RepoPane.tsx:265-275`, `:433-444`; `NeedsReviewPane.tsx:213-227`, where it
-is the list plane's centred `<p>`). Only `empty && hasScanned` shows the old
-copy. ProfilePane's headline then branches on `detectedEngines` (the
-`get_detected_engines` filesystem probe): folders present but empty → "No
-assets in the global store"; no folders → "No developer agent folders
-detected" (`ProfilePane.tsx:150-155`, `:407-424`). Not `assetCounts.engines`,
-which is built from asset rows and is empty whenever the store is
-(`scanner.rs:34-46,76`). Pinned by `ProfilePaneIntegration.test.tsx`,
-`RepoPaneIntegration.test.tsx`, `needs_review_pane.test.tsx`.
+headline "Scanning your machine" with a subline that names the place and is
+literal about timing ("Assets in the global store show up here once the scan
+finishes." / "Assets in ‹repo› show up here once the scan finishes." — App
+sets inventory on `scan://complete` and ignores `scan://progress`, so nothing
+lands root by root), or "Not scanned yet / Rescan when you're ready." when
+no scan is running; all under `data-testid="scan-pending"`
+(`ProfilePane.tsx:136-149`, `:399-416`; `RepoPane.tsx:269-284`, `:442-456`;
+`NeedsReviewPane.tsx:213-227`, where it is the list plane's centred `<p>`:
+"Scanning your machine. Anything that needs a decision shows up here once the
+scan finishes."). Only `empty && hasScanned` shows an empty state.
+
+The empty copy itself, reviewed 2026-08-16 (Karthik: "review with
+/humanizer") — plain copulas, the app's own nouns, no machine-speak:
+
+- Global, engine folders present but nothing in them: "Nothing in the global
+  store yet" / "‹Claude Code and Codex› are here, but their global folders
+  hold no skills, rules, MCP servers or subagents yet. Discovery lists places
+  to find some." — the names come from `detectedEngines` (the
+  `get_detected_engines` filesystem probe), joined by `joinNames`
+  (`src/utils/prose.ts`), singular when there is one. Not
+  `assetCounts.engines`, which is built from asset rows and is empty whenever
+  the store is (`scanner.rs:34-46,76`) (`ProfilePane.tsx:150-157`, `:419-430`).
+- Global, no engine folders: "No engine folders on this machine yet" /
+  "Hanger looks in your home directory for the folders Claude Code, Codex and
+  Gemini keep there, and found none. Run one of them once, then rescan."
+  (`ProfilePane.tsx:431-441`). "Engine" throughout — the Engine column, the
+  Engines eyebrow and the strip subtitle already say it; the sidebar's
+  no-engines subtitle is "No engines yet" (`Sidebar.tsx`).
+- Repository: "Nothing in ‹repo› yet" / "Hanger found no skills, rules, MCP
+  servers or subagents in this repository. Link one from the global store, or
+  add files here and rescan.", CTA "Link an asset from Global" — Global, not
+  Profile, per the naming ruling (`RepoPane.tsx:457-475`).
+- Category-empty, both panes: a filter that hides every row is told apart
+  from a category with nothing in it — "No skill matches that filter" versus
+  "No skills in the global store" / "No MCP servers in ‹repo›" with "Nothing
+  under this category yet. Pick another, or All." The noun comes from
+  `categoryNoun` (`prose.ts`) so an empty Tools view says "MCP servers", as
+  the chip does (`ProfilePane.tsx:444-464`, `RepoPane.tsx:476-495`).
+- Needs review: "Nothing needs a decision. Every link resolves and every file
+  parses." and "No issue matches that filter." — unchanged, already plain.
+- Both inspectors, nothing selected: "Nothing selected" / "Pick an issue to
+  see where it lives and what else it affects." (`ReviewInspector.tsx`) and
+  "Pick an asset or a repository to see its details." (`Flyout.tsx`).
+
+Pinned by `ProfilePaneIntegration.test.tsx`, `RepoPaneIntegration.test.tsx`,
+`needs_review_pane.test.tsx`, `inspector_avionics.test.tsx`, `prose.test.ts`.
 
 **`DiscoveryPane`** (`DiscoveryPane.tsx`) — `filterText?`, `kind?`. Renders
 from static data in `src/data/directories.ts`; the kind facet is owned by

@@ -145,19 +145,23 @@ describe("ProfilePane — the empty state is a finding, not a default", () => {
     );
 
   it("makes no claim before the first scan completes", () => {
-    // Seen 2026-08-16: the first scan on a fresh store rendered "No
-    // developer agent folders detected" while the sidebar showed engine marks.
+    // Seen 2026-08-16: the first scan on a fresh store rendered a headline
+    // denying the engine folders existed while the sidebar showed their marks.
     renderGlobal({ loading: true, scannedAt: null });
     expect(screen.getByTestId("scan-pending")).toBeTruthy();
     expect(screen.getByText("Scanning your machine")).toBeTruthy();
-    expect(screen.queryByText("No developer agent folders detected")).toBeNull();
+    // "once the scan finishes", not "as roots finish": inventory lands on
+    // scan://complete only, so nothing here fills in root by root.
+    expect(screen.getByText("Assets in the global store show up here once the scan finishes.")).toBeTruthy();
+    expect(screen.queryByText("No engine folders on this machine yet")).toBeNull();
   });
 
   it("with no scan running and none finished, says so rather than 'nothing here'", () => {
     renderGlobal({ loading: false, scannedAt: null });
     // The strip's stamp says the same words; the claim under test is the plane's.
     expect(within(screen.getByTestId("scan-pending")).getByText("Not scanned yet")).toBeTruthy();
-    expect(screen.queryByText("No developer agent folders detected")).toBeNull();
+    expect(screen.getByText("Rescan when you're ready.")).toBeTruthy();
+    expect(screen.queryByText("No engine folders on this machine yet")).toBeNull();
   });
 
   it("claims the store is empty only after a completed scan finds nothing", () => {
@@ -167,10 +171,10 @@ describe("ProfilePane — the empty state is a finding, not a default", () => {
       assetCounts: { total: 0, byCategory: {} },
     });
     expect(screen.queryByTestId("scan-pending")).toBeNull();
-    expect(screen.getByText("No developer agent folders detected")).toBeTruthy();
+    expect(screen.getByText("No engine folders on this machine yet")).toBeTruthy();
   });
 
-  it("names the right absence: engine folders present, nothing in them", () => {
+  it("names the right absence: engine folders present, nothing in them — and names the engines", () => {
     // The headline is decided by the filesystem probe (get_detected_engines),
     // not by assetCounts.engines — that map is built from asset rows and is
     // empty whenever the store is, so it cannot tell these two states apart.
@@ -180,8 +184,21 @@ describe("ProfilePane — the empty state is a finding, not a default", () => {
       assetCounts: { total: 0, byCategory: {} },
       detectedEngines: [{ id: "claude", name: "Claude Code" }, { id: "gemini", name: "Gemini CLI" }],
     });
-    expect(screen.getByText("No assets in the global store")).toBeTruthy();
-    expect(screen.queryByText("No developer agent folders detected")).toBeNull();
+    expect(screen.getByText("Nothing in the global store yet")).toBeTruthy();
+    expect(
+      screen.getByText(/Claude Code and Gemini CLI are here, but their global folders hold no skills, rules, MCP servers or subagents yet/)
+    ).toBeTruthy();
+    expect(screen.queryByText("No engine folders on this machine yet")).toBeNull();
+  });
+
+  it("one engine reads in the singular", () => {
+    renderGlobal({
+      loading: false,
+      scannedAt: new Date(),
+      assetCounts: { total: 0, byCategory: {} },
+      detectedEngines: [{ id: "codex", name: "Codex" }],
+    });
+    expect(screen.getByText(/Codex is here, but its global folder holds no/)).toBeTruthy();
   });
 
   it("names the right absence: no engine folders at all", () => {
@@ -191,7 +208,40 @@ describe("ProfilePane — the empty state is a finding, not a default", () => {
       assetCounts: { total: 0, byCategory: {} },
       detectedEngines: [],
     });
-    expect(screen.getByText("No developer agent folders detected")).toBeTruthy();
-    expect(screen.queryByText("No assets in the global store")).toBeNull();
+    expect(screen.getByText("No engine folders on this machine yet")).toBeTruthy();
+    expect(screen.getByText(/Run one of them once, then rescan/)).toBeTruthy();
+    expect(screen.queryByText("Nothing in the global store yet")).toBeNull();
+  });
+
+  it("a category emptied by a filter says so; a category with nothing says that", () => {
+    // mockInventory has one global skill and one global tool. A search that
+    // hides the skill is not "no skills"; and the chip says MCP servers, so
+    // an empty Tools view must never say "tools".
+    const { unmount } = render(
+      <ProfilePane
+        inventory={mockInventory}
+        loading={false}
+        scannedAt={new Date()}
+        selectedCategory="Skills"
+        filterText="zzz-nothing"
+        onSelectAsset={vi.fn()}
+        onLinkAsset={vi.fn()}
+      />
+    );
+    expect(screen.getByText("No skill matches that filter")).toBeTruthy();
+    unmount();
+
+    render(
+      <ProfilePane
+        inventory={{ ...mockInventory, tools: [] }}
+        loading={false}
+        scannedAt={new Date()}
+        selectedCategory="Tools"
+        onSelectAsset={vi.fn()}
+        onLinkAsset={vi.fn()}
+      />
+    );
+    expect(screen.getByText("No MCP servers in the global store")).toBeTruthy();
+    expect(screen.queryByText(/No global tools/)).toBeNull();
   });
 });

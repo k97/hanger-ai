@@ -614,9 +614,9 @@ export default function LinkMapPane({
                   Nothing is linked yet
                 </div>
                 <p className="text-small text-ink-3 leading-[1.6]">
-                  When an asset is deployed — as a symlink or a tracked copy — an edge appears
-                  here: stroke carries the mechanism, colour carries whether it still resolves.
-                  Engine roots join the map the moment one of their folders points into the store.
+                  When an asset is deployed as a symlink or a tracked copy, an edge appears here.
+                  The stroke shows the mechanism and the colour shows whether it still resolves.
+                  Engine roots join the map once one of their folders points into the store.
                 </p>
               </div>
             </div>

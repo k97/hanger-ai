@@ -268,7 +268,7 @@ describe("Icon rail", () => {
     // A source list means the sidebar toggle earns its place again; the
     // inspector still has nothing to inspect, so it stays gone.
     expect(screen.getByLabelText(/Toggle sidebar/)).toBeTruthy();
-    expect(screen.queryByText("No Item Selected")).toBeNull();
+    expect(screen.queryByText("Nothing selected")).toBeNull();
     expect(screen.queryByLabelText("Toggle inspector")).toBeNull();
     unmount();
   });

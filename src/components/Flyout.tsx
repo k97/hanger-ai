@@ -716,8 +716,10 @@ export default function Flyout({
         /* Empty Inspector State when no asset or bubble is selected */
         <div className="flex-1 p-6 flex flex-col items-center justify-center text-center text-ink-3 font-sans">
           <GlobeAltIcon className="mb-2 opacity-50" size={36} />
-          <span className="text-small font-medium text-ink-1 font-sans">No Item Selected</span>
-          <span className="text-small text-ink-3 mt-1">Select an asset or repository to inspect details.</span>
+          {/* Same words as ReviewInspector's empty state, so the two
+              inspectors read as one. */}
+          <span className="text-small font-medium text-ink-1 font-sans">Nothing selected</span>
+          <span className="text-small text-ink-3 mt-1">Pick an asset or a repository to see its details.</span>
         </div>
       )}
     </div>

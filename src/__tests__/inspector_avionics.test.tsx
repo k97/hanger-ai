@@ -146,20 +146,20 @@ describe("Avionics A5 — Docked Right Inspector Integration", () => {
     await screen.findByText("Inspector Skill One");
 
     // Closed initially
-    expect(screen.queryByText("No Item Selected")).toBeNull();
+    expect(screen.queryByText("Nothing selected")).toBeNull();
 
     // Click inspector toggle in header toolbar
     const toggleBtn = screen.getByLabelText("Toggle inspector");
     fireEvent.click(toggleBtn);
 
     // Inspector is now open and renders empty state (since no row selected yet)
-    await screen.findByText("No Item Selected");
+    await screen.findByText("Nothing selected");
 
     // Click toggle again to close
     fireEvent.click(toggleBtn);
 
     await waitFor(() => {
-      expect(screen.queryByText("No Item Selected")).toBeNull();
+      expect(screen.queryByText("Nothing selected")).toBeNull();
     });
   });
 
@@ -168,7 +168,7 @@ describe("Avionics A5 — Docked Right Inspector Integration", () => {
     render(<App />);
 
     // Inspector should be open immediately upon restart render
-    await screen.findByText("No Item Selected");
+    await screen.findByText("Nothing selected");
   });
 
   it("3. Selecting a row with the inspector closed opens it straight away on that asset", async () => {
@@ -182,7 +182,7 @@ describe("Avionics A5 — Docked Right Inspector Integration", () => {
 
     // Inspector opens immediately, showing the tapped asset (not the empty state)
     await screen.findByText("~/Work/demo/skills/inspector-skill-1");
-    expect(screen.queryByText("No Item Selected")).toBeNull();
+    expect(screen.queryByText("Nothing selected")).toBeNull();
 
     // The open state persists like the toolbar toggle does
     await waitFor(() => {
@@ -213,8 +213,8 @@ describe("Avionics A5 — Docked Right Inspector Integration", () => {
     setupMockInvoke("true");
     render(<App />);
 
-    await screen.findByText("No Item Selected");
-    await screen.findByText("Select an asset or repository to inspect details.");
+    await screen.findByText("Nothing selected");
+    await screen.findByText("Pick an asset or a repository to see its details.");
   });
 
   it("6. Content pane and inspector coexist; both render simultaneously", async () => {
@@ -225,7 +225,7 @@ describe("Avionics A5 — Docked Right Inspector Integration", () => {
     await screen.findByText("Inspector Skill One");
     await screen.findByText("Inspector Tool One");
     // Inspector pane renders simultaneously alongside content pane
-    await screen.findByText("No Item Selected");
+    await screen.findByText("Nothing selected");
   });
 
   it("7. Selecting a row sets the inspector to THAT asset — assert the asset's own path string renders, not merely that a path renders", async () => {
@@ -260,7 +260,7 @@ describe("Avionics A5 — Docked Right Inspector Integration", () => {
     // Inspector MUST clear selection and return to empty state
     await waitFor(() => {
       expect(screen.queryByText("~/Work/demo/skills/inspector-skill-1")).toBeNull();
-      expect(screen.getByText("No Item Selected")).toBeDefined();
+      expect(screen.getByText("Nothing selected")).toBeDefined();
     });
   });
 
@@ -281,7 +281,7 @@ describe("Avionics A5 — Docked Right Inspector Integration", () => {
     // Inspector MUST clear selection and return to empty state
     await waitFor(() => {
       expect(screen.queryByText("~/Work/demo/skills/inspector-skill-1")).toBeNull();
-      expect(screen.getByText("No Item Selected")).toBeDefined();
+      expect(screen.getByText("Nothing selected")).toBeDefined();
     });
   });
 
