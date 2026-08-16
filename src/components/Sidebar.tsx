@@ -7,6 +7,7 @@ import { sumGlobalAssets } from "../utils/globalAssetCount";
 import { containerSubtitle, linkedDescendants, hasLinkedAncestor } from "../utils/containerRoots";
 import SourceListShell from "./SourceListShell";
 import Tooltip from "./Tooltip";
+import BrandIcon from "./BrandIcon";
 
 interface SidebarProps {
   width: number;
@@ -136,11 +137,17 @@ export default function Sidebar({
               Global
             </span>
             <span
-              className={`text-micro truncate block ${
+              className={`text-micro flex items-center gap-1 min-w-0 ${
                 selectedItem === "profile" ? "text-tint-ink opacity-70" : "text-ink-3"
               }`}
+              data-testid="global-engines-subtitle"
             >
-              {agentsSubtitle}
+              {/* One mark per detected engine, then the names; the names
+                  truncate at collapsed width, the marks stay. */}
+              {detectedEngines.map((e) => (
+                <BrandIcon key={e.id} engineKey={e.id} engineName={e.name} size={12} />
+              ))}
+              <span className="truncate">{agentsSubtitle}</span>
             </span>
           </div>
           <span

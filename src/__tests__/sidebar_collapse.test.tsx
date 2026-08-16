@@ -3,6 +3,10 @@ import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import App from "../App";
 
+// Overridden per-test; drives get_detected_engines through the invoke mock
+// below, since App fetches engines itself and passes them down to Sidebar.
+let mockDetectedEngines: { id: string; name: string }[] = [];
+
 // Mock @tauri-apps/api/core
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: vi.fn(async (cmd: string, args?: any) => {
@@ -22,6 +26,7 @@ vi.mock("@tauri-apps/api/core", () => ({
     if (cmd === "get_inventory") {
       return { agents: [], skills: [], tools: [], rules: [], subagents: [], project_scans: [] };
     }
+    if (cmd === "get_detected_engines") return mockDetectedEngines;
     if (cmd === "set_preference") return null;
     return null;
   }),
@@ -49,6 +54,26 @@ describe("Sidebar collapse and persistence", () => {
     await waitFor(() => {
       expect(screen.queryByTestId("sidebar")).toBeNull();
     });
+
+    unmount();
+  });
+
+  it("shows one mark per detected engine before the names", async () => {
+    mockDetectedEngines = [
+      { id: "claude-code", name: "Claude Code" },
+      { id: "codex", name: "Codex" },
+    ];
+    const { unmount } = render(<App />);
+
+    const subtitle = await screen.findByTestId("global-engines-subtitle");
+    await waitFor(() => {
+      expect(subtitle.querySelectorAll("svg[data-brand]").length).toBeGreaterThan(0);
+    });
+    const marks = Array.from(subtitle.querySelectorAll("svg[data-brand]")).map((s) =>
+      s.getAttribute("data-brand"),
+    );
+    expect(marks).toEqual(["claude_code", "codex"]);
+    expect(subtitle.textContent).toContain("Claude Code, Codex");
 
     unmount();
   });
