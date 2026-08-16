@@ -169,4 +169,29 @@ describe("ProfilePane — the empty state is a finding, not a default", () => {
     expect(screen.queryByTestId("scan-pending")).toBeNull();
     expect(screen.getByText("No developer agent folders detected")).toBeTruthy();
   });
+
+  it("names the right absence: engine folders present, nothing in them", () => {
+    // The headline is decided by the filesystem probe (get_detected_engines),
+    // not by assetCounts.engines — that map is built from asset rows and is
+    // empty whenever the store is, so it cannot tell these two states apart.
+    renderGlobal({
+      loading: false,
+      scannedAt: new Date(),
+      assetCounts: { total: 0, byCategory: {} },
+      detectedEngines: [{ id: "claude", name: "Claude Code" }, { id: "gemini", name: "Gemini CLI" }],
+    });
+    expect(screen.getByText("No assets in the global store")).toBeTruthy();
+    expect(screen.queryByText("No developer agent folders detected")).toBeNull();
+  });
+
+  it("names the right absence: no engine folders at all", () => {
+    renderGlobal({
+      loading: false,
+      scannedAt: new Date(),
+      assetCounts: { total: 0, byCategory: {} },
+      detectedEngines: [],
+    });
+    expect(screen.getByText("No developer agent folders detected")).toBeTruthy();
+    expect(screen.queryByText("No assets in the global store")).toBeNull();
+  });
 });

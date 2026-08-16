@@ -31,6 +31,12 @@ interface ProfilePaneProps {
   onStateFilterChange?: (filter: StateFilter) => void;
   /** When the last scan completed — feeds the strip's scan stamp. */
   scannedAt?: Date | null;
+  /** Engines whose home folder exists on disk (`get_detected_engines`, a
+   *  filesystem probe). This, not the store, decides whether an empty store
+   *  means "no engine folders" or "engine folders with nothing in them" —
+   *  `assetCounts.engines` is derived from asset rows and is empty whenever
+   *  the store is, so it cannot tell the two apart. */
+  detectedEngines?: { id: string; name: string }[];
   onRescan?: () => void;
   sortField?: SortField;
   sortDirection?: SortDirection;
@@ -59,6 +65,7 @@ export default function ProfilePane({
   stateFilter = null,
   onStateFilterChange,
   scannedAt = null,
+  detectedEngines,
   onRescan,
   sortField: propSortField,
   sortDirection: propSortDirection,
@@ -139,6 +146,13 @@ export default function ProfilePane({
   const hasScanned = scannedAt !== null;
   const pendingState = storeEmpty && !hasScanned;
   const emptyState = storeEmpty && hasScanned;
+
+  // Two different absences share the empty plane. "No developer agent
+  // folders detected" was the only headline, and it was false whenever the
+  // engines were there but their global folders held nothing — the sidebar
+  // showed the engine marks while the plane denied the folders existed.
+  // Boolean only: whether any engine home folder exists, never a count.
+  const enginesDetected = (detectedEngines ?? []).length > 0;
 
   // Use the testable filter predicate utility
   const {
@@ -393,10 +407,21 @@ export default function ProfilePane({
       ) : emptyState ? (
         <div className={emptyPlaneClass}>
           <ExclamationCircleIcon className="text-ink-3 mb-2" size={40} />
-          <span className="text-base-app font-medium text-ink-1">No developer agent folders detected</span>
-          <span className="text-small text-ink-3 max-w-sm mt-1">
-            Hanger scans your home folder for standard agent configurations (e.g. ~/.claude, ~/.gemini).
-          </span>
+          {enginesDetected ? (
+            <>
+              <span className="text-base-app font-medium text-ink-1">No assets in the global store</span>
+              <span className="text-small text-ink-3 max-w-sm mt-1">
+                Hanger looked in the engines' global folders and found no skills, rules, MCP servers or subagents.
+              </span>
+            </>
+          ) : (
+            <>
+              <span className="text-base-app font-medium text-ink-1">No developer agent folders detected</span>
+              <span className="text-small text-ink-3 max-w-sm mt-1">
+                Hanger scans your home folder for standard agent configurations (e.g. ~/.claude, ~/.gemini).
+              </span>
+            </>
+          )}
         </div>
       ) : isCategoryEmpty && selectedCategory ? (
         /* Category-specific Empty State */

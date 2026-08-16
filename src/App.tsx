@@ -1225,6 +1225,7 @@ export default function App() {
               stateFilter={stateFilter}
               onStateFilterChange={setStateFilter}
               scannedAt={lastScanAt}
+              detectedEngines={detectedEngines}
               onRescan={triggerScan}
               sortField={sortField}
               sortDirection={sortDirection}
