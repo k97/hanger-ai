@@ -215,6 +215,21 @@ const THEME_OPTIONS: { value: ThemePref; label: string; Icon: typeof SunIcon }[]
   { value: "auto", label: "Auto", Icon: ComputerDesktopIcon },
 ];
 
+/**
+ * Discovery's "Favourites" facet only exists in the sidebar while there is
+ * at least one favourite (symmetric appear/disappear rule). If the last
+ * favourite is removed while that facet is still the active `discoveryKind`,
+ * the sidebar row vanishes but nothing else moves the view off it — the
+ * pane keeps rendering its empty Favourites state, blaming a filter the
+ * user never set. This reports the facet `discoveryKind` should fall back
+ * to; it stays a plain function (not a hook) so it can be unit-tested
+ * without rendering App, which pulls in the full Tauri invoke/listen
+ * surface (whole-branch review finding #1, 2026-08-16).
+ */
+export function reconciledDiscoveryKind(kind: string, favouritesCount: number): string {
+  return kind === "Favourites" && favouritesCount === 0 ? "All" : kind;
+}
+
 export default function App() {
   // Appearance is a three-way choice: pin light, pin dark, or follow the OS.
   // Auto is the default, so a fresh install matches the rest of the desktop.
@@ -278,6 +293,14 @@ export default function App() {
   // or DiscoverySidebar individually) so the sidebar's count and the pane's
   // hearts read the same state.
   const favourites = useFavourites();
+  // If the last favourite is removed while "Favourites" is the active
+  // facet, the sidebar section disappears (favouritesCount > 0 gate) but
+  // discoveryKind would otherwise stay pointed at it, stranding the pane on
+  // an empty view with no selected sidebar row (whole-branch review
+  // finding #1, 2026-08-16).
+  useEffect(() => {
+    setDiscoveryKind((current) => reconciledDiscoveryKind(current, favourites.favourites.length));
+  }, [favourites.favourites.length]);
   // The design-system page exists in dev builds only (Karthik's ruling,
   // 2026-08-16): the rail entry is not rendered otherwise, and a persisted
   // selection pointing at it falls back to Global on load.
