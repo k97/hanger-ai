@@ -205,7 +205,7 @@ pub const SOURCES: &[McpSource] = &[
     // ~/.continue/config.yaml, top-level `mcpServers` key), but adding the
     // HOSTS entry fails `src/__tests__/brand-coverage.test.ts`, which
     // requires every host id to resolve to a mark in `src/data/brands.ts` —
-    // a file outside this task's touch scope. See task-9-report.md.
+    // a file outside this task's touch scope. See docs/roadmap.md.
 ];
 
 impl McpHost {
