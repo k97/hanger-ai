@@ -34,7 +34,18 @@ describe("EngineReachTiles", () => {
   it("no tile carries a letter any more", () => {
     render(<EngineReachTiles reach={reach} />);
     for (const key of ["claude_code", "gemini", "codex", "kiro"]) {
-      expect(screen.getByTestId(`reach-tile-${key}`).textContent).toBe("");
+      const tile = screen.getByTestId(`reach-tile-${key}`);
+      // A letter fallback would show up as a text node sitting next to (or
+      // instead of) the mark; assert the tile's only element child is the
+      // branded svg and that no text node is present, so a reintroduced
+      // letter fails this test instead of slipping past an svg-tolerant check.
+      expect(tile.children).toHaveLength(1);
+      expect(tile.children[0].tagName).toBe("svg");
+      expect(tile.children[0].hasAttribute("data-brand")).toBe(true);
+      const hasTextNode = Array.from(tile.childNodes).some(
+        (node) => node.nodeType === Node.TEXT_NODE && (node.textContent ?? "").trim() !== "",
+      );
+      expect(hasTextNode).toBe(false);
     }
   });
 

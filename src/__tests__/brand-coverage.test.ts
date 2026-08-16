@@ -8,7 +8,8 @@ import { resolveBrand } from "../data/brands";
  * can name — not just the ones on this machine. This guard reads the Rust
  * registries as text (the same idiom as no-frontend-counting reading TSX) and
  * fails the moment an id is added there without a mark in src/data/brands.ts.
- * Spec: docs/superpowers/specs/2026-08-15-brand-icons-design.md §4, §11.
+ * Spec (local-only design record, not tracked in this repo):
+ * docs/superpowers/specs/2026-08-15-brand-icons-design.md §4, §11.
  */
 const ROOT = path.resolve(__dirname, "../..");
 const read = (rel: string) => fs.readFileSync(path.join(ROOT, rel), "utf-8");

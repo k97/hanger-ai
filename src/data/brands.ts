@@ -1,6 +1,7 @@
 /**
  * The brand-mark map: every identifier the UI can hold for an engine or MCP
- * host, resolved to one of eleven marks. Design record:
+ * host, resolved to one of eleven marks. Design record (local-only, not
+ * tracked in this repo — see src/assets/brand/SOURCES.md for what is):
  * docs/superpowers/specs/2026-08-15-brand-icons-design.md §4–§5.
  *
  * Marks are build-time strings (Vite `?raw`), bundled into the binary; nothing

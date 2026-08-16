@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import App from "../App";
 
@@ -36,6 +36,10 @@ vi.mock("@tauri-apps/api/core", () => ({
 vi.mock("@tauri-apps/api/event", () => ({
   listen: vi.fn(async () => () => {}),
 }));
+
+afterEach(() => {
+  mockDetectedEngines = [];
+});
 
 describe("Sidebar collapse and persistence", () => {
   it("exposes a sidebar toggle, hiding the sidebar entirely when clicked, and persisting across remount", async () => {

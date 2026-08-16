@@ -2,8 +2,8 @@
 
 Marks identify third-party products the user has installed (nominative use);
 geometry and colour are unmodified. Only ids are rewritten when the files are
-joined into the sprite (`src/utils/svgSymbol.ts`). Design record:
-`docs/superpowers/specs/2026-08-15-brand-icons-design.md` §3, §14.
+joined into the sprite (`src/utils/svgSymbol.ts`). Design record (local-only,
+not tracked in this repo): `docs/superpowers/specs/2026-08-15-brand-icons-design.md` §3, §14.
 
 ## From `@lobehub/icons-static-svg@1.94.0` (MIT, imported from node_modules)
 
@@ -11,6 +11,7 @@ joined into the sprite (`src/utils/svgSymbol.ts`). Design record:
 |---|---|
 | Claude Code | `icons/claudecode-color.svg` |
 | Codex | `icons/codex-color.svg` |
+| Codex — dark-mode mark, used in place of the row above on `--page` dark | `icons/codex.svg` |
 | Gemini (CLI / Antigravity) | `icons/gemini-color.svg` |
 | Claude Desktop, Claude.ai | `icons/claude-color.svg` |
 | Cursor | `icons/cursor.svg` |

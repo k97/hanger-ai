@@ -292,7 +292,8 @@ only competes; an unreached one is an empty slot, a `border-line` ring plus
 conditional, `:52` the 12px mark). `--line` (`.09` light / `.12` dark,
 `tokens.css:12`, `:149`) rather than `--line-2` (`.20`/`.22`, `tokens.css:13`,
 `:150`) is the design system's subtle-outline weight for this slot. Design
-record: `docs/superpowers/specs/2026-08-15-brand-icons-design.md`.
+record (local-only, not tracked in this repo):
+`docs/superpowers/specs/2026-08-15-brand-icons-design.md`.
 
 ---
 

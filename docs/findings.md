@@ -294,6 +294,30 @@ banners one pane at a time → amend AGENTS.md and DESIGN.md → simplify
 DisclosureBanner last. Sequencing note: `NeedsReviewPane.tsx` was claimed
 by a concurrent session on 2026-08-15.
 
+**F35 — Local-scoped rows lose their engine and mark; the inspector shows
+both. PRE-EXISTING, not fixed here.** `ProfilePane.tsx:208,228,244,259` and
+`RepoPane.tsx:192,214,231,247` each build a row's `engine` field from
+`scope?.Global?.agent || scope?.Project?.agent` — a two-branch chain that
+predates `Scope::Local`. `AssetDetail.tsx:140` instead calls the Local-aware
+`scopeAgent(asset.scope as Scope)` (`src/utils/scopeAccess.ts:30-36`), which
+also checks `"Local" in scope`. Divergence: for a `Scope::Local { agent, root
+}` asset, the row-construction chain finds neither `Global` nor `Project` and
+falls back to `null`, so the table row reads "Any agent" with no brand mark;
+opening that same row's inspector calls `scopeAgent`, which resolves the
+`Local` branch and shows the real engine with its mark. This predates the
+brand-mark work: `scopeAccess.ts`'s own header (lines 1-11) records that
+adding `Scope::Local` "broke all of them silently" across five files because
+it matches neither `Global` nor `Project` — the row-construction sites in
+ProfilePane and RepoPane were never updated to route through it. The
+brand-mark feature did not introduce the gap; it made the divergence visible
+as a missing mark where before it was only a missing engine label. Reproduce:
+find or create a Local-scoped asset (`Scope::Local`, private to one repo
+directory rather than `Project`-shared or machine-wide `Global`), locate its
+row in ProfilePane or RepoPane — it reads "Any agent" with no brand mark —
+then open its inspector and see the real engine with its mark. Not fixed
+here: out of scope for the brand-icons feature, and row construction in both
+panes has its own tests.
+
 ## Mechanism / state vocabulary (recorded earlier, unchanged)
 
 **F27 — `Mechanism::Copy` is unreachable in production** and the watcher

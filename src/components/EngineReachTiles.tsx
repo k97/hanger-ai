@@ -26,7 +26,10 @@ function tileTip(r: EngineReachInfo): string {
 }
 
 /** The Reach column: one 16px slot per engine, each carrying that engine's
- *  own mark (BrandIcon; trademark note in the design record, spec §14).
+ *  own mark (BrandIcon). Each mark is its owner's trademark, drawn only to
+ *  identify the third-party product the user has installed (nominative use),
+ *  unmodified from source — provenance and licence for every mark are in
+ *  src/assets/brand/SOURCES.md.
  *
  *  A reached engine is the mark alone — a vendor logo carries itself and a ring
  *  around it only competes. An unreached one is an empty slot: a thin --line
