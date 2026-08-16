@@ -203,6 +203,63 @@ fn malformed_json_is_an_error() {
     assert!(dialect::parse("{ not json", Dialect::McpServers, ScopeTier::Global).is_err());
 }
 
+#[test]
+fn opencode_mcp_key_is_parsed_and_discriminated_by_type() {
+    let json = r#"{
+      "mcp": {
+        "local-tool": { "type": "local", "command": ["run", "me"] },
+        "remote-tool": { "type": "remote", "url": "https://example.test/mcp" }
+      }
+    }"#;
+    let servers = dialect::parse(json, Dialect::OpenCodeMcp, ScopeTier::Global).expect("must parse");
+    assert_eq!(names(&servers), vec!["local-tool", "remote-tool"]);
+}
+
+#[test]
+fn amp_reads_its_servers_from_a_nested_settings_key() {
+    let json = r#"{
+      "editor.fontSize": 13,
+      "amp.mcpServers": { "notes": { "command": "notes-mcp" } }
+    }"#;
+    let servers = dialect::parse(json, Dialect::AmpSettingsKey, ScopeTier::Global).expect("must parse");
+    assert_eq!(servers.len(), 1);
+    assert_eq!(servers[0].name, "notes");
+}
+
+#[test]
+fn jsonc_comments_and_trailing_commas_do_not_read_as_zero_servers() {
+    // Kilo Code ships JSONC. serde_json rejects both comments and trailing
+    // commas, so without a pre-pass a commented config reads as no servers at
+    // all — the silent-miss failure this refactor exists to remove.
+    let jsonc = r#"{
+      // the tools I actually use
+      "mcp": {
+        "notes": { "type": "local", "command": ["notes-mcp"] }, /* trailing */
+      },
+    }"#;
+    let servers = dialect::parse(jsonc, Dialect::OpenCodeMcp, ScopeTier::Global)
+        .expect("a commented JSONC config must parse");
+    assert_eq!(servers.len(), 1, "a comment must not hide a server");
+}
+
+#[test]
+fn jsonc_stripping_leaves_a_double_slash_inside_a_string_intact() {
+    // `//` inside a quoted value — a URL, here — is not a line comment. If
+    // strip_jsonc mistook it for one, the rest of the line (including the
+    // closing quote and brace) would be eaten and the file would fail to
+    // parse, or the transport would come out truncated.
+    let jsonc = r#"{
+      // config
+      "mcp": {
+        "remote": { "type": "remote", "url": "https://example.test/mcp" }
+      }
+    }"#;
+    let servers = dialect::parse(jsonc, Dialect::OpenCodeMcp, ScopeTier::Global)
+        .expect("a URL containing // must survive the strip");
+    assert_eq!(servers.len(), 1);
+    assert_eq!(servers[0].transport, "https://example.test/mcp");
+}
+
 // ─── Host kind is derived, never stored ──────────────────────────────────────
 
 #[test]

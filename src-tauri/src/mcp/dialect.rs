@@ -93,20 +93,115 @@ fn server_from_json(name: &str, entry: &serde_json::Value) -> McpServer {
     }
 }
 
+/// Strip `//` and `/* */` comments and trailing commas so `serde_json` can
+/// read a JSONC file. String literals are respected, so a `//` inside a value
+/// — a URL, say — survives. A no-op on strict JSON, so every JSON parse in
+/// this module runs input through it: it costs one pass and removes a whole
+/// class of silent miss (a commented config reading as zero servers).
+pub fn strip_jsonc(input: &str) -> String {
+    let mut out = String::with_capacity(input.len());
+    let mut chars = input.chars().peekable();
+    let mut in_string = false;
+    let mut escaped = false;
+
+    while let Some(c) = chars.next() {
+        if in_string {
+            out.push(c);
+            if escaped {
+                escaped = false;
+            } else if c == '\\' {
+                escaped = true;
+            } else if c == '"' {
+                in_string = false;
+            }
+            continue;
+        }
+        match c {
+            '"' => {
+                in_string = true;
+                out.push(c);
+            }
+            '/' if chars.peek() == Some(&'/') => {
+                for n in chars.by_ref() {
+                    if n == '\n' {
+                        out.push('\n');
+                        break;
+                    }
+                }
+            }
+            '/' if chars.peek() == Some(&'*') => {
+                chars.next();
+                let mut prev = '\0';
+                for n in chars.by_ref() {
+                    if prev == '*' && n == '/' {
+                        break;
+                    }
+                    prev = n;
+                }
+            }
+            _ => out.push(c),
+        }
+    }
+
+    strip_trailing_commas(&out)
+}
+
+/// Remove a comma that is followed only by whitespace and a closing brace or
+/// bracket. Runs after comment stripping, and skips string contents.
+fn strip_trailing_commas(input: &str) -> String {
+    let bytes: Vec<char> = input.chars().collect();
+    let mut out = String::with_capacity(input.len());
+    let mut in_string = false;
+    let mut escaped = false;
+
+    for (i, &c) in bytes.iter().enumerate() {
+        if in_string {
+            out.push(c);
+            if escaped {
+                escaped = false;
+            } else if c == '\\' {
+                escaped = true;
+            } else if c == '"' {
+                in_string = false;
+            }
+            continue;
+        }
+        if c == '"' {
+            in_string = true;
+            out.push(c);
+            continue;
+        }
+        if c == ',' {
+            let next = bytes[i + 1..].iter().find(|ch| !ch.is_whitespace());
+            if matches!(next, Some('}') | Some(']')) {
+                continue;
+            }
+        }
+        out.push(c);
+    }
+    out
+}
+
+/// Turn a `{name: {...}}` object into servers. Shared by every dialect whose
+/// servers live under one flat key — `McpServers`, `VsCodeServers`,
+/// `ZedContextServers`, `OpenCodeMcp`, `AmpSettingsKey`, and the non-local
+/// tier of `ClaudeJson`.
+fn collect_named_servers(map: Option<&serde_json::Value>) -> Vec<McpServer> {
+    map.and_then(|v| v.as_object())
+        .map(|m| m.iter().map(|(n, e)| server_from_json(n, e)).collect())
+        .unwrap_or_default()
+}
+
 /// Read a `{name: {...}}` object living under `key`.
 fn parse_json_map(body: &str, key: &str) -> Result<Vec<McpServer>, String> {
-    let root: serde_json::Value =
-        serde_json::from_str(body).map_err(|e| format!("Failed to parse JSON: {}", e))?;
-    Ok(root
-        .get(key)
-        .and_then(|v| v.as_object())
-        .map(|m| m.iter().map(|(n, e)| server_from_json(n, e)).collect())
-        .unwrap_or_default())
+    let root: serde_json::Value = serde_json::from_str(&strip_jsonc(body))
+        .map_err(|e| format!("Failed to parse JSON: {}", e))?;
+    Ok(collect_named_servers(root.get(key)))
 }
 
 fn parse_claude_json(body: &str, tier: ScopeTier) -> Result<Vec<McpServer>, String> {
-    let root: serde_json::Value =
-        serde_json::from_str(body).map_err(|e| format!("Failed to parse JSON: {}", e))?;
+    let root: serde_json::Value = serde_json::from_str(&strip_jsonc(body))
+        .map_err(|e| format!("Failed to parse JSON: {}", e))?;
 
     // Only two keys are ever read from this file. It also holds session
     // history and cost data, none of which enters memory.
@@ -126,11 +221,7 @@ fn parse_claude_json(body: &str, tier: ScopeTier) -> Result<Vec<McpServer>, Stri
             }
             Ok(out)
         }
-        _ => Ok(root
-            .get("mcpServers")
-            .and_then(|v| v.as_object())
-            .map(|m| m.iter().map(|(n, e)| server_from_json(n, e)).collect())
-            .unwrap_or_default()),
+        _ => Ok(collect_named_servers(root.get("mcpServers"))),
     }
 }
 
@@ -199,8 +290,8 @@ fn parse_codex_toml(body: &str) -> Result<Vec<McpServer>, String> {
 /// and nothing local can start it. `transport` says "claude.ai" so the panel
 /// can be honest about where it lives rather than implying a local process.
 fn parse_claude_ai_connectors(body: &str) -> Result<Vec<McpServer>, String> {
-    let root: serde_json::Value =
-        serde_json::from_str(body).map_err(|e| format!("Failed to parse JSON: {}", e))?;
+    let root: serde_json::Value = serde_json::from_str(&strip_jsonc(body))
+        .map_err(|e| format!("Failed to parse JSON: {}", e))?;
 
     Ok(root
         .get("claudeAiMcpEverConnected")
@@ -233,5 +324,7 @@ pub fn parse(body: &str, dialect: Dialect, tier: ScopeTier) -> Result<Vec<McpSer
         Dialect::CodexToml => parse_codex_toml(body),
         Dialect::ClaudeJson => parse_claude_json(body, tier),
         Dialect::ClaudeAiConnectors => parse_claude_ai_connectors(body),
+        Dialect::OpenCodeMcp => parse_json_map(body, "mcp"),
+        Dialect::AmpSettingsKey => parse_json_map(body, "amp.mcpServers"),
     }
 }

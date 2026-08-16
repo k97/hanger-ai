@@ -47,6 +47,12 @@ pub enum Dialect {
     /// they exist, and without it Hanger claims to show every MCP server while
     /// omitting them.
     ClaudeAiConnectors,
+    /// `{"mcp": {name: {type: "local"|"remote", ...}}}` — OpenCode, and Kilo
+    /// Code, whose v7 config is OpenCode-derived and uses the same key.
+    OpenCodeMcp,
+    /// `{"amp.mcpServers": {name: {...}}}` — Amp nests its servers under a
+    /// dotted key inside a general settings file rather than owning the file.
+    AmpSettingsKey,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
