@@ -29,6 +29,10 @@ pub struct McpServer {
     /// Set only for ClaudeJson at ScopeTier::Local — the repo the server is
     /// keyed to. `None` for every other dialect and tier.
     pub project_root: Option<String>,
+    /// True when the transport URL was recovered from a local bridge rather
+    /// than declared directly. Same identity, different plumbing — and the
+    /// plumbing is worth saying in the panel.
+    pub bridged: bool,
 }
 
 /// Strip userinfo and query parameters from a URL so credentials never reach
@@ -54,6 +58,49 @@ fn transport_for(command: &str, url: Option<&str>) -> String {
         None if command.is_empty() => "unknown".to_string(),
         None => "stdio".to_string(),
     }
+}
+
+/// The endpoint a local bridge proxies, if this launch is one.
+///
+/// Zed and other stdio-only hosts reach a remote server through
+/// `npx -y mcp-remote <url>`. That is the same logical server as a direct
+/// `{"url": …}` registration elsewhere, and reporting them separately makes the
+/// whole cross-engine reading wrong.
+///
+/// Deliberately narrow: the bridge name must be the first token after the
+/// runner and its flags. Matching any argument that looks like a URL would
+/// rewrite the identity of every stdio server whose arguments happen to carry
+/// one.
+pub fn unwrap_bridge(command: &str, args: &[String]) -> Option<String> {
+    let mut tokens: Vec<&str> = std::iter::once(command)
+        .chain(args.iter().map(String::as_str))
+        .filter(|t| !t.is_empty())
+        .collect();
+
+    // Drop a leading runner and any flags it carries: `npx -y mcp-remote …`.
+    if tokens
+        .first()
+        .map(|t| crate::mcp::registry::RUNNERS.contains(&basename(t)))
+        .unwrap_or(false)
+    {
+        tokens.remove(0);
+        while tokens.first().map(|t| t.starts_with('-')).unwrap_or(false) {
+            tokens.remove(0);
+        }
+    }
+
+    let name = basename(tokens.first()?);
+    if !crate::mcp::registry::BRIDGES.contains(&name) {
+        return None;
+    }
+
+    let url = tokens.iter().skip(1).find(|t| t.contains("://"))?;
+    Some(sanitise_url(url))
+}
+
+/// `/opt/homebrew/bin/npx` -> `npx`. Package specifiers keep their scope.
+fn basename(token: &str) -> &str {
+    token.rsplit('/').next().unwrap_or(token)
 }
 
 fn env_keys_json(entry: &serde_json::Value) -> Vec<String> {
@@ -82,12 +129,18 @@ fn server_from_json(name: &str, entry: &serde_json::Value) -> McpServer {
         .and_then(|v| v.as_str())
         .unwrap_or("")
         .to_string();
+    let args = args_json(entry);
+    let bridge = unwrap_bridge(&command, &args);
     let url = entry.get("url").and_then(|v| v.as_str());
     McpServer {
         name: name.to_string(),
-        transport: transport_for(&command, url),
+        transport: match &bridge {
+            Some(u) => u.clone(),
+            None => transport_for(&command, url),
+        },
+        bridged: bridge.is_some(),
         command,
-        args: args_json(entry),
+        args,
         env_keys: env_keys_json(entry),
         project_root: None,
     }
@@ -351,7 +404,7 @@ fn servers_from_toml_table(table: &toml::value::Table, out: &mut Vec<McpServer>)
             .and_then(|v| v.as_table())
             .map(|t| t.keys().cloned().collect())
             .unwrap_or_default();
-        let args = entry
+        let args: Vec<String> = entry
             .get("args")
             .and_then(|v| v.as_array())
             .map(|a| {
@@ -360,9 +413,14 @@ fn servers_from_toml_table(table: &toml::value::Table, out: &mut Vec<McpServer>)
                     .collect()
             })
             .unwrap_or_default();
+        let bridge = unwrap_bridge(&command, &args);
         out.push(McpServer {
             name: name.clone(),
-            transport: transport_for(&command, url),
+            transport: match &bridge {
+                Some(u) => u.clone(),
+                None => transport_for(&command, url),
+            },
+            bridged: bridge.is_some(),
             command,
             args,
             env_keys,
@@ -415,6 +473,7 @@ fn parse_claude_ai_connectors(body: &str) -> Result<Vec<McpServer>, String> {
                     transport: "claude.ai".to_string(),
                     env_keys: Vec::new(),
                     project_root: None,
+                    bridged: false,
                 })
                 .collect()
         })

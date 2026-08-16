@@ -112,6 +112,15 @@ pub const HOSTS: &[McpHost] = &[
     McpHost { id: "cline", display_name: "Cline", kind: HostKind::Agent },
 ];
 
+/// Local bridges that proxy a remote MCP endpoint over stdio.
+///
+/// A table rather than a literal buried in the parser: `mcp-remote` is the
+/// common wrapper today and others will appear, and adding one must be a row.
+pub const BRIDGES: &[&str] = &["mcp-remote"];
+
+/// Runners that precede the real program in a launch.
+pub const RUNNERS: &[&str] = &["npx", "bunx", "uvx", "pnpm", "yarn"];
+
 use Dialect::*;
 use ScopeTier::*;
 use SourceLocation::*;

@@ -272,6 +272,7 @@ fn a_tool_carries_a_redacted_launch_for_display() {
             transport: "stdio".to_string(),
             env_keys: vec![],
             project_root: None,
+            bridged: false,
         },
         host_id: "claude-code",
         tier: ScopeTier::Global,

@@ -262,6 +262,48 @@ fn url_credentials_are_stripped_from_transport() {
 }
 
 #[test]
+fn a_bridged_remote_server_and_a_direct_one_share_an_identity() {
+    // Zed is stdio-only, so a remote server reaches it through mcp-remote.
+    // Reported unwrapped, that is the same logical server as the direct
+    // registration elsewhere; reported raw, it is two unrelated rows and the
+    // cross-engine reading is wrong on every machine using Zed.
+    let bridged = r#"{
+  "context_servers": {
+    "linear": { "command": "npx", "args": ["-y", "mcp-remote", "https://mcp.linear.app/sse"] }
+  }
+}"#;
+    let direct = r#"{ "mcpServers": { "linear": { "url": "https://mcp.linear.app/sse" } } }"#;
+
+    let b = dialect::parse(bridged, dialect::Dialect::ZedContextServers, dialect::ScopeTier::Global).unwrap();
+    let d = dialect::parse(direct, dialect::Dialect::McpServers, dialect::ScopeTier::Global).unwrap();
+
+    assert_eq!(b[0].transport, d[0].transport);
+    assert_eq!(b[0].transport, "https://mcp.linear.app/sse");
+    assert!(b[0].bridged, "the bridge is worth saying, even though the identity matches");
+    assert!(!d[0].bridged);
+}
+
+#[test]
+fn a_launch_that_merely_mentions_a_url_is_not_a_bridge() {
+    // Over-eager unwrapping would rewrite the identity of any stdio server
+    // whose arguments happen to carry a URL.
+    let body = r#"{ "mcpServers": { "docs": { "command": "node",
+        "args": ["/tmp/server.js", "--upstream", "https://example.com/api"] } } }"#;
+    let s = dialect::parse(body, dialect::Dialect::McpServers, dialect::ScopeTier::Global).unwrap();
+    assert_eq!(s[0].transport, "stdio");
+    assert!(!s[0].bridged);
+}
+
+#[test]
+fn credentials_in_a_bridged_url_do_not_survive_the_unwrap() {
+    let body = r#"{ "mcpServers": { "x": { "command": "npx",
+        "args": ["mcp-remote", "https://u:REDACT_ME_1@example.com/sse?k=REDACT_ME_1"] } } }"#;
+    let s = dialect::parse(body, dialect::Dialect::McpServers, dialect::ScopeTier::Global).unwrap();
+    assert!(!s[0].transport.contains("REDACT_ME_1"), "{}", s[0].transport);
+    assert_eq!(s[0].transport, "https://example.com/sse");
+}
+
+#[test]
 fn a_recognised_file_with_no_servers_is_an_empty_success_not_an_error() {
     // Callers distinguish "parsed, zero servers" (warn) from "failed to parse"
     // (error). Both were previously indistinguishable Ok(0).
