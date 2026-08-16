@@ -74,6 +74,43 @@ fn credentials_on_a_command_line_are_redacted() {
 }
 
 #[test]
+fn a_path_containing_a_secret_word_does_not_eat_the_following_flag() {
+    // "/opt/token-service/run" contains "token". Before the flag-shape gate it
+    // armed the redactor, swallowed --api-key as its "value", and let the real
+    // credential through untouched.
+    let out = observe::redact("/opt/token-service/run --api-key REDACT_ME_1");
+    assert!(!out.contains("REDACT_ME_1"), "credential survived: {}", out);
+    assert!(
+        out.contains("/opt/token-service/run"),
+        "the path is not a secret and must survive: {}",
+        out
+    );
+}
+
+#[test]
+fn a_valueless_secret_toggle_does_not_swallow_the_next_flag() {
+    // The same defect Task 1 fixed on the config side: --oauth matches "auth",
+    // claims --client-secret as its value, and the real value falls through.
+    let out = observe::redact("node s.js --oauth --client-secret REDACT_ME_2");
+    assert!(!out.contains("REDACT_ME_2"), "credential survived: {}", out);
+    assert!(out.contains("--oauth"), "the toggle is not a secret: {}", out);
+}
+
+#[test]
+fn a_secret_flags_value_is_redacted_even_when_it_looks_like_a_flag() {
+    // A single-dash token is a value however secret-shaped its text. Treating
+    // it as a flag is what reopened the leak on the config side in round 1.
+    let out = observe::redact("server --api-key -secretXvalue");
+    assert!(!out.contains("secretXvalue"), "credential survived: {}", out);
+}
+
+#[test]
+fn a_trailing_secret_flag_with_no_value_emits_no_stray_marker() {
+    let out = observe::redact("server --api-key");
+    assert_eq!(out, "server --api-key");
+}
+
+#[test]
 fn a_running_process_is_attributed_to_its_registration() {
     let regs = vec![(
         "/home/.claude.json-spades-audio".to_string(),

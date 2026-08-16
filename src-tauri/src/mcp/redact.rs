@@ -15,12 +15,16 @@
 use crate::mcp::dialect::sanitise_url;
 
 /// Flag names whose value is assumed to be a credential.
-const SECRET_WORDS: [&str; 5] = ["key", "token", "secret", "password", "auth"];
+///
+/// Shared with `mcp::observe::redact`, the process-side redactor: one copy
+/// getting fixed and the other not is how the process-side leak this module's
+/// history warns about survived a whole review round.
+pub(crate) const SECRET_WORDS: [&str; 5] = ["key", "token", "secret", "password", "auth"];
 
 /// Flags whose value is a `Name: value` header pair.
 const HEADER_FLAGS: [&str; 2] = ["--header", "-H"];
 
-fn looks_secret(flag: &str) -> bool {
+pub(crate) fn looks_secret(flag: &str) -> bool {
     let lower = flag.to_lowercase();
     SECRET_WORDS.iter().any(|w| lower.contains(w))
 }

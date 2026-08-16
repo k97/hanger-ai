@@ -7,6 +7,7 @@
 //!
 //! Read-only. Nothing is started, signalled or stopped.
 
+use crate::mcp::redact::looks_secret;
 use serde::{Deserialize, Serialize};
 use sysinfo::{ProcessRefreshKind, ProcessesToUpdate, System, UpdateKind};
 
@@ -26,31 +27,48 @@ pub struct RunningProcess {
 /// docs/scanning.md §7 forbids capturing values. A process's argv is the one
 /// place a credential can reach Hanger without any config file being read:
 /// `--api-key=…`, `--token …`, or userinfo in a URL.
+///
+/// Two defects lived here, both the class the spec forbids: never render a
+/// token verbatim. First, the branch that arms a pending-value capture used
+/// to fire on any word merely *containing* a secret substring, not just a
+/// flag — so a path like `/opt/token-service/run` armed the capture and ate
+/// the real flag after it. It is now gated on `word.starts_with('-')`.
+/// Second, a valueless secret-shaped toggle (`--oauth`) could itself be
+/// captured as a "value" by nothing, then swallow the real flag that
+/// followed it. That is closed the way `mcp::redact::redact_launch` closes
+/// it on the config side: a token in a pending-value position is never
+/// emitted verbatim, full stop, regardless of what it looks like.
 pub fn redact(command_line: &str) -> String {
     let mut out: Vec<String> = Vec::new();
-    let mut redact_next = false;
+    let mut pending = false;
 
     for word in command_line.split_whitespace() {
-        if redact_next {
+        if pending {
+            // Invariant, mirrored from `redact_launch`: a token in a
+            // pending-value position is never emitted verbatim. Redact it
+            // unconditionally, then re-arm if this same token could itself
+            // start a fresh capture (it is flag-shaped and secret-looking),
+            // so the token after it is redacted too. Never fall through to
+            // the flag-detection logic below for a token consumed here.
             out.push("<redacted>".to_string());
-            redact_next = false;
+            pending = word.starts_with('-') && looks_secret(word);
             continue;
         }
 
-        let lower = word.to_lowercase();
-        let is_secret_flag = ["key", "token", "secret", "password", "auth"]
-            .iter()
-            .any(|k| lower.contains(k));
-
-        if is_secret_flag {
+        if looks_secret(word) {
             if let Some(eq) = word.find('=') {
                 out.push(format!("{}=<redacted>", &word[..eq]));
-            } else {
-                // `--token secret` — the value is the next word.
-                out.push(word.to_string());
-                redact_next = true;
+                continue;
             }
-            continue;
+            // Only a flag-shaped word arms the capture. A word that merely
+            // *contains* a secret substring — a path like
+            // `/opt/token-service/run` — is not a flag and must not eat the
+            // real flag that follows it.
+            if word.starts_with('-') {
+                out.push(word.to_string());
+                pending = true;
+                continue;
+            }
         }
 
         if word.contains("://") && word.contains('@') {
