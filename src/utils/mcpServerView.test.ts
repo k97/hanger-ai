@@ -32,6 +32,22 @@ describe("buildMcpServerView", () => {
     expect(view.registrations[0].host).toBe("Any agent");
   });
 
+  it("labels the windsurf host id Devin Desktop, its rebrand", () => {
+    // Cognition rebranded Windsurf to Devin Desktop on 2026-06-02. The host id
+    // stays `windsurf` — it keys existing rows — so this pins that the label
+    // moved without the id moving, and that the two halves of the rename
+    // (backend registry, frontend display map) do not drift apart again.
+    const view = buildMcpServerView(
+      [
+        { name: "cascade-server", command: "node", transport: "stdio",
+          config_path: "/home/.codeium/windsurf/mcp_config.json",
+          scope: { Global: { agent: "windsurf" } } },
+      ],
+      "cascade-server"
+    )!;
+    expect(view.registrations[0].host).toBe("Devin Desktop");
+  });
+
   it("returns null for a server that is not registered anywhere", () => {
     expect(buildMcpServerView(tools, "nonexistent")).toBeNull();
     expect(buildMcpServerView(undefined, "spades-audio")).toBeNull();

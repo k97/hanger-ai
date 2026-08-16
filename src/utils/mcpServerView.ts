@@ -83,7 +83,10 @@ const HOST_NAMES: Record<string, string> = {
   claude_desktop: "Claude Desktop",
   vscode: "VS Code",
   cursor: "Cursor",
-  windsurf: "Windsurf",
+  // Cognition rebranded Windsurf to Devin Desktop on 2026-06-02. The key
+  // stays `windsurf` — it is the host id, and ids are internal — only the
+  // label users read moves.
+  windsurf: "Devin Desktop",
   zed: "Zed",
 };
 
