@@ -116,3 +116,15 @@ fn a_trailing_header_flag_with_no_value_leaves_no_stray_marker() {
     let out = redact_launch("npx", &args(&["-H"]));
     assert_eq!(out, "npx -H");
 }
+
+#[test]
+fn a_secret_shaped_single_dash_value_is_still_redacted_not_mistaken_for_a_flag() {
+    // Whether the PRECEDING flag was valueless is a question of shape, not
+    // content: only a `--`-prefixed token (or a known header short form) is
+    // structurally a flag. A single-dash token is a value no matter how
+    // secret-shaped its text — testing "looks secret" here would misclassify
+    // it as the guard firing and leave it unredacted.
+    let out = redact_launch("server", &args(&["--api-key", "-secretREDACT_ME_1"]));
+    assert!(!out.contains("REDACT_ME_1"), "value survived: {}", out);
+    assert!(out.contains("--api-key <redacted>"), "{}", out);
+}

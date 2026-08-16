@@ -60,8 +60,16 @@ pub fn redact_launch(command: &str, args: &[String]) -> String {
             // (it is already in `out`, unmarked) and fall through to weigh
             // this token on its own merits, rather than swallowing it as a
             // value and letting its own real value go unredacted.
+            //
+            // Whether the next token IS a flag is a question of shape, not
+            // content: a `--word` flag (or a known header short form) is
+            // structurally a flag; a single-dash token is a value no matter
+            // how secret-shaped its text (`-secretXvalue` is a value, not a
+            // flag). Testing "looks secret" instead of shape would misfire
+            // on exactly that value, leave it unredacted with a dangling
+            // `pending`, and reopen the leak this guard exists to close.
             let next_is_a_recognised_flag = HEADER_FLAGS.contains(&arg.as_str())
-                || (arg.starts_with('-') && looks_secret(arg));
+                || (arg.starts_with("--") && looks_secret(arg));
             if !next_is_a_recognised_flag {
                 match p {
                     Pending::Header => out.push(redact_header_value(arg)),
