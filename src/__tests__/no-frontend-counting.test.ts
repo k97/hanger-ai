@@ -89,6 +89,13 @@ const ALLOWLIST: AllowlistEntry[] = [
     category: "ui",
     reason: "Counts checked candidates in scan modal UI",
   },
+  {
+    file: "src/App.tsx",
+    linePattern: /favouritesCount=\{favourites\.favourites\.length\}/,
+    category: "ui",
+    reason:
+      "Counts favourited Discovery marks for the sidebar's Favourites badge — a local preferences-derived list (useFavourites, backed by get_preference/set_preference), not an asset total. No backend command counts favourites; get_asset_counts remains the sole source for every asset category count.",
+  },
 ];
 
 function getAllSrcFiles(dir: string): string[] {

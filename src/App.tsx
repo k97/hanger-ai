@@ -53,6 +53,7 @@ import ProfilePane from "./components/ProfilePane";
 import RepoPane from "./components/RepoPane";
 import DiscoveryPane from "./components/DiscoveryPane";
 import DiscoverySidebar from "./components/DiscoverySidebar";
+import { useFavourites } from "./hooks/useFavourites";
 import type { DesignSectionId } from "./data/designSystemFixtures";
 
 // The design-system page ships in dev builds only (Karthik's ruling,
@@ -273,6 +274,10 @@ export default function App() {
   // Discovery's category facet — owned here because DiscoverySidebar sets it
   // and DiscoveryPane filters by it (the chips moved into the second column).
   const [discoveryKind, setDiscoveryKind] = useState<string>("All");
+  // Favourited Discovery listings — lifted here (not owned by DiscoveryPane
+  // or DiscoverySidebar individually) so the sidebar's count and the pane's
+  // hearts read the same state.
+  const favourites = useFavourites();
   // The design-system page exists in dev builds only (Karthik's ruling,
   // 2026-08-16): the rail entry is not rendered otherwise, and a persisted
   // selection pointing at it falls back to Global on load.
@@ -1052,6 +1057,7 @@ export default function App() {
             setCollapsed={setSidebarCollapsed}
             kind={discoveryKind}
             onSelectKind={setDiscoveryKind}
+            favouritesCount={favourites.favourites.length}
           />
         ) : selectedSidebarItem === "review" ? (
           <ReviewSidebar
@@ -1242,7 +1248,12 @@ export default function App() {
           )}
 
           {selectedSidebarItem === "discovery" && (
-            <DiscoveryPane filterText={filterText} kind={discoveryKind} />
+            <DiscoveryPane
+              filterText={filterText}
+              kind={discoveryKind}
+              favourites={favourites.favourites}
+              onToggleFavourite={favourites.toggleFavourite}
+            />
           )}
 
           {selectedSidebarItem === "design" && DesignSystemPane && (
