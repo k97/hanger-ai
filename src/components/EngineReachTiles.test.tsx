@@ -18,7 +18,9 @@ const reach: EngineReachInfo[] = [
   { engine_id: 1, engine_key: "claude_code", engine_name: "Claude Code", reached: true, via_root: "~/.claude/skills", via_store: "~/.agents/skills" },
   { engine_id: 2, engine_key: "gemini", engine_name: "Gemini CLI", reached: true },
   { engine_id: 3, engine_key: "codex", engine_name: "Codex", reached: false, reason: "root_not_linked" },
-  { engine_id: 4, engine_key: "kiro", engine_name: "Kiro", reached: false, reason: "format" },
+  // "kiro" now has a mark (src/data/brands.ts); a genuinely unmapped key
+  // keeps the "cannot map" case meaningful.
+  { engine_id: 4, engine_key: "unmapped-engine", engine_name: "Unmapped Engine", reached: false, reason: "format" },
 ];
 
 describe("EngineReachTiles", () => {
@@ -27,13 +29,16 @@ describe("EngineReachTiles", () => {
     expect(screen.getByTestId("reach-tile-claude_code").querySelector("svg")?.getAttribute("data-brand")).toBe("claude_code");
     expect(screen.getByTestId("reach-tile-gemini").querySelector("svg")?.getAttribute("data-brand")).toBe("gemini");
     expect(screen.getByTestId("reach-tile-codex").querySelector("svg")?.getAttribute("data-brand")).toBe("codex");
-    expect(screen.getByTestId("reach-tile-kiro").querySelector("svg")?.getAttribute("data-brand")).toBe("generic");
-    expect(invoke).toHaveBeenCalledWith("report_unmapped_engine", { engineKey: "kiro", engineName: "Kiro" });
+    expect(screen.getByTestId("reach-tile-unmapped-engine").querySelector("svg")?.getAttribute("data-brand")).toBe("generic");
+    expect(invoke).toHaveBeenCalledWith("report_unmapped_engine", {
+      engineKey: "unmappedengine",
+      engineName: "Unmapped Engine",
+    });
   });
 
   it("no tile carries a letter any more", () => {
     render(<EngineReachTiles reach={reach} />);
-    for (const key of ["claude_code", "gemini", "codex", "kiro"]) {
+    for (const key of ["claude_code", "gemini", "codex", "unmapped-engine"]) {
       const tile = screen.getByTestId(`reach-tile-${key}`);
       // A letter fallback would show up as a text node sitting next to (or
       // instead of) the mark; assert the tile's only element child is the
@@ -72,6 +77,8 @@ describe("EngineReachTiles", () => {
     );
     expect(screen.getByTestId("reach-tile-gemini").getAttribute("aria-label")).toBe("Gemini CLI — reads it in place");
     expect(screen.getByTestId("reach-tile-codex").getAttribute("aria-label")).toBe("Codex — root not linked");
-    expect(screen.getByTestId("reach-tile-kiro").getAttribute("aria-label")).toBe("Kiro — cannot read this format");
+    expect(screen.getByTestId("reach-tile-unmapped-engine").getAttribute("aria-label")).toBe(
+      "Unmapped Engine — cannot read this format",
+    );
   });
 });
