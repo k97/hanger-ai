@@ -23,6 +23,12 @@
   --state-warning: #8a5a00;
   --state-danger:  #b3261e;
 
+  /* Favourites — a second, deliberate exception to "system state only":
+     marks something the user chose, not a status the system reports.
+     Karthik's ruling, 2026-08-16. */
+  --favourite: #cf4a43;
+  --favourite-ring: rgba(207, 74, 67, 0.28);
+
   /* The strip's meter — glassy with a retro-Aqua gel (Karthik, 2026-08-15).
      The aqua is the brand hue put to work as the meter's neutral segment;
      state segments keep their semantic colours under the same gloss. Pure
@@ -158,6 +164,9 @@
   --state-success: #4ec08c;
   --state-warning: #d9a441;
   --state-danger:  #e8635b;
+
+  --favourite: #e8776f;
+  --favourite-ring: rgba(232, 119, 111, 0.30);
 
   --gel-gloss: linear-gradient(180deg, rgba(255,255,255,.32) 0%, rgba(255,255,255,.10) 45%, rgba(255,255,255,0) 52%, rgba(0,0,0,.20) 100%);
   --gel-aqua: linear-gradient(180deg, #3ee6e2 0%, #12b3af 55%, #0b8a87 100%);

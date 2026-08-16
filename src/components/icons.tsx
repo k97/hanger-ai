@@ -31,6 +31,7 @@ import {
   ExclamationTriangleIcon as HeroExclamationTriangle,
   FolderIcon as HeroFolder,
   GlobeAltIcon as HeroGlobeAlt,
+  HeartIcon as HeroHeart,
   InformationCircleIcon as HeroInformationCircle,
   LinkIcon as HeroLink,
   MagnifyingGlassIcon as HeroMagnifyingGlass,
@@ -48,6 +49,7 @@ import {
   WrenchScrewdriverIcon as HeroWrenchScrewdriver,
   XMarkIcon as HeroXMark,
 } from "@heroicons/react/24/outline";
+import { HeartIcon as HeroHeartSolid } from "@heroicons/react/24/solid";
 import {
   FolderSymlink as LucideFolderSymlink,
   FolderTree as LucideFolderTree,
@@ -115,6 +117,8 @@ export const ExclamationCircleIcon = sized(HeroExclamationCircle, 1.11);
 export const ExclamationTriangleIcon = sized(HeroExclamationTriangle, 1.04);
 export const FolderIcon = sized(HeroFolder);
 export const GlobeAltIcon = sized(HeroGlobeAlt, 1.09);
+export const HeartIcon = sized(HeroHeart);
+export const HeartIconSolid = sized(HeroHeartSolid);
 export const InformationCircleIcon = sized(HeroInformationCircle, 1.11);
 export const LinkIcon = sized(HeroLink);
 export const MagnifyingGlassIcon = sized(HeroMagnifyingGlass);

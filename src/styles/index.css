@@ -18,6 +18,9 @@
   --color-state-warning: var(--state-warning);
   --color-state-danger: var(--state-danger);
 
+  --color-favourite: var(--favourite);
+  --color-favourite-ring: var(--favourite-ring);
+
   /* ── Legacy roles (revalued in tokens.css, retired as tasks migrate) ── */
   --color-surface: var(--surface);
   --color-surface-elevated: var(--surface-elevated);
@@ -188,6 +191,43 @@
   to {
     transform: none;
     opacity: 1;
+  }
+}
+
+/* The heart's one-shot flourish on favouriting only — the ring and the pop
+   never play on the way out (Karthik's ruling, 2026-08-16: X's burst reads
+   as the pop-and-fill motion, not literal particles, so there's no third
+   keyframe for confetti). */
+@utility animate-heart-pop {
+  animation: hanger-heart-pop var(--dur-press) var(--spring);
+}
+@utility animate-heart-ring {
+  animation: hanger-heart-ring var(--dur-press) ease-out;
+}
+
+@keyframes hanger-heart-pop {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.3);
+  }
+  70% {
+    transform: scale(0.92);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes hanger-heart-ring {
+  from {
+    transform: scale(0.6);
+    opacity: 0.5;
+  }
+  to {
+    transform: scale(1.9);
+    opacity: 0;
   }
 }
 
