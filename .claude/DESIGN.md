@@ -305,11 +305,16 @@ with an `interface <Name>Props` declared directly above. Views are suffixed
 
 ### Shell
 
-**`IconRail`** (`IconRail.tsx:5-18`) — `active: "machine" | "linkmap" | "discovery" | "review"`,
-`needsReviewCount: number`, `darkMode: boolean`, `onSelectMachine`,
-`onSelectDiscovery`, `onSelectReview`, `onOpenSettings`. Fixed 56px column
-(`w-14`, `IconRail.tsx:40`). Buttons are `w-[38px] h-8 rounded-pill`
-(`IconRail.tsx:19`), tonal `bg-tint` when current (`:20-21`).
+**`IconRail`** (`IconRail.tsx:5-17`) — `active: "machine" | "linkmap" |
+"discovery" | "review" | "design"`, `needsReviewCount: number`,
+`onSelectMachine`, `onSelectLinkMap`, `onSelectDiscovery`, `onSelectReview`,
+`onSelectDesign?`, `onOpenSettings`. Fixed 56px column (`w-14`). Buttons are
+32×32 `rounded-soft`, tonal `bg-tint-plane` when current (`IconRail.tsx:21-24`).
+The hanger mark at the top is the home button — it fires `onSelectMachine`,
+same as the machine button (ruled 2026-08-15). `onSelectDesign` is optional
+because the entry it renders — the Design system page, below the spacer
+beside Settings — exists in dev builds only; the shell passes it under
+`import.meta.env.DEV` (ruled 2026-08-16, see §9).
 
 **`SourceListShell`** (`SourceListShell.tsx:4-11`) — `testId`, `width`,
 `setWidth`, `collapsed`, `setCollapsed`, `children`. Owns the second column's
@@ -324,6 +329,16 @@ drift apart on sizing (`:18-21`).
 `setError`.
 
 **`ReviewSidebar`** (`ReviewSidebar.tsx:4`) — the review view's second column.
+
+**`DiscoverySidebar`** (`DiscoverySidebar.tsx`) — Discovery's second column:
+one row per catalogue kind from `kindCounts`, under a "Categories" eyebrow.
+The pane is a controlled consumer of `kind` (ruled 2026-08-15, reversing the
+earlier no-second-column decision).
+
+**`DesignSystemSidebar`** (`DesignSystemSidebar.tsx`) — the Design system
+page's table of contents: one row per `DESIGN_SECTIONS` entry
+(`src/data/designSystemFixtures.ts`); choosing a row scrolls the one page
+rather than swapping views.
 
 ### Panes
 
@@ -340,8 +355,12 @@ drift apart on sizing (`:18-21`).
 `kind`, `place`, `filterText`, `selectedId`, `onSelectKind`, `onSelectPlace`,
 `onSelectIssue`.
 
-**`DiscoveryPane`** (`DiscoveryPane.tsx:13-15`) — `filterText?` only. Renders
-from static data in `src/data/directories.ts`.
+**`DiscoveryPane`** (`DiscoveryPane.tsx`) — `filterText?`, `kind?`. Renders
+from static data in `src/data/directories.ts`; the kind facet is owned by
+`DiscoverySidebar`.
+
+**`DesignSystemPane`** (`DesignSystemPane.tsx`) — `section` only. The page
+described in §9.
 
 **`LinkMapPane`** (`LinkMapPane.tsx`, props at `interface LinkMapPaneProps`)
 — `graph`, `loading`, `showProjects`, `onToggleProjects`, `onOpenProject`.
@@ -730,3 +749,46 @@ it, to the vendor's monochrome `codex.svg` (`brands.ts:52`); the other ten —
 `claude_code`, `gemini`, `claude_desktop`, `claude_ai`, `vscode`, `cursor`,
 `windsurf`, `zed`, `copilot`, `opencode` (`BRANDS`, `brands.ts:47-65`) —
 have no per-theme variant, and none is needed.
+
+---
+
+## 9. The Design system page (dev builds)
+
+This document has a runtime counterpart: `DesignSystemPane`
+(`src/components/DesignSystemPane.tsx`), reached from the rail's Swatch entry
+beside Settings, crumb "Design system", with `DesignSystemSidebar` as its
+table of contents. Karthik's rulings, 2026-08-16: name "Design system"
+(industry consensus, matches this file), Heroicons `Swatch` (distinct from
+the Settings cog; a palette would read as appearance, which Settings owns),
+**dev builds only**, TOC in the source-list column.
+
+**What it is.** The system, rendered by the app that uses it. Six sections
+mirror §§1–5 — Colour, Type, Geometry, Motion, Controls, Components. Every
+component on the page is the real one, imported and rendered with sample
+props from `src/data/designSystemFixtures.ts`: `GelMeter`, `MechanismGlyph`,
+`EngineReachTiles`, `EngineLabel`/`BrandIcon`, `CategoryFilterCards`,
+`DisclosureBanner`, `Tooltip`, `AssetHeaderRow`/`AssetRow`, `SummaryStrip`,
+`ScanStatusIndicator`, `HangerMark`. Nothing on it is a picture, so nothing
+on it can drift from the app; after a pull, one page shows every component
+in the current theme.
+
+**Values are read, not written.** Token swatches read the running theme via
+`getComputedStyle` on the root, re-read through a `MutationObserver` on the
+root's `dark` class — the page carries no hex in source, and a swatch shows
+what the app is actually painting.
+
+**Sample, visibly.** Every fixture-fed specimen wears a "sample" mark and the
+foot says so; a 142 on that page is never the store. Sample controls never
+borrow a real control's accessible name (`design_system_pane.test.tsx`).
+
+**Gating.** `App.tsx` passes `IconRail`'s `onSelectDesign` only under
+`import.meta.env.DEV`; a persisted `selected_sidebar_item` of `design` in a
+release build falls back to `profile` on load (`icon_rail.test.tsx`).
+
+**Known gaps, recorded rather than fixed here.** The pill pair, the cap
+button and the cap field are hoisted class strings in `DiscoveryPane.tsx`
+and `App.tsx`, not shared exports; the page repeats them with a caption
+saying so. Panes, modals, the map canvas and the inspectors are not on the
+page — they need real inventory or graph data. `IconRail` itself is not
+rendered as a specimen: it would put a second navigation landmark, with
+duplicate control names, on the page.
