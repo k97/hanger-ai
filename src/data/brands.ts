@@ -1,6 +1,6 @@
 /**
  * The brand-mark map: every identifier the UI can hold for an engine or MCP
- * host, resolved to one of eleven marks. Design record (local-only, not
+ * host, resolved to one of the marks below. Design record (local-only, not
  * tracked in this repo — see src/assets/brand/SOURCES.md for what is):
  * docs/superpowers/specs/2026-08-15-brand-icons-design.md §4–§5.
  *
@@ -16,6 +16,13 @@ import cursorSvg from "@lobehub/icons-static-svg/icons/cursor.svg?raw";
 import windsurfSvg from "@lobehub/icons-static-svg/icons/windsurf.svg?raw";
 import copilotSvg from "@lobehub/icons-static-svg/icons/githubcopilot.svg?raw";
 import opencodeSvg from "@lobehub/icons-static-svg/icons/opencode.svg?raw";
+import kiroSvg from "@lobehub/icons-static-svg/icons/kiro.svg?raw";
+import traeSvg from "@lobehub/icons-static-svg/icons/trae.svg?raw";
+import roocodeSvg from "@lobehub/icons-static-svg/icons/roocode.svg?raw";
+import kilocodeSvg from "@lobehub/icons-static-svg/icons/kilocode.svg?raw";
+import clineSvg from "@lobehub/icons-static-svg/icons/cline.svg?raw";
+import ampSvg from "@lobehub/icons-static-svg/icons/amp.svg?raw";
+import devinSvg from "@lobehub/icons-static-svg/icons/devin.svg?raw";
 import vscodeSvg from "../assets/brand/vscode.svg?raw";
 import zedSvg from "../assets/brand/zed.svg?raw";
 import genericSvg from "../assets/brand/generic.svg?raw";
@@ -31,7 +38,14 @@ export type BrandId =
   | "windsurf"
   | "zed"
   | "copilot"
-  | "opencode";
+  | "opencode"
+  | "kiro"
+  | "trae"
+  | "roocode"
+  | "kilocode"
+  | "cline"
+  | "amp"
+  | "devin";
 
 export interface BrandMark {
   /** Raw file contents. */
@@ -63,6 +77,14 @@ export const BRANDS: Record<BrandId, BrandMark> = {
   zed: { svg: zedSvg, ink: true, source: "vendored" },
   copilot: { svg: copilotSvg, ink: true, source: "lobe" },
   opencode: { svg: opencodeSvg, ink: true, source: "lobe" },
+  kiro: { svg: kiroSvg, ink: true, source: "lobe" },
+  trae: { svg: traeSvg, ink: true, source: "lobe" },
+  roocode: { svg: roocodeSvg, ink: true, source: "lobe" },
+  kilocode: { svg: kilocodeSvg, ink: true, source: "lobe" },
+  cline: { svg: clineSvg, ink: true, source: "lobe" },
+  amp: { svg: ampSvg, ink: true, source: "lobe" },
+  // The mark for Devin (Cognition). windsurf aliases here too — see ALIASES.
+  devin: { svg: devinSvg, ink: true, source: "lobe" },
 };
 
 export const BRAND_IDS = Object.keys(BRANDS) as readonly BrandId[];
@@ -92,12 +114,24 @@ const ALIASES: Record<string, BrandId> = {
   vscode: "vscode",
   visualstudiocode: "vscode",
   cursor: "cursor",
-  windsurf: "windsurf",
+  // Cognition rebranded Windsurf to Devin Desktop in June 2026. The host id
+  // stays "windsurf" because it keys existing database rows (a later task
+  // renames only the display name), but the mark it draws is Devin's — do
+  // not "fix" this back to the old windsurf mark.
+  windsurf: "devin",
   zed: "zed",
   zededitor: "zed",
   copilot: "copilot",
   githubcopilot: "copilot",
   opencode: "opencode",
+  kiro: "kiro",
+  trae: "trae",
+  roocode: "roocode",
+  kilocode: "kilocode",
+  cline: "cline",
+  amp: "amp",
+  devin: "devin",
+  devindesktop: "devin",
 };
 
 /** The brand for any identifier the UI holds, or undefined (unmapped or any-agent). */
