@@ -49,6 +49,24 @@ describe("brand coverage", () => {
     expect(distinct.size).toBeGreaterThanOrEqual(10);
     expect(distinct.has("windsurf")).toBe(true);
     expect(distinct.has("copilot")).toBe(true);
+
+    // Per-source floor, so a source that silently under-collects (e.g. a Rust
+    // struct array reformatted enough to break one of the regexes above)
+    // fails loudly here instead of hiding behind AGENT_CONFIGS' 3 ids being
+    // string-duplicates of ids HOSTS already yields. Counted directly from
+    // the Rust files, not guessed: registry.rs HOSTS has 9 McpHost entries,
+    // scanner.rs AGENT_CONFIGS has 3, get_engine_key's match arms yield 5
+    // Some(...) results, and there are 2 string-literal upsert_engine calls.
+    const floors: Record<string, number> = {
+      "registry.rs HOSTS": 9,
+      "scanner.rs AGENT_CONFIGS": 3,
+      "scanner.rs get_engine_key": 5,
+      "scanner.rs upsert_engine literal": 2,
+    };
+    for (const [source, floor] of Object.entries(floors)) {
+      const count = ids.filter((x) => x.from === source).length;
+      expect(count, `${source} yielded only ${count} ids, expected at least ${floor}`).toBeGreaterThanOrEqual(floor);
+    }
   });
 
   it("every engine or host id the backend can emit resolves to a brand mark", () => {

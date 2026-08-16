@@ -38,17 +38,20 @@ describe("EngineReachTiles", () => {
     }
   });
 
-  it("reached is full strength, unreached is half, both on the same hairline tile", () => {
+  it("a reached engine is the mark alone; an unreached one is a dimmed ring", () => {
     render(<EngineReachTiles reach={reach} />);
     const on = screen.getByTestId("reach-tile-claude_code");
     const off = screen.getByTestId("reach-tile-codex");
     expect(on.getAttribute("data-reached")).toBe("true");
     expect(off.getAttribute("data-reached")).toBe("false");
-    expect(on.className).toContain("border-line-2");
-    expect(off.className).toContain("border-line-2");
-    expect(on.className).not.toContain("opacity-50");
-    expect(off.className).toContain("opacity-50");
+    // Reached carries no chrome at all — no ring, no fill, no dimming.
+    expect(on.className).not.toContain("border");
     expect(on.className).not.toContain("bg-fill");
+    expect(on.className).not.toContain("opacity");
+    // Unreached is an empty slot: the lighter ring token, and dimmed.
+    expect(off.className).toContain("border-line");
+    expect(off.className).not.toContain("border-line-2");
+    expect(off.className).toContain("opacity-40");
   });
 
   it("keeps the signed tooltip copy", () => {

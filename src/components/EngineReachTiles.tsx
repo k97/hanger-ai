@@ -25,13 +25,15 @@ function tileTip(r: EngineReachInfo): string {
     : `${r.engine_name} — root not linked`;
 }
 
-/** The Reach column: one 16px tile per engine, each carrying that engine's
+/** The Reach column: one 16px slot per engine, each carrying that engine's
  *  own mark (BrandIcon; trademark note in the design record, spec §14).
- *  Reached reads at full strength; unreached at half. The tile is transparent
- *  with a thin border in both states so a colour mark carries itself — the
- *  prototype's brandmarks rule. (Comment wording adjusted from the brief:
- *  a retired-token name banned anywhere in .tsx source, including comments,
- *  by no-off-token-styles.test.ts, was in the original phrasing.) */
+ *
+ *  A reached engine is the mark alone — a vendor logo carries itself and a ring
+ *  around it only competes. An unreached one is an empty slot: a thin --line
+ *  ring plus a dimmed mark, so absence reads as absence rather than as a
+ *  slightly fainter presence. --line (~0.1 alpha) rather than --line-2 (~0.2):
+ *  a dark line on a light page reads heavier than its alpha suggests.
+ */
 export default function EngineReachTiles({ reach }: { reach: EngineReachInfo[] }) {
   return (
     <span className="flex items-center gap-1" data-testid="engine-reach-tiles">
@@ -41,8 +43,10 @@ export default function EngineReachTiles({ reach }: { reach: EngineReachInfo[] }
             data-testid={`reach-tile-${r.engine_key}`}
             data-reached={r.reached ? "true" : "false"}
             aria-label={tileTip(r)}
-            className={`w-4 h-4 rounded-[6px] border border-line-2 grid place-items-center text-ink-1 not-italic cursor-default ${
-              r.reached ? "" : "opacity-50"
+            className={`w-4 h-4 rounded-[6px] grid place-items-center text-ink-1 not-italic cursor-default ${
+              r.reached
+                ? ""
+                : "border border-line opacity-40"
             }`}
           >
             <BrandIcon engineKey={r.engine_key} engineName={r.engine_name} size={12} />
