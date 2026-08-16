@@ -110,6 +110,112 @@ fn a_trailing_secret_flag_with_no_value_emits_no_stray_marker() {
     assert_eq!(out, "server --api-key");
 }
 
+// Critical finding, final whole-branch review: `--header` is not
+// flag-shaped-secret (`looks_secret("--header")` is false — it contains none
+// of key/token/secret/password/auth) and `Authorization:` is not
+// flag-shaped at all, so neither branch above ever armed a capture for
+// either word. The header, name AND bearer token, fell through both
+// branches and was pushed verbatim onto a screen this module exists to keep
+// it off: RunningProcess.command_line -> ProcessMatch -> mcpServerView.ts's
+// groupProcesses -> ProfilePane's undeclared-servers disclosure. This is the
+// second time this module has leaked a credential; the config-side sibling
+// `redact_launch` already had `HEADER_FLAGS` for this exact shape, and the
+// module comment's claim that the invariant was "mirrored" from it was false
+// for this one constant.
+
+#[test]
+fn a_header_flag_no_longer_leaks_its_bearer_token() {
+    let out = observe::redact(
+        "npx mcp-remote https://example.com/sse --header Authorization: Bearer REDACT_ME_1",
+    );
+    assert!(
+        !out.contains("REDACT_ME_1"),
+        "bearer token survived: {}",
+        out
+    );
+    assert_eq!(
+        out,
+        "npx mcp-remote https://example.com/sse --header Authorization: <redacted> <redacted>"
+    );
+}
+
+#[test]
+fn the_short_header_flag_spelling_is_redacted_the_same_way() {
+    let out = observe::redact("-H Authorization: Bearer REDACT_ME_1");
+    assert!(
+        !out.contains("REDACT_ME_1"),
+        "bearer token survived: {}",
+        out
+    );
+    assert_eq!(out, "-H Authorization: <redacted> <redacted>");
+}
+
+#[test]
+fn header_mode_ends_the_moment_a_new_flag_begins() {
+    // A header value has no length known in advance; header mode ends only
+    // when a new flag starts. A word beginning with `-` must leave header
+    // mode and be processed through the ordinary branches, not swallowed as
+    // more header content.
+    let out =
+        observe::redact("--header Authorization: Bearer REDACT_ME_1 --other-flag value");
+    assert!(
+        !out.contains("REDACT_ME_1"),
+        "bearer token survived: {}",
+        out
+    );
+    assert_eq!(
+        out,
+        "--header Authorization: <redacted> <redacted> --other-flag value"
+    );
+}
+
+#[test]
+fn the_header_fix_does_not_change_an_ordinary_secret_flag() {
+    // Regression guard: adding header mode must not touch the existing
+    // pending-value path for a plain secret-shaped flag.
+    let out = observe::redact("node server.js --api-key REDACT_ME_2");
+    assert_eq!(out, "node server.js --api-key <redacted>");
+}
+
+#[test]
+fn the_header_fix_does_not_let_a_secret_shaped_path_arm_the_capture() {
+    // Regression guard for the older defect this module already fixed:
+    // "/opt/token-service/run" contains "token" but is not flag-shaped, so it
+    // must still not eat the real flag after it.
+    let out = observe::redact("/opt/token-service/run --api-key REDACT_ME_2");
+    assert_eq!(out, "/opt/token-service/run --api-key <redacted>");
+}
+
+#[test]
+fn a_command_line_with_no_secrets_is_byte_identical() {
+    let line = "node /Applications/Spades Audio.app/Contents/Resources/mcp-server/dist/index.js --client-type=persistent";
+    assert_eq!(observe::redact(line), line);
+}
+
+#[test]
+fn a_query_string_credential_with_no_userinfo_is_no_longer_missed() {
+    // The old URL branch fired only on `word.contains("://") &&
+    // word.contains('@')` — a userinfo credential. A credential in a query
+    // string with no userinfo, and no secret word in the parameter name
+    // (`k`, not `key`/`token`/etc.), fell through untouched. `redact` now
+    // delegates to `dialect::sanitise_url` — the same function the config
+    // side already uses — instead of a third hand-rolled copy of URL
+    // sanitising that could drift from the other two.
+    let out = observe::redact("https://user:REDACT_ME_3@example.com/mcp?k=REDACT_ME_3");
+    assert!(
+        !out.contains("REDACT_ME_3"),
+        "credential survived: {}",
+        out
+    );
+    assert_eq!(out, "https://example.com/mcp");
+}
+
+#[test]
+fn a_credential_free_url_survives_readable() {
+    let out = observe::redact("https://example.com/mcp");
+    assert_eq!(out, "https://example.com/mcp");
+}
+
 #[test]
 fn a_running_process_is_attributed_to_its_registration() {
     let regs = vec![(

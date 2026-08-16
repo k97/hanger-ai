@@ -22,7 +22,7 @@ use crate::mcp::dialect::sanitise_url;
 pub(crate) const SECRET_WORDS: [&str; 5] = ["key", "token", "secret", "password", "auth"];
 
 /// Flags whose value is a `Name: value` header pair.
-const HEADER_FLAGS: [&str; 2] = ["--header", "-H"];
+pub(crate) const HEADER_FLAGS: [&str; 2] = ["--header", "-H"];
 
 pub(crate) fn looks_secret(flag: &str) -> bool {
     let lower = flag.to_lowercase();

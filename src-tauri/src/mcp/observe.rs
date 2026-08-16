@@ -7,7 +7,8 @@
 //!
 //! Read-only. Nothing is started, signalled or stopped.
 
-use crate::mcp::redact::looks_secret;
+use crate::mcp::dialect::sanitise_url;
+use crate::mcp::redact::{looks_secret, HEADER_FLAGS};
 use serde::{Deserialize, Serialize};
 use sysinfo::{ProcessRefreshKind, ProcessesToUpdate, System, UpdateKind};
 
@@ -28,21 +29,57 @@ pub struct RunningProcess {
 /// place a credential can reach Hanger without any config file being read:
 /// `--api-key=…`, `--token …`, or userinfo in a URL.
 ///
-/// Two defects lived here, both the class the spec forbids: never render a
-/// token verbatim. First, the branch that arms a pending-value capture used
-/// to fire on any word merely *containing* a secret substring, not just a
-/// flag — so a path like `/opt/token-service/run` armed the capture and ate
-/// the real flag after it. It is now gated on `word.starts_with('-')`.
-/// Second, a valueless secret-shaped toggle (`--oauth`) could itself be
-/// captured as a "value" by nothing, then swallow the real flag that
-/// followed it. That is closed the way `mcp::redact::redact_launch` closes
-/// it on the config side: a token in a pending-value position is never
-/// emitted verbatim, full stop, regardless of what it looks like.
+/// Three defects have lived here, all the class the spec forbids: never
+/// render a token verbatim. First, the branch that arms a pending-value
+/// capture used to fire on any word merely *containing* a secret substring,
+/// not just a flag — so a path like `/opt/token-service/run` armed the
+/// capture and ate the real flag after it. It is now gated on
+/// `word.starts_with('-')`. Second, a valueless secret-shaped toggle
+/// (`--oauth`) could itself be captured as a "value" by nothing, then
+/// swallow the real flag that followed it. That is closed the way
+/// `mcp::redact::redact_launch` closes it on the config side: a token in a
+/// pending-value position is never emitted verbatim, full stop, regardless
+/// of what it looks like.
+///
+/// Third: `--header Authorization: Bearer …` arrives here as four
+/// whitespace-separated words, and none of them is both flag-shaped AND
+/// secret-worded — `--header` contains no secret word, `Authorization:` is
+/// not flag-shaped. Neither branch above ever armed for it, so the whole
+/// header, including the bearer token, was pushed verbatim. `HEADER_FLAGS`
+/// is now imported from `mcp::redact` rather than re-declared, so the two
+/// modules cannot drift apart the way they did the first time — see
+/// `header_mode` below. The URL branch had the same shape of gap: it fired
+/// only when a word held BOTH `://` AND `@`, so a query-string credential
+/// with no userinfo survived. It now delegates to `dialect::sanitise_url`
+/// instead of hand-rolling a third copy of URL sanitising.
 pub fn redact(command_line: &str) -> String {
     let mut out: Vec<String> = Vec::new();
     let mut pending = false;
+    // Separate from `pending`: a header value can span several words
+    // (`Authorization: Bearer <token>`), where `pending` only ever captures
+    // exactly one.
+    let mut header_mode = false;
 
     for word in command_line.split_whitespace() {
+        if header_mode {
+            if word.starts_with('-') {
+                // The header value has no length known in advance; it ends
+                // only when a new flag begins. Leave header mode and fall
+                // through to the ordinary branches below for this word —
+                // it is not more header content.
+                header_mode = false;
+            } else if word.ends_with(':') {
+                // The header NAME (`Authorization:`) is diagnostic, not a
+                // credential — same rule as redact_launch's
+                // redact_header_value — and is kept.
+                out.push(word.to_string());
+                continue;
+            } else {
+                out.push("<redacted>".to_string());
+                continue;
+            }
+        }
+
         if pending {
             // Invariant, mirrored from `redact_launch`: a token in a
             // pending-value position is never emitted verbatim. Redact it
@@ -52,6 +89,12 @@ pub fn redact(command_line: &str) -> String {
             // the flag-detection logic below for a token consumed here.
             out.push("<redacted>".to_string());
             pending = word.starts_with('-') && looks_secret(word);
+            continue;
+        }
+
+        if HEADER_FLAGS.contains(&word) {
+            out.push(word.to_string());
+            header_mode = true;
             continue;
         }
 
@@ -71,11 +114,8 @@ pub fn redact(command_line: &str) -> String {
             }
         }
 
-        if word.contains("://") && word.contains('@') {
-            let parts: Vec<&str> = word.splitn(2, "://").collect();
-            let rest = parts[1];
-            let host = rest.split('@').nth(1).unwrap_or(rest);
-            out.push(format!("{}://{}", parts[0], host));
+        if word.contains("://") {
+            out.push(sanitise_url(word));
             continue;
         }
 
