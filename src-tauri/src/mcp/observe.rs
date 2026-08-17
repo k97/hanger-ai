@@ -375,8 +375,13 @@ fn host_for_process_name(name: &str) -> Option<&'static str> {
         ("Claude Helper", "Claude Desktop"),
         ("Claude", "Claude Desktop"),
         ("Cursor", "Cursor"),
-        ("Windsurf", "Windsurf"),
-        ("Devin", "Windsurf"),
+        // Both process names, one display name. This column is rendered raw
+        // — `spawning_host` never passes through a label map — so a stale
+        // value here is not an internal id, it is the words on the row. The
+        // panel showed a Devin Desktop user host "Devin Desktop" and, beside
+        // it, spawned-by "Windsurf".
+        ("Windsurf", "Devin Desktop"),
+        ("Devin", "Devin Desktop"),
         ("Code Helper", "VS Code"),
         ("Code", "VS Code"),
     ] {
@@ -420,9 +425,12 @@ mod tests {
     fn devin_desktop_is_recognised_under_either_process_name() {
         // Cognition rebranded Windsurf to Devin Desktop on 2026-06-02, but the
         // binary and its process name did not necessarily follow in lockstep
-        // on every install — both are matched.
-        assert_eq!(host("Windsurf"), Some("Windsurf"));
-        assert_eq!(host("Devin"), Some("Windsurf"));
+        // on every install — both are matched, and both answer with the name
+        // the product now has. `registry.rs` retired "Windsurf" as a display
+        // name in the same commit that added the Devin process match here;
+        // this column is the one place it survived.
+        assert_eq!(host("Windsurf"), Some("Devin Desktop"));
+        assert_eq!(host("Devin"), Some("Devin Desktop"));
     }
 
     #[test]
