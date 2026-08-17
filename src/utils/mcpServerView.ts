@@ -84,6 +84,15 @@ const HOST_NAMES: Record<string, string> = {
   // label users read moves.
   windsurf: "Devin Desktop",
   zed: "Zed",
+  "claude-ai": "Claude.ai",
+  claude_ai: "Claude.ai",
+  kiro: "Kiro",
+  trae: "Trae",
+  opencode: "OpenCode",
+  amp: "Amp",
+  roocode: "Roo Code",
+  kilocode: "Kilo Code",
+  cline: "Cline",
 };
 
 /**
@@ -100,8 +109,14 @@ export const MANAGE_URL: Record<string, { label: string; url: string }> = {
   },
 };
 
-/** A loose config declares no owner; the scanner leaves it unattributed. */
-function hostLabel(id: string | null | undefined): string {
+/**
+ * A loose config declares no owner; the scanner leaves it unattributed.
+ *
+ * Exported for `engine-labels.test.ts`, which asserts that no id in the Rust
+ * registry falls through to the `?? id` branch — the branch that printed
+ * `roocode` in lower case beside a correctly drawn Roo Code mark.
+ */
+export function hostLabel(id: string | null | undefined): string {
   if (!id) return "Any agent";
   return HOST_NAMES[id] ?? id;
 }

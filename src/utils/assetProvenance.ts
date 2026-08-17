@@ -69,13 +69,27 @@ export function kindLabel(category: string): string {
 export function engineLabel(asset: ScopedAsset): string {
   const agent = scopeAgent(asset.scope as Scope);
   if (!agent) return "Any agent";
+  // Keyed by the ids the backend actually puts in a scope: `AGENT_CONFIGS`
+  // rows, plus the two filename-attributed rules owners. Every one of them
+  // needs an entry or the panel prints the id — a subagent under ~/.kiro read
+  // "Engine: kiro" beside a correctly drawn Kiro mark.
+  // `engine-labels.test.ts` fails when the Rust table grows past this map.
   const NAMES: Record<string, string> = {
     claude: "Claude Code",
+    "claude-code": "Claude Code",
+    claude_code: "Claude Code",
     gemini: "Gemini CLI",
     codex: "Codex",
     cursor: "Cursor",
     copilot: "GitHub Copilot",
+    kiro: "Kiro",
+    trae: "Trae",
     opencode: "OpenCode",
+    amp: "Amp",
+    zed: "Zed",
+    roocode: "Roo Code",
+    kilocode: "Kilo Code",
+    cline: "Cline",
   };
   return NAMES[agent] ?? agent;
 }
