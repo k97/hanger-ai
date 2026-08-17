@@ -2,7 +2,20 @@
 useDefault = true
 
 [allowlist]
+# Regexes matched against the file path, not globs.
 paths = [
     '''src-tauri/target''',
-    '''target'''
+    '''target''',
+    # The sanitisation fixtures. This file exists to hold synthesised secrets
+    # and assert they never reach a log line, so every scan finds them by
+    # design. `.gitleaksignore` already carries fingerprints for the copy at
+    # the repository root, but a fingerprint is path-anchored: the same file
+    # inside a git worktree (`.worktrees/<branch>/src-tauri/tests/…`) does not
+    # match it, and `--no-git` walks the filesystem rather than the index, so
+    # `.gitignore` does not exclude it either. That made the pinned secrets
+    # gate fail for every session in a checkout that had a worktree open, for
+    # a finding nobody introduced. Matching the file wherever it sits fixes
+    # that without excusing worktrees at large — a real secret in one is still
+    # caught.
+    '''(^|/)src-tauri/tests/leak_tests\.rs$'''
 ]
