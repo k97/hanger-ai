@@ -318,6 +318,82 @@ then open its inspector and see the real engine with its mark. Not fixed
 here: out of scope for the brand-icons feature, and row construction in both
 panes has its own tests.
 
+## Discovery favicons
+
+**F36 — Discovery icons are a one-time fetch with no refresh path.**
+`src/assets/discovery/*.png` (29 files) and `src/data/discoveryIcons.ts` were
+populated by hand on 2026-08-16 via curl against Google's favicon service,
+GitHub's avatar endpoint, and a few sites' own icon routes — matching
+`brands.ts`'s "nothing fetched at runtime" rule. But `brands.ts` vendors a
+small, slow-changing set of coding-agent logos; Discovery's 34 entries are
+unaffiliated community sites whose favicons can change at any time, and there
+is no script, no re-fetch command, and no "icons checked as of" marker
+analogous to `CATALOGUE_CHECKED` (`directories.ts:15`) to say when the images
+might be stale. Not fixed here: needs a decision on whether staleness matters
+enough to warrant a periodic manual refresh (like the catalogue itself) or a
+small fetch script committed to the repo.
+
+**F37 — Adding a Discovery entry does not get an icon by default.**
+`DiscoveryPane.tsx` falls back to the plain monogram whenever
+`DISCOVERY_ICONS[dir.mark]` has no match, which is correct behaviour, but the
+process that produces `src/assets/discovery/<mark>.png` for an entry was
+manual: fetch a candidate (GitHub avatar for `github.com/<owner>/<repo>`
+entries, else the domain's favicon via Google's s2 service or the site's own
+`/favicon.ico` / `apple-touch-icon.png` / framework-specific icon route),
+reject Google's generic placeholder (detected by duplicate SHA-256 hash
+across unrelated domains), and reject any icon whose artwork has no backdrop
+of its own (verified by rendering against both `--page: #ffffff` and
+`--page: #000000`, `tokens.css:5,143`). None of this is captured as a
+repeatable script; a future directory addition needs the same investigation
+repeated by hand or it silently ships with just a monogram.
+
+**F38 — Five entries keep the monogram despite having *some* real
+favicon.** `io` (agentskills.io), `am` (agents.md) and `mm` (mcpmarket.com)
+have real favicons that are pure black linework with no backdrop — invisible
+against `--page: #000000` in dark mode, confirmed by rendering both themes.
+`sd` (skillsdirectory.com) is a near-white pattern, weak in both themes. `re`
+(registry.modelcontextprotocol.io) has no favicon at all — `/favicon.ico`
+returns a JSON API error body, not an image. A future revisit could
+hand-author small monochrome-safe marks for these, the way
+`src/assets/brand/generic.svg` is a hand-made fallback in the brands system,
+rather than leaving plain text.
+
+**F39 — `cursor.com` and `cursor.directory` render near-identically.** `cu`
+and `cd` both show a dark rounded-square "cube" mark, differing only by
+which face is filled light vs dark (`src/assets/discovery/cu.png`,
+`.../cd.png`) — cursor.directory appears to deliberately echo Cursor's own
+icon style. At 26px in the row the two are easy to mistake for each other;
+the row text still disambiguates them, but part of the point of adding icons
+was faster visual recognition, and this pair undercuts that for these two
+rows specifically.
+
+**F40 — Two entries intentionally share one icon.** `an`
+(anthropics/skills) and `pc` (anthropics/claude-plugins-community) both
+render the Anthropic org's GitHub avatar — same source image, correct since
+both repos share the `anthropics` owner. Noted so it isn't mistaken for a
+fetch bug later; those two rows are distinguished by name text only, same as
+before this feature.
+
+**F41 — No test asserts the icon/monogram branch.**
+`src/__tests__/discovery_pane.test.tsx` passed unchanged by this feature —
+nothing in the suite renders a `Directory` with a mark present in
+`DISCOVERY_ICONS` and asserts an `<img>` appears, or a mark absent from it
+and asserts the monogram span appears. A regression (a deleted asset file, a
+broken `import.meta.glob` pattern in `discoveryIcons.ts`) would not fail any
+gate.
+
+**F42 — Four Discovery icons are real people's photos, baked into the
+shipped binary. DECIDED, not a defect (2026-08-16).** `mp.png`, `ar.png`,
+`pj.png`, `s5.png` are the GitHub avatar photos of mattpocock, alirezarezvani,
+PatrickJS and sanjeed5 — the maintainers behind four individual (non-org)
+Discovery entries. Karthik's explicit call this session: use the real avatar,
+matching how org-owned entries show their real logo, rather than a monogram.
+Recorded because it differs from a live-loaded avatar in a web app in one
+way — once compiled into the app binary and distributed, it stays frozen even
+if that person changes or deletes their photo, and there is no refresh path
+(see F36). Revisit only if that becomes a live concern; not treated as a
+defect today.
+
 ## Agent detection: scan cost and modelling gaps
 
 **F43 — Scan cost after the agent-detection expansion: no measurable
