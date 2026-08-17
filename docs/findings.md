@@ -461,6 +461,75 @@ category anywhere in the product. Recorded with that caveat here so a future
 change that *does* add a Custom Modes surface knows going in that they are
 not peers of a true subagent, per Roo Code's own documentation.
 
+## Reach column (2026-08-17)
+
+**F49 — two `ink: true` brand marks do not read as logos at 16px.** OpenCode
+renders as a solid dark rectangular frame and Zed as a scribbled outline; at
+tile size neither is recognisable as a logo, and beside full-colour neighbours
+they read as missing-glyph boxes. Karthik's first reading of the row was that
+they were tofu.
+
+Cause is the artwork, not a rendering failure. Both are `ink: true` in
+`src/data/brands.ts`, so they draw in `currentColor` — near-black on the light
+page. `opencode.svg` is `<path d="M16 6H8v12h8V6zm4 16H4V2h16v20z"/>` with
+`fill-rule="evenodd"`: two rectangles, the inner one a hole, so the mark *is* a
+rectangular frame. `zed.svg` is `fill="currentColor"` line art whose strokes
+collapse at 12px.
+
+Proven independent of the overflow defect fixed the same day: the identical two
+glyphs appear in the sidebar's Scope chip, where nothing overlaps anything.
+Eleven of the nineteen brands carry `ink: true`, so this is not limited to
+these two — it surfaces as each such engine is installed. Karthik's ruling
+2026-08-17: record, fix separately. Not a licensing question; the marks are
+unmodified from source per `src/assets/brand/SOURCES.md`.
+
+**F50 — the Reach cap can hide an engine that does reach the asset.** The
+column draws at most three marks plus an ellipsis (`EngineReachTiles.tsx`),
+ordered reached-first. When more than three engines reach one asset, the fourth
+onwards sit behind the chip. Observed immediately on the machine it was built
+against: `wayfinder` is reached by Claude Code, Codex, Gemini **and Zed**, and
+Zed is behind the chip.
+
+Not silent — the chip's label names every engine it stands in for, and the
+inspector lists all of them with verdicts. Recorded because the column
+under-reports readers by design, and because the fix is one constant:
+`SHOWN_WHEN_CAPPED = 4` measures 96px against a 100px cell and still fits. Left
+at three because Karthik asked for "1-3 icons and then some sorta of ellipsis"
+before the fourth reader was known about.
+
+## Transactional writes (2026-08-17)
+
+**F51 — `cargo test` fails intermittently, and the cause is a relative path in
+production code.** Observed 2026-08-17 on a tree with no Rust file modified:
+four full `cargo test` runs went green, red, red, green — 2 of 4 failing on
+`transactional::tests::test_write_transactional_validation_failure_rollback`
+with `Expected ValidationFailed error` (`transactional.rs:143`). `cargo test
+--lib` passed 11 of 11, warm and cold, so it only surfaces in the full run.
+
+Two defects, one of them in production code:
+
+1. **`write_transactional` writes backups to a CWD-relative path.**
+   `transactional.rs:51` is `Path::new(".hanger/backups")`, resolved against the
+   process working directory rather than the target file's directory or the
+   app's data dir. A Tauri app's CWD is not something the caller controls, so
+   the safety backup lands somewhere unpredictable — and running the suite
+   leaves a stray `src-tauri/.hanger/` behind.
+2. **Two tests share that one hardcoded directory and one deletes it.**
+   `test_write_transactional_backup_created` ends with
+   `fs::remove_dir_all(backups_dir)`, while
+   `test_write_transactional_validation_failure_rollback` calls
+   `write_transactional` on an existing file, which `create_dir_all`s the same
+   directory and then copies into it. Cargo runs both in parallel threads; when
+   the cleanup lands between the create and the copy, the copy fails, the
+   function returns `BackupFailed`, and the test's `_ => panic!("Expected
+   ValidationFailed error")` fires. Timing-dependent, hence intermittent.
+
+Not fixed here: found while gating an unrelated frontend change (the Reach
+column cap), and `transactional.rs` is production code that needs its own
+red/green cycle rather than a fix smuggled into a UI commit. Whoever takes it
+should fix (1) — the path — because fixing only the test isolation leaves
+backups still going to an arbitrary directory.
+
 ## Mechanism / state vocabulary (recorded earlier, unchanged)
 
 **F27 — `Mechanism::Copy` is unreachable in production** and the watcher

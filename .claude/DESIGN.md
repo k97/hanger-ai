@@ -283,16 +283,32 @@ none }`, `.dark .brand-dark-only { display: inline }`
 `@custom-variant dark` (`index.css:120-122`), under which a Tailwind
 `dark:` utility would silently do nothing.
 
-Reach tiles hold the same mark at 12px, one 16px slot per engine
+Reach tiles hold the same mark at 12px in a 16px slot
 (`EngineReachTiles.tsx`). A reached engine is the mark alone — no ring, no
 fill, no dimming, because a vendor logo carries itself and a ring around it
 only competes; an unreached one is an empty slot, a `border-line` ring plus
 `opacity-40`, so absence reads as absence rather than a fainter presence
-(`EngineReachTiles.tsx:28-36` states the reasoning, `:46-50` the
-conditional, `:52` the 12px mark). `--line` (`.09` light / `.12` dark,
+(`EngineReachTiles.tsx:46-57` states the reasoning, `:77-81` the
+conditional, `:83` the 12px mark). `--line` (`.09` light / `.12` dark,
 `tokens.css:12`, `:149`) rather than `--line-2` (`.20`/`.22`, `tokens.css:13`,
-`:150`) is the design system's subtle-outline weight for this slot. Design
-record (local-only, not tracked in this repo):
+`:150`) is the design system's subtle-outline weight for this slot.
+
+The column draws at most four marks, and above four it draws three plus one
+ellipsis chip (`EngineReachTiles.tsx:37-38`), ordered reached-first
+(`:64`). The cell is `w-[100px]` and clips nothing (`AssetRow.tsx:183`), so
+the count is arithmetic, not taste: a slot is 16px on a `gap-1`, making N
+marks `20N − 4`. Four measure 76px; three plus the chip measure 84px; seven
+measured 133px in the running window and painted 21px over the Beyond the
+store column, hiding the project count there. The chip carries `…` in
+`text-ink-3` behind a `border-line` ring — the unreached slot's ring, not
+dimmed, because it signals "more" rather than absence — and has no click
+handler: the row's own click already opens the inspector, which lists every
+engine with its verdict (`AssetDetail.tsx`, the `reach-detail` section).
+A reached engine can sit behind the chip when more than three reach one asset;
+`docs/findings.md` F50 records that and F49 the two marks that do not read as
+logos at this size.
+
+Design record (local-only, not tracked in this repo):
 `docs/superpowers/specs/2026-08-15-brand-icons-design.md`.
 
 ---
@@ -529,10 +545,12 @@ as a 14px stroke icon with a signed one-line tooltip. The component renders
 the word verbatim; deriving a mechanism from paths or link state in
 TypeScript is forbidden (dispatch item 8).
 
-**`EngineReachTiles`** (`EngineReachTiles.tsx`) — the Reach column: one 16px
+**`EngineReachTiles`** (`EngineReachTiles.tsx`) — the Reach column: a 16px
 tile per engine from the backend's reach list, filled when the engine reads
 the asset through its linked root. Each tile carries the engine's own mark
-(`BrandIcon`), the generic mark for one the map cannot draw.
+(`BrandIcon`), the generic mark for one the map cannot draw. Capped at four,
+or three plus an ellipsis chip above that, reached-first; the full list with
+verdicts is the inspector's `reach-detail` section (`AssetDetail.tsx`).
 
 **`BrandSprite`** (`BrandSprite.tsx:25-35`) — the hidden `<svg>` of
 `<symbol>`s, mounted once in `main.tsx:19` (import `:7`); `SPRITE` is built
