@@ -10,7 +10,8 @@ import { engineLabel, provenanceOf, sourceLabel } from "../utils/assetProvenance
 import { scopeAgent, type Scope } from "../utils/scopeAccess";
 import EngineLabel from "./EngineLabel";
 import BrandIcon from "./BrandIcon";
-import { tileTip } from "./EngineReachTiles";
+import { abbreviateHome } from "../utils/prose";
+import type { EngineReachInfo } from "./EngineReachTiles";
 import type { AssetAnnotationView } from "./AssetRow";
 import {
   documentKindFor,
@@ -66,6 +67,19 @@ const STATE_INK: Record<string, string> = {
   broken: "text-state-danger",
   local: "text-ink-3",
 };
+
+/* The Reach card's groups, in reading order: what reaches it, then why the
+   rest do not. `format` is a different fact from an unlinked root — the asset
+   belongs to another engine and sits in that engine's format, so nothing is
+   missing and nothing is broken — and giving it its own heading is what stops
+   the card stating a reason once per row. Labels signed off 2026-08-17;
+   `annotations.rs` emits only these two reasons, so three groups is the
+   ceiling rather than an open list. */
+const REACH_GROUPS: { key: string; title: string; holds: (r: EngineReachInfo) => boolean }[] = [
+  { key: "reached", title: "Reaches it", holds: (r) => r.reached },
+  { key: "unlinked", title: "Root not linked", holds: (r) => !r.reached && r.reason !== "format" },
+  { key: "format", title: "Another engine's format", holds: (r) => !r.reached && r.reason === "format" },
+];
 
 function parentOf(path: string): string {
   const cut = path.lastIndexOf("/");
@@ -132,6 +146,20 @@ export default function AssetDetail({ asset, inventory, onLink, annotation }: As
       cancelled = true;
     };
   }, [asset.path, kind]);
+
+  const reach = annotation?.reach ?? [];
+  /* Empty groups are dropped, so the card never prints a heading over nothing.
+     `members.length > 0` is a boolean, not a count — the counting contract
+     allows the comparison and forbids the tally. */
+  const reachGroups = REACH_GROUPS.map((group) => ({
+    ...group,
+    members: reach.filter(group.holds),
+  })).filter((group) => group.members.length > 0);
+  /* One store for the card. `via_store` is keyed off the asset's own root in
+     annotations.rs, so every reached engine reports the same value and the cap
+     cannot contradict the rows. */
+  const reachStoreRaw = reach.find((r) => r.reached && r.via_store)?.via_store;
+  const reachStore = reachStoreRaw ? abbreviateHome(reachStoreRaw) : null;
 
   const provenance = provenanceOf(asset as never, inventory);
   const shownPath = documentPath ?? asset.path;
@@ -232,39 +260,80 @@ export default function AssetDetail({ asset, inventory, onLink, annotation }: As
           ))}
         </dl>
 
-        {/* Every engine, because the row can only draw three. The Reach column
-            caps its marks to keep them inside a 100px cell, so an engine past
-            the third is answerable nowhere else. Each line reuses the row's own
-            verdict string rather than restating it: one backend answer phrased
-            two ways is how a row and its panel start disagreeing. Reached
-            engines wear their mark plainly, unreached ones the dimmed ring —
-            the same treatment as the column, so the two read as one idea. */}
+        {/* Every engine, grouped by verdict. The row can draw at most three
+            marks, so this is where the rest are answerable — and grouping is
+            what lets each reason be stated once instead of on every line. A
+            format miss is a different fact from an unlinked root: the asset
+            belongs to another engine and is in that engine's format, so
+            nothing is missing and nothing is broken. Labels signed off
+            2026-08-17. */}
         {annotation && annotation.reach.length > 0 && (
           <section
             data-testid="reach-detail"
-            className="mx-[18px] mb-3.5 px-3.5 py-3 bg-plane rounded-plane flex flex-col gap-2.5"
+            className="mx-[18px] mb-3.5 px-3.5 py-3 bg-plane rounded-plane flex flex-col gap-3"
           >
-            <span className="font-flex text-micro font-medium uppercase tracking-[.06em] text-ink-3">
-              Reach
-            </span>
-            <ul className="flex flex-col gap-2">
-              {annotation.reach.map((r) => (
-                <li
-                  key={r.engine_id}
-                  data-testid={`reach-detail-${r.engine_key}`}
-                  className="flex items-center gap-2 text-small"
+            <div className="flex items-baseline justify-between gap-2.5">
+              <span className="font-flex text-micro font-medium uppercase tracking-[.06em] text-ink-3">
+                Reach
+              </span>
+              {/* One store for the whole card, not one per row. `via_store` is
+                  keyed off the asset's own root in annotations.rs, so every
+                  reached engine reports the same one by construction — this
+                  cannot disagree with the rows beneath it. */}
+              {reachStore && (
+                <span data-testid="reach-store" className="font-mono text-micro text-ink-3">
+                  → {reachStore}
+                </span>
+              )}
+            </div>
+
+            {reachGroups.map((group) => (
+              <div key={group.key} className="flex flex-col gap-1.5">
+                <div
+                  data-testid={`reach-group-${group.key}`}
+                  className="flex items-center gap-2 font-flex text-micro uppercase tracking-[.06em] text-ink-3"
                 >
-                  <i
-                    className={`w-4 h-4 rounded-[6px] grid place-items-center shrink-0 not-italic ${
-                      r.reached ? "" : "border border-line opacity-40"
-                    }`}
-                  >
-                    <BrandIcon engineKey={r.engine_key} engineName={r.engine_name} size={12} />
-                  </i>
-                  <span className="text-ink-1">{tileTip(r)}</span>
-                </li>
-              ))}
-            </ul>
+                  <span className="shrink-0">{group.title}</span>
+                  <span className="flex-1 h-px bg-line" aria-hidden="true" />
+                </div>
+                <ul
+                  data-testid={`reach-members-${group.key}`}
+                  className="grid grid-cols-[1fr_auto] gap-x-3 gap-y-1.5 items-center"
+                >
+                  {group.members.map((r) => (
+                    <li
+                      key={r.engine_id}
+                      data-testid={`reach-detail-${r.engine_key}`}
+                      className="contents"
+                    >
+                      <span className="flex items-center gap-2 min-w-0 text-small">
+                        <i
+                          className={`w-4 h-4 rounded-[6px] grid place-items-center shrink-0 not-italic ${
+                            r.reached ? "" : "border border-line opacity-40"
+                          }`}
+                        >
+                          <BrandIcon engineKey={r.engine_key} engineName={r.engine_name} size={12} />
+                        </i>
+                        <span className={`truncate ${r.reached ? "text-ink-1" : "text-ink-3"}`}>
+                          {r.engine_name}
+                        </span>
+                      </span>
+                      {r.reached ? (
+                        <span className="font-mono text-micro text-ink-3 justify-self-end truncate max-w-[168px]">
+                          {r.via_root ? abbreviateHome(r.via_root) : "in place"}
+                        </span>
+                      ) : (
+                        /* The header already said why. The dash holds the
+                           column so the names stay in one edge. */
+                        <span className="font-mono text-micro text-ink-3 opacity-50 justify-self-end">
+                          —
+                        </span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
           </section>
         )}
 

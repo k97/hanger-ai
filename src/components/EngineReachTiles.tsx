@@ -14,10 +14,10 @@ export interface EngineReachInfo {
   reason?: string | null;
 }
 
-/* Copy signed off 2026-08-15 (naming brief). Exported because the inspector
-   lists the same verdicts in full: two phrasings of one backend answer is how
-   a row and its panel start disagreeing. */
-export function tileTip(r: EngineReachInfo): string {
+/* Copy signed off 2026-08-15 (naming brief). Private again as of 2026-08-17:
+   the inspector briefly rendered these same strings, then moved each reason
+   onto a group heading, so the tile tip is once more the only caller. */
+function tileTip(r: EngineReachInfo): string {
   if (r.reached) {
     return r.via_root && r.via_store
       ? `${r.engine_name} — reaches it via ${r.via_root} → ${r.via_store}`
