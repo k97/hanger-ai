@@ -77,7 +77,8 @@ checkout).
 `docs/to-be-reviewed/` is a holding pen, not a specification — several files
 there assert behaviour the code does not implement; check against the code
 first. `docs/findings.md` records defects deliberately left unfixed, with
-evidence. `docs/archive/` holds retired agent-instruction files.
+evidence; `docs/roadmap.md` records deferred work with the reason it was
+deferred. `docs/archive/` holds retired agent-instruction files.
 
 ## Gaps
 

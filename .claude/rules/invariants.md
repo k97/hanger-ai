@@ -53,3 +53,13 @@ alias so call sites stay distinguishable.
 **Asset reaping is off by default** behind `HANGER_ENABLE_REAP`
 (`README.md:27-30`). It is disabled because it caused data loss twice when
 transient unmounts or interrupted walks made live assets look stale.
+
+**The two redactors keep separate loops but share their predicates.**
+`mcp::redact::redact_launch` gets the argv vector and can be exact;
+`mcp::observe::redact` gets one flat command line from the process table and
+cannot. Both outputs reach the screen — the panel and the undeclared-servers
+disclosure. `SECRET_WORDS`, `looks_secret` and `HEADER_FLAGS` live once, in
+`mcp::redact`, and `observe` imports them. A second copy is how a bearer token
+shipped: `observe` was fixed for two leak shapes and never learned the header
+handling its sibling already had, under a comment asserting parity that no test
+exercised. Adding a rule to one side without the other is the failure mode.

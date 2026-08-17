@@ -46,6 +46,15 @@ Nothing else is evidence.
   scratch branch and re-authored on trunk is unproven. A guard, detector, or
   allowlist change is unverified until a planted violation outside its scope
   is shown to still fail — green alone proves nothing.
+- **A live, green control can still assert nothing**, which is a different
+  failure from the one above and was the most repeated finding of the MCP
+  detector cycle. Four shapes, all found only by asking what input would make
+  the check fail: a regex whose pattern could not match the code it existed to
+  catch; a fixture that stopped carrying the credential it asserted absent; a
+  loop that iterated an empty collection; a comment claiming two modules were
+  mirrored, which no test exercised. If the answer to "what would make this
+  fail?" is "nothing", it is decoration. Plant that input, watch it fail, then
+  count the green.
 - A control that fails to fire is a finding about the detector and is
   reported. Replacing it with one that fires, without disclosure, is
   fabricated evidence.
