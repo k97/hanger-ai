@@ -697,8 +697,14 @@ pub fn shared_agents_dir() -> PathBuf {
 // A shared-standards container: an engine's skills/ or agents/ entry that is a
 // symlink resolving under ~/.agents. Assets there belong to ~/.agents — the
 // deepest real location — not to whichever engine happened to link them.
+//
+// Both sides are canonical. The target always was; the container was not, so
+// on a machine where ~/.agents is itself a symlink into a synced folder the
+// comparison was resolved-against-unresolved and never fired at all — the
+// users most likely to keep a shared store being exactly the ones it failed
+// for.
 pub fn shared_agents_container(walk_root: &Path) -> Option<std::path::PathBuf> {
-    let container = get_home_dir().join(".agents");
+    let container = shared_agents_dir();
     if fs::read_link(walk_root).is_ok() {
         if let Ok(target) = fs::canonicalize(walk_root) {
             if target.starts_with(&container) {
@@ -707,6 +713,22 @@ pub fn shared_agents_container(walk_root: &Path) -> Option<std::path::PathBuf> {
         }
     }
     None
+}
+
+/// Is an asset at this stored path part of the shared convention store?
+///
+/// Asked of the path the store will hold — the canonical one — because that
+/// is what the v5 migration clears and what the answer has to agree with.
+///
+/// Two forms, because there are two ways to be in the store. A `.agents`
+/// component in the path is the ordinary one, and it is the only one that
+/// catches a repository's own `<repo>/.agents/`. The other is a `~/.agents`
+/// that is itself a symlink into a synced folder: every stored path
+/// canonicalizes to the target, so no `.agents` component survives to be
+/// found, and only the resolved container matches.
+pub fn is_shared_store_asset(canonical: &Path) -> bool {
+    crate::agents::shared_agents_subpath(canonical).is_some()
+        || canonical.starts_with(shared_agents_dir())
 }
 
 fn has_parent_skill(path: &Path, root: &Path) -> bool {
@@ -902,8 +924,19 @@ impl DirectoryScanner {
                                 });
                                 if let (Some(store), Some(r_id)) = (&store_opt, global_root_id) {
                                     let canon_p = canonicalize_asset_path(&path, &mut parse_warnings);
+                                    // ~/.claude/CLAUDE.md → ~/.agents/AGENTS.md is
+                                    // stored at the target, and stamping the target
+                                    // with the engine that linked it is the exact
+                                    // misattribution v5 clears — which the next scan
+                                    // then wrote straight back. The directory wins:
+                                    // a file in the shared store is the store's.
+                                    let rule_engine_id = if is_shared_store_asset(Path::new(&canon_p)) {
+                                        None
+                                    } else {
+                                        Some(engine_id)
+                                    };
                                     let _ = store.upsert_asset(
-                                        r_id, Some(engine_id), "rule", "global", filename, &canon_p, None, None, "ok", None, now, now
+                                        r_id, rule_engine_id, "rule", "global", filename, &canon_p, None, None, "ok", None, now, now
                                     );
                                 }
                             }
@@ -1729,12 +1762,25 @@ impl DirectoryScanner {
                             parse_error: None,
                             link_state,
                         });
-                        let rule_engine_id = crate::agents::engine_for_rule_file(&name)
-                            .and_then(|(key, display)| {
-                                store_opt.as_ref().and_then(|s| s.upsert_engine(key, display, "", now).ok())
-                            });
                         if let (Some(store), Some(r_id)) = (&store_opt, project_root_id) {
                             let rule_canon = canonicalize_asset_path(Path::new(p_str), &mut parse_warnings);
+                            // A rules file is normally attributed by filename —
+                            // `.cursorrules` says Cursor wherever it sits. Inside
+                            // `.agents/` it does not: that directory is the shared
+                            // store by definition, several agents read what is in
+                            // it, and stamping one engine on it is the
+                            // misattribution this branch exists to remove. A
+                            // vendor-named file in the shared directory is an odd
+                            // thing to write, and the safe reading of it is
+                            // "shared", not "Cursor's". The walk does get here —
+                            // the broad-root depth cap exempts `.agents` by name.
+                            let rule_engine_id = if is_shared_store_asset(Path::new(&rule_canon)) {
+                                None
+                            } else {
+                                crate::agents::engine_for_rule_file(&name).and_then(|(key, display)| {
+                                    store.upsert_engine(key, display, "", now).ok()
+                                })
+                            };
                             let _ = store.upsert_asset(
                                 r_id, rule_engine_id, "rule", "project", &name, &rule_canon, None, None, "ok", None, now, now
                             );
