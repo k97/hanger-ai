@@ -31,6 +31,17 @@ pub struct AgentConfig {
     /// True when this agent reads the vendor-neutral `.agents/` convention.
     /// This is a *reach* edge and never implies ownership.
     pub reads_agents_dir: bool,
+    /// Home-relative files whose existence proves this agent is installed,
+    /// for an agent that owns no directory of its own.
+    ///
+    /// Detection and ownership are separate: `global_roots` says "assets here
+    /// are mine", this says only "I am on this machine". Zed is the case the
+    /// roots-only shape had no slot for — it replaced its own rules library
+    /// with the shared convention, so it owns nothing to be found by
+    /// (spec §4.4, §5), and without a detection signal it can never appear in
+    /// the UI at all, not even as a reach tile. Everyone else leaves this
+    /// empty and is found by their own root.
+    pub detect_files: &'static [&'static str],
 }
 
 pub const AGENT_CONFIGS: &[AgentConfig] = &[
@@ -43,6 +54,7 @@ pub const AGENT_CONFIGS: &[AgentConfig] = &[
         rules: Some("rules"),
         subagents: Some("agents"),
         reads_agents_dir: true,
+        detect_files: &[],
     },
     AgentConfig {
         id: "codex",
@@ -53,6 +65,7 @@ pub const AGENT_CONFIGS: &[AgentConfig] = &[
         rules: None,
         subagents: Some("agents"),
         reads_agents_dir: false,
+        detect_files: &[],
     },
     AgentConfig {
         id: "gemini",
@@ -63,6 +76,7 @@ pub const AGENT_CONFIGS: &[AgentConfig] = &[
         rules: None,
         subagents: None,
         reads_agents_dir: true,
+        detect_files: &[],
     },
     AgentConfig {
         id: "kiro",
@@ -73,6 +87,7 @@ pub const AGENT_CONFIGS: &[AgentConfig] = &[
         rules: Some("steering"),
         subagents: Some("agents"),
         reads_agents_dir: false,
+        detect_files: &[],
     },
     AgentConfig {
         id: "trae",
@@ -85,6 +100,7 @@ pub const AGENT_CONFIGS: &[AgentConfig] = &[
         // ships without subagent support rather than on a guess (spec §11).
         subagents: None,
         reads_agents_dir: false,
+        detect_files: &[],
     },
     AgentConfig {
         id: "opencode",
@@ -95,6 +111,7 @@ pub const AGENT_CONFIGS: &[AgentConfig] = &[
         rules: None,
         subagents: Some("agent"),
         reads_agents_dir: false,
+        detect_files: &[],
     },
     AgentConfig {
         id: "amp",
@@ -107,6 +124,7 @@ pub const AGENT_CONFIGS: &[AgentConfig] = &[
         // Amp defaults to the shared convention — that is where its skills
         // live, and reach is how the UI expresses it.
         reads_agents_dir: true,
+        detect_files: &[],
     },
     AgentConfig {
         id: "zed",
@@ -120,6 +138,11 @@ pub const AGENT_CONFIGS: &[AgentConfig] = &[
         rules: None,
         subagents: None,
         reads_agents_dir: true,
+        // The only row that needs this. Owning nothing means nothing to find
+        // it by, so without the settings file Zed is invisible everywhere —
+        // no engines row, therefore no reach tile, therefore absent from a UI
+        // the spec says it appears throughout (§5).
+        detect_files: &[".config/zed/settings.json"],
     },
     AgentConfig {
         id: "roocode",
@@ -133,6 +156,7 @@ pub const AGENT_CONFIGS: &[AgentConfig] = &[
         rules: Some("rules"),
         subagents: None,
         reads_agents_dir: true,
+        detect_files: &[],
     },
     AgentConfig {
         id: "kilocode",
@@ -145,6 +169,7 @@ pub const AGENT_CONFIGS: &[AgentConfig] = &[
         rules: Some("rules"),
         subagents: None,
         reads_agents_dir: false,
+        detect_files: &[],
     },
     AgentConfig {
         id: "cline",
@@ -158,6 +183,7 @@ pub const AGENT_CONFIGS: &[AgentConfig] = &[
         rules: Some("Rules"),
         subagents: None,
         reads_agents_dir: false,
+        detect_files: &[],
     },
 ];
 

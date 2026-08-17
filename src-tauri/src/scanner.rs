@@ -341,6 +341,21 @@ pub fn get_global_agents() -> Vec<Agent> {
                 break;
             }
         }
+        // An agent that owns no directory is found by its config file
+        // instead. The resolved path is then a file, not a folder — every
+        // consumer of `global_config_path` already has to cope with a
+        // config-file root (~/.claude.json is one), and the alternative is
+        // inventing a directory for Zed to own, which would steal the shared
+        // store or name a folder that is not there (spec §4.4).
+        if resolved_path.is_none() {
+            for rel_path in config.detect_files {
+                let path = home.join(rel_path);
+                if path.exists() {
+                    resolved_path = Some(path.to_string_lossy().to_string());
+                    break;
+                }
+            }
+        }
         if let Some(g_path) = resolved_path {
             agents.push(Agent {
                 id: config.id.to_string(),
@@ -666,6 +681,19 @@ pub fn guard_engine_root(path: &str) -> Result<(), String> {
     Ok(())
 }
 
+/// The shared `.agents` container, in the form stored paths are recorded in.
+///
+/// Canonicalized, because every asset path the store holds is: a machine
+/// where `~/.agents` is itself a symlink into a synced folder resolves each
+/// asset to the target, and comparing those against the literal
+/// `$HOME/.agents` matches nothing at all. One definition, so the walk, the
+/// root row and the reach computation cannot disagree about where the store
+/// is.
+pub fn shared_agents_dir() -> PathBuf {
+    let container = get_home_dir().join(crate::agents::SHARED_AGENTS_DIR);
+    fs::canonicalize(&container).unwrap_or(container)
+}
+
 // A shared-standards container: an engine's skills/ or agents/ entry that is a
 // symlink resolving under ~/.agents. Assets there belong to ~/.agents — the
 // deepest real location — not to whichever engine happened to link them.
@@ -768,11 +796,7 @@ impl DirectoryScanner {
                                       shared_agents_root_id: &mut Option<i64>| {
             if shared_agents_root_id.is_none() {
                 if let Some(store) = store_opt {
-                    let container = get_home_dir().join(".agents");
-                    let container_str = fs::canonicalize(&container)
-                        .unwrap_or(container)
-                        .to_string_lossy()
-                        .to_string();
+                    let container_str = shared_agents_dir().to_string_lossy().to_string();
                     *shared_agents_root_id = store
                         .upsert_root("engine_global", &container_str, None, ".agents", now)
                         .ok();
@@ -885,9 +909,13 @@ impl DirectoryScanner {
                             }
                         }
                     }
-                } else {
+                } else if g_path_buf.is_dir() {
                     global_has_skips = true;
                 }
+                // A config-file root (Zed, found by ~/.config/zed/settings.json
+                // because it owns no directory) is not an unreadable directory.
+                // Calling it a skip would suppress reaping for a root that has
+                // nothing to sweep, and warn about it on every scan.
 
                 // 3. Global Skills under skills/ folder
                 let skills_path = g_path_buf.join("skills");
