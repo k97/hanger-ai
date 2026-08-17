@@ -48,24 +48,29 @@ describe("brand coverage", () => {
   it("finds the registries it reads", () => {
     const ids = backendEngineIds();
     const distinct = new Set(ids.map((x) => x.id));
-    // 9 hosts + 3 agents + 5 canonical keys + 2 rule-file owners, overlapping to ~11 distinct.
-    expect(distinct.size).toBeGreaterThanOrEqual(10);
+    // 16 hosts + 11 agents + 13 canonical keys + 2 rule-file owners,
+    // overlapping to 18 distinct.
+    expect(distinct.size).toBeGreaterThanOrEqual(18);
     expect(distinct.has("windsurf")).toBe(true);
     expect(distinct.has("copilot")).toBe(true);
 
     // Per-source floor, so a source that silently under-collects (e.g. a Rust
     // struct array reformatted enough to break one of the regexes above)
-    // fails loudly here instead of hiding behind AGENT_CONFIGS' 3 ids being
-    // string-duplicates of ids HOSTS already yields. Counted directly from
-    // the Rust files, not guessed: registry.rs HOSTS has 9 McpHost entries,
-    // agents.rs AGENT_CONFIGS has 3, get_engine_key's match arms yield 5
-    // Some(...) results, and agents.rs RULE_FILE_OWNERS has 2 tuples (the
-    // filename-attributed rules engines, cursor and copilot — moved here from
-    // scanner.rs's old string-literal upsert_engine calls).
+    // fails loudly here instead of hiding behind ids the other sources also
+    // yield. Counted directly from the Rust files, not guessed: registry.rs
+    // HOSTS has 16 McpHost entries, agents.rs AGENT_CONFIGS has 11,
+    // get_engine_key's match arms yield 13 Some(...) results, and agents.rs
+    // RULE_FILE_OWNERS has 2 tuples (the filename-attributed rules engines,
+    // cursor and copilot — moved here from scanner.rs's old string-literal
+    // upsert_engine calls).
+    //
+    // These must be raised whenever a table grows. A floor left at a third of
+    // the real count is not a floor: it is four spare rows a reformat can
+    // silently drop.
     const floors: Record<string, number> = {
-      "registry.rs HOSTS": 9,
-      "agents.rs AGENT_CONFIGS": 3,
-      "scanner.rs get_engine_key": 5,
+      "registry.rs HOSTS": 16,
+      "agents.rs AGENT_CONFIGS": 11,
+      "scanner.rs get_engine_key": 13,
       "agents.rs RULE_FILE_OWNERS": 2,
     };
     for (const [source, floor] of Object.entries(floors)) {
