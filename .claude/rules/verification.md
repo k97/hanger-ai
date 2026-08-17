@@ -55,6 +55,29 @@ Nothing else is evidence.
   mirrored, which no test exercised. If the answer to "what would make this
   fail?" is "nothing", it is decoration. Plant that input, watch it fail, then
   count the green.
+- **A floor set below the real number is that failure wearing a number.**
+  `brand-coverage.test.ts` carried per-source floors of 3/9/5/2 against actual
+  counts of 11/16/13/2 — live, green, and able to sleep through a fourfold
+  collapse in what it collected. A threshold guards only at the value it is
+  set to; when the thing it counts grows, the floor moves with it or it stops
+  being a control.
+- **A ruling recorded is not a ruling executed.** Those floors were stale
+  because a preflight ruling committed to raising them at a later task, and
+  nothing red ever signalled that it had not happened. Intent in a plan or a
+  ledger carries no enforcement. A decision that must survive needs a control,
+  not a note.
+- **Moving a symbol can disarm a guard that reads it as text.** Several guards
+  here scan source for an anchor — `block(scanner, "pub const AGENT_CONFIGS")`
+  — and throw when it moves file. Before relocating a const, type or function,
+  grep the guards for its name. Repointing is trivial; discovering it from a
+  red gate two commits later is not, and repointing it at *less* than it read
+  before is how the guard quietly stops guarding.
+- **A missing file is a claim about your working directory first.** A relative
+  path resolves against wherever the last `cd` left the shell, not the repo
+  root. This session read three such failures as a destructive clean having
+  wiped the spec, plan and ledger, and reported that to Karthik before checking
+  `pwd`. Nothing had been deleted. Use absolute paths, or `cd` to the root in
+  the same command.
 - A control that fails to fire is a finding about the detector and is
   reported. Replacing it with one that fires, without disclosure, is
   fabricated evidence.
