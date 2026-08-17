@@ -111,15 +111,28 @@ fn env_keys_json(entry: &serde_json::Value) -> Vec<String> {
         .unwrap_or_default()
 }
 
+/// One JSON value as a launch token, or `None` when it has no honest text.
+///
+/// A number or a boolean gets its JSON text. `"--port", 8080` is the natural
+/// thing to write and there is exactly one string it means, so dropping it —
+/// which a bare `as_str()` filter does — reports a launch that is not the one
+/// on disk, and says nothing about having done so. An object, an array or a
+/// null is a different matter: there is no token they stand for, and inventing
+/// one would be the same lie in the other direction.
+fn command_token(value: &serde_json::Value) -> Option<String> {
+    match value {
+        serde_json::Value::String(s) => Some(s.clone()),
+        serde_json::Value::Number(n) => Some(n.to_string()),
+        serde_json::Value::Bool(b) => Some(b.to_string()),
+        _ => None,
+    }
+}
+
 fn args_json(entry: &serde_json::Value) -> Vec<String> {
     entry
         .get("args")
         .and_then(|v| v.as_array())
-        .map(|a| {
-            a.iter()
-                .filter_map(|x| x.as_str().map(str::to_string))
-                .collect()
-        })
+        .map(|a| a.iter().filter_map(command_token).collect())
         .unwrap_or_default()
 }
 
@@ -271,40 +284,84 @@ fn parse_json_map(body: &str, key: &str) -> Result<Vec<McpServer>, String> {
 /// `server_from_json` never has to know a second shape exists — it stays the
 /// one function `McpServers`, `VsCodeServers`, `ZedContextServers`,
 /// `ClaudeJson` and `AmpSettingsKey` also rely on, unwidened.
-fn normalise_opencode_command(entry: &serde_json::Value) -> serde_json::Value {
+/// An entry whose `command` array cannot be read is an error, never a
+/// pass-through. Returning the entry unchanged put it straight back into the
+/// empty-command path this function exists to close — a server in the
+/// inventory with nothing to run and no word about why. `dialect::parse`'s
+/// `Err` becomes a `ConfigProblemKind::Unparseable` the panel shows, which is
+/// the whole difference between a stated gap and a silent one.
+fn normalise_opencode_command(
+    name: &str,
+    entry: &serde_json::Value,
+) -> Result<serde_json::Value, String> {
     let Some(parts) = entry.get("command").and_then(|v| v.as_array()) else {
         // Not array-shaped — a remote server's `url`-only entry, or already
         // the string form. Nothing to normalise.
-        return entry.clone();
+        return Ok(entry.clone());
     };
-    let mut strings = parts.iter().filter_map(|v| v.as_str());
-    let Some(command) = strings.next() else {
-        return entry.clone();
+
+    let mut tokens = Vec::with_capacity(parts.len());
+    for part in parts {
+        match command_token(part) {
+            Some(token) => tokens.push(token),
+            None => {
+                return Err(format!(
+                    "server \"{name}\": `command` holds a {} where a launch token belongs",
+                    match part {
+                        serde_json::Value::Null => "null",
+                        serde_json::Value::Array(_) => "nested array",
+                        _ => "nested object",
+                    }
+                ))
+            }
+        }
+    }
+    let Some((command, rest)) = tokens.split_first() else {
+        return Err(format!(
+            "server \"{name}\": `command` is an empty array, so there is nothing to launch"
+        ));
     };
-    let args: Vec<serde_json::Value> =
-        strings.map(|s| serde_json::Value::String(s.to_string())).collect();
 
     let mut normalised = entry.clone();
     if let Some(obj) = normalised.as_object_mut() {
-        obj.insert("command".to_string(), serde_json::Value::String(command.to_string()));
+        obj.insert(
+            "command".to_string(),
+            serde_json::Value::String(command.clone()),
+        );
+        // Merge, never clobber. `{"command": ["docker"], "args": ["run", "-i",
+        // "img"]}` is an ordinary shape, and overwriting `args` with the tail
+        // of the command array threw the declared launch away outright. The
+        // command array's own tail leads, because that is the order the two
+        // sit in on the line the user meant to write.
+        let declared: Vec<serde_json::Value> = obj
+            .get("args")
+            .and_then(|v| v.as_array())
+            .map(|a| a.to_vec())
+            .unwrap_or_default();
+        let mut args: Vec<serde_json::Value> = rest
+            .iter()
+            .map(|s| serde_json::Value::String(s.clone()))
+            .collect();
+        args.extend(declared);
         obj.insert("args".to_string(), serde_json::Value::Array(args));
     }
-    normalised
+    Ok(normalised)
 }
 
 /// OpenCode's `mcp` key, with array-shaped `command` normalised first.
 fn parse_opencode_mcp(body: &str) -> Result<Vec<McpServer>, String> {
     let root: serde_json::Value = serde_json::from_str(&strip_jsonc(body))
         .map_err(|e| format!("Failed to parse JSON: {}", e))?;
-    let servers = root
-        .get("mcp")
-        .and_then(|v| v.as_object())
-        .map(|m| {
-            m.iter()
-                .map(|(name, entry)| server_from_json(name, &normalise_opencode_command(entry)))
-                .collect()
-        })
-        .unwrap_or_default();
+    let Some(entries) = root.get("mcp").and_then(|v| v.as_object()) else {
+        return Ok(Vec::new());
+    };
+    let mut servers = Vec::with_capacity(entries.len());
+    for (name, entry) in entries {
+        servers.push(server_from_json(
+            name,
+            &normalise_opencode_command(name, entry)?,
+        ));
+    }
     Ok(servers)
 }
 

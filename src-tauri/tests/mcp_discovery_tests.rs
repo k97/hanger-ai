@@ -402,6 +402,89 @@ fn opencode_single_element_array_command_has_no_args() {
 }
 
 #[test]
+fn opencode_declared_args_survive_an_array_command() {
+    // The clobber. `{"command": ["docker"], "args": [...]}` is an ordinary
+    // shape, and an unconditional `insert("args", …)` replaced the declared
+    // launch with the (empty) tail of the command array — leaving `docker`
+    // alone in the inventory, which starts nothing.
+    let json = r#"{
+      "mcp": {
+        "boxed": { "type": "local", "command": ["docker"], "args": ["run", "-i", "img"] }
+      }
+    }"#;
+    let servers = dialect::parse(json, Dialect::OpenCodeMcp, ScopeTier::Global).expect("must parse");
+    assert_eq!(servers[0].command, "docker");
+    assert_eq!(servers[0].args, vec!["run", "-i", "img"]);
+}
+
+#[test]
+fn opencode_merges_both_halves_of_a_split_launch_and_drops_neither() {
+    // Both sources populated. Neither may be discarded, and the command
+    // array's own tail comes first: that is the order the tokens sit in.
+    let json = r#"{
+      "mcp": {
+        "split": { "type": "local", "command": ["a", "b"], "args": ["c"] }
+      }
+    }"#;
+    let servers = dialect::parse(json, Dialect::OpenCodeMcp, ScopeTier::Global).expect("must parse");
+    assert_eq!(servers[0].command, "a");
+    assert_eq!(servers[0].args, vec!["b", "c"]);
+}
+
+#[test]
+fn opencode_keeps_an_unquoted_number_in_the_launch() {
+    // `--port 8080` is the natural thing to write, and a filter that kept
+    // only strings dropped the port — showing a launch that is not the one on
+    // disk, with nothing said about the difference. There is exactly one text
+    // 8080 means, so it is carried rather than guessed at.
+    let json = r#"{
+      "mcp": {
+        "served": { "type": "local", "command": ["node", "server.js", "--port", 8080] }
+      }
+    }"#;
+    let servers = dialect::parse(json, Dialect::OpenCodeMcp, ScopeTier::Global).expect("must parse");
+    assert_eq!(servers[0].command, "node");
+    assert_eq!(servers[0].args, vec!["server.js", "--port", "8080"]);
+}
+
+#[test]
+fn an_unquoted_number_survives_a_plain_args_array_too() {
+    // The same drop lived in `args_json`, which every dialect reads through.
+    // Fixing only the OpenCode side would have moved the defect one key over.
+    let json = r#"{ "mcpServers": { "served": { "command": "node", "args": ["--port", 8080] } } }"#;
+    let servers = dialect::parse(json, Dialect::McpServers, ScopeTier::Global).expect("must parse");
+    assert_eq!(servers[0].args, vec!["--port", "8080"]);
+}
+
+#[test]
+fn an_unreadable_opencode_command_is_stated_not_swallowed() {
+    // Both of these previously returned the entry untouched, straight into
+    // the empty-command path the normaliser exists to close: a server present
+    // in the inventory with nothing to run and no diagnostic anywhere.
+    for (json, why) in [
+        (
+            r#"{ "mcp": { "empty": { "type": "local", "command": [] } } }"#,
+            "an empty command array declares no launch",
+        ),
+        (
+            r#"{ "mcp": { "nested": { "type": "local", "command": [{ "path": "x" }] } } }"#,
+            "an object has no launch-token form",
+        ),
+        (
+            r#"{ "mcp": { "nulled": { "type": "local", "command": ["node", null] } } }"#,
+            "neither does a null",
+        ),
+    ] {
+        let err = dialect::parse(json, Dialect::OpenCodeMcp, ScopeTier::Global)
+            .expect_err(why);
+        assert!(
+            err.contains("command"),
+            "the error must name what it could not read, got: {err}"
+        );
+    }
+}
+
+#[test]
 fn opencode_remote_type_is_unaffected_by_command_normalisation() {
     let json = r#"{
       "mcp": {
