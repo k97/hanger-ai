@@ -186,6 +186,65 @@ fn the_header_fix_does_not_let_a_secret_shaped_path_arm_the_capture() {
     assert_eq!(out, "/opt/token-service/run --api-key <redacted>");
 }
 
+// Two more shapes, found by a final whole-branch review after 140e119 closed
+// the header-flag leak above — recorded in docs/roadmap.md until now.
+
+#[test]
+fn a_header_value_that_starts_with_a_dash_is_not_mistaken_for_a_new_flag() {
+    // Base64url tokens can begin with `-`. The old exit test — any word
+    // starting with `-` — left header mode at the value itself and pushed it
+    // verbatim. Exiting only on a word that starts with `--` and does not
+    // look secret keeps a single-dash value in header mode regardless of what
+    // it contains.
+    let out = observe::redact("--header X-Session: -abc123secretxyz");
+    assert!(
+        !out.contains("abc123secretxyz"),
+        "header value survived: {}",
+        out
+    );
+    assert_eq!(out, "--header X-Session: <redacted>");
+}
+
+#[test]
+fn a_secret_flag_immediately_before_a_header_flag_does_not_eat_the_bearer_token() {
+    // `--api-key` armed a pending-value capture; `--header` was consumed as
+    // that "value" and redacted; header mode never armed; the real token fell
+    // through untouched. The fix: when the token consumed in pending position
+    // is itself a header flag, enter header mode instead of merely re-arming
+    // pending, the same way a token that is itself secret-shaped re-arms.
+    let out = observe::redact("--api-key --header Authorization: Bearer REDACT_ME_1");
+    assert!(
+        !out.contains("REDACT_ME_1"),
+        "bearer token survived: {}",
+        out
+    );
+    assert_eq!(
+        out,
+        "--api-key <redacted> Authorization: <redacted> <redacted>"
+    );
+}
+
+#[test]
+fn a_secret_shaped_flag_after_a_header_value_stays_redacted_over_redaction_accepted() {
+    // The obvious fix for the first leak — exit header mode on any word that
+    // is flag-shaped and not secret-looking — still fails: `--api-key` IS
+    // secret-looking (contains "key"), so it would stay in header mode either
+    // way. Pinning that directly: a secret-shaped flag encountered while
+    // still in header mode is treated as more header content and redacted,
+    // rather than risked as a new flag. Losing "--api-key" as a readable flag
+    // name costs less than losing a credential.
+    let out = observe::redact("--header Authorization: Bearer REDACT_ME_1 --api-key value");
+    assert!(
+        !out.contains("REDACT_ME_1"),
+        "bearer token survived: {}",
+        out
+    );
+    assert_eq!(
+        out,
+        "--header Authorization: <redacted> <redacted> <redacted> <redacted>"
+    );
+}
+
 #[test]
 fn a_command_line_with_no_secrets_is_byte_identical() {
     let line = "node /Applications/Spades Audio.app/Contents/Resources/mcp-server/dist/index.js --client-type=persistent";

@@ -52,6 +52,19 @@ pub struct RunningProcess {
 /// only when a word held BOTH `://` AND `@`, so a query-string credential
 /// with no userinfo survived. It now delegates to `dialect::sanitise_url`
 /// instead of hand-rolling a third copy of URL sanitising.
+///
+/// Fourth and fifth, found by a final whole-branch review after the third fix
+/// landed (`140e119`): header mode exited on any word starting with a single
+/// `-`, so a base64url header value beginning with `-` (`-abc123secretxyz`)
+/// left header mode at the value itself and leaked it. It now exits only on a
+/// word starting with `--` that does not look secret — gating on
+/// "flag-shaped and not secret" alone still fails, since a leaking value can
+/// itself contain a secret word. And a secret flag with no value immediately
+/// followed by a header flag (`--api-key --header Authorization: Bearer …`)
+/// consumed `--header` as the api-key's redacted "value" and never armed
+/// header mode, leaking the token that followed; the pending-value branch now
+/// checks whether the token it just redacted was itself a header flag and
+/// arms header mode if so, rather than only re-arming pending.
 pub fn redact(command_line: &str) -> String {
     let mut out: Vec<String> = Vec::new();
     let mut pending = false;
@@ -62,10 +75,19 @@ pub fn redact(command_line: &str) -> String {
 
     for word in command_line.split_whitespace() {
         if header_mode {
-            if word.starts_with('-') {
+            if word.starts_with("--") && !looks_secret(word) {
                 // The header value has no length known in advance; it ends
-                // only when a new flag begins. Leave header mode and fall
-                // through to the ordinary branches below for this word —
+                // only when a new flag begins. Testing merely
+                // `word.starts_with('-')` let a base64url token that itself
+                // begins with a single dash (`-abc123secretxyz`) exit header
+                // mode and leak. Testing "flag-shaped and not secret" instead
+                // of "starts with a single dash" also fails on its own,
+                // because that same value contains "secret" and would still
+                // read as flag-shaped-and-secret. `--` plus not-secret is the
+                // shape only a genuine next flag reliably has; a secret-shaped
+                // `--` flag (`--api-key`) stays in header mode and is
+                // redacted, over-redaction accepted. Leave header mode and
+                // fall through to the ordinary branches below for this word —
                 // it is not more header content.
                 header_mode = false;
             } else if word.ends_with(':') {
@@ -84,11 +106,23 @@ pub fn redact(command_line: &str) -> String {
             // Invariant, mirrored from `redact_launch`: a token in a
             // pending-value position is never emitted verbatim. Redact it
             // unconditionally, then re-arm if this same token could itself
-            // start a fresh capture (it is flag-shaped and secret-looking),
-            // so the token after it is redacted too. Never fall through to
-            // the flag-detection logic below for a token consumed here.
+            // start a fresh capture, so the token after it is redacted too.
+            // Never fall through to the flag-detection logic below for a
+            // token consumed here.
             out.push("<redacted>".to_string());
-            pending = word.starts_with('-') && looks_secret(word);
+            if HEADER_FLAGS.contains(&word) {
+                // The token consumed here was itself a header flag
+                // (`--api-key --header Authorization: Bearer …`): `--header`
+                // got redacted as `--api-key`'s "value", and without this,
+                // header mode never arms and the bearer token that follows
+                // falls through untouched. Enter header mode instead of
+                // merely re-arming pending, mirroring the secret-looking
+                // re-arm below.
+                header_mode = true;
+                pending = false;
+            } else {
+                pending = word.starts_with('-') && looks_secret(word);
+            }
             continue;
         }
 
