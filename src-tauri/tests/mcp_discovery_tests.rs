@@ -556,6 +556,26 @@ fn unknown_engine_ids_are_not_silently_filed_under_gemini() {
 }
 
 #[test]
+fn every_agent_config_id_resolves_to_an_engine_key() {
+    // `scanner.rs` calls `.expect("every AGENT_CONFIGS id must have an engine
+    // key")` twice, on the scan thread, and nothing pinned the claim. The
+    // neighbouring agreement test looks like it does and does not: its
+    // assertion sits inside `if let Some(...)`, so a missing key skips the
+    // body and the test passes.
+    //
+    // The design's headline promise is that an agent is one declarative table
+    // row. A contributor who believes it adds a row, sees green here, and
+    // ships a scan that panics the moment that agent is installed.
+    for config in tauri_app_lib::agents::AGENT_CONFIGS {
+        assert!(
+            tauri_app_lib::scanner::get_engine_key(config.id).is_some(),
+            "AGENT_CONFIGS row \"{}\" has no arm in get_engine_key — the scan thread will panic on any machine with it installed",
+            config.id
+        );
+    }
+}
+
+#[test]
 fn scanner_and_registry_agree_on_every_engine_key_they_both_know() {
     // scanner::get_engine_key covers every engine Hanger records, including
     // rules-only ones like copilot that declare no MCP servers. The MCP
