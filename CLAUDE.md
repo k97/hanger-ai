@@ -52,6 +52,9 @@ in `src/App.tsx`, persisted as the `selected_sidebar_item` preference.
   touching counting, scan warnings, or diagnostics UI; the DisclosureBanner
   rule.
 
+Queued work with a defined finish line lives in [docs/TODO.md](docs/TODO.md);
+two entries there are waiting on the concurrent sessions to end.
+
 ## Verification
 
 These four are the pinned gates. Run exactly these, from the repo root; a
