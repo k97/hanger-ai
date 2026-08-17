@@ -44,6 +44,28 @@ pub struct AgentConfig {
     pub detect_files: &'static [&'static str],
 }
 
+/// Every engine Hanger knows how to read, whether or not it has a folder on
+/// this machine. `scanner::get_global_agents` is this list filtered by
+/// existence; this one is unfiltered.
+///
+/// The Global empty state names these ("Hanger looks in your home directory
+/// for the folders ... keep there"). That sentence listed three engines by
+/// hand and went stale the moment `AGENT_CONFIGS` grew past them, so the copy
+/// reads this instead and the table below stays the only place the roster is
+/// written down. `global_config_path` is None by construction: nothing here
+/// was found, these are the ones being looked for.
+pub fn known_engines() -> Vec<crate::domain::Agent> {
+    AGENT_CONFIGS
+        .iter()
+        .map(|config| crate::domain::Agent {
+            id: config.id.to_string(),
+            name: config.name.to_string(),
+            global_config_path: None,
+            project_footprints: Vec::new(),
+        })
+        .collect()
+}
+
 pub const AGENT_CONFIGS: &[AgentConfig] = &[
     AgentConfig {
         id: "claude-code",

@@ -224,6 +224,10 @@ export default function App() {
   const [inventory, setInventory] = useState<Inventory | null>(null);
   const [assetCounts, setAssetCounts] = useState<CategoryCounts | null>(null);
   const [detectedEngines, setDetectedEngines] = useState<{ id: string; name: string }[]>([]);
+  // The engines Hanger looks FOR, unfiltered by what is installed. Only the
+  // Global empty state uses it, to name them without restating the backend's
+  // table in a string literal.
+  const [knownEngines, setKnownEngines] = useState<{ id: string; name: string }[]>([]);
   const [repoAssetCountsMap, setRepoAssetCountsMap] = useState<Record<string, CategoryCounts>>({});
   const [loading, setLoading] = useState(false);
   const [scanning, setScanning] = useState(false);
@@ -534,6 +538,9 @@ export default function App() {
     try {
       invoke<{ id: string; name: string }[]>("get_detected_engines")
         .then((engines) => setDetectedEngines(Array.isArray(engines) ? engines : []))
+        .catch(() => {});
+      invoke<{ id: string; name: string }[]>("get_known_engines")
+        .then((engines) => setKnownEngines(Array.isArray(engines) ? engines : []))
         .catch(() => {});
       const onboarding = await invoke<string | null>("get_preference", { key: "onboarding_complete" });
       const crash = await invoke<string | null>("get_preference", { key: "consent_crash" });
@@ -1226,6 +1233,7 @@ export default function App() {
               onStateFilterChange={setStateFilter}
               scannedAt={lastScanAt}
               detectedEngines={detectedEngines}
+              knownEngines={knownEngines}
               onRescan={triggerScan}
               sortField={sortField}
               sortDirection={sortDirection}

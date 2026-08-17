@@ -38,6 +38,10 @@ interface ProfilePaneProps {
    *  `assetCounts.engines` is derived from asset rows and is empty whenever
    *  the store is, so it cannot tell the two apart. */
   detectedEngines?: { id: string; name: string }[];
+  /** Every engine Hanger looks for, installed or not (`get_known_engines`).
+   *  The no-folders empty state names them. It named three in a string
+   *  literal and went stale the day the backend's table grew to eight. */
+  knownEngines?: { id: string; name: string }[];
   onRescan?: () => void;
   sortField?: SortField;
   sortDirection?: SortDirection;
@@ -67,6 +71,7 @@ export default function ProfilePane({
   onStateFilterChange,
   scannedAt = null,
   detectedEngines,
+  knownEngines,
   onRescan,
   sortField: propSortField,
   sortDirection: propSortDirection,
@@ -155,6 +160,9 @@ export default function ProfilePane({
   // Boolean only: whether any engine home folder exists, never a count.
   const engineNames = (detectedEngines ?? []).map((e) => e.name);
   const enginesDetected = engineNames.length > 0;
+  // Named in the no-folders line. If the backend has not answered yet the
+  // sentence drops the list rather than naming a stale roster or an empty one.
+  const knownEngineNames = (knownEngines ?? []).map((e) => e.name);
 
   // Use the testable filter predicate utility
   const {
@@ -429,14 +437,15 @@ export default function ProfilePane({
               </span>
             </>
           ) : (
-            /* None of ~/.claude, ~/.config/claude, ~/.codex or ~/.gemini
-               exists (scanner::get_global_agents). The three names are the
-               engines Hanger reads today; revisit when more are added. */
+            /* No engine has a folder in the home directory
+               (scanner::get_global_agents found none). The roster comes from
+               the backend, so adding an engine updates this sentence. */
             <>
               <span className="text-base-app font-medium text-ink-1">No engine folders on this machine yet</span>
               <span className="text-small text-ink-3 max-w-sm mt-1">
-                Hanger looks in your home directory for the folders Claude Code, Codex and Gemini keep
-                there, and found none. Run one of them once, then rescan.
+                {knownEngineNames.length > 0
+                  ? `Hanger looks in your home directory for the folders ${joinNames(knownEngineNames)} keep there, and found none. Run one of them once, then rescan.`
+                  : "Hanger looks in your home directory for the folders coding agents keep there, and found none. Run one once, then rescan."}
               </span>
             </>
           )}

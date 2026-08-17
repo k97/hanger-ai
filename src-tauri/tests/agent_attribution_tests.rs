@@ -431,6 +431,41 @@ fn kiro_subagent_ownership_requires_the_agents_dir_directly_under_the_root() {
     );
 }
 
+/// The Global empty state names the engines Hanger looks for. It used to name
+/// three of them in a string literal, which went stale silently when the table
+/// grew to eight. The copy now renders whatever this returns, so the only way
+/// it can go stale again is if this stops matching the table.
+#[test]
+fn known_engines_is_the_whole_table_and_claims_nothing_is_installed() {
+    let known = tauri_app_lib::agents::known_engines();
+
+    assert_eq!(
+        known.len(),
+        AGENT_CONFIGS.len(),
+        "every configured engine must be offered to the empty state"
+    );
+
+    for config in AGENT_CONFIGS {
+        let entry = known
+            .iter()
+            .find(|a| a.id == config.id)
+            .unwrap_or_else(|| panic!("engine {} missing from known_engines()", config.id));
+        assert_eq!(entry.name, config.name, "display name must come from the table");
+        assert!(
+            !entry.name.trim().is_empty(),
+            "engine {} has no name to put in a sentence",
+            config.id
+        );
+        // Unfiltered by design: these are the engines being looked FOR, so
+        // claiming a path here would assert a folder that does not exist.
+        assert!(
+            entry.global_config_path.is_none(),
+            "known_engines() must not claim an installed path for {}",
+            config.id
+        );
+    }
+}
+
 #[test]
 fn roo_and_kilo_do_not_share_directories() {
     // Kilo Code forked Roo Code but rebuilt its config. An implementation that
