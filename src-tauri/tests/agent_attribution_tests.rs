@@ -141,11 +141,52 @@ fn deploy_prefers_an_explicit_linked_dir_over_the_table() {
 }
 
 #[test]
-fn deploy_refuses_a_shared_convention_source() {
-    // `.agents/` has no owner, so there is no agent directory to deploy into.
-    let err = resolve_target_path("/Users/test/.agents/skills/demo/SKILL.md", "/repo/proj", &[])
-        .expect_err("a store-owned source has no single agent target");
-    assert!(format!("{err:?}").contains("no agent"));
+fn deploy_sends_a_shared_convention_source_to_the_projects_own_shared_dir() {
+    // `.agents/` has no owner (spec §4.4), and this test used to read that as
+    // "so there is nowhere to put it" — which made every asset in ~/.agents
+    // undeployable, with no workaround, since ~/.agents is a protected root
+    // and can never be a linked directory either. Nobody owning a file is not
+    // nobody being able to hold it: the destination is the destination
+    // project's own shared directory, at the same relative place.
+    let nested = resolve_target_path("/Users/test/.agents/skills/demo/SKILL.md", "/repo/proj", &[])
+        .expect("a store-owned source deploys into the project's shared directory");
+    assert_eq!(
+        nested,
+        Path::new("/repo/proj/.agents/skills/demo/SKILL.md"),
+        "the directories between .agents/ and the file are part of where the asset lives"
+    );
+
+    let flat = resolve_target_path("/Users/test/.agents/reviewer.md", "/repo/proj", &[])
+        .expect("a bare shared subagent deploys too");
+    assert_eq!(flat, Path::new("/repo/proj/.agents/reviewer.md"));
+
+    // A project-scoped shared source lands in the same place: the store is
+    // the store wherever it is rooted.
+    let from_project =
+        resolve_target_path("/repo/other/.agents/skills/demo/SKILL.md", "/repo/proj", &[])
+            .expect("a project's shared directory is still the shared store");
+    assert_eq!(from_project, Path::new("/repo/proj/.agents/skills/demo/SKILL.md"));
+
+    // And none of this weakens ownership, which is the trap: the same path
+    // still has no owner.
+    assert!(
+        engine_for_path(Path::new("/Users/test/.agents/skills/demo/SKILL.md")).is_none(),
+        "a deployable destination must not become an ownership claim"
+    );
+}
+
+#[test]
+fn deploy_still_refuses_a_lookalike_of_the_shared_directory() {
+    // Whole-component matching, never a substring: `contains(".agents")`
+    // would claim a backup folder and write into a project's real store.
+    for src in [
+        "/Users/test/my.agents-backup/skills/demo/SKILL.md",
+        "/Users/test/.agents-old/reviewer.md",
+    ] {
+        let err = resolve_target_path(src, "/repo/proj", &[])
+            .expect_err("a lookalike directory is not the shared store");
+        assert!(format!("{err:?}").contains("no agent"), "for {src}");
+    }
 }
 
 #[test]

@@ -496,11 +496,20 @@ pub struct PreflightResult {
 
 /// Where a deployed asset lands in the target project.
 ///
-/// Returns `Err` when no agent claims the source. The prior version fell
+/// Returns `Err` when nothing claims the source. The prior version fell
 /// through to `tgt_project.join(filename)`, writing the asset into the
 /// project root — a silent wrong write on a stranger's disk. Per-agent
 /// directories come from `agents::AGENT_CONFIGS`, the same table the read
 /// side uses; there is no second source of truth.
+///
+/// Three answers, in order: an explicitly linked directory, the shared
+/// `.agents/` store, then the owning agent's own directory. The middle one is
+/// not an ownership answer — `engine_for_path` returns `None` for `.agents/`
+/// paths and must keep doing so (spec §4.4) — it is a *destination* answer to
+/// a different question. Without it every asset in `~/.agents` is
+/// undeployable with no workaround, because `~/.agents` is a protected root
+/// and so can never appear in `linked_dirs` either
+/// (`scanner::protected_roots`).
 fn resolve_target_path(
     source_path: &str,
     target_project_path: &str,
@@ -513,6 +522,12 @@ fn resolve_target_path(
         if let Ok(rel) = src.strip_prefix(dir) {
             return Ok(tgt_project.join(rel));
         }
+    }
+
+    if let Some(below) = crate::agents::shared_agents_subpath(src) {
+        return Ok(tgt_project
+            .join(crate::agents::SHARED_AGENTS_DIR)
+            .join(below));
     }
 
     let filename = src

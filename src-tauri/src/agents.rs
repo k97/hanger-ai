@@ -278,6 +278,35 @@ pub fn agents_reading_shared_dir() -> Vec<&'static AgentConfig> {
     AGENT_CONFIGS.iter().filter(|c| c.reads_agents_dir).collect()
 }
 
+/// Whether this path sits inside the shared `.agents/` store, and if so where
+/// inside it — the path below the `.agents` component.
+///
+/// Ownership and destination are different questions. `engine_for_path`
+/// answers "who owns this" with `None` here, correctly (spec §4.4); that is
+/// not the same as "there is nowhere to put this". A store asset's
+/// destination is the *destination project's own* shared directory, at the
+/// same relative place, which is what this returns the tail for.
+///
+/// Intermediate directories are preserved deliberately: a skill at
+/// `~/.agents/skills/foo/SKILL.md` belongs at
+/// `<proj>/.agents/skills/foo/SKILL.md`, and flattening it to
+/// `<proj>/.agents/SKILL.md` would put a skill body where no agent looks for
+/// one. Whole-component matching, never a substring: `contains(".agents")`
+/// also matches `~/my.agents-backup`.
+///
+/// The *first* `.agents` component wins. A nested second one is part of the
+/// asset's own layout and travels with it rather than re-rooting the answer.
+pub fn shared_agents_subpath(path: &Path) -> Option<std::path::PathBuf> {
+    let comps = components(path);
+    let at = comps.iter().position(|c| *c == SHARED_AGENTS_DIR)?;
+    let below = &comps[at + 1..];
+    if below.is_empty() {
+        // The container itself, not an asset in it. Nothing to deploy.
+        return None;
+    }
+    Some(below.iter().copied().collect())
+}
+
 /// Look up a config by id.
 pub fn config_for_id(id: &str) -> Option<&'static AgentConfig> {
     AGENT_CONFIGS.iter().find(|c| c.id == id)
