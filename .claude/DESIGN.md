@@ -299,11 +299,32 @@ ellipsis chip (`EngineReachTiles.tsx:37-38`), ordered reached-first
 the count is arithmetic, not taste: a slot is 16px on a `gap-1`, making N
 marks `20N − 4`. Four measure 76px; three plus the chip measure 84px; seven
 measured 133px in the running window and painted 21px over the Beyond the
-store column, hiding the project count there. The chip carries `…` in
-`text-ink-3` behind a `border-line` ring — the unreached slot's ring, not
-dimmed, because it signals "more" rather than absence — and has no click
-handler: the row's own click already opens the inspector, which lists every
-engine with its verdict (`AssetDetail.tsx`, the `reach-detail` section).
+store column, hiding the project count there. The chip sits behind a
+`border-line` ring — the unreached slot's ring, not dimmed, because it signals
+"more" rather than absence — and has no click handler: the row's own click
+already opens the inspector, which answers for every engine
+(`AssetDetail.tsx`, the `reach-detail` section). Its three dots are drawn as
+`w-0.5` spans (`EngineReachTiles.tsx:108-114`), not the `…` character: that
+glyph sits on the baseline and renders low in a 16px slot however its line box
+is centred, and correcting it would mean an offset tuned to one font's
+metrics.
+The inspector's Reach card groups by verdict rather than listing sentences.
+`REACH_GROUPS` (`AssetDetail.tsx:78-82`) is the reading order — "Reaches it",
+then "Root not linked", then "Another engine's format" — and a group with no
+members is dropped (`:154-157`), so the card never heads an empty list.
+`annotations.rs` emits only those two reasons, so three groups is the ceiling.
+
+The point of grouping is that a reason is stated once, on its heading, leaving
+the rows to carry identity and a root. "Another engine's format" names a cause
+rather than a failure: that reason fires when the asset belongs to a different
+engine, so nothing is missing. The store is named once in the cap
+(`:284`) and is safe by construction — `via_store` is keyed off the asset's
+own root, so every reached engine reports the same value. Roots are folded to
+`~` by `abbreviateHome` (`prose.ts`), because an absolute home is 29
+characters against roughly 24 the column holds at 11px mono. An engine that
+reaches the store with no link reads "in place"; a miss carries a dash, since
+its heading has already said why. Labels signed off 2026-08-17.
+
 A reached engine can sit behind the chip when more than three reach one asset;
 `docs/findings.md` F50 records that and F49 the two marks that do not read as
 logos at this size.
@@ -549,8 +570,8 @@ TypeScript is forbidden (dispatch item 8).
 tile per engine from the backend's reach list, filled when the engine reads
 the asset through its linked root. Each tile carries the engine's own mark
 (`BrandIcon`), the generic mark for one the map cannot draw. Capped at four,
-or three plus an ellipsis chip above that, reached-first; the full list with
-verdicts is the inspector's `reach-detail` section (`AssetDetail.tsx`).
+or three plus an ellipsis chip above that, reached-first; every engine is
+answered for in the inspector's `reach-detail` section (`AssetDetail.tsx`).
 
 **`BrandSprite`** (`BrandSprite.tsx:25-35`) — the hidden `<svg>` of
 `<symbol>`s, mounted once in `main.tsx:19` (import `:7`); `SPRITE` is built
