@@ -70,6 +70,55 @@ describe("EngineReachTiles", () => {
     expect(off.className).toContain("opacity-40");
   });
 
+  // Seven engines is what a real machine reported on 2026-08-17, and seven
+  // tiles are 133px inside a 100px cell that clips nothing — measured in the
+  // running window, where the last two marks painted over the Beyond-the-store
+  // column and hid the project count. The reached engines are declared THIRD
+  // through FIFTH on purpose: a cap that keeps declaration order would show
+  // two non-readers and hide a reader, which is the column lying.
+  const sevenEngines: EngineReachInfo[] = [
+    { engine_id: 1, engine_key: "codex", engine_name: "Codex", reached: false, reason: "root_not_linked" },
+    { engine_id: 2, engine_key: "vscode", engine_name: "VS Code", reached: false, reason: "format" },
+    { engine_id: 3, engine_key: "claude_code", engine_name: "Claude Code", reached: true },
+    { engine_id: 4, engine_key: "gemini", engine_name: "Gemini CLI", reached: true },
+    { engine_id: 5, engine_key: "zed", engine_name: "Zed", reached: true },
+    { engine_id: 6, engine_key: "opencode", engine_name: "OpenCode", reached: false, reason: "root_not_linked" },
+    { engine_id: 7, engine_key: "amp", engine_name: "Amp", reached: false, reason: "root_not_linked" },
+  ];
+
+  const tileKeys = (container: HTMLElement): string[] =>
+    Array.from(container.querySelectorAll('[data-testid^="reach-tile-"]')).map(
+      (t) => t.getAttribute("data-testid") ?? "",
+    );
+
+  it("caps at three marks and one chip once more than four engines arrive", () => {
+    const { container } = render(<EngineReachTiles reach={sevenEngines} />);
+    expect(tileKeys(container)).toHaveLength(3);
+    expect(screen.queryByTestId("reach-overflow")).not.toBeNull();
+  });
+
+  it("draws all four when exactly four arrive, because four still fit", () => {
+    const { container } = render(<EngineReachTiles reach={reach} />);
+    expect(tileKeys(container)).toHaveLength(4);
+    expect(screen.queryByTestId("reach-overflow")).toBeNull();
+  });
+
+  it("puts the engines that reach it first, so a cap never hides a reader", () => {
+    const { container } = render(<EngineReachTiles reach={sevenEngines} />);
+    expect(tileKeys(container)).toEqual([
+      "reach-tile-claude_code",
+      "reach-tile-gemini",
+      "reach-tile-zed",
+    ]);
+  });
+
+  it("names every engine the chip stands in for", () => {
+    render(<EngineReachTiles reach={sevenEngines} />);
+    expect(screen.getByTestId("reach-overflow").getAttribute("aria-label")).toBe(
+      "Codex, VS Code, OpenCode and Amp — the panel answers for each one",
+    );
+  });
+
   it("keeps the signed tooltip copy", () => {
     render(<EngineReachTiles reach={reach} />);
     expect(screen.getByTestId("reach-tile-claude_code").getAttribute("aria-label")).toBe(

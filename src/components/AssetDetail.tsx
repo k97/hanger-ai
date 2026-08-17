@@ -9,6 +9,9 @@ import type { Inventory } from "../App";
 import { engineLabel, provenanceOf, sourceLabel } from "../utils/assetProvenance";
 import { scopeAgent, type Scope } from "../utils/scopeAccess";
 import EngineLabel from "./EngineLabel";
+import BrandIcon from "./BrandIcon";
+import { tileTip } from "./EngineReachTiles";
+import type { AssetAnnotationView } from "./AssetRow";
 import {
   documentKindFor,
   formatJson,
@@ -35,6 +38,11 @@ interface AssetDetailProps {
   inventory: Inventory | null;
   /** Opens the link flow on this asset. Absent for kinds that cannot deploy. */
   onLink?: () => void;
+  /** The backend's per-engine verdicts for this asset. The Reach column draws
+   *  at most three of them, so this panel is where the rest are answerable.
+   *  Null means the backend had no verdict — the section is omitted rather
+   *  than asserting an absence of engines. */
+  annotation?: AssetAnnotationView | null;
 }
 
 const btnClass =
@@ -80,7 +88,7 @@ function sizeOf(text: string): string {
  * line, the meta grid — exists to answer the questions the document itself
  * cannot: where the file sits and what else on the machine depends on it.
  */
-export default function AssetDetail({ asset, inventory, onLink }: AssetDetailProps) {
+export default function AssetDetail({ asset, inventory, onLink, annotation }: AssetDetailProps) {
   const [tab, setTab] = useState<"preview" | "source">("preview");
   const [text, setText] = useState<string | null>(null);
   // What the backend actually read. A skill's own path is the folder that
@@ -223,6 +231,42 @@ export default function AssetDetail({ asset, inventory, onLink }: AssetDetailPro
             </div>
           ))}
         </dl>
+
+        {/* Every engine, because the row can only draw three. The Reach column
+            caps its marks to keep them inside a 100px cell, so an engine past
+            the third is answerable nowhere else. Each line reuses the row's own
+            verdict string rather than restating it: one backend answer phrased
+            two ways is how a row and its panel start disagreeing. Reached
+            engines wear their mark plainly, unreached ones the dimmed ring —
+            the same treatment as the column, so the two read as one idea. */}
+        {annotation && annotation.reach.length > 0 && (
+          <section
+            data-testid="reach-detail"
+            className="mx-[18px] mb-3.5 px-3.5 py-3 bg-plane rounded-plane flex flex-col gap-2.5"
+          >
+            <span className="font-flex text-micro font-medium uppercase tracking-[.06em] text-ink-3">
+              Reach
+            </span>
+            <ul className="flex flex-col gap-2">
+              {annotation.reach.map((r) => (
+                <li
+                  key={r.engine_id}
+                  data-testid={`reach-detail-${r.engine_key}`}
+                  className="flex items-center gap-2 text-small"
+                >
+                  <i
+                    className={`w-4 h-4 rounded-[6px] grid place-items-center shrink-0 not-italic ${
+                      r.reached ? "" : "border border-line opacity-40"
+                    }`}
+                  >
+                    <BrandIcon engineKey={r.engine_key} engineName={r.engine_name} size={12} />
+                  </i>
+                  <span className="text-ink-1">{tileTip(r)}</span>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
 
         {showsTabs && (
           <>
