@@ -38,3 +38,17 @@ MCP detector's stage 1.
   different URLs read as agreeing. `sanitise_url` also drops the entire query
   string, so `?region=eu` versus `?region=us` compares equal. Both predate this
   work; the fix belongs with a launch normaliser that compares transport too.
+- **Two residual credential shapes the process-side redactor still misses.**
+  `mcp::observe::redact` works from a flat command line recovered from the
+  process table, so it cannot see argument boundaries the way its config-side
+  sibling can. Two shapes survive it, both found by review and both predating
+  the header fix in `140e119`. First: a header *value* that itself begins with
+  `-` — plausible, since base64url tokens can — exits header mode and is pushed
+  verbatim, as in `--header X-Api-Key: -abc123secret`. Second: a secret flag
+  with no value immediately followed by a header flag, as in
+  `--api-key --header Authorization: Bearer <token>`; the `--header` word is
+  consumed as the api-key's redacted value, header mode never arms, and the
+  token that follows leaks. Both reach ProfilePane's undeclared-servers
+  disclosure. Fixing either by widening the exit condition costs
+  over-redaction of ordinary flags after a header, which is the safe direction
+  but wants a deliberate ruling rather than a reflex.
