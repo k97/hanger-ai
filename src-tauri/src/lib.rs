@@ -1035,6 +1035,11 @@ fn get_detected_engines() -> Vec<domain::Agent> {
     scanner::get_global_agents()
 }
 
+#[tauri::command]
+fn get_known_engines() -> Vec<domain::Agent> {
+    agents::known_engines()
+}
+
 // Same action as File → Copy Diagnostics, reachable from the webview so a
 // future settings surface (and automated verification) can trigger it.
 #[tauri::command]
@@ -1393,6 +1398,7 @@ pub fn run() {
             remove_deployed_asset,
             get_scan_status,
             get_detected_engines,
+            get_known_engines,
             copy_diagnostics,
             report_unmapped_engine
         ])

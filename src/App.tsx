@@ -240,6 +240,10 @@ export default function App() {
   const [inventory, setInventory] = useState<Inventory | null>(null);
   const [assetCounts, setAssetCounts] = useState<CategoryCounts | null>(null);
   const [detectedEngines, setDetectedEngines] = useState<{ id: string; name: string }[]>([]);
+  // The engines Hanger looks FOR, unfiltered by what is installed. Only the
+  // Global empty state uses it, to name them without restating the backend's
+  // table in a string literal.
+  const [knownEngines, setKnownEngines] = useState<{ id: string; name: string }[]>([]);
   const [repoAssetCountsMap, setRepoAssetCountsMap] = useState<Record<string, CategoryCounts>>({});
   const [loading, setLoading] = useState(false);
   const [scanning, setScanning] = useState(false);
@@ -562,6 +566,9 @@ export default function App() {
     try {
       invoke<{ id: string; name: string }[]>("get_detected_engines")
         .then((engines) => setDetectedEngines(Array.isArray(engines) ? engines : []))
+        .catch(() => {});
+      invoke<{ id: string; name: string }[]>("get_known_engines")
+        .then((engines) => setKnownEngines(Array.isArray(engines) ? engines : []))
         .catch(() => {});
       const onboarding = await invoke<string | null>("get_preference", { key: "onboarding_complete" });
       const crash = await invoke<string | null>("get_preference", { key: "consent_crash" });
@@ -906,14 +913,18 @@ export default function App() {
   // starts a window drag when the pointer's exact target carries
   // data-tauri-drag-region, so the caps lay an overlay under everything
   // inert and the controls must sit above it to stay clickable.
+  // shrink-0 on every variant: the sidebar cap deliberately overflows its
+  // 56px rail when collapsed (below), and without it the flex squeeze that
+  // overflow depends on falls through to the icon and shrinks the glyph
+  // itself rather than just letting the button overflow.
   const tbBtnClass =
-    "relative h-[27px] min-w-[27px] px-2 rounded-pill inline-flex items-center justify-center text-ink-2 hover:bg-plane-2 hover:text-ink-1 transition-colors duration-hover ease-spring cursor-pointer";
+    "relative h-[27px] min-w-[27px] px-2 rounded-pill inline-flex items-center justify-center shrink-0 text-ink-2 hover:bg-plane-2 hover:text-ink-1 transition-colors duration-hover ease-spring cursor-pointer";
   const tbBtnActiveClass =
-    "relative h-[27px] min-w-[27px] px-2 rounded-pill inline-flex items-center justify-center bg-tint text-tint-ink transition-colors duration-hover ease-spring cursor-pointer";
+    "relative h-[27px] min-w-[27px] px-2 rounded-pill inline-flex items-center justify-center shrink-0 bg-tint text-tint-ink transition-colors duration-hover ease-spring cursor-pointer";
   // On the plane the toggle is a plain glyph — the plane already reads as a
   // chrome zone, so hover tints with --tint-plane and pressed adds nothing.
   const tbBtnPlaneClass =
-    "relative h-[27px] min-w-[27px] px-2 rounded-pill inline-flex items-center justify-center text-ink-2 hover:bg-tint-plane hover:text-ink-1 transition-colors duration-hover ease-spring cursor-pointer";
+    "relative h-[27px] min-w-[27px] px-2 rounded-pill inline-flex items-center justify-center shrink-0 text-ink-2 hover:bg-tint-plane hover:text-ink-1 transition-colors duration-hover ease-spring cursor-pointer";
 
   // Every cap shares this: an inert layer that owns window dragging, so the
   // pointer can land anywhere in the 40px strip that is not a control.
@@ -1128,11 +1139,16 @@ export default function App() {
         <header data-tauri-drag-region className="relative h-10 shrink-0 flex items-center gap-2.5 select-none z-30 font-flex">
           {capDragOverlay}
           {/* When the source list is collapsed the sidebar toggle overflows
-              the 56px rail into this cap; the crumb steps aside for it. */}
+              the 56px rail into this cap; the crumb steps aside for it.
+              51px, not the 56px rail width — measured against a live window
+              so the gap after the icon's ink roughly matches the ~10px gap
+              the traffic lights keep between themselves (App.tsx:963's
+              spacer + button set that icon's position). Re-measure this if
+              the spacer, button padding, or icon size changes. */}
           <div
             className={`flex items-center gap-[7px] text-small text-ink-3 whitespace-nowrap shrink-0 ${
               selectedSidebarItem !== "linkmap" && sidebarCollapsed
-                ? "pl-[56px]"
+                ? "pl-[51px]"
                 : "pl-[18px]"
             }`}
           >
@@ -1255,6 +1271,7 @@ export default function App() {
               onStateFilterChange={setStateFilter}
               scannedAt={lastScanAt}
               detectedEngines={detectedEngines}
+              knownEngines={knownEngines}
               onRescan={triggerScan}
               sortField={sortField}
               sortDirection={sortDirection}

@@ -207,10 +207,54 @@ describe("ProfilePane — the empty state is a finding, not a default", () => {
       scannedAt: new Date(),
       assetCounts: { total: 0, byCategory: {} },
       detectedEngines: [],
+      knownEngines: [
+        { id: "claude-code", name: "Claude Code" },
+        { id: "codex", name: "Codex" },
+      ],
     });
     expect(screen.getByText("No engine folders on this machine yet")).toBeTruthy();
     expect(screen.getByText(/Run one of them once, then rescan/)).toBeTruthy();
     expect(screen.queryByText("Nothing in the global store yet")).toBeNull();
+  });
+
+  it("the engines it says it looks for come from the backend, never a literal", () => {
+    // This line named "Claude Code, Codex and Gemini" in the source and went
+    // stale the day the backend's table grew to eight. A fictional roster
+    // proves the sentence is rendering the prop, not a string in the file.
+    renderGlobal({
+      loading: false,
+      scannedAt: new Date(),
+      assetCounts: { total: 0, byCategory: {} },
+      detectedEngines: [],
+      knownEngines: [
+        { id: "a", name: "Aardvark" },
+        { id: "b", name: "Bandicoot" },
+        { id: "c", name: "Capybara" },
+      ],
+    });
+    expect(
+      screen.getByText(
+        /Hanger looks in your home directory for the folders Aardvark, Bandicoot and Capybara keep there/
+      )
+    ).toBeTruthy();
+    expect(screen.queryByText(/Claude Code/)).toBeNull();
+  });
+
+  it("says something sane if the roster has not arrived yet", () => {
+    // get_known_engines is fetched on mount and can lose the race, or fail.
+    // The sentence drops the list rather than naming an empty one.
+    renderGlobal({
+      loading: false,
+      scannedAt: new Date(),
+      assetCounts: { total: 0, byCategory: {} },
+      detectedEngines: [],
+      knownEngines: [],
+    });
+    expect(
+      screen.getByText(
+        "Hanger looks in your home directory for the folders coding agents keep there, and found none. Run one once, then rescan."
+      )
+    ).toBeTruthy();
   });
 
   it("a category emptied by a filter says so; a category with nothing says that", () => {
