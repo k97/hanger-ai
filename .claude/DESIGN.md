@@ -456,8 +456,8 @@ nobody has read does. The map view carries **no
 canvas, and a permanently expanded notice above it costs the height the
 canvas exists for. Both the control and the card body render from a single
 `MapNotice[]` built where the graph is read, so no copy is stated twice.
-This is a stated exception to the AGENTS.md rule that non-blocking
-diagnostics use `DisclosureBanner`, not a new banner component. Geometry is
+This is a stated exception to the rule (`.claude/rules/known-debt.md`) that
+non-blocking diagnostics use `DisclosureBanner`, not a new banner component. Geometry is
 a pure function: stable sort on (label, id)
 within columns, bézier paths from endpoint coordinates only. The graph
 itself — nodes, counts, edge states, even which empty state the view is in
@@ -759,8 +759,9 @@ legacy layer declares tinted grounds — `--warning-bg`, `--error-bg`,
 plane in every variant (`DisclosureBanner.tsx:21-32`); the tint tokens remain
 available to anything that does not.
 
-**The DisclosureBanner rule has no detector.** AGENTS.md requires that
-non-blocking diagnostics use `DisclosureBanner` and that no new banner, alert
+**The DisclosureBanner rule has no detector.** `.claude/rules/known-debt.md`
+(carried from the archived `AGENTS.md`) requires that non-blocking
+diagnostics use `DisclosureBanner` and that no new banner, alert
 or modal be built for warnings, parse errors or status notices. No test
 enforces it: `no-blocking-dialogs.test.ts` bans only `confirm`/`alert`/`prompt`
 (`:24`), and the files referencing `DisclosureBanner` under test are its own

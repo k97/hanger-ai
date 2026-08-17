@@ -313,31 +313,47 @@ fn link_directory(app: AppHandle, path: String) -> Result<String, String> {
     Ok(crate::preferences::PreferencesStore::canonical_root_path(&path))
 }
 
-/// Start a private copy of an MCP server, ask what it provides, and stop it.
+/// Start a private copy of ONE registration's server, ask what it provides, and
+/// stop it.
 ///
-/// A config file declares how to *start* a server, never what it provides, and
-/// nothing on disk records a tool list. This handshake is the only way to learn
-/// one. It touches no other host's session — Hanger spawns its own child and
-/// kills it before returning.
+/// Takes a registration key rather than a launch. Two reasons: the frontend no
+/// longer holds `args` at all, because a config file can carry a bearer token in
+/// them (spec §4.1); and the caller used to hand over `matches[0]`, an arbitrary
+/// registration whenever hosts launch the same server differently.
 ///
-/// Always `Ok`; a failed probe is reported inside `ProbeResult.error` so the
-/// panel can explain itself rather than showing an unaccountably empty list.
+/// Always `Ok` on a failed handshake — the failure is reported inside
+/// `ProbeResult.error` so the panel can explain itself rather than showing an
+/// unaccountably empty list. `Err` means the key matched nothing.
 #[tauri::command]
-async fn verify_mcp_server(
-    command: String,
-    args: Vec<String>,
-    transport: Option<String>,
+async fn mcp_probe(
+    app: AppHandle,
+    registration_key: String,
 ) -> Result<crate::mcp::probe::ProbeResult, String> {
+    // The scan is filesystem-bound and has taken 11s on a real machine. On a
+    // plain async command that blocks a runtime worker for the duration, so it
+    // goes to the blocking pool.
+    let inventory = tauri::async_runtime::spawn_blocking(move || run_scan(app))
+        .await
+        .map_err(|e| format!("Scan task failed: {}", e))??;
+
+    let tool = inventory
+        .tools
+        .iter()
+        .find(|t| t.registration_key() == registration_key)
+        .ok_or_else(|| format!("No registration matches {}", registration_key))?;
+
     // 20s is generous for a handshake and short enough that a wedged server
     // does not look like a frozen panel.
     let timeout = std::time::Duration::from_secs(20);
 
     // A remote server is dialled, not launched. Routing on the transport keeps
     // one Verify control meaning one thing to the user, whatever the server is.
-    let url = transport.filter(|t| t.starts_with("http://") || t.starts_with("https://"));
-    Ok(match (command.trim().is_empty(), url) {
+    let url = Some(tool.transport.clone())
+        .filter(|t| t.starts_with("http://") || t.starts_with("https://"));
+
+    Ok(match (tool.command.trim().is_empty(), url) {
         (true, Some(u)) => crate::mcp::probe::probe_http(&u, timeout).await,
-        _ => crate::mcp::probe::probe(&command, &args, timeout).await,
+        _ => crate::mcp::probe::probe(&tool.command, &tool.args, timeout).await,
     })
 }
 
@@ -480,11 +496,20 @@ pub struct PreflightResult {
 
 /// Where a deployed asset lands in the target project.
 ///
-/// Returns `Err` when no agent claims the source. The prior version fell
+/// Returns `Err` when nothing claims the source. The prior version fell
 /// through to `tgt_project.join(filename)`, writing the asset into the
 /// project root — a silent wrong write on a stranger's disk. Per-agent
 /// directories come from `agents::AGENT_CONFIGS`, the same table the read
 /// side uses; there is no second source of truth.
+///
+/// Three answers, in order: an explicitly linked directory, the shared
+/// `.agents/` store, then the owning agent's own directory. The middle one is
+/// not an ownership answer — `engine_for_path` returns `None` for `.agents/`
+/// paths and must keep doing so (spec §4.4) — it is a *destination* answer to
+/// a different question. Without it every asset in `~/.agents` is
+/// undeployable with no workaround, because `~/.agents` is a protected root
+/// and so can never appear in `linked_dirs` either
+/// (`scanner::protected_roots`).
 fn resolve_target_path(
     source_path: &str,
     target_project_path: &str,
@@ -497,6 +522,12 @@ fn resolve_target_path(
         if let Ok(rel) = src.strip_prefix(dir) {
             return Ok(tgt_project.join(rel));
         }
+    }
+
+    if let Some(below) = crate::agents::shared_agents_subpath(src) {
+        return Ok(tgt_project
+            .join(crate::agents::SHARED_AGENTS_DIR)
+            .join(below));
     }
 
     let filename = src
@@ -1335,7 +1366,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             link_directory,
             unlink_directory,
-            verify_mcp_server,
+            mcp_probe,
             get_mcp_processes,
             get_linked_directories,
             run_scan,

@@ -7,6 +7,8 @@
 //!
 //! Read-only. Nothing is started, signalled or stopped.
 
+use crate::mcp::dialect::sanitise_url;
+use crate::mcp::redact::{looks_secret, HEADER_FLAGS};
 use serde::{Deserialize, Serialize};
 use sysinfo::{ProcessRefreshKind, ProcessesToUpdate, System, UpdateKind};
 
@@ -26,38 +28,128 @@ pub struct RunningProcess {
 /// docs/scanning.md §7 forbids capturing values. A process's argv is the one
 /// place a credential can reach Hanger without any config file being read:
 /// `--api-key=…`, `--token …`, or userinfo in a URL.
+///
+/// Three defects have lived here, all the class the spec forbids: never
+/// render a token verbatim. First, the branch that arms a pending-value
+/// capture used to fire on any word merely *containing* a secret substring,
+/// not just a flag — so a path like `/opt/token-service/run` armed the
+/// capture and ate the real flag after it. It is now gated on
+/// `word.starts_with('-')`. Second, a valueless secret-shaped toggle
+/// (`--oauth`) could itself be captured as a "value" by nothing, then
+/// swallow the real flag that followed it. That is closed the way
+/// `mcp::redact::redact_launch` closes it on the config side: a token in a
+/// pending-value position is never emitted verbatim, full stop, regardless
+/// of what it looks like.
+///
+/// Third: `--header Authorization: Bearer …` arrives here as four
+/// whitespace-separated words, and none of them is both flag-shaped AND
+/// secret-worded — `--header` contains no secret word, `Authorization:` is
+/// not flag-shaped. Neither branch above ever armed for it, so the whole
+/// header, including the bearer token, was pushed verbatim. `HEADER_FLAGS`
+/// is now imported from `mcp::redact` rather than re-declared, so the two
+/// modules cannot drift apart the way they did the first time — see
+/// `header_mode` below. The URL branch had the same shape of gap: it fired
+/// only when a word held BOTH `://` AND `@`, so a query-string credential
+/// with no userinfo survived. It now delegates to `dialect::sanitise_url`
+/// instead of hand-rolling a third copy of URL sanitising.
+///
+/// Fourth and fifth, found by a final whole-branch review after the third fix
+/// landed (`140e119`): header mode exited on any word starting with a single
+/// `-`, so a base64url header value beginning with `-` (`-abc123secretxyz`)
+/// left header mode at the value itself and leaked it. It now exits only on a
+/// word starting with `--` that does not look secret — gating on
+/// "flag-shaped and not secret" alone still fails, since a leaking value can
+/// itself contain a secret word. And a secret flag with no value immediately
+/// followed by a header flag (`--api-key --header Authorization: Bearer …`)
+/// consumed `--header` as the api-key's redacted "value" and never armed
+/// header mode, leaking the token that followed; the pending-value branch now
+/// checks whether the token it just redacted was itself a header flag and
+/// arms header mode if so, rather than only re-arming pending.
 pub fn redact(command_line: &str) -> String {
     let mut out: Vec<String> = Vec::new();
-    let mut redact_next = false;
+    let mut pending = false;
+    // Separate from `pending`: a header value can span several words
+    // (`Authorization: Bearer <token>`), where `pending` only ever captures
+    // exactly one.
+    let mut header_mode = false;
 
     for word in command_line.split_whitespace() {
-        if redact_next {
-            out.push("<redacted>".to_string());
-            redact_next = false;
-            continue;
+        if header_mode {
+            if word.starts_with("--") && !looks_secret(word) {
+                // The header value has no length known in advance; it ends
+                // only when a new flag begins. Testing merely
+                // `word.starts_with('-')` let a base64url token that itself
+                // begins with a single dash (`-abc123secretxyz`) exit header
+                // mode and leak. Testing "flag-shaped and not secret" instead
+                // of "starts with a single dash" also fails on its own,
+                // because that same value contains "secret" and would still
+                // read as flag-shaped-and-secret. `--` plus not-secret is the
+                // shape only a genuine next flag reliably has; a secret-shaped
+                // `--` flag (`--api-key`) stays in header mode and is
+                // redacted, over-redaction accepted. Leave header mode and
+                // fall through to the ordinary branches below for this word —
+                // it is not more header content.
+                header_mode = false;
+            } else if word.ends_with(':') {
+                // The header NAME (`Authorization:`) is diagnostic, not a
+                // credential — same rule as redact_launch's
+                // redact_header_value — and is kept.
+                out.push(word.to_string());
+                continue;
+            } else {
+                out.push("<redacted>".to_string());
+                continue;
+            }
         }
 
-        let lower = word.to_lowercase();
-        let is_secret_flag = ["key", "token", "secret", "password", "auth"]
-            .iter()
-            .any(|k| lower.contains(k));
-
-        if is_secret_flag {
-            if let Some(eq) = word.find('=') {
-                out.push(format!("{}=<redacted>", &word[..eq]));
+        if pending {
+            // Invariant, mirrored from `redact_launch`: a token in a
+            // pending-value position is never emitted verbatim. Redact it
+            // unconditionally, then re-arm if this same token could itself
+            // start a fresh capture, so the token after it is redacted too.
+            // Never fall through to the flag-detection logic below for a
+            // token consumed here.
+            out.push("<redacted>".to_string());
+            if HEADER_FLAGS.contains(&word) {
+                // The token consumed here was itself a header flag
+                // (`--api-key --header Authorization: Bearer …`): `--header`
+                // got redacted as `--api-key`'s "value", and without this,
+                // header mode never arms and the bearer token that follows
+                // falls through untouched. Enter header mode instead of
+                // merely re-arming pending, mirroring the secret-looking
+                // re-arm below.
+                header_mode = true;
+                pending = false;
             } else {
-                // `--token secret` — the value is the next word.
-                out.push(word.to_string());
-                redact_next = true;
+                pending = word.starts_with('-') && looks_secret(word);
             }
             continue;
         }
 
-        if word.contains("://") && word.contains('@') {
-            let parts: Vec<&str> = word.splitn(2, "://").collect();
-            let rest = parts[1];
-            let host = rest.split('@').nth(1).unwrap_or(rest);
-            out.push(format!("{}://{}", parts[0], host));
+        if HEADER_FLAGS.contains(&word) {
+            out.push(word.to_string());
+            header_mode = true;
+            continue;
+        }
+
+        if looks_secret(word) {
+            if let Some(eq) = word.find('=') {
+                out.push(format!("{}=<redacted>", &word[..eq]));
+                continue;
+            }
+            // Only a flag-shaped word arms the capture. A word that merely
+            // *contains* a secret substring — a path like
+            // `/opt/token-service/run` — is not a flag and must not eat the
+            // real flag that follows it.
+            if word.starts_with('-') {
+                out.push(word.to_string());
+                pending = true;
+                continue;
+            }
+        }
+
+        if word.contains("://") {
+            out.push(sanitise_url(word));
             continue;
         }
 
@@ -317,7 +409,13 @@ fn host_for_process_name(name: &str) -> Option<&'static str> {
         ("Claude Helper", "Claude Desktop"),
         ("Claude", "Claude Desktop"),
         ("Cursor", "Cursor"),
-        ("Windsurf", "Windsurf"),
+        // Both process names, one display name. This column is rendered raw
+        // — `spawning_host` never passes through a label map — so a stale
+        // value here is not an internal id, it is the words on the row. The
+        // panel showed a Devin Desktop user host "Devin Desktop" and, beside
+        // it, spawned-by "Windsurf".
+        ("Windsurf", "Devin Desktop"),
+        ("Devin", "Devin Desktop"),
         ("Code Helper", "VS Code"),
         ("Code", "VS Code"),
     ] {
@@ -355,6 +453,18 @@ mod tests {
         // read the config, so `claude` must be reachable before `Code`.
         assert_eq!(host("Code Helper (Plugin)"), Some("VS Code"));
         assert_eq!(host("claude"), Some("Claude Code"));
+    }
+
+    #[test]
+    fn devin_desktop_is_recognised_under_either_process_name() {
+        // Cognition rebranded Windsurf to Devin Desktop on 2026-06-02, but the
+        // binary and its process name did not necessarily follow in lockstep
+        // on every install — both are matched, and both answer with the name
+        // the product now has. `registry.rs` retired "Windsurf" as a display
+        // name in the same commit that added the Devin process match here;
+        // this column is the one place it survived.
+        assert_eq!(host("Windsurf"), Some("Devin Desktop"));
+        assert_eq!(host("Devin"), Some("Devin Desktop"));
     }
 
     #[test]

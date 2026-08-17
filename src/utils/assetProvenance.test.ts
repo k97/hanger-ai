@@ -103,7 +103,12 @@ describe("engineLabel", () => {
   });
 
   it("passes an unknown engine through rather than inventing a name", () => {
-    expect(engineLabel(skill({ scope: { Global: { agent: "zed" } } }))).toBe("zed");
+    // Deliberately an id no table can ever claim. "zed" stood here, which
+    // read as a rule about unknown ids and was really a record of a missing
+    // label — the moment Zed got one the case tested nothing it meant to.
+    expect(engineLabel(skill({ scope: { Global: { agent: "an-agent-that-does-not-exist" } } }))).toBe(
+      "an-agent-that-does-not-exist",
+    );
   });
 
   it("says any agent when nothing claims it", () => {

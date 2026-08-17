@@ -318,6 +318,73 @@ then open its inspector and see the real engine with its mark. Not fixed
 here: out of scope for the brand-icons feature, and row construction in both
 panes has its own tests.
 
+## Agent detection: scan cost and modelling gaps
+
+**F43 — Scan cost after the agent-detection expansion: no measurable
+regression.** The walk gained roughly thirteen new global/project roots
+across eight new `AgentConfig` rows (`src-tauri/src/agents.rs:58-184`,
+Trae/OpenCode/Amp/Zed/Roo Code/Kilo Code/Cline plus Kiro). Measured on
+Karthik's machine (macOS 26.5.2, arm64, 14 logical cores) by building two
+detached `git worktree` checkouts — `f2cb533` (this work's branch point,
+"before") and `ed1ee22` (current `redesign/mono-tight` HEAD at measurement
+time, "after") — and timing `DirectoryScanner::scan(Path::new(""))` (the same
+global-scan call shape `lib.rs`'s `run_scan` uses) against the operator's
+real `$HOME`, `cargo test --release`, 5 runs each after a warm build:
+before 179/186/141/135/125 ms (mean 153.2 ms), after 178/175/129/134/148 ms
+(mean 152.8 ms) — flat, well inside noise, nowhere near the plan's ~20%
+threshold. `--test scanner_tests` wall time (the brief's fallback proxy, not
+a real-directory scan) moved from 2.90–2.98 s (38 tests) to 2.98–3.00 s (39
+tests, one new test added by this work) — also flat. Both signals agree: on
+this machine most of the newly added roots don't exist, so the walk pays a
+cheap missing-directory stat per root, not a full traversal. This is a
+single-machine, single-point-in-time measurement on one real home directory,
+not a synthetic worst case with every new agent's directories populated —
+recorded as a measurement, not a guarantee for every install.
+
+**F44 — Aider is not modelled. DECIDED, not a defect.** Aider has no config
+*directory* to inventory — one `.aider.conf.yml` about runtime behaviour
+(model choice, edit format, auto-commit), plus arbitrarily-named files the
+user points at with `--read`/`--file` on the command line. Nothing
+category-shaped (skills/rules/subagents) for an `AgentConfig` row
+(`src-tauri/src/agents.rs:20-34`) to hold.
+
+**F45 — Goose is not modelled. DECIDED, not a defect.** Goose's config is a
+flat `~/.config/goose/config.yaml`, and its per-project file,
+`.goosehints`, is walked hierarchically N levels up the directory tree the
+way `.editorconfig` is — not read from one fixed project root. Hanger's
+`AgentConfig` shape is one global root plus one project root
+(`global_roots`/`project_roots`, `agents.rs:24-26`); there is no slot for a
+file resolved by upward directory search.
+
+**F46 — Amp's five-tier rules resolution is not modelled. DECIDED, not a
+defect.** Amp resolves rules across five tiers (cwd-and-parents, subtree,
+system-wide, user-config, home). Amp's `AgentConfig` row detects it only via
+the shared `.agents/` convention (`reads_agents_dir: true`, `rules: None`,
+`agents.rs:122-132`) — a *reach* edge, not ownership of any rules tier. The
+five-tier resolution itself has no representation.
+
+**F47 — Windsurf/Devin's machine-wide system tier is not modelled. DECIDED,
+not a defect.** Devin Desktop (formerly Windsurf) has a
+machine-wide rules directory, `/Library/Application Support/Devin/rules/`,
+that applies across every user and project on the machine. `Scope` has only
+`Global` (home-relative) and `Project` (repo-relative) variants
+(`src-tauri/src/domain.rs:4-11`); Devin Desktop itself is modelled only as an
+MCP host, not an `AgentConfig` row, with sources at `.config/devin/config.json`
+(Global tier) and `.devin/config.json` / `.devin/mcp_config.json` (Project
+tier) (`src-tauri/src/mcp/registry.rs:148-150`). Neither tier reaches a
+machine-wide directory outside any one user's home.
+
+**F48 — Roo Code's Custom Modes are not modelled as subagents. DECIDED, not
+a defect.** Roo Code's own docs describe Custom Modes as behavioural
+specialisations of the one agent, not independent delegates — unlike Claude
+Code's `.claude/agents/` or Codex's `.codex/agents/`, which spawn separate
+subagent processes. Roo Code's `AgentConfig` row accordingly ships
+`subagents: None` (`agents.rs:146-158`), matching Kilo Code and Cline, its
+siblings in the same family — Custom Modes are not surfaced as a subagent
+category anywhere in the product. Recorded with that caveat here so a future
+change that *does* add a Custom Modes surface knows going in that they are
+not peers of a true subagent, per Roo Code's own documentation.
+
 ## Mechanism / state vocabulary (recorded earlier, unchanged)
 
 **F27 — `Mechanism::Copy` is unreachable in production** and the watcher

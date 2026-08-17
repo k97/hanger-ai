@@ -31,6 +31,17 @@ pub struct AgentConfig {
     /// True when this agent reads the vendor-neutral `.agents/` convention.
     /// This is a *reach* edge and never implies ownership.
     pub reads_agents_dir: bool,
+    /// Home-relative files whose existence proves this agent is installed,
+    /// for an agent that owns no directory of its own.
+    ///
+    /// Detection and ownership are separate: `global_roots` says "assets here
+    /// are mine", this says only "I am on this machine". Zed is the case the
+    /// roots-only shape had no slot for — it replaced its own rules library
+    /// with the shared convention, so it owns nothing to be found by
+    /// (spec §4.4, §5), and without a detection signal it can never appear in
+    /// the UI at all, not even as a reach tile. Everyone else leaves this
+    /// empty and is found by their own root.
+    pub detect_files: &'static [&'static str],
 }
 
 pub const AGENT_CONFIGS: &[AgentConfig] = &[
@@ -43,6 +54,7 @@ pub const AGENT_CONFIGS: &[AgentConfig] = &[
         rules: Some("rules"),
         subagents: Some("agents"),
         reads_agents_dir: true,
+        detect_files: &[],
     },
     AgentConfig {
         id: "codex",
@@ -53,6 +65,7 @@ pub const AGENT_CONFIGS: &[AgentConfig] = &[
         rules: None,
         subagents: Some("agents"),
         reads_agents_dir: false,
+        detect_files: &[],
     },
     AgentConfig {
         id: "gemini",
@@ -63,6 +76,114 @@ pub const AGENT_CONFIGS: &[AgentConfig] = &[
         rules: None,
         subagents: None,
         reads_agents_dir: true,
+        detect_files: &[],
+    },
+    AgentConfig {
+        id: "kiro",
+        name: "Kiro",
+        global_roots: &[".kiro"],
+        project_roots: &[".kiro"],
+        skills: Some("skills"),
+        rules: Some("steering"),
+        subagents: Some("agents"),
+        reads_agents_dir: false,
+        detect_files: &[],
+    },
+    AgentConfig {
+        id: "trae",
+        name: "Trae",
+        global_roots: &[".trae"],
+        project_roots: &[".trae"],
+        skills: Some("skills"),
+        rules: Some("rules"),
+        // Trae's subagents directory is unconfirmed in vendor docs, so it
+        // ships without subagent support rather than on a guess (spec §11).
+        subagents: None,
+        reads_agents_dir: false,
+        detect_files: &[],
+    },
+    AgentConfig {
+        id: "opencode",
+        name: "OpenCode",
+        global_roots: &[".config/opencode"],
+        project_roots: &[".opencode"],
+        skills: None,
+        rules: None,
+        subagents: Some("agent"),
+        reads_agents_dir: false,
+        detect_files: &[],
+    },
+    AgentConfig {
+        id: "amp",
+        name: "Amp",
+        global_roots: &[".config/amp"],
+        project_roots: &[".amp"],
+        skills: None,
+        rules: None,
+        subagents: None,
+        // Amp defaults to the shared convention — that is where its skills
+        // live, and reach is how the UI expresses it.
+        reads_agents_dir: true,
+        detect_files: &[],
+    },
+    AgentConfig {
+        id: "zed",
+        name: "Zed",
+        // Zed owns nothing. It replaced its own Rules Library with the
+        // vendor-neutral convention, and is detected by
+        // ~/.config/zed/settings.json, already in mcp::registry::SOURCES.
+        global_roots: &[],
+        project_roots: &[],
+        skills: None,
+        rules: None,
+        subagents: None,
+        reads_agents_dir: true,
+        // The only row that needs this. Owning nothing means nothing to find
+        // it by, so without the settings file Zed is invisible everywhere —
+        // no engines row, therefore no reach tile, therefore absent from a UI
+        // the spec says it appears throughout (§5).
+        detect_files: &[".config/zed/settings.json"],
+    },
+    AgentConfig {
+        id: "roocode",
+        // Upstream archived 2026-05-15; built for the assets already on disk,
+        // not for growth. Roo Code passed 3M installs, and archiving a
+        // repository does not delete anything from a user's machine.
+        name: "Roo Code",
+        global_roots: &[".roo"],
+        project_roots: &[".roo"],
+        skills: Some("skills"),
+        rules: Some("rules"),
+        subagents: None,
+        reads_agents_dir: true,
+        detect_files: &[],
+    },
+    AgentConfig {
+        id: "kilocode",
+        // The live successor. It does NOT read `.roo` — it rebuilt its config
+        // on an OpenCode base, so it needs its own row.
+        name: "Kilo Code",
+        global_roots: &[".kilocode"],
+        project_roots: &[".kilocode"],
+        skills: None,
+        rules: Some("rules"),
+        subagents: None,
+        reads_agents_dir: false,
+        detect_files: &[],
+    },
+    AgentConfig {
+        id: "cline",
+        name: "Cline",
+        // Three unrelated homes: a vendor dir, a bare rules dir, and a folder
+        // under Documents. Longest-root-wins in engine_for_path is what keeps
+        // `.clinerules` from being shadowed.
+        global_roots: &[".cline", "Documents/Cline"],
+        project_roots: &[".cline", ".clinerules"],
+        skills: Some("skills"),
+        rules: Some("Rules"),
+        subagents: None,
+        reads_agents_dir: false,
+        detect_files: &[],
     },
 ];
 
@@ -136,6 +257,26 @@ pub fn engine_for_path(path: &Path) -> Option<&'static AgentConfig> {
 /// `agents` directory both appear somewhere in the path. This restores the
 /// adjacency the old `contains("/.claude/agents/")` chain enforced by
 /// construction, without reintroducing a substring check.
+///
+/// Unlike `engine_for_path`, this returns on the first `(config, root)` pair
+/// whose `root/subagents` needle matches, rather than preferring the longest
+/// match. That is safe today only because every config with `subagents:
+/// Some(_)` (claude-code, codex, kiro, opencode) has a distinct leaf root
+/// component name — `.claude`, `.config/claude`, `.codex`, `.kiro`,
+/// `.config/opencode`, `.opencode` — so no two configs' needles can both
+/// match the same path: `match_run` requires the *whole* needle to equal a
+/// contiguous run of components, and none of these needles is a component-
+/// wise suffix of another. It would stop being safe the moment two
+/// subagent-bearing configs shared a root whose last path segment is the same
+/// string (e.g. a future agent rooted at plain `opencode` without the dot, or
+/// two configs both rooted at a bare `agents`-adjacent name) — at that point
+/// this must switch to longest-root-wins, matching `engine_for_path`.
+///
+/// This is not just true today: the participant set is not expected to grow
+/// either. Roo Code, Kilo Code and Cline — the remaining rows the agent-
+/// detection plan adds after this one — all declare `subagents: None`, so
+/// the property above survives the rest of the plan as written, not only
+/// this snapshot of the table.
 pub fn subagent_owner_for_path(path: &Path) -> Option<&'static AgentConfig> {
     let comps = components(path);
     if comps.is_empty() || comps.iter().any(|c| *c == SHARED_AGENTS_DIR) {
@@ -161,6 +302,35 @@ pub fn subagent_owner_for_path(path: &Path) -> Option<&'static AgentConfig> {
 /// set for store-owned convention assets — never an ownership answer.
 pub fn agents_reading_shared_dir() -> Vec<&'static AgentConfig> {
     AGENT_CONFIGS.iter().filter(|c| c.reads_agents_dir).collect()
+}
+
+/// Whether this path sits inside the shared `.agents/` store, and if so where
+/// inside it — the path below the `.agents` component.
+///
+/// Ownership and destination are different questions. `engine_for_path`
+/// answers "who owns this" with `None` here, correctly (spec §4.4); that is
+/// not the same as "there is nowhere to put this". A store asset's
+/// destination is the *destination project's own* shared directory, at the
+/// same relative place, which is what this returns the tail for.
+///
+/// Intermediate directories are preserved deliberately: a skill at
+/// `~/.agents/skills/foo/SKILL.md` belongs at
+/// `<proj>/.agents/skills/foo/SKILL.md`, and flattening it to
+/// `<proj>/.agents/SKILL.md` would put a skill body where no agent looks for
+/// one. Whole-component matching, never a substring: `contains(".agents")`
+/// also matches `~/my.agents-backup`.
+///
+/// The *first* `.agents` component wins. A nested second one is part of the
+/// asset's own layout and travels with it rather than re-rooting the answer.
+pub fn shared_agents_subpath(path: &Path) -> Option<std::path::PathBuf> {
+    let comps = components(path);
+    let at = comps.iter().position(|c| *c == SHARED_AGENTS_DIR)?;
+    let below = &comps[at + 1..];
+    if below.is_empty() {
+        // The container itself, not an asset in it. Nothing to deploy.
+        return None;
+    }
+    Some(below.iter().copied().collect())
 }
 
 /// Look up a config by id.

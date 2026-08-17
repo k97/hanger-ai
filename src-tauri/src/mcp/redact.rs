@@ -15,12 +15,16 @@
 use crate::mcp::dialect::sanitise_url;
 
 /// Flag names whose value is assumed to be a credential.
-const SECRET_WORDS: [&str; 5] = ["key", "token", "secret", "password", "auth"];
+///
+/// Shared with `mcp::observe::redact`, the process-side redactor: one copy
+/// getting fixed and the other not is how the process-side leak this module's
+/// history warns about survived a whole review round.
+pub(crate) const SECRET_WORDS: [&str; 5] = ["key", "token", "secret", "password", "auth"];
 
 /// Flags whose value is a `Name: value` header pair.
-const HEADER_FLAGS: [&str; 2] = ["--header", "-H"];
+pub(crate) const HEADER_FLAGS: [&str; 2] = ["--header", "-H"];
 
-fn looks_secret(flag: &str) -> bool {
+pub(crate) fn looks_secret(flag: &str) -> bool {
     let lower = flag.to_lowercase();
     SECRET_WORDS.iter().any(|w| lower.contains(w))
 }
@@ -52,16 +56,27 @@ pub fn redact_launch(command: &str, args: &[String]) -> String {
     let mut pending: Option<Pending> = None;
 
     for arg in args {
-        match pending.take() {
-            Some(Pending::Header) => {
-                out.push(redact_header_value(arg));
-                continue;
+        if let Some(p) = pending.take() {
+            // Invariant: a token in a pending-value position is never
+            // emitted verbatim. Two rounds of trying to first decide "is this
+            // token actually a flag, not a value" each left a
+            // differently-shaped secret exposed (`-secretX`, then
+            // `--secretX`), because a flag and a value can share any shape —
+            // no shape test can tell them apart in general. Redact
+            // unconditionally instead. Then, if this same token could ALSO
+            // have started a fresh secret capture of its own — it is a
+            // header flag, or itself looks like a secret flag — keep the
+            // streak going so the token after it is redacted too. Never fall
+            // through to the flag-detection branches below for a token
+            // consumed here.
+            match p {
+                Pending::Header => out.push(redact_header_value(arg)),
+                Pending::Value => out.push("<redacted>".to_string()),
             }
-            Some(Pending::Value) => {
-                out.push("<redacted>".to_string());
-                continue;
+            if HEADER_FLAGS.contains(&arg.as_str()) || (arg.starts_with('-') && looks_secret(arg)) {
+                pending = Some(Pending::Value);
             }
-            None => {}
+            continue;
         }
 
         if HEADER_FLAGS.contains(&arg.as_str()) {

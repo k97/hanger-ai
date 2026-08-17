@@ -512,6 +512,33 @@ impl PreferencesStore {
             })?;
         }
 
+        // v5: `.agents/` stops being Gemini's. It is the vendor-neutral
+        // convention Zed, Amp and Roo Code also read, so it is store-owned and
+        // NULL is the correct engine_id for its assets — not a workaround.
+        // Without this, correcting the attribution in the scanner would strand
+        // every existing install's `.agents/` assets at "Any agent" forever,
+        // because the re-attribution rule below used to write NULL and never
+        // recover.
+        if current_version < 5 {
+            let tx = conn.transaction().map_err(|_| {
+                SanitisedError("Failed to start database migration transaction".to_string())
+            })?;
+
+            tx.execute(
+                "UPDATE assets SET engine_id = NULL
+                 WHERE abs_path LIKE '%/.agents/%';",
+                [],
+            )
+            .map_err(|_| SanitisedError("Database migration failed".to_string()))?;
+
+            tx.execute_batch("PRAGMA user_version = 5;")
+                .map_err(|_| SanitisedError("Failed to set user_version".to_string()))?;
+
+            tx.commit().map_err(|_| {
+                SanitisedError("Failed to commit database migration transaction".to_string())
+            })?;
+        }
+
         Ok(())
     }
 
@@ -1316,10 +1343,17 @@ pub fn resolve_deepest_root(asset_path: &Path, project_roots: &[(i64, String)]) 
             } else {
                 effective_root_id
             };
-            let new_engine_id = if existing_engine_id != engine_id {
-                None
-            } else {
-                existing_engine_id
+            // Two walks disagreeing about which engine owns an asset used to
+            // write NULL — and never recover, because on the next scan
+            // `None != Some(new)` is still true, so it wrote NULL again
+            // forever. A move between two *known* engines is now taken at face
+            // value; NULL remains the outcome only when a previous walk knew
+            // the owner and this one does not, which is the genuine
+            // "walks disagree" case the rule was written for.
+            let new_engine_id = match (existing_engine_id, engine_id) {
+                (Some(existing), Some(new)) if existing != new => Some(new),
+                (Some(_), None) => None,
+                (_, incoming) => incoming.or(existing_engine_id),
             };
 
             conn.execute(

@@ -263,6 +263,14 @@ pub fn get_engine_key(id_str: &str) -> Option<&'static str> {
         "gemini" => Some("gemini"),
         "cursor" => Some("cursor"),
         "copilot" => Some("copilot"),
+        "kiro" => Some("kiro"),
+        "trae" => Some("trae"),
+        "opencode" => Some("opencode"),
+        "amp" => Some("amp"),
+        "zed" => Some("zed"),
+        "roocode" => Some("roocode"),
+        "kilocode" => Some("kilocode"),
+        "cline" => Some("cline"),
         _ => None,
     }
 }
@@ -331,6 +339,21 @@ pub fn get_global_agents() -> Vec<Agent> {
             if path.exists() {
                 resolved_path = Some(path.to_string_lossy().to_string());
                 break;
+            }
+        }
+        // An agent that owns no directory is found by its config file
+        // instead. The resolved path is then a file, not a folder — every
+        // consumer of `global_config_path` already has to cope with a
+        // config-file root (~/.claude.json is one), and the alternative is
+        // inventing a directory for Zed to own, which would steal the shared
+        // store or name a folder that is not there (spec §4.4).
+        if resolved_path.is_none() {
+            for rel_path in config.detect_files {
+                let path = home.join(rel_path);
+                if path.exists() {
+                    resolved_path = Some(path.to_string_lossy().to_string());
+                    break;
+                }
             }
         }
         if let Some(g_path) = resolved_path {
@@ -422,7 +445,7 @@ fn agent_id_static(agent_id: &str) -> &'static str {
 ///
 /// One place so the registry pass and the sweep cannot drift apart in what
 /// they produce.
-fn tool_from_registration(
+pub fn tool_from_registration(
     reg: &crate::mcp::discover::Registration,
     scope: Scope,
 ) -> Tool {
@@ -431,6 +454,10 @@ fn tool_from_registration(
         name: reg.server.name.clone(),
         command: reg.server.command.clone(),
         args: reg.server.args.clone(),
+        launch_display: crate::mcp::redact::redact_launch(
+            &reg.server.command,
+            &reg.server.args,
+        ),
         transport: reg.server.transport.clone(),
         config_path: reg.config_path.clone(),
         scope,
@@ -654,11 +681,30 @@ pub fn guard_engine_root(path: &str) -> Result<(), String> {
     Ok(())
 }
 
+/// The shared `.agents` container, in the form stored paths are recorded in.
+///
+/// Canonicalized, because every asset path the store holds is: a machine
+/// where `~/.agents` is itself a symlink into a synced folder resolves each
+/// asset to the target, and comparing those against the literal
+/// `$HOME/.agents` matches nothing at all. One definition, so the walk, the
+/// root row and the reach computation cannot disagree about where the store
+/// is.
+pub fn shared_agents_dir() -> PathBuf {
+    let container = get_home_dir().join(crate::agents::SHARED_AGENTS_DIR);
+    fs::canonicalize(&container).unwrap_or(container)
+}
+
 // A shared-standards container: an engine's skills/ or agents/ entry that is a
 // symlink resolving under ~/.agents. Assets there belong to ~/.agents — the
 // deepest real location — not to whichever engine happened to link them.
+//
+// Both sides are canonical. The target always was; the container was not, so
+// on a machine where ~/.agents is itself a symlink into a synced folder the
+// comparison was resolved-against-unresolved and never fired at all — the
+// users most likely to keep a shared store being exactly the ones it failed
+// for.
 pub fn shared_agents_container(walk_root: &Path) -> Option<std::path::PathBuf> {
-    let container = get_home_dir().join(".agents");
+    let container = shared_agents_dir();
     if fs::read_link(walk_root).is_ok() {
         if let Ok(target) = fs::canonicalize(walk_root) {
             if target.starts_with(&container) {
@@ -667,6 +713,22 @@ pub fn shared_agents_container(walk_root: &Path) -> Option<std::path::PathBuf> {
         }
     }
     None
+}
+
+/// Is an asset at this stored path part of the shared convention store?
+///
+/// Asked of the path the store will hold — the canonical one — because that
+/// is what the v5 migration clears and what the answer has to agree with.
+///
+/// Two forms, because there are two ways to be in the store. A `.agents`
+/// component in the path is the ordinary one, and it is the only one that
+/// catches a repository's own `<repo>/.agents/`. The other is a `~/.agents`
+/// that is itself a symlink into a synced folder: every stored path
+/// canonicalizes to the target, so no `.agents` component survives to be
+/// found, and only the resolved container matches.
+pub fn is_shared_store_asset(canonical: &Path) -> bool {
+    crate::agents::shared_agents_subpath(canonical).is_some()
+        || canonical.starts_with(shared_agents_dir())
 }
 
 fn has_parent_skill(path: &Path, root: &Path) -> bool {
@@ -756,11 +818,7 @@ impl DirectoryScanner {
                                       shared_agents_root_id: &mut Option<i64>| {
             if shared_agents_root_id.is_none() {
                 if let Some(store) = store_opt {
-                    let container = get_home_dir().join(".agents");
-                    let container_str = fs::canonicalize(&container)
-                        .unwrap_or(container)
-                        .to_string_lossy()
-                        .to_string();
+                    let container_str = shared_agents_dir().to_string_lossy().to_string();
                     *shared_agents_root_id = store
                         .upsert_root("engine_global", &container_str, None, ".agents", now)
                         .ok();
@@ -813,7 +871,9 @@ impl DirectoryScanner {
                                 agent_id_static(&agent.id),
                                 crate::mcp::registry::ScopeTier::Global,
                             );
-                            parse_warnings.extend(swept.warnings);
+                            parse_warnings.extend(
+                                swept.problems.iter().map(|p| format!("{}: {}", p.path, p.detail)),
+                            );
 
                             for reg in swept.registrations {
                                 let key = (reg.config_path.clone(), reg.server.name.clone());
@@ -864,16 +924,31 @@ impl DirectoryScanner {
                                 });
                                 if let (Some(store), Some(r_id)) = (&store_opt, global_root_id) {
                                     let canon_p = canonicalize_asset_path(&path, &mut parse_warnings);
+                                    // ~/.claude/CLAUDE.md → ~/.agents/AGENTS.md is
+                                    // stored at the target, and stamping the target
+                                    // with the engine that linked it is the exact
+                                    // misattribution v5 clears — which the next scan
+                                    // then wrote straight back. The directory wins:
+                                    // a file in the shared store is the store's.
+                                    let rule_engine_id = if is_shared_store_asset(Path::new(&canon_p)) {
+                                        None
+                                    } else {
+                                        Some(engine_id)
+                                    };
                                     let _ = store.upsert_asset(
-                                        r_id, Some(engine_id), "rule", "global", filename, &canon_p, None, None, "ok", None, now, now
+                                        r_id, rule_engine_id, "rule", "global", filename, &canon_p, None, None, "ok", None, now, now
                                     );
                                 }
                             }
                         }
                     }
-                } else {
+                } else if g_path_buf.is_dir() {
                     global_has_skips = true;
                 }
+                // A config-file root (Zed, found by ~/.config/zed/settings.json
+                // because it owns no directory) is not an unreadable directory.
+                // Calling it a skip would suppress reaping for a root that has
+                // nothing to sweep, and warn about it on every scan.
 
                 // 3. Global Skills under skills/ folder
                 let skills_path = g_path_buf.join("skills");
@@ -1119,7 +1194,9 @@ impl DirectoryScanner {
         // weakened — proven by a planted control in mcp_discovery_tests.
         {
             let machine = crate::mcp::discover::discover_machine(&get_home_dir());
-            parse_warnings.extend(machine.warnings);
+            parse_warnings.extend(
+                machine.problems.iter().map(|p| format!("{}: {}", p.path, p.detail)),
+            );
 
             let home_dir = get_home_dir();
             let mut host_root_ids: std::collections::HashMap<&'static str, i64> =
@@ -1609,6 +1686,7 @@ impl DirectoryScanner {
                         command: String::new(),
                         // A config that would not parse has no launch to record.
                         args: Vec::new(),
+                        launch_display: String::new(),
                         transport: String::new(),
                         config_path: t_canon.clone(),
                         scope: scope.clone(),
@@ -1684,12 +1762,25 @@ impl DirectoryScanner {
                             parse_error: None,
                             link_state,
                         });
-                        let rule_engine_id = crate::agents::engine_for_rule_file(&name)
-                            .and_then(|(key, display)| {
-                                store_opt.as_ref().and_then(|s| s.upsert_engine(key, display, "", now).ok())
-                            });
                         if let (Some(store), Some(r_id)) = (&store_opt, project_root_id) {
                             let rule_canon = canonicalize_asset_path(Path::new(p_str), &mut parse_warnings);
+                            // A rules file is normally attributed by filename —
+                            // `.cursorrules` says Cursor wherever it sits. Inside
+                            // `.agents/` it does not: that directory is the shared
+                            // store by definition, several agents read what is in
+                            // it, and stamping one engine on it is the
+                            // misattribution this branch exists to remove. A
+                            // vendor-named file in the shared directory is an odd
+                            // thing to write, and the safe reading of it is
+                            // "shared", not "Cursor's". The walk does get here —
+                            // the broad-root depth cap exempts `.agents` by name.
+                            let rule_engine_id = if is_shared_store_asset(Path::new(&rule_canon)) {
+                                None
+                            } else {
+                                crate::agents::engine_for_rule_file(&name).and_then(|(key, display)| {
+                                    store.upsert_engine(key, display, "", now).ok()
+                                })
+                            };
                             let _ = store.upsert_asset(
                                 r_id, rule_engine_id, "rule", "project", &name, &rule_canon, None, None, "ok", None, now, now
                             );

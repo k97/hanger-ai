@@ -1,0 +1,9 @@
+{
+  // Zed ships this file with comments.
+  "context_servers": {
+    "spades": {
+      "command": { "path": "node", "args": ["/tmp/index.js"], "env": { "SPADES_TOKEN": "REDACT_ME_2" } }
+    },
+    "linear": { "command": "npx", "args": ["-y", "mcp-remote", "https://mcp.linear.app/sse"] },
+  },
+}

@@ -141,11 +141,52 @@ fn deploy_prefers_an_explicit_linked_dir_over_the_table() {
 }
 
 #[test]
-fn deploy_refuses_a_shared_convention_source() {
-    // `.agents/` has no owner, so there is no agent directory to deploy into.
-    let err = resolve_target_path("/Users/test/.agents/skills/demo/SKILL.md", "/repo/proj", &[])
-        .expect_err("a store-owned source has no single agent target");
-    assert!(format!("{err:?}").contains("no agent"));
+fn deploy_sends_a_shared_convention_source_to_the_projects_own_shared_dir() {
+    // `.agents/` has no owner (spec §4.4), and this test used to read that as
+    // "so there is nowhere to put it" — which made every asset in ~/.agents
+    // undeployable, with no workaround, since ~/.agents is a protected root
+    // and can never be a linked directory either. Nobody owning a file is not
+    // nobody being able to hold it: the destination is the destination
+    // project's own shared directory, at the same relative place.
+    let nested = resolve_target_path("/Users/test/.agents/skills/demo/SKILL.md", "/repo/proj", &[])
+        .expect("a store-owned source deploys into the project's shared directory");
+    assert_eq!(
+        nested,
+        Path::new("/repo/proj/.agents/skills/demo/SKILL.md"),
+        "the directories between .agents/ and the file are part of where the asset lives"
+    );
+
+    let flat = resolve_target_path("/Users/test/.agents/reviewer.md", "/repo/proj", &[])
+        .expect("a bare shared subagent deploys too");
+    assert_eq!(flat, Path::new("/repo/proj/.agents/reviewer.md"));
+
+    // A project-scoped shared source lands in the same place: the store is
+    // the store wherever it is rooted.
+    let from_project =
+        resolve_target_path("/repo/other/.agents/skills/demo/SKILL.md", "/repo/proj", &[])
+            .expect("a project's shared directory is still the shared store");
+    assert_eq!(from_project, Path::new("/repo/proj/.agents/skills/demo/SKILL.md"));
+
+    // And none of this weakens ownership, which is the trap: the same path
+    // still has no owner.
+    assert!(
+        engine_for_path(Path::new("/Users/test/.agents/skills/demo/SKILL.md")).is_none(),
+        "a deployable destination must not become an ownership claim"
+    );
+}
+
+#[test]
+fn deploy_still_refuses_a_lookalike_of_the_shared_directory() {
+    // Whole-component matching, never a substring: `contains(".agents")`
+    // would claim a backup folder and write into a project's real store.
+    for src in [
+        "/Users/test/my.agents-backup/skills/demo/SKILL.md",
+        "/Users/test/.agents-old/reviewer.md",
+    ] {
+        let err = resolve_target_path(src, "/repo/proj", &[])
+            .expect_err("a lookalike directory is not the shared store");
+        assert!(format!("{err:?}").contains("no agent"), "for {src}");
+    }
 }
 
 #[test]
@@ -285,5 +326,166 @@ fn execute_deploy_resolves_the_target_before_writing_anything() {
         "resolve_target_path (byte {resolve_at} of the function body) must run before the \
          first filesystem write (byte {first_write}) in execute_deploy — a write hoisted above \
          the refusal check would silently reintroduce the stray write Task 3 removed"
+    );
+}
+
+#[test]
+fn the_five_clean_rows_are_present_and_own_their_directories() {
+    for (id, sample) in [
+        ("kiro", "/Users/test/.kiro/skills/demo/SKILL.md"),
+        ("trae", "/repo/proj/.trae/skills/demo/SKILL.md"),
+        ("opencode", "/Users/test/.config/opencode/agent/demo.md"),
+        ("amp", "/Users/test/.config/amp/AGENTS.md"),
+    ] {
+        let found = engine_for_path(Path::new(sample))
+            .unwrap_or_else(|| panic!("{id} did not claim {sample}"));
+        assert_eq!(found.id, id, "{sample} resolved to {}", found.id);
+    }
+}
+
+#[test]
+fn zed_owns_nothing_and_reaches_the_shared_dir() {
+    // Zed's only skills location is the vendor-neutral convention. Giving it a
+    // root would either steal `.agents/` from the store or invent a directory
+    // that does not exist.
+    let zed = tauri_app_lib::agents::config_for_id("zed").expect("zed must be in the table");
+    assert!(zed.global_roots.is_empty(), "Zed owns no global root");
+    assert!(zed.project_roots.is_empty(), "Zed owns no project root");
+    assert!(zed.reads_agents_dir, "Zed reads the shared convention");
+
+    let reach: Vec<&str> = tauri_app_lib::agents::agents_reading_shared_dir()
+        .iter()
+        .map(|c| c.id)
+        .collect();
+    assert!(reach.contains(&"zed"));
+    assert!(reach.contains(&"amp"));
+}
+
+#[test]
+fn similar_looking_paths_are_not_claimed_by_the_new_agents() {
+    for p in [
+        "/srv/kiroshi/skills/demo/SKILL.md",
+        "/Users/test/.traefik/rules/demo.md",
+        "/Users/test/.config/opencoded/agent/demo.md",
+        "/Users/test/.amplify/AGENTS.md",
+    ] {
+        assert!(
+            engine_for_path(Path::new(p)).is_none(),
+            "{p} must not be claimed — whole-component matching only"
+        );
+    }
+}
+
+/// Carried from Task 2: no test anywhere exercised a multi-segment root
+/// (`.config/claude`, and now `.config/opencode`) through
+/// `subagent_owner_for_path`, in either direction. `match_run` splits the
+/// needle on `/` and matches whole components regardless of segment count,
+/// so this was believed correct but unpinned. Both directions, both roots:
+/// the subagents directory sitting directly under the multi-segment root
+/// resolves, and one nested a level deeper (a `plugins/foo/agent/` shape)
+/// does not — the same adjacency rule single-segment roots already get.
+#[test]
+fn multi_segment_roots_resolve_subagent_ownership_directly_but_not_when_nested_deeper() {
+    let claude_direct = Path::new("/Users/test/.config/claude/agents/reviewer.md");
+    let found = subagent_owner_for_path(claude_direct)
+        .expect("agents/ directly under the multi-segment .config/claude root must resolve");
+    assert_eq!(found.id, "claude-code");
+
+    let claude_nested = Path::new("/Users/test/.config/claude/plugins/foo/agents/reviewer.md");
+    assert!(
+        subagent_owner_for_path(claude_nested).is_none(),
+        "an agents/ directory nested a level deeper under .config/claude must not resolve"
+    );
+
+    let opencode_direct = Path::new("/Users/test/.config/opencode/agent/reviewer.md");
+    let found = subagent_owner_for_path(opencode_direct)
+        .expect("agent/ directly under the multi-segment .config/opencode root must resolve");
+    assert_eq!(found.id, "opencode");
+
+    let opencode_nested = Path::new("/Users/test/.config/opencode/plugins/foo/agent/reviewer.md");
+    assert!(
+        subagent_owner_for_path(opencode_nested).is_none(),
+        "an agent/ directory nested a level deeper under .config/opencode must not resolve"
+    );
+}
+
+/// Kiro is the newest single-segment participant in `subagent_owner_for_path`
+/// (`subagents: Some("agents")`), and unlike claude-code, codex and opencode
+/// it had no direct coverage of its own — claude-code and codex came from
+/// Task 2, opencode from the multi-segment test above, and Kiro fell through
+/// the cracks. Given the whole task turns on that function's safety, its
+/// newest participant should not ship with zero direct coverage: a
+/// regression here could silently misattribute or drop Kiro subagents while
+/// the rest of the suite stayed green.
+#[test]
+fn kiro_subagent_ownership_requires_the_agents_dir_directly_under_the_root() {
+    let direct = Path::new("/Users/test/.kiro/agents/reviewer.md");
+    let found = subagent_owner_for_path(direct)
+        .expect("agents/ directly under .kiro/ must resolve");
+    assert_eq!(found.id, "kiro");
+
+    let nested = Path::new("/Users/test/.kiro/plugins/foo/agents/reviewer.md");
+    assert!(
+        subagent_owner_for_path(nested).is_none(),
+        "an agents/ directory nested a level deeper under .kiro must not resolve"
+    );
+}
+
+#[test]
+fn roo_and_kilo_do_not_share_directories() {
+    // Kilo Code forked Roo Code but rebuilt its config. An implementation that
+    // assumed the fork inherited the parent's paths would find nothing and
+    // report zero (spec §9.2).
+    let roo = engine_for_path(Path::new("/Users/test/.roo/rules/demo.md"))
+        .expect("Roo must claim .roo");
+    assert_eq!(roo.id, "roocode");
+
+    let kilo = engine_for_path(Path::new("/repo/proj/.kilocode/rules/demo.md"))
+        .expect("Kilo must claim .kilocode");
+    assert_eq!(kilo.id, "kilocode");
+
+    assert!(
+        engine_for_path(Path::new("/Users/test/.roo/rules/demo.md")).map(|c| c.id) != Some("kilocode"),
+        "Kilo must not claim Roo's directory"
+    );
+}
+
+#[test]
+fn roo_reaches_the_shared_dir_and_kilo_does_not() {
+    let roo = tauri_app_lib::agents::config_for_id("roocode").unwrap();
+    let kilo = tauri_app_lib::agents::config_for_id("kilocode").unwrap();
+    assert!(roo.reads_agents_dir, "Roo Code reads .agents/ alongside its own dir");
+    assert!(!kilo.reads_agents_dir, "Kilo's .agents/ support is unconfirmed");
+}
+
+#[test]
+fn cline_claims_all_three_of_its_homes() {
+    for p in [
+        "/Users/test/.cline/skills/demo/SKILL.md",
+        "/repo/proj/.clinerules/demo.md",
+        "/Users/test/Documents/Cline/Rules/demo.md",
+    ] {
+        let found = engine_for_path(Path::new(p))
+            .unwrap_or_else(|| panic!("Cline did not claim {p}"));
+        assert_eq!(found.id, "cline", "{p} resolved to {}", found.id);
+    }
+}
+
+#[test]
+fn clines_global_storage_path_is_declared_not_guessed() {
+    // Medium-confidence and keyed by an extension id that can change. This is
+    // the detector most likely to silently find nothing, so the id is pinned
+    // here: when it changes, this test says so rather than the UI reporting
+    // zero servers (spec §11).
+    let sources = tauri_app_lib::mcp::registry::SOURCES
+        .iter()
+        .filter(|s| s.host_id == "cline")
+        .count();
+    assert!(sources > 0, "Cline must declare at least one MCP source");
+    assert!(
+        tauri_app_lib::mcp::registry::SOURCES
+            .iter()
+            .any(|s| s.host_id == "cline" && s.path.contains("saoudrizwan.claude-dev")),
+        "Cline's globalStorage extension id must be declared explicitly"
     );
 }

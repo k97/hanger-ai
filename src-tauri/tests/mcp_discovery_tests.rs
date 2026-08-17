@@ -157,6 +157,77 @@ fn zed_context_servers_key_is_read() {
 }
 
 #[test]
+fn zed_declares_its_command_as_an_object_and_still_yields_a_runnable_launch() {
+    // The read was `.as_str()` on an object, which returns None. The command
+    // came out empty and transport_for called it "unknown", so every Zed
+    // server rendered as a blank row.
+    let body = r#"{
+  "context_servers": {
+    "spades": {
+      "command": {
+        "path": "node",
+        "args": ["/tmp/index.js"],
+        "env": { "SPADES_TOKEN": "REDACT_ME_1" }
+      }
+    }
+  }
+}"#;
+    let servers = dialect::parse(body, dialect::Dialect::ZedContextServers, dialect::ScopeTier::Global)
+        .expect("nested command must parse");
+    assert_eq!(servers.len(), 1);
+    assert_eq!(servers[0].command, "node");
+    assert_eq!(servers[0].args, vec!["/tmp/index.js".to_string()]);
+    assert_eq!(servers[0].transport, "stdio");
+    // Lifted from inside the nested object. Reading the entry root would find
+    // nothing and report a server with no environment at all.
+    assert_eq!(servers[0].env_keys, vec!["SPADES_TOKEN".to_string()]);
+    // The standing constraint: names only, never values.
+    assert!(!format!("{:?}", servers[0]).contains("REDACT_ME_1"));
+}
+
+#[test]
+fn zeds_flat_command_shape_keeps_working() {
+    // Newer Zed writes the flat shape. Both are in the wild, so both parse.
+    let body = r#"{
+  "context_servers": {
+    "spades": { "command": "node", "args": ["/tmp/index.js"] }
+  }
+}"#;
+    let servers = dialect::parse(body, dialect::Dialect::ZedContextServers, dialect::ScopeTier::Global)
+        .expect("flat command must parse");
+    assert_eq!(servers[0].command, "node");
+    assert_eq!(servers[0].args, vec!["/tmp/index.js".to_string()]);
+}
+
+#[test]
+fn a_zed_remote_entry_without_a_command_is_untouched() {
+    // A `url`-only entry has no `command` at all. The normaliser must pass it
+    // through rather than assuming the nested shape.
+    let body = r#"{
+  "context_servers": { "linear": { "url": "https://mcp.linear.app/sse" } }
+}"#;
+    let servers = dialect::parse(body, dialect::Dialect::ZedContextServers, dialect::ScopeTier::Global)
+        .expect("remote entry must parse");
+    assert_eq!(servers[0].command, "");
+    assert_eq!(servers[0].transport, "https://mcp.linear.app/sse");
+}
+
+#[test]
+fn a_zed_config_with_comments_still_parses() {
+    // Zed ships settings.json with comments by default. This is covered by
+    // strip_jsonc, but Zed is the reason it matters, so it is pinned here too.
+    let body = r#"{
+  // The MCP servers Zed can reach.
+  "context_servers": {
+    "spades": { "command": { "path": "node", "args": [] } },
+  },
+}"#;
+    let servers = dialect::parse(body, dialect::Dialect::ZedContextServers, dialect::ScopeTier::Global)
+        .expect("JSONC must parse");
+    assert_eq!(servers[0].command, "node");
+}
+
+#[test]
 fn claude_json_user_tier_reads_only_top_level_mcp_servers() {
     let body = r#"{
       "mcpServers": {"spades-audio": {"command": "node"}, "tauri": {"command": "npx tauri-mcp"}},
@@ -191,6 +262,48 @@ fn url_credentials_are_stripped_from_transport() {
 }
 
 #[test]
+fn a_bridged_remote_server_and_a_direct_one_share_an_identity() {
+    // Zed is stdio-only, so a remote server reaches it through mcp-remote.
+    // Reported unwrapped, that is the same logical server as the direct
+    // registration elsewhere; reported raw, it is two unrelated rows and the
+    // cross-engine reading is wrong on every machine using Zed.
+    let bridged = r#"{
+  "context_servers": {
+    "linear": { "command": "npx", "args": ["-y", "mcp-remote", "https://mcp.linear.app/sse"] }
+  }
+}"#;
+    let direct = r#"{ "mcpServers": { "linear": { "url": "https://mcp.linear.app/sse" } } }"#;
+
+    let b = dialect::parse(bridged, dialect::Dialect::ZedContextServers, dialect::ScopeTier::Global).unwrap();
+    let d = dialect::parse(direct, dialect::Dialect::McpServers, dialect::ScopeTier::Global).unwrap();
+
+    assert_eq!(b[0].transport, d[0].transport);
+    assert_eq!(b[0].transport, "https://mcp.linear.app/sse");
+    assert!(b[0].bridged, "the bridge is worth saying, even though the identity matches");
+    assert!(!d[0].bridged);
+}
+
+#[test]
+fn a_launch_that_merely_mentions_a_url_is_not_a_bridge() {
+    // Over-eager unwrapping would rewrite the identity of any stdio server
+    // whose arguments happen to carry a URL.
+    let body = r#"{ "mcpServers": { "docs": { "command": "node",
+        "args": ["/tmp/server.js", "--upstream", "https://example.com/api"] } } }"#;
+    let s = dialect::parse(body, dialect::Dialect::McpServers, dialect::ScopeTier::Global).unwrap();
+    assert_eq!(s[0].transport, "stdio");
+    assert!(!s[0].bridged);
+}
+
+#[test]
+fn credentials_in_a_bridged_url_do_not_survive_the_unwrap() {
+    let body = r#"{ "mcpServers": { "x": { "command": "npx",
+        "args": ["mcp-remote", "https://u:REDACT_ME_1@example.com/sse?k=REDACT_ME_1"] } } }"#;
+    let s = dialect::parse(body, dialect::Dialect::McpServers, dialect::ScopeTier::Global).unwrap();
+    assert!(!s[0].transport.contains("REDACT_ME_1"), "{}", s[0].transport);
+    assert_eq!(s[0].transport, "https://example.com/sse");
+}
+
+#[test]
 fn a_recognised_file_with_no_servers_is_an_empty_success_not_an_error() {
     // Callers distinguish "parsed, zero servers" (warn) from "failed to parse"
     // (error). Both were previously indistinguishable Ok(0).
@@ -201,6 +314,201 @@ fn a_recognised_file_with_no_servers_is_an_empty_success_not_an_error() {
 #[test]
 fn malformed_json_is_an_error() {
     assert!(dialect::parse("{ not json", Dialect::McpServers, ScopeTier::Global).is_err());
+}
+
+#[test]
+fn opencode_mcp_key_is_parsed_and_discriminated_by_type() {
+    let json = r#"{
+      "mcp": {
+        "local-tool": { "type": "local", "command": ["run", "me"] },
+        "remote-tool": { "type": "remote", "url": "https://example.test/mcp" }
+      }
+    }"#;
+    let servers = dialect::parse(json, Dialect::OpenCodeMcp, ScopeTier::Global).expect("must parse");
+    assert_eq!(names(&servers), vec!["local-tool", "remote-tool"]);
+}
+
+#[test]
+fn amp_reads_its_servers_from_a_nested_settings_key() {
+    let json = r#"{
+      "editor.fontSize": 13,
+      "amp.mcpServers": { "notes": { "command": "notes-mcp" } }
+    }"#;
+    let servers = dialect::parse(json, Dialect::AmpSettingsKey, ScopeTier::Global).expect("must parse");
+    assert_eq!(servers.len(), 1);
+    assert_eq!(servers[0].name, "notes");
+}
+
+#[test]
+fn jsonc_comments_and_trailing_commas_do_not_read_as_zero_servers() {
+    // Kilo Code ships JSONC. serde_json rejects both comments and trailing
+    // commas, so without a pre-pass a commented config reads as no servers at
+    // all — the silent-miss failure this refactor exists to remove.
+    let jsonc = r#"{
+      // the tools I actually use
+      "mcp": {
+        "notes": { "type": "local", "command": ["notes-mcp"] }, /* trailing */
+      },
+    }"#;
+    let servers = dialect::parse(jsonc, Dialect::OpenCodeMcp, ScopeTier::Global)
+        .expect("a commented JSONC config must parse");
+    assert_eq!(servers.len(), 1, "a comment must not hide a server");
+}
+
+#[test]
+fn jsonc_stripping_leaves_a_double_slash_inside_a_string_intact() {
+    // `//` inside a quoted value — a URL, here — is not a line comment. If
+    // strip_jsonc mistook it for one, the rest of the line (including the
+    // closing quote and brace) would be eaten and the file would fail to
+    // parse, or the transport would come out truncated.
+    let jsonc = r#"{
+      // config
+      "mcp": {
+        "remote": { "type": "remote", "url": "https://example.test/mcp" }
+      }
+    }"#;
+    let servers = dialect::parse(jsonc, Dialect::OpenCodeMcp, ScopeTier::Global)
+        .expect("a URL containing // must survive the strip");
+    assert_eq!(servers.len(), 1);
+    assert_eq!(servers[0].transport, "https://example.test/mcp");
+}
+
+#[test]
+fn opencode_array_command_becomes_command_plus_args() {
+    // `server_from_json` only reads `command` as a string; left alone this
+    // silently drops both the executable and its arguments to empty, for a
+    // `type: "local"` server where the command IS the actionable content.
+    let json = r#"{
+      "mcp": {
+        "local-tool": { "type": "local", "command": ["run", "me", "now"] }
+      }
+    }"#;
+    let servers = dialect::parse(json, Dialect::OpenCodeMcp, ScopeTier::Global).expect("must parse");
+    assert_eq!(servers.len(), 1);
+    assert_eq!(servers[0].command, "run");
+    assert_eq!(servers[0].args, vec!["me", "now"]);
+}
+
+#[test]
+fn opencode_single_element_array_command_has_no_args() {
+    let json = r#"{
+      "mcp": {
+        "solo": { "type": "local", "command": ["serve"] }
+      }
+    }"#;
+    let servers = dialect::parse(json, Dialect::OpenCodeMcp, ScopeTier::Global).expect("must parse");
+    assert_eq!(servers[0].command, "serve");
+    assert!(servers[0].args.is_empty());
+}
+
+#[test]
+fn opencode_declared_args_survive_an_array_command() {
+    // The clobber. `{"command": ["docker"], "args": [...]}` is an ordinary
+    // shape, and an unconditional `insert("args", …)` replaced the declared
+    // launch with the (empty) tail of the command array — leaving `docker`
+    // alone in the inventory, which starts nothing.
+    let json = r#"{
+      "mcp": {
+        "boxed": { "type": "local", "command": ["docker"], "args": ["run", "-i", "img"] }
+      }
+    }"#;
+    let servers = dialect::parse(json, Dialect::OpenCodeMcp, ScopeTier::Global).expect("must parse");
+    assert_eq!(servers[0].command, "docker");
+    assert_eq!(servers[0].args, vec!["run", "-i", "img"]);
+}
+
+#[test]
+fn opencode_merges_both_halves_of_a_split_launch_and_drops_neither() {
+    // Both sources populated. Neither may be discarded, and the command
+    // array's own tail comes first: that is the order the tokens sit in.
+    let json = r#"{
+      "mcp": {
+        "split": { "type": "local", "command": ["a", "b"], "args": ["c"] }
+      }
+    }"#;
+    let servers = dialect::parse(json, Dialect::OpenCodeMcp, ScopeTier::Global).expect("must parse");
+    assert_eq!(servers[0].command, "a");
+    assert_eq!(servers[0].args, vec!["b", "c"]);
+}
+
+#[test]
+fn opencode_keeps_an_unquoted_number_in_the_launch() {
+    // `--port 8080` is the natural thing to write, and a filter that kept
+    // only strings dropped the port — showing a launch that is not the one on
+    // disk, with nothing said about the difference. There is exactly one text
+    // 8080 means, so it is carried rather than guessed at.
+    let json = r#"{
+      "mcp": {
+        "served": { "type": "local", "command": ["node", "server.js", "--port", 8080] }
+      }
+    }"#;
+    let servers = dialect::parse(json, Dialect::OpenCodeMcp, ScopeTier::Global).expect("must parse");
+    assert_eq!(servers[0].command, "node");
+    assert_eq!(servers[0].args, vec!["server.js", "--port", "8080"]);
+}
+
+#[test]
+fn an_unquoted_number_survives_a_plain_args_array_too() {
+    // The same drop lived in `args_json`, which every dialect reads through.
+    // Fixing only the OpenCode side would have moved the defect one key over.
+    let json = r#"{ "mcpServers": { "served": { "command": "node", "args": ["--port", 8080] } } }"#;
+    let servers = dialect::parse(json, Dialect::McpServers, ScopeTier::Global).expect("must parse");
+    assert_eq!(servers[0].args, vec!["--port", "8080"]);
+}
+
+#[test]
+fn an_unreadable_opencode_command_is_stated_not_swallowed() {
+    // Both of these previously returned the entry untouched, straight into
+    // the empty-command path the normaliser exists to close: a server present
+    // in the inventory with nothing to run and no diagnostic anywhere.
+    for (json, why) in [
+        (
+            r#"{ "mcp": { "empty": { "type": "local", "command": [] } } }"#,
+            "an empty command array declares no launch",
+        ),
+        (
+            r#"{ "mcp": { "nested": { "type": "local", "command": [{ "path": "x" }] } } }"#,
+            "an object has no launch-token form",
+        ),
+        (
+            r#"{ "mcp": { "nulled": { "type": "local", "command": ["node", null] } } }"#,
+            "neither does a null",
+        ),
+    ] {
+        let err = dialect::parse(json, Dialect::OpenCodeMcp, ScopeTier::Global)
+            .expect_err(why);
+        assert!(
+            err.contains("command"),
+            "the error must name what it could not read, got: {err}"
+        );
+    }
+}
+
+#[test]
+fn opencode_remote_type_is_unaffected_by_command_normalisation() {
+    let json = r#"{
+      "mcp": {
+        "remote-tool": { "type": "remote", "url": "https://example.test/mcp" }
+      }
+    }"#;
+    let servers = dialect::parse(json, Dialect::OpenCodeMcp, ScopeTier::Global).expect("must parse");
+    assert_eq!(servers[0].command, "");
+    assert_eq!(servers[0].transport, "https://example.test/mcp");
+}
+
+#[test]
+fn opencode_string_command_is_unaffected_by_array_normalisation() {
+    // The normalisation is additive: an entry that already matches the
+    // string-command shape every other dialect uses must pass through
+    // untouched, not get rewritten into something else.
+    let json = r#"{
+      "mcp": {
+        "classic": { "command": "notes-mcp" }
+      }
+    }"#;
+    let servers = dialect::parse(json, Dialect::OpenCodeMcp, ScopeTier::Global).expect("must parse");
+    assert_eq!(servers[0].command, "notes-mcp");
+    assert!(servers[0].args.is_empty());
 }
 
 // ─── Host kind is derived, never stored ──────────────────────────────────────
@@ -248,6 +556,26 @@ fn unknown_engine_ids_are_not_silently_filed_under_gemini() {
 }
 
 #[test]
+fn every_agent_config_id_resolves_to_an_engine_key() {
+    // `scanner.rs` calls `.expect("every AGENT_CONFIGS id must have an engine
+    // key")` twice, on the scan thread, and nothing pinned the claim. The
+    // neighbouring agreement test looks like it does and does not: its
+    // assertion sits inside `if let Some(...)`, so a missing key skips the
+    // body and the test passes.
+    //
+    // The design's headline promise is that an agent is one declarative table
+    // row. A contributor who believes it adds a row, sees green here, and
+    // ships a scan that panics the moment that agent is installed.
+    for config in tauri_app_lib::agents::AGENT_CONFIGS {
+        assert!(
+            tauri_app_lib::scanner::get_engine_key(config.id).is_some(),
+            "AGENT_CONFIGS row \"{}\" has no arm in get_engine_key — the scan thread will panic on any machine with it installed",
+            config.id
+        );
+    }
+}
+
+#[test]
 fn scanner_and_registry_agree_on_every_engine_key_they_both_know() {
     // scanner::get_engine_key covers every engine Hanger records, including
     // rules-only ones like copilot that declare no MCP servers. The MCP
@@ -268,7 +596,7 @@ fn scanner_and_registry_agree_on_every_engine_key_they_both_know() {
 // ─── Discovery ───────────────────────────────────────────────────────────────
 
 use std::path::Path;
-use tauri_app_lib::mcp::discover;
+use tauri_app_lib::mcp::discover::{self, ConfigProblemKind};
 
 fn fixture_home() -> &'static Path {
     Path::new("tests/fixtures/mcp_home")
@@ -376,9 +704,10 @@ fn a_recognised_source_yielding_no_servers_warns_instead_of_vanishing() {
 
     let result = discover::discover_machine(dir.path());
     assert!(
-        result.warnings.iter().any(|w| w.contains("mcp.json")),
-        "expected a warning naming the empty source, got {:?}",
-        result.warnings
+        result.problems.iter().any(|p| matches!(p.kind, ConfigProblemKind::DeclaredNothing)
+            && p.path.contains("mcp.json")),
+        "expected a DeclaredNothing problem naming the empty source, got {:?}",
+        result.problems
     );
 }
 
@@ -388,9 +717,9 @@ fn a_missing_source_is_silent() {
     let result = discover::discover_machine(dir.path());
     assert!(result.registrations.is_empty());
     assert!(
-        result.warnings.is_empty(),
+        result.problems.is_empty(),
         "absent files must not warn: {:?}",
-        result.warnings
+        result.problems
     );
 }
 
@@ -551,6 +880,32 @@ args = ["server.js"]
     assert_eq!(local.args, vec!["server.js"]);
 }
 
+// ─── Windsurf is Devin Desktop ───────────────────────────────────────────────
+
+#[test]
+fn the_windsurf_host_is_named_devin_desktop_and_keeps_its_id() {
+    use tauri_app_lib::mcp::registry::{HOSTS, SOURCES};
+
+    let host = HOSTS
+        .iter()
+        .find(|h| h.id == "windsurf")
+        .expect("the host id stays `windsurf` — it keys existing rows");
+    assert_eq!(host.display_name, "Devin Desktop");
+
+    let paths: Vec<&str> = SOURCES
+        .iter()
+        .filter(|s| s.host_id == "windsurf")
+        .map(|s| s.path)
+        .collect();
+
+    // Legacy, not dead: Cascade still reads it.
+    assert!(paths.contains(&".codeium/windsurf/mcp_config.json"));
+    // Devin Local — the default agent — reads these.
+    assert!(paths.contains(&".config/devin/config.json"));
+    assert!(paths.contains(&".devin/config.json"));
+    assert!(paths.contains(&".devin/mcp_config.json"));
+}
+
 #[test]
 fn a_mixed_file_yields_both_transports_side_by_side() {
     // The real shape of a repo .mcp.json next to a machine config: stdio and
@@ -564,4 +919,156 @@ fn a_mixed_file_yields_both_transports_side_by_side() {
     let remote = servers.iter().find(|s| s.name == "mei-recipes").unwrap();
     assert!(remote.transport.starts_with("https://"));
     assert!(remote.command.is_empty(), "a remote server has nothing to spawn");
+}
+
+// ─── Config problems ─────────────────────────────────────────────────────────
+
+use std::io::Write;
+
+#[test]
+fn an_unreadable_config_is_a_different_problem_from_an_unparseable_one() {
+    // Collapsed into one Vec<String> until now. They have different fixes:
+    // one is chmod, the other is an editor. A user told only "there was a
+    // problem" has to guess which.
+    let dir = tempfile::tempdir().expect("tempdir");
+
+    let bad = dir.path().join("mcp.json");
+    let mut f = std::fs::File::create(&bad).expect("create");
+    writeln!(f, "{{ \"mcpServers\": {{ \"a\": {{ }}").expect("write");
+
+    let result = discover::read_swept(&bad, "claude-code", dialect::ScopeTier::Global);
+    assert_eq!(result.problems.len(), 1);
+    assert!(matches!(result.problems[0].kind, ConfigProblemKind::Unparseable));
+    assert!(
+        result.problems[0].line.is_some(),
+        "an unparseable file without a location is a dead end"
+    );
+
+    let missing = dir.path().join("gone.json");
+    let result = discover::read_swept(&missing, "claude-code", dialect::ScopeTier::Global);
+    assert_eq!(result.problems.len(), 1);
+    assert!(matches!(result.problems[0].kind, ConfigProblemKind::Unreadable));
+    assert!(result.problems[0].line.is_none());
+}
+
+#[test]
+fn a_well_formed_file_declaring_nothing_is_its_own_state() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let empty = dir.path().join("mcp.json");
+    std::fs::write(&empty, "{}").expect("write");
+
+    let result = discover::read_swept(&empty, "claude-code", dialect::ScopeTier::Global);
+    assert_eq!(result.problems.len(), 1);
+    assert!(matches!(result.problems[0].kind, ConfigProblemKind::DeclaredNothing));
+}
+
+#[test]
+fn a_line_number_survives_a_multi_line_block_comment() {
+    // strip_jsonc rewrites the body before serde sees it. Its `//` branch keeps
+    // the newline it consumes; its `/* */` branch did not, so every line number
+    // after a multi-line comment came back short — pointing the user at the
+    // wrong line of a file they then have to search by hand.
+    //
+    // The fixture: the comment opens on line 2 and closes on line 4, so it
+    // CONTAINS two newlines (ending lines 2 and 3). The `*/` terminator does not
+    // carry one, so the shift is two, not three. The syntax error — an unquoted
+    // value — is on line 7. Before the fix serde reports 5; after it, 7.
+    let dir = tempfile::tempdir().expect("tempdir");
+    let path = dir.path().join("mcp.json");
+    std::fs::write(
+        &path,
+        "{\n  /* one\n     two\n     three */\n  \"mcpServers\": {\n    \"a\": {\n      \"command\": x\n    }\n  }\n}\n",
+    )
+    .expect("write");
+
+    let result = discover::read_swept(&path, "claude-code", dialect::ScopeTier::Global);
+    assert_eq!(result.problems.len(), 1);
+    assert!(matches!(result.problems[0].kind, ConfigProblemKind::Unparseable));
+    assert_eq!(
+        result.problems[0].line,
+        Some(7),
+        "line number must point at the original file, not the stripped one"
+    );
+}
+
+#[test]
+fn a_format_we_choose_not_to_parse_reports_itself_rather_than_reading_as_empty() {
+    // Zero servers and "we cannot read this file" look identical to a user.
+    // The second is a fact about Hanger, and saying so is the difference
+    // between an honest gap and an app that looks broken.
+    let dir = tempfile::tempdir().expect("tempdir");
+    let path = dir.path().join("config.yaml");
+    std::fs::write(&path, "mcpServers:\n  - name: x\n").expect("write");
+
+    let result = discover::read_one_for_test(
+        &path,
+        dialect::Dialect::Unsupported,
+        "continue",
+        dialect::ScopeTier::Global,
+    );
+    assert!(result.registrations.is_empty());
+    assert_eq!(result.problems.len(), 1);
+    assert!(matches!(result.problems[0].kind, ConfigProblemKind::FormatUnread));
+}
+
+// ─── Fixture machines ────────────────────────────────────────────────────────
+//
+// Spec §4.7: proven against machines that are not this one. Assertions here
+// are relationships the fixtures make true, not counts that happen to be true
+// today — the registry gained seven hosts while this plan ran and will gain
+// more.
+
+#[test]
+fn each_fixture_machine_reports_what_it_declares() {
+    let base = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures");
+
+    let claude_only = discover::discover_machine(&base.join("claude_only_home"));
+    assert!(claude_only.problems.is_empty(), "{:?}", claude_only.problems);
+    let names: Vec<&str> = claude_only.registrations.iter().map(|r| r.server.name.as_str()).collect();
+    assert!(names.contains(&"memory") && names.contains(&"protected"), "{:?}", names);
+
+    let jsonc = discover::discover_machine(&base.join("jsonc_home"));
+    assert!(jsonc.problems.is_empty(), "JSONC must parse cleanly: {:?}", jsonc.problems);
+
+    // Zed's nested command survived normalisation into a runnable launch.
+    let spades = jsonc.registrations.iter().find(|r| r.server.name == "spades")
+        .expect("Zed's server must be discovered");
+    assert_eq!(spades.server.command, "node");
+    assert_eq!(spades.server.env_keys, vec!["SPADES_TOKEN".to_string()]);
+
+    // The bridged Zed entry and the direct VS Code entry are the same endpoint.
+    // This is the cross-engine reading the whole feature exists for: without the
+    // mcp-remote unwrap they are two unrelated servers.
+    let linear: Vec<&str> = jsonc.registrations.iter()
+        .filter(|r| r.server.name == "linear")
+        .map(|r| r.server.transport.as_str()).collect();
+    assert_eq!(linear.len(), 2, "both hosts must declare it: {:?}", linear);
+    assert_eq!(linear[0], linear[1], "bridged and direct must agree: {:?}", linear);
+    assert!(linear[0].starts_with("https://"), "{:?}", linear);
+
+    let empty = discover::discover_machine(&base.join("empty_home"));
+    assert!(empty.registrations.is_empty());
+    assert!(empty.problems.is_empty(), "an empty machine is not a broken one: {:?}", empty.problems);
+}
+
+#[test]
+fn no_fixture_credential_survives_into_a_displayable_launch() {
+    let base = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures");
+    for machine in ["claude_only_home", "jsonc_home", "empty_home"] {
+        let registrations = discover::discover_machine(&base.join(machine)).registrations;
+        // A regression that made discovery return nothing would make this loop
+        // iterate zero times and the test would report ok while proving the
+        // opposite of what its name claims. claude_only_home and jsonc_home
+        // both declare servers, so both must actually yield some; empty_home
+        // legitimately has none and is exempt.
+        if machine != "empty_home" {
+            assert!(!registrations.is_empty(), "{} declares servers but discovery found none", machine);
+        }
+        for reg in registrations {
+            let shown = tauri_app_lib::mcp::redact::redact_launch(&reg.server.command, &reg.server.args);
+            for secret in ["REDACT_ME_1", "REDACT_ME_2", "REDACT_ME_3"] {
+                assert!(!shown.contains(secret), "{} leaked in {}: {}", secret, machine, shown);
+            }
+        }
+    }
 }

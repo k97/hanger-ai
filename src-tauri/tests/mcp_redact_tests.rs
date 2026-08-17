@@ -72,3 +72,88 @@ fn an_empty_command_yields_only_the_arguments() {
     let out = redact_launch("", &args(&["--flag"]));
     assert_eq!(out, "--flag");
 }
+
+#[test]
+fn a_secret_shaped_toggle_does_not_swallow_the_next_secret_flag() {
+    // `--oauth` looks secret (it contains "auth") but is a realistic valueless
+    // toggle. The next token, `--client-secret`, lands in a pending-value
+    // position and is redacted unconditionally (the invariant this module
+    // holds); because it is itself secret-shaped, redaction continues onto
+    // the token after it too. The middle flag's own name is deliberately no
+    // longer shown — two earlier rounds tried to guess "is this token a flag
+    // or a value" from its shape and each guess left a differently-shaped
+    // secret exposed, so the guessing was replaced with an invariant instead.
+    let out = redact_launch("npx", &args(&["--oauth", "--client-secret", "REDACT_ME_1"]));
+    assert!(!out.contains("REDACT_ME_1"), "secret survived: {}", out);
+    assert_eq!(out, "npx --oauth <redacted> <redacted>");
+}
+
+#[test]
+fn a_pending_header_does_not_swallow_the_next_secret_flag() {
+    // Same invariant, for a header flag with no value in front of a
+    // secret-shaped flag.
+    let out = redact_launch("npx", &args(&["-H", "--api-key", "REDACT_ME_2"]));
+    assert!(!out.contains("REDACT_ME_2"), "secret survived: {}", out);
+    assert_eq!(out, "npx -H <redacted> <redacted>");
+}
+
+#[test]
+fn a_secret_flags_value_that_starts_with_a_dash_is_still_redacted() {
+    // The guard against swallowing only fires when the next token is itself a
+    // RECOGNISED flag (a header flag, or secret-shaped). An ordinary
+    // dash-prefixed value must still be consumed as the value it is.
+    let out = redact_launch("server", &args(&["--api-key", "-REDACT_ME_3"]));
+    assert!(!out.contains("REDACT_ME_3"), "{}", out);
+    assert!(out.contains("--api-key <redacted>"), "{}", out);
+}
+
+#[test]
+fn a_trailing_secret_flag_with_no_value_leaves_no_stray_marker() {
+    let out = redact_launch("server", &args(&["--api-key"]));
+    assert_eq!(out, "server --api-key");
+}
+
+#[test]
+fn a_trailing_header_flag_with_no_value_leaves_no_stray_marker() {
+    let out = redact_launch("npx", &args(&["-H"]));
+    assert_eq!(out, "npx -H");
+}
+
+#[test]
+fn a_secret_shaped_single_dash_value_is_still_redacted_not_mistaken_for_a_flag() {
+    // A pending-value position is never emitted verbatim, regardless of what
+    // the token in it looks like — this is what closes the leak a
+    // shape-or-content guard could not close in either direction.
+    let out = redact_launch("server", &args(&["--api-key", "-secretREDACT_ME_1"]));
+    assert!(!out.contains("REDACT_ME_1"), "value survived: {}", out);
+    assert!(out.contains("--api-key <redacted>"), "{}", out);
+}
+
+#[test]
+fn a_double_dash_secret_shaped_value_after_a_pending_flag_is_redacted() {
+    // Round 2's guard required the flag half of its discriminator to start
+    // with `--`, which closed the single-dash leak but reopened this one:
+    // `--secretREDACT_ME_1` also starts with `--` and is secret-shaped, so
+    // round 2 would have called it a recognised flag and pushed it bare. The
+    // unconditional invariant redacts it regardless of shape.
+    let out = redact_launch("server", &args(&["--api-key", "--secretREDACT_ME_1"]));
+    assert!(!out.contains("REDACT_ME_1"), "value survived: {}", out);
+    assert_eq!(out, "server --api-key <redacted>");
+}
+
+#[test]
+fn a_double_dash_secret_shaped_value_after_a_pending_header_is_redacted() {
+    let out = redact_launch("npx", &args(&["-H", "--secretREDACT_ME_1"]));
+    assert!(!out.contains("REDACT_ME_1"), "value survived: {}", out);
+    assert_eq!(out, "npx -H <redacted>");
+}
+
+#[test]
+fn an_ordinary_multi_argument_launch_is_byte_identical_to_its_input() {
+    // The invariant only fires inside a pending-value position. An ordinary
+    // launch with no secret-shaped flag anywhere must never be touched by
+    // it — over-redaction here would make the panel useless for the common
+    // case, which is the vast majority of real MCP server declarations.
+    let out = redact_launch("npx", &args(&["-y", "@scope/pkg", "--port", "3000"]));
+    assert_eq!(out, "npx -y @scope/pkg --port 3000");
+}

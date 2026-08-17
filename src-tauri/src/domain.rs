@@ -47,11 +47,26 @@ pub struct Tool {
     pub command: String,
     /// Arguments the command needs to actually be a server.
     ///
-    /// `~/.claude.json` declares spades-audio as `node <path-to-index.js>`.
-    /// Without the arguments the Verify probe launches a bare Node REPL that
-    /// never speaks MCP, so the panel's tool list can never populate.
-    #[serde(default)]
+    /// **Never serialised.** A config file can declare
+    /// `--header "Authorization: Bearer …"` or `--api-key …`, and the panel
+    /// once rendered `[command, ...args].join(" ")` and printed the token.
+    /// `launch_display` carries the redacted rendering for anything that has to
+    /// be shown; this stays backend-only, where the process already read the
+    /// config file and holding the value costs nothing new.
+    ///
+    /// Two backend consumers need the real arguments: `mcp_probe` starts the
+    /// server with them, and `get_mcp_processes` matches them against running
+    /// processes. Deleting the field would make both re-read every config from
+    /// disk to recover what they already had.
+    #[serde(skip_serializing, default)]
     pub args: Vec<String>,
+    /// The launch, redacted, for display.
+    ///
+    /// A config file can carry a bearer token in `--header` or `--api-key`.
+    /// Rendering `[command, ...args].join(" ")` in the panel printed it. The
+    /// redaction happens once here rather than at each render site, and once
+    /// `args` is gone (spec §4.1) the frontend has nothing left to leak.
+    pub launch_display: String,
     pub transport: String,
     pub config_path: String,
     pub scope: Scope,
@@ -339,6 +354,7 @@ mod tests {
             name: "test-tool".into(),
             command: "".into(),
             args: vec![],
+            launch_display: String::new(),
             transport: "".into(),
             config_path: "/path".into(),
             scope: Scope::Global { agent: "claude".into() },

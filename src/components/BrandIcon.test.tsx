@@ -50,13 +50,18 @@ describe("BrandIcon", () => {
   });
 
   it("draws the generic mark for an unmapped engine and reports it once", () => {
-    const a = render(<BrandIcon engineKey="kiro" engineName="Kiro" />);
-    const b = render(<BrandIcon engineKey="kiro" engineName="Kiro" />);
+    // "kiro" now has a mark (src/data/brands.ts); a genuinely unmapped
+    // placeholder keeps this test meaningful.
+    const a = render(<BrandIcon engineKey="unmapped-engine" engineName="Unmapped Engine" />);
+    const b = render(<BrandIcon engineKey="unmapped-engine" engineName="Unmapped Engine" />);
     expect(useHref(a.container)).toBe("#brand-generic");
     expect(a.container.querySelector("svg")?.getAttribute("data-brand")).toBe("generic");
     expect(useHref(b.container)).toBe("#brand-generic");
     expect(invoke).toHaveBeenCalledTimes(1);
-    expect(invoke).toHaveBeenCalledWith("report_unmapped_engine", { engineKey: "kiro", engineName: "Kiro" });
+    expect(invoke).toHaveBeenCalledWith("report_unmapped_engine", {
+      engineKey: "unmappedengine",
+      engineName: "Unmapped Engine",
+    });
   });
 
   it("places itself with x/y when asked (for use inside another svg)", () => {

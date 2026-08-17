@@ -74,6 +74,208 @@ fn credentials_on_a_command_line_are_redacted() {
 }
 
 #[test]
+fn a_path_containing_a_secret_word_does_not_eat_the_following_flag() {
+    // "/opt/token-service/run" contains "token". Before the flag-shape gate it
+    // armed the redactor, swallowed --api-key as its "value", and let the real
+    // credential through untouched.
+    let out = observe::redact("/opt/token-service/run --api-key REDACT_ME_1");
+    assert!(!out.contains("REDACT_ME_1"), "credential survived: {}", out);
+    assert!(
+        out.contains("/opt/token-service/run"),
+        "the path is not a secret and must survive: {}",
+        out
+    );
+}
+
+#[test]
+fn a_valueless_secret_toggle_does_not_swallow_the_next_flag() {
+    // The same defect Task 1 fixed on the config side: --oauth matches "auth",
+    // claims --client-secret as its value, and the real value falls through.
+    let out = observe::redact("node s.js --oauth --client-secret REDACT_ME_2");
+    assert!(!out.contains("REDACT_ME_2"), "credential survived: {}", out);
+    assert!(out.contains("--oauth"), "the toggle is not a secret: {}", out);
+}
+
+#[test]
+fn a_secret_flags_value_is_redacted_even_when_it_looks_like_a_flag() {
+    // A single-dash token is a value however secret-shaped its text. Treating
+    // it as a flag is what reopened the leak on the config side in round 1.
+    let out = observe::redact("server --api-key -secretXvalue");
+    assert!(!out.contains("secretXvalue"), "credential survived: {}", out);
+}
+
+#[test]
+fn a_trailing_secret_flag_with_no_value_emits_no_stray_marker() {
+    let out = observe::redact("server --api-key");
+    assert_eq!(out, "server --api-key");
+}
+
+// Critical finding, final whole-branch review: `--header` is not
+// flag-shaped-secret (`looks_secret("--header")` is false — it contains none
+// of key/token/secret/password/auth) and `Authorization:` is not
+// flag-shaped at all, so neither branch above ever armed a capture for
+// either word. The header, name AND bearer token, fell through both
+// branches and was pushed verbatim onto a screen this module exists to keep
+// it off: RunningProcess.command_line -> ProcessMatch -> mcpServerView.ts's
+// groupProcesses -> ProfilePane's undeclared-servers disclosure. This is the
+// second time this module has leaked a credential; the config-side sibling
+// `redact_launch` already had `HEADER_FLAGS` for this exact shape, and the
+// module comment's claim that the invariant was "mirrored" from it was false
+// for this one constant.
+
+#[test]
+fn a_header_flag_no_longer_leaks_its_bearer_token() {
+    let out = observe::redact(
+        "npx mcp-remote https://example.com/sse --header Authorization: Bearer REDACT_ME_1",
+    );
+    assert!(
+        !out.contains("REDACT_ME_1"),
+        "bearer token survived: {}",
+        out
+    );
+    assert_eq!(
+        out,
+        "npx mcp-remote https://example.com/sse --header Authorization: <redacted> <redacted>"
+    );
+}
+
+#[test]
+fn the_short_header_flag_spelling_is_redacted_the_same_way() {
+    let out = observe::redact("-H Authorization: Bearer REDACT_ME_1");
+    assert!(
+        !out.contains("REDACT_ME_1"),
+        "bearer token survived: {}",
+        out
+    );
+    assert_eq!(out, "-H Authorization: <redacted> <redacted>");
+}
+
+#[test]
+fn header_mode_ends_the_moment_a_new_flag_begins() {
+    // A header value has no length known in advance; header mode ends only
+    // when a new flag starts. A word beginning with `-` must leave header
+    // mode and be processed through the ordinary branches, not swallowed as
+    // more header content.
+    let out =
+        observe::redact("--header Authorization: Bearer REDACT_ME_1 --other-flag value");
+    assert!(
+        !out.contains("REDACT_ME_1"),
+        "bearer token survived: {}",
+        out
+    );
+    assert_eq!(
+        out,
+        "--header Authorization: <redacted> <redacted> --other-flag value"
+    );
+}
+
+#[test]
+fn the_header_fix_does_not_change_an_ordinary_secret_flag() {
+    // Regression guard: adding header mode must not touch the existing
+    // pending-value path for a plain secret-shaped flag.
+    let out = observe::redact("node server.js --api-key REDACT_ME_2");
+    assert_eq!(out, "node server.js --api-key <redacted>");
+}
+
+#[test]
+fn the_header_fix_does_not_let_a_secret_shaped_path_arm_the_capture() {
+    // Regression guard for the older defect this module already fixed:
+    // "/opt/token-service/run" contains "token" but is not flag-shaped, so it
+    // must still not eat the real flag after it.
+    let out = observe::redact("/opt/token-service/run --api-key REDACT_ME_2");
+    assert_eq!(out, "/opt/token-service/run --api-key <redacted>");
+}
+
+// Two more shapes, found by a final whole-branch review after 140e119 closed
+// the header-flag leak above — recorded in docs/roadmap.md until now.
+
+#[test]
+fn a_header_value_that_starts_with_a_dash_is_not_mistaken_for_a_new_flag() {
+    // Base64url tokens can begin with `-`. The old exit test — any word
+    // starting with `-` — left header mode at the value itself and pushed it
+    // verbatim. Exiting only on a word that starts with `--` and does not
+    // look secret keeps a single-dash value in header mode regardless of what
+    // it contains.
+    let out = observe::redact("--header X-Session: -abc123secretxyz");
+    assert!(
+        !out.contains("abc123secretxyz"),
+        "header value survived: {}",
+        out
+    );
+    assert_eq!(out, "--header X-Session: <redacted>");
+}
+
+#[test]
+fn a_secret_flag_immediately_before_a_header_flag_does_not_eat_the_bearer_token() {
+    // `--api-key` armed a pending-value capture; `--header` was consumed as
+    // that "value" and redacted; header mode never armed; the real token fell
+    // through untouched. The fix: when the token consumed in pending position
+    // is itself a header flag, enter header mode instead of merely re-arming
+    // pending, the same way a token that is itself secret-shaped re-arms.
+    let out = observe::redact("--api-key --header Authorization: Bearer REDACT_ME_1");
+    assert!(
+        !out.contains("REDACT_ME_1"),
+        "bearer token survived: {}",
+        out
+    );
+    assert_eq!(
+        out,
+        "--api-key <redacted> Authorization: <redacted> <redacted>"
+    );
+}
+
+#[test]
+fn a_secret_shaped_flag_after_a_header_value_stays_redacted_over_redaction_accepted() {
+    // The obvious fix for the first leak — exit header mode on any word that
+    // is flag-shaped and not secret-looking — still fails: `--api-key` IS
+    // secret-looking (contains "key"), so it would stay in header mode either
+    // way. Pinning that directly: a secret-shaped flag encountered while
+    // still in header mode is treated as more header content and redacted,
+    // rather than risked as a new flag. Losing "--api-key" as a readable flag
+    // name costs less than losing a credential.
+    let out = observe::redact("--header Authorization: Bearer REDACT_ME_1 --api-key value");
+    assert!(
+        !out.contains("REDACT_ME_1"),
+        "bearer token survived: {}",
+        out
+    );
+    assert_eq!(
+        out,
+        "--header Authorization: <redacted> <redacted> <redacted> <redacted>"
+    );
+}
+
+#[test]
+fn a_command_line_with_no_secrets_is_byte_identical() {
+    let line = "node /Applications/Spades Audio.app/Contents/Resources/mcp-server/dist/index.js --client-type=persistent";
+    assert_eq!(observe::redact(line), line);
+}
+
+#[test]
+fn a_query_string_credential_with_no_userinfo_is_no_longer_missed() {
+    // The old URL branch fired only on `word.contains("://") &&
+    // word.contains('@')` — a userinfo credential. A credential in a query
+    // string with no userinfo, and no secret word in the parameter name
+    // (`k`, not `key`/`token`/etc.), fell through untouched. `redact` now
+    // delegates to `dialect::sanitise_url` — the same function the config
+    // side already uses — instead of a third hand-rolled copy of URL
+    // sanitising that could drift from the other two.
+    let out = observe::redact("https://user:REDACT_ME_3@example.com/mcp?k=REDACT_ME_3");
+    assert!(
+        !out.contains("REDACT_ME_3"),
+        "credential survived: {}",
+        out
+    );
+    assert_eq!(out, "https://example.com/mcp");
+}
+
+#[test]
+fn a_credential_free_url_survives_readable() {
+    let out = observe::redact("https://example.com/mcp");
+    assert_eq!(out, "https://example.com/mcp");
+}
+
+#[test]
 fn a_running_process_is_attributed_to_its_registration() {
     let regs = vec![(
         "/home/.claude.json-spades-audio".to_string(),

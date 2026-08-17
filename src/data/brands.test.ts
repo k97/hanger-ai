@@ -11,10 +11,21 @@ const ALIASES: Record<BrandId, string[]> = {
   claude_ai: ["claude_ai", "claude-ai", "Claude.ai"],
   vscode: ["vscode", "VS Code", "Visual Studio Code"],
   cursor: ["cursor", "Cursor"],
-  windsurf: ["windsurf", "Windsurf"],
+  // windsurf resolves through devin's alias list below (Cognition's June 2026
+  // rebrand: the host id "windsurf" now draws the Devin mark). No string
+  // resolves to the windsurf brand id any more; the mark stays in BRANDS only
+  // because it is still a distinct, valid mark.
+  windsurf: [],
   zed: ["zed", "Zed", "Zed Editor"],
   copilot: ["copilot", "github-copilot", "GitHub Copilot"],
-  opencode: ["opencode", "OpenCode"],
+  opencode: ["opencode", "OpenCode", "open code", "Open Code"],
+  kiro: ["kiro", "Kiro"],
+  trae: ["trae", "Trae"],
+  roocode: ["roocode", "Roo Code", "roo-code", "roo_code", "RooCode"],
+  kilocode: ["kilocode", "Kilo Code", "kilo-code", "kilo_code", "KiloCode"],
+  cline: ["cline", "Cline"],
+  amp: ["amp", "Amp"],
+  devin: ["devin", "Devin", "devin desktop", "Devin Desktop", "windsurf", "Windsurf"],
 };
 
 /* Anywhere, not just the root: lobe's mono files put fill="currentColor" on
@@ -23,10 +34,27 @@ const ALIASES: Record<BrandId, string[]> = {
 const usesCurrentColor = (svg: string) => svg.includes("currentColor");
 
 describe("BRANDS", () => {
-  it("has exactly the eleven brands of the spec, each with a real svg", () => {
-    expect([...BRAND_IDS].sort()).toEqual(
-      ["claude_ai", "claude_code", "claude_desktop", "codex", "copilot", "cursor", "gemini", "opencode", "vscode", "windsurf", "zed"],
-    );
+  it("has exactly the current brand set, each with a real svg", () => {
+    expect([...BRAND_IDS].sort()).toEqual([
+      "amp",
+      "claude_ai",
+      "claude_code",
+      "claude_desktop",
+      "cline",
+      "codex",
+      "copilot",
+      "cursor",
+      "devin",
+      "gemini",
+      "kilocode",
+      "kiro",
+      "opencode",
+      "roocode",
+      "trae",
+      "vscode",
+      "windsurf",
+      "zed",
+    ]);
     for (const id of BRAND_IDS) {
       expect(BRANDS[id].svg, id).toMatch(/^\s*<svg\b/);
       expect(BRANDS[id].svg, id).toMatch(/viewBox="/);
@@ -83,7 +111,9 @@ describe("resolveBrand", () => {
   });
 
   it("returns undefined for the any-agent values and for unknown ids", () => {
-    for (const v of [null, undefined, "", "   ", "none", "unknown", "kiro", "trae", "/Users/k/.claude/agents/x.md"]) {
+    // "kiro" and "trae" now have marks (src/data/brands.ts); an id no brand
+    // will ever claim keeps this a real unknown-id check.
+    for (const v of [null, undefined, "", "   ", "none", "unknown", "unmapped-engine", "/Users/k/.claude/agents/x.md"]) {
       expect(resolveBrand(v), String(v)).toBeUndefined();
     }
   });

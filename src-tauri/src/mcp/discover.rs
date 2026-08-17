@@ -24,10 +24,40 @@ pub struct Registration {
     pub config_path: String,
 }
 
+/// Why one config file yielded nothing usable.
+///
+/// These were four different sentences in one `Vec<String>`. A permissions
+/// failure and a malformed file have different fixes — chmod versus an editor —
+/// and a user told only "there was a problem" has to guess which.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+pub enum ConfigProblemKind {
+    /// Permissions, I/O. `detail` carries the OS error.
+    Unreadable,
+    /// Malformed. `line` carries a location where the parser gives one.
+    Unparseable,
+    /// The format is known and deliberately not parsed. Produced by
+    /// `Dialect::Unsupported` — a config format Hanger detects but does not
+    /// read.
+    FormatUnread,
+    /// Well-formed, zero servers declared.
+    DeclaredNothing,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+pub struct ConfigProblem {
+    pub kind: ConfigProblemKind,
+    /// Already through `preferences::sanitise_path`.
+    pub path: String,
+    pub detail: String,
+    /// `Unparseable` only, and only when the parser supplies one. `None` means
+    /// the view omits the location rather than inventing a number.
+    pub line: Option<u32>,
+}
+
 #[derive(Debug, Default)]
 pub struct DiscoveryResult {
     pub registrations: Vec<Registration>,
-    pub warnings: Vec<String>,
+    pub problems: Vec<ConfigProblem>,
 }
 
 /// Expand a source path that may contain a single `*` segment.
@@ -93,11 +123,12 @@ fn read_one(
     let body = match fs::read_to_string(path) {
         Ok(b) => b,
         Err(e) => {
-            out.warnings.push(format!(
-                "Failed to read MCP config at {}: {}",
-                crate::preferences::sanitise_path(&path_str),
-                e
-            ));
+            out.problems.push(ConfigProblem {
+                kind: ConfigProblemKind::Unreadable,
+                path: crate::preferences::sanitise_path(&path_str),
+                detail: e.to_string(),
+                line: None,
+            });
             return;
         }
     };
@@ -108,10 +139,13 @@ fn read_one(
             // Ok(0), which is how VS Code's server vanished without trace.
             // Only worth saying for files whose whole purpose is MCP.
             if is_mcp_dedicated(path) {
-                out.warnings.push(format!(
-                    "No MCP servers found in {}, which Hanger expects to declare them",
-                    crate::preferences::sanitise_path(&path_str)
-                ));
+                out.problems.push(ConfigProblem {
+                    kind: ConfigProblemKind::DeclaredNothing,
+                    path: crate::preferences::sanitise_path(&path_str),
+                    detail: "declares no MCP servers, though this file exists solely to declare them"
+                        .to_string(),
+                    line: None,
+                });
             }
         }
         Ok(servers) => {
@@ -124,12 +158,51 @@ fn read_one(
                 });
             }
         }
-        Err(e) => out.warnings.push(format!(
-            "Failed to parse MCP config at {}: {}",
-            crate::preferences::sanitise_path(&path_str),
-            e
-        )),
+        Err(e) if e == dialect::FORMAT_UNREAD => out.problems.push(ConfigProblem {
+            kind: ConfigProblemKind::FormatUnread,
+            path: crate::preferences::sanitise_path(&path_str),
+            detail: "config format not yet supported".to_string(),
+            line: None,
+        }),
+        Err(e) => {
+            let line = parsed_line(&e);
+            out.problems.push(ConfigProblem {
+                kind: ConfigProblemKind::Unparseable,
+                path: crate::preferences::sanitise_path(&path_str),
+                detail: e,
+                line,
+            });
+        }
     }
+}
+
+/// Recover the line number a parser put in its message.
+///
+/// Both parsers this module drives already carry a location in their Display
+/// form — `serde_json` writes "at line 3 column 5" and `toml` writes "at line 3,
+/// column 5". Reading it back here keeps one small parse in one place; the
+/// alternative is a custom error type threaded through every dialect, including
+/// TOML's, whose error type is unrelated to serde's.
+///
+/// Returns `None` when no location is present, so the caller omits the
+/// parenthetical rather than inventing a number.
+fn parsed_line(message: &str) -> Option<u32> {
+    let rest = message.split("at line ").nth(1)?;
+    let digits: String = rest.chars().take_while(char::is_ascii_digit).collect();
+    digits.parse().ok()
+}
+
+/// `read_one` for tests that need to name the dialect directly rather than go
+/// through a registry row.
+pub fn read_one_for_test(
+    path: &Path,
+    dial: dialect::Dialect,
+    host_id: &'static str,
+    tier: ScopeTier,
+) -> DiscoveryResult {
+    let mut out = DiscoveryResult::default();
+    read_one(path, dial, host_id, tier, &mut out);
+    out
 }
 
 fn read_source(base: &Path, source: &'static McpSource, out: &mut DiscoveryResult) {

@@ -82,6 +82,20 @@ fn path_under(candidate: &str, root: &str) -> bool {
     Path::new(candidate).starts_with(root)
 }
 
+/// Whether this engine reads the vendor-neutral `.agents/` convention.
+///
+/// The reach half of spec §4.4, and the only consumer of the
+/// `reads_agents_dir` flag: ownership is answered by `engine_for_path`, reach
+/// is answered here, and they must not be confused. `engines.key` is the
+/// stored form of an `AGENT_CONFIGS` id, so the flag is looked up through the
+/// same mapping the scanner writes rows with rather than a second table of
+/// ids kept in step by hand.
+fn reads_shared_dir(engine_key: &str) -> bool {
+    crate::agents::agents_reading_shared_dir()
+        .iter()
+        .any(|config| crate::scanner::get_engine_key(config.id) == Some(engine_key))
+}
+
 /// Annotate every asset under an engine_global root. Project-scoped assets
 /// are not annotated here; the repo pane keeps its own columns by ruling.
 pub fn asset_annotations(db_path: &Path) -> Result<Vec<AssetAnnotation>, String> {
@@ -121,19 +135,29 @@ pub fn asset_annotations(db_path: &Path) -> Result<Vec<AssetAnnotation>, String>
         rows
     };
 
-    // The reach question only applies to engines whose global root is a
-    // directory: a registry entry with no root, or a config-file root like
-    // ~/.claude.json, cannot hold a root link (the same boundary the link
-    // map draws when it skips file roots). Everyone else is noise in the
-    // tiles, not an unlinked engine.
+    // Two ways an engine has a reach question worth asking. Either its global
+    // root is a directory, so it can hold a root link — a registry entry with
+    // no root, or a config-file root like ~/.claude.json, cannot (the same
+    // boundary the link map draws when it skips file roots). Or it reads the
+    // shared `.agents/` convention, which needs no link at all: it reads the
+    // store where the store is.
+    //
+    // The second clause is Zed's only way in. It owns no directory by
+    // design, so it is detected by ~/.config/zed/settings.json and has a
+    // config-file root — and the directory test alone filtered it out of the
+    // tiles entirely, leaving an engine the spec says appears throughout the
+    // UI appearing nowhere in it (§4.4, §5).
+    //
+    // Everyone else is noise in the tiles, not an unlinked engine.
     let engines: Vec<EngineRow> = engines
         .into_iter()
         .filter(|e| {
-            roots.iter().any(|r| {
-                r.kind == "engine_global"
-                    && r.engine_id == Some(e.id)
-                    && Path::new(&r.path).is_dir()
-            })
+            reads_shared_dir(&e.key)
+                || roots.iter().any(|r| {
+                    r.kind == "engine_global"
+                        && r.engine_id == Some(e.id)
+                        && Path::new(&r.path).is_dir()
+                })
         })
         .collect();
 
@@ -242,6 +266,13 @@ pub fn asset_annotations(db_path: &Path) -> Result<Vec<AssetAnnotation>, String>
         }
     }
 
+    // Where the shared convention store is on this machine, in the same
+    // canonical form the roots table holds. Read once: it is a filesystem
+    // question, not a per-asset one.
+    let shared_store = crate::scanner::shared_agents_dir()
+        .to_string_lossy()
+        .to_string();
+
     let mut out = Vec::with_capacity(assets.len());
     for asset in &assets {
         let links = asset_links(&conn, asset)?;
@@ -257,7 +288,7 @@ pub fn asset_annotations(db_path: &Path) -> Result<Vec<AssetAnnotation>, String>
         };
         let mechanism = mechanism_word(&links, !dir_places.is_empty());
         let beyond = beyond_note(&links, &dir_places);
-        let reach = engine_reach(asset, &engines, &engine_links, &root_by_id);
+        let reach = engine_reach(asset, &engines, &engine_links, &root_by_id, &shared_store);
         out.push(AssetAnnotation {
             asset_path: asset.abs_path.clone(),
             mechanism: mechanism.to_string(),
@@ -395,8 +426,17 @@ fn engine_reach(
     engines: &[EngineRow],
     engine_links: &BTreeMap<i64, Vec<(String, i64)>>,
     root_by_id: &BTreeMap<i64, &RootRow>,
+    shared_store: &str,
 ) -> Vec<EngineReach> {
     let asset_root = root_by_id.get(&asset.root_id);
+    // Is this asset in the vendor-neutral store? Asked of the root the asset
+    // was filed under, not of its filename: the root row is what the walk
+    // decided, and on a machine where ~/.agents is a symlink into a synced
+    // folder the asset's own canonical path has no `.agents` component left
+    // in it to look for.
+    let in_shared_store = asset_root
+        .map(|r| r.engine_id.is_none() && (r.path == shared_store || path_under(&r.path, shared_store)))
+        .unwrap_or(false);
     engines
         .iter()
         .map(|engine| {
@@ -448,6 +488,23 @@ fn engine_reach(
                     engine_name: engine.name.clone(),
                     reached: true,
                     via_root: Some(link_path.clone()),
+                    via_store: asset_root.map(|r| r.path.clone()),
+                    reason: None,
+                },
+                // No link, and none needed: the shared `.agents/` store is
+                // read where it lies by every agent that adopts the
+                // convention. Amp's skills *are* ~/.agents/skills, and Zed
+                // has no root to link with. Demanding a symlink here told
+                // those users their agent could not read what it reads
+                // (spec §4.4 — this is the reach half, and it is a different
+                // question from ownership, which still says nobody owns it).
+                // No `via_root`, deliberately: there is no link to name.
+                None if in_shared_store && reads_shared_dir(&engine.key) => EngineReach {
+                    engine_id: engine.id,
+                    engine_key: engine.key.clone(),
+                    engine_name: engine.name.clone(),
+                    reached: true,
+                    via_root: None,
                     via_store: asset_root.map(|r| r.path.clone()),
                     reason: None,
                 },

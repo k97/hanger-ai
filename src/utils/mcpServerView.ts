@@ -7,7 +7,8 @@ interface ToolRow {
   id?: string;
   name: string;
   command?: string;
-  args?: string[];
+  /** The launch, already redacted by the backend, for display only. */
+  launch_display?: string;
   transport?: string;
   config_path: string;
   owning_agent?: string;
@@ -78,8 +79,20 @@ const HOST_NAMES: Record<string, string> = {
   claude_desktop: "Claude Desktop",
   vscode: "VS Code",
   cursor: "Cursor",
-  windsurf: "Windsurf",
+  // Cognition rebranded Windsurf to Devin Desktop on 2026-06-02. The key
+  // stays `windsurf` — it is the host id, and ids are internal — only the
+  // label users read moves.
+  windsurf: "Devin Desktop",
   zed: "Zed",
+  "claude-ai": "Claude.ai",
+  claude_ai: "Claude.ai",
+  kiro: "Kiro",
+  trae: "Trae",
+  opencode: "OpenCode",
+  amp: "Amp",
+  roocode: "Roo Code",
+  kilocode: "Kilo Code",
+  cline: "Cline",
 };
 
 /**
@@ -96,8 +109,14 @@ export const MANAGE_URL: Record<string, { label: string; url: string }> = {
   },
 };
 
-/** A loose config declares no owner; the scanner leaves it unattributed. */
-function hostLabel(id: string | null | undefined): string {
+/**
+ * A loose config declares no owner; the scanner leaves it unattributed.
+ *
+ * Exported for `engine-labels.test.ts`, which asserts that no id in the Rust
+ * registry falls through to the `?? id` branch — the branch that printed
+ * `roocode` in lower case beside a correctly drawn Roo Code mark.
+ */
+export function hostLabel(id: string | null | undefined): string {
   if (!id) return "Any agent";
   return HOST_NAMES[id] ?? id;
 }
@@ -134,11 +153,12 @@ export function buildMcpServerView(
     const key = registrationKey(t);
     const hit = key ? processes.find((p) => p.registration_key === key) : undefined;
     return {
+      key,
       host: hostLabel(scopeAgent(t.scope as Scope) || t.owning_agent),
       tier: tierOf(t.scope),
       configPath: t.config_path,
       command: t.command ?? "",
-      args: t.args ?? [],
+      launchDisplay: t.launch_display ?? "",
       ...(hit ? { running: { pid: hit.pid, spawningHost: hit.spawning_host } } : {}),
     };
   });
@@ -148,7 +168,6 @@ export function buildMcpServerView(
     // The launch Verify will use. A command without its arguments starts the
     // wrong process entirely -- `node` alone is a REPL, not a server.
     command: matches[0].command ?? "",
-    args: matches[0].args ?? [],
     transport: matches[0].transport ?? "unknown",
     registrations,
     // Env var names are not carried on the Tool row today; the panel renders

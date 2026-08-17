@@ -47,6 +47,20 @@ pub enum Dialect {
     /// they exist, and without it Hanger claims to show every MCP server while
     /// omitting them.
     ClaudeAiConnectors,
+    /// `{"mcp": {name: {type: "local"|"remote", ...}}}` — OpenCode, and Kilo
+    /// Code, whose v7 config is OpenCode-derived and uses the same key.
+    OpenCodeMcp,
+    /// `{"amp.mcpServers": {name: {...}}}` — Amp nests its servers under a
+    /// dotted key inside a general settings file rather than owning the file.
+    AmpSettingsKey,
+    /// A format Hanger detects but deliberately does not parse.
+    ///
+    /// Zero servers and "we cannot read this file" are indistinguishable to a
+    /// user, and the second is a fact about Hanger rather than about their
+    /// machine. Naming it turns a silent gap into a stated one, and every
+    /// engine that ships after us inherits the honest state rather than
+    /// looking broken.
+    Unsupported,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -81,12 +95,31 @@ pub const HOSTS: &[McpHost] = &[
     McpHost { id: "claude-desktop", display_name: "Claude Desktop", kind: HostKind::McpHost },
     McpHost { id: "vscode", display_name: "VS Code", kind: HostKind::McpHost },
     McpHost { id: "cursor", display_name: "Cursor", kind: HostKind::McpHost },
-    McpHost { id: "windsurf", display_name: "Windsurf", kind: HostKind::McpHost },
+    // Rebranded from Windsurf on 2026-06-02. The id stays `windsurf` because
+    // it keys existing rows and ids are internal; only the label is user-
+    // facing, and it names a product that no longer exists.
+    McpHost { id: "windsurf", display_name: "Devin Desktop", kind: HostKind::McpHost },
     McpHost { id: "zed", display_name: "Zed", kind: HostKind::McpHost },
     // Account-level, not machine configuration. Its servers run on
     // Anthropic's infrastructure; only the fact of connection is on disk.
     McpHost { id: "claude-ai", display_name: "Claude.ai", kind: HostKind::McpHost },
+    McpHost { id: "kiro", display_name: "Kiro", kind: HostKind::Agent },
+    McpHost { id: "trae", display_name: "Trae", kind: HostKind::Agent },
+    McpHost { id: "opencode", display_name: "OpenCode", kind: HostKind::Agent },
+    McpHost { id: "amp", display_name: "Amp", kind: HostKind::Agent },
+    McpHost { id: "roocode", display_name: "Roo Code", kind: HostKind::Agent },
+    McpHost { id: "kilocode", display_name: "Kilo Code", kind: HostKind::Agent },
+    McpHost { id: "cline", display_name: "Cline", kind: HostKind::Agent },
 ];
+
+/// Local bridges that proxy a remote MCP endpoint over stdio.
+///
+/// A table rather than a literal buried in the parser: `mcp-remote` is the
+/// common wrapper today and others will appear, and adding one must be a row.
+pub const BRIDGES: &[&str] = &["mcp-remote"];
+
+/// Runners that precede the real program in a launch.
+pub const RUNNERS: &[&str] = &["npx", "bunx", "uvx", "pnpm", "yarn"];
 
 use Dialect::*;
 use ScopeTier::*;
@@ -124,11 +157,55 @@ pub const SOURCES: &[McpSource] = &[
     McpSource { host_id: "cursor", location: MachineAbsolute, path: ".cursor/mcp.json", tier: Global, dialect: McpServers },
     McpSource { host_id: "cursor", location: RepoRelative, path: ".cursor/mcp.json", tier: Project, dialect: McpServers },
 
-    // Windsurf
+    // Devin Desktop (formerly Windsurf).
+    // Legacy Cascade agent — still read, so still declared.
     McpSource { host_id: "windsurf", location: MachineAbsolute, path: ".codeium/windsurf/mcp_config.json", tier: Global, dialect: McpServers },
+    // Devin Local, the default agent for new tabs. Without these three a
+    // Devin Desktop user on the default agent sees zero servers.
+    McpSource { host_id: "windsurf", location: MachineAbsolute, path: ".config/devin/config.json", tier: Global, dialect: McpServers },
+    McpSource { host_id: "windsurf", location: RepoRelative, path: ".devin/config.json", tier: Project, dialect: McpServers },
+    McpSource { host_id: "windsurf", location: RepoRelative, path: ".devin/mcp_config.json", tier: Project, dialect: McpServers },
 
     // Zed
     McpSource { host_id: "zed", location: MachineAbsolute, path: ".config/zed/settings.json", tier: Global, dialect: ZedContextServers },
+
+    // Kiro
+    McpSource { host_id: "kiro", location: MachineAbsolute, path: ".kiro/settings/mcp.json", tier: Global, dialect: McpServers },
+    McpSource { host_id: "kiro", location: RepoRelative, path: ".kiro/settings/mcp.json", tier: Project, dialect: McpServers },
+
+    // Trae
+    McpSource { host_id: "trae", location: RepoRelative, path: ".trae/mcp.json", tier: Project, dialect: McpServers },
+
+    // OpenCode
+    McpSource { host_id: "opencode", location: MachineAbsolute, path: ".config/opencode/opencode.json", tier: Global, dialect: OpenCodeMcp },
+    McpSource { host_id: "opencode", location: RepoRelative, path: "opencode.json", tier: Project, dialect: OpenCodeMcp },
+
+    // Amp — servers nest inside a settings file Amp does not own.
+    McpSource { host_id: "amp", location: MachineAbsolute, path: ".config/amp/settings.json", tier: Global, dialect: AmpSettingsKey },
+
+    // Roo Code
+    McpSource { host_id: "roocode", location: RepoRelative, path: ".roo/mcp.json", tier: Project, dialect: McpServers },
+
+    // Kilo Code — JSONC. `discover.rs` reads every source that resolves to an
+    // existing file and appends all registrations; Hanger enforces no
+    // precedence between `.kilo/kilo.jsonc` and the root `kilo.jsonc` below.
+    // Kilo Code itself prefers `.kilo/kilo.jsonc` when both are present, but
+    // a user with both and an overlapping server name sees both entries here.
+    McpSource { host_id: "kilocode", location: MachineAbsolute, path: ".config/kilo/kilo.jsonc", tier: Global, dialect: OpenCodeMcp },
+    McpSource { host_id: "kilocode", location: RepoRelative, path: ".kilo/kilo.jsonc", tier: Project, dialect: OpenCodeMcp },
+    McpSource { host_id: "kilocode", location: RepoRelative, path: "kilo.jsonc", tier: Project, dialect: OpenCodeMcp },
+
+    // Cline — its MCP settings live in VS Code's extension storage, keyed by
+    // an extension id that can change. Declared explicitly so a change breaks
+    // a test rather than silently reporting zero servers.
+    McpSource { host_id: "cline", location: MachineAbsolute, path: "Library/Application Support/Code/User/globalStorage/saoudrizwan.claude-dev/settings/cline_mcp_settings.json", tier: Global, dialect: McpServers },
+
+    // Continue is NOT registered here. Its format and path were verified
+    // against upstream docs and qualify ("YAML at a path we can name" —
+    // ~/.continue/config.yaml, top-level `mcpServers` key), but adding the
+    // HOSTS entry fails `src/__tests__/brand-coverage.test.ts`, which
+    // requires every host id to resolve to a mark in `src/data/brands.ts` —
+    // a file outside this task's touch scope. See docs/roadmap.md.
 ];
 
 impl McpHost {
