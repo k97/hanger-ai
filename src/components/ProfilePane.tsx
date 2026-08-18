@@ -271,6 +271,9 @@ export default function ProfilePane({
       path: t.config_path,
       engine: t.scope?.Global?.agent || t.scope?.Project?.agent || t.owning_agent || null,
       details: `Command: ${t.command} (Transport: ${t.transport})`,
+      // The card row's transport chip (§5.6) — a type, not a state, so it
+      // rides beside the name rather than becoming its own column.
+      transport: t.transport,
       isSymlink: t.is_symlink,
       drifted: t.drifted,
       parseStatus: t.parse_status,
@@ -484,13 +487,21 @@ export default function ProfilePane({
           {/* Table background dropped by Karthik's ruling (2026-08-15):
               flat on the page, edge drawn by the --line border alone. */}
           <div className="@container flex-1 min-h-0 overflow-y-auto mx-[18px] border border-line rounded-tl-plane rounded-tr-plane pb-1.5">
-            <AssetHeaderRow
-              sortField={sortField}
-              sortDirection={sortDirection}
-              showKindColumn={!selectedCategory}
-              showReachColumns
-              onSort={handleSort}
-            />
+            {/* The MCP section carries its own column labels below (Registered
+                in / Tools) — Reach and Beyond the store describe Skills,
+                Rules, Agents and Subagents, never a server, so this header
+                stays out of the way entirely when Tools is the only section
+                on screen (§5.6, "a column that cannot apply must not
+                render"). */}
+            {selectedCategory !== "Tools" && (
+              <AssetHeaderRow
+                sortField={sortField}
+                sortDirection={sortDirection}
+                showKindColumn={!selectedCategory}
+                showReachColumns
+                onSort={handleSort}
+              />
+            )}
 
             {/* Agents Group */}
             {selectedCategory === "Agents" && (
@@ -533,18 +544,34 @@ export default function ProfilePane({
               </>
             )}
 
-            {/* Tools Group */}
+            {/* Tools Group — card rows, not table rows (§5.6). This section
+                owns its own column labels rather than sharing the header
+                above: "Reach" is meaningless for a server (it does not have
+                a symlink or a tracked copy), so it reads "Registered in"
+                instead, and "Beyond the store" does not render at all —
+                the defect Task 1 deferred here closes on this line. */}
             {showTools && sortedTools.length > 0 && (
               <>
-                <h3 className={secClass}>
-                  MCP servers · {assetCounts ? (assetCounts.byCategory.tool?.global ?? 0) : sortedTools.length}
-                </h3>
+                <div
+                  data-testid="section-header-tools"
+                  className={`flex items-center gap-3 select-none ${secClass}`}
+                >
+                  <h3 className="flex-1 truncate">
+                    MCP servers · {assetCounts ? (assetCounts.byCategory.tool?.global ?? 0) : sortedTools.length}
+                  </h3>
+                  <span className="hidden @[580px]:block w-[100px] shrink-0 text-left">
+                    Registered in
+                  </span>
+                  <span className="w-[150px] shrink-0 text-left">
+                    Tools
+                  </span>
+                </div>
                 <div className="flex flex-col">
                   {sortedTools.map((item, idx) => (
                     <AssetRow
                       key={`tool-${item.path}-${idx}`}
+                      variant="card"
                       isSelected={rowIsSelected(item)}
-                      showKindColumn={!selectedCategory}
                       item={item}
                       annotation={annotationFor(item)}
                       onLink={() => onLinkAsset(item)}

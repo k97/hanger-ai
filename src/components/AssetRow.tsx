@@ -35,6 +35,20 @@ export interface AssetItem {
   parseError?: string;
   linkState?: "linked" | "drifted" | "foreign" | "broken" | null;
   link_state?: "linked" | "drifted" | "foreign" | "broken" | null;
+  /** Card variant only (the MCP section): the connection type — a chip
+   *  beside the name, never a column, because transport is a type, not a
+   *  state (§5.6). Sourced from `Tool.transport` / `McpServerRow.transport`. */
+  transport?: string;
+  /** Card variant only: line 2 of the card, the agreement sentence
+   *  ("3 registrations · 2 different launch specs"). Backend-computed
+   *  (`McpServerRow.registration_count` / `.distinct_spec_count`); the
+   *  frontend relays it rather than composing it. Absent renders no second
+   *  line rather than a fabricated one. */
+  agreementLine?: string;
+  /** Card variant only: the plugin marketplace this server came bundled
+   *  with, when known. Renders a chip only when present — `McpServerRow.plugin`
+   *  is `None` for every row today, so no real data populates this yet. */
+  plugin?: string;
 }
 
 interface AssetRowProps {
@@ -46,6 +60,11 @@ interface AssetRowProps {
    *  the backend had no verdict for this row — the cells stay empty rather
    *  than invent one. Undefined keeps the legacy dot/state columns. */
   annotation?: AssetAnnotationView | null;
+  /** "table" (default) is every other category's row. "card" is the MCP
+   *  section's two-line row: name/transport/plugin, then the agreement
+   *  sentence, with engine tiles and a tool-count stat pinned on the right
+   *  instead of table cells (§5.6). */
+  variant?: "table" | "card";
   onClick?: () => void;
   onLink?: () => void;
   onUnlink?: () => void;
@@ -132,14 +151,71 @@ export function getRowState(item: AssetItem) {
   }
 }
 
-export default function AssetRow({ item, isSelected, showKindColumn = true, annotation, onClick }: AssetRowProps) {
-  const { dotClass, word, wordClass, rowClass } = getRowState(item);
+export default function AssetRow({ item, isSelected, showKindColumn = true, annotation, variant = "table", onClick }: AssetRowProps) {
+  const { rowClass } = getRowState(item);
   const activeClass = isSelected ? "bg-tint" : rowClass;
   const nameColor = item.parseStatus === "failed"
     ? "text-ink-3"
     : isSelected
     ? "text-tint-ink font-medium"
     : "text-ink-1";
+
+  /* The Tools section's row: two lines, no table cells. Line 1 carries
+   * identity — name, transport, an optional plugin badge; line 2 states the
+   * one fact worth stating about a server, that its registrations agree or
+   * do not, as a sentence a cell cannot hold. The right side stays pinned at
+   * the widths the section's own header uses (`Registered in` / `Tools`), so
+   * engine marks and the tool-count stat still scan straight down the list.
+   * No Kind slot: a card names its own kind by section, the way the diagram
+   * in §5.6 has it (§5.6). */
+  if (variant === "card") {
+    return (
+      <div
+        onClick={onClick}
+        tabIndex={0}
+        data-selected={isSelected ? "true" : "false"}
+        className={`flex items-center gap-3 mx-1.5 px-2.5 py-2 rounded-inner transition-colors duration-hover ease-spring cursor-pointer text-small font-sans focus:outline-none ${activeClass}`}
+      >
+        <div className="flex-1 min-w-0 flex flex-col gap-0.5 overflow-hidden">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <span className={`text-base-app ${nameColor} truncate`}>{item.name}</span>
+            {item.transport && (
+              <span className="shrink-0 text-micro font-mono bg-plane border border-line px-2 py-px rounded-pill text-ink-2">
+                {item.transport}
+              </span>
+            )}
+            {item.plugin && (
+              <span className="shrink-0 text-micro font-mono bg-plane border border-line px-2 py-px rounded-pill text-ink-2">
+                plugin · {item.plugin}
+              </span>
+            )}
+          </div>
+          {item.agreementLine && (
+            <span className="text-small text-ink-3 truncate">{item.agreementLine}</span>
+          )}
+        </div>
+
+        {/* Registered in — the same engine-reach tiles the annotated table
+            rows use below: which engines register an MCP server is exactly
+            what "reach" already means for one, so this reuses that data
+            rather than inventing a second source for it. */}
+        <span className="shrink-0 w-[100px] text-left hidden @[580px]:flex">
+          {annotation ? <EngineReachTiles reach={annotation.reach} /> : null}
+        </span>
+
+        {/* Tools — no field carries a per-server tool count yet
+            (`McpServerRow` has none as of this task, and neither does a
+            per-registration `Tool`); the dash is this component's existing
+            convention for a cell with nothing to show (`beyondCell`'s
+            default case, above), not a fabricated zero. */}
+        <span className="shrink-0 w-[150px] text-left text-small text-ink-3 opacity-45">
+          —
+        </span>
+      </div>
+    );
+  }
+
+  const { dotClass, word, wordClass } = getRowState(item);
   const engineLabel = formatEngineLabel(item.engine);
   const annotated = annotation !== undefined;
   const beyond = annotation ? beyondCell(annotation) : null;

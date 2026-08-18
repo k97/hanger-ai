@@ -217,6 +217,9 @@ export default function RepoPane({
       path: t.config_path,
       engine: t.scope?.Project?.agent || t.scope?.Global?.agent || t.owning_agent || null,
       details: `Command: ${t.command} (Transport: ${t.transport})`,
+      // The card row's transport chip (§5.6) — a type, not a state, so it
+      // rides beside the name rather than becoming its own column.
+      transport: t.transport,
       isSymlink: t.is_symlink,
       drifted: t.drifted,
       sourcePath: t.source_path,
@@ -499,12 +502,18 @@ export default function RepoPane({
           {/* Table background dropped by Karthik's ruling (2026-08-15):
               flat on the page, edge drawn by the --line border alone. */}
           <div className="@container flex-1 min-h-0 overflow-y-auto mx-[18px] mt-2.5 border border-line rounded-tl-plane rounded-tr-plane pb-1.5">
-            <AssetHeaderRow
-              sortField={sortField}
-              sortDirection={sortDirection}
-              showKindColumn={!selectedCategory}
-              onSort={handleSort}
-            />
+            {/* The MCP section carries its own column labels below
+                (Registered in / Tools), so this header stays out of the way
+                entirely when Tools is the only section on screen — the same
+                treatment ProfilePane gets (§5.6). */}
+            {selectedCategory !== "Tools" && (
+              <AssetHeaderRow
+                sortField={sortField}
+                sortDirection={sortDirection}
+                showKindColumn={!selectedCategory}
+                onSort={handleSort}
+              />
+            )}
 
             {/* Skills Group */}
             {showSkills && sortedSkills.length > 0 && (
@@ -527,18 +536,30 @@ export default function RepoPane({
               </>
             )}
 
-            {/* Tools Group */}
+            {/* Tools Group — card rows, not table rows (§5.6), the same
+                treatment ProfilePane's Tools section gets. */}
             {showTools && sortedTools.length > 0 && (
               <>
-                <h3 className={secClass}>
-                  MCP servers · {assetCounts ? (assetCounts.byCategory.tool?.total ?? 0) : sortedTools.length}
-                </h3>
+                <div
+                  data-testid="section-header-tools"
+                  className={`flex items-center gap-3 select-none ${secClass}`}
+                >
+                  <h3 className="flex-1 truncate">
+                    MCP servers · {assetCounts ? (assetCounts.byCategory.tool?.total ?? 0) : sortedTools.length}
+                  </h3>
+                  <span className="hidden @[580px]:block w-[100px] shrink-0 text-left">
+                    Registered in
+                  </span>
+                  <span className="w-[150px] shrink-0 text-left">
+                    Tools
+                  </span>
+                </div>
                 <div className="flex flex-col">
                   {sortedTools.map((item, idx) => (
                     <AssetRow
                       key={`tool-${item.path}-${idx}`}
+                      variant="card"
                       isSelected={rowIsSelected(item)}
-                      showKindColumn={!selectedCategory}
                       item={item}
                       onUnlink={() => triggerUnlink(item.name, item.path, "Tools")}
                       onClick={() => onSelectAsset({ id: item.id, name: item.name, category: "Tools", path: item.path })}
