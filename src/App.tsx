@@ -249,8 +249,10 @@ export default function App() {
   const [repoAssetCountsMap, setRepoAssetCountsMap] = useState<Record<string, CategoryCounts>>({});
   // The MCP server list: one row per server name, grouped and counted in
   // Rust (`get_mcp_servers`). Machine-global only — `discover_machine`, not
-  // `discover_repo` — so RepoPane cannot regroup its own rows from this; see
-  // the comment beside RepoPane's Tools section for the consequence.
+  // `discover_repo` — so RepoPane cannot regroup its own rows from this: its
+  // Tools section stays per-registration regardless of `serverGrouping`,
+  // and (since it never could) no longer takes this value as a prop at all
+  // — removed along with its inert View control.
   const [mcpServers, setMcpServers] = useState<McpServerRow[] | null>(null);
   // The View control's own state — grouping and sort for the MCP section,
   // shared between both panes the way sortField/sortDirection already are.
@@ -460,8 +462,8 @@ export default function App() {
 
   // Deliberately NOT grouping-aware. `get_mcp_servers` is machine-global
   // only (`discover_machine`, not `discover_repo` — see the `mcpServers`
-  // state comment and RepoPane's own comment on its `mcpServers` prop), so
-  // there is no repo-scoped equivalent to build RepoPane's Tools rows from —
+  // state comment above), so there is no repo-scoped equivalent to build
+  // RepoPane's Tools rows from —
   // they stay per-registration regardless of `serverGrouping`. Passing
   // `grouping` here would make this pane's header show a grouped total over
   // rows that never regroup: a header disagreeing with its own rows, the
