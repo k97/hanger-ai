@@ -21,6 +21,10 @@ interface RepoPaneProps {
   inventory: Inventory | null;
   assetCounts?: CategoryCounts | null;
   selectedCategory?: CategoryType | null;
+  /** Reports the facet chip's category to the caller, mirroring
+   *  ProfilePane's own onCategoryChange. App.tsx uses it to decide whether
+   *  the inspector's empty state may say "MCP servers". */
+  onCategoryChange?: (category: CategoryType | null) => void;
   selectedAsset?: { path: string } | null;
   loading: boolean;
   /** Toolbar filter text — rows whose name does not contain it are hidden. */
@@ -47,6 +51,7 @@ export default function RepoPane({
   inventory,
   assetCounts,
   selectedCategory: propSelectedCategory,
+  onCategoryChange,
   selectedAsset,
   loading,
   filterText,
@@ -73,6 +78,7 @@ export default function RepoPane({
 
   const setSelectedCategory = (cat: CategoryType | null) => {
     setInternalCategory(cat);
+    onCategoryChange?.(cat);
     if (onClearSelection) onClearSelection();
   };
 

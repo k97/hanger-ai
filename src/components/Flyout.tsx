@@ -16,6 +16,7 @@ import { buildMcpServerView, type ProcessMatch } from "../utils/mcpServerView";
 import LinkPanel from "./LinkPanel";
 import DiffChooser, { AlignedSection } from "./DiffChooser";
 import { kindLabel, provenanceOf } from "../utils/assetProvenance";
+import { categoryNoun } from "../utils/prose";
 
 export interface FlatAssetItem {
   type: "header" | "asset";
@@ -55,6 +56,16 @@ interface FlyoutProps {
    *  AssetDetail so the panel can answer for every engine. The Reach column
    *  shows at most three marks. */
   annotation?: AssetAnnotationView | null;
+  /** The category filter active in whichever pane is showing (App.tsx owns
+   *  both the profile facet chip and the repo one). Only "Tools" changes
+   *  anything here — the empty inspector otherwise stays silent, since a
+   *  Skills-filtered view has no business naming MCP servers. */
+  activeCategory?: string | null;
+  /** The crumb's last segment for the active pane — "Global" or a
+   *  repository's folder name. App.tsx already derives this for the
+   *  breadcrumb; the empty state reuses it rather than recomputing or
+   *  hardcoding "Global". Only read when activeCategory is "Tools". */
+  paneScope?: string;
 }
 
 interface RuleSection {
@@ -73,7 +84,9 @@ export default function Flyout({
   mcpProcesses,
   linkedProjects,
   onRefresh,
-  annotation
+  annotation,
+  activeCategory,
+  paneScope
 }: FlyoutProps) {
   const [linking, setLinking] = useState<FlatAssetItem | null>(null);
 
@@ -478,6 +491,13 @@ export default function Flyout({
 
   const provenance = targetAsset ? provenanceOf(targetAsset as never, inventory) : null;
 
+  /* Nothing is selected, but the pane's own filter already says what kind of
+     thing an empty result set would have held. Scoped to "Tools" only —
+     Karthik's ruling, 2026-08-18: a Skills-filtered view must not claim
+     "MCP servers" over its own empty list. */
+  const showEmptyMcpEyebrow =
+    !linking && !targetAsset && !selectedBubble && activeCategory === "Tools";
+
   return (
     // Column chrome (width, resize, the cap and its close) lives in App.tsx:
     // this component is only the inspector's body for the machine views.
@@ -485,14 +505,17 @@ export default function Flyout({
       {/* Header — the eyebrow says where you are, the title says what you are
           looking at. In the link flow the eyebrow becomes the way back, so the
           panel never grows a second header for its second screen. With nothing
-          selected the empty state stands alone.
+          selected the empty state stands alone — except when the pane's own
+          filter is MCP, where the eyebrow states the category the empty
+          result set belongs to and skips the title, since there is no name
+          to give one.
 
           Sits tight under the cap. The cap used to carry the word "Inspector",
           so this header needed its own top padding to read as a separate
           block; with the cap now bearing only the close control, that padding
           was a gap between two empty things. The heading is what the panel
           opens with, and every pixel taken here comes off the content. */}
-      {(linking || targetAsset || selectedBubble) && (
+      {(linking || targetAsset || selectedBubble || showEmptyMcpEyebrow) && (
       <div className="px-[18px] pt-0.5 pb-3 border-b border-line shrink-0">
         <div className="flex items-center gap-2 font-flex text-micro font-medium tracking-[.06em] uppercase text-ink-3">
           {linking ? (
@@ -511,13 +534,23 @@ export default function Flyout({
                   ? kindLabel(targetAsset.category)
                   : selectedBubble
                   ? `${selectedBubble.type} scope`
+                  : showEmptyMcpEyebrow
+                  ? categoryNoun("Tools", "many")
                   : "Inspector"}
               </span>
-              {provenance && (
+              {provenance ? (
                 <>
                   <span aria-hidden="true">·</span>
                   <span className="truncate">{provenance.place}</span>
                 </>
+              ) : (
+                showEmptyMcpEyebrow &&
+                paneScope && (
+                  <>
+                    <span aria-hidden="true">·</span>
+                    <span className="truncate">{paneScope}</span>
+                  </>
+                )
               )}
             </>
           )}
@@ -528,6 +561,7 @@ export default function Flyout({
             </span>
           )}
         </div>
+        {!showEmptyMcpEyebrow && (
         <div className="flex items-center gap-2 mt-1 min-w-0">
           {!linking && !targetAsset && selectedBubble?.type === "agent" && (
             <BrandIcon engineKey={selectedBubble.id} engineName={selectedBubble.name} size={16} />
@@ -549,6 +583,7 @@ export default function Flyout({
             </span>
           )}
         </div>
+        )}
       </div>
       )}
 
