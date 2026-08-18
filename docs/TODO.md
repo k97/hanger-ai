@@ -184,3 +184,54 @@ Recorded as `docs/findings.md` F36/F37.
 small fetch script gets committed, mirroring how the catalogue itself gets
 hand-rechecked) — or rules a one-time snapshot is fine, same keep-or-cut
 shape as T6.
+
+---
+
+## T10 — The MCP redesign stopped after stage 1
+
+The dispatch was staged: **§4 the detector, §5 the list, §6 the panel**
+(`docs/superpowers/specs/2026-08-16-mcp-identity-design.md`). Stage 1 shipped
+and is in `main`. Stage 2 and stage 3 were never started.
+
+The one stage-2 item that did land is §5.3, the annotation-key leak — Reach
+was blank on every MCP row, so it was fixed as a defect rather than as part of
+the stage. Everything else in §5 and §6 is outstanding:
+
+- **§5.6 the list** — one row per server rather than one per registration; the
+  `Display` control beside the category tabs (grouping: one per server / one
+  per registration, plus sort); section headers carrying their own column
+  labels so the All view can hold sections of different shape.
+- **§5.2 agreement** — consistent / conflicting / duplicate / aliased as the
+  row's second line, in prose. Karthik's ruling: the comparison key is
+  `(transport, launch)`, and an unwrapped `mcp-remote` bridge normalises to
+  `(http, url)` before comparison or every bridged server reads as permanently
+  conflicting.
+- **§5.5 persisted verification** — `PRAGMA user_version` 5 → 6. Version 6 is
+  still free; nothing has taken it.
+- **§6.1 the panel** — the inspector eyebrow (`MCP servers · user profile` with
+  nothing selected, `MCP server · user profile` with a row selected), the
+  verdict card, the launch-spec diff aligned on the token that differs, and the
+  Reconcile / Compare / Open config actions. What `McpServerDetail` renders
+  today — Registered in / Identity / Tools — is stage 1's panel, built to carry
+  the detector's output honestly. It is not this.
+- **§6.3** — the nine states that must render.
+
+**Why it stalled:** the `mcp-identity` branch was created for stage 2 and was
+then consumed, in order, by the annotation-key leak, the `RegistrationKey` type
+that leak turned out to need, and two `reviewIssues` defects that surfaced from
+there. Each was real and each was authorised as it came up; none of them was
+the list or the panel. The drift was never reported, and nothing tracked
+recorded the gap — which is what this entry exists to stop.
+
+**Before any of it:** the spec's §5.6 and §6.1 describe a prototype
+(`docs/v3-prototype-references/hanger-mcp-identity.html`). Karthik was explicit
+at the outset that the UI has evolved and the prototype is **reference, not
+spec** — take the MCP elements and the filter beside the tabs, not the layout.
+Reconcile against the code first; the code is the fact and the disagreement is
+the report.
+
+**`Display` is a first-time label** and needs a researched naming brief and
+Karthik's sign-off before it lands (`.claude/rules/ui-copy.md`).
+
+**Done when:** §5.8 and §6.5 — the stages' own exit criteria — have evidence
+attached, in one report, including a screenshot from a running build.
