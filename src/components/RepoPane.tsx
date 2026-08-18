@@ -5,9 +5,7 @@ import CategoryFilterCards, { CategoryType } from "./CategoryFilterCards";
 import AssetRow, { AssetItem } from "./AssetRow";
 import EngineLabel from "./EngineLabel";
 import AssetHeaderRow, { SortField, SortDirection } from "./AssetHeaderRow";
-import ViewControl, { ServerGrouping, ServerSort } from "./ViewControl";
 import { Inventory, CategoryCounts } from "../App";
-import type { McpServerRow } from "../utils/serverRows";
 import { filterRepoAssets } from "../utils/filterPredicate";
 import DisclosureBanner from "./DisclosureBanner";
 import { sortAssetItems } from "../utils/sortUtils";
@@ -42,19 +40,6 @@ interface RepoPaneProps {
   /** Every linked root, used to subtract candidates that are already linked. */
   linkedRepos?: string[];
   onPromoteCandidates?: (candidates: string[]) => void;
-  /** The grouped server list from `get_mcp_servers` — machine-global, not
-   *  repo-scoped (`discover_machine`, not `discover_repo`; no command groups
-   *  a repo's own registrations today). Accepted for the View control's
-   *  shared preference and for App.tsx's grouping-aware `get_asset_counts`
-   *  call, but NOT used to build this pane's own Tools rows — they would be
-   *  the whole machine's servers inside one repo's view. RepoPane's Tools
-   *  section stays per-registration under both grouping choices until a
-   *  repo-scoped equivalent exists (flagged in the task-7 report). */
-  mcpServers?: McpServerRow[] | null;
-  serverGrouping?: ServerGrouping;
-  serverSort?: ServerSort;
-  onServerGroupingChange?: (grouping: ServerGrouping) => void;
-  onServerSortChange?: (sort: ServerSort) => void;
 }
 
 export default function RepoPane({
@@ -77,36 +62,18 @@ export default function RepoPane({
   onClearSelection,
   linkedRepos = [],
   onPromoteCandidates,
-  serverGrouping: propServerGrouping,
-  serverSort: propServerSort,
-  onServerGroupingChange,
-  onServerSortChange,
 }: RepoPaneProps) {
   const [internalCategory, setInternalCategory] = useState<CategoryType | null>(null);
   const [internalSortField, setInternalSortField] = useState<SortField>("name");
   const [internalSortDirection, setInternalSortDirection] = useState<SortDirection>("asc");
-  const [internalServerGrouping, setInternalServerGrouping] = useState<ServerGrouping>("server");
-  const [internalServerSort, setInternalServerSort] = useState<ServerSort>("attention");
 
   const selectedCategory = propSelectedCategory ?? internalCategory;
   const sortField = propSortField ?? internalSortField;
   const sortDirection = propSortDirection ?? internalSortDirection;
-  const serverGrouping = propServerGrouping ?? internalServerGrouping;
-  const serverSort = propServerSort ?? internalServerSort;
 
   const setSelectedCategory = (cat: CategoryType | null) => {
     setInternalCategory(cat);
     if (onClearSelection) onClearSelection();
-  };
-
-  const handleServerGroupingChange = (grouping: ServerGrouping) => {
-    if (onServerGroupingChange) onServerGroupingChange(grouping);
-    else setInternalServerGrouping(grouping);
-  };
-
-  const handleServerSortChange = (sort: ServerSort) => {
-    if (onServerSortChange) onServerSortChange(sort);
-    else setInternalServerSort(sort);
   };
 
   const handleSort = (field: SortField) => {
@@ -345,11 +312,12 @@ export default function RepoPane({
         />
       </div>
 
-      {/* Facet chips, plus the View control beside them (§5.6) — same
-          placement as ProfilePane. Its "Rows" choice cannot regroup THIS
-          pane's own rows (see the `mcpServers` prop comment), but still
-          drives App.tsx's grouping-aware `get_asset_counts` call for this
-          repo, and stays one shared preference with ProfilePane's copy. */}
+      {/* Facet chips. No View control here (§5.6's "Rows" choice lives on
+          ProfilePane only): `get_mcp_servers` is machine-global
+          (`discover_machine`, not `discover_repo`), so there is no
+          repo-scoped grouping for a control here to drive — this pane's
+          Tools rows stay per-registration regardless, and a control that
+          cannot regroup its own rows would be inert chrome, not a fix. */}
       <div className="px-[18px] pt-3 pb-2.5 flex items-center gap-3">
         {/* No `?? 0` here. The chip distinguishes "not counted yet"
             (undefined) from "empty" (0) so it can keep a chip through a scan
@@ -368,12 +336,6 @@ export default function RepoPane({
             loading={loading}
           />
         </div>
-        <ViewControl
-          grouping={serverGrouping}
-          sort={serverSort}
-          onGroupingChange={handleServerGroupingChange}
-          onSortChange={handleServerSortChange}
-        />
       </div>
 
       {/* Engines line + anything needing attention, above the list plane */}

@@ -1472,11 +1472,6 @@ export default function App() {
               onLinkFromProfile={handleLinkFromProfile}
               linkedRepos={linkedDirectories}
               onPromoteCandidates={(candidates) => setPromoteCandidates(candidates)}
-              mcpServers={mcpServers}
-              serverGrouping={serverGrouping}
-              serverSort={serverSort}
-              onServerGroupingChange={handleServerGroupingChange}
-              onServerSortChange={handleServerSortChange}
               onClearSelection={() => {
                 setSelectedAsset(null);
                 setSelectedBubble(null);
