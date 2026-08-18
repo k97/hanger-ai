@@ -12,3 +12,4 @@ pub mod observe;
 pub mod probe;
 pub mod redact;
 pub mod registry;
+pub mod servers;

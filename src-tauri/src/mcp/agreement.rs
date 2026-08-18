@@ -35,7 +35,7 @@ use crate::mcp::discover::Registration;
 use crate::mcp::identity::{launch_hash, normalise_launch};
 
 /// Whether a server's registrations agree with each other.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
 pub enum Agreement {
     /// Every registration resolves to the same `(transport, url_fingerprint,
     /// launch)`.

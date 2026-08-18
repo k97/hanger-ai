@@ -337,7 +337,7 @@ pub fn get_engine_key(id_str: &str) -> Option<&'static str> {
     }
 }
 
-fn get_home_dir() -> PathBuf {
+pub(crate) fn get_home_dir() -> PathBuf {
     if let Ok(test_home) = std::env::var("HANGER_TEST_HOME") {
         return PathBuf::from(test_home);
     }

@@ -387,6 +387,24 @@ fn get_mcp_processes(app: AppHandle) -> Result<Vec<crate::mcp::observe::ProcessM
     Ok(crate::mcp::observe::match_processes(&regs, &procs))
 }
 
+/// The server list: one row per server name, grouped and counted in Rust
+/// (`.claude/rules/invariants.md` forbids the frontend computing a count).
+///
+/// Machine-level registrations only — `discover_machine`, not the per-repo
+/// sweep — matching what §5.6's list renders: the global server set. Reads
+/// config files directly by absolute path, the same walk-free access
+/// `run_scan`'s machine-level MCP pass uses, so it costs a handful of file
+/// reads rather than a directory walk. Still `(async)`: `get_mcp_processes`
+/// measured its filesystem-bound work at 11s on a real machine and a plain
+/// sync command runs on the main thread, freezing the window for the
+/// duration.
+#[tauri::command(async)]
+fn get_mcp_servers() -> Result<Vec<crate::mcp::servers::McpServerRow>, String> {
+    let home = scanner::get_home_dir();
+    let discovered = crate::mcp::discover::discover_machine(&home);
+    Ok(crate::mcp::servers::group_servers(&discovered.registrations))
+}
+
 #[tauri::command]
 fn unlink_directory(app: AppHandle, path: String) -> Result<(), String> {
     let store = get_store(&app)?;
@@ -1379,6 +1397,7 @@ pub fn run() {
             unlink_directory,
             mcp_probe,
             get_mcp_processes,
+            get_mcp_servers,
             get_linked_directories,
             run_scan,
             get_inventory,
