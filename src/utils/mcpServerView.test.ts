@@ -2,14 +2,18 @@ import { describe, it, expect } from "vitest";
 import { buildMcpServerView } from "./mcpServerView";
 
 const tools = [
-  { name: "spades-audio", command: "node", transport: "stdio",
+  { id: "/home/.claude.json:spades-audio",
+    name: "spades-audio", command: "node", transport: "stdio",
     config_path: "/home/.claude.json", scope: { Global: { agent: "claude-code" } } },
-  { name: "spades-audio", command: "node", transport: "stdio",
+  { id: "/home/Library/Application Support/Claude/claude_desktop_config.json:spades-audio",
+    name: "spades-audio", command: "node", transport: "stdio",
     config_path: "/home/Library/Application Support/Claude/claude_desktop_config.json",
     scope: { Global: { agent: "claude-desktop" } } },
-  { name: "repo-local", command: "node", transport: "stdio",
+  { id: "/home/.claude.json:repo-local",
+    name: "repo-local", command: "node", transport: "stdio",
     config_path: "/home/.claude.json", scope: { Local: { agent: "claude-code", root: "/repo/a" } } },
-  { name: "loose", command: "node", transport: "stdio",
+  { id: "/repo/a/.agents/mcp.json:loose",
+    name: "loose", command: "node", transport: "stdio",
     config_path: "/repo/a/.agents/mcp.json", owning_agent: "", scope: { Project: { agent: "", root: "/repo/a" } } },
 ];
 
@@ -39,7 +43,8 @@ describe("buildMcpServerView", () => {
     // (backend registry, frontend display map) do not drift apart again.
     const view = buildMcpServerView(
       [
-        { name: "cascade-server", command: "node", transport: "stdio",
+        { id: "/home/.codeium/windsurf/mcp_config.json:cascade-server",
+          name: "cascade-server", command: "node", transport: "stdio",
           config_path: "/home/.codeium/windsurf/mcp_config.json",
           scope: { Global: { agent: "windsurf" } } },
       ],
@@ -59,7 +64,7 @@ describe("buildMcpServerView", () => {
     // Desktop one, even though both declare the same server.
     const view = buildMcpServerView(tools, "spades-audio", [
       {
-        registration_key: "/home/.claude.json-spades-audio",
+        registration_key: "/home/.claude.json:spades-audio",
         pid: 8269,
         command_line: "node /Applications/Spades Audio.app/index.js",
         spawning_host: "Claude Code",
@@ -87,7 +92,7 @@ describe("buildMcpServerView", () => {
     const view = buildMcpServerView(
       [
         {
-          id: "/tmp/mcp.json-protected",
+          id: "/tmp/mcp.json:protected",
           name: "protected",
           command: "npx",
           launch_display: "npx mcp-remote https://example.com/sse --header Authorization: <redacted>",
