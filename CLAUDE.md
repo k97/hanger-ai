@@ -1,12 +1,22 @@
 # CLAUDE.md
 
-Hanger is a local-first macOS desktop app that inventories, monitors, and
-deploys AI agent assets — skills, rules, subagents, MCP tools — across Claude
-Code, Codex, and Gemini CLI (`README.md:3`). It scans the directories those
-engines read from, records what it finds in a local SQLite store, and shows
-where each asset is deployed and whether it still matches its source. React 19
-+ TypeScript in a Tauri 2 webview, Rust backend, SQLite via bundled `rusqlite`,
-Tailwind v4 semantic tokens, Vitest (`package.json`, `src-tauri/Cargo.toml`).
+Hanger is an interface for the harness — the skills, rules, subagents and MCP
+servers that decide what an agent can actually do, and which have a format
+but no place to look at them. It is a local-first macOS desktop app that
+inventories, monitors and deploys those four kinds of asset
+(`src-tauri/src/domain.rs:323-326`) across eleven engines with directories of
+their own (`src-tauri/src/agents.rs:69`) and sixteen MCP hosts
+(`src-tauri/src/mcp/registry.rs:91`). It scans the directories those engines
+read from, records what it finds in a local SQLite store, and shows which
+engines reach each asset and through which path, and whether it still matches
+its source. React 19 + TypeScript in a Tauri 2 webview, Rust backend, SQLite
+via bundled `rusqlite`, Tailwind v4 semantic tokens, Vitest (`package.json`,
+`src-tauri/Cargo.toml`).
+
+[docs/harness.md](docs/harness.md) is the conceptual model: what the harness
+standardised, what it did not, and the distinction the code is built on —
+ownership is exclusive, reach is not. Read it before changing `agents.rs`,
+`annotations.rs`, or anything that draws the Reach column.
 
 Two places own their own domains:
 
@@ -79,9 +89,11 @@ checkout).
 `.gitignore` (`to-be-reviewed/`, `superpowers/`, `evidence/`, `references/`).
 `docs/to-be-reviewed/` is a holding pen, not a specification — several files
 there assert behaviour the code does not implement; check against the code
-first. `docs/findings.md` records defects deliberately left unfixed, with
-evidence; `docs/roadmap.md` records deferred work with the reason it was
-deferred. `docs/archive/` holds retired agent-instruction files.
+first. `docs/harness.md` is the conceptual model (the harness, the standards
+it has, ownership versus reach). `docs/findings.md` records defects
+deliberately left unfixed, with evidence; `docs/roadmap.md` records deferred
+work with the reason it was deferred. `docs/archive/` holds retired
+agent-instruction files.
 
 ## Gaps
 

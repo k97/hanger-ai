@@ -1,6 +1,22 @@
 # Hanger AI
 
-Hanger AI is a local-first desktop application that inventories, monitors, and deploys AI agent assets across Claude Code, Codex, and Gemini CLI.
+Models improve every few months. What you can get one to *do* is decided
+somewhere else — by the skills, rules, subagents and MCP servers you have
+written or installed. That layer is the harness, and it has started to get
+standards: `AGENTS.md` became an open format in August 2025, and
+`.agents/skills/` is now the broadest shared skill path there is.
+
+What it has not got is an interface. A harness is ordinary files, spread
+across directories in your home folder and in every repository you work in,
+managed with a text editor and a symlink. Nothing on disk records that
+editing one of those files changes every engine and every project that reads
+it.
+
+Hanger AI is an attempt at that interface. It is a local-first macOS app that
+walks the directories agents actually read from, records what it finds in a
+local SQLite store, and keeps the two facts no engine keeps for you: which
+engines reach each asset and through which path, and how far past your global
+store it has spread. [docs/harness.md](docs/harness.md) sets out the model.
 
 ![IMAGE — main inventory view]
 
@@ -35,10 +51,29 @@ Download the latest `.dmg` installer from the official [Releases](https://github
 
 ## Asset Coverage and Detection
 
-Hanger AI scans local development and configuration directories to detect agent assets across nine categories:
+Hanger AI walks local development and configuration directories and models
+what it finds as four kinds of asset — the four the ecosystem actually
+publishes (`src-tauri/src/domain.rs:323-326`):
 
-- **Categories:** Skills, Agents, Tools, Rules, Memory, Subagents, Hooks, Permissions, Plugins.
-- **Supported Engines:** Claude Code (`~/.claude`, `.claude`), Codex (`~/.codex`), and Gemini CLI (`~/.gemini`, `.gemini`).
+- **Categories:** Skills, Rules, Subagents, MCP servers.
+
+Coverage comes from two tables, kept separately because they answer different
+questions:
+
+- **Engines with directories of their own** — eleven, in `AGENT_CONFIGS`
+  (`src-tauri/src/agents.rs:69`): Claude Code, Codex, Gemini / Antigravity,
+  Kiro, Trae, OpenCode, Amp, Zed, Roo Code, Kilo Code and Cline. Each
+  declares the roots it owns and where it keeps each category. Two more
+  engines are known by their rules file alone — Cursor and GitHub Copilot
+  (`agents.rs:367`).
+- **MCP hosts** — sixteen, in `mcp::registry::HOSTS`
+  (`src-tauri/src/mcp/registry.rs:91`), each with the config paths and
+  dialect it uses. A host is not always an engine: Claude Desktop and VS Code
+  declare MCP servers without owning skills or rules.
+
+Ownership is exclusive and reach is not, so the vendor-neutral `.agents/`
+store is owned by nobody and read by several engines
+(`src-tauri/src/agents.rs:18`). See [docs/harness.md](docs/harness.md).
 
 Scanning respects `.gitignore` rules (`src-tauri/src/scanner.rs:34-120`) and never inspects `node_modules` or credential files.
 
