@@ -407,4 +407,76 @@ describe("McpServerDetail", () => {
     fireEvent.click(screen.getByRole("button", { name: /verify/i }));
     expect(onVerify).toHaveBeenCalledWith("k1");
   });
+
+  it("shows one unlabelled Tools block when every registration agrees", () => {
+    // Stage 1 rendered one block per probed registration -- honest but
+    // repetitive: three registrations on one launch showed three identical
+    // tool lists.
+    //
+    // Brief error: task-9-brief.md's fixture passes a `view` prop with
+    // `verified` nested inside it and gives `tools` as bare strings. Neither
+    // shape exists here -- Props takes sibling `server`/`verified`,
+    // VerifiedIdentity.tools is `{ name, description? }[]`, and Registration
+    // requires `configPath`/`command`. Adapted to the real API; the scenario
+    // and every assertion below are unchanged from the brief.
+    const server: McpServerView = {
+      ...base,
+      name: "tauri",
+      registrations: [
+        { key: "/a:tauri", host: "Claude Code", tier: "global", configPath: "~/.claude.json", command: "npx", launchDisplay: "npx -y @tauri/mcp@2.9.1" },
+        { key: "/b:tauri", host: "Codex", tier: "global", configPath: "~/.codex/config.toml", command: "npx", launchDisplay: "npx -y @tauri/mcp@2.9.1" },
+        { key: "/c:tauri", host: "Gemini", tier: "global", configPath: "~/.gemini/settings.json", command: "npx", launchDisplay: "npx -y @tauri/mcp@2.9.1" },
+      ],
+    };
+    render(
+      <McpServerDetail
+        server={server}
+        verified={{
+          "/a:tauri": { capabilities: [], tools: [{ name: "get_docs" }, { name: "search_api" }], verifiedAt: 1_700_000_000_000 },
+          "/b:tauri": { capabilities: [], tools: [{ name: "get_docs" }, { name: "search_api" }], verifiedAt: 1_700_000_000_000 },
+          "/c:tauri": { capabilities: [], tools: [{ name: "get_docs" }, { name: "search_api" }], verifiedAt: 1_700_000_000_000 },
+        }}
+      />
+    );
+    expect(screen.getAllByTestId("tools-block")).toHaveLength(1);
+    // Scoped to Tools: with all three probes succeeding, the Identity
+    // section's own attribution slot legitimately prints
+    // "verified … · Claude Code · global" (more than one registration
+    // answered -- see "names whose result the Identity section is showing"
+    // above). An unscoped query would find that text and fail this assertion
+    // for a reason that has nothing to do with the Tools section.
+    const toolsSection = screen.getByText("Tools").closest("section")!;
+    expect(within(toolsSection).queryByText(/Claude Code · global/)).toBeNull();
+    expect(screen.getAllByText("get_docs")).toHaveLength(1);
+  });
+
+  it("labels each block with its spec when the specs differ", () => {
+    const server: McpServerView = {
+      ...base,
+      name: "tauri",
+      registrations: [
+        { key: "/a:tauri", host: "Claude Code", tier: "global", configPath: "~/.claude.json", command: "npx", launchDisplay: "npx -y @tauri/mcp@latest" },
+        { key: "/b:tauri", host: "Codex", tier: "global", configPath: "~/.codex/config.toml", command: "npx", launchDisplay: "npx -y @tauri/mcp@2.9.1" },
+      ],
+    };
+    render(
+      <McpServerDetail
+        server={server}
+        verified={{
+          "/a:tauri": { capabilities: [], tools: [{ name: "get_docs" }, { name: "new_tool" }], verifiedAt: 1_700_000_000_000 },
+          "/b:tauri": { capabilities: [], tools: [{ name: "get_docs" }], verifiedAt: 1_700_000_000_000 },
+        }}
+      />
+    );
+    expect(screen.getAllByTestId("tools-block")).toHaveLength(2);
+    // Scoped to Tools: "Registered in" already prints each registration's own
+    // launch verbatim (Task 3), so an unscoped query finds two matches for
+    // the same substring -- one there, one in the block label -- and throws
+    // rather than asserting anything.
+    const toolsSection = screen.getByText("Tools").closest("section")!;
+    // A tool count is never rendered without the launch it belongs to unless
+    // that launch is the server's only one.
+    expect(within(toolsSection).getByText(/@tauri\/mcp@latest/)).toBeTruthy();
+    expect(within(toolsSection).getByText(/@tauri\/mcp@2\.9\.1/)).toBeTruthy();
+  });
 });

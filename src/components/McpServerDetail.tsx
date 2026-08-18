@@ -46,6 +46,16 @@ interface VerifiedIdentity {
   error?: string;
 }
 
+/** Probed registrations that launch the server the same way, collapsed to
+ *  one Tools block. `result` is whichever member's probe is shown -- the
+ *  same "first succeeded" attribution the Identity section already uses
+ *  above, not a reconciliation across the group (spec §5.7). */
+interface ToolsGroup {
+  launchDisplay: string;
+  regs: Registration[];
+  result: VerifiedIdentity;
+}
+
 export interface McpServerView {
   name: string;
   /** Executable Verify will run. */
@@ -169,6 +179,20 @@ export default function McpServerDetail({ server, verified, onVerify, verifying 
   const probed = server.registrations
     .map((reg) => ({ reg, result: verified?.[reg.key] }))
     .filter((p): p is { reg: Registration; result: VerifiedIdentity } => !!p.result);
+
+  // Probed registrations grouped by the launch they share, not listed one
+  // block per registration -- three registrations agreeing on one launch
+  // used to render three identical tool lists (spec §5.7). Order follows
+  // each spec's first appearance in `probed`.
+  const toolsGroups: ToolsGroup[] = [];
+  for (const { reg, result } of probed) {
+    const group = toolsGroups.find((g) => g.launchDisplay === reg.launchDisplay);
+    if (group) {
+      group.regs.push(reg);
+    } else {
+      toolsGroups.push({ launchDisplay: reg.launchDisplay, regs: [reg], result });
+    }
+  }
 
   // Protocol revision and capabilities come from the same handshake as a
   // tool list, so the Identity section reads whichever registration answered
@@ -381,25 +405,35 @@ export default function McpServerDetail({ server, verified, onVerify, verifying 
               </p>
             )}
           </div>
-        ) : probed.length === 1 ? (
-          // Nothing to disambiguate: only one registration has been probed,
-          // so labelling its result would repeat what the row above it
-          // already shows plainly (that only one of N was probed).
-          <ProbedToolList result={probed[0].result} />
+        ) : toolsGroups.length === 1 ? (
+          // Nothing to disambiguate: every probed registration launches the
+          // same spec, so labelling its result would repeat what the rows
+          // above already show plainly (that N registrations share one
+          // launch).
+          <div data-testid="tools-block">
+            <ProbedToolList result={toolsGroups[0].result} />
+          </div>
         ) : (
           <div className="flex flex-col gap-3">
-            {probed.map(({ reg, result }) => (
-              <div key={reg.key} className="flex flex-col gap-1.5">
+            {toolsGroups.map((group) => (
+              <div key={group.launchDisplay} data-testid="tools-block" className="flex flex-col gap-1.5">
                 <div className="flex items-baseline justify-between gap-2">
-                  {/* Host + tier, not the path and not the launch -- both are
-                      already this row's own identity one section up, and
-                      re-labelling with either duplicates it verbatim. */}
+                  {/* The spec this block's tools came from -- the rule this
+                      redesign exists to hold: a tool count never appears
+                      without the launch that produced it. */}
                   <span className="text-micro font-mono text-ink-3 truncate">
-                    {reg.host} · {reg.tier}
+                    {group.launchDisplay}
                   </span>
-                  <span className={COUNT}>{result.error ? "—" : result.tools.length}</span>
+                  <span className={COUNT}>{group.result.error ? "—" : group.result.tools.length}</span>
                 </div>
-                <ProbedToolList result={result} />
+                {/* Which registrations share this spec -- host + tier, not
+                    the path, same convention the old per-registration label
+                    used. Plural when more than one host launches it
+                    identically. */}
+                <span className="text-micro font-mono text-ink-3 truncate">
+                  {group.regs.map((r) => `${r.host} · ${r.tier}`).join(", ")}
+                </span>
+                <ProbedToolList result={group.result} />
               </div>
             ))}
           </div>
