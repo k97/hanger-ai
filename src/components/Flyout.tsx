@@ -90,8 +90,7 @@ export default function Flyout({
 
   /* Verify results, keyed by REGISTRATION key. Keyed by server name until
      2026-08-16, which was a single slot that could not hold two answers when
-     two hosts launch the same server differently. Session-lived; the persisted
-     table is stage 2. */
+     two hosts launch the same server differently. */
   const [mcpVerified, setMcpVerified] = useState<Record<string, {
     serverVersion?: string;
     protocolVersion?: string;

@@ -541,6 +541,106 @@ fn reattribution_from_known_to_unknown_still_yields_null() {
 }
 
 #[test]
+fn v6_adds_probe_results_table_keyed_by_launch_hash_without_data_loss() {
+    let dir = tempfile::tempdir().unwrap();
+    let db_path = dir.path().join("prefs.db");
+    let now = 1_700_000_000i64;
+
+    // A v5 database with pre-existing data — exactly what a shipped install
+    // holds before this migration ships.
+    let root_id;
+    {
+        let store = PreferencesStore::new(&db_path).unwrap();
+        let engine_id = store
+            .upsert_engine("claude_code", "Claude Code", "~/.claude", now)
+            .unwrap();
+        root_id = store
+            .upsert_root("project", "/Users/test/project-zeta", None, "project-zeta", now)
+            .unwrap();
+        store
+            .upsert_asset(
+                root_id,
+                Some(engine_id),
+                "skill",
+                "project",
+                "demo",
+                "/Users/test/project-zeta/.claude/skills/demo/SKILL.md",
+                None,
+                None,
+                "ok",
+                None,
+                now,
+                now,
+            )
+            .unwrap();
+
+        // Force the db back to v5, as a shipped install's database actually
+        // is, so reopening replays exactly the v6 migration.
+        let conn = store.connect().unwrap();
+        conn.execute_batch("PRAGMA user_version = 5;").unwrap();
+    }
+
+    // Reopening runs the v6 migration.
+    let store = PreferencesStore::new(&db_path).unwrap();
+    let conn = store.connect().unwrap();
+
+    let version: i32 = conn.query_row("PRAGMA user_version", [], |r| r.get(0)).unwrap();
+    assert_eq!(version, 6, "user_version must be 6 after the persisted-verification migration");
+
+    // 'probe_results' exists, keyed by launch_hash, with the columns a probe
+    // result needs to reproduce what Flyout.tsx's session-lived mcpVerified
+    // state held: server/protocol version, capabilities, tools, and error.
+    let mut stmt = conn.prepare("PRAGMA table_info(probe_results)").unwrap();
+    let cols: Vec<String> = stmt
+        .query_map([], |row| row.get(1))
+        .unwrap()
+        .map(|r| r.unwrap())
+        .collect();
+    assert!(!cols.is_empty(), "Table 'probe_results' must exist");
+    for col in &[
+        "launch_hash",
+        "server_version",
+        "protocol_version",
+        "capabilities",
+        "tools",
+        "error",
+        "verified_at",
+    ] {
+        assert!(
+            cols.contains(&col.to_string()),
+            "Table 'probe_results' missing column {}",
+            col
+        );
+    }
+
+    // No data loss: the v5 root/asset survive the migration untouched.
+    let asset_count: i64 = conn
+        .query_row("SELECT COUNT(*) FROM assets WHERE root_id = ?1", [root_id], |r| r.get(0))
+        .unwrap();
+    assert_eq!(asset_count, 1, "pre-existing assets must survive the v6 migration");
+
+    // The table is usable and keyed by launch_hash: a probe result can be
+    // inserted and read back by that key.
+    conn.execute(
+        "INSERT INTO probe_results (launch_hash, server_version, protocol_version, capabilities, tools, error, verified_at)
+         VALUES ('deadbeef', '1.0.0', '2024-11-05', '[]', '[]', NULL, ?1)",
+        [now],
+    )
+    .unwrap();
+    let probe_count: i64 = conn.query_row("SELECT COUNT(*) FROM probe_results", [], |r| r.get(0)).unwrap();
+    assert_eq!(probe_count, 1, "an inserted probe result must be readable back");
+
+    // launch_hash is the primary key: a second insert under the same hash
+    // must not create a second row fighting over one server's identity.
+    let dup = conn.execute(
+        "INSERT INTO probe_results (launch_hash, server_version, protocol_version, capabilities, tools, error, verified_at)
+         VALUES ('deadbeef', '1.0.1', '2024-11-05', '[]', '[]', NULL, ?1)",
+        [now],
+    );
+    assert!(dup.is_err(), "launch_hash must be the primary key of probe_results");
+}
+
+#[test]
 fn reattribution_from_unknown_to_known_takes_the_new_value() {
     // No previous owner, now a known one: None -> Some must take the new
     // engine, not stay NULL forever.
