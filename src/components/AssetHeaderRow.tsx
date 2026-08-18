@@ -11,6 +11,10 @@ interface AssetHeaderRowProps {
    *  (labels ruled 2026-08-15) in place of Engine and State. Plain labels,
    *  not sortables — the sort vocabulary stays name/kind. */
   showReachColumns?: boolean;
+  /** Whether to show the Beyond the store column. Defaults to true. No caller
+   *  passes false yet; the prop exists for the MCP section once that section
+   *  gets its own header row (Task 6), since Beyond cannot apply to servers. */
+  showBeyondColumn?: boolean;
   onSort: (field: SortField) => void;
 }
 
@@ -19,6 +23,7 @@ export default function AssetHeaderRow({
   sortDirection,
   showKindColumn = true,
   showReachColumns = false,
+  showBeyondColumn = true,
   onSort,
 }: AssetHeaderRowProps) {
   const renderHeader = (field: SortField, label: string, widthClass: string) => {
@@ -55,9 +60,11 @@ export default function AssetHeaderRow({
           <span className="hidden @[580px]:block w-[100px] shrink-0 text-left font-medium tracking-[.06em] uppercase text-ink-3 select-none">
             Reach
           </span>
-          <span className="w-[150px] shrink-0 text-left font-medium tracking-[.06em] uppercase text-ink-3 select-none truncate">
-            Beyond the store
-          </span>
+          {showBeyondColumn && (
+            <span className="w-[150px] shrink-0 text-left font-medium tracking-[.06em] uppercase text-ink-3 select-none truncate">
+              Beyond the store
+            </span>
+          )}
         </>
       ) : (
         <>
