@@ -414,10 +414,15 @@ export default function McpServerDetail({ server, verified, onVerify, verifying 
             )}
           </div>
         ) : toolsGroups.length === 1 ? (
-          // Nothing to disambiguate: every probed registration launches the
-          // same spec, so labelling its result would repeat what the rows
-          // above already show plainly (that N registrations share one
-          // launch).
+          // Nothing to disambiguate ONLY when every registration of this
+          // server -- not just every PROBED one -- shares this launch:
+          // `toolsGroups` is built from `probed` alone (above), so a server
+          // with two genuinely different launch specs, one probed and one
+          // not, also lands here with exactly one group. The count below
+          // still renders unlabelled in that case, floating free of the
+          // launch that produced it -- the rule the labelled branch below
+          // exists to hold, silently broken by the one case this branch
+          // cannot tell apart from the truly single-spec one.
           <div data-testid="tools-block">
             <ProbedToolList result={toolsGroups[0].result} />
           </div>

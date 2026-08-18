@@ -38,9 +38,13 @@ describe("agreementLine", () => {
     ).toBe("2 registrations · declared twice by the same engine");
   });
 
-  it("uses the singular noun at exactly one — reachable once distinct_spec_count disagrees with registration_count", () => {
-    // Not a real backend shape (registration_count can't be 1 and Conflicting),
-    // but the word choice itself is what's under test, independent of verdict.
+  it("has no singular form — the noun stays plural at every count agreementLine ever renders", () => {
+    // Renamed: the previous name promised a singular-noun branch reachable
+    // "once distinct_spec_count disagrees with registration_count", but no
+    // such branch exists. `regPhrase` in `agreementLine` is unconditionally
+    // `${row.registration_count} registrations` — there is no singular
+    // alternative anywhere in the function to reach. This pins that
+    // non-branching fact instead of a distinction the code never draws.
     expect(agreementLine(row({ name: "tauri", registration_count: 2 }))).toContain("registrations");
   });
 });

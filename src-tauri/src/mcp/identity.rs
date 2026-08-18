@@ -123,8 +123,12 @@ fn expand_home(value: &str, notes: &mut Vec<LaunchNote>) -> String {
 /// `${workspaceFolder}/x` would compare *equal* as literal strings while
 /// resolving to different paths in different repositories — a missed
 /// conflict, silent forever, exactly what §5.1's asymmetry warns against. So
-/// `None` does not just skip the substitution; it records `Unexpandable` so
-/// the ambiguity is visible instead of quietly compared as identity.
+/// `None` does not just skip the substitution; it records `Unexpandable`
+/// rather than leaving no trace at all. That is as far as it goes today:
+/// `notes` is diagnostic-only, excluded from `launch_hash` (module doc), and
+/// nothing reads it in production. Recording `Unexpandable` does not itself
+/// make the ambiguity visible to anyone — it leaves a place for a future
+/// reader of `notes` to do that.
 fn expand_workspace_folder(
     value: &str,
     workspace_root: Option<&str>,
@@ -154,10 +158,12 @@ fn expand_workspace_folder(
 }
 
 /// Reduces a launch to canonical form (see module docs for the rule
-/// order). `env_keys` is `&[String]` of variable NAMES — there is no value
-/// anywhere in this signature, so an environment value cannot enter
-/// `NormalisedLaunch` or `launch_hash`: the guarantee is structural, not
-/// something a caller could get wrong.
+/// order). `env_keys` is `&[String]` of variable NAMES — no `HashMap<String,
+/// String>` of (name, value) pairs ever reaches this signature, so a caller
+/// cannot hand over an env map and have a value ride along by accident. That
+/// is narrower than "structural": `&[String]` cannot tell a name from a
+/// value, so `map.values()` compiles here exactly as readily as
+/// `map.keys()` does — the caller still has to pass the right half.
 pub fn normalise_launch(
     command: &str,
     args: &[String],

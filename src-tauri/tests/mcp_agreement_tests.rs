@@ -115,16 +115,12 @@ fn the_same_spec_twice_inside_one_engine_is_duplicate_not_conflicting() {
     assert_eq!(agreement_for(&[a, b]).verdict, Agreement::Duplicate);
 }
 
-#[test]
-fn case_differing_names_stay_separate_rows_and_are_reported_aliased() {
-    // Grouping is by name, whitespace-trimmed only. No case folding, no
-    // separator folding.
-    let notion = stdio_reg("Notion", "npx", &["-y", "notion"]);
-    let lower = stdio_reg("notion", "npx", &["-y", "notion"]);
-    let a = agreement_for(&[notion]);
-    let b = agreement_for(&[lower]);
-    assert!(
-        a.aliased_with.is_empty() || b.aliased_with.is_empty(),
-        "aliasing is a cross-group annotation, computed in group_servers, not here"
-    );
-}
+// A test previously lived here asserting `a.aliased_with.is_empty() ||
+// b.aliased_with.is_empty()` on two single-registration `agreement_for`
+// calls. `ServerAgreement::aliased_with` is unconditionally `Vec::new()` in
+// `agreement_for` (aliasing is computed in `group_servers`, not here), so
+// both sides were always empty and the assertion could never fail for any
+// input — decoration under a name promising two behaviours ("stay separate
+// rows AND are reported aliased") it never checked. Deleted; the real
+// coverage, at the level where aliasing is actually computed, is
+// `mcp_servers_tests.rs::whitespace_is_trimmed_but_case_is_not_folded`.

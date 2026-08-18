@@ -8,14 +8,6 @@ fn v(xs: &[&str]) -> Vec<String> {
     xs.iter().map(|s| s.to_string()).collect()
 }
 
-/// A stdio registration under a default test host, so cross-host comparisons
-/// (bridged vs. direct) don't accidentally collide with `stdio_reg_in`'s
-/// duplicate-detection case.
-#[allow(dead_code)]
-fn stdio_reg(name: &str, command: &str, args: &[&str]) -> Registration {
-    stdio_reg_in(name, "test-stdio-host", command, args)
-}
-
 fn stdio_reg_in(name: &str, host_id: &'static str, command: &str, args: &[&str]) -> Registration {
     Registration {
         server: McpServer {

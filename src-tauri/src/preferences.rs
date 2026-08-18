@@ -539,17 +539,20 @@ impl PreferencesStore {
             })?;
         }
 
-        // v6: persist verification probe results, keyed by normalised launch
-        // hash (`mcp::identity::launch_hash`), not by server name. The same
-        // launch yields the same tools; a conflicting server naturally gets
-        // two probe rows instead of one row fighting over which arm won; and
+        // v6: adds the `probe_results` table, keyed by normalised launch hash
+        // (`mcp::identity::launch_hash`), not by server name. The same launch
+        // yields the same tools; a conflicting server naturally gets two
+        // probe rows instead of one row fighting over which arm won; and
         // tool-list diffing becomes possible later without another
         // migration. This was `Flyout.tsx`'s `mcpVerified` state, session-lived
         // on the stated grounds that nothing on disk recorded a tool list, so
         // a cached one would go stale the moment a server was upgraded. Keying
         // by launch hash answers that rather than overriding it: a version
-        // bump changes the spec, changes the hash, and the stale row stops
-        // matching instead of being served.
+        // bump changes the spec, changes the hash, so a stale row would stop
+        // matching a lookup by the new hash. Stated as intent, not present
+        // behaviour: nothing inserts into or reads from this table outside
+        // this migration and its own test yet — no code serves ANY row,
+        // stale or fresh.
         if current_version < 6 {
             let tx = conn.transaction().map_err(|_| {
                 SanitisedError("Failed to start database migration transaction".to_string())

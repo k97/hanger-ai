@@ -40,10 +40,12 @@ export interface AssetItem {
    *  state (§5.6). Sourced from `Tool.transport` / `McpServerRow.transport`. */
   transport?: string;
   /** Card variant only: line 2 of the card, the agreement sentence
-   *  ("3 registrations · 2 different launch specs"). Backend-computed
-   *  (`McpServerRow.registration_count` / `.distinct_spec_count`); the
-   *  frontend relays it rather than composing it. Absent renders no second
-   *  line rather than a fabricated one. */
+   *  ("3 registrations · 2 different launch specs"). The words are composed
+   *  in `serverRows.ts`'s `agreementLine`, but only from numbers and the
+   *  verdict the backend already computed (`McpServerRow.registration_count`
+   *  / `.distinct_spec_count` / `.agreement`) — the frontend never counts or
+   *  re-derives a verdict, only assembles the sentence around them. Absent
+   *  renders no second line rather than a fabricated one. */
   agreementLine?: string;
   /** Card variant only: the plugin marketplace this server came bundled
    *  with, when known. Renders a chip only when present — `McpServerRow.plugin`
