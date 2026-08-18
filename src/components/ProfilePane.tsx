@@ -410,6 +410,25 @@ export default function ProfilePane({
     sortDirection
   );
 
+  // Whether Tools is the ONLY section about to render. The shared
+  // `AssetHeaderRow` below is `sticky` over the whole scrollable list, not
+  // scoped to whichever section sits beneath it, so suppressing it had to
+  // key on what will actually be on screen — never on `selectedCategory`
+  // alone. `selectedCategory !== "Tools"` only caught the case where Tools
+  // was the exclusive FILTER; the default All view (`selectedCategory`
+  // null) with servers but nothing else let the header through anyway,
+  // Reach and Beyond the store pinned over card rows those columns do not
+  // describe. A mix of Tools with another category still needs the shared
+  // header for THAT category's rows (asset_table_avionics.test.tsx pins
+  // Skills+Tools together needing it), so suppression is scoped to the
+  // Tools-only case, not to Tools being present at all.
+  const nonToolsSectionVisible =
+    (selectedCategory === "Agents" && sortedAgents.length > 0) ||
+    (showSkills && sortedSkills.length > 0) ||
+    (showRules && sortedRules.length > 0) ||
+    (showSubagents && sortedSubagents.length > 0);
+  const toolsOnlyView = showTools && sortedTools.length > 0 && !nonToolsSectionVisible;
+
   // Uppercase micro voice for section labels inside the list plane.
   const secClass =
     "px-3.5 pt-[11px] pb-[5px] font-flex text-micro font-medium tracking-[.06em] uppercase text-ink-3";
@@ -584,8 +603,12 @@ export default function ProfilePane({
                 Rules, Agents and Subagents, never a server, so this header
                 stays out of the way entirely when Tools is the only section
                 on screen (§5.6, "a column that cannot apply must not
-                render"). */}
-            {selectedCategory !== "Tools" && (
+                render"). Suppressed on `toolsOnlyView`, not on
+                `selectedCategory !== "Tools"`: this header is `sticky` over
+                the WHOLE list, so a default All view with servers but
+                nothing else let it through too — see `toolsOnlyView`'s own
+                comment above. */}
+            {!toolsOnlyView && (
               <AssetHeaderRow
                 sortField={sortField}
                 sortDirection={sortDirection}
@@ -640,8 +663,10 @@ export default function ProfilePane({
                 owns its own column labels rather than sharing the header
                 above: "Reach" is meaningless for a server (it does not have
                 a symlink or a tracked copy), so it reads "Registered in"
-                instead, and "Beyond the store" does not render at all —
-                the defect Task 1 deferred here closes on this line. */}
+                instead. In a Tools-only view the shared header above is
+                suppressed entirely (`toolsOnlyView`); in a mixed view the
+                shared header still renders for the OTHER sections, and this
+                inline header is what actually sits above these rows. */}
             {showTools && sortedTools.length > 0 && (
               <>
                 <div

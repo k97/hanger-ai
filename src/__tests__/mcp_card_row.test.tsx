@@ -70,15 +70,20 @@ describe("the MCP card row", () => {
     expect(within(header).getByText("Tools")).toBeTruthy();
   });
 
-  it("does not render Beyond the store on the MCP section's own header, which cannot apply to a server", () => {
-    // The guarantee `mcp_columns.test.tsx` (Task 1) pinned at the
-    // AssetHeaderRow-component level. That mechanism (`showBeyondColumn`) is
-    // retired here — the MCP section stops going through AssetHeaderRow at
-    // all, so there is no longer a caller to pass it `false`. This test
-    // re-pins the same guarantee against the real rendered section header.
+  it("does not render Beyond the store anywhere in the default view when Tools is the only section present", () => {
+    // The shared `AssetHeaderRow` is `sticky` over the WHOLE scrollable
+    // list, not scoped to whichever section sits beneath it — so scoping
+    // this assertion to `section-header-tools` (the MCP section's own
+    // inline header, built from three literals that never carried this
+    // string) could never fail no matter what the shared header above it
+    // rendered. `inventoryWithOneServer` has no selectedCategory and no
+    // rows besides Tools, which is exactly the case the old
+    // `selectedCategory !== "Tools"` guard let through: null is not
+    // "Tools", so the shared header rendered anyway, Reach and Beyond the
+    // store both, over card rows those columns do not describe. Asserting
+    // against the whole document is what actually pins the fix.
     render(<ProfilePane {...base} inventory={inventoryWithOneServer} />);
-    const header = screen.getByTestId("section-header-tools");
-    expect(within(header).queryByText("Beyond the store")).toBeNull();
+    expect(screen.queryByText("Beyond the store")).toBeNull();
   });
 
   it("gives RepoPane the same section header treatment as ProfilePane", () => {
