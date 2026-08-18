@@ -69,17 +69,22 @@ pub fn url_fingerprint(raw_url: &str) -> String {
 /// module's own parsers do, or the fixture silently diverges from production
 /// behaviour instead of exercising it.
 pub fn sanitise_url(url_str: &str) -> String {
-    if !url_str.contains("://") {
+    // `split_once`, not `split(...).collect()`: an OAuth callback keeps the
+    // whole redirect target -- `://` and all -- in one query parameter, and
+    // counting parts to check "exactly one `://`" made a URL shaped like
+    // that fail the count and return RAW, credential-laden query string
+    // included. Cutting at only the FIRST `://` has no such failure mode.
+    let Some((scheme, rest)) = url_str.split_once("://") else {
         return url_str.to_string();
-    }
-    let parts: Vec<&str> = url_str.split("://").collect();
-    if parts.len() != 2 {
-        return url_str.to_string();
-    }
-    let rest_no_query = parts[1].split('?').next().unwrap_or(parts[1]);
+    };
+    // Query string and fragment can each carry a credential -- an implicit
+    // OAuth grant returns its token in a fragment, never a query string --
+    // so both are cut at whichever comes first.
+    let cut = rest.find(['?', '#']).unwrap_or(rest.len());
+    let rest_no_query = &rest[..cut];
     match rest_no_query.find('@') {
-        Some(at) => format!("{}://{}", parts[0], &rest_no_query[at + 1..]),
-        None => format!("{}://{}", parts[0], rest_no_query),
+        Some(at) => format!("{}://{}", scheme, &rest_no_query[at + 1..]),
+        None => format!("{}://{}", scheme, rest_no_query),
     }
 }
 

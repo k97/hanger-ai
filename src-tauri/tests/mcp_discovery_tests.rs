@@ -262,6 +262,30 @@ fn url_credentials_are_stripped_from_transport() {
 }
 
 #[test]
+fn a_url_with_a_second_scheme_embedded_in_its_query_still_gets_sanitised() {
+    // An OAuth callback keeps the whole redirect target, `://` and all, in
+    // one query parameter. `split("://").collect()` counted three parts for
+    // a URL shaped like this -- not the two `sanitise_url` checked for -- and
+    // returned the RAW string untouched, secret query string included.
+    // `split_once` cuts at only the first `://` regardless of how many more
+    // follow.
+    let raw = "https://provider.example.com/callback?redirect_uri=https://app.example.com/oauth&token=REDACT_ME_1";
+    assert_eq!(
+        dialect::sanitise_url(raw),
+        "https://provider.example.com/callback"
+    );
+}
+
+#[test]
+fn a_url_fragment_is_stripped_along_with_the_query_string() {
+    // `sanitise_url` cut at `?` only. A fragment can carry a credential too
+    // -- an implicit OAuth grant returns its access token in one
+    // (`#access_token=…`), never a query string -- and passed whole.
+    let raw = "https://mcp.example.com/sse#access_token=REDACT_ME_1";
+    assert_eq!(dialect::sanitise_url(raw), "https://mcp.example.com/sse");
+}
+
+#[test]
 fn a_bridged_remote_server_and_a_direct_one_share_an_identity() {
     // Zed is stdio-only, so a remote server reaches it through mcp-remote.
     // Reported unwrapped, that is the same logical server as the direct
