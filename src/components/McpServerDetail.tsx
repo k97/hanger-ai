@@ -1,6 +1,8 @@
 import { openUrl, revealItemInDir } from "@tauri-apps/plugin-opener";
 import { MANAGE_URL } from "../utils/mcpServerView";
 import EngineLabel from "./EngineLabel";
+import Tooltip from "./Tooltip";
+import { ArrowPathIcon } from "./icons";
 
 /**
  * The inspector panel for one MCP server.
@@ -46,14 +48,16 @@ interface VerifiedIdentity {
   error?: string;
 }
 
-/** Probed registrations that launch the server the same way, collapsed to
- *  one Tools block. `result` is whichever member's probe is shown -- the
- *  same "first succeeded" attribution the Identity section already uses
- *  above, not a reconciliation across the group (spec §5.7). */
-interface ToolsGroup {
+/** Every registration that launches the server the same way, collapsed to
+ *  one Tools block regardless of whether any of them has been probed yet.
+ *  `result` is absent until at least one member has; once set, it is
+ *  whichever member's probe is shown -- the same "first succeeded"
+ *  attribution the Identity section already uses above, not a
+ *  reconciliation across the group (spec §5.7). */
+interface SpecGroup {
   launchDisplay: string;
   regs: Registration[];
-  result: VerifiedIdentity;
+  result?: VerifiedIdentity;
 }
 
 export interface McpServerView {
@@ -91,43 +95,21 @@ function relativeTime(then: number): string {
 }
 
 /**
- * The Verify affordance for one registration, or its probed result — a
- * quiet button when unprobed, "N tools" or "verify failed" once it has been.
+ * One registration's own probe result on its "Registered in" row — "N
+ * tools" or "verify failed". Nothing renders before a probe: the action
+ * that produces a result lives in the Tools section now, not here.
  *
- * Lives on the "Registered in" row rather than in a Tools block of its own.
- * Ruled 2026-08-16: that row already renders this registration's whole
- * identity (host, tier, config path, launch), so a second block below it,
- * labelled the same way, duplicates whichever field it chose to repeat —
- * config path collided with an unrelated test, host collided with the
- * "two from the same host" case, launch collided with the row Task 3 added.
- * There is no label that doesn't repeat something the row already says. The
- * control that acts on one registration belongs where that registration's
- * identity already lives — the third time this file records having to learn
- * that rule (see the header comment on the panel below).
+ * Ruled 2026-08-18, superseding 2026-08-16's placement: that ruling put
+ * Verify on this row because Tools blocks were then one per REGISTRATION,
+ * so a block's own label would have repeated whatever field it fell back
+ * to — config path, host, launch, all already shown here. Task 9 replaced
+ * that with one block per launch SPEC: a spec group is already labelled by
+ * its own launch when more than one exists, which repeats nothing this row
+ * says, so the collision that forced the move is gone. The affordance
+ * belongs where the tool list it produces is about to appear.
  */
-function RegistrationVerifyStatus({
-  registration,
-  result,
-  verifying,
-  onVerify,
-}: {
-  registration: Registration;
-  result?: VerifiedIdentity;
-  verifying: boolean;
-  onVerify?: (registrationKey: string) => void;
-}) {
-  if (!result) {
-    return (
-      <button
-        type="button"
-        onClick={() => onVerify?.(registration.key)}
-        disabled={verifying}
-        className="shrink-0 text-micro font-mono text-ink-3 px-1.5 rounded-pill cursor-pointer hover:bg-plane-2 hover:text-ink-1 transition-colors duration-hover disabled:opacity-60 disabled:cursor-default"
-      >
-        {verifying ? "Verifying…" : "Verify"}
-      </button>
-    );
-  }
+function RegistrationVerifyStatus({ result }: { result?: VerifiedIdentity }) {
+  if (!result) return null;
   if (result.error) {
     return <span className="text-micro font-mono text-state-danger">verify failed</span>;
   }
@@ -135,6 +117,78 @@ function RegistrationVerifyStatus({
     <span className="text-micro font-mono text-ink-3">
       {result.tools.length === 1 ? "1 tool" : `${result.tools.length} tools`}
     </span>
+  );
+}
+
+/**
+ * The Verify affordance for one spec group, not one registration. A group's
+ * members share a launch and therefore share a tool list (Task 9's
+ * premise), so probing any single member answers for the whole group —
+ * `registrationKey` is just the handle `onVerify` needs to find that member
+ * again, not an invitation to render one button per registration in a
+ * group. The group is the honest unit.
+ */
+function VerifyButton({
+  registrationKey,
+  verifying,
+  onVerify,
+}: {
+  registrationKey: string;
+  verifying: boolean;
+  onVerify?: (registrationKey: string) => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={() => onVerify?.(registrationKey)}
+      disabled={verifying}
+      className="self-start shrink-0 text-micro text-ink-2 border border-line-2 px-2.5 py-px rounded-pill cursor-pointer hover:bg-plane-2 hover:text-ink-1 transition-colors duration-hover disabled:opacity-60 disabled:cursor-default"
+    >
+      {verifying ? "Verifying…" : "Verify"}
+    </button>
+  );
+}
+
+/**
+ * Re-probes a spec group that has already answered once. Quiet at rest —
+ * ink-3 lifting to ink-1 on hover, no border — because it corrects an
+ * answer already on screen rather than asking a question for the first
+ * time, which is what earns Verify its louder, bordered pill and is
+ * exactly what this control is not. Icon-only, so the accessible name
+ * carries the whole meaning; it does not change while in flight the way
+ * Verify's visible label does, since the spin animation already says so.
+ *
+ * "Check again" is unreviewed copy — ui-copy.md wants Karthik's sign-off on
+ * a first-time label before it lands, and this has not had it yet.
+ *
+ * Nothing reads this list's tool count today: probing is session-only
+ * (`useState` in the panel that owns `verified`), so a result never grows
+ * stale without a restart clearing it first. It exists ahead of that need
+ * because stage 3 persists probe results across sessions, and a cached list
+ * with no way to recheck it would have nowhere to put this control if it
+ * arrived only once the cache did.
+ */
+function CheckAgainButton({
+  registrationKey,
+  verifying,
+  onVerify,
+}: {
+  registrationKey: string;
+  verifying: boolean;
+  onVerify?: (registrationKey: string) => void;
+}) {
+  return (
+    <Tooltip label="Check again" placement="bottom">
+      <button
+        type="button"
+        onClick={() => onVerify?.(registrationKey)}
+        disabled={verifying}
+        aria-label="Check again"
+        className="shrink-0 text-ink-3 hover:text-ink-1 transition-colors duration-hover cursor-pointer disabled:opacity-60 disabled:cursor-default"
+      >
+        <ArrowPathIcon size={13} aria-hidden="true" className={verifying ? "animate-spin" : ""} />
+      </button>
+    </Tooltip>
   );
 }
 
@@ -180,25 +234,35 @@ export default function McpServerDetail({ server, verified, onVerify, verifying 
     .map((reg) => ({ reg, result: verified?.[reg.key] }))
     .filter((p): p is { reg: Registration; result: VerifiedIdentity } => !!p.result);
 
-  // Probed registrations grouped by the launch they share, not listed one
-  // block per registration -- three registrations agreeing on one launch
-  // used to render three identical tool lists (spec §5.7). Order follows
-  // each spec's first appearance in `probed`.
-  const toolsGroups: ToolsGroup[] = [];
-  for (const { reg, result } of probed) {
-    const group = toolsGroups.find((g) => g.launchDisplay === reg.launchDisplay);
+  // Every registration grouped by the launch it shares, whether or not it
+  // has been probed -- three registrations agreeing on one launch render one
+  // tool list, not three identical ones (spec §5.7), and a launch nobody has
+  // probed yet still needs to exist as its own group so Verify has somewhere
+  // to go. Order follows each spec's first appearance in `server.registrations`.
+  //
+  // Counting unprobed registrations here (not just probed ones, as the old
+  // `toolsGroups` did) closes a gap the previous version of this comment
+  // recorded as known: a server with two genuinely different launches, one
+  // probed and one not, used to collapse to a single group and render its
+  // one probed block unlabelled, floating free of the launch that produced
+  // it. With every registration counted, that server correctly has two
+  // groups, and the probed one is labelled like any other sibling.
+  const specGroups: SpecGroup[] = [];
+  for (const reg of server.registrations) {
+    const result = verified?.[reg.key];
+    const group = specGroups.find((g) => g.launchDisplay === reg.launchDisplay);
     if (group) {
       group.regs.push(reg);
       // First succeeded wins, same attribution the Identity section already
-      // uses above -- so a later member's failure never displaces a result
+      // uses below -- so a later member's failure never displaces a result
       // already showing, and an early failure never hides a later success.
       // Only fall through to the first result overall when every member of
-      // the group failed.
-      if (group.result.error && !result.error) {
+      // the group failed, and never overwrite with "still unprobed".
+      if (result && (!group.result || (group.result.error && !result.error))) {
         group.result = result;
       }
     } else {
-      toolsGroups.push({ launchDisplay: reg.launchDisplay, regs: [reg], result });
+      specGroups.push({ launchDisplay: reg.launchDisplay, regs: [reg], result });
     }
   }
 
@@ -298,15 +362,11 @@ export default function McpServerDetail({ server, verified, onVerify, verifying 
                   {launchOf(reg)}
                 </span>
               )}
-              {/* The control that probes THIS registration. Absent for a
-                  Claude.ai connector -- there is nothing local to spawn. */}
+              {/* This registration's own probe result, once one exists.
+                  Absent for a Claude.ai connector -- there is nothing local
+                  to spawn, so it is never probed. */}
               {!isConnector && (
-                <RegistrationVerifyStatus
-                  registration={reg}
-                  result={verified?.[reg.key]}
-                  verifying={verifying === reg.key}
-                  onVerify={onVerify}
-                />
+                <RegistrationVerifyStatus result={verified?.[reg.key]} />
               )}
               {/* Shown only when true. Most servers are started on demand, so
                   "not running" is the normal state and badging every row with
@@ -373,62 +433,94 @@ export default function McpServerDetail({ server, verified, onVerify, verifying 
       <section className={SECTION}>
         <div className="flex items-baseline justify-between gap-2 mb-[10px]">
           <h3 className={HEADING}>Tools</h3>
-          {/* Never a tool count. Two registrations can expose two different
-              tool surfaces, and one number in this slot reads as the server's. */}
-          <span className={COUNT}>
-            {regCount === 1 ? "1 registration" : `${regCount} registrations`}
-          </span>
-        </div>
-        {probed.length === 0 ? (
-          <div className="border border-dashed border-line-2 rounded-inner px-[14px] py-[18px] flex flex-col gap-2 items-start">
-            {/* Verify spawns a local process. A server with no command has
-                nothing to spawn — a remote endpoint or a Claude.ai connector —
-                so offering the button would invite a click that can only fail
-                with "No such file or directory". The control itself now lives
-                on each registration's row above, not here. */}
-            {isConnector ? (
-              <>
-                <p className="text-small text-ink-2 leading-[1.5]">
-                  Runs on Anthropic&rsquo;s servers, not on this machine.
-                </p>
-                {/* A dead end should still point somewhere. There is no file to
-                    open and nothing to verify, but the place this is managed is
-                    knowable, so offer it rather than stopping at "nothing
-                    local to inspect". */}
-                {MANAGE_URL["claude-ai"] && (
-                  <button
-                    type="button"
-                    onClick={() => openUrl(MANAGE_URL["claude-ai"].url).catch(() => {})}
-                    className="text-micro font-mono border border-line-2 px-[10px] py-px rounded-pill cursor-pointer hover:bg-plane-2 transition-colors duration-hover"
-                  >
-                    {MANAGE_URL["claude-ai"].label} ↗
-                  </button>
-                )}
-              </>
+          {/* A tool count is honest in this slot only when the server has a
+              single launch spec -- one launch means one tool surface, so
+              the number can only ever mean one thing. With more than one
+              spec, two registrations can expose two different tool
+              surfaces, and one number here would read as the server's;
+              each spec keeps its own count beside its own launch label
+              instead (below), and this slot falls back to the registration
+              count, which is true regardless of how many specs there are.
+              Verify and Check-again live here too, in the single-spec case,
+              for the same reason: with only one launch to act on, this slot
+              is unambiguous, and Karthik's call (2026-08-18) is that the
+              affordance belongs where the eye already is rather than below
+              an otherwise-empty block. */}
+          {!isConnector && specGroups.length === 1 ? (
+            specGroups[0].result ? (
+              <span className="inline-flex items-center gap-2">
+                <span className={COUNT}>
+                  {specGroups[0].result.error ? "—" : specGroups[0].result.tools.length}
+                </span>
+                <CheckAgainButton
+                  registrationKey={specGroups[0].regs[0].key}
+                  verifying={verifying === specGroups[0].regs[0].key}
+                  onVerify={onVerify}
+                />
+              </span>
             ) : (
+              <VerifyButton
+                registrationKey={specGroups[0].regs[0].key}
+                verifying={verifying === specGroups[0].regs[0].key}
+                onVerify={onVerify}
+              />
+            )
+          ) : (
+            <span className={COUNT}>
+              {regCount === 1 ? "1 registration" : `${regCount} registrations`}
+            </span>
+          )}
+        </div>
+        {isConnector ? (
+          // A connector runs on Anthropic's servers -- there is no local
+          // process to spawn and nothing Hanger can dial, so this is the
+          // whole Tools section regardless of anything else about it.
+          <div className="border border-dashed border-line-2 rounded-inner px-[14px] py-[18px] flex flex-col gap-2 items-start">
+            <p className="text-small text-ink-2 leading-[1.5]">
+              Runs on Anthropic&rsquo;s servers, not on this machine.
+            </p>
+            {/* A dead end should still point somewhere. There is no file to
+                open and nothing to verify, but the place this is managed is
+                knowable, so offer it rather than stopping at "nothing
+                local to inspect". */}
+            {MANAGE_URL["claude-ai"] && (
+              <button
+                type="button"
+                onClick={() => openUrl(MANAGE_URL["claude-ai"].url).catch(() => {})}
+                className="text-micro border border-line-2 text-ink-2 px-2.5 py-px rounded-pill cursor-pointer hover:bg-plane-2 hover:text-ink-1 transition-colors duration-hover"
+              >
+                {MANAGE_URL["claude-ai"].label} ↗
+              </button>
+            )}
+          </div>
+        ) : specGroups.length === 1 ? (
+          // Nothing to disambiguate when every registration of this server
+          // shares one launch, probed or not -- `specGroups` counts all of
+          // them, not just the probed ones, so this branch and the labelled
+          // one below always agree with how many specs the server actually
+          // has.
+          specGroups[0].result ? (
+            // Count and Check-again moved up to the section header (above) --
+            // one spec means that slot is unambiguous, so the block itself
+            // is just the list, same shape as the section's simplest case.
+            <div data-testid="tools-block">
+              <ProbedToolList result={specGroups[0].result} />
+            </div>
+          ) : (
+            <div className="border border-dashed border-line-2 rounded-inner px-[14px] py-[18px] flex flex-col gap-2 items-start">
               <p className="text-micro text-ink-3 leading-[1.45]">
                 {isRemote
                   ? "Asks the endpoint for its tool list. No credentials are sent."
-                  : "Tools are only known by asking the server — use Verify on a registration above."}
+                  : "Tools are only known by asking the server."}
               </p>
-            )}
-          </div>
-        ) : toolsGroups.length === 1 ? (
-          // Nothing to disambiguate ONLY when every registration of this
-          // server -- not just every PROBED one -- shares this launch:
-          // `toolsGroups` is built from `probed` alone (above), so a server
-          // with two genuinely different launch specs, one probed and one
-          // not, also lands here with exactly one group. The count below
-          // still renders unlabelled in that case, floating free of the
-          // launch that produced it -- the rule the labelled branch below
-          // exists to hold, silently broken by the one case this branch
-          // cannot tell apart from the truly single-spec one.
-          <div data-testid="tools-block">
-            <ProbedToolList result={toolsGroups[0].result} />
-          </div>
+              {/* Verify itself now lives in the section header (above), not
+                  here -- this explains why the list is empty; the header is
+                  where the action to fill it lives. */}
+            </div>
+          )
         ) : (
           <div className="flex flex-col gap-3">
-            {toolsGroups.map((group) => (
+            {specGroups.map((group) => (
               <div key={group.launchDisplay} data-testid="tools-block" className="flex flex-col gap-1.5">
                 <div className="flex items-baseline justify-between gap-2">
                   {/* The spec this block's tools came from -- the rule this
@@ -437,7 +529,16 @@ export default function McpServerDetail({ server, verified, onVerify, verifying 
                   <span className="text-micro font-mono text-ink-3 truncate">
                     {group.launchDisplay}
                   </span>
-                  <span className={COUNT}>{group.result.error ? "—" : group.result.tools.length}</span>
+                  {group.result && (
+                    <span className="inline-flex items-center gap-2">
+                      <span className={COUNT}>{group.result.error ? "—" : group.result.tools.length}</span>
+                      <CheckAgainButton
+                        registrationKey={group.regs[0].key}
+                        verifying={verifying === group.regs[0].key}
+                        onVerify={onVerify}
+                      />
+                    </span>
+                  )}
                 </div>
                 {/* Which registrations share this spec -- host + tier, not
                     the path, same convention the old per-registration label
@@ -446,7 +547,15 @@ export default function McpServerDetail({ server, verified, onVerify, verifying 
                 <span className="text-micro font-mono text-ink-3 truncate">
                   {group.regs.map((r) => `${r.host} · ${r.tier}`).join(", ")}
                 </span>
-                <ProbedToolList result={group.result} />
+                {group.result ? (
+                  <ProbedToolList result={group.result} />
+                ) : (
+                  <VerifyButton
+                    registrationKey={group.regs[0].key}
+                    verifying={verifying === group.regs[0].key}
+                    onVerify={onVerify}
+                  />
+                )}
               </div>
             ))}
           </div>

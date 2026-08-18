@@ -80,25 +80,142 @@ describe("McpServerDetail", () => {
     expect(screen.queryByText("Claude Code · user")).toBeNull();
   });
 
-  it("offers Verify and explains why tools are unknown when never verified", () => {
-    // Scoped to one registration: base's three all agree and are all
-    // unverified, so each registration's own row would render its own Verify
-    // button -- a real and correct outcome of one control per registration,
-    // but not what this test is about. One registration keeps the query
-    // singular so the assertions below stay exactly what they were.
+  it("offers a way to check a probed spec again, and hands it a key from that group", () => {
+    // Probing is session-only today (useState in the panel that owns
+    // `verified`), so a result never actually goes stale without the app
+    // restarting first -- but stage 3 persists probe results, and this
+    // control needs to exist before that cache does, not arrive stranded
+    // once it does.
+    const onVerify = vi.fn();
+    render(
+      <McpServerDetail
+        server={{ ...base, registrations: [base.registrations[0]] }}
+        onVerify={onVerify}
+        verified={{
+          "cc-user": { capabilities: [], tools: [{ name: "get_system_volume" }], verifiedAt: 1_700_000_000_000 },
+        }}
+      />
+    );
+    const button = screen.getByRole("button", { name: "Check again" });
+    fireEvent.click(button);
+    expect(onVerify).toHaveBeenCalledWith("cc-user");
+  });
+
+  it("spins and disables the check-again control while a re-probe is in flight", () => {
+    render(
+      <McpServerDetail
+        server={{ ...base, registrations: [base.registrations[0]] }}
+        verifying="cc-user"
+        verified={{
+          "cc-user": { capabilities: [], tools: [{ name: "get_system_volume" }], verifiedAt: 1_700_000_000_000 },
+        }}
+      />
+    );
+    const button = screen.getByRole("button", { name: "Check again" });
+    expect(button).toHaveProperty("disabled", true);
+    // The icon-only control's accessible name is constant -- the spin is
+    // the only signal that a check is running, so a class assertion is the
+    // only way to pin it.
+    expect(button.querySelector("svg")?.getAttribute("class")).toMatch(/animate-spin/);
+  });
+
+  it("puts Verify in the section header when the server has one unprobed launch spec", () => {
+    // Karthik's call, 2026-08-18: one launch means the header slot is
+    // unambiguous, so the affordance belongs where the eye already is
+    // rather than below an otherwise-empty block.
+    render(<McpServerDetail server={{ ...base, registrations: [base.registrations[0]] }} />);
+    const toolsHeader = screen.getByText("Tools").parentElement!;
+    expect(within(toolsHeader).getByRole("button", { name: /^verify$/i })).toBeTruthy();
+    // Nothing has been probed, so there is nothing to count -- the
+    // registration-count fallback stays off this slot too.
+    expect(within(toolsHeader).queryByText(/registration/i)).toBeNull();
+  });
+
+  it("puts the tool count and Check again in the section header when the one spec is probed", () => {
+    render(
+      <McpServerDetail
+        server={{ ...base, registrations: [base.registrations[0]] }}
+        verified={{
+          "cc-user": {
+            capabilities: [],
+            tools: [{ name: "get_system_volume" }, { name: "set_system_volume" }],
+            verifiedAt: 1_700_000_000_000,
+          },
+        }}
+      />
+    );
+    const toolsHeader = screen.getByText("Tools").parentElement!;
+    expect(within(toolsHeader).getByText("2")).toBeTruthy();
+    expect(within(toolsHeader).getByRole("button", { name: "Check again" })).toBeTruthy();
+    expect(within(toolsHeader).queryByText(/registration/i)).toBeNull();
+  });
+
+  it("keeps the header's registration count, never a tool count, when the server has more than one launch spec", () => {
+    // The regression this pins: §5.7's rule (a tool count never appears
+    // without the launch that produced it) still binds on this slot once
+    // there is more than one spec to disagree. A later change that hoists
+    // a single group's count up here unconditionally must fail this.
+    const server: McpServerView = {
+      ...base,
+      name: "tauri",
+      registrations: [
+        { key: "/a:tauri", host: "Codex", tier: "global", configPath: "~/.codex/config.toml",
+          command: "npx", launchDisplay: "npx -y @tauri/mcp@latest" },
+        { key: "/b:tauri", host: "Gemini", tier: "global", configPath: "~/.gemini/settings.json",
+          command: "npx", launchDisplay: "npx -y @tauri/mcp@2.9.1" },
+      ],
+    };
+    render(
+      <McpServerDetail
+        server={server}
+        verified={{
+          "/a:tauri": { capabilities: [], tools: [{ name: "get_docs" }], verifiedAt: 1_700_000_000_000 },
+          "/b:tauri": { capabilities: [], tools: [{ name: "search_api" }, { name: "extra" }], verifiedAt: 1_700_000_000_000 },
+        }}
+      />
+    );
+    const toolsHeader = screen.getByText("Tools").parentElement!;
+    expect(within(toolsHeader).getByText("2 registrations")).toBeTruthy();
+    // No button of any kind in the header for this case -- Verify and
+    // Check-again live beside each spec's own launch label instead.
+    expect(within(toolsHeader).queryByRole("button")).toBeNull();
+    // Each group still carries its own count, beside its own launch --
+    // unaffected by where the header falls back to.
+    const toolsSection = screen.getByText("Tools").closest("section")!;
+    expect(within(toolsSection).getByText(/@tauri\/mcp@latest/)).toBeTruthy();
+    expect(within(toolsSection).getByText(/@tauri\/mcp@2\.9\.1/)).toBeTruthy();
+  });
+
+  it("offers Verify inside Tools, and explains why tools are unknown, when never verified", () => {
+    // Scoped to one registration: base's three all agree, so one spec group
+    // covers all of them -- a real and correct outcome, but not what this
+    // test is about. One registration keeps the query singular.
     render(<McpServerDetail server={{ ...base, registrations: [base.registrations[0]] }} />);
     expect(screen.getByRole("button", { name: /verify/i })).toBeTruthy();
-    // One short line is enough to explain an empty section. The three-line
-    // version explained the design decision behind the button — read once,
-    // then noise on every remaining server.
+    // One short line is enough to explain an empty section.
     expect(screen.getByText(/only known by asking the server/i)).toBeTruthy();
-    // Ruled 2026-08-16: the control moved to the "Registered in" row, and the
-    // Tools section's empty state must not grow a second one -- that was the
-    // original duplication this design replaced.
+    // Ruled 2026-08-18, superseding 2026-08-16: Verify moved INTO the Tools
+    // section, where the tool list it produces is about to appear. The
+    // "Registered in" row still reports a probed registration's own result,
+    // but offers no action of its own now that Task 9's per-spec grouping
+    // removed the labelling collision that forced the button there.
     const registeredSection = screen.getByText("Registered in").closest("section")!;
     const toolsSection = screen.getByText("Tools").closest("section")!;
-    expect(within(registeredSection).getByRole("button", { name: /verify/i })).toBeTruthy();
-    expect(within(toolsSection).queryByRole("button", { name: /verify/i })).toBeNull();
+    expect(within(toolsSection).getByRole("button", { name: /verify/i })).toBeTruthy();
+    expect(within(registeredSection).queryByRole("button", { name: /verify/i })).toBeNull();
+    // The old copy told the reader to act elsewhere. The button is right
+    // here now, so that instruction is not just moved but gone.
+    expect(screen.queryByText(/use Verify on a registration above/i)).toBeNull();
+  });
+
+  it("renders Verify as a word to click, not an identifier to read", () => {
+    // "Verify" is a control label, not a path or a hash -- the mono face is
+    // reserved for things read literally. A class assertion is the only way
+    // to pin this: nothing about the rendered text or role distinguishes the
+    // two font stacks.
+    render(<McpServerDetail server={{ ...base, registrations: [base.registrations[0]] }} />);
+    const button = screen.getByRole("button", { name: /^verify$/i });
+    expect(button.className).not.toMatch(/font-mono/);
   });
 
   it("never renders an environment variable value", () => {
@@ -372,7 +489,15 @@ describe("McpServerDetail", () => {
     expect(screen.getByText("Gemini · global")).toBeTruthy();
   });
 
-  it("leaves a single probed registration's tool list unlabelled — the row above already shows only one of N was probed", () => {
+  it("labels a probed spec's block when a sibling spec exists but has not been probed yet", () => {
+    // This server genuinely has two specs -- Verify moving into the Tools
+    // section is what surfaces that honestly. The old grouping counted only
+    // PROBED registrations, so this exact server (one probed launch, one
+    // not) used to collapse to a single unlabelled block, indistinguishable
+    // from a server with only one launch. Fixed by grouping every
+    // registration, probed or not: two specs on screen means two blocks,
+    // and the one that came back IS worth labelling, because there is a
+    // second one right below it this could be confused with.
     const diverged: McpServerView = {
       ...base,
       registrations: [
@@ -391,9 +516,38 @@ describe("McpServerDetail", () => {
       />
     );
     expect(screen.getByText("solo_tool")).toBeTruthy();
-    // Nothing in the Tools section repeats "Codex" or pairs it with "global"
-    // as a label -- disambiguation isn't needed when only one came back.
-    expect(screen.queryByText("Codex · global")).toBeNull();
+    expect(screen.getByText("Codex · global")).toBeTruthy();
+    // The other spec is real and still unprobed -- it gets its own Verify,
+    // not silence.
+    expect(screen.getByText("Gemini · global")).toBeTruthy();
+    expect(screen.getByRole("button", { name: /^verify$/i })).toBeTruthy();
+  });
+
+  it("offers one Verify per spec when a server has two unprobed launches", () => {
+    // Two specs, neither probed -- each is its own group and each needs its
+    // own way to act, since probing one tells you nothing about the other.
+    const onVerify = vi.fn();
+    const server: McpServerView = {
+      ...base,
+      name: "tauri",
+      registrations: [
+        { key: "/a:tauri", host: "Codex", tier: "global", configPath: "~/.codex/config.toml",
+          command: "npx", launchDisplay: "npx -y @tauri/mcp@latest" },
+        { key: "/b:tauri", host: "Gemini", tier: "global", configPath: "~/.gemini/settings.json",
+          command: "npx", launchDisplay: "npx -y @tauri/mcp@2.9.1" },
+      ],
+    };
+    render(<McpServerDetail server={server} onVerify={onVerify} />);
+    const toolsSection = screen.getByText("Tools").closest("section")!;
+    const buttons = within(toolsSection).getAllByRole("button", { name: /^verify$/i });
+    expect(buttons).toHaveLength(2);
+    // Each button hands back a key belonging to ITS group, not the other
+    // one's -- the group is the unit, but onVerify still needs one real
+    // registration to act on.
+    fireEvent.click(buttons[0]);
+    expect(onVerify).toHaveBeenCalledWith("/a:tauri");
+    fireEvent.click(buttons[1]);
+    expect(onVerify).toHaveBeenCalledWith("/b:tauri");
   });
 
   it("asks to verify one registration, not the server", () => {
