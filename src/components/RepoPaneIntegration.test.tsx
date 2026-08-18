@@ -182,4 +182,83 @@ describe("RepoPane — the empty state is a finding, not a default", () => {
     expect(screen.getByText("No MCP servers in project")).toBeTruthy();
     expect(screen.queryByText(/tools/i)).toBeNull();
   });
+
+  it("a re-scan is pending, not an empty claim, even though an earlier scan already finished", () => {
+    // Same regression as ProfilePane: the repo's own state does not reset
+    // when Rescan is clicked, only on completion -- `loading` is what tells
+    // "still empty" apart from "don't know yet".
+    renderRepo({
+      loading: true,
+      scannedAt: new Date(),
+      assetCounts: { total: 0, byCategory: {} },
+    });
+    expect(screen.getByTestId("scan-pending")).toBeTruthy();
+    expect(screen.getByText("Scanning your machine")).toBeTruthy();
+    expect(screen.queryByText("Nothing in empty-project yet")).toBeNull();
+    expect(screen.queryByText("Link an asset from Global")).toBeNull();
+  });
+
+  it("filtering to a category with nothing in it, mid-scan, is pending -- not an absence claim", () => {
+    // storeEmpty is false here (mockInventory's skills are present), so the
+    // whole-repo planes never fire.
+    renderRepo({
+      repoPath: "/home/user/project",
+      inventory: { ...mockInventory, tools: [] },
+      loading: true,
+      scannedAt: new Date(),
+      selectedCategory: "Tools",
+    });
+    expect(screen.getByTestId("scan-pending")).toBeTruthy();
+    expect(screen.getByText("Scanning this repository")).toBeTruthy();
+    expect(screen.getByText("MCP servers show up here once the scan finishes.")).toBeTruthy();
+    expect(screen.queryByText("No MCP servers in project")).toBeNull();
+  });
+
+  it("filtering to a category with nothing in it, scan finished, correctly claims the absence", () => {
+    renderRepo({
+      repoPath: "/home/user/project",
+      inventory: { ...mockInventory, tools: [] },
+      loading: false,
+      scannedAt: new Date(),
+      selectedCategory: "Tools",
+    });
+    expect(screen.queryByTestId("scan-pending")).toBeNull();
+    expect(screen.getByText("No MCP servers in project")).toBeTruthy();
+    expect(screen.getByText("The scan finished without finding any.")).toBeTruthy();
+  });
+
+  // One of everything, scoped to this repository, so emptying a single
+  // category for the loop below never makes the WHOLE repo look empty.
+  const oneOfEveryCategoryHere: Inventory = {
+    agents: [{ id: "a1", name: "Claude Code", global_config_path: "/x", project_footprints: ["/home/user/project"] }],
+    skills: [{ id: "s1", name: "S", description: "", version: "1.0.0", path: "/home/user/project/s", scope: { Project: { agent: "a1", root: "/home/user/project" } } }],
+    tools: [{ id: "t1", name: "T", command: "x", transport: "stdio", config_path: "/home/user/project/t", scope: { Project: { agent: "a1", root: "/home/user/project" } }, owning_agent: "a1" }],
+    rules: [{ id: "r1", name: "R", path: "/home/user/project/r", content: "x", scope: { Project: { agent: "a1", root: "/home/user/project" } } }],
+    subagents: [{ id: "sa1", name: "SA", description: "", path: "/home/user/project/sa", declared_tools: [], scope: { Project: { agent: "a1", root: "/home/user/project" } } }],
+    project_scans: [],
+  };
+
+  it.each([
+    ["Skills", "skills"],
+    ["Tools", "MCP servers"],
+    ["Rules", "rules"],
+    ["Subagents", "subagents"],
+    ["Agents", "agents"],
+  ] as const)("category %s gets its own pending state mid-scan, named with its own noun", (category, noun) => {
+    const emptiedField =
+      category === "Skills" ? "skills" :
+      category === "Tools" ? "tools" :
+      category === "Rules" ? "rules" :
+      category === "Subagents" ? "subagents" : "agents";
+    renderRepo({
+      repoPath: "/home/user/project",
+      inventory: { ...oneOfEveryCategoryHere, [emptiedField]: [] },
+      loading: true,
+      scannedAt: new Date(),
+      selectedCategory: category,
+    });
+    expect(screen.getByTestId("scan-pending")).toBeTruthy();
+    expect(screen.getByText("Scanning this repository")).toBeTruthy();
+    expect(screen.getByText(`${noun} show up here once the scan finishes.`)).toBeTruthy();
+  });
 });

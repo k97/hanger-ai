@@ -288,9 +288,23 @@ export default function RepoPane({
   // finding needs a finished scan. Until `scannedAt` is set the slot reports
   // the scan rather than the absence — seen 2026-08-16 mid-scan with the
   // sidebar already counting 82 for this repository.
+  //
+  // `loading` matters just as much as `hasScanned`: the repo's own state
+  // (inventory, assetCounts) only changes on scan://complete, so a RE-scan
+  // of a repository that was already empty leaves `storeEmpty` and
+  // `hasScanned` both true for the whole rescan — without checking
+  // `loading` too, the plane kept asserting "nothing here" while a fresh
+  // answer was on its way. Ruled 2026-08-18.
   const hasScanned = scannedAt !== null;
-  const isRepoPending = storeEmpty && !hasScanned;
-  const isRepoEmpty = storeEmpty && hasScanned;
+  const isRepoPending = storeEmpty && (loading || !hasScanned);
+  const isRepoEmpty = storeEmpty && hasScanned && !loading;
+
+  // Same "a scan in flight is not an absence" rule, scoped to one category.
+  // Filtering to MCP servers in a repo that has skills elsewhere never
+  // makes `storeEmpty` true, so `isRepoPending` above never fires for it —
+  // this is the category branch's own pending state, needed for exactly
+  // that case.
+  const isCategoryPending = isCategoryEmpty && !!selectedCategory && loading;
 
   // Uppercase micro voice for section labels inside the list plane.
   const secClass =
@@ -490,25 +504,40 @@ export default function RepoPane({
           </button>
         </div>
       ) : isCategoryEmpty && selectedCategory ? (
-        /* Category-specific empty state; a filter that hides every row is
-           told apart from a category with nothing in it. */
-        <div className={`${emptyPlaneClass} mt-2.5`}>
-          <InformationCircleIcon className="text-ink-3 mb-2" size={40} />
-          {filterActive ? (
-            <span className="text-base-app font-medium text-ink-1">
-              No {categoryNoun(selectedCategory, "one")} matches that filter
+        /* Category-specific empty state. Three reasons share it, told apart
+           by the copy: a scan running right now is not yet an answer (this
+           category's own pending state — `isRepoPending` above never fires
+           here, since another category can easily keep `storeEmpty`
+           false); a filter that hides every row is not the same as a
+           category with nothing in it; and a category genuinely empty
+           after a finished scan is a real finding. */
+        isCategoryPending ? (
+          <div className={`${emptyPlaneClass} mt-2.5`} data-testid="scan-pending">
+            <SpinnerIcon className="text-ink-3 mb-2 animate-spin" size={40} />
+            <span className="text-base-app font-medium text-ink-1">Scanning this repository</span>
+            <span className="text-small text-ink-3 max-w-sm mt-1">
+              {categoryNoun(selectedCategory, "many")} show up here once the scan finishes.
             </span>
-          ) : (
-            <>
+          </div>
+        ) : (
+          <div className={`${emptyPlaneClass} mt-2.5`}>
+            <InformationCircleIcon className="text-ink-3 mb-2" size={40} />
+            {filterActive ? (
               <span className="text-base-app font-medium text-ink-1">
-                No {categoryNoun(selectedCategory)} in {repoFolderName}
+                No {categoryNoun(selectedCategory, "one")} matches that filter
               </span>
-              <span className="text-small text-ink-3 max-w-sm mt-1">
-                Nothing under this category here yet. Pick another, or All.
-              </span>
-            </>
-          )}
-        </div>
+            ) : (
+              <>
+                <span className="text-base-app font-medium text-ink-1">
+                  No {categoryNoun(selectedCategory)} in {repoFolderName}
+                </span>
+                <span className="text-small text-ink-3 max-w-sm mt-1">
+                  The scan finished without finding any.
+                </span>
+              </>
+            )}
+          </div>
+        )
       ) : (
         <>
           {/* The list lives on its own plane */}

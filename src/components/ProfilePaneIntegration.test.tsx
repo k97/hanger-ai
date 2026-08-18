@@ -288,4 +288,86 @@ describe("ProfilePane — the empty state is a finding, not a default", () => {
     expect(screen.getByText("No MCP servers in the global store")).toBeTruthy();
     expect(screen.queryByText(/No global tools/)).toBeNull();
   });
+
+  it("a re-scan is pending, not an empty claim, even though an earlier scan already finished", () => {
+    // Regression: `hasScanned` alone gated the absence claim. The store's
+    // own state (inventory, assetCounts) does not reset when Rescan is
+    // clicked -- it only changes on scan://complete -- so if the store was
+    // already empty before this rescan, `loading` going true is the only
+    // signal that distinguishes "still empty" from "don't know yet, a fresh
+    // answer is coming". Without consulting it, the plane keeps asserting
+    // "nothing here" for the whole rescan.
+    renderGlobal({
+      loading: true,
+      scannedAt: new Date(),
+      assetCounts: { total: 0, byCategory: {} },
+    });
+    expect(screen.getByTestId("scan-pending")).toBeTruthy();
+    expect(screen.getByText("Scanning your machine")).toBeTruthy();
+    expect(screen.queryByText("No engine folders on this machine yet")).toBeNull();
+    expect(screen.queryByText("Nothing in the global store yet")).toBeNull();
+  });
+
+  it("filtering to a category with nothing in it, mid-scan, is pending -- not an absence claim", () => {
+    // storeEmpty is false here (skills and rules are present), so the
+    // whole-store planes never fire; the category branch is what has to
+    // answer for a filtered, empty Tools view while a rescan is running.
+    renderGlobal({
+      inventory: { ...mockInventory, tools: [] },
+      loading: true,
+      scannedAt: new Date(),
+      selectedCategory: "Tools",
+    });
+    expect(screen.getByTestId("scan-pending")).toBeTruthy();
+    expect(screen.getByText("Scanning your machine")).toBeTruthy();
+    expect(screen.getByText("MCP servers show up here once the scan finishes.")).toBeTruthy();
+    expect(screen.queryByText("No MCP servers in the global store")).toBeNull();
+  });
+
+  it("filtering to a category with nothing in it, scan finished, correctly claims the absence", () => {
+    renderGlobal({
+      inventory: { ...mockInventory, tools: [] },
+      loading: false,
+      scannedAt: new Date(),
+      selectedCategory: "Tools",
+    });
+    expect(screen.queryByTestId("scan-pending")).toBeNull();
+    expect(screen.getByText("No MCP servers in the global store")).toBeTruthy();
+    expect(screen.getByText("The scan finished without finding any.")).toBeTruthy();
+  });
+
+  // One of everything, at Global scope, so emptying a single category for
+  // the loop below never makes the WHOLE store look empty and trip the
+  // planes this suite already covers above.
+  const oneOfEveryCategory: Inventory = {
+    agents: [{ id: "a1", name: "Claude Code", global_config_path: "/home/user/.claude", project_footprints: [] }],
+    skills: [{ id: "s1", name: "S", description: "", version: "1.0.0", path: "/s", scope: { Global: { agent: "a1" } } }],
+    tools: [{ id: "t1", name: "T", command: "x", transport: "stdio", config_path: "/t", scope: { Global: { agent: "a1" } }, owning_agent: "a1" }],
+    rules: [{ id: "r1", name: "R", path: "/r", content: "x", scope: { Global: { agent: "a1" } } }],
+    subagents: [{ id: "sa1", name: "SA", description: "", path: "/sa", declared_tools: [], scope: { Global: { agent: "a1" } } }],
+    project_scans: [],
+  };
+
+  it.each([
+    ["Skills", "skills"],
+    ["Tools", "MCP servers"],
+    ["Rules", "rules"],
+    ["Subagents", "subagents"],
+    ["Agents", "agents"],
+  ] as const)("category %s gets its own pending state mid-scan, named with its own noun", (category, noun) => {
+    const emptiedField =
+      category === "Skills" ? "skills" :
+      category === "Tools" ? "tools" :
+      category === "Rules" ? "rules" :
+      category === "Subagents" ? "subagents" : "agents";
+    renderGlobal({
+      inventory: { ...oneOfEveryCategory, [emptiedField]: [] },
+      loading: true,
+      scannedAt: new Date(),
+      selectedCategory: category,
+    });
+    expect(screen.getByTestId("scan-pending")).toBeTruthy();
+    expect(screen.getByText("Scanning your machine")).toBeTruthy();
+    expect(screen.getByText(`${noun} show up here once the scan finishes.`)).toBeTruthy();
+  });
 });
