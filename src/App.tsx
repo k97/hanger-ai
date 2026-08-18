@@ -1467,6 +1467,14 @@ export default function App() {
               <Flyout
                 selectedBubble={selectedBubble}
                 selectedAsset={selectedAsset}
+                /* The Reach column caps its marks at three to stay inside a
+                   100px cell, so the panel is the only place the rest are
+                   answerable. A miss resolves to null and the section is
+                   omitted — a tool's `path` is its config file, not an asset
+                   path, so it will not match and should not. */
+                annotation={
+                  annotations?.find((a) => a.asset_path === selectedAsset?.path) ?? null
+                }
                 mcpProcesses={mcpProcesses}
                 initialDeployingAsset={linkingAsset}
                 linkPreSelectedRepo={linkPreSelectedRepo}

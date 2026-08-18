@@ -29,3 +29,20 @@ const CATEGORY_NOUNS: Record<CategoryType, { one: string; many: string }> = {
 export function categoryNoun(category: CategoryType, form: "one" | "many" = "many"): string {
   return CATEGORY_NOUNS[category][form];
 }
+
+/**
+ * A path with the home directory folded to `~`, for columns too narrow to
+ * carry the whole thing. `/Users/karthik/.claude/agents` is 29 characters
+ * against roughly 24 the Reach card's root column can hold at 11px mono;
+ * under a tilde it is 16 and does not truncate.
+ *
+ * The frontend has no `$HOME`, so this matches the shape rather than the
+ * value: one segment under `/Users` or `/home`. That is deliberately narrow —
+ * a looser rule would fold `/Users` alone, or eat the first four characters of
+ * a directory genuinely named `/Usersomething`. A path that is not somebody's
+ * home comes back untouched, which is the honest outcome for a shared or
+ * system location.
+ */
+export function abbreviateHome(path: string): string {
+  return path.replace(/^\/(?:Users|home)\/[^/]+(?=\/|$)/, "~");
+}

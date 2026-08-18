@@ -9,6 +9,7 @@ import {
 } from "./icons";
 import { Inventory } from "../App";
 import AssetDetail from "./AssetDetail";
+import type { AssetAnnotationView } from "./AssetRow";
 import McpServerDetail from "./McpServerDetail";
 import BrandIcon from "./BrandIcon";
 import { buildMcpServerView, type ProcessMatch } from "../utils/mcpServerView";
@@ -50,6 +51,10 @@ interface FlyoutProps {
   mcpProcesses?: ProcessMatch[] | null;
   linkedProjects: string[];
   onRefresh: () => void;
+  /** The selected asset's backend annotation, passed straight through to
+   *  AssetDetail so the panel can answer for every engine. The Reach column
+   *  shows at most three marks. */
+  annotation?: AssetAnnotationView | null;
 }
 
 interface RuleSection {
@@ -67,7 +72,8 @@ export default function Flyout({
   inventory,
   mcpProcesses,
   linkedProjects,
-  onRefresh
+  onRefresh,
+  annotation
 }: FlyoutProps) {
   const [linking, setLinking] = useState<FlatAssetItem | null>(null);
 
@@ -591,6 +597,7 @@ export default function Flyout({
         <AssetDetail
           asset={targetAsset as any}
           inventory={inventory}
+          annotation={annotation}
           onLink={
             targetAsset.category !== "Agents" && targetAsset.category !== "Subagents"
               ? () => setLinking(targetAsset as FlatAssetItem)

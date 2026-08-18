@@ -2,7 +2,36 @@
 useDefault = true
 
 [allowlist]
+# Regexes matched against the file path, not globs.
 paths = [
     '''src-tauri/target''',
-    '''target'''
+    '''target''',
+    # The sanitisation fixtures. This file exists to hold synthesised secrets
+    # and assert they never reach a log line, so every scan finds them by
+    # design. `.gitleaksignore` already carries fingerprints for the copy at
+    # the repository root, but a fingerprint is path-anchored: the same file
+    # inside a git worktree (`.worktrees/<branch>/src-tauri/tests/…`) does not
+    # match it, and `--no-git` walks the filesystem rather than the index, so
+    # `.gitignore` does not exclude it either. That made the pinned secrets
+    # gate fail for every session in a checkout that had a worktree open, for
+    # a finding nobody introduced. Matching the file wherever it sits fixes
+    # that without excusing worktrees at large — a real secret in one is still
+    # caught.
+    '''(^|/)src-tauri/tests/leak_tests\.rs$''',
+    # Subagent-driven-development scratch. `.superpowers/sdd/.gitignore` is a
+    # bare `*`, so nothing here is tracked and `detect --source .` never sees
+    # it; only the `--no-git` filesystem walk does. These reports quote the
+    # test fixtures they were written about, verbatim and in prose — the two
+    # findings this entry retires are in a report explaining that its own
+    # fixture string tripped gitleaks, which tripped gitleaks. That will recur
+    # for every future report that discusses a redaction test, so the fix is
+    # the directory rather than the file.
+    #
+    # What this costs, stated plainly: the allowlist is shared by both
+    # invocations, so if one of these files were ever force-added past its
+    # `.gitignore`, a real credential in it would also be invisible to the
+    # history gate. Accepted because the directory is disposable scratch that
+    # is deleted when a plan's final review is clean, and because the entry is
+    # anchored to `.superpowers/sdd/` rather than to `.superpowers/` at large.
+    '''(^|/)\.superpowers/sdd/'''
 ]
