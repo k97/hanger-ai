@@ -4,7 +4,9 @@ import { scopeAgent, scopeRoot, type Scope } from "./scopeAccess";
 
 /** The subset of a `Tool` row this view needs. */
 interface ToolRow {
-  id?: string;
+  /** Required: the backend mints it, and a row without one is not a
+      registration. See `registrationKey` in ./mcpRegistration. */
+  id: string;
   name: string;
   command?: string;
   /** The launch, already redacted by the backend, for display only. */

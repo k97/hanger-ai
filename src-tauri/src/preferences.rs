@@ -1271,6 +1271,25 @@ pub fn resolve_deepest_root(asset_path: &Path, project_roots: &[(i64, String)]) 
     ) -> Result<i64, SanitisedError> {
         let conn = self.connect()?;
 
+        // A deliberate straddle, not an oversight — it has been mistaken for
+        // one. `abs_path` is joined against by two families that spell paths
+        // differently, and both are load-bearing:
+        //
+        //   * `record_walk_symlink` (below) looks an asset up by exact match on
+        //     a caller-supplied `fs::canonicalize` path — the `/private/…` form.
+        //   * The tracked-copy watcher and link resolution store and look up raw
+        //     paths as the walk found them — the `/var/…` form.
+        //
+        // So the rule here is *preserve the caller's spelling*: canonicalise,
+        // then undo the `/private` prefix only when the caller had not already
+        // asked for it. Imposing one policy breaks one family or the other,
+        // demonstrated 2026-08-18 — stripping `/private` unconditionally fails
+        // three tests in `asset_annotations_tests`; keeping `fs::canonicalize`'s
+        // output fails four in `scanner_tests`.
+        //
+        // The cost is that two callers passing different spellings of one file
+        // get two rows. That is a defect in the callers, not here: fix it by
+        // making the write sites agree before they reach this function.
         let canonical_abs_path = if scope == "global" {
             let (file_part, suffix) = abs_path.split_once(':').unwrap_or((abs_path, ""));
             let canon_file = match fs::canonicalize(Path::new(file_part)) {

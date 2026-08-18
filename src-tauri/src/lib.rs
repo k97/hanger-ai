@@ -339,7 +339,7 @@ async fn mcp_probe(
     let tool = inventory
         .tools
         .iter()
-        .find(|t| t.registration_key() == registration_key)
+        .find(|t| t.registration_key().as_str() == registration_key)
         .ok_or_else(|| format!("No registration matches {}", registration_key))?;
 
     // 20s is generous for a handshake and short enough that a wedged server
@@ -381,7 +381,7 @@ fn get_mcp_processes(app: AppHandle) -> Result<Vec<crate::mcp::observe::ProcessM
     let regs: Vec<(String, String, Vec<String>)> = inventory
         .tools
         .iter()
-        .map(|t| (t.registration_key(), t.command.clone(), t.args.clone()))
+        .map(|t| (t.registration_key().to_string(), t.command.clone(), t.args.clone()))
         .collect();
     let procs = crate::mcp::observe::running_processes();
     Ok(crate::mcp::observe::match_processes(&regs, &procs))

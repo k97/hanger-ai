@@ -15,6 +15,10 @@ export interface AssetAnnotationView {
 }
 
 export interface AssetItem {
+  /** A row identity, not an asset key. For an MCP row it is the registration
+   *  key; the design-system samples use "sample-1". Anything resolving an
+   *  asset by it must say which, per category — see `annotationFor` in
+   *  ProfilePane. */
   id?: string;
   name: string;
   category: "Skills" | "Agents" | "Tools" | "Rules" | "Subagents" | "Skill" | "Tool" | "Rule" | "Agent" | "Subagent";

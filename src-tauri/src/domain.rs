@@ -93,8 +93,49 @@ impl Tool {
     /// This lives on the type because four separate modules previously each
     /// decided the answer for themselves and three chose `config_path`, which
     /// kept one server per file and silently discarded the rest.
-    pub fn registration_key(&self) -> String {
-        format!("{}-{}", self.config_path, self.name)
+    pub fn registration_key(&self) -> RegistrationKey {
+        RegistrationKey::new(&self.config_path, &self.name)
+    }
+}
+
+/// The identity of one MCP server registration.
+///
+/// A newtype rather than a `String` because `config_path` is a `String` that is
+/// structurally capable of being used as a key, and so it was — five times, in
+/// `filterPredicate`, `run_scan`, `start_scan`, `linkStateCounts` and the
+/// annotation join. Each site answered "what makes a registration unique?" for
+/// itself and there was nothing to say it had answered wrong. Making the
+/// answer a type it cannot be built without is the same move as taking `args`
+/// off `Tool`: structural impossibility rather than conditional avoidance.
+///
+/// **The separator is a colon**, matching what the store keys `assets.abs_path`
+/// on (`preferences.rs:1275` splits on it). `registration_key` used a hyphen,
+/// so the id the frontend joined annotations with could never equal the stored
+/// key, and Reach rendered blank for every MCP row.
+///
+/// **The path is taken as given, not canonicalised here.** `upsert_asset`
+/// preserves its caller's spelling by design — see the comment there — so the
+/// resolved form cannot be recovered from inside this type. Callers hand in the
+/// spelling the store will key on.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct RegistrationKey(String);
+
+impl RegistrationKey {
+    /// The only constructor. Both halves are required, which is the point:
+    /// a config FILE declares many servers, and a key built from one half
+    /// keeps the first and silently discards the rest.
+    pub fn new(config_path: &str, server_name: &str) -> Self {
+        Self(format!("{}:{}", config_path, server_name))
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+impl std::fmt::Display for RegistrationKey {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.0)
     }
 }
 

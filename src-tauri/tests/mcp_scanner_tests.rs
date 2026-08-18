@@ -288,3 +288,58 @@ fn a_tool_carries_a_redacted_launch_for_display() {
     assert!(tool.launch_display.contains("Authorization: <redacted>"));
     assert!(tool.launch_display.starts_with("npx mcp-remote"));
 }
+
+/// One registration is one row, however many passes reach it.
+///
+/// Three write sites can emit an MCP registration: the per-agent filename
+/// sweep (`scanner.rs:890`), the registry pass (`:1280`) and the project pass
+/// (`:1671`). They are **not** disjoint. Instrumenting both global sites and
+/// scanning a real home on 2026-08-18 showed the sweep's five registrations
+/// were every one of them also reached by the registry pass — intersection
+/// 5 of 5, with the registry pass reporting `fresh=false` on all five.
+///
+/// What keeps that from writing two rows is `seen_registrations`
+/// (`scanner.rs:767`), shared by all three sites and keyed on the **raw**
+/// `(config_path, server_name)` pair. Both sites derive their paths from
+/// `get_home_dir()` identically, so the spellings match and the second insert
+/// collides.
+///
+/// That protection is an ordering dependency nothing else records. Keying the
+/// dedup set on a canonicalised path instead — a plausible tidy-up, and the
+/// sweep already canonicalises for its *write* — makes the two sites stop
+/// deduping against each other, and they then write the same registration
+/// twice under two spellings. This test is what fails when that happens.
+///
+/// Chosen fixture: `.codex/config.toml` is reachable both through the `codex`
+/// agent config's `.codex` global root and through the registry's
+/// `MachineAbsolute` source, which is exactly the overlap the run found.
+#[test]
+fn one_registration_is_one_row_however_many_passes_reach_it() {
+    let _guard = ENV_MUTEX.get_or_init(|| Mutex::new(())).lock().unwrap();
+    let _home = TestHome;
+    std::env::set_var("HANGER_TEST_HOME", "tests/fixtures/mcp_home");
+
+    let dir = tempfile::tempdir().unwrap();
+    let scanner = DirectoryScanner {
+        db_path: dir.path().join("hanger.db"),
+        cancellation_token: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
+    };
+    let inventory = scanner.scan(Path::new("tests/fixtures/project")).unwrap();
+
+    for name in ["tauri", "node_repl", "computer-use"] {
+        let paths: Vec<&str> = inventory
+            .tools
+            .iter()
+            .filter(|t| t.name == name && t.config_path.ends_with(".codex/config.toml"))
+            .map(|t| t.config_path.as_str())
+            .collect();
+        assert_eq!(
+            paths.len(),
+            1,
+            "{} is declared once in .codex/config.toml; two passes reach it and \
+             `seen_registrations` must collapse them to one row. Got: {:?}",
+            name,
+            paths
+        );
+    }
+}

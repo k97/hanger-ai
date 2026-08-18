@@ -470,7 +470,7 @@ pub fn tool_from_registration(
         link_state: None,
     };
     // Identity comes from the domain, not from a format! repeated per call site.
-    tool.id = tool.registration_key();
+    tool.id = tool.registration_key().to_string();
     tool
 }
 
@@ -885,11 +885,11 @@ impl DirectoryScanner {
                                     Scope::Global { agent: agent.id.clone() },
                                 ));
                                 if let (Some(store), Some(r_id)) = (&store_opt, global_root_id) {
-                                    let t_path = format!(
-                                        "{}:{}",
-                                        canonicalize_asset_path(Path::new(&reg.config_path), &mut parse_warnings),
-                                        reg.server.name
-                                    );
+                                    let t_path = crate::domain::RegistrationKey::new(
+                                        &canonicalize_asset_path(Path::new(&reg.config_path), &mut parse_warnings),
+                                        &reg.server.name,
+                                    )
+                                    .to_string();
                                     let _ = store.upsert_asset(
                                         r_id, tool_engine_id, "tool", "global",
                                         &reg.server.name, &t_path, None, None, "ok", None, now, now,
@@ -1277,7 +1277,13 @@ impl DirectoryScanner {
 
                 if let Some(r_id) = root_id {
                     let engine_id = engine_db_ids.get(&engine_key).copied();
-                    let asset_path = format!("{}:{}", reg.config_path, reg.server.name);
+                    // Byte-identical to the `format!` this replaces — the point is
+                    // that the separator is stated once, in the type, not at four
+                    // call sites that could drift apart. What this site *stores* is
+                    // deliberately unchanged (see docs/roadmap.md).
+                    let asset_path =
+                        crate::domain::RegistrationKey::new(&reg.config_path, &reg.server.name)
+                            .to_string();
                     let _ = store.upsert_asset(
                         r_id,
                         engine_id,
@@ -1668,7 +1674,11 @@ impl DirectoryScanner {
                     }
                     if let (Some(store), Some(r_id)) = (&store_opt, project_root_id) {
                         for t in &inventory.tools[initial_tools_count..] {
-                            let t_canon = format!("{}:{}", canonicalize_asset_path(Path::new(&t.config_path), &mut parse_warnings), t.name);
+                            let t_canon = crate::domain::RegistrationKey::new(
+                                &canonicalize_asset_path(Path::new(&t.config_path), &mut parse_warnings),
+                                &t.name,
+                            )
+                            .to_string();
                             let _ = store.upsert_asset(
                                 r_id, tool_engine_id, "tool", "project", &t.name, &t_canon, None, None, "ok", None, now, now
                             );

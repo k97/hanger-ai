@@ -88,11 +88,18 @@ export default function ProfilePane({
 
   // Lookup only — keyed by the backend's own asset_path. A row without an
   // entry renders empty annotation cells rather than a guessed state.
-  const annotationByPath = new Map<string, AssetAnnotationView>(
+  const annotationByAssetPath = new Map<string, AssetAnnotationView>(
     (annotations ?? []).map((a) => [a.asset_path, a])
   );
-  const annotationFor = (path: string): AssetAnnotationView | null =>
-    annotationByPath.get(path) ?? null;
+  // `id` before `path`, the same order `rowIsSelected` uses below. Only the
+  // Tools mapping sets an id, and it sets `registrationKey(t)`: the backend
+  // keys an MCP annotation on the registration — `{config path}:{server
+  // name}` — while `path` is the config FILE, which many servers share, so
+  // looking up by it matched nothing and Reach rendered blank on every MCP
+  // row. Every other category has no id and `path` is the key the backend
+  // used.
+  const annotationFor = (item: AssetItem): AssetAnnotationView | null =>
+    annotationByAssetPath.get(item.id ?? item.path) ?? null;
 
   /* Already filtered to the unaccounted by the caller; grouped here so one
      leaked launch reads as one row with a multiplier rather than as eighty. */
@@ -496,7 +503,7 @@ export default function ProfilePane({
                       isSelected={rowIsSelected(item)}
                       showKindColumn={false}
                       item={item}
-                      annotation={annotationFor(item.path)}
+                      annotation={annotationFor(item)}
                       onClick={() => onSelectAsset({ name: item.name, category: "Agents", path: item.path })}
                     />
                   ))}
@@ -517,7 +524,7 @@ export default function ProfilePane({
                       isSelected={rowIsSelected(item)}
                       showKindColumn={!selectedCategory}
                       item={item}
-                      annotation={annotationFor(item.path)}
+                      annotation={annotationFor(item)}
                       onLink={() => onLinkAsset(item)}
                       onClick={() => onSelectAsset({ name: item.name, category: "Skills", path: item.path })}
                     />
@@ -539,7 +546,7 @@ export default function ProfilePane({
                       isSelected={rowIsSelected(item)}
                       showKindColumn={!selectedCategory}
                       item={item}
-                      annotation={annotationFor(item.path)}
+                      annotation={annotationFor(item)}
                       onLink={() => onLinkAsset(item)}
                       onClick={() => onSelectAsset({ id: item.id, name: item.name, category: "Tools", path: item.path })}
                     />
@@ -561,7 +568,7 @@ export default function ProfilePane({
                       isSelected={rowIsSelected(item)}
                       showKindColumn={!selectedCategory}
                       item={item}
-                      annotation={annotationFor(item.path)}
+                      annotation={annotationFor(item)}
                       onLink={() => onLinkAsset(item)}
                       onClick={() => onSelectAsset({ name: item.name, category: "Rules", path: item.path })}
                     />
@@ -583,7 +590,7 @@ export default function ProfilePane({
                       isSelected={rowIsSelected(item)}
                       showKindColumn={!selectedCategory}
                       item={item}
-                      annotation={annotationFor(item.path)}
+                      annotation={annotationFor(item)}
                       onLink={() => onLinkAsset(item)}
                       onClick={() => onSelectAsset({ name: item.name, category: "Subagents", path: item.path })}
                     />
