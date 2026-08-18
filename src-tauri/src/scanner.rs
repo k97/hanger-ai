@@ -6,16 +6,35 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
-pub fn count_assets(db_path: &Path, root: Option<&str>) -> Result<AssetCounts, String> {
+/// How a tool row is counted. Skills, rules and subagents are files — one
+/// file is one asset, and grouping has nothing to do to them. A tool row is a
+/// *registration*: the same server declared in two config files is one
+/// server, two registrations, and the two questions "how many servers" and
+/// "how many registrations" need different arithmetic over the same table.
+/// `PerRegistration` is today's behaviour, preserved for every existing
+/// caller; `Grouped` is the new one, for the MCP server list.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Grouping {
+    Grouped,
+    PerRegistration,
+}
+
+pub fn count_assets(db_path: &Path, root: Option<&str>, grouping: Grouping) -> Result<AssetCounts, String> {
     let store = crate::preferences::PreferencesStore::new(db_path)
         .map_err(|e| format!("Failed to open database: {}", e))?;
 
     let conn = store.connect()
         .map_err(|e| format!("Failed to connect to database: {}", e))?;
 
+    // Row counts, grouped by (category, scope, engine_id): correct as-is for
+    // skill/rule/subagent under either grouping (one file, one row, nothing
+    // to dedupe) and for tool under PerRegistration (today's behaviour,
+    // unchanged). Grouped tool counting cannot be answered from this bucketed
+    // shape — see below — so it is computed separately and substituted in.
     let mut stmt = conn.prepare(
-        "SELECT category, scope, eng.display_name, COUNT(*) 
-         FROM assets 
+        "SELECT category, scope, eng.display_name, COUNT(*)
+         FROM assets
          LEFT JOIN roots rts ON assets.root_id = rts.id
          LEFT JOIN engines eng ON assets.engine_id = eng.id
          WHERE category != 'agent' AND (?1 IS NULL OR rts.abs_path = ?1)
@@ -60,7 +79,18 @@ pub fn count_assets(db_path: &Path, root: Option<&str>) -> Result<AssetCounts, S
     let skill = build_cat("skill");
     let rule = build_cat("rule");
     let subagent = build_cat("subagent");
-    let tool = build_cat("tool");
+    let mut tool = build_cat("tool");
+
+    if grouping == Grouping::Grouped {
+        // A per-(category, scope, engine_id) bucket can only answer "how
+        // many distinct servers THIS engine, THIS scope registers" —
+        // summing those buckets double-counts a server registered under
+        // more than one engine. Found: `tauri`, registered in four engines
+        // on the development machine, summed to 4 while the list it backs
+        // renders 1 row — the 23-vs-7 defect at a smaller scale. Distinct
+        // counting for tools has to run across the whole selection instead.
+        tool = count_distinct_tools(&conn, root)?;
+    }
 
     let total_assets = skill.as_ref().map(|c| c.total).unwrap_or(0)
         + rule.as_ref().map(|c| c.total).unwrap_or(0)
@@ -75,6 +105,38 @@ pub fn count_assets(db_path: &Path, root: Option<&str>) -> Result<AssetCounts, S
         tool,
         engines: if engine_map.is_empty() { None } else { Some(engine_map) },
     })
+}
+
+/// Distinct server names for the tool category, across every scope and
+/// engine that the root filter admits — the count `Grouped` mode needs and
+/// the bucketed `GROUP BY` above cannot give it.
+///
+/// `total` is `COUNT(DISTINCT name)` over the whole selection; `global` and
+/// `project` are the same count restricted to one scope each. `total` is
+/// deliberately **not** `global + project` when a server is registered in
+/// both scopes — that overlap is a fact about the server, not an arithmetic
+/// error to reconcile away. Do not "fix" this by summing the two.
+fn count_distinct_tools(conn: &rusqlite::Connection, root: Option<&str>) -> Result<Option<CategoryCount>, String> {
+    let distinct_count = |scope_clause: &str| -> Result<usize, String> {
+        let sql = format!(
+            "SELECT COUNT(DISTINCT assets.name)
+             FROM assets
+             LEFT JOIN roots rts ON assets.root_id = rts.id
+             WHERE assets.category = 'tool' AND (?1 IS NULL OR rts.abs_path = ?1){scope_clause}"
+        );
+        conn.query_row(&sql, [root], |r| r.get::<_, i64>(0))
+            .map(|n| n as usize)
+            .map_err(|e| format!("Query failed: {}", e))
+    };
+
+    let total = distinct_count("")?;
+    if total == 0 {
+        return Ok(None);
+    }
+    let global = distinct_count(" AND assets.scope = 'global'")?;
+    let project = distinct_count(" AND assets.scope = 'project'")?;
+
+    Ok(Some(CategoryCount { total, global, project }))
 }
 
 pub fn count_tree_assets(db_path: &Path) -> Result<TreeCounts, String> {

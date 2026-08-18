@@ -2,7 +2,7 @@ use std::fs;
 use std::path::Path;
 use std::sync::{Mutex, OnceLock};
 use tauri_app_lib::domain::Scope;
-use tauri_app_lib::scanner::{DirectoryScanner, Scanner};
+use tauri_app_lib::scanner::{DirectoryScanner, Grouping, Scanner};
 
 static ENV_MUTEX: OnceLock<Mutex<()>> = OnceLock::new();
 
@@ -1118,7 +1118,7 @@ fn test_count_assets_ground_truth() {
     let root_path = Path::new("tests/fixtures/project");
     let _res = scanner.scan(root_path).unwrap();
 
-    let counts = tauri_app_lib::scanner::count_assets(&db_path, None).unwrap();
+    let counts = tauri_app_lib::scanner::count_assets(&db_path, None, Grouping::PerRegistration).unwrap();
 
     assert_eq!(counts.skill, Some(tauri_app_lib::domain::CategoryCount { total: 4, global: 0, project: 4 }));
     assert_eq!(counts.rule, Some(tauri_app_lib::domain::CategoryCount { total: 3, global: 0, project: 3 }));
@@ -1142,7 +1142,7 @@ fn test_count_assets_undetected_category_returns_none() {
     let root_id = store.upsert_root("project", temp_dir.path().to_str().unwrap(), None, "test", now).unwrap();
     let _ = store.upsert_asset(root_id, None, "rule", "project", "AGENTS.md", "path", None, None, "ok", None, now, now).unwrap();
 
-    let counts = tauri_app_lib::scanner::count_assets(&db_path, None).unwrap();
+    let counts = tauri_app_lib::scanner::count_assets(&db_path, None, Grouping::PerRegistration).unwrap();
 
     assert_eq!(counts.rule, Some(tauri_app_lib::domain::CategoryCount { total: 1, global: 0, project: 1 }));
     assert_eq!(counts.skill, None, "Undetected category 'skill' must return None");
@@ -1162,10 +1162,87 @@ fn test_count_assets_failed_parse_rows_included() {
     let _ = store.upsert_asset(root_id, None, "skill", "project", "ok-skill", "p1", None, None, "ok", None, now, now).unwrap();
     let _ = store.upsert_asset(root_id, None, "skill", "project", "broken-skill", "p2", None, None, "failed", Some("Syntax error"), now, now).unwrap();
 
-    let counts = tauri_app_lib::scanner::count_assets(&db_path, None).unwrap();
+    let counts = tauri_app_lib::scanner::count_assets(&db_path, None, Grouping::PerRegistration).unwrap();
 
     assert_eq!(counts.skill, Some(tauri_app_lib::domain::CategoryCount { total: 2, global: 0, project: 2 }), "Failed parse asset rows MUST be included in category counts");
     assert_eq!(counts.total_assets, 2);
+}
+
+#[test]
+fn grouped_counts_distinct_servers_and_per_registration_counts_rows() {
+    // ~/.claude.json declaring the same server twice is one server, two
+    // registrations. Counting rows under Grouped is the 23-vs-7 class.
+    //
+    // Registration identity is `config_path:server_name` (RegistrationKey,
+    // domain.rs), which is what upsert_asset keys `abs_path` on. All three
+    // rows share one scope so the fixture stays about the grouping question
+    // alone; a server split across scopes is a real question the brief does
+    // not pose a test for, and this test does not invent an answer to it.
+    let temp_dir = tempfile::tempdir().unwrap();
+    let db_path = temp_dir.path().join("grouping_test.db");
+    let store = tauri_app_lib::preferences::PreferencesStore::new(&db_path).unwrap();
+
+    let now = 1700000000;
+    let root_id = store.upsert_root("project", temp_dir.path().to_str().unwrap(), None, "test", now).unwrap();
+    let _ = store.upsert_asset(root_id, None, "tool", "project", "github", "/home/.claude.json:github", None, None, "ok", None, now, now).unwrap();
+    let _ = store.upsert_asset(root_id, None, "tool", "project", "github", "/repo/.mcp.json:github", None, None, "ok", None, now, now).unwrap();
+    let _ = store.upsert_asset(root_id, None, "tool", "project", "linear", "/home/.claude.json:linear", None, None, "ok", None, now, now).unwrap();
+
+    let grouped = tauri_app_lib::scanner::count_assets(&db_path, None, Grouping::Grouped).unwrap();
+    assert_eq!(grouped.tool.unwrap().total, 2, "two distinct server names");
+
+    let per_reg = tauri_app_lib::scanner::count_assets(&db_path, None, Grouping::PerRegistration).unwrap();
+    assert_eq!(per_reg.tool.unwrap().total, 3, "three rows in the assets table");
+}
+
+#[test]
+fn grouped_counts_one_server_however_many_engines_register_it() {
+    // `tauri` is registered in four engines on the development machine and
+    // renders as ONE row. A count that says 4 disagrees with the list beneath
+    // it, which is the 23-vs-7 defect at a smaller scale. GROUP BY includes
+    // `engine_id`, so distinct-name counting done per bucket and then summed
+    // across buckets double(here, triple-)counts a name that spans engines.
+    let temp_dir = tempfile::tempdir().unwrap();
+    let db_path = temp_dir.path().join("grouping_engines_test.db");
+    let store = tauri_app_lib::preferences::PreferencesStore::new(&db_path).unwrap();
+
+    let now = 1700000000;
+    let root_id = store.upsert_root("project", temp_dir.path().to_str().unwrap(), None, "test", now).unwrap();
+    let engine_a = store.upsert_engine("engine-a", "Engine A", "/engine-a", now).unwrap();
+    let engine_b = store.upsert_engine("engine-b", "Engine B", "/engine-b", now).unwrap();
+    let engine_c = store.upsert_engine("engine-c", "Engine C", "/engine-c", now).unwrap();
+    let _ = store.upsert_asset(root_id, Some(engine_a), "tool", "project", "tauri", "/engine-a/config.json:tauri", None, None, "ok", None, now, now).unwrap();
+    let _ = store.upsert_asset(root_id, Some(engine_b), "tool", "project", "tauri", "/engine-b/config.json:tauri", None, None, "ok", None, now, now).unwrap();
+    let _ = store.upsert_asset(root_id, Some(engine_c), "tool", "project", "tauri", "/engine-c/config.json:tauri", None, None, "ok", None, now, now).unwrap();
+
+    let grouped = tauri_app_lib::scanner::count_assets(&db_path, None, Grouping::Grouped).unwrap();
+    assert_eq!(grouped.tool.unwrap().total, 1, "one server, however many engines");
+}
+
+#[test]
+fn a_server_in_both_scopes_is_one_server_and_the_scopes_do_not_sum() {
+    // A server registered globally AND in a project is ONE server. `total`
+    // therefore does not equal global + project, and that is the point rather
+    // than an arithmetic slip: spanning both places is the finding the list
+    // exists to surface. A later reader "fixing" the sum reintroduces the
+    // double-count this whole task removed. Pins the ruling recorded in
+    // count_distinct_tools's doc comment, per verification.md: a ruling
+    // recorded is not a ruling executed without a control that would fail
+    // if the sum crept back in.
+    let temp_dir = tempfile::tempdir().unwrap();
+    let db_path = temp_dir.path().join("grouping_scopes_test.db");
+    let store = tauri_app_lib::preferences::PreferencesStore::new(&db_path).unwrap();
+
+    let now = 1700000000;
+    let root_id = store.upsert_root("project", temp_dir.path().to_str().unwrap(), None, "test", now).unwrap();
+    let _ = store.upsert_asset(root_id, None, "tool", "global", "tauri", "/home/.claude.json:tauri", None, None, "ok", None, now, now).unwrap();
+    let _ = store.upsert_asset(root_id, None, "tool", "project", "tauri", "/repo/.mcp.json:tauri", None, None, "ok", None, now, now).unwrap();
+
+    let g = tauri_app_lib::scanner::count_assets(&db_path, None, Grouping::Grouped).unwrap().tool.unwrap();
+    assert_eq!(g.total, 1, "one server, two scopes");
+    assert_eq!(g.global, 1);
+    assert_eq!(g.project, 1);
+    assert_ne!(g.total, g.global + g.project, "deliberate: 1 != 2");
 }
 
 #[test]
@@ -1183,7 +1260,7 @@ fn test_count_assets_arithmetic_sum() {
     let root_path = Path::new("tests/fixtures/project");
     let _res = scanner.scan(root_path).unwrap();
 
-    let counts = tauri_app_lib::scanner::count_assets(&db_path, None).unwrap();
+    let counts = tauri_app_lib::scanner::count_assets(&db_path, None, Grouping::PerRegistration).unwrap();
 
     let sum = counts.skill.as_ref().map(|c| c.total).unwrap_or(0)
         + counts.rule.as_ref().map(|c| c.total).unwrap_or(0)
@@ -1219,7 +1296,7 @@ fn test_count_assets_deduplicates_symlinked_root_folders() {
 
     let _res = scanner.scan(&home_dir).unwrap();
 
-    let counts = tauri_app_lib::scanner::count_assets(&db_path, None).unwrap();
+    let counts = tauri_app_lib::scanner::count_assets(&db_path, None, Grouping::PerRegistration).unwrap();
 
     assert_eq!(
         counts.skill.map(|c| c.total),
@@ -1403,7 +1480,7 @@ fn test_reap_stale_assets_after_scan() {
     assert_eq!(inv1.skills.len(), 2, "First scan must return 2 skills");
 
     let store = tauri_app_lib::preferences::PreferencesStore::new(&db_path).unwrap();
-    let counts_before = tauri_app_lib::scanner::count_assets(&db_path, None).unwrap();
+    let counts_before = tauri_app_lib::scanner::count_assets(&db_path, None, Grouping::PerRegistration).unwrap();
     let initial_skills_count = counts_before.skill.as_ref().unwrap().total;
     assert_eq!(initial_skills_count, 2, "DB asset count for skills must be 2 after scan 1");
 
@@ -1414,7 +1491,7 @@ fn test_reap_stale_assets_after_scan() {
     let inv2 = scanner.scan(&proj_root).expect("Scan 2 should succeed");
     assert_eq!(inv2.skills.len(), 1, "Second scan must return 1 skill");
 
-    let counts_after = tauri_app_lib::scanner::count_assets(&db_path, None).unwrap();
+    let counts_after = tauri_app_lib::scanner::count_assets(&db_path, None, Grouping::PerRegistration).unwrap();
     let after_skills_count = counts_after.skill.as_ref().map(|c| c.total).unwrap_or(0);
     assert_eq!(
         after_skills_count,
@@ -1460,7 +1537,7 @@ fn test_count_assets_engine_breakdown() {
         )
         .unwrap();
 
-    let counts = tauri_app_lib::scanner::count_assets(&db_path, Some(root_str))
+    let counts = tauri_app_lib::scanner::count_assets(&db_path, Some(root_str), Grouping::PerRegistration)
         .expect("count_assets should succeed");
 
     let engines_map = counts

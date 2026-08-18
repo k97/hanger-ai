@@ -15,7 +15,7 @@
 //! out of the project — that is a link to record, never a row to steal.
 
 use tauri_app_lib::preferences::PreferencesStore;
-use tauri_app_lib::scanner::count_assets;
+use tauri_app_lib::scanner::{count_assets, Grouping};
 
 fn now() -> i64 {
     std::time::SystemTime::now()
@@ -60,8 +60,8 @@ fn test_project_walk_upsert_leaves_store_row_with_the_store() {
         .unwrap();
 
     // Baseline: the store owns it, the project does not.
-    let store_counts = count_assets(&db_path, Some(store_abs.to_str().unwrap())).unwrap();
-    let project_counts = count_assets(&db_path, Some(project_abs.to_str().unwrap())).unwrap();
+    let store_counts = count_assets(&db_path, Some(store_abs.to_str().unwrap()), Grouping::PerRegistration).unwrap();
+    let project_counts = count_assets(&db_path, Some(project_abs.to_str().unwrap()), Grouping::PerRegistration).unwrap();
     assert_eq!(store_counts.total_assets, 1, "store owns the asset before the project walk");
     assert_eq!(project_counts.total_assets, 0, "project owns nothing before the project walk");
 
@@ -107,8 +107,8 @@ fn test_project_walk_upsert_leaves_store_row_with_the_store() {
     );
 
     // 4. Counting consequence: both counts survive the project walk unchanged.
-    let store_counts_after = count_assets(&db_path, Some(store_abs.to_str().unwrap())).unwrap();
-    let project_counts_after = count_assets(&db_path, Some(project_abs.to_str().unwrap())).unwrap();
+    let store_counts_after = count_assets(&db_path, Some(store_abs.to_str().unwrap()), Grouping::PerRegistration).unwrap();
+    let project_counts_after = count_assets(&db_path, Some(project_abs.to_str().unwrap()), Grouping::PerRegistration).unwrap();
     assert_eq!(
         store_counts_after.total_assets, 1,
         "the store still counts its own asset after the project walk"
@@ -205,10 +205,10 @@ fn f26_real_store_before_and_after_rescan() {
     let print_totals = |label: &str| {
         println!("== {label}");
         for dir in &dirs {
-            let counts = count_assets(&db, Some(dir)).expect("count");
+            let counts = count_assets(&db, Some(dir), Grouping::PerRegistration).expect("count");
             println!("{:>6}  {}", counts.total_assets, dir);
         }
-        let all = count_assets(&db, None).expect("count all");
+        let all = count_assets(&db, None, Grouping::PerRegistration).expect("count all");
         println!("{:>6}  TOTAL", all.total_assets);
     };
 

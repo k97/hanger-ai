@@ -14,7 +14,7 @@ use std::path::Path;
 use serde::Serialize;
 
 use crate::preferences::PreferencesStore;
-use crate::scanner::count_assets;
+use crate::scanner::{count_assets, Grouping};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -246,7 +246,7 @@ pub fn build_link_graph(db_path: &Path, focus_asset_id: Option<i64>) -> Result<L
     let nodes: Vec<GraphNode> = roots
         .iter()
         .map(|r| {
-            let asset_count = count_assets(db_path, Some(&r.path))
+            let asset_count = count_assets(db_path, Some(&r.path), Grouping::PerRegistration)
                 .map(|c| c.total_assets)
                 .unwrap_or(0);
             GraphNode {

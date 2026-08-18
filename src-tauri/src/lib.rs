@@ -1276,9 +1276,15 @@ fn get_inventory(app: AppHandle) -> Result<Inventory, String> {
 }
 
 #[tauri::command]
-fn get_asset_counts(app: AppHandle, root: Option<String>) -> Result<crate::domain::AssetCounts, String> {
+fn get_asset_counts(
+    app: AppHandle,
+    root: Option<String>,
+    grouping: Option<scanner::Grouping>,
+) -> Result<crate::domain::AssetCounts, String> {
     let db_path = get_db_path(&app);
-    scanner::count_assets(&db_path, root.as_deref())
+    // No caller passes `grouping` yet — it lands with the MCP server list's
+    // grouping toggle. Absent, today's per-registration behaviour holds.
+    scanner::count_assets(&db_path, root.as_deref(), grouping.unwrap_or(scanner::Grouping::PerRegistration))
 }
 
 #[tauri::command]
