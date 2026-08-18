@@ -38,3 +38,35 @@ MCP detector's stage 1.
   different URLs read as agreeing. `sanitise_url` also drops the entire query
   string, so `?region=eu` versus `?region=us` compares equal. Both predate this
   work; the fix belongs with a launch normaliser that compares transport too.
+- **Two spellings of one asset path, latent.** `upsert_asset` preserves its
+  caller's spelling by design (`preferences.rs:1275`): it canonicalises, then
+  undoes the `/private` prefix only when the caller had not already asked for
+  it. That straddle is load-bearing — `record_walk_symlink` looks assets up by
+  exact match on an `fs::canonicalize` path, while the tracked-copy watcher and
+  link resolution use raw walk paths. Imposing one policy breaks one or the
+  other: stripping `/private` unconditionally fails three tests in
+  `asset_annotations_tests`, keeping `fs::canonicalize` output fails four in
+  `scanner_tests`. Both measured 2026-08-18.
+
+  The cost is that two callers passing different spellings of one file would
+  write two rows. The scanner has two such callers — the per-agent sweep
+  pre-canonicalises (`scanner.rs:890`), the registry pass does not (`:1280`) —
+  and instrumenting both against a real home showed they are **not disjoint**:
+
+  ```
+  site A: 5   site B: 24   INTERSECTION: 5
+  [DISJOINT] site=A fresh=true  ~/.codex/config.toml:tauri
+  [DISJOINT] site=B fresh=false ~/.codex/config.toml:tauri
+  ```
+
+  `fresh=false` is why nothing is broken today: `seen_registrations`
+  (`scanner.rs:767`) is keyed on the raw pair and shared by every write site,
+  so the second insert collides and that site skips. The divergence is latent,
+  held latent by an ordering dependency — pinned since 2026-08-18 by
+  `mcp_scanner_tests::one_registration_is_one_row_however_many_passes_reach_it`.
+
+  Not fixed by converging the write sites: forcing the registry pass to
+  pre-canonicalise flips `abs_path` for the 19 registrations only it sees, and
+  since `upsert_asset` matches on that column, the old rows are orphaned rather
+  than updated — while reaping is off by default. A data migration to repair a
+  defect that is not occurring.
