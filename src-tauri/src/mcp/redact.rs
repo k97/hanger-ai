@@ -92,7 +92,16 @@ pub fn redact_launch(command: &str, args: &[String]) -> String {
                 out.push(format!("{}={}", flag, redact_header_value(value)));
                 continue;
             }
-            if flag.starts_with('-') && looks_secret(flag) {
+            // The whole arg is tested, not just `flag`: a secret word can
+            // live in the flag name (`--token=…`) or inside the VALUE
+            // (`--url=https://…?api_key=…`, an OAuth-shaped query string).
+            // Testing `flag` alone let that second shape fall through to the
+            // generic branch below, which then matched `looks_secret` on the
+            // whole `flag=value` string anyway and pushed it verbatim as a
+            // bare secret flag instead of redacting it here. Mirrors
+            // `observe::redact`'s equivalent `=`-form handling, which tests
+            // the whole word from the start.
+            if flag.starts_with('-') && looks_secret(arg) {
                 out.push(format!("{}=<redacted>", flag));
                 continue;
             }

@@ -149,6 +149,24 @@ fn a_double_dash_secret_shaped_value_after_a_pending_header_is_redacted() {
 }
 
 #[test]
+fn a_flag_valued_url_whose_query_string_carries_a_secret_is_redacted() {
+    // `--url` is not itself secret-shaped, so the dedicated `=`-branch used
+    // to test only the flag half (`looks_secret(flag)`) and fall through.
+    // The generic branch below it then tested `looks_secret(arg)` -- the
+    // WHOLE `flag=value` string, including the query string -- and matched
+    // on "key" inside "api_key", pushing the entire thing, secret and all,
+    // verbatim as a "bare secret flag" while arming the NEXT token for
+    // redaction instead. Matches `observe::redact`'s equivalent `=`-form
+    // handling, which tests the whole word from the start.
+    let out = redact_launch(
+        "npx",
+        &args(&["--url=https://example.com/mcp?api_key=REDACT_ME_1"]),
+    );
+    assert!(!out.contains("REDACT_ME_1"), "secret survived: {}", out);
+    assert_eq!(out, "npx --url=<redacted>");
+}
+
+#[test]
 fn an_ordinary_multi_argument_launch_is_byte_identical_to_its_input() {
     // The invariant only fires inside a pending-value position. An ordinary
     // launch with no secret-shaped flag anywhere must never be touched by
