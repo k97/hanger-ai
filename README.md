@@ -1,22 +1,14 @@
 # Hanger AI
 
-Models improve every few months. What you can get one to *do* is decided
-somewhere else — by the skills, rules, subagents and MCP servers you have
-written or installed. That layer is the harness, and it has started to get
-standards: `AGENTS.md` became an open format in August 2025, and
-`.agents/skills/` is now the broadest shared skill path there is.
-
-What it has not got is an interface. A harness is ordinary files, spread
-across directories in your home folder and in every repository you work in,
-managed with a text editor and a symlink. Nothing on disk records that
-editing one of those files changes every engine and every project that reads
-it.
-
-Hanger AI is an attempt at that interface. It is a local-first macOS app that
-walks the directories agents actually read from, records what it finds in a
-local SQLite store, and keeps the two facts no engine keeps for you: which
+A local-first macOS app that inventories, monitors and deploys AI agent assets
+— skills, rules, subagents and MCP servers — across the engines that read
+them. It walks the directories those engines read from, records what it finds
+in a local SQLite store, and adds two facts nothing on disk keeps: which
 engines reach each asset and through which path, and how far past your global
-store it has spread. [docs/harness.md](docs/harness.md) sets out the model.
+store it has spread.
+
+Why it exists: [Hanger](https://www.rkarthik.co/work/hanger).
+The model it is built on: [docs/harness.md](docs/harness.md).
 
 ![IMAGE — main inventory view]
 
@@ -71,9 +63,8 @@ questions:
   dialect it uses. A host is not always an engine: Claude Desktop and VS Code
   declare MCP servers without owning skills or rules.
 
-Ownership is exclusive and reach is not, so the vendor-neutral `.agents/`
-store is owned by nobody and read by several engines
-(`src-tauri/src/agents.rs:18`). See [docs/harness.md](docs/harness.md).
+Ownership and reach are separate questions and the distinction matters before
+changing either table — [docs/harness.md](docs/harness.md).
 
 Scanning respects `.gitignore` rules (`src-tauri/src/scanner.rs:34-120`) and never inspects `node_modules` or credential files.
 

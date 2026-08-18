@@ -1,22 +1,19 @@
 # The harness
 
-Why this app exists, and the model it uses to describe what it finds. Written
-2026-08-18. Every claim about Hanger's behaviour cites the code that makes it
-true; claims about the wider ecosystem cite a dated external source.
+The model Hanger is built on, and the code that makes each part of it true.
+Written 2026-08-18.
 
-## The layer
+The argument for why the app exists is in the post,
+https://www.rkarthik.co/work/hanger, and is not repeated here. This file is
+the half that has to stay true of the code: when a claim below stops matching
+`agents.rs`, `annotations.rs` or `scanner.rs`, this file is wrong and the code
+is right.
 
-Models improve every few months. What you can get one to *do* is decided
-somewhere else: the skills, rules, subagents and MCP servers you have written
-or installed. That layer is the harness, and it is ordinary files in ordinary
-directories — `~/.claude/skills/`, `.agents/skills/`, `AGENTS.md`, a
-`mcp_config.json` — read by whichever agent happens to be running.
-
-Hanger models four kinds and no more: skills, rules, subagents and MCP
-servers (`src-tauri/src/domain.rs:323-326`). Anything an engine calls by
+Hanger models four kinds of asset and no more — skills, rules, subagents and
+MCP servers (`src-tauri/src/domain.rs:323-326`). Anything an engine calls by
 another name maps onto one of those or is not modelled.
 
-## What the harness standardised
+## The two conventions the code encodes
 
 - **`AGENTS.md`** — released August 2025, now stewarded by the Agentic AI
   Foundation under the Linux Foundation; agents.md lists twenty-two tools that
@@ -31,18 +28,6 @@ another name maps onto one of those or is not modelled.
   Gemini CLI, as a fallback by OpenCode, and discovered by Devin Desktop.
   Hanger names it once, as `SHARED_AGENTS_DIR`
   (`src-tauri/src/agents.rs:18`), and gives it no owner.
-
-## What it did not standardise
-
-An interface. The harness has a format, a growing compatibility surface, and
-no place to look at it. A typical setup is a dozen directories in a home
-folder, managed with a text editor and a symlink.
-
-The consequence is quiet rather than loud. Edit one skill in a shared store
-and you have changed every engine and every project that reads it — with no
-diff, no review and no record, because the half of your setup that lives in
-your home directory never had any of those. Nothing on disk says which
-engines were affected. That absence is what Hanger is for.
 
 ## The model
 
