@@ -75,9 +75,11 @@ import SidebarScanModal from "./components/SidebarScanModal";
 import Flyout from "./components/Flyout";
 import type { AssetAnnotationView } from "./components/AssetRow";
 import { SortField, SortDirection } from "./components/AssetHeaderRow";
+import type { ServerGrouping, ServerSort } from "./components/ViewControl";
 import { StateFilter } from "./utils/linkStateCounts";
 import { registrationKey } from "./utils/mcpRegistration";
 import { unaccountedProcesses, type ProcessMatch } from "./utils/mcpServerView";
+import type { McpServerRow } from "./utils/serverRows";
 import {
   deriveReviewIssues,
   matchesIssueFilter,
@@ -245,6 +247,16 @@ export default function App() {
   // table in a string literal.
   const [knownEngines, setKnownEngines] = useState<{ id: string; name: string }[]>([]);
   const [repoAssetCountsMap, setRepoAssetCountsMap] = useState<Record<string, CategoryCounts>>({});
+  // The MCP server list: one row per server name, grouped and counted in
+  // Rust (`get_mcp_servers`). Machine-global only — `discover_machine`, not
+  // `discover_repo` — so RepoPane cannot regroup its own rows from this; see
+  // the comment beside RepoPane's Tools section for the consequence.
+  const [mcpServers, setMcpServers] = useState<McpServerRow[] | null>(null);
+  // The View control's own state — grouping and sort for the MCP section,
+  // shared between both panes the way sortField/sortDirection already are.
+  // "server" and "attention" are the signed-off defaults (2026-08-18).
+  const [serverGrouping, setServerGrouping] = useState<ServerGrouping>("server");
+  const [serverSort, setServerSort] = useState<ServerSort>("attention");
   const [loading, setLoading] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -369,6 +381,22 @@ export default function App() {
         }
       })
       .catch(() => {});
+
+    invoke<string>("get_preference", { key: "mcp_server_grouping" })
+      .then((val) => {
+        if (val === "server" || val === "registration") {
+          setServerGrouping(val);
+        }
+      })
+      .catch(() => {});
+
+    invoke<string>("get_preference", { key: "mcp_server_sort" })
+      .then((val) => {
+        if (val === "attention" || val === "name") {
+          setServerSort(val);
+        }
+      })
+      .catch(() => {});
   }, []);
 
   const handleSortChange = (field: SortField) => {
@@ -380,6 +408,16 @@ export default function App() {
     setSortDirection(newDir);
     invoke("set_preference", { key: "sort_field", value: field }).catch(() => {});
     invoke("set_preference", { key: "sort_direction", value: newDir }).catch(() => {});
+  };
+
+  const handleServerGroupingChange = (grouping: ServerGrouping) => {
+    setServerGrouping(grouping);
+    invoke("set_preference", { key: "mcp_server_grouping", value: grouping }).catch(() => {});
+  };
+
+  const handleServerSortChange = (sort: ServerSort) => {
+    setServerSort(sort);
+    invoke("set_preference", { key: "mcp_server_sort", value: sort }).catch(() => {});
   };
 
   const toggleInspector = () => {
@@ -413,6 +451,25 @@ export default function App() {
   // from selectedAsset, which only says what is being inspected.
   const [linkingAsset, setLinkingAsset] = useState<any | null>(null);
 
+  // "grouped" / "per_registration" are the Rust `Grouping` enum's
+  // `#[serde(rename_all = "snake_case")]` names. Only `refreshGlobalCounts`
+  // uses this — `fetchRepoCounts` deliberately does not; see the comment
+  // there for why passing it at repo scope would be a bug, not a fix.
+  const groupingParam = (): "grouped" | "per_registration" =>
+    serverGrouping === "server" ? "grouped" : "per_registration";
+
+  // Deliberately NOT grouping-aware. `get_mcp_servers` is machine-global
+  // only (`discover_machine`, not `discover_repo` — see the `mcpServers`
+  // state comment and RepoPane's own comment on its `mcpServers` prop), so
+  // there is no repo-scoped equivalent to build RepoPane's Tools rows from —
+  // they stay per-registration regardless of `serverGrouping`. Passing
+  // `grouping` here would make this pane's header show a grouped total over
+  // rows that never regroup: a header disagreeing with its own rows, the
+  // exact defect this stage exists to close. Repo counts stay
+  // PerRegistration on purpose. Do not "fix" this by threading
+  // `groupingParam()` through until a repo-scoped `get_mcp_servers`
+  // equivalent exists — tracked in docs/roadmap.md, "Repo-scoped MCP
+  // grouping", not this task.
   const fetchRepoCounts = async (repoPath: string) => {
     try {
       const counts = await invoke<any>("get_asset_counts", { root: repoPath });
@@ -440,7 +497,7 @@ export default function App() {
 
   const refreshGlobalCounts = async () => {
     try {
-      const counts = await invoke<any>("get_asset_counts");
+      const counts = await invoke<any>("get_asset_counts", { grouping: groupingParam() });
       const countsWithByCategory: CategoryCounts = {
         total: counts.total_assets || 0,
         byCategory: {
@@ -459,6 +516,31 @@ export default function App() {
       // Silent fallback on error
     }
   };
+
+  // The MCP server list, machine-global (see the state comment above). Fetched
+  // alongside the annotations refresh — both are backend-computed views over
+  // the same scan, neither is part of `Inventory` itself.
+  const refreshMcpServers = async () => {
+    try {
+      setMcpServers(await invoke<McpServerRow[]>("get_mcp_servers"));
+    } catch {
+      setMcpServers(null);
+    }
+  };
+
+  // Re-fetch counts when the grouping choice changes so the chip agrees with
+  // the rows immediately, not just after the next scan. Skips the mount
+  // render — `refreshGlobalCounts` already runs once scan://complete fires,
+  // and firing it again here before onboarding even resolves would race
+  // `initializeApp`'s own first fetch.
+  const serverGroupingMounted = useRef(false);
+  useEffect(() => {
+    if (!serverGroupingMounted.current) {
+      serverGroupingMounted.current = true;
+      return;
+    }
+    refreshGlobalCounts();
+  }, [serverGrouping]);
 
   const [linkPreSelectedRepo, setLinkPreSelectedRepo] = useState<string | undefined>(undefined);
 
@@ -533,6 +615,7 @@ export default function App() {
 
         await refreshGlobalCounts();
         await refreshAnnotations();
+        await refreshMcpServers();
 
         // If onboarding was incomplete, mark it complete now!
         setOnboardingComplete((prev) => {
@@ -1280,6 +1363,11 @@ export default function App() {
               onLinkAsset={handleLinkAsset}
               onCategoryChange={(c) => setProfileCategory(c)}
               unaccountedProcesses={unaccountedProcesses(mcpProcesses ?? undefined)}
+              mcpServers={mcpServers}
+              serverGrouping={serverGrouping}
+              serverSort={serverSort}
+              onServerGroupingChange={handleServerGroupingChange}
+              onServerSortChange={handleServerSortChange}
               onClearSelection={() => {
                 setSelectedAsset(null);
                 setSelectedBubble(null);
@@ -1384,6 +1472,11 @@ export default function App() {
               onLinkFromProfile={handleLinkFromProfile}
               linkedRepos={linkedDirectories}
               onPromoteCandidates={(candidates) => setPromoteCandidates(candidates)}
+              mcpServers={mcpServers}
+              serverGrouping={serverGrouping}
+              serverSort={serverSort}
+              onServerGroupingChange={handleServerGroupingChange}
+              onServerSortChange={handleServerSortChange}
               onClearSelection={() => {
                 setSelectedAsset(null);
                 setSelectedBubble(null);

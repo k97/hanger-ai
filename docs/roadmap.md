@@ -70,3 +70,20 @@ MCP detector's stage 1.
   since `upsert_asset` matches on that column, the old rows are orphaned rather
   than updated — while reaping is off by default. A data migration to repair a
   defect that is not occurring.
+- **Repo-scoped MCP grouping.** `get_mcp_servers` calls `discover_machine`
+  only; there is no repo-scoped equivalent. `RepoPane` therefore receives
+  machine-global rows it cannot use — rendering them would put every server
+  on the machine inside one repository's view — so its Tools section stays
+  per-registration, and `fetchRepoCounts` deliberately does not pass the
+  active grouping to `get_asset_counts`, keeping that pane's header and rows
+  in agreement with each other (the global path, `refreshGlobalCounts`,
+  passes grouping in both). The pieces to close this exist: `discover_repo`
+  and `group_servers` are both shipped and already tested. Deferred anyway
+  (Task 7 of the mono-tight MCP list, 2026-08-18) because adding a command
+  was unasked Rust scope mid-plan; the choice was between a feature gap
+  across two panes and a correctness gap where a header contradicts its own
+  rows, and the correctness gap was the one removed. Done looks like: a
+  `get_repo_mcp_servers` command (`discover_repo` + `group_servers`,
+  mirroring `get_mcp_servers`), `RepoPane` rendering grouped rows from it,
+  and `fetchRepoCounts` passing the active grouping the way
+  `refreshGlobalCounts` already does.

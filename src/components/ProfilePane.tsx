@@ -3,12 +3,14 @@ import { ExclamationCircleIcon, SpinnerIcon } from "./icons";
 import CategoryFilterCards, { CategoryType } from "./CategoryFilterCards";
 import AssetRow, { AssetItem, AssetAnnotationView } from "./AssetRow";
 import AssetHeaderRow, { SortField, SortDirection } from "./AssetHeaderRow";
+import ViewControl, { ServerGrouping, ServerSort } from "./ViewControl";
 import { Inventory, CategoryCounts } from "../App";
 import { filterProfileAssets } from "../utils/filterPredicate";
 import { dedupeRegistrations } from "../utils/mcpRegistration";
 import { sortAssetItems } from "../utils/sortUtils";
 import { registrationKey } from "../utils/mcpRegistration";
 import { groupProcesses, type ProcessMatch } from "../utils/mcpServerView";
+import { agreementLine, mergeReach, sortServerRows, type McpServerRow } from "../utils/serverRows";
 import DisclosureBanner from "./DisclosureBanner";
 import { sumGlobalAssets } from "../utils/globalAssetCount";
 import SummaryStrip from "./SummaryStrip";
@@ -57,6 +59,15 @@ interface ProfilePaneProps {
    *  They have no registration, so they cannot be rows — a row implies
    *  something to open, and there is nothing. */
   unaccountedProcesses?: ProcessMatch[] | null;
+  /** The grouped server list from `get_mcp_servers` — machine-global, fetched
+   *  once in App.tsx. `null` before the first fetch resolves; the Tools
+   *  section falls back to per-registration rows until it does, so a scan
+   *  never flashes an empty list waiting on a second IPC round trip. */
+  mcpServers?: McpServerRow[] | null;
+  serverGrouping?: ServerGrouping;
+  serverSort?: ServerSort;
+  onServerGroupingChange?: (grouping: ServerGrouping) => void;
+  onServerSortChange?: (sort: ServerSort) => void;
 }
 
 export default function ProfilePane({
@@ -81,10 +92,20 @@ export default function ProfilePane({
   onClearSelection,
   onCategoryChange,
   unaccountedProcesses,
+  mcpServers,
+  serverGrouping: propServerGrouping,
+  serverSort: propServerSort,
+  onServerGroupingChange,
+  onServerSortChange,
 }: ProfilePaneProps) {
   const [internalCategory, setInternalCategory] = useState<CategoryType | null>(null);
   const [internalSortField, setInternalSortField] = useState<SortField>("name");
   const [internalSortDirection, setInternalSortDirection] = useState<SortDirection>("asc");
+  // Same prop-or-internal-state shape as sortField/sortDirection above:
+  // controlled when App.tsx passes a value, self-contained otherwise (every
+  // fixture in mcp_card_row.test.tsx renders ProfilePane standalone).
+  const [internalServerGrouping, setInternalServerGrouping] = useState<ServerGrouping>("server");
+  const [internalServerSort, setInternalServerSort] = useState<ServerSort>("attention");
 
   // Lookup only — keyed by the backend's own asset_path. A row without an
   // entry renders empty annotation cells rather than a guessed state.
@@ -109,6 +130,8 @@ export default function ProfilePane({
   const selectedCategory = propSelectedCategory ?? internalCategory;
   const sortField = propSortField ?? internalSortField;
   const sortDirection = propSortDirection ?? internalSortDirection;
+  const serverGrouping = propServerGrouping ?? internalServerGrouping;
+  const serverSort = propServerSort ?? internalServerSort;
 
   const setSelectedCategory = (cat: CategoryType | null) => {
     setInternalCategory(cat);
@@ -127,6 +150,16 @@ export default function ProfilePane({
         setInternalSortDirection("asc");
       }
     }
+  };
+
+  const handleServerGroupingChange = (grouping: ServerGrouping) => {
+    if (onServerGroupingChange) onServerGroupingChange(grouping);
+    else setInternalServerGrouping(grouping);
+  };
+
+  const handleServerSortChange = (sort: ServerSort) => {
+    if (onServerSortChange) onServerSortChange(sort);
+    else setInternalServerSort(sort);
   };
 
   // Aggregate global assets grouped by agent configs (deduplicated)
@@ -260,7 +293,12 @@ export default function ProfilePane({
     sortDirection
   );
 
-  const sortedTools: AssetItem[] = sortAssetItems(
+  // Per-registration rows — today's shape, unchanged. Still built
+  // unconditionally: it is what renders whenever grouping is
+  // "registration", and the fallback while `mcpServers` (a second,
+  // machine-global IPC call) has not resolved yet, so a scan never flashes
+  // an empty Tools section waiting on it.
+  const perRegistrationTools: AssetItem[] = sortAssetItems(
     filteredTools.map((t) => ({
       name: t.name,
       category: "Tools",
@@ -282,6 +320,47 @@ export default function ProfilePane({
     sortField,
     sortDirection
   );
+
+  // One row per server (the View control's default) — built from
+  // `get_mcp_servers`, never from `inventory.tools`: `registration_count`
+  // and `distinct_spec_count` are backend-owned, and this is the one place
+  // that renders them rather than recomputing anything from `registrations`.
+  const useGroupedTools = serverGrouping === "server" && mcpServers != null;
+  // Reach is keyed by REGISTRATION in `annotations`, but one grouped row
+  // stands for every registration of a server name at once — looked up
+  // alongside the row so `toolAnnotationFor` below can hand `AssetRow` the
+  // union rather than whichever single registration happened first.
+  const groupedAnnotationById = new Map<string, AssetAnnotationView | null>();
+  const groupedTools: AssetItem[] = useGroupedTools
+    ? sortServerRows(
+        mcpServers!.filter((row) => nameMatches(row.name)),
+        serverSort
+      ).map((row) => {
+        const id = row.registrations[0] ?? row.name;
+        const reach = mergeReach(row.registrations, annotationByAssetPath);
+        groupedAnnotationById.set(
+          id,
+          reach ? { asset_path: row.name, mechanism: "none", reach, beyond: null } : null
+        );
+        return {
+          name: row.name,
+          category: "Tools",
+          id,
+          path: id,
+          transport: row.transport,
+          plugin: row.plugin ?? undefined,
+          agreementLine: agreementLine(row),
+        };
+      })
+    : [];
+
+  const sortedTools: AssetItem[] = useGroupedTools ? groupedTools : perRegistrationTools;
+
+  // The Tools section's own annotation lookup: the merged view above for a
+  // grouped row, the ordinary per-registration lookup otherwise. Every other
+  // section keeps calling `annotationFor` directly.
+  const toolAnnotationFor = (item: AssetItem): AssetAnnotationView | null =>
+    useGroupedTools ? groupedAnnotationById.get(item.id ?? "") ?? null : annotationFor(item);
 
   const sortedRules: AssetItem[] = sortAssetItems(
     filteredRules.map((r) => ({
@@ -357,17 +436,30 @@ export default function ProfilePane({
         />
       </div>
 
-      {/* Facet chips */}
-      <div className="px-[18px] pt-3 pb-2.5">
-        <CategoryFilterCards
-          selectedCategory={selectedCategory}
-          onSelectCategory={setSelectedCategory}
-          allCount={sumGlobalAssets(assetCounts)}
-          skillsCount={assetCounts?.byCategory.skill?.global}
-          toolsCount={assetCounts?.byCategory.tool?.global}
-          rulesCount={assetCounts?.byCategory.rule?.global}
-          subagentsCount={assetCounts?.byCategory.subagent?.global}
-          loading={loading}
+      {/* Facet chips, plus the View control beside them (§5.6: "sits beside
+          the facet chips and owns grouping and sort, so the chip row stays a
+          filter line and nothing else"). */}
+      <div className="px-[18px] pt-3 pb-2.5 flex items-center gap-3">
+        {/* min-w-0 lets this shrink inside the row so CategoryFilterCards'
+            own overflow-x-auto engages on a narrow pane, instead of the
+            chips (shrink-0 in that component) pushing View off-screen. */}
+        <div className="min-w-0 flex-1">
+          <CategoryFilterCards
+            selectedCategory={selectedCategory}
+            onSelectCategory={setSelectedCategory}
+            allCount={sumGlobalAssets(assetCounts)}
+            skillsCount={assetCounts?.byCategory.skill?.global}
+            toolsCount={assetCounts?.byCategory.tool?.global}
+            rulesCount={assetCounts?.byCategory.rule?.global}
+            subagentsCount={assetCounts?.byCategory.subagent?.global}
+            loading={loading}
+          />
+        </div>
+        <ViewControl
+          grouping={serverGrouping}
+          sort={serverSort}
+          onGroupingChange={handleServerGroupingChange}
+          onSortChange={handleServerSortChange}
         />
       </div>
 
@@ -573,7 +665,7 @@ export default function ProfilePane({
                       variant="card"
                       isSelected={rowIsSelected(item)}
                       item={item}
-                      annotation={annotationFor(item)}
+                      annotation={toolAnnotationFor(item)}
                       onLink={() => onLinkAsset(item)}
                       onClick={() => onSelectAsset({ id: item.id, name: item.name, category: "Tools", path: item.path })}
                     />

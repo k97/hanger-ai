@@ -5,7 +5,9 @@ import CategoryFilterCards, { CategoryType } from "./CategoryFilterCards";
 import AssetRow, { AssetItem } from "./AssetRow";
 import EngineLabel from "./EngineLabel";
 import AssetHeaderRow, { SortField, SortDirection } from "./AssetHeaderRow";
+import ViewControl, { ServerGrouping, ServerSort } from "./ViewControl";
 import { Inventory, CategoryCounts } from "../App";
+import type { McpServerRow } from "../utils/serverRows";
 import { filterRepoAssets } from "../utils/filterPredicate";
 import DisclosureBanner from "./DisclosureBanner";
 import { sortAssetItems } from "../utils/sortUtils";
@@ -40,6 +42,19 @@ interface RepoPaneProps {
   /** Every linked root, used to subtract candidates that are already linked. */
   linkedRepos?: string[];
   onPromoteCandidates?: (candidates: string[]) => void;
+  /** The grouped server list from `get_mcp_servers` — machine-global, not
+   *  repo-scoped (`discover_machine`, not `discover_repo`; no command groups
+   *  a repo's own registrations today). Accepted for the View control's
+   *  shared preference and for App.tsx's grouping-aware `get_asset_counts`
+   *  call, but NOT used to build this pane's own Tools rows — they would be
+   *  the whole machine's servers inside one repo's view. RepoPane's Tools
+   *  section stays per-registration under both grouping choices until a
+   *  repo-scoped equivalent exists (flagged in the task-7 report). */
+  mcpServers?: McpServerRow[] | null;
+  serverGrouping?: ServerGrouping;
+  serverSort?: ServerSort;
+  onServerGroupingChange?: (grouping: ServerGrouping) => void;
+  onServerSortChange?: (sort: ServerSort) => void;
 }
 
 export default function RepoPane({
@@ -62,18 +77,36 @@ export default function RepoPane({
   onClearSelection,
   linkedRepos = [],
   onPromoteCandidates,
+  serverGrouping: propServerGrouping,
+  serverSort: propServerSort,
+  onServerGroupingChange,
+  onServerSortChange,
 }: RepoPaneProps) {
   const [internalCategory, setInternalCategory] = useState<CategoryType | null>(null);
   const [internalSortField, setInternalSortField] = useState<SortField>("name");
   const [internalSortDirection, setInternalSortDirection] = useState<SortDirection>("asc");
+  const [internalServerGrouping, setInternalServerGrouping] = useState<ServerGrouping>("server");
+  const [internalServerSort, setInternalServerSort] = useState<ServerSort>("attention");
 
   const selectedCategory = propSelectedCategory ?? internalCategory;
   const sortField = propSortField ?? internalSortField;
   const sortDirection = propSortDirection ?? internalSortDirection;
+  const serverGrouping = propServerGrouping ?? internalServerGrouping;
+  const serverSort = propServerSort ?? internalServerSort;
 
   const setSelectedCategory = (cat: CategoryType | null) => {
     setInternalCategory(cat);
     if (onClearSelection) onClearSelection();
+  };
+
+  const handleServerGroupingChange = (grouping: ServerGrouping) => {
+    if (onServerGroupingChange) onServerGroupingChange(grouping);
+    else setInternalServerGrouping(grouping);
+  };
+
+  const handleServerSortChange = (sort: ServerSort) => {
+    if (onServerSortChange) onServerSortChange(sort);
+    else setInternalServerSort(sort);
   };
 
   const handleSort = (field: SortField) => {
@@ -312,22 +345,34 @@ export default function RepoPane({
         />
       </div>
 
-      {/* Facet chips */}
-      <div className="px-[18px] pt-3 pb-2.5">
+      {/* Facet chips, plus the View control beside them (§5.6) — same
+          placement as ProfilePane. Its "Rows" choice cannot regroup THIS
+          pane's own rows (see the `mcpServers` prop comment), but still
+          drives App.tsx's grouping-aware `get_asset_counts` call for this
+          repo, and stays one shared preference with ProfilePane's copy. */}
+      <div className="px-[18px] pt-3 pb-2.5 flex items-center gap-3">
         {/* No `?? 0` here. The chip distinguishes "not counted yet"
             (undefined) from "empty" (0) so it can keep a chip through a scan
             and hide it only on a known zero. Collapsing undefined to 0 erased
             that distinction and would blank the whole filter row whenever
             assetCounts is absent. ProfilePane already passes these through. */}
-        <CategoryFilterCards
-          allCount={assetCounts?.total}
-          skillsCount={assetCounts?.byCategory.skill?.total}
-          toolsCount={assetCounts?.byCategory.tool?.total}
-          rulesCount={assetCounts?.byCategory.rule?.total}
-          subagentsCount={assetCounts?.byCategory.subagent?.total}
-          selectedCategory={selectedCategory}
-          onSelectCategory={setSelectedCategory}
-          loading={loading}
+        <div className="min-w-0 flex-1">
+          <CategoryFilterCards
+            allCount={assetCounts?.total}
+            skillsCount={assetCounts?.byCategory.skill?.total}
+            toolsCount={assetCounts?.byCategory.tool?.total}
+            rulesCount={assetCounts?.byCategory.rule?.total}
+            subagentsCount={assetCounts?.byCategory.subagent?.total}
+            selectedCategory={selectedCategory}
+            onSelectCategory={setSelectedCategory}
+            loading={loading}
+          />
+        </div>
+        <ViewControl
+          grouping={serverGrouping}
+          sort={serverSort}
+          onGroupingChange={handleServerGroupingChange}
+          onSortChange={handleServerSortChange}
         />
       </div>
 
