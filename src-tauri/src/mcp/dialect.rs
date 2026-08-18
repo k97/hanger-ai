@@ -8,6 +8,8 @@
 //! *names* are captured, values are dropped on the floor and never enter a
 //! struct. URL userinfo and query strings are stripped before storage.
 
+use sha2::{Digest, Sha256};
+
 pub use crate::mcp::registry::{Dialect, ScopeTier};
 
 /// One server declaration, normalised across dialects.
@@ -33,11 +35,40 @@ pub struct McpServer {
     /// than declared directly. Same identity, different plumbing — and the
     /// plumbing is worth saying in the panel.
     pub bridged: bool,
+    /// A fingerprint of the endpoint as configured, before sanitisation.
+    ///
+    /// `transport` is sanitised for display and drops the query string, so two
+    /// endpoints differing only in `?region=` render identically and would compare
+    /// equal. Agreement needs the difference; the screen must never see it, since a
+    /// query string can carry a key. Hash, never the value.
+    ///
+    /// Set only where `transport_for` is handed `Some(url)` — a direct remote
+    /// declaration. `None` for stdio launches and for `claude.ai` connectors,
+    /// which have no URL to fingerprint. A bridged launch (`mcp-remote`) is
+    /// also `None` here: agreement recovers the endpoint itself, at compare
+    /// time, via `unwrap_bridge` — see `mcp::agreement`.
+    pub url_fingerprint: Option<String>,
+}
+
+/// Hex SHA-256 of a URL, for equality comparison only.
+///
+/// Never rendered, logged, or carried into a `LaunchNote` — a query string
+/// can hold a credential, so the only safe use of the raw URL is to hash it
+/// once, here, and compare hashes everywhere else.
+pub fn url_fingerprint(raw_url: &str) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(raw_url.as_bytes());
+    hex::encode(hasher.finalize())
 }
 
 /// Strip userinfo and query parameters from a URL so credentials never reach
 /// storage. Mirrors the pre-existing `scanner::sanitise_url` behaviour.
-pub(crate) fn sanitise_url(url_str: &str) -> String {
+///
+/// `pub`, not `pub(crate)`: an integration test fixture that builds a
+/// `McpServer` by hand needs to sanitise its transport the same way this
+/// module's own parsers do, or the fixture silently diverges from production
+/// behaviour instead of exercising it.
+pub fn sanitise_url(url_str: &str) -> String {
     if !url_str.contains("://") {
         return url_str.to_string();
     }
@@ -152,6 +183,10 @@ fn server_from_json(name: &str, entry: &serde_json::Value) -> McpServer {
             None => transport_for(&command, url),
         },
         bridged: bridge.is_some(),
+        url_fingerprint: match &bridge {
+            Some(_) => None,
+            None => url.map(url_fingerprint),
+        },
         command,
         args,
         env_keys: env_keys_json(entry),
@@ -478,6 +513,10 @@ fn servers_from_toml_table(table: &toml::value::Table, out: &mut Vec<McpServer>)
                 None => transport_for(&command, url),
             },
             bridged: bridge.is_some(),
+            url_fingerprint: match &bridge {
+                Some(_) => None,
+                None => url.map(url_fingerprint),
+            },
             command,
             args,
             env_keys,
@@ -531,6 +570,7 @@ fn parse_claude_ai_connectors(body: &str) -> Result<Vec<McpServer>, String> {
                     env_keys: Vec::new(),
                     project_root: None,
                     bridged: false,
+                    url_fingerprint: None,
                 })
                 .collect()
         })

@@ -273,6 +273,7 @@ fn a_tool_carries_a_redacted_launch_for_display() {
             env_keys: vec![],
             project_root: None,
             bridged: false,
+            url_fingerprint: None,
         },
         host_id: "claude-code",
         tier: ScopeTier::Global,
