@@ -22,13 +22,14 @@ fn test_v1_5_0_migration_clean_and_no_data_loss() {
 
     let conn = store.connect().expect("Failed to connect via store");
 
-    // 1. Verify PRAGMA user_version == 5 (v1 schema + v2 engine-root purge +
+    // 1. Verify PRAGMA user_version == 6 (v1 schema + v2 engine-root purge +
     //    v3 root-path canonicalisation + v4 links constraints and backfill +
-    //    v5 .agents/ misattribution clear and re-attribution unstick)
+    //    v5 .agents/ misattribution clear and re-attribution unstick + v6
+    //    persisted verification's probe_results table)
     let version: i32 = conn
         .query_row("PRAGMA user_version", [], |row| row.get(0))
         .expect("PRAGMA user_version query should succeed");
-    assert_eq!(version, 5, "PRAGMA user_version must be 5 after migration");
+    assert_eq!(version, 6, "PRAGMA user_version must be 6 after migration");
 
     // 2. Verify 'engines' table exists and has correct columns
     let mut stmt = conn.prepare("PRAGMA table_info(engines)").unwrap();
@@ -215,7 +216,7 @@ fn test_v1_5_0_migration_idempotency() {
     let version: i32 = conn
         .query_row("PRAGMA user_version", [], |row| row.get(0))
         .unwrap();
-    assert_eq!(version, 5, "User version must remain 5 after second migration");
+    assert_eq!(version, 6, "User version must remain 6 after second migration");
 
     let root_count: i64 = conn
         .query_row("SELECT COUNT(*) FROM roots", [], |row| row.get(0))
@@ -405,7 +406,7 @@ fn test_v2_migration_purges_engine_root_project_rows() {
     let conn = store.connect().unwrap();
 
     let version: i32 = conn.query_row("PRAGMA user_version", [], |r| r.get(0)).unwrap();
-    assert_eq!(version, 5, "user_version must be 5 after v2 replay, v3, v4, and v5");
+    assert_eq!(version, 6, "user_version must be 6 after v2 replay, v3, v4, v5, and v6");
 
     let stale: i64 = conn
         .query_row(
@@ -481,7 +482,7 @@ fn v5_clears_agents_dir_misattribution_and_unsticks_reattribution() {
     let conn = store.connect().unwrap();
 
     let version: i32 = conn.query_row("PRAGMA user_version", [], |r| r.get(0)).unwrap();
-    assert_eq!(version, 5, "user_version must be 5 after the agent-detection migration");
+    assert_eq!(version, 6, "user_version must be 6 after the agent-detection migration");
 
     let engine_id: Option<i64> = conn
         .query_row("SELECT engine_id FROM assets WHERE abs_path = ?1", [abs_path], |r| r.get(0))
