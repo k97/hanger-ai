@@ -1312,8 +1312,11 @@ fn get_asset_counts(
     grouping: Option<scanner::Grouping>,
 ) -> Result<crate::domain::AssetCounts, String> {
     let db_path = get_db_path(&app);
-    // No caller passes `grouping` yet — it lands with the MCP server list's
-    // grouping toggle. Absent, today's per-registration behaviour holds.
+    // `App.tsx`'s global-scope caller (`refreshGlobalCounts`) passes the MCP
+    // server list's grouping toggle; the repo-scope caller (`fetchRepoCounts`)
+    // deliberately does not, since `get_mcp_servers` is machine-global and a
+    // repo's Tools rows never regroup (see that call site's own comment).
+    // Absent, today's per-registration behaviour holds.
     scanner::count_assets(&db_path, root.as_deref(), grouping.unwrap_or(scanner::Grouping::PerRegistration))
 }
 
