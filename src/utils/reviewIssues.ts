@@ -1,4 +1,5 @@
 import { scopeRoot, type Scope } from "./scopeAccess";
+import { registrationKey } from "./mcpRegistration";
 import type { Inventory } from "../App";
 
 /**
@@ -108,13 +109,26 @@ function rootOf(scope: unknown): string | null {
   return scopeRoot(scope as Scope);
 }
 
-/** Flattens the inventory into one shape, deduplicated by path within a category. */
+/**
+ * Flattens the inventory into one shape, deduplicated by identity within a
+ * category.
+ *
+ * `identity` defaults to the path because for a skill, rule or subagent the
+ * file IS the asset. It does not default correctly for a Tool: a config file
+ * declares many servers, and keying on `path` there kept the first and dropped
+ * the rest — sixteen of twenty-five on the development machine. The one that
+ * mattered was a server declared both in a repo's `.mcp.json` and in
+ * `~/.claude.json`, exactly the unresolved decision this pane exists to show.
+ *
+ * A dropped candidate also never reaches `faultOf`, so its parse failure is
+ * absent rather than wrong, and the file reads as clean.
+ */
 function candidates(inventory: Inventory): Candidate[] {
   const out: Candidate[] = [];
   const seen = new Set<string>();
 
-  const push = (candidate: Candidate) => {
-    const key = `${candidate.category}::${candidate.path}`;
+  const push = (candidate: Candidate, identity: string = candidate.path) => {
+    const key = `${candidate.category}::${identity}`;
     if (seen.has(key)) return;
     seen.add(key);
     out.push(candidate);
@@ -132,7 +146,9 @@ function candidates(inventory: Inventory): Candidate[] {
       name: t.name, category: "Tools", path: t.config_path, root: rootOf(t.scope),
       linkState: t.link_state, parseStatus: t.parse_status, parseError: t.parse_error,
       drifted: t.drifted, isSymlink: t.is_symlink, sourcePath: t.source_path,
-    });
+    // `path` stays the config file — it is what the row shows. Identity is
+    // separate and belongs to the backend, which is the whole point.
+    }, registrationKey(t));
   }
   for (const r of inventory.rules) {
     push({

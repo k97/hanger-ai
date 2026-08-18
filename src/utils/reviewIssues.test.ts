@@ -324,3 +324,88 @@ describe("matchesIssueFilter", () => {
     expect(matchesIssueFilter(issue, null, null, "postgres")).toBe(false);
   });
 });
+
+/**
+ * Candidates were deduplicated by `${category}::${path}`, and for a Tool
+ * `path` is the config FILE. `~/.claude.json` declares ten servers and
+ * contributed one candidate; the other nine never reached the pane.
+ *
+ * Both fixtures below are required, and neither is reachable from a
+ * global-only inventory — which is why this shipped. The harm is the second
+ * test: a server whose config will not parse is not merely miscounted, it is
+ * reported as clean.
+ */
+function mcp(over: Record<string, unknown>): Inventory["tools"][number] {
+  const config_path = (over.config_path as string) ?? "/home/.claude.json";
+  const name = (over.name as string) ?? "srv";
+  return {
+    id: `${config_path}:${name}`,
+    name,
+    command: "npx",
+    args: [],
+    launch_display: "npx server",
+    transport: "stdio",
+    config_path,
+    scope: global(),
+    owning_agent: "claude-code",
+    ...over,
+  } as Inventory["tools"][number];
+}
+
+describe("deriveReviewIssues — many servers, one config file", () => {
+  it("sees a project server that the user also declares globally", () => {
+    // The real shape: `mei-recipes` is declared in its own repo's .mcp.json
+    // and again in ~/.claude.json, where it is the seventh of ten servers.
+    // Deduplicating on the config file kept only `chrome-devtools` from that
+    // file, so the global copy vanished and the conflict read as a single
+    // untroubled registration.
+    const inventory: Inventory = {
+      ...EMPTY,
+      tools: [
+        mcp({ name: "chrome-devtools", config_path: "/home/.claude.json" }),
+        mcp({ name: "mei-recipes", config_path: "/home/.claude.json" }),
+        mcp({
+          name: "mei-recipes",
+          config_path: "/repo/mei-recipes/.mcp.json",
+          scope: project("/repo/mei-recipes"),
+        }),
+      ],
+    };
+
+    const { issues, counts } = deriveReviewIssues(inventory);
+    const dupes = issues.filter((i) => i.kind === "duplicate" && i.name === "mei-recipes");
+
+    expect(dupes).toHaveLength(1);
+    expect(dupes[0].copies).toEqual([
+      "/home/.claude.json",
+      "/repo/mei-recipes/.mcp.json",
+    ]);
+    expect(counts.duplicate).toBe(1);
+  });
+
+  it("reports a parse failure in a server that is not the file's first", () => {
+    // The dangerous half. A dropped candidate never reaches `faultOf`, so its
+    // parse failure is not downgraded or mislabelled — it is absent, and the
+    // file reads as clean. Benign on the development machine only because
+    // every current failure happens to be a skill or a subagent.
+    const inventory: Inventory = {
+      ...EMPTY,
+      tools: [
+        mcp({ name: "alpha", config_path: "/home/.claude.json" }),
+        mcp({
+          name: "beta",
+          config_path: "/home/.claude.json",
+          parse_status: "failed",
+          parse_error: "expected value at line 3",
+        }),
+      ],
+    };
+
+    const { issues, counts } = deriveReviewIssues(inventory);
+    const parse = issues.filter((i) => i.kind === "parse");
+
+    expect(parse).toHaveLength(1);
+    expect(parse[0].name).toBe("beta");
+    expect(counts.parse).toBe(1);
+  });
+});
