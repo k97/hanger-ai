@@ -189,6 +189,14 @@ export default function McpServerDetail({ server, verified, onVerify, verifying 
     const group = toolsGroups.find((g) => g.launchDisplay === reg.launchDisplay);
     if (group) {
       group.regs.push(reg);
+      // First succeeded wins, same attribution the Identity section already
+      // uses above -- so a later member's failure never displaces a result
+      // already showing, and an early failure never hides a later success.
+      // Only fall through to the first result overall when every member of
+      // the group failed.
+      if (group.result.error && !result.error) {
+        group.result = result;
+      }
     } else {
       toolsGroups.push({ launchDisplay: reg.launchDisplay, regs: [reg], result });
     }

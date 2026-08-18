@@ -479,4 +479,58 @@ describe("McpServerDetail", () => {
     expect(within(toolsSection).getByText(/@tauri\/mcp@latest/)).toBeTruthy();
     expect(within(toolsSection).getByText(/@tauri\/mcp@2\.9\.1/)).toBeTruthy();
   });
+
+  it("prefers a succeeding probe over a failing one when a shared launch disagrees", () => {
+    // Regression: the grouping loop used to keep whichever registration was
+    // first in `probed` order, error or not. Two registrations sharing one
+    // launch, first errored second succeeded, hid a real tool list behind an
+    // unrelated failure -- something stage 1's per-registration rendering
+    // never did, since each registration always showed its own result.
+    const server: McpServerView = {
+      ...base,
+      name: "tauri",
+      registrations: [
+        { key: "/a:tauri", host: "Claude Code", tier: "global", configPath: "~/.claude.json", command: "npx", launchDisplay: "npx -y @tauri/mcp@2.9.1" },
+        { key: "/b:tauri", host: "Codex", tier: "global", configPath: "~/.codex/config.toml", command: "npx", launchDisplay: "npx -y @tauri/mcp@2.9.1" },
+      ],
+    };
+    render(
+      <McpServerDetail
+        server={server}
+        verified={{
+          "/a:tauri": { capabilities: [], tools: [], verifiedAt: 1_700_000_000_000, error: "Timed out after 20s waiting for the server to respond" },
+          "/b:tauri": { capabilities: [], tools: [{ name: "get_docs" }, { name: "search_api" }], verifiedAt: 1_700_000_000_000 },
+        }}
+      />
+    );
+    expect(screen.getAllByTestId("tools-block")).toHaveLength(1);
+    expect(screen.getByText("get_docs")).toBeTruthy();
+    expect(screen.getByText("search_api")).toBeTruthy();
+    expect(screen.queryByText(/Timed out after 20s/)).toBeNull();
+  });
+
+  it("falls back to the failure when every member of a shared-launch group failed", () => {
+    // The other side of the same branch: nobody in the group succeeded, so
+    // there is nothing to prefer -- the block must still show the failure
+    // rather than rendering an empty list as if nothing had been probed.
+    const server: McpServerView = {
+      ...base,
+      name: "tauri",
+      registrations: [
+        { key: "/a:tauri", host: "Claude Code", tier: "global", configPath: "~/.claude.json", command: "npx", launchDisplay: "npx -y @tauri/mcp@2.9.1" },
+        { key: "/b:tauri", host: "Codex", tier: "global", configPath: "~/.codex/config.toml", command: "npx", launchDisplay: "npx -y @tauri/mcp@2.9.1" },
+      ],
+    };
+    render(
+      <McpServerDetail
+        server={server}
+        verified={{
+          "/a:tauri": { capabilities: [], tools: [], verifiedAt: 1_700_000_000_000, error: "Timed out after 20s waiting for the server to respond" },
+          "/b:tauri": { capabilities: [], tools: [], verifiedAt: 1_700_000_000_000, error: "Connection refused" },
+        }}
+      />
+    );
+    expect(screen.getAllByTestId("tools-block")).toHaveLength(1);
+    expect(screen.getByText(/Timed out after 20s/)).toBeTruthy();
+  });
 });
