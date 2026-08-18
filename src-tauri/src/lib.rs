@@ -402,7 +402,19 @@ fn get_mcp_processes(app: AppHandle) -> Result<Vec<crate::mcp::observe::ProcessM
 fn get_mcp_servers() -> Result<Vec<crate::mcp::servers::McpServerRow>, String> {
     let home = scanner::get_home_dir();
     let discovered = crate::mcp::discover::discover_machine(&home);
-    Ok(crate::mcp::servers::group_servers(&discovered.registrations))
+    // Local tier is keyed to a repository (`claude mcp add -s local` writes
+    // it into `~/.claude.json`'s `projects.<repo_root>.mcpServers`) and must
+    // not appear in the profile — the same filter `run_scan`'s machine pass
+    // applies (`scanner.rs`) before these registrations reach the database,
+    // so the header count this list sits under already excludes them.
+    // Skipping it here put a Local row on screen under a header that did not
+    // count it.
+    let registrations: Vec<_> = discovered
+        .registrations
+        .into_iter()
+        .filter(|reg| reg.tier != crate::mcp::registry::ScopeTier::Local)
+        .collect();
+    Ok(crate::mcp::servers::group_servers(&registrations))
 }
 
 #[tauri::command]
@@ -1706,5 +1718,62 @@ mod unmapped_engine_tests {
         assert_eq!(p, serde_json::json!({ "engine_key": "kiro" }));
         let p = unmapped_engine_payload("kiro", Some("C:\\Users\\k"));
         assert_eq!(p, serde_json::json!({ "engine_key": "kiro" }));
+    }
+}
+
+#[cfg(test)]
+mod get_mcp_servers_tests {
+    use super::get_mcp_servers;
+    use std::sync::{Mutex, OnceLock};
+
+    // `HANGER_TEST_HOME` is process-global and this crate's own unit tests
+    // run as threads in one process, unlike the separate-binary integration
+    // tests under `tests/` (see `mcp_scanner_tests.rs`'s module doc). Nothing
+    // else in this binary sets the variable today, but a mutex plus restoring
+    // it on drop is the established pattern here and costs nothing to keep.
+    static ENV_MUTEX: OnceLock<Mutex<()>> = OnceLock::new();
+
+    struct TestHome;
+    impl Drop for TestHome {
+        fn drop(&mut self) {
+            std::env::remove_var("HANGER_TEST_HOME");
+        }
+    }
+
+    /// `run_scan`'s machine pass filters `ScopeTier::Local` out before it
+    /// reaches the profile (`scanner.rs`, the machine-level MCP registration
+    /// loop) because a local-tier registration in `~/.claude.json` belongs to
+    /// one repository, not the global store. `get_mcp_servers` reads the same
+    /// `discover_machine` output but skipped that filter, so a project-local
+    /// server leaked into the Global list's rows while the backend-owned
+    /// header count (which does exclude Local) did not count it — a header
+    /// reading 1 with three rows underneath. `tests/fixtures/mcp_home/.claude.json`
+    /// already carries exactly this shape: three user-scope servers under
+    /// `mcpServers`, plus `repo-local` and `stray` under two different
+    /// `projects.*.mcpServers` entries — the shape `claude mcp add -s local`
+    /// writes.
+    #[test]
+    fn local_tier_servers_do_not_reach_the_global_server_list() {
+        let _guard = ENV_MUTEX.get_or_init(|| Mutex::new(())).lock().unwrap();
+        let _home = TestHome;
+        let fixture = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("tests/fixtures/mcp_home");
+        std::env::set_var("HANGER_TEST_HOME", &fixture);
+
+        let rows = get_mcp_servers().expect("discovery against a fixture home must not fail");
+        let names: Vec<&str> = rows.iter().map(|r| r.name.as_str()).collect();
+
+        assert!(names.contains(&"chrome-devtools"), "user-scope server missing: {:?}", names);
+        assert!(names.contains(&"tauri"), "user-scope server missing: {:?}", names);
+        assert!(
+            !names.contains(&"repo-local"),
+            "local-tier server leaked into the global list: {:?}",
+            names
+        );
+        assert!(
+            !names.contains(&"stray"),
+            "local-tier server leaked into the global list: {:?}",
+            names
+        );
     }
 }
