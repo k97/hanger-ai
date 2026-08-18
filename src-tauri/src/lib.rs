@@ -400,8 +400,17 @@ fn get_mcp_processes(app: AppHandle) -> Result<Vec<crate::mcp::observe::ProcessM
 /// duration.
 #[tauri::command(async)]
 fn get_mcp_servers() -> Result<Vec<crate::mcp::servers::McpServerRow>, String> {
-    let home = scanner::get_home_dir();
-    let discovered = crate::mcp::discover::discover_machine(&home);
+    Ok(mcp_server_rows_for(&scanner::get_home_dir()))
+}
+
+/// `get_mcp_servers`'s testable core: `home` is a parameter here, not read
+/// from `HANGER_TEST_HOME` internally, so its own unit test can hand it a
+/// fixture path directly rather than mutating a process-global env var that
+/// `cargo test --lib` shares across every unit test's thread — a fixture
+/// swap here cannot race a concurrent test that reads `get_home_dir()`
+/// through some other path, which an earlier version of this test did.
+fn mcp_server_rows_for(home: &std::path::Path) -> Vec<crate::mcp::servers::McpServerRow> {
+    let discovered = crate::mcp::discover::discover_machine(home);
     // Local tier is keyed to a repository (`claude mcp add -s local` writes
     // it into `~/.claude.json`'s `projects.<repo_root>.mcpServers`) and must
     // not appear in the profile — the same filter `run_scan`'s machine pass
@@ -414,7 +423,7 @@ fn get_mcp_servers() -> Result<Vec<crate::mcp::servers::McpServerRow>, String> {
         .into_iter()
         .filter(|reg| reg.tier != crate::mcp::registry::ScopeTier::Local)
         .collect();
-    Ok(crate::mcp::servers::group_servers(&registrations))
+    crate::mcp::servers::group_servers(&registrations)
 }
 
 #[tauri::command]
@@ -1726,22 +1735,7 @@ mod unmapped_engine_tests {
 
 #[cfg(test)]
 mod get_mcp_servers_tests {
-    use super::get_mcp_servers;
-    use std::sync::{Mutex, OnceLock};
-
-    // `HANGER_TEST_HOME` is process-global and this crate's own unit tests
-    // run as threads in one process, unlike the separate-binary integration
-    // tests under `tests/` (see `mcp_scanner_tests.rs`'s module doc). Nothing
-    // else in this binary sets the variable today, but a mutex plus restoring
-    // it on drop is the established pattern here and costs nothing to keep.
-    static ENV_MUTEX: OnceLock<Mutex<()>> = OnceLock::new();
-
-    struct TestHome;
-    impl Drop for TestHome {
-        fn drop(&mut self) {
-            std::env::remove_var("HANGER_TEST_HOME");
-        }
-    }
+    use super::mcp_server_rows_for;
 
     /// `run_scan`'s machine pass filters `ScopeTier::Local` out before it
     /// reaches the profile (`scanner.rs`, the machine-level MCP registration
@@ -1757,13 +1751,10 @@ mod get_mcp_servers_tests {
     /// writes.
     #[test]
     fn local_tier_servers_do_not_reach_the_global_server_list() {
-        let _guard = ENV_MUTEX.get_or_init(|| Mutex::new(())).lock().unwrap();
-        let _home = TestHome;
         let fixture = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("tests/fixtures/mcp_home");
-        std::env::set_var("HANGER_TEST_HOME", &fixture);
 
-        let rows = get_mcp_servers().expect("discovery against a fixture home must not fail");
+        let rows = mcp_server_rows_for(&fixture);
         let names: Vec<&str> = rows.iter().map(|r| r.name.as_str()).collect();
 
         assert!(names.contains(&"chrome-devtools"), "user-scope server missing: {:?}", names);
