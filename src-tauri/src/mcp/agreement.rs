@@ -25,12 +25,19 @@
 //! other host's direct `(http, url)` declaration of the same server, so a
 //! Zed registration would report as permanently conflicting with everyone
 //! else even when it proxies the identical endpoint. A bridge's fingerprint
-//! is computed fresh, from the URL `unwrap_bridge` recovers, since
-//! `McpServer::url_fingerprint` is only ever set for a direct declaration.
+//! is still computed fresh here, from the RAW url `unwrap_bridge` recovers —
+//! never from `McpServer::url_fingerprint`, even though `dialect::parse` now
+//! sets that field for a bridged registration too. A hand-built
+//! `Registration` (several tests here construct one directly) need not
+//! populate `bridged` or that field correctly, and comparison must still be
+//! right for one, so this re-derives instead of trusting it. The two agree
+//! because `unwrap_bridge` itself now returns the raw url rather than a
+//! pre-sanitised one — hashing the sanitised form is exactly how a bridge
+//! proxying `?region=eu` once compared equal to `?region=us`.
 
 use std::collections::HashMap;
 
-use crate::mcp::dialect::{unwrap_bridge, url_fingerprint};
+use crate::mcp::dialect::{sanitise_url, unwrap_bridge, url_fingerprint};
 use crate::mcp::discover::Registration;
 use crate::mcp::identity::{launch_hash, normalise_launch};
 
@@ -67,8 +74,9 @@ pub struct ServerAgreement {
 ///
 /// A bridge is unwrapped first: if `unwrap_bridge` recovers the endpoint a
 /// stdio launch actually proxies, the launch is treated as empty (there is
-/// nothing left to distinguish it by), the transport becomes that endpoint,
-/// and its fingerprint is computed fresh — the same key a direct
+/// nothing left to distinguish it by), the transport becomes that endpoint
+/// (sanitised for display), and its fingerprint is computed fresh from the
+/// RAW endpoint, never the sanitised form — the same key a direct
 /// `{"url": …}` registration of the same server produces.
 type Key = (String, Option<String>, String);
 
@@ -76,9 +84,18 @@ fn comparison_key(reg: &Registration) -> Key {
     let server = &reg.server;
     let (transport, fingerprint, command, args): (String, Option<String>, &str, &[String]) =
         match unwrap_bridge(&server.command, &server.args) {
-            Some(url) => {
-                let fp = url_fingerprint(&url);
-                (url, Some(fp), "", &[])
+            Some(raw_url) => {
+                // Fingerprint the RAW url, before `sanitise_url` drops its
+                // query string — hashing the already-sanitised form (what
+                // `unwrap_bridge` used to hand back directly) made two
+                // bridges proxying the same host at different query strings
+                // collide and report Consistent, the missed-conflict
+                // direction this whole key exists to avoid. `transport`
+                // still wants the sanitised form: it must equal what a
+                // direct `{"url": …}` declaration of the same endpoint
+                // produces, and that is likewise sanitised.
+                let fp = url_fingerprint(&raw_url);
+                (sanitise_url(&raw_url), Some(fp), "", &[])
             }
             None => (
                 server.transport.clone(),

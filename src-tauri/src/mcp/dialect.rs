@@ -42,11 +42,21 @@ pub struct McpServer {
     /// equal. Agreement needs the difference; the screen must never see it, since a
     /// query string can carry a key. Hash, never the value.
     ///
-    /// Set only where `transport_for` is handed `Some(url)` — a direct remote
-    /// declaration. `None` for stdio launches and for `claude.ai` connectors,
-    /// which have no URL to fingerprint. A bridged launch (`mcp-remote`) is
-    /// also `None` here: agreement recovers the endpoint itself, at compare
-    /// time, via `unwrap_bridge` — see `mcp::agreement`.
+    /// Set where `transport_for` is handed `Some(url)` — a direct remote
+    /// declaration — AND, since `unwrap_bridge` started returning the raw
+    /// endpoint instead of a pre-sanitised one, for a bridged launch
+    /// (`mcp-remote`) too. Both hash the url as configured, before
+    /// `transport`'s own sanitisation drops its query string. `None` only
+    /// for stdio launches and `claude.ai` connectors, which have no URL to
+    /// fingerprint at all.
+    ///
+    /// `mcp::agreement::comparison_key` does not read this field for a
+    /// bridged registration — it re-derives the same raw-url fingerprint
+    /// itself, from `command`/`args` via `unwrap_bridge`, because a
+    /// hand-built `Registration` (several tests construct one directly) need
+    /// not populate `bridged` or this field correctly, and comparison must
+    /// still be right for one. The two derivations agree because both now
+    /// hash the url `unwrap_bridge` returns before either sanitises it.
     pub url_fingerprint: Option<String>,
 }
 
@@ -107,6 +117,13 @@ fn transport_for(command: &str, url: Option<&str>) -> String {
 /// runner and its flags. Matching any argument that looks like a URL would
 /// rewrite the identity of every stdio server whose arguments happen to carry
 /// one.
+///
+/// Returns the RAW url token, unsanitised. Callers sanitise it for display
+/// (`sanitise_url`) and fingerprint it directly (`url_fingerprint`) for
+/// comparison. This function used to sanitise before returning, which made
+/// every caller that fingerprinted its result hash the query-string-free
+/// form — a bridge proxying `?region=eu` compared equal to one proxying
+/// `?region=us`, the exact missed conflict `mcp::agreement` exists to catch.
 pub fn unwrap_bridge(command: &str, args: &[String]) -> Option<String> {
     let mut tokens: Vec<&str> = std::iter::once(command)
         .chain(args.iter().map(String::as_str))
@@ -131,7 +148,7 @@ pub fn unwrap_bridge(command: &str, args: &[String]) -> Option<String> {
     }
 
     let url = tokens.iter().skip(1).find(|t| t.contains("://"))?;
-    Some(sanitise_url(url))
+    Some(url.to_string())
 }
 
 /// `/opt/homebrew/bin/npx` -> `npx`. Package specifiers keep their scope.
@@ -184,12 +201,15 @@ fn server_from_json(name: &str, entry: &serde_json::Value) -> McpServer {
     McpServer {
         name: name.to_string(),
         transport: match &bridge {
-            Some(u) => u.clone(),
+            Some(u) => sanitise_url(u),
             None => transport_for(&command, url),
         },
         bridged: bridge.is_some(),
+        // Fingerprint the RAW url `unwrap_bridge` recovers, same as a direct
+        // declaration fingerprints its own raw `url` field above — see the
+        // struct doc on `url_fingerprint`.
         url_fingerprint: match &bridge {
-            Some(_) => None,
+            Some(u) => Some(url_fingerprint(u)),
             None => url.map(url_fingerprint),
         },
         command,
@@ -514,12 +534,14 @@ fn servers_from_toml_table(table: &toml::value::Table, out: &mut Vec<McpServer>)
         out.push(McpServer {
             name: name.clone(),
             transport: match &bridge {
-                Some(u) => u.clone(),
+                Some(u) => sanitise_url(u),
                 None => transport_for(&command, url),
             },
             bridged: bridge.is_some(),
+            // See the struct doc on `url_fingerprint`: the raw url, same as
+            // a direct declaration's own raw `url` field below.
             url_fingerprint: match &bridge {
-                Some(_) => None,
+                Some(u) => Some(url_fingerprint(u)),
                 None => url.map(url_fingerprint),
             },
             command,

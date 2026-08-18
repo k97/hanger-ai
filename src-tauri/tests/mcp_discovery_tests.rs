@@ -308,6 +308,26 @@ fn a_bridged_remote_server_and_a_direct_one_share_an_identity() {
 }
 
 #[test]
+fn a_bridged_servers_fingerprint_is_set_from_the_raw_url_not_the_sanitised_one() {
+    // `url_fingerprint` used to stay `None` for a bridged registration --
+    // `mcp::agreement::comparison_key` re-derived its own copy instead, and
+    // did so from an already-sanitised url, dropping the query string. Both
+    // halves are fixed now: this field is populated at parse time, and it
+    // hashes the RAW url, before `transport`'s own sanitisation would strip
+    // the query string that distinguishes it from another bridge at a
+    // different one.
+    let body = r#"{ "mcpServers": { "linear": { "command": "npx",
+        "args": ["mcp-remote", "https://mcp.linear.app/sse?region=eu"] } } }"#;
+    let s = dialect::parse(body, dialect::Dialect::McpServers, dialect::ScopeTier::Global).unwrap();
+    assert!(s[0].bridged);
+    assert_eq!(
+        s[0].url_fingerprint,
+        Some(dialect::url_fingerprint("https://mcp.linear.app/sse?region=eu")),
+        "fingerprint must hash the raw url, query string included"
+    );
+}
+
+#[test]
 fn a_launch_that_merely_mentions_a_url_is_not_a_bridge() {
     // Over-eager unwrapping would rewrite the identity of any stdio server
     // whose arguments happen to carry a URL.

@@ -85,6 +85,30 @@ fn an_unwrapped_bridge_compares_as_the_endpoint_it_proxies() {
 }
 
 #[test]
+fn a_bridged_registration_still_agrees_with_a_direct_one_at_the_same_query_string() {
+    // `unwrap_bridge` used to hand back an already-SANITISED url, and
+    // `comparison_key` hashed that -- so a bridge's fingerprint dropped the
+    // query string while a direct declaration's (built from the RAW url)
+    // kept it, and the two would only ever agree by coincidence of having no
+    // query string at all. Hashing the raw url on both sides is what makes
+    // this still agree once the query string is real.
+    let bridged = stdio_reg("linear", "npx", &["mcp-remote", "https://mcp.linear.app/sse?region=eu"]);
+    let direct = http_reg("linear", "https://mcp.linear.app/sse?region=eu");
+    assert_eq!(agreement_for(&[bridged, direct]).verdict, Agreement::Consistent);
+}
+
+#[test]
+fn two_bridged_registrations_differing_only_by_query_string_conflict() {
+    // The missed-conflict direction the module's own doc names as
+    // unrecoverable: both used to sanitise to the identical string and
+    // report Consistent, silently hiding that they proxy two different
+    // endpoints.
+    let a = stdio_reg("linear", "npx", &["mcp-remote", "https://mcp.linear.app/sse?region=eu"]);
+    let b = stdio_reg("linear", "npx", &["mcp-remote", "https://mcp.linear.app/sse?region=us"]);
+    assert_eq!(agreement_for(&[a, b]).verdict, Agreement::Conflicting);
+}
+
+#[test]
 fn the_same_spec_twice_inside_one_engine_is_duplicate_not_conflicting() {
     let a = stdio_reg_in("spades", "claude-code", "npx", &["-y", "spades"]);
     let b = stdio_reg_in("spades", "claude-code", "npx", &["-y", "spades"]);
