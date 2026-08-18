@@ -327,5 +327,5 @@ fn accounting_against_store_copy() {
             println!("UNACCOUNTED {dst} — {reason}");
         }
     }
-    assert_eq!(version, 5);
+    assert_eq!(version, 6, "PRAGMA user_version must be 6 after migration");
 }
