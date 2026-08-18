@@ -74,7 +74,20 @@ export interface ReviewDerivation {
 interface Candidate {
   name: string;
   category: IssueCategory;
+  /**
+   * The file to show and reveal. For a Tool this is the config FILE, which
+   * many servers share — display only, never identity. Use `identity` for
+   * anything that has to tell two candidates apart.
+   */
   path: string;
+  /**
+   * What makes this candidate distinct from every other in its category.
+   *
+   * The path for a skill, rule or subagent, because there the file IS the
+   * asset. The backend-minted registration key for a Tool, because a config
+   * file declares many servers and `path` cannot separate them.
+   */
+  identity: string;
   root: string | null;
   linkState?: string | null;
   parseStatus?: string;
@@ -127,11 +140,14 @@ function candidates(inventory: Inventory): Candidate[] {
   const out: Candidate[] = [];
   const seen = new Set<string>();
 
-  const push = (candidate: Candidate, identity: string = candidate.path) => {
+  const push = (
+    candidate: Omit<Candidate, "identity">,
+    identity: string = candidate.path
+  ) => {
     const key = `${candidate.category}::${identity}`;
     if (seen.has(key)) return;
     seen.add(key);
-    out.push(candidate);
+    out.push({ ...candidate, identity });
   };
 
   for (const s of inventory.skills) {
@@ -245,7 +261,11 @@ export function deriveReviewIssues(inventory: Inventory | null): ReviewDerivatio
     const affectedKeys = new Set<string>([placeKey(candidate.root)]);
     if (family) {
       for (const relative of family) {
-        if (relative.path === candidate.path) continue;
+        // Same shape as the id above: "is this me?" is an identity question,
+        // and two tools sharing a config file answer it wrongly by path. That
+        // it cannot fire today is a coincidence — tools rarely carry a
+        // sourcePath — rather than a property of the code.
+        if (relative.identity === candidate.identity) continue;
         siblings.push(relative.path);
         affectedKeys.add(placeKey(relative.root));
       }
@@ -256,7 +276,11 @@ export function deriveReviewIssues(inventory: Inventory | null): ReviewDerivatio
     const crossRepo = affectedKeys.size > 1;
 
     issues.push({
-      id: `${candidate.category}:${fault}:${candidate.path}`,
+      // `identity`, not `path`: two servers in one config file with the same
+      // fault stringify to the same id from `path`, and that id is a React key
+      // and a filter identity. Unreachable until the dedup fix let the second
+      // server through, which is why it is fixed alongside it.
+      id: `${candidate.category}:${fault}:${candidate.identity}`,
       name: candidate.name,
       category: candidate.category,
       kind: fault,

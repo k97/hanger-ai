@@ -409,3 +409,32 @@ describe("deriveReviewIssues — many servers, one config file", () => {
     expect(counts.parse).toBe(1);
   });
 });
+
+describe("deriveReviewIssues — two faults in one config file", () => {
+  it("gives two failing servers in one file two distinct issue ids", () => {
+    // Reachable only since the dedup fix: before it, the second server never
+    // survived to reach the id expression, so the collision could not fire.
+    // `id` is built from `candidate.path`, which for a Tool is the config
+    // FILE — so two servers in one file with the same fault stringify
+    // identically. That is a React key collision and a filter-identity
+    // collision, not a cosmetic one.
+    const inventory: Inventory = {
+      ...EMPTY,
+      tools: [
+        mcp({
+          name: "alpha", config_path: "/home/.claude.json",
+          parse_status: "failed", parse_error: "expected value at line 3",
+        }),
+        mcp({
+          name: "beta", config_path: "/home/.claude.json",
+          parse_status: "failed", parse_error: "trailing comma at line 9",
+        }),
+      ],
+    };
+
+    const parse = deriveReviewIssues(inventory).issues.filter((i) => i.kind === "parse");
+
+    expect(parse).toHaveLength(2);
+    expect(new Set(parse.map((i) => i.id)).size).toBe(2);
+  });
+});
