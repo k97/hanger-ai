@@ -128,6 +128,19 @@ fn stat_target_finds_the_absolute_argument_even_when_it_is_not_first() {
 }
 
 #[test]
+fn stat_target_resolves_a_bare_absolute_path_executable_with_no_args() {
+    // A server launched directly as a compiled binary — no interpreter, no
+    // script argument pointing at it, so the command itself is the only
+    // thing there is to stat. Round 1 review found this branch
+    // (freshness.rs's `if Path::new(command).is_absolute()` fallback)
+    // present but unexercised: deleting it and always falling through to
+    // `None` still left all 13 tests green. This is the test that closes
+    // that gap.
+    let target = stat_target("/opt/homebrew/bin/my-server", &[]);
+    assert_eq!(target, Some(PathBuf::from("/opt/homebrew/bin/my-server")));
+}
+
+#[test]
 fn stat_target_is_none_for_an_npx_package_reference() {
     // The real chrome-devtools declaration in ~/.claude.json: command "npx",
     // args carrying only a package spec, never a filesystem path. The
