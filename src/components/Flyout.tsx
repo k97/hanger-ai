@@ -112,29 +112,53 @@ export default function Flyout({
     verifiedAt: number;
     error?: string;
   }>>({});
-  const [mcpVerifying, setMcpVerifying] = useState<string | null>(null);
+  /* A list, not one slot: the panel asks for every launch spec the moment it
+     opens, so a server whose hosts disagree has two requests in flight at
+     once and a single slot would forget the first. */
+  const [mcpVerifying, setMcpVerifying] = useState<string[]>([]);
 
-  /** Start a private copy of one registration's server, ask what it provides. */
-  const runMcpVerify = async (registrationKey: string) => {
-    setMcpVerifying(registrationKey);
+  /**
+   * Ask one registration what it provides.
+   *
+   * `mcp_cached_probe` answers from the store where it can and spawns only
+   * where spawning is safe — see `cached_probe` in lib.rs for the two rules.
+   * `force` is the user's own re-check and overrides both; `running` is the
+   * fact the panel is already rendering, and the backend needs it to decide.
+   *
+   * `verifiedAt` comes back from the store, not from `Date.now()`. Stamping
+   * it here would date a row learned three days ago as "verified 0s ago" the
+   * moment it was read back.
+   */
+  const requestMcpProbe = async (registrationKey: string, force: boolean, running: boolean) => {
+    setMcpVerifying((prev) => (prev.includes(registrationKey) ? prev : [...prev, registrationKey]));
     try {
       const r = await invoke<{
-        server_name?: string;
-        server_version?: string;
-        protocol_version?: string;
-        capabilities: string[];
-        tools: Array<{ name: string; description?: string }>;
-        error?: string;
-      }>("mcp_probe", { registrationKey });
+        result: {
+          server_name?: string;
+          server_version?: string;
+          protocol_version?: string;
+          capabilities: string[];
+          tools: Array<{ name: string; description?: string }>;
+          error?: string;
+        } | null;
+        verifiedAt: number | null;
+        fromCache: boolean;
+      }>("mcp_cached_probe", { registrationKey, force, running });
+      /* No result at all means the backend declined to start a second copy of
+         a server that is already running, and had nothing cached to offer
+         instead. Not an error, and not an empty tool list: recording either
+         would put a wrong answer on screen where the panel's own explanation
+         belongs. */
+      if (!r.result) return;
       setMcpVerified((prev) => ({
         ...prev,
         [registrationKey]: {
-          serverVersion: r.server_version,
-          protocolVersion: r.protocol_version,
-          capabilities: r.capabilities ?? [],
-          tools: r.tools ?? [],
-          verifiedAt: Date.now(),
-          error: r.error ?? undefined,
+          serverVersion: r.result?.server_version,
+          protocolVersion: r.result?.protocol_version,
+          capabilities: r.result?.capabilities ?? [],
+          tools: r.result?.tools ?? [],
+          verifiedAt: r.verifiedAt ?? Date.now(),
+          error: r.result?.error ?? undefined,
         },
       }));
     } catch (e) {
@@ -148,9 +172,19 @@ export default function Flyout({
         },
       }));
     } finally {
-      setMcpVerifying(null);
+      setMcpVerifying((prev) => prev.filter((key) => key !== registrationKey));
     }
   };
+
+  /* The user asked. `running: true` is not consulted under `force` — it is
+     passed as the conservative value so that if `force` ever stopped
+     overriding the rules, this call would decline rather than start a second
+     copy of a running server. */
+  const runMcpVerify = (registrationKey: string) => requestMcpProbe(registrationKey, true, true);
+
+  /* The panel opened and this launch has no answer yet. */
+  const runMcpAutoProbe = (registrationKey: string, running: boolean) =>
+    requestMcpProbe(registrationKey, false, running);
 
   // Compile flat asset rows for Virtualizer
   const getSelectedBubbleAssets = () => {
@@ -626,6 +660,13 @@ export default function Flyout({
           verified={mcpVerified}
           verifying={mcpVerifying}
           onVerify={runMcpVerify}
+          onAutoProbe={runMcpAutoProbe}
+          /* null (or absent) while `get_mcp_processes` is still running.
+             Until it answers the panel cannot tell a running server from a
+             stopped one, and must not ask anything that could spawn. An
+             empty array is a real answer — nothing is running — and is
+             truthy, so it reads as known. */
+          processesKnown={!!mcpProcesses}
         />
       ) : targetAsset ? (
         <AssetDetail

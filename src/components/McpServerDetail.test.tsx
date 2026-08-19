@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { render, screen, cleanup, fireEvent, within } from "@testing-library/react";
+import { render, screen, cleanup, fireEvent, within, act } from "@testing-library/react";
 import { describe, it, expect, afterEach, vi } from "vitest";
 import McpServerDetail, { McpServerView } from "./McpServerDetail";
 
@@ -105,7 +105,7 @@ describe("McpServerDetail", () => {
     render(
       <McpServerDetail
         server={{ ...base, registrations: [base.registrations[0]] }}
-        verifying="cc-user"
+        verifying={["cc-user"]}
         verified={{
           "cc-user": { capabilities: [], tools: [{ name: "get_system_volume" }], verifiedAt: 1_700_000_000_000 },
         }}
@@ -313,9 +313,16 @@ describe("McpServerDetail", () => {
     expect(base.command).toBe("node");
   });
 
-  it("disables the button while a probe is in flight", () => {
-    render(<McpServerDetail server={base} verifying="cc-user" />);
-    expect(screen.getByRole("button", { name: /verifying/i })).toHaveProperty("disabled", true);
+  it("offers no control at all while a first probe is in flight", () => {
+    // Was "disables the button while a probe is in flight", asserting a
+    // disabled Verify labelled "Verifying…". Task 6 makes the panel ask on
+    // open, so that button would render Verify, then Verifying…, then vanish
+    // behind a count — three states inside a fast server's 200ms. The block
+    // below carries the pending state instead, on a 250ms delay. A probed
+    // spec still keeps its Check again control, spinning and disabled; that
+    // is the test directly above this one.
+    render(<McpServerDetail server={base} verifying={["cc-user"]} />);
+    expect(screen.queryByRole("button", { name: /verif/i })).toBeNull();
   });
 
   it("renders neither the server name nor the transport — the chrome owns those", () => {
@@ -686,5 +693,185 @@ describe("McpServerDetail", () => {
     );
     expect(screen.getAllByTestId("tools-block")).toHaveLength(1);
     expect(screen.getByText(/Timed out after 20s/)).toBeTruthy();
+  });
+});
+
+/**
+ * Opening the panel is the question. The Verify button in front of the answer
+ * made this a form to fill in; these pin the four states that replace it.
+ *
+ * The two rules themselves — fresh cache serves without spawning, a running
+ * server is never auto-probed — are enforced in Rust and proved there
+ * (`src-tauri/tests/mcp_cached_probe_tests.rs`), because only the backend can
+ * see freshness. What the panel owns, and what these test, is asking once per
+ * launch spec, carrying the running fact the backend cannot cheaply
+ * recompute, and rendering what comes back.
+ */
+describe("McpServerDetail — lazy on open", () => {
+  const running = (reg: McpServerView["registrations"][number]) => ({
+    ...reg,
+    running: { pid: 4242, spawningHost: "Claude Code" },
+  });
+
+  it("asks for the tool list on open, once per launch spec rather than once per registration", () => {
+    const onAutoProbe = vi.fn();
+    // base is three registrations sharing one launch. Three requests here
+    // would be three handshakes with the same server for one panel open.
+    render(<McpServerDetail server={base} onAutoProbe={onAutoProbe} processesKnown />);
+    expect(onAutoProbe).toHaveBeenCalledTimes(1);
+    expect(onAutoProbe).toHaveBeenCalledWith("cc-user", false);
+  });
+
+  it("asks once per distinct launch when a server's hosts disagree", () => {
+    const onAutoProbe = vi.fn();
+    const server: McpServerView = {
+      ...base,
+      registrations: [
+        { ...base.registrations[0], launchDisplay: "npx -y @tauri/mcp@2.9.1" },
+        { ...base.registrations[1], launchDisplay: "npx -y @tauri/mcp@2.8.0" },
+      ],
+    };
+    render(<McpServerDetail server={server} onAutoProbe={onAutoProbe} processesKnown />);
+    expect(onAutoProbe).toHaveBeenCalledTimes(2);
+    expect(onAutoProbe).toHaveBeenCalledWith("cc-user", false);
+    expect(onAutoProbe).toHaveBeenCalledWith("cc-global", false);
+  });
+
+  it("treats every launch as running until it knows what is running", () => {
+    // `get_mcp_processes` is fetched lazily and calls a full rescan (11.2s
+    // measured), so for the first seconds of a Tools view `reg.running` is
+    // absent for a running server exactly as it is for a stopped one. Asking
+    // on that basis would start a second copy of the servers Rule 2 exists to
+    // protect — the rule present in the code and defeated by a race.
+    const onAutoProbe = vi.fn();
+    render(<McpServerDetail server={base} onAutoProbe={onAutoProbe} />);
+    expect(onAutoProbe).toHaveBeenCalledWith("cc-user", true);
+  });
+
+  it("asks a second time, allowed to spawn, once a launch is known to be stopped", () => {
+    const onAutoProbe = vi.fn();
+    const { rerender } = render(<McpServerDetail server={base} onAutoProbe={onAutoProbe} />);
+    expect(onAutoProbe).toHaveBeenCalledWith("cc-user", true);
+
+    rerender(<McpServerDetail server={base} onAutoProbe={onAutoProbe} processesKnown />);
+    expect(onAutoProbe).toHaveBeenCalledWith("cc-user", false);
+    expect(onAutoProbe).toHaveBeenCalledTimes(2);
+
+    // And no further: a third render must not re-ask what has been asked.
+    rerender(<McpServerDetail server={base} onAutoProbe={onAutoProbe} processesKnown />);
+    expect(onAutoProbe).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not ask again once a launch is known to be running", () => {
+    const onAutoProbe = vi.fn();
+    const server: McpServerView = { ...base, registrations: [running(base.registrations[0])] };
+    const { rerender } = render(<McpServerDetail server={server} onAutoProbe={onAutoProbe} />);
+    rerender(<McpServerDetail server={server} onAutoProbe={onAutoProbe} processesKnown />);
+    // The conservative first ask already carried `true`; learning that it was
+    // right is not a new question.
+    expect(onAutoProbe).toHaveBeenCalledTimes(1);
+    expect(onAutoProbe).toHaveBeenCalledWith("cc-user", true);
+  });
+
+  it("does not ask again for a launch it already has an answer for", () => {
+    const onAutoProbe = vi.fn();
+    render(
+      <McpServerDetail
+        server={base}
+        onAutoProbe={onAutoProbe}
+        verified={{
+          "cc-user": { capabilities: [], tools: [{ name: "get_system_volume" }], verifiedAt: 1_700_000_000_000 },
+        }}
+      />
+    );
+    expect(onAutoProbe).not.toHaveBeenCalled();
+  });
+
+  it("says the launch is running when ANY registration of it is", () => {
+    // The registrations of one spec share a launch, so one running process is
+    // the whole group's answer. Reading only the first row would have missed
+    // it here, where Claude Desktop is the host that started it.
+    const onAutoProbe = vi.fn();
+    const server: McpServerView = {
+      ...base,
+      registrations: [base.registrations[0], base.registrations[1], running(base.registrations[2])],
+    };
+    render(<McpServerDetail server={server} onAutoProbe={onAutoProbe} processesKnown />);
+    expect(onAutoProbe).toHaveBeenCalledWith("cc-user", true);
+  });
+
+  it("explains why it left a running server alone instead of showing an empty list", () => {
+    const server: McpServerView = { ...base, registrations: [running(base.registrations[0])] };
+    render(<McpServerDetail server={server} onAutoProbe={vi.fn()} processesKnown />);
+    expect(
+      screen.getByText(/already running.*second copy.*only allow one at a time.*left it alone/i)
+    ).toBeTruthy();
+    // The resting explanation belongs to a server nobody has asked yet. Both
+    // at once would read as two different reasons for one empty block.
+    expect(screen.queryByText("Tools are only known by asking the server.")).toBeNull();
+  });
+
+  it("keeps the declined explanation off a server that is merely unprobed", () => {
+    render(<McpServerDetail server={base} onAutoProbe={vi.fn()} processesKnown />);
+    expect(screen.queryByText(/already running/i)).toBeNull();
+    expect(screen.getByText("Tools are only known by asking the server.")).toBeTruthy();
+  });
+
+  it("holds the loading line back for 250ms so a fast server never makes it strobe", () => {
+    // Measured probes on this machine run 100ms-1.3s; spades-audio answers in
+    // 196ms. An indicator that appeared instantly would flash and vanish on
+    // every fast server, which reads as a glitch rather than as progress.
+    vi.useFakeTimers();
+    try {
+      render(<McpServerDetail server={base} verifying={["cc-user"]} onAutoProbe={vi.fn()} />);
+      expect(screen.queryByText("Asking the server…")).toBeNull();
+      act(() => {
+        vi.advanceTimersByTime(249);
+      });
+      expect(screen.queryByText("Asking the server…")).toBeNull();
+      act(() => {
+        vi.advanceTimersByTime(1);
+      });
+      expect(screen.getByText("Asking the server…")).toBeTruthy();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("says nothing at all about an empty list while the answer is still coming", () => {
+    // Not the same as the delay above: before 250ms the block is quiet, but
+    // it must not fill the silence with "Tools are only known by asking the
+    // server", which would be replaced a quarter-second later by its own
+    // answer arriving.
+    vi.useFakeTimers();
+    try {
+      render(<McpServerDetail server={base} verifying={["cc-user"]} onAutoProbe={vi.fn()} />);
+      expect(screen.queryByText("Tools are only known by asking the server.")).toBeNull();
+      act(() => {
+        vi.advanceTimersByTime(300);
+      });
+      expect(screen.queryByText("Tools are only known by asking the server.")).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("asks nothing of a Claude.ai connector, which has no local process and no endpoint", () => {
+    const onAutoProbe = vi.fn();
+    render(
+      <McpServerDetail
+        server={{ ...base, command: "", transport: "claude.ai" }}
+        onAutoProbe={onAutoProbe}
+      />
+    );
+    expect(onAutoProbe).not.toHaveBeenCalled();
+  });
+
+  it("still offers the re-check on a running server — declining to ask is not refusing to", () => {
+    const onVerify = vi.fn();
+    const server: McpServerView = { ...base, registrations: [running(base.registrations[0])] };
+    render(<McpServerDetail server={server} onVerify={onVerify} onAutoProbe={vi.fn()} processesKnown />);
+    fireEvent.click(screen.getByRole("button", { name: /^verify$/i }));
+    expect(onVerify).toHaveBeenCalledWith("cc-user");
   });
 });

@@ -510,7 +510,15 @@ generic panel: `AssetDetail` for assets (`AssetDetail.tsx:26-31`: `asset`,
 `outOf`, `onClose`, `onSkip`). `ReviewInspector` documents that `position` and
 `outOf` are not totals of anything, because the list is already filtered
 (`:8-9`). `McpServerDetail` is a third, for MCP servers — props `server`,
-`onVerify`, `verifying` (@b383a08).
+`verified`, `onVerify`, `onAutoProbe`, `processesKnown`, `verifying`
+(`McpServerDetail.tsx`, Props). It asks for a tool list when it opens rather
+than behind a button: `onVerify` is the user's own re-check and always reaches
+the server, `onAutoProbe` is the panel's question on open and may be answered
+from the store without starting anything. `processesKnown` defaults to
+**false** and gates the difference — until `get_mcp_processes` answers, every
+launch is treated as running, which reads the cache and spawns nothing.
+`verifying` is a list, not one key: a server whose hosts launch it differently
+has one request per launch spec in flight at once.
 
 `Flyout` is the asset inspector's coordinator and owns its own `<aside>`
 (@b383a08).

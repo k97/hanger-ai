@@ -123,6 +123,100 @@ pub fn split_launch(command: &str, args: &[String]) -> (String, Vec<String>) {
     (command.to_string(), args.to_vec())
 }
 
+/// What a probe of one declaration will actually do.
+///
+/// The distinction is not cosmetic: `Spawn` starts a third-party process on
+/// this machine and `Dial` starts nothing at all. Every decision downstream —
+/// which function runs the handshake, what the cache is keyed on, whether
+/// there is a file worth stat-ing — turns on it, and inlining the test at
+/// each of those places is how three copies of one rule drift apart.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ProbeLaunch {
+    /// `probe(program, argv)`: a local process, arguments already resolved by
+    /// [`split_launch`].
+    Spawn { program: String, argv: Vec<String> },
+    /// `probe_http(url)`: an endpoint is dialled and nothing is spawned.
+    Dial { url: String },
+}
+
+/// Decide whether a declaration is spawned or dialled.
+///
+/// The condition is the one `mcp_probe` has always used: an empty command
+/// plus an `http(s)` transport is a remote server. Anything else is spawned,
+/// including a `claude.ai` connector — callers that must not touch one check
+/// the transport themselves, because "there is nothing to spawn" and "there
+/// is nothing Hanger can reach at all" are different facts.
+pub fn probe_launch(command: &str, args: &[String], transport: &str) -> ProbeLaunch {
+    if command.trim().is_empty() && (transport.starts_with("http://") || transport.starts_with("https://")) {
+        return ProbeLaunch::Dial { url: transport.to_string() };
+    }
+    let (program, argv) = split_launch(command, args);
+    ProbeLaunch::Spawn { program, argv }
+}
+
+/// The `probe_results` row this declaration's answer belongs in:
+/// `mcp::identity::launch_hash` over what [`probe_launch`] resolved.
+///
+/// Two inputs are not obvious, and both were defects waiting to happen.
+///
+/// **A dial is keyed on its URL.** A remote declaration has an empty command
+/// and empty args, so hashing those alone yields the same string for every
+/// remote server on the machine — Notion and Linear landing on one row, the
+/// first probed answering for both under the other's name. The URL is what a
+/// dial actually contacts, so the URL is what the key carries. It rides in
+/// the args slot rather than the command slot because `normalise_launch`
+/// basenames the command, which would reduce every `https://…/mcp` endpoint
+/// to `mcp`.
+///
+/// **A spawn is keyed after [`split_launch`], not before.** `~/.claude.json`
+/// writes `{"command": "npx pkg"}` and `~/.codex/config.toml` writes the same
+/// server as a command plus `args = []`; `probe` reconciles them before
+/// spawning, so a key taken before that split would probe and cache the same
+/// server twice depending on which host's declaration was opened. This is
+/// deliberately unlike `mcp::agreement::comparison_key`, which does not
+/// split: that key compares how hosts *declare* a server, where the spelling
+/// is the subject. This one describes what gets *run*.
+///
+/// Env keys are NAMES only, as everywhere else — `normalise_launch`'s
+/// signature cannot accept values.
+pub fn cache_key(
+    command: &str,
+    args: &[String],
+    env_keys: &[String],
+    project_root: Option<&str>,
+    transport: &str,
+) -> String {
+    let (key_command, key_args) = match probe_launch(command, args, transport) {
+        ProbeLaunch::Spawn { program, argv } => (program, argv),
+        ProbeLaunch::Dial { url } => (String::new(), vec![url]),
+    };
+    let normalised = crate::mcp::identity::normalise_launch(&key_command, &key_args, env_keys, project_root);
+    crate::mcp::identity::launch_hash(&normalised)
+}
+
+/// The mtime, in milliseconds, of the file worth stat-ing for this launch —
+/// `mcp::freshness::stat_target`'s answer, actually stat-ed.
+///
+/// `None` is the ordinary case, not a failure: an `npx pkg@latest` launch has
+/// no path to stat and a dial has no file at all, and `freshness::verdict`
+/// falls back to the TTL alone for both.
+///
+/// The two halves come from different places on purpose. The path candidates
+/// are the *normalised* args, so `~/servers/x.js` has been expanded to
+/// something `metadata` can open; the command is the *raw* post-split
+/// program, because `normalise_launch` reduces it to a basename and would
+/// discard the absolute path of a bare-executable launch — the one
+/// `stat_target` falls back to when no argument is a path.
+pub fn launch_mtime_ms(command: &str, args: &[String], transport: &str) -> Option<i64> {
+    let ProbeLaunch::Spawn { program, argv } = probe_launch(command, args, transport) else {
+        return None;
+    };
+    let normalised = crate::mcp::identity::normalise_launch(&program, &argv, &[], None);
+    let target = crate::mcp::freshness::stat_target(&program, &normalised.args)?;
+    let modified = std::fs::metadata(target).ok()?.modified().ok()?;
+    Some(modified.duration_since(std::time::UNIX_EPOCH).ok()?.as_millis() as i64)
+}
+
 /// PATH for the child, widened beyond what a GUI process inherits.
 ///
 /// An app launched from Finder gets `/usr/bin:/bin:/usr/sbin:/sbin` — not the

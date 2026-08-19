@@ -1,8 +1,9 @@
+import { useEffect, useRef, useState } from "react";
 import { openUrl, revealItemInDir } from "@tauri-apps/plugin-opener";
 import { MANAGE_URL } from "../utils/mcpServerView";
 import EngineLabel from "./EngineLabel";
 import Tooltip from "./Tooltip";
-import { ArrowPathIcon, RevealInFileManagerIcon } from "./icons";
+import { ArrowPathIcon, RevealInFileManagerIcon, SpinnerIcon } from "./icons";
 
 /**
  * The inspector panel for one MCP server.
@@ -75,9 +76,80 @@ interface Props {
   /** Probe results by REGISTRATION key. Two hosts can launch the same server
    *  differently, so there is no such thing as the server's tool list. */
   verified?: Record<string, VerifiedIdentity>;
+  /** The user asked: Verify, or the re-check. Always reaches the server. */
   onVerify?: (registrationKey: string) => void;
-  /** The registration key currently in flight, or null. */
-  verifying?: string | null;
+  /**
+   * The panel opened, and this launch has no answer yet.
+   *
+   * Distinct from `onVerify` because it is not a request to start anything:
+   * the backend answers from its cache where it can, and declines to spawn a
+   * server that is already running. `running` is the second half of that
+   * decision and is supplied from here rather than recomputed in Rust — the
+   * `running · pid N` line below is rendered from the same fact, and a spawn
+   * decision that contradicts what is on screen would be worse than the
+   * process-table refresh it saves.
+   */
+  onAutoProbe?: (registrationKey: string, running: boolean) => void;
+  /**
+   * Has `get_mcp_processes` answered yet?
+   *
+   * It is fetched lazily and calls a full rescan, so for the first seconds of
+   * a Tools view every registration reads as not running whether it is or
+   * not. Asking on that basis would start a second copy of exactly the
+   * servers that cannot take one. Until this is true the panel treats every
+   * launch as running, which reads the cache and spawns nothing.
+   *
+   * Defaults to false: the conservative direction, so a caller that forgets
+   * it gets a redundant cache read rather than someone's session killed.
+   */
+  processesKnown?: boolean;
+  /** Registration keys with a request in flight. More than one launch spec
+   *  can be in flight at once now that the panel asks on open. */
+  verifying?: readonly string[];
+}
+
+/** Stable empty default, so the effect below does not see a new array every
+ *  render. */
+const NONE_IN_FLIGHT: readonly string[] = [];
+
+/** How long a probe must run before it is worth saying so. */
+const PENDING_DELAY_MS = 250;
+
+/** Hanger starts its own private copy, performs the handshake, and stops it.
+ *  "Asking the server" is the vocabulary the resting state already uses. */
+const PROBE_PENDING = "Asking the server…";
+
+/** Why an empty Tools block is not a failure. Nothing went wrong: a host has
+ *  this server running, asking it means starting a second copy, and some
+ *  servers permit exactly one — a bot token with a single long-poll
+ *  connection, an OAuth callback port. The re-check beside this is there for
+ *  anyone who wants to ask anyway. */
+const DECLINED_RUNNING =
+  "This server is already running. Asking for its tool list means starting a second copy, and some servers only allow one at a time, so Hanger left it alone.";
+
+/**
+ * Shown while Hanger is asking, and only after a quarter-second.
+ *
+ * Probes on this machine measure 100ms-1.3s; spades-audio answers in 196ms.
+ * An indicator that appeared the instant a request left would flash and
+ * vanish on every fast server, which reads as a glitch rather than as
+ * progress — so nothing is drawn at all until the wait is long enough to be
+ * worth explaining. The whole block appears at once, text and frame
+ * together, rather than an empty frame growing a line.
+ */
+function ProbePending() {
+  const [longEnough, setLongEnough] = useState(false);
+  useEffect(() => {
+    const timer = setTimeout(() => setLongEnough(true), PENDING_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, []);
+  if (!longEnough) return null;
+  return (
+    <div className="border border-dashed border-line-2 rounded-inner px-[14px] py-[18px] flex items-center gap-2 text-micro text-ink-3">
+      <SpinnerIcon className="animate-spin" size={12} aria-hidden="true" />
+      {PROBE_PENDING}
+    </div>
+  );
 }
 
 const SECTION = "px-[18px] py-[18px] border-b border-line";
@@ -221,7 +293,14 @@ function ProbedToolList({ result }: { result: VerifiedIdentity }) {
   );
 }
 
-export default function McpServerDetail({ server, verified, onVerify, verifying = null }: Props) {
+export default function McpServerDetail({
+  server,
+  verified,
+  onVerify,
+  onAutoProbe,
+  processesKnown = false,
+  verifying = NONE_IN_FLIGHT,
+}: Props) {
   // Counts the rows below, not unique hosts. spades-audio is 3 registrations
   // across 2 hosts -- a count that disagreed with the visible row count would
   // read as a bug. The prototype said "3 hosts" and was simply wrong.
@@ -302,6 +381,49 @@ export default function McpServerDetail({ server, verified, onVerify, verifying 
     !isConnector &&
     server.command.trim() === "" &&
     /^https?:\/\//.test(server.transport);
+
+  /* Nothing here can be asked anything: a Claude.ai connector runs on
+     Anthropic's servers, and a declaration with neither a command nor an
+     http endpoint has no target at all. Asking anyway produces "Could not
+     start ``" — a failure message the user never invited, arriving on its
+     own the moment the panel opens. */
+  const nothingToAsk = isConnector || (server.command.trim() === "" && !isRemote);
+
+  /* Whether each unanswered launch is running, in the order the blocks
+     render. `some`, not the first row: the registrations of one spec share a
+     launch, so a process under any of them is the group's answer — here it
+     is Claude Desktop's copy that is up, and reading only the first row would
+     have missed it. A launch is treated as running until the process list has
+     actually arrived; see `processesKnown`. */
+  const isRunning = (group: SpecGroup) => group.regs.some((reg) => !!reg.running);
+  const runningFor = (group: SpecGroup) => !processesKnown || isRunning(group);
+
+  /* Ask, once, for every launch with no answer yet.
+     Keyed `${key}:${running}` rather than by key alone, because the running
+     flag legitimately changes once: the panel opens before
+     `get_mcp_processes` resolves and asks conservatively (cache only, no
+     spawn), and a launch that turns out to be stopped is then asked a second
+     time, this time allowed to reach the server. A launch that already has an
+     answer is never asked again either way, so the second ask only happens
+     where the first produced nothing. */
+  const asked = useRef<Set<string>>(new Set());
+  const unanswered = specGroups
+    .filter((group) => !group.result)
+    .map((group) => `${group.regs[0].key}:${runningFor(group)}`);
+  // The dependency is the serialised request list, not the array: `specGroups`
+  // is rebuilt every render and would re-run this on every keystroke
+  // elsewhere in the tree. The ref makes a re-run harmless regardless, which
+  // matters under StrictMode's double-invoked effects.
+  const requests = unanswered.join("|");
+  useEffect(() => {
+    if (!onAutoProbe || nothingToAsk) return;
+    for (const request of requests ? requests.split("|") : []) {
+      if (asked.current.has(request)) continue;
+      asked.current.add(request);
+      const separator = request.lastIndexOf(":");
+      onAutoProbe(request.slice(0, separator), request.slice(separator + 1) === "true");
+    }
+  }, [requests, nothingToAsk, onAutoProbe]);
 
   return (
     <div className="flex-1 min-h-0 flex flex-col font-sans text-base text-ink-1">
@@ -456,14 +578,21 @@ export default function McpServerDetail({ server, verified, onVerify, verifying 
                 </span>
                 <CheckAgainButton
                   registrationKey={specGroups[0].regs[0].key}
-                  verifying={verifying === specGroups[0].regs[0].key}
+                  verifying={verifying.includes(specGroups[0].regs[0].key)}
                   onVerify={onVerify}
                 />
               </span>
+            ) : verifying.includes(specGroups[0].regs[0].key) ? (
+              // Nothing. The panel asks on open now, so a control here would
+              // read Verify, then Verifying…, then be replaced by a count,
+              // three states inside a fast server's 200ms. The block below
+              // says a probe is running, and only once it has run long
+              // enough to be worth saying.
+              null
             ) : (
               <VerifyButton
                 registrationKey={specGroups[0].regs[0].key}
-                verifying={verifying === specGroups[0].regs[0].key}
+                verifying={false}
                 onVerify={onVerify}
               />
             )
@@ -508,10 +637,14 @@ export default function McpServerDetail({ server, verified, onVerify, verifying 
             <div data-testid="tools-block">
               <ProbedToolList result={specGroups[0].result} />
             </div>
+          ) : verifying.includes(specGroups[0].regs[0].key) ? (
+            <ProbePending />
           ) : (
             <div className="border border-dashed border-line-2 rounded-inner px-[14px] py-[18px] flex flex-col gap-2 items-start">
               <p className="text-micro text-ink-3 leading-[1.45]">
-                {isRemote
+                {isRunning(specGroups[0])
+                  ? DECLINED_RUNNING
+                  : isRemote
                   ? "Asks the endpoint for its tool list. No credentials are sent."
                   : "Tools are only known by asking the server."}
               </p>
@@ -536,7 +669,7 @@ export default function McpServerDetail({ server, verified, onVerify, verifying 
                       <span className={COUNT}>{group.result.error ? "—" : group.result.tools.length}</span>
                       <CheckAgainButton
                         registrationKey={group.regs[0].key}
-                        verifying={verifying === group.regs[0].key}
+                        verifying={verifying.includes(group.regs[0].key)}
                         onVerify={onVerify}
                       />
                     </span>
@@ -551,12 +684,22 @@ export default function McpServerDetail({ server, verified, onVerify, verifying 
                 </span>
                 {group.result ? (
                   <ProbedToolList result={group.result} />
+                ) : verifying.includes(group.regs[0].key) ? (
+                  <ProbePending />
                 ) : (
-                  <VerifyButton
-                    registrationKey={group.regs[0].key}
-                    verifying={verifying === group.regs[0].key}
-                    onVerify={onVerify}
-                  />
+                  <>
+                    {/* Same explanation as the single-spec block above, per
+                        launch: one spec of a server can be running while
+                        another sits idle. */}
+                    {isRunning(group) && (
+                      <p className="text-micro text-ink-3 leading-[1.45]">{DECLINED_RUNNING}</p>
+                    )}
+                    <VerifyButton
+                      registrationKey={group.regs[0].key}
+                      verifying={false}
+                      onVerify={onVerify}
+                    />
+                  </>
                 )}
               </div>
             ))}

@@ -352,6 +352,149 @@ async fn mcp_probe(
     })
 }
 
+/// What the panel gets back when it asks a registration what it provides.
+///
+/// `result` is `None` on exactly one path: the server is already running,
+/// nothing usable was cached, and Hanger declined to start a second copy (see
+/// [`cached_probe`]). Every other path — cache hit, successful handshake,
+/// failed handshake — carries a `ProbeResult`, because a failure that
+/// explains itself is an answer.
+///
+/// `verified_at` is when the answer was *learned*, not when it was fetched
+/// from the store: a row read back three days later must date as three days
+/// old, or the panel's "verified 3d ago" becomes a lie the moment caching
+/// starts working.
+#[derive(Debug, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CachedProbeResponse {
+    pub result: Option<crate::mcp::probe::ProbeResult>,
+    pub verified_at: Option<i64>,
+    pub from_cache: bool,
+}
+
+/// Answer from the store when the store can answer, and start the server only
+/// when starting it is safe.
+///
+/// The panel calls this on open, for every launch spec it shows, which is why
+/// two rules bound it. Neither is an optimisation.
+///
+/// 1. **A fresh row is served and nothing is spawned.** `mcp::freshness`
+///    decides fresh: an unchanged launch mtime beats an expired TTL, a
+///    changed one beats a live TTL, and where there is no path to stat the
+///    seven-day default decides alone.
+/// 2. **A stale or missing row is NOT re-probed while the server is
+///    running.** Probing means starting a real second copy of a third-party
+///    server. `anthropics/claude-code#40220` documents a Telegram MCP whose
+///    long-polling permits one connection per bot token, where the second
+///    instance steals the connection and kills the first session;
+///    `google_workspace_mcp#546` is the same class over an OAuth callback
+///    port. Opening a panel must not end someone's session. Whatever is
+///    cached is rendered, and asking again is left to the user.
+///
+/// `force` is that user, and it overrides both. `running` is supplied by the
+/// caller rather than recomputed here: the panel is already rendering
+/// `running · pid N` from `get_mcp_processes`, and a spawn decision that
+/// contradicts what is on screen would be worse than the process-table
+/// refresh it saves. It is a plain `bool`, not an `Option`, so a caller that
+/// omits it fails to deserialise rather than defaulting to "stopped".
+///
+/// `now_ms` is a parameter for the same reason `freshness::verdict`'s is: the
+/// whole decision matrix is then testable without sleeping.
+///
+/// A failed handshake replaces a stale success in the store rather than
+/// leaving the old tool list in place. The list would be a lie about a server
+/// that no longer starts, and `put_probe_result` round-trips an error as an
+/// error by design.
+pub async fn cached_probe(
+    db_path: &Path,
+    server: &crate::mcp::dialect::McpServer,
+    force: bool,
+    running: bool,
+    now_ms: i64,
+) -> CachedProbeResponse {
+    let key = crate::mcp::probe::cache_key(
+        &server.command,
+        &server.args,
+        &server.env_keys,
+        server.project_root.as_deref(),
+        &server.transport,
+    );
+    let current_mtime =
+        crate::mcp::probe::launch_mtime_ms(&server.command, &server.args, &server.transport);
+
+    if !force {
+        // A store error reads as "nothing cached": the cache is an
+        // accelerator, and a panel that refuses to answer because SQLite
+        // hiccuped is worse than one that asks the server again.
+        let cached = crate::preferences::get_probe_result(db_path, &key).ok().flatten();
+        let fresh = cached.as_ref().is_some_and(|c| {
+            crate::mcp::freshness::verdict(
+                c.verified_at,
+                now_ms,
+                c.ttl_ms,
+                c.launch_mtime,
+                current_mtime,
+            ) == crate::mcp::freshness::Freshness::Fresh
+        });
+
+        if fresh || running {
+            return match cached {
+                Some(c) => CachedProbeResponse {
+                    result: Some(c.result),
+                    verified_at: Some(c.verified_at),
+                    from_cache: true,
+                },
+                // Rule 2 with an empty store. There is no answer to give and
+                // no safe way to get one; the panel says so and offers the
+                // re-check.
+                None => CachedProbeResponse { result: None, verified_at: None, from_cache: false },
+            };
+        }
+    }
+
+    // 20s is generous for a handshake and short enough that a wedged server
+    // does not look like a frozen panel.
+    let timeout = std::time::Duration::from_secs(20);
+    let result = match crate::mcp::probe::probe_launch(&server.command, &server.args, &server.transport) {
+        crate::mcp::probe::ProbeLaunch::Dial { url } => {
+            crate::mcp::probe::probe_http(&url, timeout).await
+        }
+        crate::mcp::probe::ProbeLaunch::Spawn { program, argv } => {
+            crate::mcp::probe::probe(&program, &argv, timeout).await
+        }
+    };
+
+    // `ttl_ms`/`cache_scope` are `None` because no server sends them: they
+    // arrived in the MCP 2026-07-28 revision and `probe.rs` does not read
+    // them. NULL is what makes `verdict` fall back to its seven-day default,
+    // which is the intended path, not a gap.
+    let _ = crate::preferences::put_probe_result(db_path, &key, &result, None, None, current_mtime);
+
+    CachedProbeResponse { result: Some(result), verified_at: Some(now_ms), from_cache: false }
+}
+
+/// The panel's own question: what does this registration provide?
+///
+/// Unlike `mcp_probe` this does not always start anything — see
+/// [`cached_probe`] for the two rules. `Err` means the key matched no
+/// registration; a failed handshake is `Ok` with the reason inside
+/// `result.error`, as before.
+#[tauri::command]
+async fn mcp_cached_probe(
+    app: AppHandle,
+    registration_key: String,
+    force: bool,
+    running: bool,
+) -> Result<CachedProbeResponse, String> {
+    let db_path = get_db_path(&app);
+    let registration = crate::mcp::discover::resolve_registration(&registration_key)?;
+    let now_ms = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as i64;
+    Ok(cached_probe(&db_path, &registration.server, force, running, now_ms).await)
+}
+
 /// Which MCP servers are running right now, and which are running unaccounted.
 ///
 /// Read-only. Nothing is started or stopped — see spec §8 for why start/stop is
@@ -1415,6 +1558,7 @@ pub fn run() {
             link_directory,
             unlink_directory,
             mcp_probe,
+            mcp_cached_probe,
             get_mcp_processes,
             get_mcp_servers,
             get_linked_directories,
