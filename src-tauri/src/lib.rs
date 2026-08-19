@@ -326,21 +326,16 @@ fn link_directory(app: AppHandle, path: String) -> Result<String, String> {
 /// unaccountably empty list. `Err` means the key matched nothing.
 #[tauri::command]
 async fn mcp_probe(
-    app: AppHandle,
+    _app: AppHandle,
     registration_key: String,
 ) -> Result<crate::mcp::probe::ProbeResult, String> {
-    // The scan is filesystem-bound and has taken 11s on a real machine. On a
-    // plain async command that blocks a runtime worker for the duration, so it
-    // goes to the blocking pool.
-    let inventory = tauri::async_runtime::spawn_blocking(move || run_scan(app))
-        .await
-        .map_err(|e| format!("Scan task failed: {}", e))??;
-
-    let tool = inventory
-        .tools
-        .iter()
-        .find(|t| t.registration_key().as_str() == registration_key)
-        .ok_or_else(|| format!("No registration matches {}", registration_key))?;
+    // registration_key already names the one config file this registration
+    // came from (`"{config_path}:{server_name}"`) — `resolve_registration`
+    // reads only that file. This used to run the full `run_scan` walk first,
+    // measured at 11.2s on a real machine; the handshake itself measures
+    // 100ms-1.3s, so that walk was the whole freeze.
+    let registration = crate::mcp::discover::resolve_registration(&registration_key)?;
+    let server = registration.server;
 
     // 20s is generous for a handshake and short enough that a wedged server
     // does not look like a frozen panel.
@@ -348,12 +343,12 @@ async fn mcp_probe(
 
     // A remote server is dialled, not launched. Routing on the transport keeps
     // one Verify control meaning one thing to the user, whatever the server is.
-    let url = Some(tool.transport.clone())
+    let url = Some(server.transport.clone())
         .filter(|t| t.starts_with("http://") || t.starts_with("https://"));
 
-    Ok(match (tool.command.trim().is_empty(), url) {
+    Ok(match (server.command.trim().is_empty(), url) {
         (true, Some(u)) => crate::mcp::probe::probe_http(&u, timeout).await,
-        _ => crate::mcp::probe::probe(&tool.command, &tool.args, timeout).await,
+        _ => crate::mcp::probe::probe(&server.command, &server.args, timeout).await,
     })
 }
 

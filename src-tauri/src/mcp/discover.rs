@@ -227,6 +227,78 @@ pub fn read_swept(path: &Path, host_id: &'static str, tier: ScopeTier) -> Discov
     out
 }
 
+/// Resolve one registration by its key, reading only the file the key names.
+///
+/// `mcp_probe` used to answer "what does this registration launch?" by
+/// re-scanning the whole machine (`run_scan`) and filtering the result —
+/// measured at 11.2s on a real machine. `registration_key` is
+/// `"{config_path}:{server_name}"` (`RegistrationKey::new`, `domain.rs`); the
+/// file is already named in the key, so there is nothing to walk.
+///
+/// The separator is the **first** colon — matching the only other place a key
+/// of this shape is split (`preferences.rs`'s `abs_path.split_once(':')`),
+/// not the last. `config_path` is a filesystem path and never contains one on
+/// macOS; `server_name` is an arbitrary config key with no such guarantee, so
+/// splitting on the first colon is the only choice that stays correct even if
+/// a server name did.
+pub fn resolve_registration(registration_key: &str) -> Result<Registration, String> {
+    let (config_path, server_name) = registration_key
+        .split_once(':')
+        .ok_or_else(|| format!("Malformed registration key: {}", registration_key))?;
+
+    let (host_id, tier) = resolve_host_and_tier(config_path);
+    let result = read_swept(Path::new(config_path), host_id, tier);
+
+    result
+        .registrations
+        .into_iter()
+        .find(|r| r.server.name == server_name)
+        .ok_or_else(|| format!("No registration matches {}", registration_key))
+}
+
+/// Best-effort `(host_id, tier)` for a config path, found by matching it
+/// against the registry rather than guessed.
+///
+/// Neither value changes what `resolve_registration` returns in the common
+/// case: `read_swept` infers dialect from the file extension
+/// (`dialect_for_swept`, above) and never selects `Dialect::ClaudeJson` — the
+/// only dialect `tier` changes the parse of (`dialect.rs::parse_claude_json`
+/// branches on `ScopeTier::Local` to read `projects[repo].mcpServers` instead
+/// of the top-level `mcpServers` key). A probe on a server that exists only
+/// in a project's *Local* scope inside `~/.claude.json` will not be found
+/// here even though `run_scan`'s registry pass — which names the dialect
+/// explicitly instead of inferring it — does find it today. Resolving both
+/// values properly anyway, rather than passing a placeholder, keeps the
+/// `Registration` this hands back honest for any caller that reads
+/// `.host_id` or `.tier`.
+fn resolve_host_and_tier(config_path: &str) -> (&'static str, ScopeTier) {
+    let path = Path::new(config_path);
+    let home = crate::scanner::get_home_dir();
+
+    for source in SOURCES
+        .iter()
+        .filter(|s| s.location == SourceLocation::MachineAbsolute && !s.path.contains('*'))
+    {
+        if home.join(source.path).as_path() == path {
+            return (source.host_id, source.tier);
+        }
+    }
+
+    for source in SOURCES
+        .iter()
+        .filter(|s| s.location == SourceLocation::RepoRelative && !s.path.contains('*'))
+    {
+        if path.ends_with(source.path) {
+            return (source.host_id, source.tier);
+        }
+    }
+
+    // No entry in the registry names this path — an ad-hoc, swept config
+    // rather than a known host file. "" matches read_swept's own doc comment
+    // for this case; Global is inert here for the reason above.
+    ("", ScopeTier::Global)
+}
+
 /// Like [`read_swept`], but surfaces a parse failure as `Err` instead of a
 /// warning.
 ///

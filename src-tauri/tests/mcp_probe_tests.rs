@@ -269,3 +269,77 @@ fn scopes_are_read_from_the_metadata_document() {
     assert!(probe::scopes_from_metadata("{}").is_empty());
     assert!(probe::scopes_from_metadata("not json").is_empty());
 }
+
+// ─── Single-file resolution (mcp_probe stops re-walking the filesystem) ────
+//
+// `mcp_probe` used to call `run_scan` — a full walk of every engine root on
+// the machine — before every probe, measured at 11.2s. A registration key
+// already names the one file the server was declared in
+// (`"{config_path}:{server_name}"`, `RegistrationKey::new`), so resolution
+// only needs to open that file.
+
+#[cfg(unix)]
+#[test]
+fn resolves_one_server_from_its_exact_file_without_reading_a_sibling() {
+    use tauri_app_lib::mcp::discover;
+
+    let root = tempfile::tempdir().unwrap();
+    let real_dir = root.path().join("real");
+    let decoy_dir = root.path().join("decoy");
+    std::fs::create_dir_all(&real_dir).unwrap();
+    std::fs::create_dir_all(&decoy_dir).unwrap();
+
+    let real_config = real_dir.join("config.json");
+    std::fs::write(
+        &real_config,
+        r#"{"mcpServers":{"target":{"command":"real-command","args":["a"]}}}"#,
+    )
+    .unwrap();
+
+    // A sibling directory's config is what a filesystem walk starting from a
+    // common ancestor would also find. A FIFO has no writer, so opening it
+    // for a read blocks forever; if resolution ever touches it the test
+    // hangs on the recv below instead of quietly passing. That is a stronger
+    // proof than "the returned value happened to be right" — the old
+    // `mcp_probe` looked the server up by its full registration key too
+    // (config path *and* name) after scanning everything, so a same-name,
+    // different-command decoy would not have caught it walking.
+    let decoy_fifo = decoy_dir.join("config.json");
+    let status = std::process::Command::new("mkfifo")
+        .arg(&decoy_fifo)
+        .status()
+        .expect("mkfifo must be available on this machine");
+    assert!(status.success(), "failed to create decoy FIFO");
+
+    let key = format!("{}:target", real_config.to_string_lossy());
+
+    let (tx, rx) = std::sync::mpsc::channel();
+    std::thread::spawn(move || {
+        let result = discover::resolve_registration(&key);
+        let _ = tx.send(result);
+    });
+
+    let result = rx
+        .recv_timeout(std::time::Duration::from_secs(2))
+        .expect("resolve_registration hung — it opened something besides the named file");
+
+    let reg = result.expect("must resolve the server declared in the exact file the key names");
+    assert_eq!(reg.server.command, "real-command");
+    assert_eq!(reg.server.args, vec!["a".to_string()]);
+}
+
+#[test]
+fn an_unresolvable_key_is_an_error_not_a_panic() {
+    use tauri_app_lib::mcp::discover;
+
+    let root = tempfile::tempdir().unwrap();
+    let config = root.path().join("config.json");
+    std::fs::write(&config, r#"{"mcpServers":{"target":{"command":"c","args":[]}}}"#).unwrap();
+
+    // Right file, wrong name.
+    let key = format!("{}:nonexistent", config.to_string_lossy());
+    assert!(discover::resolve_registration(&key).is_err());
+
+    // No colon at all — malformed key, not a path that happens not to exist.
+    assert!(discover::resolve_registration("no-colon-here").is_err());
+}
