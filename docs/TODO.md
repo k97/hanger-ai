@@ -235,3 +235,34 @@ Karthik's sign-off before it lands (`.claude/rules/ui-copy.md`).
 
 **Done when:** §5.8 and §6.5 — the stages' own exit criteria — have evidence
 attached, in one report, including a screenshot from a running build.
+
+---
+
+## T11 — Seven MCP strings shipped without a naming brief
+
+`.claude/rules/ui-copy.md` wants a researched naming brief and Karthik's
+sign-off before a first-time label lands, and a `/humanizer` pass on every
+user-facing string. Karthik ruled on 2026-08-19 that the brief-and-sign-off
+round is **deferred until after stage 3** rather than blocking it. The strings
+still get written in the app's voice and still get the `/humanizer` pass as
+they land; what is owed is the deliberate review of the set.
+
+In the queue:
+
+- The three `agreementLine` forms — `{n} registrations · agree`,
+  `· {k} different launch specs`, `· declared twice by the same engine`.
+- `Check again`, the reload control's accessible name and tooltip
+  (`McpServerDetail.tsx`, `CheckAgainButton`).
+- The probe loading indicator (stage 3).
+- The already-running-so-not-probed state (stage 3) — this one carries a real
+  explanation, not just a label: it has to say why Hanger declined to ask
+  without reading as a failure.
+- Whatever distinguishes a cached tool list from a freshly probed one
+  (stage 3), if the design ends up needing to say.
+
+**Done when:** the set has had one deliberate pass together, Karthik has ruled
+on each, and any renames have landed.
+
+**Not in scope:** re-reviewing copy he has already signed off — the empty and
+pending states from stage 2, the eyebrow forms, "Needs review", "Design
+system".
