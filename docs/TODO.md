@@ -259,12 +259,21 @@ In the queue:
   `· {k} different launch specs`, `· declared twice by the same engine`.
 - `Check again`, the reload control's accessible name and tooltip
   (`McpServerDetail.tsx`, `CheckAgainButton`).
-- The probe loading indicator (stage 3).
-- The already-running-so-not-probed state (stage 3) — this one carries a real
-  explanation, not just a label: it has to say why Hanger declined to ask
-  without reading as a failure.
-- Whatever distinguishes a cached tool list from a freshly probed one
-  (stage 3), if the design ends up needing to say.
+- The probe loading indicator, shipped in Task 6 (3131d77) as
+  **"Asking the server…"**, on a 250ms delay so a fast server does not make
+  it strobe.
+- The already-running-so-not-probed state, shipped in Task 6 (3131d77) as
+  **"This server is already running. Asking for its tool list means starting a
+  second copy, and some servers only allow one at a time, so Hanger left it
+  alone."** This one carries a real explanation, not just a label: it has to
+  say why Hanger declined to ask without reading as a failure, which is why it
+  renders in `text-ink-3` like the resting copy rather than in a warning
+  colour.
+- Whatever distinguishes a cached tool list from a freshly probed one.
+  Task 6 deliberately added no string for this: `mcp_cached_probe` returns the
+  row's own `verified_at`, so the Identity section's existing
+  `verified {n}d ago` now states the real age of a cached answer instead of
+  `Date.now()`. Confirm that is enough, or decide what else the panel owes.
 
 **Done when:** the set has had one deliberate pass together, Karthik has ruled
 on each, and any renames have landed.
