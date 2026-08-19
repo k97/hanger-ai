@@ -133,7 +133,7 @@ fn test_v4_migration_dedupes_pins_unique_and_backfills_checksums() {
     let conn = store.connect().unwrap();
 
     let version: i64 = conn.query_row("PRAGMA user_version", [], |r| r.get(0)).unwrap();
-    assert_eq!(version, 6, "PRAGMA user_version must be 6 after migration");
+    assert_eq!(version, 7, "PRAGMA user_version must be 7 after migration");
 
     // Duplicates collapsed keeping the newest (source_hash 'new-hash').
     let dup_dest = project_dir.join("skill.md");
@@ -327,5 +327,5 @@ fn accounting_against_store_copy() {
             println!("UNACCOUNTED {dst} — {reason}");
         }
     }
-    assert_eq!(version, 6, "PRAGMA user_version must be 6 after migration");
+    assert_eq!(version, 7, "PRAGMA user_version must be 7 after migration");
 }

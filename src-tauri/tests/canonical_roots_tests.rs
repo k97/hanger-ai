@@ -101,7 +101,7 @@ fn test_v3_migration_backfills_non_canonical_root_paths() {
     let version: i32 = conn
         .query_row("PRAGMA user_version", [], |r| r.get(0))
         .expect("version query");
-    assert_eq!(version, 6, "migration must land on user_version 6");
+    assert_eq!(version, 7, "migration must land on user_version 7");
 
     assert_eq!(
         linked_paths(&store),
