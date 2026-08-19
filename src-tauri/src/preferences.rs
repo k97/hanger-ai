@@ -1601,3 +1601,133 @@ pub fn resolve_deepest_root(asset_path: &Path, project_roots: &[(i64, String)]) 
         Ok(())
     }
 }
+
+/// A persisted `mcp::probe::ProbeResult` plus the freshness metadata it was
+/// written with. What `get_probe_result` hands back: enough to decide
+/// whether the cache is still good (`mcp::freshness::verdict` takes
+/// `verified_at`, `ttl_ms` and both mtimes) without a second query.
+///
+/// `cache_scope` is deliberately not carried here even though the column
+/// exists — nothing downstream reads it yet, and `CachedProbe` only grows
+/// the fields something actually consumes.
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
+pub struct CachedProbe {
+    pub result: crate::mcp::probe::ProbeResult,
+    pub verified_at: i64,
+    pub ttl_ms: Option<i64>,
+    pub launch_mtime: Option<i64>,
+}
+
+/// Persist a probe result, keyed by `mcp::identity::launch_hash` — never by
+/// server name, so a conflicting registration naturally gets its own row
+/// instead of fighting over which write wins (see the v6 migration comment
+/// in `init_db`). `INSERT OR REPLACE`: the same hash overwrites in place,
+/// matching `launch_hash`'s role as the table's primary key.
+///
+/// Only what `ProbeResult` already carries — tool names/descriptions,
+/// versions, capabilities, an optional error — is written. No launch
+/// argument is ever a parameter here; a caller is expected to have already
+/// reduced the launch to `launch_hash` before reaching this function (see
+/// `mcp::agreement::comparison_key` for the existing precedent). A cached
+/// error round-trips as an error: `r.error` is written and read back
+/// unchanged, never coerced into an empty tool list.
+///
+/// `server_name` is not persisted — `probe_results` (locked at schema
+/// version 7) has no column for it. The v6 migration's own comment names
+/// what the table reproduces ("server/protocol version, capabilities,
+/// tools, and error"); the server's self-reported name was not part of
+/// that list. A round-tripped `ProbeResult` always comes back with
+/// `server_name: None`.
+pub fn put_probe_result(
+    db_path: &Path,
+    launch_hash: &str,
+    r: &crate::mcp::probe::ProbeResult,
+    ttl_ms: Option<i64>,
+    cache_scope: Option<&str>,
+    launch_mtime: Option<i64>,
+) -> Result<(), SanitisedError> {
+    let store = PreferencesStore::new(db_path)?;
+    let conn = store.connect()?;
+
+    let capabilities_json = serde_json::to_string(&r.capabilities)
+        .map_err(|_| SanitisedError("Failed to serialise probe capabilities".to_string()))?;
+    let tools_json = serde_json::to_string(&r.tools)
+        .map_err(|_| SanitisedError("Failed to serialise probe tools".to_string()))?;
+    let verified_at = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as i64;
+
+    conn.execute(
+        "INSERT OR REPLACE INTO probe_results
+            (launch_hash, server_version, protocol_version, capabilities, tools, error, verified_at, ttl_ms, cache_scope, launch_mtime)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+        params![
+            launch_hash,
+            r.server_version,
+            r.protocol_version,
+            capabilities_json,
+            tools_json,
+            r.error,
+            verified_at,
+            ttl_ms,
+            cache_scope,
+            launch_mtime,
+        ],
+    )
+    .map_err(|_| SanitisedError("Failed to write probe result".to_string()))?;
+
+    Ok(())
+}
+
+/// Read a probe result back by `launch_hash`. `Ok(None)` for a hash nothing
+/// has ever written — not an error; an unprobed server is an ordinary,
+/// expected state, not a failure.
+pub fn get_probe_result(db_path: &Path, launch_hash: &str) -> Result<Option<CachedProbe>, SanitisedError> {
+    let store = PreferencesStore::new(db_path)?;
+    let conn = store.connect()?;
+
+    let row = conn
+        .query_row(
+            "SELECT server_version, protocol_version, capabilities, tools, error, verified_at, ttl_ms, launch_mtime
+             FROM probe_results WHERE launch_hash = ?1",
+            params![launch_hash],
+            |r| {
+                Ok((
+                    r.get::<_, Option<String>>(0)?,
+                    r.get::<_, Option<String>>(1)?,
+                    r.get::<_, String>(2)?,
+                    r.get::<_, String>(3)?,
+                    r.get::<_, Option<String>>(4)?,
+                    r.get::<_, i64>(5)?,
+                    r.get::<_, Option<i64>>(6)?,
+                    r.get::<_, Option<i64>>(7)?,
+                ))
+            },
+        )
+        .optional()
+        .map_err(|_| SanitisedError("Database query failed".to_string()))?;
+
+    let Some((server_version, protocol_version, capabilities_json, tools_json, error, verified_at, ttl_ms, launch_mtime)) = row else {
+        return Ok(None);
+    };
+
+    let capabilities: Vec<String> = serde_json::from_str(&capabilities_json)
+        .map_err(|_| SanitisedError("Failed to parse stored probe capabilities".to_string()))?;
+    let tools: Vec<crate::mcp::probe::ProbedTool> = serde_json::from_str(&tools_json)
+        .map_err(|_| SanitisedError("Failed to parse stored probe tools".to_string()))?;
+
+    Ok(Some(CachedProbe {
+        result: crate::mcp::probe::ProbeResult {
+            server_name: None,
+            server_version,
+            protocol_version,
+            capabilities,
+            tools,
+            error,
+        },
+        verified_at,
+        ttl_ms,
+        launch_mtime,
+    }))
+}
