@@ -1719,6 +1719,14 @@ pub fn get_probe_result(db_path: &Path, launch_hash: &str) -> Result<Option<Cach
 
     Ok(Some(CachedProbe {
         result: crate::mcp::probe::ProbeResult {
+            // Permanent, not "unknown this time": `probe_results` has no
+            // column for the server's self-reported name (see
+            // `put_probe_result`'s doc comment), so every cached hit comes
+            // back this way. A live probe and a cached one
+            // (`mcp_probe`/`mcp_cached_probe`) return the identical wire
+            // shape, so a caller sees `server_name: null` either way — for
+            // a live probe that can mean "the server didn't report one";
+            // for a cached hit it always means this line, never the server.
             server_name: None,
             server_version,
             protocol_version,
