@@ -7,6 +7,7 @@
 pub mod agreement;
 pub mod dialect;
 pub mod discover;
+pub mod freshness;
 pub mod identity;
 pub mod observe;
 pub mod probe;
