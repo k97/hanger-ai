@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 
 type Placement = "right" | "bottom";
 
@@ -34,8 +34,12 @@ interface Tip {
  * 80ms wearing the app's type, and positions itself with `fixed` so the
  * shell's overflow-hidden columns cannot clip it.
  */
+/** Kept clear of the window edge on every side once the tip's real size is known. */
+const EDGE_MARGIN = 8;
+
 export default function Tooltip({ label, placement = "right", children }: TooltipProps) {
   const anchor = useRef<HTMLSpanElement>(null);
+  const tipEl = useRef<HTMLSpanElement>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [tip, setTip] = useState<Tip | null>(null);
 
@@ -87,6 +91,36 @@ export default function Tooltip({ label, placement = "right", children }: Toolti
     return () => window.removeEventListener("keydown", onKey);
   }, [tip]);
 
+  // `place()` guesses from the anchor alone, before the tip's own width
+  // exists in the DOM. A control near the window edge — the toolbar's
+  // right-hand icons, an inspector row's trailing button — guesses a box
+  // that runs past the edge and gets clipped by the window itself; nothing
+  // here is z-index, `fixed` just paints wherever it is told. This corrects
+  // the guess against the real box once it has rendered, before paint.
+  useLayoutEffect(() => {
+    if (!tip || !tipEl.current) return;
+    const r = tipEl.current.getBoundingClientRect();
+    // jsdom never lays out, so every rect measures 0x0 at (0,0) — that would
+    // read as "off the top-left edge" and clamp forever. A real tip always
+    // has size once painted, so a zero box means there is nothing to correct.
+    if (r.width === 0 && r.height === 0) return;
+    const dx =
+      r.right > window.innerWidth - EDGE_MARGIN
+        ? window.innerWidth - EDGE_MARGIN - r.right
+        : r.left < EDGE_MARGIN
+        ? EDGE_MARGIN - r.left
+        : 0;
+    const dy =
+      r.bottom > window.innerHeight - EDGE_MARGIN
+        ? window.innerHeight - EDGE_MARGIN - r.bottom
+        : r.top < EDGE_MARGIN
+        ? EDGE_MARGIN - r.top
+        : 0;
+    if (dx !== 0 || dy !== 0) {
+      setTip((current) => (current ? { ...current, left: current.left + dx, top: current.top + dy } : current));
+    }
+  }, [tip]);
+
   return (
     <span
       ref={anchor}
@@ -100,6 +134,7 @@ export default function Tooltip({ label, placement = "right", children }: Toolti
       {children}
       {tip && (
         <span
+          ref={tipEl}
           style={{
             top: tip.top,
             left: tip.left,
@@ -110,7 +145,7 @@ export default function Tooltip({ label, placement = "right", children }: Toolti
           <span
             data-testid="tooltip"
             aria-hidden="true"
-            className={`block whitespace-nowrap bg-fill text-on-fill font-flex text-micro px-2 py-1 rounded-[6px] ${
+            className={`block whitespace-nowrap normal-case bg-fill text-on-fill font-flex text-micro px-2 py-1 rounded-[6px] ${
               placement === "right" ? "origin-left" : "origin-top"
             } ${tip.instant ? "" : "animate-tip"}`}
           >
