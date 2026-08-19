@@ -234,6 +234,59 @@ pub fn matches_launch(command_line: &str, command: &str, args: &[String]) -> boo
     declared.iter().all(|part| command_line.contains(part))
 }
 
+/// Is this exact launch already running on this machine?
+///
+/// Rule 2 rests entirely on this answer (`cached_probe` in `lib.rs`), so its
+/// blind spots are the rule's blind spots — which is why it does NOT go
+/// through [`running_processes`].
+///
+/// That function redacts every command line, because those strings are
+/// rendered. [`matches_launch`] requires every declared part to appear in the
+/// line it is given. Put together, a launch carrying a credential has the
+/// declared value on one side and `<redacted>` on the other, and therefore
+/// reads as not running — for `telegram-mcp --bot-token <token>`, measured:
+///
+/// ```text
+/// redacted line = "telegram-mcp --bot-token <redacted>"   matched = false
+/// ```
+///
+/// The server that fails is the one the rule is named after:
+/// `anthropics/claude-code#40220` is a Telegram MCP whose bot token rides in
+/// its argv, and whose long-polling permits one connection per token. The rule
+/// protected everything except its own example.
+///
+/// So the comparison happens here, against the raw argv, in the module that
+/// already holds it. Nothing unredacted leaves this function: it returns a
+/// `bool`, the joined line is a local, and no caller can ask for it. Env
+/// assignments are deliberately NOT dropped the way [`sanitise_argv`] drops
+/// them for display — a Docker-backed server declares `-e KEY=value` as a real
+/// argument, and filtering those out here would reintroduce the same class of
+/// false negative for a different shape.
+///
+/// Costs one process-table refresh: 61ms against 1033 processes, measured. The
+/// `npx` blind spot is NOT fixed here and is recorded in `docs/findings.md` —
+/// `npx foo` re-executes as `npm exec foo`, which shares no text with the
+/// declaration, and no comparison of the two strings can bridge that.
+pub fn launch_is_running(command: &str, args: &[String]) -> bool {
+    let mut sys = System::new();
+    sys.refresh_processes_specifics(
+        ProcessesToUpdate::All,
+        true,
+        ProcessRefreshKind::nothing()
+            .with_cmd(UpdateKind::Always)
+            .with_environ(UpdateKind::Always),
+    );
+
+    sys.processes().values().any(|proc_| {
+        let raw: Vec<String> = proc_
+            .cmd()
+            .iter()
+            .map(|s| s.to_string_lossy().to_string())
+            .collect();
+        matches_launch(&raw.join(" "), command, args)
+    })
+}
+
 /// Every process currently running, redacted.
 pub fn running_processes() -> Vec<RunningProcess> {
     let mut sys = System::new();

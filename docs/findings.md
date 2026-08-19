@@ -541,3 +541,65 @@ Left untouched by ruling 2026-08-14; the watcher gap is the actionable part.
 (scanner, asset concern) vs dangling destination (`resolve_state`, link
 concern). UI already separates them ("Won't parse" / "Broken links"). No
 rename; code touching these keeps them apart.
+
+## Rule 2 cannot see an `npx` server (2026-08-19)
+
+**F29 — a launch spelled `npx` never matches its own running process, so
+`cached_probe`'s live check permits a spawn it should decline.**
+
+Rule 2 — never auto-probe a server that is already running — rests entirely on
+`mcp::observe::launch_is_running`, which asks `matches_launch` whether any
+process on the machine is this launch. `matches_launch` requires every declared
+part to appear in the process's command line, and is deliberately strict: a
+subset match would let `node` alone claim every Node server on the machine,
+which is the failure it exists to avoid (`observe.rs`, its doc comment).
+
+`npx` re-executes itself as `npm exec`. The declaration and the process
+therefore share no text at all. Measured against this machine's live process
+table on 2026-08-19, seven MCP servers running under `npx` declarations, none
+matched:
+
+```
+running="npm exec @modelcontextprotocol/server-memory@2026.1.26"
+declared=npx @modelcontextprotocol/server-memory@2026.1.26          matched=false
+running="npm exec chrome-devtools-mcp@latest"
+declared=npx chrome-devtools-mcp@latest                             matched=false
+running="npm exec @modelcontextprotocol/server-github@2025.4.8"
+declared=npx @modelcontextprotocol/server-github@2025.4.8           matched=false
+running="npm exec @modelcontextprotocol/server-sequential-thinking@2025.12.18"
+declared=npx @modelcontextprotocol/server-sequential-thinking@2025.12.18  matched=false
+running="npm exec @playwright/mcp@0.0.69"
+declared=npx @playwright/mcp@0.0.69                                 matched=false
+running="npm exec @upstash/context7-mcp@2.1.4"
+declared=npx @upstash/context7-mcp@2.1.4                            matched=false
+```
+
+**Consequence.** Opening the panel for an `npx`-declared server that a host
+already has running will start a second copy of it. For most stdio servers that
+is harmless — each host spawns its own private child and six concurrent copies
+is routine (`freshness.rs`, module docs). It is not harmless for a server that
+tolerates exactly one instance, which is the entire reason Rule 2 exists.
+
+**What IS fixed, and why this is narrower than it was.** The sibling defect —
+a launch carrying a credential failing to match because the process line had
+been redacted — was closed the same day: `launch_is_running` compares against
+raw argv inside `observe`, so `telegram-mcp --bot-token <token>` now matches
+itself. `anthropics/claude-code#40220`, the issue Rule 2 cites, is that shape,
+and it is covered. This entry is the remaining `npx` shape.
+
+**Why it is not fixed here.** Bridging `npx foo` to `npm exec foo` means either
+teaching the matcher a launcher-specific rewrite table (npx, uvx, bunx, pnpm
+dlx, each with its own re-exec form and versions of its own), or resolving the
+declaration to the file it actually runs — `npx` lands under
+`~/.npm/_npx/<hash>/node_modules/.bin/<name>`, where the hash is npm's and not
+ours to reconstruct, the same wall `freshness::stat_target` stops at and
+returns `None` for rather than guessing. A half-right rewrite fails in the
+dangerous direction: a wrong match declines a probe that was safe, which is
+merely annoying, but a rewrite that mis-parses and matches too broadly makes
+`node` claim every Node server on the machine and declines everything.
+
+**If it is taken up**, the honest fix is probably not string matching at all:
+resolve the running process's own executable path (`sysinfo` exposes `exe()`,
+which this module does not currently read) and compare that against the
+declaration's resolved target. That answers `npx`, `uvx` and `bunx` with one
+mechanism instead of three tables.

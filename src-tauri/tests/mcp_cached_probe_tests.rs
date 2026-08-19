@@ -473,3 +473,61 @@ fn two_unlaunchable_declarations_do_not_share_a_cache_row() {
     assert_ne!(connector, sse);
     assert_ne!(unknown, sse);
 }
+
+// ---------------------------------------------------------------------------
+// The seam. Every test above drives `cached_probe_confirmed` with an injected
+// closure, which proves the decision matrix and proves nothing about the wire
+// between it and the machine. Rewiring `cached_probe` to hand its inner
+// function `|_, _| false` — disabling the live check entirely, in the exact
+// entry point the Tauri command calls — left all 383 backend tests green. The
+// property "the shipped code actually looks at the process table" rested on a
+// reader noticing one identifier.
+// ---------------------------------------------------------------------------
+
+/// Drives `cached_probe`, the entry `mcp_cached_probe` calls, against a real
+/// process. No injected closure, no fixture module: a genuine `/bin/sleep` is
+/// running, the caller says stopped the way a stale snapshot would, and the
+/// answer has to be "declined".
+///
+/// stdio is all null. A fixture that inherits the test binary's stdout can
+/// outlive the run and hold the pipe open — `cargo test | tail` then waits for
+/// an EOF that never comes, which is how this file's sibling in
+/// `mcp_observe_tests.rs` hung a whole run for 987654 seconds' worth of sleep.
+#[tokio::test]
+async fn the_shipped_entry_point_consults_the_real_process_table() {
+    use std::process::Stdio;
+
+    let dir = tempfile::tempdir().unwrap();
+    let db = dir.path().join("prefs.db");
+
+    let mut fixture = std::process::Command::new("/bin/sleep")
+        .arg("987654")
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()
+        .expect("fixture must start");
+    std::thread::sleep(std::time::Duration::from_millis(300));
+
+    let server = McpServer {
+        command: "/bin/sleep".to_string(),
+        args: vec!["987654".to_string()],
+        ..stdio_server()
+    };
+
+    // `running: false` is the stale-snapshot case: the panel believes nothing
+    // is running, and only the live check can say otherwise.
+    let out = cached_probe(&db, &server, false, false, now_ms()).await;
+
+    let _ = fixture.kill();
+    let _ = fixture.wait();
+
+    assert!(out.declined, "the machine is running this launch; it must be declined");
+    assert!(out.result.is_none(), "nothing was cached and nothing may be started");
+
+    let key = cache_key(&server.command, &server.args, &server.env_keys, None, &server.transport);
+    assert!(
+        get_probe_result(&db, &key).unwrap().is_none(),
+        "a row here would mean a handshake ran against a server that was already up"
+    );
+}

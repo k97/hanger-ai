@@ -43,6 +43,37 @@ const inventory: Inventory = {
 
 const selected = { name: "spades-audio", category: "Tools", path: "/Users/x/.claude.json" };
 
+/** The same server declared twice, pinned at different versions — two launch
+ *  specs, two spec groups, and therefore two things the panel could ask about
+ *  at once. */
+const twoLaunches: Inventory = {
+  ...inventory,
+  tools: [
+    {
+      id: "/Users/x/.claude.json:spades-audio",
+      name: "spades-audio",
+      command: "npx",
+      launch_display: "npx -y spades-audio@2.9.1",
+      transport: "stdio",
+      config_path: "/Users/x/.claude.json",
+      scope: { Global: { agent: "claude-code" } },
+      owning_agent: "claude-code",
+      drifted: false,
+    },
+    {
+      id: "/Users/x/.codex/config.toml:spades-audio",
+      name: "spades-audio",
+      command: "npx",
+      launch_display: "npx -y spades-audio@2.8.0",
+      transport: "stdio",
+      config_path: "/Users/x/.codex/config.toml",
+      scope: { Global: { agent: "codex" } },
+      owning_agent: "codex",
+      drifted: false,
+    },
+  ] as never,
+};
+
 const probeCalls = () => invoke.mock.calls.filter(([cmd]) => cmd === "mcp_cached_probe");
 
 beforeEach(() => {
@@ -177,6 +208,56 @@ describe("Flyout — asking an MCP server what it provides", () => {
 
     await waitFor(() => expect(probeCalls()).toHaveLength(1));
     expect(screen.queryByText(/already running/i)).toBeNull();
+  });
+
+  it("starts one server at a time when a panel carries two launches", async () => {
+    // The cap lives in McpServerDetail and is fed by `verifying`, which only
+    // Flyout wires. Every one-at-a-time test above injects that prop by hand,
+    // so hardcoding `verifying={[]}` at the wire left all 606 tests green
+    // while both launches fired in the same tick — IMPORTANT 1 back verbatim.
+    // A probe that never answers holds the queue open, so the count here is
+    // exactly the number of servers Hanger was willing to start at once.
+    invoke.mockImplementation((cmd: string) => {
+      if (cmd === "mcp_cached_probe") return new Promise(() => {});
+      return Promise.resolve(null);
+    });
+
+    render(
+      <Flyout
+        inventory={twoLaunches}
+        selectedAsset={selected as never}
+        mcpProcesses={[]}
+        linkedProjects={[]}
+        onRefresh={() => {}}
+      />
+    );
+
+    await waitFor(() => expect(probeCalls()).toHaveLength(1));
+    await new Promise((r) => setTimeout(r, 40));
+    expect(probeCalls()).toHaveLength(1);
+    expect(probeCalls()[0][1]).toMatchObject({
+      registrationKey: "/Users/x/.claude.json:spades-audio",
+    });
+  });
+
+  it("moves on to the second launch once the first has answered", async () => {
+    // The other half: a cap that never releases would leave the second launch
+    // permanently unasked, which is a different bug wearing the same green.
+    render(
+      <Flyout
+        inventory={twoLaunches}
+        selectedAsset={selected as never}
+        mcpProcesses={[]}
+        linkedProjects={[]}
+        onRefresh={() => {}}
+      />
+    );
+
+    await waitFor(() => expect(probeCalls()).toHaveLength(2));
+    expect(probeCalls().map((c) => c[1].registrationKey)).toEqual([
+      "/Users/x/.claude.json:spades-audio",
+      "/Users/x/.codex/config.toml:spades-audio",
+    ]);
   });
 
   it("survives an answer it cannot read, instead of taking the inspector down with it", async () => {

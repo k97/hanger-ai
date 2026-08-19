@@ -426,14 +426,14 @@ pub async fn cached_probe(
 
 /// Whether this exact launch is already running, according to the machine.
 ///
-/// The same matcher `get_mcp_processes` uses, so "running" means the same
-/// thing here as it does on the badge the panel renders. Measured at 61ms
-/// against 1033 processes; it is the process table only, never `run_scan`'s
-/// filesystem walk.
+/// Delegates to `mcp::observe`, which compares against the RAW argv it already
+/// holds. Going through `running_processes()` instead — the obvious-looking
+/// version, and what this was — compares against the REDACTED line, so any
+/// launch carrying a credential reads as not running and the spawn is
+/// permitted. That is the exact shape of `anthropics/claude-code#40220`, the
+/// issue Rule 2 cites. See `observe::launch_is_running` for the measurement.
 fn launch_is_running(program: &str, argv: &[String]) -> bool {
-    crate::mcp::observe::running_processes()
-        .iter()
-        .any(|p| crate::mcp::observe::matches_launch(&p.command_line, program, argv))
+    crate::mcp::observe::launch_is_running(program, argv)
 }
 
 /// [`cached_probe`] with the liveness check supplied, so the decision matrix

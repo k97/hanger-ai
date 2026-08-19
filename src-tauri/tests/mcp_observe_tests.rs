@@ -472,3 +472,112 @@ fn the_process_table_actually_carries_command_lines() {
         procs.len()
     );
 }
+
+// ---------------------------------------------------------------------------
+// Why `launch_is_running` exists, and why it may not be rewritten in terms of
+// `running_processes()`.
+//
+// `running_processes()` redacts every command line, because those strings are
+// rendered. `matches_launch` needs every declared part to appear in the line it
+// is given — so the moment a launch carries a credential, the declared value is
+// present on one side and `<redacted>` on the other, and the launch reads as
+// NOT RUNNING. That is the whole of Rule 2's input, and the servers it fails on
+// are precisely the ones the rule cites: `anthropics/claude-code#40220` is a
+// Telegram MCP whose bot token rides in its argv.
+//
+// `launch_is_running` compares against the raw argv inside that module and
+// returns only a bool, so nothing unredacted crosses a boundary or reaches a
+// render.
+// ---------------------------------------------------------------------------
+
+use tauri_app_lib::mcp::observe::launch_is_running;
+
+/// The blind spot itself, with no process needed: a token-bearing launch
+/// cannot match its own redacted command line. Deterministic, so it holds as
+/// a statement about the redactor rather than about this machine.
+#[test]
+fn a_token_bearing_launch_never_matches_its_own_redacted_command_line() {
+    let argv: Vec<String> = vec![
+        "telegram-mcp".to_string(),
+        "--bot-token".to_string(),
+        "8891234567:AAH-not-a-real-token".to_string(),
+    ];
+    let redacted = observe::sanitise_argv(&argv);
+    assert!(
+        redacted.contains("<redacted>"),
+        "precondition: the redactor must actually redact this shape, got {redacted:?}"
+    );
+
+    assert!(
+        !observe::matches_launch(&redacted, "telegram-mcp", &argv[1..]),
+        "this is the defect, stated as a fact: matched against the redacted line, \
+         the one server Rule 2 names reads as not running"
+    );
+}
+
+/// And the fix, against a real process on this machine carrying a
+/// secret-shaped flag in its argv. This is the ONLY control that separates a
+/// raw comparison from a redacted one: a fixture without a secret matches
+/// either way, so rewiring that function back to `running_processes()` would
+/// go unnoticed by every other test here.
+///
+/// The fixture blocks on `read`, a shell BUILTIN, so `sh` forks nothing. Two
+/// reasons, both learned the hard way in the first draft, which used
+/// `sleep 987654`:
+///
+/// - Killing `sh` does not kill a grandchild, so the sleep outlived the test —
+///   the orphan class Task 3's fix round already cleaned 107 of.
+/// - That orphan inherited the test binary's stdout, so `cargo test | tail`
+///   never saw EOF and the whole run hung until the sleep's 987654 seconds
+///   were up.
+///
+/// stdin is a pipe the test holds open and never writes to; stdout and stderr
+/// are null, so nothing can hold a pipe open even if this fixture ever does
+/// fork.
+#[test]
+fn launch_is_running_finds_a_process_whose_arguments_carry_a_secret() {
+    use std::process::Stdio;
+
+    let script = ": --bot-token 8891234567:AAH-hanger-observe-fixture; read _line";
+    let mut child = std::process::Command::new("/bin/sh")
+        .arg("-c")
+        .arg(script)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()
+        .expect("fixture must start");
+
+    // Poll rather than sleep a fixed amount. A spawn takes a moment to appear
+    // in the process table, and a single 300ms wait is a coin toss on a loaded
+    // machine — this run shares a box with `tauri dev` rebuilding. Observed
+    // failing exactly that way once before this became a deadline.
+    let args = vec!["-c".to_string(), script.to_string()];
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+    let mut found = false;
+    while std::time::Instant::now() < deadline {
+        if launch_is_running("/bin/sh", &args) {
+            found = true;
+            break;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(100));
+    }
+
+    // Kill before asserting, so a failure cannot leave the fixture behind.
+    let _ = child.kill();
+    let _ = child.wait();
+
+    assert!(
+        found,
+        "the raw-argv comparison must see a launch that the redacted one cannot"
+    );
+}
+
+/// The other direction, so the check above is not merely "returns true".
+#[test]
+fn launch_is_running_says_no_to_a_launch_nothing_is_running() {
+    assert!(!launch_is_running(
+        "hanger-observe-nothing-runs-this",
+        &["--never".to_string()]
+    ));
+}
