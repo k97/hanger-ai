@@ -544,7 +544,7 @@ rename; code touching these keeps them apart.
 
 ## Rule 2 cannot see an `npx` server (2026-08-19)
 
-**F29 — a launch spelled `npx` never matches its own running process, so
+**F52 — a launch spelled `npx` never matches its own running process, so
 `cached_probe`'s live check permits a spawn it should decline.**
 
 Rule 2 — never auto-probe a server that is already running — rests entirely on
