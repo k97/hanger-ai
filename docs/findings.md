@@ -556,8 +556,8 @@ which is the failure it exists to avoid (`observe.rs`, its doc comment).
 
 `npx` re-executes itself as `npm exec`. The declaration and the process
 therefore share no text at all. Measured against this machine's live process
-table on 2026-08-19, seven MCP servers running under `npx` declarations, none
-matched:
+table on 2026-08-19 — **six distinct `npx` specs, 30 running processes between
+them**, every one reading as not running:
 
 ```
 running="npm exec @modelcontextprotocol/server-memory@2026.1.26"
@@ -580,12 +580,21 @@ is harmless — each host spawns its own private child and six concurrent copies
 is routine (`freshness.rs`, module docs). It is not harmless for a server that
 tolerates exactly one instance, which is the entire reason Rule 2 exists.
 
-**What IS fixed, and why this is narrower than it was.** The sibling defect —
-a launch carrying a credential failing to match because the process line had
-been redacted — was closed the same day: `launch_is_running` compares against
-raw argv inside `observe`, so `telegram-mcp --bot-token <token>` now matches
-itself. `anthropics/claude-code#40220`, the issue Rule 2 cites, is that shape,
-and it is covered. This entry is the remaining `npx` shape.
+**What IS fixed, and the qualifier that matters.** The sibling defect — a
+launch carrying a credential failing to match because the process line had been
+redacted — was closed the same day: `launch_is_running` compares against raw
+argv inside `observe`, so a directly-declared `telegram-mcp --bot-token <token>`
+now matches itself.
+
+**The two blind spots compose, and this one wins.** A Telegram MCP declared the
+ordinary way — `npx telegram-mcp --bot-token <token>` — is still not matched,
+because `npx` never appears in the process line and the redaction fix is
+irrelevant to that. So `anthropics/claude-code#40220` is covered only where the
+server is *not* npx-declared, and npx is the dominant declaration form for Node
+MCP servers: all six specs above are npx, and none of them match. Stating
+"#40220 is covered" without this qualifier would be an overclaim in the
+security-relevant direction, in the same document that records the defeating
+condition.
 
 **Why it is not fixed here.** Bridging `npx foo` to `npm exec foo` means either
 teaching the matcher a launcher-specific rewrite table (npx, uvx, bunx, pnpm

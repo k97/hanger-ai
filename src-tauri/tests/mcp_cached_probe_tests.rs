@@ -507,7 +507,20 @@ async fn the_shipped_entry_point_consults_the_real_process_table() {
         .stderr(Stdio::null())
         .spawn()
         .expect("fixture must start");
-    std::thread::sleep(std::time::Duration::from_millis(300));
+
+    // Poll until the fixture is visible, rather than sleeping a fixed amount
+    // and hoping. The identical construct in `mcp_observe_tests.rs` was a
+    // measured flake (32/1 then 33/0 while `tauri dev` rebuilt alongside), and
+    // this one fails WORSE: a miss does not merely assert false, it lets
+    // `cached_probe` spawn and pay the probe's full 20s timeout, so it goes
+    // red after ~20s looking exactly like the seam mutation below — a false
+    // signal pointing at the wrong bug.
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+    while std::time::Instant::now() < deadline
+        && !tauri_app_lib::mcp::observe::launch_is_running("/bin/sleep", &["987654".to_string()])
+    {
+        std::thread::sleep(std::time::Duration::from_millis(100));
+    }
 
     let server = McpServer {
         command: "/bin/sleep".to_string(),

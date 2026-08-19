@@ -581,3 +581,124 @@ fn launch_is_running_says_no_to_a_launch_nothing_is_running() {
         &["--never".to_string()]
     ));
 }
+
+// ---------------------------------------------------------------------------
+// Containment: the raw-argv path has no way to emit what it reads.
+//
+// `launch_is_running` runs `contains` against unredacted process command
+// lines, and those genuinely carry secrets — measured on this machine, 59 of
+// 983 processes have `KEY=value` elements in argv, five of them holding a live
+// `CLAUDE_CODE_MESSAGING_TOKEN`. That is safe today for one reason and one
+// reason only: the function has no output channel. It returns `bool`,
+// `matches_launch` is a substring test with no panic path, nothing in the
+// module logs, and no struct carries the raw line.
+//
+// Every part of that is a property of the current source and none of it was
+// enforced. A `tracing::debug!` added while chasing a bug, a return widened to
+// `Option<String>` to say WHICH process matched, a `#[derive(Debug)]` on
+// something holding the line — each ships a token and fails no test.
+// `invariants.md` records that this exact shape, a comment asserting a
+// property no test exercises, is how a bearer token shipped once already, out
+// of these very two redactors.
+//
+// Written in the idiom `agent_attribution_tests.rs` established for lib.rs
+// (`include_str!` plus brace-depth isolation of one function's own body), so a
+// match in a neighbouring function can never satisfy it.
+// ---------------------------------------------------------------------------
+
+const OBSERVE_SRC: &str = include_str!("../src/mcp/observe.rs");
+
+/// `launch_is_running`'s own body, isolated by brace depth.
+fn launch_is_running_body() -> &'static str {
+    let start = OBSERVE_SRC
+        .find("pub fn launch_is_running(")
+        .expect("launch_is_running must exist in observe.rs — if it moved, this guard moved with it");
+    let body_start = OBSERVE_SRC[start..]
+        .find('{')
+        .map(|i| start + i)
+        .expect("launch_is_running must have a body");
+
+    let mut depth: i32 = 0;
+    for (offset, ch) in OBSERVE_SRC[body_start..].char_indices() {
+        match ch {
+            '{' => depth += 1,
+            '}' => {
+                depth -= 1;
+                if depth == 0 {
+                    return &OBSERVE_SRC[body_start..body_start + offset + 1];
+                }
+            }
+            _ => {}
+        }
+    }
+    panic!("launch_is_running's body has unbalanced braces");
+}
+
+/// The return type is the containment. A `bool` cannot carry a command line
+/// out; anything else can.
+#[test]
+fn launch_is_running_still_returns_only_a_bool() {
+    assert!(
+        OBSERVE_SRC.contains("pub fn launch_is_running(command: &str, args: &[String]) -> bool {"),
+        "launch_is_running's signature changed. It reads unredacted process command lines, so its \
+         return type is what stops one leaving the module — widening it to name WHICH process \
+         matched hands a caller the raw line, secrets included."
+    );
+}
+
+/// Nothing in that body may print, log, or otherwise emit.
+#[test]
+fn the_raw_argv_path_cannot_emit_what_it_reads() {
+    let body = launch_is_running_body();
+    for emitter in [
+        "println!", "eprintln!", "print!", "eprint!", "dbg!", "write!", "writeln!",
+        "log::", "tracing::", "info!", "debug!", "warn!", "error!", "trace!",
+    ] {
+        assert!(
+            !body.contains(emitter),
+            "launch_is_running's body contains `{emitter}`. It reads UNREDACTED command lines — \
+             59 of 983 processes on the machine this was written on carried KEY=value argv \
+             elements, five with a live token. Nothing here may emit."
+        );
+    }
+}
+
+/// The raw read must stay inside the function this guard checks. Moving it to
+/// a helper would leave the two tests above passing over a body that no longer
+/// touches raw argv, which is `verification.md`'s "moving a symbol disarms a
+/// guard that reads it as text".
+#[test]
+fn the_raw_argv_read_has_not_moved_out_of_the_function_that_is_guarded() {
+    assert!(
+        launch_is_running_body().contains(".cmd()"),
+        "launch_is_running no longer reads argv directly — if the raw read moved to a helper, \
+         point the emit guard above at the helper too, or it is guarding an empty room"
+    );
+    assert_eq!(
+        OBSERVE_SRC.matches(".cmd()").count(),
+        2,
+        "observe.rs reads raw argv in exactly two places: running_processes, which redacts before \
+         anyone sees it, and launch_is_running, which compares and returns a bool. A third read is \
+         a new path for an unredacted command line and needs its own containment argument."
+    );
+}
+
+/// The other end of the boundary: the field that IS rendered may only ever be
+/// filled by the redactor. `RunningProcess.command_line` crosses IPC and
+/// reaches the screen.
+#[test]
+fn the_rendered_command_line_is_only_ever_the_redacted_one() {
+    let assignments: Vec<&str> = OBSERVE_SRC
+        .lines()
+        .filter(|l| l.trim_start().starts_with("command_line:"))
+        .collect();
+    assert!(!assignments.is_empty(), "the field must still exist for this guard to mean anything");
+    for line in assignments {
+        let value = line.trim();
+        assert!(
+            value.contains("sanitise_argv(") || value.contains("p.command_line.clone()"),
+            "`{value}` fills a rendered field from something other than the redactor. \
+             RunningProcess.command_line is serialised across IPC and shown in the panel."
+        );
+    }
+}

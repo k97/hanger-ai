@@ -269,12 +269,13 @@ pub fn matches_launch(command_line: &str, command: &str, args: &[String]) -> boo
 /// declaration, and no comparison of the two strings can bridge that.
 pub fn launch_is_running(command: &str, args: &[String]) -> bool {
     let mut sys = System::new();
+    // `cmd` only — see `running_processes` for the measurement that retired
+    // the `environ` flag. This is the panel-open path, so the ~4ms it cost is
+    // paid every time a server is opened, for no measured effect.
     sys.refresh_processes_specifics(
         ProcessesToUpdate::All,
         true,
-        ProcessRefreshKind::nothing()
-            .with_cmd(UpdateKind::Always)
-            .with_environ(UpdateKind::Always),
+        ProcessRefreshKind::nothing().with_cmd(UpdateKind::Always),
     );
 
     sys.processes().values().any(|proc_| {
@@ -290,24 +291,35 @@ pub fn launch_is_running(command: &str, args: &[String]) -> bool {
 /// Every process currently running, redacted.
 pub fn running_processes() -> Vec<RunningProcess> {
     let mut sys = System::new();
-    // Two non-obvious requirements, both found by reading the live table.
+    // `cmd` is required: `refresh_processes` does NOT populate the command
+    // line — it refreshes memory, cpu, disk usage and exe. Every argv then
+    // reads as "" and the whole feature silently reports nothing running and
+    // nothing unaccounted, with no error anywhere.
     //
-    // `cmd`: `refresh_processes` does NOT populate the command line — it
-    // refreshes memory, cpu, disk usage and exe. Every argv then reads as ""
-    // and the whole feature silently reports nothing running and nothing
-    // unaccounted, with no error anywhere.
+    // `environ` USED to be requested here too, under a comment claiming that
+    // macOS returns argv and the environment in one buffer and that asking for
+    // cmd alone appends the whole environment to every command line. Measured
+    // 2026-08-19 on sysinfo 0.39.6 / macOS 26.5.2 (build 25F84), comparing the
+    // two refreshes by pid across 971 processes:
     //
-    // `environ`: macOS returns argv and the environment in one buffer, and
-    // sysinfo only knows where to cut when environ is refreshed too. Ask for
-    // cmd alone and the entire environment is appended to every command line.
-    // Nothing here reads `environ()`; it is requested so that `cmd()` is
-    // correct, and `sanitise_argv` rejects the assignment shape regardless.
+    //   cmd() lines differing between with- and without-environ: 0
+    //   argv elements of KEY=value shape:      60 either way
+    //   a live CLAUDE_CODE_MESSAGING_TOKEN:     6 processes, either way
+    //   refresh cost:                          15ms with, 11ms without
+    //
+    // So the flag changed nothing, and — the part that matters — the token is
+    // in `cmd()` whether it is set or not, because those processes genuinely
+    // carry it in their own argv. The flag was never what kept the environment
+    // out. `sanitise_argv`'s `is_env_assignment` filter is, and
+    // `no_observed_command_line_carries_an_environment_assignment` is the live
+    // control over that: it reads the real table and fails if any rendered
+    // command line carries an assignment. If a future sysinfo or macOS does
+    // start appending the environment, that test is what says so — a control
+    // that fires, rather than a flag nobody can tell is working.
     sys.refresh_processes_specifics(
         ProcessesToUpdate::All,
         true,
-        ProcessRefreshKind::nothing()
-            .with_cmd(UpdateKind::Always)
-            .with_environ(UpdateKind::Always),
+        ProcessRefreshKind::nothing().with_cmd(UpdateKind::Always),
     );
 
     sys.processes()
