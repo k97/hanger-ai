@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { openPath, revealItemInDir } from "@tauri-apps/plugin-opener";
-import { ArrowTopRightOnSquareIcon, Square2StackIcon } from "./icons";
+import { RevealInFileManagerIcon, Square2StackIcon } from "./icons";
 import Tooltip from "./Tooltip";
 import MarkdownDoc from "./MarkdownDoc";
 import type { Inventory } from "../App";
@@ -233,7 +233,7 @@ export default function AssetDetail({ asset, inventory, onLink, annotation }: As
               onClick={() => revealItemInDir(parentOf(shownPath)).catch(() => {})}
               className="p-1 rounded-pill grid place-items-center text-ink-3 hover:bg-plane-2 hover:text-ink-1 transition-colors duration-hover cursor-pointer"
             >
-              <ArrowTopRightOnSquareIcon size={13} aria-hidden="true" />
+              <RevealInFileManagerIcon size={13} aria-hidden="true" />
             </button>
           </Tooltip>
         </div>

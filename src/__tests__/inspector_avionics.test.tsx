@@ -149,14 +149,14 @@ describe("Avionics A5 — Docked Right Inspector Integration", () => {
     expect(screen.queryByText("Nothing selected")).toBeNull();
 
     // Click inspector toggle in header toolbar
-    const toggleBtn = screen.getByLabelText("Toggle inspector");
-    fireEvent.click(toggleBtn);
+    fireEvent.click(screen.getByLabelText("Toggle inspector"));
 
     // Inspector is now open and renders empty state (since no row selected yet)
     await screen.findByText("Nothing selected");
 
-    // Click toggle again to close
-    fireEvent.click(toggleBtn);
+    // Open, the same toggle docks in the inspector's own cap instead of the
+    // toolbar — a fresh query, not the toolbar button's now-unmounted node.
+    fireEvent.click(screen.getByLabelText("Toggle inspector"));
 
     await waitFor(() => {
       expect(screen.queryByText("Nothing selected")).toBeNull();

@@ -2,7 +2,7 @@ import { openUrl, revealItemInDir } from "@tauri-apps/plugin-opener";
 import { MANAGE_URL } from "../utils/mcpServerView";
 import EngineLabel from "./EngineLabel";
 import Tooltip from "./Tooltip";
-import { ArrowPathIcon } from "./icons";
+import { ArrowPathIcon, RevealInFileManagerIcon } from "./icons";
 
 /**
  * The inspector panel for one MCP server.
@@ -383,14 +383,16 @@ export default function McpServerDetail({ server, verified, onVerify, verifying 
                 </span>
                 {/* Naming a file without letting you reach it is the same dead
                     end the connector state had. */}
-                <button
-                  type="button"
-                  aria-label={`Reveal ${reg.configPath}`}
-                  onClick={() => revealItemInDir(reg.configPath).catch(() => {})}
-                  className="shrink-0 text-micro font-mono text-ink-3 px-1.5 rounded-pill cursor-pointer hover:bg-plane-2 hover:text-ink-1 transition-colors duration-hover"
-                >
-                  reveal
-                </button>
+                <Tooltip label="Reveal in Finder" placement="bottom">
+                  <button
+                    type="button"
+                    aria-label={`Reveal ${reg.configPath}`}
+                    onClick={() => revealItemInDir(reg.configPath).catch(() => {})}
+                    className="shrink-0 p-1 rounded-pill grid place-items-center text-ink-3 hover:bg-plane-2 hover:text-ink-1 transition-colors duration-hover cursor-pointer"
+                  >
+                    <RevealInFileManagerIcon size={13} aria-hidden="true" />
+                  </button>
+                </Tooltip>
               </div>
               {/* What it launches. Without this the panel could not show the
                   divergence it was designed to surface, and could not answer

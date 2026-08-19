@@ -43,6 +43,8 @@ import {
   ShieldCheckIcon,
   SpinnerIcon,
   ArrowPathIcon,
+  CollapseIcon,
+  ExpandIcon,
   PanelLeftIcon,
   PanelRightIcon
 } from "./components/icons";
@@ -302,6 +304,9 @@ export default function App() {
   // 384 is the prototype's --inspector and the floor: narrower truncates the
   // link-flow preview paths, the one thing that panel exists to show.
   const [inspectorWidth, setInspectorWidth] = useState<number>(384);
+  // A per-session "zoom", not a saved layout choice — deliberately not
+  // persisted to preferences, and always reset when the inspector closes.
+  const [inspectorExpanded, setInspectorExpanded] = useState<boolean>(false);
   // Toolbar filter — narrows the visible rows of the active pane by name.
   const [filterText, setFilterText] = useState<string>("");
   // Discovery's category facet — owned here because DiscoverySidebar sets it
@@ -430,9 +435,15 @@ export default function App() {
     setInspectorOpen((prev) => {
       const next = !prev;
       invoke("set_preference", { key: "inspector_open", value: String(next) }).catch(() => {});
+      if (!next) {
+        setSelectedBubble(null);
+        setInspectorExpanded(false);
+      }
       return next;
     });
   };
+
+  const toggleInspectorExpanded = () => setInspectorExpanded((prev) => !prev);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -1021,13 +1032,6 @@ export default function App() {
     <div data-tauri-drag-region className="absolute inset-0" aria-hidden="true" />
   );
 
-  // One close for every inspector variant: the cap owns it, the bodies do not.
-  const closeInspector = () => {
-    setInspectorOpen(false);
-    invoke("set_preference", { key: "inspector_open", value: "false" }).catch(() => {});
-    setSelectedBubble(null);
-  };
-
   // The inspector column resizes as one surface regardless of which body it
   // is showing. 384 is the floor: below it the link-flow preview paths — the
   // one thing the panel exists to show — truncate.
@@ -1232,7 +1236,7 @@ export default function App() {
         </div>
       </div>
 
-      <main className="flex-1 flex flex-col min-w-0 h-full relative overflow-hidden bg-page">
+      <main className={`${inspectorExpanded ? "hidden" : "flex-1 flex flex-col min-w-0 h-full relative overflow-hidden bg-page"}`}>
         {/* Content cap: breadcrumb left; filter and inspector toggle right.
             A <header> on purpose — it is the content column's banner, and the
             toolbar guards assert against that landmark. */}
@@ -1324,12 +1328,15 @@ export default function App() {
                   />
                 </button>
               </Tooltip>
-            ) : selectedSidebarItem !== "discovery" && selectedSidebarItem !== "design" && (
+            ) : selectedSidebarItem !== "discovery" && selectedSidebarItem !== "design" && !inspectorOpen && (
+              // Open, this same control moves into the inspector column's own
+              // cap — one toggle, always at the window's trailing edge,
+              // rather than a second button appearing beside it.
               <Tooltip label="Toggle inspector" placement="bottom">
                 <button
                   onClick={toggleInspector}
                   aria-label="Toggle inspector"
-                  className={inspectorOpen ? tbBtnActiveClass : tbBtnClass}
+                  className={tbBtnClass}
                 >
                   <PanelRightIcon size={15} aria-hidden="true" />
                 </button>
@@ -1523,22 +1530,23 @@ export default function App() {
         </main>
 
       {/* ══ Inspector column: one surface with its own cap regardless of
-          which body it is showing. The cap owns the eyebrow and the close;
-          the resize handle spans the whole column so every variant sizes
-          the same way. ══ */}
+          which body it is showing. The resize handle spans the whole column
+          so every variant sizes the same way. ══ */}
       {inspectorOpen &&
         selectedSidebarItem !== "discovery" &&
         selectedSidebarItem !== "linkmap" &&
         selectedSidebarItem !== "design" &&
         (selectedSidebarItem === "review" || inventory) && (
         <aside
-          style={{ width: inspectorWidth }}
-          className="shrink-0 h-full min-h-0 border-l border-line bg-page flex flex-col relative"
+          style={inspectorExpanded ? undefined : { width: inspectorWidth }}
+          className={`shrink-0 h-full min-h-0 border-l border-line bg-page flex flex-col relative ${inspectorExpanded ? "flex-1" : ""}`}
         >
-          <div
-            onMouseDown={handleInspectorResizeStart}
-            className="absolute top-0 bottom-0 left-0 w-1.5 cursor-col-resize hover:bg-line-2 active:bg-line-2 z-10 transition-colors duration-hover"
-          />
+          {!inspectorExpanded && (
+            <div
+              onMouseDown={handleInspectorResizeStart}
+              className="absolute top-0 bottom-0 left-0 w-1.5 cursor-col-resize hover:bg-line-2 active:bg-line-2 z-10 transition-colors duration-hover"
+            />
+          )}
           <div
             data-tauri-drag-region
             className="relative h-10 shrink-0 flex items-center pl-[18px] pr-3 select-none font-flex text-micro font-medium tracking-[.06em] uppercase text-ink-3"
@@ -1546,17 +1554,37 @@ export default function App() {
             {/* No label. "Inspector" named the furniture, not the contents,
                 and the panel's own eyebrow already says what is being
                 inspected — so the word cost a row and told you nothing. The
-                row itself stays: it is the window drag region for this column
-                and it holds the close control, and its height keeps the panel
-                aligned with the toolbar beside it. */}
+                row itself stays: it is the window drag region for this
+                column, and its height keeps the panel aligned with the
+                toolbar beside it. */}
             {capDragOverlay}
-            <button
-              onClick={closeInspector}
-              aria-label="Close inspector"
-              className="relative ml-auto w-[27px] h-[27px] rounded-pill grid place-items-center text-ink-3 hover:bg-plane-2 hover:text-ink-1 transition-colors duration-hover ease-spring cursor-pointer"
-            >
-              <XMarkIcon size={13} aria-hidden="true" />
-            </button>
+            {/* The same toggle that lives in the toolbar when this column is
+                closed. Docking it here while open, rather than leaving it in
+                the toolbar and adding a second close control, keeps one
+                control at the window's trailing edge instead of two doing
+                the same job from different places. */}
+            <Tooltip label={inspectorExpanded ? "Collapse inspector" : "Expand inspector"} placement="bottom">
+              <button
+                onClick={toggleInspectorExpanded}
+                aria-label={inspectorExpanded ? "Collapse inspector" : "Expand inspector"}
+                className={`ml-auto ${tbBtnClass}`}
+              >
+                {inspectorExpanded ? (
+                  <CollapseIcon size={15} aria-hidden="true" />
+                ) : (
+                  <ExpandIcon size={15} aria-hidden="true" />
+                )}
+              </button>
+            </Tooltip>
+            <Tooltip label="Toggle inspector" placement="bottom">
+              <button
+                onClick={toggleInspector}
+                aria-label="Toggle inspector"
+                className={tbBtnActiveClass}
+              >
+                <PanelRightIcon size={15} aria-hidden="true" />
+              </button>
+            </Tooltip>
           </div>
           <div className="flex-1 min-h-0 flex flex-col">
             {selectedSidebarItem === "review" ? (

@@ -8,9 +8,14 @@
  * lands on screen at roughly 1px whatever the size — the weight the mono-tight
  * prototype was drawn against.
  *
- * Four marks have no Heroicons equivalent and stay on lucide: the two titlebar
- * panel toggles, the nested-repo folder, and the diff-merge header. They run
- * through the same size/stroke table so they sit at the same weight.
+ * Six marks have no Heroicons equivalent and stay on lucide: the two titlebar
+ * panel toggles, the nested-repo folder, the diff-merge header, and the
+ * inspector's expand/collapse pair. They run through the same size/stroke
+ * table so they sit at the same weight.
+ *
+ * One mark is hand-drawn rather than pulled from a set: the OS file-manager
+ * glyph (`RevealInFileManagerIcon`), because it draws the current platform's
+ * actual file manager rather than a generic folder.
  */
 import type { ComponentType, SVGProps } from "react";
 import {
@@ -54,6 +59,8 @@ import {
   FolderSymlink as LucideFolderSymlink,
   FolderTree as LucideFolderTree,
   GitMerge as LucideGitMerge,
+  Maximize2 as LucideMaximize2,
+  Minimize2 as LucideMinimize2,
   PanelLeft as LucidePanelLeft,
   PanelRight as LucidePanelRight,
 } from "lucide-react";
@@ -150,3 +157,42 @@ export const FolderTreeIcon = sized(LucideFolderTree as SvgIcon);
 export const GitMergeIcon = sized(LucideGitMerge as SvgIcon);
 export const PanelLeftIcon = sized(LucidePanelLeft as SvgIcon);
 export const PanelRightIcon = sized(LucidePanelRight as SvgIcon);
+/** The inspector's expand/collapse pair — Lucide's corner-arrow marks, not
+ *  Heroicons' `ArrowsPointingOutIcon` above, which LinkMapPane already owns
+ *  for an unrelated affordance. */
+export const ExpandIcon = sized(LucideMaximize2 as SvgIcon);
+export const CollapseIcon = sized(LucideMinimize2 as SvgIcon);
+
+/**
+ * macOS Finder's mark, traced at the same 24px grid as the Heroicons set.
+ * `stroke` sits on the root and every path inherits it, so `currentColor`
+ * and the shared stroke-width table apply exactly as they do above.
+ */
+function FinderMark({ width, height, strokeWidth, ...props }: SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={strokeWidth}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      width={width}
+      height={height}
+      {...props}
+    >
+      <path d="M12.5 1.5c-0.833 2 -2.5 7.2 -2.5 12h3c0 2.537 0.2 6.6 1 9" />
+      <path d="M6.5 7.5v2" />
+      <path d="M16.5 7.5v2" />
+      <path d="M5.5 15.5c0.667 1 2.9 3 6.5 3s5.667 -2 6.5 -3" />
+      <path d="M1.5 18.5v-13a4 4 0 0 1 4 -4h13a4 4 0 0 1 4 4v13a4 4 0 0 1 -4 4h-13a4 4 0 0 1 -4 -4Z" />
+    </svg>
+  );
+}
+
+/**
+ * Reveals a path in the OS's native file manager — Finder today. One
+ * component, one place to redraw when Explorer or a Linux file manager
+ * needs its own mark; call sites never change.
+ */
+export const RevealInFileManagerIcon = sized(FinderMark);
