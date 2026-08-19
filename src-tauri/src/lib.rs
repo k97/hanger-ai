@@ -313,45 +313,6 @@ fn link_directory(app: AppHandle, path: String) -> Result<String, String> {
     Ok(crate::preferences::PreferencesStore::canonical_root_path(&path))
 }
 
-/// Start a private copy of ONE registration's server, ask what it provides, and
-/// stop it.
-///
-/// Takes a registration key rather than a launch. Two reasons: the frontend no
-/// longer holds `args` at all, because a config file can carry a bearer token in
-/// them (spec §4.1); and the caller used to hand over `matches[0]`, an arbitrary
-/// registration whenever hosts launch the same server differently.
-///
-/// Always `Ok` on a failed handshake — the failure is reported inside
-/// `ProbeResult.error` so the panel can explain itself rather than showing an
-/// unaccountably empty list. `Err` means the key matched nothing.
-#[tauri::command]
-async fn mcp_probe(
-    _app: AppHandle,
-    registration_key: String,
-) -> Result<crate::mcp::probe::ProbeResult, String> {
-    // registration_key already names the one config file this registration
-    // came from (`"{config_path}:{server_name}"`) — `resolve_registration`
-    // reads only that file. This used to run the full `run_scan` walk first,
-    // measured at 11.2s on a real machine; the handshake itself measures
-    // 100ms-1.3s, so that walk was the whole freeze.
-    let registration = crate::mcp::discover::resolve_registration(&registration_key)?;
-    let server = registration.server;
-
-    // 20s is generous for a handshake and short enough that a wedged server
-    // does not look like a frozen panel.
-    let timeout = std::time::Duration::from_secs(20);
-
-    // A remote server is dialled, not launched. Routing on the transport keeps
-    // one Verify control meaning one thing to the user, whatever the server is.
-    let url = Some(server.transport.clone())
-        .filter(|t| t.starts_with("http://") || t.starts_with("https://"));
-
-    Ok(match (server.command.trim().is_empty(), url) {
-        (true, Some(u)) => crate::mcp::probe::probe_http(&u, timeout).await,
-        _ => crate::mcp::probe::probe(&server.command, &server.args, timeout).await,
-    })
-}
-
 /// What the panel gets back when it asks a registration what it provides.
 ///
 /// `result` is `None` on exactly one path: the server is already running,
@@ -1650,7 +1611,6 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             link_directory,
             unlink_directory,
-            mcp_probe,
             mcp_cached_probe,
             get_mcp_processes,
             get_mcp_servers,
