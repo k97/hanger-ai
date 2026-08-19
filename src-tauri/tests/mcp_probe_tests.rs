@@ -58,6 +58,56 @@ async fn probe_reports_identity_and_tools() {
     assert_eq!(r.tools[0].description.as_deref(), Some("does alpha"));
 }
 
+/// MCP's Shutdown/stdio steps are: close stdin, wait, THEN escalate to
+/// SIGTERM, wait again, THEN SIGKILL. `Child::kill()` alone sends only
+/// SIGKILL. A script that traps SIGTERM and writes a marker before exiting
+/// proves the escalation happened — under a SIGKILL-only shutdown the trap
+/// never runs and the marker never appears. The script ignores stdin EOF (it
+/// loops on `sleep` after the read loop ends) so the marker can only be
+/// evidence of SIGTERM, not of step 1 alone.
+#[cfg(unix)]
+#[tokio::test]
+async fn shutdown_escalates_to_sigterm_before_sigkill() {
+    let dir = tempfile::tempdir().unwrap();
+    let marker = dir.path().join("sigterm-received");
+    let body = r#"#!/bin/sh
+MARKER="$1"
+trap 'touch "$MARKER"; exit 0' TERM
+while IFS= read -r line; do
+  case "$line" in
+    *'"initialize"'*)
+      printf '%s\n' '{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":"2025-06-18","capabilities":{"tools":{}},"serverInfo":{"name":"fake","version":"9.9.9"}}}' ;;
+    *'"tools/list"'*)
+      printf '%s\n' '{"jsonrpc":"2.0","id":2,"result":{"tools":[]}}' ;;
+  esac
+done
+# stdin closed (EOF): the read loop above ends, but stay alive so the only
+# way out is a signal — proving escalation, not merely stdin closing.
+# `sleep N & wait` rather than a `sleep 1` poll loop: this macOS /bin/sh is
+# bash 3.2, whose trap dispatch inside a `sleep`-poll loop is only checked
+# once the running `sleep` returns, adding up to ~1s of pure shell artifact
+# to the marker's arrival with no bearing on real signal latency. Blocking
+# in `wait` instead measured at ~30ms trap-to-marker latency across 13 runs
+# on this machine — that is what SHUTDOWN_TERM_WAIT is sized against.
+sleep 3600 &
+wait
+"#;
+    let s = write_script(dir.path(), "sigterm_trap.sh", body);
+
+    let r = probe::probe(
+        &s,
+        &[marker.to_string_lossy().to_string()],
+        Duration::from_secs(10),
+    )
+    .await;
+
+    assert_eq!(r.error, None, "probe errored: {:?}", r.error);
+    assert!(
+        marker.exists(),
+        "server never received SIGTERM — shutdown went straight to SIGKILL"
+    );
+}
+
 #[cfg(unix)]
 #[tokio::test]
 async fn probe_times_out_instead_of_hanging_the_ui() {
@@ -76,6 +126,74 @@ async fn probe_times_out_instead_of_hanging_the_ui() {
         started.elapsed()
     );
     assert!(r.tools.is_empty());
+}
+
+/// `probe()`'s own `tokio::time::timeout` unwinds through cancellation, not
+/// through `exchange`'s own `return`s — the one exit path that cannot run
+/// cleanup code placed inside the cancelled future. A server that never
+/// answers the handshake exercises exactly that unwind.
+///
+/// This deliberately does not use a SIGTERM trap the way
+/// `shutdown_escalates_to_sigterm_before_sigkill` does. A trap (or a script
+/// self-reporting its own pid) requires the shell to have been *scheduled*
+/// long enough to run that line before the signal arrives, and under this
+/// suite's own parallelism — several tests spawning real child processes at
+/// once — that scheduling measurably lags: a marker placed on the very first
+/// line of a script sometimes did not appear within seconds under load, even
+/// though `probe()` itself always returned on schedule (confirmed by
+/// spawning 15 concurrent probes against a pid-self-reporting script: `elapsed`
+/// clustered tightly around 700ms in every run, but the pid file was often
+/// never written at all). `shutdown`'s own waits run as timers in *this*
+/// process, unaffected by the child's scheduling; only the child's ability to
+/// run its own code is affected. So this test proves the same thing two ways
+/// that do not depend on the child ever being scheduled to run anything:
+///
+/// - **Elapsed time.** `shutdown` deliberately waits ~500ms for the server to
+///   exit before escalating to `SIGTERM`. The bare `child.kill()` this task
+///   replaces returns near-instantly once the exchange's own 200ms timeout
+///   fires, with no such wait coded. A silent server that never exits on its
+///   own must therefore make `probe()` take meaningfully longer than 200ms —
+///   proving the wait ran, not just that *some* kill eventually happened.
+/// - **No leak.** `pgrep -f` against the script's own (uniquely
+///   `tempfile`-generated) path queries the kernel's process table directly,
+///   which records a still-running process regardless of whether that
+///   process ever got scheduled to execute a single one of its own
+///   instructions — unlike a marker file, which needs exactly that.
+#[cfg(unix)]
+#[tokio::test]
+async fn probe_that_times_out_still_stops_the_child_via_shutdown() {
+    let dir = tempfile::tempdir().unwrap();
+    // Never answers initialize or tools/list, and never exits on stdin EOF —
+    // probe()'s own timeout must fire, then shutdown must wait, then escalate.
+    let s = write_script(
+        dir.path(),
+        "silent_forever.sh",
+        "#!/bin/sh\nwhile IFS= read -r line; do :; done\nsleep 3600 &\nwait\n",
+    );
+
+    let started = std::time::Instant::now();
+    let r = probe::probe(&s, &[], Duration::from_millis(200)).await;
+    let elapsed = started.elapsed();
+
+    assert!(r.error.is_some(), "a silent server must time out with an error");
+    assert!(
+        elapsed >= Duration::from_millis(400),
+        "shutdown returned in {:?} — too fast to have waited for the server \
+         to exit before escalating; looks like a bare kill() again",
+        elapsed
+    );
+    assert!(
+        elapsed < Duration::from_secs(3),
+        "shutdown after timeout must still be bounded: took {:?}",
+        elapsed
+    );
+
+    let leaked = std::process::Command::new("pgrep")
+        .args(["-f", &s])
+        .output()
+        .map(|o| !o.stdout.is_empty())
+        .unwrap_or(false);
+    assert!(!leaked, "a process matching `{}` is still running after probe() returned — leaked", s);
 }
 
 #[cfg(unix)]

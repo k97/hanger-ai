@@ -33,6 +33,10 @@ blake3 = "1.5"
 sysinfo = { version = "0.39", default-features = false, features = ["system"] }
 similar = { version = "2.5", features = ["inline"] }
 tokio = { version = "1", features = ["full"] }
+# Already resolved transitively via tokio (0.2.186 in Cargo.lock); named
+# explicitly because src/mcp/probe.rs calls libc::kill directly to send a
+# probed server SIGTERM before escalating to SIGKILL.
+libc = "0.2"
 tempfile = "3.10"
 rusqlite = { version = "0.31", features = ["bundled"] }
 sentry = "0.34"

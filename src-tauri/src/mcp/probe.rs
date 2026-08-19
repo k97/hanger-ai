@@ -18,7 +18,34 @@ use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
-use tokio::process::Command;
+use tokio::process::{Child, ChildStdin, ChildStdout, Command};
+
+/// First bounded wait in `shutdown`: after closing stdin, how long to give
+/// the server to exit on its own before escalating to `SIGTERM`. Measured on
+/// this machine: a cooperative server (this module's own test fixtures)
+/// exits within single-digit milliseconds of stdin closing, and a real
+/// handshake against spades-audio/mcp-server-tauri totals 100ms-1.3s
+/// end-to-end. 500ms costs nothing on the common path — `wait_briefly`
+/// returns as soon as the child exits, not at the deadline — and only a
+/// wedged server ever pays it.
+const SHUTDOWN_WAIT: Duration = Duration::from_millis(500);
+
+/// Second bounded wait in `shutdown`: after `SIGTERM`, how long to give the
+/// server to act on it before `SIGKILL`. A process that traps and handles
+/// `SIGTERM` at all typically unwinds in ~10-30ms on an idle machine
+/// (measured directly against this module's SIGTERM-trap fixture). Set equal
+/// to `SHUTDOWN_WAIT` rather than shorter, on evidence, not the original
+/// 200ms guess: under this suite's own parallelism — several tests spawning
+/// real child processes at once — signal *handling* can lag well past 200ms
+/// even though signal *delivery* does not, because a caught signal needs the
+/// target to be scheduled to run its handler, and a busy machine can delay
+/// that scheduling. 200ms produced real, repeatable failures under
+/// `cargo test`'s own concurrency (not a contrived stress case); 500ms did
+/// not, across repeated full-suite runs. A truly wedged server ignores
+/// `SIGTERM` outright and pays the full window regardless of how long it is,
+/// so the only cost of the larger number is on an already-uncooperative
+/// path, never the common one.
+const SHUTDOWN_TERM_WAIT: Duration = Duration::from_millis(500);
 
 /// The protocol revision Hanger advertises. A server may answer with its own —
 /// `spades-audio` speaks 2025-06-18, `mcp-server-tauri` speaks 2024-11-05 —
@@ -293,19 +320,19 @@ pub async fn probe_http(url: &str, timeout: Duration) -> ProbeResult {
 
 /// Run the exchange, or return a `ProbeResult` carrying the reason it could not.
 ///
-/// The child is killed on every exit path, including timeout and error. A
-/// leaked probe process is worse than a failed probe.
+/// The child is stopped via `shutdown` on every exit path, including timeout
+/// and error. A leaked probe process is worse than a failed probe.
+///
+/// `child` and `stdin` are owned here, not inside `exchange`, and
+/// `shutdown` is called exactly once, unconditionally, right after the
+/// timed call resolves — whichever way it resolves. That is deliberate:
+/// `tokio::time::timeout` cancels `exchange`'s future by dropping it, which
+/// runs no further async code, so a `shutdown` call placed *inside*
+/// `exchange` can never run on the timeout path. Owning the child outside
+/// the timed future is what makes timeout reach the same orderly shutdown
+/// as every other exit, instead of falling back to `kill_on_drop`'s bare
+/// `SIGKILL`.
 pub async fn probe(command: &str, args: &[String], timeout: Duration) -> ProbeResult {
-    match tokio::time::timeout(timeout, exchange(command, args)).await {
-        Ok(result) => result,
-        Err(_) => ProbeResult::failed(format!(
-            "Timed out after {}s waiting for the server to respond",
-            timeout.as_secs_f32()
-        )),
-    }
-}
-
-async fn exchange(command: &str, args: &[String]) -> ProbeResult {
     // stderr is discarded rather than inherited or piped. Servers log freely to
     // it, and an unread pipe fills and deadlocks the child.
     let (program, argv) = split_launch(command, args);
@@ -329,14 +356,74 @@ async fn exchange(command: &str, args: &[String]) -> ProbeResult {
     };
 
     let Some(mut stdin) = child.stdin.take() else {
-        let _ = child.kill().await;
+        shutdown(&mut child, None).await;
         return ProbeResult::failed("Could not open the server's input stream");
     };
     let Some(stdout) = child.stdout.take() else {
-        let _ = child.kill().await;
+        shutdown(&mut child, Some(stdin)).await;
         return ProbeResult::failed("Could not open the server's output stream");
     };
 
+    let outcome = tokio::time::timeout(timeout, exchange(&mut stdin, stdout)).await;
+    shutdown(&mut child, Some(stdin)).await;
+
+    match outcome {
+        Ok(result) => result,
+        Err(_) => ProbeResult::failed(format!(
+            "Timed out after {}s waiting for the server to respond",
+            timeout.as_secs_f32()
+        )),
+    }
+}
+
+/// Stop `child` per the MCP specification's Lifecycle §Shutdown/stdio: close
+/// the input stream, wait for exit or send `SIGTERM` if it does not exit in
+/// time, then `SIGKILL` if `SIGTERM` does not work either.
+/// `tokio::process::Child::kill()` alone is documented as "equivalent to
+/// sending a SIGKILL on unix platforms" — no stdin close, no `SIGTERM` — so
+/// it is reached here only as the last resort, never as the first move.
+/// `kill_on_drop(true)` on the spawned command stays as the backstop for
+/// panics and early returns; this function is the orderly path every normal
+/// exit takes instead.
+async fn shutdown(child: &mut Child, stdin: Option<ChildStdin>) {
+    // Step 1: close the input stream by dropping it.
+    drop(stdin);
+
+    // Step 2: wait for the server to exit on its own.
+    if wait_briefly(child, SHUTDOWN_WAIT).await {
+        return;
+    }
+
+    // Step 2, escalated: SIGTERM, then wait again.
+    if let Some(pid) = child.id() {
+        // SAFETY: `pid` was read from `Child::id()` immediately above, and
+        // `child` is still held here unreaped, so the OS cannot have
+        // recycled this pid to an unrelated process yet — a terminated but
+        // unreaped child stays a zombie holding its pid. `libc::kill` with a
+        // valid pid and SIGTERM cannot cause memory unsafety; its only
+        // failure mode here (ESRCH, the process already exited) is silently
+        // correct — there is nothing left to signal.
+        unsafe {
+            libc::kill(pid as libc::pid_t, libc::SIGTERM);
+        }
+        if wait_briefly(child, SHUTDOWN_TERM_WAIT).await {
+            return;
+        }
+    }
+
+    // Step 3: SIGKILL, waiting for the reap.
+    let _ = child.kill().await;
+}
+
+/// Wait up to `dur` for `child` to exit. `true` if it did within the window.
+async fn wait_briefly(child: &mut Child, dur: Duration) -> bool {
+    matches!(tokio::time::timeout(dur, child.wait()).await, Ok(Ok(_)))
+}
+
+/// The JSON-RPC handshake itself: `initialize`, then `tools/list`. Owns
+/// neither the child process nor its stdin — `probe` retains both so it can
+/// run `shutdown` after this returns, cancels, or times out.
+async fn exchange(stdin: &mut ChildStdin, stdout: ChildStdout) -> ProbeResult {
     let mut lines = BufReader::new(stdout).lines();
     let mut out = ProbeResult::default();
 
@@ -348,8 +435,7 @@ async fn exchange(command: &str, args: &[String]) -> ProbeResult {
             "clientInfo": { "name": "hanger-probe", "version": "0.1" }
         }
     });
-    if let Err(e) = write_line(&mut stdin, &initialize).await {
-        let _ = child.kill().await;
+    if let Err(e) = write_line(stdin, &initialize).await {
         return ProbeResult::failed(format!("Could not send initialize: {}", e));
     }
 
@@ -360,11 +446,9 @@ async fn exchange(command: &str, args: &[String]) -> ProbeResult {
         let line = match lines.next_line().await {
             Ok(Some(l)) => l,
             Ok(None) => {
-                let _ = child.kill().await;
                 return ProbeResult::failed("The server closed its output before answering");
             }
             Err(e) => {
-                let _ = child.kill().await;
                 return ProbeResult::failed(format!("Could not read from the server: {}", e));
             }
         };
@@ -398,10 +482,9 @@ async fn exchange(command: &str, args: &[String]) -> ProbeResult {
                 let list = serde_json::json!({
                     "jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}
                 });
-                if write_line(&mut stdin, &notify).await.is_err()
-                    || write_line(&mut stdin, &list).await.is_err()
+                if write_line(stdin, &notify).await.is_err()
+                    || write_line(stdin, &list).await.is_err()
                 {
-                    let _ = child.kill().await;
                     return ProbeResult::failed("Could not request the tool list");
                 }
             }
@@ -423,7 +506,6 @@ async fn exchange(command: &str, args: &[String]) -> ProbeResult {
                         })
                         .collect();
                 }
-                let _ = child.kill().await;
                 return out;
             }
             _ => continue,
