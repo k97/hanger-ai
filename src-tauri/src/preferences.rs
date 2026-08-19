@@ -549,10 +549,16 @@ impl PreferencesStore {
         // a cached one would go stale the moment a server was upgraded. Keying
         // by launch hash answers that rather than overriding it: a version
         // bump changes the spec, changes the hash, so a stale row would stop
-        // matching a lookup by the new hash. Stated as intent, not present
-        // behaviour: nothing inserts into or reads from this table outside
-        // this migration and its own test yet — no code serves ANY row,
-        // stale or fresh.
+        // matching a lookup by the new hash. That holds for a version-pinned
+        // spec (`npx foo@1.2.3`) but not for a floating one: this machine's
+        // own `~/.claude.json` declares `chrome-devtools-mcp` as
+        // `npx chrome-devtools-mcp@latest`, where the literal spec string
+        // never changes while the resolved package underneath it does —
+        // `launch_hash` stays put across the upgrade and a stale row matches
+        // the new lookup perfectly. v7's `launch_mtime` is what closes that
+        // gap. Stated as intent, not present behaviour: nothing inserts into
+        // or reads from this table outside this migration and its own test
+        // yet — no code serves ANY row, stale or fresh.
         if current_version < 6 {
             let tx = conn.transaction().map_err(|_| {
                 SanitisedError("Failed to start database migration transaction".to_string())
@@ -573,6 +579,56 @@ impl PreferencesStore {
             .map_err(|_| SanitisedError("Database migration failed".to_string()))?;
 
             tx.execute_batch("PRAGMA user_version = 6;")
+                .map_err(|_| SanitisedError("Failed to set user_version".to_string()))?;
+
+            tx.commit().map_err(|_| {
+                SanitisedError("Failed to commit database migration transaction".to_string())
+            })?;
+        }
+
+        // v7: adds freshness columns to `probe_results` so a cached probe
+        // can be trusted without spawning anything. `ttl_ms` and
+        // `cache_scope` come from the MCP 2026-07-28 revision, which allows
+        // `tools/list` results to declare `ttlMs`/`cacheScope`; no server on
+        // this machine sends them yet, which is exactly why both are
+        // nullable — a NULL `ttl_ms` falls back to a default TTL (7 days)
+        // rather than meaning "never expires". `launch_mtime` records the
+        // mtime of the launch target at probe time, so a floating-tag spec
+        // (see the v6 comment above) can still prove freshness: if the
+        // target's mtime has not moved since the row was written, the
+        // resolved package has not changed either, even though `launch_hash`
+        // alone could not tell you that. Purely additive; no data movement.
+        if current_version < 7 {
+            let tx = conn.transaction().map_err(|_| {
+                SanitisedError("Failed to start database migration transaction".to_string())
+            })?;
+
+            // `ALTER TABLE ADD COLUMN`, unlike `CREATE TABLE IF NOT EXISTS`,
+            // errors on a column that already exists — so guard each one,
+            // the same way every earlier block here already tolerates being
+            // replayed against a database that has moved on.
+            let existing_cols: Vec<String> = {
+                let mut stmt = tx.prepare("PRAGMA table_info(probe_results)").map_err(|_| {
+                    SanitisedError("Database query failed during migration".to_string())
+                })?;
+                let rows = stmt.query_map([], |r| r.get::<_, String>(1)).map_err(|_| {
+                    SanitisedError("Database query failed during migration".to_string())
+                })?;
+                rows.flatten().collect()
+            };
+
+            for (col, decl) in [
+                ("ttl_ms", "INTEGER"),
+                ("cache_scope", "TEXT"),
+                ("launch_mtime", "INTEGER"),
+            ] {
+                if !existing_cols.iter().any(|c| c == col) {
+                    tx.execute(&format!("ALTER TABLE probe_results ADD COLUMN {col} {decl};"), [])
+                        .map_err(|_| SanitisedError("Database migration failed".to_string()))?;
+                }
+            }
+
+            tx.execute_batch("PRAGMA user_version = 7;")
                 .map_err(|_| SanitisedError("Failed to set user_version".to_string()))?;
 
             tx.commit().map_err(|_| {

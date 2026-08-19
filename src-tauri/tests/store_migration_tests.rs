@@ -1,5 +1,6 @@
 use std::fs;
 use std::path::Path;
+use rusqlite::Connection;
 use tauri_app_lib::preferences::PreferencesStore;
 
 #[test]
@@ -639,6 +640,119 @@ fn v6_adds_probe_results_table_keyed_by_launch_hash_without_data_loss() {
         [now],
     );
     assert!(dup.is_err(), "launch_hash must be the primary key of probe_results");
+}
+
+#[test]
+fn v7_adds_probe_results_freshness_columns_without_data_loss() {
+    let dir = tempfile::tempdir().unwrap();
+    let db_path = dir.path().join("prefs.db");
+    let now = 1_700_000_000i64;
+
+    // A v6 database with an existing probe_results row — exactly what a
+    // shipped install holds before this migration ships. Built by hand with
+    // a raw connection, not via PreferencesStore::new, because that always
+    // migrates a fresh path straight to the latest version: once the v7
+    // columns exist, forcing user_version back down to 6 and reopening would
+    // replay `ALTER TABLE ... ADD COLUMN` a second time and fail on the
+    // column that is already there. Mirrors the hand-built v3 fixture in
+    // links_writer_tests.rs for the same reason.
+    {
+        let conn = Connection::open(&db_path).unwrap();
+        conn.execute_batch(
+            "CREATE TABLE probe_results (
+                launch_hash TEXT PRIMARY KEY,
+                server_version TEXT,
+                protocol_version TEXT,
+                capabilities TEXT NOT NULL,
+                tools TEXT NOT NULL,
+                error TEXT,
+                verified_at INTEGER NOT NULL
+            );
+            PRAGMA user_version = 6;",
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO probe_results (launch_hash, server_version, protocol_version, capabilities, tools, error, verified_at)
+             VALUES ('deadbeef', '1.0.0', '2024-11-05', '[]', '[\"a\",\"b\"]', NULL, ?1)",
+            [now],
+        )
+        .unwrap();
+    }
+
+    // Reopening runs the v7 migration.
+    let store = PreferencesStore::new(&db_path).unwrap();
+    let conn = store.connect().unwrap();
+
+    let version: i32 = conn.query_row("PRAGMA user_version", [], |r| r.get(0)).unwrap();
+    assert_eq!(version, 7, "user_version must be 7 after the freshness-columns migration");
+
+    // The three new columns exist, all additive, and launch_hash is still
+    // present.
+    let mut stmt = conn.prepare("PRAGMA table_info(probe_results)").unwrap();
+    let cols: Vec<String> = stmt
+        .query_map([], |row| row.get(1))
+        .unwrap()
+        .map(|r| r.unwrap())
+        .collect();
+    for col in &["ttl_ms", "cache_scope", "launch_mtime"] {
+        assert!(
+            cols.contains(&col.to_string()),
+            "Table 'probe_results' missing column {}",
+            col
+        );
+    }
+    assert!(cols.contains(&"launch_hash".to_string()));
+
+    // No data loss: the v6 probe_results row survives with every value
+    // intact, and the new columns are NULL for a row that predates them.
+    let (server_version, protocol_version, capabilities, tools, error, verified_at, ttl_ms, cache_scope, launch_mtime): (
+        String,
+        String,
+        String,
+        String,
+        Option<String>,
+        i64,
+        Option<i64>,
+        Option<String>,
+        Option<i64>,
+    ) = conn
+        .query_row(
+            "SELECT server_version, protocol_version, capabilities, tools, error, verified_at, ttl_ms, cache_scope, launch_mtime
+             FROM probe_results WHERE launch_hash = 'deadbeef'",
+            [],
+            |r| {
+                Ok((
+                    r.get(0)?,
+                    r.get(1)?,
+                    r.get(2)?,
+                    r.get(3)?,
+                    r.get(4)?,
+                    r.get(5)?,
+                    r.get(6)?,
+                    r.get(7)?,
+                    r.get(8)?,
+                ))
+            },
+        )
+        .unwrap();
+    assert_eq!(server_version, "1.0.0", "server_version must survive the v7 migration");
+    assert_eq!(protocol_version, "2024-11-05", "protocol_version must survive the v7 migration");
+    assert_eq!(capabilities, "[]", "capabilities must survive the v7 migration");
+    assert_eq!(tools, "[\"a\",\"b\"]", "tools must survive the v7 migration");
+    assert_eq!(error, None, "error must survive the v7 migration");
+    assert_eq!(verified_at, now, "verified_at must survive the v7 migration");
+    assert_eq!(ttl_ms, None, "ttl_ms must be NULL for a pre-existing row");
+    assert_eq!(cache_scope, None, "cache_scope must be NULL for a pre-existing row");
+    assert_eq!(launch_mtime, None, "launch_mtime must be NULL for a pre-existing row");
+
+    // launch_hash is still the primary key: a second insert under the same
+    // hash must still fail after v7.
+    let dup = conn.execute(
+        "INSERT INTO probe_results (launch_hash, server_version, protocol_version, capabilities, tools, error, verified_at)
+         VALUES ('deadbeef', '1.0.1', '2024-11-05', '[]', '[]', NULL, ?1)",
+        [now],
+    );
+    assert!(dup.is_err(), "launch_hash must still be the primary key of probe_results after v7");
 }
 
 #[test]
