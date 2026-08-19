@@ -318,6 +318,48 @@ export default function McpServerDetail({ server, verified, onVerify, verifying 
 
       <section className={SECTION}>
         <div className="flex items-baseline justify-between gap-2 mb-[10px]">
+          <h3 className={HEADING}>Identity</h3>
+          <span className={COUNT}>
+            {anyVerified
+              ? `verified ${relativeTime(anyVerified.verifiedAt)}${
+                  // More than one registration answered, so this could be any
+                  // of them -- name whose result is showing, same "host ·
+                  // tier" convention the Tools section uses below.
+                  succeeded.length > 1
+                    ? ` · ${anyVerifiedEntry.reg.host} · ${anyVerifiedEntry.reg.tier}`
+                    : ""
+                }`
+              : "unknown"}
+          </span>
+        </div>
+        {anyVerified ? (
+          <div className="flex flex-wrap gap-[6px]">
+            {anyVerified.serverVersion && (
+              <span className="text-micro font-mono bg-plane border border-line px-2 py-px rounded-pill text-ink-2">
+                server <b className="font-medium text-ink-1">{anyVerified.serverVersion}</b>
+              </span>
+            )}
+            {anyVerified.protocolVersion && (
+              <span className="text-micro font-mono bg-plane border border-line px-2 py-px rounded-pill text-ink-2">
+                MCP <b className="font-medium text-ink-1">{anyVerified.protocolVersion}</b>
+              </span>
+            )}
+            {anyVerified.capabilities.length > 0 && (
+              <span className="text-micro font-mono bg-plane border border-line px-2 py-px rounded-pill text-ink-2">
+                caps <b className="font-medium text-ink-1">{anyVerified.capabilities.join(", ")}</b>
+              </span>
+            )}
+          </div>
+        ) : (
+          <p className="text-micro text-ink-3 leading-[1.5]">
+            Version, protocol revision and capabilities are only knowable by handshake. Nothing on
+            disk records them.
+          </p>
+        )}
+      </section>
+
+      <section className={SECTION}>
+        <div className="flex items-baseline justify-between gap-2 mb-[10px]">
           <h3 className={HEADING}>Registered in</h3>
           <span className={COUNT}>
             {`${regCount} ${regCount === 1 ? "registration" : "registrations"}`}
@@ -384,48 +426,6 @@ export default function McpServerDetail({ server, verified, onVerify, verifying 
           <p className="text-micro text-state-warning leading-[1.45] mt-2">
             These hosts launch {server.name} differently. Whichever you are using decides
             which version you get.
-          </p>
-        )}
-      </section>
-
-      <section className={SECTION}>
-        <div className="flex items-baseline justify-between gap-2 mb-[10px]">
-          <h3 className={HEADING}>Identity</h3>
-          <span className={COUNT}>
-            {anyVerified
-              ? `verified ${relativeTime(anyVerified.verifiedAt)}${
-                  // More than one registration answered, so this could be any
-                  // of them -- name whose result is showing, same "host ·
-                  // tier" convention the Tools section uses below.
-                  succeeded.length > 1
-                    ? ` · ${anyVerifiedEntry.reg.host} · ${anyVerifiedEntry.reg.tier}`
-                    : ""
-                }`
-              : "unknown"}
-          </span>
-        </div>
-        {anyVerified ? (
-          <div className="flex flex-wrap gap-[6px]">
-            {anyVerified.serverVersion && (
-              <span className="text-micro font-mono bg-plane border border-line px-2 py-px rounded-pill text-ink-2">
-                server <b className="font-medium text-ink-1">{anyVerified.serverVersion}</b>
-              </span>
-            )}
-            {anyVerified.protocolVersion && (
-              <span className="text-micro font-mono bg-plane border border-line px-2 py-px rounded-pill text-ink-2">
-                MCP <b className="font-medium text-ink-1">{anyVerified.protocolVersion}</b>
-              </span>
-            )}
-            {anyVerified.capabilities.length > 0 && (
-              <span className="text-micro font-mono bg-plane border border-line px-2 py-px rounded-pill text-ink-2">
-                caps <b className="font-medium text-ink-1">{anyVerified.capabilities.join(", ")}</b>
-              </span>
-            )}
-          </div>
-        ) : (
-          <p className="text-micro text-ink-3 leading-[1.5]">
-            Version, protocol revision and capabilities are only knowable by handshake. Nothing on
-            disk records them.
           </p>
         )}
       </section>
