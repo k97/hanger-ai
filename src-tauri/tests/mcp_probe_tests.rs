@@ -343,3 +343,87 @@ fn an_unresolvable_key_is_an_error_not_a_panic() {
     // No colon at all — malformed key, not a path that happens not to exist.
     assert!(discover::resolve_registration("no-colon-here").is_err());
 }
+
+// ─── Dialect fidelity for registry-declared registrations ──────────────────
+//
+// A path that matches a SOURCES row (registry.rs) carries its true dialect on
+// McpSource.dialect — the same one `read_source`/`discover_machine` use. A
+// registration resolved *from the registry* must be read with that declared
+// dialect, not guessed from the file extension the way `dialect_for_swept`
+// guesses for genuinely ad-hoc, undeclared sweep files. Guessing here is how
+// VS Code, Zed, OpenCode, Amp, Kilocode, claude-code's Local tier, and
+// claude-ai connectors all silently stopped resolving.
+
+static HOME_ENV_MUTEX: std::sync::OnceLock<std::sync::Mutex<()>> = std::sync::OnceLock::new();
+
+/// Restores HANGER_TEST_HOME to whatever it was (usually unset) on drop, so a
+/// test later in this file that never touches it gets the real $HOME back
+/// rather than a stale tempdir from here. Process-global env var, guarded by
+/// HOME_ENV_MUTEX against the parallel test threads cargo runs within one
+/// binary — same hazard `mcp_scanner_tests.rs` documents for its own guard.
+struct TestHome(Option<String>);
+impl TestHome {
+    fn set(path: &std::path::Path) -> Self {
+        let prev = std::env::var("HANGER_TEST_HOME").ok();
+        std::env::set_var("HANGER_TEST_HOME", path);
+        TestHome(prev)
+    }
+}
+impl Drop for TestHome {
+    fn drop(&mut self) {
+        match &self.0 {
+            Some(v) => std::env::set_var("HANGER_TEST_HOME", v),
+            None => std::env::remove_var("HANGER_TEST_HOME"),
+        }
+    }
+}
+
+#[test]
+fn a_vscode_registration_is_read_with_its_declared_dialect_not_guessed() {
+    let _guard = HOME_ENV_MUTEX.get_or_init(|| std::sync::Mutex::new(())).lock().unwrap_or_else(|e| e.into_inner());
+    let home = tempfile::tempdir().unwrap();
+    let _home_guard = TestHome::set(home.path());
+
+    // The exact MachineAbsolute path SOURCES declares for vscode.
+    let config = home.path().join("Library/Application Support/Code/User/mcp.json");
+    std::fs::create_dir_all(config.parent().unwrap()).unwrap();
+    // VS Code's own key is "servers", not "mcpServers". A dialect guessed
+    // from the ".json" extension (dialect_for_swept's default, McpServers)
+    // looks at the wrong key and finds nothing here.
+    std::fs::write(
+        &config,
+        r#"{"servers":{"target":{"command":"code-command","args":["x"]}}}"#,
+    )
+    .unwrap();
+
+    let key = format!("{}:target", config.to_string_lossy());
+    let reg = tauri_app_lib::mcp::discover::resolve_registration(&key)
+        .expect("must resolve a VS Code registration via its declared VsCodeServers dialect");
+    assert_eq!(reg.server.command, "code-command");
+    assert_eq!(reg.server.args, vec!["x".to_string()]);
+}
+
+#[test]
+fn a_zed_registration_is_read_with_its_declared_dialect_not_guessed() {
+    let _guard = HOME_ENV_MUTEX.get_or_init(|| std::sync::Mutex::new(())).lock().unwrap_or_else(|e| e.into_inner());
+    let home = tempfile::tempdir().unwrap();
+    let _home_guard = TestHome::set(home.path());
+
+    // The exact MachineAbsolute path SOURCES declares for zed.
+    let config = home.path().join(".config/zed/settings.json");
+    std::fs::create_dir_all(config.parent().unwrap()).unwrap();
+    // Zed nests under "context_servers" with a {command:{path,args}} shape —
+    // unrelated to the top-level "mcpServers" a guessed McpServers dialect
+    // would look for.
+    std::fs::write(
+        &config,
+        r#"{"context_servers":{"target":{"command":{"path":"zed-command","args":["y"]}}}}"#,
+    )
+    .unwrap();
+
+    let key = format!("{}:target", config.to_string_lossy());
+    let reg = tauri_app_lib::mcp::discover::resolve_registration(&key)
+        .expect("must resolve a Zed registration via its declared ZedContextServers dialect");
+    assert_eq!(reg.server.command, "zed-command");
+    assert_eq!(reg.server.args, vec!["y".to_string()]);
+}
