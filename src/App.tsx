@@ -356,7 +356,9 @@ export default function App() {
      a scan at startup for a panel most sessions never open is the wrong
      trade. Fetched once, on the first look at Tools. */
   const [mcpProcesses, setMcpProcesses] = useState<ProcessMatch[] | null>(null);
-  const mcpProcessesRequested = useRef(false);
+  /** One scan at a time. A panel open refreshes this, and clicking through
+   *  sixteen servers must not stack sixteen rescans. */
+  const mcpProcessesInFlight = useRef(false);
   /** The facet chip's category, which ProfilePane owns and reports back. */
   const [profileCategory, setProfileCategory] = useState<string | null>(null);
   /** The same, for RepoPane's own facet chip. Kept separate because the two
@@ -805,13 +807,47 @@ export default function App() {
     selectedSidebarItem.endsWith(":Tools") ||
     selectedAsset?.category === "Tools" ||
     profileCategory === "Tools";
-  useEffect(() => {
-    if (!lookingAtTools || mcpProcessesRequested.current) return;
-    mcpProcessesRequested.current = true;
+  const refreshMcpProcesses = () => {
+    if (mcpProcessesInFlight.current) return;
+    mcpProcessesInFlight.current = true;
     invoke<ProcessMatch[]>("get_mcp_processes")
       .then(setMcpProcesses)
-      .catch(() => setMcpProcesses([]));
-  }, [lookingAtTools]);
+      /* `null`, not `[]`. An empty array is an assertion — nothing on this
+         machine is running — and a failed scan has not earned it. Recording
+         one closed the question for the rest of the session: the app believed
+         it had an answer, never asked again, and every panel thereafter
+         reported a running server as idle. A failure leaves the question
+         open. */
+      .catch(() => setMcpProcesses(null))
+      .finally(() => {
+        mcpProcessesInFlight.current = false;
+      });
+  };
+
+  /* Ask while the question is open. `mcpProcesses !== null` is a real answer,
+     including an empty one, and re-asking for it would pay for a rescan to
+     learn what is already known. */
+  const needMcpProcesses = lookingAtTools && mcpProcesses === null;
+  useEffect(() => {
+    if (needMcpProcesses) refreshMcpProcesses();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [needMcpProcesses]);
+
+  /* And take a fresh reading whenever a server's panel is opened, however
+     recent the last one was. The snapshot used to be fetched once for the life
+     of the process, so a server a host started at 4pm read as stopped all
+     afternoon — and opening its panel was the exact moment Hanger would decide
+     starting a second copy was safe. `cached_probe` now confirms against the
+     live process table before spawning, so this is no longer the only thing
+     standing between a stale reading and a killed session, but the panel still
+     states what is running and should not be stating this morning's answer. */
+  const openMcpAssetKey =
+    selectedAsset?.category === "Tools" ? (selectedAsset.id ?? selectedAsset.path ?? "") : null;
+  useEffect(() => {
+    if (openMcpAssetKey === null) return;
+    refreshMcpProcesses();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openMcpAssetKey]);
 
   // Maps individual asset row clicks to detail Flyout opening
   const handleSelectAsset = (asset: { id?: string; name: string; category: "Skills" | "Agents" | "Tools" | "Rules" | "Subagents"; path: string }) => {

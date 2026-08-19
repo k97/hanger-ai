@@ -370,6 +370,15 @@ pub struct CachedProbeResponse {
     pub result: Option<crate::mcp::probe::ProbeResult>,
     pub verified_at: Option<i64>,
     pub from_cache: bool,
+    /// Rule 2 stopped this: the server is running, so nothing was started.
+    ///
+    /// Not derivable from `result` alone, and that is the point. The caller's
+    /// own snapshot of what is running can be stale or missing, so the panel
+    /// can believe a server is stopped while the live process table says
+    /// otherwise. When that happens the panel would have no way to know it had
+    /// been declined, and would explain an empty block by saying nobody has
+    /// asked yet — which is false, and hides the one thing worth saying.
+    pub declined: bool,
 }
 
 /// Answer from the store when the store can answer, and start the server only
@@ -412,6 +421,35 @@ pub async fn cached_probe(
     running: bool,
     now_ms: i64,
 ) -> CachedProbeResponse {
+    cached_probe_confirmed(db_path, server, force, running, now_ms, launch_is_running).await
+}
+
+/// Whether this exact launch is already running, according to the machine.
+///
+/// The same matcher `get_mcp_processes` uses, so "running" means the same
+/// thing here as it does on the badge the panel renders. Measured at 61ms
+/// against 1033 processes; it is the process table only, never `run_scan`'s
+/// filesystem walk.
+fn launch_is_running(program: &str, argv: &[String]) -> bool {
+    crate::mcp::observe::running_processes()
+        .iter()
+        .any(|p| crate::mcp::observe::matches_launch(&p.command_line, program, argv))
+}
+
+/// [`cached_probe`] with the liveness check supplied, so the decision matrix
+/// is testable without depending on what happens to be running on the machine
+/// the tests are on.
+pub async fn cached_probe_confirmed<F>(
+    db_path: &Path,
+    server: &crate::mcp::dialect::McpServer,
+    force: bool,
+    running: bool,
+    now_ms: i64,
+    still_running: F,
+) -> CachedProbeResponse
+where
+    F: FnOnce(&str, &[String]) -> bool,
+{
     let key = crate::mcp::probe::cache_key(
         &server.command,
         &server.args,
@@ -421,6 +459,15 @@ pub async fn cached_probe(
     );
     let current_mtime =
         crate::mcp::probe::launch_mtime_ms(&server.command, &server.args, &server.transport);
+    let launch =
+        crate::mcp::probe::probe_launch(&server.command, &server.args, &server.transport);
+
+    // A dial starts no process, so Rule 2 has nothing to protect and the
+    // caller's `running` never applies to it. Saying so here rather than
+    // letting the flag fall through matters twice: a remote server is never
+    // wrongly declined, and it never waits on an answer about a process it
+    // does not have.
+    let spawns = matches!(launch, crate::mcp::probe::ProbeLaunch::Spawn { .. });
 
     if !force {
         // A store error reads as "nothing cached": the cache is an
@@ -437,17 +484,50 @@ pub async fn cached_probe(
             ) == crate::mcp::freshness::Freshness::Fresh
         });
 
-        if fresh || running {
+        // Rule 1 first, and on its own: a fresh row is the answer whatever is
+        // running, and costs nothing to give.
+        if let (true, Some(c)) = (fresh, cached.as_ref()) {
+            return CachedProbeResponse {
+                result: Some(c.result.clone()),
+                verified_at: Some(c.verified_at),
+                from_cache: true,
+                declined: false,
+            };
+        }
+
+        // Rule 2. `running` is the caller's snapshot and is trusted only in
+        // the direction that declines — a caller saying "it is running" costs
+        // nothing to believe. Saying "it is stopped" is the direction that
+        // ends in a spawn, and a snapshot can be missing (the scan failed or
+        // has not run) or old (a host started the server since it was taken).
+        // Both read as stopped, and the servers that cannot survive a second
+        // copy are the long-lived ones most likely to have started since. So
+        // that direction is confirmed against the live process table, at 61ms,
+        // only on the path that was about to start a process anyway.
+        let declined = spawns
+            && match &launch {
+                crate::mcp::probe::ProbeLaunch::Spawn { program, argv } => {
+                    running || still_running(program, argv)
+                }
+                crate::mcp::probe::ProbeLaunch::Dial { .. } => false,
+            };
+
+        if declined {
             return match cached {
                 Some(c) => CachedProbeResponse {
                     result: Some(c.result),
                     verified_at: Some(c.verified_at),
                     from_cache: true,
+                    declined: true,
                 },
-                // Rule 2 with an empty store. There is no answer to give and
-                // no safe way to get one; the panel says so and offers the
-                // re-check.
-                None => CachedProbeResponse { result: None, verified_at: None, from_cache: false },
+                // Nothing to give and no safe way to get it. The panel says
+                // why and offers the re-check.
+                None => CachedProbeResponse {
+                    result: None,
+                    verified_at: None,
+                    from_cache: false,
+                    declined: true,
+                },
             };
         }
     }
@@ -455,7 +535,7 @@ pub async fn cached_probe(
     // 20s is generous for a handshake and short enough that a wedged server
     // does not look like a frozen panel.
     let timeout = std::time::Duration::from_secs(20);
-    let result = match crate::mcp::probe::probe_launch(&server.command, &server.args, &server.transport) {
+    let result = match launch {
         crate::mcp::probe::ProbeLaunch::Dial { url } => {
             crate::mcp::probe::probe_http(&url, timeout).await
         }
@@ -468,9 +548,22 @@ pub async fn cached_probe(
     // arrived in the MCP 2026-07-28 revision and `probe.rs` does not read
     // them. NULL is what makes `verdict` fall back to its seven-day default,
     // which is the intended path, not a gap.
+    //
+    // A failure is written like any other answer, and that cuts both ways: a
+    // network blip on a dial, or an EADDRINUSE from a port already held,
+    // replaces a good tool list and then reads as FRESH for the full seven
+    // days. It is recoverable — the re-check forces past it — but nothing
+    // expires it on its own, and the asymmetry is deliberate rather than
+    // overlooked: keeping the old list would state a tool surface for a server
+    // that no longer starts, which is the more dangerous of the two lies.
     let _ = crate::preferences::put_probe_result(db_path, &key, &result, None, None, current_mtime);
 
-    CachedProbeResponse { result: Some(result), verified_at: Some(now_ms), from_cache: false }
+    CachedProbeResponse {
+        result: Some(result),
+        verified_at: Some(now_ms),
+        from_cache: false,
+        declined: false,
+    }
 }
 
 /// The panel's own question: what does this registration provide?

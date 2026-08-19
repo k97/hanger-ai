@@ -24,7 +24,7 @@
 
 use std::path::Path;
 
-use tauri_app_lib::cached_probe;
+use tauri_app_lib::{cached_probe, cached_probe_confirmed};
 use tauri_app_lib::mcp::dialect::McpServer;
 use tauri_app_lib::mcp::probe::{cache_key, ProbeResult, ProbedTool};
 use tauri_app_lib::preferences::{get_probe_result, put_probe_result};
@@ -325,4 +325,151 @@ async fn a_probe_records_the_mtime_of_what_it_launched() {
         .unwrap()
         .as_millis() as i64;
     assert_eq!(row.launch_mtime, Some(on_disk), "the script's mtime, not the interpreter's and not None");
+}
+
+// ---------------------------------------------------------------------------
+// Rule 2's INPUT. Everything above proves the rule fires on the value it is
+// given; none of it proves that value is right.
+//
+// The caller's `running` is a snapshot from `get_mcp_processes`, and a
+// snapshot has two failure modes the panel cannot see: it can be missing (the
+// scan failed, or has not run) and it can be old (a host started the server
+// after it was taken). Both read as "stopped", both end in a spawn, and the
+// server that cannot survive a second copy is exactly the long-lived one most
+// likely to have started since. So `running: false` is a HINT, not a verdict:
+// before spawning anything, the live process table is consulted, which costs
+// 61ms against 1033 processes on this machine and only ever runs on the path
+// that was about to start a process anyway.
+// ---------------------------------------------------------------------------
+
+/// The one that matters. The caller says stopped — a stale or failed snapshot
+/// — and the machine says otherwise. Nothing may be spawned.
+#[tokio::test]
+async fn a_launch_the_machine_says_is_running_is_not_spawned_though_the_caller_said_stopped() {
+    let dir = tempfile::tempdir().unwrap();
+    let db = dir.path().join("prefs.db");
+    let server = stdio_server();
+    let now = now_ms();
+
+    let out = cached_probe_confirmed(&db, &server, false, false, now, |_, _| true).await;
+
+    assert!(out.result.is_none(), "nothing cached and it is really running: there is no answer to give");
+    assert!(out.declined, "and the panel has to be told why, since its own snapshot says stopped");
+    let key = cache_key(&server.command, &server.args, &server.env_keys, None, &server.transport);
+    assert!(
+        get_probe_result(&db, &key).unwrap().is_none(),
+        "a row here would mean a handshake happened after the machine said not to"
+    );
+}
+
+/// The same fact, arriving the other way round: the caller already knows, so
+/// the live check is never paid for.
+#[tokio::test]
+async fn the_live_check_is_skipped_when_the_caller_already_knows_it_is_running() {
+    let dir = tempfile::tempdir().unwrap();
+    let db = dir.path().join("prefs.db");
+    let server = stdio_server();
+    let now = now_ms();
+    let consulted = std::cell::Cell::new(false);
+
+    let out = cached_probe_confirmed(&db, &server, false, true, now, |_, _| {
+        consulted.set(true);
+        false
+    })
+    .await;
+
+    assert!(out.result.is_none());
+    assert!(out.declined);
+    assert!(!consulted.get(), "a known-running server is declined outright; refreshing the process table would be work for an answer already held");
+}
+
+/// And when the machine agrees with a caller who said stopped, the spawn goes
+/// ahead — otherwise the check above would be indistinguishable from never
+/// probing at all.
+#[tokio::test]
+async fn a_launch_the_machine_also_says_is_stopped_is_probed() {
+    let dir = tempfile::tempdir().unwrap();
+    let db = dir.path().join("prefs.db");
+    let server = stdio_server();
+    let now = now_ms();
+
+    let out = cached_probe_confirmed(&db, &server, false, false, now, |_, _| false).await;
+
+    let result = out.result.expect("result");
+    assert!(result.error.as_deref().unwrap_or_default().contains("Could not start"));
+    assert!(!out.declined, "nothing was declined; the handshake was attempted and failed on its own merits");
+}
+
+/// The live check receives the launch that is about to run, not the raw
+/// declaration — otherwise it would be matching `npx pkg` against a process
+/// table that shows the split form.
+#[tokio::test]
+async fn the_live_check_is_given_the_launch_that_would_actually_run() {
+    let dir = tempfile::tempdir().unwrap();
+    let db = dir.path().join("prefs.db");
+    let server = McpServer { command: "npx server-pkg".to_string(), args: vec![], ..stdio_server() };
+    let seen: std::cell::RefCell<Option<(String, Vec<String>)>> = std::cell::RefCell::new(None);
+
+    cached_probe_confirmed(&db, &server, false, false, now_ms(), |program, argv| {
+        *seen.borrow_mut() = Some((program.to_string(), argv.to_vec()));
+        true
+    })
+    .await;
+
+    let (program, argv) = seen.into_inner().expect("the check must be consulted at all");
+    assert_eq!(program, "npx");
+    assert_eq!(argv, vec!["server-pkg".to_string()]);
+}
+
+/// `force` is the user asking, and it overrides the live check exactly as it
+/// overrides the two rules.
+#[tokio::test]
+async fn force_reaches_the_server_even_when_the_machine_says_it_is_running() {
+    let dir = tempfile::tempdir().unwrap();
+    let db = dir.path().join("prefs.db");
+    let server = stdio_server();
+
+    let out = cached_probe_confirmed(&db, &server, true, true, now_ms(), |_, _| true).await;
+
+    assert!(out.result.expect("result").error.as_deref().unwrap_or_default().contains("Could not start"));
+    assert!(!out.declined);
+}
+
+/// A dial starts nothing, so Rule 2 has nothing to protect. Making a remote
+/// server wait on a process-table answer costs the user real time for a
+/// decision that cannot apply to it.
+#[tokio::test]
+async fn a_dial_ignores_the_running_flag_and_never_consults_the_process_table() {
+    let dir = tempfile::tempdir().unwrap();
+    let db = dir.path().join("prefs.db");
+    // Port 1 refuses immediately: this asserts the routing, not the network.
+    let server = remote_server("http://127.0.0.1:1/mcp");
+    let consulted = std::cell::Cell::new(false);
+
+    let out = cached_probe_confirmed(&db, &server, false, true, now_ms(), |_, _| {
+        consulted.set(true);
+        true
+    })
+    .await;
+
+    assert!(!consulted.get(), "there is no process to find");
+    let result = out.result.expect("a dial always produces a result");
+    assert!(result.error.is_some(), "the endpoint refuses; what matters is that it was dialled at all");
+    assert!(!out.declined, "a remote server is never declined for running: it is not a local process");
+}
+
+/// The collision shape, closed rather than merely unreachable. `transport_for`
+/// emits `"unknown"` for a malformed entry, and `"claude.ai"` and `"sse"` are
+/// both real values that arrive with no command — all three hashed to one
+/// constant while the key ignored the transport on the non-spawnable branch.
+#[test]
+fn two_unlaunchable_declarations_do_not_share_a_cache_row() {
+    let key_for = |transport: &str| cache_key("", &[], &[], None, transport);
+    let unknown = key_for("unknown");
+    let connector = key_for("claude.ai");
+    let sse = key_for("sse");
+
+    assert_ne!(unknown, connector);
+    assert_ne!(connector, sse);
+    assert_ne!(unknown, sse);
 }

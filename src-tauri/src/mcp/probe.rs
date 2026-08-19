@@ -168,6 +168,11 @@ pub fn probe_launch(command: &str, args: &[String], transport: &str) -> ProbeLau
 /// basenames the command, which would reduce every `https://…/mcp` endpoint
 /// to `mcp`.
 ///
+/// **A declaration that can neither be launched nor dialled is keyed on its
+/// transport.** An empty command with a non-http transport has no program and
+/// no URL, so `claude.ai`, `sse` and the `"unknown"` a malformed entry
+/// produces would otherwise all hash to the same constant.
+///
 /// **A spawn is keyed after [`split_launch`], not before.** `~/.claude.json`
 /// writes `{"command": "npx pkg"}` and `~/.codex/config.toml` writes the same
 /// server as a command plus `args = []`; `probe` reconciles them before
@@ -187,6 +192,20 @@ pub fn cache_key(
     transport: &str,
 ) -> String {
     let (key_command, key_args) = match probe_launch(command, args, transport) {
+        // Nothing to launch and nothing to dial: a `claude.ai` connector, an
+        // `sse` entry with no command, or the `"unknown"` transport
+        // `transport_for` emits for a malformed declaration. All three have an
+        // empty program, so keyed on the launch alone all three — and every
+        // other such declaration on the machine — collapse to one row. The
+        // transport is the only thing left that distinguishes them, so it
+        // carries the key. Any arguments ride along behind it rather than
+        // being dropped, so a malformed pair differing only in `args` stays
+        // distinct too.
+        ProbeLaunch::Spawn { program, argv } if program.trim().is_empty() => {
+            let mut key_args = vec![transport.to_string()];
+            key_args.extend(argv);
+            (String::new(), key_args)
+        }
         ProbeLaunch::Spawn { program, argv } => (program, argv),
         ProbeLaunch::Dial { url } => (String::new(), vec![url]),
     };

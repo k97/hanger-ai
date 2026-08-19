@@ -112,10 +112,16 @@ export default function Flyout({
     verifiedAt: number;
     error?: string;
   }>>({});
-  /* A list, not one slot: the panel asks for every launch spec the moment it
-     opens, so a server whose hosts disagree has two requests in flight at
-     once and a single slot would forget the first. */
+  /* A list, not one slot. The panel caps itself at one request at a time, but
+     "one at a time" is a property of the queue, not of the slot — a single
+     slot could not represent an explicit Verify overlapping the automatic ask
+     it interrupts, and the panel reads this list to know it is busy. */
   const [mcpVerifying, setMcpVerifying] = useState<string[]>([]);
+  /* Registration keys the backend declined to probe because the launch is
+     already running. Its answer, not our snapshot: the process list can be
+     minutes old, so a launch reading as stopped here can still be up on the
+     machine, and only the backend looks. */
+  const [mcpDeclined, setMcpDeclined] = useState<string[]>([]);
 
   /**
    * Ask one registration what it provides.
@@ -143,22 +149,37 @@ export default function Flyout({
         } | null;
         verifiedAt: number | null;
         fromCache: boolean;
+        declined: boolean;
       }>("mcp_cached_probe", { registrationKey, force, running });
-      /* No result at all means the backend declined to start a second copy of
-         a server that is already running, and had nothing cached to offer
-         instead. Not an error, and not an empty tool list: recording either
-         would put a wrong answer on screen where the panel's own explanation
-         belongs. */
-      if (!r.result) return;
+      /* Read the answer apart BEFORE handing anything to a setter. A state
+         updater is a closure React invokes during a later render, outside
+         this try — so a field read inside one escapes the catch below and
+         takes the whole inspector down with it rather than being recorded as
+         a failed probe. Found by `inspector_avionics.test.tsx`, whose mock
+         answers a command it does not model with null. */
+      const declinedNow = r?.declined === true;
+      const answer = r?.result ?? null;
+      const learnedAt = r?.verifiedAt ?? null;
+
+      setMcpDeclined((prev) => {
+        const held = prev.includes(registrationKey);
+        if (declinedNow === held) return prev;
+        return declinedNow ? [...prev, registrationKey] : prev.filter((key) => key !== registrationKey);
+      });
+      /* No result at all means the backend declined and had nothing cached to
+         offer instead. Not an error, and not an empty tool list: recording
+         either would put a wrong answer on screen where the panel's own
+         explanation belongs. */
+      if (!answer) return;
       setMcpVerified((prev) => ({
         ...prev,
         [registrationKey]: {
-          serverVersion: r.result?.server_version,
-          protocolVersion: r.result?.protocol_version,
-          capabilities: r.result?.capabilities ?? [],
-          tools: r.result?.tools ?? [],
-          verifiedAt: r.verifiedAt ?? Date.now(),
-          error: r.result?.error ?? undefined,
+          serverVersion: answer.server_version,
+          protocolVersion: answer.protocol_version,
+          capabilities: answer.capabilities ?? [],
+          tools: answer.tools ?? [],
+          verifiedAt: learnedAt ?? Date.now(),
+          error: answer.error ?? undefined,
         },
       }));
     } catch (e) {
@@ -661,12 +682,7 @@ export default function Flyout({
           verifying={mcpVerifying}
           onVerify={runMcpVerify}
           onAutoProbe={runMcpAutoProbe}
-          /* null (or absent) while `get_mcp_processes` is still running.
-             Until it answers the panel cannot tell a running server from a
-             stopped one, and must not ask anything that could spawn. An
-             empty array is a real answer — nothing is running — and is
-             truthy, so it reads as known. */
-          processesKnown={!!mcpProcesses}
+          declined={mcpDeclined}
         />
       ) : targetAsset ? (
         <AssetDetail

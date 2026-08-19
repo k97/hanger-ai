@@ -91,18 +91,17 @@ interface Props {
    */
   onAutoProbe?: (registrationKey: string, running: boolean) => void;
   /**
-   * Has `get_mcp_processes` answered yet?
+   * Registration keys the backend declined to probe, because the launch is
+   * already running.
    *
-   * It is fetched lazily and calls a full rescan, so for the first seconds of
-   * a Tools view every registration reads as not running whether it is or
-   * not. Asking on that basis would start a second copy of exactly the
-   * servers that cannot take one. Until this is true the panel treats every
-   * launch as running, which reads the cache and spawns nothing.
-   *
-   * Defaults to false: the conservative direction, so a caller that forgets
-   * it gets a redundant cache read rather than someone's session killed.
+   * From the answer, never from `reg.running`. A process list can be minutes
+   * old, so a launch can read as stopped here while the machine says
+   * otherwise — `cached_probe` checks the live process table before it starts
+   * anything, and this is how it says it did. Deriving the state from the
+   * panel's own snapshot instead would explain an empty block by saying nobody
+   * had asked, at exactly the moment that was false.
    */
-  processesKnown?: boolean;
+  declined?: readonly string[];
   /** Registration keys with a request in flight. More than one launch spec
    *  can be in flight at once now that the panel asks on open. */
   verifying?: readonly string[];
@@ -111,6 +110,7 @@ interface Props {
 /** Stable empty default, so the effect below does not see a new array every
  *  render. */
 const NONE_IN_FLIGHT: readonly string[] = [];
+const NONE_DECLINED: readonly string[] = [];
 
 /** How long a probe must run before it is worth saying so. */
 const PENDING_DELAY_MS = 250;
@@ -202,21 +202,18 @@ function RegistrationVerifyStatus({ result }: { result?: VerifiedIdentity }) {
  */
 function VerifyButton({
   registrationKey,
-  verifying,
   onVerify,
 }: {
   registrationKey: string;
-  verifying: boolean;
   onVerify?: (registrationKey: string) => void;
 }) {
   return (
     <button
       type="button"
       onClick={() => onVerify?.(registrationKey)}
-      disabled={verifying}
-      className="self-start shrink-0 text-micro text-ink-2 border border-line-2 px-2.5 py-px rounded-pill cursor-pointer hover:bg-plane-2 hover:text-ink-1 transition-colors duration-hover disabled:opacity-60 disabled:cursor-default"
+      className="self-start shrink-0 text-micro text-ink-2 border border-line-2 px-2.5 py-px rounded-pill cursor-pointer hover:bg-plane-2 hover:text-ink-1 transition-colors duration-hover"
     >
-      {verifying ? "Verifying…" : "Verify"}
+      Verify
     </button>
   );
 }
@@ -298,7 +295,7 @@ export default function McpServerDetail({
   verified,
   onVerify,
   onAutoProbe,
-  processesKnown = false,
+  declined = NONE_DECLINED,
   verifying = NONE_IN_FLIGHT,
 }: Props) {
   // Counts the rows below, not unique hosts. spades-audio is 3 registrations
@@ -389,41 +386,52 @@ export default function McpServerDetail({
      own the moment the panel opens. */
   const nothingToAsk = isConnector || (server.command.trim() === "" && !isRemote);
 
-  /* Whether each unanswered launch is running, in the order the blocks
-     render. `some`, not the first row: the registrations of one spec share a
-     launch, so a process under any of them is the group's answer — here it
-     is Claude Desktop's copy that is up, and reading only the first row would
-     have missed it. A launch is treated as running until the process list has
-     actually arrived; see `processesKnown`. */
+  /* Whether a launch is running, as far as this panel's own snapshot goes.
+     `some`, not the first row: the registrations of one spec share a launch,
+     so a process under any of them is the group's answer, and reading only
+     the first row would miss the case where it is Claude Desktop's copy that
+     is up. This is a HINT sent to the backend, not a safety decision — the
+     snapshot can be missing or minutes old, so `cached_probe` confirms
+     against the live process table before it starts anything. */
   const isRunning = (group: SpecGroup) => group.regs.some((reg) => !!reg.running);
-  const runningFor = (group: SpecGroup) => !processesKnown || isRunning(group);
 
-  /* Ask, once, for every launch with no answer yet.
-     Keyed `${key}:${running}` rather than by key alone, because the running
-     flag legitimately changes once: the panel opens before
-     `get_mcp_processes` resolves and asks conservatively (cache only, no
-     spawn), and a launch that turns out to be stopped is then asked a second
-     time, this time allowed to reach the server. A launch that already has an
-     answer is never asked again either way, so the second ask only happens
-     where the first produced nothing. */
+  /* Ask about ONE launch at a time, and never one that has been asked already.
+
+     One at a time is not politeness. A server whose hosts pin two different
+     versions has two launches here, and firing both in the same tick starts
+     two third-party processes simultaneously — for a port-bound or singleton
+     server, the second takes the port or the token from the first, and the
+     loser's EADDRINUSE is then written as that launch's answer for seven days.
+     Verify could only ever start one at a time; asking on open must not be
+     worse than the button it replaced. `verifying` covers the user's own
+     clicks too, so a manual probe pauses the automatic ones rather than racing
+     them.
+
+     Keyed `${key}:${running}` rather than by key alone, so that a launch which
+     was declined while running is asked again once it stops, and not before. A
+     launch that already has an answer is never asked again either way. */
   const asked = useRef<Set<string>>(new Set());
   const unanswered = specGroups
     .filter((group) => !group.result)
-    .map((group) => `${group.regs[0].key}:${runningFor(group)}`);
+    .map((group) => `${group.regs[0].key}:${isRunning(group)}`);
   // The dependency is the serialised request list, not the array: `specGroups`
   // is rebuilt every render and would re-run this on every keystroke
   // elsewhere in the tree. The ref makes a re-run harmless regardless, which
   // matters under StrictMode's double-invoked effects.
   const requests = unanswered.join("|");
+  // A boolean, not a count — `no-frontend-counting` permits `names.length > 0`
+  // and forbids assigning the length itself.
+  const somethingInFlight = verifying.length > 0;
   useEffect(() => {
-    if (!onAutoProbe || nothingToAsk) return;
-    for (const request of requests ? requests.split("|") : []) {
-      if (asked.current.has(request)) continue;
-      asked.current.add(request);
-      const separator = request.lastIndexOf(":");
-      onAutoProbe(request.slice(0, separator), request.slice(separator + 1) === "true");
-    }
-  }, [requests, nothingToAsk, onAutoProbe]);
+    if (!onAutoProbe || nothingToAsk || somethingInFlight) return;
+    const next = (requests ? requests.split("|") : []).find(
+      (request) => !asked.current.has(request)
+    );
+    if (!next) return;
+    asked.current.add(next);
+    const separator = next.lastIndexOf(":");
+    onAutoProbe(next.slice(0, separator), next.slice(separator + 1) === "true");
+  }, [requests, nothingToAsk, onAutoProbe, somethingInFlight]);
 
   return (
     <div className="flex-1 min-h-0 flex flex-col font-sans text-base text-ink-1">
@@ -592,7 +600,6 @@ export default function McpServerDetail({
             ) : (
               <VerifyButton
                 registrationKey={specGroups[0].regs[0].key}
-                verifying={false}
                 onVerify={onVerify}
               />
             )
@@ -642,7 +649,7 @@ export default function McpServerDetail({
           ) : (
             <div className="border border-dashed border-line-2 rounded-inner px-[14px] py-[18px] flex flex-col gap-2 items-start">
               <p className="text-micro text-ink-3 leading-[1.45]">
-                {isRunning(specGroups[0])
+                {declined.includes(specGroups[0].regs[0].key)
                   ? DECLINED_RUNNING
                   : isRemote
                   ? "Asks the endpoint for its tool list. No credentials are sent."
@@ -691,12 +698,11 @@ export default function McpServerDetail({
                     {/* Same explanation as the single-spec block above, per
                         launch: one spec of a server can be running while
                         another sits idle. */}
-                    {isRunning(group) && (
+                    {declined.includes(group.regs[0].key) && (
                       <p className="text-micro text-ink-3 leading-[1.45]">{DECLINED_RUNNING}</p>
                     )}
                     <VerifyButton
                       registrationKey={group.regs[0].key}
-                      verifying={false}
                       onVerify={onVerify}
                     />
                   </>
