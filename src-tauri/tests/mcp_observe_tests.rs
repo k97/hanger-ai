@@ -604,6 +604,17 @@ fn launch_is_running_says_no_to_a_launch_nothing_is_running() {
 // Written in the idiom `agent_attribution_tests.rs` established for lib.rs
 // (`include_str!` plus brace-depth isolation of one function's own body), so a
 // match in a neighbouring function can never satisfy it.
+//
+// None of this proves non-exfiltration in general, and reading it that way
+// would be the overclaim. These guards catch the accidental leak and the
+// idiomatic one — the print left in from chasing a bug, the return type
+// widened to say which process matched, the module-scope static a closure
+// pushes into as a side channel. A source-text guard scans surface syntax; it
+// has no view of what a value laundered through an innocuous-looking helper,
+// an FFI call, or an unsafe block does two functions away, and it cannot stop
+// someone who reads this comment and works around it on purpose. What these
+// five tests hold is real only as long as nobody tries; the actual boundary
+// is review of any diff that touches this module.
 // ---------------------------------------------------------------------------
 
 const OBSERVE_SRC: &str = include_str!("../src/mcp/observe.rs");
@@ -653,6 +664,8 @@ fn the_raw_argv_path_cannot_emit_what_it_reads() {
     for emitter in [
         "println!", "eprintln!", "print!", "eprint!", "dbg!", "write!", "writeln!",
         "log::", "tracing::", "info!", "debug!", "warn!", "error!", "trace!",
+        "panic!", "unreachable!", "todo!", "unimplemented!", "assert!", "assert_eq!",
+        "assert_ne!",
     ] {
         assert!(
             !body.contains(emitter),
@@ -701,4 +714,41 @@ fn the_rendered_command_line_is_only_ever_the_redacted_one() {
              RunningProcess.command_line is serialised across IPC and shown in the panel."
         );
     }
+}
+
+/// A fifth channel the emitter list above cannot see: a module-scope
+/// `static` that a closure pushes the raw line into. `launch_is_running`
+/// holds unredacted argv in scope for the length of one call; a `static`
+/// gives that value a lifetime and a name outside the call, which is a
+/// channel out that no function signature pins — the emitter list, the
+/// return-type guard and the `.cmd()`-count guard above all read clean over
+/// it, because none of them look at module scope. Only an item declaration
+/// (a line whose trimmed form starts with `static`, optionally after a
+/// `pub`/`pub(crate)`/`pub(super)` visibility modifier) counts; `&'static
+/// str` lifetime annotations, which this file legitimately has, do not
+/// start a line that way and must not trip this.
+#[test]
+fn observe_declares_no_static_items() {
+    let offenders: Vec<&str> = OBSERVE_SRC
+        .lines()
+        .filter(|line| {
+            let trimmed = line.trim_start();
+            let after_vis = trimmed
+                .strip_prefix("pub(crate) ")
+                .or_else(|| trimmed.strip_prefix("pub(super) "))
+                .or_else(|| trimmed.strip_prefix("pub(self) "))
+                .or_else(|| trimmed.strip_prefix("pub "))
+                .unwrap_or(trimmed);
+            after_vis.starts_with("static ")
+        })
+        .collect();
+    assert!(
+        offenders.is_empty(),
+        "observe.rs declares a `static` item: {offenders:?}. This module holds raw, \
+         unredacted argv in scope while launch_is_running runs; a static is a channel \
+         out that no function signature can see — a `Mutex<Vec<String>>` declared at \
+         module scope and pushed to from inside the `.any(...)` closure leaves the \
+         signature, return-type and `.cmd()`-count guards above all green while the raw \
+         line survives the call that read it."
+    );
 }
