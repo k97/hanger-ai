@@ -189,6 +189,11 @@ shape as T6.
 
 ## T10 — The MCP redesign stopped after stage 1
 
+**Status, 2026-08-19: stage 2 MERGED at `15da8c2`; stage 3 is in flight**
+(`docs/superpowers/plans/2026-08-19-mcp-stage-3.md`). Everything below
+describes the gap as it stood on 2026-08-17 and is kept for the record of why
+it stalled. Check the plan before trusting any "outstanding" claim here.
+
 The dispatch was staged: **§4 the detector, §5 the list, §6 the panel**
 (`docs/superpowers/specs/2026-08-16-mcp-identity-design.md`). Stage 1 shipped
 and is in `main`. Stage 2 and stage 3 were never started.
@@ -206,8 +211,9 @@ the stage. Everything else in §5 and §6 is outstanding:
   `(transport, launch)`, and an unwrapped `mcp-remote` bridge normalises to
   `(http, url)` before comparison or every bridged server reads as permanently
   conflicting.
-- **§5.5 persisted verification** — `PRAGMA user_version` 5 → 6. Version 6 is
-  still free; nothing has taken it.
+- **§5.5 persisted verification** — done. v6 added `probe_results` during
+  stage 2; v7 added its freshness columns (`ttl_ms`, `cache_scope`,
+  `launch_mtime`) during stage 3.
 - **§6.1 the panel** — the inspector eyebrow (`MCP servers · user profile` with
   nothing selected, `MCP server · user profile` with a row selected), the
   verdict card, the launch-spec diff aligned on the token that differs, and the

@@ -33,8 +33,10 @@ column without deciding what invalidates it.
 
 **Schema changes are `PRAGMA user_version` migrations in
 `preferences.rs::init_db`.** There are no `.sql` files and no migration
-directory. The store is at version 3, pinned by
-`src-tauri/tests/store_migration_tests.rs`.
+directory. The store is at version 7. That number has gone stale here four times, so
+treat `src-tauri/tests/store_migration_tests.rs` as the source of truth and
+this line as a hint — the tests pin every version and fail when one moves;
+this prose does not.
 
 **Styling is semantic tokens only.** No raw hex, no `text-red-500`. Enforced
 by `src/__tests__/no-off-token-styles.test.ts` against a file-and-line
