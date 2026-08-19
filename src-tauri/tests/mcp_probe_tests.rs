@@ -65,6 +65,15 @@ async fn probe_reports_identity_and_tools() {
 /// never runs and the marker never appears. The script ignores stdin EOF (it
 /// loops on `sleep` after the read loop ends) so the marker can only be
 /// evidence of SIGTERM, not of step 1 alone.
+///
+/// The trap kills `$SLEEP_PID` before it exits. Without that, the backgrounded
+/// `sleep 3600` outlives the shell that started it — a parent exiting (by
+/// `exit 0` here, or by the eventual SIGKILL in the sibling fixture below)
+/// does not take its background jobs down with it; they get reparented to
+/// pid 1 and keep running for the full duration. Found on this machine as
+/// 107 orphaned `sleep 3600` processes, 1-2 accumulating per suite run,
+/// invisible to `pgrep -f <script path>` because the orphan's own argv is
+/// just `sleep 3600`, carrying none of the script's path.
 #[cfg(unix)]
 #[tokio::test]
 async fn shutdown_escalates_to_sigterm_before_sigkill() {
@@ -72,7 +81,7 @@ async fn shutdown_escalates_to_sigterm_before_sigkill() {
     let marker = dir.path().join("sigterm-received");
     let body = r#"#!/bin/sh
 MARKER="$1"
-trap 'touch "$MARKER"; exit 0' TERM
+trap 'kill "$SLEEP_PID" 2>/dev/null; touch "$MARKER"; exit 0' TERM
 while IFS= read -r line; do
   case "$line" in
     *'"initialize"'*)
@@ -90,6 +99,7 @@ done
 # in `wait` instead measured at ~30ms trap-to-marker latency across 13 runs
 # on this machine — that is what SHUTDOWN_TERM_WAIT is sized against.
 sleep 3600 &
+SLEEP_PID=$!
 wait
 "#;
     let s = write_script(dir.path(), "sigterm_trap.sh", body);
@@ -133,8 +143,10 @@ async fn probe_times_out_instead_of_hanging_the_ui() {
 /// cleanup code placed inside the cancelled future. A server that never
 /// answers the handshake exercises exactly that unwind.
 ///
-/// This deliberately does not use a SIGTERM trap the way
-/// `shutdown_escalates_to_sigterm_before_sigkill` does. A trap (or a script
+/// This deliberately does not *prove escalation* via a SIGTERM trap the way
+/// `shutdown_escalates_to_sigterm_before_sigkill` does (the script below
+/// does carry a trap, but only for its own process cleanup — see the note
+/// below the elapsed-time bullet). A trap-as-proof (or a script
 /// self-reporting its own pid) requires the shell to have been *scheduled*
 /// long enough to run that line before the signal arrives, and under this
 /// suite's own parallelism — several tests spawning real child processes at
@@ -159,6 +171,17 @@ async fn probe_times_out_instead_of_hanging_the_ui() {
 ///   which records a still-running process regardless of whether that
 ///   process ever got scheduled to execute a single one of its own
 ///   instructions — unlike a marker file, which needs exactly that.
+///
+/// The script *does* still carry a `TERM` trap, but only to kill its own
+/// backgrounded `sleep 3600` before exiting — a bare `sleep 3600 &` outlives
+/// the shell that started it (reparented to pid 1, running for the full
+/// hour) unless something explicitly kills it first, and `pgrep -f` above
+/// cannot see that orphan: its argv is just `sleep 3600`, none of the
+/// script's path. This trap's *reliability* is not load-bearing for either
+/// assertion above the way the marker fixture's trap is for its own
+/// assertion — if scheduling lag (see the doc comment above) ever keeps this
+/// trap from running before a stray SIGKILL, the orphan risk is only ever a
+/// possibility, never something this test's pass/fail depends on either way.
 #[cfg(unix)]
 #[tokio::test]
 async fn probe_that_times_out_still_stops_the_child_via_shutdown() {
@@ -168,7 +191,7 @@ async fn probe_that_times_out_still_stops_the_child_via_shutdown() {
     let s = write_script(
         dir.path(),
         "silent_forever.sh",
-        "#!/bin/sh\nwhile IFS= read -r line; do :; done\nsleep 3600 &\nwait\n",
+        "#!/bin/sh\ntrap 'kill \"$SLEEP_PID\" 2>/dev/null' TERM\nwhile IFS= read -r line; do :; done\nsleep 3600 &\nSLEEP_PID=$!\nwait\n",
     );
 
     let started = std::time::Instant::now();
@@ -183,16 +206,28 @@ async fn probe_that_times_out_still_stops_the_child_via_shutdown() {
         elapsed
     );
     assert!(
-        elapsed < Duration::from_secs(3),
+        // Generous on purpose: this is a hang guard, not a timing assertion.
+        // The nominal budget here is ~1.2s (200ms exchange timeout + up to
+        // 500ms SHUTDOWN_WAIT + up to 500ms SHUTDOWN_TERM_WAIT), but a
+        // saturated machine delays more than the child's own scheduling —
+        // this process's own async task can go unscheduled too. A tighter
+        // bound flakes under exactly the load this suite itself produces;
+        // this only needs to catch a genuine hang.
+        elapsed < Duration::from_secs(10),
         "shutdown after timeout must still be bounded: took {:?}",
         elapsed
     );
 
-    let leaked = std::process::Command::new("pgrep")
+    // A failed `pgrep` invocation must fail this test, not silently pass it
+    // — `.unwrap_or(false)` here would assert "no leak" on a missing or
+    // erroring pgrep exactly as readily as on a genuinely clean process
+    // table, which is the vacuous-control failure mode: a check that cannot
+    // tell "verified absent" from "never actually checked".
+    let output = std::process::Command::new("pgrep")
         .args(["-f", &s])
         .output()
-        .map(|o| !o.stdout.is_empty())
-        .unwrap_or(false);
+        .expect("pgrep must be invocable to check for a leaked process");
+    let leaked = !output.stdout.is_empty();
     assert!(!leaked, "a process matching `{}` is still running after probe() returned — leaked", s);
 }
 

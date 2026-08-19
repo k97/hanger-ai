@@ -21,13 +21,29 @@ use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::process::{Child, ChildStdin, ChildStdout, Command};
 
 /// First bounded wait in `shutdown`: after closing stdin, how long to give
-/// the server to exit on its own before escalating to `SIGTERM`. Measured on
-/// this machine: a cooperative server (this module's own test fixtures)
-/// exits within single-digit milliseconds of stdin closing, and a real
-/// handshake against spades-audio/mcp-server-tauri totals 100ms-1.3s
-/// end-to-end. 500ms costs nothing on the common path — `wait_briefly`
-/// returns as soon as the child exits, not at the deadline — and only a
-/// wedged server ever pays it.
+/// the server to exit on its own before escalating to `SIGTERM`. Who pays
+/// this, and how much, splits in two, measured directly against this
+/// module's own fixtures rather than assumed:
+///
+/// - A server that exits on stdin EOF (the shape of most of this module's
+///   fixtures, and of a well-behaved short-lived CLI-style server) pays
+///   close to nothing — `wait_briefly` returns the moment the child exits,
+///   not at the deadline. Warm-run measurement: ~3ms total.
+/// - A server whose event loop stays alive after stdin closes — not a
+///   "wedged" server, just one that does not treat EOF as a shutdown signal,
+///   which describes a good number of real Node and Python MCP servers —
+///   pays the full window on *every* probe. Measured directly (a fixture
+///   that answers the handshake correctly but never exits on EOF): 3-4ms
+///   before this fix, 507-519ms with it. That extra ~500ms is this
+///   constant, paid in full, not a worst case.
+///
+/// This is spec-correct and is the point of the task, so the number is not
+/// tuned down to make the second case cheaper — closing stdin without
+/// waiting for a response is exactly the bare-`kill()` behaviour being
+/// replaced. But it does mean a later stage that probes on every panel open
+/// (rather than only on a Verify click) inherits this cost per probe against
+/// exactly the servers most likely to still be running: whoever reads this
+/// next needs the real number, not a reassuring one.
 const SHUTDOWN_WAIT: Duration = Duration::from_millis(500);
 
 /// Second bounded wait in `shutdown`: after `SIGTERM`, how long to give the
