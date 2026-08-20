@@ -222,7 +222,11 @@ fn dialect_for_swept(path: &Path) -> dialect::Dialect {
 /// registry does not carry it. One place, so every `ConfigProblem` resolves
 /// its `engine` field the same way `scanner.rs` already resolves the same
 /// table for `Tool` rows.
-fn engine_display_name(host_id: &str) -> String {
+///
+/// `pub(crate)`: `mcp::engine_summary` resolves a row's `engine_name` the
+/// same way, and a second copy of this lookup is exactly the drift
+/// `invariants.md` warns about for the redactors — one place, not two.
+pub(crate) fn engine_display_name(host_id: &str) -> String {
     crate::mcp::registry::host_by_id(host_id)
         .map(|h| h.display_name.to_string())
         .unwrap_or_else(|| host_id.to_string())

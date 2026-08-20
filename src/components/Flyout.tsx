@@ -11,6 +11,7 @@ import { Inventory } from "../App";
 import AssetDetail from "./AssetDetail";
 import type { AssetAnnotationView } from "./AssetRow";
 import McpServerDetail from "./McpServerDetail";
+import McpEngineSummary, { type McpEngineSummaryData } from "./McpEngineSummary";
 import BrandIcon from "./BrandIcon";
 import { buildMcpServerView, type ProcessMatch } from "../utils/mcpServerView";
 import LinkPanel from "./LinkPanel";
@@ -553,6 +554,32 @@ export default function Flyout({
   const showEmptyMcpEyebrow =
     !linking && !targetAsset && !selectedBubble && activeCategory === "Tools";
 
+  /* McpEngineSummary's own data, fetched here rather than threaded down
+     from App -- the same division of labour as `mcp_cached_probe` above:
+     this panel's own local questions get their own local fetch. `null`
+     until the answer arrives, which McpEngineSummary's caller (below) reads
+     as "say nothing yet" rather than an empty table -- pending is not a
+     finding (ui-copy.md). Re-asked every time the empty MCP state comes
+     into view, the same "the panel opened" trigger `onAutoProbe` already
+     uses, rather than once per mount: this state does not unmount between
+     selections, so a fetch gated on mount alone would go stale the moment
+     a scan or a probe changed what the backend would now answer. */
+  const [mcpEngineSummary, setMcpEngineSummary] = useState<McpEngineSummaryData | null>(null);
+  useEffect(() => {
+    if (!showEmptyMcpEyebrow) return;
+    let cancelled = false;
+    invoke<McpEngineSummaryData>("get_mcp_engine_summary")
+      .then((r) => {
+        if (!cancelled) setMcpEngineSummary(r);
+      })
+      .catch(() => {
+        if (!cancelled) setMcpEngineSummary(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [showEmptyMcpEyebrow]);
+
   return (
     // Column chrome (width, resize, the cap and its close) lives in App.tsx:
     // this component is only the inspector's body for the machine views.
@@ -803,6 +830,14 @@ export default function Flyout({
             </div>
           )}
         </div>
+      ) : showEmptyMcpEyebrow ? (
+        /* The Tools filter is active and nothing is selected. `null` while
+           the fetch is in flight (or found genuinely nothing to group) --
+           McpEngineSummary itself is the only thing that decides whether it
+           has something to show; a table this component built around a
+           still-loading answer would be the pending-as-finding mistake
+           ui-copy.md rules out. */
+        mcpEngineSummary && <McpEngineSummary summary={mcpEngineSummary} />
       ) : (
         /* Empty Inspector State when no asset or bubble is selected */
         <div className="flex-1 p-6 flex flex-col items-center justify-center text-center text-ink-3 font-sans">

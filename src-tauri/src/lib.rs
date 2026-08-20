@@ -1289,6 +1289,31 @@ fn get_mcp_coverage() -> Result<mcp::discover::McpCoverage, String> {
     Ok(mcp::discover::coverage(&discovered, &detected))
 }
 
+/// Task 15's empty inspector: one row per detected engine, what it
+/// registers, and what is known of what it exposes. Same
+/// `discover_machine` + detected-engine population as `get_mcp_coverage`
+/// just above (`mcp::engine_summary`'s own doc comment explains why
+/// `detected` and not `HostKind::Agent`); the probe half reads
+/// `preferences::get_probe_result` per distinct launch, which is the same
+/// cache `mcp_cached_probe` reads and writes — this command starts no probe
+/// of its own, so most launches on a real machine answer `None` here, by
+/// construction. `(async)`: same filesystem-bound reasoning as
+/// `get_mcp_coverage`.
+#[tauri::command(async)]
+fn get_mcp_engine_summary(app: AppHandle) -> Result<mcp::engine_summary::McpEngineSummary, String> {
+    let home = scanner::get_home_dir();
+    let discovered = mcp::discover::discover_machine(&home);
+    let detected: std::collections::HashSet<String> =
+        scanner::get_global_agents().into_iter().map(|a| a.id).collect();
+    let db_path = get_db_path(&app);
+    Ok(mcp::engine_summary::engine_summary(&discovered, &detected, |key| {
+        preferences::get_probe_result(&db_path, key)
+            .ok()
+            .flatten()
+            .map(|cached| cached.result.tools.len())
+    }))
+}
+
 /// Appendix A.2's "Checked {n} locations" figure and its `[Show locations]`
 /// disclosure. `agents::known_engine_locations()` is pure registry data
 /// (home-relative, no I/O by that module's own contract); the home-join and
@@ -1655,6 +1680,7 @@ pub fn run() {
             get_mcp_processes,
             get_mcp_servers,
             get_mcp_coverage,
+            get_mcp_engine_summary,
             get_linked_directories,
             run_scan,
             get_inventory,
