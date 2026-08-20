@@ -326,6 +326,31 @@ In the queue:
     in different words, per the task brief's own instruction not to copy
     its wording.
 
+- The final fix wave (2026-08-20) — one new string and two surfaces whose
+  content changed. All **UNSIGNED**; a `/humanizer` pass ran on the new
+  string as it landed and found nothing to change (no significance
+  inflation, no `-ing` analysis, no em dash, no hedging; it is deliberately
+  parallel to the launch sentence it sits beside).
+  - New, `McpServerDetail.tsx`: **"These hosts reach {name} at different
+    endpoints. Whichever you are using decides which server answers."** —
+    the M1 fix's second divergence line, for a server two hosts point at two
+    different endpoints. Written to mirror the existing **"These hosts
+    launch {name} differently. Whichever you are using decides which version
+    you get."**, since the two render in the same place and answer the same
+    question; whether they should instead be one sentence with a swapped
+    verb is a question for the pass.
+  - No new string, but visible for the first time: the project-override
+    note, **"also declared for {path} — the version used there"**
+    (`serverRows.ts`, `projectOverrideNote`). It shipped in an earlier task
+    and could never render, because the list filtered Local-tier
+    registrations out before the backend computed the note. It renders live
+    from this tree on, so it has never actually been read on screen.
+  - No new string, but new content: the multi-launch Tools block's label
+    (`McpServerDetail.tsx`) now shows a direct remote group's sanitised
+    endpoint where it previously showed an empty string. That is a URL
+    standing where a launch command normally stands — check it reads as a
+    label rather than as something to run.
+
 **Done when:** the set has had one deliberate pass together, Karthik has ruled
 on each, and any renames have landed.
 
