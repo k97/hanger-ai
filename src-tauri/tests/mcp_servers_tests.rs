@@ -133,15 +133,22 @@ fn two_remote_registrations_differing_only_by_query_string_still_conflict() {
 
 #[test]
 fn a_local_tier_registration_alongside_a_wider_one_is_flagged_as_a_project_override() {
+    // A path shape that cannot coincide with a real developer's $HOME on any
+    // machine this suite runs on — `sanitise_path` falls back to
+    // `<sanitised>/{filename}` for anything outside $HOME/$USERPROFILE, so
+    // this pins that fallback deterministically. The dedicated
+    // `the_override_is_sanitised_like_every_other_display_path` test below
+    // covers the `~/...` branch, built from the real $HOME so it is
+    // portable too.
     let rows = group_servers(&[
         stdio_reg_in("tauri", "claude-code", "npx", &["-y", "@tauri/mcp@2.9.1"]),
-        local_reg("tauri", "claude-code", "npx", "/Users/karthik/Work/hanger-ai"),
+        local_reg("tauri", "claude-code", "npx", "/opt/repos/hanger-ai"),
     ]);
     assert_eq!(rows.len(), 1, "still one row — grouping by name is unchanged");
     assert_eq!(rows[0].registration_count, 2, "nothing lost from the count");
     assert_eq!(
         rows[0].project_override,
-        Some("/Users/karthik/Work/hanger-ai".to_string())
+        Some("<sanitised>/hanger-ai".to_string())
     );
 }
 
@@ -177,11 +184,34 @@ fn the_override_survives_a_conflicting_verdict_too() {
     // rather than leaving "different launch specs" as the only story.
     let rows = group_servers(&[
         stdio_reg_in("tauri", "claude-code", "npx", &["-y", "@tauri/mcp@latest"]),
-        local_reg("tauri", "claude-code", "npx", "/Users/karthik/Work/hanger-ai"),
+        local_reg("tauri", "claude-code", "npx", "/opt/repos/hanger-ai"),
     ]);
     assert_eq!(rows[0].agreement, Agreement::Conflicting);
     assert_eq!(
         rows[0].project_override,
-        Some("/Users/karthik/Work/hanger-ai".to_string())
+        Some("<sanitised>/hanger-ai".to_string())
+    );
+}
+
+// Fix round 1: `project_override` was crossing IPC with the raw,
+// unsanitised path — the house convention at the IPC boundary for a
+// display-only path is `preferences::sanitise_path` (`ConfigProblem.path`'s
+// own precedent, not `Tool.config_path`'s, which stays raw because it is
+// used functionally to open a file). Built from the REAL `$HOME` env var
+// rather than a hardcoded username, so this pins the `~/...` branch
+// portably on whichever machine runs the suite.
+#[test]
+fn the_project_override_is_sanitised_like_every_other_display_path() {
+    let home = std::env::var("HOME").expect("HOME must be set to run this test");
+    let project_root = format!("{}/Work/hanger-ai", home);
+    let rows = group_servers(&[
+        stdio_reg_in("tauri", "claude-code", "npx", &["-y", "@tauri/mcp@2.9.1"]),
+        local_reg("tauri", "claude-code", "npx", &project_root),
+    ]);
+    assert_eq!(
+        rows[0].project_override,
+        Some("~/Work/hanger-ai".to_string()),
+        "project_override leaked the raw HOME-relative path instead of sanitising it: {:?}",
+        rows[0].project_override
     );
 }

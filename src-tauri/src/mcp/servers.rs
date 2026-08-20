@@ -140,10 +140,17 @@ pub fn group_servers(regs: &[Registration]) -> Vec<McpServerRow> {
             // registration is Local" `None` branch below regardless of
             // which one `find` would have picked.
             let has_wider_tier = group.iter().any(|r| r.tier != ScopeTier::Local);
+            // Sanitised at the boundary, same as `ConfigProblem.path`
+            // (`discover.rs`'s own precedent for a display-only path) —
+            // never `Tool.config_path`'s precedent, which stays raw because
+            // it is used functionally to open a file. This field is prose
+            // only (`projectOverrideNote` on the frontend), so it follows
+            // the display-path convention, not the functional-path one.
             let project_override = has_wider_tier
                 .then(|| group.iter().find(|r| r.tier == ScopeTier::Local))
                 .flatten()
-                .and_then(|r| r.server.project_root.clone());
+                .and_then(|r| r.server.project_root.as_deref())
+                .map(crate::preferences::sanitise_path);
             McpServerRow {
                 name,
                 transport,
