@@ -544,3 +544,71 @@ async fn the_shipped_entry_point_consults_the_real_process_table() {
         "a row here would mean a handshake ran against a server that was already up"
     );
 }
+
+// ---------------------------------------------------------------------------
+// One door.
+//
+// Both rules above are properties of `cached_probe`, and every one of the
+// tests in this file drives that function. None of that is worth anything if
+// the webview can reach a probe some other way: a second command that spawns
+// without consulting the cache or the process table honours neither rule, and
+// no test here would notice. `mcp_probe` WAS that second door until e8115c9
+// deleted it, and "two paths to the same side effect" is this repo's recorded
+// failure mode -- `invariants.md`'s two-redactor rule is the same shape,
+// where the sibling that was never taught the fix is how a bearer token
+// shipped.
+//
+// So the door is pinned as source text, in the idiom `mcp_observe_tests.rs`
+// and `agent_attribution_tests.rs` already use for lib.rs: read the real
+// `generate_handler![]` list and assert what is in it. Written as "the only
+// probe command is this one" rather than "mcp_probe is absent", so a
+// reintroduction under any other name fails it too.
+// ---------------------------------------------------------------------------
+
+const LIB_SRC: &str = include_str!("../src/lib.rs");
+
+/// The `generate_handler![...]` list itself, isolated by bracket depth so a
+/// match anywhere else in `lib.rs` -- a doc comment, a test, the command's
+/// own definition -- can never satisfy the assertion below.
+fn invoke_handler_list() -> &'static str {
+    let start = LIB_SRC.find("tauri::generate_handler![").expect(
+        "lib.rs must register its commands through tauri::generate_handler![ -- if that moved, \
+         this guard moved with it",
+    );
+    let open = LIB_SRC[start..]
+        .find('[')
+        .map(|i| start + i)
+        .expect("generate_handler! must have a list");
+
+    let mut depth: i32 = 0;
+    for (offset, ch) in LIB_SRC[open..].char_indices() {
+        match ch {
+            '[' => depth += 1,
+            ']' => {
+                depth -= 1;
+                if depth == 0 {
+                    return &LIB_SRC[open + 1..open + offset];
+                }
+            }
+            _ => {}
+        }
+    }
+    panic!("the invoke_handler list has unbalanced brackets");
+}
+
+#[test]
+fn mcp_cached_probe_is_the_only_probe_command_the_webview_can_invoke() {
+    let doors: Vec<&str> = invoke_handler_list()
+        .split(',')
+        .map(str::trim)
+        .filter(|name| !name.is_empty() && name.to_ascii_lowercase().contains("probe"))
+        .collect();
+
+    assert_eq!(
+        doors,
+        vec!["mcp_cached_probe"],
+        "every probe the webview can start must go through mcp_cached_probe, where rules 1 and 2 \
+         live. A second command that spawns is a path neither rule guards and no test in this \
+         file drives"
+    );
+}
