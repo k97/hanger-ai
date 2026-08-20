@@ -1289,24 +1289,29 @@ fn get_mcp_coverage() -> Result<mcp::discover::McpCoverage, String> {
     Ok(mcp::discover::coverage(&discovered, &detected))
 }
 
-/// Task 15's empty inspector: one row per detected engine, what it
-/// registers, and what is known of what it exposes. Same
-/// `discover_machine` + detected-engine population as `get_mcp_coverage`
-/// just above (`mcp::engine_summary`'s own doc comment explains why
-/// `detected` and not `HostKind::Agent`); the probe half reads
-/// `preferences::get_probe_result` per distinct launch, which is the same
-/// cache `mcp_cached_probe` reads and writes — this command starts no probe
-/// of its own, so most launches on a real machine answer `None` here, by
-/// construction. `(async)`: same filesystem-bound reasoning as
-/// `get_mcp_coverage`.
+/// Task 15's empty inspector: one row per host that registers at least one
+/// server, what it registers, and what is known of what it exposes.
+///
+/// Population is every host `discover_machine` finds a registration for —
+/// NOT `get_global_agents()`'s detected-engine set. Fix round 1
+/// (2026-08-20) ruled out the detected-engine restriction this command
+/// shipped with originally: it silently dropped every MCP-only host
+/// (Claude Desktop, Cursor, VS Code, Claude.ai, Devin Desktop) from a
+/// machine that had real registrations under them. `mcp::engine_summary`'s
+/// own doc comment carries the full reasoning; this command no longer
+/// builds a `detected` set at all.
+///
+/// The probe half reads `preferences::get_probe_result` per distinct
+/// launch, which is the same cache `mcp_cached_probe` reads and writes —
+/// this command starts no probe of its own, so most launches on a real
+/// machine answer `None` here, by construction. `(async)`: same
+/// filesystem-bound reasoning as `get_mcp_coverage`.
 #[tauri::command(async)]
 fn get_mcp_engine_summary(app: AppHandle) -> Result<mcp::engine_summary::McpEngineSummary, String> {
     let home = scanner::get_home_dir();
     let discovered = mcp::discover::discover_machine(&home);
-    let detected: std::collections::HashSet<String> =
-        scanner::get_global_agents().into_iter().map(|a| a.id).collect();
     let db_path = get_db_path(&app);
-    Ok(mcp::engine_summary::engine_summary(&discovered, &detected, |key| {
+    Ok(mcp::engine_summary::engine_summary(&discovered, |key| {
         preferences::get_probe_result(&db_path, key)
             .ok()
             .flatten()
