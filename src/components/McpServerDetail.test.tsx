@@ -444,6 +444,65 @@ describe("McpServerDetail", () => {
     expect(within(note).queryByText(/mcp\.notion\.com/)).toBeNull();
   });
 
+  it("keeps two remote arms of one server apart instead of answering for both", () => {
+    // M1, final review: every DIRECT remote registration has an empty
+    // `launchDisplay` -- no dialect puts a URL into command/args -- so all
+    // of them folded into one ""-keyed spec group. With one group, the
+    // panel took the single-spec branch: it auto-probed arm A on open and
+    // rendered A's tool list unlabelled, with A's count in the header slot
+    // whose own comment says a number there "can only ever mean one thing".
+    // Arm B was not represented anywhere. That is spec 4.1a's standing rule
+    // -- the panel never states one arm's tools as the server's -- broken
+    // for every Conflicting-remote server, automatically and with no
+    // gesture from the user.
+    const server: McpServerView = {
+      ...base,
+      name: "github",
+      command: "",
+      transport: "https://api.a.example.com/mcp",
+      registrations: [
+        {
+          key: "cc-1",
+          host: "Claude Code",
+          tier: "user",
+          configPath: "~/.claude.json",
+          command: "",
+          launchDisplay: "",
+          transport: "https://api.a.example.com/mcp",
+        },
+        {
+          key: "zed-1",
+          host: "Zed",
+          tier: "global",
+          configPath: "~/.config/zed/settings.json",
+          command: "",
+          launchDisplay: "",
+          transport: "https://api.b.example.com/mcp",
+        },
+      ],
+    };
+    render(
+      <McpServerDetail
+        server={server}
+        verified={{
+          "cc-1": { capabilities: [], tools: [{ name: "create_issue" }], verifiedAt: 1 },
+        }}
+      />
+    );
+
+    // Two endpoints are two things to ask, so two blocks -- never one block
+    // carrying arm A's answer as the whole server's.
+    expect(screen.getAllByTestId("tools-block")).toHaveLength(2);
+    // And each block is labelled with the endpoint it belongs to, in the
+    // only form allowed on screen: the sanitised transport the backend
+    // already ships. No raw URL and no fingerprint reaches this panel.
+    expect(screen.getByText("https://api.a.example.com/mcp")).toBeTruthy();
+    expect(screen.getByText("https://api.b.example.com/mcp")).toBeTruthy();
+    // And the divergence fires: `launches` filtered empty strings out, so
+    // two remote arms could never make it true, however far apart they were.
+    expect(screen.getByText(/differ/i)).toBeTruthy();
+  });
+
   it("says nothing about a bridge when no registration is bridged", () => {
     render(<McpServerDetail server={base} />);
     expect(screen.queryByTestId("bridge-note")).toBeNull();

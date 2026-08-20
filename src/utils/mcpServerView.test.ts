@@ -105,6 +105,25 @@ describe("buildMcpServerView", () => {
     expect(view?.registrations[0].launchDisplay).toContain("<redacted>");
   });
 
+  it("carries each registration's own transport, not the server-wide one", () => {
+    // M1: the panel groups direct remote registrations on this field, and
+    // `McpServerView.transport` is the FIRST registration's -- so without
+    // the per-registration value, two remote arms of one server are
+    // indistinguishable in the panel and fold back into one block that
+    // reports arm A's tools as the server's.
+    const remote = [
+      { id: "/home/.claude.json:github", name: "github", command: "", transport: "https://api.a.example.com/mcp",
+        config_path: "/home/.claude.json", scope: { Global: { agent: "claude-code" } } },
+      { id: "/home/.config/zed/settings.json:github", name: "github", command: "", transport: "https://api.b.example.com/mcp",
+        config_path: "/home/.config/zed/settings.json", scope: { Global: { agent: "zed" } } },
+    ];
+    const view = buildMcpServerView(remote, "github")!;
+    expect(view.registrations.map((r) => r.transport)).toEqual([
+      "https://api.a.example.com/mcp",
+      "https://api.b.example.com/mcp",
+    ]);
+  });
+
   it("carries the backend's bridged flag onto each registration", () => {
     // Task 9 (§6.1): `McpServerDetail` needs to tell a registration reached
     // through a local bridge (mcp-remote) apart from a direct one, to

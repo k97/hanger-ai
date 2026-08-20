@@ -30,6 +30,13 @@ interface Registration {
   command: string;
   /** What this registration launches, already redacted by the backend. */
   launchDisplay: string;
+  /** Where this registration reaches the server, as the backend sanitised it
+   *  (`Tool.transport`): `stdio`, `claude.ai`, or an endpoint whose userinfo
+   *  and query string are already stripped (`dialect::sanitise_url`). The
+   *  server-wide `transport` cannot stand in for it — that is one arm's
+   *  value (`group_servers` takes the first registration's), and telling two
+   *  remote arms apart is exactly what it is needed for. */
+  transport?: string;
   /** True when this registration reaches its server through a local bridge
    *  (mcp-remote) rather than declaring the endpoint directly. Backend-owned
    *  (`Tool.bridged`) — never inferred here from `launchDisplay`'s text. */
@@ -61,6 +68,11 @@ interface VerifiedIdentity {
  *  attribution the Identity section already uses above, not a
  *  reconciliation across the group (spec §5.7). */
 interface SpecGroup {
+  /** What made these registrations one group: the launch they share, or --
+   *  for a direct remote declaration, which has no launch at all -- the
+   *  sanitised endpoint they dial. Also the block's label and React key: two
+   *  remote groups both had `launchDisplay` `""` and collided on both. */
+  key: string;
   launchDisplay: string;
   regs: Registration[];
   result?: VerifiedIdentity;
@@ -348,10 +360,26 @@ export default function McpServerDetail({
   // one probed block unlabelled, floating free of the launch that produced
   // it. With every registration counted, that server correctly has two
   // groups, and the probed one is labelled like any other sibling.
+  /* What makes two registrations the same thing to ask.
+     `launchDisplay` for anything with a local launch, exactly as before. A
+     DIRECT remote registration has none -- no dialect puts a URL into
+     command/args, as the bridge note below says itself -- so every one of
+     them used to fold into a single ""-keyed group, and a server declared at
+     two different endpoints rendered one arm's tools with the other arm
+     erased. Its endpoint is what identifies it, and `transport` is that
+     endpoint in the only form allowed on screen: sanitised by the backend,
+     userinfo and query string already stripped.
+     Two arms differing only in their query string still fold together here.
+     The raw URL never crosses IPC and `url_fingerprint` may not be rendered,
+     logged or serialised, so that comparison belongs to the server list's
+     agreement verdict, which does hold it -- this is the honest
+     approximation available to the panel, not a claim the two are one. */
+  const specKeyOf = (r: Registration) => r.launchDisplay || r.transport || "";
+
   const specGroups: SpecGroup[] = [];
   for (const reg of server.registrations) {
     const result = verified?.[reg.key];
-    const group = specGroups.find((g) => g.launchDisplay === reg.launchDisplay);
+    const group = specGroups.find((g) => g.key === specKeyOf(reg));
     if (group) {
       group.regs.push(reg);
       // First succeeded wins, same attribution the Identity section already
@@ -363,7 +391,12 @@ export default function McpServerDetail({
         group.result = result;
       }
     } else {
-      specGroups.push({ launchDisplay: reg.launchDisplay, regs: [reg], result });
+      specGroups.push({
+        key: specKeyOf(reg),
+        launchDisplay: reg.launchDisplay,
+        regs: [reg],
+        result,
+      });
     }
   }
 
@@ -394,7 +427,25 @@ export default function McpServerDetail({
      can see across them. Silent when they agree — a "no divergence" badge on
      every server would be noise. */
   const launches = new Set(server.registrations.map(launchOf).filter(Boolean));
-  const diverges = launches.size > 1;
+  const launchesDiverge = launches.size > 1;
+
+  /* The same finding for servers that are dialled rather than launched.
+     `launches` above is built from `launchDisplay` and drops every empty
+     one, so two direct remote registrations pointed at different endpoints
+     could never make it true however far apart they were -- the list row
+     said Conflicting (the backend compares fingerprints) and the panel that
+     exists to explain the conflict said nothing. Bridged registrations are
+     excluded: a bridge HAS a launch and is already counted above, and one
+     bridge beside one direct sibling is the case the note further down
+     covers rather than a divergence. */
+  const remoteEndpoints = new Set(
+    server.registrations
+      .filter((r) => !r.bridged && !r.launchDisplay)
+      .map((r) => r.transport)
+      .filter(Boolean)
+  );
+  const endpointsDiverge = remoteEndpoints.size > 1;
+  const diverges = launchesDiverge || endpointsDiverge;
 
   // `specGroups` already dedups by exact launchDisplay match (above), so
   // filtering out the empty-launch group here leaves exactly one entry per
@@ -624,7 +675,13 @@ export default function McpServerDetail({
             </div>
           ))}
         </div>
-        {diverges && (
+        {endpointsDiverge && (
+          <p className="text-micro text-state-warning leading-[1.45] mt-2">
+            These hosts reach {server.name} at different endpoints. Whichever you are using
+            decides which server answers.
+          </p>
+        )}
+        {launchesDiverge && (
           <>
             <p className="text-micro text-state-warning leading-[1.45] mt-2">
               These hosts launch {server.name} differently. Whichever you are using decides
@@ -767,13 +824,16 @@ export default function McpServerDetail({
         ) : (
           <div className="flex flex-col gap-3">
             {specGroups.map((group) => (
-              <div key={group.launchDisplay} data-testid="tools-block" className="flex flex-col gap-1.5">
+              <div key={group.key} data-testid="tools-block" className="flex flex-col gap-1.5">
                 <div className="flex items-baseline justify-between gap-2">
                   {/* The spec this block's tools came from -- the rule this
                       redesign exists to hold: a tool count never appears
-                      without the launch that produced it. */}
+                      without the launch that produced it. `key`, not
+                      `launchDisplay`: a direct remote registration has no
+                      launch, and an empty label beside a count is the same
+                      unattributed number under a different name. */}
                   <span className="text-micro font-mono text-ink-3 truncate">
-                    {group.launchDisplay}
+                    {group.key}
                   </span>
                   {group.result && (
                     <span className="inline-flex items-center gap-2">

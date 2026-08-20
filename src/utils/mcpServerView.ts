@@ -165,6 +165,17 @@ export function buildMcpServerView(
       configPath: t.config_path,
       command: t.command ?? "",
       launchDisplay: t.launch_display ?? "",
+      // Per registration, not the server-wide value: `group_servers` takes
+      // the first registration's transport for the row, so the server-wide
+      // one is one arm's endpoint. The panel groups direct remote
+      // registrations on this, and two arms of one server are exactly what
+      // it has to tell apart.
+      transport: t.transport ?? "",
+      // Per registration, not the server-wide value: `group_servers` takes
+      // the first registration's transport for the row, so the server-wide
+      // one is one arm's endpoint. The panel groups direct remote
+      // registrations on this, and two arms of one server are exactly what
+      // it has to tell apart.
       bridged: t.bridged ?? false,
       ...(hit ? { running: { pid: hit.pid, spawningHost: hit.spawning_host } } : {}),
     };
