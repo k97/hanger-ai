@@ -10,7 +10,7 @@ import { dedupeRegistrations } from "../utils/mcpRegistration";
 import { sortAssetItems } from "../utils/sortUtils";
 import { registrationKey } from "../utils/mcpRegistration";
 import { groupProcesses, type ProcessMatch } from "../utils/mcpServerView";
-import { agreementLine, mergeReach, sortServerRows, type McpServerRow } from "../utils/serverRows";
+import { cardSecondLine, mergeReach, sortServerRows, type McpServerRow } from "../utils/serverRows";
 import DisclosureBanner from "./DisclosureBanner";
 import { sumGlobalAssets } from "../utils/globalAssetCount";
 import SummaryStrip from "./SummaryStrip";
@@ -632,7 +632,11 @@ export default function ProfilePane({
           path: id,
           transport: row.transport,
           plugin: row.plugin ?? undefined,
-          agreementLine: agreementLine(row),
+          // The whole second line, not just the verdict — §6.3 state 9's
+          // project-override note (when one applies) rides on the same line
+          // as the agreement sentence, per `cardSecondLine`'s own doc
+          // comment.
+          agreementLine: cardSecondLine(row),
         };
       })
     : [];
@@ -918,7 +922,10 @@ export default function ProfilePane({
           {/* The list lives on its own plane */}
           {/* Table background dropped by Karthik's ruling (2026-08-15):
               flat on the page, edge drawn by the --line border alone. */}
-          <div className="@container flex-1 min-h-0 overflow-y-auto mx-[18px] border border-line rounded-tl-plane rounded-tr-plane pb-1.5">
+          <div
+            data-testid="asset-list-scroll"
+            className="@container flex-1 min-h-0 overflow-y-auto mx-[18px] border border-line rounded-tl-plane rounded-tr-plane pb-1.5"
+          >
             {/* The MCP section carries its own column labels below (Registered
                 in / Tools) — Reach and Beyond the store describe Skills,
                 Rules, Agents and Subagents, never a server, so this header
@@ -987,12 +994,23 @@ export default function ProfilePane({
                 instead. In a Tools-only view the shared header above is
                 suppressed entirely (`toolsOnlyView`); in a mixed view the
                 shared header still renders for the OTHER sections, and this
-                inline header is what actually sits above these rows. */}
+                inline header is what actually sits above these rows.
+
+                Sticky for the same reason `AssetHeaderRow` above is (§6.3
+                state 8, 50+ servers): with more rows than fit one screen,
+                nothing else on screen still names "Registered in" / "Tools"
+                once this header scrolls out of view. `top-0` + `z-[2]` +
+                `bg-page` mirrors `AssetHeaderRow`'s own sticky treatment
+                exactly — in a mixed view where both are present, a later
+                sticky element at the same offset naturally displaces the
+                earlier one as its own scroll position reaches the top, the
+                standard stacked-sticky-header behaviour, so this never
+                collides with `AssetHeaderRow` above it. */}
             {showTools && hasToolsContent && (
               <>
                 <div
                   data-testid="section-header-tools"
-                  className={`flex items-center gap-3 select-none ${secClass}`}
+                  className={`sticky top-0 z-[2] bg-page flex items-center gap-3 select-none ${secClass}`}
                 >
                   <h3 className="flex-1 truncate">
                     MCP servers · {assetCounts ? (assetCounts.byCategory.tool?.global ?? 0) : sortedTools.length}

@@ -20,6 +20,13 @@ export interface McpServerRow {
    *  `RegistrationKey` format `Tool.id` uses, so these strings can be
    *  cross-referenced against annotations keyed by registration. */
   registrations: string[];
+  /** The project a Local-tier (Claude Code's own per-project scope)
+   *  registration in this group is keyed to, set by the backend only when
+   *  the group ALSO carries a wider (machine-wide) registration of the same
+   *  name — §6.3 state 9's "project-scope override of a user-scope name."
+   *  Optional so fixtures written before this field existed keep
+   *  typechecking; absent reads the same as `null` (no override). */
+  project_override?: string | null;
 }
 
 import type { ServerSort } from "../components/ViewControl";
@@ -44,6 +51,39 @@ export function agreementLine(row: McpServerRow): string | undefined {
     default:
       return `${regPhrase} · agree`;
   }
+}
+
+/**
+ * §6.3 state 9: a project-scope override of a user-scope name is a finding
+ * to surface, never left to look like an ordinary duplicate or conflict.
+ * `agreement_for` (backend) groups by engine alone, so a machine-wide and a
+ * project-specific declaration of the same name already fold into
+ * `agreementLine`'s `Duplicate` ("declared twice by the same engine") or
+ * `Conflicting` verdict — neither of which says WHY there are two, and
+ * `Duplicate` actively misnames a deliberate two-tier structure as a
+ * redundant copy. `row.project_override` is the backend's own resolution of
+ * which project's declaration is in play (`mcp::servers::group_servers`);
+ * this only composes the sentence fragment around it.
+ */
+export function projectOverrideNote(row: McpServerRow): string | undefined {
+  if (!row.project_override) return undefined;
+  return `also declared for ${row.project_override} — the version used there`;
+}
+
+/**
+ * The card row's whole second line: the agreement sentence, plus the
+ * project-override note when one applies, joined the way a single sentence
+ * with two clauses would be. Composing here (rather than folding the note
+ * into `agreementLine` itself) keeps each function single-purpose —
+ * `agreementLine` is purely the verdict, `projectOverrideNote` is purely the
+ * scope finding — while the row still gets one combined line, matching
+ * §5.6's "card rows, two lines" constraint.
+ */
+export function cardSecondLine(row: McpServerRow): string | undefined {
+  const parts = [agreementLine(row), projectOverrideNote(row)].filter(
+    (s): s is string => !!s
+  );
+  return parts.length > 0 ? parts.join(" · ") : undefined;
 }
 
 /** Worst-first, so a group with something to resolve leads the list. */

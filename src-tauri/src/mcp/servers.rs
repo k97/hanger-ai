@@ -18,6 +18,7 @@ use std::collections::HashMap;
 use crate::domain::RegistrationKey;
 use crate::mcp::agreement::{agreement_for, Agreement};
 use crate::mcp::discover::Registration;
+use crate::mcp::registry::ScopeTier;
 
 /// One row of the server list: every registration of one server name,
 /// collapsed to its agreement verdict and the counts a card renders.
@@ -40,6 +41,20 @@ pub struct McpServerRow {
     /// `RegistrationKey`, the same type `Tool::registration_key` uses, off
     /// the same two inputs, so the strings agree.
     pub registrations: Vec<String>,
+    /// The project a `ScopeTier::Local` registration in this group is keyed
+    /// to, set only when the group ALSO carries a registration at a wider
+    /// tier (Global/User/Project) of the same name — the machine-wide
+    /// declaration this project-scoped one overrides for a session inside
+    /// it (§6.3 state 9: "a project-scope override of a user-scope name is
+    /// a finding to surface, never a silent merge"). `agreement_for` groups
+    /// by `host_id` alone, so a same-engine User+Local pair already folds
+    /// into one `Duplicate` or `Conflicting` verdict — this field is the
+    /// independent signal that explains WHY there are two, since neither
+    /// verdict says "override" on its own. `None` when the group has no
+    /// Local-tier registration, or when every registration IS Local-tier
+    /// (nothing wider to override — e.g. the same server pinned in two
+    /// unrelated projects).
+    pub project_override: Option<String>,
 }
 
 /// Case- and separator-folded form of a name, used only to find alias
@@ -116,6 +131,19 @@ pub fn group_servers(regs: &[Registration]) -> Vec<McpServerRow> {
                 .iter()
                 .map(|r| RegistrationKey::new(&r.config_path, &r.server.name).to_string())
                 .collect();
+            // See the field's own doc comment: only when the group mixes a
+            // Local-tier registration with a wider one is there anything to
+            // call an override. `find` (not `filter`) because one project's
+            // name is what the sentence names — a server pinned separately
+            // in two DIFFERENT projects, with no wider declaration at all,
+            // has nothing to override and correctly falls into the "every
+            // registration is Local" `None` branch below regardless of
+            // which one `find` would have picked.
+            let has_wider_tier = group.iter().any(|r| r.tier != ScopeTier::Local);
+            let project_override = has_wider_tier
+                .then(|| group.iter().find(|r| r.tier == ScopeTier::Local))
+                .flatten()
+                .and_then(|r| r.server.project_root.clone());
             McpServerRow {
                 name,
                 transport,
@@ -125,6 +153,7 @@ pub fn group_servers(regs: &[Registration]) -> Vec<McpServerRow> {
                 aliased_with: aliased_with[i].clone(),
                 plugin: None,
                 registrations,
+                project_override,
             }
         })
         .collect()
