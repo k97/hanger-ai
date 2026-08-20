@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { openUrl, revealItemInDir } from "@tauri-apps/plugin-opener";
 import { MANAGE_URL } from "../utils/mcpServerView";
+import { diffLaunch, type LaunchDiffToken } from "../utils/launchDiff";
 import EngineLabel from "./EngineLabel";
 import Tooltip from "./Tooltip";
 import { ArrowPathIcon, RevealInFileManagerIcon, SpinnerIcon } from "./icons";
@@ -290,6 +291,26 @@ function ProbedToolList({ result }: { result: VerifiedIdentity }) {
   );
 }
 
+/** One side of an aligned launch-spec diff: which host(s) launch it this
+ *  way, and the tokens themselves with the differing ones picked out. Same
+ *  mono face and warning color the per-registration launch line already
+ *  uses when `diverges` is true (above, in "Registered in") -- this is a
+ *  closer look at the same fact, not a different vocabulary for it. */
+function LaunchDiffLine({ label, tokens }: { label: string; tokens: LaunchDiffToken[] }) {
+  return (
+    <div className="flex flex-col gap-px min-w-0">
+      <span className="text-micro font-mono text-ink-3 truncate">{label}</span>
+      <div className="flex flex-wrap gap-x-1.5 gap-y-px font-mono text-micro">
+        {tokens.map((token, i) => (
+          <span key={i} className={token.differs ? "text-state-warning font-medium" : "text-ink-2"}>
+            {token.text}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function McpServerDetail({
   server,
   verified,
@@ -370,6 +391,14 @@ export default function McpServerDetail({
      every server would be noise. */
   const launches = new Set(server.registrations.map(launchOf).filter(Boolean));
   const diverges = launches.size > 1;
+
+  // `specGroups` already dedups by exact launchDisplay match (above), so
+  // filtering out the empty-launch group here leaves exactly one entry per
+  // distinct non-empty launch -- the same count `launches` reports. This is
+  // what the aligned diff below iterates: comparing against an empty
+  // baseline (a connector-ish registration with no command sorted first)
+  // would show every token as differing for no real reason.
+  const divergingGroups = specGroups.filter((g) => g.launchDisplay);
 
   const isConnector = server.transport === "claude.ai";
   // Remote servers ARE verifiable now — dialled rather than spawned. Only a
@@ -555,10 +584,36 @@ export default function McpServerDetail({
           ))}
         </div>
         {diverges && (
-          <p className="text-micro text-state-warning leading-[1.45] mt-2">
-            These hosts launch {server.name} differently. Whichever you are using decides
-            which version you get.
-          </p>
+          <>
+            <p className="text-micro text-state-warning leading-[1.45] mt-2">
+              These hosts launch {server.name} differently. Whichever you are using decides
+              which version you get.
+            </p>
+            {/* The prose above says THAT the launches differ; this says
+                WHERE. Kept beneath rather than replacing it -- the sentence
+                still answers "should I care" at a glance, and the aligned
+                lines answer "which part" for anyone who reads on. Diffed
+                against the FIRST diverging spec only, the same "first wins"
+                attribution the Identity section above already uses -- not
+                an N-way alignment matrix. For the common two-host case this
+                is the whole picture; for three or more, every comparison
+                shares one baseline rather than comparing every pair. */}
+            <div data-testid="launch-diff" className="flex flex-col gap-2 mt-2">
+              {divergingGroups.slice(1).map((group) => {
+                const diff = diffLaunch(divergingGroups[0].launchDisplay, group.launchDisplay);
+                const label = (g: SpecGroup) => g.regs.map((r) => `${r.host} · ${r.tier}`).join(", ");
+                return (
+                  <div
+                    key={group.launchDisplay}
+                    className="border border-line rounded-inner px-[11px] py-[9px] flex flex-col gap-1.5"
+                  >
+                    <LaunchDiffLine label={label(divergingGroups[0])} tokens={diff.a} />
+                    <LaunchDiffLine label={label(group)} tokens={diff.b} />
+                  </div>
+                );
+              })}
+            </div>
+          </>
         )}
       </section>
 

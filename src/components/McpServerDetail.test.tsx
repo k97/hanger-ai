@@ -389,6 +389,103 @@ describe("McpServerDetail", () => {
     expect(screen.getByText(/differ/i)).toBeTruthy();
   });
 
+  it("shows the two launches aligned on the token that differs, beneath the divergence warning", () => {
+    const server: McpServerView = {
+      ...base,
+      name: "tauri",
+      registrations: [
+        { key: "/a:tauri", host: "Codex", tier: "global", configPath: "~/.codex/config.toml",
+          command: "npx", launchDisplay: "npx -y @tauri/mcp@latest" },
+        { key: "/b:tauri", host: "Gemini", tier: "global", configPath: "~/.gemini/settings.json",
+          command: "npx", launchDisplay: "npx -y @tauri/mcp@2.9.1" },
+      ],
+    };
+    render(<McpServerDetail server={server} />);
+    const registeredSection = screen.getByText("Registered in").closest("section")!;
+    // The warning still names the server in prose; the aligned diff sits
+    // beneath it and names the token itself, on both sides.
+    expect(within(registeredSection).getByText(/launch tauri differently/i)).toBeTruthy();
+    expect(within(registeredSection).getByText("@tauri/mcp@latest")).toBeTruthy();
+    expect(within(registeredSection).getByText("@tauri/mcp@2.9.1")).toBeTruthy();
+    // The shared tokens ("npx", "-y") are not styled as differing.
+    const sharedToken = within(registeredSection).getAllByText("npx")[0];
+    expect(sharedToken.className).not.toMatch(/state-warning/);
+  });
+
+  it("labels each aligned line by the host and tier that launches it", () => {
+    const server: McpServerView = {
+      ...base,
+      name: "tauri",
+      registrations: [
+        { key: "/a:tauri", host: "Codex", tier: "global", configPath: "~/.codex/config.toml",
+          command: "npx", launchDisplay: "npx -y @tauri/mcp@latest" },
+        { key: "/b:tauri", host: "Gemini", tier: "global", configPath: "~/.gemini/settings.json",
+          command: "npx", launchDisplay: "npx -y @tauri/mcp@2.9.1" },
+      ],
+    };
+    render(<McpServerDetail server={server} />);
+    const registeredSection = screen.getByText("Registered in").closest("section")!;
+    expect(within(registeredSection).getAllByText(/Codex · global/).length).toBeGreaterThan(0);
+    expect(within(registeredSection).getAllByText(/Gemini · global/).length).toBeGreaterThan(0);
+  });
+
+  it("diffs three or more diverging specs against the first, not pairwise", () => {
+    // §6.1's guidance: N>2 diffs every spec against the FIRST group's spec,
+    // the same "first wins" attribution Identity already uses — not an
+    // N-way alignment matrix. Three specs render two aligned pairs, each
+    // sharing the first spec's line as the baseline.
+    const server: McpServerView = {
+      ...base,
+      name: "tauri",
+      registrations: [
+        { key: "/a:tauri", host: "Codex", tier: "global", configPath: "~/.codex/config.toml",
+          command: "npx", launchDisplay: "npx -y @tauri/mcp@1.0.0" },
+        { key: "/b:tauri", host: "Gemini", tier: "global", configPath: "~/.gemini/settings.json",
+          command: "npx", launchDisplay: "npx -y @tauri/mcp@2.0.0" },
+        { key: "/c:tauri", host: "VS Code", tier: "global", configPath: "~/.vscode/mcp.json",
+          command: "npx", launchDisplay: "npx -y @tauri/mcp@3.0.0" },
+      ],
+    };
+    render(<McpServerDetail server={server} />);
+    const registeredSection = screen.getByText("Registered in").closest("section")!;
+    // The baseline (1.0.0) appears once per comparison it anchors -- twice,
+    // not three times, since it is never compared to itself.
+    expect(within(registeredSection).getAllByText("@tauri/mcp@1.0.0")).toHaveLength(2);
+    expect(within(registeredSection).getByText("@tauri/mcp@2.0.0")).toBeTruthy();
+    expect(within(registeredSection).getByText("@tauri/mcp@3.0.0")).toBeTruthy();
+  });
+
+  it("never renders a secret that leaked into a diverging launch's env assignment", () => {
+    // The security constraint, verbatim and standing: "Redact in the
+    // launch-spec diff: show that env differs, never what it differs to."
+    // REDACT_ME_1 is planted directly into launchDisplay to prove the diff
+    // itself withholds it -- independent of whatever the backend's own
+    // redaction already caught -- rather than trusting the backend alone.
+    //
+    // Scoped to the diff block (`data-testid="launch-diff"`), not the whole
+    // panel: the "Registered in" row above it renders each registration's
+    // raw `launchDisplay` verbatim by design -- "already redacted by the
+    // backend" is the panel's standing trust boundary for that row, and a
+    // value planted to simulate a backend redaction MISS necessarily shows
+    // there too. That is pre-existing behaviour, unrelated to this task and
+    // out of its scope. What this task owns is that the NEW diff view adds
+    // no further exposure of its own.
+    const server: McpServerView = {
+      ...base,
+      name: "leaky-server",
+      registrations: [
+        { key: "a", host: "Codex", tier: "global", configPath: "~/.codex/config.toml",
+          command: "node", launchDisplay: "node server.js API_KEY=REDACT_ME_1" },
+        { key: "b", host: "Gemini", tier: "global", configPath: "~/.gemini/settings.json",
+          command: "node", launchDisplay: "node server.js API_KEY=REDACT_ME_2" },
+      ],
+    };
+    render(<McpServerDetail server={server} />);
+    const diffBlock = screen.getByTestId("launch-diff");
+    expect(within(diffBlock).queryByText(/REDACT_ME/)).toBeNull();
+    expect(within(diffBlock).getAllByText(/env differs/i).length).toBeGreaterThan(0);
+  });
+
   it("lets you open the config file a registration came from", () => {
     render(<McpServerDetail server={base} />);
     const openers = screen.getAllByRole("button", { name: /reveal|open config/i });
