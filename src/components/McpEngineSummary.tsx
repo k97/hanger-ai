@@ -1,13 +1,27 @@
 import BrandIcon from "./BrandIcon";
 
 /**
- * The Flyout's empty-selection body when the Tools filter is active — a
- * sibling to `McpServerDetail`. That component is one server, every
- * registration of it; this one is every server, grouped by engine.
+ * The Flyout's empty-selection body when the Tools filter is active AND the
+ * pane is the global store — a sibling to `McpServerDetail`. That component
+ * is one server, every registration of it; this one is every server,
+ * grouped by host. Never rendered for a repository pane (`Flyout.tsx`'s own
+ * `isRepoScope` gate): this summary is machine-wide, and a repo heading
+ * over machine-wide data was fix round 1's item 5.
+ *
+ * Rows are every host that registers at least one server — NOT only
+ * detected engines. Fix round 1 (2026-08-20) reversed the original
+ * detected-engine restriction: an MCP-only host with no scanned directory
+ * of its own gets a row the moment it registers something, same as the
+ * reference prototype's own rows do. `engine_id`/`engine_name` are still
+ * named for the component Karthik named, not a claim that every row is an
+ * "engine" in `AGENT_CONFIGS`'s narrower sense — see
+ * `mcp::engine_summary`'s own doc comment for which hosts that widens the
+ * population to.
  *
  * Every figure here is a backend field (`get_mcp_engine_summary`,
  * `mcp::engine_summary::engine_summary`). Nothing on this screen is a
- * `.length` of anything — see `no-frontend-counting.test.ts`.
+ * `.length` of anything, and nothing is a `+` of two backend fields either
+ * — `total_server_count` arrives as its own field (fix round 1, item 6).
  *
  * Title: "What every request carries" is Karthik's working line, unsigned —
  * see `docs/TODO.md` T11. He named the component; the title is still his
@@ -29,10 +43,26 @@ export interface McpEngineSummaryRow {
 
 export interface McpEngineSummaryData {
   rows: McpEngineSummaryRow[];
-  /** Distinct launches, across every row, the probe cache has answered. */
-  probed_launch_count: number;
-  /** Distinct launches with no cached answer at all. */
-  unprobed_launch_count: number;
+  /**
+   * `answered_server_count + unasked_server_count + unaskable_server_count`
+   * — a backend field, not a sum this component performs. Fix round 1
+   * (2026-08-20): the previous shape asked the frontend to add two backend
+   * counts together for its own denominator, which technically passed
+   * `no-frontend-counting`'s `.length` guard while still breaking the rule
+   * it exists to serve.
+   */
+  total_server_count: number;
+  /** (host, server name) pairs with at least one probed launch. */
+  answered_server_count: number;
+  /** (host, server name) pairs that could be asked and have not been. */
+  unasked_server_count: number;
+  /**
+   * (host, server name) pairs nothing could ever ask — an account-level
+   * connector, or any other declaration with no local process to start and
+   * no endpoint to dial. Kept apart from `unasked_server_count`: there is
+   * no Verify button that ever changes this one.
+   */
+  unaskable_server_count: number;
 }
 
 interface Props {
@@ -41,24 +71,33 @@ interface Props {
 
 /**
  * The note beneath the rows: how much of the picture above is actually
- * known, and why registering a server is not free. `probed`/`unprobed` are
- * backend counts, handed straight to the template — this only chooses
- * words and plurals, never adds anything up.
+ * known, and why registering a server is not free. Every number is a
+ * backend field handed straight to the template — this only chooses words,
+ * plurals, and which sentences apply, never adds anything up. Each clause
+ * is written to stand on its own, so the three-bucket split (answered /
+ * not yet asked / not askable) never implies an order or a shared
+ * denominator that isn't `total`.
  */
-function partialityNote(probed: number, unprobed: number): string {
-  const total = probed + unprobed;
-  const noun = total === 1 ? "server" : "servers";
-  const tally =
-    unprobed === 0
-      ? `${probed} of ${total} ${noun} answered so far.`
-      : `${probed} of ${total} ${noun} answered so far. ${unprobed} left unasked.`;
-  return `${tally} Every tool a registered server can reach is described to the model on every request. That's the running cost of what's registered.`;
+function partialityNote(total: number, answered: number, unasked: number, unaskable: number): string {
+  const serverNoun = total === 1 ? "server" : "servers";
+  const parts: string[] = [`${answered} of ${total} ${serverNoun} answered so far.`];
+  if (unasked > 0) {
+    parts.push(`${unasked} ${unasked === 1 ? "hasn't" : "haven't"} been asked yet.`);
+  }
+  if (unaskable > 0) {
+    parts.push(`${unaskable} can't be asked at all. No local process to start, nothing to dial.`);
+  }
+  parts.push(
+    "Every tool a registered server can reach is described to the model on every request. That's the running cost of what's registered."
+  );
+  return parts.join(" ");
 }
 
 export default function McpEngineSummary({ summary }: Props) {
-  // The whole store is empty, or nothing detected here registers anything —
-  // Appendix A.1/A.2 already say so in the pane this inspector sits beside.
-  // Restating "no servers" here would be the same finding twice.
+  // The whole store is empty, or nothing on the machine registers anything
+  // at all — Appendix A.1/A.2 already say so in the pane this inspector
+  // sits beside. Restating "no servers" here would be the same finding
+  // twice.
   if (summary.rows.length === 0) return null;
 
   return (
@@ -93,7 +132,12 @@ export default function McpEngineSummary({ summary }: Props) {
           ))}
         </div>
         <p data-testid="engine-summary-note" className="text-micro text-ink-3 leading-[1.45] mt-3">
-          {partialityNote(summary.probed_launch_count, summary.unprobed_launch_count)}
+          {partialityNote(
+            summary.total_server_count,
+            summary.answered_server_count,
+            summary.unasked_server_count,
+            summary.unaskable_server_count
+          )}
         </p>
       </section>
     </div>

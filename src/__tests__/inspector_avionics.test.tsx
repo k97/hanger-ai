@@ -278,14 +278,19 @@ describe("Avionics A5 — Docked Right Inspector Integration", () => {
     const toolsFilter = screen.getByText("MCP servers");
     fireEvent.click(toolsFilter);
 
-    // Inspector MUST clear selection. With the Tools filter active and
-    // nothing selected, the generic "Nothing selected" body is Task 15's
-    // own replacement case (Flyout.tsx's `showEmptyMcpEyebrow` branch) —
-    // it no longer renders here regardless of what `McpEngineSummary`
-    // itself does with the (unmocked, so null) backend answer.
+    // Inspector MUST clear selection. `selected_sidebar_item` here is
+    // "~/Work/demo" (set in `beforeEach`) — a REPOSITORY pane, not the
+    // global store. Task 15 (f6d108f) first made the Tools-filtered empty
+    // body always McpEngineSummary; fix round 1's item 5 (94f6cb3, then
+    // this file's own commit) scoped that replacement to the global pane
+    // only, because McpEngineSummary is a machine-wide read and a repo
+    // pane showing it was the reviewer's own live finding. So a repo pane
+    // keeps the ORIGINAL "Nothing selected" body once again — this
+    // assertion is back to what it was before Task 15 touched this test,
+    // not a new claim.
     await waitFor(() => {
       expect(screen.queryByText("~/Work/demo/skills/inspector-skill-1")).toBeNull();
-      expect(screen.queryByText("Nothing selected")).toBeNull();
+      expect(screen.getByText("Nothing selected")).toBeDefined();
     });
   });
 

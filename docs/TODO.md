@@ -305,6 +305,26 @@ In the queue:
     brackets mark "this is a control" rather than literal copy — no other
     button in the app uses brackets either way, so there was no precedent to
     confirm against.
+- Task 15's `McpEngineSummary` (`McpEngineSummary.tsx`), the empty inspector
+  for the global pane when the Tools filter is active and nothing is
+  selected. Karthik named the component; none of its strings below have his
+  sign-off.
+  - The title, **"What every request carries"** — explicitly UNSIGNED per
+    the task brief itself, not merely un-reviewed like the rest of this
+    list. Rendered as the panel's own heading; do not treat its presence on
+    screen as a ruling.
+  - The row line **"{n} server/servers registered"** and the tool figure's
+    own subtext, **"tool"/"tools"** when a count is known or **"not yet
+    asked"** (paired with an em-dash figure) when it is not.
+  - The note's three-bucket template, fix round 1: **"{answered} of {total}
+    server/servers answered so far."**, **"{unasked} hasn't/haven't been
+    asked yet."**, **"{unaskable} can't be asked at all. No local process to
+    start, nothing to dial."**, and the closing **"Every tool a registered
+    server can reach is described to the model on every request. That's the
+    running cost of what's registered."** — reuses the reference
+    prototype's one correct point (the per-request cost of a registration)
+    in different words, per the task brief's own instruction not to copy
+    its wording.
 
 **Done when:** the set has had one deliberate pass together, Karthik has ruled
 on each, and any renames have landed.

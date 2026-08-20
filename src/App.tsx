@@ -1169,10 +1169,13 @@ export default function App() {
      ProfilePane and RepoPane are never shown together, so there is no case
      where the wrong one's stale state could leak through. */
   const inspectorScope = crumbSegments[crumbSegments.length - 1];
-  const inspectorActiveCategory =
-    selectedSidebarItem.startsWith("/") || selectedSidebarItem.startsWith("~")
-      ? repoCategory
-      : profileCategory;
+  /* The same test that already picks `repoCategory` vs `profileCategory`
+     below, named and reused rather than inlined a third time: Flyout's
+     McpEngineSummary is a machine-wide read (fix round 1, item 5) and must
+     not render under a repository's own heading, so it needs to know which
+     pane it is in on top of the category filter it already gets. */
+  const inspectorIsRepoScope = selectedSidebarItem.startsWith("/") || selectedSidebarItem.startsWith("~");
+  const inspectorActiveCategory = inspectorIsRepoScope ? repoCategory : profileCategory;
 
   const activeTotal =
     selectedSidebarItem.startsWith("/") || selectedSidebarItem.startsWith("~")
@@ -1701,6 +1704,7 @@ export default function App() {
                 onRefresh={triggerScan}
                 activeCategory={inspectorActiveCategory}
                 paneScope={inspectorScope}
+                isRepoScope={inspectorIsRepoScope}
               />
             )}
           </div>
