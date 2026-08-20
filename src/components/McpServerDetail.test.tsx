@@ -347,6 +347,29 @@ describe("McpServerDetail", () => {
     expect(screen.getByText(/no credentials are sent/i)).toBeTruthy();
   });
 
+  it("offers no Verify when there is nothing to ask", () => {
+    // m6. `nothingToAsk` already refuses to auto-probe a declaration with no
+    // command and no http endpoint -- there is no program to start and no
+    // target to dial -- but the header offered Verify anyway whenever the
+    // server was not a Claude.ai connector. Clicking it produced "Could not
+    // start ``", a failure the user was invited into, and cached that
+    // failure under the transport-shared cache key. The backend's own
+    // engine summary classifies this same shape "can't be asked at all";
+    // two surfaces disagreeing about whether the question is askable is the
+    // defect, and the auto-probe's answer is the right one.
+    render(
+      <McpServerDetail
+        server={{
+          ...base,
+          command: "",
+          transport: "sse",
+          registrations: [{ ...base.registrations[0], command: "", launchDisplay: "", transport: "sse" }],
+        }}
+      />
+    );
+    expect(screen.queryByRole("button", { name: /verify/i })).toBeNull();
+  });
+
   it("sends a claude.ai connector where it is actually managed", () => {
     // No file to open and nothing to verify — but "nothing local to inspect"
     // left the reader at a dead end when the destination is knowable.

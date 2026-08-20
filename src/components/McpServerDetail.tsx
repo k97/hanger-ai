@@ -739,7 +739,14 @@ export default function McpServerDetail({
               is unambiguous, and Karthik's call (2026-08-18) is that the
               affordance belongs where the eye already is rather than below
               an otherwise-empty block. */}
-          {!isConnector && specGroups.length === 1 ? (
+          {/* `nothingToAsk`, not `!isConnector`: an empty-command declaration
+              with no http endpoint has no program to start and no target to
+              dial either, and the auto-probe already refuses it. Offering
+              Verify anyway invited a click that could only ever produce
+              "Could not start ``" and cache that failure. Same test on both
+              surfaces, so they cannot disagree about whether the question is
+              askable. */}
+          {!nothingToAsk && specGroups.length === 1 ? (
             specGroups[0].result ? (
               <span className="inline-flex items-center gap-2">
                 <span className={COUNT}>
