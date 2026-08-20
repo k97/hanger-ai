@@ -589,8 +589,13 @@ describe("McpServerDetail", () => {
     expect(screen.getByText("floating_only")).toBeTruthy();
     // Each block names the registration it came from -- host + tier -- so "1"
     // and "2" are never presented as the server's tool count.
-    expect(screen.getByText("Codex · global")).toBeTruthy();
-    expect(screen.getByText("Gemini · global")).toBeTruthy();
+    //
+    // Scoped to Tools: this fixture diverges (two launches), so Task 8's
+    // launch-spec diff also labels its aligned lines by host + tier in
+    // "Registered in" now, and an unscoped query finds both.
+    const toolsSection = screen.getByText("Tools").closest("section")!;
+    expect(within(toolsSection).getByText("Codex · global")).toBeTruthy();
+    expect(within(toolsSection).getByText("Gemini · global")).toBeTruthy();
   });
 
   it("labels a probed spec's block when a sibling spec exists but has not been probed yet", () => {
@@ -620,11 +625,15 @@ describe("McpServerDetail", () => {
       />
     );
     expect(screen.getByText("solo_tool")).toBeTruthy();
-    expect(screen.getByText("Codex · global")).toBeTruthy();
+    // Scoped to Tools -- see the comment on the sibling test above; this
+    // fixture diverges too, so the launch-spec diff repeats the same
+    // "Codex · global" / "Gemini · global" labels in "Registered in".
+    const toolsSection = screen.getByText("Tools").closest("section")!;
+    expect(within(toolsSection).getByText("Codex · global")).toBeTruthy();
     // The other spec is real and still unprobed -- it gets its own Verify,
     // not silence.
-    expect(screen.getByText("Gemini · global")).toBeTruthy();
-    expect(screen.getByRole("button", { name: /^verify$/i })).toBeTruthy();
+    expect(within(toolsSection).getByText("Gemini · global")).toBeTruthy();
+    expect(within(toolsSection).getByRole("button", { name: /^verify$/i })).toBeTruthy();
   });
 
   it("offers one Verify per spec when a server has two unprobed launches", () => {
