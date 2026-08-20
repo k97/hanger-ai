@@ -66,4 +66,40 @@ describe("CategoryFilterCards", () => {
     expect(screen.getByText("All")).toBeTruthy();
     expect(screen.queryByText("Skills")).toBeNull();
   });
+
+  it("keeps the MCP servers chip at zero, because zero servers is a finding no other category can make", () => {
+    // Spec §6.2's Tools exemption: an engine installed with no server
+    // configured has no tool surface, and that reading is actionable in a
+    // way "Rules 0" or "Subagents 0" is not. Every other count here is
+    // non-zero so only the Tools exemption is under test.
+    render(<CategoryFilterCards {...props} toolsCount={0} />);
+    const chip = screen.getByText("MCP servers").closest("button");
+    expect(chip).not.toBeNull();
+    expect(chip?.textContent).toContain("0");
+  });
+
+  it("still hides Skills, Rules and Subagents at zero once Tools is exempt", () => {
+    // Pins the other side of the exemption: it is Tools-specific, not a
+    // general reversal of hide-at-zero.
+    render(
+      <CategoryFilterCards
+        {...props}
+        toolsCount={0}
+        skillsCount={0}
+        rulesCount={0}
+        subagentsCount={0}
+      />
+    );
+    expect(screen.getByText("MCP servers")).toBeTruthy();
+    expect(screen.queryByText("Skills")).toBeNull();
+    expect(screen.queryByText("Rules")).toBeNull();
+    expect(screen.queryByText("Subagents")).toBeNull();
+  });
+
+  it("keeps the MCP servers chip while its count is still loading, same as any other chip", () => {
+    // undefined ("not counted yet") is a separate rule from the zero
+    // exemption above -- pinned here so the two don't collapse into one.
+    render(<CategoryFilterCards {...props} loading toolsCount={undefined} />);
+    expect(screen.getByText("MCP servers")).toBeTruthy();
+  });
 });

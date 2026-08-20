@@ -27,6 +27,14 @@ const chipPressedClass =
  *  zero so filtering into an empty category shows its empty state rather than
  *  dead-ending the control" — which is owner-approved.
  *
+ *  Exemption: Tools ("MCP servers") stays visible at zero. For a file-shaped
+ *  category, zero means zero and the chip leads nowhere; for MCP, zero is a
+ *  true and actionable reading — an engine installed with no server
+ *  configured has no tool surface, and no other category can say that. MCP
+ *  stage 3 spec §6.2 postdates the hide-at-zero rule above and rules the
+ *  exemption for this one chip only; the rule stands unchanged for Skills,
+ *  Rules and Subagents.
+ *
  *  One piece of that reasoning survives: a chip the user has *selected* stays
  *  rendered even at zero, because otherwise the only control that can clear
  *  the filter disappears and the view is stranded. */
@@ -59,6 +67,9 @@ export default function CategoryFilterCards({
     // undefined means "not counted yet", not "empty" — keep it while loading
     // so chips do not pop in after every scan.
     if (chip.count === undefined) return true;
+    // Exemption (see the comment above): zero MCP servers is a finding, not
+    // an empty category, so the Tools chip stays even at zero.
+    if (chip.id === "Tools") return true;
     return chip.count > 0;
   });
 
