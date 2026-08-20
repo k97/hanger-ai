@@ -89,18 +89,28 @@ function extractQuoted(block: string, keyPattern: string): string[] {
   return out;
 }
 
-function knownEngineNames(): string[] {
+/** `AGENT_CONFIGS`'s own `name:` values (11 today) — split from
+ *  `hostDisplayNames()` below so each extraction has its own sanity floor.
+ *  Every one of these 11 names also happens to be a `HOSTS` `display_name`
+ *  today, so a combined floor on the union alone would stay green even if
+ *  THIS extraction broke and returned nothing. */
+function agentDisplayNames(): string[] {
   const rootDir = path.resolve(__dirname, "../..");
   const agentsRs = fs.readFileSync(path.join(rootDir, "src-tauri/src/agents.rs"), "utf-8");
-  const registryRs = fs.readFileSync(path.join(rootDir, "src-tauri/src/mcp/registry.rs"), "utf-8");
-
   const agentBlock = blockBetween(agentsRs, "pub const AGENT_CONFIGS", "\n];");
-  const hostBlock = blockBetween(registryRs, "pub const HOSTS", "\n];");
+  return extractQuoted(agentBlock, "name");
+}
 
-  const names = new Set<string>([
-    ...extractQuoted(agentBlock, "name"),
-    ...extractQuoted(hostBlock, "display_name"),
-  ]);
+/** `registry::HOSTS`'s own `display_name:` values (16 today). */
+function hostDisplayNames(): string[] {
+  const rootDir = path.resolve(__dirname, "../..");
+  const registryRs = fs.readFileSync(path.join(rootDir, "src-tauri/src/mcp/registry.rs"), "utf-8");
+  const hostBlock = blockBetween(registryRs, "pub const HOSTS", "\n];");
+  return extractQuoted(hostBlock, "display_name");
+}
+
+function knownEngineNames(): string[] {
+  const names = new Set<string>([...agentDisplayNames(), ...hostDisplayNames()]);
   return Array.from(names);
 }
 
@@ -126,6 +136,16 @@ describe("No Hardcoded Engine Copy Enforcement", () => {
     const names = knownEngineNames();
     expect(names.length).toBeGreaterThanOrEqual(16);
     expect(names).toContain("Claude Code");
+  });
+
+  it("the agent-side and host-side extractions each clear their own floor", () => {
+    // Split from the combined check above: today every one of AGENT_
+    // CONFIGS's 11 names is ALSO a HOSTS display_name, so a break that zeroed
+    // out agentDisplayNames() alone would still leave knownEngineNames()'s
+    // union at 16 and the combined test above green. Each side needs its
+    // own floor so that specific break cannot hide.
+    expect(agentDisplayNames().length).toBeGreaterThanOrEqual(11);
+    expect(hostDisplayNames().length).toBeGreaterThanOrEqual(16);
   });
 
   it("verifies no engine/host display name is hardcoded in src/components/**, and no stale allowlist entry exists", () => {
