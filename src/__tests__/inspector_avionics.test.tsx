@@ -278,10 +278,14 @@ describe("Avionics A5 — Docked Right Inspector Integration", () => {
     const toolsFilter = screen.getByText("MCP servers");
     fireEvent.click(toolsFilter);
 
-    // Inspector MUST clear selection and return to empty state
+    // Inspector MUST clear selection. With the Tools filter active and
+    // nothing selected, the generic "Nothing selected" body is Task 15's
+    // own replacement case (Flyout.tsx's `showEmptyMcpEyebrow` branch) —
+    // it no longer renders here regardless of what `McpEngineSummary`
+    // itself does with the (unmocked, so null) backend answer.
     await waitFor(() => {
       expect(screen.queryByText("~/Work/demo/skills/inspector-skill-1")).toBeNull();
-      expect(screen.getByText("Nothing selected")).toBeDefined();
+      expect(screen.queryByText("Nothing selected")).toBeNull();
     });
   });
 
