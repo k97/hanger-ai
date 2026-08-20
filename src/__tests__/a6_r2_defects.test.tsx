@@ -159,7 +159,13 @@ describe("Avionics A6-R2 Defect Tests", () => {
   // discarded: a chip the user has SELECTED still renders at zero, because
   // otherwise the only control that can clear the filter disappears. That was
   // the dead-ending the first fix was protecting against.
-  it("5. A zero count hides its chip; All keeps its zero", () => {
+  //
+  // Updated for MCP stage 3 task 10: Tools ("MCP servers") is now exempt from
+  // hide-at-zero (spec §6.2, see CategoryFilterCards.tsx:22-32) -- zero MCP
+  // servers is a true, actionable reading, unlike an empty file-shaped
+  // category. This assertion moves from one surviving zero (All) to two
+  // (All, MCP servers); Skills and Subagents still hide, unchanged.
+  it("5. A zero count hides its chip; All and MCP servers keep their zero", () => {
     render(
       <CategoryFilterCards
         allCount={0}
@@ -173,10 +179,11 @@ describe("Avionics A6-R2 Defect Tests", () => {
       />
     );
 
-    // Only All survives at zero, and it still shows its count.
+    // All and the exempt MCP servers chip survive at zero and still show it.
     const zeros = screen.getAllByText("0");
-    expect(zeros.length).toBe(1);
+    expect(zeros.length).toBe(2);
     expect(screen.getByText("All")).toBeTruthy();
+    expect(screen.getByText("MCP servers")).toBeTruthy();
     expect(screen.queryByText("Skills")).toBeNull();
     expect(screen.queryByText("Subagents")).toBeNull();
     expect(screen.queryByText("—")).toBeNull();
