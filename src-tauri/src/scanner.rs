@@ -521,6 +521,7 @@ pub fn tool_from_registration(
             &reg.server.args,
         ),
         transport: reg.server.transport.clone(),
+        bridged: reg.server.bridged,
         config_path: reg.config_path.clone(),
         scope,
         owning_agent: reg.host_id.to_string(),
@@ -1760,6 +1761,9 @@ impl DirectoryScanner {
                         args: Vec::new(),
                         launch_display: String::new(),
                         transport: String::new(),
+                        // A config that would not parse has no launch to record,
+                        // and no bridge to have unwrapped.
+                        bridged: false,
                         config_path: t_canon.clone(),
                         scope: scope.clone(),
                         owning_agent: owning_agent.clone(),

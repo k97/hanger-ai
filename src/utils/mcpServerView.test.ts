@@ -104,4 +104,36 @@ describe("buildMcpServerView", () => {
     );
     expect(view?.registrations[0].launchDisplay).toContain("<redacted>");
   });
+
+  it("carries the backend's bridged flag onto each registration", () => {
+    // Task 9 (§6.1): `McpServerDetail` needs to tell a registration reached
+    // through a local bridge (mcp-remote) apart from a direct one, to
+    // explain why the two agree instead of conflicting. The backend now
+    // sets `Tool.bridged`; this is the last hop, into the panel's own view
+    // model.
+    const view = buildMcpServerView(
+      [
+        {
+          id: "/tmp/zed/settings.json:notion",
+          name: "notion",
+          command: "npx",
+          launch_display: "npx mcp-remote https://mcp.notion.com/mcp",
+          transport: "https://mcp.notion.com/mcp",
+          config_path: "/tmp/zed/settings.json",
+          bridged: true,
+        },
+        {
+          id: "/tmp/.claude.json:notion",
+          name: "notion",
+          command: "",
+          launch_display: "",
+          transport: "https://mcp.notion.com/mcp",
+          config_path: "/tmp/.claude.json",
+          bridged: false,
+        },
+      ],
+      "notion"
+    );
+    expect(view?.registrations.map((r) => r.bridged)).toEqual([true, false]);
+  });
 });

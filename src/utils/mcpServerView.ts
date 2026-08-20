@@ -15,6 +15,10 @@ interface ToolRow {
   config_path: string;
   owning_agent?: string;
   scope?: unknown;
+  /** True when this registration reaches its server through a local bridge
+   *  (mcp-remote) rather than declaring the endpoint directly. Backend-owned
+   *  (`Tool.bridged`) — never guessed here from `launch_display`'s text. */
+  bridged?: boolean;
 }
 
 /**
@@ -161,6 +165,7 @@ export function buildMcpServerView(
       configPath: t.config_path,
       command: t.command ?? "",
       launchDisplay: t.launch_display ?? "",
+      bridged: t.bridged ?? false,
       ...(hit ? { running: { pid: hit.pid, spawningHost: hit.spawning_host } } : {}),
     };
   });

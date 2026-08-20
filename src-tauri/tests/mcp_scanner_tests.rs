@@ -220,6 +220,7 @@ fn merging_scans_keeps_every_server_not_one_per_config_file() {
         args: vec![],
         launch_display: String::new(),
         transport: "stdio".to_string(),
+        bridged: false,
         config_path: path.to_string(),
         scope: Scope::Global { agent: "claude-code".to_string() },
         owning_agent: "claude-code".to_string(),
@@ -288,6 +289,43 @@ fn a_tool_carries_a_redacted_launch_for_display() {
     assert!(!tool.launch_display.contains("REDACT_ME_1"));
     assert!(tool.launch_display.contains("Authorization: <redacted>"));
     assert!(tool.launch_display.starts_with("npx mcp-remote"));
+}
+
+#[test]
+fn a_tool_carries_the_registrations_bridged_flag() {
+    // Task 9 (§6.1): the panel needs to know a registration reached its
+    // server through a local bridge (mcp-remote), so it can explain why a
+    // bridged registration and a direct sibling of the same endpoint agree
+    // rather than conflict. `McpServer::bridged` (a8ba0c9) already carries
+    // that fact; this pins it crossing into `Tool`, the row that actually
+    // reaches the frontend over IPC. Before this field existed on `Tool`,
+    // this test failed to compile: "no field `bridged` on type `Tool`".
+    use tauri_app_lib::mcp::dialect::McpServer;
+    use tauri_app_lib::mcp::discover::Registration;
+    use tauri_app_lib::mcp::registry::ScopeTier;
+
+    let reg_of = |bridged: bool| Registration {
+        server: McpServer {
+            name: "notion".to_string(),
+            command: String::new(),
+            args: vec![],
+            transport: "https://mcp.notion.com/mcp".to_string(),
+            env_keys: vec![],
+            project_root: None,
+            bridged,
+            url_fingerprint: None,
+        },
+        host_id: "claude-code",
+        tier: ScopeTier::Global,
+        config_path: "/tmp/mcp.json".to_string(),
+    };
+    let scope = tauri_app_lib::domain::Scope::Global { agent: "claude-code".to_string() };
+
+    let bridged_tool = tauri_app_lib::scanner::tool_from_registration(&reg_of(true), scope.clone());
+    let direct_tool = tauri_app_lib::scanner::tool_from_registration(&reg_of(false), scope);
+
+    assert!(bridged_tool.bridged);
+    assert!(!direct_tool.bridged);
 }
 
 /// One registration is one row, however many passes reach it.

@@ -39,6 +39,7 @@ fn tool_at(config_path: &str, name: &str) -> Tool {
         args: vec![],
         launch_display: String::new(),
         transport: "stdio".into(),
+        bridged: false,
         config_path: config_path.into(),
         scope: Scope::Global { agent: "claude-code".into() },
         owning_agent: "claude-code".into(),

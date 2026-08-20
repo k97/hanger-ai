@@ -24,6 +24,7 @@ fn tool_with_a_credential() -> Tool {
         launch_display: "npx mcp-remote https://example.com/sse --header Authorization: <redacted>"
             .to_string(),
         transport: "stdio".to_string(),
+        bridged: false,
         config_path: "/tmp/mcp.json".to_string(),
         scope: Scope::Global { agent: "claude-code".to_string() },
         owning_agent: "claude-code".to_string(),

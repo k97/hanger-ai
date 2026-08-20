@@ -30,6 +30,10 @@ interface Registration {
   command: string;
   /** What this registration launches, already redacted by the backend. */
   launchDisplay: string;
+  /** True when this registration reaches its server through a local bridge
+   *  (mcp-remote) rather than declaring the endpoint directly. Backend-owned
+   *  (`Tool.bridged`) — never inferred here from `launchDisplay`'s text. */
+  bridged?: boolean;
   /**
    * Present only while a process matching this launch is running.
    *
@@ -400,6 +404,21 @@ export default function McpServerDetail({
   // would show every token as differing for no real reason.
   const divergingGroups = specGroups.filter((g) => g.launchDisplay);
 
+  /* `a8ba0c9` (backend) folds a registration reached through the local
+     mcp-remote bridge to the same identity as a direct sibling of the same
+     endpoint, so the pair never reaches `diverges` above -- a direct
+     registration's `launchDisplay` is always empty (no dialect ever puts a
+     URL into `command`/`args`), so it drops out of `launches` entirely and
+     the bridged registration's own display is the only thing left standing.
+     That is correct, but silent: nothing said why a bridge and a direct
+     declaration of the same server were never a conflict. This explains it,
+     and only when the panel actually holds both shapes -- a bridge with no
+     direct sibling (or vice versa) has nothing to explain, and a real
+     divergence already has its own warning above. */
+  const bridgedRegs = server.registrations.filter((r) => r.bridged);
+  const directRemoteRegs = server.registrations.filter((r) => !r.bridged && !r.launchDisplay);
+  const showsBridgeNote = !diverges && bridgedRegs.length > 0 && directRemoteRegs.length > 0;
+
   const isConnector = server.transport === "claude.ai";
   // Remote servers ARE verifiable now — dialled rather than spawned. Only a
   // Claude.ai connector has nothing Hanger can reach at all.
@@ -614,6 +633,13 @@ export default function McpServerDetail({
               })}
             </div>
           </>
+        )}
+        {showsBridgeNote && (
+          <p data-testid="bridge-note" className="text-micro text-ink-3 leading-[1.45] mt-2">
+            mcp-remote is a bridge, not a different server. The registration reaching {server.name}{" "}
+            through it is the same server as the one declared directly, so they agree instead of
+            conflicting.
+          </p>
         )}
       </section>
 

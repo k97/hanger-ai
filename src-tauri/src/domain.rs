@@ -68,6 +68,17 @@ pub struct Tool {
     /// `args` is gone (spec §4.1) the frontend has nothing left to leak.
     pub launch_display: String,
     pub transport: String,
+    /// True when this registration reaches its server through a local
+    /// bridge (`mcp-remote`) rather than declaring the endpoint directly.
+    ///
+    /// Mirrors `mcp::dialect::McpServer::bridged` (a8ba0c9), which the
+    /// agreement module already trusts to normalise a bridged registration
+    /// to the same comparison key as a direct sibling. This field is what
+    /// lets the *panel* say the same thing: without it, `McpServerDetail`
+    /// has no way to tell a bridged registration from a direct one, and a
+    /// bridged-plus-direct pair reads as agreeing with no explanation of why
+    /// (task 9, §6.1).
+    pub bridged: bool,
     pub config_path: String,
     pub scope: Scope,
     pub owning_agent: String,
@@ -397,6 +408,7 @@ mod tests {
             args: vec![],
             launch_display: String::new(),
             transport: "".into(),
+            bridged: false,
             config_path: "/path".into(),
             scope: Scope::Global { agent: "claude".into() },
             owning_agent: "claude".into(),

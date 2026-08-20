@@ -389,6 +389,127 @@ describe("McpServerDetail", () => {
     expect(screen.getByText(/differ/i)).toBeTruthy();
   });
 
+  it("explains that a bridged registration reaches the same server as its direct sibling", () => {
+    // §6.1, task 9: `a8ba0c9` made the backend fold a bridged registration
+    // (reached through the local `mcp-remote` bridge) to the same comparison
+    // key as a direct sibling of the same endpoint, so the two read as
+    // agreeing instead of permanently conflicting. Nothing on screen said
+    // why. This is that note.
+    const server: McpServerView = {
+      ...base,
+      name: "notion",
+      registrations: [
+        {
+          key: "zed-1",
+          host: "Zed",
+          tier: "global",
+          configPath: "~/.config/zed/settings.json",
+          command: "npx",
+          launchDisplay: "npx mcp-remote https://mcp.notion.com/mcp",
+          bridged: true,
+        },
+        {
+          key: "cc-1",
+          host: "Claude Code",
+          tier: "global",
+          configPath: "~/.claude.json",
+          command: "",
+          launchDisplay: "",
+          bridged: false,
+        },
+      ],
+    };
+    render(<McpServerDetail server={server} />);
+    const note = screen.getByTestId("bridge-note");
+    expect(note).toBeTruthy();
+    expect(within(note).getByText(/mcp-remote is a bridge/i)).toBeTruthy();
+    // Never a query string, never a token, inside the NOTE specifically:
+    // it states the fact, not the endpoint. (The pre-existing "Registered
+    // in" row above it already renders the raw redacted launch, URL
+    // included, by design -- unrelated to this task's own constraint on
+    // what the note itself may say.)
+    expect(within(note).queryByText(/mcp\.notion\.com/)).toBeNull();
+  });
+
+  it("says nothing about a bridge when no registration is bridged", () => {
+    render(<McpServerDetail server={base} />);
+    expect(screen.queryByTestId("bridge-note")).toBeNull();
+  });
+
+  it("says nothing about a bridge when every registration is bridged (no direct sibling)", () => {
+    const server: McpServerView = {
+      ...base,
+      name: "notion",
+      registrations: [
+        {
+          key: "zed-1",
+          host: "Zed",
+          tier: "global",
+          configPath: "~/.config/zed/settings.json",
+          command: "npx",
+          launchDisplay: "npx mcp-remote https://mcp.notion.com/mcp",
+          bridged: true,
+        },
+        {
+          key: "cd-1",
+          host: "Claude Desktop",
+          tier: "global",
+          configPath: "~/Library/Application Support/Claude/claude_desktop_config.json",
+          command: "npx",
+          launchDisplay: "npx mcp-remote https://mcp.notion.com/mcp",
+          bridged: true,
+        },
+      ],
+    };
+    render(<McpServerDetail server={server} />);
+    expect(screen.queryByTestId("bridge-note")).toBeNull();
+  });
+
+  it("says nothing about agreement when two bridges genuinely conflict, even with a direct sibling present", () => {
+    // Isolates the `!diverges` gate specifically: a bridged and a direct
+    // registration existing together is not by itself proof they agree --
+    // two bridges pointed at DIFFERENT endpoints, plus an empty-launch
+    // direct sibling, still has one bridged reg and one direct reg on the
+    // fixture, but the divergence warning above is the true story here, not
+    // "they agree instead of conflicting."
+    const server: McpServerView = {
+      ...base,
+      name: "notion",
+      registrations: [
+        {
+          key: "zed-1",
+          host: "Zed",
+          tier: "global",
+          configPath: "~/.config/zed/settings.json",
+          command: "npx",
+          launchDisplay: "npx mcp-remote https://a.example.com/mcp",
+          bridged: true,
+        },
+        {
+          key: "vscode-1",
+          host: "VS Code",
+          tier: "global",
+          configPath: "~/.vscode/mcp.json",
+          command: "npx",
+          launchDisplay: "npx mcp-remote https://b.example.com/mcp",
+          bridged: true,
+        },
+        {
+          key: "cc-1",
+          host: "Claude Code",
+          tier: "global",
+          configPath: "~/.claude.json",
+          command: "",
+          launchDisplay: "",
+          bridged: false,
+        },
+      ],
+    };
+    render(<McpServerDetail server={server} />);
+    expect(screen.getByText(/differ/i)).toBeTruthy();
+    expect(screen.queryByTestId("bridge-note")).toBeNull();
+  });
+
   it("shows the two launches aligned on the token that differs, beneath the divergence warning", () => {
     const server: McpServerView = {
       ...base,
