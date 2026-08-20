@@ -86,23 +86,46 @@ type EngineLocationsProp = { location_count: number; locations: string[] } | nul
  *  configured. `engineNames` is the DETECTED roster (a filesystem probe);
  *  `coverage` is the backend's own tally of what discovery checked — both
  *  counts in "Checked {n} config files across {m} engines" are its fields,
- *  never computed here. */
+ *  never computed here.
+ *
+ *  The count line and its disclosure render only once `coverage` has
+ *  actually arrived (fix round 1, binding ruling): while the fetch is
+ *  pending, or if it failed (`App.tsx` catches into the same `null`, so
+ *  this component cannot and need not tell the two apart), a false
+ *  "Checked 0 config files across 0 engines" is worse than naming nothing —
+ *  the headline and body still make the real claim (engines detected, none
+ *  configured), just without a figure attached. When `coverage` HAS
+ *  arrived and genuinely found nothing to check (`checked_file_count ===
+ *  0` — an engine can be detected with none of its MCP config files ever
+ *  created), the count line falls back to Appendix A.2's own vocabulary
+ *  ("Checked {n} locations"), backed by `locations`
+ *  (`get_known_engine_locations`, the same backend count A.2 uses) rather
+ *  than asserting a file figure that would always read zero. This hybrid is
+ *  a ruling, not spec text — flagged for the T11 naming-brief pass. */
 function McpZeroServersEmptyState({
   engineNames,
   coverage,
+  locations,
 }: {
   engineNames: string[];
   coverage: McpCoverageProp;
+  locations: EngineLocationsProp;
 }) {
   const [showFiles, setShowFiles] = useState(false);
-  const n = coverage?.checked_file_count ?? 0;
-  const m = coverage?.checked_engine_count ?? 0;
-  const files = coverage?.checked_files ?? [];
+  const [showLocations, setShowLocations] = useState(false);
   // "no engine has" reads naturally for one; "neither" is exactly-two
   // grammar; "none" is the three-or-more form. All three describe the same
   // detected roster, never a fixed pick.
   const noneHas =
     engineNames.length === 1 ? "no engine has" : engineNames.length === 2 ? "neither has" : "none has";
+
+  const files = coverage?.checked_files ?? [];
+  const paths = locations?.locations ?? [];
+  // Three shapes for the count line, never a guess: no answer yet (or ever);
+  // a real answer of zero files, which reads as locations instead; a real
+  // answer with files to name.
+  const filesChecked = coverage !== null && coverage.checked_file_count > 0;
+  const fallsBackToLocations = coverage !== null && coverage.checked_file_count === 0 && locations !== null;
 
   return (
     <>
@@ -111,30 +134,63 @@ function McpZeroServersEmptyState({
         {joinNamesTruncated(engineNames)} {engineNames.length === 1 ? "is" : "are"} installed here, but{" "}
         {noneHas} a server configured.
       </span>
-      <div className="flex items-center gap-1.5 mt-2">
-        <span className="text-micro text-ink-3">
-          Checked {n} config {n === 1 ? "file" : "files"} across {m} {m === 1 ? "engine" : "engines"}
-        </span>
-        {files.length > 0 && (
-          <>
-            <span aria-hidden="true" className="text-micro text-ink-3">
-              ·
-            </span>
-            <button
-              type="button"
-              onClick={() => setShowFiles((v) => !v)}
-              className="text-micro text-ink-3 underline hover:text-ink-1 transition-colors duration-hover cursor-pointer"
-            >
-              {showFiles ? "Hide files" : "Show files"}
-            </button>
-          </>
-        )}
-      </div>
-      {showFiles && (
+      {filesChecked && (
+        <div className="flex items-center gap-1.5 mt-2">
+          <span className="text-micro text-ink-3">
+            Checked {coverage!.checked_file_count} config {coverage!.checked_file_count === 1 ? "file" : "files"}{" "}
+            across {coverage!.checked_engine_count} {coverage!.checked_engine_count === 1 ? "engine" : "engines"}
+          </span>
+          {files.length > 0 && (
+            <>
+              <span aria-hidden="true" className="text-micro text-ink-3">
+                ·
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowFiles((v) => !v)}
+                className="text-micro text-ink-3 underline hover:text-ink-1 transition-colors duration-hover cursor-pointer"
+              >
+                {showFiles ? "Hide files" : "Show files"}
+              </button>
+            </>
+          )}
+        </div>
+      )}
+      {showFiles && files.length > 0 && (
         <div className="mt-2 flex flex-col gap-0.5 max-w-sm">
           {files.map((f) => (
             <span key={f} className="text-micro font-mono text-ink-3 truncate">
               {f}
+            </span>
+          ))}
+        </div>
+      )}
+      {fallsBackToLocations && (
+        <div className="flex items-center gap-1.5 mt-2">
+          <span className="text-micro text-ink-3">
+            Checked {locations!.location_count} {locations!.location_count === 1 ? "location" : "locations"}
+          </span>
+          {paths.length > 0 && (
+            <>
+              <span aria-hidden="true" className="text-micro text-ink-3">
+                ·
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowLocations((v) => !v)}
+                className="text-micro text-ink-3 underline hover:text-ink-1 transition-colors duration-hover cursor-pointer"
+              >
+                {showLocations ? "Hide locations" : "Show locations"}
+              </button>
+            </>
+          )}
+        </div>
+      )}
+      {fallsBackToLocations && showLocations && paths.length > 0 && (
+        <div className="mt-2 flex flex-col gap-0.5 max-w-sm">
+          {paths.map((p) => (
+            <span key={p} className="text-micro font-mono text-ink-3 truncate">
+              {p}
             </span>
           ))}
         </div>
@@ -163,7 +219,9 @@ function McpNoEnginesEmptyState({
     <>
       <span className="text-base-app font-medium text-ink-1">No AI engines found</span>
       <span className="text-small text-ink-3 max-w-sm mt-1">
-        Hanger looks for {joinNamesTruncated(registryEngineNames)} in their standard locations.
+        {registryEngineNames.length > 0
+          ? `Hanger looks for ${joinNamesTruncated(registryEngineNames)} in their standard locations.`
+          : "Hanger looks for the engines it knows about in their standard locations."}
       </span>
       <div className="flex items-center gap-1.5 mt-2">
         <span className="text-micro text-ink-3">
@@ -753,7 +811,7 @@ export default function ProfilePane({
                  generic per-category line above: both name what was checked
                  (§A.0), never assert on a count computed here. */
               enginesDetected ? (
-                <McpZeroServersEmptyState engineNames={engineNames} coverage={mcpCoverage} />
+                <McpZeroServersEmptyState engineNames={engineNames} coverage={mcpCoverage} locations={knownEngineLocations} />
               ) : (
                 <McpNoEnginesEmptyState registryEngineNames={knownEngineNames} locations={knownEngineLocations} />
               )

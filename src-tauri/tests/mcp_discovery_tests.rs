@@ -806,8 +806,38 @@ fn coverage_deduplicates_files_but_not_the_engines_reading_them() {
         coverage.checked_file_count,
         "the count field and the disclosure list must agree"
     );
-    // claude-code, claude-ai, codex, gemini, claude-desktop, vscode.
-    assert_eq!(coverage.checked_engine_count, 6);
+    // Only claude-code, codex, gemini are HostKind::Agent among the six
+    // hosts whose files this fixture has on disk (claude-ai, claude-desktop
+    // and vscode are all HostKind::McpHost) — the sentence this backs names
+    // engines, so an MCP-only host inflating the count is the exact defect
+    // `checked_engine_count_counts_agent_hosts_only` below pins directly.
+    assert_eq!(coverage.checked_engine_count, 3);
+}
+
+#[test]
+fn checked_engine_count_counts_agent_hosts_only() {
+    // A machine where an MCP-only host (claude-ai) has a checked file but no
+    // Agent host does: `m` must read 0, never 1. The sentence this backs
+    // says "{engine list} is/are installed here" — engines, not MCP hosts —
+    // so counting claude-ai here would make the number disagree with the
+    // noun next to it (the defect this test exists to catch: a
+    // Claude-Code-only machine rendered "Checked 1 config file across 2
+    // engines" before this fix, counting claude-code AND claude-ai for one
+    // shared file).
+    let dir = tempfile::tempdir().unwrap();
+    // .claude.json is read by three MachineAbsolute rows: claude-code/User,
+    // claude-code/Local (both HostKind::Agent) and claude-ai/Global
+    // (HostKind::McpHost) — one physical file, three checked entries, two
+    // kinds.
+    std::fs::write(dir.path().join(".claude.json"), "{}").unwrap();
+
+    let result = discover::discover_machine(dir.path());
+    let coverage = discover::coverage(&result);
+    assert_eq!(coverage.checked_file_count, 1, "one physical file");
+    assert_eq!(
+        coverage.checked_engine_count, 1,
+        "claude-code only — claude-ai is HostKind::McpHost and must not inflate the engine count"
+    );
 }
 
 #[test]

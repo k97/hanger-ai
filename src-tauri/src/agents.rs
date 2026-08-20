@@ -82,6 +82,28 @@ pub fn known_engine_locations() -> Vec<&'static str> {
         .collect()
 }
 
+/// Home-join, deduplicate on the resolved path, and sanitise a list of
+/// home-relative locations for display.
+///
+/// Split out from `known_engine_locations()` so the dedup can be proven
+/// directly: no two `AGENT_CONFIGS` rows share a root today, so a test
+/// against the real table alone could never exercise the collapse — this
+/// takes an explicit `rels` so one can hand it a synthetic duplicate.
+/// Deduplicates on the *resolved* `PathBuf`, not the relative string or the
+/// sanitised output — two different relative roots that happen to resolve
+/// to the same place (a symlinked home, say) also collapse correctly, and
+/// sanitising first would risk the same basename-collision problem
+/// `CheckedFile::path`'s doc comment already records for `mcp::discover`.
+pub fn dedupe_and_sanitise_locations(home: &Path, rels: &[&str]) -> Vec<String> {
+    let mut seen: std::collections::BTreeSet<std::path::PathBuf> = std::collections::BTreeSet::new();
+    for rel in rels {
+        seen.insert(home.join(rel));
+    }
+    seen.into_iter()
+        .map(|p| crate::preferences::sanitise_path(&p.to_string_lossy()))
+        .collect()
+}
+
 pub const AGENT_CONFIGS: &[AgentConfig] = &[
     AgentConfig {
         id: "claude-code",

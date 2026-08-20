@@ -335,23 +335,24 @@ describe("ProfilePane — the empty state is a finding, not a default", () => {
   });
 
   it("filtering to a category with nothing in it, scan finished, correctly claims the absence", () => {
-    // Tools' own absence claim is Appendix A.1/A.2 (Task 11), tested in full
-    // in the "Tools' own empty states" describe block below; this general
-    // pattern test now exercises the Claude Code / A.1 shape its own
-    // inventory fixture already implies, rather than the generic per-category
-    // line A.1/A.2 replaced for Tools specifically.
+    // Fix round 1, ruling item 5: this test and "a category emptied by a
+    // filter says so..." above were BOTH repointed at Tools when Task 11
+    // landed, which left the shared generic branch ("No {noun} in the
+    // global store" / "The scan finished without finding any.") — still
+    // live for Skills, Rules and Subagents — exercised by nothing at all;
+    // mutating either string stayed green. Redirected to Skills so the
+    // generic branch keeps a pin; Tools' own A.1 shape is already covered
+    // in full by "a category emptied by a filter..." above and by the
+    // "Tools' own empty states" describe block below.
     renderGlobal({
-      inventory: { ...mockInventory, tools: [] },
+      inventory: { ...mockInventory, skills: [] },
       loading: false,
       scannedAt: new Date(),
-      selectedCategory: "Tools",
-      detectedEngines: [{ id: "claude-code", name: "Claude Code" }],
+      selectedCategory: "Skills",
     });
     expect(screen.queryByTestId("scan-pending")).toBeNull();
-    expect(screen.getByText("No MCP servers registered")).toBeTruthy();
-    expect(
-      screen.getByText("Claude Code is installed here, but no engine has a server configured.")
-    ).toBeTruthy();
+    expect(screen.getByText("No skills in the global store")).toBeTruthy();
+    expect(screen.getByText("The scan finished without finding any.")).toBeTruthy();
   });
 
   // One of everything, at Global scope, so emptying a single category for
@@ -516,9 +517,83 @@ describe("ProfilePane — Tools' own empty states (Appendix A.1, A.2)", () => {
       });
       expect(screen.queryByText("Show files")).toBeNull();
     });
+
+    describe("coverage that has not arrived, or never will", () => {
+      // Fix round 1 ruling: a false "Checked 0 config files across 0
+      // engines" is worse than no figure at all — the count line and its
+      // disclosure render only once `mcpCoverage` actually has an answer.
+      // `mcpCoverage` pending (the fetch hasn't resolved) and failed
+      // (App.tsx's `catch { setMcpCoverage(null) }`) are the same prop
+      // value, `null` — the component cannot tell them apart, and per the
+      // ruling neither should ever assert a figure.
+
+      it("renders no count line while the coverage fetch is still pending", () => {
+        renderTools({
+          detectedEngines: [{ id: "claude-code", name: "Claude Code" }],
+          // mcpCoverage omitted — the prop's own default is null, the exact
+          // shape ProfilePane is in before `get_mcp_coverage` resolves.
+        });
+        expect(screen.getByText("No MCP servers registered")).toBeTruthy();
+        expect(
+          screen.getByText("Claude Code is installed here, but no engine has a server configured.")
+        ).toBeTruthy();
+        expect(screen.queryByText(/Checked/)).toBeNull();
+        expect(screen.queryByText("Show files")).toBeNull();
+        expect(screen.queryByText("Show locations")).toBeNull();
+      });
+
+      it("renders no count line, permanently, if the coverage fetch failed", () => {
+        // Mechanically identical to the pending case above (both are
+        // `mcpCoverage: null`) — kept as its own test because the ruling
+        // names it as its own path: a failure never resolves, so this state
+        // is not transient the way pending is, and the same gate has to
+        // hold forever, not just until a fetch lands.
+        renderTools({
+          detectedEngines: [{ id: "claude-code", name: "Claude Code" }],
+          mcpCoverage: null,
+        });
+        expect(screen.queryByText(/Checked/)).toBeNull();
+        expect(screen.queryByText(/config file/)).toBeNull();
+      });
+    });
+
+    it("renders the locations form, never '0 config files', when discovery genuinely checked nothing", () => {
+      // An engine can be detected (its folder exists) while none of its MCP
+      // config files exist yet — a true, honest 0/0. "Checked 0 config
+      // files across 0 engines" names nothing a user can go look at;
+      // Appendix A.2's own vocabulary (locations, backend-counted the same
+      // way) is the more honest claim for this specific shape.
+      renderTools({
+        detectedEngines: [{ id: "claude-code", name: "Claude Code" }],
+        mcpCoverage: { checked_file_count: 0, checked_engine_count: 0, checked_files: [] },
+        knownEngineLocations: { location_count: 3, locations: ["~/.claude", "~/.claude.json", "~/.claude/mcp.json"] },
+      });
+      expect(screen.getByText("No MCP servers registered")).toBeTruthy();
+      expect(screen.getByText("Checked 3 locations")).toBeTruthy();
+      expect(screen.queryByText(/config file/)).toBeNull();
+      expect(screen.queryByText("Show files")).toBeNull();
+      fireEvent.click(screen.getByText("Show locations"));
+      expect(screen.getByText("~/.claude")).toBeTruthy();
+    });
   });
 
   describe("A.2 — no engines detected at all", () => {
+    it("says something sane if the registry roster has not arrived yet, rather than naming an empty one", () => {
+      // Mirrors the whole-store no-folders line's own guard twenty lines
+      // above it (`knownEngineNames.length > 0 ? … : fallback`) — Task 11's
+      // A.2 line had no equivalent, so an empty `knownEngines` rendered
+      // "Hanger looks for  in their standard locations." (a double space,
+      // an empty name).
+      renderTools({
+        detectedEngines: [],
+        knownEngines: [],
+        knownEngineLocations: { location_count: 0, locations: [] },
+      });
+      expect(screen.getByText("No AI engines found")).toBeTruthy();
+      expect(screen.getByText("Hanger looks for the engines it knows about in their standard locations.")).toBeTruthy();
+      expect(screen.queryByText(/for  in/)).toBeNull();
+    });
+
     it("substitutes the registry's own roster, truncated past three", () => {
       renderTools({
         detectedEngines: [],
@@ -605,6 +680,61 @@ describe("ProfilePane — Tools' own empty states (Appendix A.1, A.2)", () => {
       );
       expect(screen.queryByText("No MCP servers registered")).toBeNull();
       expect(screen.queryByText("No AI engines found")).toBeNull();
+    });
+  });
+
+  describe("reachability: Tools' own states win even when the whole store is genuinely empty", () => {
+    // `emptyState && selectedCategory !== "Tools"` (ProfilePane.tsx) is what
+    // this pins: every other test above uses `{...mockInventory, tools:
+    // []}`, which leaves a skill and a rule behind, so `storeEmpty` is false
+    // and the whole-store plane never enters the race at all. A.1's own
+    // defining scenario — an engine detected, nothing configured ANYWHERE,
+    // not just in Tools — and A.2's (no engine, so nothing anywhere by
+    // construction) are both whole-store-empty. Reverting the exclusion to
+    // plain `emptyState` leaves every other test in this file green; only a
+    // genuinely empty store catches it.
+    const genuinelyEmpty = {
+      agents: [],
+      skills: [],
+      tools: [],
+      rules: [],
+      subagents: [],
+      project_scans: [],
+    };
+
+    it("A.1 renders, not the generic whole-store line, when nothing else exists either", () => {
+      render(
+        <ProfilePane
+          inventory={genuinelyEmpty}
+          assetCounts={{ total: 0, byCategory: {} }}
+          loading={false}
+          scannedAt={new Date()}
+          selectedCategory="Tools"
+          detectedEngines={[{ id: "claude-code", name: "Claude Code" }]}
+          onSelectAsset={vi.fn()}
+          onLinkAsset={vi.fn()}
+        />
+      );
+      expect(screen.getByText("No MCP servers registered")).toBeTruthy();
+      expect(screen.queryByText("Nothing in the global store yet")).toBeNull();
+    });
+
+    it("A.2 renders, not the generic whole-store line, when nothing else exists either", () => {
+      render(
+        <ProfilePane
+          inventory={genuinelyEmpty}
+          assetCounts={{ total: 0, byCategory: {} }}
+          loading={false}
+          scannedAt={new Date()}
+          selectedCategory="Tools"
+          detectedEngines={[]}
+          knownEngines={[{ id: "claude-code", name: "Claude Code" }]}
+          onSelectAsset={vi.fn()}
+          onLinkAsset={vi.fn()}
+        />
+      );
+      expect(screen.getByText("No AI engines found")).toBeTruthy();
+      expect(screen.queryByText("No engine folders on this machine yet")).toBeNull();
     });
   });
 });

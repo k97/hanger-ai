@@ -490,6 +490,22 @@ fn known_engine_locations_covers_every_configured_root_and_detect_file() {
     );
 }
 
+/// No two `AGENT_CONFIGS` rows share a root today, so this can't be proven
+/// against the real registry — parameterised so it can be proven anyway,
+/// against the day one does (§6.5's disclosure must never repeat a path).
+#[test]
+fn known_engine_location_paths_collapse_a_shared_root_to_one() {
+    let home = Path::new("/Users/test");
+    let locations =
+        tauri_app_lib::agents::dedupe_and_sanitise_locations(home, &[".claude", ".claude", ".codex"]);
+    assert_eq!(
+        locations.len(),
+        2,
+        "two engines naming the same root must surface it once, not twice: got {:?}",
+        locations
+    );
+}
+
 #[test]
 fn roo_and_kilo_do_not_share_directories() {
     // Kilo Code forked Roo Code but rebuilt its config. An implementation that

@@ -1297,10 +1297,8 @@ pub struct EngineLocationSummary {
 #[tauri::command]
 fn get_known_engine_locations() -> EngineLocationSummary {
     let home = scanner::get_home_dir();
-    let locations: Vec<String> = agents::known_engine_locations()
-        .into_iter()
-        .map(|rel| preferences::sanitise_path(&home.join(rel).to_string_lossy()))
-        .collect();
+    let rels = agents::known_engine_locations();
+    let locations = agents::dedupe_and_sanitise_locations(&home, &rels);
     EngineLocationSummary {
         location_count: locations.len(),
         locations,
