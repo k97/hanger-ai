@@ -134,6 +134,10 @@ export default function Flyout({
      minutes old, so a launch reading as stopped here can still be up on the
      machine, and only the backend looks. */
   const [mcpDeclined, setMcpDeclined] = useState<string[]>([]);
+  /* Keys with a request already in flight, as of this instant rather than as
+     of the last render. See `requestMcpProbe` below for why the state list
+     above cannot serve. */
+  const mcpInFlight = useRef<Set<string>>(new Set());
 
   /**
    * Ask one registration what it provides.
@@ -148,6 +152,17 @@ export default function Flyout({
    * moment it was read back.
    */
   const requestMcpProbe = async (registrationKey: string, force: boolean, running: boolean) => {
+    /* One request per key, decided before the invoke. `mcpVerifying` cannot
+       answer this: a state update is not visible to a second call in the
+       same tick, so a double click on Check again passed its `includes`
+       check twice and invoked twice. The rendered controls disable
+       themselves once state catches up; a ref is what closes the window
+       before it does. It matters here more than anywhere because `force`
+       overrides the rule that refuses to start a server already running --
+       two simultaneous spawns of a singleton server, and the loser's
+       EADDRINUSE cached as that launch's answer for seven days. */
+    if (mcpInFlight.current.has(registrationKey)) return;
+    mcpInFlight.current.add(registrationKey);
     setMcpVerifying((prev) => (prev.includes(registrationKey) ? prev : [...prev, registrationKey]));
     try {
       const r = await invoke<{
@@ -205,6 +220,7 @@ export default function Flyout({
         },
       }));
     } finally {
+      mcpInFlight.current.delete(registrationKey);
       setMcpVerifying((prev) => prev.filter((key) => key !== registrationKey));
     }
   };

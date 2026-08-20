@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, cleanup, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, cleanup, fireEvent, waitFor, act } from "@testing-library/react";
 import Flyout from "./Flyout";
 import { Inventory } from "../App";
 
@@ -316,6 +316,47 @@ describe("Flyout — asking an MCP server what it provides", () => {
 
     await waitFor(() => expect(probeCalls()).toHaveLength(2));
     expect(probeCalls()[1][1]).toMatchObject({ force: true });
+  });
+
+  it("starts one forced probe from a double click, not two", async () => {
+    // m9. `Check again` disables itself from `verifying` state, but a state
+    // update is not visible to a second handler in the same tick -- two
+    // clicks inside one batch both pass the `includes` check and both
+    // invoke. `force: true` bypasses Rule 2, so what gets doubled is two
+    // simultaneous spawns of a server those rules exist to keep singular:
+    // the loser's EADDRINUSE is then written as that launch's answer for
+    // seven days. The user asked once in any meaningful sense.
+    invoke.mockImplementation((cmd: string) => {
+      if (cmd === "mcp_cached_probe") {
+        return Promise.resolve({
+          result: { capabilities: [], tools: [{ name: "get_system_volume" }] },
+          verifiedAt: 1_700_000_000_000,
+          fromCache: true,
+        });
+      }
+      return Promise.resolve(null);
+    });
+
+    render(
+      <Flyout
+        inventory={inventory}
+        selectedAsset={selected as never}
+        mcpProcesses={[]}
+        linkedProjects={[]}
+        onRefresh={() => {}}
+      />
+    );
+
+    await waitFor(() => expect(screen.getByText("get_system_volume")).toBeTruthy());
+    const openingProbes = probeCalls().length;
+
+    const again = screen.getByRole("button", { name: "Check again" });
+    await act(async () => {
+      again.click();
+      again.click();
+    });
+
+    expect(probeCalls()).toHaveLength(openingProbes + 1);
   });
 
   it("dates a cached answer from when it was learned, not from when it was read back", async () => {
