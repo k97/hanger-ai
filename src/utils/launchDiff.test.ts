@@ -72,4 +72,82 @@ describe("diffLaunch", () => {
     expect(result.a[2]).toEqual({ text: "--client-type=persistent", differs: true });
     expect(result.b[2]).toEqual({ text: "--client-type=ephemeral", differs: true });
   });
+
+  // Fix round 1: a purely positional compare mis-marks every token AFTER an
+  // insertion or deletion as differing, because it never re-syncs the two
+  // sequences -- one added flag reads as "everything changed", which is
+  // worse than the prose warning it sits beneath. Token-level LCS alignment
+  // fixes this: matched tokens re-sync regardless of where they fall.
+
+  it("does not let an inserted flag shift every later token into 'differs' (reviewer's exact probe)", () => {
+    const result = diffLaunch(
+      "npx -y @tauri/mcp@1.0.0 --port 4242",
+      "npx -y --verbose @tauri/mcp@1.0.0 --port 4242"
+    );
+    // Only --verbose differs -- present on b, absent on a.
+    const differing = (side: typeof result.a) => side.filter((t) => t.differs).map((t) => t.text);
+    expect(differing(result.a)).toEqual([""]);
+    expect(differing(result.b)).toEqual(["--verbose"]);
+    // Everything the old positional compare mis-flagged now reads as same,
+    // wherever it lands in the (now longer) aligned array.
+    for (const text of ["npx", "-y", "@tauri/mcp@1.0.0", "--port", "4242"]) {
+      expect(result.a.find((t) => t.text === text)).toEqual({ text, differs: false });
+      expect(result.b.find((t) => t.text === text)).toEqual({ text, differs: false });
+    }
+  });
+
+  it("does not let a removed flag shift every later token into 'differs' (the mirror case)", () => {
+    const result = diffLaunch(
+      "npx -y --verbose @tauri/mcp@1.0.0 --port 4242",
+      "npx -y @tauri/mcp@1.0.0 --port 4242"
+    );
+    const differing = (side: typeof result.a) => side.filter((t) => t.differs).map((t) => t.text);
+    expect(differing(result.a)).toEqual(["--verbose"]);
+    expect(differing(result.b)).toEqual([""]);
+    for (const text of ["npx", "-y", "@tauri/mcp@1.0.0", "--port", "4242"]) {
+      expect(result.a.find((t) => t.text === text)).toEqual({ text, differs: false });
+      expect(result.b.find((t) => t.text === text)).toEqual({ text, differs: false });
+    }
+  });
+
+  it("flags a genuine change even alongside an unrelated inserted flag, without flagging the shifted tail", () => {
+    // Two edits in one pair of specs: --verbose is purely inserted early on,
+    // and the version genuinely changed later. The insertion must not smear
+    // into the version comparison, and neither may shift --port/4242 after
+    // it into a false "differs".
+    const result = diffLaunch(
+      "npx -y @tauri/mcp@1.0.0 --port 4242",
+      "npx --verbose -y @tauri/mcp@2.0.0 --port 4242"
+    );
+    // The genuine change: version 1.0.0 vs 2.0.0, still flagged.
+    expect(result.a.find((t) => t.text === "@tauri/mcp@1.0.0")).toEqual({
+      text: "@tauri/mcp@1.0.0",
+      differs: true,
+    });
+    expect(result.b.find((t) => t.text === "@tauri/mcp@2.0.0")).toEqual({
+      text: "@tauri/mcp@2.0.0",
+      differs: true,
+    });
+    // The insertion: --verbose present only on b.
+    expect(result.b.find((t) => t.text === "--verbose")).toEqual({
+      text: "--verbose",
+      differs: true,
+    });
+    // The shifted tail: -y, --port and 4242 all still read as same, on both
+    // sides, despite the insertion ahead of -y and the change ahead of them.
+    for (const text of ["npx", "-y", "--port", "4242"]) {
+      expect(result.a.find((t) => t.text === text)).toEqual({ text, differs: false });
+      expect(result.b.find((t) => t.text === text)).toEqual({ text, differs: false });
+    }
+  });
+
+  it("marks every token as differing when the two launches share nothing (the worst case)", () => {
+    // No common subsequence at all -- LCS correctly degrades to "everything
+    // differs" here, which is the honest answer, not a bug to route around.
+    const result = diffLaunch("node server.js --debug", "python app.py");
+    expect(result.a.every((t) => t.differs)).toBe(true);
+    expect(result.b.every((t) => t.differs)).toBe(true);
+    expect(result.a.map((t) => t.text)).toEqual(["node", "server.js", "--debug"]);
+    expect(result.b.map((t) => t.text)).toEqual(["python", "app.py", ""]);
+  });
 });
