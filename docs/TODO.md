@@ -274,6 +274,37 @@ In the queue:
   row's own `verified_at`, so the Identity section's existing
   `verified {n}d ago` now states the real age of a cached answer instead of
   `Date.now()`. Confirm that is enough, or decide what else the panel owes.
+- Task 11's two Tools empty states (`ProfilePane.tsx`,
+  `McpZeroServersEmptyState` / `McpNoEnginesEmptyState`). Appendix A's own
+  templates, substituted, never rephrased — but the fill-in words and the
+  disclosure controls are this task's own copy:
+  - A.1 headline: **"No MCP servers registered"**. Body: **"{engine list}
+    is/are installed here, but {none has|neither has|no engine has} a server
+    configured."** — the three-way fork (`no engine has` for one detected
+    engine, `neither has` for exactly two, `none has` for three or more) is
+    this task's own grammar choice, not spec text.
+  - A.1's count line: **"Checked {n} config file/files across {m}
+    engine/engines"**, backend-counted (`get_mcp_coverage`), rendered only
+    once the count has actually arrived (fix round 1: a pending or failed
+    fetch shows no count line at all rather than a false zero).
+  - A.2 headline: **"No AI engines found"**. Body: **"Hanger looks for
+    {engine names} in their standard locations."**, with a no-roster fallback
+    (fix round 1, item 3, mirroring the whole-store empty state's own
+    pattern): **"Hanger looks for the engines it knows about in their
+    standard locations."**
+  - The count line **"Checked {n} location/locations"**
+    (`get_known_engine_locations`), shared by A.2 and, since fix round 1, by A.1's
+    own fallback for the true-zero-files case (an engine detected with none
+    of its MCP config files ever created) — a hybrid Karthik should rule on:
+    is a locations count the right thing for A.1 to fall back to, or should
+    that state read some other way entirely?
+  - The four disclosure toggles: **"Show files" / "Hide files"** (A.1),
+    **"Show locations" / "Hide locations"** (A.2 and A.1's fallback).
+    Appendix A's own text is bracketed, `[Show files]`; rendered here as
+    plain button text without the brackets, on the reading that the spec's
+    brackets mark "this is a control" rather than literal copy — no other
+    button in the app uses brackets either way, so there was no precedent to
+    confirm against.
 
 **Done when:** the set has had one deliberate pass together, Karthik has ruled
 on each, and any renames have landed.
