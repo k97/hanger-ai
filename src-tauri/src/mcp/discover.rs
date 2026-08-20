@@ -9,7 +9,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use crate::mcp::dialect::{self, McpServer};
-use crate::mcp::registry::{host_by_id, HostKind, McpSource, ScopeTier, SourceLocation, SOURCES};
+use crate::mcp::registry::{McpSource, ScopeTier, SourceLocation, SOURCES};
 
 /// One server as declared by one host in one file.
 ///
@@ -104,27 +104,35 @@ pub struct McpCoverage {
 }
 
 /// Fold a `DiscoveryResult`'s `checked` list into the two counts and the
-/// path list Appendix A.1 renders. Pure — no I/O of its own.
+/// path list Appendix A.1 renders. Pure — no I/O of its own; `detected`
+/// (the machine's currently detected engine ids, `scanner::
+/// get_global_agents()`'s output, collected by the caller) is a parameter
+/// rather than fetched in here.
 ///
-/// Deduplicates on the raw path (see `CheckedFile::path`'s doc comment for
-/// why sanitising first would be wrong) and sanitises only the strings this
-/// hands back — the dedup key and the displayed string are deliberately not
-/// the same value.
+/// Deduplicates files on the raw path (see `CheckedFile::path`'s doc
+/// comment for why sanitising first would be wrong) and sanitises only the
+/// strings this hands back — the dedup key and the displayed string are
+/// deliberately not the same value.
 ///
-/// `checked_engine_count` counts only `HostKind::Agent` hosts. The sentence
-/// this backs names *engines* ("{engine list} is/are installed here"), and
-/// `checked` also carries MCP-only hosts (`claude-ai` is the common one —
-/// `.claude.json` is read by two `HostKind::Agent` rows and one
-/// `HostKind::McpHost` row for the same file) which must not inflate a
-/// count sitting next to that noun. A host absent from the registry (should
-/// never happen — `every_source_names_a_declared_host` in
-/// `mcp_discovery_tests.rs` pins that every `SOURCES` row names a real
-/// `HOSTS` entry) is not counted, rather than guessed either way.
-pub fn coverage(result: &DiscoveryResult) -> McpCoverage {
+/// `checked_engine_count` counts a checked host only when its `host_id` is
+/// also in `detected` — the SAME population the headline's `{engine list}`
+/// is built from, so the number can never name more, or fewer, engines
+/// than the sentence beside it does. This replaced an earlier
+/// `HostKind::Agent` proxy (round 1) that fixed the concrete overcount
+/// (`claude-ai`, `HostKind::McpHost`, riding along on a shared
+/// `.claude.json`) but introduced the opposite bug: `zed` is one of
+/// `AGENT_CONFIGS`'s 11 engines yet the registry marks its `HOSTS` row
+/// `HostKind::McpHost` too, so a Zed-only machine would have undercounted
+/// to zero. `AGENT_CONFIGS` ids and `registry::HOSTS` ids are the same
+/// strings today (checked directly — no normalising map exists or is
+/// needed; `scanner::get_engine_key`/`McpHost::engine_key` solve a
+/// different problem, an underscored database key, not "is this id a
+/// detected engine").
+pub fn coverage(result: &DiscoveryResult, detected: &std::collections::HashSet<String>) -> McpCoverage {
     let mut engines: std::collections::HashSet<&'static str> = std::collections::HashSet::new();
     let mut files: std::collections::BTreeSet<String> = std::collections::BTreeSet::new();
     for c in &result.checked {
-        if host_by_id(c.host_id).map(|h| h.kind) == Some(HostKind::Agent) {
+        if detected.contains(c.host_id) {
             engines.insert(c.host_id);
         }
         files.insert(c.path.clone());

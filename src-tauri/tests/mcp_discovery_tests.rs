@@ -796,7 +796,14 @@ fn coverage_deduplicates_files_but_not_the_engines_reading_them() {
     // The same physical file must not be counted, or shown, three times just
     // because three registry rows happen to name it.
     let result = discover::discover_machine(fixture_home());
-    let coverage = discover::coverage(&result);
+    // Fix round 2: `{m}` is the intersection of checked host ids with the
+    // DETECTED engine population (the same one the headline's engine list
+    // draws from), not a `HostKind` proxy — passed in explicitly here
+    // rather than through `scanner::get_global_agents()`, which is the
+    // command's job, not this pure function's.
+    let detected: std::collections::HashSet<String> =
+        ["claude-code", "codex", "gemini"].iter().map(|s| s.to_string()).collect();
+    let coverage = discover::coverage(&result, &detected);
     assert_eq!(
         coverage.checked_file_count, 7,
         "got {:#?}", coverage.checked_files
@@ -806,45 +813,70 @@ fn coverage_deduplicates_files_but_not_the_engines_reading_them() {
         coverage.checked_file_count,
         "the count field and the disclosure list must agree"
     );
-    // Only claude-code, codex, gemini are HostKind::Agent among the six
-    // hosts whose files this fixture has on disk (claude-ai, claude-desktop
-    // and vscode are all HostKind::McpHost) — the sentence this backs names
-    // engines, so an MCP-only host inflating the count is the exact defect
-    // `checked_engine_count_counts_agent_hosts_only` below pins directly.
+    // claude-ai, claude-desktop and vscode all have a checked file in this
+    // fixture but are not in `detected` — they must not inflate the count,
+    // regardless of what `HostKind` the registry happens to assign them.
+    // `checked_engine_count_counts_only_detected_engines` below pins the
+    // general shape directly.
     assert_eq!(coverage.checked_engine_count, 3);
 }
 
 #[test]
-fn checked_engine_count_counts_agent_hosts_only() {
-    // A machine where an MCP-only host (claude-ai) has a checked file but no
-    // Agent host does: `m` must read 0, never 1. The sentence this backs
-    // says "{engine list} is/are installed here" — engines, not MCP hosts —
-    // so counting claude-ai here would make the number disagree with the
-    // noun next to it (the defect this test exists to catch: a
-    // Claude-Code-only machine rendered "Checked 1 config file across 2
-    // engines" before this fix, counting claude-code AND claude-ai for one
-    // shared file).
+fn checked_engine_count_counts_only_detected_engines() {
+    // A machine where an MCP-only host (claude-ai) has a checked file but is
+    // not itself a detected engine (claude-ai has no `AGENT_CONFIGS` row —
+    // it never could be): `m` must read 1, never 2, for a Claude-Code-only
+    // machine. The sentence this backs says "{engine list} is/are installed
+    // here" — the SAME population `{m}` counts against — so counting
+    // claude-ai here would make the number disagree with the noun next to
+    // it (the defect this test exists to catch: a Claude-Code-only machine
+    // rendered "Checked 1 config file across 2 engines" before the round 1
+    // fix, and — round 1's own `HostKind::Agent` proxy would have
+    // undercounted a Zed-only machine to 0, since the registry marks Zed
+    // `HostKind::McpHost` despite it being one of `AGENT_CONFIGS`'s 11
+    // engines. Population is `detected`, passed in directly, never derived
+    // from `HostKind`.
     let dir = tempfile::tempdir().unwrap();
     // .claude.json is read by three MachineAbsolute rows: claude-code/User,
-    // claude-code/Local (both HostKind::Agent) and claude-ai/Global
-    // (HostKind::McpHost) — one physical file, three checked entries, two
-    // kinds.
+    // claude-code/Local and claude-ai/Global — one physical file, three
+    // checked entries, only one of which (claude-code) is ever detectable.
     std::fs::write(dir.path().join(".claude.json"), "{}").unwrap();
 
     let result = discover::discover_machine(dir.path());
-    let coverage = discover::coverage(&result);
+    let detected: std::collections::HashSet<String> = ["claude-code".to_string()].into_iter().collect();
+    let coverage = discover::coverage(&result, &detected);
     assert_eq!(coverage.checked_file_count, 1, "one physical file");
     assert_eq!(
         coverage.checked_engine_count, 1,
-        "claude-code only — claude-ai is HostKind::McpHost and must not inflate the engine count"
+        "claude-code only — claude-ai was never a candidate to begin with, detected or not"
     );
+}
+
+#[test]
+fn checked_engine_count_counts_zed_when_zed_is_the_detected_engine() {
+    // The case round 1's `HostKind::Agent` proxy got backwards: Zed is one
+    // of `AGENT_CONFIGS`'s 11 engines (id "zed", literally the same string
+    // as `registry::HOSTS`'s "zed" row — the two id spaces already agree,
+    // no mapping needed), but the registry marks that HOSTS row
+    // `HostKind::McpHost`. A machine where Zed is the only detected engine,
+    // with its own MCP config file checked, must still read `m = 1` — the
+    // population is "detected engine", not "HostKind::Agent".
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::create_dir_all(dir.path().join(".config/zed")).unwrap();
+    std::fs::write(dir.path().join(".config/zed/settings.json"), "{}").unwrap();
+
+    let result = discover::discover_machine(dir.path());
+    let detected: std::collections::HashSet<String> = ["zed".to_string()].into_iter().collect();
+    let coverage = discover::coverage(&result, &detected);
+    assert_eq!(coverage.checked_file_count, 1, "one physical file, Zed's own settings.json");
+    assert_eq!(coverage.checked_engine_count, 1, "Zed is detected, so its own checked file must count");
 }
 
 #[test]
 fn coverage_of_a_machine_with_nothing_present_checked_nothing() {
     let dir = tempfile::tempdir().unwrap();
     let result = discover::discover_machine(dir.path());
-    let coverage = discover::coverage(&result);
+    let coverage = discover::coverage(&result, &std::collections::HashSet::new());
     assert_eq!(coverage.checked_file_count, 0);
     assert_eq!(coverage.checked_engine_count, 0);
     assert!(coverage.checked_files.is_empty());
@@ -861,7 +893,7 @@ fn a_config_that_parses_clean_and_empty_is_still_checked() {
     std::fs::write(dir.path().join(".claude/mcp.json"), "{}").unwrap();
 
     let result = discover::discover_machine(dir.path());
-    assert_eq!(discover::coverage(&result).checked_file_count, 1);
+    assert_eq!(discover::coverage(&result, &std::collections::HashSet::new()).checked_file_count, 1);
 }
 
 #[test]

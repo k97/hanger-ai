@@ -1279,8 +1279,14 @@ fn get_known_engines() -> Vec<domain::Agent> {
 /// freezing the window for the duration of comparable work.
 #[tauri::command(async)]
 fn get_mcp_coverage() -> Result<mcp::discover::McpCoverage, String> {
-    let discovered = mcp::discover::discover_machine(&scanner::get_home_dir());
-    Ok(mcp::discover::coverage(&discovered))
+    let home = scanner::get_home_dir();
+    let discovered = mcp::discover::discover_machine(&home);
+    // The same population the headline's `{engine list}` draws from
+    // (`get_detected_engines`) — passed in so `coverage()` counts against
+    // exactly what the sentence names, never a `HostKind` proxy for it.
+    let detected: std::collections::HashSet<String> =
+        scanner::get_global_agents().into_iter().map(|a| a.id).collect();
+    Ok(mcp::discover::coverage(&discovered, &detected))
 }
 
 /// Appendix A.2's "Checked {n} locations" figure and its `[Show locations]`
