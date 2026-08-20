@@ -738,3 +738,202 @@ describe("ProfilePane — Tools' own empty states (Appendix A.1, A.2)", () => {
     });
   });
 });
+
+describe("ProfilePane — Tools' own problem rows (Appendix A.3, A.4)", () => {
+  // Same reachability shape as A.1/A.2's own `renderTools` helper: filtering
+  // to Tools with zero servers is what lets a problem-only Tools section
+  // render at all — otherwise `isCategoryEmpty` would route to A.1/A.2
+  // instead of the list these rows live in.
+  const renderTools = (over: Partial<React.ComponentProps<typeof ProfilePane>>) =>
+    render(
+      <ProfilePane
+        inventory={{ ...mockInventory, tools: [] }}
+        loading={false}
+        scannedAt={new Date()}
+        selectedCategory="Tools"
+        onSelectAsset={vi.fn()}
+        onLinkAsset={vi.fn()}
+        {...over}
+      />
+    );
+
+  it("A.3 — engine present, config format unread", () => {
+    renderTools({
+      mcpCoverage: {
+        checked_file_count: 1,
+        checked_engine_count: 1,
+        checked_files: [],
+        problems: [
+          {
+            kind: "FormatUnread",
+            path: "<sanitised>/config.yaml",
+            detail: "config format not yet supported",
+            line: null,
+            engine: "Zed",
+          },
+        ],
+      },
+    });
+    expect(screen.getByText("Zed · config format not yet supported")).toBeTruthy();
+  });
+
+  it("A.4 — unreadable, naming the path and the OS error", () => {
+    renderTools({
+      mcpCoverage: {
+        checked_file_count: 1,
+        checked_engine_count: 1,
+        checked_files: [],
+        problems: [
+          {
+            kind: "Unreadable",
+            path: "<sanitised>/.codex/config.toml",
+            detail: "Permission denied (os error 13)",
+            line: null,
+            engine: "Codex",
+          },
+        ],
+      },
+    });
+    expect(
+      screen.getByText("<sanitised>/.codex/config.toml — couldn't be read (Permission denied (os error 13))")
+    ).toBeTruthy();
+  });
+
+  it("A.4 — unparseable, naming the path and the line", () => {
+    renderTools({
+      mcpCoverage: {
+        checked_file_count: 1,
+        checked_engine_count: 1,
+        checked_files: [],
+        problems: [
+          {
+            kind: "Unparseable",
+            path: "<sanitised>/.claude/mcp.json",
+            detail: "expected `,` or `}` at line 4 column 3",
+            line: 4,
+            engine: "Claude Code",
+          },
+        ],
+      },
+    });
+    expect(screen.getByText("<sanitised>/.claude/mcp.json — couldn't be parsed (line 4)")).toBeTruthy();
+  });
+
+  it("omits the parenthetical entirely when the parser supplies no line — never an empty one", () => {
+    renderTools({
+      mcpCoverage: {
+        checked_file_count: 1,
+        checked_engine_count: 1,
+        checked_files: [],
+        problems: [
+          {
+            kind: "Unparseable",
+            path: "<sanitised>/.gemini/settings.json",
+            detail: "unexpected end of input",
+            line: null,
+            engine: "Gemini / Antigravity",
+          },
+        ],
+      },
+    });
+    expect(screen.getByText("<sanitised>/.gemini/settings.json — couldn't be parsed")).toBeTruthy();
+    // Never "(line )" and never a bare "()" — an invented placeholder would
+    // read as a real location and send someone hunting a line that isn't
+    // there.
+    expect(screen.queryByText(/couldn't be parsed \(line\)/)).toBeNull();
+    expect(screen.queryByText(/couldn't be parsed \(\)/)).toBeNull();
+    expect(screen.queryByText(/couldn't be parsed \(line \)/)).toBeNull();
+  });
+
+  it("never collapses Unreadable and Unparseable to the same line, even for the same path", () => {
+    renderTools({
+      mcpCoverage: {
+        checked_file_count: 2,
+        checked_engine_count: 2,
+        checked_files: [],
+        problems: [
+          {
+            kind: "Unreadable",
+            path: "<sanitised>/shared.json",
+            detail: "Permission denied (os error 13)",
+            line: null,
+            engine: "Codex",
+          },
+          {
+            kind: "Unparseable",
+            path: "<sanitised>/shared.json",
+            detail: "unexpected token",
+            line: 2,
+            engine: "Codex",
+          },
+        ],
+      },
+    });
+    expect(
+      screen.getByText("<sanitised>/shared.json — couldn't be read (Permission denied (os error 13))")
+    ).toBeTruthy();
+    expect(screen.getByText("<sanitised>/shared.json — couldn't be parsed (line 2)")).toBeTruthy();
+  });
+
+  it("a rescan in flight keeps showing the last known problems, never clearing them mid-scan", () => {
+    // Mirrors how the server list itself behaves during a rescan: `loading`
+    // never resets `mcpCoverage` to empty, so the last fetched answer stays
+    // on screen until scan://complete lands a fresh one — the same "pending
+    // is not empty" rule this file already pins for A.1/A.2 and the asset
+    // rows, applied to problem rows too.
+    renderTools({
+      loading: true,
+      mcpCoverage: {
+        checked_file_count: 1,
+        checked_engine_count: 1,
+        checked_files: [],
+        problems: [
+          {
+            kind: "FormatUnread",
+            path: "<sanitised>/config.yaml",
+            detail: "config format not yet supported",
+            line: null,
+            engine: "Zed",
+          },
+        ],
+      },
+    });
+    expect(screen.getByText("Zed · config format not yet supported")).toBeTruthy();
+  });
+
+  it("does not render a kind Appendix A has no row copy for here (DeclaredNothing)", () => {
+    // A DeclaredNothing-only `problems` array would route to A.1/A.2
+    // instead of the list (no row kind this task renders, so
+    // `configProblemRows` would be empty either way) — that would prove
+    // nothing about filtering. Pairing it with a real FormatUnread problem
+    // forces the list branch open, so this test actually exercises the
+    // filter: exactly one row renders, never two, and never the
+    // DeclaredNothing text.
+    renderTools({
+      mcpCoverage: {
+        checked_file_count: 2,
+        checked_engine_count: 2,
+        checked_files: [],
+        problems: [
+          {
+            kind: "DeclaredNothing",
+            path: "<sanitised>/mcp.json",
+            detail: "declares no MCP servers, though this file exists solely to declare them",
+            line: null,
+            engine: "Claude Code",
+          },
+          {
+            kind: "FormatUnread",
+            path: "<sanitised>/config.yaml",
+            detail: "config format not yet supported",
+            line: null,
+            engine: "Zed",
+          },
+        ],
+      },
+    });
+    expect(screen.queryAllByTestId("mcp-config-problem-row")).toHaveLength(1);
+    expect(screen.getByText("Zed · config format not yet supported")).toBeTruthy();
+    expect(screen.queryByText(/declares no MCP servers/)).toBeNull();
+  });
+});

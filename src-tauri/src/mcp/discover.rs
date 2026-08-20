@@ -52,6 +52,15 @@ pub struct ConfigProblem {
     /// `Unparseable` only, and only when the parser supplies one. `None` means
     /// the view omits the location rather than inventing a number.
     pub line: Option<u32>,
+    /// The host's display name (`registry::host_by_id(host_id).display_name`),
+    /// resolved here rather than left as a bare id. Appendix A.3's row
+    /// (`{engine} · config format not yet supported`) substitutes this field
+    /// directly; `no-hardcoded-engine-copy.test.ts` forbids the view layer
+    /// from doing the id-to-name lookup itself, and this is the same
+    /// resolution `scanner.rs` already does for the same table. Falls back
+    /// to the bare id when the registry does not carry it (`read_swept`'s
+    /// `host_id: ""` case for an ad-hoc, undeclared sweep file).
+    pub engine: String,
 }
 
 /// One path `read_one` actually opened, whether or not it yielded a
@@ -89,7 +98,8 @@ pub struct DiscoveryResult {
 /// counts Appendix A.1 renders, computed once here so the view never derives
 /// either from an array's own length (`invariants.md`: counts are
 /// backend-owned; `no-frontend-counting.test.ts` forbids `.length` standing
-/// in for one).
+/// in for one) — plus every problem discovery hit while checking, for
+/// Appendix A.3/A.4's rows.
 #[derive(Debug, Clone, Default, serde::Serialize)]
 pub struct McpCoverage {
     /// Distinct files read, deduplicated — three SOURCES rows can share one
@@ -101,6 +111,15 @@ pub struct McpCoverage {
     /// Sanitised paths, deduplicated and sorted, for the `[Show files]`
     /// disclosure. `checked_files.len() == checked_file_count` always.
     pub checked_files: Vec<String>,
+    /// Carried verbatim from `DiscoveryResult.problems` — never filtered or
+    /// deduplicated here. `ProfilePane`'s Tools section renders A.3/A.4's
+    /// rows from this field, as content next to the server list, not a
+    /// `DisclosureBanner`: a config problem is a finding about the scan that
+    /// just ran, not a diagnostic about Hanger itself. The view picks which
+    /// kinds it has copy for (`Unreadable`, `Unparseable`, `FormatUnread`);
+    /// `DeclaredNothing` rides along unfiltered because this fold has no
+    /// opinion on which kinds get rendered.
+    pub problems: Vec<ConfigProblem>,
 }
 
 /// Fold a `DiscoveryResult`'s `checked` list into the two counts and the
@@ -144,6 +163,7 @@ pub fn coverage(result: &DiscoveryResult, detected: &std::collections::HashSet<S
             .into_iter()
             .map(|p| crate::preferences::sanitise_path(&p))
             .collect(),
+        problems: result.problems.clone(),
     }
 }
 
@@ -198,6 +218,16 @@ fn dialect_for_swept(path: &Path) -> dialect::Dialect {
     }
 }
 
+/// `registry::host_by_id(host_id).display_name`, or the bare id when the
+/// registry does not carry it. One place, so every `ConfigProblem` resolves
+/// its `engine` field the same way `scanner.rs` already resolves the same
+/// table for `Tool` rows.
+fn engine_display_name(host_id: &str) -> String {
+    crate::mcp::registry::host_by_id(host_id)
+        .map(|h| h.display_name.to_string())
+        .unwrap_or_else(|| host_id.to_string())
+}
+
 fn read_one(
     path: &Path,
     dial: dialect::Dialect,
@@ -219,6 +249,7 @@ fn read_one(
                 path: crate::preferences::sanitise_path(&path_str),
                 detail: e.to_string(),
                 line: None,
+                engine: engine_display_name(host_id),
             });
             return;
         }
@@ -236,6 +267,7 @@ fn read_one(
                     detail: "declares no MCP servers, though this file exists solely to declare them"
                         .to_string(),
                     line: None,
+                    engine: engine_display_name(host_id),
                 });
             }
         }
@@ -254,6 +286,7 @@ fn read_one(
             path: crate::preferences::sanitise_path(&path_str),
             detail: "config format not yet supported".to_string(),
             line: None,
+            engine: engine_display_name(host_id),
         }),
         Err(e) => {
             let line = parsed_line(&e);
@@ -262,6 +295,7 @@ fn read_one(
                 path: crate::preferences::sanitise_path(&path_str),
                 detail: e,
                 line,
+                engine: engine_display_name(host_id),
             });
         }
     }

@@ -897,6 +897,35 @@ fn a_config_that_parses_clean_and_empty_is_still_checked() {
 }
 
 #[test]
+fn coverage_carries_every_problem_discovery_found() {
+    // `McpCoverage` is the payload `get_mcp_coverage` hands the frontend, and
+    // ProfilePane's Tools section renders Appendix A.3/A.4's rows from
+    // whatever it finds on `mcpCoverage.problems`. `coverage()` was only
+    // ever asked to fold `checked` into the two A.1 counts before this task;
+    // `problems` must survive the same fold untouched, or the rows have
+    // nothing to render from.
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::create_dir_all(dir.path().join(".claude")).unwrap();
+    // Unparseable: recognised path, broken JSON.
+    std::fs::write(dir.path().join(".claude/mcp.json"), "{ \"mcpServers\": { \"a\": {").unwrap();
+
+    let result = discover::discover_machine(dir.path());
+    let coverage = discover::coverage(&result, &std::collections::HashSet::new());
+    assert_eq!(
+        coverage.problems.len(),
+        result.problems.len(),
+        "coverage() must carry every problem discover_machine found, not a subset"
+    );
+    assert!(
+        coverage.problems.iter().any(|p| matches!(p.kind, ConfigProblemKind::Unparseable)
+            && p.path.contains("mcp.json")
+            && p.engine == "Claude Code"),
+        "expected the unparseable .claude/mcp.json problem, with its engine resolved, got {:#?}",
+        coverage.problems
+    );
+}
+
+#[test]
 fn codex_toml_reads_both_mcp_servers_and_the_legacy_tools_table() {
     // Current Codex writes [mcp_servers.*]. Hanger's own fixture -- and the
     // URL-credential sanitisation assertion attached to it -- uses [tools.*].
@@ -1182,6 +1211,47 @@ fn a_format_we_choose_not_to_parse_reports_itself_rather_than_reading_as_empty()
     assert!(result.registrations.is_empty());
     assert_eq!(result.problems.len(), 1);
     assert!(matches!(result.problems[0].kind, ConfigProblemKind::FormatUnread));
+}
+
+#[test]
+fn a_config_problem_carries_the_host_s_display_name_not_a_bare_id() {
+    // Appendix A.3's row is `{engine} · config format not yet supported` —
+    // the view layer substitutes a data field, never a literal
+    // (`no-hardcoded-engine-copy.test.ts`), so the display name has to be
+    // resolved here, backend side, the same way `scanner.rs` already resolves
+    // `registry::host_by_id(..).display_name` rather than handing a raw id
+    // across IPC and making the frontend look it up itself.
+    let dir = tempfile::tempdir().expect("tempdir");
+    let path = dir.path().join("config.yaml");
+    std::fs::write(&path, "mcpServers:\n  - name: x\n").expect("write");
+
+    let result = discover::read_one_for_test(
+        &path,
+        dialect::Dialect::Unsupported,
+        "vscode",
+        dialect::ScopeTier::Global,
+    );
+    assert_eq!(result.problems.len(), 1);
+    assert_eq!(
+        result.problems[0].engine, "VS Code",
+        "expected the registry's own display_name for host_id \"vscode\", got {:?}",
+        result.problems[0]
+    );
+}
+
+#[test]
+fn an_unregistered_host_id_falls_back_to_the_bare_id_rather_than_panicking() {
+    // `read_swept`'s own doc comment: host_id is "" for an ad-hoc sweep file
+    // the registry does not name. `registry::host_by_id("")` returns `None`;
+    // the fallback must be graceful, not a panic or an empty string.
+    let dir = tempfile::tempdir().expect("tempdir");
+    let path = dir.path().join("mcp.json");
+    // Missing entirely -- Unreadable, the simplest problem to trigger.
+    let missing = dir.path().join("gone.json");
+    let _ = std::fs::remove_file(&path);
+    let result = discover::read_swept(&missing, "", dialect::ScopeTier::Global);
+    assert_eq!(result.problems.len(), 1);
+    assert_eq!(result.problems[0].engine, "", "the bare id, unresolved, is the honest fallback");
 }
 
 // ─── Fixture machines ────────────────────────────────────────────────────────

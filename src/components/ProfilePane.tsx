@@ -18,6 +18,22 @@ import { ScanStatusIndicator } from "./ScanStatusIndicator";
 import { annotationStateCounts, linkStateCounts, matchesStateFilter, StateFilter } from "../utils/linkStateCounts";
 import { categoryNoun, joinNames, joinNamesTruncated } from "../utils/prose";
 
+/** The frontend's mirror of Rust's `ConfigProblem`
+ *  (`src-tauri/src/mcp/discover.rs`), carried on `mcpCoverage.problems`.
+ *  Appendix A.3/A.4's rows are rendered from this verbatim — `engine` is
+ *  already the registry's display name, resolved backend-side, so the view
+ *  never looks up a host id itself (`no-hardcoded-engine-copy.test.ts`
+ *  covers `src/components/**`, not this data shape, but the same rule is
+ *  the reason the field exists as a name rather than an id). `line` is
+ *  `null`, never a placeholder, when the parser gave no location. */
+export interface ConfigProblemRow {
+  kind: "Unreadable" | "Unparseable" | "FormatUnread" | "DeclaredNothing";
+  path: string;
+  detail: string;
+  line: number | null;
+  engine: string;
+}
+
 interface ProfilePaneProps {
   inventory: Inventory | null;
   /** Backend-derived per-asset annotations (mechanism, reach, beyond) for
@@ -48,7 +64,15 @@ interface ProfilePaneProps {
    *  backing Appendix A.1's "Checked {n} config files across {m} engines" and
    *  its file disclosure. Both counts are backend fields, never a `.length`
    *  taken here — `no-frontend-counting.test.ts` forbids deriving one. */
-  mcpCoverage?: { checked_file_count: number; checked_engine_count: number; checked_files: string[] } | null;
+  mcpCoverage?: {
+    checked_file_count: number;
+    checked_engine_count: number;
+    checked_files: string[];
+    /** Appendix A.3/A.4's rows. Optional so every existing coverage fixture
+     *  in this file's own tests keeps typechecking without an edit — absent
+     *  reads as no problems, same as an empty array. */
+    problems?: ConfigProblemRow[];
+  } | null;
   /** Every standard location Hanger checks for a known engine
    *  (`get_known_engine_locations`), registry-derived — Appendix A.2's
    *  "Checked {n} locations" line and its disclosure. */
@@ -255,6 +279,51 @@ function McpNoEnginesEmptyState({
   );
 }
 
+/** Appendix A.3/A.4, normative — the line one `ConfigProblemRow` renders.
+ *  Every substitution is a data field (`engine`, `path`, `detail`, `line`),
+ *  never a literal, per A.5. `Unreadable` and `Unparseable` share a path
+ *  shape but read differently on purpose: "read" is a permissions fix,
+ *  "parsed" is an editor fix, and collapsing them back to one sentence is
+ *  exactly the defect Appendix A exists to undo. A `Unparseable` problem
+ *  with no line omits the parenthetical outright — never an invented
+ *  number, never an empty `()` or `(line )`. */
+function configProblemLine(problem: ConfigProblemRow): string {
+  switch (problem.kind) {
+    case "FormatUnread":
+      return `${problem.engine} · config format not yet supported`;
+    case "Unreadable":
+      return `${problem.path} — couldn't be read (${problem.detail})`;
+    case "Unparseable":
+      return problem.line != null
+        ? `${problem.path} — couldn't be parsed (line ${problem.line})`
+        : `${problem.path} — couldn't be parsed`;
+    default:
+      // `DeclaredNothing` has no Appendix A row copy here — callers filter
+      // it out before this ever runs (see `configProblemRows` below); this
+      // branch exists only so the switch is exhaustive over data from IPC,
+      // which a future backend variant could still send.
+      return "";
+  }
+}
+
+/** One row for Appendix A.3 or A.4 — content next to the server list, never
+ *  a `DisclosureBanner`: a config problem is a finding about the scan that
+ *  just ran, not a diagnostic about Hanger itself (`known-debt.md`'s
+ *  DisclosureBanner rule is about the other kind). Not clickable — there is
+ *  no asset behind it to open, only a file Hanger could not read or parse. */
+function McpConfigProblemRow({ problem }: { problem: ConfigProblemRow }) {
+  return (
+    <div
+      data-testid="mcp-config-problem-row"
+      data-problem-kind={problem.kind}
+      className="flex items-center gap-2 px-3.5 py-2 border-t border-line"
+    >
+      <ExclamationCircleIcon className="text-ink-3 shrink-0" size={14} />
+      <span className="text-micro text-ink-3 truncate">{configProblemLine(problem)}</span>
+    </div>
+  );
+}
+
 export default function ProfilePane({
   inventory,
   annotations,
@@ -439,10 +508,23 @@ export default function ProfilePane({
     engineCount === 1 ? "engine" : "engines"
   }`;
 
-  // Check if the selected category itself is empty
+  // Appendix A.3/A.4's rows (§6.3 states 5-7) — every problem discovery hit
+  // while checking, restricted to the three kinds Appendix A gives copy to
+  // here. `DeclaredNothing` carries no row text (`configProblemLine`'s
+  // exhaustive switch would return ""), so it is filtered out before it
+  // could ever render an empty row.
+  const configProblemRows: ConfigProblemRow[] = (mcpCoverage?.problems ?? []).filter(
+    (p) => p.kind === "Unreadable" || p.kind === "Unparseable" || p.kind === "FormatUnread"
+  );
+
+  // Check if the selected category itself is empty. Tools is not empty just
+  // because it has zero servers if it has a problem to report instead — "a
+  // row, not an empty state" (A.3/A.4) means these rows must be reachable
+  // even on a machine whose only MCP-relevant fact is a config Hanger could
+  // not read or parse, with no working server anywhere to fall back on.
   const isCategoryEmpty =
     (selectedCategory === "Skills" && filteredSkills.length === 0) ||
-    (selectedCategory === "Tools" && filteredTools.length === 0) ||
+    (selectedCategory === "Tools" && filteredTools.length === 0 && configProblemRows.length === 0) ||
     (selectedCategory === "Rules" && filteredRules.length === 0) ||
     (selectedCategory === "Agents" && agents.length === 0) ||
     (selectedCategory === "Subagents" && filteredSubagents.length === 0);
@@ -628,7 +710,11 @@ export default function ProfilePane({
     (showSkills && sortedSkills.length > 0) ||
     (showRules && sortedRules.length > 0) ||
     (showSubagents && sortedSubagents.length > 0);
-  const toolsOnlyView = showTools && sortedTools.length > 0 && !nonToolsSectionVisible;
+  // The Tools group has something to show whenever there is a server row OR
+  // a problem row — a machine with one unreadable config and zero working
+  // servers still has a Tools section worth rendering (A.3/A.4).
+  const hasToolsContent = sortedTools.length > 0 || configProblemRows.length > 0;
+  const toolsOnlyView = showTools && hasToolsContent && !nonToolsSectionVisible;
 
   // Uppercase micro voice for section labels inside the list plane.
   const secClass =
@@ -902,7 +988,7 @@ export default function ProfilePane({
                 suppressed entirely (`toolsOnlyView`); in a mixed view the
                 shared header still renders for the OTHER sections, and this
                 inline header is what actually sits above these rows. */}
-            {showTools && sortedTools.length > 0 && (
+            {showTools && hasToolsContent && (
               <>
                 <div
                   data-testid="section-header-tools"
@@ -929,6 +1015,15 @@ export default function ProfilePane({
                       onLink={() => onLinkAsset(item)}
                       onClick={() => onSelectAsset({ id: item.id, name: item.name, category: "Tools", path: item.path })}
                     />
+                  ))}
+                  {/* Appendix A.3/A.4 (§6.3 states 5-7) — content rows next to
+                      the server list, never a DisclosureBanner. Rendered from
+                      whatever `mcpCoverage.problems` last carried, with no
+                      gate on `loading`: the same "never clear mid-rescan, only
+                      replace on scan://complete" rule the server rows above
+                      already follow. */}
+                  {configProblemRows.map((p, idx) => (
+                    <McpConfigProblemRow key={`config-problem-${p.kind}-${p.path}-${p.line ?? idx}`} problem={p} />
                   ))}
                 </div>
               </>

@@ -51,7 +51,7 @@ import {
 import IconRail from "./components/IconRail";
 import Tooltip from "./components/Tooltip";
 import Sidebar from "./components/Sidebar";
-import ProfilePane from "./components/ProfilePane";
+import ProfilePane, { ConfigProblemRow } from "./components/ProfilePane";
 import RepoPane from "./components/RepoPane";
 import DiscoveryPane from "./components/DiscoveryPane";
 import DiscoverySidebar from "./components/DiscoverySidebar";
@@ -262,6 +262,9 @@ export default function App() {
     checked_file_count: number;
     checked_engine_count: number;
     checked_files: string[];
+    /** Appendix A.3/A.4's rows (§6.3 states 5-7) — ProfilePane's Tools
+     *  section renders these as content rows next to the server list. */
+    problems: ConfigProblemRow[];
   } | null>(null);
   const [repoAssetCountsMap, setRepoAssetCountsMap] = useState<Record<string, CategoryCounts>>({});
   // The MCP server list: one row per server name, grouped and counted in
@@ -568,9 +571,12 @@ export default function App() {
   const refreshMcpCoverage = async () => {
     try {
       setMcpCoverage(
-        await invoke<{ checked_file_count: number; checked_engine_count: number; checked_files: string[] }>(
-          "get_mcp_coverage"
-        )
+        await invoke<{
+          checked_file_count: number;
+          checked_engine_count: number;
+          checked_files: string[];
+          problems: ConfigProblemRow[];
+        }>("get_mcp_coverage")
       );
     } catch {
       setMcpCoverage(null);
