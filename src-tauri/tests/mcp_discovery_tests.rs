@@ -1154,6 +1154,40 @@ fn an_unreadable_config_is_a_different_problem_from_an_unparseable_one() {
 }
 
 #[test]
+fn a_problem_s_detail_never_carries_the_raw_unsanitised_path() {
+    // Appendix A.4's `{os error}` substitutes `detail` directly into a row
+    // the user sees; `path` is already sanitised (the struct's own doc
+    // comment), but `detail` comes straight from `io::Error`/the parser and
+    // was never audited for the same thing. `io::Error::to_string()` for an
+    // OS-level failure is exactly its strerror plus the OS code — Rust does
+    // not embed the path unless the caller wraps it in, and neither call
+    // site here does; `dialect::parse` is documented pure ("no filesystem,
+    // no paths" — it never receives one to begin with). Proven against the
+    // real tempdir path rather than asserted from memory of the stdlib.
+    let dir = tempfile::tempdir().expect("tempdir");
+    let raw_dir = dir.path().to_string_lossy().to_string();
+
+    let missing = dir.path().join("gone.json");
+    let unreadable = discover::read_swept(&missing, "claude-code", dialect::ScopeTier::Global);
+    assert_eq!(unreadable.problems.len(), 1);
+    assert!(
+        !unreadable.problems[0].detail.contains(&raw_dir),
+        "Unreadable detail leaked the raw path: {:?}",
+        unreadable.problems[0]
+    );
+
+    let bad = dir.path().join("bad.json");
+    std::fs::write(&bad, "{ \"mcpServers\": { \"a\": { }").expect("write");
+    let unparseable = discover::read_swept(&bad, "claude-code", dialect::ScopeTier::Global);
+    assert_eq!(unparseable.problems.len(), 1);
+    assert!(
+        !unparseable.problems[0].detail.contains(&raw_dir),
+        "Unparseable detail leaked the raw path: {:?}",
+        unparseable.problems[0]
+    );
+}
+
+#[test]
 fn a_well_formed_file_declaring_nothing_is_its_own_state() {
     let dir = tempfile::tempdir().expect("tempdir");
     let empty = dir.path().join("mcp.json");
