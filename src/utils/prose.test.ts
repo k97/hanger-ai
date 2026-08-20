@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { joinNames, categoryNoun, abbreviateHome } from "./prose";
+import { joinNames, joinNamesTruncated, categoryNoun, abbreviateHome } from "./prose";
 
 describe("joinNames", () => {
   it("reads as a sentence would at every length", () => {
@@ -9,6 +9,31 @@ describe("joinNames", () => {
     expect(joinNames(["Claude Code", "Codex", "Gemini / Antigravity"])).toBe(
       "Claude Code, Codex and Gemini / Antigravity"
     );
+  });
+});
+
+describe("joinNamesTruncated", () => {
+  it("reads exactly like joinNames at or under the cap", () => {
+    expect(joinNamesTruncated([])).toBe("");
+    expect(joinNamesTruncated(["Claude Code"])).toBe("Claude Code");
+    expect(joinNamesTruncated(["Claude Code", "Codex"])).toBe("Claude Code and Codex");
+    expect(joinNamesTruncated(["Claude Code", "Codex", "Gemini / Antigravity"])).toBe(
+      "Claude Code, Codex and Gemini / Antigravity"
+    );
+  });
+
+  it("caps at three plus 'and n others' past the cap, never a fixed list", () => {
+    expect(
+      joinNamesTruncated(["Claude Code", "Codex", "Gemini / Antigravity", "Cursor", "Zed"])
+    ).toBe("Claude Code, Codex, Gemini / Antigravity and 2 others");
+  });
+
+  it("singularises 'other' for exactly one over the cap", () => {
+    expect(joinNamesTruncated(["A", "B", "C", "D"])).toBe("A, B, C and 1 other");
+  });
+
+  it("honours a caller-supplied cap", () => {
+    expect(joinNamesTruncated(["A", "B", "C", "D"], 2)).toBe("A, B and 2 others");
   });
 });
 

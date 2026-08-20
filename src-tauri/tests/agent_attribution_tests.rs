@@ -466,6 +466,30 @@ fn known_engines_is_the_whole_table_and_claims_nothing_is_installed() {
     }
 }
 
+/// Appendix A.2's "Checked {n} locations" line needs a pure registry count —
+/// every root and file-only detection signal Hanger looks for, across every
+/// known engine — so that adding an `AGENT_CONFIGS` row grows the number with
+/// no other edit (§6.5's second exit criterion).
+#[test]
+fn known_engine_locations_covers_every_configured_root_and_detect_file() {
+    let locations = tauri_app_lib::agents::known_engine_locations();
+    let expected: usize = AGENT_CONFIGS
+        .iter()
+        .map(|c| c.global_roots.len() + c.detect_files.len())
+        .sum();
+    assert_eq!(
+        locations.len(),
+        expected,
+        "location count must equal every root plus every detect_file, summed \
+         across the table — it went stale relative to AGENT_CONFIGS"
+    );
+    assert!(
+        locations.contains(&".claude"),
+        "expected Claude Code's root among the locations, got {:?}",
+        locations
+    );
+}
+
 #[test]
 fn roo_and_kilo_do_not_share_directories() {
     // Kilo Code forked Roo Code but rebuilt its config. An implementation that

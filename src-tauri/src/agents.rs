@@ -66,6 +66,22 @@ pub fn known_engines() -> Vec<crate::domain::Agent> {
         .collect()
 }
 
+/// Every standard, home-relative location Hanger checks for a known engine:
+/// each entry's owned folders (`global_roots`) plus, for an engine that owns
+/// no directory of its own, its file-only detection signal (`detect_files`)
+/// — the same two signals `scanner::get_global_agents` reads to decide
+/// whether an engine is installed.
+///
+/// A pure count off the registry, not a probe of any real filesystem: backs
+/// Appendix A.2's "Checked {n} locations" line, so a new `AGENT_CONFIGS` row
+/// grows the number with no other edit (§6.5's second exit criterion).
+pub fn known_engine_locations() -> Vec<&'static str> {
+    AGENT_CONFIGS
+        .iter()
+        .flat_map(|c| c.global_roots.iter().chain(c.detect_files.iter()).copied())
+        .collect()
+}
+
 pub const AGENT_CONFIGS: &[AgentConfig] = &[
     AgentConfig {
         id: "claude-code",

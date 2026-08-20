@@ -16,7 +16,7 @@ import { sumGlobalAssets } from "../utils/globalAssetCount";
 import SummaryStrip from "./SummaryStrip";
 import { ScanStatusIndicator } from "./ScanStatusIndicator";
 import { annotationStateCounts, linkStateCounts, matchesStateFilter, StateFilter } from "../utils/linkStateCounts";
-import { categoryNoun, joinNames } from "../utils/prose";
+import { categoryNoun, joinNames, joinNamesTruncated } from "../utils/prose";
 
 interface ProfilePaneProps {
   inventory: Inventory | null;
@@ -44,6 +44,15 @@ interface ProfilePaneProps {
    *  The no-folders empty state names them. It named three in a string
    *  literal and went stale the day the backend's table grew to eight. */
   knownEngines?: { id: string; name: string }[];
+  /** What MCP discovery actually checked on this machine (`get_mcp_coverage`),
+   *  backing Appendix A.1's "Checked {n} config files across {m} engines" and
+   *  its file disclosure. Both counts are backend fields, never a `.length`
+   *  taken here — `no-frontend-counting.test.ts` forbids deriving one. */
+  mcpCoverage?: { checked_file_count: number; checked_engine_count: number; checked_files: string[] } | null;
+  /** Every standard location Hanger checks for a known engine
+   *  (`get_known_engine_locations`), registry-derived — Appendix A.2's
+   *  "Checked {n} locations" line and its disclosure. */
+  knownEngineLocations?: { location_count: number; locations: string[] } | null;
   onRescan?: () => void;
   sortField?: SortField;
   sortDirection?: SortDirection;
@@ -70,6 +79,124 @@ interface ProfilePaneProps {
   onServerSortChange?: (sort: ServerSort) => void;
 }
 
+type McpCoverageProp = { checked_file_count: number; checked_engine_count: number; checked_files: string[] } | null;
+type EngineLocationsProp = { location_count: number; locations: string[] } | null;
+
+/** Appendix A.1, normative: engines are here, none has an MCP server
+ *  configured. `engineNames` is the DETECTED roster (a filesystem probe);
+ *  `coverage` is the backend's own tally of what discovery checked — both
+ *  counts in "Checked {n} config files across {m} engines" are its fields,
+ *  never computed here. */
+function McpZeroServersEmptyState({
+  engineNames,
+  coverage,
+}: {
+  engineNames: string[];
+  coverage: McpCoverageProp;
+}) {
+  const [showFiles, setShowFiles] = useState(false);
+  const n = coverage?.checked_file_count ?? 0;
+  const m = coverage?.checked_engine_count ?? 0;
+  const files = coverage?.checked_files ?? [];
+  // "no engine has" reads naturally for one; "neither" is exactly-two
+  // grammar; "none" is the three-or-more form. All three describe the same
+  // detected roster, never a fixed pick.
+  const noneHas =
+    engineNames.length === 1 ? "no engine has" : engineNames.length === 2 ? "neither has" : "none has";
+
+  return (
+    <>
+      <span className="text-base-app font-medium text-ink-1">No MCP servers registered</span>
+      <span className="text-small text-ink-3 max-w-sm mt-1">
+        {joinNamesTruncated(engineNames)} {engineNames.length === 1 ? "is" : "are"} installed here, but{" "}
+        {noneHas} a server configured.
+      </span>
+      <div className="flex items-center gap-1.5 mt-2">
+        <span className="text-micro text-ink-3">
+          Checked {n} config {n === 1 ? "file" : "files"} across {m} {m === 1 ? "engine" : "engines"}
+        </span>
+        {files.length > 0 && (
+          <>
+            <span aria-hidden="true" className="text-micro text-ink-3">
+              ·
+            </span>
+            <button
+              type="button"
+              onClick={() => setShowFiles((v) => !v)}
+              className="text-micro text-ink-3 underline hover:text-ink-1 transition-colors duration-hover cursor-pointer"
+            >
+              {showFiles ? "Hide files" : "Show files"}
+            </button>
+          </>
+        )}
+      </div>
+      {showFiles && (
+        <div className="mt-2 flex flex-col gap-0.5 max-w-sm">
+          {files.map((f) => (
+            <span key={f} className="text-micro font-mono text-ink-3 truncate">
+              {f}
+            </span>
+          ))}
+        </div>
+      )}
+    </>
+  );
+}
+
+/** Appendix A.2, normative: no engine was found at all — a different message
+ *  from A.1 because the reason is upstream of MCP. `registryEngineNames`
+ *  comes from `known_engines()` (the same source the whole-store no-folders
+ *  line already uses); `locations` is the backend's own count of the
+ *  standard places it looked. */
+function McpNoEnginesEmptyState({
+  registryEngineNames,
+  locations,
+}: {
+  registryEngineNames: string[];
+  locations: EngineLocationsProp;
+}) {
+  const [showLocations, setShowLocations] = useState(false);
+  const n = locations?.location_count ?? 0;
+  const paths = locations?.locations ?? [];
+
+  return (
+    <>
+      <span className="text-base-app font-medium text-ink-1">No AI engines found</span>
+      <span className="text-small text-ink-3 max-w-sm mt-1">
+        Hanger looks for {joinNamesTruncated(registryEngineNames)} in their standard locations.
+      </span>
+      <div className="flex items-center gap-1.5 mt-2">
+        <span className="text-micro text-ink-3">
+          Checked {n} {n === 1 ? "location" : "locations"}
+        </span>
+        {paths.length > 0 && (
+          <>
+            <span aria-hidden="true" className="text-micro text-ink-3">
+              ·
+            </span>
+            <button
+              type="button"
+              onClick={() => setShowLocations((v) => !v)}
+              className="text-micro text-ink-3 underline hover:text-ink-1 transition-colors duration-hover cursor-pointer"
+            >
+              {showLocations ? "Hide locations" : "Show locations"}
+            </button>
+          </>
+        )}
+      </div>
+      {showLocations && (
+        <div className="mt-2 flex flex-col gap-0.5 max-w-sm">
+          {paths.map((p) => (
+            <span key={p} className="text-micro font-mono text-ink-3 truncate">
+              {p}
+            </span>
+          ))}
+        </div>
+      )}
+    </>
+  );
+}
+
 export default function ProfilePane({
   inventory,
   annotations,
@@ -83,6 +210,8 @@ export default function ProfilePane({
   scannedAt = null,
   detectedEngines,
   knownEngines,
+  mcpCoverage = null,
+  knownEngineLocations = null,
   onRescan,
   sortField: propSortField,
   sortDirection: propSortDirection,
@@ -556,7 +685,15 @@ export default function ProfilePane({
               : "Rescan when you're ready."}
           </span>
         </div>
-      ) : emptyState ? (
+      ) : emptyState && selectedCategory !== "Tools" ? (
+        /* Tools is excluded here even though a fully empty store makes this
+           condition true too: A.1 and A.2 below are Tools' own, more precise
+           readings of exactly this state (engines with nothing configured;
+           no engines at all), and both need to fire regardless of whether
+           some OTHER category also happens to be empty. Left unexcluded,
+           selecting the Tools chip on a totally fresh store would show this
+           generic line first and A.1/A.2 would only ever be reachable in the
+           narrower case where Tools alone is empty. */
         <div className={emptyPlaneClass}>
           <ExclamationCircleIcon className="text-ink-3 mb-2" size={40} />
           {enginesDetected ? (
@@ -608,6 +745,18 @@ export default function ProfilePane({
               <span className="text-base-app font-medium text-ink-1">
                 No {categoryNoun(selectedCategory, "one")} matches that filter
               </span>
+            ) : selectedCategory === "Tools" ? (
+              /* Appendix A.1/A.2 (§6.3 states 1 and 2), normative. Both are
+                 Tools' own reading of "nothing configured" — A.1 when the
+                 engines Hanger found are real but declared no server, A.2
+                 when there is no engine to have declared one. Neither is the
+                 generic per-category line above: both name what was checked
+                 (§A.0), never assert on a count computed here. */
+              enginesDetected ? (
+                <McpZeroServersEmptyState engineNames={engineNames} coverage={mcpCoverage} />
+              ) : (
+                <McpNoEnginesEmptyState registryEngineNames={knownEngineNames} locations={knownEngineLocations} />
+              )
             ) : (
               <>
                 <span className="text-base-app font-medium text-ink-1">

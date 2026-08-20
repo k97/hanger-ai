@@ -13,6 +13,20 @@ export function joinNames(names: string[]): string {
 }
 
 /**
+ * `joinNames`, but caps the list before it reads as a sentence — a machine
+ * with every engine installed should never print all of them in one line.
+ * Appendix A.1's engine list and A.2's registry roster both truncate this
+ * way: the first `max` names, then "and n others". Never a fixed list — the
+ * cut is on length, not on which names happen to be there.
+ */
+export function joinNamesTruncated(names: string[], max = 3): string {
+  if (names.length <= max) return joinNames(names);
+  const shown = names.slice(0, max);
+  const remaining = names.length - max;
+  return `${shown.join(", ")} and ${remaining} ${remaining === 1 ? "other" : "others"}`;
+}
+
+/**
  * The noun a category goes by in running text, singular and plural. The chip
  * row says "MCP servers", so an empty state must too — "no global tools
  * found" under a chip labelled MCP servers is the mismatch this exists to

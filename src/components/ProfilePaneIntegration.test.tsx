@@ -371,3 +371,222 @@ describe("ProfilePane — the empty state is a finding, not a default", () => {
     expect(screen.getByText(`${noun} show up here once the scan finishes.`)).toBeTruthy();
   });
 });
+
+describe("ProfilePane — Tools' own empty states (Appendix A.1, A.2)", () => {
+  // Reachable only by filtering to Tools with zero servers and a completed
+  // scan — Task 10's chip exemption is what lets the chip be clicked at all
+  // when its count is zero.
+  const renderTools = (over: Partial<React.ComponentProps<typeof ProfilePane>>) =>
+    render(
+      <ProfilePane
+        inventory={{ ...mockInventory, tools: [] }}
+        loading={false}
+        scannedAt={new Date()}
+        selectedCategory="Tools"
+        onSelectAsset={vi.fn()}
+        onLinkAsset={vi.fn()}
+        {...over}
+      />
+    );
+
+  describe("A.1 — engines detected, zero MCP servers", () => {
+    it("substitutes the template for three detected engines", () => {
+      renderTools({
+        detectedEngines: [
+          { id: "claude-code", name: "Claude Code" },
+          { id: "codex", name: "Codex" },
+          { id: "gemini", name: "Gemini / Antigravity" },
+        ],
+        mcpCoverage: { checked_file_count: 5, checked_engine_count: 3, checked_files: [] },
+      });
+      expect(screen.getByText("No MCP servers registered")).toBeTruthy();
+      expect(
+        screen.getByText(
+          "Claude Code, Codex and Gemini / Antigravity are installed here, but none has a server configured."
+        )
+      ).toBeTruthy();
+      expect(screen.getByText("Checked 5 config files across 3 engines")).toBeTruthy();
+    });
+
+    it("truncates past three engines to 'and n others' — never a fixed list", () => {
+      renderTools({
+        detectedEngines: [
+          { id: "a", name: "Claude Code" },
+          { id: "b", name: "Codex" },
+          { id: "c", name: "Gemini / Antigravity" },
+          { id: "d", name: "Cursor" },
+          { id: "e", name: "Zed" },
+        ],
+        mcpCoverage: { checked_file_count: 9, checked_engine_count: 5, checked_files: [] },
+      });
+      expect(
+        screen.getByText(
+          "Claude Code, Codex, Gemini / Antigravity and 2 others are installed here, but none has a server configured."
+        )
+      ).toBeTruthy();
+    });
+
+    it("reads in the singular for exactly one detected engine: is / no engine has", () => {
+      renderTools({
+        detectedEngines: [{ id: "claude-code", name: "Claude Code" }],
+        mcpCoverage: { checked_file_count: 1, checked_engine_count: 1, checked_files: [] },
+      });
+      expect(
+        screen.getByText("Claude Code is installed here, but no engine has a server configured.")
+      ).toBeTruthy();
+      expect(screen.getByText("Checked 1 config file across 1 engine")).toBeTruthy();
+    });
+
+    it("reads 'neither' for exactly two detected engines", () => {
+      renderTools({
+        detectedEngines: [
+          { id: "claude-code", name: "Claude Code" },
+          { id: "codex", name: "Codex" },
+        ],
+        mcpCoverage: { checked_file_count: 2, checked_engine_count: 2, checked_files: [] },
+      });
+      expect(
+        screen.getByText("Claude Code and Codex are installed here, but neither has a server configured.")
+      ).toBeTruthy();
+    });
+
+    it("the file/engine counts are the backend's own fields, not a derived length", () => {
+      // Same three engines as the first case, but a coverage shape a
+      // frontend-computed `.length` could never produce on its own —
+      // proves the numbers rendered are `mcpCoverage`'s fields.
+      renderTools({
+        detectedEngines: [
+          { id: "claude-code", name: "Claude Code" },
+          { id: "codex", name: "Codex" },
+          { id: "gemini", name: "Gemini / Antigravity" },
+        ],
+        mcpCoverage: { checked_file_count: 41, checked_engine_count: 7, checked_files: [] },
+      });
+      expect(screen.getByText("Checked 41 config files across 7 engines")).toBeTruthy();
+    });
+
+    it("has no primary action — Hanger does not author configs", () => {
+      renderTools({
+        detectedEngines: [{ id: "claude-code", name: "Claude Code" }],
+        mcpCoverage: { checked_file_count: 1, checked_engine_count: 1, checked_files: [] },
+      });
+      expect(screen.queryByRole("button", { name: /add/i })).toBeNull();
+      expect(screen.queryByRole("button", { name: /rescan/i })).toBeNull();
+    });
+
+    it("[Show files] discloses the real paths read, one per line", () => {
+      renderTools({
+        detectedEngines: [{ id: "claude-code", name: "Claude Code" }],
+        mcpCoverage: {
+          checked_file_count: 2,
+          checked_engine_count: 1,
+          checked_files: ["~/.claude.json", "~/.claude/mcp.json"],
+        },
+      });
+      expect(screen.queryByText("~/.claude.json")).toBeNull();
+      fireEvent.click(screen.getByText("Show files"));
+      expect(screen.getByText("~/.claude.json")).toBeTruthy();
+      expect(screen.getByText("~/.claude/mcp.json")).toBeTruthy();
+      fireEvent.click(screen.getByText("Hide files"));
+      expect(screen.queryByText("~/.claude.json")).toBeNull();
+    });
+
+    it("does not offer the disclosure when there is nothing to show", () => {
+      renderTools({
+        detectedEngines: [{ id: "claude-code", name: "Claude Code" }],
+        mcpCoverage: { checked_file_count: 0, checked_engine_count: 0, checked_files: [] },
+      });
+      expect(screen.queryByText("Show files")).toBeNull();
+    });
+  });
+
+  describe("A.2 — no engines detected at all", () => {
+    it("substitutes the registry's own roster, truncated past three", () => {
+      renderTools({
+        detectedEngines: [],
+        knownEngines: [
+          { id: "a", name: "Aardvark" },
+          { id: "b", name: "Bandicoot" },
+          { id: "c", name: "Capybara" },
+          { id: "d", name: "Dingo" },
+        ],
+        knownEngineLocations: { location_count: 12, locations: [] },
+      });
+      expect(screen.getByText("No AI engines found")).toBeTruthy();
+      expect(
+        screen.getByText("Hanger looks for Aardvark, Bandicoot, Capybara and 1 other in their standard locations.")
+      ).toBeTruthy();
+      expect(screen.getByText("Checked 12 locations")).toBeTruthy();
+    });
+
+    it("reads the singular for exactly one checked location", () => {
+      renderTools({
+        detectedEngines: [],
+        knownEngines: [{ id: "a", name: "Aardvark" }],
+        knownEngineLocations: { location_count: 1, locations: [] },
+      });
+      expect(screen.getByText("Checked 1 location")).toBeTruthy();
+    });
+
+    it("[Show locations] discloses the real paths checked, one per line", () => {
+      renderTools({
+        detectedEngines: [],
+        knownEngines: [{ id: "a", name: "Aardvark" }],
+        knownEngineLocations: { location_count: 2, locations: ["~/.claude", "~/.codex"] },
+      });
+      expect(screen.queryByText("~/.claude")).toBeNull();
+      fireEvent.click(screen.getByText("Show locations"));
+      expect(screen.getByText("~/.claude")).toBeTruthy();
+      expect(screen.getByText("~/.codex")).toBeTruthy();
+    });
+
+    it("adding a registry row changes the string with no copy edit — §6.5's exit criterion", () => {
+      // The view renders whatever `knownEngines` it is given; nothing here
+      // is a literal. A real registry row growing the table would flow
+      // through `get_known_engines` the same way this synthetic one does.
+      renderTools({
+        detectedEngines: [],
+        knownEngines: [
+          { id: "a", name: "Aardvark" },
+          { id: "b", name: "Bandicoot" },
+          { id: "z", name: "Zorse" },
+        ],
+        knownEngineLocations: { location_count: 15, locations: [] },
+      });
+      expect(
+        screen.getByText("Hanger looks for Aardvark, Bandicoot and Zorse in their standard locations.")
+      ).toBeTruthy();
+      expect(screen.getByText("Checked 15 locations")).toBeTruthy();
+    });
+  });
+
+  describe("gating: pending is not empty, even for Tools' own states", () => {
+    it("a rescan in flight shows the category spinner, never A.1 or A.2", () => {
+      renderTools({
+        loading: true,
+        detectedEngines: [{ id: "claude-code", name: "Claude Code" }],
+        mcpCoverage: { checked_file_count: 1, checked_engine_count: 1, checked_files: [] },
+      });
+      expect(screen.getByTestId("scan-pending")).toBeTruthy();
+      expect(screen.getByText("Scanning your machine")).toBeTruthy();
+      expect(screen.queryByText("No MCP servers registered")).toBeNull();
+      expect(screen.queryByText("No AI engines found")).toBeNull();
+    });
+
+    it("before any scan has completed, neither A.1 nor A.2 renders", () => {
+      render(
+        <ProfilePane
+          inventory={null}
+          loading={false}
+          scannedAt={null}
+          selectedCategory="Tools"
+          onSelectAsset={vi.fn()}
+          onLinkAsset={vi.fn()}
+          detectedEngines={[{ id: "claude-code", name: "Claude Code" }]}
+        />
+      );
+      expect(screen.queryByText("No MCP servers registered")).toBeNull();
+      expect(screen.queryByText("No AI engines found")).toBeNull();
+    });
+  });
+});

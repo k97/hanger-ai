@@ -1271,6 +1271,42 @@ fn get_known_engines() -> Vec<domain::Agent> {
     agents::known_engines()
 }
 
+/// Appendix A.1's "Checked {n} config files across {m} engines" figures and
+/// its `[Show files]` disclosure — a fresh `discover_machine`, the same
+/// pattern `get_mcp_servers`/`mcp_server_rows_for` already uses (re-derive
+/// from disk rather than cache scan state). `(async)`: filesystem-bound, and
+/// `get_mcp_processes`'s doc comment already measured a plain sync command
+/// freezing the window for the duration of comparable work.
+#[tauri::command(async)]
+fn get_mcp_coverage() -> Result<mcp::discover::McpCoverage, String> {
+    let discovered = mcp::discover::discover_machine(&scanner::get_home_dir());
+    Ok(mcp::discover::coverage(&discovered))
+}
+
+/// Appendix A.2's "Checked {n} locations" figure and its `[Show locations]`
+/// disclosure. `agents::known_engine_locations()` is pure registry data
+/// (home-relative, no I/O by that module's own contract); the home-join and
+/// sanitisation happen here, at the IPC boundary, same division of labour as
+/// `get_global_agents` vs. its callers.
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct EngineLocationSummary {
+    pub location_count: usize,
+    pub locations: Vec<String>,
+}
+
+#[tauri::command]
+fn get_known_engine_locations() -> EngineLocationSummary {
+    let home = scanner::get_home_dir();
+    let locations: Vec<String> = agents::known_engine_locations()
+        .into_iter()
+        .map(|rel| preferences::sanitise_path(&home.join(rel).to_string_lossy()))
+        .collect();
+    EngineLocationSummary {
+        location_count: locations.len(),
+        locations,
+    }
+}
+
 // Same action as File → Copy Diagnostics, reachable from the webview so a
 // future settings surface (and automated verification) can trigger it.
 #[tauri::command]
@@ -1614,6 +1650,7 @@ pub fn run() {
             mcp_cached_probe,
             get_mcp_processes,
             get_mcp_servers,
+            get_mcp_coverage,
             get_linked_directories,
             run_scan,
             get_inventory,
@@ -1640,6 +1677,7 @@ pub fn run() {
             get_scan_status,
             get_detected_engines,
             get_known_engines,
+            get_known_engine_locations,
             copy_diagnostics,
             report_unmapped_engine
         ])

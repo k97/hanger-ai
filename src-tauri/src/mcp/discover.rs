@@ -54,10 +54,77 @@ pub struct ConfigProblem {
     pub line: Option<u32>,
 }
 
+/// One path `read_one` actually opened, whether or not it yielded a
+/// registration or a problem.
+///
+/// A file that parses cleanly to zero servers and is not `is_mcp_dedicated`
+/// leaves no trace in either `registrations` or `problems` — the only place
+/// that knows it was looked at is here. Backs Appendix A.1's "Checked {n}
+/// config files across {m} engines" line (§6.3 state 2 / A.1).
+#[derive(Debug, Clone)]
+pub struct CheckedFile {
+    pub host_id: &'static str,
+    /// The raw, unsanitised path — deliberately not through
+    /// `preferences::sanitise_path` here. Sanitising loses information when
+    /// the path falls outside `$HOME` (it degrades to `<sanitised>/{filename}`,
+    /// which collides two files that merely share a basename — `.claude/
+    /// mcp.json` and `.../Code/User/mcp.json` would both sanitise to
+    /// `<sanitised>/mcp.json`). `coverage()` dedupes on this raw form and
+    /// sanitises only the output it hands to the frontend.
+    pub path: String,
+}
+
 #[derive(Debug, Default)]
 pub struct DiscoveryResult {
     pub registrations: Vec<Registration>,
     pub problems: Vec<ConfigProblem>,
+    /// One entry per (source row, file) pair `read_one` was called with —
+    /// `.claude.json` is named by three rows (claude-code/User,
+    /// claude-code/Local, claude-ai/Global) and appears three times here.
+    /// `coverage()` is where that gets folded down to distinct files.
+    pub checked: Vec<CheckedFile>,
+}
+
+/// The backend's own tally of what one `DiscoveryResult` checked — the two
+/// counts Appendix A.1 renders, computed once here so the view never derives
+/// either from an array's own length (`invariants.md`: counts are
+/// backend-owned; `no-frontend-counting.test.ts` forbids `.length` standing
+/// in for one).
+#[derive(Debug, Clone, Default, serde::Serialize)]
+pub struct McpCoverage {
+    /// Distinct files read, deduplicated — three SOURCES rows can share one
+    /// physical `.claude.json`, and a user does not want that path listed
+    /// three times in `[Show files]`.
+    pub checked_file_count: usize,
+    /// Distinct `host_id`s among the files checked.
+    pub checked_engine_count: usize,
+    /// Sanitised paths, deduplicated and sorted, for the `[Show files]`
+    /// disclosure. `checked_files.len() == checked_file_count` always.
+    pub checked_files: Vec<String>,
+}
+
+/// Fold a `DiscoveryResult`'s `checked` list into the two counts and the
+/// path list Appendix A.1 renders. Pure — no I/O of its own.
+///
+/// Deduplicates on the raw path (see `CheckedFile::path`'s doc comment for
+/// why sanitising first would be wrong) and sanitises only the strings this
+/// hands back — the dedup key and the displayed string are deliberately not
+/// the same value.
+pub fn coverage(result: &DiscoveryResult) -> McpCoverage {
+    let mut engines: std::collections::HashSet<&'static str> = std::collections::HashSet::new();
+    let mut files: std::collections::BTreeSet<String> = std::collections::BTreeSet::new();
+    for c in &result.checked {
+        engines.insert(c.host_id);
+        files.insert(c.path.clone());
+    }
+    McpCoverage {
+        checked_file_count: files.len(),
+        checked_engine_count: engines.len(),
+        checked_files: files
+            .into_iter()
+            .map(|p| crate::preferences::sanitise_path(&p))
+            .collect(),
+    }
 }
 
 /// Expand a source path that may contain a single `*` segment.
@@ -119,6 +186,10 @@ fn read_one(
     out: &mut DiscoveryResult,
 ) {
     let path_str = path.to_string_lossy().to_string();
+    out.checked.push(CheckedFile {
+        host_id,
+        path: path_str.clone(),
+    });
 
     let body = match fs::read_to_string(path) {
         Ok(b) => b,

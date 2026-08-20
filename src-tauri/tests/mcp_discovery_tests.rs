@@ -767,6 +767,73 @@ fn a_missing_source_is_silent() {
     );
 }
 
+// ─── Coverage: what discovery actually checked ─────────────────────────────
+//
+// A file that parses cleanly to zero servers and is not `is_mcp_dedicated`
+// (§ "declared nothing" above) leaves no trace in `registrations` or
+// `problems` — it is otherwise invisible. Appendix A.1's "Checked {n} config
+// files across {m} engines" needs a place that knows every file the sweep
+// actually opened, not just the ones that yielded something.
+
+#[test]
+fn checked_records_every_file_the_sweep_actually_opened() {
+    // mcp_home has exactly seven physical config files on disk; three
+    // MachineAbsolute SOURCES rows (claude-code/User, claude-code/Local,
+    // claude-ai/Global) all name the same `.claude.json`, so a naive
+    // per-row tally would over-count that one file three times over.
+    let result = discover::discover_machine(fixture_home());
+    assert_eq!(
+        result.checked.len(),
+        9,
+        "expected one checked entry per (source row, file) pair — 7 files, \
+         with .claude.json read by 3 rows — got {:#?}",
+        result.checked.iter().map(|c| (c.host_id, c.path.as_str())).collect::<Vec<_>>()
+    );
+}
+
+#[test]
+fn coverage_deduplicates_files_but_not_the_engines_reading_them() {
+    // The same physical file must not be counted, or shown, three times just
+    // because three registry rows happen to name it.
+    let result = discover::discover_machine(fixture_home());
+    let coverage = discover::coverage(&result);
+    assert_eq!(
+        coverage.checked_file_count, 7,
+        "got {:#?}", coverage.checked_files
+    );
+    assert_eq!(
+        coverage.checked_files.len(),
+        coverage.checked_file_count,
+        "the count field and the disclosure list must agree"
+    );
+    // claude-code, claude-ai, codex, gemini, claude-desktop, vscode.
+    assert_eq!(coverage.checked_engine_count, 6);
+}
+
+#[test]
+fn coverage_of_a_machine_with_nothing_present_checked_nothing() {
+    let dir = tempfile::tempdir().unwrap();
+    let result = discover::discover_machine(dir.path());
+    let coverage = discover::coverage(&result);
+    assert_eq!(coverage.checked_file_count, 0);
+    assert_eq!(coverage.checked_engine_count, 0);
+    assert!(coverage.checked_files.is_empty());
+}
+
+#[test]
+fn a_config_that_parses_clean_and_empty_is_still_checked() {
+    // The exact shape `a_recognised_source_yielding_no_servers_warns_instead_
+    // of_vanishing` above already covers for `problems` — this pins the same
+    // fact for `checked`, which must not depend on `is_mcp_dedicated` the way
+    // the `DeclaredNothing` problem does.
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::create_dir_all(dir.path().join(".claude")).unwrap();
+    std::fs::write(dir.path().join(".claude/mcp.json"), "{}").unwrap();
+
+    let result = discover::discover_machine(dir.path());
+    assert_eq!(discover::coverage(&result).checked_file_count, 1);
+}
+
 #[test]
 fn codex_toml_reads_both_mcp_servers_and_the_legacy_tools_table() {
     // Current Codex writes [mcp_servers.*]. Hanger's own fixture -- and the

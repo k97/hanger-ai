@@ -248,6 +248,21 @@ export default function App() {
   // Global empty state uses it, to name them without restating the backend's
   // table in a string literal.
   const [knownEngines, setKnownEngines] = useState<{ id: string; name: string }[]>([]);
+  // Appendix A.2's "Checked {n} locations" figure and its disclosure —
+  // pure registry data (`get_known_engine_locations`), fetched once
+  // alongside `knownEngines` rather than on every scan.
+  const [knownEngineLocations, setKnownEngineLocations] = useState<{
+    location_count: number;
+    locations: string[];
+  } | null>(null);
+  // Appendix A.1's two counts and its file disclosure — a live filesystem
+  // probe (`get_mcp_coverage`), so it refreshes alongside `mcpServers` on
+  // every scan rather than once at mount.
+  const [mcpCoverage, setMcpCoverage] = useState<{
+    checked_file_count: number;
+    checked_engine_count: number;
+    checked_files: string[];
+  } | null>(null);
   const [repoAssetCountsMap, setRepoAssetCountsMap] = useState<Record<string, CategoryCounts>>({});
   // The MCP server list: one row per server name, grouped and counted in
   // Rust (`get_mcp_servers`). Machine-global only — `discover_machine`, not
@@ -547,6 +562,21 @@ export default function App() {
     }
   };
 
+  // Appendix A.1's counts, same re-derive-from-disk pattern as
+  // `refreshMcpServers` above (and the same reason: a fresh answer per scan,
+  // not a cached one).
+  const refreshMcpCoverage = async () => {
+    try {
+      setMcpCoverage(
+        await invoke<{ checked_file_count: number; checked_engine_count: number; checked_files: string[] }>(
+          "get_mcp_coverage"
+        )
+      );
+    } catch {
+      setMcpCoverage(null);
+    }
+  };
+
   // Re-fetch counts when the grouping choice changes so the chip agrees with
   // the rows immediately, not just after the next scan. Skips the mount
   // render — `refreshGlobalCounts` already runs once scan://complete fires,
@@ -635,6 +665,7 @@ export default function App() {
         await refreshGlobalCounts();
         await refreshAnnotations();
         await refreshMcpServers();
+        await refreshMcpCoverage();
 
         // If onboarding was incomplete, mark it complete now!
         setOnboardingComplete((prev) => {
@@ -672,6 +703,11 @@ export default function App() {
       invoke<{ id: string; name: string }[]>("get_known_engines")
         .then((engines) => setKnownEngines(Array.isArray(engines) ? engines : []))
         .catch(() => {});
+      // Pure registry data (Appendix A.2) — fetched once here, same as
+      // `get_known_engines` just above, not re-derived per scan.
+      invoke<{ location_count: number; locations: string[] }>("get_known_engine_locations")
+        .then(setKnownEngineLocations)
+        .catch(() => setKnownEngineLocations(null));
       const onboarding = await invoke<string | null>("get_preference", { key: "onboarding_complete" });
       const crash = await invoke<string | null>("get_preference", { key: "consent_crash" });
       const usage = await invoke<string | null>("get_preference", { key: "consent_usage" });
@@ -1415,6 +1451,8 @@ export default function App() {
               scannedAt={lastScanAt}
               detectedEngines={detectedEngines}
               knownEngines={knownEngines}
+              mcpCoverage={mcpCoverage}
+              knownEngineLocations={knownEngineLocations}
               onRescan={triggerScan}
               sortField={sortField}
               sortDirection={sortDirection}
