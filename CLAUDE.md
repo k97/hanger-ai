@@ -1,7 +1,7 @@
 # CLAUDE.md
 
-Hanger is a local-first macOS desktop app that inventories, monitors and
-deploys AI agent assets — four kinds, no more
+Hanger is an interface for the agent harness: it inventories, monitors and
+deploys harness assets — four kinds, no more
 (`src-tauri/src/domain.rs:323-326`) — across eleven engines with directories
 of their own (`src-tauri/src/agents.rs:69`) and sixteen MCP hosts
 (`src-tauri/src/mcp/registry.rs:91`). It scans the directories those engines
@@ -28,8 +28,10 @@ Two places own their own domains:
 
 ## Commands
 
-Bun is the package manager, pinned at `bun@1.3.14`. The harness shell does not
-source the login profile: invoke it as `~/.bun/bin/bun` or export `PATH` first.
+Bun is the package manager, pinned at `bun@1.3.14`. The Bash tool's shell does
+not source the login profile: invoke it as `~/.bun/bin/bun` or export `PATH`
+first. ("Harness" in this repo means the asset layer Hanger models, per
+`docs/harness.md` — not the agent runtime.)
 
 - `bun run tauri dev` — full app. The Vite port is pinned at 8397 with
   `strictPort` (`vite.config.ts`) because Tauri loads it by absolute URL

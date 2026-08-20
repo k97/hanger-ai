@@ -1,14 +1,15 @@
 # Hanger AI
 
-A local-first macOS app that inventories, monitors and deploys AI agent assets
-— skills, rules, subagents and MCP servers — across the engines that read
-them. It walks the directories those engines read from, records what it finds
-in a local SQLite store, and adds two facts nothing on disk keeps: which
-engines reach each asset and through which path, and how far past your global
-store it has spread.
+An interface for the agent harness — the skills, rules, subagents and MCP
+servers that decide what your engines can actually do. Hanger is a local-first
+macOS app that inventories, monitors and deploys them: it walks the
+directories your engines read from, records what it finds in a local SQLite
+store, and adds two facts nothing on disk keeps — which engines reach each
+asset and through which path, and how far past your global store it has
+spread.
 
-Why it exists: [Hanger](https://www.rkarthik.co/work/hanger).
-The model it is built on: [docs/harness.md](docs/harness.md).
+Why the harness needs an interface: [Hanger](https://www.rkarthik.co/work/hanger).
+How this app models it: [docs/harness.md](docs/harness.md).
 
 ![IMAGE — main inventory view]
 
