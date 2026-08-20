@@ -405,16 +405,38 @@ export default function McpServerDetail({
   const divergingGroups = specGroups.filter((g) => g.launchDisplay);
 
   /* `a8ba0c9` (backend) folds a registration reached through the local
-     mcp-remote bridge to the same identity as a direct sibling of the same
-     endpoint, so the pair never reaches `diverges` above -- a direct
+     mcp-remote bridge to the same comparison key as a direct sibling of the
+     same endpoint, so the pair never reaches `diverges` above -- a direct
      registration's `launchDisplay` is always empty (no dialect ever puts a
      URL into `command`/`args`), so it drops out of `launches` entirely and
      the bridged registration's own display is the only thing left standing.
      That is correct, but silent: nothing said why a bridge and a direct
-     declaration of the same server were never a conflict. This explains it,
-     and only when the panel actually holds both shapes -- a bridge with no
-     direct sibling (or vice versa) has nothing to explain, and a real
-     divergence already has its own warning above. */
+     declaration of the same server were never flagged as a conflict.
+
+     Fix round 1: the note this renders used to say the two registrations
+     WERE the same server. That is not knowable here. `directRemoteRegs`
+     matches ANY empty-launch registration by name -- a bridged "notion"
+     and an unrelated direct "notion" at a different endpoint under a
+     different host would produce the identical rendering, and the old copy
+     asserted an identity nothing on this panel can confirm. The backend's
+     `Agreement` verdict is what actually compares `url_fingerprint`
+     (`mcp::agreement::comparison_key`), and it does not cross IPC to this
+     component -- only to `McpServerRow` on the server list, which is where
+     "they agree" carries real authority. Threading `url_fingerprint` (or
+     the verdict itself) down to this panel would answer it properly, but
+     `url_fingerprint` carries a locked invariant against being rendered,
+     logged, or serialised (`dialect.rs`'s doc comment on the field) --
+     loosening that is Karthik's call, parked, not made here.
+
+     What the note says now is scoped to what IS true by construction: the
+     bridge's relationship to its own endpoint. `unwrap_bridge` resolved it
+     to the URL it proxies, so "this is a local bridge process, not a
+     separate server" holds regardless of any sibling registration. It
+     still renders only when the panel holds both shapes -- a bridge with
+     no direct sibling (or vice versa) has nothing to contrast, and a real
+     divergence already has its own warning above -- but that condition no
+     longer needs to be watertight proof of shared identity, because the
+     softened claim does not depend on it. */
   const bridgedRegs = server.registrations.filter((r) => r.bridged);
   const directRemoteRegs = server.registrations.filter((r) => !r.bridged && !r.launchDisplay);
   const showsBridgeNote = !diverges && bridgedRegs.length > 0 && directRemoteRegs.length > 0;
@@ -636,9 +658,10 @@ export default function McpServerDetail({
         )}
         {showsBridgeNote && (
           <p data-testid="bridge-note" className="text-micro text-ink-3 leading-[1.45] mt-2">
-            mcp-remote is a bridge, not a different server. The registration reaching {server.name}{" "}
-            through it is the same server as the one declared directly, so they agree instead of
-            conflicting.
+            One of these registrations reaches {server.name} through mcp-remote, a local bridge
+            process, not a separate MCP server. It forwards to whatever endpoint it is configured
+            with. Whether that matches another registration here is what the server list&rsquo;s
+            agreement reading settles, not this panel.
           </p>
         )}
       </section>

@@ -24,7 +24,13 @@ fn tool_with_a_credential() -> Tool {
         launch_display: "npx mcp-remote https://example.com/sse --header Authorization: <redacted>"
             .to_string(),
         transport: "stdio".to_string(),
-        bridged: false,
+        // Fix round 1 (task 9): this fixture's command/args ARE an
+        // mcp-remote invocation -- `bridged: false` was internally
+        // inconsistent with its own shape. `true` matches what
+        // `unwrap_bridge` would derive for this exact command/args pair;
+        // `transport` stays "stdio" untouched because no test in this file
+        // asserts on it and correcting it is outside this fix's scope.
+        bridged: true,
         config_path: "/tmp/mcp.json".to_string(),
         scope: Scope::Global { agent: "claude-code".to_string() },
         owning_agent: "claude-code".to_string(),

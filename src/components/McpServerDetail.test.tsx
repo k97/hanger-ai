@@ -389,12 +389,21 @@ describe("McpServerDetail", () => {
     expect(screen.getByText(/differ/i)).toBeTruthy();
   });
 
-  it("explains that a bridged registration reaches the same server as its direct sibling", () => {
-    // §6.1, task 9: `a8ba0c9` made the backend fold a bridged registration
-    // (reached through the local `mcp-remote` bridge) to the same comparison
-    // key as a direct sibling of the same endpoint, so the two read as
-    // agreeing instead of permanently conflicting. Nothing on screen said
-    // why. This is that note.
+  it("identifies mcp-remote as a local bridge, without asserting identity with a sibling registration", () => {
+    // §6.1, task 9, fix round 1: the note originally said the bridged and
+    // direct registrations were "the same server" -- a claim this panel
+    // cannot verify. `directRemoteRegs` (the production code) matches ANY
+    // empty-launch registration by construction, so a bridged "notion"
+    // reaching mcp.notion.com and a DIFFERENT direct "notion" some other
+    // host points at an unrelated endpoint would trigger the identical
+    // rendering, with the old text stating an identity nothing here can
+    // confirm. The backend's own `Agreement` verdict exists precisely
+    // because it does not trust name-matching -- it compares
+    // `url_fingerprint` -- and that verdict never crosses IPC to this panel
+    // (a locked invariant: never rendered, logged, or serialised). This
+    // fixture is exactly that shape (same declared name, unverifiable
+    // endpoint agreement) to prove the new copy makes no claim the old one
+    // did that this data cannot support.
     const server: McpServerView = {
       ...base,
       name: "notion",
@@ -422,7 +431,11 @@ describe("McpServerDetail", () => {
     render(<McpServerDetail server={server} />);
     const note = screen.getByTestId("bridge-note");
     expect(note).toBeTruthy();
-    expect(within(note).getByText(/mcp-remote is a bridge/i)).toBeTruthy();
+    expect(within(note).getByText(/local bridge process/i)).toBeTruthy();
+    // The retired identity claim must be gone: it asserted the two
+    // registrations WERE the same server, which nothing on this panel can
+    // verify.
+    expect(within(note).queryByText(/same server as/i)).toBeNull();
     // Never a query string, never a token, inside the NOTE specifically:
     // it states the fact, not the endpoint. (The pre-existing "Registered
     // in" row above it already renders the raw redacted launch, URL
