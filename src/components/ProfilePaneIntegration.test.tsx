@@ -281,12 +281,22 @@ describe("ProfilePane — the empty state is a finding, not a default", () => {
         loading={false}
         scannedAt={new Date()}
         selectedCategory="Tools"
+        // mockInventory's one agent is Claude Code, so it belongs here too —
+        // Task 11 gives Tools its own, more specific absence claim (Appendix
+        // A.1) once engines are known to be detected; the generic
+        // "No MCP servers in the global store" line this used to assert is
+        // what A.1 replaces for exactly this category.
+        detectedEngines={[{ id: "claude-code", name: "Claude Code" }]}
         onSelectAsset={vi.fn()}
         onLinkAsset={vi.fn()}
       />
     );
-    expect(screen.getByText("No MCP servers in the global store")).toBeTruthy();
+    expect(screen.getByText("No MCP servers registered")).toBeTruthy();
+    expect(
+      screen.getByText("Claude Code is installed here, but no engine has a server configured.")
+    ).toBeTruthy();
     expect(screen.queryByText(/No global tools/)).toBeNull();
+    expect(screen.queryByText("No MCP servers in the global store")).toBeNull();
   });
 
   it("a re-scan is pending, not an empty claim, even though an earlier scan already finished", () => {
@@ -325,15 +335,23 @@ describe("ProfilePane — the empty state is a finding, not a default", () => {
   });
 
   it("filtering to a category with nothing in it, scan finished, correctly claims the absence", () => {
+    // Tools' own absence claim is Appendix A.1/A.2 (Task 11), tested in full
+    // in the "Tools' own empty states" describe block below; this general
+    // pattern test now exercises the Claude Code / A.1 shape its own
+    // inventory fixture already implies, rather than the generic per-category
+    // line A.1/A.2 replaced for Tools specifically.
     renderGlobal({
       inventory: { ...mockInventory, tools: [] },
       loading: false,
       scannedAt: new Date(),
       selectedCategory: "Tools",
+      detectedEngines: [{ id: "claude-code", name: "Claude Code" }],
     });
     expect(screen.queryByTestId("scan-pending")).toBeNull();
-    expect(screen.getByText("No MCP servers in the global store")).toBeTruthy();
-    expect(screen.getByText("The scan finished without finding any.")).toBeTruthy();
+    expect(screen.getByText("No MCP servers registered")).toBeTruthy();
+    expect(
+      screen.getByText("Claude Code is installed here, but no engine has a server configured.")
+    ).toBeTruthy();
   });
 
   // One of everything, at Global scope, so emptying a single category for
