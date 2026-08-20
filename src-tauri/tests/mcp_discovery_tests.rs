@@ -637,6 +637,70 @@ fn scanner_and_registry_agree_on_every_engine_key_they_both_know() {
     }
 }
 
+/// m5, final review. `coverage()` decides `checked_engine_count` by
+/// intersecting `detected` -- `AGENT_CONFIGS` ids, via
+/// `scanner::get_global_agents()` -- with each checked file's `HOSTS`
+/// `host_id`, by plain string equality. Its doc comment states the two id
+/// spaces are the same strings and that no normalising map exists or is
+/// needed; nothing enforced it. The test above guards the ENGINE KEY
+/// mapping and silently skips any `HOSTS` id `get_engine_key` does not know,
+/// which is exactly the divergently-spelled case it would need to catch: add
+/// an engine as "gemini" in one table and "gemini-cli" in the other and
+/// `checked_engine_count` undercounts that engine forever, with every
+/// existing test green.
+///
+/// This half is self-maintaining: a `HOSTS` row marked `HostKind::Agent` is
+/// by definition an engine Hanger detects, so its id must be one of
+/// `AGENT_CONFIGS`'s. A new agent host spelled differently from its engine
+/// fails here without anyone remembering to update a list.
+#[test]
+fn every_agent_host_id_is_spelled_the_way_the_engine_table_spells_it() {
+    let engines: Vec<&str> = tauri_app_lib::agents::AGENT_CONFIGS.iter().map(|c| c.id).collect();
+    for host in registry::HOSTS {
+        if host.kind != HostKind::Agent {
+            continue;
+        }
+        assert!(
+            engines.contains(&host.id),
+            "HOSTS declares {} as an engine, but AGENT_CONFIGS has no id spelled that way: {:?}.              coverage() intersects the two by string equality, so a near-miss spelling silently              drops this engine from checked_engine_count",
+            host.id,
+            engines
+        );
+    }
+}
+
+/// The other direction, which no `kind` can carry: `zed` IS one of
+/// `AGENT_CONFIGS`'s eleven and its `HOSTS` row is `HostKind::McpHost`
+/// anyway, so "is this id a detected engine" cannot be read off the registry
+/// at all. Enumerated deliberately -- an engine that genuinely has no MCP
+/// configuration anywhere would belong nowhere in `HOSTS`, and asserting
+/// every engine resolves would then be wrong rather than strict. Today all
+/// eleven do.
+///
+/// Both halves are asserted so the list cannot go stale in either direction:
+/// a rename in `HOSTS` fails the resolution, a rename in `AGENT_CONFIGS`
+/// fails the membership.
+#[test]
+fn every_engine_that_hosts_mcp_servers_resolves_to_its_own_registry_row() {
+    let engines: Vec<&str> = tauri_app_lib::agents::AGENT_CONFIGS.iter().map(|c| c.id).collect();
+    for id in [
+        "claude-code", "codex", "gemini", "kiro", "trae", "opencode", "amp", "zed", "roocode",
+        "kilocode", "cline",
+    ] {
+        assert!(
+            registry::host_by_id(id).is_some(),
+            "AGENT_CONFIGS engine {} has no HOSTS row under that id -- coverage() would never              count a file checked for it",
+            id
+        );
+        assert!(
+            engines.contains(&id),
+            "{} is listed here as an engine that hosts MCP servers, but AGENT_CONFIGS no longer              spells it that way: {:?}",
+            id,
+            engines
+        );
+    }
+}
+
 // ─── Discovery ───────────────────────────────────────────────────────────────
 
 use std::path::Path;
