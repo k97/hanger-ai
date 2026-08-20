@@ -1349,3 +1349,47 @@ fn no_fixture_credential_survives_into_a_displayable_launch() {
         }
     }
 }
+
+#[test]
+fn a_toml_parse_error_never_carries_the_broken_config_line() {
+    // toml 0.8's `Error` Display quotes the source line the parse failed on,
+    // under a "TOML parse error at line N, column M" header. serde_json's
+    // gives the location only. A user mid-edit of `~/.codex/config.toml`
+    // most often breaks the quoting on the line they are pasting a token
+    // into, so the quoted line is exactly the one carrying the credential.
+    //
+    // Two surfaces take that string verbatim: `Tool.parse_error`
+    // (`scanner.rs`, rendered under "Parser said" in `ReviewInspector`) and
+    // `ConfigProblem.detail`, which crosses IPC on `McpCoverage.problems`.
+    // Both are fed by `dialect::parse`, so both are asserted here.
+    let dir = tempfile::tempdir().expect("tempdir");
+    let broken = dir.path().join("config.toml");
+    std::fs::write(
+        &broken,
+        "[mcp_servers.git]\ncommand = \"git\"\ntoken = \"REDACT_ME_1\n",
+    )
+    .expect("write");
+
+    // Channel 1: ConfigProblem.detail -> McpCoverage.problems -> IPC.
+    let result = discover::read_swept(&broken, "codex", dialect::ScopeTier::Global);
+    assert_eq!(result.problems.len(), 1, "{:?}", result.problems);
+    let detail = &result.problems[0].detail;
+    assert!(
+        !detail.contains("REDACT_ME_1"),
+        "the broken config line survived into ConfigProblem.detail: {}",
+        detail
+    );
+    assert!(
+        result.problems[0].line.is_some(),
+        "truncating must keep the location the header line carries"
+    );
+
+    // Channel 2: Tool.parse_error -> ReviewInspector's "Parser said".
+    let err = discover::parse_swept(&broken, "codex", dialect::ScopeTier::Global)
+        .expect_err("a broken TOML must not parse");
+    assert!(
+        !err.contains("REDACT_ME_1"),
+        "the broken config line survived into Tool.parse_error: {}",
+        err
+    );
+}

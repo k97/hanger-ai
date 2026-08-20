@@ -559,8 +559,22 @@ fn servers_from_toml_table(table: &toml::value::Table, out: &mut Vec<McpServer>)
 /// credential-laden URL that covers `docs/scanning.md` §7. Reading both is
 /// strictly additive: a file may use either or both, and nothing is lost.
 fn parse_codex_toml(body: &str) -> Result<Vec<McpServer>, String> {
-    let root: toml::Value =
-        toml::from_str(body).map_err(|e| format!("Failed to parse TOML: {}", e))?;
+    // Only the first line of toml's error leaves this function. toml 0.8's
+    // `Error` Display quotes the source line the parse failed on beneath its
+    // "TOML parse error at line N, column M" header, and that line is the one
+    // the user was mid-edit on -- which, for a hand-pasted credential, is the
+    // line carrying it. The message is taken verbatim by two surfaces that
+    // show it: `Tool.parse_error` (`scanner.rs`, rendered under "Parser said"
+    // in `ReviewInspector`) and `ConfigProblem.detail`, which crosses IPC on
+    // `McpCoverage.problems`. Truncating at the source closes both at once.
+    // `discover::parsed_line` reads its line number out of that same header,
+    // so the location survives. serde_json needs no equivalent: its Display
+    // carries the location and nothing of the input.
+    let root: toml::Value = toml::from_str(body).map_err(|e| {
+        let rendered = e.to_string();
+        let header = rendered.lines().next().unwrap_or("").trim();
+        format!("Failed to parse TOML: {}", header)
+    })?;
 
     let mut out = Vec::new();
     for key in ["mcp_servers", "tools"] {
