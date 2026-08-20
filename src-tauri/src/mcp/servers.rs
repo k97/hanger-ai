@@ -54,6 +54,13 @@ pub struct McpServerRow {
     /// Local-tier registration, or when every registration IS Local-tier
     /// (nothing wider to override — e.g. the same server pinned in two
     /// unrelated projects).
+    ///
+    /// The global server list does not put Local-tier registrations in this
+    /// function's input at all — they are repository-keyed and get no row of
+    /// their own — so it fills this field from [`project_overrides`] over the
+    /// full set instead (`lib.rs::mcp_server_rows_for`). Deriving it here
+    /// from only what was handed over stays right for every direct caller;
+    /// the combination of the two is what made the note unreachable live.
     pub project_override: Option<String>,
 }
 
@@ -131,26 +138,7 @@ pub fn group_servers(regs: &[Registration]) -> Vec<McpServerRow> {
                 .iter()
                 .map(|r| RegistrationKey::new(&r.config_path, &r.server.name).to_string())
                 .collect();
-            // See the field's own doc comment: only when the group mixes a
-            // Local-tier registration with a wider one is there anything to
-            // call an override. `find` (not `filter`) because one project's
-            // name is what the sentence names — a server pinned separately
-            // in two DIFFERENT projects, with no wider declaration at all,
-            // has nothing to override and correctly falls into the "every
-            // registration is Local" `None` branch below regardless of
-            // which one `find` would have picked.
-            let has_wider_tier = group.iter().any(|r| r.tier != ScopeTier::Local);
-            // Sanitised at the boundary, same as `ConfigProblem.path`
-            // (`discover.rs`'s own precedent for a display-only path) —
-            // never `Tool.config_path`'s precedent, which stays raw because
-            // it is used functionally to open a file. This field is prose
-            // only (`projectOverrideNote` on the frontend), so it follows
-            // the display-path convention, not the functional-path one.
-            let project_override = has_wider_tier
-                .then(|| group.iter().find(|r| r.tier == ScopeTier::Local))
-                .flatten()
-                .and_then(|r| r.server.project_root.as_deref())
-                .map(crate::preferences::sanitise_path);
+            let project_override = override_for(group.iter());
             McpServerRow {
                 name,
                 transport,
@@ -163,5 +151,55 @@ pub fn group_servers(regs: &[Registration]) -> Vec<McpServerRow> {
                 project_override,
             }
         })
+        .collect()
+}
+
+/// The project one group's Local-tier registration overrides, or `None`.
+///
+/// Only when the group ALSO carries a wider-tier registration of the same
+/// name is there anything to call an override. `find` (not `filter`) because
+/// one project's name is what the sentence names — a server pinned
+/// separately in two DIFFERENT projects, with no wider declaration at all,
+/// has nothing to override and correctly falls into the "every registration
+/// is Local" `None` branch regardless of which one `find` would have picked.
+///
+/// Sanitised at the boundary, same as `ConfigProblem.path` (`discover.rs`'s
+/// own precedent for a display-only path) — never `Tool.config_path`'s
+/// precedent, which stays raw because it is used functionally to open a
+/// file. The value is prose only (`projectOverrideNote` on the frontend), so
+/// it follows the display-path convention, not the functional-path one.
+fn override_for<'a>(mut group: impl Iterator<Item = &'a Registration> + Clone) -> Option<String> {
+    if !group.clone().any(|r| r.tier != ScopeTier::Local) {
+        return None;
+    }
+    group
+        .find(|r| r.tier == ScopeTier::Local)
+        .and_then(|r| r.server.project_root.as_deref())
+        .map(crate::preferences::sanitise_path)
+}
+
+/// The override note for each server name, keyed by the same trimmed name
+/// `group_servers` groups on. Names with no override are absent.
+///
+/// Exists because the global server list reads two populations for two
+/// questions. Its rows are the machine-wide population, which excludes
+/// `ScopeTier::Local`: a registration keyed to one repository is not
+/// something this machine carries by default, so it gets no row and joins no
+/// count. But a Local registration is exactly what makes a wider row an
+/// *override*, so the note has to be computed over the full set or it can
+/// never render at all — `group_servers` derives it from its own input, the
+/// caller filtered Local out of that input first, and §6.3 state 9's finding
+/// was unreachable on any real machine as a result.
+pub fn project_overrides(regs: &[Registration]) -> HashMap<String, String> {
+    let mut groups: HashMap<String, Vec<&Registration>> = HashMap::new();
+    for reg in regs {
+        groups
+            .entry(reg.server.name.trim().to_string())
+            .or_default()
+            .push(reg);
+    }
+    groups
+        .into_iter()
+        .filter_map(|(name, group)| override_for(group.iter().copied()).map(|p| (name, p)))
         .collect()
 }

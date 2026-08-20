@@ -603,19 +603,46 @@ fn get_mcp_servers() -> Result<Vec<crate::mcp::servers::McpServerRow>, String> {
 /// through some other path, which an earlier version of this test did.
 fn mcp_server_rows_for(home: &std::path::Path) -> Vec<crate::mcp::servers::McpServerRow> {
     let discovered = crate::mcp::discover::discover_machine(home);
-    // Local tier is keyed to a repository (`claude mcp add -s local` writes
-    // it into `~/.claude.json`'s `projects.<repo_root>.mcpServers`) and must
-    // not appear in the profile — the same filter `run_scan`'s machine pass
-    // applies (`scanner.rs`) before these registrations reach the database,
-    // so the header count this list sits under already excludes them.
-    // Skipping it here put a Local row on screen under a header that did not
-    // count it.
-    let registrations: Vec<_> = discovered
-        .registrations
-        .into_iter()
+    let mut rows = crate::mcp::servers::group_servers(&machine_wide(&discovered.registrations));
+    // The rows are the machine-wide population; the override note is not.
+    // A Local registration gets no row and joins no count, but it IS what
+    // makes a wider row an override, and `group_servers` derives that note
+    // from the registrations it is handed — so filtering first left every
+    // row's `project_override` permanently `None` and §6.3 state 9's
+    // sentence unreachable on any real machine. The full set answers that
+    // one question, and only that one.
+    let overrides = crate::mcp::servers::project_overrides(&discovered.registrations);
+    for row in &mut rows {
+        row.project_override = overrides.get(&row.name).cloned();
+    }
+    rows
+}
+
+/// What a machine-wide MCP surface describes: every registration except
+/// `ScopeTier::Local`.
+///
+/// Local tier is keyed to a repository (`claude mcp add -s local` writes it
+/// into `~/.claude.json`'s `projects.<repo_root>.mcpServers`), so it is not
+/// part of what this machine carries by default. `run_scan`'s machine pass
+/// applies the same filter (`scanner.rs`) before these registrations reach
+/// the database, which is what the header count above the list is built
+/// from; skipping it put a Local row on screen under a header that did not
+/// count it.
+///
+/// Both surfaces under that header read through here — the server list
+/// (`mcp_server_rows_for`) and the empty inspector's per-engine summary
+/// (`mcp_engine_summary_for`). They used to disagree: the list filtered and
+/// the summary did not, so the summary's total counted (host, server name)
+/// pairs the adjacent list would never show, with nothing on screen
+/// explaining the difference.
+fn machine_wide(
+    registrations: &[crate::mcp::discover::Registration],
+) -> Vec<crate::mcp::discover::Registration> {
+    registrations
+        .iter()
         .filter(|reg| reg.tier != crate::mcp::registry::ScopeTier::Local)
-        .collect();
-    crate::mcp::servers::group_servers(&registrations)
+        .cloned()
+        .collect()
 }
 
 #[tauri::command]
@@ -1308,15 +1335,29 @@ fn get_mcp_coverage() -> Result<mcp::discover::McpCoverage, String> {
 /// filesystem-bound reasoning as `get_mcp_coverage`.
 #[tauri::command(async)]
 fn get_mcp_engine_summary(app: AppHandle) -> Result<mcp::engine_summary::McpEngineSummary, String> {
-    let home = scanner::get_home_dir();
-    let discovered = mcp::discover::discover_machine(&home);
     let db_path = get_db_path(&app);
-    Ok(mcp::engine_summary::engine_summary(&discovered, |key| {
+    Ok(mcp_engine_summary_for(&scanner::get_home_dir(), |key| {
         preferences::get_probe_result(&db_path, key)
             .ok()
             .flatten()
             .map(|cached| cached.result.tools.len())
     }))
+}
+
+/// `get_mcp_engine_summary`'s testable core, the same division of labour
+/// `mcp_server_rows_for` uses for the server list: `home` and the probe
+/// lookup are parameters, so a test can hand it a fixture home and an empty
+/// cache instead of a database and a process-global env var.
+fn mcp_engine_summary_for<F>(
+    home: &std::path::Path,
+    probe_of: F,
+) -> mcp::engine_summary::McpEngineSummary
+where
+    F: FnMut(&str) -> Option<usize>,
+{
+    let mut discovered = mcp::discover::discover_machine(home);
+    discovered.registrations = machine_wide(&discovered.registrations);
+    mcp::engine_summary::engine_summary(&discovered, probe_of)
 }
 
 /// Appendix A.2's "Checked {n} locations" figure and its `[Show locations]`
@@ -2014,6 +2055,85 @@ mod get_mcp_servers_tests {
     /// `mcpServers`, plus `repo-local` and `stray` under two different
     /// `projects.*.mcpServers` entries — the shape `claude mcp add -s local`
     /// writes.
+    /// §6.3 state 9's override note was a dead surface. `project_override`
+    /// is computed INSIDE `group_servers`, from the registrations it is
+    /// handed — and `mcp_server_rows_for` stripped every `ScopeTier::Local`
+    /// registration before handing them over, so no row on a real machine
+    /// could ever carry one, however many project pins the user had. Both
+    /// of the field's own tests call `group_servers` directly, which is
+    /// exactly why a whole dead surface stayed green; this one goes through
+    /// the command's core, where the filter lives.
+    ///
+    /// A Local registration still gets no row and joins no count — the list
+    /// is the machine-wide population. Its only job here is the note.
+    #[test]
+    fn a_project_pin_of_a_user_scope_name_reaches_the_list_as_an_override() {
+        let home = tempfile::tempdir().expect("tempdir");
+        std::fs::write(
+            home.path().join(".claude.json"),
+            r#"{
+              "mcpServers": {
+                "tauri": { "command": "npx", "args": ["-y", "@tauri/mcp@2.9.1"] }
+              },
+              "projects": {
+                "/opt/repos/hanger-ai": {
+                  "mcpServers": {
+                    "tauri": { "command": "npx", "args": ["-y", "@tauri/mcp@latest"] }
+                  }
+                }
+              }
+            }"#,
+        )
+        .expect("write");
+
+        let rows = mcp_server_rows_for(home.path());
+        let tauri = rows
+            .iter()
+            .find(|r| r.name == "tauri")
+            .expect("the user-scope server must still be a row");
+        assert_eq!(
+            tauri.project_override,
+            Some("<sanitised>/hanger-ai".to_string()),
+            "the project pin never reached group_servers, so the note can never render"
+        );
+        assert_eq!(
+            tauri.registration_count, 1,
+            "the Local registration explains the row; it does not join it"
+        );
+    }
+
+    /// m1, settled with the same decision: the empty inspector's per-engine
+    /// summary sits beside this list under the same header and read a
+    /// DIFFERENT population — `get_mcp_engine_summary` passed
+    /// `discover_machine`'s output unfiltered, so its total counted (host,
+    /// server name) pairs the adjacent list will never show, with nothing on
+    /// screen to explain the difference. The fixture's `repo-local` and
+    /// `stray` are exactly that shape: Local-tier, and declared at no wider
+    /// tier anywhere.
+    #[test]
+    fn the_engine_summary_counts_the_same_population_the_list_shows() {
+        let fixture = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("tests/fixtures/mcp_home");
+
+        let summary = super::mcp_engine_summary_for(&fixture, |_| None);
+        let claude_code = summary
+            .rows
+            .iter()
+            .find(|r| r.engine_id == "claude-code")
+            .expect("the fixture's claude-code registrations must produce a row");
+
+        // claude-code's distinct names in this fixture: spades-audio,
+        // chrome-devtools and tauri from `.claude.json`'s user-scope
+        // `mcpServers`, spades-audio again from `.claude/mcp.json` (one
+        // name, counted once), and github + context7 from the plugin
+        // marketplace. `repo-local` and `stray` are the two Local-tier
+        // names, and are the whole difference between this figure and 7.
+        assert_eq!(
+            claude_code.server_count, 5,
+            "a project-pinned server is not part of what this machine carries by default"
+        );
+    }
+
     #[test]
     fn local_tier_servers_do_not_reach_the_global_server_list() {
         let fixture = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
