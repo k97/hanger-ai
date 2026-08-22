@@ -272,10 +272,20 @@ harness asset layer, not an agent runtime.
    the baseline and the new order for both options; `ProfilePane` and
    `RepoPane` would swap two blocks and `ProfilePaneIntegration.test.tsx`
    / `RepoPaneIntegration.test.tsx` would pin the new order.
-4. **Inspector anatomy** is fixed: eyebrow · title · state dot + line ·
+4. **Inspector anatomy** today: eyebrow · title · state dot + line ·
    path chip with Copy/Reveal · actions · facts `<dl>` · Reach grouped by
    verdict · document tabs. MCP: Identity · Registered in · Tools ·
-   Environment.
+   Environment. **Ruled (Karthik, 2026-08-22): the inspector gets a tab
+   row, breakdown first.** The header (eyebrow, title, state line, path
+   chip, actions, and the routed issue line) stays above the tabs because
+   it belongs to the asset; the first tab is the full breakdown —
+   *Content* for a skill (the folder listing, then the document),
+   *Tools N* for an MCP server (the probed list) — and *Details* is second
+   (facts + Reach; Identity, verdict card, Registered in, Environment).
+   The Preview/Source pair becomes an icon toggle inside Content so one
+   surface does not carry two chip rows. Open: whether the active tab is
+   remembered per kind (a preference like `inspector_width`) or every
+   open starts on the breakdown.
 5. **Copy is literally true of the code.** "Empty is a finding; pending is
    not" — no pane asserts an absence before `scannedAt`. Every string goes
    through `/humanizer`; first-time labels get a naming brief and
@@ -303,7 +313,7 @@ dropped* ledger.
 | Page | Options rendered | What it settles |
 |---|---|---|
 | `banner-iterated.html` | **A** — one strip, category-aware meter (All: link state; MCP servers: probe coverage) plus a facts line of backend fields. **B** — the same strip with one *routed* finding line below the chips (F34 shape: summary + Review →, no accordion) | Whether the strip's meaning may follow the chip; whether findings route or explain; the aqua ruling for the coverage meter |
-| `inspector-iterated.html` | **A** — docked, sectioned, as today plus: a routed issue line, an "In this skill" folder listing, a registrations verdict card (T10), capabilities as a sentence, a per-tool size column pending the backend. **B** — the same content behind a `Details · Content` / `Details · Tools` tab row | Sections vs tabs; which three additions earn a backend change (folder listing, per-tool bytes, collision detection — recommended: first two) |
+| `inspector-iterated.html` | **Reference** — docked, sectioned, as shipped, with the additions marked: a routed issue line, an "In this skill" folder listing, a registrations verdict card (T10), capabilities as a sentence, a per-tool size column pending the backend. **Chosen (ruled 2026-08-22)** — the same header above a tab row, breakdown first: `Content · Details` for a skill, `Tools N · Details` for an MCP server | Which additions earn a backend change (folder listing, per-tool bytes, collision detection — recommended: first two); whether the active tab is remembered |
 | `map-iterated.html` | One canvas with hover focus, a state dot on a node, the layers panel extended (Unlinked roots, Only drift and dangling), a scan stamp in the cap, and three placecard bodies with per-kind facts and one action each | Whether the placecard may call `get_asset_counts(root)` on selection or the node should carry the figures; whether "Show its assets →" (engine) and "Rules here" (project) earn their place |
 
 ### Recommended order, if approved
@@ -323,9 +333,10 @@ dropped* ledger.
 
 1. Banner: Option A, B, or A with B's routed line (my recommendation: A,
    with B's line replacing the accordion for findings that have an asset).
-2. Inspector: sections (A) or tabs (B). Recommendation: A — the document
-   tabs already exist at the foot and the aside scrolls; a top tab row is a
-   second idiom for one surface.
+2. ~~Inspector: sections (A) or tabs (B).~~ **Ruled 2026-08-22: tabs,
+   breakdown first** (Content / Tools N, then Details). Remaining
+   sub-question: remember the active tab per kind, or always open on the
+   breakdown.
 3. Which backend additions are in scope now: `list_asset_dir` (small),
    a disagreeing-servers count (small), per-kind counts / `linked_from` on
    graph nodes (small), per-tool schema bytes (medium), cross-server
