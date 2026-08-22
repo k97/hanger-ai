@@ -289,9 +289,19 @@ harness asset layer, not an agent runtime.
    sliding on `--dur-nav` / `--spring`. Two idioms on purpose: the pane's
    category selector is a segmented track (it filters a list), the
    inspector's tabs are underline tabs (they switch views within one
-   surface). Open: whether the active tab is remembered per kind (a
-   preference like `inspector_width`) or every open starts on the
-   breakdown.
+   surface). **Section format (ruled 2026-08-22):** every section is an
+   eyebrow (with its right-aligned meta) above one bordered list card —
+   `border-line rounded-inner bg-page` — whose rows are icon · label ·
+   right-aligned value, with a hairline only *between* rows (a one-row
+   card has none). This is the "In this skill" card applied to Identity,
+   Capabilities, Reach, Identity & capabilities, Transport, Registered
+   in, Links, Environment and Context. Actions are a **mini set**
+   (Karthik's second reference): equal outlined pills, 26px, icon +
+   label, side by side — Link to… / Open in editor, Compare / Open
+   config, Review →. Open: whether Link to… keeps `--fill` as the one
+   strong action at that size, or joins the set outlined. Open: whether the active tab is
+   remembered per kind (a preference like `inspector_width`) or every
+   open starts on the breakdown.
 5. **Copy is literally true of the code.** "Empty is a finding; pending is
    not" — no pane asserts an absence before `scannedAt`. Every string goes
    through `/humanizer`; first-time labels get a naming brief and

@@ -155,6 +155,25 @@ code { font-family: var(--font-mono); }
 .placecard .head { padding: 14px 16px 12px; border-bottom: 1px solid var(--line); flex-shrink: 0; }
 .placecard .body { flex: 1 1 0; min-height: 0; overflow-y: auto; }
 
+/* ── PROPOSED TOKENS — not in tokens.css yet; the plan adds them ──
+   Karthik's ruling, 2026-08-22, for the segmented track's selected capsule:
+   no border, a shadow instead. The system's one elevation (--overlay-shadow,
+   0 11px 34px) is sized for the map's floating cards; a 28px capsule wants
+   a tight contact shadow, so this is a second, smaller elevation. And a
+   shadow is invisible on black: in dark the capsule lightens instead
+   (iOS does the same), so its surface is a token of its own — --page in
+   light, --tint in dark. */
+:root {
+  --capsule: var(--page);
+  --capsule-shadow: 0 1px 2px rgba(0, 0, 0, 0.10), 0 2px 6px rgba(0, 0, 0, 0.06);
+}
+.dark {
+  --capsule: var(--tint);
+  --capsule-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+}
+.capsule-raised { background: var(--capsule); box-shadow: var(--capsule-shadow); border: 0; }
+.track.b .ind { background: var(--capsule); box-shadow: var(--capsule-shadow); border: 0; }
+
 /* Map ground — LinkMapPane.tsx:352-357, a dot grid painted from --line */
 .map-ground { background-color: var(--page); background-image: radial-gradient(var(--line) 1px, transparent 1px); background-size: 24px 24px; }
 

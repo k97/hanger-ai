@@ -37,7 +37,8 @@
   /* B · raised page — the reference's proportions at our scale */
   .track.b { padding: 4px; gap: 0; }
   .track.b > button { padding: 0 16px; }
-  .track.b .ind { background: var(--page); border: 1px solid var(--line-2); }
+  /* .track.b .ind — the raised capsule — is styled in _proto.css with the proposed
+     --capsule / --capsule-shadow tokens (Karthik, 2026-08-22: no border, a shadow). */
   .track.b > button[aria-selected="true"] { color: var(--ink-1); }
   .track.b > button[aria-selected="true"] b { color: var(--ink-2); }
   /* B′ · the count only on the selected segment */
@@ -59,15 +60,15 @@
 <div class="toggle-bar"><button class="btn" id="dark" type="button">Dark</button></div>
 
 <h1 class="review-title">Top navigation — a segmented track</h1>
-<p class="review-note">Structurally, the loose chips become one continuous track and the selected category is a capsule that slides inside it: position in the track says "selected", so the check mark goes. The labels and the backend counts stay, and so does hide-at-zero with All, the selected category and MCP servers exempt (<code>CategoryFilterCards.tsx</code>). The slide is the app's one spring over <code>--dur-nav</code>. visionOS's glass is out — no blur, no shadow; the one elevation belongs to the map. Click a segment, or focus one and use the arrow keys then Enter.</p>
-<div class="annot page-annot">Dark: <code>--page</code> (pure black) on <code>--plane</code> (one value step up) is a small step; the <code>--line-2</code> edge carries the capsule. Flip Dark to judge.</div>
+<p class="review-note">Structurally, the loose chips become one continuous track and the selected category is a capsule that slides inside it: position in the track says "selected", so the check mark goes. The labels and the backend counts stay, and so does hide-at-zero with All, the selected category and MCP servers exempt (<code>CategoryFilterCards.tsx</code>). The slide is the app's one spring over <code>--dur-nav</code>. visionOS's glass is out — no blur. The raised capsule carries a tight contact shadow and no border (Karthik's ruling, 2026-08-22): a second, smaller elevation beside the map's, proposed as <code>--capsule-shadow</code>. Click a segment, or focus one and use the arrow keys then Enter.</p>
+<div class="annot page-annot">Dark: a shadow is invisible on black, and <code>--page</code> on <code>--plane</code> is one value step — so the capsule lightens in dark instead, the way iOS's does: its surface is a proposed token, <code>--capsule</code> (<code>--page</code> in light, <code>--tint</code> in dark). Flip Dark to judge.</div>
 
 <div class="grid">
   <div class="colhead"><span class="text-small text-ink-3">584px · source list collapsed, inspector open · MCP servers selected</span></div>
   <div class="colhead"><span class="text-small text-ink-3">368px · source list open · Skills selected</span><div class="annot">At 368px the five segments outrun the pane; either the track scrolls (drawn) or the counts drop below the labels — a ruling.</div></div>
   <div></div>
 
-  <div class="option"><h2>Option B · raised page capsule — the reference</h2><span>the segmented picker, its shadow replaced by an edge</span></div>
+  <div class="option"><h2>Option B · raised capsule — the reference</h2><span>the segmented picker: no border, a contact shadow</span></div>
   <div class="specimen">
     <div class="cap"><span class="crumb">My machine</span><span class="crumb">›</span><span class="font-medium text-ink-1">Global</span></div>
     <div class="track-wrap"><div class="track b" role="tablist" aria-label="Filter by category"><i class="ind"></i>
@@ -99,7 +100,7 @@
     </section>
   </div>
   <div class="notes">
-    <div class="annot"><b>Option B.</b> Closest to the segmented picker; the edge does the work the shadow would have done. Track <code>--plane</code> with a <code>--line</code> edge, 4px inset, no gap; the capsule is <code>--page</code> with a <code>--line-2</code> border, label in <code>--ink-1</code> at medium weight.</div>
+    <div class="annot"><b>Option B.</b> The segmented picker. Track <code>--plane</code> with a <code>--line</code> edge, 4px inset, no gap; the capsule is <code>--capsule</code> with <code>--capsule-shadow</code> and no border (ruled 2026-08-22), label in <code>--ink-1</code> at medium weight. Both tokens are proposed — they live in <code>_proto.css</code> until the plan adds them to <code>tokens.css</code>.</div>
   </div>
 
   <div class="option"><h2>Option B′ · count on the selected segment only</h2><span>the reference's segments are short; ours carry counts</span></div>
@@ -218,7 +219,7 @@
   <span class="text-small font-medium text-ink-1">Carried over / changed / dropped</span>
   <ul>
     <li><b>Carried over:</b> the labels, the backend counts, the hide-at-zero rule, the <code>h-7 px-3.5 rounded-pill</code> geometry, the strip below.</li>
-    <li><b>Changed:</b> one track instead of loose chips; the tonal, raised or filled capsule slides; the check mark goes.</li>
+    <li><b>Changed:</b> one track instead of loose chips; the tonal, raised or filled capsule slides; the check mark goes; the raised capsule has no border and a contact shadow — two proposed tokens, <code>--capsule</code> and <code>--capsule-shadow</code>, and a second elevation beside the map's.</li>
     <li><b>Dropped:</b> glass, blur, shadow, visionOS's hover-expand (pointer, not gaze).</li>
   </ul>
 </div>
