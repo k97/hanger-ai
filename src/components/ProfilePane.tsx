@@ -746,30 +746,17 @@ export default function ProfilePane({
         />
       </div>
 
-      {/* Facet chips, plus the View control beside them (§5.6: "sits beside
-          the facet chips and owns grouping and sort, so the chip row stays a
-          filter line and nothing else"). */}
-      <div className="px-[18px] pt-3 pb-2.5 flex items-center gap-3">
-        {/* min-w-0 lets this shrink inside the row so CategoryFilterCards'
-            own overflow-x-auto engages on a narrow pane, instead of the
-            chips (shrink-0 in that component) pushing View off-screen. */}
-        <div className="min-w-0 flex-1">
-          <CategoryFilterCards
-            selectedCategory={selectedCategory}
-            onSelectCategory={setSelectedCategory}
-            allCount={sumGlobalAssets(assetCounts)}
-            skillsCount={assetCounts?.byCategory.skill?.global}
-            toolsCount={assetCounts?.byCategory.tool?.global}
-            rulesCount={assetCounts?.byCategory.rule?.global}
-            subagentsCount={assetCounts?.byCategory.subagent?.global}
-            loading={loading}
-          />
-        </div>
-        <ViewControl
-          grouping={serverGrouping}
-          sort={serverSort}
-          onGroupingChange={handleServerGroupingChange}
-          onSortChange={handleServerSortChange}
+      {/* Facet chips */}
+      <div className="px-[18px] pt-3 pb-2.5">
+        <CategoryFilterCards
+          selectedCategory={selectedCategory}
+          onSelectCategory={setSelectedCategory}
+          allCount={sumGlobalAssets(assetCounts)}
+          skillsCount={assetCounts?.byCategory.skill?.global}
+          toolsCount={assetCounts?.byCategory.tool?.global}
+          rulesCount={assetCounts?.byCategory.rule?.global}
+          subagentsCount={assetCounts?.byCategory.subagent?.global}
+          loading={loading}
         />
       </div>
 
@@ -1012,6 +999,15 @@ export default function ProfilePane({
                   data-testid="section-header-tools"
                   className={`sticky top-0 z-[2] bg-page flex items-center gap-3 select-none ${secClass}`}
                 >
+                  {/* The Display control (§5.6) lives here, not in the facet
+                      row above: grouping and sort only ever affect these
+                      rows, so it's inert everywhere else that row appears. */}
+                  <ViewControl
+                    grouping={serverGrouping}
+                    sort={serverSort}
+                    onGroupingChange={handleServerGroupingChange}
+                    onSortChange={handleServerSortChange}
+                  />
                   <h3 className="flex-1 truncate">
                     MCP servers · {assetCounts ? (assetCounts.byCategory.tool?.global ?? 0) : sortedTools.length}
                   </h3>

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { CheckIcon, ChevronDownIcon } from "./icons";
+import { AdjustmentsHorizontalIcon, CheckIcon } from "./icons";
+import Tooltip from "./Tooltip";
 
 /** Card rows have no clickable column headers, so the MCP section's grouping
  *  and sort live here instead of in `AssetHeaderRow` (spec §5.6: "the
@@ -33,7 +34,7 @@ const SORT_OPTIONS: { value: ServerSort; label: string }[] = [
 ];
 
 const triggerClass =
-  "h-7 px-3.5 rounded-pill border border-line-2 font-flex text-small text-ink-2 inline-flex items-center gap-1.5 cursor-pointer transition-colors duration-nav ease-spring hover:bg-plane-2";
+  "shrink-0 p-1 rounded-pill grid place-items-center text-ink-3 hover:bg-plane-2 hover:text-ink-1 transition-colors duration-hover cursor-pointer";
 
 const menuLabelClass =
   "font-flex text-micro tracking-[.06em] uppercase text-ink-3 px-1.5 pt-1 pb-1";
@@ -42,11 +43,17 @@ const menuItemClass =
   "w-full h-7 px-1.5 rounded-soft flex items-center justify-between font-flex text-small text-ink-1 hover:bg-plane-2 transition-colors duration-hover cursor-pointer";
 
 /**
- * "The Display control" of spec §5.6, signed off as "View". A trigger pill
+ * "The Display control" of spec §5.6, signed off as "View". An icon-only
+ * trigger — it sits inline in the MCP section header, before the "MCP
+ * servers · N" label, so a labelled pill would outweigh the row it's in —
  * plus a flat panel beneath it — same anatomy as the link map's layers
  * panel (`LinkMapPane.tsx`: `shadow-overlay`, `rounded-soft` rows, a
  * `tracking-[.06em]` section label) so a second popover in this app doesn't
  * invent a second visual language for the same idea.
+ *
+ * The panel opens from the trigger's left edge, not its right: unlike the
+ * facet row this used to live in, the trigger now sits at the row's own
+ * left edge, and a right-anchored panel would run off the container.
  *
  * `animate-tip` reuses the tooltip's "nothing appears from nothing" scale —
  * the only entrance motion this design system has for a surface that opens
@@ -77,22 +84,24 @@ export default function ViewControl({ grouping, sort, onGroupingChange, onSortCh
 
   return (
     <div ref={rootRef} className="relative inline-block shrink-0 font-sans">
-      <button
-        type="button"
-        aria-haspopup="true"
-        aria-expanded={open}
-        onClick={() => setOpen((v) => !v)}
-        className={triggerClass}
-      >
-        <span>View</span>
-        <ChevronDownIcon size={12} className="shrink-0" aria-hidden="true" />
-      </button>
+      <Tooltip label="View" placement="bottom">
+        <button
+          type="button"
+          aria-haspopup="true"
+          aria-expanded={open}
+          aria-label="View"
+          onClick={() => setOpen((v) => !v)}
+          className={triggerClass}
+        >
+          <AdjustmentsHorizontalIcon size={14} aria-hidden="true" />
+        </button>
+      </Tooltip>
       {open && (
         <div
           data-testid="view-control-panel"
           role="menu"
           aria-label="View"
-          className="absolute right-0 top-[calc(100%+6px)] z-[20] w-[224px] bg-page border border-line rounded-inner p-1.5 shadow-overlay origin-top-right animate-tip"
+          className="absolute left-0 top-[calc(100%+6px)] z-[20] w-[224px] bg-page border border-line rounded-inner p-1.5 shadow-overlay origin-top-left animate-tip"
         >
           <div className={menuLabelClass}>Rows</div>
           {ROWS_OPTIONS.map((opt) => (

@@ -19,6 +19,7 @@
  */
 import type { ComponentType, SVGProps } from "react";
 import {
+  AdjustmentsHorizontalIcon as HeroAdjustmentsHorizontal,
   ArrowPathIcon as HeroArrowPath,
   ArrowRightIcon as HeroArrowRight,
   ArrowTopRightOnSquareIcon as HeroArrowTopRightOnSquare,
@@ -107,6 +108,7 @@ function sized(Icon: SvgIcon, optical = 1) {
   };
 }
 
+export const AdjustmentsHorizontalIcon = sized(HeroAdjustmentsHorizontal);
 export const ArrowPathIcon = sized(HeroArrowPath);
 export const ArrowRightIcon = sized(HeroArrowRight, 0.79);
 export const ArrowTopRightOnSquareIcon = sized(HeroArrowTopRightOnSquare);
