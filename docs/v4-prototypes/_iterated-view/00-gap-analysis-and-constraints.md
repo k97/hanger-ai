@@ -347,8 +347,27 @@ dropped* ledger.
 3. Which backend additions are in scope now: `list_asset_dir` (small),
    a disagreeing-servers count (small), per-kind counts / `linked_from` on
    graph nodes (small), per-tool schema bytes (medium), cross-server
-   tool-name collisions (medium). Recommendation: the four small ones;
-   defer the two medium ones with a roadmap entry.
+   tool-name collisions (medium). ~~Recommendation: the four small ones;
+   defer the two medium ones.~~ **Karthik (2026-08-22) wants the MCP
+   panel's Identity & capabilities, Transport, Links and Context sections
+   in** — so the two medium items move into scope: schema bytes per tool
+   and per server kept at probe time (`probe_results` gains a column or
+   the tools JSON gains a `bytes` field; a `user_version` 8 migration
+   pinned by `store_migration_tests.rs`), and a per-host tool-name
+   collision check surfaced as a `ReviewIssue` kind and as one routed
+   line in the panel. Links need no backend: derived from the launch
+   (npm / PyPI page from the runner, endpoint host for remote, Reveal in
+   Finder for an app bundle); a repository or docs URL stays undrawn
+   until a real source exists. Tokens stay out until a tokenizer is
+   named on the figure. **The skill panel likewise** (same ruling):
+   Details is sectioned — Identity (plus `Modified`, the file's mtime
+   read at request time: small backend), Capabilities (declared
+   `allowed-tools` as pills, "Runs commands through Bash" stated when
+   present — a restatement, not a rating), Links only when
+   `source-origin` is a URL, then Reach. "Primary owner", "Last
+   reviewed", "Structural pattern", "Tool exposure: Optimized" and
+   "Risk: Med" have no source and are not drawn; rating shell access
+   would be a Needs-review issue kind and a ruling.
 4. The aqua ruling for the MCP coverage meter (answered share as progress).
 5. Top navigation: which capsule (tonal A, raised B, filled C) for the
    segmented track; at 368px, a scrolling track or counts under the

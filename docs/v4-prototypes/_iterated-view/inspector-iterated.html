@@ -49,7 +49,11 @@
 .doc pre { margin: 8px 0; padding: 10px 12px; background: var(--plane); font-family: var(--font-mono); white-space: pre; overflow: hidden; line-height: 1.6; }
 .pill.tinted { background: var(--tint); border-color: transparent; color: var(--ink-1); }
 .flex-wrap { flex-wrap: wrap; }
-.mt-2 { margin-top: 8px; } .mb-1 { margin-bottom: 4px; } .mb-3 { margin-bottom: 12px; }
+.mt-2 { margin-top: 8px; } .mt-3 { margin-top: 12px; } .mb-1 { margin-bottom: 4px; } .mb-2 { margin-bottom: 8px; } .mb-3 { margin-bottom: 12px; }
+.caps { display: flex; flex-direction: column; gap: 5px; }
+.lbl { width: 92px; flex-shrink: 0; font-family: var(--font-flex); color: var(--ink-3); }
+.annot.in { margin: 0 18px 14px; }
+.tr { text-align: right; }
 .lh { line-height: 1.5; }
 /* Chosen: the tab row sits under the header, above the scroll region */
 .utabs { display: flex; gap: 20px; padding: 0 18px; border-bottom: 1px solid var(--line); position: relative; flex-shrink: 0; }
@@ -83,6 +87,7 @@
   <symbol id="i-fd" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z"/></symbol>
   <symbol id="i-rf" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99"/></symbol>
   <symbol id="i-cb" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M17.25 6.75L22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3l-4.5 16.5"/></symbol>
+  <symbol id="i-tm" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6.75 7.5l3 2.25-3 2.25m4.5 0h3m-9 8.25h13.5A2.25 2.25 0 0021 18V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v12a2.25 2.25 0 002.25 2.25z"/></symbol>
 </svg>
 
 <div class="toggle-bar"><button class="btn" id="dk" aria-pressed="false">Dark</button></div>
@@ -344,14 +349,22 @@ agent-browser close             # Close browser</pre>
         </section>
       </div>
       <div data-panel="details" class="hidden">
-        <dl class="facts card">
-          <dt>Engine</dt><dd>Any agent</dd>
-          <dt>Scope</dt><dd>Global</dd>
-          <dt>Origin</dt><dd>Local · not from a registry</dd>
-          <dt>Version</dt><dd>v0.0.0-draft</dd>
-          <dt>Size</dt><dd>8.6 kB · 252 lines</dd>
-          <dt>Allowed tools</dt><dd>Bash(agent-browser:*)</dd>
-        </dl>
+        <section class="card">
+          <div class="section-head"><span class="eyebrow">Identity</span></div>
+          <dl class="facts">
+            <dt>Engine</dt><dd>Any agent</dd>
+            <dt>Scope</dt><dd>Global</dd>
+            <dt>Origin</dt><dd>Local · not from a registry</dd>
+            <dt>Version</dt><dd>v0.0.0-draft</dd>
+            <dt>Size</dt><dd>8.6 kB · 252 lines</dd>
+            <dt>Modified</dt><dd>Jul 20, 2026</dd>
+          </dl>
+        </section>
+        <section class="card">
+          <div class="section-head"><span class="eyebrow">Capabilities</span></div>
+          <div class="flex items-center gap-2 text-small"><span class="lbl">Allowed tools</span><span class="flex flex-wrap gap-1.5 min-w-0"><span class="pill">Bash(agent-browser:*)</span></span></div>
+          <p class="flex items-center gap-1.5 text-small text-ink-2 mt-2"><svg class="ic"><use href="#i-tm"/></svg><span>Runs commands through Bash.</span></p>
+        </section>
         <section class="reach rounded-plane">
           <div class="flex items-baseline justify-between gap-2"><span class="eyebrow">Reach</span><span class="font-mono text-micro text-ink-3">→ ~/.agents</span></div>
           <div class="grp">
@@ -372,6 +385,7 @@ agent-browser close             # Close browser</pre>
             </ul>
           </div>
         </section>
+        <div class="annot in">Links appear only when <code>source-origin</code> is a URL (a registry page) — empty is a finding, so no empty section is drawn.</div>
       </div>
     </div>
   </aside>
@@ -386,6 +400,12 @@ agent-browser close             # Close browser</pre>
     <div class="body">
       <div data-panel="tools">
         <section class="section">
+          <div class="vcard bg-plane rounded-inner">
+            <div class="flex items-baseline justify-between gap-2"><span class="eyebrow">Context</span><span class="text-micro text-ink-3 font-mono">pending backend</span></div>
+            <div class="text-base-app font-medium">Tool descriptions · 10.8 kB across 17 tools</div>
+            <div class="text-small text-ink-2 lh">What every request to this host carries.</div>
+          </div>
+          <div class="disclosure warning mt-2 mb-3"><div class="drow"><svg class="ic"><use href="#i-wn"/></svg><span class="font-medium min-w-0"><code>get_system_volume</code> is also offered by another server in Claude Code</span><button class="btn ml-auto shrink-0">Review →</button></div></div>
           <div class="section-head"><span class="eyebrow">Tools</span><span class="flex items-center gap-2"><span class="text-micro text-ink-3 font-mono">17</span><button class="icon-btn sm" aria-label="Check again"><svg class="ic"><use href="#i-rf"/></svg></button></span></div>
           <div class="flex justify-between mb-1"><span class="eyebrow">Tool</span><span class="eyebrow">Described in</span></div>
           <div class="regs rounded-inner">
@@ -403,9 +423,13 @@ agent-browser close             # Close browser</pre>
       </div>
       <div data-panel="details" class="hidden">
         <section class="section">
-          <div class="section-head"><span class="eyebrow">Identity</span><span class="text-micro text-ink-3 font-mono">verified 2d ago</span></div>
-          <div class="flex flex-wrap gap-1.5"><span class="pill">server <b>1.0.0</b></span><span class="pill">MCP <b>2025-06-18</b></span><span class="pill">caps <b>tools</b></span></div>
-          <p class="text-small text-ink-2 mt-2 lh">Advertises tools. Resources and prompts were not offered in the handshake.</p>
+          <div class="section-head"><span class="eyebrow">Identity &amp; capabilities</span><span class="text-micro text-ink-3 font-mono">verified 2d ago</span></div>
+          <div class="flex flex-wrap gap-1.5"><span class="pill">server <b>1.0.0</b></span><span class="pill">MCP <b>2025-06-18</b></span></div>
+          <div class="caps mt-3">
+            <div class="flex justify-between gap-2 text-small"><span class="text-ink-1">Tools</span><span class="text-ink-2">offered</span></div>
+            <div class="flex justify-between gap-2 text-small"><span class="text-ink-1">Resources</span><span class="text-ink-2">not offered</span></div>
+            <div class="flex justify-between gap-2 text-small"><span class="text-ink-1">Prompts</span><span class="text-ink-2">not offered</span></div>
+          </div>
         </section>
         <section class="section">
           <div class="vcard bg-plane rounded-inner">
@@ -415,7 +439,9 @@ agent-browser close             # Close browser</pre>
           </div>
         </section>
         <section class="section">
-          <div class="section-head"><span class="eyebrow">Registered in</span><span class="text-micro text-ink-3 font-mono">3 registrations</span></div>
+          <div class="section-head"><span class="eyebrow">Transport</span><span class="pill">stdio</span></div>
+          <p class="text-small text-ink-2 lh">Launched by each registration below; the launches agree.</p>
+          <div class="flex items-baseline justify-between gap-2 mt-3 mb-2"><span class="eyebrow">Registered in</span><span class="text-micro text-ink-3 font-mono">3 registrations</span></div>
           <div class="regs rounded-inner">
           <div class="reg">
             <div class="flex items-center justify-between gap-2"><span class="flex items-center gap-2 text-small font-medium"><svg class="mark"><use href="#mk"/></svg>Claude Code</span><span class="eyebrow">Global</span></div>
@@ -436,6 +462,12 @@ agent-browser close             # Close browser</pre>
           </div>
         </section>
         <section class="section">
+          <div class="section-head"><span class="eyebrow">Links</span></div>
+          <div class="regs rounded-inner">
+            <div class="ent"><span class="text-small text-ink-1 shrink-0">Runs from</span><span class="font-mono text-micro text-ink-2 truncate flex-1 tr">/Applications/Spades Audio.app</span><button class="icon-btn sm" aria-label="Reveal in Finder"><svg class="ic"><use href="#i-rv"/></svg></button></div>
+          </div>
+        </section>
+        <section class="section">
           <div class="section-head"><span class="eyebrow">Environment</span><span class="text-micro text-ink-3 font-mono">1</span></div>
           <div class="flex flex-wrap gap-1.5"><span class="pill">SPADES_TOKEN</span></div>
           <p class="text-micro text-ink-3 mt-2 lh">Names only. Hanger never reads a variable’s value.</p>
@@ -451,6 +483,12 @@ agent-browser close             # Close browser</pre>
   <div class="annot"><b>Underline tabs</b> (Karthik's reference, 2026-08-22): labels on a <code>--line</code> baseline, the active one in <code>--ink-1</code> medium with a 2px <code>--ink-1</code> rule beneath; the label's weight and the rule are the only things that change. The pane's category selector is a segmented track, the inspector's tabs are underline tabs — two idioms for two jobs: one filters a list, the other switches views within a surface.</div>
   <div class="annot"><b>Described in.</b> The prototype's "token tax": <code>probe.rs</code> drops the schema today; keeping its byte size is a small backend change. Tokens are not measurable, bytes are — the dash holds the column until they arrive.</div>
   <div class="annot"><b>MCP header.</b> No path chip and no actions: an MCP server has one config path per registration, and those live under Details › Registered in. The state line is the list row's subline, coloured as the verdict card's dot. Tool rows carry the server's own descriptions, as probed on this machine.</div>
+  <div class="annot"><b>Identity &amp; capabilities.</b> The handshake lists the capability keys a server advertises (<code>probe.rs:602-606</code>); absence reads "not offered", never "unsupported".</div>
+  <div class="annot"><b>Transport.</b> The prototype's one Command/Arguments block would have to pick a registration or hide divergence; the launch is shown per registration, redacted; raw args never cross IPC (<code>no-launch-args-in-ipc.test.ts</code>).</div>
+  <div class="annot"><b>Links</b> are derived from the launch, no network: an <code>npx</code>/<code>bunx</code> runner names an npm package → its npm page; <code>uvx</code> → PyPI; a remote transport → its endpoint host; an app bundle → Reveal in Finder. A repository or docs URL is not known — Hanger reads no registry — so no such row is drawn.</div>
+  <div class="annot"><b>Context.</b> The prototype's "Context bloat": bytes are measurable once <code>probe.rs</code> keeps the schema size (medium backend); tokens are not — a tokenizer estimate can follow, labelled by its BPE. A collision is a Needs-review finding, stated once and routed, not a red box. The 10.8 kB is illustrative — nothing measures it yet, hence "pending backend".</div>
+  <div class="annot"><b>Identity · Modified.</b> Modified is the file's mtime, read at request time like link state — a small backend addition (<code>read_asset_body</code> or the annotation can carry it). "Primary owner" and "Last reviewed" have no source: the frontmatter the scanner keeps is name, description, version, source-origin (<code>scanner.rs:433-440</code>), and Hanger reads no git. "~100 tokens" stays as kB · lines; "Structural pattern" has no taxonomy behind it.</div>
+  <div class="annot"><b>Capabilities.</b> A restatement of the declared field, not a rating. The exploration's "Tool exposure: Optimized" and "Privilege boundaries · Risk: Med" have no data behind them — the harness has no tool groups, and a risk level is a judgment; if the app is ever to rate shell access it is a Needs-review issue kind and a ruling, not a panel box.</div>
 </div>
 </div>
 <div class="annot wide"><b>Open question:</b> is the active tab remembered per kind (a preference, like <code>inspector_width</code>) or does every open start on the breakdown?</div>
@@ -473,6 +511,8 @@ agent-browser close             # Close browser</pre>
     <li>An "In this skill" folder listing.</li>
     <li>A per-tool size column, pending the backend.</li>
     <li>Underline tabs, content first: Content (skill) / Tools (MCP) lead, Details second — Karthik's ruling 2026-08-22; the header, state line, path, actions and the routed issue line stay above the tabs.</li>
+    <li>The four MCP sections the exploration drew are present in the forms the data allows — Identity &amp; capabilities (offered/not offered), Transport (per registration), Links (derived from the launch), Context (bytes, pending the backend; collisions routed).</li>
+    <li>Skill Details is sectioned — Identity (with Modified), Capabilities (declared tools as pills, "Runs commands" stated), Reach; the exploration's governance and security boxes are replaced by the fields they were guessing at.</li>
   </ul>
   <p><b>Dropped</b></p>
   <ul>
