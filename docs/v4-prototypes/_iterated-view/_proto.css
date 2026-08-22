@@ -1,0 +1,173 @@
+/* Shared base for the iterated views.
+   The palette is not restated here: tokens.css is the app's own file,
+   imported by relative path, so every colour, size, radius and beat in
+   these pages is the running app's value — light and dark. Classes mirror
+   the Tailwind utility names the real components use (bg-plane, text-ink-3,
+   rounded-inner …) so a reviewer can read a prototype and the .tsx side by
+   side. Anything not here is stated inline with var(--…), never a literal. */
+@import url("../../../src/styles/tokens.css");
+
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  font-family: var(--font-sans);
+  font-size: var(--fs-base);
+  font-weight: var(--fw-regular);
+  color: var(--ink-1);
+  background: var(--page);
+  -webkit-font-smoothing: antialiased;
+  padding: 32px 24px 48px;
+}
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+h1, h2, h3, p, dl, dd, dt, ul { margin: 0; }
+ul { padding: 0; list-style: none; }
+code { font-family: var(--font-mono); }
+
+/* ── Surfaces ── */
+.bg-page { background: var(--page); }
+.bg-plane { background: var(--plane); }
+.bg-plane-2 { background: var(--plane-2); }
+.bg-tint { background: var(--tint); }
+.bg-tint-plane { background: var(--tint-plane); }
+.bg-fill { background: var(--fill); }
+.border-line { border: 1px solid var(--line); }
+.border-line-2 { border: 1px solid var(--line-2); }
+.border-b-line { border-bottom: 1px solid var(--line); }
+.border-t-line { border-top: 1px solid var(--line); }
+.rounded-plane { border-radius: var(--radius-plane); }
+.rounded-inner { border-radius: var(--radius-inner); }
+.rounded-soft { border-radius: var(--radius-soft); }
+.rounded-pill { border-radius: var(--radius-pill); }
+.shadow-overlay { box-shadow: var(--overlay-shadow); }
+
+/* ── Ink ── */
+.text-ink-1 { color: var(--ink-1); }
+.text-ink-2 { color: var(--ink-2); }
+.text-ink-3 { color: var(--ink-3); }
+.text-on-fill { color: var(--on-fill); }
+.text-tint-ink { color: var(--tint-ink); }
+.text-state-success { color: var(--state-success); }
+.text-state-warning { color: var(--state-warning); }
+.text-state-danger { color: var(--state-danger); }
+.bg-state-success { background: var(--state-success); }
+.bg-state-warning { background: var(--state-warning); }
+.bg-state-danger { background: var(--state-danger); }
+
+/* ── Type: five sizes, two weights ── */
+.text-micro { font-size: var(--fs-micro); }
+.text-small { font-size: var(--fs-small); }
+.text-base-app { font-size: var(--fs-base); }
+.text-lg-app { font-size: var(--fs-lg); }
+.text-display { font-size: var(--fs-display); line-height: 1.1; letter-spacing: -0.5px; }
+.font-medium { font-weight: var(--fw-medium); }
+.font-mono { font-family: var(--font-mono); }
+.font-flex { font-family: var(--font-flex); }
+.tabular { font-variant-numeric: tabular-nums; }
+.truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.break-all { word-break: break-all; }
+/* Section eyebrow — ProfilePane.tsx:229-230, LinkMapPlacecard.tsx */
+.eyebrow { font-family: var(--font-flex); font-size: var(--fs-micro); font-weight: var(--fw-medium); letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); }
+
+/* ── Layout helpers ── */
+.flex { display: flex; }
+.flex-col { flex-direction: column; }
+.items-center { align-items: center; }
+.items-baseline { align-items: baseline; }
+.items-start { align-items: flex-start; }
+.justify-between { justify-content: space-between; }
+.flex-1 { flex: 1 1 0; min-width: 0; }
+.shrink-0 { flex-shrink: 0; }
+.ml-auto { margin-left: auto; }
+.gap-1 { gap: 4px; } .gap-1\.5 { gap: 6px; } .gap-2 { gap: 8px; } .gap-3 { gap: 12px; } .gap-4 { gap: 16px; }
+.min-w-0 { min-width: 0; }
+.relative { position: relative; }
+.hidden { display: none !important; }
+
+/* ── The shell at true size: 1024×700 window, 56px rail, 384px inspector ──
+   App.tsx: rail w-14; inspector default 384 (floor), max 480. The source
+   list is drawn collapsed, as in the reference screenshots. */
+.shell { width: 1024px; height: 700px; display: flex; overflow: hidden; background: var(--page); border: 1px solid var(--line-2); border-radius: 10px; }
+.shell .rail { width: 56px; flex-shrink: 0; background: var(--plane); border-right: 1px solid var(--line); display: flex; flex-direction: column; align-items: center; padding-top: 14px; gap: 14px; }
+.shell .rail i { display: block; width: 32px; height: 32px; border-radius: var(--radius-soft); }
+.shell .rail i.on { background: var(--tint-plane); }
+.shell .main { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; }
+.shell .cap { height: 40px; display: flex; align-items: center; padding: 0 18px; gap: 8px; flex-shrink: 0; font-size: var(--fs-base); }
+.shell .aside { width: 384px; flex-shrink: 0; border-left: 1px solid var(--line); display: flex; flex-direction: column; overflow: hidden; }
+.shell .canvas { flex: 1 1 0; min-height: 0; overflow: hidden; position: relative; }
+
+/* Pane composition — DESIGN.md §6: strip mx-[18px] mt-[18px], chip row, list plane, foot */
+.strip { margin: 18px 18px 0; padding: 14px 16px; border: 1px solid var(--line); border-radius: var(--radius-plane); flex-shrink: 0; }
+.chips { display: flex; align-items: center; gap: 7px; padding: 12px 18px 10px; overflow-x: auto; flex-shrink: 0; }
+.chip { height: 28px; padding: 0 14px; border-radius: var(--radius-pill); border: 1px solid var(--line-2); font-family: var(--font-flex); font-size: var(--fs-small); color: var(--ink-2); display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.chip b { font-weight: var(--fw-regular); color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.chip.on { background: var(--tint); color: var(--tint-ink); border-color: transparent; font-weight: var(--fw-medium); padding-left: 11px; }
+.chip.on b { color: var(--tint-ink); }
+.list-plane { margin: 0 18px; background: var(--plane); border: 1px solid var(--line); border-radius: var(--radius-plane) var(--radius-plane) 0 0; flex: 1 1 0; min-height: 0; overflow: hidden; }
+.foot { height: 30px; flex-shrink: 0; padding: 0 18px; display: flex; align-items: center; font-family: var(--font-flex); font-size: var(--fs-micro); color: var(--ink-3); }
+
+/* ── GelMeter.tsx, verbatim geometry ── */
+.gel { display: flex; height: 10px; gap: 3px; padding: 1px; border-radius: var(--radius-pill); border: 1px solid var(--line); background: var(--bar-track); }
+.gel > span { display: block; height: 100%; border-radius: var(--radius-pill); background-image: var(--gel-gloss); }
+.gel > span.aqua { background-image: var(--gel-gloss), var(--gel-aqua); }
+.gel > span.warn { background-color: var(--state-warning); }
+.gel > span.danger { background-color: var(--state-danger); }
+.gel > span.plain { background-color: var(--plane-2); }
+
+/* Legend dot — SummaryStrip.tsx */
+.dot { display: inline-block; width: 8px; height: 8px; border-radius: var(--radius-pill); flex-shrink: 0; }
+.dot.aqua { background-image: var(--gel-aqua); }
+.dot.hollow { background: transparent; border: 2px solid var(--line-2); }
+
+/* Buttons — SummaryStrip.tsx Rescan / Review, LinkMapPlacecard actionBtnClass */
+.btn { height: 30px; padding: 0 14px; border-radius: var(--radius-pill); border: 1px solid var(--line-2); font-size: var(--fs-small); font-weight: var(--fw-medium); color: var(--ink-1); display: inline-flex; align-items: center; gap: 6px; transition: background-color var(--dur-hover) var(--spring); }
+.btn:hover { background: var(--plane-2); }
+.btn.fill { background: var(--fill); color: var(--on-fill); border-color: transparent; padding: 0 15px; font-variant-numeric: tabular-nums; }
+.icon-btn { width: 27px; height: 27px; border-radius: var(--radius-pill); display: grid; place-items: center; color: var(--ink-3); transition: background-color var(--dur-hover) var(--spring), color var(--dur-hover) var(--spring); }
+.icon-btn:hover { background: var(--plane-2); color: var(--ink-1); }
+
+/* Path chip — LinkMapPlacecard.tsx PathChip, AssetDetail path row */
+.path-chip { display: flex; align-items: center; gap: 8px; background: var(--plane); border-radius: var(--radius-inner); padding: 8px 6px 8px 10px; font-family: var(--font-mono); font-size: var(--fs-micro); color: var(--ink-2); }
+.path-chip span { flex: 1 1 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Facts grid — AssetDetail meta <dl> (92px label) / LinkMapPlacecard Facts (110px) */
+.facts { display: grid; grid-template-columns: 92px 1fr; gap: 6px 10px; padding: 10px 12px; background: var(--plane); border-radius: var(--radius-inner); font-size: var(--fs-small); }
+.facts.wide { grid-template-columns: 110px 1fr; }
+.facts dt { font-family: var(--font-flex); color: var(--ink-3); }
+.facts dd { color: var(--ink-1); min-width: 0; overflow-wrap: anywhere; }
+
+/* Pills — McpServerDetail identity pills, Flyout transport pill */
+.pill { display: inline-flex; align-items: center; gap: 4px; height: 22px; padding: 0 9px; border-radius: var(--radius-pill); background: var(--plane); border: 1px solid var(--line); font-family: var(--font-mono); font-size: var(--fs-micro); color: var(--ink-2); }
+.pill b { font-weight: var(--fw-medium); color: var(--ink-1); }
+
+/* DisclosureBanner.tsx — neutral plane in every variant; state carries the colour */
+.disclosure { border-radius: var(--radius-inner); border: 1px solid var(--line); background: var(--plane); font-size: var(--fs-small); }
+.disclosure > button { width: 100%; display: flex; align-items: center; gap: 8px; padding: 12px; font-weight: var(--fw-medium); text-align: left; border-radius: var(--radius-inner); }
+.disclosure.warning > button { color: var(--state-warning); }
+.disclosure.info > button { color: var(--ink-2); }
+.disclosure > div { padding: 4px 12px 12px; border-top: 1px solid var(--line); color: var(--ink-2); max-height: 240px; overflow-y: auto; }
+
+/* Inspector section — McpServerDetail SECTION: px-[18px] py-[18px] border-b border-line */
+.section { padding: 18px; border-bottom: 1px solid var(--line); }
+.section-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 12px; }
+
+/* Placecard — LinkMapPlacecard.tsx cardClass */
+.placecard { position: absolute; left: 12px; top: 12px; bottom: 12px; width: 300px; z-index: 20; display: flex; flex-direction: column; background: var(--page); border: 1px solid var(--line); border-radius: var(--radius-plane); overflow: hidden; box-shadow: var(--overlay-shadow); }
+.placecard .head { padding: 14px 16px 12px; border-bottom: 1px solid var(--line); flex-shrink: 0; }
+.placecard .body { flex: 1 1 0; min-height: 0; overflow-y: auto; }
+
+/* Map ground — LinkMapPane.tsx:352-357, a dot grid painted from --line */
+.map-ground { background-color: var(--page); background-image: radial-gradient(var(--line) 1px, transparent 1px); background-size: 24px 24px; }
+
+/* ── Review chrome (not part of the design): page title, option labels, the dark toggle ── */
+.review-title { font-size: var(--fs-lg); font-weight: var(--fw-medium); margin-bottom: 4px; }
+.review-note { font-size: var(--fs-small); color: var(--ink-2); max-width: 72ch; line-height: 1.55; margin-bottom: 18px; }
+.review-note code { background: var(--plane); padding: 1px 5px; border-radius: 4px; font-size: var(--fs-micro); }
+.option { margin: 28px 0 12px; display: flex; align-items: baseline; gap: 10px; }
+.option h2 { font-size: var(--fs-base); font-weight: var(--fw-medium); }
+.option span { font-size: var(--fs-small); color: var(--ink-3); }
+.sample { position: absolute; right: 14px; bottom: 10px; font-family: var(--font-flex); font-size: var(--fs-micro); color: var(--ink-3); letter-spacing: .06em; text-transform: uppercase; pointer-events: none; }
+.toggle-bar { position: fixed; top: 12px; right: 16px; display: flex; gap: 8px; z-index: 100; }
+.annot { font-family: var(--font-flex); font-size: var(--fs-micro); color: var(--ink-3); border: 1px dashed var(--line-2); border-radius: var(--radius-inner); padding: 6px 10px; line-height: 1.5; }
+.annot b { color: var(--ink-1); font-weight: var(--fw-medium); }
+
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition: none !important; animation: none !important; } }

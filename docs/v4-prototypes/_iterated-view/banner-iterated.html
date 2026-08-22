@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Summary strip — category-aware</title>
+<link rel="stylesheet" href="_proto.css">
+<style>
+  /* Layout only. Every colour, size and radius below is a token or a class
+     from _proto.css; nothing is stated as a literal. */
+  .shell { height: 440px; position: relative; }
+  /* Shells 2 and 3: chip row above the strip (Karthik, 2026-08-22) */
+  .shell.chips-first .chips { padding: 14px 18px 6px; }
+  .shell.chips-first .strip { margin: 10px 18px 0; }
+  .shell.chips-first .findings, .shell.chips-first .list-plane { margin-top: 10px; }
+  .row { display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap; margin-bottom: 8px; }
+  .notes { width: 280px; display: flex; flex-direction: column; gap: 8px; }
+  .notes code { font-family: var(--font-mono); }
+  .cap .crumb { color: var(--ink-3); }
+  .strip-head { margin-bottom: 12px; }
+  .legend { margin-top: 10px; flex-wrap: wrap; }
+  .legend > button { display: inline-flex; align-items: center; gap: 8px; }
+  .facts-line { margin-top: 10px; }
+  .rescan { min-width: 108px; justify-content: center; }
+  .findings { margin: 0 18px 10px; display: flex; flex-direction: column; gap: 8px; flex-shrink: 0; }
+  .finding { display: flex; align-items: center; gap: 8px; padding: 6px 8px 6px 12px; }
+  .finding .btn { margin-left: auto; }
+  .list-head, .ghost-row { display: grid; grid-template-columns: 1fr 120px 150px; align-items: center; gap: 12px; padding: 0 18px; }
+  .list-head { height: 36px; border-bottom: 1px solid var(--line); }
+  .group { padding: 12px 18px 4px; }
+  .ghost-row { height: 32px; }
+  .ghost { display: block; height: 10px; background: var(--plane-2); }
+  .aside-empty { flex: 1 1 0; display: grid; place-items: center; }
+  .tally { max-width: 72ch; margin-top: 28px; }
+  .tally ul { list-style: disc; padding-left: 16px; margin-top: 6px; }
+  .tally li { margin: 4px 0; }
+  svg { flex-shrink: 0; }
+</style>
+</head>
+<body>
+
+<div class="toggle-bar"><button class="btn" id="dark" type="button">Dark</button></div>
+
+<h1 class="review-title">Summary strip — category-aware</h1>
+<p class="review-note">Three shells at true size, 1024×700 cropped to 440px so they share a page. Shell 1 is <code>SummaryStrip.tsx</code> in today's order, plus one facts line — the baseline. Options A and B move the chip row above the strip; A lets the meter follow the selected chip, B routes a finding out of the strip without a second banner. Every figure is from this machine's store; the annotations beside each shell say which figures are backend fields already and which need a ruling.</p>
+
+<!-- ───────── Shell 1 ───────── -->
+<div class="option"><h2>Today's order · All</h2><span>plus one facts line — the baseline</span></div>
+<div class="row">
+<div class="shell">
+  <div class="rail"><i class="on"></i><i></i><i></i><i></i><i></i></div>
+  <div class="main">
+    <div class="cap"><span class="crumb">My machine</span><span class="crumb">›</span><span class="font-medium text-ink-1">Global</span></div>
+
+    <section class="strip" aria-label="Inventory summary">
+      <div class="flex items-baseline gap-3 strip-head">
+        <span class="text-display font-medium tabular text-ink-1">144</span>
+        <span class="text-lg-app text-ink-2">assets in the global store · 7 engines</span>
+        <span class="ml-auto text-micro text-ink-3 font-flex">Scanned 3 min ago</span>
+      </div>
+      <div class="gel" role="img" aria-label="110 linked, 0 drifted, 0 broken, 39 local only"><span class="aqua" style="flex:110"></span><span class="plain" style="flex:39"></span></div>
+      <div class="flex items-center gap-4 legend">
+        <button type="button" class="text-small font-flex text-ink-2"><i class="dot aqua"></i><b class="font-medium tabular text-ink-1">110</b> linked</button>
+        <button type="button" class="text-small font-flex text-ink-2"><i class="dot bg-state-warning"></i><b class="font-medium tabular text-ink-1">0</b> drifted</button>
+        <button type="button" class="text-small font-flex text-ink-2"><i class="dot bg-state-danger"></i><b class="font-medium tabular text-ink-1">0</b> broken</button>
+        <button type="button" class="text-small font-flex text-ink-2"><i class="dot hollow"></i><b class="font-medium tabular text-ink-1">39</b> local only</button>
+        <div class="ml-auto flex items-center gap-2">
+          <button type="button" class="btn rescan" aria-label="Refresh scan"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99"/></svg>Rescan</button>
+        </div>
+      </div>
+      <p class="text-micro text-ink-3 font-flex facts-line">Global store ~/.agents · 7 engines · 16 host configs read</p>
+    </section>
+
+    <div class="chips">
+      <button type="button" class="chip on" aria-pressed="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 12.75l6 6 9-13.5"/></svg>All <b class="text-micro">144</b></button>
+      <button type="button" class="chip">Skills <b class="text-micro">110</b></button>
+      <button type="button" class="chip">MCP servers <b class="text-micro">19</b></button>
+      <button type="button" class="chip">Rules <b class="text-micro">2</b></button>
+      <button type="button" class="chip">Subagents <b class="text-micro">13</b></button>
+    </div>
+
+    <div class="list-plane">
+      <div class="list-head eyebrow"><span>Name</span><span>Kind</span><span>Beyond the store</span></div>
+      <div class="group eyebrow">Skills · 110</div>
+      <div class="ghost-row"><i class="ghost rounded-pill" style="width:140px"></i><i class="ghost rounded-pill" style="width:36px"></i><i class="ghost rounded-pill" style="width:88px"></i></div>
+      <div class="ghost-row"><i class="ghost rounded-pill" style="width:196px"></i><i class="ghost rounded-pill" style="width:36px"></i><i class="ghost rounded-pill" style="width:88px"></i></div>
+      <div class="ghost-row"><i class="ghost rounded-pill" style="width:164px"></i><i class="ghost rounded-pill" style="width:36px"></i><i class="ghost rounded-pill" style="width:88px"></i></div>
+    </div>
+    <div class="foot">Showing 144 of 144</div>
+  </div>
+  <div class="aside"><div class="aside-empty"><span class="text-small text-ink-3">Nothing selected</span></div></div>
+  <span class="sample">sample · figures from this machine, 2026-08-22</span>
+</div>
+<div class="notes">
+  <div class="annot"><b>The one addition is the facts line.</b> Every figure in it is already a backend field: the store root, <code>detectedEngines</code>, <code>mcpCoverage.checked_file_count</code>. Nothing new is counted, on either side.</div>
+  <div class="annot"><b>Everything above it is unchanged.</b> Drifted and broken are 0, so GelMeter omits their segments and the Review pill is not offered.</div>
+</div>
+</div>
+
+<!-- ───────── Shell 2 ───────── -->
+<div class="option"><h2>Option A · chips above the strip</h2><span>MCP servers</span></div>
+<div class="row">
+<div class="shell chips-first">
+  <div class="rail"><i class="on"></i><i></i><i></i><i></i><i></i></div>
+  <div class="main">
+    <div class="cap"><span class="crumb">My machine</span><span class="crumb">›</span><span class="font-medium text-ink-1">Global</span></div>
+
+    <div class="chips">
+      <button type="button" class="chip">All <b class="text-micro">144</b></button>
+      <button type="button" class="chip">Skills <b class="text-micro">110</b></button>
+      <button type="button" class="chip on" aria-pressed="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 12.75l6 6 9-13.5"/></svg>MCP servers <b class="text-micro">19</b></button>
+      <button type="button" class="chip">Rules <b class="text-micro">2</b></button>
+      <button type="button" class="chip">Subagents <b class="text-micro">13</b></button>
+    </div>
+
+    <section class="strip" aria-label="Inventory summary">
+      <div class="flex items-baseline gap-3 strip-head">
+        <span class="text-display font-medium tabular text-ink-1">19</span>
+        <span class="text-lg-app text-ink-2">MCP servers registered · 16 host configs read</span>
+        <span class="ml-auto text-micro text-ink-3 font-flex">Scanned 3 min ago</span>
+      </div>
+      <div class="gel" role="img" aria-label="9 answered, 7 not yet asked, 7 can't be asked"><span class="aqua" style="flex:9"></span><span class="plain" style="flex:7"></span><span class="plain" style="flex:7;border:1px dashed var(--line-2)"></span></div>
+      <div class="flex items-center gap-4 legend">
+        <button type="button" class="text-small font-flex text-ink-2"><i class="dot aqua"></i><b class="font-medium tabular text-ink-1">9</b> answered</button>
+        <button type="button" class="text-small font-flex text-ink-2"><i class="dot hollow"></i><b class="font-medium tabular text-ink-1">7</b> not yet asked</button>
+        <button type="button" class="text-small font-flex text-ink-2"><i class="dot hollow" style="border-style:dashed"></i><b class="font-medium tabular text-ink-1">7</b> can't be asked</button>
+        <div class="ml-auto flex items-center gap-2">
+          <button type="button" class="btn rescan" aria-label="Refresh scan"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99"/></svg>Rescan</button>
+          <button type="button" class="btn fill">Review 2 →</button>
+        </div>
+      </div>
+      <p class="text-micro text-ink-3 font-flex facts-line">Every tool a registered server can reach is described to the model on every request.</p>
+    </section>
+
+    <div class="list-plane">
+      <div class="list-head eyebrow"><span>MCP servers · 19</span><span></span><span>Tools</span></div>
+      <div class="ghost-row"><i class="ghost rounded-pill" style="width:120px"></i><i class="ghost rounded-pill" style="width:0"></i><i class="ghost rounded-pill" style="width:14px"></i></div>
+      <div class="ghost-row"><i class="ghost rounded-pill" style="width:156px"></i><i class="ghost rounded-pill" style="width:0"></i><i class="ghost rounded-pill" style="width:14px"></i></div>
+      <div class="ghost-row"><i class="ghost rounded-pill" style="width:132px"></i><i class="ghost rounded-pill" style="width:0"></i><i class="ghost rounded-pill" style="width:14px"></i></div>
+    </div>
+    <div class="foot">Showing 19 of 144</div>
+  </div>
+  <div class="aside"><div class="aside-empty"><span class="text-small text-ink-3">Nothing selected</span></div></div>
+  <span class="sample">sample · figures from this machine, 2026-08-22</span>
+</div>
+<div class="notes">
+  <div class="annot"><b>Chips above the strip.</b> Once the figure follows the selected chip, the chip is the control for that figure and sits above what it changes — the reasoning that put Rescan inside the strip.</div>
+  <div class="annot"><b>The meter follows the chip.</b> These are the inspector's own figures (<code>McpEngineSummary</code>): 9 of 23 servers answered, 7 not yet asked, 7 can't be asked. The dashed third segment is inert glass, not a state.</div>
+  <div class="annot"><b>Aqua = answered share — needs a ruling.</b> Today aqua may mark only the linked share (<code>GelMeter.tsx</code>, ruled 2026-08-15). Probe coverage is a second meaning for the same gel.</div>
+  <div class="annot"><b>The 2 in Review — needs a backend field.</b> It is a count of servers whose registrations disagree. <code>McpServerRow</code> carries agreement per row; the frontend may not count rows.</div>
+  <div class="annot"><b>The legend wraps here.</b> Three labels and two buttons outrun the strip beside a 384px inspector. The real strip carries the same flex-wrap and breaks the same way; shorter labels or a narrower Rescan is a ruling, not a prototype fix.</div>
+</div>
+</div>
+
+<!-- ───────── Shell 3 ───────── -->
+<div class="option"><h2>Option B · chips above</h2><span>one routed finding line</span></div>
+<div class="row">
+<div class="shell chips-first">
+  <div class="rail"><i class="on"></i><i></i><i></i><i></i><i></i></div>
+  <div class="main">
+    <div class="cap"><span class="crumb">My machine</span><span class="crumb">›</span><span class="font-medium text-ink-1">Global</span></div>
+
+    <div class="chips">
+      <button type="button" class="chip on" aria-pressed="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 12.75l6 6 9-13.5"/></svg>All <b class="text-micro">144</b></button>
+      <button type="button" class="chip">Skills <b class="text-micro">110</b></button>
+      <button type="button" class="chip">MCP servers <b class="text-micro">19</b></button>
+      <button type="button" class="chip">Rules <b class="text-micro">2</b></button>
+      <button type="button" class="chip">Subagents <b class="text-micro">13</b></button>
+    </div>
+
+    <section class="strip" aria-label="Inventory summary">
+      <div class="flex items-baseline gap-3 strip-head">
+        <span class="text-display font-medium tabular text-ink-1">144</span>
+        <span class="text-lg-app text-ink-2">assets in the global store · 7 engines</span>
+        <span class="ml-auto text-micro text-ink-3 font-flex">Scanned 3 min ago</span>
+      </div>
+      <div class="gel" role="img" aria-label="110 linked, 0 drifted, 0 broken, 39 local only"><span class="aqua" style="flex:110"></span><span class="plain" style="flex:39"></span></div>
+      <div class="flex items-center gap-4 legend">
+        <button type="button" class="text-small font-flex text-ink-2"><i class="dot aqua"></i><b class="font-medium tabular text-ink-1">110</b> linked</button>
+        <button type="button" class="text-small font-flex text-ink-2"><i class="dot bg-state-warning"></i><b class="font-medium tabular text-ink-1">0</b> drifted</button>
+        <button type="button" class="text-small font-flex text-ink-2"><i class="dot bg-state-danger"></i><b class="font-medium tabular text-ink-1">0</b> broken</button>
+        <button type="button" class="text-small font-flex text-ink-2"><i class="dot hollow"></i><b class="font-medium tabular text-ink-1">39</b> local only</button>
+        <div class="ml-auto flex items-center gap-2">
+          <button type="button" class="btn rescan" aria-label="Refresh scan"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99"/></svg>Rescan</button>
+        </div>
+      </div>
+      <p class="text-micro text-ink-3 font-flex facts-line">Global store ~/.agents · 7 engines · 16 host configs read</p>
+    </section>
+
+    <div class="findings">
+      <!-- DisclosureBanner as it exists today, collapsed -->
+      <div class="disclosure warning">
+        <button type="button" aria-expanded="false">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M8.25 4.5l7.5 7.5-7.5 7.5"/></svg>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/></svg>
+          <span class="truncate">168 undeclared MCP servers</span>
+        </button>
+      </div>
+      <!-- The proposed routed finding: no chevron, no body — a line that navigates -->
+      <div class="disclosure warning">
+        <div class="finding font-medium text-state-warning">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/></svg>
+          <span class="truncate">2 MCP servers are declared more than once</span>
+          <button type="button" class="btn">Review →</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="list-plane">
+      <div class="list-head eyebrow"><span>Name</span><span>Kind</span><span>Beyond the store</span></div>
+      <div class="group eyebrow">Skills · 110</div>
+      <div class="ghost-row"><i class="ghost rounded-pill" style="width:140px"></i><i class="ghost rounded-pill" style="width:36px"></i><i class="ghost rounded-pill" style="width:88px"></i></div>
+      <div class="ghost-row"><i class="ghost rounded-pill" style="width:196px"></i><i class="ghost rounded-pill" style="width:36px"></i><i class="ghost rounded-pill" style="width:88px"></i></div>
+    </div>
+    <div class="foot">Showing 144 of 144</div>
+  </div>
+  <div class="aside"><div class="aside-empty"><span class="text-small text-ink-3">Nothing selected</span></div></div>
+  <span class="sample">sample · figures from this machine, 2026-08-22</span>
+</div>
+<div class="notes">
+  <div class="annot"><b>F34.</b> A banner explains a fault once; the summary line stays and the body goes. The action opens Needs review with the issue selected.</div>
+  <div class="annot"><b>Same shape, one row.</b> The second line is the DisclosureBanner's button row with the chevron removed and the action placed where the body used to be reached. It is not a new banner.</div>
+</div>
+</div>
+
+<!-- ───────── Tally ───────── -->
+<div class="annot tally">
+  <span class="text-small font-medium text-ink-1">Carried over / changed / dropped</span>
+  <ul>
+    <li><b>Carried over:</b> one flat strip, <code>--line</code> border, 32px total, GelMeter, legend toggles, Rescan in the strip, Review → pill gated on a real count.</li>
+    <li><b>Changed:</b> the meter's meaning follows the selected chip — link state for assets, probe coverage for MCP servers; one facts line of backend fields under the legend.</li>
+    <li><b>Changed:</b> the chip row moves above the strip: when the strip's content follows the selected chip, the chip is the control for the figure and sits above what it changes — the same reasoning that put Rescan inside the strip (Karthik, 2026-08-22).</li>
+    <li><b>Dropped:</b> per-category hues, gradients, glass and blur (one elevation exists and it belongs to the map's overlays); "System fragmentation / canonical vs shadow" (not in the model — ownership and reach are); "Daemon active · uptime" (there is no daemon); 30-day activity, privilege audit, pool saturation (Hanger does not observe engines running); token-tax figures (nothing measures tokens).</li>
+  </ul>
+</div>
+
+<script>
+  (function () {
+    var b = document.getElementById('dark');
+    b.addEventListener('click', function () {
+      var on = document.documentElement.classList.toggle('dark');
+      b.textContent = on ? 'Light' : 'Dark';
+    });
+  })();
+</script>
+</body>
+</html>

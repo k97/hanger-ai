@@ -1,0 +1,420 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Inspector — docked, sectioned; what the panels add</title>
+<link rel="stylesheet" href="_proto.css">
+<style>
+/* Layout only. Every colour, size and radius below is a token or a class from _proto.css. */
+.row { display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap; margin-bottom: 8px; }
+.notes { width: 300px; display: flex; flex-direction: column; gap: 8px; }
+.shell { position: relative; }
+.shell .sample { left: 74px; right: auto; }
+.rail i.logo { width: 22px; height: 22px; background: var(--brand); margin-bottom: 6px; }
+.cap.r { justify-content: flex-end; padding-right: 12px; gap: 4px; }
+.cap .crumb { display: flex; align-items: center; gap: 6px; }
+/* Ghost pane */
+.g { display: block; height: 10px; background: var(--plane-2); }
+.g.k { background: var(--tint-plane); }
+.grow { height: 40px; display: flex; align-items: center; gap: 12px; padding: 0 14px; border-bottom: 1px solid var(--line); }
+.ghost-list { margin-top: 12px; }
+/* Inspector */
+.aside .body { flex: 1 1 0; min-height: 0; overflow-y: auto; } /* one scroll region, as AssetDetail / McpServerDetail */
+.hd { padding: 2px 18px 12px; border-bottom: 1px solid var(--line); }
+.hd h2 { letter-spacing: -0.3px; margin-top: 4px; }
+.blk { padding: 12px 18px 14px; border-bottom: 1px solid var(--line); }
+.acts { display: flex; gap: 8px; padding: 12px 18px; border-bottom: 1px solid var(--line); }
+.card { margin: 14px 18px; }
+.reach { margin: 0 18px 14px; padding: 12px 14px; background: var(--plane); display: flex; flex-direction: column; gap: 12px; }
+.grp { display: flex; flex-direction: column; gap: 6px; }
+.grp-h { display: flex; align-items: center; gap: 8px; }
+.rule { flex: 1 1 0; height: 1px; background: var(--line); }
+.members { display: grid; grid-template-columns: 1fr auto; gap: 6px 12px; align-items: center; }
+.contents { display: contents; }
+.ic { width: 13px; height: 13px; flex-shrink: 0; }
+.mark { width: 14px; height: 14px; flex-shrink: 0; fill: var(--tint-plane); stroke: var(--line); }
+.dim { opacity: .45; }
+.regs { display: flex; flex-direction: column; gap: 1px; background: var(--line); border: 1px solid var(--line); overflow: hidden; }
+.reg { background: var(--page); padding: 9px 11px; display: flex; flex-direction: column; gap: 3px; }
+.ent { background: var(--page); padding: 8px 11px; display: flex; align-items: center; gap: 8px; }
+.tool { display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; }
+.tool .fig { grid-row: 1 / span 2; align-self: start; }
+.icon-btn.sm { width: 21px; height: 21px; }
+.drow { display: flex; align-items: center; gap: 8px; padding: 8px 8px 8px 12px; color: var(--state-warning); }
+.vcard { padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
+.tabs { display: flex; gap: 6px; padding: 10px 18px 0; }
+.doc { padding: 12px 18px 0; line-height: 1.55; }
+.doc h3 { margin-bottom: 6px; }
+.doc pre { margin: 8px 0; padding: 10px 12px; background: var(--plane); font-family: var(--font-mono); white-space: pre; overflow: hidden; line-height: 1.6; }
+.pill.tinted { background: var(--tint); border-color: transparent; color: var(--ink-1); }
+.flex-wrap { flex-wrap: wrap; }
+.mt-2 { margin-top: 8px; } .mb-1 { margin-bottom: 4px; } .mb-3 { margin-bottom: 12px; }
+.lh { line-height: 1.5; }
+/* Option B: two asides share the right 768px; the ghost pane keeps the rest */
+.twin { width: 768px; display: flex; flex-shrink: 0; }
+.shell.b .main { flex: 0 0 200px; width: 200px; }
+.wide { max-width: 1024px; margin-top: 8px; }
+.leg { margin-top: 28px; max-width: 1024px; padding: 12px 14px; }
+.leg ul { list-style: disc; padding-left: 16px; margin: 4px 0 10px; }
+.leg li { margin-bottom: 2px; }
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" aria-hidden="true" style="position:absolute">
+  <symbol id="mk" viewBox="0 0 14 14"><rect x=".5" y=".5" width="13" height="13" rx="3.5"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15"/></symbol>
+  <symbol id="i-sb" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="4.5" width="17" height="15" rx="2.5"/><path d="M14.5 4.5v15"/></symbol>
+  <symbol id="i-cp" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M16.5 8.25V6a2.25 2.25 0 00-2.25-2.25H6A2.25 2.25 0 003.75 6v8.25A2.25 2.25 0 006 16.5h2.25m8.25-8.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-7.5A2.25 2.25 0 018.25 18v-1.5m8.25-8.25h-6a2.25 2.25 0 00-2.25 2.25v6"/></symbol>
+  <symbol id="i-rv" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M9 8.25H7.5a2.25 2.25 0 00-2.25 2.25v9a2.25 2.25 0 002.25 2.25h9a2.25 2.25 0 002.25-2.25v-9a2.25 2.25 0 00-2.25-2.25H15M9 12l3 3m0 0l3-3m-3 3V2.25"/></symbol>
+  <symbol id="i-wn" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/></symbol>
+  <symbol id="i-fl" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/></symbol>
+  <symbol id="i-fd" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z"/></symbol>
+  <symbol id="i-rf" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99"/></symbol>
+</svg>
+
+<div class="toggle-bar"><button class="btn" id="dk" aria-pressed="false">Dark</button></div>
+
+<h1 class="review-title">Inspector — docked, sectioned; what the panels add</h1>
+<p class="review-note">Three shells at the window's true size, 1024×700, the inspector docked at 384px as <code>App.tsx</code> draws it. Shells 1 and 2 keep the inspector the app ships today and add what the prototype panels proposed, where the data exists or is a small backend change away. Shell 3 tries the one structural alternative: a tab row that puts the facts first. The dashed notes say where each addition comes from and what it costs. No colour or size here is new — the stylesheet imports the app's own tokens, light and dark.</p>
+
+<!-- ═══════════════ Shell 1 — Skill ═══════════════ -->
+<div class="option"><h2>Option A · Skill</h2><span>sectioned, as today, plus two additions</span></div>
+<div class="row">
+<div class="shell">
+  <div class="rail"><i class="logo rounded-soft"></i><i class="on"></i><i></i><i></i></div>
+  <div class="main">
+    <div class="cap"><button class="icon-btn" aria-label="Toggle sidebar"><svg class="ic"><use href="#i-sb"/></svg></button><span class="crumb"><span class="text-ink-2">My machine</span><span class="text-ink-3">›</span><span class="font-medium">Global</span></span></div>
+    <div class="strip"><span class="g k rounded-pill" style="width:140px;margin-bottom:14px"></span><span class="g rounded-pill" style="width:100%;margin-bottom:14px"></span><span class="g rounded-pill" style="width:220px"></span></div>
+    <div class="list-plane ghost-list">
+      <div class="grow"><span class="g rounded-pill" style="width:60px"></span></div>
+      <div class="grow bg-plane-2"><span class="g k rounded-pill" style="width:14px"></span><span class="g k rounded-pill" style="width:130px"></span><span class="g k rounded-pill ml-auto" style="width:80px"></span></div>
+      <div class="grow"><span class="g rounded-pill" style="width:14px"></span><span class="g rounded-pill" style="width:180px"></span><span class="g rounded-pill ml-auto" style="width:80px"></span></div>
+      <div class="grow"><span class="g rounded-pill" style="width:14px"></span><span class="g rounded-pill" style="width:150px"></span><span class="g rounded-pill ml-auto" style="width:80px"></span></div>
+      <div class="grow"><span class="g rounded-pill" style="width:14px"></span><span class="g rounded-pill" style="width:110px"></span><span class="g rounded-pill ml-auto" style="width:80px"></span></div>
+      <div class="grow"><span class="g rounded-pill" style="width:14px"></span><span class="g rounded-pill" style="width:160px"></span><span class="g rounded-pill ml-auto" style="width:80px"></span></div>
+      <div class="grow"><span class="g rounded-pill" style="width:14px"></span><span class="g rounded-pill" style="width:120px"></span><span class="g rounded-pill ml-auto" style="width:80px"></span></div>
+    </div>
+    <div class="foot"></div>
+  </div>
+  <aside class="aside">
+    <div class="cap r"><button class="icon-btn" aria-label="Expand"><svg class="ic"><use href="#i-x"/></svg></button><button class="icon-btn bg-tint" aria-label="Hide inspector"><svg class="ic"><use href="#i-sb"/></svg></button></div>
+    <div class="body">
+      <div class="hd">
+        <div class="eyebrow flex items-center gap-2"><span>Skill</span><span aria-hidden="true">·</span><span>Global</span></div>
+        <h2 class="text-lg-app font-medium">agent-browser</h2>
+      </div>
+      <div class="blk">
+        <div class="flex items-center gap-2 mb-3 text-small text-ink-3"><i class="dot hollow"></i><span>Local only · nothing links to it</span></div>
+        <div class="path-chip"><span>/Users/karthik/.agents/skills/agent-browser/SKILL.md</span><button class="icon-btn sm" aria-label="Copy path"><svg class="ic"><use href="#i-cp"/></svg></button><button class="icon-btn sm" aria-label="Reveal in Finder"><svg class="ic"><use href="#i-rv"/></svg></button></div>
+      </div>
+      <div class="acts"><button class="btn fill">Link to…</button><button class="btn">Open in editor</button></div>
+
+      <div class="disclosure warning card"><div class="drow"><svg class="ic"><use href="#i-wn"/></svg><span class="font-medium">1 issue needs a decision</span><button class="btn ml-auto">Review →</button></div></div>
+
+      <dl class="facts card">
+        <dt>Engine</dt><dd>Any agent</dd>
+        <dt>Scope</dt><dd>Global</dd>
+        <dt>Origin</dt><dd>Local · not from a registry</dd>
+        <dt>Version</dt><dd>v0.0.0-draft</dd>
+        <dt>Size</dt><dd>8.6 kB · 252 lines</dd>
+        <dt>Allowed tools</dt><dd>Bash(agent-browser:*)</dd>
+      </dl>
+
+      <section class="card">
+        <div class="section-head"><span class="eyebrow">In this skill</span></div>
+        <ul class="regs rounded-inner">
+          <li class="ent"><svg class="ic text-ink-3"><use href="#i-fl"/></svg><span class="font-mono text-small flex-1">SKILL.md</span><span class="font-mono text-micro text-ink-3">8.6 kB</span></li>
+          <li class="ent"><svg class="ic text-ink-3"><use href="#i-fd"/></svg><span class="font-mono text-small flex-1">references/</span><span class="font-mono text-micro text-ink-3">3 files</span></li>
+          <li class="ent"><svg class="ic text-ink-3"><use href="#i-fd"/></svg><span class="font-mono text-small flex-1">scripts/</span><span class="font-mono text-micro text-ink-3">1 file</span></li>
+        </ul>
+      </section>
+
+      <section class="reach rounded-plane">
+        <div class="flex items-baseline justify-between gap-2"><span class="eyebrow">Reach</span><span class="font-mono text-micro text-ink-3">→ ~/.agents</span></div>
+        <div class="grp">
+          <div class="grp-h eyebrow"><span>Reaches it</span><i class="rule"></i></div>
+          <ul class="members">
+            <li class="contents"><span class="flex items-center gap-2 min-w-0 text-small"><svg class="mark"><use href="#mk"/></svg><span class="truncate">Claude Code</span></span><span class="font-mono text-micro text-ink-3">~/.claude/agents</span></li>
+            <li class="contents"><span class="flex items-center gap-2 min-w-0 text-small"><svg class="mark"><use href="#mk"/></svg><span class="truncate">Codex</span></span><span class="font-mono text-micro text-ink-3">~/.codex/skills</span></li>
+            <li class="contents"><span class="flex items-center gap-2 min-w-0 text-small"><svg class="mark"><use href="#mk"/></svg><span class="truncate">Gemini / Antigravity</span></span><span class="font-mono text-micro text-ink-3">~/.gemini/skills</span></li>
+            <li class="contents"><span class="flex items-center gap-2 min-w-0 text-small"><svg class="mark"><use href="#mk"/></svg><span class="truncate">Zed</span></span><span class="font-mono text-micro text-ink-3">in place</span></li>
+          </ul>
+        </div>
+        <div class="grp">
+          <div class="grp-h eyebrow"><span>Root not linked</span><i class="rule"></i></div>
+          <ul class="members">
+            <li class="contents"><span class="flex items-center gap-2 min-w-0 text-small text-ink-3"><svg class="mark dim"><use href="#mk"/></svg><span class="truncate">Claude Desktop</span></span><span class="font-mono text-micro text-ink-3 dim">—</span></li>
+            <li class="contents"><span class="flex items-center gap-2 min-w-0 text-small text-ink-3"><svg class="mark dim"><use href="#mk"/></svg><span class="truncate">VS Code</span></span><span class="font-mono text-micro text-ink-3 dim">—</span></li>
+            <li class="contents"><span class="flex items-center gap-2 min-w-0 text-small text-ink-3"><svg class="mark dim"><use href="#mk"/></svg><span class="truncate">OpenCode</span></span><span class="font-mono text-micro text-ink-3 dim">—</span></li>
+          </ul>
+        </div>
+      </section>
+
+      <div class="tabs" role="group" aria-label="Document view"><button class="chip on" aria-pressed="true">Preview</button><button class="chip" aria-pressed="false">Source</button></div>
+      <div class="doc text-small">
+        <h3 class="text-base-app font-medium">Browser Automation with agent-browser</h3>
+        <p class="font-medium">Quick start</p>
+<pre class="text-micro text-ink-2 rounded-inner">agent-browser open &lt;url&gt;        # Navigate to page
+agent-browser snapshot -i       # Get interactive elements with refs
+agent-browser click @e1         # Click element by ref
+agent-browser fill @e2 "text"   # Fill input by ref
+agent-browser close             # Close browser</pre>
+        <p class="font-medium">Core workflow</p>
+        <p class="text-ink-2">Navigate with <code>agent-browser open</code>, snapshot to get element refs, interact using the refs, then re-snapshot after navigation or significant DOM changes.</p>
+      </div>
+    </div>
+  </aside>
+  <span class="sample">sample · figures from this machine, 2026-08-22</span>
+</div>
+<div class="notes">
+  <div class="annot"><b>Routed finding (proposal 1).</b> From <code>deriveReviewIssues</code> — the inspector says it once and sends you to Needs review (F34). Rendered only when the asset has an issue; the real agent-browser has none, so this line is the proposal, not the machine.</div>
+  <div class="annot"><b>In this skill (proposal 2).</b> Needs a small backend addition — <code>read_asset_body</code> reads one file; a <code>list_asset_dir</code> command would list the folder. Counts per folder come with it; the frontend lists, it does not count. On this machine the folder holds only <code>SKILL.md</code>; the two subfolders are illustrative.</div>
+  <div class="annot"><b>Marks</b> are the app's BrandIcon sprite; the neutral square stands in for it here. The state line is <code>text-ink-3</code> for a local asset, as <code>AssetDetail.tsx</code> draws it.</div>
+  <div class="annot"><b>Everything else</b> is the inspector as shipped: Flyout header, state line, path chip, actions, facts, Reach grouped by verdict, Preview / Source.</div>
+  <div class="annot"><b>Below the fold.</b> At 700px the two additions push Reach to the cut and the document to 875px down the column. The body scrolls, as it does in the app; this is the cost Option B answers.</div>
+</div>
+</div>
+
+<!-- ═══════════════ Shell 2 — MCP server ═══════════════ -->
+<div class="option"><h2>Option A · MCP server</h2><span>sectioned, plus the verdict card</span></div>
+<div class="row">
+<div class="shell">
+  <div class="rail"><i class="logo rounded-soft"></i><i class="on"></i><i></i><i></i></div>
+  <div class="main">
+    <div class="cap"><button class="icon-btn" aria-label="Toggle sidebar"><svg class="ic"><use href="#i-sb"/></svg></button><span class="crumb"><span class="text-ink-2">My machine</span><span class="text-ink-3">›</span><span class="font-medium">Global</span></span></div>
+    <div class="strip"><span class="g k rounded-pill" style="width:140px;margin-bottom:14px"></span><span class="g rounded-pill" style="width:100%;margin-bottom:14px"></span><span class="g rounded-pill" style="width:220px"></span></div>
+    <div class="list-plane ghost-list">
+      <div class="grow"><span class="g rounded-pill" style="width:90px"></span><span class="g rounded-pill ml-auto" style="width:40px"></span></div>
+      <div class="grow bg-plane-2"><span class="g k rounded-pill" style="width:120px"></span><span class="g k rounded-pill" style="width:40px"></span><span class="g k rounded-pill ml-auto" style="width:12px"></span></div>
+      <div class="grow"><span class="g rounded-pill" style="width:150px"></span><span class="g rounded-pill" style="width:40px"></span><span class="g rounded-pill ml-auto" style="width:12px"></span></div>
+      <div class="grow"><span class="g rounded-pill" style="width:100px"></span><span class="g rounded-pill" style="width:40px"></span><span class="g rounded-pill ml-auto" style="width:12px"></span></div>
+      <div class="grow"><span class="g rounded-pill" style="width:130px"></span><span class="g rounded-pill" style="width:40px"></span><span class="g rounded-pill ml-auto" style="width:12px"></span></div>
+      <div class="grow"><span class="g rounded-pill" style="width:110px"></span><span class="g rounded-pill" style="width:40px"></span><span class="g rounded-pill ml-auto" style="width:12px"></span></div>
+    </div>
+    <div class="foot"></div>
+  </div>
+  <aside class="aside">
+    <div class="cap r"><button class="icon-btn" aria-label="Expand"><svg class="ic"><use href="#i-x"/></svg></button><button class="icon-btn bg-tint" aria-label="Hide inspector"><svg class="ic"><use href="#i-sb"/></svg></button></div>
+    <div class="body">
+      <div class="hd">
+        <div class="eyebrow flex items-center gap-2"><span>MCP server</span><span aria-hidden="true">·</span><span>Global</span></div>
+        <div class="flex items-center gap-2"><h2 class="text-lg-app font-medium">spades-audio</h2><span class="pill tinted" style="margin-top:4px">stdio</span></div>
+      </div>
+
+      <section class="section">
+        <div class="section-head"><span class="eyebrow">Identity</span><span class="text-micro text-ink-3 font-mono">verified 2d ago</span></div>
+        <div class="flex flex-wrap gap-1.5"><span class="pill">server <b>1.0.0</b></span><span class="pill">MCP <b>2025-06-18</b></span><span class="pill">caps <b>tools</b></span></div>
+        <p class="text-small text-ink-2 mt-2 lh">Advertises tools. Resources and prompts were not offered in the handshake.</p>
+      </section>
+
+      <section class="section">
+        <div class="vcard bg-plane rounded-inner">
+          <div class="flex items-center gap-2"><i class="dot bg-state-warning"></i><span class="font-medium">Declared 3 times, twice by the same engine</span></div>
+          <p class="text-small text-ink-2 lh">All three launches agree — the same command from Claude Code (mcp.json), Claude Code (.claude.json) and Claude Desktop.</p>
+          <div class="flex gap-2"><button class="btn">Compare</button><button class="btn">Open config</button></div>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="section-head"><span class="eyebrow">Registered in</span><span class="text-micro text-ink-3 font-mono">3 registrations</span></div>
+        <div class="regs rounded-inner">
+          <div class="reg">
+            <div class="flex items-center justify-between gap-2"><span class="flex items-center gap-2 text-small font-medium"><svg class="mark"><use href="#mk"/></svg>Claude Code</span><span class="eyebrow">Global</span></div>
+            <div class="flex items-center gap-1.5 min-w-0"><span class="font-mono text-micro text-ink-2 truncate flex-1">/Users/karthik/.claude/mcp.json</span><button class="icon-btn sm" aria-label="Reveal in Finder"><svg class="ic"><use href="#i-rv"/></svg></button></div>
+            <span class="font-mono text-micro text-ink-3 truncate">node /Applications/Spades Audio.app/Contents/R…</span>
+            <span class="font-mono text-micro text-ink-2">17 tools</span>
+            <span class="font-mono text-micro text-state-success">running · pid 16796 · Claude Code</span>
+          </div>
+          <div class="reg">
+            <div class="flex items-center justify-between gap-2"><span class="flex items-center gap-2 text-small font-medium"><svg class="mark"><use href="#mk"/></svg>Claude Code</span><span class="eyebrow">Global</span></div>
+            <div class="flex items-center gap-1.5 min-w-0"><span class="font-mono text-micro text-ink-2 truncate flex-1">/Users/karthik/.claude.json</span><button class="icon-btn sm" aria-label="Reveal in Finder"><svg class="ic"><use href="#i-rv"/></svg></button></div>
+            <span class="font-mono text-micro text-ink-3 truncate">node /Applications/Spades Audio.app/Contents/R…</span>
+          </div>
+          <div class="reg">
+            <div class="flex items-center justify-between gap-2"><span class="flex items-center gap-2 text-small font-medium"><svg class="mark"><use href="#mk"/></svg>Claude Desktop</span><span class="eyebrow">Global</span></div>
+            <div class="flex items-center gap-1.5 min-w-0"><span class="font-mono text-micro text-ink-2 truncate flex-1">/Users/karthik/Library/Application Support/Claude/claude_desktop_config.json</span><button class="icon-btn sm" aria-label="Reveal in Finder"><svg class="ic"><use href="#i-rv"/></svg></button></div>
+            <span class="font-mono text-micro text-ink-3 truncate">node /Applications/Spades Audio.app/Contents/R…</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="section-head"><span class="eyebrow">Tools</span><span class="flex items-center gap-2"><span class="text-micro text-ink-3 font-mono">17</span><button class="icon-btn sm" aria-label="Check again"><svg class="ic"><use href="#i-rf"/></svg></button></span></div>
+        <div class="flex justify-between text-micro text-ink-3 mb-1"><span></span><span>Described in</span></div>
+        <div class="regs rounded-inner">
+          <div class="reg tool"><span class="font-mono text-small">get_system_volume</span><span class="fig font-mono text-micro text-ink-3">—</span><span class="text-small text-ink-2">Get the current macOS system volume level (0–100) and mute state.</span></div>
+          <div class="reg tool"><span class="font-mono text-small">set_system_volume</span><span class="fig font-mono text-micro text-ink-3">—</span><span class="text-small text-ink-2">Set the macOS system volume to a specific level (0–100).</span></div>
+          <div class="reg tool"><span class="font-mono text-small">list_audio_apps</span><span class="fig font-mono text-micro text-ink-3">—</span><span class="text-small text-ink-2">List the apps currently producing audio.</span></div>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="section-head"><span class="eyebrow">Environment</span><span class="text-micro text-ink-3 font-mono">1</span></div>
+        <div class="flex flex-wrap gap-1.5"><span class="pill">SPADES_TOKEN</span></div>
+        <p class="text-micro text-ink-3 mt-2 lh">Names only. Hanger never reads a variable’s value.</p>
+      </section>
+    </div>
+  </aside>
+  <span class="sample">sample · figures from this machine, 2026-08-22</span>
+</div>
+<div class="notes">
+  <div class="annot"><b>Capabilities in a sentence.</b> Capabilities are key names from the handshake; absence means not offered, never "unsupported".</div>
+  <div class="annot"><b>Verdict card (TODO T10).</b> <code>agreement</code>, <code>distinct_spec_count</code> and registration keys are backend fields today; the card states the verdict once, above the rows that are its evidence.</div>
+  <div class="annot"><b>Described in.</b> The prototype's "token tax": <code>probe.rs</code> drops the schema today; keeping its byte size is a small backend change. Tokens are not measurable, bytes are — the dash holds the column until they arrive.</div>
+  <div class="annot"><b>Environment.</b> Names only, by design; the prototype's <code>=***</code> implies a value was read.</div>
+  <div class="annot"><b>Below the fold.</b> Tools and Environment sit under Registered in at 700px, as in the app today; scroll the inspector to reach them.</div>
+</div>
+</div>
+
+<!-- ═══════════════ Shell 3 — Option B, tabbed header ═══════════════ -->
+<div class="option"><h2>Option B · tabbed header</h2><span>facts first; the document and the tool list sit behind a tab</span></div>
+<div class="shell b">
+  <div class="rail"><i class="logo rounded-soft"></i><i class="on"></i><i></i><i></i></div>
+  <div class="main">
+    <div class="cap"><span class="crumb"><span class="text-ink-2">My machine</span><span class="text-ink-3">›</span><span class="font-medium">Global</span></span></div>
+    <div class="strip"><span class="g k rounded-pill" style="width:80px;margin-bottom:14px"></span><span class="g rounded-pill" style="width:100%"></span></div>
+    <div class="list-plane ghost-list">
+      <div class="grow"><span class="g rounded-pill" style="width:50px"></span></div>
+      <div class="grow bg-plane-2"><span class="g k rounded-pill" style="width:14px"></span><span class="g k rounded-pill" style="width:90px"></span></div>
+      <div class="grow"><span class="g rounded-pill" style="width:14px"></span><span class="g rounded-pill" style="width:110px"></span></div>
+      <div class="grow"><span class="g rounded-pill" style="width:14px"></span><span class="g rounded-pill" style="width:80px"></span></div>
+      <div class="grow"><span class="g rounded-pill" style="width:14px"></span><span class="g rounded-pill" style="width:100px"></span></div>
+      <div class="grow"><span class="g rounded-pill" style="width:14px"></span><span class="g rounded-pill" style="width:70px"></span></div>
+    </div>
+    <div class="foot"></div>
+  </div>
+  <div class="twin">
+  <aside class="aside">
+    <div class="cap r"><button class="icon-btn" aria-label="Expand"><svg class="ic"><use href="#i-x"/></svg></button><button class="icon-btn bg-tint" aria-label="Hide inspector"><svg class="ic"><use href="#i-sb"/></svg></button></div>
+    <div class="body">
+      <div class="hd">
+        <div class="eyebrow flex items-center gap-2"><span>Skill</span><span aria-hidden="true">·</span><span>Global</span></div>
+        <h2 class="text-lg-app font-medium">agent-browser</h2>
+      </div>
+      <div class="tabs" role="group" aria-label="Inspector view"><button class="chip on" aria-pressed="true">Details</button><button class="chip" aria-pressed="false">Content</button></div>
+      <div class="blk">
+        <div class="flex items-center gap-2 mb-3 text-small text-ink-3"><i class="dot hollow"></i><span>Local only · nothing links to it</span></div>
+        <div class="path-chip"><span>/Users/karthik/.agents/skills/agent-browser/SKILL.md</span><button class="icon-btn sm" aria-label="Copy path"><svg class="ic"><use href="#i-cp"/></svg></button><button class="icon-btn sm" aria-label="Reveal in Finder"><svg class="ic"><use href="#i-rv"/></svg></button></div>
+      </div>
+      <div class="acts"><button class="btn fill">Link to…</button><button class="btn">Open in editor</button></div>
+      <dl class="facts card">
+        <dt>Engine</dt><dd>Any agent</dd>
+        <dt>Scope</dt><dd>Global</dd>
+        <dt>Origin</dt><dd>Local · not from a registry</dd>
+        <dt>Version</dt><dd>v0.0.0-draft</dd>
+        <dt>Size</dt><dd>8.6 kB · 252 lines</dd>
+        <dt>Allowed tools</dt><dd>Bash(agent-browser:*)</dd>
+      </dl>
+      <section class="reach rounded-plane">
+        <div class="flex items-baseline justify-between gap-2"><span class="eyebrow">Reach</span><span class="font-mono text-micro text-ink-3">→ ~/.agents</span></div>
+        <div class="grp">
+          <div class="grp-h eyebrow"><span>Reaches it</span><i class="rule"></i></div>
+          <ul class="members">
+            <li class="contents"><span class="flex items-center gap-2 min-w-0 text-small"><svg class="mark"><use href="#mk"/></svg><span class="truncate">Claude Code</span></span><span class="font-mono text-micro text-ink-3">~/.claude/agents</span></li>
+            <li class="contents"><span class="flex items-center gap-2 min-w-0 text-small"><svg class="mark"><use href="#mk"/></svg><span class="truncate">Codex</span></span><span class="font-mono text-micro text-ink-3">~/.codex/skills</span></li>
+            <li class="contents"><span class="flex items-center gap-2 min-w-0 text-small"><svg class="mark"><use href="#mk"/></svg><span class="truncate">Gemini / Antigravity</span></span><span class="font-mono text-micro text-ink-3">~/.gemini/skills</span></li>
+            <li class="contents"><span class="flex items-center gap-2 min-w-0 text-small"><svg class="mark"><use href="#mk"/></svg><span class="truncate">Zed</span></span><span class="font-mono text-micro text-ink-3">in place</span></li>
+          </ul>
+        </div>
+        <div class="grp">
+          <div class="grp-h eyebrow"><span>Root not linked</span><i class="rule"></i></div>
+          <ul class="members">
+            <li class="contents"><span class="flex items-center gap-2 min-w-0 text-small text-ink-3"><svg class="mark dim"><use href="#mk"/></svg><span class="truncate">Claude Desktop</span></span><span class="font-mono text-micro text-ink-3 dim">—</span></li>
+            <li class="contents"><span class="flex items-center gap-2 min-w-0 text-small text-ink-3"><svg class="mark dim"><use href="#mk"/></svg><span class="truncate">VS Code</span></span><span class="font-mono text-micro text-ink-3 dim">—</span></li>
+            <li class="contents"><span class="flex items-center gap-2 min-w-0 text-small text-ink-3"><svg class="mark dim"><use href="#mk"/></svg><span class="truncate">OpenCode</span></span><span class="font-mono text-micro text-ink-3 dim">—</span></li>
+          </ul>
+        </div>
+      </section>
+    </div>
+  </aside>
+  <aside class="aside">
+    <div class="cap r"><button class="icon-btn" aria-label="Expand"><svg class="ic"><use href="#i-x"/></svg></button><button class="icon-btn bg-tint" aria-label="Hide inspector"><svg class="ic"><use href="#i-sb"/></svg></button></div>
+    <div class="body">
+      <div class="hd">
+        <div class="eyebrow flex items-center gap-2"><span>MCP server</span><span aria-hidden="true">·</span><span>Global</span></div>
+        <div class="flex items-center gap-2"><h2 class="text-lg-app font-medium">spades-audio</h2><span class="pill tinted" style="margin-top:4px">stdio</span></div>
+      </div>
+      <div class="tabs" role="group" aria-label="Inspector view"><button class="chip on" aria-pressed="true">Details</button><button class="chip" aria-pressed="false">Tools <b>17</b></button></div>
+      <section class="section">
+        <div class="section-head"><span class="eyebrow">Identity</span><span class="text-micro text-ink-3 font-mono">verified 2d ago</span></div>
+        <div class="flex flex-wrap gap-1.5"><span class="pill">server <b>1.0.0</b></span><span class="pill">MCP <b>2025-06-18</b></span><span class="pill">caps <b>tools</b></span></div>
+        <p class="text-small text-ink-2 mt-2 lh">Advertises tools. Resources and prompts were not offered in the handshake.</p>
+      </section>
+      <section class="section">
+        <div class="vcard bg-plane rounded-inner">
+          <div class="flex items-center gap-2"><i class="dot bg-state-warning"></i><span class="font-medium">Declared 3 times, twice by the same engine</span></div>
+          <p class="text-small text-ink-2 lh">All three launches agree — the same command from Claude Code (mcp.json), Claude Code (.claude.json) and Claude Desktop.</p>
+          <div class="flex gap-2"><button class="btn">Compare</button><button class="btn">Open config</button></div>
+        </div>
+      </section>
+      <section class="section">
+        <div class="section-head"><span class="eyebrow">Registered in</span><span class="text-micro text-ink-3 font-mono">3 registrations</span></div>
+        <div class="regs rounded-inner">
+          <div class="reg">
+            <div class="flex items-center justify-between gap-2"><span class="flex items-center gap-2 text-small font-medium"><svg class="mark"><use href="#mk"/></svg>Claude Code</span><span class="eyebrow">Global</span></div>
+            <div class="flex items-center gap-1.5 min-w-0"><span class="font-mono text-micro text-ink-2 truncate flex-1">/Users/karthik/.claude/mcp.json</span><button class="icon-btn sm" aria-label="Reveal in Finder"><svg class="ic"><use href="#i-rv"/></svg></button></div>
+            <span class="font-mono text-micro text-ink-3 truncate">node /Applications/Spades Audio.app/Contents/R…</span>
+            <span class="font-mono text-micro text-state-success">running · pid 16796 · Claude Code</span>
+          </div>
+          <div class="reg">
+            <div class="flex items-center justify-between gap-2"><span class="flex items-center gap-2 text-small font-medium"><svg class="mark"><use href="#mk"/></svg>Claude Code</span><span class="eyebrow">Global</span></div>
+            <div class="flex items-center gap-1.5 min-w-0"><span class="font-mono text-micro text-ink-2 truncate flex-1">/Users/karthik/.claude.json</span><button class="icon-btn sm" aria-label="Reveal in Finder"><svg class="ic"><use href="#i-rv"/></svg></button></div>
+            <span class="font-mono text-micro text-ink-3 truncate">node /Applications/Spades Audio.app/Contents/R…</span>
+          </div>
+          <div class="reg">
+            <div class="flex items-center justify-between gap-2"><span class="flex items-center gap-2 text-small font-medium"><svg class="mark"><use href="#mk"/></svg>Claude Desktop</span><span class="eyebrow">Global</span></div>
+            <div class="flex items-center gap-1.5 min-w-0"><span class="font-mono text-micro text-ink-2 truncate flex-1">/Users/karthik/Library/Application Support/Claude/claude_desktop_config.json</span><button class="icon-btn sm" aria-label="Reveal in Finder"><svg class="ic"><use href="#i-rv"/></svg></button></div>
+            <span class="font-mono text-micro text-ink-3 truncate">node /Applications/Spades Audio.app/Contents/R…</span>
+          </div>
+        </div>
+      </section>
+      <section class="section">
+        <div class="section-head"><span class="eyebrow">Environment</span><span class="text-micro text-ink-3 font-mono">1</span></div>
+        <div class="flex flex-wrap gap-1.5"><span class="pill">SPADES_TOKEN</span></div>
+        <p class="text-micro text-ink-3 mt-2 lh">Names only. Hanger never reads a variable’s value.</p>
+      </section>
+    </div>
+  </aside>
+  </div>
+  <span class="sample">sample · figures from this machine, 2026-08-22</span>
+</div>
+<div class="annot wide"><b>Option B</b> moves the document and the tool list behind a tab, so the facts come first and the long list stops pushing Reach off-screen. Cost: one more click to the content; the app has no tab idiom yet (the document Preview / Source pair is the nearest). Two asides are shown side by side only so the skill and the MCP server can be read together; in the app each is one 384px column.</div>
+
+<!-- ═══════════════ Legend ═══════════════ -->
+<div class="annot leg">
+  <b>Carried over / changed / dropped</b>
+  <p class="mt-2"><b>Carried over</b></p>
+  <ul>
+    <li>Docked 384px aside — no floating panel; the app's one elevation belongs to the map's overlays.</li>
+    <li>The inspector anatomy: eyebrow, title, state line, path chip, actions, facts, sections.</li>
+    <li>Reach grouped by verdict — three verdicts, one more than the prototype drew.</li>
+    <li>Names-only environment.</li>
+  </ul>
+  <p><b>Changed</b></p>
+  <ul>
+    <li>A routed issue line instead of inline red boxes.</li>
+    <li>A verdict card for registrations.</li>
+    <li>Capabilities said in a sentence.</li>
+    <li>An "In this skill" folder listing.</li>
+    <li>A per-tool size column, pending the backend.</li>
+  </ul>
+  <p><b>Dropped</b></p>
+  <ul>
+    <li>Glass and blur.</li>
+    <li>"Context bloat / token tax" and "namespace collisions" as red alerts — collision detection does not exist; if built, it is a Needs review issue, not a panel box.</li>
+    <li>"Primary owner", "Last reviewed", "Structural pattern: Linear", "Tool exposure: Optimized" — no such data; nothing reads authorship or usage.</li>
+    <li>Links to GitHub / docs — no registry metadata.</li>
+    <li><code>env=***</code> — values are never read.</li>
+  </ul>
+</div>
+
+<script>
+  var dk = document.getElementById('dk');
+  dk.addEventListener('click', function () {
+    var on = document.documentElement.classList.toggle('dark');
+    dk.setAttribute('aria-pressed', String(on));
+  });
+</script>
+</body>
+</html>

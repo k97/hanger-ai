@@ -1,0 +1,457 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Link map — focus, state on the node, richer placecards</title>
+<link rel="stylesheet" href="_proto.css">
+<style>
+  /* Layout only. Every colour, size, radius and beat is a token from tokens.css. */
+  .shell { position: relative; }
+  .shell .cap .crumb { color: var(--ink-3); }
+  .map-ground { flex: 1 1 0; min-height: 0; margin: 0 18px 18px; border: 1px solid var(--line); position: relative; overflow: hidden; }
+  .map-ground > svg { position: absolute; inset: 0; width: 100%; height: 100%; cursor: grab; }
+  .legend { height: 28px; flex-shrink: 0; padding: 0 19px; display: flex; align-items: center; gap: 20px; white-space: nowrap; }
+  .legend span { display: inline-flex; align-items: center; gap: 7px; }
+  .legend svg { display: block; }
+
+  /* SVG type: the two sizes the map draws, as classes — the one allowed form */
+  .t-micro { font-family: var(--font-flex); font-size: var(--fs-micro); }
+  .t-small { font-family: var(--font-flex); font-size: var(--fs-small); }
+  .t-mono { font-family: var(--font-mono); }
+  .f-ink-1 { fill: var(--ink-1); }
+  .f-ink-3 { fill: var(--ink-3); }
+  .head { color: var(--ink-3); }
+  text { user-select: none; }
+
+  /* Nodes — LinkMapPane.tsx: fill page, stroke line-2; store and the selected node stroke ink-1 at 1.5; unlinked roots dashed and hollow */
+  .node { cursor: pointer; }
+  .box { fill: var(--page); stroke: var(--line-2); stroke-width: 1; }
+  .box.store { stroke: var(--ink-1); stroke-width: 1.5; }
+  .box.unlinked { fill: transparent; stroke-dasharray: 3 3; }
+  .node.selected .box { stroke: var(--ink-1); stroke-width: 1.5; }
+  .mark { fill: var(--tint-plane); }
+  .state-dot { fill: var(--state-warning); stroke: var(--page); stroke-width: 2; }
+
+  /* Edges — mechanism in the dash, state in the colour; labels at the curve's midpoint */
+  .edge path { fill: none; stroke-width: 1.5; }
+  .edge.linked path { stroke: var(--ink-2); }
+  .edge.drifted path { stroke: var(--state-warning); }
+  .edge.dangling path { stroke: var(--state-danger); }
+  .edge text { cursor: pointer; }
+
+  /* Hover focus — the one opacity use in the page. Dimming is a focus state, not a colour. */
+  .node, .edge { transition: opacity var(--dur-hover) var(--spring); }
+  svg.has-focus .node:not(.focused), svg.has-focus .edge:not(.focused) { opacity: .35; }
+
+  /* Corner controls — LinkMapPane.tsx zoomBtnClass: round, bordered, on the page */
+  .corner { position: absolute; right: 12px; display: flex; flex-direction: column; align-items: flex-end; gap: 6px; z-index: 10; }
+  .corner.tr { top: 12px; }
+  .corner.br { bottom: 12px; }
+  .corner-btn { border: 1px solid var(--line); background: var(--page); color: var(--ink-2); }
+  .corner-btn.on { background: var(--tint); color: var(--tint-ink); border-color: transparent; }
+  /* The watermark sits on the canvas, clear of the zoom column, the placecard and the legend row */
+  .map-ground .sample { right: 52px; bottom: 10px; max-width: 360px; text-align: right; line-height: 1.4; z-index: 5; }
+
+  /* Layers panel — w-[190px] bg-page border-line rounded-inner p-2 shadow-overlay */
+  .layers { width: 190px; padding: 8px; }
+  .layers .eyebrow { padding: 2px 6px 6px; }
+  .layers .row { width: 100%; height: 28px; padding: 0 6px; display: flex; align-items: center; justify-content: space-between; font-family: var(--font-flex); color: var(--ink-1); transition: background-color var(--dur-hover) var(--spring); }
+  .layers .row:hover { background: var(--plane-2); }
+  .sw { display: block; flex-shrink: 0; }
+  .sw .track { fill: var(--plane-2); transition: fill var(--dur-hover) var(--spring); }
+  .sw .knob { fill: var(--page); stroke: var(--line); stroke-width: 1; transition: transform var(--dur-hover) var(--spring); }
+  .sw.on .track { fill: var(--fill); }
+  .sw.on .knob { fill: var(--on-fill); stroke: transparent; transform: translateX(10px); }
+
+  /* Placecard — LinkMapPlacecard.tsx spacing */
+  .placecard .head .eyebrow { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+  .placecard .head h2 { letter-spacing: -0.2px; margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
+  .placecard .head .state { display: flex; align-items: center; gap: 7px; font-family: var(--font-flex); }
+  .placecard .body > .path-chip { margin: 12px 16px 0; }
+  .placecard .body > .facts { margin: 12px 16px; }
+  .placecard .body > .annot { margin: 0 16px 12px; }
+  .placecard .body > .act { margin: 0 16px 14px; display: flex; }
+  .placecard .body > .eyebrow { margin: 0 16px 6px; }
+  .placecard .body > .rules { margin: 0 16px 12px; padding: 8px 12px; background: var(--plane); display: flex; flex-direction: column; gap: 6px; }
+  .placecard .foot { flex-shrink: 0; border-top: 1px solid var(--line); padding: 10px 16px 12px; display: flex; flex-direction: column; gap: 8px; }
+  .placecard .foot .picks { display: flex; gap: 7px; }
+  .mark-inline { display: block; flex-shrink: 0; }
+
+  .after { max-width: 1024px; margin-top: 18px; }
+  .after ul { margin-top: 4px; padding-left: 14px; list-style: disc; }
+  .after li { margin: 2px 0; }
+</style>
+</head>
+<body>
+
+<div class="toggle-bar"><button class="btn" id="dark">Dark</button></div>
+
+<h1 class="review-title">Link map — focus, state on the node, richer placecards</h1>
+<p class="review-note">
+  The map as it runs on this machine today, with five changes drawn in place: hover focus, a state dot on a node
+  that has a drifted or dangling edge, two more layers, a placecard with per-kind facts and one action, and a scan
+  stamp in the cap. Hover a node to see the focus. The chips at the foot of the placecard are a review control and
+  swap its body; in the design the body follows what was clicked. Every value is a token from
+  <code>tokens.css</code> — flip Dark to check.
+</p>
+
+<div class="shell">
+  <div class="rail"><i></i><i class="on"></i><i></i><i></i></div>
+  <div class="main">
+    <div class="cap">
+      <span class="crumb">My machine</span><span class="crumb">›</span><span class="font-medium">Link map</span>
+      <span class="ml-auto text-micro text-ink-3 font-flex">Scanned 3 min ago</span>
+      <button class="icon-btn" aria-label="Rescan">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99"/></svg>
+      </button>
+    </div>
+
+    <div class="map-ground rounded-plane">
+      <svg id="map" viewBox="0 0 930 612" role="img" aria-label="Link map">
+        <g transform="translate(0 22)">
+          <!-- column heads: LinkMapPane.tsx COLUMN_HEADS, at the first node's x -->
+          <text x="24" y="14" class="eyebrow head" fill="currentColor">Canonical store</text>
+          <text x="369" y="14" class="eyebrow head" fill="currentColor">Engine roots · global</text>
+          <text x="714" y="14" class="eyebrow head" fill="currentColor">Projects</text>
+
+          <!-- edges: store right edge (216, 50) → engine left edge (369, y); both control points at mid x 292.5 -->
+          <g class="edge linked" data-src="1" data-dst="2">
+            <path d="M 216 50 C 292.5 50, 292.5 50, 369 50"/>
+            <text x="292.5" y="44" text-anchor="middle" class="t-micro f-ink-3">2 symlinks</text>
+          </g>
+          <g class="edge drifted" data-src="1" data-dst="5">
+            <path d="M 216 50 C 292.5 50, 292.5 248, 369 248"/>
+            <text x="292.5" y="143" text-anchor="middle" class="t-micro f-ink-3">1 symlink · drifted</text>
+          </g>
+          <g class="edge linked" data-src="1" data-dst="6">
+            <path d="M 216 50 C 292.5 50, 292.5 314, 369 314"/>
+            <text x="292.5" y="176" text-anchor="middle" class="t-micro f-ink-3">1 symlink</text>
+          </g>
+
+          <!-- store -->
+          <g class="node selected" data-id="1" data-kind="store">
+            <rect class="box store" x="24" y="24" width="192" height="52" rx="11"/>
+            <text x="37" y="45" class="t-small f-ink-1">.agents</text>
+            <text x="37" y="61" class="t-micro t-mono f-ink-3">~/.agents</text>
+            <text x="204" y="45" text-anchor="end" class="t-micro f-ink-3">122 assets</text>
+          </g>
+
+          <!-- engine roots, sorted by label -->
+          <g class="node" data-id="2" data-kind="engine">
+            <rect class="box" x="369" y="24" width="192" height="52" rx="11"/>
+            <rect class="mark" x="381" y="35" width="14" height="14" rx="3"/>
+            <text x="398" y="45" class="t-small f-ink-1">Claude Code</text>
+            <text x="382" y="61" class="t-micro t-mono f-ink-3">~/.claude</text>
+            <text x="549" y="45" text-anchor="end" class="t-micro f-ink-3">10 assets</text>
+          </g>
+          <g class="node unlinked" data-id="3" data-kind="engine">
+            <rect class="box unlinked" x="369" y="90" width="192" height="52" rx="11"/>
+            <rect class="mark" x="381" y="101" width="14" height="14" rx="3"/>
+            <text x="398" y="111" class="t-small f-ink-1">Claude Desktop</text>
+            <text x="382" y="127" class="t-micro t-mono f-ink-3">~/Library… Support/Claude</text>
+            <text x="549" y="111" text-anchor="end" class="t-micro f-ink-3">not linked</text>
+          </g>
+          <g class="node unlinked" data-id="4" data-kind="engine">
+            <rect class="box unlinked" x="369" y="156" width="192" height="52" rx="11"/>
+            <rect class="mark" x="381" y="167" width="14" height="14" rx="3"/>
+            <text x="398" y="177" class="t-small f-ink-1">Claude.ai</text>
+            <text x="382" y="193" class="t-micro t-mono f-ink-3">~/.claude.json</text>
+            <text x="549" y="177" text-anchor="end" class="t-micro f-ink-3">not linked</text>
+          </g>
+          <g class="node" data-id="5" data-kind="engine">
+            <rect class="box" x="369" y="222" width="192" height="52" rx="11"/>
+            <rect class="mark" x="381" y="233" width="14" height="14" rx="3"/>
+            <text x="398" y="243" class="t-small f-ink-1">Codex</text>
+            <text x="382" y="259" class="t-micro t-mono f-ink-3">~/.codex</text>
+            <text x="549" y="243" text-anchor="end" class="t-micro f-ink-3">4 assets</text>
+            <!-- proposal 1: state on the node — 8px dot, inset 6px, ringed in the ground -->
+            <circle class="state-dot" cx="551" cy="232" r="4"/>
+          </g>
+          <g class="node" data-id="6" data-kind="engine">
+            <rect class="box" x="369" y="288" width="192" height="52" rx="11"/>
+            <rect class="mark" x="381" y="299" width="14" height="14" rx="3"/>
+            <text x="398" y="309" class="t-small f-ink-1">Gemini…tigravity</text>
+            <text x="382" y="325" class="t-micro t-mono f-ink-3">~/.gemini</text>
+            <text x="549" y="309" text-anchor="end" class="t-micro f-ink-3">3 assets</text>
+          </g>
+          <g class="node unlinked" data-id="7" data-kind="engine">
+            <rect class="box unlinked" x="369" y="354" width="192" height="52" rx="11"/>
+            <rect class="mark" x="381" y="365" width="14" height="14" rx="3"/>
+            <text x="398" y="375" class="t-small f-ink-1">OpenCode</text>
+            <text x="382" y="391" class="t-micro t-mono f-ink-3">~/.config/opencode</text>
+            <text x="549" y="375" text-anchor="end" class="t-micro f-ink-3">not linked</text>
+          </g>
+          <g class="node unlinked" data-id="8" data-kind="engine">
+            <rect class="box unlinked" x="369" y="420" width="192" height="52" rx="11"/>
+            <rect class="mark" x="381" y="431" width="14" height="14" rx="3"/>
+            <text x="398" y="441" class="t-small f-ink-1">VS Code</text>
+            <text x="382" y="457" class="t-micro t-mono f-ink-3">~/Library…pport/Code/User</text>
+            <text x="549" y="441" text-anchor="end" class="t-micro f-ink-3">not linked</text>
+          </g>
+          <g class="node unlinked" data-id="9" data-kind="engine">
+            <rect class="box unlinked" x="369" y="486" width="192" height="52" rx="11"/>
+            <rect class="mark" x="381" y="497" width="14" height="14" rx="3"/>
+            <text x="398" y="507" class="t-small f-ink-1">Zed</text>
+            <text x="382" y="523" class="t-micro t-mono f-ink-3">~/.config…d/settings.json</text>
+            <text x="549" y="507" text-anchor="end" class="t-micro f-ink-3">not linked</text>
+          </g>
+
+          <!-- projects -->
+          <g id="projects">
+            <g class="node" data-id="10" data-kind="project">
+              <rect class="box" x="714" y="24" width="192" height="52" rx="11"/>
+              <text x="727" y="45" class="t-small f-ink-1">hanger-ai</text>
+              <text x="727" y="61" class="t-micro t-mono f-ink-3">~/Work/Labs/hanger-ai</text>
+              <text x="894" y="45" text-anchor="end" class="t-micro f-ink-3">17 assets</text>
+            </g>
+            <g class="node" data-id="11" data-kind="project">
+              <rect class="box" x="714" y="90" width="192" height="52" rx="11"/>
+              <text x="727" y="111" class="t-small f-ink-1">mei-recipes</text>
+              <text x="727" y="127" class="t-micro t-mono f-ink-3">~/Work/Pr…hik/mei-recipes</text>
+              <text x="894" y="111" text-anchor="end" class="t-micro f-ink-3">34 assets</text>
+            </g>
+            <g class="node" data-id="12" data-kind="project">
+              <rect class="box" x="714" y="156" width="192" height="52" rx="11"/>
+              <text x="727" y="177" class="t-small f-ink-1">metrics-board</text>
+              <text x="727" y="193" class="t-micro t-mono f-ink-3">~/Work/Pr…k/metrics-board</text>
+              <text x="894" y="177" text-anchor="end" class="t-micro f-ink-3">82 assets</text>
+            </g>
+            <g class="node" data-id="13" data-kind="project">
+              <rect class="box" x="714" y="222" width="192" height="52" rx="11"/>
+              <text x="727" y="243" class="t-small f-ink-1">rkarthik</text>
+              <text x="727" y="259" class="t-micro t-mono f-ink-3">~/Work/Projects/rkarthik</text>
+              <text x="894" y="243" text-anchor="end" class="t-micro f-ink-3">0 assets</text>
+            </g>
+            <g class="node" data-id="14" data-kind="project">
+              <rect class="box" x="714" y="288" width="192" height="52" rx="11"/>
+              <text x="727" y="309" class="t-small f-ink-1">rkarthik-zehn</text>
+              <text x="727" y="325" class="t-micro t-mono f-ink-3">~/Work/Pr…k/rkarthik-zehn</text>
+              <text x="894" y="309" text-anchor="end" class="t-micro f-ink-3">4 assets</text>
+            </g>
+            <g class="node" data-id="15" data-kind="project">
+              <rect class="box" x="714" y="354" width="192" height="52" rx="11"/>
+              <text x="727" y="375" class="t-small f-ink-1">skills</text>
+              <text x="727" y="391" class="t-micro t-mono f-ink-3">~/Work/Pr…rkarthik/skills</text>
+              <text x="894" y="375" text-anchor="end" class="t-micro f-ink-3">86 assets</text>
+            </g>
+          </g>
+        </g>
+      </svg>
+
+      <!-- proposal 3: layers, the Maps way — the panel that already exists, with two more rows -->
+      <div class="corner tr">
+        <button class="icon-btn corner-btn" id="layers-btn" aria-label="Map layers" aria-expanded="false">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6.75V15m6-6v8.25m.503 3.498l4.875-2.437c.381-.19.622-.58.622-1.006V4.82c0-.836-.88-1.38-1.628-1.006l-3.869 1.934c-.317.159-.69.159-1.006 0L9.503 3.252a1.125 1.125 0 00-1.006 0L3.622 5.689C3.24 5.88 3 6.27 3 6.695V19.18c0 .836.88 1.38 1.628 1.006l3.869-1.934c.317-.159.69-.159 1.006 0l4.994 2.497c.317.158.69.158 1.006 0z"/></svg>
+        </button>
+        <div class="layers bg-page border-line rounded-inner shadow-overlay hidden" id="layers-panel">
+          <div class="eyebrow">Show on map</div>
+          <button class="row rounded-soft text-small" data-layer="projects" aria-pressed="true">Projects <svg class="sw on" width="26" height="16" aria-hidden="true"><rect class="track" width="26" height="16" rx="8"/><circle class="knob" cx="8" cy="8" r="5.5"/></svg></button>
+          <button class="row rounded-soft text-small" data-layer="unlinked" aria-pressed="true">Unlinked roots <svg class="sw on" width="26" height="16" aria-hidden="true"><rect class="track" width="26" height="16" rx="8"/><circle class="knob" cx="8" cy="8" r="5.5"/></svg></button>
+          <button class="row rounded-soft text-small" data-layer="drift" aria-pressed="false">Only drift and dangling <svg class="sw" width="26" height="16" aria-hidden="true"><rect class="track" width="26" height="16" rx="8"/><circle class="knob" cx="8" cy="8" r="5.5"/></svg></button>
+        </div>
+        <button class="icon-btn corner-btn" aria-label="Map notices">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z"/></svg>
+        </button>
+      </div>
+
+      <!-- camera controls, Maps corner -->
+      <div class="corner br">
+        <button class="icon-btn corner-btn" aria-label="Zoom in">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4.5v15m7.5-7.5h-15"/></svg>
+        </button>
+        <button class="icon-btn corner-btn" aria-label="Zoom out">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19.5 12h-15"/></svg>
+        </button>
+        <button class="icon-btn corner-btn" aria-label="Fit to view">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15"/></svg>
+        </button>
+      </div>
+
+      <!-- proposal 4: the docked placecard, one surface, three bodies -->
+      <div class="placecard" id="card">
+
+        <div data-body="store">
+          <div class="head">
+            <div class="eyebrow"><span>Node</span><span>·</span><span>Canonical store</span>
+              <button class="icon-btn ml-auto" data-close aria-label="Close details"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 18L18 6M6 6l12 12"/></svg></button>
+            </div>
+            <h2 class="text-base-app font-medium text-ink-1">.agents</h2>
+            <div class="state text-small text-ink-2">The canonical copy of every asset lives here</div>
+          </div>
+          <div class="body">
+            <div class="path-chip"><span>/Users/karthik/.agents</span>
+              <button class="icon-btn" aria-label="Copy path" style="width:22px;height:22px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16.5 8.25V6a2.25 2.25 0 00-2.25-2.25H6A2.25 2.25 0 003.75 6v8.25A2.25 2.25 0 006 16.5h2.25m8.25-8.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-7.5A2.25 2.25 0 018.25 18v-1.5m8.25-8.25h-6a2.25 2.25 0 00-2.25 2.25v6"/></svg></button>
+            </div>
+            <dl class="facts wide">
+              <dt>Kind</dt><dd>Canonical store</dd>
+              <dt>Assets</dt><dd class="tabular">122</dd>
+              <dt>Skills</dt><dd class="tabular">110</dd>
+              <dt>Rules</dt><dd class="tabular">2</dd>
+              <dt>Subagents</dt><dd class="tabular">10</dd>
+              <dt>Linked from</dt><dd>3 engine roots</dd>
+            </dl>
+            <div class="annot"><b>New:</b> Skills, Rules, Subagents, Linked from. Per-kind figures come from <code>get_asset_counts(root)</code> — backend-owned; "linked from N" is a count of edges and needs a field on the graph node.</div>
+          </div>
+        </div>
+
+        <div data-body="engine" class="hidden">
+          <div class="head">
+            <div class="eyebrow"><span>Node</span><span>·</span><span>Engine root</span>
+              <button class="icon-btn ml-auto" data-close aria-label="Close details"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 18L18 6M6 6l12 12"/></svg></button>
+            </div>
+            <h2 class="text-base-app font-medium text-ink-1"><svg class="mark-inline" width="14" height="14" aria-hidden="true"><rect class="mark" width="14" height="14" rx="3"/></svg>Claude Code</h2>
+            <div class="state text-small text-ink-2"><i class="dot bg-state-success" aria-hidden="true"></i>Reaches the store through a root-level symlink</div>
+          </div>
+          <div class="body">
+            <div class="path-chip"><span>/Users/karthik/.claude</span>
+              <button class="icon-btn" aria-label="Copy path" style="width:22px;height:22px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16.5 8.25V6a2.25 2.25 0 00-2.25-2.25H6A2.25 2.25 0 003.75 6v8.25A2.25 2.25 0 006 16.5h2.25m8.25-8.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-7.5A2.25 2.25 0 018.25 18v-1.5m8.25-8.25h-6a2.25 2.25 0 00-2.25 2.25v6"/></svg></button>
+            </div>
+            <dl class="facts wide">
+              <dt>Kind</dt><dd>Engine root</dd>
+              <dt>Assets</dt><dd class="tabular">10</dd>
+              <dt>Linked</dt><dd>Yes — at the root</dd>
+              <dt>Skills</dt><dd class="tabular">8</dd>
+              <dt>Subagents</dt><dd class="tabular">2</dd>
+            </dl>
+            <div class="act"><button class="btn">Show its assets <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3"/></svg></button></div>
+            <div class="annot"><b>New:</b> Skills, Subagents, and the action. "Show its assets" opens Global filtered to this engine — the <code>selectedBubble</code> agent body already exists.</div>
+          </div>
+        </div>
+
+        <div data-body="project" class="hidden">
+          <div class="head">
+            <div class="eyebrow"><span>Node</span><span>·</span><span>Project</span>
+              <button class="icon-btn ml-auto" data-close aria-label="Close details"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 18L18 6M6 6l12 12"/></svg></button>
+            </div>
+            <h2 class="text-base-app font-medium text-ink-1">hanger-ai</h2>
+            <div class="state text-small text-ink-2">A linked directory Hanger scans</div>
+          </div>
+          <div class="body">
+            <div class="path-chip"><span>/Users/karthik/Work/Labs/hanger-ai</span>
+              <button class="icon-btn" aria-label="Copy path" style="width:22px;height:22px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16.5 8.25V6a2.25 2.25 0 00-2.25-2.25H6A2.25 2.25 0 003.75 6v8.25A2.25 2.25 0 006 16.5h2.25m8.25-8.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-7.5A2.25 2.25 0 018.25 18v-1.5m8.25-8.25h-6a2.25 2.25 0 00-2.25 2.25v6"/></svg></button>
+            </div>
+            <dl class="facts wide">
+              <dt>Kind</dt><dd>Project</dd>
+              <dt>Assets</dt><dd class="tabular">17</dd>
+              <dt>Skills</dt><dd class="tabular">9</dd>
+              <dt>Rules</dt><dd class="tabular">3</dd>
+              <dt>MCP servers</dt><dd class="tabular">5</dd>
+            </dl>
+            <div class="eyebrow">Rules here</div>
+            <div class="rules rounded-inner text-small font-mono text-ink-1"><span>CLAUDE.md</span><span>AGENTS.md</span><span>.cursorrules</span></div>
+            <div class="act"><button class="btn">Open project <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3"/></svg></button></div>
+            <div class="annot"><b>New:</b> Skills, Rules, MCP servers, and the "Rules here" list. Rule names are inventory rows, listed not counted; git branch, settings.json layers and glob coverage are not in the model and are not drawn.</div>
+          </div>
+        </div>
+
+        <div class="foot">
+          <div class="annot">Review control — not in the design. Swaps the body; clicking a node on the map does the same.</div>
+          <div class="picks">
+            <button class="chip on" data-pick="store">Store</button>
+            <button class="chip" data-pick="engine">Engine</button>
+            <button class="chip" data-pick="project">Project</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="sample">sample · figures from this machine, 2026-08-22 · one edge set to drifted to show the dot</div>
+    </div>
+
+    <div class="legend text-small text-ink-2">
+      <span><svg width="22" height="2" class="text-ink-2" aria-hidden="true"><line x1="0" y1="1" x2="22" y2="1" stroke="currentColor" stroke-width="1.4"/></svg>Symlink — one copy, no drift</span>
+      <span><svg width="22" height="2" class="text-ink-2" aria-hidden="true"><line x1="0" y1="1" x2="22" y2="1" stroke="currentColor" stroke-width="1.4" stroke-dasharray="5 4"/></svg>Tracked copy — can be edited, can drift</span>
+      <span><svg width="22" height="2" class="text-ink-2" aria-hidden="true"><line x1="0" y1="1" x2="22" y2="1" stroke="currentColor" stroke-width="1.4"/></svg>Linked</span>
+      <span><svg width="22" height="2" class="text-state-warning" aria-hidden="true"><line x1="0" y1="1" x2="22" y2="1" stroke="currentColor" stroke-width="1.4"/></svg>Drifted</span>
+      <span><svg width="22" height="2" class="text-state-danger" aria-hidden="true"><line x1="0" y1="1" x2="22" y2="1" stroke="currentColor" stroke-width="1.4"/></svg>Dangling</span>
+    </div>
+  </div>
+</div>
+
+<div class="annot after">
+  <b>Proposals, as drawn</b>
+  <ul>
+    <li><b>State on the node.</b> Codex carries an 8px dot in state-warning at its top-right corner, inset 6px — the macOS badge anatomy the map's notices control already uses. A boolean — this node has a drifted or dangling edge — which the frontend may derive; a numeral would be a count and belongs to the backend.</li>
+    <li><b>Hover focus.</b> Hovering a node keeps it, its edges and their other endpoints at full strength and dims the rest to .35. The one opacity use — dimming is a focus state, not a colour; reduced-motion removes the transition.</li>
+    <li><b>Layers panel, extended.</b> The filter group in the exploration (All / Errors only / Orphans) folds into the panel that already exists; the search box does not appear — the toolbar's field is the search.</li>
+    <li><b>Placecard, richer facts.</b> One action per node kind, and the figures the backend already has per root.</li>
+    <li><b>Scan stamp.</b> "Scanned 3 min ago" beside rescan, from <code>scannedAt</code>.</li>
+  </ul>
+</div>
+
+<div class="annot after">
+  <b>Carried over / changed / dropped</b>
+  <ul>
+    <li><b>Carried over:</b> three sorted columns, bézier edges, mechanism in the dash and state in the colour, the legend from the same enums, the layers panel, the notices control, the docked placecard with the one elevation, zoom/pan/fit.</li>
+    <li><b>Changed:</b> hover focus; a state dot on a node; the layers panel gains "Unlinked roots" and "Only drift and dangling"; the placecard gains per-kind facts and one action per node kind; a scan stamp in the cap.</li>
+    <li><b>Dropped:</b> a second search box; numeric badges (counts are the backend's); engine → project edges (the model records store → project mounts, not engine reads); "Hanger Daemon syncs automatically" (there is no daemon); git branch, settings.json layers, approval mode, glob coverage (outside the four asset kinds); glass, blur, drop shadows on nodes.</li>
+  </ul>
+</div>
+
+<script>
+  var html = document.documentElement;
+  document.getElementById('dark').addEventListener('click', function () { html.classList.toggle('dark'); });
+
+  // Layers panel: closed until its button is pressed, as in LinkMapPane (the panel is on request).
+  var layersBtn = document.getElementById('layers-btn'), layersPanel = document.getElementById('layers-panel');
+  layersBtn.addEventListener('click', function () {
+    var open = layersPanel.classList.toggle('hidden') === false;
+    layersBtn.classList.toggle('on', open);
+    layersBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  });
+
+  // Hover focus: the hovered node, its edges, and their other endpoints stay; everything else dims.
+  var svg = document.getElementById('map');
+  var nodes = Array.prototype.slice.call(svg.querySelectorAll('.node'));
+  var edges = Array.prototype.slice.call(svg.querySelectorAll('.edge'));
+  function focusOn(id) {
+    var keep = {}; keep[id] = true;
+    edges.forEach(function (e) {
+      var hit = e.dataset.src === id || e.dataset.dst === id;
+      e.classList.toggle('focused', hit);
+      if (hit) { keep[e.dataset.src] = true; keep[e.dataset.dst] = true; }
+    });
+    nodes.forEach(function (n) { n.classList.toggle('focused', !!keep[n.dataset.id]); });
+    svg.classList.add('has-focus');
+  }
+  function unfocus() {
+    svg.classList.remove('has-focus');
+    nodes.concat(edges).forEach(function (el) { el.classList.remove('focused'); });
+  }
+
+  // Placecard: one surface, the body follows the node kind.
+  var card = document.getElementById('card');
+  function showBody(kind) {
+    card.classList.remove('hidden');
+    Array.prototype.forEach.call(card.querySelectorAll('[data-body]'), function (b) { b.classList.toggle('hidden', b.dataset.body !== kind); });
+    Array.prototype.forEach.call(card.querySelectorAll('[data-pick]'), function (c) { c.classList.toggle('on', c.dataset.pick === kind); });
+  }
+  nodes.forEach(function (n) {
+    n.addEventListener('mouseenter', function () { focusOn(n.dataset.id); });
+    n.addEventListener('mouseleave', unfocus);
+    n.addEventListener('click', function () {
+      nodes.forEach(function (o) { o.classList.toggle('selected', o === n); });
+      showBody(n.dataset.kind);
+    });
+  });
+  Array.prototype.forEach.call(card.querySelectorAll('[data-pick]'), function (c) {
+    c.addEventListener('click', function () { showBody(c.dataset.pick); });
+  });
+  Array.prototype.forEach.call(card.querySelectorAll('[data-close]'), function (b) {
+    b.addEventListener('click', function () { card.classList.add('hidden'); });
+  });
+
+  // Layers: each row is a switch over one set of map elements.
+  Array.prototype.forEach.call(document.querySelectorAll('.layers .row'), function (row) {
+    row.addEventListener('click', function () {
+      var sw = row.querySelector('.sw');
+      var on = !sw.classList.contains('on');
+      sw.classList.toggle('on', on);
+      row.setAttribute('aria-pressed', String(on));
+      if (row.dataset.layer === 'projects') document.getElementById('projects').classList.toggle('hidden', !on);
+      if (row.dataset.layer === 'unlinked') nodes.forEach(function (n) { if (n.classList.contains('unlinked')) n.classList.toggle('hidden', !on); });
+      if (row.dataset.layer === 'drift') edges.forEach(function (e) { if (e.classList.contains('linked')) e.classList.toggle('hidden', on); });
+    });
+  });
+</script>
+</body>
+</html>
