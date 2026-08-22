@@ -52,7 +52,11 @@
 .mt-2 { margin-top: 8px; } .mb-1 { margin-bottom: 4px; } .mb-3 { margin-bottom: 12px; }
 .lh { line-height: 1.5; }
 /* Chosen: the tab row sits under the header, above the scroll region */
-.tabs.hd-tabs { padding-bottom: 12px; border-bottom: 1px solid var(--line); flex-shrink: 0; }
+.utabs { display: flex; gap: 20px; padding: 0 18px; border-bottom: 1px solid var(--line); position: relative; flex-shrink: 0; }
+.utabs [role="tab"] { padding: 6px 0 9px; font-size: var(--fs-base); color: var(--ink-2); background: none; border: 0; position: relative; }
+.utabs [role="tab"][aria-selected="true"] { color: var(--ink-1); } /* weight comes from .font-medium, toggled with aria-selected */
+.utabs [role="tab"] .n { margin-left: 6px; }
+.utabs .ind { position: absolute; bottom: -1px; height: 2px; background: var(--ink-1); transition: left var(--dur-nav) var(--spring), width var(--dur-nav) var(--spring); }
 .docblk .doc { padding: 4px 0 0; }
 .doc ol { padding-left: 18px; margin: 4px 0 8px; }
 .doc ol li { margin-bottom: 2px; }
@@ -84,7 +88,7 @@
 <div class="toggle-bar"><button class="btn" id="dk" aria-pressed="false">Dark</button></div>
 
 <h1 class="review-title">Inspector — docked, sectioned; what the panels add</h1>
-<p class="review-note">Three shells at the window's true size, 1024×700, the inspector docked at 384px as <code>App.tsx</code> draws it. Shells 1 and 2 are the reference: the inspector as shipped, sectioned, with the prototype panels' additions placed where the data exists or is a small backend change away. Shell 3 is the chosen design (Karthik, 2026-08-22): a tab row under the header, the breakdown first — Content for a skill, Tools for an MCP server — and Details second. The tabs work; click a chip. The dashed notes say where each addition comes from and what it costs. No colour or size here is new — the stylesheet imports the app's own tokens, light and dark.</p>
+<p class="review-note">Three shells at the window's true size, 1024×700, the inspector docked at 384px as <code>App.tsx</code> draws it. Shells 1 and 2 are the reference: the inspector as shipped, sectioned, with the prototype panels' additions placed where the data exists or is a small backend change away. Shell 3 is the chosen design (Karthik, 2026-08-22): a tab row under the header, the breakdown first — Content for a skill, Tools for an MCP server — and Details second. The tabs work; click a tab. The dashed notes say where each addition comes from and what it costs. No colour or size here is new — the stylesheet imports the app's own tokens, light and dark.</p>
 
 <!-- ═══════════════ Shell 1 — Skill ═══════════════ -->
 <div class="option"><h2>Reference · Skill</h2><span>sectioned, as shipped, plus the two additions</span></div>
@@ -306,7 +310,7 @@ agent-browser close             # Close browser</pre>
     </div>
     <div class="acts"><button class="btn fill">Link to…</button><button class="btn">Open in editor</button></div>
     <div class="disclosure warning card"><div class="drow"><svg class="ic"><use href="#i-wn"/></svg><span class="font-medium">1 issue needs a decision</span><button class="btn ml-auto">Review →</button></div></div>
-    <div class="tabs hd-tabs" role="group" aria-label="Inspector view"><button class="chip on" aria-pressed="true" data-tab="content">Content</button><button class="chip" aria-pressed="false" data-tab="details">Details</button></div>
+    <div class="utabs" role="tablist" aria-label="Inspector view"><button role="tab" class="font-medium" aria-selected="true" data-tab="content">Content</button><button role="tab" aria-selected="false" data-tab="details">Details</button><i class="ind" aria-hidden="true"></i></div>
     <div class="body">
       <div data-panel="content">
         <section class="card">
@@ -378,7 +382,7 @@ agent-browser close             # Close browser</pre>
       <div class="flex items-center gap-2"><h2 class="text-lg-app font-medium">spades-audio</h2><span class="pill tinted" style="margin-top:4px">stdio</span></div>
     </div>
     <div class="blk"><div class="flex items-center gap-2 text-small text-state-warning"><i class="dot bg-state-warning"></i><span>3 registrations · declared twice by the same engine</span></div></div>
-    <div class="tabs hd-tabs" role="group" aria-label="Inspector view"><button class="chip on" aria-pressed="true" data-tab="tools">Tools <b>17</b></button><button class="chip" aria-pressed="false" data-tab="details">Details</button></div>
+    <div class="utabs" role="tablist" aria-label="Inspector view"><button role="tab" class="font-medium" aria-selected="true" data-tab="tools">Tools<span class="n tabular text-ink-3">17</span></button><button role="tab" aria-selected="false" data-tab="details">Details</button><i class="ind" aria-hidden="true"></i></div>
     <div class="body">
       <div data-panel="tools">
         <section class="section">
@@ -443,8 +447,8 @@ agent-browser close             # Close browser</pre>
   <span class="sample">sample · figures from this machine, 2026-08-22</span>
 </div>
 <div class="notes">
-  <div class="annot"><b>Tabs, content first.</b> Karthik's ruling, 2026-08-22: the breakdown leads — Content for a skill, Tools for an MCP server — and Details comes second. Click a chip to flip. The header, state line, path chip, actions and the routed issue line stay above the tabs: they belong to the asset, not to a tab.</div>
-  <div class="annot"><b>One toggle, not two chip rows.</b> Two chip rows on one surface would be two idioms; the document view toggle is an icon, the tabs are the chips.</div>
+  <div class="annot"><b>Tabs, content first.</b> Karthik's ruling, 2026-08-22: the breakdown leads — Content for a skill, Tools for an MCP server — and Details comes second. Click a tab to flip. The header, state line, path chip, actions and the routed issue line stay above the tabs: they belong to the asset, not to a tab.</div>
+  <div class="annot"><b>Underline tabs</b> (Karthik's reference, 2026-08-22): labels on a <code>--line</code> baseline, the active one in <code>--ink-1</code> medium with a 2px <code>--ink-1</code> rule beneath; the label's weight and the rule are the only things that change. The pane's category selector is a segmented track, the inspector's tabs are underline tabs — two idioms for two jobs: one filters a list, the other switches views within a surface.</div>
   <div class="annot"><b>Described in.</b> The prototype's "token tax": <code>probe.rs</code> drops the schema today; keeping its byte size is a small backend change. Tokens are not measurable, bytes are — the dash holds the column until they arrive.</div>
   <div class="annot"><b>MCP header.</b> No path chip and no actions: an MCP server has one config path per registration, and those live under Details › Registered in. The state line is the list row's subline, coloured as the verdict card's dot. Tool rows carry the server's own descriptions, as probed on this machine.</div>
 </div>
@@ -468,7 +472,7 @@ agent-browser close             # Close browser</pre>
     <li>Capabilities said in a sentence.</li>
     <li>An "In this skill" folder listing.</li>
     <li>A per-tool size column, pending the backend.</li>
-    <li>A tab row, content first: Content (skill) / Tools (MCP) lead, Details second — Karthik's ruling 2026-08-22; the header, state line, path, actions and the routed issue line stay above the tabs.</li>
+    <li>Underline tabs, content first: Content (skill) / Tools (MCP) lead, Details second — Karthik's ruling 2026-08-22; the header, state line, path, actions and the routed issue line stay above the tabs.</li>
   </ul>
   <p><b>Dropped</b></p>
   <ul>
@@ -486,19 +490,32 @@ agent-browser close             # Close browser</pre>
     var on = document.documentElement.classList.toggle('dark');
     dk.setAttribute('aria-pressed', String(on));
   });
-  // Tabs: a chip swaps the panel beneath it, within its own aside.
-  document.querySelectorAll('.tabs [data-tab]').forEach(function (chip) {
-    chip.addEventListener('click', function () {
-      var aside = chip.closest('.aside');
-      aside.querySelectorAll('.tabs [data-tab]').forEach(function (c) {
-        var on = c === chip;
-        c.classList.toggle('on', on);
-        c.setAttribute('aria-pressed', String(on));
-      });
-      aside.querySelectorAll('[data-panel]').forEach(function (panel) {
-        panel.classList.toggle('hidden', panel.dataset.panel !== chip.dataset.tab);
+  // Tabs: a tab swaps the panel beneath it, within its own aside. One
+  // indicator per tablist slides to the active label — the same beat and
+  // spring as the top-nav page's segmented track.
+  function placeIndicator(list) {
+    var active = list.querySelector('[role="tab"][aria-selected="true"]');
+    var ind = list.querySelector('.ind');
+    if (!active || !ind) return;
+    ind.style.left = active.offsetLeft + 'px';
+    ind.style.width = active.offsetWidth + 'px';
+  }
+  document.querySelectorAll('[role="tablist"]').forEach(function (list) {
+    list.querySelectorAll('[role="tab"]').forEach(function (tab) {
+      tab.addEventListener('click', function () {
+        var aside = tab.closest('.aside');
+        list.querySelectorAll('[role="tab"]').forEach(function (t) {
+          var on = t === tab;
+          t.setAttribute('aria-selected', String(on));
+          t.classList.toggle('font-medium', on);
+        });
+        aside.querySelectorAll('[data-panel]').forEach(function (panel) {
+          panel.classList.toggle('hidden', panel.dataset.panel !== tab.dataset.tab);
+        });
+        placeIndicator(list);
       });
     });
+    placeIndicator(list);
   });
 </script>
 </body>

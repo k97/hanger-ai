@@ -282,10 +282,16 @@ harness asset layer, not an agent runtime.
    *Content* for a skill (the folder listing, then the document),
    *Tools N* for an MCP server (the probed list) — and *Details* is second
    (facts + Reach; Identity, verdict card, Registered in, Environment).
-   The Preview/Source pair becomes an icon toggle inside Content so one
-   surface does not carry two chip rows. Open: whether the active tab is
-   remembered per kind (a preference like `inspector_width`) or every
-   open starts on the breakdown.
+   The Preview/Source pair becomes an icon toggle inside Content. **The
+   tabs are underline tabs, not chips** (Karthik's reference, 2026-08-22):
+   labels in `--ink-2` on a `--line` baseline, the active one in
+   `--ink-1` at medium weight with a 2px `--ink-1` rule beneath, the rule
+   sliding on `--dur-nav` / `--spring`. Two idioms on purpose: the pane's
+   category selector is a segmented track (it filters a list), the
+   inspector's tabs are underline tabs (they switch views within one
+   surface). Open: whether the active tab is remembered per kind (a
+   preference like `inspector_width`) or every open starts on the
+   breakdown.
 5. **Copy is literally true of the code.** "Empty is a finding; pending is
    not" — no pane asserts an absence before `scannedAt`. Every string goes
    through `/humanizer`; first-time labels get a naming brief and
@@ -314,6 +320,7 @@ dropped* ledger.
 |---|---|---|
 | `banner-iterated.html` | **A** — one strip, category-aware meter (All: link state; MCP servers: probe coverage) plus a facts line of backend fields. **B** — the same strip with one *routed* finding line below the chips (F34 shape: summary + Review →, no accordion) | Whether the strip's meaning may follow the chip; whether findings route or explain; the aqua ruling for the coverage meter |
 | `inspector-iterated.html` | **Reference** — docked, sectioned, as shipped, with the additions marked: a routed issue line, an "In this skill" folder listing, a registrations verdict card (T10), capabilities as a sentence, a per-tool size column pending the backend. **Chosen (ruled 2026-08-22)** — the same header above a tab row, breakdown first: `Content · Details` for a skill, `Tools N · Details` for an MCP server | Which additions earn a backend change (folder listing, per-tool bytes, collision detection — recommended: first two); whether the active tab is remembered |
+| `topnav-iterated.html` | The category chips as a segmented track (Karthik, 2026-08-22: "structurally like a visionOS horizontal tab view, in our tokens"): **A** tonal `--tint` capsule, **B** raised `--page` capsule with a `--line-2` edge, **C** filled `--fill` capsule — each at 584px and 368px, the capsule sliding on `--dur-nav` / `--spring` | Which capsule; what the track does at the narrow width (scroll, or counts under labels); whether the row becomes a `tablist` semantically |
 | `map-iterated.html` | One canvas with hover focus, a state dot on a node, the layers panel extended (Unlinked roots, Only drift and dangling), a scan stamp in the cap, and three placecard bodies with per-kind facts and one action each | Whether the placecard may call `get_asset_counts(root)` on selection or the node should carry the figures; whether "Show its assets →" (engine) and "Rules here" (project) earn their place |
 
 ### Recommended order, if approved
@@ -343,7 +350,16 @@ dropped* ledger.
    tool-name collisions (medium). Recommendation: the four small ones;
    defer the two medium ones with a roadmap entry.
 4. The aqua ruling for the MCP coverage meter (answered share as progress).
-5. Naming briefs for the first-time labels that survive: "Unlinked roots",
+5. Top navigation: which capsule (tonal A, raised B, filled C) for the
+   segmented track; at 368px, a scrolling track or counts under the
+   labels; `tablist` semantics. Karthik's reference (2026-08-22) is an
+   iOS segmented control — grey track, the selected segment a raised
+   white capsule — which is B. Recommendation: B with the `--line-2`
+   edge standing in for the shadow, and B′ (count only on the selected
+   segment) as the answer to 368px if the full-count track reads too
+   long. Watch dark: `--page` on `--plane` is a small step there and the
+   edge carries the capsule.
+6. Naming briefs for the first-time labels that survive: "Unlinked roots",
    "Only drift and dangling", "In this skill", "Show its assets", "Rules
    here", "Described in", "answered / not yet asked / can't be asked" (the
    last three already exist in `McpEngineSummary` copy, unsigned — T11).
