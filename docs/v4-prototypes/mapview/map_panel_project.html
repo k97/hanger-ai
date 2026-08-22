@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><style>
+    :root {
+        --mac-bg: #F5F5F7;
+        --mac-panel-bg: rgba(255, 255, 255, 0.85); /* Glass effect for floating panel */
+        --mac-text: #1D1D1F;
+        --mac-text-secondary: #86868B;
+        --mac-text-tertiary: #98989D;
+        --mac-border: rgba(0,0,0,0.08);
+        --mac-accent: #007AFF;
+        --mac-matte: #E8E8ED;
+        --mac-card-bg: #FFFFFF;
+        --radius-panel: 12px;
+        --radius-card: 10px;
+        --radius-btn: 6px;
+    }
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        background-color: #E5E5EA;
+        color: var(--mac-text);
+        margin: 0;
+        padding: 40px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 100vh;
+    }
+    .floating-panel {
+        width: 380px;
+        background: var(--mac-panel-bg);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border: 1px solid rgba(0,0,0,0.1);
+        border-radius: var(--radius-panel);
+        box-shadow: 0 20px 40px rgba(0,0,0,0.15), 0 1px 3px rgba(0,0,0,0.1);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
+    .panel-header {
+        padding: 16px 20px 0px;
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+    }
+    .breadcrumb { font-size: 11px; font-weight: 600; letter-spacing: 0.5px; color: var(--mac-text-secondary); text-transform: uppercase; }
+    .item-title { font-size: 16px; font-weight: 600; margin: 0; color: var(--mac-text); }
+    .title-wrapper { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
+    
+    .icon-btn { background: transparent; border: none; border-radius: var(--radius-btn); width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--mac-text-secondary); }
+    .icon-btn:hover { background: rgba(0,0,0,0.05); color: var(--mac-text); }
+    .icon-btn svg { width: 14px; height: 14px; fill: currentColor; }
+
+    /* Required styling for headers */
+    .section-label {
+        text-transform: uppercase;
+        font-size: 10.5px;
+        font-weight: 600;
+        color: var(--mac-text-secondary);
+        margin-bottom: 12px;
+        letter-spacing: 0.5px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .panel-content { padding: 20px; display: flex; flex-direction: column; gap: 16px; overflow-y: auto; max-height: 700px; }
+    
+    .box-container {
+        background: var(--mac-card-bg);
+        border: 1px solid var(--mac-border);
+        border-radius: var(--radius-card);
+        padding: 16px;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.02);
+    }
+
+    /* Path specific */
+    .path-string {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        font-size: 11px;
+        color: var(--mac-text-secondary);
+        background: var(--mac-bg);
+        padding: 10px 12px;
+        border-radius: 6px;
+        border: 1px solid var(--mac-border);
+        word-break: break-all;
+        position: relative;
+    }
+    .path-icon { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); color: var(--mac-text-tertiary); cursor: pointer; }
+    .path-icon:hover { color: var(--mac-text); }
+
+    /* Meta Tables */
+    .meta-table { display: flex; flex-direction: column; gap: 12px; }
+    .meta-row { display: flex; align-items: flex-start; }
+    .meta-icon { width: 28px; flex-shrink: 0; color: var(--mac-text-tertiary); display: flex; align-items: center; margin-top: 1px; }
+    .meta-icon svg { width: 15px; height: 15px; fill: currentColor; }
+    .meta-content { display: flex; flex-direction: column; gap: 2px; width: 100%; }
+    .meta-value { font-weight: 500; color: var(--mac-text); font-size: 13px; display: flex; align-items: center; flex-wrap: wrap; gap: 6px;}
+    .meta-label { font-size: 11px; color: var(--mac-text-secondary); }
+    .meta-value strong { font-family: ui-monospace, SFMono-Regular, monospace; background: var(--mac-bg); padding: 2px 6px; border-radius: 4px; border: 1px solid var(--mac-border); font-size: 11.5px; font-weight: 500;}
+
+    /* Status Dots */
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; }
+    .status-green { background-color: #34C759; }
+    .status-yellow { background-color: #FFCC00; }
+    .status-red { background-color: #FF3B30; }
+    
+    .status-row { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 500; margin-bottom: 12px; }
+
+    /* Tabs */
+    .inspector-tabs { display: flex; padding: 12px 20px 0; border-bottom: 1px solid var(--mac-border); gap: 4px; }
+    .inspector-tab-btn { background: none; border: none; padding: 8px 12px; font-size: 12px; font-weight: 500; color: var(--mac-text-secondary); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+    .inspector-tab-btn.active { color: var(--mac-text); border-bottom-color: var(--mac-accent); font-weight: 600; }
+    .tab-pane { display: none; flex-direction: column; gap: 16px; }
+    .tab-pane.active { display: flex; }
+    
+    /* Repo Stats Breakdown */
+    .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .stat-card { background: var(--mac-bg); border: 1px solid var(--mac-border); border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 4px; }
+    .stat-num { font-size: 18px; font-weight: 600; color: var(--mac-text); }
+    .stat-title { font-size: 11px; color: var(--mac-text-secondary); font-weight: 500; text-transform: uppercase;}
+    
+    /* Main Action Button */
+    .action-btn { background: var(--mac-bg); border: 1px solid var(--mac-border); border-radius: 8px; padding: 10px; font-size: 13px; font-weight: 500; color: var(--mac-text); cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 6px; transition: 0.2s;}
+    .action-btn:hover { background: #E8E8ED; }
+</style></head>
+<body>
+    <div class="floating-panel">
+        <header class="panel-header">
+            <div>
+                <span class="breadcrumb">Node &bull; Project</span>
+                <div class="title-wrapper">
+                    <h2 class="item-title">mei-recipes</h2>
+                </div>
+            </div>
+            <button class="icon-btn" title="Close"><svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg></button>
+        </header>
+
+        <div class="inspector-tabs">
+            <button class="inspector-tab-btn active" onclick="switchTab('overview')">Overview</button>
+            <button class="inspector-tab-btn" onclick="switchTab('context')">Workspace Rules</button>
+        </div>
+
+        <div class="panel-content">
+            <div id="tab-overview" class="tab-pane active">
+                <div class="box-container">
+                    <div class="section-label">Location</div>
+                    <div class="status-row">
+                        <span style="color:var(--mac-text-secondary);">A linked directory Hanger scans for local context.</span>
+                    </div>
+                    <div class="path-string">
+                        /Users/karthik/Work/Projects/mei-recipes
+                        <svg class="path-icon" style="width:14px;height:14px;" viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
+                    </div>
+                </div>
+
+                <div class="box-container">
+                    <div class="section-label">Project Identity</div>
+                    <div class="meta-table">
+                        <div class="meta-row">
+                            <div class="meta-icon"><svg viewBox="0 0 24 24"><path d="M19.43 12.98c.04-.32.07-.64.07-.98s-.03-.66-.07-.98l2.11-1.65c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.39-.3-.61-.22l-2.49 1c-.52-.4-1.08-.73-1.69-.98l-.38-2.65C14.46 2.18 14.25 2 14 2h-4c-.25 0-.46.18-.49.42l-.38 2.65c-.61.25-1.17.59-1.69.98l-2.49-1c-.23-.09-.49 0-.61.22l-2 3.46c-.13.22-.07.49-.12-.64l2.11 1.65c-.04.32-.07.65-.07.98s.03.66.07.98l-2.11 1.65c-.19.15-.24.42-.12.64l2 3.46c.12.22.39.3.61.22l2.49-1c.52.4 1.08.73 1.69.98l.38 2.65c.03.24.24.42.49.42h4c.25 0 .46-.18.49-.42l.38-2.65c.61-.25 1.17-.59 1.69-.98l2.49 1c.23.09.49 0 .61-.22l2-3.46c.12-.22.07-.49-.12-.64l-2.11-1.65zM12 15.5c-1.93 0-3.5-1.57-3.5-3.5s1.57-3.5 3.5-3.5 3.5 1.57 3.5 3.5-1.57 3.5-3.5 3.5z"/></svg></div>
+                            <div class="meta-content">
+                                <div class="meta-value">Git Repository</div>
+                                <div class="meta-label">Branch: <strong>main</strong></div>
+                            </div>
+                        </div>
+                        <div class="meta-row">
+                            <div class="meta-icon"><svg viewBox="0 0 24 24"><path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM7 10h5v5H7v-5z"/></svg></div>
+                            <div class="meta-content">
+                                <div class="meta-value">Aug 20, 2026</div>
+                                <div class="meta-label">Last Hanger Scan</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <button class="action-btn">
+                    Open Project Directory &rarr;
+                </button>
+            </div>
+
+            <div id="tab-context" class="tab-pane">
+                <div class="box-container">
+                    <div class="section-label">Local Asset Detection</div>
+                    <div class="stat-grid" style="margin-bottom: 12px;">
+                        <div class="stat-card" style="grid-column: span 2; align-items:center;">
+                            <span class="stat-num">34</span>
+                            <span class="stat-title">Project Context Files</span>
+                        </div>
+                    </div>
+                    <p style="font-size:11.5px; color:var(--mac-text-secondary); margin:0;">These assets are scoped purely to this environment and do not pollute the global canonical store.</p>
+                </div>
+
+                <div class="box-container">
+                    <div class="section-label">Workspace Rules & Configs</div>
+                    <div class="meta-table">
+                        <div class="meta-row">
+                            <div class="meta-icon"><svg style="width:14px;height:14px;color:#007AFF;" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14.5v-9l6 4.5-6 4.5z"/></svg></div>
+                            <div class="meta-content">
+                                <div class="meta-value">Cursor MDC Rules</div>
+                                <div class="meta-label">.cursor/rules/*.mdc detected</div>
+                                <div class="meta-label" style="font-family:monospace; margin-top:2px;">globs: "src/components/**/*.tsx"</div>
+                            </div>
+                        </div>
+                        <div class="meta-row">
+                            <div class="meta-icon"><svg style="width:14px;height:14px;color:#E34F26;" viewBox="0 0 24 24" fill="currentColor"><path d="M20 18c1.1 0 1.99-.9 1.99-2L22 6c0-1.1-.9-2-2-2H4c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2H0v2h24v-2h-4zM4 6h16v10H4V6z"/></svg></div>
+                            <div class="meta-content">
+                                <div class="meta-value">Claude Team Overrides</div>
+                                <div class="meta-label">.claude/settings.json</div>
+                                <div class="meta-label">Shared MCP context (.mcp.json)</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+        function switchTab(tabId) {
+            document.querySelectorAll('.inspector-tab-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+            document.querySelectorAll('.tab-pane').forEach(pane => pane.classList.remove('active'));
+            document.getElementById('tab-' + tabId).classList.add('active');
+        }
+    </script>
+</body>
+</html>

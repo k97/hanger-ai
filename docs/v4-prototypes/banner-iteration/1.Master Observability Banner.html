@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hanger App - Observability Master</title>
+<style>
+    :root {
+        --mac-bg: #F5F5F7;
+        --mac-window: #FFFFFF;
+        --mac-text: #1D1D1F;
+        --mac-text-secondary: #86868B;
+        --mac-text-tertiary: #C7C7CC;
+        --mac-border: rgba(0,0,0,0.08);
+        --gel-blue: #007AFF;
+        --gel-blue-light: rgba(0, 122, 255, 0.1);
+        --gel-green: #34C759;
+        --gel-orange: #FF9F0A;
+        --gel-red: #FF3B30;
+        --gel-purple: #AF52DE;
+        --gel-cyan: #32ADE6;
+        --mac-matte: #F2F2F7;
+        --radius-window: 12px;
+        --radius-banner: 16px;
+        --radius-btn: 8px;
+    }
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+        background-color: #E5E5EA; color: var(--mac-text); margin: 0; padding: 40px;
+        display: flex; justify-content: center; min-height: 100vh; box-sizing: border-box;
+    }
+    .app-window {
+        width: 1080px; background: var(--mac-window); border-radius: var(--radius-window);
+        box-shadow: 0 20px 40px rgba(0,0,0,0.15), 0 1px 3px rgba(0,0,0,0.05);
+        display: flex; flex-direction: column; overflow: hidden; border: 1px solid var(--mac-border);
+    }
+    .header { height: 52px; border-bottom: 1px solid var(--mac-border); display: flex; align-items: center; padding: 0 16px; background: #fff; z-index: 10; }
+    .traffic-lights { display: flex; gap: 8px; margin-right: 16px;}
+    .traffic-lights div { width: 12px; height: 12px; border-radius: 50%; }
+    .close { background: #FF5F56; } .minimize { background: #FFBD2E; } .maximize { background: #27C93F; }
+    .main-view { padding: 24px 32px; display: flex; flex-direction: column; background: #FAFAFC; flex: 1; min-height: 720px; }
+    .filter-pills { display: flex; gap: 8px; padding-bottom: 20px; }
+    .pill {
+        padding: 6px 14px; border-radius: 20px; font-size: 13px; font-weight: 500;
+        color: var(--mac-text-secondary); background: transparent; border: 1px solid transparent;
+        cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all 0.2s ease;
+    }
+    .pill:hover { background: rgba(0,0,0,0.03); }
+    .pill.active { background: #FFFFFF; color: var(--mac-text); border-color: rgba(0,0,0,0.05); box-shadow: 0 2px 8px rgba(0,0,0,0.04); }
+    .pill-count { color: var(--mac-text-tertiary); font-size: 11px; font-weight: 600; background: var(--mac-matte); padding: 2px 6px; border-radius: 10px; }
+    .pill.active .pill-count { background: var(--gel-blue-light); color: var(--gel-blue); }
+    .hero-banner {
+        background: rgba(255, 255, 255, 0.7); backdrop-filter: blur(20px);
+        border: 1px solid rgba(255, 255, 255, 0.8); border-radius: var(--radius-banner);
+        box-shadow: 0 8px 24px rgba(0,0,0,0.04); display: none; flex-direction: column;
+        overflow: hidden; margin-bottom: 24px; animation: fadein 0.3s ease;
+    }
+    .hero-banner.active { display: flex; }
+    @keyframes fadein { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+    .banner-inner { padding: 22px; display: flex; flex-direction: column; gap: 18px; }
+    .banner-header { display: flex; justify-content: space-between; align-items: center; }
+    .banner-title { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; display:flex; align-items:center; gap:8px; }
+    .gel-icon { width: 24px; height: 24px; border-radius: 6px; display: flex; align-items: center; justify-content: center; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+    .gel-icon svg { width: 14px; height: 14px; }
+    .metrics-grid { display: grid; gap: 20px; }
+    .cols-3 { grid-template-columns: 1fr 1.2fr 1fr; }
+    .cols-2 { grid-template-columns: 1fr 1fr; }
+    .metric-block { display: flex; flex-direction: column; gap: 6px; }
+    .border-left { padding-left: 20px; border-left: 1px solid rgba(0,0,0,0.06); }
+    .metric-label { font-size: 11px; font-weight: 600; color: var(--mac-text-secondary); text-transform: uppercase; letter-spacing: 0.5px; }
+    .metric-val { font-size: 28px; font-weight: 600; letter-spacing: -0.5px; color: var(--mac-text); display: flex; align-items: baseline; gap: 6px;}
+    .metric-sub { font-size: 13px; font-weight: 500; color: var(--mac-text-secondary); }
+    .gel-progress { width: 100%; height: 7px; background: rgba(0,0,0,0.04); border-radius: 4px; display: flex; overflow: hidden; margin: 4px 0; }
+    .segment { height: 100%; }
+    .legend-row { display: flex; gap: 14px; font-size: 11px; font-weight: 500; color: var(--mac-text-secondary); }
+    .legend-item { display: flex; align-items: center; gap: 5px; }
+    .dot { width: 7px; height: 7px; border-radius: 50%; }
+    .insight-box { background: rgba(255,255,255,0.6); border: 1px solid rgba(0,0,0,0.04); border-radius: 8px; padding: 10px 14px; font-size: 12px; line-height: 1.4; color: var(--mac-text-secondary); }
+    .insight-box strong { color: var(--mac-text); }
+    .insight-warning { background: rgba(255, 159, 10, 0.08); border-color: rgba(255, 159, 10, 0.2); color: #994200; }
+    .table-container { flex: 1; background: #FFFFFF; border: 1px solid var(--mac-border); border-radius: 12px; overflow: hidden; display: flex; flex-direction: column; }
+    .list-wrapper { display: none; flex-direction: column; }
+    .list-wrapper.active { display: flex; }
+    .t-header { display: flex; align-items: center; padding: 12px 20px; background: #FAFAFC; border-bottom: 1px solid var(--mac-border); }
+    .t-col { font-size: 11px; font-weight: 600; color: var(--mac-text-secondary); text-transform: uppercase; letter-spacing: 0.5px; flex: 1; }
+    .t-col.primary { flex: 2.5; }
+    .t-col.right { text-align: right; }
+    .t-row { display: flex; align-items: center; padding: 12px 20px; border-bottom: 1px solid var(--mac-border); position: relative; cursor: pointer; transition: background 0.15s; }
+    .t-row:last-child { border-bottom: none; }
+    .t-row:hover { background: #F5F5F7; }
+    .t-cell { font-size: 13px; font-weight: 500; color: var(--mac-text); flex: 1; display: flex; align-items: center; gap: 8px; }
+    .t-cell.primary { flex: 2.5; font-weight: 600; }
+    .t-cell.right { justify-content: flex-end; font-variant-numeric: tabular-nums; }
+    .status-pill { display: inline-flex; align-items: center; gap: 6px; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; border: 1px solid var(--mac-border); }
+    .sp-green { color: #248A3D; background: rgba(52, 199, 89, 0.1); border-color: rgba(52, 199, 89, 0.2); }
+    .sp-orange { color: #B25000; background: rgba(255, 159, 10, 0.1); border-color: rgba(255, 159, 10, 0.2); }
+    .sp-red { color: #C93400; background: rgba(255, 59, 48, 0.1); border-color: rgba(255, 59, 48, 0.2); }
+    .tag { font-family: ui-monospace, monospace; font-size: 10.5px; background: var(--mac-bg); padding: 2px 6px; border-radius: 4px; border: 1px solid var(--mac-border); color: var(--mac-text-secondary); }
+    .row-actions { position: absolute; right: 20px; display: flex; gap: 4px; opacity: 0; transition: opacity 0.2s; background: linear-gradient(90deg, transparent, #F5F5F7 20%, #F5F5F7 100%); padding-left: 20px; }
+    .t-row:hover .row-actions { opacity: 1; }
+    .action-btn { background: #FFFFFF; border: 1px solid var(--mac-border); border-radius: 6px; width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; color: var(--mac-text-secondary); cursor: pointer; }
+    .action-btn:hover { color: var(--mac-text); border-color: #C7C7CC; }
+    .action-btn svg { width: 12px; height: 12px; fill: currentColor; }
+</style>
+</head>
+<body>
+    <div class="app-window">
+        <div class="header">
+            <div class="traffic-lights"><div class="close"></div><div class="minimize"></div><div class="maximize"></div></div>
+            <div style="font-size: 13px; font-weight: 600; color: var(--mac-text-secondary);">My machine <span style="margin: 0 4px;">&rsaquo;</span> Global Workspace Observability</div>
+        </div>
+        <div class="main-view">
+            <div class="filter-pills">
+                <button class="pill active" onclick="switchView('all', this)">All <span class="pill-count">311</span></button>
+                <button class="pill" onclick="switchView('skills', this)">Skills <span class="pill-count">110</span></button>
+                <button class="pill" onclick="switchView('mcp', this)">MCP servers <span class="pill-count">187</span></button>
+                <button class="pill" onclick="switchView('rules', this)">Rules <span class="pill-count">2</span></button>
+                <button class="pill" onclick="switchView('subagents', this)">Subagents <span class="pill-count">12</span></button>
+            </div>
+
+            <!-- 1. ALL BANNER -->
+            <div id="banner-all" class="hero-banner active" style="border-top: 1px solid rgba(0, 122, 255, 0.3); background: linear-gradient(180deg, rgba(255,255,255,0.95) 0%, rgba(245, 250, 255, 0.7) 100%);">
+                <div class="banner-inner">
+                    <div class="banner-header">
+                        <div class="banner-title" style="color: var(--gel-blue);">
+                            <div class="gel-icon"><svg fill="var(--gel-blue)" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14.5v-9l6 4.5-6 4.5z"/></svg></div>
+                            Global Link & Drift Telemetry
+                        </div>
+                    </div>
+                    <div class="metrics-grid cols-3">
+                        <div class="metric-block">
+                            <span class="metric-label">System Fragmentation</span>
+                            <div class="metric-val">311 <span class="metric-sub">Detected</span></div>
+                            <div class="gel-progress">
+                                <div class="segment" style="width: 46%; background: var(--gel-blue);"></div>
+                                <div class="segment" style="width: 54%; background: var(--gel-orange);"></div>
+                            </div>
+                            <div class="legend-row">
+                                <div class="legend-item"><div class="dot" style="background:var(--gel-blue);"></div> 143 Canonical</div>
+                                <div class="legend-item"><div class="dot" style="background:var(--gel-orange);"></div> 168 Shadow</div>
+                            </div>
+                        </div>
+                        <div class="metric-block border-left">
+                            <span class="metric-label">Version Drift Alert</span>
+                            <div class="insight-box insight-warning">
+                                <strong>3 Duplicate Versions:</strong> <code>github-stdio</code> differs between Cursor and Claude Code.
+                            </div>
+                        </div>
+                        <div class="metric-block border-left">
+                            <span class="metric-label">Total Active Surface</span>
+                            <div class="metric-val">450 <span class="metric-sub">Tools</span></div>
+                            <div class="insight-box">Exposed across <strong>7 engine environments</strong>.</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 2. SKILLS BANNER -->
+            <div id="banner-skills" class="hero-banner" style="border-top: 1px solid rgba(175, 82, 222, 0.3); background: linear-gradient(180deg, rgba(255,255,255,0.95) 0%, rgba(250, 245, 255, 0.7) 100%);">
+                <div class="banner-inner">
+                    <div class="banner-header">
+                        <div class="banner-title" style="color: var(--gel-purple);">
+                            <div class="gel-icon"><svg fill="var(--gel-purple)" viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg></div>
+                            Utilization & Permissions Footprint
+                        </div>
+                    </div>
+                    <div class="metrics-grid cols-3">
+                        <div class="metric-block">
+                            <span class="metric-label">30-Day Activity</span>
+                            <div class="metric-val">26 <span class="metric-sub">Active</span></div>
+                            <div class="gel-progress">
+                                <div class="segment" style="width: 24%; background: var(--gel-purple);"></div>
+                                <div class="segment" style="width: 76%; background: #E5E5EA;"></div>
+                            </div>
+                            <div class="legend-row">
+                                <div class="legend-item"><div class="dot" style="background:var(--gel-purple);"></div> Hot</div>
+                                <div class="legend-item"><div class="dot" style="background:#C7C7CC;"></div> 84 Cold</div>
+                            </div>
+                        </div>
+                        <div class="metric-block border-left">
+                            <span class="metric-label">Privilege Audit</span>
+                            <div class="metric-val" style="color:var(--gel-red); font-size:22px;">8 Unsandboxed</div>
+                            <div class="insight-box">Direct terminal execution active.</div>
+                        </div>
+                        <div class="metric-block border-left">
+                            <span class="metric-label">Orphaned Context</span>
+                            <div class="metric-val">12 <span class="metric-sub">Skills</span></div>
+                            <div class="insight-box">Not tracked by any active agent root.</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 3. MCP BANNER -->
+            <div id="banner-mcp" class="hero-banner" style="border-top: 1px solid rgba(255, 159, 10, 0.3); background: linear-gradient(180deg, rgba(255,255,255,0.95) 0%, rgba(255, 250, 245, 0.7) 100%);">
+                <div class="banner-inner">
+                    <div class="banner-header">
+                        <div class="banner-title" style="color: var(--gel-orange);">
+                            <div class="gel-icon"><svg fill="var(--gel-orange)" viewBox="0 0 24 24"><path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14zm-7-2h2v-4h4v-2h-4V7h-2v4H8v2h4z"/></svg></div>
+                            Overhead & Token Tax
+                        </div>
+                    </div>
+                    <div class="metrics-grid cols-2">
+                        <div class="metric-block">
+                            <span class="metric-label">Static Schema Footprint</span>
+                            <div class="metric-val">10.8k <span class="metric-sub">Tokens / Request</span></div>
+                            <div class="insight-box"><strong>40% (~4.3k tokens)</strong> consumed by undeclared shadow MCPs.</div>
+                        </div>
+                        <div class="metric-block border-left">
+                            <span class="metric-label">Namespace Health</span>
+                            <div class="insight-box insight-warning">
+                                <strong>1 Collision:</strong> <code>search_repositories</code> is duplicated across GitHub and GitLab servers.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 4. RULES BANNER -->
+            <div id="banner-rules" class="hero-banner" style="border-top: 1px solid rgba(52, 199, 89, 0.3); background: linear-gradient(180deg, rgba(255,255,255,0.95) 0%, rgba(245, 255, 248, 0.7) 100%);">
+                <div class="banner-inner">
+                    <div class="banner-header">
+                        <div class="banner-title" style="color: var(--gel-green);">
+                            <div class="gel-icon"><svg fill="var(--gel-green)" viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 9h-2V7h-2v5H6v-2h2v5h2v-5h2v2z"/></svg></div>
+                            Context Injection & Glob Coverage
+                        </div>
+                    </div>
+                    <div class="metrics-grid cols-2">
+                        <div class="metric-block">
+                            <span class="metric-label">Active Workspace Globs</span>
+                            <div class="metric-val">2 <span class="metric-sub">Patterns Matching 104 Files</span></div>
+                        </div>
+                        <div class="metric-block border-left">
+                            <span class="metric-label">Rule Conflict Index</span>
+                            <div class="insight-box">0 conflicting workspace directives found.</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 5. SUBAGENTS BANNER -->
+            <div id="banner-subagents" class="hero-banner" style="border-top: 1px solid rgba(50, 173, 230, 0.3); background: linear-gradient(180deg, rgba(255,255,255,0.95) 0%, rgba(240, 252, 255, 0.7) 100%);">
+                <div class="banner-inner">
+                    <div class="banner-header">
+                        <div class="banner-title" style="color: var(--gel-cyan);">
+                            <div class="gel-icon"><svg fill="var(--gel-cyan)" viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3v1H9V7c0-1.66-1.34-3-3-3S3 5.34 3 7c0 1.66 1.34 3 3 3v4c-1.66 0-3 1.34-3 3 0 1.66 1.34 3 3 3s3-1.34 3-3h6c0 1.66 1.34 3 3 3s3-1.34 3-3-1.34-3-3-3h-2v-4h2z"/></svg></div>
+                            Delegation Compute Budget
+                        </div>
+                    </div>
+                    <div class="metrics-grid cols-2">
+                        <div class="metric-block">
+                            <span class="metric-label">Active Computations</span>
+                            <div class="metric-val">4 <span class="metric-sub">Running Tasks</span></div>
+                        </div>
+                        <div class="metric-block border-left">
+                            <span class="metric-label">Pool Saturation</span>
+                            <div class="metric-val" style="color:var(--gel-orange);">75% <span class="metric-sub">Budget Consumed</span></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TABLE CONTAINER -->
+            <div class="table-container">
+                <div id="list-all" class="list-wrapper active">
+                    <div class="t-header"><div class="t-col primary">Asset</div><div class="t-col">Type</div><div class="t-col">Health Status</div><div class="t-col right">Schema Weight</div></div>
+                    <div class="t-row">
+                        <div class="t-cell primary"><span class="tag">mcp</span> github</div>
+                        <div class="t-cell">MCP Server</div>
+                        <div class="t-cell"><span class="status-pill sp-orange">Shadow Duplicate</span></div>
+                        <div class="t-cell right">10,877 t</div>
+                        <div class="row-actions"><button class="action-btn"><svg viewBox="0 0 24 24"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg></button></div>
+                    </div>
+                    <div class="t-row">
+                        <div class="t-cell primary"><span class="tag">skill</span> animation-motion-design</div>
+                        <div class="t-cell">Skill</div>
+                        <div class="t-cell"><span class="status-pill sp-green">Canonical Active</span></div>
+                        <div class="t-cell right">340 t</div>
+                        <div class="row-actions"><button class="action-btn"><svg viewBox="0 0 24 24"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg></button></div>
+                    </div>
+                </div>
+
+                <div id="list-skills" class="list-wrapper">
+                    <div class="t-header"><div class="t-col primary">Skill</div><div class="t-col">Pattern</div><div class="t-col">Activity</div><div class="t-col right">Weight</div></div>
+                    <div class="t-row">
+                        <div class="t-cell primary">animation-motion-design</div>
+                        <div class="t-cell"><span class="tag">Linear</span></div>
+                        <div class="t-cell"><span class="status-pill sp-orange">Hot (142 calls)</span></div>
+                        <div class="t-cell right">340 t</div>
+                    </div>
+                </div>
+
+                <div id="list-mcp" class="list-wrapper">
+                    <div class="t-header"><div class="t-col primary">Server</div><div class="t-col">Transport</div><div class="t-col">Tools Exposed</div><div class="t-col right">Tax</div></div>
+                    <div class="t-row">
+                        <div class="t-cell primary">github</div>
+                        <div class="t-cell"><span class="tag">stdio</span></div>
+                        <div class="t-cell">26 tools</div>
+                        <div class="t-cell right" style="color:var(--gel-red); font-weight:600;">10.8k t</div>
+                    </div>
+                </div>
+
+                <div id="list-rules" class="list-wrapper">
+                    <div class="t-header"><div class="t-col primary">Rule Config</div><div class="t-col">Target Glob</div><div class="t-col right">Matched Files</div></div>
+                    <div class="t-row">
+                        <div class="t-cell primary">.cursor/rules/*.mdc</div>
+                        <div class="t-cell"><span class="tag">src/components/**/*.tsx</span></div>
+                        <div class="t-cell right">104 files</div>
+                    </div>
+                </div>
+
+                <div id="list-subagents" class="list-wrapper">
+                    <div class="t-header"><div class="t-col primary">Task Name</div><div class="t-col">Target Directory</div><div class="t-col right">Status</div></div>
+                    <div class="t-row">
+                        <div class="t-cell primary">Refactor CSS Modules</div>
+                        <div class="t-cell"><span class="tag">/src/utils</span></div>
+                        <div class="t-cell right"><span class="status-pill sp-orange">Awaiting Approval</span></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+        function switchView(id, btn) {
+            document.querySelectorAll('.pill').forEach(p => p.classList.remove('active'));
+            btn.classList.add('active');
+            document.querySelectorAll('.hero-banner').forEach(b => b.classList.remove('active'));
+            document.getElementById('banner-' + id).classList.add('active');
+            document.querySelectorAll('.list-wrapper').forEach(l => l.classList.remove('active'));
+            document.getElementById('list-' + id).classList.add('active');
+        }
+    </script>
+</body>
+</html>

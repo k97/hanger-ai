@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><style>
+    :root {
+        --mac-bg: #F5F5F7;
+        --mac-panel-bg: rgba(255, 255, 255, 0.85); /* Glass effect for floating panel */
+        --mac-text: #1D1D1F;
+        --mac-text-secondary: #86868B;
+        --mac-text-tertiary: #98989D;
+        --mac-border: rgba(0,0,0,0.08);
+        --mac-accent: #007AFF;
+        --mac-matte: #E8E8ED;
+        --mac-card-bg: #FFFFFF;
+        --radius-panel: 12px;
+        --radius-card: 10px;
+        --radius-btn: 6px;
+    }
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        background-color: #E5E5EA;
+        color: var(--mac-text);
+        margin: 0;
+        padding: 40px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 100vh;
+    }
+    .floating-panel {
+        width: 380px;
+        background: var(--mac-panel-bg);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border: 1px solid rgba(0,0,0,0.1);
+        border-radius: var(--radius-panel);
+        box-shadow: 0 20px 40px rgba(0,0,0,0.15), 0 1px 3px rgba(0,0,0,0.1);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
+    .panel-header {
+        padding: 16px 20px 0px;
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+    }
+    .breadcrumb { font-size: 11px; font-weight: 600; letter-spacing: 0.5px; color: var(--mac-text-secondary); text-transform: uppercase; }
+    .item-title { font-size: 16px; font-weight: 600; margin: 0; color: var(--mac-text); }
+    .title-wrapper { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
+    
+    .icon-btn { background: transparent; border: none; border-radius: var(--radius-btn); width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--mac-text-secondary); }
+    .icon-btn:hover { background: rgba(0,0,0,0.05); color: var(--mac-text); }
+    .icon-btn svg { width: 14px; height: 14px; fill: currentColor; }
+
+    /* Required styling for headers */
+    .section-label {
+        text-transform: uppercase;
+        font-size: 10.5px;
+        font-weight: 600;
+        color: var(--mac-text-secondary);
+        margin-bottom: 12px;
+        letter-spacing: 0.5px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .panel-content { padding: 20px; display: flex; flex-direction: column; gap: 16px; overflow-y: auto; max-height: 700px; }
+    
+    .box-container {
+        background: var(--mac-card-bg);
+        border: 1px solid var(--mac-border);
+        border-radius: var(--radius-card);
+        padding: 16px;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.02);
+    }
+
+    /* Path specific */
+    .path-string {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        font-size: 11px;
+        color: var(--mac-text-secondary);
+        background: var(--mac-bg);
+        padding: 10px 12px;
+        border-radius: 6px;
+        border: 1px solid var(--mac-border);
+        word-break: break-all;
+        position: relative;
+    }
+    .path-icon { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); color: var(--mac-text-tertiary); cursor: pointer; }
+    .path-icon:hover { color: var(--mac-text); }
+
+    /* Meta Tables */
+    .meta-table { display: flex; flex-direction: column; gap: 12px; }
+    .meta-row { display: flex; align-items: flex-start; }
+    .meta-icon { width: 28px; flex-shrink: 0; color: var(--mac-text-tertiary); display: flex; align-items: center; margin-top: 1px; }
+    .meta-icon svg { width: 15px; height: 15px; fill: currentColor; }
+    .meta-content { display: flex; flex-direction: column; gap: 2px; width: 100%; }
+    .meta-value { font-weight: 500; color: var(--mac-text); font-size: 13px; display: flex; align-items: center; flex-wrap: wrap; gap: 6px;}
+    .meta-label { font-size: 11px; color: var(--mac-text-secondary); }
+    .meta-value strong { font-family: ui-monospace, SFMono-Regular, monospace; background: var(--mac-bg); padding: 2px 6px; border-radius: 4px; border: 1px solid var(--mac-border); font-size: 11.5px; font-weight: 500;}
+
+    /* Status Dots */
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; }
+    .status-green { background-color: #34C759; }
+    .status-yellow { background-color: #FFCC00; }
+    .status-red { background-color: #FF3B30; }
+    
+    .status-row { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 500; margin-bottom: 12px; }
+
+    /* Tabs */
+    .inspector-tabs { display: flex; padding: 12px 20px 0; border-bottom: 1px solid var(--mac-border); gap: 4px; }
+    .inspector-tab-btn { background: none; border: none; padding: 8px 12px; font-size: 12px; font-weight: 500; color: var(--mac-text-secondary); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+    .inspector-tab-btn.active { color: var(--mac-text); border-bottom-color: var(--mac-accent); font-weight: 600; }
+    .tab-pane { display: none; flex-direction: column; gap: 16px; }
+    .tab-pane.active { display: flex; }
+    
+    /* Repo Stats Breakdown */
+    .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .stat-card { background: var(--mac-bg); border: 1px solid var(--mac-border); border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 4px; }
+    .stat-num { font-size: 18px; font-weight: 600; color: var(--mac-text); }
+    .stat-title { font-size: 11px; color: var(--mac-text-secondary); font-weight: 500; text-transform: uppercase;}
+    
+    /* Main Action Button */
+    .action-btn { background: var(--mac-bg); border: 1px solid var(--mac-border); border-radius: 8px; padding: 10px; font-size: 13px; font-weight: 500; color: var(--mac-text); cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 6px; transition: 0.2s;}
+    .action-btn:hover { background: #E8E8ED; }
+</style></head>
+<body>
+    <div class="floating-panel">
+        <header class="panel-header">
+            <div>
+                <span class="breadcrumb">Node &bull; Canonical Store</span>
+                <div class="title-wrapper">
+                    <h2 class="item-title">.agents</h2>
+                </div>
+            </div>
+            <button class="icon-btn" title="Close"><svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg></button>
+        </header>
+
+        <div class="inspector-tabs">
+            <button class="inspector-tab-btn active" onclick="switchTab('overview')">Overview</button>
+            <button class="inspector-tab-btn" onclick="switchTab('health')">Link Health</button>
+        </div>
+
+        <div class="panel-content">
+            <div id="tab-overview" class="tab-pane active">
+                <div class="box-container">
+                    <div class="section-label">Location</div>
+                    <div class="status-row">
+                        <div class="status-dot status-green"></div>
+                        <span style="color:var(--mac-text-secondary);">The canonical copy of every asset lives here</span>
+                    </div>
+                    <div class="path-string">
+                        /Users/karthik/.agents
+                        <svg class="path-icon" style="width:14px;height:14px;" viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
+                    </div>
+                </div>
+
+                <div class="box-container">
+                    <div class="section-label">Global Registry Breakdown <span style="font-weight:400;">122 Assets</span></div>
+                    <div class="stat-grid">
+                        <div class="stat-card">
+                            <span class="stat-num">110</span>
+                            <span class="stat-title">Skills</span>
+                        </div>
+                        <div class="stat-card">
+                            <span class="stat-num">12</span>
+                            <span class="stat-title">MCP Servers</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="box-container">
+                    <div class="section-label">Storage & Sync</div>
+                    <div class="meta-table">
+                        <div class="meta-row">
+                            <div class="meta-icon"><svg viewBox="0 0 24 24"><path d="M2 20h20v-4H2v4zm2-3h2v2H4v-2zM2 4v4h20V4H2zm4 3H4V5h2v2zm-4 7h20v-4H2v4zm2-3h2v2H4v-2z"/></svg></div>
+                            <div class="meta-content">
+                                <div class="meta-value">1.4 MB Total Size</div>
+                                <div class="meta-label">On Disk</div>
+                            </div>
+                        </div>
+                        <div class="meta-row">
+                            <div class="meta-icon"><svg viewBox="0 0 24 24"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg></div>
+                            <div class="meta-content">
+                                <div class="meta-value">Hanger Daemon</div>
+                                <div class="meta-label">Syncs to 4 engine roots automatically</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="tab-health" class="tab-pane">
+                <div class="box-container">
+                    <div class="section-label">Topology Health</div>
+                    <div class="meta-table">
+                        <div class="meta-row">
+                            <div class="meta-icon"><div class="status-dot status-green"></div></div>
+                            <div class="meta-content">
+                                <div class="meta-value">110 Linked</div>
+                                <div class="meta-label">Successfully mapped to endpoints</div>
+                            </div>
+                        </div>
+                        <div class="meta-row">
+                            <div class="meta-icon"><div class="status-dot" style="background:#8E8E93;"></div></div>
+                            <div class="meta-content">
+                                <div class="meta-value">12 Local Only</div>
+                                <div class="meta-label">Not synced to any engine</div>
+                            </div>
+                        </div>
+                        <div class="meta-row">
+                            <div class="meta-icon"><div class="status-dot status-red"></div></div>
+                            <div class="meta-content">
+                                <div class="meta-value" style="color:var(--mac-text-secondary);">0 Broken / Drifted</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <button class="action-btn">
+                    <svg style="width:14px;height:14px;fill:currentColor;" viewBox="0 0 24 24"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg>
+                    Rescan Global Store
+                </button>
+            </div>
+        </div>
+    </div>
+    <script>
+        function switchTab(tabId) {
+            document.querySelectorAll('.inspector-tab-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+            document.querySelectorAll('.tab-pane').forEach(pane => pane.classList.remove('active'));
+            document.getElementById('tab-' + tabId).classList.add('active');
+        }
+    </script>
+</body>
+</html>

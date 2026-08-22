@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hanger App - Polymorphic Banners</title>
+<style>
+    :root {
+        --mac-bg: #F5F5F7;
+        --mac-window: #FFFFFF;
+        --mac-text: #1D1D1F;
+        --mac-text-secondary: #86868B;
+        --mac-text-tertiary: #C7C7CC;
+        --mac-border: rgba(0,0,0,0.08);
+        
+        /* Gel / Aqua Inspired Palette */
+        --gel-blue: #007AFF;
+        --gel-blue-light: rgba(0, 122, 255, 0.1);
+        --gel-green: #34C759;
+        --gel-orange: #FF9F0A;
+        --gel-red: #FF3B30;
+        --gel-purple: #AF52DE;
+        --gel-cyan: #32ADE6;
+        
+        --mac-matte: #F2F2F7;
+        --radius-window: 12px;
+        --radius-banner: 16px;
+        --radius-btn: 8px;
+    }
+    
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        background-color: #E5E5EA;
+        color: var(--mac-text);
+        margin: 0; padding: 40px; display: flex; justify-content: center; align-items: flex-start; min-height: 100vh;
+        box-sizing: border-box;
+    }
+
+    .app-window {
+        width: 950px; background: var(--mac-window); border-radius: var(--radius-window);
+        box-shadow: 0 20px 40px rgba(0,0,0,0.15), 0 1px 3px rgba(0,0,0,0.05);
+        display: flex; flex-direction: column; overflow: hidden; border: 1px solid var(--mac-border);
+    }
+    
+    .header {
+        height: 52px; border-bottom: 1px solid var(--mac-border); display: flex; align-items: center; padding: 0 16px; background: #fff; z-index: 10;
+    }
+    
+    .traffic-lights { display: flex; gap: 8px; margin-right: 16px;}
+    .traffic-lights div { width: 12px; height: 12px; border-radius: 50%; }
+    .close { background: #FF5F56; border: 1px solid #E0443E; } 
+    .minimize { background: #FFBD2E; border: 1px solid #DEA123; } 
+    .maximize { background: #27C93F; border: 1px solid #1AAB29; }
+    
+    .main-view { padding: 24px 32px; display: flex; flex-direction: column; background: #FAFAFC; flex: 1; min-height: 600px; position: relative;}
+
+    /* Top Level Segmented Tabs */
+    .filter-pills { 
+        display: flex; gap: 8px; padding-bottom: 20px;
+    }
+    
+    .pill {
+        padding: 6px 14px; border-radius: 20px; font-size: 13px; font-weight: 500;
+        color: var(--mac-text-secondary); background: transparent; border: 1px solid transparent;
+        cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all 0.3s ease;
+    }
+    
+    .pill:hover { background: rgba(0,0,0,0.03); }
+    
+    /* Active Gel Pill State */
+    .pill.active { 
+        background: #FFFFFF; 
+        color: var(--mac-text); 
+        border-color: rgba(0,0,0,0.05); 
+        box-shadow: 0 2px 8px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.04); 
+    }
+    
+    .pill-count { color: var(--mac-text-tertiary); font-size: 11px; font-weight: 600; background: var(--mac-matte); padding: 2px 6px; border-radius: 10px; font-variant-numeric: tabular-nums; transition: 0.3s;}
+    .pill.active .pill-count { color: var(--mac-text); background: var(--gel-blue-light); color: var(--gel-blue); }
+
+    /* Banner Container Wrapper for smooth height transitions */
+    .banner-wrapper {
+        position: relative;
+        margin-bottom: 24px;
+    }
+
+    /* Polymorphic Banner Core Rules (Gel Aesthetic) */
+    .hero-banner {
+        background: rgba(255, 255, 255, 0.6);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border: 1px solid rgba(255, 255, 255, 0.8);
+        border-radius: var(--radius-banner);
+        box-shadow: 0 8px 24px rgba(0,0,0,0.04), inset 0 1px 1px rgba(255,255,255,0.9);
+        display: none; /* Hidden by default */
+        flex-direction: column; 
+        overflow: hidden;
+        animation: fadein 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+    }
+    
+    .hero-banner.active {
+        display: flex;
+    }
+    
+    @keyframes fadein {
+        from { opacity: 0; transform: translateY(-4px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    
+    /* Specific Banner Themes */
+    .banner-all { border-top: 1px solid rgba(0, 122, 255, 0.2); background: linear-gradient(180deg, rgba(255,255,255,0.9) 0%, rgba(245, 250, 255, 0.6) 100%); }
+    .banner-skills { border-top: 1px solid rgba(175, 82, 222, 0.2); background: linear-gradient(180deg, rgba(255,255,255,0.9) 0%, rgba(250, 245, 255, 0.6) 100%); }
+    .banner-mcp { border-top: 1px solid rgba(255, 159, 10, 0.2); background: linear-gradient(180deg, rgba(255,255,255,0.9) 0%, rgba(255, 250, 245, 0.6) 100%); }
+    .banner-rules { border-top: 1px solid rgba(52, 199, 89, 0.2); background: linear-gradient(180deg, rgba(255,255,255,0.9) 0%, rgba(245, 255, 248, 0.6) 100%); }
+    .banner-subagents { border-top: 1px solid rgba(50, 173, 230, 0.2); background: linear-gradient(180deg, rgba(255,255,255,0.9) 0%, rgba(240, 252, 255, 0.6) 100%); }
+
+    .banner-inner { padding: 24px; display: flex; flex-direction: column; gap: 20px; }
+
+    /* Header within Banner */
+    .banner-header { display: flex; justify-content: space-between; align-items: center; }
+    
+    .banner-title { 
+        font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; 
+        display:flex; align-items:center; gap:8px;
+    }
+    
+    /* Gel Icon Container */
+    .gel-icon {
+        width: 24px; height: 24px; border-radius: 6px; display: flex; align-items: center; justify-content: center;
+        background: #fff; box-shadow: 0 2px 6px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,1);
+    }
+    .gel-icon svg { width: 14px; height: 14px; }
+    
+    .action-btn { 
+        background: rgba(255,255,255,0.8); border: 1px solid rgba(0,0,0,0.05); border-radius: var(--radius-btn); 
+        padding: 6px 14px; font-size: 12px; font-weight: 600; color: var(--mac-text); cursor: pointer; display: flex; align-items: center; gap: 6px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.04); transition: 0.2s;
+    }
+    .action-btn:hover { background: #FFFFFF; box-shadow: 0 2px 6px rgba(0,0,0,0.06); transform: translateY(-1px);}
+
+    /* Dynamic Grid Layouts */
+    .metrics-grid { display: grid; gap: 24px; }
+    .cols-3 { grid-template-columns: 1fr 1fr 1.5fr; }
+    .cols-2 { grid-template-columns: 1fr 1.5fr; }
+    .cols-4 { grid-template-columns: repeat(4, 1fr); }
+
+    .metric-block { display: flex; flex-direction: column; gap: 6px; }
+    .border-left { padding-left: 24px; border-left: 1px solid rgba(0,0,0,0.06); }
+    
+    .metric-label { font-size: 11px; font-weight: 600; color: var(--mac-text-secondary); text-transform: uppercase; letter-spacing: 0.5px; }
+    .metric-val { font-size: 32px; font-weight: 600; letter-spacing: -0.5px; color: var(--mac-text); display: flex; align-items: baseline; gap: 8px;}
+    .metric-sub { font-size: 14px; font-weight: 500; color: var(--mac-text-secondary); letter-spacing: 0;}
+    
+    /* Gel Progress Bar */
+    .gel-progress { 
+        width: 100%; height: 8px; background: rgba(0,0,0,0.04); border-radius: 4px; display: flex; overflow: hidden; margin: 6px 0; 
+        box-shadow: inset 0 1px 2px rgba(0,0,0,0.05);
+    }
+    .segment { height: 100%; transition: width 1s ease-in-out; }
+    
+    .legend-row { display: flex; gap: 16px; font-size: 11px; font-weight: 500; color: var(--mac-text-secondary); margin-top: 4px;}
+    .legend-item { display: flex; align-items: center; gap: 6px; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; box-shadow: inset 0 1px 1px rgba(255,255,255,0.5); }
+    
+    /* Insight text box */
+    .insight-box {
+        background: rgba(255,255,255,0.5); border: 1px solid rgba(0,0,0,0.03); border-radius: 8px; padding: 12px 16px;
+        font-size: 12px; line-height: 1.5; color: var(--mac-text-secondary);
+    }
+    .insight-box strong { color: var(--mac-text); font-weight: 600; }
+
+    /* Fake Content Area */
+    .content-area {
+        flex: 1; border: 1px dashed rgba(0,0,0,0.1); border-radius: 12px; display: flex; justify-content: center; align-items: center;
+        color: var(--mac-text-tertiary); font-size: 13px; font-weight: 500; background: rgba(255,255,255,0.5);
+    }
+
+</style>
+</head>
+<body>
+    <div class="app-window">
+        <div class="header">
+            <div class="traffic-lights"><div class="close"></div><div class="minimize"></div><div class="maximize"></div></div>
+            <div style="font-size: 13px; font-weight: 600; color: var(--mac-text-secondary);">My machine <span style="margin: 0 4px;">&rsaquo;</span> Global Workspace</div>
+        </div>
+        
+        <div class="main-view">
+            
+            <!-- TOP TABS -->
+            <div class="filter-pills">
+                <button class="pill active" onclick="switchBanner('all')">All <span class="pill-count">143</span></button>
+                <button class="pill" onclick="switchBanner('skills')">Skills <span class="pill-count">110</span></button>
+                <button class="pill" onclick="switchBanner('mcp')">MCP servers <span class="pill-count">19</span></button>
+                <button class="pill" onclick="switchBanner('rules')">Rules <span class="pill-count">2</span></button>
+                <button class="pill" onclick="switchBanner('subagents')">Subagents <span class="pill-count">12</span></button>
+            </div>
+
+            <!-- POLYMORPHIC BANNERS -->
+            <div class="banner-wrapper">
+                
+                <!-- 1. ALL / GLOBAL BANNER -->
+                <div id="banner-all" class="hero-banner banner-all active">
+                    <div class="banner-inner">
+                        <div class="banner-header">
+                            <div class="banner-title" style="color: var(--gel-blue);">
+                                <div class="gel-icon"><svg fill="var(--gel-blue)" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14.5v-9l6 4.5-6 4.5z"/></svg></div>
+                                Global Harness Monitor
+                            </div>
+                            <div style="font-size: 11px; color: var(--mac-text-secondary); display: flex; align-items: center; gap: 12px; font-weight:600;">
+                                <div style="display:flex; align-items:center; gap:6px;">
+                                    <div style="width:8px; height:8px; background:var(--gel-green); border-radius:50%; box-shadow: 0 0 8px var(--gel-green);"></div> Daemon Active
+                                </div>
+                                Uptime: 4d 12h
+                                <button class="action-btn">Rescan Global Store</button>
+                            </div>
+                        </div>
+                        
+                        <div class="metrics-grid cols-3">
+                            <div class="metric-block">
+                                <span class="metric-label">Managed Assets</span>
+                                <div class="metric-val">143</div>
+                                <div class="gel-progress">
+                                    <div class="segment" style="width: 76%; background: var(--gel-blue);"></div>
+                                    <div class="segment" style="width: 24%; background: #D1D1D6;"></div>
+                                </div>
+                                <div class="legend-row">
+                                    <div class="legend-item"><div class="dot" style="background:var(--gel-blue);"></div> 110 Synced</div>
+                                    <div class="legend-item"><div class="dot" style="background:#D1D1D6;"></div> 38 Local</div>
+                                </div>
+                            </div>
+                            
+                            <div class="metric-block border-left">
+                                <span class="metric-label">Engine Connections</span>
+                                <div class="metric-val">7 <span class="metric-sub">/ 7 Roots</span></div>
+                                <div class="gel-progress">
+                                    <div class="segment" style="width: 100%; background: var(--gel-green);"></div>
+                                </div>
+                                <div class="legend-row">
+                                    <div class="legend-item"><div class="dot" style="background:var(--gel-green);"></div> 100% Connectivity</div>
+                                </div>
+                            </div>
+
+                            <div class="metric-block border-left">
+                                <span class="metric-label">System Health</span>
+                                <div class="metric-val" style="color: var(--gel-green); font-size:24px;">Healthy</div>
+                                <div class="insight-box" style="margin-top:4px;">
+                                    No drift detected across the global workspace. <strong>File watcher is active</strong> on 3 project directories.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2. SKILLS BANNER -->
+                <div id="banner-skills" class="hero-banner banner-skills">
+                    <div class="banner-inner">
+                        <div class="banner-header">
+                            <div class="banner-title" style="color: var(--gel-purple);">
+                                <div class="gel-icon"><svg fill="var(--gel-purple)" viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg></div>
+                                Skill Execution Footprint
+                            </div>
+                            <button class="action-btn">Create New Skill +</button>
+                        </div>
+                        
+                        <div class="metrics-grid cols-3">
+                            <div class="metric-block">
+                                <span class="metric-label">Context Load (Avg)</span>
+                                <div class="metric-val">12.4k <span class="metric-sub">Tokens</span></div>
+                                <div class="gel-progress">
+                                    <div class="segment" style="width: 85%; background: var(--gel-purple);"></div>
+                                    <div class="segment" style="width: 15%; background: #D1D1D6;"></div>
+                                </div>
+                                <div class="legend-row">
+                                    <div class="legend-item"><div class="dot" style="background:var(--gel-purple);"></div> Manifests</div>
+                                    <div class="legend-item"><div class="dot" style="background:#D1D1D6;"></div> References</div>
+                                </div>
+                            </div>
+                            
+                            <div class="metric-block border-left">
+                                <span class="metric-label">Security & Permissions</span>
+                                <div class="metric-val">8 <span class="metric-sub">High-Risk</span></div>
+                                <div class="insight-box" style="margin-top:4px; display:flex; align-items:center; gap:12px;">
+                                    <div style="width:32px;height:32px;background:rgba(255,59,48,0.1);color:var(--gel-red);border-radius:8px;display:flex;align-items:center;justify-content:center;"><svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M20 4H4c-1.11 0-2 .9-2 2v12c0 1.1.89 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H4V8h16v10zm-2-1h-6v-2h6v2zM5.5 9.5l-1.4 1.4 3.1 3.1-3.1 3.1 1.4 1.4 4.5-4.5-4.5-4.5z"/></svg></div>
+                                    <div>8 skills have <strong>Code Execution</strong> or <strong>Terminal</strong> access enabled.</div>
+                                </div>
+                            </div>
+
+                            <div class="metric-block border-left">
+                                <span class="metric-label">Structural Patterns</span>
+                                <div class="metric-val">110 <span class="metric-sub">Total</span></div>
+                                <div class="gel-progress">
+                                    <div class="segment" style="width: 70%; background: var(--gel-blue);"></div>
+                                    <div class="segment" style="width: 20%; background: var(--gel-cyan);"></div>
+                                    <div class="segment" style="width: 10%; background: var(--gel-purple);"></div>
+                                </div>
+                                <div class="legend-row">
+                                    <div class="legend-item"><div class="dot" style="background:var(--gel-blue);"></div> 80 Linear</div>
+                                    <div class="legend-item"><div class="dot" style="background:var(--gel-cyan);"></div> 20 Routing</div>
+                                    <div class="legend-item"><div class="dot" style="background:var(--gel-purple);"></div> 10 Loop</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3. MCP BANNER -->
+                <div id="banner-mcp" class="hero-banner banner-mcp">
+                    <div class="banner-inner">
+                        <div class="banner-header">
+                            <div class="banner-title" style="color: var(--gel-orange);">
+                                <div class="gel-icon"><svg fill="var(--gel-orange)" viewBox="0 0 24 24"><path d="M13.78 15.3l-2.07 2.08L14 20l-1.39 1.38-7.07-7.07 1.39-1.39L9.2 15.2l2.08-2.07L4.2 6.05c-.39-.39-.39-1.02 0-1.41.39-.39 1.02-.39 1.41 0L12.68 11.7l1.04-1.04c.18-.18.42-.29.69-.29.27 0 .5.11.69.29L16.22 12l2.67-2.67c-.24-.51-.39-1.09-.39-1.7 0-2.21 1.79-4 4-4 .16 0 .31.02.47.04l-3.23 3.23 2.12 2.12 3.23-3.23c.02.16.04.31.04.47 0 2.21-1.79 4-4 4-.61 0-1.19-.15-1.7-.39L12 16.22l1.12 1.12c.18.18.29.42.29.69 0 .27-.11.5-.29.69l-1.34 1.34 1.93 1.93-1.39 1.38-7.07-7.07 1.39-1.39 1.93 1.93 1.34-1.34c.18-.18.42-.29.69-.29.27 0 .5.11.69.29l1.12-1.12c-.24-.51-.39-1.09-.39-1.7 0-.27.11-.5.29-.69l1.04-1.04L13.78 15.3z"/></svg></div>
+                                Context Overhead Payload
+                            </div>
+                            <button class="action-btn" style="color:var(--gel-red);">Resolve 7 Unreachable</button>
+                        </div>
+                        
+                        <div class="metrics-grid cols-2">
+                            <div class="metric-block">
+                                <span class="metric-label">Tools Injected Per Request</span>
+                                <div class="metric-val">102 <span class="metric-sub">Tools</span></div>
+                                <div class="gel-progress">
+                                    <div class="segment" style="width: 40%; background: var(--gel-green);"></div>
+                                    <div class="segment" style="width: 30%; background: var(--gel-orange);"></div>
+                                    <div class="segment" style="width: 30%; background: var(--gel-red);"></div>
+                                </div>
+                                <div class="legend-row">
+                                    <div class="legend-item"><div class="dot" style="background:var(--gel-green);"></div> 9 Answered</div>
+                                    <div class="legend-item"><div class="dot" style="background:var(--gel-orange);"></div> 7 Pending</div>
+                                    <div class="legend-item"><div class="dot" style="background:var(--gel-red);"></div> 7 Unreachable</div>
+                                </div>
+                            </div>
+                            
+                            <div class="metric-block border-left">
+                                <span class="metric-label">Running Cost Insight</span>
+                                <div class="insight-box" style="margin-top:10px;">
+                                    "Every tool a registered server can reach is described to the model on every request. <strong>That's the running cost of what's registered.</strong> Disable unreachable servers to save token overhead."
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 4. RULES BANNER -->
+                <div id="banner-rules" class="hero-banner banner-rules">
+                    <div class="banner-inner">
+                        <div class="banner-header">
+                            <div class="banner-title" style="color: var(--gel-green);">
+                                <div class="gel-icon"><svg fill="var(--gel-green)" viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 9h-2V7h-2v5H6v-2h2v5h2v-5h2v2z"/></svg></div>
+                                Context Injection Monitor
+                            </div>
+                            <button class="action-btn">Audit Rules</button>
+                        </div>
+                        
+                        <div class="metrics-grid cols-3">
+                            <div class="metric-block">
+                                <span class="metric-label">Active Workspace Globs</span>
+                                <div class="metric-val">2</div>
+                                <div style="font-family:monospace; font-size:11px; color:var(--mac-text-secondary); margin-top:8px;">
+                                    *.tsx, *.mdc
+                                </div>
+                            </div>
+                            
+                            <div class="metric-block border-left">
+                                <span class="metric-label">Targeted Files</span>
+                                <div class="metric-val">104 <span class="metric-sub">Files Match</span></div>
+                                <div class="insight-box" style="margin-top:4px;">
+                                    Rules are successfully injecting context into <strong>104</strong> local files.
+                                </div>
+                            </div>
+
+                            <div class="metric-block border-left">
+                                <span class="metric-label">Conflicts</span>
+                                <div class="metric-val" style="color:var(--gel-green);">0</div>
+                                <div style="font-size:12px; color:var(--mac-text-secondary); margin-top:8px;">
+                                    No overriding directory rules detected.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 5. SUBAGENTS BANNER -->
+                <div id="banner-subagents" class="hero-banner banner-subagents">
+                    <div class="banner-inner">
+                        <div class="banner-header">
+                            <div class="banner-title" style="color: var(--gel-cyan);">
+                                <div class="gel-icon"><svg fill="var(--gel-cyan)" viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3v1H9V7c0-1.66-1.34-3-3-3S3 5.34 3 7c0 1.66 1.34 3 3 3v4c-1.66 0-3 1.34-3 3 0 1.66 1.34 3 3 3s3-1.34 3-3h6c0 1.66 1.34 3 3 3s3-1.34 3-3-1.34-3-3-3h-2v-4h2zM6 7c0-.55.45-1 1-1s1 .45 1 1-.45 1-1 1-1-.45-1-1zm0 10c0-.55.45-1 1-1s1 .45 1 1-.45 1-1 1-1-.45-1-1zm10 0c0-.55.45-1 1-1s1 .45 1 1-.45 1-1 1-1-.45-1-1zm0-10c0-.55.45-1 1-1s1 .45 1 1-.45 1-1 1-1-.45-1-1z"/></svg></div>
+                                Autonomous Task Delegation
+                            </div>
+                            <button class="action-btn">View Run History</button>
+                        </div>
+                        
+                        <div class="metrics-grid cols-3">
+                            <div class="metric-block">
+                                <span class="metric-label">Active Subagents</span>
+                                <div class="metric-val">12</div>
+                                <div class="gel-progress">
+                                    <div class="segment" style="width: 33%; background: var(--gel-cyan);"></div>
+                                    <div class="segment" style="width: 67%; background: #D1D1D6;"></div>
+                                </div>
+                                <div class="legend-row">
+                                    <div class="legend-item"><div class="dot" style="background:var(--gel-cyan);"></div> 4 Running Tasks</div>
+                                </div>
+                            </div>
+                            
+                            <div class="metric-block border-left">
+                                <span class="metric-label">Compute Budget</span>
+                                <div class="metric-val">75% <span class="metric-sub">Consumed</span></div>
+                                <div class="gel-progress">
+                                    <div class="segment" style="width: 75%; background: var(--gel-orange);"></div>
+                                    <div class="segment" style="width: 25%; background: #D1D1D6;"></div>
+                                </div>
+                                <div style="font-size:11px; color:var(--mac-text-secondary); margin-top:4px;">
+                                    Approaching token limits for current delegation tree.
+                                </div>
+                            </div>
+
+                            <div class="metric-block border-left">
+                                <span class="metric-label">Latest Delegation</span>
+                                <div class="insight-box" style="margin-top:4px; font-family:monospace; font-size:11px;">
+                                    > Subagent 'Refactor' dispatched to /src/utils<br>
+                                    > Status: Awaiting human approval
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+            
+            <!-- Contextual List Area Below Banners -->
+            <div class="content-area" id="list-view-label">
+                Global Harness List View Renders Here
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        function switchBanner(tabId) {
+            // Update Tab Active States
+            document.querySelectorAll('.pill').forEach(btn => btn.classList.remove('active'));
+            event.currentTarget.classList.add('active');
+            
+            // Hide all banners, show targeted
+            document.querySelectorAll('.hero-banner').forEach(banner => banner.classList.remove('active'));
+            document.getElementById('banner-' + tabId).classList.add('active');
+            
+            // Update dummy text below
+            const labels = {
+                'all': 'Global Harness List View Renders Here',
+                'skills': 'Skills Directory Renders Here',
+                'mcp': 'MCP Server Connection List Renders Here',
+                'rules': 'Workspace Rules List Renders Here',
+                'subagents': 'Subagent Run Logs Render Here'
+            };
+            document.getElementById('list-view-label').innerText = labels[tabId];
+        }
+    </script>
+</body>
+</html>

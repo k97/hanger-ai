@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<style>
+    :root {
+        --mac-bg: #F5F5F7;
+        --mac-window: #FFFFFF;
+        --mac-text: #1D1D1F;
+        --mac-text-secondary: #86868B;
+        --mac-border: rgba(0,0,0,0.1);
+        --canvas-dot: #E5E5EA;
+        --line-symlink: #A1A1A6;
+        --line-active: #007AFF;
+        --line-drifted: #FF9F0A;
+        --line-dangling: #FF3B30;
+    }
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
+        background-color: #E5E5EA;
+        margin: 0; padding: 40px; display: flex; justify-content: center; align-items: center; height: 100vh; box-sizing: border-box;
+    }
+    .app-window {
+        width: 1300px; height: 850px; background: var(--mac-window);
+        border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        display: flex; flex-direction: column; overflow: hidden; border: 1px solid var(--mac-border);
+    }
+    .header {
+        height: 52px; border-bottom: 1px solid var(--mac-border); display: flex; align-items: center; padding: 0 16px; justify-content: space-between; z-index: 10; background: rgba(255,255,255,0.9); backdrop-filter: blur(10px);
+    }
+    .traffic-lights { display: flex; gap: 8px; }
+    .traffic-lights div { width: 12px; height: 12px; border-radius: 50%; }
+    .close { background: #FF5F56; } .minimize { background: #FFBD2E; } .maximize { background: #27C93F; }
+    
+    .breadcrumbs { font-size: 13px; font-weight: 500; color: var(--mac-text); display:flex; align-items:center; gap: 8px; margin-left:16px; flex:1;}
+    .breadcrumbs span { color: var(--mac-text-secondary); }
+
+    .canvas-wrapper {
+        flex: 1; position: relative; background-color: #FAFAFC; overflow: hidden;
+        background-image: radial-gradient(var(--canvas-dot) 1px, transparent 1px);
+        background-size: 24px 24px;
+    }
+
+    /* Floating Toolbar (Search & Filters) */
+    .floating-toolbar {
+        position: absolute; top: 20px; left: 20px; z-index: 20;
+        display: flex; gap: 12px;
+    }
+    
+    .search-box {
+        background: #FFFFFF; border: 1px solid var(--mac-border); border-radius: 8px;
+        padding: 8px 12px; display: flex; align-items: center; gap: 8px; width: 240px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    }
+    .search-box input { border: none; outline: none; font-size: 13px; width: 100%; color: var(--mac-text); }
+    .search-box input::placeholder { color: var(--mac-text-secondary); }
+
+    .filter-group {
+        display: flex; background: #FFFFFF; border: 1px solid var(--mac-border); border-radius: 8px;
+        padding: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    }
+    .filter-btn {
+        background: transparent; border: none; padding: 4px 12px; font-size: 12px; font-weight: 500;
+        color: var(--mac-text-secondary); border-radius: 6px; cursor: pointer; transition: 0.2s;
+    }
+    .filter-btn.active { background: var(--mac-bg); color: var(--mac-text); box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+
+    /* Map Grid */
+    .map-grid {
+        display: flex; justify-content: center; gap: 120px; padding: 80px 40px;
+        height: 100%; box-sizing: border-box; position: relative; z-index: 5;
+    }
+    .column { display: flex; flex-direction: column; gap: 24px; width: 280px; position: relative; }
+    .col-header { 
+        font-size: 11px; font-weight: 600; color: var(--mac-text-secondary); text-transform: uppercase; 
+        letter-spacing: 0.5px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center;
+    }
+    .col-badge { background: #E5E5EA; padding: 2px 6px; border-radius: 10px; font-size: 9px; }
+
+    /* Node Styling */
+    .node {
+        background: #FFFFFF; border: 1px solid var(--mac-border); border-radius: 10px; padding: 14px 16px;
+        display: flex; flex-direction: column; gap: 6px; box-shadow: 0 2px 6px rgba(0,0,0,0.03);
+        position: relative; cursor: pointer; transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+        z-index: 2;
+    }
+    .node:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.08); border-color: #C7C7CC; }
+    
+    .node-header { display: flex; justify-content: space-between; align-items: flex-start; }
+    .node-title { font-size: 14px; font-weight: 600; color: var(--mac-text); display:flex; align-items:center; gap:8px;}
+    .node-meta { font-size: 11px; color: var(--mac-text-secondary); font-weight: 500; }
+    .node-path { font-family: ui-monospace, monospace; font-size: 11px; color: var(--mac-text-secondary); background: var(--mac-bg); padding: 4px 6px; border-radius: 4px; display: inline-block; margin-top: 4px;}
+
+    /* Node Status Badges */
+    .status-badge {
+        position: absolute; top: -6px; right: -6px; background: var(--line-dangling); color: white;
+        font-size: 10px; font-weight: 700; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center;
+        border-radius: 50%; border: 2px solid #FFFFFF; box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .status-badge.warning { background: var(--line-drifted); }
+
+    /* Interaction States (Dimming) */
+    .canvas-wrapper.has-focus .node:not(.focused) { opacity: 0.4; filter: grayscale(100%); }
+    .canvas-wrapper.has-focus path.edge:not(.focused-edge) { opacity: 0.1; }
+
+    /* SVG Edges */
+    .svg-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1; }
+    path.edge { fill: none; stroke-width: 2.5; transition: all 0.3s ease; stroke-linecap: round;}
+    path.edge.symlink { stroke: var(--line-symlink); stroke-dasharray: 6 4; }
+    path.edge.tracked { stroke: var(--line-symlink); }
+    path.edge.active { stroke: var(--line-active); }
+    path.edge.drifted { stroke: var(--line-drifted); }
+    path.edge.dangling { stroke: var(--line-dangling); }
+
+    /* Edge Labels */
+    .edge-label { font-size: 10px; fill: var(--mac-text-secondary); font-weight: 500; transition: opacity 0.3s; }
+    .canvas-wrapper.has-focus .edge-label:not(.focused-label) { opacity: 0; }
+
+    /* Floating Legend */
+    .floating-bottom-bar {
+        position: absolute; bottom: 20px; left: 20px; right: 20px; display: flex; justify-content: space-between; align-items: flex-end; z-index: 20; pointer-events: none;
+    }
+    .legend {
+        background: rgba(255,255,255,0.9); backdrop-filter: blur(10px); border: 1px solid var(--mac-border); border-radius: 10px;
+        padding: 10px 16px; display: flex; gap: 20px; font-size: 11px; color: var(--mac-text-secondary); font-weight: 500; pointer-events: auto;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    }
+    .leg-item { display: flex; align-items: center; gap: 6px; }
+    .leg-line { width: 20px; height: 3px; border-radius: 2px;}
+
+    /* Map Controls */
+    .map-controls {
+        display: flex; flex-direction: column; gap: 8px; pointer-events: auto;
+    }
+    .control-group {
+        background: #FFFFFF; border: 1px solid var(--mac-border); border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        display: flex; flex-direction: column; overflow: hidden;
+    }
+    .ctrl-btn {
+        background: transparent; border: none; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;
+        cursor: pointer; color: var(--mac-text); border-bottom: 1px solid var(--mac-border); transition: 0.2s;
+    }
+    .ctrl-btn:last-child { border-bottom: none; }
+    .ctrl-btn:hover { background: var(--mac-bg); }
+
+</style>
+</head>
+<body>
+    <div class="app-window">
+        <div class="header">
+            <div style="display:flex; align-items:center;">
+                <div class="traffic-lights">
+                    <div class="close"></div><div class="minimize"></div><div class="maximize"></div>
+                </div>
+                <div class="breadcrumbs">
+                    <div style="width:12px;height:12px;background:#34C759;border-radius:50%;"></div>
+                    My machine <span>&rsaquo;</span> Topology Map
+                </div>
+            </div>
+            <div style="display: flex; gap: 12px; align-items: center;">
+                <span style="font-size: 12px; color: var(--mac-text-secondary);">Last scan: 2m ago</span>
+                <button style="background:transparent; border:1px solid var(--mac-border); border-radius:6px; padding:4px 8px; cursor:pointer;"><svg style="width:14px;height:14px;color:var(--mac-text);" viewBox="0 0 24 24" fill="currentColor"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg></button>
+            </div>
+        </div>
+        
+        <div class="canvas-wrapper" id="canvas">
+            
+            <!-- Top Controls -->
+            <div class="floating-toolbar">
+                <div class="search-box">
+                    <svg style="width:14px;height:14px;color:var(--mac-text-secondary);" viewBox="0 0 24 24" fill="currentColor"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+                    <input type="text" placeholder="Search assets, engines, paths...">
+                </div>
+                <div class="filter-group">
+                    <button class="filter-btn active">All</button>
+                    <button class="filter-btn">Errors Only</button>
+                    <button class="filter-btn">Orphans</button>
+                </div>
+            </div>
+
+            <!-- SVG Lines -->
+            <svg class="svg-layer">
+                <!-- Defs for arrowheads -->
+                <defs>
+                    <marker id="arrow-tracked" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                        <path d="M 0 0 L 10 5 L 0 10 z" fill="#A1A1A6" />
+                    </marker>
+                    <marker id="arrow-active" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                        <path d="M 0 0 L 10 5 L 0 10 z" fill="#007AFF" />
+                    </marker>
+                    <marker id="arrow-drifted" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                        <path d="M 0 0 L 10 5 L 0 10 z" fill="#FF9F0A" />
+                    </marker>
+                </defs>
+
+                <!-- Store to Claude Code -->
+                <path class="edge tracked" id="edge1" data-source="node-store" data-target="node-claude" d="M 370 170 C 450 170, 480 170, 520 170" marker-end="url(#arrow-tracked)"/>
+                <text x="445" y="160" class="edge-label" id="label1">2 tracked</text>
+
+                <!-- Store to Codex (Drifted) -->
+                <path class="edge drifted" id="edge2" data-source="node-store" data-target="node-codex" d="M 370 180 C 460 180, 450 300, 520 300" marker-end="url(#arrow-drifted)"/>
+                <text x="455" y="235" class="edge-label" id="label2" fill="#FF9F0A">1 modified</text>
+                
+                <!-- Store to Gemini -->
+                <path class="edge tracked" id="edge3" data-source="node-store" data-target="node-gemini" d="M 370 190 C 430 190, 450 430, 520 430" marker-end="url(#arrow-tracked)"/>
+
+                <!-- Store to hanger-ai project -->
+                <path class="edge active" id="edge4" data-source="node-store" data-target="node-proj1" d="M 370 200 C 410 200, 500 680, 850 170" marker-end="url(#arrow-active)"/>
+
+                <!-- Claude to mei-recipes -->
+                <path class="edge active" id="edge5" data-source="node-claude" data-target="node-proj2" d="M 800 180 C 850 180, 880 300, 920 300" marker-end="url(#arrow-active)"/>
+            </svg>
+
+            <!-- Map Nodes Grid -->
+            <div class="map-grid">
+                
+                <!-- Column 1: Store -->
+                <div class="column">
+                    <div class="col-header">
+                        Canonical Source <span class="col-badge">1 Node</span>
+                    </div>
+                    
+                    <div class="node" id="node-store" onmouseenter="focusGraph('node-store')" onmouseleave="unfocusGraph()">
+                        <div class="node-header">
+                            <div class="node-title">
+                                <svg style="width:16px;height:16px;color:var(--mac-text);" viewBox="0 0 24 24" fill="currentColor"><path d="M20 6h-8l-2-2H4c-1.11 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2zm0 12H4V8h16v10z"/></svg>
+                                .agents
+                            </div>
+                            <div class="node-meta">122 assets</div>
+                        </div>
+                        <div class="node-path">~/.agents</div>
+                    </div>
+                </div>
+
+                <!-- Column 2: Engines -->
+                <div class="column">
+                    <div class="col-header">
+                        Engine Integrations <span class="col-badge">4 Nodes</span>
+                    </div>
+                    
+                    <div class="node" id="node-claude" onmouseenter="focusGraph('node-claude')" onmouseleave="unfocusGraph()">
+                        <div class="node-header">
+                            <div class="node-title">
+                                <svg style="width:14px;height:14px;color:#E34F26;" viewBox="0 0 24 24" fill="currentColor"><path d="M20 18c1.1 0 1.99-.9 1.99-2L22 6c0-1.1-.9-2-2-2H4c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2H0v2h24v-2h-4zM4 6h16v10H4V6z"/></svg>
+                                Claude Code
+                            </div>
+                            <div class="node-meta" style="color:var(--mac-text); font-weight:600;">10 assets</div>
+                        </div>
+                        <div class="node-path">~/.claude</div>
+                    </div>
+
+                    <div class="node" id="node-claude-desktop" onmouseenter="focusGraph('node-claude-desktop')" onmouseleave="unfocusGraph()">
+                        <div class="status-badge" title="Dangling connection">!</div>
+                        <div class="node-header">
+                            <div class="node-title" style="color:var(--mac-text-secondary);">Claude Desktop</div>
+                            <div class="node-meta" style="color:var(--line-dangling); font-weight:600;">broken path</div>
+                        </div>
+                        <div class="node-path" style="text-decoration: line-through;">~/Library/...</div>
+                    </div>
+                    
+                    <div class="node" id="node-codex" onmouseenter="focusGraph('node-codex')" onmouseleave="unfocusGraph()">
+                        <div class="status-badge warning" title="Drift detected">1</div>
+                        <div class="node-header">
+                            <div class="node-title">Codex</div>
+                            <div class="node-meta" style="color:var(--mac-text); font-weight:600;">4 assets</div>
+                        </div>
+                        <div class="node-path">~/.codex</div>
+                    </div>
+                    
+                    <div class="node" id="node-gemini" onmouseenter="focusGraph('node-gemini')" onmouseleave="unfocusGraph()">
+                        <div class="node-header">
+                            <div class="node-title">Gemini Antigravity</div>
+                            <div class="node-meta" style="color:var(--mac-text); font-weight:600;">2 assets</div>
+                        </div>
+                        <div class="node-path">~/.gemini</div>
+                    </div>
+                </div>
+
+                <!-- Column 3: Projects -->
+                <div class="column">
+                    <div class="col-header">
+                        Project Contexts <span class="col-badge">3 Nodes</span>
+                    </div>
+                    
+                    <div class="node" id="node-proj1" onmouseenter="focusGraph('node-proj1')" onmouseleave="unfocusGraph()">
+                        <div class="node-header">
+                            <div class="node-title">hanger-ai</div>
+                            <div class="node-meta">3 assets</div>
+                        </div>
+                        <div class="node-path">~/Work/Labs/hanger-ai</div>
+                    </div>
+
+                    <div class="node" id="node-proj2" onmouseenter="focusGraph('node-proj2')" onmouseleave="unfocusGraph()">
+                        <div class="node-header">
+                            <div class="node-title">mei-recipes</div>
+                            <div class="node-meta">34 assets</div>
+                        </div>
+                        <div class="node-path">~/Work/Projects/mei-recipes</div>
+                    </div>
+                    
+                    <div class="node" id="node-proj3" onmouseenter="focusGraph('node-proj3')" onmouseleave="unfocusGraph()">
+                        <div class="node-header">
+                            <div class="node-title">skills-repo</div>
+                            <div class="node-meta">86 assets</div>
+                        </div>
+                        <div class="node-path">~/Work/Projects/skills</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Bottom Floating Layer -->
+            <div class="floating-bottom-bar">
+                <div class="legend">
+                    <div class="leg-item"><div class="leg-line" style="border-top:2px dashed var(--line-symlink);"></div> Symlinked</div>
+                    <div class="leg-item"><div class="leg-line" style="background:var(--line-active);"></div> Active Context</div>
+                    <div class="leg-item"><div class="leg-line" style="background:var(--line-drifted);"></div> Local Drift</div>
+                    <div class="leg-item"><div class="leg-line" style="background:var(--line-dangling);"></div> Broken / Dangling</div>
+                </div>
+                
+                <div class="map-controls">
+                    <div class="control-group">
+                        <button class="ctrl-btn" title="Zoom In"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg></button>
+                        <button class="ctrl-btn" title="Zoom Out"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M19 13H5v-2h14v2z"/></svg></button>
+                    </div>
+                    <div class="control-group">
+                        <button class="ctrl-btn" title="Fit to Screen"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg></button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Data structure mapping nodes to their edges
+        const graphData = {
+            'node-store': ['edge1', 'edge2', 'edge3', 'edge4'],
+            'node-claude': ['edge1', 'edge5'],
+            'node-claude-desktop': [], // Dangling
+            'node-codex': ['edge2'],
+            'node-gemini': ['edge3'],
+            'node-proj1': ['edge4'],
+            'node-proj2': ['edge5'],
+            'node-proj3': []
+        };
+
+        const canvas = document.getElementById('canvas');
+
+        function focusGraph(nodeId) {
+            canvas.classList.add('has-focus');
+            
+            // Highlight hovered node
+            document.getElementById(nodeId).classList.add('focused');
+            
+            // Highlight connected edges and their target/source nodes
+            const connectedEdges = graphData[nodeId] || [];
+            connectedEdges.forEach(edgeId => {
+                const edge = document.getElementById(edgeId);
+                if(edge) {
+                    edge.classList.add('focused-edge');
+                    
+                    // Highlight the label associated with the edge
+                    const labelId = edgeId.replace('edge', 'label');
+                    const label = document.getElementById(labelId);
+                    if(label) label.classList.add('focused-label');
+
+                    // Highlight the node at the other end of the edge
+                    const sourceId = edge.getAttribute('data-source');
+                    const targetId = edge.getAttribute('data-target');
+                    if (sourceId && targetId) {
+                        document.getElementById(sourceId).classList.add('focused');
+                        document.getElementById(targetId).classList.add('focused');
+                    }
+                }
+            });
+        }
+
+        function unfocusGraph() {
+            canvas.classList.remove('has-focus');
+            document.querySelectorAll('.node').forEach(n => n.classList.remove('focused'));
+            document.querySelectorAll('.edge').forEach(e => e.classList.remove('focused-edge'));
+            document.querySelectorAll('.edge-label').forEach(l => l.classList.remove('focused-label'));
+        }
+    </script>
+</body>
+</html>

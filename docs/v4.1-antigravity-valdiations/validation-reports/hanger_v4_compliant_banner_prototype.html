@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hanger v4 — Compliant Banner Prototype (Profile & Repo Level)</title>
+  <style>
+    /* -------------------------------------------------------------------------
+       HANGER DESIGN SYSTEM TOKENS (derived from src/styles/tokens.css & DESIGN.md)
+       Ink & Paper Palette, 11 Neutral Roles, Semantic States, Gel Meter
+       ------------------------------------------------------------------------- */
+    :root {
+      /* Neutrals - Light */
+      --page: #ffffff;
+      --plane: #f7f7f7;
+      --plane-2: #efefef;
+      --tint: #e8e8e8;
+      --tint-plane: #e0e0e0;
+      --tint-ink: #000000;
+      --line: rgba(0, 0, 0, 0.09);
+      --line-2: rgba(0, 0, 0, 0.20);
+      --ink-1: #000000;
+      --ink-2: #4d4d4d;
+      --ink-3: #636363;
+      --fill: #000000;
+      --on-fill: #ffffff;
+
+      /* Brand & System States */
+      --brand: #00c3bf;
+      --state-success: #0f7a52;
+      --state-warning: #8a5a00;
+      --state-danger: #b3261e;
+      --scrim: rgba(0, 0, 0, 0.55);
+
+      /* Gel Progress Fill (GelMeter only) */
+      --gel-aqua: linear-gradient(180deg, #38e1dc 0%, #00c3bf 45%, #009d99 100%);
+      --gel-glare: linear-gradient(180deg, rgba(255, 255, 255, 0.55) 0%, rgba(255, 255, 255, 0.0) 60%);
+
+      /* Typography scale (Closed 5-step scale) */
+      --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+      --font-mono: ui-monospace, "SF Mono", Menlo, monospace;
+      --text-micro: 11px;
+      --text-small: 12px;
+      --text-base: 13px;
+      --text-lg: 16px;
+      --text-display: 32px;
+
+      /* Radii */
+      --radius-window: 12px;
+      --radius-plane: 10px;
+      --radius-inner: 6px;
+      --radius-pill: 9999px;
+    }
+
+    /* Dark Mode (Document element toggle via .dark class) */
+    html.dark {
+      --page: #000000;
+      --plane: #0e0e0e;
+      --plane-2: #171717;
+      --tint: #232323;
+      --tint-plane: #262626;
+      --tint-ink: #ffffff;
+      --line: rgba(255, 255, 255, 0.12);
+      --line-2: rgba(255, 255, 255, 0.22);
+      --ink-1: #ffffff;
+      --ink-2: #b0b0b0;
+      --ink-3: #8c8c8c;
+      --fill: #ffffff;
+      --on-fill: #000000;
+
+      --brand: #2fd8d4;
+      --state-success: #4ec08c;
+      --state-warning: #d9a441;
+      --state-danger: #e8635b;
+      --scrim: rgba(0, 0, 0, 0.8);
+
+      --gel-aqua: linear-gradient(180deg, #5ae8e4 0%, #2fd8d4 45%, #00a8a4 100%);
+      --gel-glare: linear-gradient(180deg, rgba(255, 255, 255, 0.35) 0%, rgba(255, 255, 255, 0.0) 60%);
+    }
+
+    /* Reset & Base */
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: var(--font-sans);
+      background-color: var(--tint);
+      color: var(--ink-1);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 32px;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* macOS Window Shell */
+    .app-window {
+      width: 1040px;
+      background: var(--page);
+      border-radius: var(--radius-window);
+      box-shadow: 0 24px 48px rgba(0,0,0,0.18), 0 1px 2px rgba(0,0,0,0.08);
+      border: 1px solid var(--line);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      margin-bottom: 24px;
+    }
+
+    /* Titlebar */
+    .titlebar {
+      height: 52px;
+      padding: 0 16px;
+      display: flex;
+      align-items: center;
+      background: var(--page);
+      border-bottom: 1px solid var(--line);
+      gap: 16px;
+      user-select: none;
+    }
+    .traffic-lights { display: flex; gap: 8px; }
+    .traffic-dot { width: 12px; height: 12px; border-radius: 50%; }
+    .dot-close { background: #ff5f56; }
+    .dot-min { background: #ffbd2e; }
+    .dot-max { background: #27c93f; }
+
+    .scope-selector {
+      display: flex;
+      background: var(--plane);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-pill);
+      padding: 2px;
+      margin-left: 8px;
+    }
+    .scope-btn {
+      border: none;
+      background: transparent;
+      padding: 4px 12px;
+      font-size: var(--text-small);
+      font-weight: 500;
+      color: var(--ink-2);
+      border-radius: var(--radius-pill);
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .scope-btn.active {
+      background: var(--page);
+      color: var(--ink-1);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+      font-weight: 600;
+    }
+
+    .theme-toggle {
+      margin-left: auto;
+      background: var(--plane);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-pill);
+      padding: 4px 10px;
+      font-size: var(--text-small);
+      color: var(--ink-2);
+      cursor: pointer;
+    }
+
+    /* Main Container */
+    .content-pane {
+      padding: 24px 32px;
+      background: var(--page);
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    /* Category Navigation Strip */
+    .category-strip {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+    .cat-pill {
+      background: transparent;
+      border: 1px solid transparent;
+      padding: 5px 12px;
+      border-radius: var(--radius-pill);
+      font-size: var(--text-base);
+      font-weight: 500;
+      color: var(--ink-2);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.15s ease;
+    }
+    .cat-pill:hover { background: var(--plane-2); color: var(--ink-1); }
+    .cat-pill.active {
+      background: var(--plane);
+      border-color: var(--line);
+      color: var(--ink-1);
+      font-weight: 600;
+    }
+    .cat-badge {
+      font-size: var(--text-micro);
+      font-variant-numeric: tabular-nums;
+      padding: 1px 6px;
+      border-radius: 10px;
+      background: var(--plane-2);
+      color: var(--ink-3);
+    }
+    .cat-pill.active .cat-badge {
+      background: var(--tint);
+      color: var(--ink-1);
+    }
+
+    /* -------------------------------------------------------------------------
+       HANGER SUMMARY STRIP (Compliant Hero Banner)
+       Border-only flat plane surface, zero non-token gradients
+       ------------------------------------------------------------------------- */
+    .summary-strip {
+      border: 1px solid var(--line);
+      border-radius: var(--radius-plane);
+      background: var(--plane);
+      padding: 18px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      position: relative;
+    }
+
+    .hero-top {
+      display: flex;
+      align-items: baseline;
+      gap: 12px;
+    }
+    .hero-metric {
+      font-size: var(--text-display);
+      font-weight: 500;
+      line-height: 1.1;
+      letter-spacing: -0.5px;
+      font-variant-numeric: tabular-nums;
+      color: var(--ink-1);
+    }
+    .hero-subtitle {
+      font-size: var(--text-lg);
+      color: var(--ink-2);
+      font-weight: 400;
+    }
+    .hero-timestamp {
+      margin-left: auto;
+      font-size: var(--text-micro);
+      color: var(--ink-3);
+      font-family: var(--font-sans);
+    }
+
+    /* GelMeter implementation */
+    .gel-meter-track {
+      width: 100%;
+      height: 8px;
+      background: var(--plane-2);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-pill);
+      overflow: hidden;
+      display: flex;
+      position: relative;
+    }
+    .meter-seg {
+      height: 100%;
+      transition: width 0.3s ease;
+      position: relative;
+    }
+    .meter-seg.aqua {
+      background-image: var(--gel-aqua);
+    }
+    .meter-seg.aqua::after {
+      content: "";
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-image: var(--gel-glare);
+    }
+    .meter-seg.warning { background-color: var(--state-warning); }
+    .meter-seg.danger { background-color: var(--state-danger); }
+    .meter-seg.local { background-color: var(--plane-2); }
+
+    /* Legend and Filter Controls */
+    .legend-row {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    .legend-btn {
+      background: transparent;
+      border: none;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: var(--text-small);
+      color: var(--ink-2);
+      cursor: pointer;
+      padding: 2px 4px;
+      border-radius: var(--radius-inner);
+      transition: color 0.15s ease;
+    }
+    .legend-btn:hover { color: var(--ink-1); }
+    .legend-btn.active {
+      color: var(--ink-1);
+      font-weight: 600;
+    }
+    .legend-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .dot-aqua { background-image: var(--gel-aqua); }
+    .dot-warning { background-color: var(--state-warning); }
+    .dot-danger { background-color: var(--state-danger); }
+    .dot-local { background-color: transparent; border: 2px solid var(--line-2); }
+
+    .actions-tray {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .btn-rescan {
+      height: 30px;
+      min-width: 96px;
+      padding: 0 14px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      border-radius: var(--radius-pill);
+      border: 1px solid var(--line-2);
+      background: var(--page);
+      font-size: var(--text-small);
+      font-weight: 500;
+      color: var(--ink-1);
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .btn-rescan:hover { background: var(--plane-2); }
+    .btn-rescan:active { transform: scale(0.97); }
+
+    .btn-review {
+      height: 30px;
+      padding: 0 14px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border-radius: var(--radius-pill);
+      border: none;
+      background: var(--fill);
+      color: var(--on-fill);
+      font-size: var(--text-small);
+      font-weight: 500;
+      cursor: pointer;
+      font-variant-numeric: tabular-nums;
+      transition: transform 0.15s ease;
+    }
+    .btn-review:hover { transform: translateY(-1px); }
+    .btn-review:active { transform: scale(0.97); }
+
+    /* Scope Specific Context Block */
+    .context-bar {
+      margin-top: 4px;
+      padding-top: 12px;
+      border-top: 1px solid var(--line);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: var(--text-small);
+      color: var(--ink-2);
+    }
+    .context-tag {
+      font-family: var(--font-mono);
+      font-size: var(--text-micro);
+      background: var(--tint);
+      padding: 2px 6px;
+      border-radius: 4px;
+      color: var(--ink-1);
+    }
+
+    /* Mock Data Table (Clean, Monochromatic) */
+    .mock-table {
+      border: 1px solid var(--line);
+      border-radius: var(--radius-plane);
+      overflow: hidden;
+    }
+    .table-header {
+      background: var(--plane);
+      padding: 10px 16px;
+      border-bottom: 1px solid var(--line);
+      display: grid;
+      grid-template-columns: 2fr 1.2fr 1fr 1fr;
+      font-size: var(--text-micro);
+      font-weight: 600;
+      color: var(--ink-3);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .table-row {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--line);
+      display: grid;
+      grid-template-columns: 2fr 1.2fr 1fr 1fr;
+      font-size: var(--text-base);
+      color: var(--ink-1);
+      align-items: center;
+    }
+    .table-row:last-child { border-bottom: none; }
+    .table-row:hover { background: var(--plane); }
+    .asset-name { font-weight: 500; display: flex; align-items: center; gap: 8px; }
+    .state-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: var(--text-micro);
+      font-weight: 500;
+      padding: 2px 8px;
+      border-radius: var(--radius-pill);
+      border: 1px solid var(--line);
+    }
+    .badge-linked { color: var(--state-success); }
+    .badge-drifted { color: var(--state-warning); background: var(--plane); }
+    .badge-broken { color: var(--state-danger); background: var(--plane); }
+  </style>
+</head>
+<body>
+
+  <div class="app-window">
+    <!-- Header / Titlebar -->
+    <div class="titlebar">
+      <div class="traffic-lights">
+        <div class="traffic-dot dot-close"></div>
+        <div class="traffic-dot dot-min"></div>
+        <div class="traffic-dot dot-max"></div>
+      </div>
+
+      <!-- Scope Switcher (Profile vs Repo) -->
+      <div class="scope-selector">
+        <button id="scope-profile-btn" class="scope-btn active" onclick="setScope('profile')">Global Profile (~/.agents)</button>
+        <button id="scope-repo-btn" class="scope-btn" onclick="setScope('repo')">Repository (hanger-ai)</button>
+      </div>
+
+      <button class="theme-toggle" onclick="toggleTheme()">Toggle Dark Mode</button>
+    </div>
+
+    <!-- Main Content -->
+    <div class="content-pane">
+
+      <!-- Category Navigation -->
+      <div class="category-strip">
+        <button class="cat-pill active" onclick="setCategory('all', this)">All <span class="cat-badge" id="cat-all-count">311</span></button>
+        <button class="cat-pill" onclick="setCategory('skills', this)">Skills <span class="cat-badge" id="cat-skills-count">110</span></button>
+        <button class="cat-pill" onclick="setCategory('mcp', this)">MCP servers <span class="cat-badge" id="cat-mcp-count">187</span></button>
+        <button class="cat-pill" onclick="setCategory('rules', this)">Rules <span class="cat-badge" id="cat-rules-count">2</span></button>
+        <button class="cat-pill" onclick="setCategory('subagents', this)">Subagents <span class="cat-badge" id="cat-subagents-count">12</span></button>
+      </div>
+
+      <!-- Compliant Summary Strip Banner -->
+      <section class="summary-strip" aria-label="Inventory summary">
+        <!-- Hero Line -->
+        <div class="hero-top">
+          <span class="hero-metric" id="hero-total">311</span>
+          <span class="hero-subtitle" id="hero-subtitle">harness assets across 11 engines</span>
+          <span class="hero-timestamp" id="hero-timestamp">Scanned moments ago</span>
+        </div>
+
+        <!-- GelMeter -->
+        <div class="gel-meter-track" id="meter-track">
+          <div class="meter-seg aqua" id="seg-linked" style="width: 78%;"></div>
+          <div class="meter-seg warning" id="seg-drifted" style="width: 8%;"></div>
+          <div class="meter-seg danger" id="seg-broken" style="width: 4%;"></div>
+          <div class="meter-seg local" id="seg-local" style="width: 10%;"></div>
+        </div>
+
+        <!-- Legend & Actions -->
+        <div class="legend-row">
+          <button class="legend-btn" onclick="filterState('linked', this)">
+            <span class="legend-dot dot-aqua"></span>
+            <b id="count-linked">242</b> linked
+          </button>
+
+          <button class="legend-btn" onclick="filterState('drifted', this)">
+            <span class="legend-dot dot-warning"></span>
+            <b id="count-drifted">26</b> drifted
+          </button>
+
+          <button class="legend-btn" onclick="filterState('broken', this)">
+            <span class="legend-dot dot-danger"></span>
+            <b id="count-broken">12</b> broken
+          </button>
+
+          <button class="legend-btn" onclick="filterState('local', this)">
+            <span class="legend-dot dot-local"></span>
+            <b id="count-local">31</b> local only
+          </button>
+
+          <div class="actions-tray">
+            <button class="btn-rescan" onclick="simulateScan()">
+              <span id="scan-icon">↻</span> Rescan
+            </button>
+            <button class="btn-review" id="btn-review" onclick="filterState('review', this)">
+              Review 38 →
+            </button>
+          </div>
+        </div>
+
+        <!-- Scope Specific Context Info -->
+        <div class="context-bar" id="context-bar">
+          <span id="context-left">Global store root: <span class="context-tag">~/.agents</span> • 11 engines configured</span>
+          <span id="context-right">16 MCP host configurations probed</span>
+        </div>
+      </section>
+
+      <!-- Asset Table Mock -->
+      <div class="mock-table">
+        <div class="table-header">
+          <span>Asset / Identity</span>
+          <span>Category</span>
+          <span>Reach / Scope</span>
+          <span>Link State</span>
+        </div>
+        <div class="table-row">
+          <span class="asset-name"><strong>agent-browser</strong></span>
+          <span>Skill</span>
+          <span>11 engines</span>
+          <span><span class="state-badge badge-linked">● linked</span></span>
+        </div>
+        <div class="table-row">
+          <span class="asset-name"><strong>memory-leak-debugging</strong></span>
+          <span>Skill</span>
+          <span>Claude, Cursor</span>
+          <span><span class="state-badge badge-drifted">▲ drifted</span></span>
+        </div>
+        <div class="table-row">
+          <span class="asset-name"><strong>github-stdio</strong></span>
+          <span>MCP Server</span>
+          <span>Global (claude.json)</span>
+          <span><span class="state-badge badge-broken">✕ broken</span></span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    // State Store
+    const DATA = {
+      profile: {
+        total: 311,
+        subtitle: "harness assets across 11 engines",
+        linked: 242,
+        drifted: 26,
+        broken: 12,
+        local: 31,
+        review: 38,
+        categories: { all: 311, skills: 110, mcp: 187, rules: 2, subagents: 12 },
+        contextLeft: "Global store root: ~/.agents • 11 engines configured",
+        contextRight: "16 MCP host configurations probed"
+      },
+      repo: {
+        total: 44,
+        subtitle: "workspace assets in hanger-ai",
+        linked: 36,
+        drifted: 3,
+        broken: 1,
+        local: 4,
+        review: 4,
+        categories: { all: 44, skills: 28, mcp: 12, rules: 2, subagents: 2 },
+        contextLeft: "Mounted to ~/.agents/skills • 2 local overrides",
+        contextRight: "No nested repositories detected"
+      }
+    };
+
+    let currentScope = 'profile';
+
+    function setScope(scope) {
+      currentScope = scope;
+      document.getElementById('scope-profile-btn').classList.toggle('active', scope === 'profile');
+      document.getElementById('scope-repo-btn').classList.toggle('active', scope === 'repo');
+      renderData();
+    }
+
+    function renderData() {
+      const d = DATA[currentScope];
+      document.getElementById('hero-total').innerText = d.total;
+      document.getElementById('hero-subtitle').innerText = d.subtitle;
+
+      // Segments
+      const total = d.total;
+      document.getElementById('seg-linked').style.width = ((d.linked / total) * 100) + '%';
+      document.getElementById('seg-drifted').style.width = ((d.drifted / total) * 100) + '%';
+      document.getElementById('seg-broken').style.width = ((d.broken / total) * 100) + '%';
+      document.getElementById('seg-local').style.width = ((d.local / total) * 100) + '%';
+
+      // Legend Counts
+      document.getElementById('count-linked').innerText = d.linked;
+      document.getElementById('count-drifted').innerText = d.drifted;
+      document.getElementById('count-broken').innerText = d.broken;
+      document.getElementById('count-local').innerText = d.local;
+
+      // Review Button
+      document.getElementById('btn-review').innerText = `Review ${d.review} →`;
+
+      // Category Badges
+      document.getElementById('cat-all-count').innerText = d.categories.all;
+      document.getElementById('cat-skills-count').innerText = d.categories.skills;
+      document.getElementById('cat-mcp-count').innerText = d.categories.mcp;
+      document.getElementById('cat-rules-count').innerText = d.categories.rules;
+      document.getElementById('cat-subagents-count').innerText = d.categories.subagents;
+
+      // Context
+      document.getElementById('context-left').innerHTML = currentScope === 'profile' 
+        ? 'Global store root: <span class="context-tag">~/.agents</span> • 11 engines configured'
+        : 'Mounted to <span class="context-tag">~/.agents/skills</span> • 2 local overrides';
+      document.getElementById('context-right').innerText = d.contextRight;
+    }
+
+    function toggleTheme() {
+      document.documentElement.classList.toggle('dark');
+    }
+
+    function setCategory(cat, el) {
+      document.querySelectorAll('.cat-pill').forEach(p => p.classList.remove('active'));
+      el.classList.add('active');
+    }
+
+    function filterState(st, el) {
+      document.querySelectorAll('.legend-btn').forEach(b => b.classList.remove('active'));
+      if (el) el.classList.toggle('active');
+    }
+
+    function simulateScan() {
+      const stamp = document.getElementById('hero-timestamp');
+      stamp.innerText = "Scanning filesystem...";
+      setTimeout(() => {
+        stamp.innerText = "Scanned moments ago";
+      }, 600);
+    }
+
+    renderData();
+  </script>
+</body>
+</html>

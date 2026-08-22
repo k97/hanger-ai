@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><title>Skill Inspector</title><style>
+    :root {
+        --mac-bg: #F5F5F7;
+        --mac-panel-bg: rgba(255, 255, 255, 0.85);
+        --mac-text: #1D1D1F;
+        --mac-text-secondary: #86868B;
+        --mac-text-tertiary: #C7C7CC;
+        --mac-border: rgba(0,0,0,0.08);
+        --mac-accent: #007AFF;
+        --gel-blue: #007AFF;
+        --gel-green: #34C759;
+        --gel-orange: #FF9F0A;
+        --gel-red: #FF3B30;
+        --gel-cyan: #32ADE6;
+        --gel-purple: #AF52DE;
+        --mac-card-bg: #FFFFFF;
+        --radius-panel: 12px;
+        --radius-card: 10px;
+        --radius-btn: 6px;
+    }
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        background-color: #E5E5EA; color: var(--mac-text); margin: 0; padding: 40px; display: flex; justify-content: center; align-items: center; min-height: 100vh; box-sizing: border-box;
+    }
+    .app-window {
+        width: 1000px; height: 800px; background: #E5E5EA; border-radius: 12px; display: flex; justify-content: center; align-items: center; border: 1px dashed var(--mac-border);
+    }
+    .floating-panel { width: 380px; background: var(--mac-panel-bg); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid rgba(0,0,0,0.1); border-radius: var(--radius-panel); box-shadow: 0 20px 40px rgba(0,0,0,0.15), 0 1px 3px rgba(0,0,0,0.1); display: flex; flex-direction: column; overflow: hidden; position: relative;}
+    .panel-header { position: sticky; top: 0; padding: 16px 20px 0px; z-index: 20; display: flex; justify-content: space-between; align-items: flex-start; }
+    .breadcrumb { font-size: 11px; font-weight: 600; letter-spacing: 0.5px; color: var(--mac-text-secondary); text-transform: uppercase; display: block; margin-bottom: 4px; }
+    .item-title-wrapper { display: flex; align-items: center; gap: 8px; }
+    .item-title { font-size: 16px; font-weight: 600; margin: 0; color: var(--mac-text); line-height: 1.2; }
+    .pill { background: #EAEAEB; border: 1px solid var(--mac-border); padding: 2px 8px; border-radius: 12px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 10.5px; color: var(--mac-text-secondary); display: inline-flex; align-items: center; gap: 4px; }
+    .pill strong { color: var(--mac-text); font-weight: 500; }
+    .header-actions { display: flex; gap: 6px; }
+    .icon-btn { background: transparent; border: 1px solid transparent; border-radius: var(--radius-btn); width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--mac-text-secondary); transition: all 0.15s ease; }
+    .icon-btn:hover { background: rgba(0,0,0,0.05); color: var(--mac-text); }
+    .icon-btn svg { width: 14px; height: 14px; fill: currentColor; }
+    .inspector-tabs { display: flex; padding: 12px 20px 0; border-bottom: 1px solid var(--mac-border); position: sticky; top: 52px; z-index: 19; gap: 4px; }
+    .inspector-tab-btn { background: none; border: none; padding: 8px 12px; font-size: 12px; font-weight: 500; color: var(--mac-text-secondary); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; transition: all 0.2s; }
+    .inspector-tab-btn:hover { color: var(--mac-text); }
+    .inspector-tab-btn.active { color: var(--mac-text); border-bottom-color: var(--mac-accent); font-weight: 600; }
+    .panel-content { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 16px; max-height: 600px;}
+    .tab-pane { display: none; flex-direction: column; gap: 16px; }
+    .tab-pane.active { display: flex; }
+    .box-container { background: var(--mac-card-bg); border: 1px solid var(--mac-border); border-radius: var(--radius-card); box-shadow: 0 1px 2px rgba(0,0,0,0.02), 0 2px 4px rgba(0,0,0,0.02); position: relative; padding: 16px 20px; }
+    .section-label { text-transform: uppercase; font-size: 10.5px; font-weight: 600; color: var(--mac-text-secondary); margin-bottom: 14px; letter-spacing: 0.5px; display: flex; justify-content: space-between; align-items: center; }
+    .metric-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .metric-block { display: flex; flex-direction: column; gap: 4px; }
+    .metric-val { font-size: 24px; font-weight: 600; letter-spacing: -0.5px; color: var(--mac-text); display: flex; align-items: baseline; gap: 6px;}
+    .metric-sub { font-size: 12px; font-weight: 500; color: var(--mac-text-secondary); letter-spacing: 0;}
+    .insight-box { background: rgba(255,255,255,0.5); border: 1px solid rgba(0,0,0,0.03); border-radius: 8px; padding: 10px 14px; font-size: 11.5px; line-height: 1.5; color: var(--mac-text-secondary); margin-top: 4px; }
+    .insight-box strong { color: var(--mac-text); font-weight: 600; }
+    .insight-warning { background: rgba(255, 159, 10, 0.05); border-color: rgba(255, 159, 10, 0.2); color: #B25000;}
+    .insight-warning strong { color: #994200; }
+    .insight-success { background: rgba(52, 199, 89, 0.05); border-color: rgba(52, 199, 89, 0.2); color: #248A3D;}
+    .gel-progress { width: 100%; height: 6px; background: rgba(0,0,0,0.04); border-radius: 3px; display: flex; overflow: hidden; margin: 4px 0; box-shadow: inset 0 1px 2px rgba(0,0,0,0.05); }
+    .segment { height: 100%; }
+    .legend-row { display: flex; gap: 12px; font-size: 10.5px; font-weight: 500; color: var(--mac-text-secondary); margin-top: 4px; flex-wrap: wrap;}
+    .legend-item { display: flex; align-items: center; gap: 4px; }
+    .dot { width: 6px; height: 6px; border-radius: 50%; box-shadow: inset 0 1px 1px rgba(255,255,255,0.5); }
+    .badge-critical { background: var(--gel-red); color: white; padding: 2px 6px; border-radius: 12px; font-size: 9.5px; font-weight: 700; }
+    .badge-warning { background: var(--gel-orange); color: white; padding: 2px 6px; border-radius: 12px; font-size: 9.5px; font-weight: 700; }
+    .badge-success { background: var(--gel-green); color: white; padding: 2px 6px; border-radius: 12px; font-size: 9.5px; font-weight: 700; }
+    .meta-table { display: flex; flex-direction: column; gap: 12px; }
+    .meta-row { display: flex; align-items: flex-start; }
+    .meta-icon { width: 28px; flex-shrink: 0; color: var(--mac-text-tertiary); display: flex; align-items: center; justify-content: flex-start; margin-top: 1px; }
+    .meta-icon svg { width: 15px; height: 15px; fill: currentColor; }
+    .meta-content { display: flex; flex-direction: column; gap: 3px; width: 100%; }
+    .meta-value { font-weight: 500; color: var(--mac-text); font-size: 13px; word-break: break-word; display: flex; align-items: center; flex-wrap: wrap;}
+    .meta-label { font-size: 11px; color: var(--mac-text-secondary); line-height: 1.4; }
+    .meta-value strong { font-family: ui-monospace, SFMono-Regular, monospace; background: var(--mac-bg); padding: 2px 6px; border-radius: 4px; border: 1px solid var(--mac-border); font-size: 11.5px; margin-left: 4px; font-weight: 500;}
+    .path-string { font-family: ui-monospace, monospace; font-size: 11px; color: var(--mac-text-secondary); background: var(--mac-bg); padding: 8px 10px; border-radius: 6px; border: 1px solid var(--mac-border); word-break: break-all; margin-top: 8px;}
+    .list-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--mac-border); font-size: 12px;}
+    .list-item:last-child { border-bottom: none; padding-bottom: 0;}
+    .list-name { font-family: ui-monospace, monospace; font-weight: 600; color: var(--mac-text); }
+    .list-metric { color: var(--mac-text-secondary); font-variant-numeric: tabular-nums; }
+    
+    .floating-toggle-btn { position: absolute; top: 12px; right: 12px; background: rgba(255, 255, 255, 0.8); backdrop-filter: blur(4px); border: 1px solid var(--mac-border); border-radius: var(--radius-btn); width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--mac-text-secondary); transition: all 0.2s ease; z-index: 10; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+    .floating-toggle-btn:hover { background: #FFFFFF; color: var(--mac-text); box-shadow: 0 2px 6px rgba(0,0,0,0.08); }
+    .hidden { display: none !important; }
+    .markdown-body { font-size: 13px; line-height: 1.6; color: var(--mac-text); padding: 20px; padding-top: 24px; }
+    .markdown-body h1 { font-size: 16px; margin: 0 0 12px 0; font-weight: 600; padding-right: 28px; }
+    .markdown-body h2 { font-size: 14px; margin: 16px 0 10px 0; font-weight: 600; border-bottom: 1px solid var(--mac-border); padding-bottom: 4px;}
+    .markdown-body p { margin: 0 0 12px 0; color: #333; }
+    .table-sim { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 11px; background: #FAFAFC; border: 1px solid var(--mac-border); border-radius: 6px; padding: 8px; margin-top: 8px; color: var(--mac-text-secondary); overflow-x: auto; white-space: pre; }
+    .source-code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 11.5px; line-height: 1.6; color: #333; white-space: pre-wrap; background: #FAFAFC; padding: 20px; padding-top: 24px; border-radius: var(--radius-card); }
+    
+    .reach-row { display: flex; align-items: baseline; margin-top:4px;}
+    .reach-key { width: 100px; flex-shrink: 0; color: var(--mac-text); font-size: 12px; }
+    
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; display:inline-block; margin-right:6px;}
+    .status-green { background-color: #34C759; }
+    .status-yellow { background-color: #FFCC00; }
+    .status-red { background-color: #FF3B30; }
+    .status-row { display: flex; align-items: center; font-size: 12px; font-weight: 500; margin-bottom: 12px; }
+    
+    .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .stat-card { background: var(--mac-bg); border: 1px solid var(--mac-border); border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 4px; }
+    .stat-num { font-size: 18px; font-weight: 600; color: var(--mac-text); }
+    .stat-title { font-size: 11px; color: var(--mac-text-secondary); font-weight: 500; text-transform: uppercase;}
+    .action-btn-large { background: var(--mac-bg); border: 1px solid var(--mac-border); border-radius: 8px; padding: 10px; font-size: 13px; font-weight: 500; color: var(--mac-text); cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 6px; transition: 0.2s;}
+    .action-btn-large:hover { background: #E8E8ED; }
+</style></head>
+<body>
+    <div class="app-window">
+        <div class="floating-panel">
+            <header class="panel-header">
+                <div class="title-area">
+                    <span class="breadcrumb">Skill &bull; Global</span>
+                    <div class="item-title-wrapper">
+                        <h2 class="item-title">animation-motion-design</h2>
+                        <span class="pill">Local</span>
+                    </div>
+                </div>
+                <div class="header-actions">
+                    <button class="icon-btn" title="Link to..."><svg viewBox="0 0 24 24"><path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"/></svg></button>
+                    <button class="icon-btn" title="Open in editor"><svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg></button>
+                    <button class="icon-btn" title="Expand view"><svg viewBox="0 0 24 24"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg></button>
+                </div>
+            </header>
+            
+            <div class="inspector-tabs">
+                <button class="inspector-tab-btn active" onclick="switchTab('content')">Content</button>
+                <button class="inspector-tab-btn" onclick="switchTab('details')">Details</button>
+            </div>
+
+            <div class="panel-content">
+                <div id="tab-content" class="tab-pane active">
+                    <div class="box-container" style="padding: 0;">
+                        <button class="floating-toggle-btn" id="sourceToggleBtn" onclick="toggleSourceMode()" title="View Source">
+                            <svg id="icon-code" viewBox="0 0 24 24"><path d="M9.4 16.6L4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0l4.6-4.6-4.6-4.6L16 6l6 6-6 6-1.4-1.4z"/></svg>
+                            <svg id="icon-eye" class="hidden" viewBox="0 0 24 24"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>
+                        </button>
+                        <div id="content-preview" class="markdown-body">
+                            <h1>Animation & Motion Design</h1>
+                            <p>Patterns for building performant, accessible animations using <strong>Motion</strong> (formerly Framer Motion, 18M+ weekly npm downloads). Covers layout animations, gesture interactions, exit transitions, micro-interactions, and motion accessibility.</p>
+                            <h2>Quick Reference</h2>
+                            <div class="table-sim">| Rule | File | Impact | When to Use |
+|------|------|--------|-------------|
+| Layout Animations | rules/motion-layout.md | HIGH | Shared layout transitions |</div>
+                        </div>
+                        <div id="content-source" class="source-code hidden"># Animation & Motion Design
+
+Patterns for building performant, accessible animations using **Motion**. Covers layout animations, gesture interactions, exit transitions, micro-interactions, and motion accessibility.</div>
+                    </div>
+                </div>
+
+                <div id="tab-details" class="tab-pane">
+                    <div class="box-container" style="background: rgba(0, 122, 255, 0.02); border-color: rgba(0, 122, 255, 0.1);">
+                        <div class="section-label" style="color: var(--gel-blue);">Context Scoping & Security</div>
+                        <div class="meta-table">
+                            <div class="meta-row">
+                                <div class="meta-icon" style="color:var(--gel-blue);"><svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg></div>
+                                <div class="meta-content">
+                                    <div class="meta-value">Tool Exposure <span class="badge-success" style="background:var(--gel-blue);">Optimized</span></div>
+                                    <div class="meta-label">This skill restricts prompt bloat by targeting the <strong>Frontend Dev Tool Group</strong>. It blocks unrelated heavy DB MCPs from entering the context window.</div>
+                                </div>
+                            </div>
+                            <div class="meta-row">
+                                <div class="meta-icon" style="color:var(--gel-orange);"><svg viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z"/></svg></div>
+                                <div class="meta-content">
+                                    <div class="meta-value">Privilege Boundaries <span class="badge-warning">Risk: Med</span></div>
+                                    <div class="meta-label">Skill exposes `execute_bash`. Ensure bounded directory access to maintain least-privilege security.</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="box-container">
+                        <div class="section-label">Identity & Location</div>
+                        <div class="meta-table">
+                            <div class="meta-row">
+                                <div class="meta-icon"><svg viewBox="0 0 24 24"><path d="M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/></svg></div>
+                                <div class="meta-content">
+                                    <div class="meta-value">Local Path</div>
+                                    <div class="path-string" style="margin-top:2px;">~/.agents/skills/animation-motion-design</div>
+                                </div>
+                            </div>
+                            <div class="meta-row">
+                                <div class="meta-icon"><svg viewBox="0 0 24 24"><path d="M21.41 11.58l-9-9C12.05 2.22 11.55 2 11 2H4c-1.1 0-2 .9-2 2v7c0 .55.22 1.05.59 1.41l9 9c.36.36.86.58 1.41.58.55 0 1.05-.22 1.41-.59l7-7c.37-.36.59-.86.59-1.41 0-.55-.23-1.06-.59-1.42zM5.5 7C4.67 7 4 6.33 4 5.5S4.67 4 5.5 4 7 4.67 7 5.5 6.33 7 5.5 7z"/></svg></div>
+                                <div class="meta-content">
+                                    <div class="meta-value">Version <strong>1.0.0</strong></div>
+                                    <div class="meta-label">Primary Owner: System / Karthik</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="box-container">
+                        <div class="section-label">Reaches It &rarr; ~/.agents</div>
+                        <div class="meta-table" style="gap: 8px;">
+                            <div class="reach-row">
+                                <div class="reach-key">Claude Code</div>
+                                <div class="meta-value" style="font-family:monospace;">~/.claude/agents</div>
+                            </div>
+                            <div class="reach-row">
+                                <div class="reach-key">Codex</div>
+                                <div class="meta-value" style="font-family:monospace;">~/.codex/skills</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+        function switchTab(tabId) {
+            document.querySelectorAll('.inspector-tab-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+            document.querySelectorAll('.tab-pane').forEach(pane => pane.classList.remove('active'));
+            document.getElementById('tab-' + tabId).classList.add('active');
+        }
+        function toggleSourceMode() {
+            const preview = document.getElementById('content-preview');
+            const source = document.getElementById('content-source');
+            if (preview.classList.contains('hidden')) {
+                preview.classList.remove('hidden'); source.classList.add('hidden');
+            } else {
+                preview.classList.add('hidden'); source.classList.remove('hidden');
+            }
+        }
+    </script>
+</body>
+</html>

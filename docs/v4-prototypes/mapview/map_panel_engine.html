@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><style>
+    :root {
+        --mac-bg: #F5F5F7;
+        --mac-panel-bg: rgba(255, 255, 255, 0.85); /* Glass effect for floating panel */
+        --mac-text: #1D1D1F;
+        --mac-text-secondary: #86868B;
+        --mac-text-tertiary: #98989D;
+        --mac-border: rgba(0,0,0,0.08);
+        --mac-accent: #007AFF;
+        --mac-matte: #E8E8ED;
+        --mac-card-bg: #FFFFFF;
+        --radius-panel: 12px;
+        --radius-card: 10px;
+        --radius-btn: 6px;
+    }
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        background-color: #E5E5EA;
+        color: var(--mac-text);
+        margin: 0;
+        padding: 40px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 100vh;
+    }
+    .floating-panel {
+        width: 380px;
+        background: var(--mac-panel-bg);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border: 1px solid rgba(0,0,0,0.1);
+        border-radius: var(--radius-panel);
+        box-shadow: 0 20px 40px rgba(0,0,0,0.15), 0 1px 3px rgba(0,0,0,0.1);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
+    .panel-header {
+        padding: 16px 20px 0px;
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+    }
+    .breadcrumb { font-size: 11px; font-weight: 600; letter-spacing: 0.5px; color: var(--mac-text-secondary); text-transform: uppercase; }
+    .item-title { font-size: 16px; font-weight: 600; margin: 0; color: var(--mac-text); }
+    .title-wrapper { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
+    
+    .icon-btn { background: transparent; border: none; border-radius: var(--radius-btn); width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--mac-text-secondary); }
+    .icon-btn:hover { background: rgba(0,0,0,0.05); color: var(--mac-text); }
+    .icon-btn svg { width: 14px; height: 14px; fill: currentColor; }
+
+    /* Required styling for headers */
+    .section-label {
+        text-transform: uppercase;
+        font-size: 10.5px;
+        font-weight: 600;
+        color: var(--mac-text-secondary);
+        margin-bottom: 12px;
+        letter-spacing: 0.5px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .panel-content { padding: 20px; display: flex; flex-direction: column; gap: 16px; overflow-y: auto; max-height: 700px; }
+    
+    .box-container {
+        background: var(--mac-card-bg);
+        border: 1px solid var(--mac-border);
+        border-radius: var(--radius-card);
+        padding: 16px;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.02);
+    }
+
+    /* Path specific */
+    .path-string {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        font-size: 11px;
+        color: var(--mac-text-secondary);
+        background: var(--mac-bg);
+        padding: 10px 12px;
+        border-radius: 6px;
+        border: 1px solid var(--mac-border);
+        word-break: break-all;
+        position: relative;
+    }
+    .path-icon { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); color: var(--mac-text-tertiary); cursor: pointer; }
+    .path-icon:hover { color: var(--mac-text); }
+
+    /* Meta Tables */
+    .meta-table { display: flex; flex-direction: column; gap: 12px; }
+    .meta-row { display: flex; align-items: flex-start; }
+    .meta-icon { width: 28px; flex-shrink: 0; color: var(--mac-text-tertiary); display: flex; align-items: center; margin-top: 1px; }
+    .meta-icon svg { width: 15px; height: 15px; fill: currentColor; }
+    .meta-content { display: flex; flex-direction: column; gap: 2px; width: 100%; }
+    .meta-value { font-weight: 500; color: var(--mac-text); font-size: 13px; display: flex; align-items: center; flex-wrap: wrap; gap: 6px;}
+    .meta-label { font-size: 11px; color: var(--mac-text-secondary); }
+    .meta-value strong { font-family: ui-monospace, SFMono-Regular, monospace; background: var(--mac-bg); padding: 2px 6px; border-radius: 4px; border: 1px solid var(--mac-border); font-size: 11.5px; font-weight: 500;}
+
+    /* Status Dots */
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; }
+    .status-green { background-color: #34C759; }
+    .status-yellow { background-color: #FFCC00; }
+    .status-red { background-color: #FF3B30; }
+    
+    .status-row { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 500; margin-bottom: 12px; }
+
+    /* Tabs */
+    .inspector-tabs { display: flex; padding: 12px 20px 0; border-bottom: 1px solid var(--mac-border); gap: 4px; }
+    .inspector-tab-btn { background: none; border: none; padding: 8px 12px; font-size: 12px; font-weight: 500; color: var(--mac-text-secondary); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+    .inspector-tab-btn.active { color: var(--mac-text); border-bottom-color: var(--mac-accent); font-weight: 600; }
+    .tab-pane { display: none; flex-direction: column; gap: 16px; }
+    .tab-pane.active { display: flex; }
+    
+    /* Repo Stats Breakdown */
+    .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .stat-card { background: var(--mac-bg); border: 1px solid var(--mac-border); border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 4px; }
+    .stat-num { font-size: 18px; font-weight: 600; color: var(--mac-text); }
+    .stat-title { font-size: 11px; color: var(--mac-text-secondary); font-weight: 500; text-transform: uppercase;}
+    
+    /* Main Action Button */
+    .action-btn { background: var(--mac-bg); border: 1px solid var(--mac-border); border-radius: 8px; padding: 10px; font-size: 13px; font-weight: 500; color: var(--mac-text); cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 6px; transition: 0.2s;}
+    .action-btn:hover { background: #E8E8ED; }
+</style></head>
+<body>
+    <div class="floating-panel">
+        <header class="panel-header">
+            <div>
+                <span class="breadcrumb">Node &bull; Engine Root</span>
+                <div class="title-wrapper">
+                    <svg style="width:18px;height:18px;color:#E34F26;" viewBox="0 0 24 24" fill="currentColor"><path d="M20 18c1.1 0 1.99-.9 1.99-2L22 6c0-1.1-.9-2-2-2H4c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2H0v2h24v-2h-4zM4 6h16v10H4V6z"/></svg>
+                    <h2 class="item-title">Claude Code</h2>
+                </div>
+            </div>
+            <button class="icon-btn" title="Close"><svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg></button>
+        </header>
+
+        <div class="inspector-tabs">
+            <button class="inspector-tab-btn active" onclick="switchTab('overview')">Configuration</button>
+            <button class="inspector-tab-btn" onclick="switchTab('repo')">Registry Assets (10)</button>
+        </div>
+
+        <div class="panel-content">
+            <div id="tab-overview" class="tab-pane active">
+                <div class="box-container">
+                    <div class="section-label">Local Mount Point</div>
+                    <div class="status-row">
+                        <div class="status-dot status-green"></div>
+                        <span style="color:var(--mac-text-secondary);">Managed configuration directory</span>
+                    </div>
+                    <div class="path-string">
+                        ~/.claude
+                        <svg class="path-icon" style="width:14px;height:14px;" viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
+                    </div>
+                </div>
+
+                <div class="box-container">
+                    <div class="section-label">Engine Config Layers</div>
+                    <div class="meta-table">
+                        <div class="meta-row">
+                            <div class="meta-icon"><svg viewBox="0 0 24 24"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zm6.93 6h-2.95c-.32-1.25-.78-2.45-1.38-3.56 1.84.63 3.37 1.91 4.33 3.56zM12 4.04c.83 1.2 1.48 2.53 1.91 3.96h-3.82c.43-1.43 1.08-2.76 1.91-3.96zM4.26 14C4.1 13.36 4 12.69 4 12s.1-1.36.26-2h3.38c-.08.66-.14 1.32-.14 2 0 .68.06 1.34.14 2H4.26zm.82 2h2.95c.32 1.25.78 2.45 1.38 3.56-1.84-.63-3.37-1.9-4.33-3.56zm2.95-8H5.08c-.96 1.66-2.49 2.93-4.33 3.56C1.34 10.45.88 9.25.56 8h2.95zM12 19.96c-.83-1.2-1.48-2.53-1.91-3.96h3.82c-.43 1.43-1.08 2.76-1.91 3.96zM14.34 14H9.66c-.09-.66-.16-1.32-.16-2 0-.68.07-1.35.16-2h4.68c.09.65.16 1.32.16 2 0 .68-.07 1.34-.16 2zm.25 5.56c.6-1.11 1.06-2.31 1.38-3.56h2.95c-.96 1.65-2.49 2.93-4.33 3.56zM16.36 14c.08-.66.14-1.32.14-2 0-.68-.06-1.34-.14-2h3.38c.16.64.26 1.31.26 2s-.1 1.36-.26 2h-3.38z"/></svg></div>
+                            <div class="meta-content">
+                                <div class="meta-value">Global Config</div>
+                                <div class="meta-label">settings.json (Universal prefs)</div>
+                            </div>
+                        </div>
+                        <div class="meta-row">
+                            <div class="meta-icon"><svg viewBox="0 0 24 24"><path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14zm-7-2h2v-4h4v-2h-4V7h-2v4H8v2h4z"/></svg></div>
+                            <div class="meta-content">
+                                <div class="meta-value">Local Overrides</div>
+                                <div class="meta-label">settings.local.json (Personal)</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="box-container">
+                    <div class="section-label">Active Preferences</div>
+                    <div class="meta-table">
+                        <div class="meta-row">
+                            <div class="meta-icon"><svg viewBox="0 0 24 24"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg></div>
+                            <div class="meta-content">
+                                <div class="meta-value">Approval Mode: <strong>plan</strong></div>
+                                <div class="meta-label">Drafts plan before execution</div>
+                            </div>
+                        </div>
+                        <div class="meta-row">
+                            <div class="meta-icon"><svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg></div>
+                            <div class="meta-content">
+                                <div class="meta-value">Verbose Logging <strong>Disabled</strong></div>
+                                <div class="meta-label">Hides deep tool/API metadata</div>
+                            </div>
+                        </div>
+                        <div class="meta-row">
+                            <div class="meta-icon"><svg viewBox="0 0 24 24"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/></svg></div>
+                            <div class="meta-content">
+                                <div class="meta-value">Turn Duration <strong>Enabled</strong></div>
+                                <div class="meta-label">Shows execution time metrics</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="tab-repo" class="tab-pane">
+                <div class="box-container">
+                    <div class="section-label">Engine Repository View</div>
+                    <p style="font-size:12px; color:var(--mac-text-secondary); margin-top:0; margin-bottom:12px; line-height:1.4;">This engine is actively syncing the following assets from the canonical store.</p>
+                    <div class="stat-grid" style="margin-bottom: 16px;">
+                        <div class="stat-card">
+                            <span class="stat-num">8</span>
+                            <span class="stat-title">Skills</span>
+                        </div>
+                        <div class="stat-card">
+                            <span class="stat-num">2</span>
+                            <span class="stat-title">MCP Servers</span>
+                        </div>
+                    </div>
+                    
+                    <button class="action-btn">
+                        Open Engine Repository Table &rarr;
+                    </button>
+                </div>
+                
+                <div class="box-container">
+                    <div class="section-label">Local Drift Status</div>
+                    <div class="meta-table">
+                        <div class="meta-row">
+                            <div class="meta-icon"><div class="status-dot status-green"></div></div>
+                            <div class="meta-content">
+                                <div class="meta-value">10 In Sync</div>
+                                <div class="meta-label">Matching canonical hashes</div>
+                            </div>
+                        </div>
+                        <div class="meta-row">
+                            <div class="meta-icon"><div class="status-dot status-yellow"></div></div>
+                            <div class="meta-content">
+                                <div class="meta-value" style="color:var(--mac-text-secondary);">0 Local Overrides</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+        function switchTab(tabId) {
+            document.querySelectorAll('.inspector-tab-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+            document.querySelectorAll('.tab-pane').forEach(pane => pane.classList.remove('active'));
+            document.getElementById('tab-' + tabId).classList.add('active');
+        }
+    </script>
+</body>
+</html>
