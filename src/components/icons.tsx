@@ -20,6 +20,7 @@
 import type { ComponentType, SVGProps } from "react";
 import {
   AdjustmentsHorizontalIcon as HeroAdjustmentsHorizontal,
+  ArchiveBoxIcon as HeroArchiveBox,
   ArrowPathIcon as HeroArrowPath,
   ArrowRightIcon as HeroArrowRight,
   ArrowTopRightOnSquareIcon as HeroArrowTopRightOnSquare,
@@ -109,6 +110,7 @@ function sized(Icon: SvgIcon, optical = 1) {
 }
 
 export const AdjustmentsHorizontalIcon = sized(HeroAdjustmentsHorizontal);
+export const ArchiveBoxIcon = sized(HeroArchiveBox);
 export const ArrowPathIcon = sized(HeroArrowPath);
 export const ArrowRightIcon = sized(HeroArrowRight, 0.79);
 export const ArrowTopRightOnSquareIcon = sized(HeroArrowTopRightOnSquare);
@@ -198,3 +200,31 @@ function FinderMark({ width, height, strokeWidth, ...props }: SVGProps<SVGSVGEle
  * needs its own mark; call sites never change.
  */
 export const RevealInFileManagerIcon = sized(FinderMark);
+
+/**
+ * The skill mark: the document a skill is, with the sparkle that says it
+ * confers a capability. Drawn on the Heroicons 24 grid with round caps so it
+ * sits at the same weight as every mark above; no icon set has it.
+ */
+function SkillMark({ width, height, strokeWidth, ...props }: SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={strokeWidth}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      width={width}
+      height={height}
+      {...props}
+    >
+      <path d="M14.5 4.25H7A2.25 2.25 0 004.75 6.5v12.25A2.25 2.25 0 007 21h9.5a2.25 2.25 0 002.25-2.25V11.5" />
+      <path d="M8.5 12.5h6.5M8.5 16.25h4" />
+      <path d="M18.25 2.75c.45 1.85 1.15 2.55 3 3-1.85.45-2.55 1.15-3 3-.45-1.85-1.15-2.55-3-3 1.85-.45 2.55-1.15 3-3z" />
+    </svg>
+  );
+}
+
+/** The kind mark for a skill — the placecard's Skills row and, later, the inspector's header. */
+export const SkillIcon = sized(SkillMark);
