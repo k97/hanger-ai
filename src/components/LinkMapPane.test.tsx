@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { render, screen, cleanup, fireEvent } from "@testing-library/react";
+import { render, screen, cleanup, fireEvent, within } from "@testing-library/react";
 import LinkMapPane from "./LinkMapPane";
 import type { LinkGraph } from "../utils/linkMapLayout";
 
@@ -494,5 +494,20 @@ describe("LinkMapPane", () => {
     expect(rows[1]).toBe("From/u/k/.agents");
     expect(rows[2]).toBe("Into/u/k/.claude");
     expect(card.textContent).not.toContain("Symlink — one copy, no drift");
+  });
+
+  it("a project lists its rules by name under 'Rules here'; a project with none draws no section", () => {
+    renderPane(graph());
+    fireEvent.click(screen.getByTestId("map-node-4"));
+    const card = screen.getByTestId("map-placecard");
+    expect(within(card).getByText("Rules here")).toBeTruthy();
+    const names = Array.from(card.querySelectorAll('[data-testid="placecard-rule"]')).map((r) => r.textContent);
+    expect(names).toEqual(["AGENTS.md", "CLAUDE.md"]);
+    expect(card.querySelector('[data-testid="placecard-rule"] .font-mono, [data-testid="placecard-rule"] span.font-mono')).toBeTruthy();
+
+    cleanup();
+    renderPane(graph({ nodes: graph().nodes.map((n) => (n.id === 4 ? { ...n, rules: [] } : n)) }));
+    fireEvent.click(screen.getByTestId("map-node-4"));
+    expect(screen.queryByText("Rules here")).toBeNull();
   });
 });

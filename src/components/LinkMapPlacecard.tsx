@@ -351,6 +351,23 @@ export default function LinkMapPlacecard({
             />
           )}
         </ListCard>
+        {node.kind === "project" && node.rules.length > 0 && (
+          <>
+            <div className="mx-4 mb-1.5 font-flex text-micro font-medium tracking-[.06em] uppercase text-ink-3">
+              Rules here
+            </div>
+            <ListCard className="mx-4 mb-3">
+              {node.rules.map((name) => (
+                <ListCardRow
+                  key={name}
+                  data-testid="placecard-rule"
+                  icon={<DocumentTextIcon size={14} aria-hidden="true" />}
+                  label={<span className="font-mono">{name}</span>}
+                />
+              ))}
+            </ListCard>
+          </>
+        )}
         {node.kind === "project" && (
           <div className="mx-4 mb-3.5 flex">
             <button onClick={() => onOpenProject(node.path)} className={actionBtnClass}>
