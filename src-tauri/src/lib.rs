@@ -1419,13 +1419,47 @@ fn document_for(path: &Path) -> Option<PathBuf> {
     entry.is_file().then_some(entry)
 }
 
-#[derive(serde::Serialize)]
+#[derive(Debug, serde::Serialize)]
 pub struct AssetBody {
     /// What was read. A skill's folder resolves to the document inside it, and
     /// the panel shows the file it is actually displaying rather than the
     /// directory it started from.
     pub path: String,
     pub text: String,
+    /// The document's size on disk — the figure the Size row and the Context line show.
+    pub bytes: u64,
+    /// `text.split('\n').count()`, the line count the panel has always shown.
+    pub lines: usize,
+    /// mtime, milliseconds since the epoch, read at request time — never stored.
+    pub modified_ms: i64,
+    /// bytes / 4, integer division: an estimate, labelled as one on screen.
+    pub estimated_tokens: u64,
+}
+
+/// Reads one document for the inspector: the text, and the figures the panel
+/// renders beside it. mtime is read here, at request time, like link state —
+/// nothing is stored.
+pub fn asset_body_of(document: &Path) -> Result<AssetBody, String> {
+    let meta = fs::metadata(document).map_err(|_| "File not readable".to_string())?;
+    if meta.len() > MAX_ASSET_BODY_BYTES {
+        return Err("File is too large to preview".to_string());
+    }
+    let text = fs::read_to_string(document).map_err(|_| "File is not text".to_string())?;
+    let bytes = meta.len();
+    let modified_ms = meta
+        .modified()
+        .ok()
+        .and_then(|m| m.duration_since(std::time::UNIX_EPOCH).ok())
+        .map(|d| d.as_millis() as i64)
+        .unwrap_or(0);
+    Ok(AssetBody {
+        path: document.to_string_lossy().to_string(),
+        lines: text.split('\n').count(),
+        bytes,
+        modified_ms,
+        estimated_tokens: bytes / 4,
+        text,
+    })
 }
 
 /// Reads an asset's file so the inspector can show it. Bounded three ways:
@@ -1464,16 +1498,7 @@ fn read_asset_body(app: AppHandle, path: String) -> Result<AssetBody, String> {
     let document = document_for(&canonical)
         .ok_or_else(|| "This folder has no SKILL.md to show".to_string())?;
 
-    let meta = fs::metadata(&document).map_err(|_| "File not readable".to_string())?;
-    if meta.len() > MAX_ASSET_BODY_BYTES {
-        return Err("File is too large to preview".to_string());
-    }
-
-    let text = fs::read_to_string(&document).map_err(|_| "File is not text".to_string())?;
-    Ok(AssetBody {
-        path: document.to_string_lossy().to_string(),
-        text,
-    })
+    asset_body_of(&document)
 }
 
 #[tauri::command]
