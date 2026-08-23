@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from "react";
-import { openUrl, revealItemInDir } from "@tauri-apps/plugin-opener";
+import { openUrl, openPath, revealItemInDir } from "@tauri-apps/plugin-opener";
 import { MANAGE_URL } from "../utils/mcpServerView";
 import { diffLaunch, type LaunchDiffToken } from "../utils/launchDiff";
+import { joinNames } from "../utils/prose";
 import EngineLabel from "./EngineLabel";
 import Tooltip from "./Tooltip";
 import UnderlineTabs from "./UnderlineTabs";
 import ListCard, { ListCardRow } from "./ListCard";
+import { miniBtnClass, miniSetClass } from "./miniButton";
 import {
   ArrowPathIcon,
   RevealInFileManagerIcon,
@@ -17,6 +19,8 @@ import {
   ArchiveBoxIcon,
   ChatBubbleOvalLeftIcon,
   KeyIcon,
+  ArrowsRightLeftIcon,
+  DocumentTextIcon,
 } from "./icons";
 
 /**
@@ -193,6 +197,14 @@ function ProbePending() {
 const SECTION = "px-[18px] py-[18px] border-b border-line";
 const HEADING = "text-micro font-medium text-ink-3 uppercase tracking-[.06em]";
 const COUNT = "text-micro font-mono text-ink-2 tabular";
+
+/** The filename a config path ends in -- what the verdict card's labels need
+ *  to tell two same-host registrations apart, without a whole path's worth
+ *  of directory noise. */
+function basename(path: string): string {
+  const parts = path.split("/");
+  return parts[parts.length - 1];
+}
 
 function relativeTime(then: number): string {
   const secs = Math.max(0, Math.round((Date.now() - then) / 1000));
@@ -523,6 +535,35 @@ export default function McpServerDetail({
   const directRemoteRegs = server.registrations.filter((r) => !r.bridged && !r.launchDisplay);
   const showsBridgeNote = !diverges && bridgedRegs.length > 0 && directRemoteRegs.length > 0;
 
+  /* The verdict card: one stated fact instead of leaving the reader to count
+     registration rows and cross-reference config paths themselves. A lone
+     host declaring the server twice is its own kind of surprise, worth
+     naming beside -- not instead of -- whether the launches themselves
+     agree. */
+  const sameEngineTwice = server.registrations.some(
+    (reg, i) => server.registrations.findIndex((r) => r.host === reg.host) !== i
+  );
+  const headline = `Declared ${regCount} times${sameEngineTwice ? ", twice by the same engine" : ""}`;
+  const verdictWarns = diverges || sameEngineTwice;
+  /* Host, or "host (config basename)" when that same host declares the
+     server more than once -- otherwise a same-engine list reads as one
+     voice repeated rather than as two separate declarations. */
+  const labels = server.registrations.map((reg) =>
+    server.registrations.filter((r) => r.host === reg.host).length > 1
+      ? `${reg.host} (${basename(reg.configPath)})`
+      : reg.host
+  );
+  const detail = !diverges
+    ? `All ${regCount} launches agree — the same command from ${joinNames(labels)}.`
+    : launchesDiverge
+    ? `These hosts launch ${server.name} differently. Whichever you are using decides which version you get.`
+    : `These hosts reach ${server.name} at different endpoints. Whichever you are using decides which server answers.`;
+  /* Compare scrolls to the aligned launch diff two sections down; a ref
+     rather than an anchor + hash because this is the panel's own scroll
+     container jumping to its own content, not navigation the URL should
+     remember. */
+  const launchDiffRef = useRef<HTMLDivElement>(null);
+
   const isConnector = server.transport === "claude.ai";
   // Remote servers ARE verifiable now — dialled rather than spawned. Only a
   // Claude.ai connector has nothing Hanger can reach at all.
@@ -839,6 +880,53 @@ export default function McpServerDetail({
           )}
         </section>
 
+        {/* The verdict, stated once: how many declarations, whether they
+            agree, and the two actions that follow from either answer. Only
+            worth a card once there is more than one registration to compare
+            -- a lone declaration has nothing to agree or disagree with
+            itself. */}
+        {regCount >= 2 && (
+          <section className={SECTION}>
+            <ListCard>
+              <div
+                className="flex flex-col gap-[3px] px-3 py-[9px] text-small"
+                data-testid="verdict-card"
+              >
+                <span className="flex items-center gap-2">
+                  <i
+                    aria-hidden="true"
+                    className={`w-2 h-2 rounded-pill shrink-0 not-italic ${
+                      verdictWarns ? "bg-state-warning" : "bg-state-success"
+                    }`}
+                  />
+                  <span className="font-medium">{headline}</span>
+                </span>
+                <span className="text-micro text-ink-3 leading-[1.5]">{detail}</span>
+              </div>
+            </ListCard>
+            <div className={`${miniSetClass} mt-2`}>
+              {diverges && (
+                <button
+                  type="button"
+                  className={miniBtnClass}
+                  onClick={() => launchDiffRef.current?.scrollIntoView?.({ block: "nearest" })}
+                >
+                  <ArrowsRightLeftIcon size={13} aria-hidden="true" />
+                  Compare
+                </button>
+              )}
+              <button
+                type="button"
+                className={miniBtnClass}
+                onClick={() => openPath(server.registrations[0].configPath).catch(() => {})}
+              >
+                <DocumentTextIcon size={13} aria-hidden="true" />
+                Open config
+              </button>
+            </div>
+          </section>
+        )}
+
         <section className={SECTION}>
           <div className="flex items-baseline justify-between gap-2 mb-[10px]">
             <h3 className={HEADING}>Registered in</h3>
@@ -928,7 +1016,7 @@ export default function McpServerDetail({
                   an N-way alignment matrix. For the common two-host case this
                   is the whole picture; for three or more, every comparison
                   shares one baseline rather than comparing every pair. */}
-              <div data-testid="launch-diff" className="flex flex-col gap-2 mt-2">
+              <div ref={launchDiffRef} data-testid="launch-diff" className="flex flex-col gap-2 mt-2">
                 {divergingGroups.slice(1).map((group) => {
                   const diff = diffLaunch(divergingGroups[0].launchDisplay, group.launchDisplay);
                   const label = (g: SpecGroup) => g.regs.map((r) => `${r.host} · ${r.tier}`).join(", ");

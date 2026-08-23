@@ -437,6 +437,34 @@ describe("McpServerDetail", () => {
     expect(envKey.closest(".rounded-inner")).toBeTruthy();
   });
 
+  it("states the verdict once: declared N times, twice by the same engine, and that the launches agree", () => {
+    render(<McpServerDetail server={base} />);
+    openDetails();
+    const card = screen.getByTestId("verdict-card");
+    expect(card.textContent).toContain("Declared 3 times, twice by the same engine");
+    expect(card.textContent).toContain(
+      "All 3 launches agree — the same command from Claude Code (.claude.json), Claude Code (mcp.json) and Claude Desktop."
+    );
+    expect(card.querySelector("i")?.className).toContain("bg-state-warning");
+    expect(screen.queryByRole("button", { name: "Compare" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Open config" })).toBeTruthy();
+  });
+  it("offers Compare only when the launches disagree, and no card for a lone registration", () => {
+    const diverged = { ...base, registrations: [
+      { key: "a", host: "Codex", tier: "global", configPath: "~/.codex/config.toml", command: "npx", launchDisplay: "npx tauri-mcp@2.9.1" },
+      { key: "b", host: "Gemini", tier: "global", configPath: "~/.gemini/settings.json", command: "npx", launchDisplay: "npx tauri-mcp@latest" },
+    ] };
+    render(<McpServerDetail server={diverged} />);
+    openDetails();
+    expect(screen.getByTestId("verdict-card").textContent).toContain("Declared 2 times");
+    expect(screen.getByTestId("verdict-card").textContent).not.toContain("same engine");
+    expect(screen.getByRole("button", { name: "Compare" })).toBeTruthy();
+    cleanup();
+    render(<McpServerDetail server={{ ...base, registrations: [base.registrations[0]] }} />);
+    openDetails();
+    expect(screen.queryByTestId("verdict-card")).toBeNull();
+  });
+
   it("says nothing about divergence when the registrations agree", () => {
     render(<McpServerDetail server={base} />);
     openDetails();
