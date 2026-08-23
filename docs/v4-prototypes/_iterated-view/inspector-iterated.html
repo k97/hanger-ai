@@ -72,6 +72,28 @@
 .leg { margin-top: 28px; max-width: 1024px; padding: 12px 14px; }
 .leg ul { list-style: disc; padding-left: 16px; margin: 4px 0 10px; }
 .leg li { margin-bottom: 2px; }
+/* ── Section format (Karthik, 2026-08-22) ──
+   Every section in the chosen shell is an eyebrow, then ONE bordered card
+   whose rows are icon · label · right-aligned value. The divider lives on
+   .row + .row, so a one-row card carries none and the last row never does.
+   margin and flex-wrap are restated because this page's outer .row (the
+   review layout) would otherwise leak into the card's rows. */
+.lc { border: 1px solid var(--line); border-radius: var(--radius-inner); background: var(--page); overflow: hidden; }
+.lc .row { display: flex; align-items: center; gap: 10px; padding: 9px 12px; min-height: 36px; font-size: var(--fs-small); color: var(--ink-1); margin: 0; flex-wrap: nowrap; }
+.lc .row + .row { border-top: 1px solid var(--line); }
+.lc .row.stack { align-items: flex-start; flex-direction: column; gap: 3px; }
+.lc .row.stack .ln { display: flex; align-items: center; gap: 8px; align-self: stretch; min-width: 0; }
+.lc .lcb { padding: 12px; border-top: 1px solid var(--line); }
+.ri { width: 14px; height: 14px; flex-shrink: 0; color: var(--ink-3); }
+.v { margin-left: auto; font-family: var(--font-mono); font-size: var(--fs-micro); color: var(--ink-3); }
+.vw { margin-left: auto; }
+/* Mini action set (Karthik's reference, 2026-08-22): equal outlined pills,
+   icon + label. Its own control class rather than a .btn variant — .btn is
+   medium weight and the set is regular, which the page's body weight gives
+   for free; the hover is .btn:hover's, restated on the token. */
+.mini-set { display: flex; flex-wrap: wrap; gap: 6px; }
+.mini { height: 26px; padding: 0 10px; display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-small); color: var(--ink-1); border: 1px solid var(--line-2); border-radius: var(--radius-pill); background: var(--page); transition: background-color var(--dur-hover) var(--spring); }
+.mini:hover { background: var(--plane-2); }
 </style>
 </head>
 <body>
@@ -88,6 +110,21 @@
   <symbol id="i-rf" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99"/></symbol>
   <symbol id="i-cb" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M17.25 6.75L22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3l-4.5 16.5"/></symbol>
   <symbol id="i-tm" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6.75 7.5l3 2.25-3 2.25m4.5 0h3m-9 8.25h13.5A2.25 2.25 0 0021 18V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v12a2.25 2.25 0 002.25 2.25z"/></symbol>
+  <symbol id="i-cpu" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M8.25 3v1.5M4.5 8.25H3m18 0h-1.5M4.5 12H3m18 0h-1.5m-15 3.75H3m18 0h-1.5M8.25 19.5V21M12 3v1.5m0 15V21m3.75-18v1.5m0 15V21m-9-1.5h10.5a2.25 2.25 0 002.25-2.25V6.75a2.25 2.25 0 00-2.25-2.25H6.75A2.25 2.25 0 004.5 6.75v10.5a2.25 2.25 0 002.25 2.25zm.75-12h9v9h-9v-9z"/></symbol>
+  <symbol id="i-glb" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21a9 9 0 100-18 9 9 0 000 18zm0 0c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3 7.5 7.03 7.5 12s2.015 9 4.5 9zM3.6 9h16.8M3.6 15h16.8"/></symbol>
+  <symbol id="i-dl" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"/></symbol>
+  <symbol id="i-tg" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3zM6 6h.008v.008H6V6z"/></symbol>
+  <symbol id="i-ck" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"/></symbol>
+  <symbol id="i-sg" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M9.348 14.652a3.75 3.75 0 010-5.304m5.304 0a3.75 3.75 0 010 5.304m-7.425 2.121a6.75 6.75 0 010-9.546m9.546 0a6.75 6.75 0 010 9.546M5.106 18.894c-3.808-3.807-3.808-9.98 0-13.788m13.788 0c3.808 3.807 3.808 9.98 0 13.788M12 12h.008v.008H12V12z"/></symbol>
+  <symbol id="i-wr" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M11.42 15.17L17.25 21A2.652 2.652 0 0021 17.25l-5.877-5.877M11.42 15.17l2.496-3.03c.317-.384.74-.626 1.208-.766M11.42 15.17l-4.655 5.653a2.548 2.548 0 11-3.586-3.586l6.837-5.63m5.108-.233c.55-.164 1.163-.188 1.743-.14a4.5 4.5 0 004.486-6.336l-3.276 3.277a3.004 3.004 0 01-2.25-2.25l3.276-3.276a4.5 4.5 0 00-6.336 4.486c.091 1.076-.071 2.264-.904 2.95l-.102.085m-1.745 1.437L5.909 7.5H4.5L2.25 3.75l1.5-1.5L7.5 4.5v1.409l4.26 4.26"/></symbol>
+  <symbol id="i-ab" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z"/></symbol>
+  <symbol id="i-ch" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M2.25 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25-4.03 8.25-9 8.25a9.76 9.76 0 01-2.555-.337L4.5 21.75l1.087-3.26A8.25 8.25 0 012.25 12z"/></symbol>
+  <symbol id="i-ap" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M19.5 12c0-1.232-.046-2.453-.138-3.662a4.006 4.006 0 00-3.7-3.7 48.678 48.678 0 00-7.324 0 4.006 4.006 0 00-3.7 3.7c-.017.22-.032.441-.046.662M19.5 12l3-3m-3 3l-3-3m-12 3c0 1.232.046 2.453.138 3.662a4.006 4.006 0 003.7 3.7 48.656 48.656 0 007.324 0 4.006 4.006 0 003.7-3.7c.017-.22.032-.441.046-.662M4.5 12l3 3m-3-3l-3 3"/></symbol>
+  <symbol id="i-ky" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1121.75 8.25z"/></symbol>
+  <symbol id="i-ln" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244"/></symbol>
+  <symbol id="i-pn" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10"/></symbol>
+  <symbol id="i-rl" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5"/></symbol>
+  <symbol id="i-dc" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/></symbol>
 </svg>
 
 <div class="toggle-bar"><button class="btn" id="dk" aria-pressed="false">Dark</button></div>
@@ -285,7 +322,7 @@ agent-browser close             # Close browser</pre>
 </div>
 
 <!-- ═══════════════ Shell 3 — Chosen: tabbed, content first ═══════════════ -->
-<div class="option"><h2>Chosen · tabbed, content first</h2><span>the breakdown leads; facts and reach sit behind Details</span></div>
+<div class="option"><h2>Chosen · tabbed, content first</h2><span>the breakdown leads; every section is one card of rows</span></div>
 <div class="row">
 <div class="shell b">
   <div class="rail"><i class="logo rounded-soft"></i><i class="on"></i><i></i><i></i></div>
@@ -313,76 +350,75 @@ agent-browser close             # Close browser</pre>
       <div class="flex items-center gap-2 mb-3 text-small text-ink-3"><i class="dot hollow"></i><span>Local only · nothing links to it</span></div>
       <div class="path-chip"><span>/Users/karthik/.agents/skills/agent-browser/SKILL.md</span><button class="icon-btn sm" aria-label="Copy path"><svg class="ic"><use href="#i-cp"/></svg></button><button class="icon-btn sm" aria-label="Reveal in Finder"><svg class="ic"><use href="#i-rv"/></svg></button></div>
     </div>
-    <div class="acts"><button class="btn fill">Link to…</button><button class="btn">Open in editor</button></div>
-    <div class="disclosure warning card"><div class="drow"><svg class="ic"><use href="#i-wn"/></svg><span class="font-medium">1 issue needs a decision</span><button class="btn ml-auto">Review →</button></div></div>
+    <div class="acts"><div class="mini-set"><button class="mini"><svg class="ic"><use href="#i-ln"/></svg>Link to…</button><button class="mini"><svg class="ic"><use href="#i-pn"/></svg>Open in editor</button></div></div>
+    <div class="disclosure warning card"><div class="drow"><svg class="ic"><use href="#i-wn"/></svg><span class="font-medium">1 issue needs a decision</span><button class="mini ml-auto">Review →</button></div></div>
     <div class="utabs" role="tablist" aria-label="Inspector view"><button role="tab" class="font-medium" aria-selected="true" data-tab="content">Content</button><button role="tab" aria-selected="false" data-tab="details">Details</button><i class="ind" aria-hidden="true"></i></div>
     <div class="body">
       <div data-panel="content">
         <section class="card">
           <div class="section-head"><span class="eyebrow">In this skill</span></div>
-          <ul class="regs rounded-inner">
-            <li class="ent"><svg class="ic text-ink-3"><use href="#i-fl"/></svg><span class="font-mono text-small flex-1">SKILL.md</span><span class="font-mono text-micro text-ink-3">8.6 kB</span></li>
-            <li class="ent"><svg class="ic text-ink-3"><use href="#i-fd"/></svg><span class="font-mono text-small flex-1">references/</span><span class="font-mono text-micro text-ink-3">3 files</span></li>
-            <li class="ent"><svg class="ic text-ink-3"><use href="#i-fd"/></svg><span class="font-mono text-small flex-1">scripts/</span><span class="font-mono text-micro text-ink-3">1 file</span></li>
-          </ul>
+          <div class="lc">
+            <div class="row"><svg class="ri"><use href="#i-fl"/></svg><span class="font-mono">SKILL.md</span><span class="v">8.6 kB</span></div>
+            <div class="row"><svg class="ri"><use href="#i-fd"/></svg><span class="font-mono">references/</span><span class="v">3 files</span></div>
+            <div class="row"><svg class="ri"><use href="#i-fd"/></svg><span class="font-mono">scripts/</span><span class="v">1 file</span></div>
+          </div>
         </section>
         <section class="card docblk">
-          <div class="flex items-center justify-between gap-2"><span class="font-mono text-micro text-ink-3">SKILL.md</span><button class="icon-btn sm" aria-label="View source" aria-pressed="false"><svg class="ic"><use href="#i-cb"/></svg></button></div>
-          <div class="doc text-small">
-            <h3 class="text-base-app font-medium">Browser Automation with agent-browser</h3>
-            <p class="font-medium">Quick start</p>
+          <div class="lc">
+            <div class="row"><svg class="ri"><use href="#i-fl"/></svg><span class="font-mono">SKILL.md</span><button class="icon-btn sm ml-auto" aria-label="View source" aria-pressed="false"><svg class="ic"><use href="#i-cb"/></svg></button></div>
+            <div class="lcb doc text-small">
+              <h3 class="text-base-app font-medium">Browser Automation with agent-browser</h3>
+              <p class="font-medium">Quick start</p>
 <pre class="text-micro text-ink-2 rounded-inner">agent-browser open &lt;url&gt;        # Navigate to page
 agent-browser snapshot -i       # Get interactive elements with refs
 agent-browser click @e1         # Click element by ref
 agent-browser fill @e2 "text"   # Fill input by ref
 agent-browser close             # Close browser</pre>
-            <p class="font-medium">Core workflow</p>
-            <ol class="text-ink-2">
-              <li>Navigate: <code>agent-browser open &lt;url&gt;</code></li>
-              <li>Snapshot: <code>agent-browser snapshot -i</code> (returns elements with refs like <code>@e1</code>, <code>@e2</code>)</li>
-              <li>Interact using refs from the snapshot</li>
-              <li>Re-snapshot after navigation or significant DOM changes</li>
-            </ol>
-            <p class="font-medium">Commands</p>
-            <p class="text-ink-2">Navigation: <code>open</code>, <code>back</code>, <code>forward</code>, <code>reload</code>, <code>close</code>. Snapshot: <code>snapshot -i</code> for interactive elements, <code>snapshot -a</code> for the full tree.</p>
+              <p class="font-medium">Core workflow</p>
+              <ol class="text-ink-2">
+                <li>Navigate: <code>agent-browser open &lt;url&gt;</code></li>
+                <li>Snapshot: <code>agent-browser snapshot -i</code> (returns elements with refs like <code>@e1</code>, <code>@e2</code>)</li>
+                <li>Interact using refs from the snapshot</li>
+                <li>Re-snapshot after navigation or significant DOM changes</li>
+              </ol>
+              <p class="font-medium">Commands</p>
+              <p class="text-ink-2">Navigation: <code>open</code>, <code>back</code>, <code>forward</code>, <code>reload</code>, <code>close</code>. Snapshot: <code>snapshot -i</code> for interactive elements, <code>snapshot -a</code> for the full tree.</p>
+            </div>
           </div>
         </section>
       </div>
       <div data-panel="details" class="hidden">
         <section class="card">
           <div class="section-head"><span class="eyebrow">Identity</span></div>
-          <dl class="facts">
-            <dt>Engine</dt><dd>Any agent</dd>
-            <dt>Scope</dt><dd>Global</dd>
-            <dt>Origin</dt><dd>Local · not from a registry</dd>
-            <dt>Version</dt><dd>v0.0.0-draft</dd>
-            <dt>Size</dt><dd>8.6 kB · 252 lines</dd>
-            <dt>Modified</dt><dd>Jul 20, 2026</dd>
-          </dl>
+          <div class="lc">
+            <div class="row"><svg class="ri"><use href="#i-cpu"/></svg><span>Engine</span><span class="vw text-small text-ink-2">Any agent</span></div>
+            <div class="row"><svg class="ri"><use href="#i-glb"/></svg><span>Scope</span><span class="vw text-small text-ink-2">Global</span></div>
+            <div class="row"><svg class="ri"><use href="#i-dl"/></svg><span>Origin</span><span class="vw text-small text-ink-2">Local · not from a registry</span></div>
+            <div class="row"><svg class="ri"><use href="#i-tg"/></svg><span>Version</span><span class="v">v0.0.0-draft</span></div>
+            <div class="row"><svg class="ri"><use href="#i-fl"/></svg><span>Size</span><span class="v">8.6 kB · 252 lines</span></div>
+            <div class="row"><svg class="ri"><use href="#i-ck"/></svg><span>Modified</span><span class="v">Jul 20, 2026</span></div>
+          </div>
         </section>
         <section class="card">
           <div class="section-head"><span class="eyebrow">Capabilities</span></div>
-          <div class="flex items-center gap-2 text-small"><span class="lbl">Allowed tools</span><span class="flex flex-wrap gap-1.5 min-w-0"><span class="pill">Bash(agent-browser:*)</span></span></div>
-          <p class="flex items-center gap-1.5 text-small text-ink-2 mt-2"><svg class="ic"><use href="#i-tm"/></svg><span>Runs commands through Bash.</span></p>
-        </section>
-        <section class="reach rounded-plane">
-          <div class="flex items-baseline justify-between gap-2"><span class="eyebrow">Reach</span><span class="font-mono text-micro text-ink-3">→ ~/.agents</span></div>
-          <div class="grp">
-            <div class="grp-h eyebrow"><span>Reaches it</span><i class="rule"></i></div>
-            <ul class="members">
-            <li class="contents"><span class="flex items-center gap-2 min-w-0 text-small"><svg class="mark"><use href="#mk"/></svg><span class="truncate">Claude Code</span></span><span class="font-mono text-micro text-ink-3">~/.claude/agents</span></li>
-            <li class="contents"><span class="flex items-center gap-2 min-w-0 text-small"><svg class="mark"><use href="#mk"/></svg><span class="truncate">Codex</span></span><span class="font-mono text-micro text-ink-3">~/.codex/skills</span></li>
-            <li class="contents"><span class="flex items-center gap-2 min-w-0 text-small"><svg class="mark"><use href="#mk"/></svg><span class="truncate">Gemini / Antigravity</span></span><span class="font-mono text-micro text-ink-3">~/.gemini/skills</span></li>
-            <li class="contents"><span class="flex items-center gap-2 min-w-0 text-small"><svg class="mark"><use href="#mk"/></svg><span class="truncate">Zed</span></span><span class="font-mono text-micro text-ink-3">in place</span></li>
-            </ul>
+          <div class="lc">
+            <div class="row"><svg class="ri"><use href="#i-tm"/></svg><span class="font-mono">Bash(agent-browser:*)</span><span class="vw text-small text-ink-2">runs commands</span></div>
           </div>
-          <div class="grp">
-            <div class="grp-h eyebrow"><span>Root not linked</span><i class="rule"></i></div>
-            <ul class="members">
-            <li class="contents"><span class="flex items-center gap-2 min-w-0 text-small text-ink-3"><svg class="mark dim"><use href="#mk"/></svg><span class="truncate">Claude Desktop</span></span><span class="font-mono text-micro text-ink-3 dim">—</span></li>
-            <li class="contents"><span class="flex items-center gap-2 min-w-0 text-small text-ink-3"><svg class="mark dim"><use href="#mk"/></svg><span class="truncate">VS Code</span></span><span class="font-mono text-micro text-ink-3 dim">—</span></li>
-            <li class="contents"><span class="flex items-center gap-2 min-w-0 text-small text-ink-3"><svg class="mark dim"><use href="#mk"/></svg><span class="truncate">OpenCode</span></span><span class="font-mono text-micro text-ink-3 dim">—</span></li>
-            </ul>
+        </section>
+        <section class="card">
+          <div class="flex items-baseline justify-between gap-2 mb-3"><span class="eyebrow">Reach</span><span class="font-mono text-micro text-ink-3">→ ~/.agents</span></div>
+          <div class="eyebrow mb-1">Reaches it</div>
+          <div class="lc">
+            <div class="row"><svg class="mark"><use href="#mk"/></svg><span class="truncate">Claude Code</span><span class="v">~/.claude/agents</span></div>
+            <div class="row"><svg class="mark"><use href="#mk"/></svg><span class="truncate">Codex</span><span class="v">~/.codex/skills</span></div>
+            <div class="row"><svg class="mark"><use href="#mk"/></svg><span class="truncate">Gemini / Antigravity</span><span class="v">~/.gemini/skills</span></div>
+            <div class="row"><svg class="mark"><use href="#mk"/></svg><span class="truncate">Zed</span><span class="v">in place</span></div>
+          </div>
+          <div class="eyebrow mb-1 mt-3">Root not linked</div>
+          <div class="lc">
+            <div class="row"><svg class="mark dim"><use href="#mk"/></svg><span class="truncate text-ink-3">Claude Desktop</span><span class="v dim">—</span></div>
+            <div class="row"><svg class="mark dim"><use href="#mk"/></svg><span class="truncate text-ink-3">VS Code</span><span class="v dim">—</span></div>
+            <div class="row"><svg class="mark dim"><use href="#mk"/></svg><span class="truncate text-ink-3">OpenCode</span><span class="v dim">—</span></div>
           </div>
         </section>
         <div class="annot in">Links appear only when <code>source-origin</code> is a URL (a registry page) — empty is a finding, so no empty section is drawn.</div>
@@ -400,76 +436,75 @@ agent-browser close             # Close browser</pre>
     <div class="body">
       <div data-panel="tools">
         <section class="section">
-          <div class="vcard bg-plane rounded-inner">
-            <div class="flex items-baseline justify-between gap-2"><span class="eyebrow">Context</span><span class="text-micro text-ink-3 font-mono">pending backend</span></div>
-            <div class="text-base-app font-medium">Tool descriptions · 10.8 kB across 17 tools</div>
-            <div class="text-small text-ink-2 lh">What every request to this host carries.</div>
+          <div class="section-head"><span class="eyebrow">Context</span><span class="text-micro text-ink-3 font-mono">pending backend</span></div>
+          <div class="lc">
+            <div class="row stack">
+              <span class="font-medium">Tool descriptions · 10.8 kB across 17 tools</span>
+              <span class="text-micro text-ink-3">What every request to this host carries.</span>
+            </div>
           </div>
-          <div class="disclosure warning mt-2 mb-3"><div class="drow"><svg class="ic"><use href="#i-wn"/></svg><span class="font-medium min-w-0"><code>get_system_volume</code> is also offered by another server in Claude Code</span><button class="btn ml-auto shrink-0">Review →</button></div></div>
+          <div class="disclosure warning mt-3 mb-3"><div class="drow"><svg class="ic"><use href="#i-wn"/></svg><span class="font-medium min-w-0"><code>get_system_volume</code> is also offered by another server in Claude Code</span><button class="mini ml-auto shrink-0">Review →</button></div></div>
           <div class="section-head"><span class="eyebrow">Tools</span><span class="flex items-center gap-2"><span class="text-micro text-ink-3 font-mono">17</span><button class="icon-btn sm" aria-label="Check again"><svg class="ic"><use href="#i-rf"/></svg></button></span></div>
-          <div class="flex justify-between mb-1"><span class="eyebrow">Tool</span><span class="eyebrow">Described in</span></div>
-          <div class="regs rounded-inner">
-          <div class="reg tool"><span class="font-mono text-small">get_system_volume</span><span class="fig font-mono text-micro text-ink-3">—</span><span class="text-small text-ink-2">Get the current macOS system volume level (0–100) and mute state.</span></div>
-          <div class="reg tool"><span class="font-mono text-small">set_system_volume</span><span class="fig font-mono text-micro text-ink-3">—</span><span class="text-small text-ink-2">Set the macOS system volume to a specific level (0–100).</span></div>
-          <div class="reg tool"><span class="font-mono text-small">list_audio_apps</span><span class="fig font-mono text-micro text-ink-3">—</span><span class="text-small text-ink-2">List the apps currently producing audio.</span></div>
-          <div class="reg tool"><span class="font-mono text-small">get_output_devices</span><span class="fig font-mono text-micro text-ink-3">—</span><span class="text-small text-ink-2">List all available audio output devices and which one is currently active.</span></div>
-          <div class="reg tool"><span class="font-mono text-small">set_output_device</span><span class="fig font-mono text-micro text-ink-3">—</span><span class="text-small text-ink-2">Switch the active audio output device by name or UID. Use get_output_devices to see available options. Requires Spades Audio running.</span></div>
-          <div class="reg tool"><span class="font-mono text-small">set_app_volume</span><span class="fig font-mono text-micro text-ink-3">—</span><span class="text-small text-ink-2">Set the volume for a specific app (0–100). Use list_audio_apps first to see available apps. Requires Spades Audio Pro.</span></div>
-          <div class="reg tool"><span class="font-mono text-small">set_app_mute</span><span class="fig font-mono text-micro text-ink-3">—</span><span class="text-small text-ink-2">Mute or unmute a specific app. Requires Spades Audio Pro.</span></div>
-          <div class="reg tool"><span class="font-mono text-small">play_pause_app</span><span class="fig font-mono text-micro text-ink-3">—</span><span class="text-small text-ink-2">Toggle play/pause for a specific app (e.g., music player, browser). Requires Spades Audio Pro.</span></div>
-          <div class="reg tool"><span class="font-mono text-small">toggle_global_mute</span><span class="fig font-mono text-micro text-ink-3">—</span><span class="text-small text-ink-2">Mute or unmute all apps at once. Requires Spades Audio Pro.</span></div>
+          <div class="lc">
+            <div class="row"><span class="eyebrow">Tool</span><span class="eyebrow ml-auto">Described in</span></div>
+            <div class="row stack"><span class="ln"><span class="font-mono">get_system_volume</span><span class="v">—</span></span><span class="text-ink-2">Get the current macOS system volume level (0–100) and mute state.</span></div>
+            <div class="row stack"><span class="ln"><span class="font-mono">set_system_volume</span><span class="v">—</span></span><span class="text-ink-2">Set the macOS system volume to a specific level (0–100).</span></div>
+            <div class="row stack"><span class="ln"><span class="font-mono">list_audio_apps</span><span class="v">—</span></span><span class="text-ink-2">List the apps currently producing audio.</span></div>
+            <div class="row stack"><span class="ln"><span class="font-mono">get_output_devices</span><span class="v">—</span></span><span class="text-ink-2">List all available audio output devices and which one is currently active.</span></div>
+            <div class="row stack"><span class="ln"><span class="font-mono">set_output_device</span><span class="v">—</span></span><span class="text-ink-2">Switch the active audio output device by name or UID. Use get_output_devices to see available options. Requires Spades Audio running.</span></div>
+            <div class="row stack"><span class="ln"><span class="font-mono">set_app_volume</span><span class="v">—</span></span><span class="text-ink-2">Set the volume for a specific app (0–100). Use list_audio_apps first to see available apps. Requires Spades Audio Pro.</span></div>
+            <div class="row stack"><span class="ln"><span class="font-mono">set_app_mute</span><span class="v">—</span></span><span class="text-ink-2">Mute or unmute a specific app. Requires Spades Audio Pro.</span></div>
+            <div class="row stack"><span class="ln"><span class="font-mono">play_pause_app</span><span class="v">—</span></span><span class="text-ink-2">Toggle play/pause for a specific app (e.g., music player, browser). Requires Spades Audio Pro.</span></div>
+            <div class="row stack"><span class="ln"><span class="font-mono">toggle_global_mute</span><span class="v">—</span></span><span class="text-ink-2">Mute or unmute all apps at once. Requires Spades Audio Pro.</span></div>
           </div>
         </section>
       </div>
       <div data-panel="details" class="hidden">
         <section class="section">
           <div class="section-head"><span class="eyebrow">Identity &amp; capabilities</span><span class="text-micro text-ink-3 font-mono">verified 2d ago</span></div>
-          <div class="flex flex-wrap gap-1.5"><span class="pill">server <b>1.0.0</b></span><span class="pill">MCP <b>2025-06-18</b></span></div>
-          <div class="caps mt-3">
-            <div class="flex justify-between gap-2 text-small"><span class="text-ink-1">Tools</span><span class="text-ink-2">offered</span></div>
-            <div class="flex justify-between gap-2 text-small"><span class="text-ink-1">Resources</span><span class="text-ink-2">not offered</span></div>
-            <div class="flex justify-between gap-2 text-small"><span class="text-ink-1">Prompts</span><span class="text-ink-2">not offered</span></div>
+          <div class="lc">
+            <div class="row"><svg class="ri"><use href="#i-tg"/></svg><span>Server</span><span class="v">1.0.0</span></div>
+            <div class="row"><svg class="ri"><use href="#i-sg"/></svg><span>Protocol</span><span class="v">MCP 2025-06-18</span></div>
+            <div class="row"><svg class="ri"><use href="#i-ap"/></svg><span>Transport</span><span class="v">stdio</span></div>
+            <div class="row"><svg class="ri"><use href="#i-fd"/></svg><span class="shrink-0">Runs from</span><span class="v truncate min-w-0">/Applications/Spades Audio.app</span><button class="icon-btn sm shrink-0" aria-label="Reveal in Finder"><svg class="ic"><use href="#i-rv"/></svg></button></div>
+            <div class="row"><svg class="ri"><use href="#i-wr"/></svg><span>Tools</span><span class="vw text-small text-ink-2">offered</span></div>
+            <div class="row"><svg class="ri"><use href="#i-ab"/></svg><span>Resources</span><span class="vw text-small text-ink-2">not offered</span></div>
+            <div class="row"><svg class="ri"><use href="#i-ch"/></svg><span>Prompts</span><span class="vw text-small text-ink-2">not offered</span></div>
           </div>
         </section>
         <section class="section">
-          <div class="vcard bg-plane rounded-inner">
-            <div class="flex items-center gap-2"><i class="dot bg-state-warning"></i><span class="font-medium">Declared 3 times, twice by the same engine</span></div>
-            <p class="text-small text-ink-2 lh">All three launches agree — the same command from Claude Code (mcp.json), Claude Code (.claude.json) and Claude Desktop.</p>
-            <div class="flex gap-2"><button class="btn">Compare</button><button class="btn">Open config</button></div>
+          <div class="lc">
+            <div class="row stack">
+              <span class="ln"><i class="dot bg-state-warning"></i><span class="font-medium">Declared 3 times, twice by the same engine</span></span>
+              <span class="text-micro text-ink-3 lh">All three launches agree — the same command from Claude Code (mcp.json), Claude Code (.claude.json) and Claude Desktop.</span>
+            </div>
           </div>
+          <div class="mini-set mt-2"><button class="mini"><svg class="ic"><use href="#i-rl"/></svg>Compare</button><button class="mini"><svg class="ic"><use href="#i-dc"/></svg>Open config</button></div>
         </section>
         <section class="section">
-          <div class="section-head"><span class="eyebrow">Transport</span><span class="pill">stdio</span></div>
-          <p class="text-small text-ink-2 lh">Launched by each registration below; the launches agree.</p>
-          <div class="flex items-baseline justify-between gap-2 mt-3 mb-2"><span class="eyebrow">Registered in</span><span class="text-micro text-ink-3 font-mono">3 registrations</span></div>
-          <div class="regs rounded-inner">
-          <div class="reg">
-            <div class="flex items-center justify-between gap-2"><span class="flex items-center gap-2 text-small font-medium"><svg class="mark"><use href="#mk"/></svg>Claude Code</span><span class="eyebrow">Global</span></div>
-            <div class="flex items-center gap-1.5 min-w-0"><span class="font-mono text-micro text-ink-2 truncate flex-1">/Users/karthik/.claude/mcp.json</span><button class="icon-btn sm" aria-label="Reveal in Finder"><svg class="ic"><use href="#i-rv"/></svg></button></div>
-            <span class="font-mono text-micro text-ink-3 truncate">node /Applications/Spades Audio.app/Contents/R…</span>
-            <span class="font-mono text-micro text-state-success">running · pid 16796 · Claude Code</span>
-          </div>
-          <div class="reg">
-            <div class="flex items-center justify-between gap-2"><span class="flex items-center gap-2 text-small font-medium"><svg class="mark"><use href="#mk"/></svg>Claude Code</span><span class="eyebrow">Global</span></div>
-            <div class="flex items-center gap-1.5 min-w-0"><span class="font-mono text-micro text-ink-2 truncate flex-1">/Users/karthik/.claude.json</span><button class="icon-btn sm" aria-label="Reveal in Finder"><svg class="ic"><use href="#i-rv"/></svg></button></div>
-            <span class="font-mono text-micro text-ink-3 truncate">node /Applications/Spades Audio.app/Contents/R…</span>
-          </div>
-          <div class="reg">
-            <div class="flex items-center justify-between gap-2"><span class="flex items-center gap-2 text-small font-medium"><svg class="mark"><use href="#mk"/></svg>Claude Desktop</span><span class="eyebrow">Global</span></div>
-            <div class="flex items-center gap-1.5 min-w-0"><span class="font-mono text-micro text-ink-2 truncate flex-1">/Users/karthik/Library/Application Support/Claude/claude_desktop_config.json</span><button class="icon-btn sm" aria-label="Reveal in Finder"><svg class="ic"><use href="#i-rv"/></svg></button></div>
-            <span class="font-mono text-micro text-ink-3 truncate">node /Applications/Spades Audio.app/Contents/R…</span>
-          </div>
-          </div>
-        </section>
-        <section class="section">
-          <div class="section-head"><span class="eyebrow">Links</span></div>
-          <div class="regs rounded-inner">
-            <div class="ent"><span class="text-small text-ink-1 shrink-0">Runs from</span><span class="font-mono text-micro text-ink-2 truncate flex-1 tr">/Applications/Spades Audio.app</span><button class="icon-btn sm" aria-label="Reveal in Finder"><svg class="ic"><use href="#i-rv"/></svg></button></div>
+          <div class="section-head"><span class="eyebrow">Registered in</span><span class="text-micro text-ink-3 font-mono">3 registrations</span></div>
+          <div class="lc">
+            <div class="row stack">
+              <span class="ln"><svg class="mark"><use href="#mk"/></svg><span class="font-medium">Claude Code</span><span class="eyebrow ml-auto">Global</span></span>
+              <span class="ln"><span class="font-mono text-micro text-ink-2 truncate flex-1">/Users/karthik/.claude/mcp.json</span><button class="icon-btn sm" aria-label="Reveal in Finder"><svg class="ic"><use href="#i-rv"/></svg></button></span>
+              <span class="font-mono text-micro text-ink-2">17 tools</span>
+              <span class="font-mono text-micro text-state-success">running · pid 16796 · Claude Code</span>
+            </div>
+            <div class="row stack">
+              <span class="ln"><svg class="mark"><use href="#mk"/></svg><span class="font-medium">Claude Code</span><span class="eyebrow ml-auto">Global</span></span>
+              <span class="ln"><span class="font-mono text-micro text-ink-2 truncate flex-1">/Users/karthik/.claude.json</span><button class="icon-btn sm" aria-label="Reveal in Finder"><svg class="ic"><use href="#i-rv"/></svg></button></span>
+            </div>
+            <div class="row stack">
+              <span class="ln"><svg class="mark"><use href="#mk"/></svg><span class="font-medium">Claude Desktop</span><span class="eyebrow ml-auto">Global</span></span>
+              <span class="ln"><span class="font-mono text-micro text-ink-2 truncate flex-1">/Users/karthik/Library/Application Support/Claude/claude_desktop_config.json</span><button class="icon-btn sm" aria-label="Reveal in Finder"><svg class="ic"><use href="#i-rv"/></svg></button></span>
+            </div>
           </div>
         </section>
         <section class="section">
           <div class="section-head"><span class="eyebrow">Environment</span><span class="text-micro text-ink-3 font-mono">1</span></div>
-          <div class="flex flex-wrap gap-1.5"><span class="pill">SPADES_TOKEN</span></div>
+          <div class="lc">
+            <div class="row"><svg class="ri"><use href="#i-ky"/></svg><span class="font-mono">SPADES_TOKEN</span></div>
+          </div>
           <p class="text-micro text-ink-3 mt-2 lh">Names only. Hanger never reads a variable’s value.</p>
         </section>
       </div>
@@ -479,16 +514,19 @@ agent-browser close             # Close browser</pre>
   <span class="sample">sample · figures from this machine, 2026-08-22</span>
 </div>
 <div class="notes">
-  <div class="annot"><b>Tabs, content first.</b> Karthik's ruling, 2026-08-22: the breakdown leads — Content for a skill, Tools for an MCP server — and Details comes second. Click a tab to flip. The header, state line, path chip, actions and the routed issue line stay above the tabs: they belong to the asset, not to a tab.</div>
-  <div class="annot"><b>Underline tabs</b> (Karthik's reference, 2026-08-22): labels on a <code>--line</code> baseline, the active one in <code>--ink-1</code> medium with a 2px <code>--ink-1</code> rule beneath; the label's weight and the rule are the only things that change. The pane's category selector is a segmented track, the inspector's tabs are underline tabs — two idioms for two jobs: one filters a list, the other switches views within a surface.</div>
-  <div class="annot"><b>Described in.</b> The prototype's "token tax": <code>probe.rs</code> drops the schema today; keeping its byte size is a small backend change. Tokens are not measurable, bytes are — the dash holds the column until they arrive.</div>
-  <div class="annot"><b>MCP header.</b> No path chip and no actions: an MCP server has one config path per registration, and those live under Details › Registered in. The state line is the list row's subline, coloured as the verdict card's dot. Tool rows carry the server's own descriptions, as probed on this machine.</div>
-  <div class="annot"><b>Identity &amp; capabilities.</b> The handshake lists the capability keys a server advertises (<code>probe.rs:602-606</code>); absence reads "not offered", never "unsupported".</div>
-  <div class="annot"><b>Transport.</b> The prototype's one Command/Arguments block would have to pick a registration or hide divergence; the launch is shown per registration, redacted; raw args never cross IPC (<code>no-launch-args-in-ipc.test.ts</code>).</div>
-  <div class="annot"><b>Links</b> are derived from the launch, no network: an <code>npx</code>/<code>bunx</code> runner names an npm package → its npm page; <code>uvx</code> → PyPI; a remote transport → its endpoint host; an app bundle → Reveal in Finder. A repository or docs URL is not known — Hanger reads no registry — so no such row is drawn.</div>
-  <div class="annot"><b>Context.</b> The prototype's "Context bloat": bytes are measurable once <code>probe.rs</code> keeps the schema size (medium backend); tokens are not — a tokenizer estimate can follow, labelled by its BPE. A collision is a Needs-review finding, stated once and routed, not a red box. The 10.8 kB is illustrative — nothing measures it yet, hence "pending backend".</div>
-  <div class="annot"><b>Identity · Modified.</b> Modified is the file's mtime, read at request time like link state — a small backend addition (<code>read_asset_body</code> or the annotation can carry it). "Primary owner" and "Last reviewed" have no source: the frontmatter the scanner keeps is name, description, version, source-origin (<code>scanner.rs:433-440</code>), and Hanger reads no git. "~100 tokens" stays as kB · lines; "Structural pattern" has no taxonomy behind it.</div>
-  <div class="annot"><b>Capabilities.</b> A restatement of the declared field, not a rating. The exploration's "Tool exposure: Optimized" and "Privilege boundaries · Risk: Med" have no data behind them — the harness has no tool groups, and a risk level is a judgment; if the app is ever to rate shell access it is a Needs-review issue kind and a ruling, not a panel box.</div>
+  <div class="annot"><b>Section format</b> (Karthik, 2026-08-22): an eyebrow, then one bordered card of icon · label · value rows, dividers only between rows — the “In this skill” card applied everywhere.</div>
+  <div class="annot"><b>Actions are a mini set</b> (Karthik’s reference, 2026-08-22): equal outlined pills, icon + label, 26px. Link to… loses its fill here to match the set; if it is to stay the one strong action (<code>--fill</code>), it is this size with the fill — a ruling.</div>
+  <div class="annot"><b>Tabs, content first.</b> Karthik’s ruling, 2026-08-22: the breakdown leads — Content for a skill, Tools for an MCP server — and Details comes second. Click a tab to flip. The header, state line, path chip, actions and the routed issue line stay above the tabs: they belong to the asset, not to a tab.</div>
+  <div class="annot"><b>Underline tabs</b> (Karthik’s reference, 2026-08-22): labels on a <code>--line</code> baseline, the active one in <code>--ink-1</code> medium with a 2px <code>--ink-1</code> rule beneath; the label’s weight and the rule are the only things that change. The pane’s category selector is a segmented track, the inspector’s tabs are underline tabs — two idioms for two jobs: one filters a list, the other switches views within a surface.</div>
+  <div class="annot"><b>Described in.</b> The prototype’s “token tax”: <code>probe.rs</code> drops the schema today; keeping its byte size is a small backend change. Tokens are not measurable, bytes are — the dash holds the column until they arrive.</div>
+  <div class="annot"><b>MCP header.</b> No path chip and no actions: an MCP server has one config path per registration, and those live under Details › Registered in. The state line is the list row’s subline, coloured as the verdict’s dot. Tool rows carry the server’s own descriptions, as probed on this machine.</div>
+  <div class="annot"><b>Said once</b> (Karthik, 2026-08-22). Transport and the launch were repeating four times — a header pill, a section head, a row, and three identical registration lines — so they fold into Identity &amp; capabilities, and Links with them (“Runs from” IS the launch read another way). The launch returns to the registration rows only when the launches DISAGREE: that is when it is the finding, and the verdict card above says which. Divergence is what <code>distinct_spec_count</code> and <code>agreement</code> already report per row.</div>
+  <div class="annot"><b>Identity &amp; capabilities.</b> The handshake lists the capability keys a server advertises (<code>probe.rs:602-606</code>); absence reads “not offered”, never “unsupported”. One row per key, so the pills that restated server and protocol are gone.</div>
+  <div class="annot"><b>Transport.</b> The prototype’s one Command/Arguments block would have to pick a registration or hide divergence. One row states the kind; the launch itself is redacted, and raw args never cross IPC (<code>no-launch-args-in-ipc.test.ts</code>). Per-registration launches return when they disagree.</div>
+  <div class="annot"><b>Runs from</b> is derived from the launch, no network: an <code>npx</code>/<code>bunx</code> runner names an npm package → its npm page; <code>uvx</code> → PyPI; a remote transport → its endpoint host; an app bundle → Reveal in Finder. A repository or docs URL is not known — Hanger reads no registry — so no such row is drawn.</div>
+  <div class="annot"><b>Context.</b> The prototype’s “Context bloat”: bytes are measurable once <code>probe.rs</code> keeps the schema size (medium backend); tokens are not — a tokenizer estimate can follow, labelled by its BPE. A collision is a Needs-review finding, stated once and routed, not a red box. The 10.8 kB is illustrative — nothing measures it yet, hence “pending backend”.</div>
+  <div class="annot"><b>Identity · Modified.</b> Modified is the file’s mtime, read at request time like link state — a small backend addition (<code>read_asset_body</code> or the annotation can carry it). “Primary owner” and “Last reviewed” have no source: the frontmatter the scanner keeps is name, description, version, source-origin (<code>scanner.rs:433-440</code>), and Hanger reads no git. “~100 tokens” stays as kB · lines; “Structural pattern” has no taxonomy behind it.</div>
+  <div class="annot"><b>Capabilities.</b> A restatement of the declared field, not a rating: the allowed-tools row names the tool and what it does — “runs commands”. The exploration’s “Tool exposure: Optimized” and “Privilege boundaries · Risk: Med” have no data behind them — the harness has no tool groups, and a risk level is a judgment; if the app is ever to rate shell access it is a Needs-review issue kind and a ruling, not a panel box.</div>
 </div>
 </div>
 <div class="annot wide"><b>Open question:</b> is the active tab remembered per kind (a preference, like <code>inspector_width</code>) or does every open start on the breakdown?</div>
@@ -499,20 +537,23 @@ agent-browser close             # Close browser</pre>
   <p class="mt-2"><b>Carried over</b></p>
   <ul>
     <li>Docked 384px aside — no floating panel; the app's one elevation belongs to the map's overlays.</li>
-    <li>The inspector anatomy: eyebrow, title, state line, path chip, actions, facts, sections.</li>
+    <li>The inspector anatomy: eyebrow, title, state line, path chip, actions, sections.</li>
     <li>Reach grouped by verdict — three verdicts, one more than the prototype drew.</li>
     <li>Names-only environment.</li>
   </ul>
   <p><b>Changed</b></p>
   <ul>
+    <li>Section format (Karthik, 2026-08-22): an eyebrow, then one bordered card of icon · label · value rows, dividers only between rows — the “In this skill” card applied everywhere. The facts <code>&lt;dl&gt;</code>, the plane-backed panels and the grouped Reach list are gone from the chosen shell.</li>
+    <li>Actions are a mini set (Karthik’s reference, 2026-08-22): equal outlined pills, icon + label, 26px. Link to… loses its fill here to match the set; if it is to stay the one strong action (<code>--fill</code>), it is this size with the fill — a ruling.</li>
+    <li>Transport and Links fold into Identity &amp; capabilities; the launch is stated once and reappears per registration only when the registrations disagree.</li>
     <li>A routed issue line instead of inline red boxes.</li>
     <li>A verdict card for registrations.</li>
-    <li>Capabilities said in a sentence.</li>
+    <li>Capabilities said in words, not rated — the allowed-tools row names the tool and what it does.</li>
     <li>An "In this skill" folder listing.</li>
     <li>A per-tool size column, pending the backend.</li>
     <li>Underline tabs, content first: Content (skill) / Tools (MCP) lead, Details second — Karthik's ruling 2026-08-22; the header, state line, path, actions and the routed issue line stay above the tabs.</li>
-    <li>The four MCP sections the exploration drew are present in the forms the data allows — Identity &amp; capabilities (offered/not offered), Transport (per registration), Links (derived from the launch), Context (bytes, pending the backend; collisions routed).</li>
-    <li>Skill Details is sectioned — Identity (with Modified), Capabilities (declared tools as pills, "Runs commands" stated), Reach; the exploration's governance and security boxes are replaced by the fields they were guessing at.</li>
+    <li>The four MCP sections the exploration drew are present in the forms the data allows — Identity &amp; capabilities (offered/not offered, with transport and the launch folded in), Registered in, Runs from (derived from the launch), Context (bytes, pending the backend; collisions routed).</li>
+    <li>Skill Details is sectioned — Identity (with Modified), Capabilities (the declared tool, with what it does), Reach (two cards, one per verdict); the exploration's governance and security boxes are replaced by the fields they were guessing at.</li>
   </ul>
   <p><b>Dropped</b></p>
   <ul>

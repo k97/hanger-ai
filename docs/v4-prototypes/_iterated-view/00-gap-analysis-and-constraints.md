@@ -294,8 +294,16 @@ harness asset layer, not an agent runtime.
    `border-line rounded-inner bg-page` — whose rows are icon · label ·
    right-aligned value, with a hairline only *between* rows (a one-row
    card has none). This is the "In this skill" card applied to Identity,
-   Capabilities, Reach, Identity & capabilities, Transport, Registered
-   in, Links, Environment and Context. Actions are a **mini set**
+   Capabilities, Reach, Identity & capabilities, Registered in,
+   Environment and Context. **Said once (ruled 2026-08-22):** transport
+   was repeating four times — the header pill, a section head, a row, and
+   an identical launch line in each of three registration rows — and
+   "Links" was the launch read another way, so both fold into the
+   Identity & capabilities card (Server · Protocol · Transport · Runs
+   from, then the three capability rows). The launch returns to the
+   registration rows only when the launches *disagree* — that is when it
+   is the finding, and `agreement` / `distinct_spec_count` already report
+   it per row. Actions are a **mini set**
    (Karthik's second reference): equal outlined pills, 26px, icon +
    label, side by side — Link to… / Open in editor, Compare / Open
    config, Review →. Open: whether Link to… keeps `--fill` as the one
