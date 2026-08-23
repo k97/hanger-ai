@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, cleanup, within, waitFor } from "@testing-library/react";
+import { render, screen, cleanup, within, waitFor, fireEvent } from "@testing-library/react";
 import App from "../App";
 
 vi.mock("@tauri-apps/plugin-log", () => ({
@@ -34,8 +34,8 @@ vi.mock("@tauri-apps/api/core", () => ({
     if (cmd === "set_preference") { if (args?.key) mockPreferences[args.key] = String(args.value); return null; }
     if (cmd === "get_linked_directories") return [];
     if (cmd === "get_asset_counts") return { total: 0, byCategory: {}, engines: {} };
-    if (cmd === "get_inventory") return emptyInventory;
-    if (cmd === "link_graph") return { nodes: [], edges: [], warnings: [], empty_state: "no_links_at_all" };
+    if (cmd === "get_inventory") return { ...emptyInventory, agents: [{ id: "claude-code", name: "Claude Code", global_config_path: "/u/k/.claude", project_footprints: [] }] };
+    if (cmd === "link_graph") return { nodes: [{ id: 2, kind: "engine_root", label: "Claude Code", path: "/u/k/.claude", asset_count: 1, linked: true, skill_count: 1, rule_count: 0, subagent_count: 0, tool_count: 0, linked_from: 0, rules: [] }], edges: [], warnings: [], empty_state: null };
     if (cmd === "start_scan") return "scan-1";
     return null;
   }),
@@ -62,5 +62,35 @@ describe("the map cap", () => {
     // The stamp sits immediately before the Rescan control in the trailing cluster.
     const stamp = within(header).getByText("Scanned moments ago");
     expect(stamp.nextElementSibling?.contains(rescan) || stamp.nextElementSibling === rescan).toBe(true);
+  });
+
+  it("Show its assets goes to Global with the engine's own list in the inspector", async () => {
+    render(<App />);
+    const node = await screen.findByTestId("map-node-2");
+    // The inspector column only mounts once `inventory` is set (App.tsx:1641,
+    // `selectedSidebarItem === "review" || inventory`), and `inventory` is
+    // populated solely by the scan://complete payload — never by
+    // `get_inventory`, which App.tsx does not call. Deviation from the
+    // brief's literal snippet: it omitted this, and without it the test can
+    // never reach the heading assertion below, mirroring the same
+    // `eventListeners["scan://complete"]` technique the sibling test above
+    // already uses for the same reason.
+    eventListeners["scan://complete"]({
+      payload: {
+        inventory: {
+          ...emptyInventory,
+          agents: [{ id: "claude-code", name: "Claude Code", global_config_path: "/u/k/.claude", project_footprints: [] }],
+        },
+      },
+    });
+    // fireEvent is imported from @testing-library/react
+    fireEvent.click(node);
+    fireEvent.click(await screen.findByRole("button", { name: "Show its assets" }));
+    await waitFor(() => {
+      expect(mockPreferences.selected_sidebar_item).toBe("profile");
+      expect(mockPreferences.inspector_open).toBe("true");
+    });
+    // The inspector titles the engine — the agent bubble body.
+    expect((await screen.findByRole("heading", { level: 2 })).textContent).toBe("Claude Code");
   });
 });

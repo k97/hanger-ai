@@ -36,6 +36,7 @@ interface Callbacks {
   onToggleProjects: ReturnType<typeof vi.fn>;
   onOpenProject: ReturnType<typeof vi.fn>;
   onNoticesSeen: ReturnType<typeof vi.fn>;
+  onShowEngineAssets: ReturnType<typeof vi.fn>;
 }
 
 /** Renders with a handle that re-renders the SAME tree, so state survives. */
@@ -49,6 +50,7 @@ const renderPaneRaw = (g: LinkGraph, showProjects: boolean) => {
       onOpenProject={vi.fn()}
       noticesSeen={null}
       onNoticesSeen={vi.fn()}
+      onShowEngineAssets={vi.fn()}
     />
   );
   const view = render(pane(showProjects));
@@ -63,6 +65,7 @@ const renderPane = (
     onToggleProjects: vi.fn(),
     onOpenProject: vi.fn(),
     onNoticesSeen: vi.fn(),
+    onShowEngineAssets: vi.fn(),
   };
   render(
     <LinkMapPane
@@ -73,6 +76,7 @@ const renderPane = (
       onOpenProject={callbacks.onOpenProject}
       noticesSeen={noticesSeen}
       onNoticesSeen={callbacks.onNoticesSeen}
+      onShowEngineAssets={callbacks.onShowEngineAssets}
     />,
   );
   return callbacks;
@@ -509,5 +513,29 @@ describe("LinkMapPane", () => {
     renderPane(graph({ nodes: graph().nodes.map((n) => (n.id === 4 ? { ...n, rules: [] } : n)) }));
     fireEvent.click(screen.getByTestId("map-node-4"));
     expect(screen.queryByText("Rules here")).toBeNull();
+  });
+
+  it("offers Show its assets on an engine root, as a mini, wired to the callback with the engine's name", () => {
+    const callbacks = renderPane(graph());
+    fireEvent.click(screen.getByTestId("map-node-2"));
+    const button = screen.getByRole("button", { name: "Show its assets" });
+    expect(button.className).toContain("h-[26px]");
+    expect(button.className).toContain("rounded-control");
+    expect(button.className).not.toContain("rounded-pill");
+    fireEvent.click(button);
+    expect(callbacks.onShowEngineAssets).toHaveBeenCalledWith("Claude Code");
+    // The store and a project offer no such action.
+    fireEvent.click(screen.getByTestId("map-node-1"));
+    expect(screen.queryByRole("button", { name: "Show its assets" })).toBeNull();
+  });
+
+  it("Open project is the same mini tier now, still wired", () => {
+    const callbacks = renderPane(graph());
+    fireEvent.click(screen.getByTestId("map-node-4"));
+    const button = screen.getByRole("button", { name: "Open project" });
+    expect(button.className).toContain("h-[26px]");
+    expect(button.className).toContain("rounded-control");
+    fireEvent.click(button);
+    expect(callbacks.onOpenProject).toHaveBeenCalledWith("/u/k/w/metrics-board");
   });
 });

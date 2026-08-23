@@ -46,6 +46,7 @@ interface LinkMapPaneProps {
   showProjects: boolean;
   onToggleProjects: () => void;
   onOpenProject: (path: string) => void;
+  onShowEngineAssets: (engineName: string) => void;
   /** Signature of the notice set last read, persisted by App. */
   noticesSeen: string | null;
   onNoticesSeen: (signature: string) => void;
@@ -186,6 +187,7 @@ export default function LinkMapPane({
   showProjects,
   onToggleProjects,
   onOpenProject,
+  onShowEngineAssets,
   noticesSeen,
   onNoticesSeen,
 }: LinkMapPaneProps) {
@@ -698,6 +700,7 @@ export default function LinkMapPane({
               notices={notices}
               onClose={() => setSelection(null)}
               onOpenProject={onOpenProject}
+              onShowEngineAssets={onShowEngineAssets}
             />
           )}
 

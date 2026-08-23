@@ -15,6 +15,7 @@ import {
 import ListCard, { ListCardRow } from "./ListCard";
 import Tooltip from "./Tooltip";
 import EngineLabel from "./EngineLabel";
+import { miniBtnClass, miniSetClass } from "./miniButton";
 import type {
   EdgeState,
   GraphNode,
@@ -42,6 +43,8 @@ interface LinkMapPlacecardProps {
   onClose: () => void;
   /** Project nodes only: jump to the repository's own view. */
   onOpenProject: (path: string) => void;
+  /** Engine roots only: Global, filtered to this engine, in the inspector. */
+  onShowEngineAssets: (engineName: string) => void;
 }
 
 const STATE_LINE: Record<EdgeState, string> = {
@@ -67,9 +70,6 @@ const NODE_KIND_LABEL: Record<GraphNode["kind"], string> = {
   engine_root: "Engine root",
   project: "Project",
 };
-
-const actionBtnClass =
-  "h-[30px] px-4 rounded-pill border border-line-2 text-small font-medium text-ink-1 cursor-pointer transition-colors duration-nav ease-spring hover:bg-plane-2 inline-flex items-center gap-1.5";
 
 /** One dock, one shape — whatever the card is showing. */
 const cardClass =
@@ -105,6 +105,7 @@ export default function LinkMapPlacecard({
   notices,
   onClose,
   onOpenProject,
+  onShowEngineAssets,
 }: LinkMapPlacecardProps) {
   const closeButton = (
     <button
@@ -368,9 +369,17 @@ export default function LinkMapPlacecard({
             </ListCard>
           </>
         )}
+        {node.kind === "engine_root" && (
+          <div className={`${miniSetClass} mx-4 mb-3.5`}>
+            <button onClick={() => onShowEngineAssets(node.label)} className={miniBtnClass}>
+              Show its assets
+              <ArrowRightIcon size={12} aria-hidden="true" />
+            </button>
+          </div>
+        )}
         {node.kind === "project" && (
-          <div className="mx-4 mb-3.5 flex">
-            <button onClick={() => onOpenProject(node.path)} className={actionBtnClass}>
+          <div className={`${miniSetClass} mx-4 mb-3.5`}>
+            <button onClick={() => onOpenProject(node.path)} className={miniBtnClass}>
               Open project
               <ArrowRightIcon size={12} aria-hidden="true" />
             </button>

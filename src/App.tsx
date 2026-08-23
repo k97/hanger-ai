@@ -1529,6 +1529,19 @@ export default function App() {
                 handleSelectSidebarItem(path);
                 invoke("set_preference", { key: "selected_sidebar_item", value: path }).catch(() => {});
               }}
+              onShowEngineAssets={(name) => {
+                // The engine's scope id, by display name — the precedent at
+                // handleSelectAsset's Agents branch. Set AFTER the view
+                // switch, which clears the bubble.
+                const agent = inventory?.agents.find((a) => a.name === name);
+                handleSelectSidebarItem("profile");
+                invoke("set_preference", { key: "selected_sidebar_item", value: "profile" }).catch(() => {});
+                setSelectedBubble({ type: "agent", id: agent?.id ?? name, name });
+                if (!inspectorOpen) {
+                  setInspectorOpen(true);
+                  invoke("set_preference", { key: "inspector_open", value: "true" }).catch(() => {});
+                }
+              }}
             />
           )}
 
