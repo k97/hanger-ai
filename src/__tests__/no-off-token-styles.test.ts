@@ -154,7 +154,7 @@ const ALLOWLIST: AllowlistEntry[] = ALLOWLIST_RAW.map((e) => ({
   reason: e.reason,
 }));
 
-function getAllSrcTsxFiles(dir: string): string[] {
+function getAllSrcSourceFiles(dir: string): string[] {
   const files: string[] = [];
   const entries = fs.readdirSync(dir, { withFileTypes: true });
 
@@ -162,11 +162,11 @@ function getAllSrcTsxFiles(dir: string): string[] {
     const fullPath = path.join(dir, entry.name);
     if (entry.isDirectory()) {
       if (entry.name !== "__tests__") {
-        files.push(...getAllSrcTsxFiles(fullPath));
+        files.push(...getAllSrcSourceFiles(fullPath));
       }
     } else if (
-      entry.name.endsWith(".tsx") &&
-      !entry.name.endsWith(".test.tsx")
+      (entry.name.endsWith(".tsx") && !entry.name.endsWith(".test.tsx")) ||
+      (entry.name.endsWith(".ts") && !entry.name.endsWith(".test.ts"))
     ) {
       files.push(fullPath);
     }
@@ -308,7 +308,7 @@ function isOffTokenStyleLine(line: string): boolean {
 describe("No Off-Token Styling Enforcement", () => {
   it("verifies that all off-token styling in src/ matches the allowlist and no stale allowlist entries exist", () => {
     const srcDir = path.resolve(__dirname, "..");
-    const files = getAllSrcTsxFiles(srcDir);
+    const files = getAllSrcSourceFiles(srcDir);
     const rootDir = path.resolve(__dirname, "../..");
 
     const actualMatches: Array<{ file: string; line: string; lineNumber: number }> = [];
