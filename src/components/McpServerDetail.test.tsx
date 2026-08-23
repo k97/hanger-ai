@@ -401,9 +401,19 @@ describe("McpServerDetail", () => {
     // row rendered host/tier/path with no command at all — so the one thing it
     // existed to show was invisible. It also answers "what does this launch?",
     // which is the question behind every failed Verify.
-    render(<McpServerDetail server={base} />);
+    const diverged = {
+      ...base,
+      registrations: [
+        { key: "codex-1", host: "Codex", tier: "global", configPath: "~/.codex/config.toml",
+          command: "npx", launchDisplay: "npx @hypothesi/tauri-mcp-server" },
+        { key: "gemini-1", host: "Gemini", tier: "global", configPath: "~/.gemini/settings.json",
+          command: "npx", launchDisplay: "npx tauri-mcp@0.9" },
+      ],
+    };
+    render(<McpServerDetail server={diverged} />);
     openDetails();
-    expect(screen.getAllByText(/node/).length).toBeGreaterThan(0);
+    // said once (2026-08-22) — the launch returns to a row only when launches disagree
+    expect(screen.getAllByText(/tauri-mcp/).length).toBeGreaterThan(0);
   });
 
   it("says nothing about divergence when the registrations agree", () => {
@@ -777,6 +787,14 @@ describe("McpServerDetail", () => {
               configPath: "~/.claude.json",
               command: "npx",
               launchDisplay: "npx mcp-remote https://example.com/sse --header Authorization: <redacted>",
+            },
+            {
+              key: "zed-remote",
+              host: "Zed",
+              tier: "global",
+              configPath: "~/.config/zed/settings.json",
+              command: "npx",
+              launchDisplay: "npx mcp-remote https://example.com/sse",
             },
           ],
         }}
