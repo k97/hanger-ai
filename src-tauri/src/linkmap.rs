@@ -54,6 +54,20 @@ pub struct GraphNode {
     /// resolves into a store root. None for stores and projects, for which
     /// the question has no meaning.
     pub linked: Option<bool>,
+    /// Per-kind totals from scanner::count_assets for this root; 0 when the
+    /// category is absent. The placecard renders them and hides a row at 0.
+    pub skill_count: usize,
+    pub rule_count: usize,
+    pub subagent_count: usize,
+    pub tool_count: usize,
+    /// Store nodes: how many engine roots reach this store through a
+    /// root-level symlink (distinct engine roots in engine_links). 0 for
+    /// every other kind.
+    pub linked_from: usize,
+    /// Project nodes: the names of this root's rule assets, sorted, from the
+    /// assets table — listed by the placecard, never counted. Empty for
+    /// every other kind.
+    pub rules: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -246,9 +260,43 @@ pub fn build_link_graph(db_path: &Path, focus_asset_id: Option<i64>) -> Result<L
     let nodes: Vec<GraphNode> = roots
         .iter()
         .map(|r| {
-            let asset_count = count_assets(db_path, Some(&r.path), Grouping::PerRegistration)
-                .map(|c| c.total_assets)
-                .unwrap_or(0);
+            let counts = count_assets(db_path, Some(&r.path), Grouping::PerRegistration).ok();
+            let per_kind = |c: &Option<crate::domain::CategoryCount>| c.as_ref().map(|c| c.total).unwrap_or(0);
+            let (asset_count, skill_count, rule_count, subagent_count, tool_count) = match &counts {
+                Some(c) => (
+                    c.total_assets,
+                    per_kind(&c.skill),
+                    per_kind(&c.rule),
+                    per_kind(&c.subagent),
+                    per_kind(&c.tool),
+                ),
+                None => (0, 0, 0, 0, 0),
+            };
+            // Distinct engine roots whose top level resolves into THIS store.
+            let linked_from = match r.kind {
+                NodeKind::Store => {
+                    let mut engines: Vec<i64> = engine_links
+                        .iter()
+                        .filter(|(_, store_id, _)| *store_id == r.id)
+                        .map(|(engine_id, _, _)| *engine_id)
+                        .collect();
+                    engines.sort();
+                    engines.dedup();
+                    engines.len()
+                }
+                _ => 0,
+            };
+            // Rule names, listed not counted, for the project placecard.
+            let rules: Vec<String> = match r.kind {
+                NodeKind::Project => conn
+                    .prepare("SELECT name FROM assets WHERE root_id = ?1 AND category = 'rule' ORDER BY name")
+                    .and_then(|mut stmt| {
+                        stmt.query_map([r.id], |row| row.get::<_, String>(0))
+                            .map(|rows| rows.flatten().collect::<Vec<String>>())
+                    })
+                    .unwrap_or_default(),
+                _ => Vec::new(),
+            };
             GraphNode {
                 id: r.id,
                 kind: r.kind,
@@ -261,6 +309,12 @@ pub fn build_link_graph(db_path: &Path, focus_asset_id: Option<i64>) -> Result<L
                     }
                     _ => None,
                 },
+                skill_count,
+                rule_count,
+                subagent_count,
+                tool_count,
+                linked_from,
+                rules,
             }
         })
         .collect();

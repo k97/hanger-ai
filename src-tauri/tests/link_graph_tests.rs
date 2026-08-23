@@ -364,3 +364,62 @@ fn test_same_graph_twice_is_identical() {
     let b = build_link_graph(&f.db_path, None).unwrap();
     assert_eq!(a, b, "two reads of the same world draw the same graph");
 }
+
+#[test]
+fn test_nodes_carry_per_kind_counts_linked_from_and_rule_names() {
+    let f = fixture("hanger_test_lg_node_facts");
+    // An engine root whose top level symlinks into the store, so the store
+    // is "linked from" one engine root.
+    let engine_dir = f.store_abs.parent().unwrap().join("dot-claude-facts");
+    fs::create_dir_all(&engine_dir).unwrap();
+    unix_fs::symlink(f.store_abs.join("rules"), engine_dir.join("rules")).unwrap();
+    let t = now();
+    let engine_id = f
+        .store
+        .upsert_engine("claude_code", "Claude Code", engine_dir.to_str().unwrap(), t)
+        .unwrap();
+    f.store
+        .upsert_root(
+            "engine_global",
+            fs::canonicalize(&engine_dir).unwrap().to_str().unwrap(),
+            Some(engine_id),
+            "Claude Code",
+            t,
+        )
+        .unwrap();
+    // A rule and a skill that belong to the PROJECT root, so the project
+    // node has one rule name to list and two per-kind counts to carry.
+    let project_rule = f.project_abs.join("CLAUDE.md");
+    fs::write(&project_rule, "# project rule").unwrap();
+    f.store
+        .upsert_asset(
+            f.project_root_id, None, "rule", "project", "CLAUDE.md",
+            project_rule.to_str().unwrap(), None, None, "ok", None, t, t,
+        )
+        .unwrap();
+    let project_skill = f.project_abs.join("skills").join("local");
+    fs::create_dir_all(&project_skill).unwrap();
+    f.store
+        .upsert_asset(
+            f.project_root_id, None, "skill", "project", "local",
+            project_skill.to_str().unwrap(), None, None, "ok", None, t, t,
+        )
+        .unwrap();
+
+    let graph = build_link_graph(&f.db_path, None).unwrap();
+
+    let store = graph.nodes.iter().find(|n| n.id == f.store_root_id).unwrap();
+    assert_eq!(store.rule_count, 2, "the fixture's two store rules");
+    assert_eq!(store.skill_count, 0);
+    assert_eq!(store.subagent_count, 0);
+    assert_eq!(store.tool_count, 0);
+    assert_eq!(store.linked_from, 1, "one engine root symlinks into the store");
+    assert!(store.rules.is_empty(), "rule names are listed for project nodes only");
+
+    let project = graph.nodes.iter().find(|n| n.id == f.project_root_id).unwrap();
+    assert_eq!(project.rule_count, 1);
+    assert_eq!(project.skill_count, 1);
+    assert_eq!(project.asset_count, 2, "asset_count still comes from count_assets");
+    assert_eq!(project.linked_from, 0, "linked_from is a store fact");
+    assert_eq!(project.rules, vec!["CLAUDE.md".to_string()]);
+}
