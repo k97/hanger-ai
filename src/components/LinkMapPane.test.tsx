@@ -426,4 +426,40 @@ describe("LinkMapPane", () => {
       }
     }
   });
+
+  it("the layers panel has three switch rows in order, Unlinked roots on and Only drift off by default", () => {
+    renderPane(graph());
+    fireEvent.click(screen.getByTestId("map-layers"));
+    const panel = screen.getByTestId("map-layers-panel");
+    const rows = Array.from(panel.querySelectorAll("button"));
+    expect(rows.map((r) => r.textContent)).toEqual(["Projects", "Unlinked roots", "Only drift and dangling"]);
+    expect(rows.map((r) => r.getAttribute("aria-pressed"))).toEqual(["true", "true", "false"]);
+    // A switch, not a check mark: every row carries the 26×16 glyph.
+    for (const row of rows) {
+      const sw = row.querySelector('svg[data-testid="layer-switch"]')!;
+      expect(sw.getAttribute("width")).toBe("26");
+      expect(sw.getAttribute("height")).toBe("16");
+    }
+    expect(panel.querySelector('[data-testid="chip-projects"]')).toBeTruthy();
+  });
+
+  it("Unlinked roots off removes the unlinked engine root and re-flows the column", () => {
+    renderPane(graph());
+    fireEvent.click(screen.getByTestId("map-layers"));
+    expect(screen.getByTestId("map-node-3")).toBeTruthy();
+    fireEvent.click(screen.getByTestId("chip-unlinked"));
+    expect(screen.queryByTestId("map-node-3")).toBeNull();
+    expect(screen.getByTestId("map-node-2")).toBeTruthy();
+    expect(screen.getByTestId("chip-unlinked").getAttribute("aria-pressed")).toBe("false");
+  });
+
+  it("Only drift and dangling hides linked edges and keeps the nodes", () => {
+    renderPane(graph());
+    fireEvent.click(screen.getByTestId("map-layers"));
+    expect(screen.getAllByTestId("map-edge")).toHaveLength(4);
+    fireEvent.click(screen.getByTestId("chip-faults"));
+    // The drifted tracked copy and the dangling symlink survive; two linked edges go.
+    expect(screen.getAllByTestId("map-edge")).toHaveLength(2);
+    expect(screen.getAllByTestId(/^map-node-\d+$/)).toHaveLength(4);
+  });
 });

@@ -3,7 +3,6 @@ import LinkMapPlacecard, { type MapNotice } from "./LinkMapPlacecard";
 import BrandIcon from "./BrandIcon";
 import {
   ArrowsPointingOutIcon,
-  CheckIcon,
   ExclamationTriangleIcon,
   InformationCircleIcon,
   MapIcon,
@@ -143,6 +142,34 @@ const zoomBtnActiveClass =
   "w-7 h-7 rounded-pill border border-transparent bg-tint grid place-items-center text-tint-ink transition-colors duration-hover ease-spring cursor-pointer";
 const alertBtnClass = `${mapCtlClass} text-state-warning`;
 
+/** A layer row's switch: 26×16, the track in --plane-2 and the knob on the
+ *  page; on, the track takes --fill and the knob --on-fill and slides 10px.
+ *  Decorative — the row's aria-pressed carries the state. */
+function LayerSwitch({ on }: { on: boolean }) {
+  return (
+    <svg data-testid="layer-switch" width="26" height="16" aria-hidden="true" className="shrink-0">
+      <rect
+        width="26"
+        height="16"
+        rx="8"
+        className={`transition-[fill] duration-hover ease-spring ${on ? "fill-fill" : "fill-plane-2"}`}
+      />
+      <circle
+        cx="8"
+        cy="8"
+        r="5.5"
+        strokeWidth="1"
+        className={`transition-transform duration-hover ease-spring ${
+          on ? "fill-on-fill stroke-transparent translate-x-[10px]" : "fill-page stroke-line"
+        }`}
+      />
+    </svg>
+  );
+}
+
+const layerRowClass =
+  "w-full h-7 px-1.5 rounded-soft flex items-center justify-between font-flex text-small text-ink-1 hover:bg-plane-2 transition-colors duration-hover cursor-pointer";
+
 /**
  * The link map: three columns, edges whose stroke carries mechanism and
  * whose colour carries state, under an Apple-Maps camera — drag pans,
@@ -169,16 +196,24 @@ export default function LinkMapPane({
   // Hover focus: the hovered node, its edges and their other endpoints stay;
   // everything else dims. Read at render, never fed to the layout.
   const [hoveredId, setHoveredId] = useState<number | null>(null);
+  // Two more layers, pane-local: the switch is the whole of their state.
+  const [showUnlinked, setShowUnlinked] = useState(true);
+  const [onlyFaults, setOnlyFaults] = useState(false);
 
   const kinds: readonly NodeKind[] = showProjects
     ? ["store", "engine_root", "project"]
     : ["store", "engine_root"];
 
-  const layout = useMemo(
-    () => (graph ? layoutLinkGraph(graph, MAP_WIDTH, { kinds }) : null),
+  const layout = useMemo(() => {
+    if (!graph) return null;
+    // Hiding unlinked roots removes them before layout, so the column
+    // re-flows the way hiding projects already does.
+    const visible = showUnlinked
+      ? graph
+      : { ...graph, nodes: graph.nodes.filter((n) => !(n.kind === "engine_root" && n.linked === false)) };
+    return layoutLinkGraph(visible, MAP_WIDTH, { kinds });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [graph, showProjects],
-  );
+  }, [graph, showProjects, showUnlinked]);
 
   const content: Size = useMemo(
     () => ({ width: MAP_WIDTH, height: Math.max(layout?.height ?? 0, 320) }),
@@ -407,7 +442,7 @@ export default function LinkMapPane({
               );
             })}
 
-            {layout.edges.map((edge) => {
+            {layout.edges.filter((edge) => !onlyFaults || edge.state !== "linked").map((edge) => {
               const active = selectedKey === edgeKey(edge);
               const mid = { x: (edge.x1 + edge.x2) / 2, y: (edge.y1 + edge.y2) / 2 };
               return (
@@ -590,10 +625,28 @@ export default function LinkMapPane({
                   data-testid="chip-projects"
                   aria-pressed={showProjects}
                   onClick={onToggleProjects}
-                  className="w-full h-7 px-1.5 rounded-soft flex items-center justify-between font-flex text-small text-ink-1 hover:bg-plane-2 transition-colors duration-hover cursor-pointer"
+                  className={layerRowClass}
                 >
                   Projects
-                  {showProjects && <CheckIcon size={12} aria-hidden="true" />}
+                  <LayerSwitch on={showProjects} />
+                </button>
+                <button
+                  data-testid="chip-unlinked"
+                  aria-pressed={showUnlinked}
+                  onClick={() => setShowUnlinked((v) => !v)}
+                  className={layerRowClass}
+                >
+                  Unlinked roots
+                  <LayerSwitch on={showUnlinked} />
+                </button>
+                <button
+                  data-testid="chip-faults"
+                  aria-pressed={onlyFaults}
+                  onClick={() => setOnlyFaults((v) => !v)}
+                  className={layerRowClass}
+                >
+                  Only drift and dangling
+                  <LayerSwitch on={onlyFaults} />
                 </button>
               </div>
             )}
