@@ -377,4 +377,32 @@ describe("LinkMapPane", () => {
     expect(desktop.getAttribute("class")).not.toContain("opacity-35");
     expect(edges[1].getAttribute("class")).not.toContain("opacity-35");
   });
+
+  it("marks the destination of a drifted or dangling edge with a state dot, worst state wins", () => {
+    renderPane(graph());
+    // Project 4 receives a drifted tracked copy AND a dangling symlink — danger wins.
+    const project = screen.getByTestId("map-node-4");
+    const dot = project.querySelector('[data-testid="map-state-dot"]')!;
+    expect(dot).toBeTruthy();
+    expect(dot.getAttribute("class")).toContain("fill-state-danger");
+    expect(dot.getAttribute("class")).toContain("stroke-page");
+    expect(dot.getAttribute("r")).toBe("4");
+    const rect = project.querySelector("rect")!;
+    expect(Number(dot.getAttribute("cx"))).toBe(Number(rect.getAttribute("x")) + 192 - 10);
+    expect(Number(dot.getAttribute("cy"))).toBe(Number(rect.getAttribute("y")) + 10);
+    // Claude Code's only edge is linked: no dot. The store is the SOURCE of
+    // every edge and never carries one.
+    expect(screen.getByTestId("map-node-2").querySelector('[data-testid="map-state-dot"]')).toBeNull();
+    expect(screen.getByTestId("map-node-1").querySelector('[data-testid="map-state-dot"]')).toBeNull();
+  });
+
+  it("a drifted edge alone draws the dot in warning", () => {
+    renderPane(
+      graph({
+        edges: [{ source: 1, dest: 4, mechanism: "tracked_copy", state: "drifted", count: 1, dest_path: null }],
+      }),
+    );
+    const dot = screen.getByTestId("map-node-4").querySelector('[data-testid="map-state-dot"]')!;
+    expect(dot.getAttribute("class")).toContain("fill-state-warning");
+  });
 });

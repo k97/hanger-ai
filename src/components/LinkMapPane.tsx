@@ -356,6 +356,15 @@ export default function LinkMapPane({
   const dimClass = (focused: boolean) =>
     `transition-opacity duration-hover ease-spring ${hoveredId !== null && !focused ? "opacity-35" : ""}`;
 
+  // The worst faulty edge INTO a node — the place where a copy drifted or a
+  // link dangles. The store is every edge's source and never carries a dot.
+  const worstStateInto = (id: number): "dangling" | "drifted" | null => {
+    const into = layout.edges.filter((e) => e.dest === id && e.state !== "linked");
+    if (into.some((e) => e.state === "dangling")) return "dangling";
+    if (into.some((e) => e.state === "drifted")) return "drifted";
+    return null;
+  };
+
   return (
     <div className="h-full flex flex-col bg-page min-h-0">
       <div className="flex-1 min-h-0 px-[18px] pb-2 pt-2.5 flex flex-col">
@@ -495,6 +504,23 @@ export default function LinkMapPane({
                 >
                   {node.linked === false ? "not linked" : `${node.asset_count} assets`}
                 </text>
+                {(() => {
+                  const worst = worstStateInto(node.id);
+                  if (!worst) return null;
+                  return (
+                    <circle
+                      data-testid="map-state-dot"
+                      aria-hidden="true"
+                      cx={node.x + NODE_W - 10}
+                      cy={node.y + 10}
+                      r={4}
+                      strokeWidth={2}
+                      className={`stroke-page ${
+                        worst === "dangling" ? "fill-state-danger" : "fill-state-warning"
+                      }`}
+                    />
+                  );
+                })()}
               </g>
             ))}
           </svg>
