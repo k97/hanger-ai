@@ -283,6 +283,7 @@ describe("Flyout — asking an MCP server what it provides", () => {
     );
 
     await waitFor(() => expect(probeCalls()).toHaveLength(1));
+    fireEvent.click(await screen.findByRole("tab", { name: "Details" }));
     // Still rendering: the registration list is the panel's own content, and
     // it is gone the moment the component throws.
     await waitFor(() => expect(screen.getByText("~/Users/x/.claude.json".slice(1))).toBeTruthy());
@@ -385,6 +386,7 @@ describe("Flyout — asking an MCP server what it provides", () => {
       />
     );
 
+    fireEvent.click(await screen.findByRole("tab", { name: "Details" }));
     await waitFor(() => expect(screen.getByText(/verified 3d ago/)).toBeTruthy());
   });
 });

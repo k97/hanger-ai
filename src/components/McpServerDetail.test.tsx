@@ -29,9 +29,14 @@ const base: McpServerView = {
 // within a file and role queries match across tests.
 afterEach(cleanup);
 
+const openDetails = () => fireEvent.click(screen.getByRole("tab", { name: "Details" }));
+/** The Tools section's eyebrow; the tab of the same name sits above it. */
+const toolsHeading = () => screen.getByRole("heading", { name: "Tools" });
+
 describe("McpServerDetail", () => {
   it("lists every registration, including two from the same host", () => {
     render(<McpServerDetail server={base} />);
+    openDetails();
     // Two Claude Code registrations is a real condition, not duplication to
     // collapse -- it is what the config_path dedup bug was hiding.
     expect(screen.getAllByText("Claude Code")).toHaveLength(2);
@@ -72,6 +77,7 @@ describe("McpServerDetail", () => {
     );
     expect(screen.getByText("get_system_volume")).toBeTruthy();
     expect(screen.getByText(/current macOS system volume/)).toBeTruthy();
+    openDetails();
     expect(screen.getByText("2025-06-18")).toBeTruthy();
     expect(screen.getByText("1.0.0")).toBeTruthy();
     // base has three registrations but only "cc-user" was probed -- its list
@@ -124,7 +130,7 @@ describe("McpServerDetail", () => {
     // unambiguous, so the affordance belongs where the eye already is
     // rather than below an otherwise-empty block.
     render(<McpServerDetail server={{ ...base, registrations: [base.registrations[0]] }} />);
-    const toolsHeader = screen.getByText("Tools").parentElement!;
+    const toolsHeader = toolsHeading().parentElement!;
     expect(within(toolsHeader).getByRole("button", { name: /^verify$/i })).toBeTruthy();
     // Nothing has been probed, so there is nothing to count -- the
     // registration-count fallback stays off this slot too.
@@ -144,7 +150,7 @@ describe("McpServerDetail", () => {
         }}
       />
     );
-    const toolsHeader = screen.getByText("Tools").parentElement!;
+    const toolsHeader = toolsHeading().parentElement!;
     expect(within(toolsHeader).getByText("2")).toBeTruthy();
     expect(within(toolsHeader).getByRole("button", { name: "Check again" })).toBeTruthy();
     expect(within(toolsHeader).queryByText(/registration/i)).toBeNull();
@@ -174,14 +180,14 @@ describe("McpServerDetail", () => {
         }}
       />
     );
-    const toolsHeader = screen.getByText("Tools").parentElement!;
+    const toolsHeader = toolsHeading().parentElement!;
     expect(within(toolsHeader).getByText("2 registrations")).toBeTruthy();
     // No button of any kind in the header for this case -- Verify and
     // Check-again live beside each spec's own launch label instead.
     expect(within(toolsHeader).queryByRole("button")).toBeNull();
     // Each group still carries its own count, beside its own launch --
     // unaffected by where the header falls back to.
-    const toolsSection = screen.getByText("Tools").closest("section")!;
+    const toolsSection = toolsHeading().closest("section")!;
     expect(within(toolsSection).getByText(/@tauri\/mcp@latest/)).toBeTruthy();
     expect(within(toolsSection).getByText(/@tauri\/mcp@2\.9\.1/)).toBeTruthy();
   });
@@ -199,9 +205,10 @@ describe("McpServerDetail", () => {
     // "Registered in" row still reports a probed registration's own result,
     // but offers no action of its own now that Task 9's per-spec grouping
     // removed the labelling collision that forced the button there.
-    const registeredSection = screen.getByText("Registered in").closest("section")!;
-    const toolsSection = screen.getByText("Tools").closest("section")!;
+    const toolsSection = toolsHeading().closest("section")!;
     expect(within(toolsSection).getByRole("button", { name: /verify/i })).toBeTruthy();
+    openDetails();
+    const registeredSection = screen.getByText("Registered in").closest("section")!;
     expect(within(registeredSection).queryByRole("button", { name: /verify/i })).toBeNull();
     // The old copy told the reader to act elsewhere. The button is right
     // here now, so that instruction is not just moved but gone.
@@ -220,6 +227,7 @@ describe("McpServerDetail", () => {
 
   it("never renders an environment variable value", () => {
     render(<McpServerDetail server={{ ...base, envKeys: ["API_KEY", "NODE_OPTIONS"] }} />);
+    openDetails();
     expect(screen.getByText("API_KEY")).toBeTruthy();
     expect(screen.getByText("NODE_OPTIONS")).toBeTruthy();
     expect(screen.queryByText(/sk-/)).toBeNull();
@@ -257,6 +265,7 @@ describe("McpServerDetail", () => {
         }}
       />
     );
+    openDetails();
     expect(screen.getByText("2024-11-05")).toBeTruthy();
     expect(screen.getByText("prompts, tools")).toBeTruthy();
 });
@@ -290,6 +299,7 @@ describe("McpServerDetail", () => {
         }}
       />
     );
+    openDetails();
     const identitySection = screen.getByText("Identity").closest("section")!;
     const slot = within(identitySection).getByText(/^verified /);
     expect(slot.textContent).toMatch(/^verified .+ · (Codex|Gemini) · global$/);
@@ -390,11 +400,13 @@ describe("McpServerDetail", () => {
     // existed to show was invisible. It also answers "what does this launch?",
     // which is the question behind every failed Verify.
     render(<McpServerDetail server={base} />);
+    openDetails();
     expect(screen.getAllByText(/node/).length).toBeGreaterThan(0);
   });
 
   it("says nothing about divergence when the registrations agree", () => {
     render(<McpServerDetail server={base} />);
+    openDetails();
     expect(screen.queryByText(/differ/i)).toBeNull();
   });
 
@@ -409,6 +421,7 @@ describe("McpServerDetail", () => {
       ],
     };
     render(<McpServerDetail server={diverged} />);
+    openDetails();
     expect(screen.getByText(/differ/i)).toBeTruthy();
   });
 
@@ -452,6 +465,7 @@ describe("McpServerDetail", () => {
       ],
     };
     render(<McpServerDetail server={server} />);
+    openDetails();
     const note = screen.getByTestId("bridge-note");
     expect(note).toBeTruthy();
     expect(within(note).getByText(/local bridge process/i)).toBeTruthy();
@@ -528,6 +542,7 @@ describe("McpServerDetail", () => {
 
   it("says nothing about a bridge when no registration is bridged", () => {
     render(<McpServerDetail server={base} />);
+    openDetails();
     expect(screen.queryByTestId("bridge-note")).toBeNull();
   });
 
@@ -557,6 +572,7 @@ describe("McpServerDetail", () => {
       ],
     };
     render(<McpServerDetail server={server} />);
+    openDetails();
     expect(screen.queryByTestId("bridge-note")).toBeNull();
   });
 
@@ -601,6 +617,7 @@ describe("McpServerDetail", () => {
       ],
     };
     render(<McpServerDetail server={server} />);
+    openDetails();
     expect(screen.getByText(/differ/i)).toBeTruthy();
     expect(screen.queryByTestId("bridge-note")).toBeNull();
   });
@@ -617,6 +634,7 @@ describe("McpServerDetail", () => {
       ],
     };
     render(<McpServerDetail server={server} />);
+    openDetails();
     const registeredSection = screen.getByText("Registered in").closest("section")!;
     // The warning still names the server in prose; the aligned diff sits
     // beneath it and names the token itself, on both sides.
@@ -640,6 +658,7 @@ describe("McpServerDetail", () => {
       ],
     };
     render(<McpServerDetail server={server} />);
+    openDetails();
     const registeredSection = screen.getByText("Registered in").closest("section")!;
     expect(within(registeredSection).getAllByText(/Codex · global/).length).toBeGreaterThan(0);
     expect(within(registeredSection).getAllByText(/Gemini · global/).length).toBeGreaterThan(0);
@@ -663,6 +682,7 @@ describe("McpServerDetail", () => {
       ],
     };
     render(<McpServerDetail server={server} />);
+    openDetails();
     const registeredSection = screen.getByText("Registered in").closest("section")!;
     // The baseline (1.0.0) appears once per comparison it anchors -- twice,
     // not three times, since it is never compared to itself.
@@ -697,6 +717,7 @@ describe("McpServerDetail", () => {
       ],
     };
     render(<McpServerDetail server={server} />);
+    openDetails();
     const diffBlock = screen.getByTestId("launch-diff");
     expect(within(diffBlock).queryByText(/REDACT_ME/)).toBeNull();
     expect(within(diffBlock).getAllByText(/env differs/i).length).toBeGreaterThan(0);
@@ -704,6 +725,7 @@ describe("McpServerDetail", () => {
 
   it("lets you open the config file a registration came from", () => {
     render(<McpServerDetail server={base} />);
+    openDetails();
     const openers = screen.getAllByRole("button", { name: /reveal|open config/i });
     expect(openers.length).toBe(base.registrations.length);
   });
@@ -721,6 +743,7 @@ describe("McpServerDetail", () => {
         }}
       />
     );
+    openDetails();
     expect(screen.getByText(/8269/)).toBeTruthy();
     // "Claude Code" is also a host label on two rows, so assert on the
     // running line specifically rather than on the name alone.
@@ -756,6 +779,7 @@ describe("McpServerDetail", () => {
         }}
       />
     );
+    openDetails();
     // Scoped to "Registered in": kept from when the Tools section briefly
     // also rendered each registration's launch as its block label (that
     // design was ruled out 2026-08-16 for exactly this kind of collision;
@@ -809,7 +833,7 @@ describe("McpServerDetail", () => {
     // Scoped to Tools: this fixture diverges (two launches), so Task 8's
     // launch-spec diff also labels its aligned lines by host + tier in
     // "Registered in" now, and an unscoped query finds both.
-    const toolsSection = screen.getByText("Tools").closest("section")!;
+    const toolsSection = toolsHeading().closest("section")!;
     expect(within(toolsSection).getByText("Codex · global")).toBeTruthy();
     expect(within(toolsSection).getByText("Gemini · global")).toBeTruthy();
   });
@@ -844,7 +868,7 @@ describe("McpServerDetail", () => {
     // Scoped to Tools -- see the comment on the sibling test above; this
     // fixture diverges too, so the launch-spec diff repeats the same
     // "Codex · global" / "Gemini · global" labels in "Registered in".
-    const toolsSection = screen.getByText("Tools").closest("section")!;
+    const toolsSection = toolsHeading().closest("section")!;
     expect(within(toolsSection).getByText("Codex · global")).toBeTruthy();
     // The other spec is real and still unprobed -- it gets its own Verify,
     // not silence.
@@ -867,7 +891,7 @@ describe("McpServerDetail", () => {
       ],
     };
     render(<McpServerDetail server={server} onVerify={onVerify} />);
-    const toolsSection = screen.getByText("Tools").closest("section")!;
+    const toolsSection = toolsHeading().closest("section")!;
     const buttons = within(toolsSection).getAllByRole("button", { name: /^verify$/i });
     expect(buttons).toHaveLength(2);
     // Each button hands back a key belonging to ITS group, not the other
@@ -928,7 +952,7 @@ describe("McpServerDetail", () => {
     // answered -- see "names whose result the Identity section is showing"
     // above). An unscoped query would find that text and fail this assertion
     // for a reason that has nothing to do with the Tools section.
-    const toolsSection = screen.getByText("Tools").closest("section")!;
+    const toolsSection = toolsHeading().closest("section")!;
     expect(within(toolsSection).queryByText(/Claude Code · global/)).toBeNull();
     expect(screen.getAllByText("get_docs")).toHaveLength(1);
   });
@@ -956,7 +980,7 @@ describe("McpServerDetail", () => {
     // launch verbatim (Task 3), so an unscoped query finds two matches for
     // the same substring -- one there, one in the block label -- and throws
     // rather than asserting anything.
-    const toolsSection = screen.getByText("Tools").closest("section")!;
+    const toolsSection = toolsHeading().closest("section")!;
     // A tool count is never rendered without the launch it belongs to unless
     // that launch is the server's only one.
     expect(within(toolsSection).getByText(/@tauri\/mcp@latest/)).toBeTruthy();
