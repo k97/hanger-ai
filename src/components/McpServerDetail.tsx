@@ -206,6 +206,11 @@ function basename(path: string): string {
   return parts[parts.length - 1];
 }
 
+/** "3.1 kB" or "431 B" — the backend's own byte count, never re-measured. */
+function formatBytes(n: number): string {
+  return n < 1024 ? `${n} B` : `${(n / 1024).toFixed(1)} kB`;
+}
+
 function relativeTime(then: number): string {
   const secs = Math.max(0, Math.round((Date.now() - then) / 1000));
   if (secs < 60) return `${secs}s ago`;
@@ -318,25 +323,47 @@ function ProbedToolList({ result }: { result: VerifiedIdentity }) {
   if (result.error) {
     return <p className="text-micro text-state-danger leading-[1.5]">{result.error}</p>;
   }
+  // The description-bytes toll for one tool, from the same probe answer the
+  // list itself came from -- never re-measured here. Absent whenever `cost`
+  // is: an older cache entry, or a probe this session hasn't re-run since
+  // B3 started shipping it. Schema bytes are not tracked at all (they never
+  // leave the store, per the Composition card below), so that column is
+  // always the pending mark rather than a number waiting to arrive.
+  const bytesFor = (name: string): string => {
+    const row = result.cost?.perTool.find((t) => t.name === name);
+    return row ? `${row.descriptionBytes} B` : "—";
+  };
   return (
     // Not height-capped. DESIGN.md's 240px rule covers DisclosureBanner
     // regions; this is the panel's primary content, and a nested scrollbar
     // inside a scrolling panel is worse than a long page.
-    <div className="border border-line rounded-inner flex flex-col">
-      {result.tools.map((tool, i) => (
-        <div
-          key={tool.name}
-          className={`px-[11px] py-2 flex flex-col gap-px ${i > 0 ? "border-t border-line" : ""}`}
-        >
-          {/* Tool names are code identifiers, so the mono face is semantic
-              here rather than decorative. */}
-          <span className="font-mono text-small text-ink-1">{tool.name}</span>
+    <ListCard>
+      <div className="flex items-center gap-2 px-3 py-[9px] min-h-9">
+        <span className={`${HEADING} flex-1`}>Tool</span>
+        <span className={`${HEADING} w-[84px] text-right shrink-0`}>Description</span>
+        <span className={`${HEADING} w-[54px] text-right shrink-0`}>Schema</span>
+      </div>
+      {result.tools.map((tool) => (
+        <div key={tool.name} className="flex flex-col gap-[3px] px-3 py-[9px]">
+          <span className="flex items-center gap-2 min-w-0">
+            {/* Tool names are code identifiers, so the mono face is semantic
+                here rather than decorative. */}
+            <span className="font-mono text-small text-ink-1 flex-1 min-w-0 truncate">
+              {tool.name}
+            </span>
+            <span className="w-[84px] text-right shrink-0 font-mono text-micro text-ink-3 tabular">
+              {bytesFor(tool.name)}
+            </span>
+            <span className="w-[54px] text-right shrink-0 font-mono text-micro text-ink-3">
+              —
+            </span>
+          </span>
           {tool.description && (
-            <span className="text-micro text-ink-3 leading-[1.45]">{tool.description}</span>
+            <span className="text-small text-ink-2 leading-[1.45]">{tool.description}</span>
           )}
         </div>
       ))}
-    </div>
+    </ListCard>
   );
 }
 
@@ -636,7 +663,21 @@ export default function McpServerDetail({
 
       <UnderlineTabs
         tabs={[
-          { id: "tools", label: "Tools" },
+          {
+            id: "tools",
+            label: "Tools",
+            // Honest in the same single-spec case the section head's own
+            // count slot below is honest in, and for the same reason --
+            // more than one launch spec can mean more than one tool
+            // surface, so a count here would claim to speak for a server
+            // that has no one figure. The backend's own count, never
+            // `.tools.length`: a probe's tool list can outrun what the
+            // store paid to keep (`cost.toolCount` already reconciles that).
+            count:
+              specGroups.length === 1 && specGroups[0].result && !specGroups[0].result.error
+                ? specGroups[0].result.cost?.toolCount
+                : undefined,
+          },
           { id: "details", label: "Details" },
         ]}
         active={tab}
@@ -650,6 +691,32 @@ export default function McpServerDetail({
       <div className="flex-1 min-h-0 overflow-y-auto">
       {tab === "tools" ? (
         <div role="tabpanel" id="panel-tools" aria-labelledby="tab-tools">
+        {/* What a request actually carries, ahead of the list that produced
+            it. Only knowable once a probe has answered -- `cost` travels
+            with the same handshake result the tool list itself came from,
+            so nothing here can exist before that. */}
+        {anyVerified?.cost && (
+          <section className={SECTION}>
+            <div className="flex items-baseline justify-between gap-2 mb-[10px]">
+              <h3 className={HEADING}>Context</h3>
+            </div>
+            <div className={`${HEADING} mb-1`}>Composition</div>
+            <ListCard>
+              <ListCardRow
+                label="Descriptions"
+                value={`${formatBytes(anyVerified.cost.descriptionBytesTotal)} · ${
+                  anyVerified.cost.describedToolCount
+                } of ${anyVerified.cost.toolCount} tools`}
+              />
+              <ListCardRow label="Input schemas" wide="the remainder, not in the store" />
+            </ListCard>
+            <p className="text-micro text-ink-3 mt-2 leading-[1.5]">
+              A request carries the whole definition. Hanger keeps a tool&rsquo;s name and its
+              description and drops the schema, so the store can account for the smaller part of
+              that figure and not the larger.
+            </p>
+          </section>
+        )}
         <section className={SECTION}>
           <div className="flex items-baseline justify-between gap-2 mb-[10px]">
             <h3 className={HEADING}>Tools</h3>
@@ -677,7 +744,9 @@ export default function McpServerDetail({
               specGroups[0].result ? (
                 <span className="inline-flex items-center gap-2">
                   <span className={COUNT}>
-                    {specGroups[0].result.error ? "—" : specGroups[0].result.tools.length}
+                    {specGroups[0].result.error
+                      ? "—"
+                      : specGroups[0].result.cost?.toolCount ?? specGroups[0].result.tools.length}
                   </span>
                   <CheckAgainButton
                     registrationKey={specGroups[0].regs[0].key}
@@ -771,7 +840,9 @@ export default function McpServerDetail({
                     </span>
                     {group.result && (
                       <span className="inline-flex items-center gap-2">
-                        <span className={COUNT}>{group.result.error ? "—" : group.result.tools.length}</span>
+                        <span className={COUNT}>
+                          {group.result.error ? "—" : group.result.cost?.toolCount ?? group.result.tools.length}
+                        </span>
                         <CheckAgainButton
                           registrationKey={group.regs[0].key}
                           verifying={verifying.includes(group.regs[0].key)}

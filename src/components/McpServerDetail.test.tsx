@@ -1112,6 +1112,47 @@ describe("McpServerDetail", () => {
   });
 });
 
+describe("McpServerDetail — the tool table and Context (M5)", () => {
+  it("the tool table has Tool · Description · Schema columns, description bytes per tool, schema pending", () => {
+    render(
+      <McpServerDetail
+        server={{ ...base, registrations: [base.registrations[0]] }}
+        verified={{ "cc-user": {
+          capabilities: ["tools"], verifiedAt: 1_700_000_000_000,
+          tools: [
+            { name: "get_system_volume", description: "Get the current macOS system volume level (0–100) and mute state." },
+            { name: "list_audio_apps", description: "List the apps currently producing audio." },
+            { name: "undescribed" },
+          ],
+          cost: { toolCount: 3, describedToolCount: 2, descriptionBytesTotal: 109,
+            perTool: [{ name: "get_system_volume", descriptionBytes: 69 }, { name: "list_audio_apps", descriptionBytes: 40 }, { name: "undescribed", descriptionBytes: 0 }] },
+        } }}
+      />
+    );
+    const block = screen.getByTestId("tools-block");
+    expect(within(block).getByText("Tool")).toBeTruthy();
+    expect(within(block).getByText("Description")).toBeTruthy();
+    expect(within(block).getByText("Schema")).toBeTruthy();
+    expect(within(block).getByText("69 B")).toBeTruthy();
+    expect(within(block).getByText("40 B")).toBeTruthy();
+    expect(within(block).getAllByText("—")).toHaveLength(3);
+    // The tab and the section count carry the backend's figure.
+    expect(screen.getByRole("tab", { name: "Tools 3" })).toBeTruthy();
+    // Composition leads the panel and is checkable against the table.
+    const context = screen.getByRole("heading", { name: "Context" }).closest("section")!;
+    expect(within(context).getByText("Composition")).toBeTruthy();
+    expect(context.textContent).toContain("Descriptions109 B · 2 of 3 tools");
+    expect(context.textContent).toContain("Input schemasthe remainder, not in the store");
+    expect(context.textContent).toContain("A request carries the whole definition. Hanger keeps a tool’s name and its description and drops the schema, so the store can account for the smaller part of that figure and not the larger.");
+    expect(context.textContent).not.toContain("tool definitions in every request");
+  });
+  it("draws no Context section before anything has answered", () => {
+    render(<McpServerDetail server={base} />);
+    expect(screen.queryByRole("heading", { name: "Context" })).toBeNull();
+    expect(screen.getByRole("tab", { name: "Tools" })).toBeTruthy();
+  });
+});
+
 /**
  * Opening the panel is the question. The Verify button in front of the answer
  * made this a form to fill in; these pin the four states that replace it.
