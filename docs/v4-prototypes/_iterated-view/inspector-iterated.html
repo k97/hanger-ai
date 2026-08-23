@@ -54,7 +54,10 @@
 .utabs [role="tab"][aria-selected="true"] { color: var(--ink-1); } /* weight comes from .font-medium, toggled with aria-selected */
 .utabs [role="tab"] .n { margin-left: 6px; }
 .utabs .ind { position: absolute; bottom: -1px; height: 2px; background: var(--ink-1); transition: left var(--dur-nav) var(--spring), width var(--dur-nav) var(--spring); }
-.docblk .doc { padding: 4px 0 0; }
+/* Only the top is tightened — the row above is already padded. Setting
+   the shorthand here reset .lc .lcb's 12px sides to 0 and put the document
+   flush against the card's border while its own header row stayed inset. */
+.docblk .doc { padding-top: 4px; }
 .doc ol { padding-left: 18px; margin: 4px 0 8px; }
 .doc ol li { margin-bottom: 2px; }
 /* One aside per shell, at the width the shell is named for; the main pane
