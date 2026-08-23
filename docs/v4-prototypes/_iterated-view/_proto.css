@@ -38,6 +38,7 @@ code { font-family: var(--font-mono); }
 .rounded-inner { border-radius: var(--radius-inner); }
 .rounded-soft { border-radius: var(--radius-soft); }
 .rounded-pill { border-radius: var(--radius-pill); }
+.rounded-mini { border-radius: var(--radius-mini); }
 .shadow-overlay { box-shadow: var(--overlay-shadow); }
 
 /* ── Ink ── */
@@ -162,17 +163,51 @@ code { font-family: var(--font-mono); }
    a tight contact shadow, so this is a second, smaller elevation. And a
    shadow is invisible on black: in dark the capsule lightens instead
    (iOS does the same), so its surface is a token of its own — --page in
-   light, --tint in dark. */
+   light, --tint in dark.
+
+   Karthik's ruling, 2026-08-23, for button radius: there are two button
+   sizes and the radius follows the size, not the role. A normal button
+   (30px, .btn) stays a full pill — unchanged. A mini button (26px, .mini)
+   takes a small radius instead, so the two never read as the same control
+   at different scales. "Squircle" was figurative (ruled 2026-08-23): this
+   is a radius value, not a superellipse, and needs no corner-shape support
+   from the webview.
+
+   It is NOT a fifth radius. --radius-control: 6px already exists
+   (src/styles/tokens.css:139) and is already registered as a Tailwind
+   theme value (src/styles/index.css:117, so `rounded-control` works
+   today) — declared, retired, and used by nothing. .claude/DESIGN.md:797
+   files it as debt: "outlived its retirement note." The mini radius is
+   that token revived, which is why the value below is 6 and why the
+   amendment to DESIGN.md is a correction, not an addition. 6/8/10 are
+   drawn at true size for the ruling. */
 :root {
   --capsule: var(--page);
   --capsule-shadow: 0 1px 2px rgba(0, 0, 0, 0.10), 0 2px 6px rgba(0, 0, 0, 0.06);
+  --radius-mini: 6px;  /* = --radius-control, revived */
 }
 .dark {
   --capsule: var(--tint);
   --capsule-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
 }
 .capsule-raised { background: var(--capsule); box-shadow: var(--capsule-shadow); border: 0; }
-.track.b .ind { background: var(--capsule); box-shadow: var(--capsule-shadow); border: 0; }
+
+/* ── The segmented track ──
+   Moved here from topnav-iterated.html 2026-08-23 so the summary strip's
+   chip row can be the same control rather than a second one that looks
+   like it. Option B is the only survivor, so .track carries its shape
+   directly and there are no A/C variants left to switch between. */
+.track-wrap { padding: 14px 18px 6px; }
+.track { position: relative; display: inline-flex; gap: 0; padding: 4px; max-width: 100%; border-radius: var(--radius-pill); background: var(--plane); border: 1px solid var(--line); overflow-x: auto; scrollbar-width: none; }
+.track::-webkit-scrollbar { display: none; }
+.track > button { position: relative; z-index: 1; height: 28px; padding: 0 16px; border-radius: var(--radius-pill); font-family: var(--font-flex); font-size: var(--fs-small); color: var(--ink-2); display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; flex-shrink: 0; transition: color var(--dur-nav) var(--spring); }
+.track > button:hover { color: var(--ink-1); }
+.track > button:focus-visible { outline: 2px solid var(--line-2); outline-offset: -2px; }
+.track > button b { font-size: var(--fs-micro); color: var(--ink-3); font-variant-numeric: tabular-nums; transition: color var(--dur-nav) var(--spring); }
+.track > button[aria-selected="true"] { color: var(--ink-1); }
+.track > button[aria-selected="true"] b { color: var(--ink-2); }
+.ind { position: absolute; top: 0; left: 0; width: 0; height: 28px; border-radius: var(--radius-pill); background: var(--capsule); box-shadow: var(--capsule-shadow); border: 0; }
+.track.ready .ind { transition: left var(--dur-nav) var(--spring), width var(--dur-nav) var(--spring); }
 
 /* Map ground — LinkMapPane.tsx:352-357, a dot grid painted from --line */
 .map-ground { background-color: var(--page); background-image: radial-gradient(var(--line) 1px, transparent 1px); background-size: 24px 24px; }

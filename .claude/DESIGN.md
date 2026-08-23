@@ -149,14 +149,15 @@ the panes as `px-[18px]` / `mx-[18px]`.
 
 ### Radius
 
-Three radii (`tokens.css:39-41`): `--radius-plane: 16px` for planes,
+Three radii (`tokens.css:65-68`): `--radius-plane: 16px` for planes,
 `--radius-inner: 12px` for inner surfaces, `--radius-pill: 9999px` for
 controls. A fourth, `--radius-control: 6px`, is declared as legacy
-(`tokens.css:112`) and marked in the theme block as "retired with its users"
-(`index.css:105`).
+(`tokens.css:139`) and marked in the theme block as "retired with its users"
+(`index.css:112`). All five line numbers in this paragraph were stale by
+roughly 26 lines and were corrected 2026-08-23.
 
 Controls are pills — with one squared exception. `--radius-soft` (10px,
-`tokens.css:45`) rounds the icon rail's 32×32 buttons (`IconRail.tsx:18-20`),
+`tokens.css:67`) rounds the icon rail's 32×32 buttons (`IconRail.tsx:19`),
 per the prototype's `--r-soft`. Every other button class uses `rounded-pill` —
 the toolbar buttons, the filter chips (`CategoryFilterCards.tsx:17`).
 
@@ -794,9 +795,25 @@ through `--n-100` (`tokens.css:165-168`). Any component using `--n-200` or
 darker gets the light value in dark mode. How I know: direct comparison of the
 two blocks.
 
-**`--radius-control: 6px` outlived its retirement note.** Declared at
-`tokens.css:112`, and the theme block registers it while calling it retired
-(`index.css:105`, `:109`).
+**`--radius-control: 6px` outlived its retirement note — and now has a
+job.** Declared at `tokens.css:139`, and the theme block registers it while
+calling it retired (`index.css:112`, `:117`). Because it is registered,
+`rounded-control` is already a working utility; nothing in `src/` uses it.
+
+Karthik ruled on 2026-08-23 that buttons take **two radii, chosen by size
+rather than by role**: a normal button (30px) stays a full pill, unchanged,
+and a mini button (26px) takes a small radius so the two tiers never read
+as one control at two scales. `--radius-control` is that small radius —
+revived, not replaced, so the system stays at four radii and no token is
+added. "Squircle" in the ruling was figurative: a radius value, not a
+superellipse, and nothing here depends on `corner-shape` support.
+
+This paragraph stays in *Not implemented* until a component actually
+renders `rounded-control`. The design is drawn in
+`docs/v4-prototypes/_iterated-view/inspector-iterated.html` — where the
+mini tier splits again by role: header actions carry tone (one filled, one
+tonal) and in-section actions are an equal outlined set. 6 / 8 / 10 are
+drawn at true size; 6 leads because it is the value already in the code.
 
 **"Semantic colour in exactly one place" is not literally true.** The palette
 comment claims state is the only saturated colour (`tokens.css:3-4`), but the

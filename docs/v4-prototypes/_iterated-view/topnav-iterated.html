@@ -2,12 +2,14 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Top navigation — a segmented track</title>
+<title>Top navigation — the segmented track</title>
 <link rel="stylesheet" href="_proto.css">
 <style>
-  /* Layout and the track. Every colour, size and radius is a token or a
-     class from _proto.css. Weight is never set here: the selected segment
-     takes the .font-medium class from the script, as the pressed chip does. */
+  /* Page layout only. The control itself lives in _proto.css (.track-wrap,
+     .track, .track > button, .ind) — it is shared with the summary strip's
+     chip row, so it is not restated here. Weight is never set in CSS: the
+     selected segment takes the .font-medium class from the script, as the
+     pressed chip does. */
   .grid { display: grid; grid-template-columns: 584px 368px minmax(200px, 280px); gap: 16px; align-items: start; }
   .grid .option { grid-column: 1 / -1; margin: 20px 0 0; }
   .colhead { display: flex; flex-direction: column; gap: 6px; }
@@ -22,34 +24,6 @@
   .notes { display: flex; flex-direction: column; gap: 8px; }
   .notes code, .tally code, .review-note + .annot code { font-family: var(--font-mono); }
   .page-annot { max-width: 72ch; margin: -10px 0 8px; }
-
-  /* The chips-above-strip position: CategoryFilterCards' slot, padding 14px 18px 6px */
-  .track-wrap { padding: 14px 18px 6px; }
-  .track { position: relative; display: inline-flex; gap: 2px; padding: 3px; max-width: 100%; border-radius: var(--radius-pill); background: var(--plane); border: 1px solid var(--line); overflow-x: auto; scrollbar-width: none; }
-  .track::-webkit-scrollbar { display: none; }
-  .track > button { position: relative; z-index: 1; height: 28px; padding: 0 14px; border-radius: var(--radius-pill); font-family: var(--font-flex); font-size: var(--fs-small); color: var(--ink-2); display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; flex-shrink: 0; transition: color var(--dur-nav) var(--spring); }
-  .track > button:hover { color: var(--ink-1); }
-  .track > button:focus-visible { outline: 2px solid var(--line-2); outline-offset: -2px; }
-  .track > button b { font-size: var(--fs-micro); color: var(--ink-3); font-variant-numeric: tabular-nums; transition: color var(--dur-nav) var(--spring); }
-  /* The capsule: one element behind the segments; the script sets its box from the selected segment */
-  .ind { position: absolute; top: 0; left: 0; width: 0; height: 28px; border-radius: var(--radius-pill); }
-  .track.ready .ind { transition: left var(--dur-nav) var(--spring), width var(--dur-nav) var(--spring); }
-  /* B · raised page — the reference's proportions at our scale */
-  .track.b { padding: 4px; gap: 0; }
-  .track.b > button { padding: 0 16px; }
-  /* .track.b .ind — the raised capsule — is styled in _proto.css with the proposed
-     --capsule / --capsule-shadow tokens (Karthik, 2026-08-22: no border, a shadow). */
-  .track.b > button[aria-selected="true"] { color: var(--ink-1); }
-  .track.b > button[aria-selected="true"] b { color: var(--ink-2); }
-  /* B′ · the count only on the selected segment */
-  .track.bp > button:not([aria-selected="true"]) b { display: none; }
-  /* A · tonal */
-  .track.a .ind { background: var(--tint); }
-  .track.a > button[aria-selected="true"], .track.a > button[aria-selected="true"] b { color: var(--tint-ink); }
-  /* C · filled */
-  .track.c .ind { background: var(--fill); }
-  .track.c > button[aria-selected="true"], .track.c > button[aria-selected="true"] b { color: var(--on-fill); }
-
   .tally { max-width: 72ch; margin-top: 16px; }
   .tally ul { list-style: disc; padding-left: 16px; margin-top: 6px; }
   .tally li { margin: 4px 0; }
@@ -59,19 +33,19 @@
 
 <div class="toggle-bar"><button class="btn" id="dark" type="button">Dark</button></div>
 
-<h1 class="review-title">Top navigation — a segmented track</h1>
-<p class="review-note">Structurally, the loose chips become one continuous track and the selected category is a capsule that slides inside it: position in the track says "selected", so the check mark goes. The labels and the backend counts stay, and so does hide-at-zero with All, the selected category and MCP servers exempt (<code>CategoryFilterCards.tsx</code>). The slide is the app's one spring over <code>--dur-nav</code>. visionOS's glass is out — no blur. The raised capsule carries a tight contact shadow and no border (Karthik's ruling, 2026-08-22): a second, smaller elevation beside the map's, proposed as <code>--capsule-shadow</code>. Click a segment, or focus one and use the arrow keys then Enter.</p>
-<div class="annot page-annot">Dark: a shadow is invisible on black, and <code>--page</code> on <code>--plane</code> is one value step — so the capsule lightens in dark instead, the way iOS's does: its surface is a proposed token, <code>--capsule</code> (<code>--page</code> in light, <code>--tint</code> in dark). Flip Dark to judge.</div>
+<h1 class="review-title">Top navigation — the segmented track</h1>
+<p class="review-note">This is the specification of one control, not a comparison. Karthik ruled on 2026-08-22 in favour of the raised capsule, and the three alternatives it was drawn against — tonal, filled, and counts on the selected segment only — are gone. Structurally, the loose chips become one continuous track and the selected category is a capsule that slides inside it: position in the track says &ldquo;selected&rdquo;, so the check mark goes. The labels and the backend counts stay, and so does hide-at-zero with All, the selected category and MCP servers exempt (<code>CategoryFilterCards.tsx</code>). The slide is the app&rsquo;s one spring over <code>--dur-nav</code>. visionOS&rsquo;s glass is out — no blur. The capsule carries a tight contact shadow and no border, which is the substance of the ruling: a second, smaller elevation beside the map&rsquo;s, proposed as <code>--capsule-shadow</code>. Click a segment, or focus one and use the arrow keys then Enter.</p>
+<div class="annot page-annot">The same ruling settled dark. A shadow is invisible on black, and <code>--page</code> on <code>--plane</code> is one value step — so in dark the capsule lightens instead of casting a shadow nobody can see, the way iOS&rsquo;s does. Its surface is a proposed token, <code>--capsule</code>: <code>--page</code> in light, <code>--tint</code> in dark. Flip Dark to judge.</div>
 
 <div class="grid">
   <div class="colhead"><span class="text-small text-ink-3">584px · source list collapsed, inspector open · MCP servers selected</span></div>
-  <div class="colhead"><span class="text-small text-ink-3">368px · source list open · Skills selected</span><div class="annot">At 368px the five segments outrun the pane; either the track scrolls (drawn) or the counts drop below the labels — a ruling.</div></div>
+  <div class="colhead"><span class="text-small text-ink-3">368px · source list open · Skills selected</span><div class="annot">Five segments outrun the pane at this width. Drawn scrolling; still open.</div></div>
   <div></div>
 
-  <div class="option"><h2>Option B · raised capsule — the reference</h2><span>the segmented picker: no border, a contact shadow</span></div>
+  <div class="option"><h2>The segmented track</h2><span>drawn at both widths the pane takes</span></div>
   <div class="specimen">
     <div class="cap"><span class="crumb">My machine</span><span class="crumb">›</span><span class="font-medium text-ink-1">Global</span></div>
-    <div class="track-wrap"><div class="track b" role="tablist" aria-label="Filter by category"><i class="ind"></i>
+    <div class="track-wrap"><div class="track" role="tablist" aria-label="Filter by category"><i class="ind"></i>
       <button role="tab" aria-selected="false">All <b>144</b></button>
       <button role="tab" aria-selected="false">Skills <b>110</b></button>
       <button role="tab" aria-selected="true">MCP servers <b>19</b></button>
@@ -86,7 +60,7 @@
   </div>
   <div class="specimen">
     <div class="cap"><span class="crumb">My machine</span><span class="crumb">›</span><span class="font-medium text-ink-1">Global</span></div>
-    <div class="track-wrap"><div class="track b" role="tablist" aria-label="Filter by category"><i class="ind"></i>
+    <div class="track-wrap"><div class="track" role="tablist" aria-label="Filter by category"><i class="ind"></i>
       <button role="tab" aria-selected="false">All <b>144</b></button>
       <button role="tab" aria-selected="true">Skills <b>110</b></button>
       <button role="tab" aria-selected="false">MCP servers <b>19</b></button>
@@ -100,113 +74,9 @@
     </section>
   </div>
   <div class="notes">
-    <div class="annot"><b>Option B.</b> The segmented picker. Track <code>--plane</code> with a <code>--line</code> edge, 4px inset, no gap; the capsule is <code>--capsule</code> with <code>--capsule-shadow</code> and no border (ruled 2026-08-22), label in <code>--ink-1</code> at medium weight. Both tokens are proposed — they live in <code>_proto.css</code> until the plan adds them to <code>tokens.css</code>.</div>
-  </div>
-
-  <div class="option"><h2>Option B′ · count on the selected segment only</h2><span>the reference's segments are short; ours carry counts</span></div>
-  <div class="specimen">
-    <div class="cap"><span class="crumb">My machine</span><span class="crumb">›</span><span class="font-medium text-ink-1">Global</span></div>
-    <div class="track-wrap"><div class="track b bp" role="tablist" aria-label="Filter by category"><i class="ind"></i>
-      <button role="tab" aria-selected="false">All <b>144</b></button>
-      <button role="tab" aria-selected="false">Skills <b>110</b></button>
-      <button role="tab" aria-selected="true">MCP servers <b>19</b></button>
-      <button role="tab" aria-selected="false">Rules <b>2</b></button>
-      <button role="tab" aria-selected="false">Subagents <b>13</b></button>
-    </div></div>
-    <section class="strip" aria-label="Inventory summary">
-      <div class="flex items-baseline gap-3 strip-head"><span class="text-display font-medium tabular text-ink-1">144</span><span class="text-lg-app text-ink-2">assets in the global store · 7 engines</span><span class="ml-auto text-micro text-ink-3 font-flex">Scanned 3 min ago</span></div>
-      <div class="gel" role="img" aria-label="110 linked, 0 drifted, 0 broken, 39 local only"><span class="aqua" style="flex:110"></span><span class="plain" style="flex:39"></span></div>
-      <div class="flex items-center gap-4 legend"><button class="lg"><i class="dot aqua"></i><b class="font-medium">110</b> linked</button><button class="lg"><i class="dot bg-state-warning"></i><b class="font-medium">0</b> drifted</button><button class="lg"><i class="dot bg-state-danger"></i><b class="font-medium">0</b> broken</button><button class="lg"><i class="dot hollow"></i><b class="font-medium">39</b> local only</button></div>
-    </section>
-  </div>
-  <div class="specimen">
-    <div class="cap"><span class="crumb">My machine</span><span class="crumb">›</span><span class="font-medium text-ink-1">Global</span></div>
-    <div class="track-wrap"><div class="track b bp" role="tablist" aria-label="Filter by category"><i class="ind"></i>
-      <button role="tab" aria-selected="false">All <b>144</b></button>
-      <button role="tab" aria-selected="true">Skills <b>110</b></button>
-      <button role="tab" aria-selected="false">MCP servers <b>19</b></button>
-      <button role="tab" aria-selected="false">Rules <b>2</b></button>
-      <button role="tab" aria-selected="false">Subagents <b>13</b></button>
-    </div></div>
-    <section class="strip" aria-label="Inventory summary">
-      <div class="flex items-baseline gap-3 strip-head"><span class="text-display font-medium tabular text-ink-1">144</span><span class="text-lg-app text-ink-2">assets in the global store · 7 engines</span><span class="ml-auto text-micro text-ink-3 font-flex">Scanned 3 min ago</span></div>
-      <div class="gel" role="img" aria-label="110 linked, 0 drifted, 0 broken, 39 local only"><span class="aqua" style="flex:110"></span><span class="plain" style="flex:39"></span></div>
-      <div class="flex items-center gap-4 legend"><button class="lg"><i class="dot aqua"></i><b class="font-medium">110</b> linked</button><button class="lg"><i class="dot bg-state-warning"></i><b class="font-medium">0</b> drifted</button><button class="lg"><i class="dot bg-state-danger"></i><b class="font-medium">0</b> broken</button><button class="lg"><i class="dot hollow"></i><b class="font-medium">39</b> local only</button></div>
-    </section>
-  </div>
-  <div class="notes">
-    <div class="annot" id="bp-note"><b>Option B′.</b> The reference's segments are short; ours carry counts. Keeping the count only where the eye already is shortens the track by 84–91px (488px → 397–404px, measured here), at the cost of the at-a-glance totals, which the strip's total and the list's section heads still carry. At 368px it still overruns the 328px pane by about 76px and scrolls; fitting without a scroll needs shorter labels or the counts below the labels.</div>
-  </div>
-
-  <div class="option"><h2>Option A · tonal capsule</h2><span>the pressed chip's container, inside the track — for contrast</span></div>
-  <div class="specimen">
-    <div class="cap"><span class="crumb">My machine</span><span class="crumb">›</span><span class="font-medium text-ink-1">Global</span></div>
-    <div class="track-wrap"><div class="track a" role="tablist" aria-label="Filter by category"><i class="ind"></i>
-      <button role="tab" aria-selected="false">All <b>144</b></button>
-      <button role="tab" aria-selected="false">Skills <b>110</b></button>
-      <button role="tab" aria-selected="true">MCP servers <b>19</b></button>
-      <button role="tab" aria-selected="false">Rules <b>2</b></button>
-      <button role="tab" aria-selected="false">Subagents <b>13</b></button>
-    </div></div>
-    <section class="strip" aria-label="Inventory summary">
-      <div class="flex items-baseline gap-3 strip-head"><span class="text-display font-medium tabular text-ink-1">144</span><span class="text-lg-app text-ink-2">assets in the global store · 7 engines</span><span class="ml-auto text-micro text-ink-3 font-flex">Scanned 3 min ago</span></div>
-      <div class="gel" role="img" aria-label="110 linked, 0 drifted, 0 broken, 39 local only"><span class="aqua" style="flex:110"></span><span class="plain" style="flex:39"></span></div>
-      <div class="flex items-center gap-4 legend"><button class="lg"><i class="dot aqua"></i><b class="font-medium">110</b> linked</button><button class="lg"><i class="dot bg-state-warning"></i><b class="font-medium">0</b> drifted</button><button class="lg"><i class="dot bg-state-danger"></i><b class="font-medium">0</b> broken</button><button class="lg"><i class="dot hollow"></i><b class="font-medium">39</b> local only</button></div>
-    </section>
-  </div>
-  <div class="specimen">
-    <div class="cap"><span class="crumb">My machine</span><span class="crumb">›</span><span class="font-medium text-ink-1">Global</span></div>
-    <div class="track-wrap"><div class="track a" role="tablist" aria-label="Filter by category"><i class="ind"></i>
-      <button role="tab" aria-selected="false">All <b>144</b></button>
-      <button role="tab" aria-selected="true">Skills <b>110</b></button>
-      <button role="tab" aria-selected="false">MCP servers <b>19</b></button>
-      <button role="tab" aria-selected="false">Rules <b>2</b></button>
-      <button role="tab" aria-selected="false">Subagents <b>13</b></button>
-    </div></div>
-    <section class="strip" aria-label="Inventory summary">
-      <div class="flex items-baseline gap-3 strip-head"><span class="text-display font-medium tabular text-ink-1">144</span><span class="text-lg-app text-ink-2">assets in the global store · 7 engines</span><span class="ml-auto text-micro text-ink-3 font-flex">Scanned 3 min ago</span></div>
-      <div class="gel" role="img" aria-label="110 linked, 0 drifted, 0 broken, 39 local only"><span class="aqua" style="flex:110"></span><span class="plain" style="flex:39"></span></div>
-      <div class="flex items-center gap-4 legend"><button class="lg"><i class="dot aqua"></i><b class="font-medium">110</b> linked</button><button class="lg"><i class="dot bg-state-warning"></i><b class="font-medium">0</b> drifted</button><button class="lg"><i class="dot bg-state-danger"></i><b class="font-medium">0</b> broken</button><button class="lg"><i class="dot hollow"></i><b class="font-medium">39</b> local only</button></div>
-    </section>
-  </div>
-  <div class="notes">
-    <div class="annot"><b>Option A.</b> The tonal container the pressed chip already uses (<code>bg-tint text-tint-ink font-medium</code>), inside the track. Nothing new in the palette; the only new thing is that it moves.</div>
-  </div>
-
-  <div class="option"><h2>Option C · filled capsule</h2><span>the strong action colour — for weight</span></div>
-  <div class="specimen">
-    <div class="cap"><span class="crumb">My machine</span><span class="crumb">›</span><span class="font-medium text-ink-1">Global</span></div>
-    <div class="track-wrap"><div class="track c" role="tablist" aria-label="Filter by category"><i class="ind"></i>
-      <button role="tab" aria-selected="false">All <b>144</b></button>
-      <button role="tab" aria-selected="false">Skills <b>110</b></button>
-      <button role="tab" aria-selected="true">MCP servers <b>19</b></button>
-      <button role="tab" aria-selected="false">Rules <b>2</b></button>
-      <button role="tab" aria-selected="false">Subagents <b>13</b></button>
-    </div></div>
-    <section class="strip" aria-label="Inventory summary">
-      <div class="flex items-baseline gap-3 strip-head"><span class="text-display font-medium tabular text-ink-1">144</span><span class="text-lg-app text-ink-2">assets in the global store · 7 engines</span><span class="ml-auto text-micro text-ink-3 font-flex">Scanned 3 min ago</span></div>
-      <div class="gel" role="img" aria-label="110 linked, 0 drifted, 0 broken, 39 local only"><span class="aqua" style="flex:110"></span><span class="plain" style="flex:39"></span></div>
-      <div class="flex items-center gap-4 legend"><button class="lg"><i class="dot aqua"></i><b class="font-medium">110</b> linked</button><button class="lg"><i class="dot bg-state-warning"></i><b class="font-medium">0</b> drifted</button><button class="lg"><i class="dot bg-state-danger"></i><b class="font-medium">0</b> broken</button><button class="lg"><i class="dot hollow"></i><b class="font-medium">39</b> local only</button></div>
-    </section>
-  </div>
-  <div class="specimen">
-    <div class="cap"><span class="crumb">My machine</span><span class="crumb">›</span><span class="font-medium text-ink-1">Global</span></div>
-    <div class="track-wrap"><div class="track c" role="tablist" aria-label="Filter by category"><i class="ind"></i>
-      <button role="tab" aria-selected="false">All <b>144</b></button>
-      <button role="tab" aria-selected="true">Skills <b>110</b></button>
-      <button role="tab" aria-selected="false">MCP servers <b>19</b></button>
-      <button role="tab" aria-selected="false">Rules <b>2</b></button>
-      <button role="tab" aria-selected="false">Subagents <b>13</b></button>
-    </div></div>
-    <section class="strip" aria-label="Inventory summary">
-      <div class="flex items-baseline gap-3 strip-head"><span class="text-display font-medium tabular text-ink-1">144</span><span class="text-lg-app text-ink-2">assets in the global store · 7 engines</span><span class="ml-auto text-micro text-ink-3 font-flex">Scanned 3 min ago</span></div>
-      <div class="gel" role="img" aria-label="110 linked, 0 drifted, 0 broken, 39 local only"><span class="aqua" style="flex:110"></span><span class="plain" style="flex:39"></span></div>
-      <div class="flex items-center gap-4 legend"><button class="lg"><i class="dot aqua"></i><b class="font-medium">110</b> linked</button><button class="lg"><i class="dot bg-state-warning"></i><b class="font-medium">0</b> drifted</button><button class="lg"><i class="dot bg-state-danger"></i><b class="font-medium">0</b> broken</button><button class="lg"><i class="dot hollow"></i><b class="font-medium">39</b> local only</button></div>
-    </section>
-  </div>
-  <div class="notes">
-    <div class="annot"><b>Option C.</b> The strong action colour — shown so the weight can be judged against the Review → pill that shares it; likely too heavy for a filter.</div>
-    <div class="annot"><b>The strip under every track is Shell 1's</b> (144, All) so the capsules compare like for like. Under the chips-above ruling it would follow the selected segment; per-category link-state figures are not in hand for Skills, so none are drawn.</div>
+    <div class="annot"><b>The capsule.</b> Track <code>--plane</code> with a <code>--line</code> edge, 4px inset, no gap between segments. The capsule is <code>--capsule</code> with <code>--capsule-shadow</code>, and no border — an edge plus an elevation read as two treatments of the same thing, and the shadow alone does the work. Label goes to <code>--ink-1</code> at medium weight, count to <code>--ink-2</code>. Both tokens are proposed: they live in <code>_proto.css</code> until the plan adds them to <code>tokens.css</code>.</div>
+    <div class="annot"><b>Open · what gives at 368px.</b> Two ways out and no ruling yet. Either the track keeps one row and scrolls horizontally, which is what is drawn here and what the script&rsquo;s scroll-into-view assumes; or each segment stacks its count under its label, which fits the five in the pane at the cost of a taller row and a count that no longer reads as part of the label. Judge it on the narrow specimen.</div>
+    <div class="annot"><b>The strip below is All&rsquo;s</b> (144), while the track shows MCP servers and Skills selected. Under the chips-above ruling the strip follows the selection — <code>banner-iterated.html</code> draws that — but per-category link-state figures are not in hand for Skills or MCP servers, so none are invented here.</div>
   </div>
 </div>
 
@@ -219,8 +89,8 @@
   <span class="text-small font-medium text-ink-1">Carried over / changed / dropped</span>
   <ul>
     <li><b>Carried over:</b> the labels, the backend counts, the hide-at-zero rule, the <code>h-7 px-3.5 rounded-pill</code> geometry, the strip below.</li>
-    <li><b>Changed:</b> one track instead of loose chips; the tonal, raised or filled capsule slides; the check mark goes; the raised capsule has no border and a contact shadow — two proposed tokens, <code>--capsule</code> and <code>--capsule-shadow</code>, and a second elevation beside the map's.</li>
-    <li><b>Dropped:</b> glass, blur, shadow, visionOS's hover-expand (pointer, not gaze).</li>
+    <li><b>Changed:</b> one track instead of loose chips, with a capsule that slides to the selection; the check mark goes, because position now carries it. The capsule has no border and a contact shadow (ruled 2026-08-22) — two proposed tokens, <code>--capsule</code> and <code>--capsule-shadow</code>, the latter a second elevation beside the map&rsquo;s.</li>
+    <li><b>Dropped:</b> glass, blur, visionOS&rsquo;s hover-expand (pointer, not gaze). Also the three capsule treatments this page was drawn to compare — tonal, filled, and count-on-selected-only — all ruled out on 2026-08-22.</li>
   </ul>
 </div>
 

@@ -326,7 +326,13 @@ harness asset layer, not an agent runtime.
 
 ## 3. Iteration strategy
 
-Three iterated views, each a review page rendered at the app's true
+**Pruned 2026-08-23.** Each page now renders the chosen design only —
+the alternatives it existed to compare are deleted, and every ruling they
+carried moved into that page's legend. What each page settles is settled;
+the "what it settles" column below is kept as the record of why the page
+was drawn, not as an open question.
+
+Four iterated views, each a review page rendered at the app's true
 dimensions (1024×700 window, 56px rail, 384px inspector, 300px placecard)
 in the app's own tokens — `_proto.css` imports `src/styles/tokens.css` by
 relative path, so light and dark are the running values and the pages
@@ -336,9 +342,9 @@ dropped* ledger.
 
 | Page | Options rendered | What it settles |
 |---|---|---|
-| `banner-iterated.html` | **A** — one strip, category-aware meter (All: link state; MCP servers: probe coverage) plus a facts line of backend fields. **B** — the same strip with one *routed* finding line below the chips (F34 shape: summary + Review →, no accordion) | Whether the strip's meaning may follow the chip; whether findings route or explain; the aqua ruling for the coverage meter |
-| `inspector-iterated.html` | **Reference** — docked, sectioned, as shipped, with the additions marked: a routed issue line, an "In this skill" folder listing, a registrations verdict card (T10), capabilities as a sentence, a per-tool size column pending the backend. **Chosen (ruled 2026-08-22)** — the same header above a tab row, breakdown first: `Content · Details` for a skill, `Tools N · Details` for an MCP server | Which additions earn a backend change (folder listing, per-tool bytes, collision detection — recommended: first two); whether the active tab is remembered |
-| `topnav-iterated.html` | The category chips as a segmented track (Karthik, 2026-08-22: "structurally like a visionOS horizontal tab view, in our tokens"): **A** tonal `--tint` capsule, **B** raised `--page` capsule with a `--line-2` edge, **C** filled `--fill` capsule — each at 584px and 368px, the capsule sliding on `--dur-nav` / `--spring` | Which capsule; what the track does at the narrow width (scroll, or counts under labels); whether the row becomes a `tablist` semantically |
+| `banner-iterated.html` | **Option A, ruled 2026-08-23** — chips above the strip, category-aware meter (All: link state; MCP servers: probe coverage), plus a facts line of backend fields. The chip row is the segmented track from the top nav, not a second control that resembles it. B's routed finding line was **not** taken. | Settled: the strip's meaning follows the chip. Consequence recorded on the page: the "declared more than once" finding now relies on Needs review alone. Still open: the aqua ruling for the coverage meter |
+| `inspector-iterated.html` | **Chosen, ruled 2026-08-22** — tab row under the header, breakdown first: `Content · Details` for a skill, `Tools N · Details` for an MCP server; every section one bordered card of rows. Header rebuilt 2026-08-23 (the ten rulings below). The two reference shells are deleted. | Settled: tabs, content first; the section format; transport said once. Still open: which additions earn a backend change; whether the active tab is remembered; the header's one-row-versus-two fit at 384px |
+| `topnav-iterated.html` | **Option B, ruled 2026-08-23** — the category chips as a segmented track, the selected segment a raised capsule: no border, a tight contact shadow, and in dark a lighter surface instead (a shadow is invisible on black). Drawn at 584px and 368px, the capsule sliding on `--dur-nav` / `--spring`. A, B′ and C are deleted. | Settled: the capsule. Still open: what the track does at 368px (scroll, or counts under labels); whether the row becomes a `tablist` semantically |
 | `map-iterated.html` | One canvas with hover focus, a state dot on a node, the layers panel extended (Unlinked roots, Only drift and dangling), a scan stamp in the cap, and three placecard bodies with per-kind facts and one action each | Whether the placecard may call `get_asset_counts(root)` on selection or the node should carry the figures; whether "Show its assets →" (engine) and "Rules here" (project) earn their place |
 
 ### Recommended order, if approved
@@ -354,10 +360,72 @@ dropped* ledger.
    `RepoPane` state, needs the aqua ruling and one backend field (a
    disagreeing-servers count), and its copy needs naming briefs.
 
+### Rulings, 2026-08-23 — the inspector header
+
+Karthik gave a screenshot reference for the header and answered ten
+questions against it. Recorded here because several of them are
+system-wide, not header-local.
+
+1. **Two button radii, and the radius follows the size, not the role.**
+   A normal button (30px, `.btn`) stays a full pill — unchanged. A mini
+   button (26px, `.mini`) takes a small radius. The two tiers must never
+   read as the same control at two scales.
+2. **`.claude/DESIGN.md` is amended accordingly.** It says four radii;
+   this is a fifth. Because DESIGN.md is derived from code with every
+   statement cited, the rule goes into its *Not implemented* section
+   until the token exists in `src/styles/tokens.css`, and moves up when
+   the code lands. Proposed value `--radius-mini: 8px`; 6/8/10 drawn at
+   true size for the ruling.
+3. **"Squircle" was figurative.** A radius value, not a superellipse.
+   No `corner-shape`, no `clip-path`, nothing that depends on WebKit
+   support we have not verified in the real webview.
+4. **The kind word stays visible** in the header (his first screenshot).
+   Dropping it — and letting the icon carry the kind alone — stays
+   available as a later iteration; it would need four drawn kind marks
+   first, since only MCP has a glyph today (`ServerIcon`).
+5. **Scope folds into the kind icon as a tooltip.** The eyebrow was
+   `Skill · Global`; the visible word is now the kind alone and
+   `Skill · Global` is the icon's tooltip. The place is not dropped —
+   it moves.
+6. **The finding moves into a popover on the Review chip**, which makes
+   the chip a button. The header's state line and its disclosure card
+   both go. This keeps F34 — the fault is explained once, in the
+   popover, with the route to Needs review — and buys back two rows.
+7. **The path chip is dissolved.** The path becomes plain mono text; its
+   two buttons join the trailing icon cluster, which reads Copy path,
+   Reveal in Finder, Expand, Hide inspector.
+8. **No chevron on `Link to…`.** The ellipsis stays, the panel takeover
+   stays, and every string stays sentence case — no Title Case.
+9. **The two button tiers split by place.** Header actions are minis
+   with tone: `Link to…` filled, `Open in editor` tonal. Actions inside
+   sections are the equal outlined mini set. This closes the open
+   question of whether `Link to…` keeps `--fill`: it does, at mini size,
+   in the header only.
+10. **Sizes get drawn, not guessed.**
+
+**Two facts from the code that constrain 6 and 7.** The 40px row at the
+top of the inspector column is `data-tauri-drag-region`
+(`src/App.tsx:1633`) — it is how the window is dragged from that column,
+and its height is what keeps the panel aligned with the toolbar. It
+cannot simply be deleted, so the identity row takes it over. And
+`src/App.tsx:1641-1646` already refuses a second close control on the
+grounds that one control at the window's trailing edge beats two doing
+the same job — so Expand and Hide inspector **move** into the header,
+they are never copied into it.
+
+**The fit.** The one-row header he drew needs roughly 431px of content
+against 348px available inside a 384px aside. His reference is ~537px
+wide, which is why it reads comfortably there; the real column clamps
+384–480 (`src/App.tsx:1118`), so the row fits only near the maximum.
+Both layouts are drawn at 384px — one row as ruled, and a two-row
+fallback — and the choice is his.
+
 ### Decisions needed before the plan
 
-1. Banner: Option A, B, or A with B's routed line (my recommendation: A,
-   with B's line replacing the accordion for findings that have an asset).
+1. ~~Banner: Option A, B, or A with B's routed line.~~ **Ruled
+   2026-08-23: Option A**, with the chip row rendered as the segmented
+   track rather than as outlined pills. B's routed line was not taken —
+   the consequence is recorded on the page.
 2. ~~Inspector: sections (A) or tabs (B).~~ **Ruled 2026-08-22: tabs,
    breakdown first** (Content / Tools N, then Details). Remaining
    sub-question: remember the active tab per kind, or always open on the
@@ -387,16 +455,15 @@ dropped* ledger.
    "Risk: Med" have no source and are not drawn; rating shell access
    would be a Needs-review issue kind and a ruling.
 4. The aqua ruling for the MCP coverage meter (answered share as progress).
-5. Top navigation: which capsule (tonal A, raised B, filled C) for the
-   segmented track; at 368px, a scrolling track or counts under the
-   labels; `tablist` semantics. Karthik's reference (2026-08-22) is an
-   iOS segmented control — grey track, the selected segment a raised
-   white capsule — which is B. Recommendation: B with the `--line-2`
-   edge standing in for the shadow, and B′ (count only on the selected
-   segment) as the answer to 368px if the full-count track reads too
-   long. Watch dark: `--page` on `--plane` is a small step there and the
-   edge carries the capsule.
-6. Naming briefs for the first-time labels that survive: "Unlinked roots",
+5. ~~Top navigation: which capsule.~~ **Ruled 2026-08-23: the raised
+   capsule (B)** — no border, a tight contact shadow, and in dark a
+   lighter surface instead, since a shadow is invisible on black. Still
+   open: at 368px, a scrolling track or counts under the labels; and
+   whether the row becomes a `tablist` semantically.
+6. The inspector header: one row as drawn, or the two-row fallback —
+   both drawn at 384px, with the measured overflow annotated.
+7. `--radius-mini`: 6, 8 or 10px, drawn at true size.
+8. Naming briefs for the first-time labels that survive: "Unlinked roots",
    "Only drift and dangling", "In this skill", "Show its assets", "Rules
    here", "Described in", "answered / not yet asked / can't be asked" (the
    last three already exist in `McpEngineSummary` copy, unsigned — T11).
