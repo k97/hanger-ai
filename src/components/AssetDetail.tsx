@@ -6,6 +6,7 @@ import {
   ArrowDownTrayIcon,
   ClockIcon,
   CodeBracketIcon,
+  CommandLineIcon,
   CpuChipIcon,
   DocumentIcon,
   DocumentTextIcon,
@@ -238,10 +239,10 @@ export default function AssetDetail({ asset, inventory, onLink, annotation }: As
 
   const specRows: IdentityRow[] = document
     ? (SPEC_FIELDS as readonly string[])
-        .filter((key) => key !== "name" && key !== "description")
+        .filter((key) => key !== "name" && key !== "description" && key !== "allowed-tools")
         .filter((key) => document.frontmatter[key] !== undefined)
         .map((key) => {
-          const label = key === "allowed-tools" ? "Allowed tools" : key[0].toUpperCase() + key.slice(1);
+          const label = key[0].toUpperCase() + key.slice(1);
           return {
             key: label.replace(/\s+/g, "-").toLowerCase(),
             label,
@@ -254,6 +255,9 @@ export default function AssetDetail({ asset, inventory, onLink, annotation }: As
           };
         })
     : [];
+
+  const raw = document?.frontmatter["allowed-tools"];
+  const allowedTools: string[] = raw === undefined ? [] : Array.isArray(raw) ? raw : [raw];
 
   const identityRows: IdentityRow[] = [
     {
@@ -485,6 +489,25 @@ export default function AssetDetail({ asset, inventory, onLink, annotation }: As
                           ? `${e.file_count ?? 0} ${e.file_count === 1 ? "file" : "files"}`
                           : formatBytes(e.bytes ?? 0)
                       }
+                    />
+                  ))}
+                </ListCard>
+              </section>
+            )}
+
+            {allowedTools.length > 0 && (
+              <section className="mx-[18px] my-3.5">
+                <div className="flex items-baseline justify-between gap-2 mb-3">
+                  <span className={eyebrowClass}>Capabilities</span>
+                </div>
+                <ListCard>
+                  {allowedTools.map((tool) => (
+                    <ListCardRow
+                      key={tool}
+                      data-testid="capability-row"
+                      icon={<CommandLineIcon size={14} aria-hidden="true" />}
+                      label={<span className="font-mono">{tool}</span>}
+                      wide={tool.startsWith("Bash") ? "runs commands" : undefined}
                     />
                   ))}
                 </ListCard>
