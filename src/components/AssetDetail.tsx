@@ -2,7 +2,19 @@ import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { openPath, revealItemInDir } from "@tauri-apps/plugin-opener";
-import { CodeBracketIcon, DocumentIcon, RevealInFileManagerIcon, Square2StackIcon } from "./icons";
+import {
+  ArrowDownTrayIcon,
+  ClockIcon,
+  CodeBracketIcon,
+  CpuChipIcon,
+  DocumentIcon,
+  DocumentTextIcon,
+  GlobeAltIcon,
+  LinkIcon,
+  RevealInFileManagerIcon,
+  Square2StackIcon,
+  TagIcon,
+} from "./icons";
 import Tooltip from "./Tooltip";
 import MarkdownDoc from "./MarkdownDoc";
 import UnderlineTabs from "./UnderlineTabs";
@@ -36,6 +48,17 @@ interface DetailAsset {
   scope?: Scope;
 }
 
+/** What `read_asset_body` answers: the file's text plus the measurements the
+ *  backend took while reading it — never re-derived on the frontend. */
+interface AssetBody {
+  path: string;
+  text: string;
+  bytes: number;
+  lines: number;
+  modified_ms: number;
+  estimated_tokens: number;
+}
+
 interface AssetDetailProps {
   asset: DetailAsset;
   inventory: Inventory | null;
@@ -66,6 +89,16 @@ const STATE_INK: Record<string, string> = {
   local: "text-ink-3",
 };
 
+const eyebrowClass = "font-flex text-micro font-medium tracking-[.06em] uppercase text-ink-3";
+
+interface IdentityRow {
+  key: string;
+  label: string;
+  icon: ReactNode;
+  value?: ReactNode;
+  wide?: ReactNode;
+}
+
 /* The Reach card's groups, in reading order: what reaches it, then why the
    rest do not. `format` is a different fact from an unlinked root — the asset
    belongs to another engine and sits in that engine's format, so nothing is
@@ -84,12 +117,9 @@ function parentOf(path: string): string {
   return cut > 0 ? path.slice(0, cut) : path;
 }
 
-/** "3.1 kB · 84 lines" — measured from the text actually read, never guessed. */
-function sizeOf(text: string): string {
-  const bytes = new TextEncoder().encode(text).byteLength;
-  const size = bytes < 1024 ? `${bytes} B` : `${(bytes / 1024).toFixed(1)} kB`;
-  const lines = text.split("\n");
-  return `${size} · ${lines.length} lines`;
+/** "3.1 kB" or "431 B" — the backend's own byte count, never re-measured. */
+function formatBytes(n: number): string {
+  return n < 1024 ? `${n} B` : `${(n / 1024).toFixed(1)} kB`;
 }
 
 function basenameOf(path: string): string {
@@ -108,19 +138,20 @@ function basenameOf(path: string): string {
 export default function AssetDetail({ asset, inventory, onLink, annotation }: AssetDetailProps) {
   const [tab, setTab] = useState<"content" | "details">("content");
   const [view, setView] = useState<"preview" | "source">("preview");
-  const [text, setText] = useState<string | null>(null);
+  const [body, setBody] = useState<AssetBody | null>(null);
   // What the backend actually read. A skill's own path is the folder that
   // holds it, so the document sits one level in and the panel says so rather
   // than showing a directory above a rendered file.
   const [documentPath, setDocumentPath] = useState<string | null>(null);
   const [docError, setDocError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const text = body?.text ?? null;
 
   const kind = documentKindFor(asset.category);
 
   useEffect(() => {
     let cancelled = false;
-    setText(null);
+    setBody(null);
     setDocumentPath(null);
     setDocError(null);
     setTab("content");
@@ -134,11 +165,11 @@ export default function AssetDetail({ asset, inventory, onLink, annotation }: As
     }
     setLoading(true);
 
-    invoke<{ path: string; text: string }>("read_asset_body", { path: asset.path })
-      .then((body) => {
+    invoke<AssetBody>("read_asset_body", { path: asset.path })
+      .then((result) => {
         if (cancelled) return;
-        setText(body.text);
-        setDocumentPath(body.path);
+        setBody(result);
+        setDocumentPath(result.path);
       })
       .catch((err) => {
         if (!cancelled) setDocError(String(err));
@@ -174,40 +205,102 @@ export default function AssetDetail({ asset, inventory, onLink, annotation }: As
   const pretty = text !== null && kind === "json" ? formatJson(text) : null;
   const showsTabs = document !== null || pretty !== null;
 
-  const meta: { key: string; value: ReactNode }[] = [
+  const specRows: IdentityRow[] = document
+    ? (SPEC_FIELDS as readonly string[])
+        .filter((key) => key !== "name" && key !== "description")
+        .filter((key) => document.frontmatter[key] !== undefined)
+        .map((key) => {
+          const label = key === "allowed-tools" ? "Allowed tools" : key[0].toUpperCase() + key.slice(1);
+          return {
+            key: label.replace(/\s+/g, "-").toLowerCase(),
+            label,
+            icon: <DocumentTextIcon size={14} aria-hidden="true" />,
+            wide: String(
+              Array.isArray(document.frontmatter[key])
+                ? (document.frontmatter[key] as string[]).join(", ")
+                : document.frontmatter[key]
+            ),
+          };
+        })
+    : [];
+
+  const identityRows: IdentityRow[] = [
     {
-      key: "Engine",
-      value: (
+      key: "engine",
+      label: "Engine",
+      icon: <CpuChipIcon size={14} aria-hidden="true" />,
+      wide: (
         <EngineLabel engineKey={scopeAgent(asset.scope as Scope)} size={14}>
           {engineLabel(asset as never)}
         </EngineLabel>
       ),
     },
-    { key: "Scope", value: provenance.place },
+    {
+      key: "scope",
+      label: "Scope",
+      icon: <GlobeAltIcon size={14} aria-hidden="true" />,
+      wide: provenance.place,
+    },
     ...(provenance.linkedInto.length > 0
-      ? [{ key: "Linked into", value: provenance.linkedInto.join(", ") }]
+      ? [
+          {
+            key: "linked-into",
+            label: "Linked into",
+            icon: <LinkIcon size={14} aria-hidden="true" />,
+            wide: provenance.linkedInto.join(", "),
+          },
+        ]
       : []),
-    ...(provenance.source ? [{ key: "Points at", value: provenance.source }] : []),
+    ...(provenance.source
+      ? [
+          {
+            key: "points-at",
+            label: "Points at",
+            icon: <LinkIcon size={14} aria-hidden="true" />,
+            value: provenance.source,
+          },
+        ]
+      : []),
     // "Origin" rather than "Source": the Source tab below means the raw
     // file, and one panel cannot use the same word for two things.
-    { key: "Origin", value: sourceLabel(asset as never) },
-    ...(asset.version ? [{ key: "Version", value: asset.version }] : []),
-    ...(text ? [{ key: "Size", value: sizeOf(text) }] : []),
+    {
+      key: "origin",
+      label: "Origin",
+      icon: <ArrowDownTrayIcon size={14} aria-hidden="true" />,
+      wide: sourceLabel(asset as never),
+    },
+    ...(asset.version
+      ? [
+          {
+            key: "version",
+            label: "Version",
+            icon: <TagIcon size={14} aria-hidden="true" />,
+            value: asset.version,
+          },
+        ]
+      : []),
+    ...(body
+      ? [
+          {
+            key: "size",
+            label: "Size",
+            icon: <DocumentIcon size={14} aria-hidden="true" />,
+            value: `${formatBytes(body.bytes)} · ${body.lines} lines`,
+          },
+          {
+            key: "modified",
+            label: "Modified",
+            icon: <ClockIcon size={14} aria-hidden="true" />,
+            value: new Date(body.modified_ms).toLocaleDateString("en-US", {
+              month: "short",
+              day: "numeric",
+              year: "numeric",
+            }),
+          },
+        ]
+      : []),
+    ...specRows,
   ];
-
-  const specMeta = document
-    ? (SPEC_FIELDS as readonly string[])
-        .filter((key) => key !== "name" && key !== "description")
-        .filter((key) => document.frontmatter[key] !== undefined)
-        .map((key) => ({
-          key: key === "allowed-tools" ? "Allowed tools" : key[0].toUpperCase() + key.slice(1),
-          value: String(
-            Array.isArray(document.frontmatter[key])
-              ? (document.frontmatter[key] as string[]).join(", ")
-              : document.frontmatter[key]
-          ),
-        }))
-    : [];
 
   return (
     <div className="flex-1 min-h-0 flex flex-col font-sans">
@@ -326,14 +419,23 @@ export default function AssetDetail({ asset, inventory, onLink, annotation }: As
             id={kind === "none" ? undefined : "panel-details"}
             aria-labelledby={kind === "none" ? undefined : "tab-details"}
           >
-            <dl className="mx-[18px] my-3.5 px-3.5 py-3 bg-plane rounded-plane grid grid-cols-[92px_1fr] gap-y-2 gap-x-3 text-small">
-              {[...meta, ...specMeta].map((row) => (
-                <div key={row.key} className="contents">
-                  <dt className="font-flex text-ink-3">{row.key}</dt>
-                  <dd className="text-ink-1 break-all">{row.value}</dd>
-                </div>
-              ))}
-            </dl>
+            <section className="mx-[18px] my-3.5">
+              <div className="flex items-baseline justify-between gap-2 mb-3">
+                <span className={eyebrowClass}>Identity</span>
+              </div>
+              <ListCard>
+                {identityRows.map((row) => (
+                  <ListCardRow
+                    key={row.key}
+                    data-testid={`identity-row-${row.key}`}
+                    icon={row.icon}
+                    label={row.label}
+                    value={row.value}
+                    wide={row.wide}
+                  />
+                ))}
+              </ListCard>
+            </section>
 
             {/* Every engine, grouped by verdict. The row can draw at most three
                 marks, so this is where the rest are answerable — and grouping is

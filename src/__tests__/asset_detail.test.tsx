@@ -264,4 +264,19 @@ describe("Asset detail — the inspector's document screen", () => {
     expect(screen.getByRole("tabpanel").id).toBe("panel-details");
     expect(screen.getByText("License")).toBeTruthy();
   });
+
+  it("Identity is one list card in the ruled order, with Modified from the file's mtime", async () => {
+    render(<AssetDetail asset={asset} inventory={inventory} />);
+    await screen.findByRole("tab", { name: "Details" });
+    openDetails();
+    const section = screen.getByText("Identity").closest("section")!;
+    const rows = Array.from(section.querySelectorAll('[data-testid^="identity-row-"]')).map((r) => r.getAttribute("data-testid"));
+    expect(rows).toEqual([
+      "identity-row-engine", "identity-row-scope", "identity-row-linked-into", "identity-row-origin",
+      "identity-row-version", "identity-row-size", "identity-row-modified", "identity-row-license", "identity-row-allowed-tools",
+    ]);
+    expect(within(section).getByText("Modified").nextElementSibling?.textContent).toBe("Jul 20, 2026");
+    expect(within(section).getByText("Size").nextElementSibling?.textContent).toBe("431 B · 21 lines");
+    expect(section.querySelector("dl")).toBeNull();
+  });
 });
