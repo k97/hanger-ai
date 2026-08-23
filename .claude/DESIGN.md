@@ -149,12 +149,22 @@ the panes as `px-[18px]` / `mx-[18px]`.
 
 ### Radius
 
-Three radii (`tokens.css:65-68`): `--radius-plane: 16px` for planes,
-`--radius-inner: 12px` for inner surfaces, `--radius-pill: 9999px` for
-controls. A fourth, `--radius-control: 6px`, is declared as legacy
-(`tokens.css:139`) and marked in the theme block as "retired with its users"
-(`index.css:112`). All five line numbers in this paragraph were stale by
-roughly 26 lines and were corrected 2026-08-23.
+Four radii: `--radius-plane: 16px` for planes (`tokens.css:65`),
+`--radius-inner: 12px` for inner surfaces (`:66`), `--radius-pill: 9999px`
+for controls (`:68`), and `--radius-control: 6px` (`:139`) — no longer
+legacy. Karthik ruled 2026-08-23 that buttons take two radii chosen by
+size, not by role: a normal button (30px) stays `rounded-pill`, unchanged;
+a mini button (26px) takes `rounded-control`, so the mini tier reads as
+its own control rather than a shrunken pill. All four are registered as
+utilities in the same `@theme` block (`index.css:113-117`). The mini tier
+is `src/components/miniButton.ts`'s three exported class strings, each
+`rounded-control` on the shared 26px `base` (`:12-13`): `miniBtnClass`
+(`:16`), `miniBtnFillClass` (`:19`), `miniBtnTonalClass` (`:22`) — plus
+`miniSetClass` (`:25`) for a row of them. The first caller is
+`LinkMapPlacecard.tsx`'s engine-root and project actions, `Show its
+assets` (`:399`) and `Open project` (`:407`): each a `miniBtnClass` button
+inside a `miniSetClass` row (`:398`, `:406`) — there is no bespoke
+`actionBtnClass`.
 
 Controls are pills — with one squared exception. `--radius-soft` (10px,
 `tokens.css:67`) rounds the icon rail's 32×32 buttons (`IconRail.tsx:19`),
@@ -502,6 +512,51 @@ itself — nodes, counts, edge states, even which empty state the view is in
 — arrives computed from the backend `link_graph` command
 (`src-tauri/src/linkmap.rs`); the pane derives nothing.
 
+**Hover focus.** Hovering a node sets `hoveredId` (`LinkMapPane.tsx:202`);
+the focus set is that node, its edges, and their other endpoints —
+`focusedEdge` / `focusedNode` (`:390-394`), set and cleared by each node
+group's `onMouseEnter` / `onMouseLeave` (`:497-498`). Everything outside
+the focus set dims to `opacity-35` under `duration-hover` (`dimClass`,
+`:395-396`), applied to every edge group (`:456`) and every node group
+(`:499`).
+
+**The state dot.** A node that is the destination of a drifted or
+dangling edge carries an 8px dot (`r={4}`), inset 10px from its top-right
+corner and ringed in `--page` (`stroke-page`; `data-testid="map-state-dot"`,
+`:549-565`). `worstStateInto` (`:400-405`) reads only edges into that
+node and checks dangling before drifted, so the worse of the two wins
+when a node has both; the store is every edge's source and never carries
+the dot.
+
+**The layers panel.** Three switch rows under "Show on map" (`:628-630`):
+Projects (`:631-639`), whose state (`showProjects`) is a prop persisted by
+App as `linkmap_show_projects`, default off, as above; Unlinked roots
+(`:640-648`, `showUnlinked`, pane-local, default on, `:204`); and Only
+drift and dangling (`:649-657`, `onlyFaults`, pane-local, default off,
+`:205`).
+
+**`LinkMapPlacecard`'s node body.** A section-format `ListCard` with one
+row per kind of count — Assets always, then Skills, Rules, Subagents and
+MCP servers only when that count is above zero (`LinkMapPlacecard.tsx:332-370`).
+A store node's card also carries a `Linked from` row, worded to how many
+engine roots reach it (`:371-378`). A project node with rule assets gets
+a second card headed "Rules here", one row per rule name (`:380-396`).
+Exactly one mini action per node kind — `Show its assets` on an engine
+root (`:397-404`), `Open project` on a project (`:405-412`) — each a
+`miniBtnClass` button inside a `miniSetClass` row. A node with a finding
+carries `FindingChip` in its head, beside the title (`:300-311`).
+
+**Store→engine edges are always linked symlinks.** `build_link_graph`
+inserts a store→engine edge only as `(EdgeMechanism::Symlink,
+EdgeState::Linked)` — an entry reaches `engine_links` by having already
+resolved into the store, so there is no other state to derive
+(`linkmap.rs:434-436` states this, `:442` does it). The only edges that
+can carry `drifted` or `dangling` are project edges from the `links`
+table. So the state dot and the finding chip — both keyed to a node's
+worst incoming state — can appear only on project nodes; an engine root's
+incoming edge is always linked, and the store is never a destination at
+all.
+
 ### Inspectors
 
 Two inspectors exist with different payloads, mounted per view rather than one
@@ -615,6 +670,44 @@ assistive tech rather than repeating it (`:16-17`). It exists because native
 `title` arrives after ~1s in the OS's own type; this one arrives in 80ms in the
 app's type, positioned `fixed` so the shell's overflow-hidden columns cannot
 clip it (`Tooltip.tsx:30-36`).
+
+**`ListCard` / `ListCardRow`** (`ListCard.tsx`) — the section format
+(Karthik, 2026-08-22): an eyebrow above one bordered card whose rows are
+icon · label · right-aligned value, the divider drawn on "row after row"
+rather than under a single-row card or its own last row (`:3-12`).
+`ListCard` (props `:14-18`, component `:23-29`) is flat on the page:
+`cardClass` (`:20-21`) is a `--line` border and `rounded-inner`, no fill.
+`ListCardRow` (props `:31-42`, `rowClass` `:44`, component `:46-67`) takes
+an optional 14px `icon`, a `label`, and either a mono `value` or a sans
+`wide` figure pushed to the right edge, plus a trailing control. First
+callers: the link map's placecards (`LinkMapPlacecard.tsx:15` import,
+`:239`, `:332`, `:385`); the doc comment states the inspector's sections
+are meant to take the same card next (`ListCard.tsx:10-11`).
+
+**`FindingChip`** (`FindingChip.tsx`) — a chip plus an edge-clamped
+popover (Karthik, 2026-08-23): the chip says a node wants a decision;
+opening it says what, once (`:4-16`). Props `count?`, `severity`, `lines`,
+`onReview`, `elevated`, `clampTo` (`:18-25`). The dot's colour is
+`severity` — `bg-state-danger` or `bg-state-warning` (`:71`, drawn
+`:86`). The popover measures its own box against `clampTo.current` in a
+`useLayoutEffect` and, only if it would run past the caller's surface,
+shifts back inside and moves the arrow the same amount so it still points
+at the chip (`:56-69`) — `Tooltip.tsx`'s window correction, here against
+the caller's own container. `elevated` decides whether the popover
+carries `shadow-overlay` (`:97-99`). Its lines are not new copy:
+`LinkMapPlacecard` passes the popover the same strings the map already
+draws on the edge labels themselves, built by `edgeSummary`
+(`LinkMapPane.tsx:407-408`, drawn on the map `:477`). `Review →`
+(`:109-111`) fires `onReview`, which `App.tsx` wires to switch to the
+Needs review pane (`App.tsx:1545-1548`).
+
+**`ScanStamp`** (`ScanStamp.tsx`) — how old the figure beside it is;
+stays an age during a scan rather than restating that one is running
+(`:9-14`). Two callers: `SummaryStrip.tsx` (`:67`) and the map cap, beside
+Rescan, since the map view's toolbar slot holds Rescan in place of an
+inspector toggle (`App.tsx:1402`). Re-renders on a 30s interval so the
+age keeps pace with no scan event (`:17-20`); the wording — "moments ago"
+under a minute, then minutes, hours, days — is `timeAgo.ts` (`:2-11`).
 
 **`DisclosureBanner`** (`DisclosureBanner.tsx:4-10`) — `variant: "warning" | "error" | "info"`,
 `summary`, `count`, `children`, `defaultOpen?`. Every variant sits on the same
@@ -794,26 +887,6 @@ thirteen stops (`tokens.css:77-89`); `.dark` redefines only four, `--n-0`
 through `--n-100` (`tokens.css:165-168`). Any component using `--n-200` or
 darker gets the light value in dark mode. How I know: direct comparison of the
 two blocks.
-
-**`--radius-control: 6px` outlived its retirement note — and now has a
-job.** Declared at `tokens.css:139`, and the theme block registers it while
-calling it retired (`index.css:112`, `:117`). Because it is registered,
-`rounded-control` is already a working utility; nothing in `src/` uses it.
-
-Karthik ruled on 2026-08-23 that buttons take **two radii, chosen by size
-rather than by role**: a normal button (30px) stays a full pill, unchanged,
-and a mini button (26px) takes a small radius so the two tiers never read
-as one control at two scales. `--radius-control` is that small radius —
-revived, not replaced, so the system stays at four radii and no token is
-added. "Squircle" in the ruling was figurative: a radius value, not a
-superellipse, and nothing here depends on `corner-shape` support.
-
-This paragraph stays in *Not implemented* until a component actually
-renders `rounded-control`. The design is drawn in
-`docs/v4-prototypes/_iterated-view/inspector-iterated.html` — where the
-mini tier splits again by role: header actions carry tone (one filled, one
-tonal) and in-section actions are an equal outlined set. 6 / 8 / 10 are
-drawn at true size; 6 leads because it is the value already in the code.
 
 **"Semantic colour in exactly one place" is not literally true.** The palette
 comment claims state is the only saturated colour (`tokens.css:3-4`), but the
