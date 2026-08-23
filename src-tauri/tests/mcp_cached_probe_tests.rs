@@ -612,3 +612,30 @@ fn mcp_cached_probe_is_the_only_probe_command_the_webview_can_invoke() {
          file drives"
     );
 }
+
+#[tokio::test]
+async fn a_served_answer_carries_its_cost_and_a_declined_empty_one_carries_none() {
+    let dir = std::env::temp_dir().join("hanger_test_probe_cost");
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let db_path = dir.join("store.db");
+    tauri_app_lib::preferences::PreferencesStore::new(&db_path).unwrap();
+    let server = stdio_server();
+    let now = now_ms();
+    seed(&db_path, &server, now - 1000);
+
+    let out = cached_probe(&db_path, &server, false, false, now).await;
+    let cost = out.cost.expect("a result always carries its cost");
+    assert_eq!(cost.tool_count, 1);
+    assert_eq!(cost.described_tool_count, 1);
+    assert_eq!(cost.description_bytes_total, "Only a cache hit can produce this name".len() as u64);
+
+    let fresh_dir = std::env::temp_dir().join("hanger_test_probe_cost_none");
+    let _ = std::fs::remove_dir_all(&fresh_dir);
+    std::fs::create_dir_all(&fresh_dir).unwrap();
+    let empty_db = fresh_dir.join("store.db");
+    tauri_app_lib::preferences::PreferencesStore::new(&empty_db).unwrap();
+    let out = cached_probe(&empty_db, &server, false, true, now).await;
+    assert!(out.result.is_none() && out.declined);
+    assert!(out.cost.is_none(), "no result, no cost");
+}

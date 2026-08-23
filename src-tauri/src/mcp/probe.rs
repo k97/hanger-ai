@@ -97,6 +97,46 @@ impl ProbeResult {
     }
 }
 
+/// The description half of a tool definition, in bytes. A request carries
+/// name + description + input schema; the store keeps the first two and
+/// drops the schema (see `ProbedTool`), so this is the part of the toll the
+/// store can account for — the smaller part. Bytes, not tokens: bytes are
+/// the fact, and a token figure is an estimate the screen labels as one.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ToolCostRow {
+    pub name: String,
+    pub description_bytes: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ToolCost {
+    pub tool_count: usize,
+    /// Tools whose description is Some — the "9 of 17" figure.
+    pub described_tool_count: usize,
+    /// UTF-8 bytes of every description, summed.
+    pub description_bytes_total: u64,
+    pub per_tool: Vec<ToolCostRow>,
+}
+
+pub fn tool_cost(result: &ProbeResult) -> ToolCost {
+    let per_tool: Vec<ToolCostRow> = result
+        .tools
+        .iter()
+        .map(|t| ToolCostRow {
+            name: t.name.clone(),
+            description_bytes: t.description.as_ref().map(|d| d.len() as u64).unwrap_or(0),
+        })
+        .collect();
+    ToolCost {
+        tool_count: result.tools.len(),
+        described_tool_count: result.tools.iter().filter(|t| t.description.is_some()).count(),
+        description_bytes_total: per_tool.iter().map(|r| r.description_bytes).sum(),
+        per_tool,
+    }
+}
+
 /// Resolve a declaration into an executable and its arguments.
 ///
 /// Configs are inconsistent about where the arguments live. `~/.claude.json`

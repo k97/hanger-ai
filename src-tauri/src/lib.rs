@@ -340,6 +340,9 @@ pub struct CachedProbeResponse {
     /// been declined, and would explain an empty block by saying nobody has
     /// asked yet — which is false, and hides the one thing worth saying.
     pub declined: bool,
+    /// The description-bytes accounting of `result`; `None` exactly when
+    /// `result` is.
+    pub cost: Option<crate::mcp::probe::ToolCost>,
 }
 
 /// Answer from the store when the store can answer, and start the server only
@@ -453,6 +456,7 @@ where
                 verified_at: Some(c.verified_at),
                 from_cache: true,
                 declined: false,
+                cost: Some(crate::mcp::probe::tool_cost(&c.result)),
             };
         }
 
@@ -475,12 +479,16 @@ where
 
         if declined {
             return match cached {
-                Some(c) => CachedProbeResponse {
-                    result: Some(c.result),
-                    verified_at: Some(c.verified_at),
-                    from_cache: true,
-                    declined: true,
-                },
+                Some(c) => {
+                    let cost = Some(crate::mcp::probe::tool_cost(&c.result));
+                    CachedProbeResponse {
+                        result: Some(c.result),
+                        verified_at: Some(c.verified_at),
+                        from_cache: true,
+                        declined: true,
+                        cost,
+                    }
+                }
                 // Nothing to give and no safe way to get it. The panel says
                 // why and offers the re-check.
                 None => CachedProbeResponse {
@@ -488,6 +496,7 @@ where
                     verified_at: None,
                     from_cache: false,
                     declined: true,
+                    cost: None,
                 },
             };
         }
@@ -519,11 +528,13 @@ where
     // that no longer starts, which is the more dangerous of the two lies.
     let _ = crate::preferences::put_probe_result(db_path, &key, &result, None, None, current_mtime);
 
+    let cost = Some(crate::mcp::probe::tool_cost(&result));
     CachedProbeResponse {
         result: Some(result),
         verified_at: Some(now_ms),
         from_cache: false,
         declined: false,
+        cost,
     }
 }
 
