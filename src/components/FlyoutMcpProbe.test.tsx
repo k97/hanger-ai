@@ -152,6 +152,7 @@ describe("Flyout — asking an MCP server what it provides", () => {
 
     await waitFor(() => expect(probeCalls()).toHaveLength(1));
     expect(probeCalls()[0][1]).toMatchObject({ force: false, running: true });
+    fireEvent.click(await screen.findByRole("tab", { name: "Details" }));
     // The badge and the spawn decision come from one fact. If they ever
     // disagree, the panel is claiming one thing and doing another.
     expect(screen.getByText(/running · pid 4242/)).toBeTruthy();

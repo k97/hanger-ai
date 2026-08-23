@@ -535,6 +535,7 @@ describe("McpServerDetail", () => {
     // already ships. No raw URL and no fingerprint reaches this panel.
     expect(screen.getByText("https://api.a.example.com/mcp")).toBeTruthy();
     expect(screen.getByText("https://api.b.example.com/mcp")).toBeTruthy();
+    openDetails();
     // And the divergence fires: `launches` filtered empty strings out, so
     // two remote arms could never make it true, however far apart they were.
     expect(screen.getByText(/differ/i)).toBeTruthy();
