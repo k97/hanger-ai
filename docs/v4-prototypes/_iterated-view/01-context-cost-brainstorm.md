@@ -19,6 +19,12 @@ unverified; nothing here has been designed yet.
 > Act as a principal technical lead and product designer. Do not write
 > implementation code. Work through the open questions with me one at a
 > time, propose two or three shapes with trade-offs, and only then draw.
+>
+> Seven surfaces are already proposed in that file, with the two framings
+> that make them honest (a ranking is tokenizer-independent; measure the
+> declared surface, not the cost). Start by pressure-testing those rather
+> than from scratch — and start with the load-profile table, because it is
+> the insight the rest hangs off.
 
 ---
 
@@ -61,6 +67,32 @@ On the machine this was written from: 110 skills in the store. If the
 ~80-token figure holds, that is a five-figure token cost sitting in every
 conversation, per reaching engine, and nothing surfaces it today.
 
+### The four kinds load four different ways
+
+This is the part nothing but Hanger can assemble, and it is the most
+useful thing on this page.
+
+| Kind | What loads | When |
+|---|---|---|
+| **Rule** | the whole file | every conversation |
+| **MCP server** | every tool definition | every request, called or not |
+| **Skill** | name + description | every conversation; the body only when used |
+| **Subagent** | name + description | every conversation |
+
+Two consequences fall straight out of it.
+
+**Rules are the most expensive thing per byte, and nobody thinks of them
+that way** — there are only a handful of them. A skill costs ~20 tokens
+until it is invoked; a rule costs its entire body, always. Rules are also
+the one kind with **no estimation problem at all**: no discovery tier, no
+"when invoked", no host-dependent loading to hedge. The file's size *is*
+the cost. `Layered rules` (already detected — `selectedProjectScan.layered`
+in `Flyout.tsx`) is exactly where this compounds.
+
+**A large skill is cheap and a small rule is not**, which is
+counterintuitive and impossible to work out from any single engine's own
+UI. That inversion is the thing worth teaching.
+
 ### Reading behind this
 
 - Anthropic — [Effective context engineering for AI agents](https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents)
@@ -71,6 +103,79 @@ conversation, per reaching engine, and nothing surfaces it today.
 - [Is Progressive Disclosure All You Need for Long-Context Agents?](https://arxiv.org/html/2607.17598v1)
 
 ---
+
+## What makes this shippable
+
+Two framings get past the honesty problem that has blocked every absolute
+figure so far.
+
+**A ranking is tokenizer-independent.** We cannot state a token count we
+can stand behind — wrong BPE, eleven engines, unverified behaviour. But
+none of that touches *ordering*. Whatever tokenizer is used, a 10 kB tool
+surface outweighs a 1 kB one. So Hanger can be confidently **comparative**
+while staying honestly vague about absolutes. Bars, shares and rankings
+survive every objection that kills a number.
+
+**Measure the declared surface, not the cost.** Hanger sees what a config
+declares to a host. What the host does with it — eager load, tool search,
+deferral — is the host's business and differs between them. "This is what
+is declared here" is literally true of the code and the config; "this
+costs you X" is not.
+
+## Proposed surfaces
+
+Seven, cheapest first. None needs a figure Hanger cannot stand behind.
+
+1. **A weight bar on the MCP list.** Each server's share of the total
+   declared surface, drawn as a bar with no number, sortable. Answers
+   "which three matter" at a glance. Uses only what `ProbedTool` already
+   stores — no migration.
+2. **The outlier line, per server.** "17 tools · one is a third of this
+   server's surface." Concentration *inside* a server is as actionable as
+   concentration across them, and it names the specific tool.
+3. **Declared in more than one host — paid in each.** The strongest
+   deferral signal Hanger can compute honestly, and the machinery exists:
+   `agreement` and `distinct_spec_count` already detect duplicate
+   registrations. A server declared in two hosts is loaded in both.
+4. **The unlink delta.** "Removing this from Claude Code drops its
+   declared surface by about a third." Hanger knows the links and can
+   compute the difference. This is the actual planning tool — it answers
+   *what would I get back*, which is the question behind deferring
+   anything.
+5. **Rules, by size, with layering shown.** See the load-profile table
+   above. The cheapest surface to build and possibly the most surprising
+   to read.
+6. **Subagents get the same treatment as skills.** The fourth kind with a
+   discovery cost. `declared_tools` is already parsed
+   (`scanner.rs:456-459`); today it renders as a joined string.
+7. **Group by origin, so decisions are bulk.** One plugin can install
+   hundreds of assets. Nobody prunes hundreds one at a time — the decision
+   is about the plugin. `source-origin` is already in `SkillFrontmatter`.
+
+### The shape to design for
+
+Both the MCP surface and the skill surface are **power-law, not spread**.
+In one real harness inspected on 2026-08-23, three of nineteen servers
+accounted for roughly 63% of the declared surface, and a single tool cost
+more than an entire other server; among ~250 skills, almost all sat at the
+floor while a handful of verbose descriptions carried the weight. Those
+figures are **illustration, not data** — they were read from a harness's
+own accounting, not computed by Hanger, and no number from that source may
+ship. The shape is the point: there are only ever three or four things
+worth touching, which is what makes a UI for this tractable.
+
+## Out of bounds
+
+**Runtime telemetry.** Session counts, request volume, "how much of your
+usage was above 150k context", frequency of use. Hanger does not tap live
+sessions and should not start. This is recorded because it is the obvious
+next idea and the seductive one — and its cheap proxy is already dead:
+`atime` records nothing on this machine, and Hanger's own scan would
+overwrite the signal it was meant to read (§1.5 of the gap analysis).
+
+Which means Hanger can answer **"what is declared, and what would
+removing it get back"** and cannot answer **"what do you actually use"**.
+Design inside that line.
 
 ## What the backend can answer today
 
@@ -85,6 +190,10 @@ Verified 2026-08-23 against the tree.
 | Skill **references / scripts** (tier 3) | Not enumerated | needs `list_asset_dir` — already a proposed small addition |
 | **Which engines reach an asset** | **Derived at read time**, three verdicts | `annotations.rs:173-205`, `:502`, `:518` |
 | Subagent `tools` | **Parsed and stored** | `scanner.rs:456-459` → `declared_tools` |
+| Subagent name + description | **Parsed** | `SubagentFrontmatter`, `scanner.rs:456-459` |
+| **Rule file size** | Readable at annotation time, like link state — no column needed | rules are scanned as assets; read-time derivation is the invariant |
+| Layered rules | **Already detected** | `selectedProjectScan.layered`, `Flyout.tsx` |
+| Asset `source-origin` | **Parsed** for skills | `scanner.rs:434-440` |
 
 So the schema half needs a `PRAGMA user_version` migration
 (`preferences.rs::init_db`, pinned by `store_migration_tests.rs`), and
@@ -112,6 +221,19 @@ half of the toll, that migration is worth more than it was first priced.
 4. **Whether hosts recently changed.** Claude Code's tool search now
    discovers MCP tools on demand (~85% less overhead reported), which if
    enabled changes the MCP half of the answer materially.
+5. **Whether rules load in full on every engine.** The load-profile table
+   above says they do, and that claim carries more weight than any other
+   on this page — it is what makes rules the most expensive kind per byte
+   and drives surface 5. It was observed in ONE engine's own context
+   accounting, not read from eleven engines' documentation. If some engine
+   loads rules lazily, or only those matching a glob, the table is wrong
+   for it. Check this first: it is the cheapest claim to verify and the
+   most load-bearing.
+6. **What "the whole file" means for a rule that references others.** A
+   root rule file that links sibling files may pull them in, or may not.
+   That decides whether a rule's cost is its own size or its transitive
+   closure — and `Layered rules` already tells us the multi-file case is
+   real here.
 
 ---
 
