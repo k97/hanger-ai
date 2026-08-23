@@ -78,7 +78,7 @@ describe("McpServerDetail", () => {
     expect(screen.getByText("get_system_volume")).toBeTruthy();
     expect(screen.getByText(/current macOS system volume/)).toBeTruthy();
     openDetails();
-    expect(screen.getByText("2025-06-18")).toBeTruthy();
+    expect(screen.getByText("MCP 2025-06-18")).toBeTruthy();
     expect(screen.getByText("1.0.0")).toBeTruthy();
     // base has three registrations but only "cc-user" was probed -- its list
     // renders unlabelled. A "Claude Code · user" prefix here would disagree
@@ -266,8 +266,10 @@ describe("McpServerDetail", () => {
       />
     );
     openDetails();
-    expect(screen.getByText("2024-11-05")).toBeTruthy();
-    expect(screen.getByText("prompts, tools")).toBeTruthy();
+    expect(screen.getByText("MCP 2024-11-05")).toBeTruthy();
+    expect(screen.getByTestId("identity-row-prompts").textContent).toBe("Promptsoffered");
+    expect(screen.getByTestId("identity-row-tools").textContent).toBe("Toolsoffered");
+    expect(screen.getByTestId("identity-row-resources").textContent).toBe("Resourcesnot offered");
 });
 
   it("names whose result the Identity section is showing when more than one registration answered", () => {
@@ -300,7 +302,7 @@ describe("McpServerDetail", () => {
       />
     );
     openDetails();
-    const identitySection = screen.getByText("Identity").closest("section")!;
+    const identitySection = screen.getByRole("heading", { name: "Identity & capabilities" }).closest("section")!;
     const slot = within(identitySection).getByText(/^verified /);
     expect(slot.textContent).toMatch(/^verified .+ · (Codex|Gemini) · global$/);
   });
@@ -1283,7 +1285,7 @@ describe("McpServerDetail — Tools first, Details second", () => {
     openDetails();
     expect(screen.getByRole("tabpanel").id).toBe("panel-details");
     const headings = screen.getAllByRole("heading", { level: 3 }).map((h) => h.textContent);
-    expect(headings).toEqual(["Identity", "Registered in", "Environment"]);
+    expect(headings).toEqual(["Identity & capabilities", "Registered in", "Environment"]);
     expect(screen.queryByRole("heading", { name: "Tools" })).toBeNull();
   });
 });
