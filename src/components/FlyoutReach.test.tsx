@@ -141,4 +141,15 @@ describe("Flyout — engine reach detail", () => {
     openDetails();
     expect(screen.queryByTestId("reach-detail")).toBeNull();
   });
+
+  it("each verdict is an eyebrow above one bordered card, on the page, not a plane", () => {
+    render(<Flyout {...props} annotation={annotation} />);
+    openDetails();
+    const section = screen.getByTestId("reach-detail");
+    expect(section.className).not.toContain("bg-plane");
+    const members = screen.getByTestId("reach-members-reached");
+    expect(members.className).toContain("border-line");
+    expect(members.className).toContain("rounded-inner");
+    expect(section.querySelector("ul")).toBeNull();
+  });
 });

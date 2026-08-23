@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { openPath, revealItemInDir } from "@tauri-apps/plugin-opener";
@@ -522,14 +522,9 @@ export default function AssetDetail({ asset, inventory, onLink, annotation }: As
                 nothing is missing and nothing is broken. Labels signed off
                 2026-08-17. */}
             {annotation && annotation.reach.length > 0 && (
-              <section
-                data-testid="reach-detail"
-                className="mx-[18px] mb-3.5 px-3.5 py-3 bg-plane rounded-plane flex flex-col gap-3"
-              >
-                <div className="flex items-baseline justify-between gap-2.5">
-                  <span className="font-flex text-micro font-medium uppercase tracking-[.06em] text-ink-3">
-                    Reach
-                  </span>
+              <section data-testid="reach-detail" className="mx-[18px] my-3.5">
+                <div className="flex items-baseline justify-between gap-2 mb-3">
+                  <span className={eyebrowClass}>Reach</span>
                   {/* One store for the whole card, not one per row. `via_store` is
                       keyed off the asset's own root in annotations.rs, so every
                       reached engine reports the same one by construction — this
@@ -541,52 +536,48 @@ export default function AssetDetail({ asset, inventory, onLink, annotation }: As
                   )}
                 </div>
 
-                {reachGroups.map((group) => (
-                  <div key={group.key} className="flex flex-col gap-1.5">
+                {reachGroups.map((group, i) => (
+                  <Fragment key={group.key}>
                     <div
                       data-testid={`reach-group-${group.key}`}
-                      className="flex items-center gap-2 font-flex text-micro uppercase tracking-[.06em] text-ink-3"
+                      className={`${eyebrowClass} mb-1 ${i > 0 ? "mt-3" : ""}`}
                     >
-                      <span className="shrink-0">{group.title}</span>
-                      <span className="flex-1 h-px bg-line" aria-hidden="true" />
+                      {group.title}
                     </div>
-                    <ul
-                      data-testid={`reach-members-${group.key}`}
-                      className="grid grid-cols-[1fr_auto] gap-x-3 gap-y-1.5 items-center"
-                    >
+                    <ListCard data-testid={`reach-members-${group.key}`}>
                       {group.members.map((r) => (
-                        <li
+                        <ListCardRow
                           key={r.engine_id}
                           data-testid={`reach-detail-${r.engine_key}`}
-                          className="contents"
-                        >
-                          <span className="flex items-center gap-2 min-w-0 text-small">
+                          icon={
                             <i
-                              className={`w-4 h-4 rounded-[6px] grid place-items-center shrink-0 not-italic ${
+                              className={`w-3.5 h-3.5 rounded-control grid place-items-center not-italic ${
                                 r.reached ? "" : "border border-line opacity-40"
                               }`}
                             >
                               <BrandIcon engineKey={r.engine_key} engineName={r.engine_name} size={12} />
                             </i>
-                            <span className={`truncate ${r.reached ? "text-ink-1" : "text-ink-3"}`}>
+                          }
+                          label={
+                            <span className={`truncate min-w-0 ${r.reached ? "text-ink-1" : "text-ink-3"}`}>
                               {r.engine_name}
                             </span>
-                          </span>
-                          {r.reached ? (
-                            <span className="font-mono text-micro text-ink-3 justify-self-end truncate max-w-[168px]">
-                              {r.via_root ? abbreviateHome(r.via_root) : "in place"}
-                            </span>
-                          ) : (
-                            /* The header already said why. The dash holds the
-                               column so the names stay in one edge. */
-                            <span className="font-mono text-micro text-ink-3 opacity-50 justify-self-end">
-                              —
-                            </span>
-                          )}
-                        </li>
+                          }
+                          value={
+                            r.reached ? (
+                              r.via_root ? (
+                                abbreviateHome(r.via_root)
+                              ) : (
+                                "in place"
+                              )
+                            ) : (
+                              <span className="opacity-50">—</span>
+                            )
+                          }
+                        />
                       ))}
-                    </ul>
-                  </div>
+                    </ListCard>
+                  </Fragment>
                 ))}
               </section>
             )}
