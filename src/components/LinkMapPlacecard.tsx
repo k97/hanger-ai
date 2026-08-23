@@ -1,11 +1,18 @@
 import type { ReactNode } from "react";
 import {
+  ArchiveBoxIcon,
   ArrowRightIcon,
+  DocumentTextIcon,
   ExclamationTriangleIcon,
   InformationCircleIcon,
+  LinkIcon,
+  ServerIcon,
+  SkillIcon,
   Square2StackIcon,
+  UserIcon,
   XMarkIcon,
 } from "./icons";
+import ListCard, { ListCardRow } from "./ListCard";
 import Tooltip from "./Tooltip";
 import EngineLabel from "./EngineLabel";
 import type {
@@ -82,19 +89,6 @@ function PathChip({ text }: { text: string }) {
         </button>
       </Tooltip>
     </div>
-  );
-}
-
-function Facts({ rows }: { rows: Array<[string, React.ReactNode]> }) {
-  return (
-    <dl className="mx-4 my-3 px-3 py-2.5 bg-plane rounded-inner grid grid-cols-[110px_1fr] gap-y-1.5 gap-x-2.5 text-small">
-      {rows.map(([key, value]) => (
-        <div key={key} className="contents">
-          <dt className="font-flex text-ink-3">{key}</dt>
-          <dd className="text-ink-1 min-w-0 break-words">{value}</dd>
-        </div>
-      ))}
-    </dl>
   );
 }
 
@@ -231,24 +225,23 @@ export default function LinkMapPlacecard({
           <div className="mx-4 mt-3">
             <PathChip text={pathLine} />
           </div>
-          <Facts
-            rows={[
-              [
-                "Kind",
-                edge.mechanism === "symlink"
-                  ? "Symlink — one copy, no drift"
-                  : "Tracked copy — can be edited, can drift",
-              ],
-              [countLabel, <span className="tabular">{edge.count}</span>],
-              ["From", <span className="font-mono text-micro break-all">{source?.path ?? "?"}</span>],
-              [
-                "Into",
-                <span className="font-mono text-micro break-all">
-                  {edge.dest_path ?? dest?.path ?? "?"}
-                </span>,
-              ],
-            ]}
-          />
+          <ListCard className="mx-4 my-3">
+            <ListCardRow
+              data-testid="placecard-row-count"
+              label={countLabel}
+              value={<span className="tabular">{edge.count}</span>}
+            />
+            <ListCardRow
+              data-testid="placecard-row-from"
+              label="From"
+              value={<span className="break-all whitespace-normal">{source?.path ?? "?"}</span>}
+            />
+            <ListCardRow
+              data-testid="placecard-row-into"
+              label="Into"
+              value={<span className="break-all whitespace-normal">{edge.dest_path ?? dest?.path ?? "?"}</span>}
+            />
+          </ListCard>
           {dest?.kind === "engine_root" && (
             <p className="mx-4 mb-3.5 px-3 py-2.5 bg-plane rounded-inner text-small text-ink-2 leading-[1.6]">
               One symlink at the root does the work of many individual deployments: anything
@@ -307,17 +300,57 @@ export default function LinkMapPlacecard({
         <div className="mx-4 mt-3">
           <PathChip text={node.path} />
         </div>
-        <Facts
-          rows={[
-            ["Kind", NODE_KIND_LABEL[node.kind]],
-            ["Assets", <span className="tabular">{node.asset_count}</span>],
-            ...(node.kind === "engine_root"
-              ? ([["Linked", node.linked ? "Yes — at the root" : "No"]] as Array<
-                  [string, React.ReactNode]
-                >)
-              : []),
-          ]}
-        />
+        {/* The section format: one bordered card of icon · label · value
+            rows, a kind row only when the root holds that kind. No Kind row —
+            the eyebrow names it — and no Linked row — the state line says it. */}
+        <ListCard className="mx-4 my-3">
+          <ListCardRow
+            data-testid="placecard-row-assets"
+            icon={<ArchiveBoxIcon size={14} aria-hidden="true" />}
+            label="Assets"
+            value={<span className="tabular">{node.asset_count}</span>}
+          />
+          {node.skill_count > 0 && (
+            <ListCardRow
+              data-testid="placecard-row-skills"
+              icon={<SkillIcon size={14} aria-hidden="true" />}
+              label="Skills"
+              value={<span className="tabular">{node.skill_count}</span>}
+            />
+          )}
+          {node.rule_count > 0 && (
+            <ListCardRow
+              data-testid="placecard-row-rules"
+              icon={<DocumentTextIcon size={14} aria-hidden="true" />}
+              label="Rules"
+              value={<span className="tabular">{node.rule_count}</span>}
+            />
+          )}
+          {node.subagent_count > 0 && (
+            <ListCardRow
+              data-testid="placecard-row-subagents"
+              icon={<UserIcon size={14} aria-hidden="true" />}
+              label="Subagents"
+              value={<span className="tabular">{node.subagent_count}</span>}
+            />
+          )}
+          {node.tool_count > 0 && (
+            <ListCardRow
+              data-testid="placecard-row-tools"
+              icon={<ServerIcon size={14} aria-hidden="true" />}
+              label="MCP servers"
+              value={<span className="tabular">{node.tool_count}</span>}
+            />
+          )}
+          {node.kind === "store" && (
+            <ListCardRow
+              data-testid="placecard-row-linked-from"
+              icon={<LinkIcon size={14} aria-hidden="true" />}
+              label="Linked from"
+              wide={`${node.linked_from} engine root${node.linked_from === 1 ? "" : "s"}`}
+            />
+          )}
+        </ListCard>
         {node.kind === "project" && (
           <div className="mx-4 mb-3.5 flex">
             <button onClick={() => onOpenProject(node.path)} className={actionBtnClass}>

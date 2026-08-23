@@ -462,4 +462,37 @@ describe("LinkMapPane", () => {
     expect(screen.getAllByTestId("map-edge")).toHaveLength(2);
     expect(screen.getAllByTestId(/^map-node-\d+$/)).toHaveLength(4);
   });
+
+  it("a node's facts are one list card: Assets, then each kind it holds, hidden at zero", () => {
+    renderPane(graph());
+    fireEvent.click(screen.getByTestId("map-node-1"));
+    const card = screen.getByTestId("map-placecard");
+    const rows = Array.from(card.querySelectorAll('[data-testid^="placecard-row-"]')).map((r) => r.textContent);
+    // The fixture store holds 110 skills, 2 rules, 5 subagents, 0 MCP servers, and is linked from 1 engine root.
+    expect(rows).toEqual(["Assets117", "Skills110", "Rules2", "Subagents5", "Linked from1 engine root"]);
+    expect(card.textContent).not.toContain("Kind");
+    expect(card.querySelector("dl")).toBeNull();
+  });
+
+  it("an engine root lists its kinds and no Linked row — the state line already says it reaches the store", () => {
+    renderPane(graph());
+    fireEvent.click(screen.getByTestId("map-node-2"));
+    const card = screen.getByTestId("map-placecard");
+    const rows = Array.from(card.querySelectorAll('[data-testid^="placecard-row-"]')).map((r) => r.textContent);
+    expect(rows).toEqual(["Assets10", "Skills8", "Subagents2"]);
+    expect(card.textContent).not.toContain("Yes — at the root");
+    expect(card.textContent).toContain("Reaches the store through a root-level symlink");
+  });
+
+  it("an edge's facts are the same card, without a Kind row", () => {
+    renderPane(graph());
+    fireEvent.click(screen.getAllByTestId("map-edge-hit")[0]);
+    const card = screen.getByTestId("map-placecard");
+    expect(card.querySelector("dl")).toBeNull();
+    const rows = Array.from(card.querySelectorAll('[data-testid^="placecard-row-"]')).map((r) => r.textContent);
+    expect(rows[0]).toBe("Root-level symlinks2");
+    expect(rows[1]).toBe("From/u/k/.agents");
+    expect(rows[2]).toBe("Into/u/k/.claude");
+    expect(card.textContent).not.toContain("Symlink — one copy, no drift");
+  });
 });
