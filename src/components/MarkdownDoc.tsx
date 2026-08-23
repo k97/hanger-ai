@@ -59,7 +59,7 @@ export default function MarkdownDoc({ blocks }: { blocks: Block[] }) {
   }
 
   return (
-    <div className="px-[18px] pt-3 pb-6 text-small text-ink-2 leading-[1.65]">
+    <div className="px-[18px] pt-3 pb-[18px] text-small text-ink-2 leading-[1.55]">
       {blocks.map((block, i) => {
         if (block.kind === "heading") {
           // The panel has one title already, so every heading in the document
@@ -99,7 +99,7 @@ export default function MarkdownDoc({ blocks }: { blocks: Block[] }) {
         return (
           <pre
             key={i}
-            className="bg-plane rounded-inner p-3 mb-2.5 overflow-x-auto font-mono text-micro text-ink-2 leading-[1.6]"
+            className="my-2 px-3 py-2.5 bg-plane rounded-inner overflow-x-auto overflow-y-hidden font-mono text-micro text-ink-2 leading-[1.6] whitespace-pre"
           >
             <code>{block.text}</code>
           </pre>

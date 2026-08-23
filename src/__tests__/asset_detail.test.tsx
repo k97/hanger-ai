@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent, waitFor, cleanup } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, cleanup, within } from "@testing-library/react";
 import AssetDetail from "../components/AssetDetail";
 import type { Inventory } from "../App";
 import { invoke } from "@tauri-apps/api/core";
@@ -238,5 +238,22 @@ describe("Asset detail — the inspector's document screen", () => {
     const engineDd = engineDt.nextElementSibling as HTMLElement;
     expect(engineDd.textContent).toBe("Claude Code");
     expect(engineDd.querySelector("svg")?.getAttribute("data-brand")).toBe("claude_code");
+  });
+
+  it("opens on Content: the document in a card with its file row, Details a tab away", async () => {
+    render(<AssetDetail asset={asset} inventory={inventory} />);
+    expect((await screen.findByRole("tab", { name: "Content" })).getAttribute("aria-selected")).toBe("true");
+    expect(screen.getByRole("tablist", { name: "Inspector view" })).toBeTruthy();
+    const panel = screen.getByRole("tabpanel");
+    expect(panel.id).toBe("panel-content");
+    // The file row names the document, in mono, with the source toggle at its end.
+    expect(within(panel).getByText("SKILL.md").className).toContain("font-mono");
+    expect(within(panel).getByRole("button", { name: "View source" }).getAttribute("aria-pressed")).toBe("false");
+    expect(within(panel).getByText("When to use")).toBeTruthy();
+    // Details is not rendered until asked for.
+    expect(screen.queryByText("License")).toBeNull();
+    openDetails();
+    expect(screen.getByRole("tabpanel").id).toBe("panel-details");
+    expect(screen.getByText("License")).toBeTruthy();
   });
 });

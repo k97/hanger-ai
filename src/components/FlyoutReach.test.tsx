@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { render, screen, cleanup } from "@testing-library/react";
+import { render, screen, cleanup, fireEvent } from "@testing-library/react";
 
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: vi.fn().mockImplementation(() => Promise.resolve(null)),
@@ -62,6 +62,8 @@ const props = {
   onRefresh: () => {},
 };
 
+const openDetails = () => fireEvent.click(screen.getByRole("tab", { name: "Details" }));
+
 const groupTitles = (): string[] =>
   Array.from(document.querySelectorAll('[data-testid^="reach-group-"]')).map(
     (g) => (g.textContent ?? "").trim(),
@@ -70,6 +72,7 @@ const groupTitles = (): string[] =>
 describe("Flyout — engine reach detail", () => {
   it("answers for every engine, including the ones the row cannot draw", () => {
     render(<Flyout {...props} annotation={annotation} />);
+    openDetails();
     for (const key of ["claude_code", "claude_desktop", "codex", "vscode", "opencode", "zed"]) {
       expect(screen.getByTestId(`reach-detail-${key}`)).toBeTruthy();
     }
@@ -77,11 +80,13 @@ describe("Flyout — engine reach detail", () => {
 
   it("groups by verdict, in the order a reader wants them", () => {
     render(<Flyout {...props} annotation={annotation} />);
+    openDetails();
     expect(groupTitles()).toEqual(["Reaches it", "Root not linked", "Another engine's format"]);
   });
 
   it("states each reason once, on its group, not on every row", () => {
     render(<Flyout {...props} annotation={annotation} />);
+    openDetails();
     // The rows under a reason carry identity and nothing else. Two engines
     // miss for the same reason; the words appear once between them.
     expect(screen.getByTestId("reach-detail-claude_desktop").textContent).not.toContain("not linked");
@@ -91,6 +96,7 @@ describe("Flyout — engine reach detail", () => {
 
   it("a format miss is a different group from an unlinked root", () => {
     render(<Flyout {...props} annotation={annotation} />);
+    openDetails();
     const fmt = screen.getByTestId("reach-group-format");
     expect(fmt.textContent).toContain("Another engine's format");
     // VS Code sits under it; the two unlinked engines do not.
@@ -100,6 +106,7 @@ describe("Flyout — engine reach detail", () => {
 
   it("shows each reached engine's own root, under a tilde", () => {
     render(<Flyout {...props} annotation={annotation} />);
+    openDetails();
     expect(screen.getByTestId("reach-detail-claude_code").textContent).toContain("~/.claude/agents");
     expect(screen.getByTestId("reach-detail-codex").textContent).toContain("~/.codex/skills");
     // No absolute home survives anywhere in the card.
@@ -108,11 +115,13 @@ describe("Flyout — engine reach detail", () => {
 
   it("says 'in place' for an engine that reaches it with no link at all", () => {
     render(<Flyout {...props} annotation={annotation} />);
+    openDetails();
     expect(screen.getByTestId("reach-detail-zed").textContent).toContain("in place");
   });
 
   it("names the store once, in the cap, because every reached engine shares it", () => {
     render(<Flyout {...props} annotation={annotation} />);
+    openDetails();
     expect(screen.getByTestId("reach-store").textContent).toContain("~/.agents");
     expect(document.body.textContent?.match(/~\/\.agents/g)).toHaveLength(1);
   });
@@ -123,11 +132,13 @@ describe("Flyout — engine reach detail", () => {
       reach: annotation.reach.filter((r) => r.reached),
     } as never;
     render(<Flyout {...props} annotation={allReached} />);
+    openDetails();
     expect(groupTitles()).toEqual(["Reaches it"]);
   });
 
   it("says nothing at all when the backend had no verdict for the asset", () => {
     render(<Flyout {...props} annotation={null} />);
+    openDetails();
     expect(screen.queryByTestId("reach-detail")).toBeNull();
   });
 });
