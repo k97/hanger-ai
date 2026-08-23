@@ -7,21 +7,73 @@ blocked.
 
 ---
 
-## The handover prompt
+## Two sessions, two models
 
-One paste, into a fresh session. It runs end to end.
+Planning runs on the strong model; execution runs on a cheaper one. That
+split only works if the plan carries every decision, so the executor
+never has to make one.
+
+**The planner owns:** reading the prototypes, extracting every literal
+(class names, token names, px values, string content) into the plan,
+resolving every open question into a written instruction, and deciding
+task order and granularity.
+
+**The executor owns:** nothing but doing what the plan says, verifying
+it, and stopping when the plan does not fit.
+
+### What a plan must contain to be executable by a cheaper model
+
+This is the acceptance bar for the planning session. A plan that fails it
+will produce guesswork downstream.
+
+1. **One task = one commit = one red/green cycle.** No task bundles two
+   concerns.
+2. **Every literal is in the plan, not behind a reference.** A task may
+   not say "match the prototype's card". It states the class, the token,
+   the value, the exact string. The executor should never need to open an
+   HTML file to know what to type.
+3. **The failing test is written out** — its file, its name, its
+   assertion, and what its failure message should say before the fix.
+4. **The verification command is written out**, with the directory to run
+   it from and the expected result. Not "run the tests".
+5. **No task contains a choice.** If two approaches exist, the planner
+   picks one and says why in a line. "Either X or Y" in a plan is a
+   defect.
+6. **Dependencies are explicit.** Task N states which tasks must be
+   green before it starts.
+7. **Each task has a stop condition** — the specific thing that means
+   "this plan is wrong, stop and escalate" rather than "adapt".
+
+### The executor's standing contract
+
+**Do not adapt. Stop.** A cheaper model improvising around a plan that
+does not fit is the failure mode this split exists to avoid. When
+reality and the plan disagree — a file is not where the plan says, a test
+does not fail the way it should, a symbol does not exist — the executor
+records it and halts that task. The planner fixes the plan.
+
+### Which phases suit a cheaper executor
+
+| Phase | Suits a cheap executor? |
+|---|---|
+| 1 — the map | **Yes.** Self-contained pane, mechanical once the plan carries the literals. |
+| 2a — inspector body | **Yes**, with a long plan. Repetitive section-format work. |
+| 2b — inspector header | **No — keep on the strong model.** It moves controls out of `App.tsx`'s cap row, which is the column's window drag region, and `App.tsx:1644-1648` already argues about where those controls belong. Cross-component state, a live architectural argument, and a rule that reads like a suggestion until you break it. |
+| 3 — strip and track | **Yes**, once the two new tokens exist and the two rulings land. |
+
+---
+
+## Prompt 1 — planning (strong model)
 
 > I am implementing the v4 inspector, map and summary-strip redesign in
-> Hanger, end to end, in one run. The design is finished and lives in
-> `docs/v4-prototypes/_iterated-view/`. The prototypes are the
-> specification — not a mood board. Where a prototype and my description
-> disagree, the prototype wins; where a prototype and the code disagree,
-> stop and report.
+> Hanger. **Do not write implementation code.** Your entire job this
+> session is to produce implementation plans that a cheaper model can
+> execute without making a single decision.
 >
-> **Read first, in this order.**
+> Read, in this order:
 > 1. `docs/v4-prototypes/_iterated-view/02-implementation-handover.md` —
->    the phase order, the dependency map, the invariants that bite, and
->    what is unresolved.
+>    the phase order, the dependency map, the invariants that bite, the
+>    plan-quality bar, and the ten open rulings.
 > 2. `docs/v4-prototypes/_iterated-view/00-gap-analysis-and-constraints.md`
 >    — the feasibility analysis and every ruling with its date.
 > 3. The three prototype pages, **opened in a browser, not only read as
@@ -29,80 +81,75 @@ One paste, into a fresh session. It runs end to end.
 >    `map-iterated.html`. Click the tabs, open the menus and popovers,
 >    resize. Each page's legend at the foot is its specification.
 > 4. `CLAUDE.md`, every file in `.claude/rules/`, `.claude/DESIGN.md`,
->    and `docs/harness.md`.
+>    `docs/harness.md`.
 >
-> **How to run it.** Use superpowers throughout:
-> - `superpowers:using-git-worktrees` first. Other sessions commit to
->   this branch; work in an isolated worktree and integrate at the end.
-> - `superpowers:writing-plans` to produce the plan for **all four
->   phases** up front, saved to disk, before touching code. We have
->   already brainstormed — do not re-enter brainstorming.
-> - `superpowers:executing-plans` to work through it. Use
->   `superpowers:subagent-driven-development` for independent tasks
->   within a phase.
-> - `superpowers:test-driven-development` on every change. Red first.
-> - `superpowers:systematic-debugging` the moment something misbehaves —
->   before proposing a fix, not after the third attempt.
-> - `superpowers:verification-before-completion` and
->   `superpowers:requesting-code-review` at each phase boundary.
-> - `superpowers:finishing-a-development-branch` at the end.
+> Then invoke `superpowers:writing-plans`. We have already brainstormed —
+> do not re-enter brainstorming, and do not invoke any implementation
+> skill.
 >
-> **Do not stop between phases.** Commit at each boundary, append to the
-> ledger (below), and continue to the next. I am not driving this
-> task by task.
+> Write **one plan document per phase**, in the order the handover sets
+> out, to `docs/superpowers/plans/`. Meet the plan-quality bar in the
+> handover — in particular: extract every literal into the plan so the
+> executor never opens a prototype; write out each failing test and each
+> verification command; and leave no choices in any task. "Either X or Y"
+> in a task is a defect.
 >
-> **The ledger.** Maintain
-> `docs/v4-prototypes/_iterated-view/03-implementation-ledger.md` as you
-> go. One section per phase: what landed, the gate output verbatim with
-> exit codes, every deviation from the prototype and why, every
-> human-gated item you could not self-certify, and anything you found
-> that contradicts the design. Append as you finish each phase, not at
-> the end — it is how I follow along without interrupting you.
+> Phase 1 and Phase 2a are for a cheaper model — write them for a
+> reader with no context and no judgement. Phase 2b stays with a strong
+> model, so it may assume more, but say so at its head. Phase 3 is for a
+> cheaper model.
 >
-> **When something is undecided, do not halt.** The prototypes draw a
-> chosen state for almost everything. Implement what is drawn, record the
-> alternative and the fact that it is unruled in the ledger, and keep
-> going. This applies to all ten open decisions listed in the handover.
+> Where the handover lists an open ruling, the prototype's drawn state is
+> the instruction. Write the drawn state into the plan as the decision,
+> and note in one line that it is unruled so I can overrule it later.
 >
-> **What you must never self-certify.** `.claude/rules/verification.md`
-> is binding and outranks any superpowers skill on whether something has
-> been demonstrated. Three things need me and cannot be signed off by you
-> — collect them in the ledger and carry on rather than blocking:
-> 1. **Copy.** Fourteen first-time strings are drawn and unsigned.
->    Implement them **verbatim as drawn**; do not improve, shorten or
->    re-word any of them, and do not invent new user-facing strings. If a
->    layout genuinely cannot hold a string, record it — do not solve it by
->    rewriting the string.
-> 2. **UI acceptance.** A screenshot from a running build is evidence of
->    what is on screen; only I close an iteration. Take them per
->    `.claude/rules/verifying-ui.md` — window frontmost, bounds re-read
->    immediately before every click, and the frame corroborated by state,
->    because a capture by window id is not evidence your click reached
->    that window.
-> 3. **The ten open rulings** in the handover.
+> The fourteen unsigned strings go into the plans **verbatim as drawn**.
+> Do not improve, shorten or re-word any of them, and do not invent new
+> user-facing strings.
 >
-> **Hard stops — these do halt the run and wait for me.** A pinned gate
-> that will not go green. A prototype that contradicts the code. Any
-> destructive git operation. Any change that would need a test, detector
-> or allowlist weakened to pass. A schema migration whose test you cannot
-> write first.
+> Before you finish: re-read each plan against the code and check every
+> symbol it names actually exists at the path and line you cite. Briefs
+> that name symbols which have moved are the most common way this goes
+> wrong. Report anything the prototypes assert that the code contradicts.
+
+## Prompt 2 — execution (cheaper model)
+
+> Execute the implementation plans in `docs/superpowers/plans/` for the
+> Hanger v4 redesign, in numbered order, using
+> `superpowers:executing-plans`.
 >
-> **Non-negotiables, from `.claude/rules/`.** Counts come from the
-> backend, never the frontend. Styling is semantic tokens only. Link
-> state is derived at read time. Schema changes are `PRAGMA user_version`
-> migrations in `preferences.rs::init_db`, and `store_migration_tests.rs`
-> is the source of truth for the current version, not prose. Any change
-> under `src-tauri/src/` gets its own red/green cycle and its own diff.
-> Any edit to a test, detector or allowlist is reported with its cause
-> and committed separately from the change that forced it.
+> Work in an isolated worktree — `superpowers:using-git-worktrees` first,
+> because other sessions commit to this branch.
 >
-> **The four pinned gates**, run from the stated directory, in the
-> dispatch that reports them, at every phase boundary: `npx vitest run`
-> from the repo root, `cargo test` from `src-tauri/`, `bunx tsc --noEmit`,
-> and `gitleaks detect` twice per `CLAUDE.md`. A gate result is valid only
-> for the tree at the moment it ran.
+> **The plan is the specification. Do not adapt it.** If reality and the
+> plan disagree — a file is not where the plan says, a symbol does not
+> exist, a test does not fail the way the plan says it should — record it
+> in the ledger and **stop that task**. Do not improvise a way around it,
+> do not redesign, do not pick between options. A human will fix the
+> plan. Improvising around a plan that does not fit is the one failure
+> mode that matters here.
 >
-> Start now. Plan all four phases, then build them in order.
+> Use `superpowers:test-driven-development` on every task: write the
+> failing test the plan gives you, watch it fail, then make it pass. A
+> test that passes on its first run has verified nothing — report it.
+>
+> Use `superpowers:systematic-debugging` the moment something misbehaves,
+> before proposing a fix.
+>
+> After each task: commit. After each phase: run the four pinned gates
+> from `CLAUDE.md` — `npx vitest run` from the repo root, `cargo test`
+> from `src-tauri/`, `bunx tsc --noEmit`, and `gitleaks detect` twice —
+> and paste their output verbatim with exit codes into
+> `docs/v4-prototypes/_iterated-view/03-implementation-ledger.md`.
+> Then continue to the next phase without waiting.
+>
+> **Never do these.** Edit a test, detector or allowlist to make
+> something pass. Re-word a user-facing string. Invent a user-facing
+> string. Run a destructive git operation. Mark a UI change verified
+> without a screenshot from a running build.
+>
+> **Always stop for a human on:** a pinned gate that will not go green, a
+> plan that does not fit the code, anything needing a design decision.
 
 ## What gates the whole programme
 
