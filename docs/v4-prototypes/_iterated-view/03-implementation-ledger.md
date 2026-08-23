@@ -43,6 +43,75 @@ exit 0
 
 ## Phase 1 — the map
 
+### Phase 1 complete-pending-hardening — gates at `c8be53a`
+
+All seventeen plan tasks plus two Karthik-authorised additions are committed.
+Task 17 (the screenshot) is human-gated and outstanding — see below. Phase 1
+is recorded as **complete-pending-hardening**: the code is done and reviewed,
+and a separate hardening pass Karthik is authoring will replace six tests
+that pass without asserting what they name. That pass is additive and does not
+block Phase 2a.
+
+```
+$ npx vitest run          # from the repo root
+
+ Test Files  89 passed (89)
+      Tests  729 passed (729)
+   Duration  4.90s
+```
+exit 0  (baseline was 83 files / 698 tests — this phase added 6 files, 31 tests)
+
+```
+$ cargo test              # from src-tauri/
+
+every suite "test result: ok."; 430 passed, 0 failed, 6 ignored.
+```
+exit 0  (baseline 33 suites, all ok)
+
+```
+$ bunx tsc --noEmit
+(no output)
+```
+exit 0
+
+```
+$ gitleaks detect --source .
+759 commits scanned.
+scanned ~7043886 bytes (7.04 MB) in 2.29s
+no leaks found
+```
+exit 0
+
+```
+$ gitleaks detect --source . --no-git -c .gitleaks.toml
+scanned ~10123005 bytes (10.12 MB) in 663ms
+no leaks found
+```
+exit 0
+
+**Running-binary provenance at gate time** (see the SDD ledger for why this is
+recorded): `find src-tauri/src -type f -newer src-tauri/target/debug/tauri-app`
+returned empty, so the dev app's Rust side carries every backend change in the
+tree. The same command shape against `src/` returns seven files, which is how
+the empty result is known to be meaningful rather than a check that cannot
+fire.
+
+### Task 17 — screenshot, OUTSTANDING, awaiting Karthik
+
+Not executed. The dev app is running from this worktree and Karthik is at the
+keyboard; driving it with synthetic clicks while he is using it was not
+something to do unasked. Handed to him with the two things the capture must
+settle, both raised by reviewers as un-assertable in `happy-dom`:
+
+1. **The `ListCard` divider** — that a divider is drawn only *between* rows,
+   never beneath the last one and never on a one-row card. The unit test can
+   only assert the class substring `[&>*+*]:border-t`, because Tailwind's
+   compiled CSS never loads in the test environment.
+2. **The state dot's ring** — that `stroke-page` reads as a cutout against the
+   node's own `fill-page` surface rather than as a visible border.
+
+---
+
 ### Phase 1 partial — gates at the stop, tree with Task 8 uncommitted
 
 Tasks 1-7, 10 and 14 are committed (HEAD `9491d7e`). Task 8's work is in the
