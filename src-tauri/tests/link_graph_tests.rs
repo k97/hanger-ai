@@ -373,6 +373,10 @@ fn test_nodes_carry_per_kind_counts_linked_from_and_rule_names() {
     let engine_dir = f.store_abs.parent().unwrap().join("dot-claude-facts");
     fs::create_dir_all(&engine_dir).unwrap();
     unix_fs::symlink(f.store_abs.join("rules"), engine_dir.join("rules")).unwrap();
+    // A second top-level symlink from the SAME engine root into the SAME
+    // store: linked_from counts distinct engine roots, not symlink rows, so
+    // this must not push the store's linked_from past 1.
+    unix_fs::symlink(f.store_abs.join("rules"), engine_dir.join("skills")).unwrap();
     let t = now();
     let engine_id = f
         .store
@@ -413,7 +417,10 @@ fn test_nodes_carry_per_kind_counts_linked_from_and_rule_names() {
     assert_eq!(store.skill_count, 0);
     assert_eq!(store.subagent_count, 0);
     assert_eq!(store.tool_count, 0);
-    assert_eq!(store.linked_from, 1, "one engine root symlinks into the store");
+    assert_eq!(
+        store.linked_from, 1,
+        "two symlinks from one engine root still count as one root"
+    );
     assert!(store.rules.is_empty(), "rule names are listed for project nodes only");
 
     let project = graph.nodes.iter().find(|n| n.id == f.project_root_id).unwrap();
