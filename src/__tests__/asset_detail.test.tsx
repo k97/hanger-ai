@@ -38,7 +38,15 @@ let bodyPath = SOURCE;
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: vi.fn(async (cmd: string) => {
     if (cmd === "read_asset_body") {
-      if (bodyResult.ok) return { path: bodyPath, text: bodyResult.text };
+      if (bodyResult.ok)
+        return {
+          path: bodyPath,
+          text: bodyResult.text,
+          bytes: 431,
+          lines: 21,
+          modified_ms: Date.UTC(2026, 6, 20, 12),
+          estimated_tokens: 107,
+        };
       throw bodyResult.error;
     }
     return null;
@@ -133,7 +141,7 @@ describe("Asset detail — the inspector's document screen", () => {
     openDetails();
     expect(await screen.findByText("Linked into")).toBeTruthy();
     expect(screen.getByText("mei-recipes, metrics-board")).toBeTruthy();
-    expect(screen.getByText(/\d+ B · \d+ lines/)).toBeTruthy();
+    expect(screen.getByText("431 B · 21 lines")).toBeTruthy();
   });
 
   it("opens the file in its editor", async () => {
