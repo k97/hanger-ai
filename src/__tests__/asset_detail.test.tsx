@@ -142,8 +142,10 @@ describe("Asset detail — the inspector's document screen", () => {
     // The meta row and the Source tab must not share a word.
     expect(screen.getByText("Origin")).toBeTruthy();
     expect(screen.getByText("MIT")).toBeTruthy();
-    expect(screen.getByText("Allowed tools")).toBeTruthy();
-    expect(screen.getByText("Read, Bash")).toBeTruthy();
+    const caps = screen.getByText("Capabilities").closest("section")!;
+    const rows = Array.from(caps.querySelectorAll('[data-testid="capability-row"]')).map((r) => r.textContent);
+    expect(rows).toEqual(["Read", "Bashruns commands"]);
+    expect(screen.queryByText("Allowed tools")).toBeNull();
   });
 
   it("names the projects the source reaches, and measures the file it actually read", async () => {
@@ -284,7 +286,7 @@ describe("Asset detail — the inspector's document screen", () => {
     const rows = Array.from(section.querySelectorAll('[data-testid^="identity-row-"]')).map((r) => r.getAttribute("data-testid"));
     expect(rows).toEqual([
       "identity-row-engine", "identity-row-scope", "identity-row-linked-into", "identity-row-origin",
-      "identity-row-version", "identity-row-size", "identity-row-modified", "identity-row-license", "identity-row-allowed-tools",
+      "identity-row-version", "identity-row-size", "identity-row-modified", "identity-row-license",
     ]);
     expect(within(section).getByText("Modified").nextElementSibling?.textContent).toBe("Jul 20, 2026");
     expect(within(section).getByText("Size").nextElementSibling?.textContent).toBe("431 B · 21 lines");
