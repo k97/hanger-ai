@@ -5,7 +5,18 @@ import { diffLaunch, type LaunchDiffToken } from "../utils/launchDiff";
 import EngineLabel from "./EngineLabel";
 import Tooltip from "./Tooltip";
 import UnderlineTabs from "./UnderlineTabs";
-import { ArrowPathIcon, RevealInFileManagerIcon, SpinnerIcon } from "./icons";
+import ListCard, { ListCardRow } from "./ListCard";
+import {
+  ArrowPathIcon,
+  RevealInFileManagerIcon,
+  SpinnerIcon,
+  TagIcon,
+  SignalIcon,
+  ArrowPathRoundedSquareIcon,
+  WrenchScrewdriverIcon,
+  ArchiveBoxIcon,
+  ChatBubbleOvalLeftIcon,
+} from "./icons";
 
 /**
  * The inspector panel for one MCP server.
@@ -60,6 +71,14 @@ interface VerifiedIdentity {
   verifiedAt: number;
   /** Present when the probe could not complete. Shown instead of an empty list. */
   error?: string;
+  /** The description-bytes toll the probe's tool list carries. Absent until
+   *  M5 reads it -- not rendered by this task. */
+  cost?: {
+    toolCount: number;
+    describedToolCount: number;
+    descriptionBytesTotal: number;
+    perTool: Array<{ name: string; descriptionBytes: number }>;
+  };
 }
 
 /** Every registration that launches the server the same way, collapsed to
@@ -754,7 +773,7 @@ export default function McpServerDetail({
         <div role="tabpanel" id="panel-details" aria-labelledby="tab-details">
         <section className={SECTION}>
           <div className="flex items-baseline justify-between gap-2 mb-[10px]">
-            <h3 className={HEADING}>Identity</h3>
+            <h3 className={HEADING}>Identity & capabilities</h3>
             <span className={COUNT}>
               {anyVerified
                 ? `verified ${relativeTime(anyVerified.verifiedAt)}${
@@ -769,23 +788,48 @@ export default function McpServerDetail({
             </span>
           </div>
           {anyVerified ? (
-            <div className="flex flex-wrap gap-[6px]">
+            <ListCard>
               {anyVerified.serverVersion && (
-                <span className="text-micro font-mono bg-plane border border-line px-2 py-px rounded-pill text-ink-2">
-                  server <b className="font-medium text-ink-1">{anyVerified.serverVersion}</b>
-                </span>
+                <ListCardRow
+                  data-testid="identity-row-server"
+                  icon={<TagIcon size={14} aria-hidden="true" />}
+                  label="Server"
+                  value={anyVerified.serverVersion}
+                />
               )}
               {anyVerified.protocolVersion && (
-                <span className="text-micro font-mono bg-plane border border-line px-2 py-px rounded-pill text-ink-2">
-                  MCP <b className="font-medium text-ink-1">{anyVerified.protocolVersion}</b>
-                </span>
+                <ListCardRow
+                  data-testid="identity-row-protocol"
+                  icon={<SignalIcon size={14} aria-hidden="true" />}
+                  label="Protocol"
+                  value={`MCP ${anyVerified.protocolVersion}`}
+                />
               )}
-              {anyVerified.capabilities.length > 0 && (
-                <span className="text-micro font-mono bg-plane border border-line px-2 py-px rounded-pill text-ink-2">
-                  caps <b className="font-medium text-ink-1">{anyVerified.capabilities.join(", ")}</b>
-                </span>
-              )}
-            </div>
+              <ListCardRow
+                data-testid="identity-row-transport"
+                icon={<ArrowPathRoundedSquareIcon size={14} aria-hidden="true" />}
+                label="Transport"
+                value={server.transport}
+              />
+              <ListCardRow
+                data-testid="identity-row-tools"
+                icon={<WrenchScrewdriverIcon size={14} aria-hidden="true" />}
+                label="Tools"
+                wide={anyVerified.capabilities.includes("tools") ? "offered" : "not offered"}
+              />
+              <ListCardRow
+                data-testid="identity-row-resources"
+                icon={<ArchiveBoxIcon size={14} aria-hidden="true" />}
+                label="Resources"
+                wide={anyVerified.capabilities.includes("resources") ? "offered" : "not offered"}
+              />
+              <ListCardRow
+                data-testid="identity-row-prompts"
+                icon={<ChatBubbleOvalLeftIcon size={14} aria-hidden="true" />}
+                label="Prompts"
+                wide={anyVerified.capabilities.includes("prompts") ? "offered" : "not offered"}
+              />
+            </ListCard>
           ) : (
             <p className="text-micro text-ink-3 leading-[1.5]">
               Version, protocol revision and capabilities are only knowable by handshake. Nothing on

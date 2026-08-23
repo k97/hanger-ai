@@ -1289,3 +1289,35 @@ describe("McpServerDetail — Tools first, Details second", () => {
     expect(screen.queryByRole("heading", { name: "Tools" })).toBeNull();
   });
 });
+
+describe("McpServerDetail — Identity & capabilities card", () => {
+  it("Identity & capabilities is one card: server, protocol, transport, then the three capabilities in words", () => {
+    const { container } = render(
+      <McpServerDetail
+        server={base}
+        verified={{
+          "cc-user": {
+            serverVersion: "1.0.0",
+            protocolVersion: "2025-06-18",
+            capabilities: ["tools"],
+            tools: [],
+            verifiedAt: 1_700_000_000_000,
+          },
+        }}
+      />
+    );
+    openDetails();
+    const rowTestIds = Array.from(
+      container.querySelectorAll('[data-testid^="identity-row-"]')
+    ).map((el) => el.getAttribute("data-testid"));
+    expect(rowTestIds).toEqual([
+      "identity-row-server",
+      "identity-row-protocol",
+      "identity-row-transport",
+      "identity-row-tools",
+      "identity-row-resources",
+      "identity-row-prompts",
+    ]);
+    expect(screen.getByTestId("identity-row-transport").textContent).toBe("Transportstdio");
+  });
+});

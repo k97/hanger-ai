@@ -123,6 +123,12 @@ export default function Flyout({
     tools: Array<{ name: string; description?: string }>;
     verifiedAt: number;
     error?: string;
+    cost?: {
+      toolCount: number;
+      describedToolCount: number;
+      descriptionBytesTotal: number;
+      perTool: Array<{ name: string; descriptionBytes: number }>;
+    };
   }>>({});
   /* A list, not one slot. The panel caps itself at one request at a time, but
      "one at a time" is a property of the queue, not of the slot — a single
@@ -177,6 +183,12 @@ export default function Flyout({
         verifiedAt: number | null;
         fromCache: boolean;
         declined: boolean;
+        cost?: {
+          toolCount: number;
+          describedToolCount: number;
+          descriptionBytesTotal: number;
+          perTool: Array<{ name: string; descriptionBytes: number }>;
+        } | null;
       }>("mcp_cached_probe", { registrationKey, force, running });
       /* Read the answer apart BEFORE handing anything to a setter. A state
          updater is a closure React invokes during a later render, outside
@@ -207,6 +219,7 @@ export default function Flyout({
           tools: answer.tools ?? [],
           verifiedAt: learnedAt ?? Date.now(),
           error: answer.error ?? undefined,
+          cost: r?.cost ?? undefined,
         },
       }));
     } catch (e) {
