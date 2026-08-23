@@ -4,7 +4,11 @@ import { describe, it, expect, afterEach, vi } from "vitest";
 import McpServerDetail, { McpServerView } from "./McpServerDetail";
 
 const openUrl = vi.fn().mockResolvedValue(undefined);
-vi.mock("@tauri-apps/plugin-opener", () => ({ openUrl: (u: string) => openUrl(u) }));
+vi.mock("@tauri-apps/plugin-opener", () => ({
+  openUrl: (u: string) => openUrl(u),
+  openPath: vi.fn(),
+  revealItemInDir: vi.fn(),
+}));
 
 const base: McpServerView = {
   name: "spades-audio",
@@ -756,7 +760,7 @@ describe("McpServerDetail", () => {
   it("lets you open the config file a registration came from", () => {
     render(<McpServerDetail server={base} />);
     openDetails();
-    const openers = screen.getAllByRole("button", { name: /reveal|open config/i });
+    const openers = screen.getAllByRole("button", { name: /^Reveal / });
     expect(openers.length).toBe(base.registrations.length);
   });
 
