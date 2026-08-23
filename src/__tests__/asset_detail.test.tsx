@@ -59,6 +59,8 @@ const asset = {
   version: "1.2.0",
 };
 
+const openDetails = () => fireEvent.click(screen.getByRole("tab", { name: "Details" }));
+
 const inventory: Inventory = {
   agents: [],
   tools: [],
@@ -105,15 +107,18 @@ describe("Asset detail — the inspector's document screen", () => {
 
   it("shows the raw file when asked for Source", async () => {
     render(<AssetDetail asset={asset} inventory={inventory} />);
-    fireEvent.click(await screen.findByRole("button", { name: "Source" }));
+    fireEvent.click(await screen.findByRole("button", { name: "View source" }));
 
     const raw = await screen.findByTestId("asset-source");
     expect(raw.textContent).toBe(DOC);
     expect(screen.queryByText("When to use")).toBeNull();
+    expect(screen.getByRole("button", { name: "View source" }).getAttribute("aria-pressed")).toBe("true");
   });
 
   it("surfaces the fields the Agent Skills standard defines", async () => {
     render(<AssetDetail asset={asset} inventory={inventory} />);
+    await screen.findByRole("tab", { name: "Details" });
+    openDetails();
     expect(await screen.findByText("License")).toBeTruthy();
     // The meta row and the Source tab must not share a word.
     expect(screen.getByText("Origin")).toBeTruthy();
@@ -124,6 +129,8 @@ describe("Asset detail — the inspector's document screen", () => {
 
   it("names the projects the source reaches, and measures the file it actually read", async () => {
     render(<AssetDetail asset={asset} inventory={inventory} />);
+    await screen.findByRole("tab", { name: "Details" });
+    openDetails();
     expect(await screen.findByText("Linked into")).toBeTruthy();
     expect(screen.getByText("mei-recipes, metrics-board")).toBeTruthy();
     expect(screen.getByText(/\d+ B · \d+ lines/)).toBeTruthy();
@@ -189,7 +196,7 @@ describe("Asset detail — the inspector's document screen", () => {
 
     expect((await screen.findByTestId("asset-source")).textContent).toBe("{ not json, mid-edit");
     // Nothing to switch between when only one view exists.
-    expect(screen.queryByRole("button", { name: "Preview" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "View source" })).toBeNull();
   });
 
   it("does not invent a document for an agent, which has no file of its own", async () => {
@@ -202,7 +209,7 @@ describe("Asset detail — the inspector's document screen", () => {
 
     await screen.findByText("Open in editor");
     expect(invoke).not.toHaveBeenCalledWith("read_asset_body", expect.anything());
-    expect(screen.queryByRole("button", { name: "Preview" })).toBeNull();
+    expect(screen.queryByRole("tab", { name: "Content" })).toBeNull();
     expect(screen.queryByText("Reading the file…")).toBeNull();
   });
 
@@ -211,11 +218,12 @@ describe("Asset detail — the inspector's document screen", () => {
     render(<AssetDetail asset={asset} inventory={inventory} />);
 
     expect(await screen.findByText(/Refusing to read a file outside/)).toBeTruthy();
+    openDetails();
     // The relationships do not depend on the file's contents.
     expect(screen.getByText("The source for 2 copies")).toBeTruthy();
     expect(screen.getByText("Linked into")).toBeTruthy();
     // With no document there is nothing to switch between.
-    expect(screen.queryByText("Preview")).toBeNull();
+    expect(screen.queryByRole("button", { name: "View source" })).toBeNull();
   });
 
   it("the Engine row's mark matches the asset's own scope agent, not a generic glyph", () => {
@@ -224,6 +232,7 @@ describe("Asset detail — the inspector's document screen", () => {
     // This scoped variant pins the row to a real, unambiguous agent.
     const scopedAsset = { ...asset, scope: { Global: { agent: "claude" } } };
     render(<AssetDetail asset={scopedAsset} inventory={inventory} />);
+    openDetails();
 
     const engineDt = screen.getByText("Engine");
     const engineDd = engineDt.nextElementSibling as HTMLElement;
