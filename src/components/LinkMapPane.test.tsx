@@ -352,4 +352,29 @@ describe("LinkMapPane", () => {
     expect(screen.queryByTestId("map-notices")).toBeNull();
     expect(screen.queryByText(/project links.*not been recorded/i)).toBeNull();
   });
+
+  it("hover focus keeps a node, its edges and their other ends; dims the rest; lets go on leave", () => {
+    renderPane(graph());
+    const claude = screen.getByTestId("map-node-2");
+    const desktop = screen.getByTestId("map-node-3");
+    const store = screen.getByTestId("map-node-1");
+    const edges = screen.getAllByTestId("map-edge").map((p) => p.closest("g")!);
+
+    fireEvent.mouseEnter(claude);
+    // Claude Code is hovered; the store is the other end of its one edge.
+    expect(claude.getAttribute("class")).not.toContain("opacity-35");
+    expect(store.getAttribute("class")).not.toContain("opacity-35");
+    // Claude Desktop touches nothing Claude Code touches.
+    expect(desktop.getAttribute("class")).toContain("opacity-35");
+    // edges[0] is store→Claude Code (stays); edges[1..3] go to the project (dim).
+    expect(edges[0].getAttribute("class")).not.toContain("opacity-35");
+    expect(edges[1].getAttribute("class")).toContain("opacity-35");
+    // Dimming is a transition on the hover beat, never a colour.
+    expect(desktop.getAttribute("class")).toContain("transition-opacity");
+    expect(desktop.getAttribute("class")).toContain("duration-hover");
+
+    fireEvent.mouseLeave(claude);
+    expect(desktop.getAttribute("class")).not.toContain("opacity-35");
+    expect(edges[1].getAttribute("class")).not.toContain("opacity-35");
+  });
 });

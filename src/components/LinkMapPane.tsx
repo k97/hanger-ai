@@ -166,6 +166,9 @@ export default function LinkMapPane({
   const [viewport, setViewport] = useState<Size>({ width: 880, height: 520 });
   const [selection, setSelection] = useState<LinkMapSelection | null>(null);
   const [layersOpen, setLayersOpen] = useState(false);
+  // Hover focus: the hovered node, its edges and their other endpoints stay;
+  // everything else dims. Read at render, never fed to the layout.
+  const [hoveredId, setHoveredId] = useState<number | null>(null);
 
   const kinds: readonly NodeKind[] = showProjects
     ? ["store", "engine_root", "project"]
@@ -343,6 +346,16 @@ export default function LinkMapPane({
     setSelection(target);
   };
 
+  // The focus set is a boolean per element, derived from the edge list —
+  // no count, no layout.
+  const focusedEdge = (e: PositionedEdge) =>
+    hoveredId !== null && (e.source === hoveredId || e.dest === hoveredId);
+  const focusedNode = (id: number) =>
+    hoveredId !== null &&
+    (id === hoveredId || layout.edges.some((e) => focusedEdge(e) && (e.source === id || e.dest === id)));
+  const dimClass = (focused: boolean) =>
+    `transition-opacity duration-hover ease-spring ${hoveredId !== null && !focused ? "opacity-35" : ""}`;
+
   return (
     <div className="h-full flex flex-col bg-page min-h-0">
       <div className="flex-1 min-h-0 px-[18px] pb-2 pt-2.5 flex flex-col">
@@ -389,7 +402,7 @@ export default function LinkMapPane({
               const active = selectedKey === edgeKey(edge);
               const mid = { x: (edge.x1 + edge.x2) / 2, y: (edge.y1 + edge.y2) / 2 };
               return (
-                <g key={edgeKey(edge)} className="group">
+                <g key={edgeKey(edge)} className={`group ${dimClass(focusedEdge(edge))}`}>
                   <path
                     data-testid="map-edge"
                     d={edge.path}
@@ -430,7 +443,9 @@ export default function LinkMapPane({
                 key={node.id}
                 data-testid={`map-node-${node.id}`}
                 onClick={() => select({ kind: "node", node })}
-                className="cursor-pointer"
+                onMouseEnter={() => setHoveredId(node.id)}
+                onMouseLeave={() => setHoveredId(null)}
+                className={`cursor-pointer ${dimClass(focusedNode(node.id))}`}
               >
                 <rect
                   x={node.x}
