@@ -1501,6 +1501,90 @@ fn read_asset_body(app: AppHandle, path: String) -> Result<AssetBody, String> {
     asset_body_of(&document)
 }
 
+#[derive(serde::Serialize, Debug, PartialEq)]
+pub struct AssetDirEntry {
+    pub name: String,
+    pub kind: String,
+    pub bytes: Option<u64>,
+    pub file_count: Option<usize>,
+}
+
+fn count_files_beneath(dir: &Path) -> usize {
+    let mut n = 0;
+    if let Ok(entries) = fs::read_dir(dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                n += count_files_beneath(&path);
+            } else if path.is_file() {
+                n += 1;
+            }
+        }
+    }
+    n
+}
+
+/// A skill folder's top level, SKILL.md first, hidden entries skipped. A
+/// folder carries how many files sit beneath it — the frontend lists and
+/// never counts.
+pub fn list_asset_dir_of(folder: &Path) -> Result<Vec<AssetDirEntry>, String> {
+    if !folder.is_dir() {
+        return Err("Not a folder".to_string());
+    }
+    let mut entries: Vec<AssetDirEntry> = fs::read_dir(folder)
+        .map_err(|_| "Folder not readable".to_string())?
+        .flatten()
+        .filter_map(|entry| {
+            let name = entry.file_name().to_string_lossy().to_string();
+            if name.starts_with('.') {
+                return None;
+            }
+            let path = entry.path();
+            if path.is_dir() {
+                Some(AssetDirEntry {
+                    name: format!("{name}/"),
+                    kind: "dir".to_string(),
+                    bytes: None,
+                    file_count: Some(count_files_beneath(&path)),
+                })
+            } else {
+                let bytes = fs::metadata(&path).map(|m| m.len()).unwrap_or(0);
+                Some(AssetDirEntry { name, kind: "file".to_string(), bytes: Some(bytes), file_count: None })
+            }
+        })
+        .collect();
+    entries.sort_by(|a, b| {
+        let lead = |e: &AssetDirEntry| if e.name == "SKILL.md" { 0 } else { 1 };
+        lead(a).cmp(&lead(b)).then_with(|| a.name.cmp(&b.name))
+    });
+    Ok(entries)
+}
+
+/// Lists a skill's folder for the inspector's "In this skill" card. Same
+/// boundary as `read_asset_body`: the path must canonicalise inside a root
+/// the scanner reads.
+#[tauri::command]
+fn list_asset_dir(app: AppHandle, path: String) -> Result<Vec<AssetDirEntry>, String> {
+    let store = get_store(&app)?;
+    let linked = store.get_linked_directories().map_err(|e| e.to_string())?;
+    let mut roots: Vec<PathBuf> = Vec::new();
+    for dir in &linked {
+        if let Ok(canonical) = fs::canonicalize(dir) {
+            roots.push(canonical);
+        }
+    }
+    for root in scanner::global_asset_roots() {
+        if let Ok(canonical) = fs::canonicalize(&root) {
+            roots.push(canonical);
+        }
+    }
+    let canonical = fs::canonicalize(&path).map_err(|_| "File not found".to_string())?;
+    if !is_within_known_root(&canonical, &roots) {
+        return Err("Refusing to read a file outside the folders Hanger scans".to_string());
+    }
+    list_asset_dir_of(&canonical)
+}
+
 #[tauri::command]
 fn check_broad_root(path: String) -> Result<bool, String> {
     let p = Path::new(&path);
@@ -1757,6 +1841,7 @@ pub fn run() {
             get_inventory,
             get_asset_counts,
             read_asset_body,
+            list_asset_dir,
             get_tree_counts,
             link_graph,
             get_asset_annotations,
