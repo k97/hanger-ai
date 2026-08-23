@@ -72,6 +72,7 @@ import NeedsReviewPane from "./components/NeedsReviewPane";
 import ReviewSidebar from "./components/ReviewSidebar";
 import ReviewInspector from "./components/ReviewInspector";
 import LinkMapPane from "./components/LinkMapPane";
+import ScanStamp from "./components/ScanStamp";
 import type { LinkGraph } from "./utils/linkMapLayout";
 import SidebarScanModal from "./components/SidebarScanModal";
 import Flyout from "./components/Flyout";
@@ -1395,20 +1396,25 @@ export default function App() {
             {/* The map view has no inspector column — its detail card lives
                 on the canvas — so its toolbar slot holds Rescan instead. */}
             {selectedSidebarItem === "linkmap" ? (
-              <Tooltip label="Rescan" placement="bottom">
-                <button
-                  onClick={triggerScan}
-                  disabled={loading || scanning}
-                  aria-label="Rescan"
-                  className={tbBtnClass}
-                >
-                  <ArrowPathIcon
-                    size={15}
-                    aria-hidden="true"
-                    className={loading || scanning ? "animate-spin" : ""}
-                  />
-                </button>
-              </Tooltip>
+              <>
+                {/* How old the graph is, beside the control that refreshes
+                    it — the same stamp the strip carries on the panes. */}
+                <ScanStamp scannedAt={lastScanAt} className="font-flex text-micro text-ink-3 mr-1.5 select-none" />
+                <Tooltip label="Rescan" placement="bottom">
+                  <button
+                    onClick={triggerScan}
+                    disabled={loading || scanning}
+                    aria-label="Rescan"
+                    className={tbBtnClass}
+                  >
+                    <ArrowPathIcon
+                      size={15}
+                      aria-hidden="true"
+                      className={loading || scanning ? "animate-spin" : ""}
+                    />
+                  </button>
+                </Tooltip>
+              </>
             ) : selectedSidebarItem !== "discovery" && selectedSidebarItem !== "design" && !inspectorOpen && (
               // Open, this same control moves into the inspector column's own
               // cap — one toggle, always at the window's trailing edge,
