@@ -44,6 +44,33 @@ will produce guesswork downstream.
 7. **Each task has a stop condition** — the specific thing that means
    "this plan is wrong, stop and escalate" rather than "adapt".
 
+Execution runs through `superpowers:subagent-driven-development`, which
+dispatches a **fresh subagent per task**. That adds three requirements,
+and they are the ones most likely to be missed:
+
+8. **Every task is a complete standalone brief.** A subagent starts cold
+   with no memory of the other tasks. No task may say "as in task 3", or
+   rely on a convention established earlier, or assume a file is already
+   open. Whatever a task needs, it restates — even if that means the same
+   paragraph appears in six tasks.
+9. **Every task is marked parallel-safe or sequential, with the reason.**
+   The orchestrator needs to know what it can fan out.
+10. **No two parallel-safe tasks touch the same file.** Concurrent
+    subagents cannot see each other's edits, so two of them in one file is
+    the shared-checkout problem in miniature — last writer wins and the
+    other's work vanishes silently. If two tasks need the same file, they
+    are sequential and the plan says so.
+
+### The orchestrator verifies; it does not trust
+
+A cheaper subagent reporting "I wrote the test and it passes" is not
+evidence of anything — `verification.md` is explicit that a test written
+after the implementation and passing on its first run has verified
+nothing. The orchestrator checks each returned task for the **red run and
+the green run**, and rejects the task if only the green is present. This
+is the single highest-value check in the whole execution loop, because it
+is the one a cheaper model will silently skip.
+
 ### The executor's standing contract
 
 **Do not adapt. Stop.** A cheaper model improvising around a plan that
@@ -116,7 +143,15 @@ records it and halts that task. The planner fixes the plan.
 
 > Execute the implementation plans in `docs/superpowers/plans/` for the
 > Hanger v4 redesign, in numbered order, using
-> `superpowers:executing-plans`.
+> `superpowers:subagent-driven-development`. Dispatch one subagent per
+> task. Fan out the tasks the plan marks parallel-safe; run the rest in
+> order. Never run two subagents in the same file at once — they cannot
+> see each other's edits and the second silently discards the first.
+>
+> **Verify every returned task; do not trust its report.** A subagent
+> saying the test passes is not evidence. Check that it shows you the
+> test failing FIRST and then passing. A test that only ever passed has
+> verified nothing — send that task back.
 >
 > Work in an isolated worktree — `superpowers:using-git-worktrees` first,
 > because other sessions commit to this branch.
@@ -129,9 +164,11 @@ records it and halts that task. The planner fixes the plan.
 > plan. Improvising around a plan that does not fit is the one failure
 > mode that matters here.
 >
-> Use `superpowers:test-driven-development` on every task: write the
-> failing test the plan gives you, watch it fail, then make it pass. A
-> test that passes on its first run has verified nothing — report it.
+> Each subagent uses `superpowers:test-driven-development`: write the
+> failing test the plan gives it, watch it fail, then make it pass. Each
+> subagent's brief is the plan's task, whole — it starts cold and knows
+> nothing of the other tasks, so pass it the task verbatim rather than
+> summarising.
 >
 > Use `superpowers:systematic-debugging` the moment something misbehaves,
 > before proposing a fix.
