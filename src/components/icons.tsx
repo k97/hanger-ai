@@ -21,18 +21,26 @@ import type { ComponentType, SVGProps } from "react";
 import {
   AdjustmentsHorizontalIcon as HeroAdjustmentsHorizontal,
   ArchiveBoxIcon as HeroArchiveBox,
+  ArrowDownTrayIcon as HeroArrowDownTray,
   ArrowPathIcon as HeroArrowPath,
+  ArrowPathRoundedSquareIcon as HeroArrowPathRoundedSquare,
   ArrowRightIcon as HeroArrowRight,
   ArrowTopRightOnSquareIcon as HeroArrowTopRightOnSquare,
   ArrowsPointingOutIcon as HeroArrowsPointingOut,
+  ArrowsRightLeftIcon as HeroArrowsRightLeft,
+  ChatBubbleOvalLeftIcon as HeroChatBubbleOvalLeft,
   CheckIcon as HeroCheck,
   ChevronDownIcon as HeroChevronDown,
   ChevronLeftIcon as HeroChevronLeft,
   ChevronRightIcon as HeroChevronRight,
   ChevronUpIcon as HeroChevronUp,
+  ClockIcon as HeroClock,
+  CodeBracketIcon as HeroCodeBracket,
   Cog6ToothIcon as HeroCog6Tooth,
   CommandLineIcon as HeroCommandLine,
   ComputerDesktopIcon as HeroComputerDesktop,
+  CpuChipIcon as HeroCpuChip,
+  DocumentIcon as HeroDocument,
   DocumentTextIcon as HeroDocumentText,
   ExclamationCircleIcon as HeroExclamationCircle,
   ExclamationTriangleIcon as HeroExclamationTriangle,
@@ -40,17 +48,21 @@ import {
   GlobeAltIcon as HeroGlobeAlt,
   HeartIcon as HeroHeart,
   InformationCircleIcon as HeroInformationCircle,
+  KeyIcon as HeroKey,
   LinkIcon as HeroLink,
   MagnifyingGlassIcon as HeroMagnifyingGlass,
   MapIcon as HeroMap,
   MinusIcon as HeroMinus,
   MoonIcon as HeroMoon,
+  PencilSquareIcon as HeroPencilSquare,
   PlusIcon as HeroPlus,
   ServerIcon as HeroServer,
   ShieldCheckIcon as HeroShieldCheck,
+  SignalIcon as HeroSignal,
   Square2StackIcon as HeroSquare2Stack,
   SunIcon as HeroSun,
   SwatchIcon as HeroSwatch,
+  TagIcon as HeroTag,
   TrashIcon as HeroTrash,
   UserIcon as HeroUser,
   WrenchScrewdriverIcon as HeroWrenchScrewdriver,
@@ -111,18 +123,26 @@ function sized(Icon: SvgIcon, optical = 1) {
 
 export const AdjustmentsHorizontalIcon = sized(HeroAdjustmentsHorizontal);
 export const ArchiveBoxIcon = sized(HeroArchiveBox);
+export const ArrowDownTrayIcon = sized(HeroArrowDownTray);
 export const ArrowPathIcon = sized(HeroArrowPath);
+export const ArrowPathRoundedSquareIcon = sized(HeroArrowPathRoundedSquare);
 export const ArrowRightIcon = sized(HeroArrowRight, 0.79);
 export const ArrowTopRightOnSquareIcon = sized(HeroArrowTopRightOnSquare);
 export const ArrowsPointingOutIcon = sized(HeroArrowsPointingOut);
+export const ArrowsRightLeftIcon = sized(HeroArrowsRightLeft);
+export const ChatBubbleOvalLeftIcon = sized(HeroChatBubbleOvalLeft);
 export const CheckIcon = sized(HeroCheck, 1.07);
 export const ChevronDownIcon = sized(HeroChevronDown, 0.81);
 export const ChevronLeftIcon = sized(HeroChevronLeft, 0.8);
 export const ChevronRightIcon = sized(HeroChevronRight, 0.8);
 export const ChevronUpIcon = sized(HeroChevronUp, 0.81);
+export const ClockIcon = sized(HeroClock);
+export const CodeBracketIcon = sized(HeroCodeBracket);
 export const Cog6ToothIcon = sized(HeroCog6Tooth, 1.12);
 export const CommandLineIcon = sized(HeroCommandLine, 0.9);
 export const ComputerDesktopIcon = sized(HeroComputerDesktop, 1.12);
+export const CpuChipIcon = sized(HeroCpuChip);
+export const DocumentIcon = sized(HeroDocument);
 export const DocumentTextIcon = sized(HeroDocumentText);
 export const ExclamationCircleIcon = sized(HeroExclamationCircle, 1.11);
 export const ExclamationTriangleIcon = sized(HeroExclamationTriangle, 1.04);
@@ -131,19 +151,23 @@ export const GlobeAltIcon = sized(HeroGlobeAlt, 1.09);
 export const HeartIcon = sized(HeroHeart);
 export const HeartIconSolid = sized(HeroHeartSolid);
 export const InformationCircleIcon = sized(HeroInformationCircle, 1.11);
+export const KeyIcon = sized(HeroKey);
 export const LinkIcon = sized(HeroLink);
 export const MagnifyingGlassIcon = sized(HeroMagnifyingGlass);
 export const MapIcon = sized(HeroMap);
 export const MinusIcon = sized(HeroMinus, 0.93);
 export const MoonIcon = sized(HeroMoon, 0.96);
+export const PencilSquareIcon = sized(HeroPencilSquare);
 export const PlusIcon = sized(HeroPlus, 0.93);
 export const ServerIcon = sized(HeroServer);
 export const ShieldCheckIcon = sized(HeroShieldCheck, 1.09);
+export const SignalIcon = sized(HeroSignal);
 export const Square2StackIcon = sized(HeroSquare2Stack, 1.2);
 export const SunIcon = sized(HeroSun, 1.11);
 // Not measured against a lucide twin — the rail had no design-system entry
 // before this mark, so its coverage stands unadjusted at 1 until it is.
 export const SwatchIcon = sized(HeroSwatch);
+export const TagIcon = sized(HeroTag);
 export const TrashIcon = sized(HeroTrash);
 export const UserIcon = sized(HeroUser, 0.93);
 export const WrenchScrewdriverIcon = sized(HeroWrenchScrewdriver);
@@ -228,3 +252,30 @@ function SkillMark({ width, height, strokeWidth, ...props }: SVGProps<SVGSVGElem
 
 /** The kind mark for a skill — the placecard's Skills row and, later, the inspector's header. */
 export const SkillIcon = sized(SkillMark);
+
+/**
+ * What something costs to load: a dial arc and a needle, the fewest strokes
+ * that still read as a gauge at 14px. No icon set has it. It draws no
+ * reading — the needle is the glyph's pose, as a clock mark tells no time.
+ */
+function GaugeMark({ width, height, strokeWidth, ...props }: SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={strokeWidth}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      width={width}
+      height={height}
+      {...props}
+    >
+      <path d="M4.9 17.2a7.5 7.5 0 1 1 14.2 0" />
+      <path d="M12 14.8l4.2-4.2" />
+    </svg>
+  );
+}
+
+/** The Context section's row mark. */
+export const GaugeIcon = sized(GaugeMark);
