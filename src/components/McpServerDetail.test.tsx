@@ -416,6 +416,23 @@ describe("McpServerDetail", () => {
     expect(screen.getAllByText(/tauri-mcp/).length).toBeGreaterThan(0);
   });
 
+  it("a registration row is host · tier, then its config path; agreeing launches are not restated", () => {
+    render(<McpServerDetail server={{ ...base, envKeys: ["API_KEY"] }} />);
+    openDetails();
+    // One card, three stacked rows -- base's registrations all agree.
+    const rows = screen.getAllByTestId("registration-row");
+    expect(rows).toHaveLength(3);
+    // Every base registration launches "node", but they agree, so the launch
+    // line stays off the row entirely -- restating an agreed-upon launch is
+    // exactly the noise this task removes.
+    expect(rows[0].textContent).not.toMatch(/node/);
+    // Environment is its own card now too: the key sits in a mono span,
+    // nested inside the same bordered-card shape as Registered in.
+    const envKey = screen.getByText("API_KEY");
+    expect(envKey.className).toMatch(/font-mono/);
+    expect(envKey.closest(".rounded-inner")).toBeTruthy();
+  });
+
   it("says nothing about divergence when the registrations agree", () => {
     render(<McpServerDetail server={base} />);
     openDetails();

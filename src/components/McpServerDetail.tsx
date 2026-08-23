@@ -16,6 +16,7 @@ import {
   WrenchScrewdriverIcon,
   ArchiveBoxIcon,
   ChatBubbleOvalLeftIcon,
+  KeyIcon,
 } from "./icons";
 
 /**
@@ -845,18 +846,22 @@ export default function McpServerDetail({
               {`${regCount} ${regCount === 1 ? "registration" : "registrations"}`}
             </span>
           </div>
-          <div className="flex flex-col gap-px bg-line border border-line rounded-inner overflow-hidden">
+          <ListCard>
             {server.registrations.map((reg, i) => (
-              <div key={`${reg.configPath}-${i}`} className="bg-page px-[11px] py-[9px] flex flex-col gap-[3px]">
-                <div className="flex items-center justify-between gap-2">
+              <div
+                key={`${reg.configPath}-${i}`}
+                className="flex flex-col gap-[3px] px-3 py-[9px] text-small"
+                data-testid="registration-row"
+              >
+                <span className="flex items-center gap-2 min-w-0">
                   {/* reg.host is the display name (hostLabel); the map resolves names too. */}
                   <EngineLabel engineKey={reg.host} className="text-small font-medium">
                     {reg.host}
                   </EngineLabel>
-                  <span className="text-micro font-mono text-ink-3 uppercase tracking-[0.06em]">
+                  <span className="ml-auto font-flex text-micro font-medium tracking-[.06em] uppercase text-ink-3">
                     {reg.tier}
                   </span>
-                </div>
+                </span>
                 <div className="flex items-center gap-1.5 min-w-0">
                   <span className="text-micro font-mono text-ink-3 truncate flex-1">
                     {reg.configPath}
@@ -874,15 +879,13 @@ export default function McpServerDetail({
                     </button>
                   </Tooltip>
                 </div>
-                {/* What it launches. Without this the panel could not show the
-                    divergence it was designed to surface, and could not answer
-                    "what does this actually run?" after a failed Verify. */}
-                {launchOf(reg) && (
-                  <span
-                    className={`text-micro font-mono truncate ${
-                      diverges ? "text-state-warning" : "text-ink-3"
-                    }`}
-                  >
+                {/* What it launches -- only when hosts disagree about it. An
+                    agreeing launch is already implied by every sibling row
+                    saying nothing, and restating it three times over was the
+                    noise this task removes; said once (2026-08-22), it comes
+                    back the moment there is something to compare it against. */}
+                {diverges && launchOf(reg) && (
+                  <span className="text-micro font-mono truncate text-state-warning">
                     {launchOf(reg)}
                   </span>
                 )}
@@ -903,7 +906,7 @@ export default function McpServerDetail({
                 )}
               </div>
             ))}
-          </div>
+          </ListCard>
           {endpointsDiverge && (
             <p className="text-micro text-state-warning leading-[1.45] mt-2">
               These hosts reach {server.name} at different endpoints. Whichever you are using
@@ -958,16 +961,15 @@ export default function McpServerDetail({
               <h3 className={HEADING}>Environment</h3>
               <span className={COUNT}>{server.envKeys.length}</span>
             </div>
-            <div className="flex flex-wrap gap-[6px]">
+            <ListCard>
               {server.envKeys.map((key) => (
-                <span
+                <ListCardRow
                   key={key}
-                  className="text-micro font-mono bg-plane border border-line px-2 py-px rounded-pill text-ink-2"
-                >
-                  {key}
-                </span>
+                  icon={<KeyIcon size={14} aria-hidden="true" />}
+                  label={<span className="font-mono">{key}</span>}
+                />
               ))}
-            </div>
+            </ListCard>
             <p className="text-micro text-ink-3 leading-[1.5] mt-2">
               Names only. Hanger never reads a variable&rsquo;s value.
             </p>
