@@ -332,7 +332,14 @@ carried moved into that page's legend. What each page settles is settled;
 the "what it settles" column below is kept as the record of why the page
 was drawn, not as an open question.
 
-Four iterated views, each a review page rendered at the app's true
+**Merged 2026-08-23.** `topnav-iterated.html` is deleted; the segmented
+track and the strip whose figures follow it were the same subject drawn
+twice, and since `.track` moved into `_proto.css` they shared one rule.
+`banner-iterated.html` survives because it shows the control in context;
+the isolated 584px and 368px specimens, the semantics note and the open
+narrow-width question moved into it intact.
+
+Three iterated views, each a review page rendered at the app's true
 dimensions (1024×700 window, 56px rail, 384px inspector, 300px placecard)
 in the app's own tokens — `_proto.css` imports `src/styles/tokens.css` by
 relative path, so light and dark are the running values and the pages
@@ -342,9 +349,8 @@ dropped* ledger.
 
 | Page | Options rendered | What it settles |
 |---|---|---|
-| `banner-iterated.html` | **Option A, ruled 2026-08-23** — chips above the strip, category-aware meter (All: link state; MCP servers: probe coverage), plus a facts line of backend fields. The chip row is the segmented track from the top nav, not a second control that resembles it. B's routed finding line was **not** taken. | Settled: the strip's meaning follows the chip. Consequence recorded on the page: the "declared more than once" finding now relies on Needs review alone. Still open: the aqua ruling for the coverage meter |
+| `banner-iterated.html` | **Option A, ruled 2026-08-23** — chips above the strip, category-aware meter (All: link state; MCP servers: probe coverage), plus a facts line of backend fields. The chip row is the segmented track from the top nav, not a second control that resembles it. B's routed finding line was **not** taken. Absorbed `topnav-iterated.html` on 2026-08-23: the track at 584px and 368px, the capsule ruling (raised, no border, a tight contact shadow, and in dark a lighter surface since a shadow is invisible on black), and the semantics note. | Settled: the strip's meaning follows the chip; the capsule. Consequence recorded on the page: the "declared more than once" finding now relies on Needs review alone. Still open: the aqua ruling for the coverage meter; what the track does at 368px (scroll, or counts under labels); whether the row becomes a `tablist` semantically |
 | `inspector-iterated.html` | **Chosen, ruled 2026-08-22** — tab row under the header, breakdown first: `Content · Details` for a skill, `Tools N · Details` for an MCP server; every section one bordered card of rows. Header rebuilt 2026-08-23 (the ten rulings below). The two reference shells are deleted. | Settled: tabs, content first; the section format; transport said once. Still open: which additions earn a backend change; whether the active tab is remembered; the header's one-row-versus-two fit at 384px |
-| `topnav-iterated.html` | **Option B, ruled 2026-08-23** — the category chips as a segmented track, the selected segment a raised capsule: no border, a tight contact shadow, and in dark a lighter surface instead (a shadow is invisible on black). Drawn at 584px and 368px, the capsule sliding on `--dur-nav` / `--spring`. A, B′ and C are deleted. | Settled: the capsule. Still open: what the track does at 368px (scroll, or counts under labels); whether the row becomes a `tablist` semantically |
 | `map-iterated.html` | One canvas with hover focus, a state dot on a node, the layers panel extended (Unlinked roots, Only drift and dangling), a scan stamp in the cap, and three placecard bodies with per-kind facts and one action each | Whether the placecard may call `get_asset_counts(root)` on selection or the node should carry the figures; whether "Show its assets →" (engine) and "Rules here" (project) earn their place |
 
 ### Recommended order, if approved
@@ -459,9 +465,14 @@ fallback — and the choice is his.
    capsule (B)** — no border, a tight contact shadow, and in dark a
    lighter surface instead, since a shadow is invisible on black. Still
    open: at 368px, a scrolling track or counts under the labels; and
-   whether the row becomes a `tablist` semantically.
-6. The inspector header: one row as drawn, or the two-row fallback —
-   both drawn at 384px, with the measured overflow annotated.
+   whether the row becomes a `tablist` semantically. Both of those now
+   live in `banner-iterated.html`, under "Still open".
+6. The inspector header: where `Link to…` lives — on the surface as the
+   one strong action, or inside the ⋮ menu with everything else. The
+   overflow menu replaced the one-row-versus-two question: the row
+   Karthik drew needed 485px against a column that clamps to 384–480
+   (`src/App.tsx:1118`), and moving the actions into a menu is what made
+   it fit rather than choosing a fallback.
 7. `--radius-mini`: 6, 8 or 10px, drawn at true size.
 8. Naming briefs for the first-time labels that survive: "Unlinked roots",
    "Only drift and dangling", "In this skill", "Show its assets", "Rules

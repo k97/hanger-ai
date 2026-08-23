@@ -206,8 +206,48 @@ code { font-family: var(--font-mono); }
 .track > button b { font-size: var(--fs-micro); color: var(--ink-3); font-variant-numeric: tabular-nums; transition: color var(--dur-nav) var(--spring); }
 .track > button[aria-selected="true"] { color: var(--ink-1); }
 .track > button[aria-selected="true"] b { color: var(--ink-2); }
-.ind { position: absolute; top: 0; left: 0; width: 0; height: 28px; border-radius: var(--radius-pill); background: var(--capsule); box-shadow: var(--capsule-shadow); border: 0; }
+/* Scoped to .track deliberately. As a bare `.ind` this rule reached the
+   inspector's tab underline too and pinned it to the TOP of the tab row:
+   `top: 0` here versus `bottom: -1px` there is over-constrained, and top
+   wins. It also lent a 2px bar a pill radius and a capsule shadow. */
+.track .ind { position: absolute; top: 0; left: 0; width: 0; height: 28px; border-radius: var(--radius-pill); background: var(--capsule); box-shadow: var(--capsule-shadow); border: 0; }
 .track.ready .ind { transition: left var(--dur-nav) var(--spring), width var(--dur-nav) var(--spring); }
+
+/* ── Section format (Karthik, 2026-08-22) ──
+   Moved here from inspector-iterated.html 2026-08-23: the map's placecards
+   take the same format, and two copies is how they drift apart. An eyebrow,
+   then ONE bordered card whose rows are icon · label · right-aligned value.
+   The divider lives on .row + .row, so a one-row card carries none and the
+   last row never does. margin and flex-wrap are restated because a page's
+   own outer .row (the review layout) would otherwise leak into these rows.
+   .v and .vw are scoped under .lc on purpose — a bare `.ind` in this file
+   reached the inspector's tab underline and pinned it to the top of the
+   row, and one-letter class names in a shared sheet are that bug waiting. */
+.lc { border: 1px solid var(--line); border-radius: var(--radius-inner); background: var(--page); overflow: hidden; }
+.lc .row { display: flex; align-items: center; gap: 10px; padding: 9px 12px; min-height: 36px; font-size: var(--fs-small); color: var(--ink-1); margin: 0; flex-wrap: nowrap; }
+.lc .row + .row { border-top: 1px solid var(--line); }
+.lc .row.stack { align-items: flex-start; flex-direction: column; gap: 3px; }
+.lc .row.stack .ln { display: flex; align-items: center; gap: 8px; align-self: stretch; min-width: 0; }
+.lc .lcb { padding: 12px; border-top: 1px solid var(--line); }
+.lc .ri { width: 14px; height: 14px; flex-shrink: 0; color: var(--ink-3); }
+.lc .v { margin-left: auto; font-family: var(--font-mono); font-size: var(--fs-micro); color: var(--ink-3); }
+.lc .vw { margin-left: auto; }
+
+/* ── Mini action set (Karthik's reference, 2026-08-22) ──
+   Equal outlined buttons, icon + label. Its own control class rather than a
+   .btn variant — .btn is medium weight and the set is regular, which a
+   page's body weight gives for free. The radius is the ruling of
+   2026-08-23: --radius-mini (= --radius-control revived), never the pill
+   that .btn keeps. Tone is the header's business only; in-section sets stay
+   equal and outlined. */
+.mini-set { display: flex; flex-wrap: wrap; gap: 6px; }
+.mini { height: 26px; padding: 0 10px; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; font-size: var(--fs-small); color: var(--ink-1); border: 1px solid var(--line-2); border-radius: var(--radius-mini); background: var(--page); transition: background-color var(--dur-hover) var(--spring); }
+.mini:hover { background: var(--plane-2); }
+.mini.fill { background: var(--fill); color: var(--on-fill); border-color: transparent; }
+.mini.fill:hover { background: var(--fill); }
+.mini.tonal { background: var(--plane-2); border-color: transparent; }
+.mini.tonal:hover { background: var(--tint); }
+.mini[aria-expanded="true"] { background: var(--plane-2); }
 
 /* Map ground — LinkMapPane.tsx:352-357, a dot grid painted from --line */
 .map-ground { background-color: var(--page); background-image: radial-gradient(var(--line) 1px, transparent 1px); background-size: 24px 24px; }

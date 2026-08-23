@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Summary strip — category-aware</title>
+<title>The category track and the summary strip</title>
 <link rel="stylesheet" href="_proto.css">
 <style>
   /* Layout only. Every colour, size and radius below is a token or a class
@@ -30,14 +30,26 @@
   .tally ul { list-style: disc; padding-left: 16px; margin-top: 6px; }
   .tally li { margin: 4px 0; }
   svg { flex-shrink: 0; }
+
+  /* Width specimens — carried from topnav-iterated.html on 2026-08-23, when
+     that page was folded into this one. A frame that fixes the pane width,
+     and nothing else: the control inside it is the same shared .track, so
+     none of its geometry is restated here. The captions and the specimens
+     reuse .row and .notes from above rather than a second column system. */
+  .colhead { display: flex; flex-direction: column; gap: 6px; }
+  .specimen { background: var(--page); border: 1px solid var(--line-2); border-radius: var(--radius-soft); overflow: hidden; }
+  .specimen.w584 { width: 584px; }
+  .specimen.w368 { width: 368px; }
+  .page-annot { max-width: 72ch; margin: -10px 0 8px; }
 </style>
 </head>
 <body>
 
 <div class="toggle-bar"><button class="btn" id="dark" type="button">Dark</button></div>
 
-<h1 class="review-title">Summary strip — category-aware</h1>
-<p class="review-note">One shell at true size, 1024&times;700 cropped to 440px. Two rulings made it. Karthik, 2026-08-22: the category row moves above the strip, because once the strip&rsquo;s figures follow the selected category the row is the control for those figures and belongs above what it changes &mdash; the same reasoning that put Rescan inside the strip. Karthik, 2026-08-23: that row is the segmented track specified in <code>topnav-iterated.html</code>, not a second control that merely resembles it, so both draw from the same <code>.track</code> in <code>_proto.css</code>. MCP servers is the selected category here, and the meter, the legend and the facts line are all its figures. Every number is from this machine&rsquo;s store; the annotations beside the shell say which are backend fields already and which still need a ruling.</p>
+<h1 class="review-title">The category track and the summary strip</h1>
+<p class="review-note">One control, and the surface whose figures it changes. The track is a specification, not a comparison: Karthik ruled on 2026-08-22 in favour of the raised capsule, and the three alternatives it was drawn against &mdash; tonal, filled, and counts on the selected segment only &mdash; are gone. The loose chips become one continuous track and the selected category is a capsule that slides inside it: position in the track says &ldquo;selected&rdquo;, so the check mark goes. The labels and the backend counts stay, and so does hide-at-zero with All, the selected category and MCP servers exempt (<code>CategoryFilterCards.tsx</code>). The slide is the app&rsquo;s one spring over <code>--dur-nav</code>. visionOS&rsquo;s glass is out &mdash; no blur. The capsule carries a tight contact shadow and no border, which is the substance of the ruling: a second, smaller elevation beside the map&rsquo;s, proposed as <code>--capsule-shadow</code>. Two further rulings placed it. Karthik, 2026-08-22: the track moves above the strip, because once the strip&rsquo;s figures follow the selected category the track is the control for those figures and belongs above what it changes &mdash; the same reasoning that put Rescan inside the strip. Karthik, 2026-08-23: the strip&rsquo;s row is that track and not a second control that merely resembles it, so both draw from the same <code>.track</code> in <code>_proto.css</code>. The shell below is one window at true size, 1024&times;700 cropped to 440px, with MCP servers selected, and the meter, the legend and the facts line are all its figures. Every number is from this machine&rsquo;s store; the annotations beside the shell say which are backend fields already and which still need a ruling. Click a segment, or focus one and use the arrow keys then Enter.</p>
+<div class="annot page-annot">The same ruling settled dark. A shadow is invisible on black, and <code>--page</code> on <code>--plane</code> is one value step &mdash; so in dark the capsule lightens instead of casting a shadow nobody can see, the way iOS&rsquo;s does. Its surface is a proposed token, <code>--capsule</code>: <code>--page</code> in light, <code>--tint</code> in dark. Flip Dark to judge.</div>
 
 <div class="option"><h2>The category track above the strip</h2><span>MCP servers selected</span></div>
 <div class="row">
@@ -86,7 +98,7 @@
 
 </div>
 <div class="notes">
-  <div class="annot"><b>The row is the track, not chips.</b> Same control as the top navigation: one continuous track, a capsule that slides to the selection, no check mark because position carries it. The counts stay on every segment. It sits above the strip because it is the control for the strip&rsquo;s figures.</div>
+  <div class="annot"><b>The row is the track, not chips.</b> One continuous track, a capsule that slides to the selection, no check mark because position carries it. The counts stay on every segment. It sits above the strip because it is the control for the strip&rsquo;s figures.</div>
   <div class="annot"><b>The meter follows the selection.</b> These are the inspector&rsquo;s own figures (<code>McpEngineSummary</code>): 9 of 23 servers answered, 7 not yet asked, 7 can&rsquo;t be asked. The dashed third segment is inert glass, not a state.</div>
   <div class="annot"><b>Aqua = answered share &mdash; needs a ruling.</b> Today aqua may mark only the linked share (<code>GelMeter.tsx</code>, ruled 2026-08-15). Probe coverage is a second meaning for the same gel.</div>
   <div class="annot"><b>The 2 in Review &mdash; needs a backend field.</b> It is a count of servers whose registrations disagree. <code>McpServerRow</code> carries agreement per row; the frontend may not count rows.</div>
@@ -95,15 +107,63 @@
 </div>
 </div>
 
+<!-- ───────── The same track at the two widths the pane takes ───────── -->
+<div class="option"><h2>The track at both pane widths</h2><span>drawn alone, where the shell above draws it in place</span></div>
+<div class="row">
+  <div class="colhead">
+    <span class="text-small text-ink-3">584px · source list collapsed, inspector open · MCP servers selected</span>
+    <div class="specimen w584">
+      <div class="track-wrap"><div class="track" role="tablist" aria-label="Filter by category"><i class="ind"></i>
+        <button role="tab" aria-selected="false">All <b>144</b></button>
+        <button role="tab" aria-selected="false">Skills <b>110</b></button>
+        <button role="tab" aria-selected="true">MCP servers <b>19</b></button>
+        <button role="tab" aria-selected="false">Rules <b>2</b></button>
+        <button role="tab" aria-selected="false">Subagents <b>13</b></button>
+      </div></div>
+    </div>
+  </div>
+  <div class="colhead">
+    <span class="text-small text-ink-3">368px · source list open · Skills selected</span>
+    <div class="specimen w368">
+      <div class="track-wrap"><div class="track" role="tablist" aria-label="Filter by category"><i class="ind"></i>
+        <button role="tab" aria-selected="false">All <b>144</b></button>
+        <button role="tab" aria-selected="true">Skills <b>110</b></button>
+        <button role="tab" aria-selected="false">MCP servers <b>19</b></button>
+        <button role="tab" aria-selected="false">Rules <b>2</b></button>
+        <button role="tab" aria-selected="false">Subagents <b>13</b></button>
+      </div></div>
+    </div>
+    <div class="annot">Five segments outrun the pane at this width. Drawn scrolling; still open.</div>
+  </div>
+  <div class="notes">
+    <div class="annot"><b>The capsule.</b> Track <code>--plane</code> with a <code>--line</code> edge, 4px inset, no gap between segments. The capsule is <code>--capsule</code> with <code>--capsule-shadow</code>, and no border &mdash; an edge plus an elevation read as two treatments of the same thing, and the shadow alone does the work. Label goes to <code>--ink-1</code> at medium weight, count to <code>--ink-2</code>. Both tokens are proposed: they live in <code>_proto.css</code> until the plan adds them to <code>tokens.css</code>.</div>
+    <div class="annot"><b>The specimens draw the track alone.</b> The strip follows the selection, and per-category link-state figures are not in hand for Skills, so none are invented to sit under them. Width is the only question these two are here to settle; the shell above is the one strip on the page.</div>
+  </div>
+</div>
+
+<!-- ───────── Still open ───────── -->
+<div class="option"><h2>Still open</h2><span>two rulings outstanding</span></div>
+
+<div class="annot tally">
+  <span class="text-small font-medium text-ink-1">Open · what gives at 368px</span>
+  <p style="margin-top:6px">Two ways out and no ruling yet. Either the track keeps one row and scrolls horizontally, which is what is drawn here and what the script&rsquo;s scroll-into-view assumes; or each segment stacks its count under its label, which fits the five in the pane at the cost of a taller row and a count that no longer reads as part of the label. Judge it on the narrow specimen.</p>
+</div>
+
+<div class="annot tally">
+  <span class="text-small font-medium text-ink-1">Open · semantics</span>
+  <p style="margin-top:6px"><code>CategoryFilterCards</code> renders buttons with <code>aria-pressed</code> (filters). Drawn as a tab view, <code>role="tablist"</code> / <code>role="tab"</code> + <code>aria-selected</code> fits: the list below changes with the category. Arrow keys move between tabs; the indicator follows focus only on selection. Which of the two the shipped control carries is still a ruling to make.</p>
+</div>
+
 <!-- ───────── Tally ───────── -->
 <div class="annot tally">
   <span class="text-small font-medium text-ink-1">Carried over / changed / dropped</span>
   <ul>
-    <li><b>Carried over:</b> one flat strip, <code>--line</code> border, 32px total, GelMeter, legend toggles, Rescan in the strip, Review → pill gated on a real count.</li>
+    <li><b>Carried over:</b> the category labels, the backend counts, the hide-at-zero rule, the <code>h-7 px-3.5 rounded-pill</code> segment geometry; one flat strip, <code>--line</code> border, 32px total, GelMeter, legend toggles, Rescan in the strip, Review → pill gated on a real count.</li>
+    <li><b>Changed:</b> one continuous track instead of loose chips, with a capsule that slides to the selection; the check mark goes, because position now carries it. The capsule has no border and a contact shadow (ruled 2026-08-22) — two proposed tokens, <code>--capsule</code> and <code>--capsule-shadow</code>, the latter a second elevation beside the map&rsquo;s.</li>
+    <li><b>Changed:</b> the category row moves above the strip, and is that same track rather than a control of its own — one control for both surfaces (Karthik, 2026-08-22 and 2026-08-23).</li>
     <li><b>Changed:</b> the meter&rsquo;s meaning follows the selected category — link state for assets, probe coverage for MCP servers; one facts line of backend fields under the legend.</li>
-    <li><b>Changed:</b> the category row moves above the strip, and becomes the segmented track rather than loose chips — one control shared with the top navigation (Karthik, 2026-08-22 and 2026-08-23).</li>
     <li><b>Not taken:</b> the routed finding line under the strip. &ldquo;2 MCP servers are declared more than once&rdquo; therefore has no home in the strip and relies on Needs review.</li>
-    <li><b>Dropped:</b> per-category hues, gradients, glass and blur (one elevation exists and it belongs to the map&rsquo;s overlays); "System fragmentation / canonical vs shadow" (not in the model — ownership and reach are); "Daemon active · uptime" (there is no daemon); 30-day activity, privilege audit, pool saturation (Hanger does not observe engines running); token-tax figures (nothing measures tokens).</li>
+    <li><b>Dropped:</b> glass, blur, gradients, visionOS&rsquo;s hover-expand (pointer, not gaze) and per-category hues (one elevation exists and it belongs to the map&rsquo;s overlays); the three capsule treatments the track was drawn against — tonal, filled, and count-on-selected-only — all ruled out on 2026-08-22; "System fragmentation / canonical vs shadow" (not in the model — ownership and reach are); "Daemon active · uptime" (there is no daemon); 30-day activity, privilege audit, pool saturation (Hanger does not observe engines running); token-tax figures (nothing measures tokens).</li>
   </ul>
 </div>
 
