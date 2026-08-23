@@ -22,6 +22,12 @@ const node = (
   path: `/fake/${label}`,
   asset_count: 0,
   linked: kind === "engine_root" ? false : null,
+  skill_count: 0,
+  rule_count: 0,
+  subagent_count: 0,
+  tool_count: 0,
+  linked_from: 0,
+  rules: [],
   ...extras,
 });
 

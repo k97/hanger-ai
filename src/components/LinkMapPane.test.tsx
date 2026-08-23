@@ -10,10 +10,14 @@ afterEach(cleanup);
 
 const graph = (overrides: Partial<LinkGraph> = {}): LinkGraph => ({
   nodes: [
-    { id: 1, kind: "store", label: ".agents", path: "/u/k/.agents", asset_count: 117, linked: null },
-    { id: 2, kind: "engine_root", label: "Claude Code", path: "/u/k/.claude", asset_count: 10, linked: true },
-    { id: 3, kind: "engine_root", label: "Claude Desktop", path: "/u/k/Library/Claude", asset_count: 1, linked: false },
-    { id: 4, kind: "project", label: "metrics-board", path: "/u/k/w/metrics-board", asset_count: 82, linked: null },
+    { id: 1, kind: "store", label: ".agents", path: "/u/k/.agents", asset_count: 117, linked: null,
+      skill_count: 110, rule_count: 2, subagent_count: 5, tool_count: 0, linked_from: 1, rules: [] },
+    { id: 2, kind: "engine_root", label: "Claude Code", path: "/u/k/.claude", asset_count: 10, linked: true,
+      skill_count: 8, rule_count: 0, subagent_count: 2, tool_count: 0, linked_from: 0, rules: [] },
+    { id: 3, kind: "engine_root", label: "Claude Desktop", path: "/u/k/Library/Claude", asset_count: 1, linked: false,
+      skill_count: 0, rule_count: 0, subagent_count: 0, tool_count: 1, linked_from: 0, rules: [] },
+    { id: 4, kind: "project", label: "metrics-board", path: "/u/k/w/metrics-board", asset_count: 82, linked: null,
+      skill_count: 9, rule_count: 3, subagent_count: 0, tool_count: 5, linked_from: 0, rules: ["AGENTS.md", "CLAUDE.md"] },
   ],
   // Order matters to the tests below: the layout preserves it, so hit-path
   // N is edges[N].

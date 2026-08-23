@@ -24,6 +24,15 @@ export interface GraphNode {
   asset_count: number;
   /** Engine roots only; null where the question has no meaning. */
   linked: boolean | null;
+  /** Per-kind totals from the backend's count_assets; 0 when absent. */
+  skill_count: number;
+  rule_count: number;
+  subagent_count: number;
+  tool_count: number;
+  /** Store nodes: distinct engine roots symlinked into this store. 0 elsewhere. */
+  linked_from: number;
+  /** Project nodes: rule asset names, sorted. Empty elsewhere. */
+  rules: string[];
 }
 
 export interface GraphEdge {
