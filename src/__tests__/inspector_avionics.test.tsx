@@ -235,6 +235,10 @@ describe("Avionics A5 — Docked Right Inspector Integration", () => {
     const toolRow = await screen.findByText("Inspector Tool One");
     fireEvent.click(toolRow);
 
+    // The config path lives behind Details now that the MCP panel opens on
+    // Tools first (M1) -- open it before asserting on the path string.
+    fireEvent.click(await screen.findByRole("tab", { name: "Details" }));
+
     await waitFor(() => {
       expect(screen.getByText("~/Work/demo/tools/inspector-tool-1.json")).toBeDefined();
       expect(screen.queryByText("~/Work/demo/skills/inspector-skill-1")).toBeNull();
@@ -306,6 +310,11 @@ describe("Avionics A5 — Docked Right Inspector Integration", () => {
 
     // Select tool row
     fireEvent.click(toolRow);
+
+    // The config path below lives behind Details now that the MCP panel
+    // opens on Tools first (M1). The data-selected checks in the same
+    // waitFor are on rows outside the panel and are unaffected by the tab.
+    fireEvent.click(await screen.findByRole("tab", { name: "Details" }));
 
     await waitFor(() => {
       expect(toolContainer.getAttribute("data-selected")).toBe("true");
