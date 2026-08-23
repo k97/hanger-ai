@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
 import { ArrowPathIcon } from "./icons";
 import GelMeter from "./GelMeter";
+import ScanStamp from "./ScanStamp";
 import type { StateCounts, StateFilter, LinkState } from "../utils/linkStateCounts";
 
 interface SummaryStripProps {
@@ -16,17 +16,6 @@ interface SummaryStripProps {
    *  changes the figure directly above it, and the strip already says how old
    *  that figure is. */
   onRescan?: () => void;
-}
-
-function timeAgo(from: Date, now: Date): string {
-  const seconds = Math.max(0, Math.floor((now.getTime() - from.getTime()) / 1000));
-  if (seconds < 60) return "moments ago";
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes} min ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return hours === 1 ? "1 hour ago" : `${hours} hours ago`;
-  const days = Math.floor(hours / 24);
-  return days === 1 ? "1 day ago" : `${days} days ago`;
 }
 
 /* The meter is the design system's GelMeter. The aqua gel is the PROGRESS
@@ -57,21 +46,6 @@ export default function SummaryStrip({
   onFilterState,
   onRescan,
 }: SummaryStripProps) {
-  // Re-render every 30s so the scan stamp keeps pace without a scan event.
-  const [, setTick] = useState(0);
-  useEffect(() => {
-    const interval = setInterval(() => setTick((t) => t + 1), 30_000);
-    return () => clearInterval(interval);
-  }, []);
-
-  // The stamp answers one question and keeps answering it: how old is the
-  // figure above. It stays an age during a scan — the button beside it is
-  // already saying that a scan is running, and saying it twice in one banner
-  // reads as two different pieces of news.
-  const scanStamp = scannedAt
-    ? `Scanned ${timeAgo(scannedAt, new Date())}`
-    : "Not scanned yet";
-
   const reviewCount = counts.drifted + counts.broken;
   const barLabel = `${counts.linked} linked, ${counts.drifted} drifted, ${counts.broken} broken, ${counts.local} local only`;
 
@@ -90,7 +64,7 @@ export default function SummaryStrip({
           {total}
         </span>
         <span className="text-lg-app text-ink-2">{subtitle}</span>
-        <span className="ml-auto text-micro text-ink-3 font-flex">{scanStamp}</span>
+        <ScanStamp scannedAt={scannedAt} className="ml-auto text-micro text-ink-3 font-flex" />
       </div>
 
       {counts.total > 0 && (
