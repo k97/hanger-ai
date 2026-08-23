@@ -11,6 +11,7 @@ import {
   DocumentIcon,
   DocumentTextIcon,
   FolderIcon,
+  GaugeIcon,
   GlobeAltIcon,
   LinkIcon,
   RevealInFileManagerIcon,
@@ -395,6 +396,30 @@ export default function AssetDetail({ asset, inventory, onLink, annotation }: As
       <div className="flex-1 min-h-0 overflow-y-auto">
         {kind !== "none" && tab === "content" && (
           <div role="tabpanel" id="panel-content" aria-labelledby="tab-content">
+            {asset.category === "Skills" && body && (
+              <section className="mx-[18px] my-3.5">
+                <div className="flex items-baseline justify-between gap-2 mb-3">
+                  <span className={eyebrowClass}>Context</span>
+                </div>
+                <ListCard>
+                  <ListCardRow
+                    icon={<GaugeIcon size={14} aria-hidden="true" />}
+                    label={
+                      <span className="flex flex-col gap-0.5 min-w-0">
+                        <span className="text-small leading-[1.5]">
+                          Name and description always loaded · {formatBytes(body.bytes)} when opened
+                        </span>
+                        <span className="font-mono text-micro text-ink-3 leading-[1.5]">
+                          ≈ {body.estimated_tokens.toLocaleString("en-US")} tokens, estimated · not checked per
+                          engine
+                        </span>
+                      </span>
+                    }
+                  />
+                </ListCard>
+              </section>
+            )}
+
             {text !== null && (
               <section className="mx-[18px] my-3.5">
                 <ListCard>

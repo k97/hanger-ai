@@ -34,6 +34,10 @@ let bodyResult: { ok: true; text: string } | { ok: false; error: string } = { ok
 // The backend answers with the file it read, which for a skill is the
 // document inside the folder the panel handed it.
 let bodyPath = SOURCE;
+// The measurements `read_asset_body` took while reading the file. A test
+// that cares about the Context row's arithmetic overrides this; every other
+// test gets the values the suite has always returned.
+let bodyFigures = { bytes: 431, lines: 21, estimated_tokens: 107 };
 let dirResult: Array<{ name: string; kind: string; bytes: number | null; file_count: number | null }> = [
   { name: "SKILL.md", kind: "file", bytes: 431, file_count: null },
   { name: "references/", kind: "dir", bytes: null, file_count: 3 },
@@ -47,10 +51,8 @@ vi.mock("@tauri-apps/api/core", () => ({
         return {
           path: bodyPath,
           text: bodyResult.text,
-          bytes: 431,
-          lines: 21,
+          ...bodyFigures,
           modified_ms: Date.UTC(2026, 6, 20, 12),
-          estimated_tokens: 107,
         };
       throw bodyResult.error;
     }
@@ -94,6 +96,7 @@ describe("Asset detail — the inspector's document screen", () => {
     vi.clearAllMocks();
     bodyResult = { ok: true, text: DOC };
     bodyPath = SOURCE;
+    bodyFigures = { bytes: 431, lines: 21, estimated_tokens: 107 };
     dirResult = [
       { name: "SKILL.md", kind: "file", bytes: 431, file_count: null },
       { name: "references/", kind: "dir", bytes: null, file_count: 3 },
@@ -309,5 +312,21 @@ describe("Asset detail — the inspector's document screen", () => {
     openDetails();
     expect(screen.queryByText("In this skill")).toBeNull();
     expect(invoke).not.toHaveBeenCalledWith("list_asset_dir", expect.anything());
+  });
+
+  it("Content leads with what reading the skill costs, bytes as the fact and tokens as an estimate", async () => {
+    bodyFigures = { bytes: 8602, lines: 252, estimated_tokens: 2150 };
+    render(<AssetDetail asset={asset} inventory={inventory} />);
+    const section = (await screen.findByText("Context")).closest("section")!;
+    expect(section.textContent).toContain("Name and description always loaded · 8.4 kB when opened");
+    expect(section.textContent).toContain("≈ 2,150 tokens, estimated · not checked per engine");
+    // It precedes the document card.
+    const panel = screen.getByRole("tabpanel");
+    expect(panel.firstElementChild).toBe(section);
+  });
+  it("a rule has no Context section — the tiers are a skill's", async () => {
+    render(<AssetDetail asset={{ ...asset, category: "Rules" }} inventory={inventory} />);
+    await screen.findByRole("tab", { name: "Content" });
+    expect(screen.queryByText("Context")).toBeNull();
   });
 });
