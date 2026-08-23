@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Inspector — tabbed, content first; the header at 384px</title>
+<title>Inspector — one header, and where Link to… lives</title>
 <link rel="stylesheet" href="_proto.css">
 <style>
 /* Layout only. Every colour, size and radius below is a token or a class from _proto.css. */
@@ -19,9 +19,10 @@
 .ghost-list { margin-top: 12px; }
 /* Inspector */
 .aside .body { flex: 1 1 0; min-height: 0; overflow-y: auto; } /* one scroll region, as AssetDetail / McpServerDetail */
-.hd { padding: 10px 18px 12px; border-bottom: 1px solid var(--line); }
+/* No border-bottom: nothing draws a hairline between the header and the
+   tab row. .utabs keeps its own, which is the baseline the underline sits on. */
+.hd { padding: 8px 18px 16px; }
 .hd h2 { letter-spacing: -0.3px; }
-.acts { display: flex; gap: 8px; padding: 12px 18px; border-bottom: 1px solid var(--line); }
 .card { margin: 14px 18px; }
 .ic { width: 13px; height: 13px; flex-shrink: 0; }
 .mark { width: 14px; height: 14px; flex-shrink: 0; fill: var(--tint-plane); stroke: var(--line); }
@@ -36,8 +37,8 @@
 .annot.in { margin: 0 18px 14px; }
 .lh { line-height: 1.5; }
 /* Chosen: the tab row sits under the header, above the scroll region */
-.utabs { display: flex; gap: 20px; padding: 0 18px; border-bottom: 1px solid var(--line); position: relative; flex-shrink: 0; }
-.utabs [role="tab"] { padding: 6px 0 9px; font-size: var(--fs-base); color: var(--ink-2); background: none; border: 0; position: relative; }
+.utabs { display: flex; gap: 24px; padding: 0 18px; border-bottom: 1px solid var(--line); position: relative; flex-shrink: 0; }
+.utabs [role="tab"] { padding: 8px 0 10px; font-size: var(--fs-base); color: var(--ink-2); background: none; border: 0; position: relative; }
 .utabs [role="tab"][aria-selected="true"] { color: var(--ink-1); } /* weight comes from .font-medium, toggled with aria-selected */
 .utabs [role="tab"] .n { margin-left: 6px; }
 .utabs .ind { position: absolute; bottom: -1px; height: 2px; background: var(--ink-1); transition: left var(--dur-nav) var(--spring), width var(--dur-nav) var(--spring); }
@@ -52,28 +53,9 @@
 .leg { margin-top: 28px; max-width: 1024px; padding: 12px 14px; }
 .leg ul { list-style: disc; padding-left: 16px; margin: 4px 0 10px; }
 .leg li { margin-bottom: 2px; }
-/* ── Section format (Karthik, 2026-08-22) ──
-   Every section in the chosen shell is an eyebrow, then ONE bordered card
-   whose rows are icon · label · right-aligned value. The divider lives on
-   .row + .row, so a one-row card carries none and the last row never does.
-   margin and flex-wrap are restated because this page's outer .row (the
-   review layout) would otherwise leak into the card's rows. */
-.lc { border: 1px solid var(--line); border-radius: var(--radius-inner); background: var(--page); overflow: hidden; }
-.lc .row { display: flex; align-items: center; gap: 10px; padding: 9px 12px; min-height: 36px; font-size: var(--fs-small); color: var(--ink-1); margin: 0; flex-wrap: nowrap; }
-.lc .row + .row { border-top: 1px solid var(--line); }
-.lc .row.stack { align-items: flex-start; flex-direction: column; gap: 3px; }
-.lc .row.stack .ln { display: flex; align-items: center; gap: 8px; align-self: stretch; min-width: 0; }
-.lc .lcb { padding: 12px; border-top: 1px solid var(--line); }
-.ri { width: 14px; height: 14px; flex-shrink: 0; color: var(--ink-3); }
-.v { margin-left: auto; font-family: var(--font-mono); font-size: var(--fs-micro); color: var(--ink-3); }
-.vw { margin-left: auto; }
-/* Mini action set (Karthik's reference, 2026-08-22): equal outlined pills,
-   icon + label. Its own control class rather than a .btn variant — .btn is
-   medium weight and the set is regular, which the page's body weight gives
-   for free; the hover is .btn:hover's, restated on the token. */
-.mini-set { display: flex; flex-wrap: wrap; gap: 6px; }
-.mini { height: 26px; padding: 0 10px; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; font-size: var(--fs-small); color: var(--ink-1); border: 1px solid var(--line-2); border-radius: var(--radius-mini); background: var(--page); transition: background-color var(--dur-hover) var(--spring); }
-.mini:hover { background: var(--plane-2); }
+/* The section format (.lc, .ri, .v, .vw) and the mini action set live in
+   _proto.css now — the map's placecards take the same format, and two copies
+   is how they drift apart. .ri/.v/.vw are scoped under .lc there. */
 
 /* ══ Header, rebuilt — Karthik's rulings, 2026-08-23 ══
    The 40px top row is the window's drag region in the real app
@@ -84,9 +66,11 @@
 .cap.id { justify-content: flex-start; padding: 0 12px 0 18px; gap: 8px; position: relative; z-index: 20; }
 .cap.id > * { flex-shrink: 0; }
 .trail { margin-left: auto; display: flex; align-items: center; gap: 2px; }
-.kindword { color: var(--ink-1); }
-/* The kind glyph carries the scope in its tooltip, so the eyebrow's second
-   half stops costing a word on screen. */
+/* The glyph's tooltip is drawn ONLY for a project-scoped asset, where the
+   eyebrow's second half is a project name that can truncate and the tooltip
+   carries it in full. Both asides here are global, so neither draws one:
+   the row already says the kind and the place, and said once means once.
+   The rules stay as the specification of that case. */
 .kind { position: relative; display: inline-flex; }
 .kg { width: 16px; height: 16px; display: block; color: var(--ink-2); }
 /* Finding marker: 6px, ringed in --page so it stays legible on the glyph.
@@ -100,18 +84,29 @@
    so it can be read on a still. */
 .pw { position: relative; display: inline-flex; }
 .pop { position: absolute; top: 30px; left: -14px; z-index: 40; width: 264px; padding: 12px; display: flex; flex-direction: column; gap: 10px; background: var(--page); border: 1px solid var(--line); border-radius: var(--radius-inner); }
-.pop::before { content: ""; position: absolute; top: -6px; left: 30px; width: 10px; height: 10px; background: var(--page); border-left: 1px solid var(--line); border-top: 1px solid var(--line); transform: rotate(45deg); }
+.pop::before { content: ""; position: absolute; top: -6px; left: var(--arrow, 30px); width: 10px; height: 10px; background: var(--page); border-left: 1px solid var(--line); border-top: 1px solid var(--line); transform: rotate(45deg); }
 /* Path: plain mono text, no plane and no buttons of its own — Copy and
    Reveal are in the trailing cluster now. It truncates from the left, so
    the filename is the part that survives. */
+/* ── The overflow menu (Karthik, 2026-08-23) ──
+   An ellipsis trigger absorbs the actions the 384px row could not hold.
+   Right-aligned under its trigger so it opens inward, away from the aside's
+   edge; the aside clips overflow, and a left-aligned panel would be cut. */
+.mwrap { position: relative; display: inline-flex; }
+.menu { position: absolute; top: 26px; right: 0; z-index: 40; min-width: 184px; padding: 4px; background: var(--page); border: 1px solid var(--line); border-radius: var(--radius-inner); }
+.menu button { width: 100%; height: 32px; padding: 0 10px; display: flex; align-items: center; gap: 10px; font-size: var(--fs-small); color: var(--ink-1); border-radius: var(--radius-soft); text-align: left; transition: background-color var(--dur-hover) var(--spring); }
+.menu button:hover { background: var(--plane-2); }
+.menu button:focus-visible { outline: 2px solid var(--line-2); outline-offset: -2px; }
+.menu .mi { width: 14px; height: 14px; flex-shrink: 0; color: var(--ink-3); }
+.icon-btn[aria-expanded="true"] { background: var(--plane-2); color: var(--ink-1); }
+.icon-btn:focus-visible { outline: 2px solid var(--line-2); outline-offset: -2px; }
+/* Two groups in the trailing cluster, reading outward: the asset's own
+   controls (Link to…, then the ⋮ that holds the rest), then the panel chrome
+   (Expand, Hide) at the window's trailing edge. The icons pack at 2px; 8px
+   between the groups is what makes the split legible. */
+.trail > .mini { margin-right: 4px; }
+.trail .mwrap { margin-right: 8px; }
 .pathline { margin-top: 6px; font-size: var(--fs-micro); color: var(--ink-2); direction: rtl; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-/* Tone, not shape, carries the role: header actions are a strong one and a
-   quiet one, section actions stay the equal outlined set. */
-.mini.fill { background: var(--fill); color: var(--on-fill); border-color: transparent; }
-.mini.fill:hover { background: var(--fill); }
-.mini.tonal { background: var(--plane-2); border-color: transparent; }
-.mini.tonal:hover { background: var(--tint); }
-.mini[aria-expanded="true"] { background: var(--plane-2); }
 /* The three candidate radii at true size, for the ruling. 6 is
    --radius-mini, which IS --radius-control (tokens.css:139), registered as
    `rounded-control` (index.css:117) and used by nothing; 10 is
@@ -160,16 +155,17 @@
   <symbol id="i-ln" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244"/></symbol>
   <symbol id="i-pn" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10"/></symbol>
   <symbol id="i-rl" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5"/></symbol>
+  <symbol id="i-el" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 6.75a.75.75 0 110-1.5.75.75 0 010 1.5zM12 12.75a.75.75 0 110-1.5.75.75 0 010 1.5zM12 18.75a.75.75 0 110-1.5.75.75 0 010 1.5z"/></symbol>
   <symbol id="i-dc" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/></symbol>
 </svg>
 
 <div class="toggle-bar"><button class="btn" id="dk" aria-pressed="false">Dark</button></div>
 
-<h1 class="review-title">Inspector — tabbed, content first; the header at 384px</h1>
-<p class="review-note">The chosen inspector (Karthik, 2026-08-22) at the window's true size, 1024×700, docked at 384px as <code>App.tsx</code> draws it: a tab row under the header, the breakdown first — Content for a skill, Tools for an MCP server — and Details second. The tabs work; click a tab, and click a Review chip. The header was rebuilt on 2026-08-23 and one thing in it is still open, so it is drawn twice. The identity row he drew needs 485px of controls and the column clamps to 384–480 (<code>App.tsx:1118</code>), so <b>Layout 1</b> is that row as drawn, overflowing where it overflows, and <b>Layout 2</b> is the same header over two. Everything below the header is identical in both. The dashed notes say where each part comes from and what it costs; the legend at the foot is the specification. No colour or size here is new — the stylesheet imports the app's own tokens, light and dark.</p>
+<h1 class="review-title">Inspector — one header, and where Link to… lives</h1>
+<p class="review-note">The chosen inspector (Karthik, 2026-08-22) at the window's true size, 1024×700, docked at 384px as <code>App.tsx</code> draws it: a tab row under the header, the breakdown first — Content for a skill, Tools for an MCP server — and Details second. The tabs work; click a tab, click a Review chip, click a <b>⋮</b>. There is now <b>one header</b>. The row that overflowed is gone: an overflow menu takes the actions that would not fit, and the global breadcrumb comes back as its own row under the identity. One thing was still open — where <b>Link to…</b> lives — so the header is drawn twice and that is the only difference between them. <b>Variant A</b> keeps Link to… on the surface; <b>Variant B</b> puts it in the menu with everything else. <b>The measurement now answers it:</b> once the eyebrow carries <code>SKILL · GLOBAL</code> rather than <code>Skill</code>, variant A needs 379.8px of a 353px row and clips Hide inspector off the edge. It is drawn overflowing, as the old one-row header was. Variant B fits with 67.8px to spare. Everything below the header is identical in both. The dashed notes say where each part comes from and what it costs; the legend at the foot is the specification. No colour or size here is new — the stylesheet imports the app's own tokens, light and dark.</p>
 
 <!-- ═══════════════ Shell 3 — Chosen: tabbed, content first ═══════════════ -->
-<div class="option"><h2>Layout 1 · one row, as drawn</h2><span>identity, both actions and the four icons share the 40px drag row</span></div>
+<div class="option"><h2>Variant A · Link to… on the surface</h2><span>the menu holds Copy path, Reveal in Finder, Open in editor — and the row no longer fits</span></div>
 <div class="row">
 <div class="shell b">
   <div class="rail"><i class="logo rounded-soft"></i><i class="on"></i><i></i><i></i></div>
@@ -188,7 +184,7 @@
   </div>
   <div class="twin">
   <aside class="aside">
-    <div class="cap id" id="cap-l1"><span class="kind" tabindex="0"><svg class="kg" aria-hidden="true"><use href="#k-skill"/></svg><i class="flag" aria-hidden="true"></i><span class="tip" role="tooltip">Skill · Global</span></span><span class="kindword">Skill</span><span class="pw"><button class="mini" data-pop aria-haspopup="dialog" aria-expanded="true"><i class="dot bg-state-danger"></i>Review</button><div class="pop shadow-overlay" role="dialog" aria-label="Needs a decision"><p class="text-small lh">Nothing links to this skill, so no engine reaches it.</p><div class="mini-set"><button class="mini">Review →</button></div></div></span><div class="mini-set"><button class="mini fill"><svg class="ic"><use href="#i-ln"/></svg>Link to…</button><button class="mini tonal"><svg class="ic"><use href="#i-pn"/></svg>Open in editor</button></div><div class="trail"><button class="icon-btn sm" aria-label="Copy path"><svg class="ic"><use href="#i-cp"/></svg></button><button class="icon-btn sm" aria-label="Reveal in Finder"><svg class="ic"><use href="#i-rv"/></svg></button><button class="icon-btn sm" aria-label="Expand"><svg class="ic"><use href="#i-x"/></svg></button><button class="icon-btn sm bg-tint" aria-label="Hide inspector"><svg class="ic"><use href="#i-sb"/></svg></button></div></div>
+    <div class="cap id" id="cap-va"><span class="kind"><svg class="kg" aria-hidden="true"><use href="#k-skill"/></svg><i class="flag" aria-hidden="true"></i></span><span class="eyebrow">Skill<span aria-hidden="true"> · </span>Global</span><span class="pw"><button class="mini" data-pop aria-haspopup="dialog" aria-expanded="false"><i class="dot bg-state-danger"></i>Review</button><div class="pop shadow-overlay hidden" role="dialog" aria-label="Needs a decision"><p class="text-small lh">Nothing links to this skill, so no engine reaches it.</p><div class="mini-set"><button class="mini">Review →</button></div></div></span><div class="trail"><button class="mini fill"><svg class="ic"><use href="#i-ln"/></svg>Link to…</button><span class="mwrap"><button class="icon-btn sm" data-menu aria-haspopup="menu" aria-expanded="true" aria-label="More actions"><svg class="ic"><use href="#i-el"/></svg></button><div class="menu shadow-overlay" role="menu" aria-label="More actions"><button role="menuitem"><svg class="mi"><use href="#i-cp"/></svg>Copy path</button><button role="menuitem"><svg class="mi"><use href="#i-rv"/></svg>Reveal in Finder</button><button role="menuitem"><svg class="mi"><use href="#i-pn"/></svg>Open in editor</button></div></span><button class="icon-btn sm" aria-label="Expand"><svg class="ic"><use href="#i-x"/></svg></button><button class="icon-btn sm bg-tint" aria-label="Hide inspector"><svg class="ic"><use href="#i-sb"/></svg></button></div></div>
     <div class="hd">
       <h2 class="text-lg-app font-medium">agent-browser</h2>
       <div class="pathline"><bdi class="font-mono">/Users/karthik/.agents/skills/agent-browser/SKILL.md</bdi></div>
@@ -267,7 +263,7 @@ agent-browser close             # Close browser</pre>
     </div>
   </aside>
   <aside class="aside">
-    <div class="cap id" id="cap-l1-mcp"><span class="kind" tabindex="0"><svg class="kg" aria-hidden="true"><use href="#k-mcp"/></svg><i class="flag warn" aria-hidden="true"></i><span class="tip" role="tooltip">MCP server · Global</span></span><span class="kindword">MCP server</span><span class="pw"><button class="mini" data-pop aria-haspopup="dialog" aria-expanded="false"><i class="dot bg-state-warning"></i>Review</button><div class="pop shadow-overlay hidden" role="dialog" aria-label="Needs a decision"><p class="text-small lh">Claude Code declares this server twice — once in <code>mcp.json</code>, once in <code>.claude.json</code> — and Claude Desktop declares it once.</p><div class="mini-set"><button class="mini">Review →</button></div></div></span><div class="trail"><button class="icon-btn sm" aria-label="Expand"><svg class="ic"><use href="#i-x"/></svg></button><button class="icon-btn sm bg-tint" aria-label="Hide inspector"><svg class="ic"><use href="#i-sb"/></svg></button></div></div>
+    <div class="cap id" id="cap-va-mcp"><span class="kind"><svg class="kg" aria-hidden="true"><use href="#k-mcp"/></svg><i class="flag warn" aria-hidden="true"></i></span><span class="eyebrow">MCP server<span aria-hidden="true"> · </span>Global</span><span class="pw"><button class="mini" data-pop aria-haspopup="dialog" aria-expanded="false"><i class="dot bg-state-warning"></i>Review</button><div class="pop shadow-overlay hidden" role="dialog" aria-label="Needs a decision"><p class="text-small lh">Claude Code declares this server twice — once in <code>mcp.json</code>, once in <code>.claude.json</code> — and Claude Desktop declares it once.</p><div class="mini-set"><button class="mini">Review →</button></div></div></span><div class="trail"><button class="icon-btn sm" aria-label="Expand"><svg class="ic"><use href="#i-x"/></svg></button><button class="icon-btn sm bg-tint" aria-label="Hide inspector"><svg class="ic"><use href="#i-sb"/></svg></button></div></div>
     <div class="hd">
       <div class="flex items-center gap-2"><h2 class="text-lg-app font-medium">spades-audio</h2><span class="pill tinted">stdio</span></div>
     </div>
@@ -353,18 +349,28 @@ agent-browser close             # Close browser</pre>
   <span class="sample">sample · figures from this machine, 2026-08-22</span>
 </div>
 <div class="notes">
-  <div class="annot"><b>Measured, not guessed.</b> This row needs <b>485px</b> — 423px of controls, 32px of gaps, 30px of padding — in a column that is 384px wide. Reveal in Finder, Expand and Hide inspector are all outside the frame above; the row overruns its column by <b>102px</b>. Dragging the column to its 480px maximum leaves it <b>6px</b> short, so the one-row header fits nowhere the column can go (<code>App.tsx:1118</code> clamps it to 384–480). His screenshot is ~537px wide, which is why it looks right there.</div>
-  <div class="annot"><b>The 40px row cannot be deleted.</b> It is this column's window drag region (<code>data-tauri-drag-region</code>, <code>App.tsx:1633</code>). That is what makes the identity moving into it a saving rather than a cost: the header loses a row instead of gaining one. <code>App.tsx:1641-1646</code> already refuses a second close control — one control at the window's trailing edge, not two doing the same job — so Copy path, Reveal in Finder, Expand and Hide <b>move</b> here. None of the four is a copy of a control that stays somewhere else.</div>
-  <div class="annot"><b>An MCP server has no width problem.</b> It carries no path and no labelled actions — its config paths are per registration, under Details › Registered in — so its header is the same row in both layouts: kind, word, Review, and the two panel controls. Only the skill header has a choice to make. Its trailing cluster is two icons, not four, because there is no single path for Copy or Reveal to act on.</div>
-  <div class="annot"><b>The kind word stays; the scope becomes a tooltip</b> (Karthik, 2026-08-23, his first screenshot). “Skill” is on screen, “Skill · Global” is on the glyph — hover it. The glyph is drawn on the sprite's own grid at the same 1.9 stroke as every other mark here. The 6px dot is the finding, ringed in <code>--page</code> so it survives on top of the strokes, and it is drawn only when there is one.</div>
-  <div class="annot"><b>The state line and the warning card are one popover</b> (Karthik, 2026-08-23). Two header rows became a chip: the sentence says what the issue is, the button routes to Needs review. It is drawn open here and closed on Layout 2 — the same control; click the chip in either.</div>
-  <div class="annot"><b>The path is text.</b> No plane, no buttons of its own: Copy path and Reveal in Finder are in the trailing cluster now, Copy first, Reveal next to the two panel controls. It truncates from the left, so the filename is the part that survives.</div>
-  <div class="annot"><b>Two tiers, and the radius follows the size</b> (Karthik, 2026-08-23). <code>.btn</code> at 30px stays a full pill; <code>.mini</code> at 26px takes <code>--radius-mini</code>, so the two never read as one control at two scales. Tone carries the role instead: Link to… is filled, Open in editor is tonal, and the section sets inside the body stay equal and outlined. No chevron on Link to… — the ellipsis already says a dialog follows.</div>
+  <div class="annot"><b>Measured, not guessed — and the eyebrow changed the answer.</b> The row that forced this rebuild needed <b>485px</b> — 423px of controls, 32px of gaps, 30px of padding — in a column that clamps to <b>384–480</b> (<code>App.tsx:1120</code>): 102px over at the floor, 6px over at the maximum, so it fitted nowhere the column could go. The menu removed that overflow. Then the scope came back into the eyebrow, and <code>SKILL · GLOBAL</code> is 94.2px where <code>Skill</code> was ~30px. <b>Variant A no longer fits:</b> 16 + 94.2 + 76 + 169.6 + 24px of gaps = <b>379.8px</b> in a <b>353px</b> row — 26.8px over, and Hide inspector overhangs the aside by 14.8px. It is drawn overflowing rather than quietly repaired, the same way the old one-row header was.</div>
+  <div class="annot"><b>Variant B fits, and the MCP case is the one that proves it.</b> <code>MCP SERVER · GLOBAL</code> is the longest eyebrow on the page at <b>137.8px</b> — 43.6px longer than the skill's — and its row still needs only <b>297.8px</b> of 353, because an MCP header carries no Link to… and no menu: <b>55.2px</b> spare. Variant B's skill row needs <b>285.2px</b>: <b>67.8px</b> spare. Both absorb a longer scope word than “Global” without touching the clamp.</div>
+  <div class="annot"><b>The overflow menu.</b> An <code>.icon-btn.sm</code> carrying an ellipsis-vertical glyph, drawn on the sprite's own 24 grid at 1.9 stroke like every other mark here. <code>aria-haspopup="menu"</code>, <code>aria-expanded</code> toggling, label “More actions”. The panel is right-aligned under its trigger, so it opens inward and stops where the trigger does — 66px short of the column edge, clear of the panel chrome to its right rather than under it. Right-alignment survived the reorder; a left-aligned panel would run at the column edge. Rows are 32px, a 14px leading icon in <code>--ink-3</code> then the label in <code>--fs-small</code>. Drawn open in A and closed in B, so both states are on the page; click either.</div>
+  <div class="annot"><b>The app already has this menu — the brief said it did not.</b> <code>ViewControl.tsx</code> (committed, <code>bf381b2</code>) draws a <code>role="menu"</code> panel with <code>aria-haspopup</code>, <code>menuitemradio</code> rows, Escape-to-close and outside-pointerdown-to-close, on <code>--page</code> with a <code>--line</code> border, <code>rounded-inner</code> and <code>shadow-overlay</code> — the anatomy this header reuses — and <code>ViewControl.test.tsx</code> covers it, including “is a popover, not a blocking dialog”. So this is precedent, not new machinery. What the plan owes is narrower: <code>ViewControl</code> is single-purpose, and this header would be the <b>second real caller</b> that earns a shared menu component and its test. <code>no-blocking-dialogs</code> bans <code>window.confirm/alert/prompt</code> across <code>src/</code> (<code>src/__tests__/no-blocking-dialogs.test.ts</code>) and a menu does not violate it. One real gap: <code>icons.tsx</code> exports no ellipsis glyph, so that mark is a genuine addition.</div>
+  <div class="annot"><b>Two groups in the trailing cluster</b> (Karthik, 2026-08-23), reading outward: <b>Link to… and the ⋮</b> first, then <b>Expand and Hide inspector</b>. The ⋮ carries asset actions — Link to…, Copy path, Reveal in Finder, Open in editor — so it belongs with the asset's own controls. Expand and Hide are panel chrome: they act on the column, not on the thing in it, and they keep the window's trailing edge, which is the position <code>App.tsx:1644-1648</code> already argues for. 8px between the groups, 2px within — the split is legible at 384px without reading as a gap. It also settles where a future action goes: into the ⋮ if it acts on the asset, beside Hide if it acts on the column.</div>
+  <div class="annot"><b>Reveal in Finder joins the menu — my inference, not his ruling.</b> He named Copy path and Open in editor. Leaving Reveal in the icon cluster would split the two path actions across two places, so it moves with them. Reversible in one line: put it back beside Expand.</div>
+  <div class="annot"><b>The scope is the eyebrow, not a row of its own</b> (Karthik's drawing, 2026-08-23). <code>SKILL · GLOBAL</code> and <code>MCP SERVER · GLOBAL</code> — the file's existing <code>.eyebrow</code>, unrestyled: <code>--fs-micro</code>, uppercase, .06em tracking, <code>--ink-3</code>, with the glyph and its state dot leading it. That is the form the header carried before the rebuild. The middot is a separator and is <code>aria-hidden</code>. It costs no row: an earlier draft gave the scope a <code>My machine › Global</code> crumb row of its own, and this replaces it — the header is one line shorter for it.</div>
+  <div class="annot"><b>R5 is superseded, and the glyph loses its tooltip here.</b> That ruling folded the scope into a tooltip <em>because the scope was nowhere else</em>; the eyebrow puts both the kind and the place back on screen, so a tooltip repeating either would say the same thing twice — and “said once” makes that a fault, not a nicety. The rule drawn here: <b>a tooltip only where it adds what the row cannot show</b> — a project-scoped asset, where <code>GLOBAL</code> becomes a project name that can truncate and the tooltip carries it in full. Both asides are global, so neither draws one. The <code>.tip</code> rules stay in the stylesheet as the specification of that case.</div>
+  <div class="annot"><b>The 40px row cannot be deleted.</b> It is this column's window drag region (<code>data-tauri-drag-region</code>, <code>App.tsx:1634</code>). That is what makes the identity moving into it a saving rather than a cost. <code>App.tsx:1644-1648</code> already refuses a second control doing the same job from a different place — so Copy path, Reveal in Finder, Open in editor, Expand and Hide <b>move</b> here or into the menu. None is a copy of a control that stays somewhere else.</div>
+  <div class="annot"><b>An MCP server has no width problem, and no menu.</b> It carries no single path — its config paths are per registration, under Details › Registered in — so Copy path, Reveal and Open in editor have nothing to act on, and Link to… does not apply to a server. Its header is identity, Review, Expand, Hide, in both variants. A <b>⋮</b> with nothing in it is worse than no <b>⋮</b>.</div>
+  <div class="annot"><b>The state line and the warning card are one popover</b> (Karthik, 2026-08-23). Two header rows became a chip: the sentence says what the issue is, the button routes to Needs review. It is drawn open on variant B’s MCP header and closed on the other three, so a popover and the menu are never open in the same column — each would cover the other in 384px. Between the four asides every state is on the page at once: the menu open and closed, the popover open and closed, and the header stack unobscured. Click any chip.</div>
+  <div class="annot"><b>The popover clamps, it is not hand-placed.</b> A surface anchored to the Review chip runs past the column edge once the eyebrow grows — <code>MCP SERVER · GLOBAL</code> puts the chip 64px right of where <code>SKILL · GLOBAL</code> does, and a 264px popover then overhangs by 67px. It measures its own box and shifts back inside the aside, moving the arrow by the same amount so it still points at the chip. That is the behaviour <code>Tooltip.tsx</code> already ships against the window edge (<code>EDGE_MARGIN</code>, <code>Tooltip.tsx:75</code>); a shared menu or popover component owes the same, against the column.</div>
+  <div class="annot"><b>The path is text.</b> No plane and no buttons of its own — Copy path and Reveal in Finder are in the menu now. It truncates from the left, so the filename is the part that survives.</div>
+  <div class="annot"><b>No rules in the header stack</b> (Karthik's Project Settings reference, 2026-08-23). Identity, breadcrumb, title and path are separated by space, not by hairlines. The only line in the whole header is the tab row's own full-width <code>border-bottom</code> — the baseline the 2px underline sits on, overlapping it at <code>bottom: -1px</code>. The title block now carries 16px of air beneath it and the tab labels are 24px apart, both on the 8px step.</div>
+  <div class="annot"><b>Observation, not a change.</b> His reference gets part of its hierarchy from a type step our scale does not have: ~32px title against ~16px tabs, a 2:1 ratio. Ours is <code>--fs-lg</code> (16px) against <code>--fs-base</code> (13px). The scale is 11/12/13/16/32 with nothing between 16 and 32, so the same clean layout will read flatter than his no matter how the rules are removed. Closing it means either the title moves to <code>--fs-display</code> or the scale grows a value — a ruling for Karthik, not a tweak. Neither size is changed here.</div>
+  <div class="annot"><b>Two tiers, and the radius follows the size</b> (Karthik, 2026-08-23). <code>.btn</code> at 30px stays a full pill; <code>.mini</code> at 26px takes <code>--radius-mini</code>, so the two never read as one control at two scales. Tone carries the role: in A, Link to… is the one filled action. No chevron on Link to… — the ellipsis already says a dialog follows.</div>
   <div class="annot"><b>Open question — what colour is the finding dot?</b> The ruling fixes it at <code>--state-danger</code>. This server's finding is a warning, so its glyph dot and its chip dot are both drawn in <code>--state-warning</code> rather than putting two severities 30px apart in one header. If the dot is meant to be one fixed marker whatever the severity, the chip's dot moves to danger and this note goes away.</div>
+  <div class="annot"><b>Open question — A or B — now has a measurement against it.</b> A keeps the one action a user reaches for repeatedly a single click away, at 92.6px of row (88.6 plus its 4px gap); B makes Link to… a two-step but leaves the row nothing but icons. With the eyebrow carrying the scope, <b>A does not fit and B does</b>, so the choice is no longer free: picking A means also picking something to give up — the eyebrow's second half, the Review chip's label, or Link to…'s. Still Karthik's call, but it is now a trade rather than a preference.</div>
 </div>
 </div>
 </div>
-<div class="option"><h2>Layout 2 · two rows</h2><span>identity and the four icons on the drag row; the actions get their own</span></div>
+<div class="option"><h2>Variant B · everything in the menu</h2><span>Link to… joins the other three; no labelled button on the surface — drawn closed</span></div>
 <div class="row">
 <div class="shell b">
   <div class="rail"><i class="logo rounded-soft"></i><i class="on"></i><i></i><i></i></div>
@@ -383,12 +389,11 @@ agent-browser close             # Close browser</pre>
   </div>
   <div class="twin">
   <aside class="aside">
-    <div class="cap id" id="cap-l2"><span class="kind" tabindex="0"><svg class="kg" aria-hidden="true"><use href="#k-skill"/></svg><i class="flag" aria-hidden="true"></i><span class="tip" role="tooltip">Skill · Global</span></span><span class="kindword">Skill</span><span class="pw"><button class="mini" data-pop aria-haspopup="dialog" aria-expanded="false"><i class="dot bg-state-danger"></i>Review</button><div class="pop shadow-overlay hidden" role="dialog" aria-label="Needs a decision"><p class="text-small lh">Nothing links to this skill, so no engine reaches it.</p><div class="mini-set"><button class="mini">Review →</button></div></div></span><div class="trail"><button class="icon-btn sm" aria-label="Copy path"><svg class="ic"><use href="#i-cp"/></svg></button><button class="icon-btn sm" aria-label="Reveal in Finder"><svg class="ic"><use href="#i-rv"/></svg></button><button class="icon-btn sm" aria-label="Expand"><svg class="ic"><use href="#i-x"/></svg></button><button class="icon-btn sm bg-tint" aria-label="Hide inspector"><svg class="ic"><use href="#i-sb"/></svg></button></div></div>
+    <div class="cap id" id="cap-vb"><span class="kind"><svg class="kg" aria-hidden="true"><use href="#k-skill"/></svg><i class="flag" aria-hidden="true"></i></span><span class="eyebrow">Skill<span aria-hidden="true"> · </span>Global</span><span class="pw"><button class="mini" data-pop aria-haspopup="dialog" aria-expanded="false"><i class="dot bg-state-danger"></i>Review</button><div class="pop shadow-overlay hidden" role="dialog" aria-label="Needs a decision"><p class="text-small lh">Nothing links to this skill, so no engine reaches it.</p><div class="mini-set"><button class="mini">Review →</button></div></div></span><div class="trail"><span class="mwrap"><button class="icon-btn sm" data-menu aria-haspopup="menu" aria-expanded="false" aria-label="More actions"><svg class="ic"><use href="#i-el"/></svg></button><div class="menu shadow-overlay hidden" role="menu" aria-label="More actions"><button role="menuitem"><svg class="mi"><use href="#i-ln"/></svg>Link to…</button><button role="menuitem"><svg class="mi"><use href="#i-cp"/></svg>Copy path</button><button role="menuitem"><svg class="mi"><use href="#i-rv"/></svg>Reveal in Finder</button><button role="menuitem"><svg class="mi"><use href="#i-pn"/></svg>Open in editor</button></div></span><button class="icon-btn sm" aria-label="Expand"><svg class="ic"><use href="#i-x"/></svg></button><button class="icon-btn sm bg-tint" aria-label="Hide inspector"><svg class="ic"><use href="#i-sb"/></svg></button></div></div>
     <div class="hd">
       <h2 class="text-lg-app font-medium">agent-browser</h2>
       <div class="pathline"><bdi class="font-mono">/Users/karthik/.agents/skills/agent-browser/SKILL.md</bdi></div>
     </div>
-    <div class="acts"><div class="mini-set"><button class="mini fill"><svg class="ic"><use href="#i-ln"/></svg>Link to…</button><button class="mini tonal"><svg class="ic"><use href="#i-pn"/></svg>Open in editor</button></div></div>
     <div class="utabs" role="tablist" aria-label="Inspector view"><button role="tab" class="font-medium" aria-selected="true" data-tab="content">Content</button><button role="tab" aria-selected="false" data-tab="details">Details</button><i class="ind" aria-hidden="true"></i></div>
     <div class="body">
       <div data-panel="content">
@@ -463,7 +468,7 @@ agent-browser close             # Close browser</pre>
     </div>
   </aside>
   <aside class="aside">
-    <div class="cap id"><span class="kind" tabindex="0"><svg class="kg" aria-hidden="true"><use href="#k-mcp"/></svg><i class="flag warn" aria-hidden="true"></i><span class="tip" role="tooltip">MCP server · Global</span></span><span class="kindword">MCP server</span><span class="pw"><button class="mini" data-pop aria-haspopup="dialog" aria-expanded="false"><i class="dot bg-state-warning"></i>Review</button><div class="pop shadow-overlay hidden" role="dialog" aria-label="Needs a decision"><p class="text-small lh">Claude Code declares this server twice — once in <code>mcp.json</code>, once in <code>.claude.json</code> — and Claude Desktop declares it once.</p><div class="mini-set"><button class="mini">Review →</button></div></div></span><div class="trail"><button class="icon-btn sm" aria-label="Expand"><svg class="ic"><use href="#i-x"/></svg></button><button class="icon-btn sm bg-tint" aria-label="Hide inspector"><svg class="ic"><use href="#i-sb"/></svg></button></div></div>
+    <div class="cap id" id="cap-vb-mcp"><span class="kind"><svg class="kg" aria-hidden="true"><use href="#k-mcp"/></svg><i class="flag warn" aria-hidden="true"></i></span><span class="eyebrow">MCP server<span aria-hidden="true"> · </span>Global</span><span class="pw"><button class="mini" data-pop aria-haspopup="dialog" aria-expanded="true"><i class="dot bg-state-warning"></i>Review</button><div class="pop shadow-overlay" role="dialog" aria-label="Needs a decision"><p class="text-small lh">Claude Code declares this server twice — once in <code>mcp.json</code>, once in <code>.claude.json</code> — and Claude Desktop declares it once.</p><div class="mini-set"><button class="mini">Review →</button></div></div></span><div class="trail"><button class="icon-btn sm" aria-label="Expand"><svg class="ic"><use href="#i-x"/></svg></button><button class="icon-btn sm bg-tint" aria-label="Hide inspector"><svg class="ic"><use href="#i-sb"/></svg></button></div></div>
     <div class="hd">
       <div class="flex items-center gap-2"><h2 class="text-lg-app font-medium">spades-audio</h2><span class="pill tinted">stdio</span></div>
     </div>
@@ -550,8 +555,8 @@ agent-browser close             # Close browser</pre>
 </div>
 <div class="notes">
   <div class="annot"><b>Section format</b> (Karthik, 2026-08-22): an eyebrow, then one bordered card of icon · label · value rows, dividers only between rows — the “In this skill” card applied everywhere.</div>
-  <div class="annot"><b>Actions are a mini set</b> (Karthik’s reference, 2026-08-22), 26px with icon and label. The ruling that was open here closed on 2026-08-23: Link to… stays the one strong action and keeps <code>--fill</code> at this size, Open in editor is tonal beside it, and the equal outlined set survives for the section actions inside the body. Shape does not carry the role — all three are one radius.</div>
-  <div class="annot"><b>Tabs, content first.</b> Karthik’s ruling, 2026-08-22: the breakdown leads — Content for a skill, Tools for an MCP server — and Details comes second. Click a tab to flip. The header, state line, path chip, actions and the routed issue line stay above the tabs: they belong to the asset, not to a tab. What sits above them is smaller than it was — identity, title, path, actions, and the Review chip that now carries the finding.</div>
+  <div class="annot"><b>Actions are a mini set</b> (Karthik’s reference, 2026-08-22), 26px with icon and label. The header keeps at most one of them now: in variant A, Link to… filled; in variant B, none. Open in editor moved into the menu, so the tonal tone is unused in the header and survives only as a token. The equal outlined set is still the rule for the section actions inside the body — Compare, Open config, Review →.</div>
+  <div class="annot"><b>Tabs, content first.</b> Karthik’s ruling, 2026-08-22: the breakdown leads — Content for a skill, Tools for an MCP server — and Details comes second. Click a tab to flip. Everything that belongs to the asset rather than to a tab stays above them: identity, scope, title, path, and the Review chip that carries the finding. What sits above is smaller than it was — the actions row is gone, and the actions with it.</div>
   <div class="annot"><b>Underline tabs</b> (Karthik’s reference, 2026-08-22): labels on a <code>--line</code> baseline, the active one in <code>--ink-1</code> medium with a 2px <code>--ink-1</code> rule beneath; the label’s weight and the rule are the only things that change. The pane’s category selector is a segmented track, the inspector’s tabs are underline tabs — two idioms for two jobs: one filters a list, the other switches views within a surface.</div>
   <div class="annot"><b>Described in.</b> The prototype’s “token tax”: <code>probe.rs</code> drops the schema today; keeping its byte size is a small backend change. Tokens are not measurable, bytes are — the dash holds the column until they arrive.</div>
   <div class="annot"><b>MCP header.</b> No path and no labelled actions: an MCP server has one config path per registration, and those live under Details › Registered in — which is why its trailing cluster is the two panel controls and not four. Its finding reads through the same Review chip; the verdict’s colour is the dot’s. Tool rows carry the server’s own descriptions, as probed on this machine.</div>
@@ -600,11 +605,11 @@ agent-browser close             # Close browser</pre>
   <b>The inspector, specified</b>
   <p class="mt-2"><b>Carried over</b></p>
   <ul>
-    <li>Docked 384px aside — no floating panel; the app's one elevation belongs to the map's overlays and, now, to the Review popover.</li>
+    <li>Docked 384px aside — no floating panel; the app's one elevation belongs to the map's overlays and, now, to the Review popover and the overflow menu.</li>
     <li>Reach grouped by verdict — three verdicts, one more than the prototype drew.</li>
     <li>Names-only environment.</li>
     <li>Marks are the app's BrandIcon sprite; the neutral square stands in for it on this page.</li>
-    <li>The 40px cap row, which is this column's window drag region (<code>data-tauri-drag-region</code>, <code>App.tsx:1633</code>) and cannot be removed. What changed is what it carries.</li>
+    <li>The 40px cap row, which is this column's window drag region (<code>data-tauri-drag-region</code>, <code>App.tsx:1634</code>) and cannot be removed. What changed is what it carries.</li>
   </ul>
   <p><b>Changed — the body</b> (Karthik, 2026-08-22)</p>
   <ul>
@@ -616,20 +621,26 @@ agent-browser close             # Close browser</pre>
   </ul>
   <p><b>Changed — the header</b> (Karthik, 2026-08-23)</p>
   <ul>
-    <li>The identity moves into the 40px drag row, so the header loses a row instead of gaining one. The kind glyph and the kind <em>word</em> are both on screen — his first screenshot, not the second.</li>
-    <li>The eyebrow's second half becomes a tooltip on the glyph: “Skill · Global”, “MCP server · Global”. The scope stops costing a word.</li>
+    <li>The identity moves into the 40px drag row, so the header loses a row instead of gaining one. The glyph, its state dot and the eyebrow lead it.</li>
+    <li><b>The eyebrow carries the scope</b> (Karthik's drawing, 2026-08-23): <code>SKILL · GLOBAL</code>, <code>MCP SERVER · GLOBAL</code> — the existing <code>.eyebrow</code>, unrestyled, middot <code>aria-hidden</code>. Not a breadcrumb row: an earlier draft gave the scope its own <code>My machine › Global</code> row and this replaces it, one line shorter.</li>
+    <li><b>An overflow menu.</b> An ellipsis-vertical <code>.icon-btn.sm</code> — <code>aria-haspopup="menu"</code>, <code>aria-expanded</code>, “More actions” — opening a right-aligned <code>role="menu"</code> panel on <code>--page</code>, 1px <code>--line</code>, <code>--radius-inner</code>, <code>shadow-overlay</code>; 32px rows, a 14px icon in <code>--ink-3</code>, label in <code>--fs-small</code>, hover <code>--plane-2</code>. Escape closes it. It is what made the row fit rather than choosing where to put the overflow.</li>
+    <li><b>R5 is superseded.</b> It folded the scope into the glyph's tooltip because the scope was nowhere else; the eyebrow puts both kind and place on screen, so no tooltip is drawn in the global case at all. A tooltip appears only where it adds what the row cannot show — a project-scoped asset whose project name truncates. The <code>.tip</code> rules stay as that case's specification.</li>
     <li>The state line and the disclosure warning card are gone from the header. Both fold into one popover on the Review chip — which is therefore a button: one sentence saying what the issue is, and the “Review →” route to Needs review.</li>
-    <li>Trailing cluster, left to right: Copy path, Reveal in Finder, Expand, Hide inspector — all 21px, Reveal sitting next to the two panel-chrome controls. They <b>move</b> here; <code>App.tsx:1641-1646</code> already refuses a second control doing the same job from a different place.</li>
+    <li><b>No hairline anywhere in the header stack.</b> Identity, breadcrumb, title and path are separated by space. The tab row's own full-width <code>border-bottom</code> is the only line, and the 2px <code>--ink-1</code> underline sits on it at <code>bottom: -1px</code>. 16px of air under the title block, 24px between tab labels — both on the 8px step (Karthik's Project Settings reference).</li>
+    <li>Trailing cluster, left to right: <b>Link to…</b> (variant A only), the <b>⋮</b>, then <b>Expand</b> and <b>Hide inspector</b> — asset actions first, panel chrome at the window's trailing edge, 8px between the two groups and 2px inside each. Copy path, Reveal in Finder and Open in editor live in the menu. They <b>move</b> here; <code>App.tsx:1644-1648</code> already refuses a second control doing the same job from a different place.</li>
     <li>The path chip loses its plane and its two buttons and becomes plain mono text at <code>--fs-micro</code>, truncating from the left so the filename survives.</li>
     <li>Two button tiers, and the radius follows the size, not the role: <code>.btn</code> at 30px stays <code>--radius-pill</code>; <code>.mini</code> at 26px takes <code>--radius-mini</code>. That token is <code>--radius-control: 6px</code> revived (<code>tokens.css:139</code>, registered at <code>index.css:117</code>, used by nothing) — a correction to <code>DESIGN.md:797</code>'s debt entry, not a fifth radius.</li>
-    <li>Tone carries the role among the minis: Link to… filled (<code>--fill</code> / <code>--on-fill</code>), Open in editor tonal (<code>--plane-2</code>), section sets equal and outlined. No chevron on Link to… — the ellipsis already says a dialog follows. Every string stays sentence case.</li>
-    <li>Open: the finding dot is ruled <code>--state-danger</code>, but the MCP server's finding is a warning. Both of that header's dots are drawn <code>--state-warning</code> here rather than showing two severities at once.</li>
-    <li>Open: the one-row header needs 485px and the column clamps to 384–480, so Layout 1 does not fit at either end. Layout 2 is the same header over two rows.</li>
+    <li>An MCP server's header carries no menu: it has no single path and no Link to…, so a <b>⋮</b> there would open on nothing.</li>
+    <li><b>History — the row that forced this.</b> The one-row header as drawn needed 485px (423px of controls, 32px of gaps, 30px of padding) in a column clamped to 384–480 (<code>App.tsx:1120</code>): 102px over at the floor, 6px over at the maximum. The menu removed that overflow instead of rehousing it, which closed the two-layout question.</li>
+    <li><b>Measured again after the eyebrow.</b> In a 353px row: variant A needs <b>379.8px</b> and overflows by 26.8px, clipping Hide inspector by 14.8px; variant B needs <b>285.2px</b>; the MCP header, whose <code>MCP SERVER · GLOBAL</code> is the longest eyebrow on the page at <b>137.8px</b>, needs <b>297.8px</b>. A is drawn overflowing rather than repaired.</li>
+    <li><b>Open:</b> the finding dot is ruled <code>--state-danger</code>, but the MCP server's finding is a warning. Both of that header's dots are drawn <code>--state-warning</code> here rather than showing two severities at once.</li>
+    <li><b>Open:</b> variant A or variant B — whether Link to… stays on the surface or joins the menu. The only difference between the two shells above, and no longer a free choice: with the eyebrow carrying the scope only B fits, so choosing A means choosing what to drop with it.</li>
+    <li><b>Not new machinery.</b> <code>ViewControl.tsx</code> already ships a <code>role="menu"</code> panel with the same anatomy, Escape and outside-click, covered by <code>ViewControl.test.tsx</code>. This header is the second real caller that earns extracting a shared menu component and its test. <code>icons.tsx</code> has no ellipsis glyph — that mark is the one genuine addition.</li>
   </ul>
   <p><b>Dropped</b></p>
   <ul>
     <li>Glass and blur.</li>
-    <li>The state line and the warning card as header rows; the eyebrow's visible “· Global”; the path chip's plane and its two inline buttons.</li>
+    <li>The state line and the warning card as header rows; the path chip's plane and its two inline buttons. The eyebrow's “· Global” is <em>not</em> dropped — R5 removed it and Karthik's drawing of 2026-08-23 puts it back.</li>
     <li>“Context bloat / token tax” and “namespace collisions” as red alerts — collision detection does not exist; if built, it is a Needs review issue, not a panel box.</li>
     <li>“Primary owner”, “Last reviewed”, “Structural pattern: Linear”, “Tool exposure: Optimized” — no such data; nothing reads authorship or usage.</li>
     <li>Links to GitHub / docs — no registry metadata. <code>env=***</code> — values are never read.</li>
@@ -662,6 +673,49 @@ agent-browser close             # Close browser</pre>
       var open = chip.getAttribute('aria-expanded') !== 'true';
       chip.setAttribute('aria-expanded', String(open));
       chip.parentNode.querySelector('.pop').classList.toggle('hidden', !open);
+      clampPopovers();
+    });
+  });
+
+  // A popover anchored to its chip can run past the column edge once the
+  // eyebrow grows — MCP SERVER · GLOBAL pushes the chip 64px right of where
+  // SKILL · GLOBAL does. Rather than hand-tune a left offset per header, this
+  // clamps the way Tooltip.tsx already clamps to the window (EDGE_MARGIN,
+  // Tooltip.tsx:75): measure the real box, shift it back inside the aside,
+  // and move the arrow by the same amount so it still points at the chip.
+  var POP_MARGIN = 12;
+  function clampPopovers() {
+    document.querySelectorAll('.pop').forEach(function (pop) {
+      if (pop.classList.contains('hidden')) return;
+      var aside = pop.closest('.aside');
+      if (!aside) return;
+      pop.style.left = '';
+      pop.style.removeProperty('--arrow');
+      var over = pop.getBoundingClientRect().right - (aside.getBoundingClientRect().right - POP_MARGIN);
+      if (over > 0) {
+        pop.style.left = (parseFloat(getComputedStyle(pop).left) - over) + 'px';
+        pop.style.setProperty('--arrow', (30 + over) + 'px');
+      }
+    });
+  }
+  clampPopovers();
+
+  // The overflow menu, wired exactly as the Review chip above: the trigger
+  // toggles its own panel and no other, so a variant drawn open stays open
+  // while the other is opened. Escape closes whatever is open. A prototype
+  // stops here — no roving tabindex, no focus trap; the focus ring is CSS.
+  document.querySelectorAll('[data-menu]').forEach(function (trigger) {
+    trigger.addEventListener('click', function () {
+      var open = trigger.getAttribute('aria-expanded') !== 'true';
+      trigger.setAttribute('aria-expanded', String(open));
+      trigger.parentNode.querySelector('.menu').classList.toggle('hidden', !open);
+    });
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Escape') return;
+    document.querySelectorAll('[data-menu][aria-expanded="true"]').forEach(function (trigger) {
+      trigger.setAttribute('aria-expanded', 'false');
+      trigger.parentNode.querySelector('.menu').classList.add('hidden');
     });
   });
 
