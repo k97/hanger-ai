@@ -34,6 +34,11 @@ let bodyResult: { ok: true; text: string } | { ok: false; error: string } = { ok
 // The backend answers with the file it read, which for a skill is the
 // document inside the folder the panel handed it.
 let bodyPath = SOURCE;
+let dirResult: Array<{ name: string; kind: string; bytes: number | null; file_count: number | null }> = [
+  { name: "SKILL.md", kind: "file", bytes: 431, file_count: null },
+  { name: "references/", kind: "dir", bytes: null, file_count: 3 },
+  { name: "scripts/", kind: "dir", bytes: null, file_count: 1 },
+];
 
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: vi.fn(async (cmd: string) => {
@@ -49,6 +54,7 @@ vi.mock("@tauri-apps/api/core", () => ({
         };
       throw bodyResult.error;
     }
+    if (cmd === "list_asset_dir") return dirResult;
     return null;
   }),
 }));
@@ -88,6 +94,11 @@ describe("Asset detail — the inspector's document screen", () => {
     vi.clearAllMocks();
     bodyResult = { ok: true, text: DOC };
     bodyPath = SOURCE;
+    dirResult = [
+      { name: "SKILL.md", kind: "file", bytes: 431, file_count: null },
+      { name: "references/", kind: "dir", bytes: null, file_count: 3 },
+      { name: "scripts/", kind: "dir", bytes: null, file_count: 1 },
+    ];
   });
 
   it("states the file's relationships in one line", async () => {
@@ -278,5 +289,23 @@ describe("Asset detail — the inspector's document screen", () => {
     expect(within(section).getByText("Modified").nextElementSibling?.textContent).toBe("Jul 20, 2026");
     expect(within(section).getByText("Size").nextElementSibling?.textContent).toBe("431 B · 21 lines");
     expect(section.querySelector("dl")).toBeNull();
+  });
+
+  it("lists what else is in the skill's folder, folders with their file counts", async () => {
+    render(<AssetDetail asset={asset} inventory={inventory} />);
+    await screen.findByRole("tab", { name: "Details" });
+    openDetails();
+    const section = (await screen.findByText("In this skill")).closest("section")!;
+    const rows = Array.from(section.querySelectorAll('[data-testid="skill-dir-row"]')).map((r) => r.textContent);
+    expect(rows).toEqual(["SKILL.md431 B", "references/3 files", "scripts/1 file"]);
+  });
+
+  it("draws no folder section for a rule, and none when the folder cannot be listed", async () => {
+    dirResult = [];
+    render(<AssetDetail asset={{ ...asset, category: "Rules", path: "/home/me/.agents/rules/x.md" }} inventory={inventory} />);
+    await screen.findByRole("tab", { name: "Details" });
+    openDetails();
+    expect(screen.queryByText("In this skill")).toBeNull();
+    expect(invoke).not.toHaveBeenCalledWith("list_asset_dir", expect.anything());
   });
 });

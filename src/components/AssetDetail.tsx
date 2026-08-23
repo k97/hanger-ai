@@ -9,6 +9,7 @@ import {
   CpuChipIcon,
   DocumentIcon,
   DocumentTextIcon,
+  FolderIcon,
   GlobeAltIcon,
   LinkIcon,
   RevealInFileManagerIcon,
@@ -57,6 +58,15 @@ interface AssetBody {
   lines: number;
   modified_ms: number;
   estimated_tokens: number;
+}
+
+/** What `list_asset_dir` answers for a skill's folder: its top-level entries,
+ *  folders carrying how many files sit beneath them — never counted here. */
+interface AssetDirEntry {
+  name: string;
+  kind: "file" | "dir";
+  bytes: number | null;
+  file_count: number | null;
 }
 
 interface AssetDetailProps {
@@ -145,6 +155,7 @@ export default function AssetDetail({ asset, inventory, onLink, annotation }: As
   const [documentPath, setDocumentPath] = useState<string | null>(null);
   const [docError, setDocError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [dirEntries, setDirEntries] = useState<AssetDirEntry[] | null>(null);
   const text = body?.text ?? null;
 
   const kind = documentKindFor(asset.category);
@@ -182,6 +193,26 @@ export default function AssetDetail({ asset, inventory, onLink, annotation }: As
       cancelled = true;
     };
   }, [asset.path, kind]);
+
+  // The folder listing is a skill-only fact — every other category returns
+  // early and clears whatever the last selection left behind.
+  useEffect(() => {
+    let cancelled = false;
+    setDirEntries(null);
+    if (asset.category !== "Skills") return;
+
+    invoke<AssetDirEntry[]>("list_asset_dir", { path: asset.path })
+      .then((result) => {
+        if (!cancelled) setDirEntries(result);
+      })
+      .catch(() => {
+        if (!cancelled) setDirEntries(null);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [asset.path, asset.category]);
 
   const reach = annotation?.reach ?? [];
   /* Empty groups are dropped, so the card never prints a heading over nothing.
@@ -436,6 +467,29 @@ export default function AssetDetail({ asset, inventory, onLink, annotation }: As
                 ))}
               </ListCard>
             </section>
+
+            {dirEntries && dirEntries.length > 0 && (
+              <section className="mx-[18px] my-3.5">
+                <div className="flex items-baseline justify-between gap-2 mb-3">
+                  <span className={eyebrowClass}>In this skill</span>
+                </div>
+                <ListCard>
+                  {dirEntries.map((e) => (
+                    <ListCardRow
+                      key={e.name}
+                      data-testid="skill-dir-row"
+                      icon={e.kind === "dir" ? <FolderIcon size={14} aria-hidden="true" /> : <DocumentIcon size={14} aria-hidden="true" />}
+                      label={<span className="font-mono">{e.name}</span>}
+                      value={
+                        e.kind === "dir"
+                          ? `${e.file_count ?? 0} ${e.file_count === 1 ? "file" : "files"}`
+                          : formatBytes(e.bytes ?? 0)
+                      }
+                    />
+                  ))}
+                </ListCard>
+              </section>
+            )}
 
             {/* Every engine, grouped by verdict. The row can draw at most three
                 marks, so this is where the rest are answerable — and grouping is
