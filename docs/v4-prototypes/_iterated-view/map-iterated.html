@@ -34,6 +34,10 @@
 
   /* Edges — mechanism in the dash, state in the colour; labels at the curve's midpoint */
   .edge path { fill: none; stroke-width: 1.5; }
+  /* Mechanism in the dash, state in the colour — so they are separate
+     classes and an edge carries one of each. 5 4 is the legend's own
+     dasharray, copied so the row and the edge cannot drift apart. */
+  .edge.copy path { stroke-dasharray: 5 4; }
   .edge.linked path { stroke: var(--ink-2); }
   .edge.drifted path { stroke: var(--state-warning); }
   .edge.dangling path { stroke: var(--state-danger); }
@@ -85,16 +89,23 @@
   .placecard .foot .picks { display: flex; gap: 7px; }
   .mark-inline { display: block; flex-shrink: 0; }
 
-  /* A finding is a chip with a popover (Karthik, 2026-08-23). The same
-     control the inspector header carries, anchored on the map to the node
-     that has the finding — the state dot is the marker, the chip is the
-     control, exactly as the inspector pairs its glyph flag with its chip.
+  /* A finding is a chip with a popover (Karthik, 2026-08-23; corrected the
+     same day). It belongs to the PLACECARD, in the head after the node name,
+     which is where the inspector puts it. The first pass anchored it to the
+     canvas beside the node — a control floating over the graph, attached to
+     nothing — and that is the defect this corrects.
      .pw/.pop/.lh are copied from inspector-iterated.html: they are not in
-     _proto.css yet, and this page may not write to it. */
-  .finding { position: absolute; left: 573px; top: 257px; z-index: 30; }
+     _proto.css yet, and this page may not write to it. One difference, and it
+     is deliberate: the inspector's popover carries shadow-overlay because it
+     opens out of a docked aside. This one opens inside a floating card that
+     has already spent the system's one elevation, so it is drawn on --page
+     with the --line border and no elevation of its own — a second one 12px
+     inside the first reads as a card on a card. */
+  .placecard .head .idrow { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+  .placecard .head .idrow h2 { margin-bottom: 0; }
   .pw { position: relative; display: inline-flex; }
   .pop { position: absolute; top: 30px; left: -14px; z-index: 40; width: 264px; padding: 12px; display: flex; flex-direction: column; gap: 10px; background: var(--page); border: 1px solid var(--line); border-radius: var(--radius-inner); }
-  .pop::before { content: ""; position: absolute; top: -6px; left: 30px; width: 10px; height: 10px; background: var(--page); border-left: 1px solid var(--line); border-top: 1px solid var(--line); transform: rotate(45deg); }
+  .pop::before { content: ""; position: absolute; top: -6px; left: var(--arrow, 30px); width: 10px; height: 10px; background: var(--page); border-left: 1px solid var(--line); border-top: 1px solid var(--line); transform: rotate(45deg); }
   .lh { line-height: 1.5; }
 
   .after { max-width: 1024px; margin-top: 18px; }
@@ -149,13 +160,25 @@
           <text x="714" y="14" class="eyebrow col-head" fill="currentColor">Projects</text>
 
           <!-- edges: store right edge (216, 50) → engine left edge (369, y); both control points at mid x 292.5 -->
-          <g class="edge linked" data-src="1" data-dst="2">
+          <!-- The one illustrative edge — the watermark says so — sits on
+               Claude Code, the engine whose placecard is drawn with this
+               machine's real figures, so the dot on the canvas and the chip in
+               the placecard head name the same node. Its MECHANISM is set as
+               well as its state, and it has to be: drift is defined as a
+               tracked-copy state (MechanismGlyph.tsx:13, "Tracked copy,
+               drifted — this copy no longer matches its source"), and a
+               symlink has no separate copy that could fall out of step. A
+               drifted symlink is not a rare case, it is a state the model
+               forbids; a symlink's failure mode is `broken`. So this edge is
+               drawn dashed, which is the legend's own mark for a tracked copy.
+               The count is untouched. -->
+          <g class="edge copy drifted" data-src="1" data-dst="2">
             <path d="M 216 50 C 292.5 50, 292.5 50, 369 50"/>
-            <text x="292.5" y="44" text-anchor="middle" class="t-micro f-ink-3">2 symlinks</text>
+            <text x="292.5" y="44" text-anchor="middle" class="t-micro f-ink-3">2 tracked copies · drifted</text>
           </g>
-          <g class="edge drifted" data-src="1" data-dst="5">
+          <g class="edge linked" data-src="1" data-dst="5">
             <path d="M 216 50 C 292.5 50, 292.5 248, 369 248"/>
-            <text x="292.5" y="143" text-anchor="middle" class="t-micro f-ink-3">1 symlink · drifted</text>
+            <text x="292.5" y="143" text-anchor="middle" class="t-micro f-ink-3">1 symlink</text>
           </g>
           <g class="edge linked" data-src="1" data-dst="6">
             <path d="M 216 50 C 292.5 50, 292.5 314, 369 314"/>
@@ -177,6 +200,8 @@
             <text x="398" y="45" class="t-small f-ink-1">Claude Code</text>
             <text x="382" y="61" class="t-micro t-mono f-ink-3">~/.claude</text>
             <text x="549" y="45" text-anchor="end" class="t-micro f-ink-3">10 assets</text>
+            <!-- proposal 1: state on the node — 8px dot, inset 6px, ringed in the ground -->
+            <circle class="state-dot" cx="551" cy="34" r="4"/>
           </g>
           <g class="node unlinked" data-id="3" data-kind="engine">
             <rect class="box unlinked" x="369" y="90" width="192" height="52" rx="11"/>
@@ -198,8 +223,6 @@
             <text x="398" y="243" class="t-small f-ink-1">Codex</text>
             <text x="382" y="259" class="t-micro t-mono f-ink-3">~/.codex</text>
             <text x="549" y="243" text-anchor="end" class="t-micro f-ink-3">4 assets</text>
-            <!-- proposal 1: state on the node — 8px dot, inset 6px, ringed in the ground -->
-            <circle class="state-dot" cx="551" cy="232" r="4"/>
           </g>
           <g class="node" data-id="6" data-kind="engine">
             <rect class="box" x="369" y="288" width="192" height="52" rx="11"/>
@@ -272,24 +295,6 @@
         </g>
       </svg>
 
-      <!-- proposal 5: the finding is a chip with a popover, not prose (Karthik,
-           2026-08-23) — the same control the inspector header carries, so the
-           two surfaces teach one vocabulary. The state dot on the node is the
-           marker and the chip is the control, exactly as the inspector pairs
-           its glyph flag with its chip. Drawn open, on Codex, the one node
-           with a finding. The sentence restates the edge this map already
-           draws ("1 symlink · drifted") and nothing more; the route is F34 —
-           explained once, then handed to Needs review. -->
-      <div class="finding">
-        <span class="pw">
-          <button class="mini" data-pop aria-haspopup="dialog" aria-expanded="true"><i class="dot bg-state-warning" aria-hidden="true"></i>Review</button>
-          <div class="pop shadow-overlay" role="dialog" aria-label="Needs a decision">
-            <p class="text-small lh">One symlink from the store has drifted.</p>
-            <div class="mini-set"><button class="mini">Review →</button></div>
-          </div>
-        </span>
-      </div>
-
       <!-- proposal 3: layers, the Maps way — the panel that already exists, with two more rows -->
       <div class="corner tr">
         <button class="icon-btn corner-btn" id="layers-btn" aria-label="Map layers" aria-expanded="false">
@@ -350,8 +355,26 @@
             <div class="eyebrow"><span>Node</span><span>·</span><span>Engine root</span>
               <button class="icon-btn ml-auto" data-close aria-label="Close details"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 18L18 6M6 6l12 12"/></svg></button>
             </div>
-            <h2 class="text-base-app font-medium text-ink-1"><svg class="mark-inline" width="14" height="14" aria-hidden="true"><rect class="mark" width="14" height="14" rx="3"/></svg>Claude Code</h2>
-            <div class="state text-small text-ink-2"><i class="dot bg-state-success" aria-hidden="true"></i>Reaches the store through a root-level symlink</div>
+            <!-- proposal 5: the finding is a chip with a popover, not prose
+                 (Karthik, 2026-08-23) — the same control the inspector header
+                 carries, in the same place: after the node name, on the head's
+                 own row. Drawn open. The chip sits beside the h2 rather than
+                 inside it so it keeps the body's regular weight; the h2 is
+                 medium and a nested button would inherit that. The sentence
+                 restates the edge this map already draws ("2 tracked copies ·
+                 drifted") and nothing more; the route is F34 — explained once,
+                 then handed to Needs review. -->
+            <div class="idrow">
+              <h2 class="text-base-app font-medium text-ink-1"><svg class="mark-inline" width="14" height="14" aria-hidden="true"><rect class="mark" width="14" height="14" rx="3"/></svg>Claude Code</h2>
+              <span class="pw">
+                <button class="mini" data-pop aria-haspopup="dialog" aria-expanded="true"><i class="dot bg-state-warning" aria-hidden="true"></i>Review</button>
+                <div class="pop" role="dialog" aria-label="Needs a decision">
+                  <p class="text-small lh">Both tracked copies from the store have drifted.</p>
+                  <div class="mini-set"><button class="mini">Review →</button></div>
+                </div>
+              </span>
+            </div>
+            <div class="state text-small text-ink-2"><i class="dot bg-state-success" aria-hidden="true"></i>Reaches the store through two tracked copies</div>
           </div>
           <div class="body">
             <div class="path-chip"><span>/Users/karthik/.claude</span>
@@ -364,6 +387,7 @@
             </div>
             <div class="mini-set"><button class="mini">Show its assets <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3"/></svg></button></div>
             <div class="annot"><b>New:</b> Skills, Subagents, and the action. "Show its assets" opens Global filtered to this engine — the <code>selectedBubble</code> agent body already exists.</div>
+            <div class="annot"><b>The Review chip is conditional, and the three surfaces do not repeat each other.</b> It is drawn only for a node that has a finding, so it is on this body and on neither of the other two — the store and the project have nothing to review, and a chip that is always there stops meaning anything. The dot on the canvas, the chip here and the sentence in the popover carry one fact and each does a different job: the dot says <i>which node</i>, at a scale where no sentence would fit; the chip says <i>this wants a decision</i> and is the thing you click; the popover says <i>what</i>, and routes. Remove any one and something goes — the map stops being scannable, or there is nothing to open, or the state never gets named.</div>
           </div>
         </div>
 
@@ -406,7 +430,7 @@
         </div>
       </div>
 
-      <div class="sample">sample · figures from this machine, 2026-08-22 · one edge set to drifted to show the dot</div>
+      <div class="sample">sample · figures from this machine, 2026-08-22 · one edge drawn as a drifted tracked copy to show the dot</div>
     </div>
 
     <div class="legend text-small text-ink-2">
@@ -422,7 +446,7 @@
 <div class="annot after">
   <b>Proposals, as drawn</b>
   <ul>
-    <li><b>State on the node.</b> Codex carries an 8px dot in state-warning at its top-right corner, inset 6px — the macOS badge anatomy the map's notices control already uses. A boolean — this node has a drifted or dangling edge — which the frontend may derive; a numeral would be a count and belongs to the backend.</li>
+    <li><b>State on the node.</b> Claude Code carries an 8px dot in state-warning at its top-right corner, inset 6px — the macOS badge anatomy the map's notices control already uses. A boolean — this node has a drifted or dangling edge — which the frontend may derive; a numeral would be a count and belongs to the backend.</li>
     <li><b>Hover focus.</b> Hovering a node keeps it, its edges and their other endpoints at full strength and dims the rest to .35. The one opacity use — dimming is a focus state, not a colour; reduced-motion removes the transition.</li>
     <li><b>Layers panel, extended.</b> The filter group in the exploration (All / Errors only / Orphans) folds into the panel that already exists; the search box does not appear — the toolbar's field is the search.</li>
     <li><b>Placecard, richer facts.</b> One action per node kind, and the figures the backend already has per root.</li>
@@ -444,8 +468,11 @@
   <ul>
     <li><b>Section format — Karthik, 2026-08-22.</b> Each placecard's facts are one bordered card of icon · label · right-aligned value, dividers between rows only, from <code>_proto.css</code>'s <code>.lc</code>. The "Rules here" plane is a second such card under its eyebrow. The facts card carries no eyebrow of its own: the card's head already reads "Node · <i>kind</i>" directly above it, and inventing a second label would be new copy this pass is not allowed to write.</li>
     <li><b>Mini action set and the radius ruling — 2026-08-23.</b> "Show its assets" and "Open project" are <code>.mini</code>: 26px, <code>--radius-mini</code>, plain outlined. Neither is drawn <code>fill</code> or <code>tonal</code> — tone is the inspector header's business, and an in-section set stays equal. The 30px <code>.btn</code> keeps its pill; <code>.icon-btn</code> is the icon-only control, not a third label tier.</li>
-    <li><b>Said once — 2026-08-22.</b> Four folds. The "Kind" row goes from all three bodies (the head eyebrow already names the kind), and the engine body's "Linked — Yes, at the root" goes too (its state line already says it reaches the store through a root-level symlink, and says how). Nothing else on a placecard was stated twice.</li>
-    <li><b>A finding is a chip with a popover — 2026-08-23.</b> No placecard here explained a fault in prose or in a banner, so there was nothing to convert; the chip is drawn instead on Codex, the one node with a finding, open, so the map and the inspector teach the same control. The link map's own notice card — the one <code>known-debt.md</code> holds out as a stated exception — is not on this page and is untouched.</li>
+    <li><b>Said once — 2026-08-22.</b> Four folds. The "Kind" row goes from all three bodies (the head eyebrow already names the kind), and the engine body's "Linked — Yes, at the root" goes too (its state line already says it reaches the store, and says through what). Nothing else on a placecard was stated twice.</li>
+    <li><b>A finding is a chip with a popover — 2026-08-23.</b> No placecard here explained a fault in prose or in a banner, so there was nothing to convert; the chip is drawn on the one node that has a finding, open, so the map and the inspector teach the same control. The link map's own notice card — the one <code>known-debt.md</code> holds out as a stated exception — is not on this page and is untouched.</li>
+    <li><b>Corrected: the chip belongs to the placecard — 2026-08-23.</b> The first pass hung it on the canvas beside Codex, where it floated over the graph belonging to nothing, which is what Karthik saw. It is now in the placecard head after the node name, as the inspector's is. What made it float was that Codex carried the drifted edge while the open placecard drew Claude Code, and a Codex placecard would have needed a per-kind breakdown no figure on this machine supports. So the <i>illustration</i> moved rather than the figures: the drifted edge, and with it the state dot, is on Claude Code now. The watermark already said that drift was set to show the dot; every count on both edges is untouched. One consequence — the popover's sentence had to be rewritten for a two-link edge, so it is a first-time string with no <code>/humanizer</code> pass and no sign-off.</li>
+    <li><b>Fixed: the page was drawing a state the model forbids — 2026-08-23.</b> Every edge here was a symlink, and one of them was drawn drifted; it had been since the drift was first added. <code>MechanismGlyph.tsx:6</code> types the five mechanism words and <code>:11-17</code> words them: <code>drift</code> is <i>"Tracked copy, drifted — this copy no longer matches its source"</i>, a tracked-copy state. A symlink has no second copy that could fall out of step — edits reach every destination by construction — so a drifted symlink is not a rare case but a contradiction, and a symlink's failure mode is <code>broken</code>. The legend was right and the drawing was wrong. The illustrative edge is now a <b>drifted tracked copy</b>: dashed for the mechanism, warning for the state, which is this page's own rule doing its job. Two things follow. The legend's "Tracked copy" row now illustrates something the page actually draws — before this, no edge carried the dashed stroke at all, so that row described nothing. And the engine placecard's state line, which read "Reaches the store through a root-level symlink", would have contradicted its own edge one row up, so it now reads "Reaches the store through two tracked copies"; a root-level symlink cannot hold copies that drift. Both new strings — that line and the popover's — are first-time strings with no <code>/humanizer</code> pass and no sign-off.</li>
+    <li><b>Deliberate divergence: this popover carries no elevation.</b> The inspector's Review popover is drawn with <code>shadow-overlay</code>; this one is not, and that is not an omission. It opens inside the placecard, which is a floating card already spending the system's one elevation — a second elevation 12px inside the first reads as a card on a card. It keeps every other part of the inspector's anatomy: <code>--page</code>, the 1px <code>--line</code> border, <code>--radius-inner</code>, the arrow, the 264px width and the same offsets. Do not "restore" the shadow.</li>
     <li><b>Class scoping.</b> The toggle switches' <code>&lt;rect class="track"&gt;</code> collided by name with the segmented control's <code>.track</code>, now in <code>_proto.css</code>; measured harmless (the rect still renders 26×16) and renamed <code>.sw-track</code> anyway. The bare <code>.head</code> rule for the column heads was reaching <code>.placecard .head</code> as well — renamed <code>.col-head</code>.</li>
   </ul>
 </div>
@@ -469,8 +496,32 @@
       var open = chip.getAttribute('aria-expanded') !== 'true';
       chip.setAttribute('aria-expanded', open ? 'true' : 'false');
       chip.parentNode.querySelector('.pop').classList.toggle('hidden', !open);
+      clampPopovers();
     });
   });
+
+  // The popover clamps, it is not hand-placed — the behaviour
+  // inspector-iterated.html gives its own, measured against the placecard
+  // instead of the aside. Anchored to the chip, a 264px popover runs past the
+  // right edge of a 300px card, and the card clips overflow; so it measures
+  // its own box, shifts back inside, and moves the arrow by the same amount so
+  // it still points at the chip. Tooltip.tsx already clamps this way against
+  // the window (EDGE_MARGIN, Tooltip.tsx:75).
+  var POP_MARGIN = 12;
+  function clampPopovers() {
+    Array.prototype.forEach.call(document.querySelectorAll('.pop'), function (pop) {
+      if (pop.classList.contains('hidden') || !pop.offsetParent) return;
+      var host = pop.closest('.placecard');
+      if (!host) return;
+      pop.style.left = '';
+      pop.style.removeProperty('--arrow');
+      var over = pop.getBoundingClientRect().right - (host.getBoundingClientRect().right - POP_MARGIN);
+      if (over > 0) {
+        pop.style.left = (parseFloat(getComputedStyle(pop).left) - over) + 'px';
+        pop.style.setProperty('--arrow', (30 + over) + 'px');
+      }
+    });
+  }
 
   // Hover focus: the hovered node, its edges, and their other endpoints stay; everything else dims.
   var svg = document.getElementById('map');
@@ -497,6 +548,7 @@
     card.classList.remove('hidden');
     Array.prototype.forEach.call(card.querySelectorAll('[data-body]'), function (b) { b.classList.toggle('hidden', b.dataset.body !== kind); });
     Array.prototype.forEach.call(card.querySelectorAll('[data-pick]'), function (c) { c.classList.toggle('on', c.dataset.pick === kind); });
+    clampPopovers();  // a body only measures once it is shown
   }
   nodes.forEach(function (n) {
     n.addEventListener('mouseenter', function () { focusOn(n.dataset.id); });
