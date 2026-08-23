@@ -1272,3 +1272,18 @@ describe("McpServerDetail — lazy on open", () => {
     expect(onVerify).toHaveBeenCalledWith("cc-user");
   });
 });
+
+describe("McpServerDetail — Tools first, Details second", () => {
+  it("opens on Tools; Identity, Registered in and Environment sit behind Details", () => {
+    render(<McpServerDetail server={{ ...base, envKeys: ["API_KEY"] }} />);
+    expect(screen.getByRole("tab", { name: "Tools" }).getAttribute("aria-selected")).toBe("true");
+    expect(screen.getByRole("tabpanel").id).toBe("panel-tools");
+    expect(toolsHeading()).toBeTruthy();
+    expect(screen.queryByText("Registered in")).toBeNull();
+    openDetails();
+    expect(screen.getByRole("tabpanel").id).toBe("panel-details");
+    const headings = screen.getAllByRole("heading", { level: 3 }).map((h) => h.textContent);
+    expect(headings).toEqual(["Identity", "Registered in", "Environment"]);
+    expect(screen.queryByRole("heading", { name: "Tools" })).toBeNull();
+  });
+});

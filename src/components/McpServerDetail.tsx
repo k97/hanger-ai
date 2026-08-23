@@ -4,6 +4,7 @@ import { MANAGE_URL } from "../utils/mcpServerView";
 import { diffLaunch, type LaunchDiffToken } from "../utils/launchDiff";
 import EngineLabel from "./EngineLabel";
 import Tooltip from "./Tooltip";
+import UnderlineTabs from "./UnderlineTabs";
 import { ArrowPathIcon, RevealInFileManagerIcon, SpinnerIcon } from "./icons";
 
 /**
@@ -170,7 +171,7 @@ function ProbePending() {
 }
 
 const SECTION = "px-[18px] py-[18px] border-b border-line";
-const HEADING = "text-micro font-medium text-ink-3 uppercase tracking-[0.08em]";
+const HEADING = "text-micro font-medium text-ink-3 uppercase tracking-[.06em]";
 const COUNT = "text-micro font-mono text-ink-2 tabular";
 
 function relativeTime(then: number): string {
@@ -335,6 +336,16 @@ export default function McpServerDetail({
   declined = NONE_DECLINED,
   verifying = NONE_IN_FLIGHT,
 }: Props) {
+  // Tools first, Details second: the tool list is what "is this server
+  // healthy" reduces to, and it is the only content most opens need. A new
+  // server resets to Tools rather than keeping whatever the last one was
+  // showing -- otherwise opening a server right after reading another's
+  // Environment tab would land there for a server that never showed it.
+  const [tab, setTab] = useState<"tools" | "details">("tools");
+  useEffect(() => {
+    setTab("tools");
+  }, [server.name]);
+
   // Counts the rows below, not unique hosts. spades-audio is 3 registrations
   // across 2 hosts -- a count that disagreed with the visible row count would
   // read as a bug. The prototype said "3 hosts" and was simply wrong.
@@ -562,348 +573,363 @@ export default function McpServerDetail({
           chip — so the rule is worth stating: the chrome owns identity, this
           component owns content. */}
 
+      <UnderlineTabs
+        tabs={[
+          { id: "tools", label: "Tools" },
+          { id: "details", label: "Details" },
+        ]}
+        active={tab}
+        onChange={(id) => setTab(id === "details" ? "details" : "tools")}
+        ariaLabel="Inspector view"
+      />
+
       {/* One scroll region for the whole panel, as in AssetDetail. The tools
           list used to cap itself at 240px, which meant two nested scrollbars
           and a list you could only read a sixth of at a time. */}
       <div className="flex-1 min-h-0 overflow-y-auto">
-
-      <section className={SECTION}>
-        <div className="flex items-baseline justify-between gap-2 mb-[10px]">
-          <h3 className={HEADING}>Identity</h3>
-          <span className={COUNT}>
-            {anyVerified
-              ? `verified ${relativeTime(anyVerified.verifiedAt)}${
-                  // More than one registration answered, so this could be any
-                  // of them -- name whose result is showing, same "host ·
-                  // tier" convention the Tools section uses below.
-                  succeeded.length > 1
-                    ? ` · ${anyVerifiedEntry.reg.host} · ${anyVerifiedEntry.reg.tier}`
-                    : ""
-                }`
-              : "unknown"}
-          </span>
-        </div>
-        {anyVerified ? (
-          <div className="flex flex-wrap gap-[6px]">
-            {anyVerified.serverVersion && (
-              <span className="text-micro font-mono bg-plane border border-line px-2 py-px rounded-pill text-ink-2">
-                server <b className="font-medium text-ink-1">{anyVerified.serverVersion}</b>
-              </span>
-            )}
-            {anyVerified.protocolVersion && (
-              <span className="text-micro font-mono bg-plane border border-line px-2 py-px rounded-pill text-ink-2">
-                MCP <b className="font-medium text-ink-1">{anyVerified.protocolVersion}</b>
-              </span>
-            )}
-            {anyVerified.capabilities.length > 0 && (
-              <span className="text-micro font-mono bg-plane border border-line px-2 py-px rounded-pill text-ink-2">
-                caps <b className="font-medium text-ink-1">{anyVerified.capabilities.join(", ")}</b>
-              </span>
-            )}
-          </div>
-        ) : (
-          <p className="text-micro text-ink-3 leading-[1.5]">
-            Version, protocol revision and capabilities are only knowable by handshake. Nothing on
-            disk records them.
-          </p>
-        )}
-      </section>
-
-      <section className={SECTION}>
-        <div className="flex items-baseline justify-between gap-2 mb-[10px]">
-          <h3 className={HEADING}>Registered in</h3>
-          <span className={COUNT}>
-            {`${regCount} ${regCount === 1 ? "registration" : "registrations"}`}
-          </span>
-        </div>
-        <div className="flex flex-col gap-px bg-line border border-line rounded-inner overflow-hidden">
-          {server.registrations.map((reg, i) => (
-            <div key={`${reg.configPath}-${i}`} className="bg-page px-[11px] py-[9px] flex flex-col gap-[3px]">
-              <div className="flex items-center justify-between gap-2">
-                {/* reg.host is the display name (hostLabel); the map resolves names too. */}
-                <EngineLabel engineKey={reg.host} className="text-small font-medium">
-                  {reg.host}
-                </EngineLabel>
-                <span className="text-micro font-mono text-ink-3 uppercase tracking-[0.06em]">
-                  {reg.tier}
+      {tab === "tools" ? (
+        <div role="tabpanel" id="panel-tools" aria-labelledby="tab-tools">
+        <section className={SECTION}>
+          <div className="flex items-baseline justify-between gap-2 mb-[10px]">
+            <h3 className={HEADING}>Tools</h3>
+            {/* A tool count is honest in this slot only when the server has a
+                single launch spec -- one launch means one tool surface, so
+                the number can only ever mean one thing. With more than one
+                spec, two registrations can expose two different tool
+                surfaces, and one number here would read as the server's;
+                each spec keeps its own count beside its own launch label
+                instead (below), and this slot falls back to the registration
+                count, which is true regardless of how many specs there are.
+                Verify and Check-again live here too, in the single-spec case,
+                for the same reason: with only one launch to act on, this slot
+                is unambiguous, and Karthik's call (2026-08-18) is that the
+                affordance belongs where the eye already is rather than below
+                an otherwise-empty block. */}
+            {/* `nothingToAsk`, not `!isConnector`: an empty-command declaration
+                with no http endpoint has no program to start and no target to
+                dial either, and the auto-probe already refuses it. Offering
+                Verify anyway invited a click that could only ever produce
+                "Could not start ``" and cache that failure. Same test on both
+                surfaces, so they cannot disagree about whether the question is
+                askable. */}
+            {!nothingToAsk && specGroups.length === 1 ? (
+              specGroups[0].result ? (
+                <span className="inline-flex items-center gap-2">
+                  <span className={COUNT}>
+                    {specGroups[0].result.error ? "—" : specGroups[0].result.tools.length}
+                  </span>
+                  <CheckAgainButton
+                    registrationKey={specGroups[0].regs[0].key}
+                    verifying={verifying.includes(specGroups[0].regs[0].key)}
+                    onVerify={onVerify}
+                  />
                 </span>
-              </div>
-              <div className="flex items-center gap-1.5 min-w-0">
-                <span className="text-micro font-mono text-ink-3 truncate flex-1">
-                  {reg.configPath}
-                </span>
-                {/* Naming a file without letting you reach it is the same dead
-                    end the connector state had. */}
-                <Tooltip label="Reveal in Finder" placement="bottom">
-                  <button
-                    type="button"
-                    aria-label={`Reveal ${reg.configPath}`}
-                    onClick={() => revealItemInDir(reg.configPath).catch(() => {})}
-                    className="shrink-0 p-1 rounded-pill grid place-items-center text-ink-3 hover:bg-plane-2 hover:text-ink-1 transition-colors duration-hover cursor-pointer"
-                  >
-                    <RevealInFileManagerIcon size={13} aria-hidden="true" />
-                  </button>
-                </Tooltip>
-              </div>
-              {/* What it launches. Without this the panel could not show the
-                  divergence it was designed to surface, and could not answer
-                  "what does this actually run?" after a failed Verify. */}
-              {launchOf(reg) && (
-                <span
-                  className={`text-micro font-mono truncate ${
-                    diverges ? "text-state-warning" : "text-ink-3"
-                  }`}
-                >
-                  {launchOf(reg)}
-                </span>
-              )}
-              {/* This registration's own probe result, once one exists.
-                  Absent for a Claude.ai connector -- there is nothing local
-                  to spawn, so it is never probed. */}
-              {!isConnector && (
-                <RegistrationVerifyStatus result={verified?.[reg.key]} />
-              )}
-              {/* Shown only when true. Most servers are started on demand, so
-                  "not running" is the normal state and badging every row with
-                  it would read as an error rather than as information. */}
-              {reg.running && (
-                <span className="text-micro font-mono text-state-success">
-                  {`running · pid ${reg.running.pid}`}
-                  {reg.running.spawningHost ? ` · ${reg.running.spawningHost}` : ""}
-                </span>
-              )}
-            </div>
-          ))}
-        </div>
-        {endpointsDiverge && (
-          <p className="text-micro text-state-warning leading-[1.45] mt-2">
-            These hosts reach {server.name} at different endpoints. Whichever you are using
-            decides which server answers.
-          </p>
-        )}
-        {launchesDiverge && (
-          <>
-            <p className="text-micro text-state-warning leading-[1.45] mt-2">
-              These hosts launch {server.name} differently. Whichever you are using decides
-              which version you get.
-            </p>
-            {/* The prose above says THAT the launches differ; this says
-                WHERE. Kept beneath rather than replacing it -- the sentence
-                still answers "should I care" at a glance, and the aligned
-                lines answer "which part" for anyone who reads on. Diffed
-                against the FIRST diverging spec only, the same "first wins"
-                attribution the Identity section above already uses -- not
-                an N-way alignment matrix. For the common two-host case this
-                is the whole picture; for three or more, every comparison
-                shares one baseline rather than comparing every pair. */}
-            <div data-testid="launch-diff" className="flex flex-col gap-2 mt-2">
-              {divergingGroups.slice(1).map((group) => {
-                const diff = diffLaunch(divergingGroups[0].launchDisplay, group.launchDisplay);
-                const label = (g: SpecGroup) => g.regs.map((r) => `${r.host} · ${r.tier}`).join(", ");
-                return (
-                  <div
-                    key={group.launchDisplay}
-                    className="border border-line rounded-inner px-[11px] py-[9px] flex flex-col gap-1.5"
-                  >
-                    <LaunchDiffLine label={label(divergingGroups[0])} tokens={diff.a} />
-                    <LaunchDiffLine label={label(group)} tokens={diff.b} />
-                  </div>
-                );
-              })}
-            </div>
-          </>
-        )}
-        {showsBridgeNote && (
-          <p data-testid="bridge-note" className="text-micro text-ink-3 leading-[1.45] mt-2">
-            One of these registrations reaches {server.name} through mcp-remote, a local bridge
-            process, not a separate MCP server. It forwards to whatever endpoint it is configured
-            with. Whether that matches another registration here is what the server list&rsquo;s
-            agreement reading settles, not this panel.
-          </p>
-        )}
-      </section>
-
-      <section className={SECTION}>
-        <div className="flex items-baseline justify-between gap-2 mb-[10px]">
-          <h3 className={HEADING}>Tools</h3>
-          {/* A tool count is honest in this slot only when the server has a
-              single launch spec -- one launch means one tool surface, so
-              the number can only ever mean one thing. With more than one
-              spec, two registrations can expose two different tool
-              surfaces, and one number here would read as the server's;
-              each spec keeps its own count beside its own launch label
-              instead (below), and this slot falls back to the registration
-              count, which is true regardless of how many specs there are.
-              Verify and Check-again live here too, in the single-spec case,
-              for the same reason: with only one launch to act on, this slot
-              is unambiguous, and Karthik's call (2026-08-18) is that the
-              affordance belongs where the eye already is rather than below
-              an otherwise-empty block. */}
-          {/* `nothingToAsk`, not `!isConnector`: an empty-command declaration
-              with no http endpoint has no program to start and no target to
-              dial either, and the auto-probe already refuses it. Offering
-              Verify anyway invited a click that could only ever produce
-              "Could not start ``" and cache that failure. Same test on both
-              surfaces, so they cannot disagree about whether the question is
-              askable. */}
-          {!nothingToAsk && specGroups.length === 1 ? (
-            specGroups[0].result ? (
-              <span className="inline-flex items-center gap-2">
-                <span className={COUNT}>
-                  {specGroups[0].result.error ? "—" : specGroups[0].result.tools.length}
-                </span>
-                <CheckAgainButton
+              ) : verifying.includes(specGroups[0].regs[0].key) ? (
+                // Nothing. The panel asks on open now, so a control here would
+                // read Verify, then Verifying…, then be replaced by a count,
+                // three states inside a fast server's 200ms. The block below
+                // says a probe is running, and only once it has run long
+                // enough to be worth saying.
+                null
+              ) : (
+                <VerifyButton
                   registrationKey={specGroups[0].regs[0].key}
-                  verifying={verifying.includes(specGroups[0].regs[0].key)}
                   onVerify={onVerify}
                 />
-              </span>
-            ) : verifying.includes(specGroups[0].regs[0].key) ? (
-              // Nothing. The panel asks on open now, so a control here would
-              // read Verify, then Verifying…, then be replaced by a count,
-              // three states inside a fast server's 200ms. The block below
-              // says a probe is running, and only once it has run long
-              // enough to be worth saying.
-              null
+              )
             ) : (
-              <VerifyButton
-                registrationKey={specGroups[0].regs[0].key}
-                onVerify={onVerify}
-              />
-            )
-          ) : (
-            <span className={COUNT}>
-              {regCount === 1 ? "1 registration" : `${regCount} registrations`}
-            </span>
-          )}
-        </div>
-        {isConnector ? (
-          // A connector runs on Anthropic's servers -- there is no local
-          // process to spawn and nothing Hanger can dial, so this is the
-          // whole Tools section regardless of anything else about it.
-          <div className="border border-dashed border-line-2 rounded-inner px-[14px] py-[18px] flex flex-col gap-2 items-start">
-            <p className="text-small text-ink-2 leading-[1.5]">
-              Runs on Anthropic&rsquo;s servers, not on this machine.
-            </p>
-            {/* A dead end should still point somewhere. There is no file to
-                open and nothing to verify, but the place this is managed is
-                knowable, so offer it rather than stopping at "nothing
-                local to inspect". */}
-            {MANAGE_URL["claude-ai"] && (
-              <button
-                type="button"
-                onClick={() => openUrl(MANAGE_URL["claude-ai"].url).catch(() => {})}
-                className="text-micro border border-line-2 text-ink-2 px-2.5 py-px rounded-pill cursor-pointer hover:bg-plane-2 hover:text-ink-1 transition-colors duration-hover"
-              >
-                {MANAGE_URL["claude-ai"].label} ↗
-              </button>
+              <span className={COUNT}>
+                {regCount === 1 ? "1 registration" : `${regCount} registrations`}
+              </span>
             )}
           </div>
-        ) : specGroups.length === 1 ? (
-          // Nothing to disambiguate when every registration of this server
-          // shares one launch, probed or not -- `specGroups` counts all of
-          // them, not just the probed ones, so this branch and the labelled
-          // one below always agree with how many specs the server actually
-          // has.
-          specGroups[0].result ? (
-            // Count and Check-again moved up to the section header (above) --
-            // one spec means that slot is unambiguous, so the block itself
-            // is just the list, same shape as the section's simplest case.
-            <div data-testid="tools-block">
-              <ProbedToolList result={specGroups[0].result} />
-            </div>
-          ) : verifying.includes(specGroups[0].regs[0].key) ? (
-            <ProbePending />
-          ) : (
+          {isConnector ? (
+            // A connector runs on Anthropic's servers -- there is no local
+            // process to spawn and nothing Hanger can dial, so this is the
+            // whole Tools section regardless of anything else about it.
             <div className="border border-dashed border-line-2 rounded-inner px-[14px] py-[18px] flex flex-col gap-2 items-start">
-              <p className="text-micro text-ink-3 leading-[1.45]">
-                {declined.includes(specGroups[0].regs[0].key)
-                  ? DECLINED_RUNNING
-                  : isRemote
-                  ? "Asks the endpoint for its tool list. No credentials are sent."
-                  : "Tools are only known by asking the server."}
+              <p className="text-small text-ink-2 leading-[1.5]">
+                Runs on Anthropic&rsquo;s servers, not on this machine.
               </p>
-              {/* Verify itself now lives in the section header (above), not
-                  here -- this explains why the list is empty; the header is
-                  where the action to fill it lives. */}
+              {/* A dead end should still point somewhere. There is no file to
+                  open and nothing to verify, but the place this is managed is
+                  knowable, so offer it rather than stopping at "nothing
+                  local to inspect". */}
+              {MANAGE_URL["claude-ai"] && (
+                <button
+                  type="button"
+                  onClick={() => openUrl(MANAGE_URL["claude-ai"].url).catch(() => {})}
+                  className="text-micro border border-line-2 text-ink-2 px-2.5 py-px rounded-pill cursor-pointer hover:bg-plane-2 hover:text-ink-1 transition-colors duration-hover"
+                >
+                  {MANAGE_URL["claude-ai"].label} ↗
+                </button>
+              )}
             </div>
-          )
-        ) : (
-          <div className="flex flex-col gap-3">
-            {specGroups.map((group) => (
-              <div key={group.key} data-testid="tools-block" className="flex flex-col gap-1.5">
-                <div className="flex items-baseline justify-between gap-2">
-                  {/* The spec this block's tools came from -- the rule this
-                      redesign exists to hold: a tool count never appears
-                      without the launch that produced it. `key`, not
-                      `launchDisplay`: a direct remote registration has no
-                      launch, and an empty label beside a count is the same
-                      unattributed number under a different name. */}
+          ) : specGroups.length === 1 ? (
+            // Nothing to disambiguate when every registration of this server
+            // shares one launch, probed or not -- `specGroups` counts all of
+            // them, not just the probed ones, so this branch and the labelled
+            // one below always agree with how many specs the server actually
+            // has.
+            specGroups[0].result ? (
+              // Count and Check-again moved up to the section header (above) --
+              // one spec means that slot is unambiguous, so the block itself
+              // is just the list, same shape as the section's simplest case.
+              <div data-testid="tools-block">
+                <ProbedToolList result={specGroups[0].result} />
+              </div>
+            ) : verifying.includes(specGroups[0].regs[0].key) ? (
+              <ProbePending />
+            ) : (
+              <div className="border border-dashed border-line-2 rounded-inner px-[14px] py-[18px] flex flex-col gap-2 items-start">
+                <p className="text-micro text-ink-3 leading-[1.45]">
+                  {declined.includes(specGroups[0].regs[0].key)
+                    ? DECLINED_RUNNING
+                    : isRemote
+                    ? "Asks the endpoint for its tool list. No credentials are sent."
+                    : "Tools are only known by asking the server."}
+                </p>
+                {/* Verify itself now lives in the section header (above), not
+                    here -- this explains why the list is empty; the header is
+                    where the action to fill it lives. */}
+              </div>
+            )
+          ) : (
+            <div className="flex flex-col gap-3">
+              {specGroups.map((group) => (
+                <div key={group.key} data-testid="tools-block" className="flex flex-col gap-1.5">
+                  <div className="flex items-baseline justify-between gap-2">
+                    {/* The spec this block's tools came from -- the rule this
+                        redesign exists to hold: a tool count never appears
+                        without the launch that produced it. `key`, not
+                        `launchDisplay`: a direct remote registration has no
+                        launch, and an empty label beside a count is the same
+                        unattributed number under a different name. */}
+                    <span className="text-micro font-mono text-ink-3 truncate">
+                      {group.key}
+                    </span>
+                    {group.result && (
+                      <span className="inline-flex items-center gap-2">
+                        <span className={COUNT}>{group.result.error ? "—" : group.result.tools.length}</span>
+                        <CheckAgainButton
+                          registrationKey={group.regs[0].key}
+                          verifying={verifying.includes(group.regs[0].key)}
+                          onVerify={onVerify}
+                        />
+                      </span>
+                    )}
+                  </div>
+                  {/* Which registrations share this spec -- host + tier, not
+                      the path, same convention the old per-registration label
+                      used. Plural when more than one host launches it
+                      identically. */}
                   <span className="text-micro font-mono text-ink-3 truncate">
-                    {group.key}
+                    {group.regs.map((r) => `${r.host} · ${r.tier}`).join(", ")}
                   </span>
-                  {group.result && (
-                    <span className="inline-flex items-center gap-2">
-                      <span className={COUNT}>{group.result.error ? "—" : group.result.tools.length}</span>
-                      <CheckAgainButton
+                  {group.result ? (
+                    <ProbedToolList result={group.result} />
+                  ) : verifying.includes(group.regs[0].key) ? (
+                    <ProbePending />
+                  ) : (
+                    <>
+                      {/* Same explanation as the single-spec block above, per
+                          launch: one spec of a server can be running while
+                          another sits idle. */}
+                      {declined.includes(group.regs[0].key) && (
+                        <p className="text-micro text-ink-3 leading-[1.45]">{DECLINED_RUNNING}</p>
+                      )}
+                      <VerifyButton
                         registrationKey={group.regs[0].key}
-                        verifying={verifying.includes(group.regs[0].key)}
                         onVerify={onVerify}
                       />
-                    </span>
+                    </>
                   )}
                 </div>
-                {/* Which registrations share this spec -- host + tier, not
-                    the path, same convention the old per-registration label
-                    used. Plural when more than one host launches it
-                    identically. */}
-                <span className="text-micro font-mono text-ink-3 truncate">
-                  {group.regs.map((r) => `${r.host} · ${r.tier}`).join(", ")}
+              ))}
+            </div>
+          )}
+        </section>
+        </div>
+      ) : (
+        <div role="tabpanel" id="panel-details" aria-labelledby="tab-details">
+        <section className={SECTION}>
+          <div className="flex items-baseline justify-between gap-2 mb-[10px]">
+            <h3 className={HEADING}>Identity</h3>
+            <span className={COUNT}>
+              {anyVerified
+                ? `verified ${relativeTime(anyVerified.verifiedAt)}${
+                    // More than one registration answered, so this could be any
+                    // of them -- name whose result is showing, same "host ·
+                    // tier" convention the Tools section uses below.
+                    succeeded.length > 1
+                      ? ` · ${anyVerifiedEntry.reg.host} · ${anyVerifiedEntry.reg.tier}`
+                      : ""
+                  }`
+                : "unknown"}
+            </span>
+          </div>
+          {anyVerified ? (
+            <div className="flex flex-wrap gap-[6px]">
+              {anyVerified.serverVersion && (
+                <span className="text-micro font-mono bg-plane border border-line px-2 py-px rounded-pill text-ink-2">
+                  server <b className="font-medium text-ink-1">{anyVerified.serverVersion}</b>
                 </span>
-                {group.result ? (
-                  <ProbedToolList result={group.result} />
-                ) : verifying.includes(group.regs[0].key) ? (
-                  <ProbePending />
-                ) : (
-                  <>
-                    {/* Same explanation as the single-spec block above, per
-                        launch: one spec of a server can be running while
-                        another sits idle. */}
-                    {declined.includes(group.regs[0].key) && (
-                      <p className="text-micro text-ink-3 leading-[1.45]">{DECLINED_RUNNING}</p>
-                    )}
-                    <VerifyButton
-                      registrationKey={group.regs[0].key}
-                      onVerify={onVerify}
-                    />
-                  </>
+              )}
+              {anyVerified.protocolVersion && (
+                <span className="text-micro font-mono bg-plane border border-line px-2 py-px rounded-pill text-ink-2">
+                  MCP <b className="font-medium text-ink-1">{anyVerified.protocolVersion}</b>
+                </span>
+              )}
+              {anyVerified.capabilities.length > 0 && (
+                <span className="text-micro font-mono bg-plane border border-line px-2 py-px rounded-pill text-ink-2">
+                  caps <b className="font-medium text-ink-1">{anyVerified.capabilities.join(", ")}</b>
+                </span>
+              )}
+            </div>
+          ) : (
+            <p className="text-micro text-ink-3 leading-[1.5]">
+              Version, protocol revision and capabilities are only knowable by handshake. Nothing on
+              disk records them.
+            </p>
+          )}
+        </section>
+
+        <section className={SECTION}>
+          <div className="flex items-baseline justify-between gap-2 mb-[10px]">
+            <h3 className={HEADING}>Registered in</h3>
+            <span className={COUNT}>
+              {`${regCount} ${regCount === 1 ? "registration" : "registrations"}`}
+            </span>
+          </div>
+          <div className="flex flex-col gap-px bg-line border border-line rounded-inner overflow-hidden">
+            {server.registrations.map((reg, i) => (
+              <div key={`${reg.configPath}-${i}`} className="bg-page px-[11px] py-[9px] flex flex-col gap-[3px]">
+                <div className="flex items-center justify-between gap-2">
+                  {/* reg.host is the display name (hostLabel); the map resolves names too. */}
+                  <EngineLabel engineKey={reg.host} className="text-small font-medium">
+                    {reg.host}
+                  </EngineLabel>
+                  <span className="text-micro font-mono text-ink-3 uppercase tracking-[0.06em]">
+                    {reg.tier}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <span className="text-micro font-mono text-ink-3 truncate flex-1">
+                    {reg.configPath}
+                  </span>
+                  {/* Naming a file without letting you reach it is the same dead
+                      end the connector state had. */}
+                  <Tooltip label="Reveal in Finder" placement="bottom">
+                    <button
+                      type="button"
+                      aria-label={`Reveal ${reg.configPath}`}
+                      onClick={() => revealItemInDir(reg.configPath).catch(() => {})}
+                      className="shrink-0 p-1 rounded-pill grid place-items-center text-ink-3 hover:bg-plane-2 hover:text-ink-1 transition-colors duration-hover cursor-pointer"
+                    >
+                      <RevealInFileManagerIcon size={13} aria-hidden="true" />
+                    </button>
+                  </Tooltip>
+                </div>
+                {/* What it launches. Without this the panel could not show the
+                    divergence it was designed to surface, and could not answer
+                    "what does this actually run?" after a failed Verify. */}
+                {launchOf(reg) && (
+                  <span
+                    className={`text-micro font-mono truncate ${
+                      diverges ? "text-state-warning" : "text-ink-3"
+                    }`}
+                  >
+                    {launchOf(reg)}
+                  </span>
+                )}
+                {/* This registration's own probe result, once one exists.
+                    Absent for a Claude.ai connector -- there is nothing local
+                    to spawn, so it is never probed. */}
+                {!isConnector && (
+                  <RegistrationVerifyStatus result={verified?.[reg.key]} />
+                )}
+                {/* Shown only when true. Most servers are started on demand, so
+                    "not running" is the normal state and badging every row with
+                    it would read as an error rather than as information. */}
+                {reg.running && (
+                  <span className="text-micro font-mono text-state-success">
+                    {`running · pid ${reg.running.pid}`}
+                    {reg.running.spawningHost ? ` · ${reg.running.spawningHost}` : ""}
+                  </span>
                 )}
               </div>
             ))}
           </div>
-        )}
-      </section>
-
-      {server.envKeys.length > 0 && (
-        <section className={SECTION}>
-          <div className="flex items-baseline justify-between gap-2 mb-[10px]">
-            <h3 className={HEADING}>Environment</h3>
-            <span className={COUNT}>{server.envKeys.length}</span>
-          </div>
-          <div className="flex flex-wrap gap-[6px]">
-            {server.envKeys.map((key) => (
-              <span
-                key={key}
-                className="text-micro font-mono bg-plane border border-line px-2 py-px rounded-pill text-ink-2"
-              >
-                {key}
-              </span>
-            ))}
-          </div>
-          <p className="text-micro text-ink-3 leading-[1.5] mt-2">
-            Names only. Hanger never reads a variable&rsquo;s value.
-          </p>
+          {endpointsDiverge && (
+            <p className="text-micro text-state-warning leading-[1.45] mt-2">
+              These hosts reach {server.name} at different endpoints. Whichever you are using
+              decides which server answers.
+            </p>
+          )}
+          {launchesDiverge && (
+            <>
+              <p className="text-micro text-state-warning leading-[1.45] mt-2">
+                These hosts launch {server.name} differently. Whichever you are using decides
+                which version you get.
+              </p>
+              {/* The prose above says THAT the launches differ; this says
+                  WHERE. Kept beneath rather than replacing it -- the sentence
+                  still answers "should I care" at a glance, and the aligned
+                  lines answer "which part" for anyone who reads on. Diffed
+                  against the FIRST diverging spec only, the same "first wins"
+                  attribution the Identity section above already uses -- not
+                  an N-way alignment matrix. For the common two-host case this
+                  is the whole picture; for three or more, every comparison
+                  shares one baseline rather than comparing every pair. */}
+              <div data-testid="launch-diff" className="flex flex-col gap-2 mt-2">
+                {divergingGroups.slice(1).map((group) => {
+                  const diff = diffLaunch(divergingGroups[0].launchDisplay, group.launchDisplay);
+                  const label = (g: SpecGroup) => g.regs.map((r) => `${r.host} · ${r.tier}`).join(", ");
+                  return (
+                    <div
+                      key={group.launchDisplay}
+                      className="border border-line rounded-inner px-[11px] py-[9px] flex flex-col gap-1.5"
+                    >
+                      <LaunchDiffLine label={label(divergingGroups[0])} tokens={diff.a} />
+                      <LaunchDiffLine label={label(group)} tokens={diff.b} />
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
+          {showsBridgeNote && (
+            <p data-testid="bridge-note" className="text-micro text-ink-3 leading-[1.45] mt-2">
+              One of these registrations reaches {server.name} through mcp-remote, a local bridge
+              process, not a separate MCP server. It forwards to whatever endpoint it is configured
+              with. Whether that matches another registration here is what the server list&rsquo;s
+              agreement reading settles, not this panel.
+            </p>
+          )}
         </section>
+
+        {server.envKeys.length > 0 && (
+          <section className={SECTION}>
+            <div className="flex items-baseline justify-between gap-2 mb-[10px]">
+              <h3 className={HEADING}>Environment</h3>
+              <span className={COUNT}>{server.envKeys.length}</span>
+            </div>
+            <div className="flex flex-wrap gap-[6px]">
+              {server.envKeys.map((key) => (
+                <span
+                  key={key}
+                  className="text-micro font-mono bg-plane border border-line px-2 py-px rounded-pill text-ink-2"
+                >
+                  {key}
+                </span>
+              ))}
+            </div>
+            <p className="text-micro text-ink-3 leading-[1.5] mt-2">
+              Names only. Hanger never reads a variable&rsquo;s value.
+            </p>
+          </section>
+        )}
+        </div>
       )}
       </div>
     </div>
