@@ -1542,6 +1542,10 @@ export default function App() {
                   invoke("set_preference", { key: "inspector_open", value: "true" }).catch(() => {});
                 }
               }}
+              onReview={() => {
+                handleSelectSidebarItem("review");
+                invoke("set_preference", { key: "selected_sidebar_item", value: "review" }).catch(() => {});
+              }}
             />
           )}
 

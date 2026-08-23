@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useRef, type ReactNode } from "react";
 import {
   ArchiveBoxIcon,
   ArrowRightIcon,
@@ -15,6 +15,7 @@ import {
 import ListCard, { ListCardRow } from "./ListCard";
 import Tooltip from "./Tooltip";
 import EngineLabel from "./EngineLabel";
+import FindingChip from "./FindingChip";
 import { miniBtnClass, miniSetClass } from "./miniButton";
 import type {
   EdgeState,
@@ -45,6 +46,11 @@ interface LinkMapPlacecardProps {
   onOpenProject: (path: string) => void;
   /** Engine roots only: Global, filtered to this engine, in the inspector. */
   onShowEngineAssets: (engineName: string) => void;
+  /** The node's faulty edges, restated as the map already draws them; empty means no chip. */
+  findings: string[];
+  findingSeverity: "warning" | "danger";
+  /** Review →: every finding routes to Needs review. */
+  onReview: () => void;
 }
 
 const STATE_LINE: Record<EdgeState, string> = {
@@ -106,7 +112,11 @@ export default function LinkMapPlacecard({
   onClose,
   onOpenProject,
   onShowEngineAssets,
+  findings,
+  findingSeverity,
+  onReview,
 }: LinkMapPlacecardProps) {
+  const cardRef = useRef<HTMLDivElement>(null);
   const closeButton = (
     <button
       onClick={onClose}
@@ -266,6 +276,7 @@ export default function LinkMapPlacecard({
 
   return (
     <div
+      ref={cardRef}
       data-testid="map-placecard"
       className={cardClass}
     >
@@ -276,15 +287,29 @@ export default function LinkMapPlacecard({
           <span>{NODE_KIND_LABEL[node.kind]}</span>
           <span className="ml-auto">{closeButton}</span>
         </div>
-        <h2 className="text-base-app font-medium tracking-[-0.2px] text-ink-1 mb-1.5">
-          {node.kind === "engine_root" ? (
-            <EngineLabel engineKey={node.label} size={14}>
-              {node.label}
-            </EngineLabel>
-          ) : (
-            node.label
+        <div className="flex items-center gap-2 mb-1.5">
+          <h2 className="text-base-app font-medium tracking-[-0.2px] text-ink-1 flex items-center gap-1.5 min-w-0">
+            {node.kind === "engine_root" ? (
+              <EngineLabel engineKey={node.label} size={14}>
+                {node.label}
+              </EngineLabel>
+            ) : (
+              node.label
+            )}
+          </h2>
+          {/* Drawn only for a node with a finding: a chip that is always
+              there stops meaning anything. The dot on the canvas says which
+              node; this says it wants a decision; the popover says what. */}
+          {findings.length > 0 && (
+            <FindingChip
+              severity={findingSeverity}
+              lines={findings}
+              onReview={onReview}
+              elevated={false}
+              clampTo={cardRef}
+            />
           )}
-        </h2>
+        </div>
         <div className="flex items-center gap-[7px]">
           {node.kind === "engine_root" && (
             <i

@@ -37,6 +37,7 @@ interface Callbacks {
   onOpenProject: ReturnType<typeof vi.fn>;
   onNoticesSeen: ReturnType<typeof vi.fn>;
   onShowEngineAssets: ReturnType<typeof vi.fn>;
+  onReview: ReturnType<typeof vi.fn>;
 }
 
 /** Renders with a handle that re-renders the SAME tree, so state survives. */
@@ -51,6 +52,7 @@ const renderPaneRaw = (g: LinkGraph, showProjects: boolean) => {
       noticesSeen={null}
       onNoticesSeen={vi.fn()}
       onShowEngineAssets={vi.fn()}
+      onReview={vi.fn()}
     />
   );
   const view = render(pane(showProjects));
@@ -66,6 +68,7 @@ const renderPane = (
     onOpenProject: vi.fn(),
     onNoticesSeen: vi.fn(),
     onShowEngineAssets: vi.fn(),
+    onReview: vi.fn(),
   };
   render(
     <LinkMapPane
@@ -77,6 +80,7 @@ const renderPane = (
       noticesSeen={noticesSeen}
       onNoticesSeen={callbacks.onNoticesSeen}
       onShowEngineAssets={callbacks.onShowEngineAssets}
+      onReview={callbacks.onReview}
     />,
   );
   return callbacks;
@@ -537,5 +541,33 @@ describe("LinkMapPane", () => {
     expect(button.className).toContain("rounded-control");
     fireEvent.click(button);
     expect(callbacks.onOpenProject).toHaveBeenCalledWith("/u/k/w/metrics-board");
+  });
+
+  it("a node with a faulty edge into it carries the Review chip; its popover restates the edges the map draws", () => {
+    const callbacks = renderPane(graph());
+    fireEvent.click(screen.getByTestId("map-node-4"));
+    const card = screen.getByTestId("map-placecard");
+    const chip = within(card).getByRole("button", { name: "Review" });
+    // The chip sits on the head's own row beside the node name.
+    expect(chip.closest("div")?.querySelector("h2")?.textContent).toBe("metrics-board");
+    expect(chip.querySelector("i")?.className).toContain("bg-state-danger");
+    fireEvent.click(chip);
+    const pop = screen.getByRole("dialog", { name: "Needs a decision" });
+    expect(Array.from(pop.querySelectorAll("li")).map((li) => li.textContent)).toEqual([
+      "1 tracked copy · drifted",
+      "1 symlink · dangling",
+    ]);
+    // No second elevation inside the card.
+    expect(pop.className).not.toContain("shadow-overlay");
+    fireEvent.click(within(pop).getByRole("button", { name: "Review →" }));
+    expect(callbacks.onReview).toHaveBeenCalledTimes(1);
+  });
+
+  it("a node with only linked edges, and the store, carry no chip", () => {
+    renderPane(graph());
+    fireEvent.click(screen.getByTestId("map-node-2"));
+    expect(within(screen.getByTestId("map-placecard")).queryByRole("button", { name: "Review" })).toBeNull();
+    fireEvent.click(screen.getByTestId("map-node-1"));
+    expect(within(screen.getByTestId("map-placecard")).queryByRole("button", { name: "Review" })).toBeNull();
   });
 });

@@ -50,6 +50,7 @@ interface LinkMapPaneProps {
   /** Signature of the notice set last read, persisted by App. */
   noticesSeen: string | null;
   onNoticesSeen: (signature: string) => void;
+  onReview: () => void;
 }
 
 function assertNever(value: never): never {
@@ -190,6 +191,7 @@ export default function LinkMapPane({
   onShowEngineAssets,
   noticesSeen,
   onNoticesSeen,
+  onReview,
 }: LinkMapPaneProps) {
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const [viewport, setViewport] = useState<Size>({ width: 880, height: 520 });
@@ -401,6 +403,9 @@ export default function LinkMapPane({
     if (into.some((e) => e.state === "drifted")) return "drifted";
     return null;
   };
+
+  const findingsFor = (id: number): string[] =>
+    layout.edges.filter((e) => e.dest === id && e.state !== "linked").map(edgeSummary);
 
   return (
     <div className="h-full flex flex-col bg-page min-h-0">
@@ -701,6 +706,11 @@ export default function LinkMapPane({
               onClose={() => setSelection(null)}
               onOpenProject={onOpenProject}
               onShowEngineAssets={onShowEngineAssets}
+              findings={selection.kind === "node" ? findingsFor(selection.node.id) : []}
+              findingSeverity={
+                selection.kind === "node" && worstStateInto(selection.node.id) === "dangling" ? "danger" : "warning"
+              }
+              onReview={onReview}
             />
           )}
 
