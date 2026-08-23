@@ -9,46 +9,100 @@ blocked.
 
 ## The handover prompt
 
-Paste this into a fresh session.
+One paste, into a fresh session. It runs end to end.
 
 > I am implementing the v4 inspector, map and summary-strip redesign in
-> Hanger. The design is finished and lives in
-> `docs/v4-prototypes/_iterated-view/`. Do not write implementation code
-> yet — produce the implementation plan first.
+> Hanger, end to end, in one run. The design is finished and lives in
+> `docs/v4-prototypes/_iterated-view/`. The prototypes are the
+> specification — not a mood board. Where a prototype and my description
+> disagree, the prototype wins; where a prototype and the code disagree,
+> stop and report.
 >
-> Read, in this order:
+> **Read first, in this order.**
 > 1. `docs/v4-prototypes/_iterated-view/02-implementation-handover.md` —
->    this file: the phase order, the dependency map, and what is blocked.
+>    the phase order, the dependency map, the invariants that bite, and
+>    what is unresolved.
 > 2. `docs/v4-prototypes/_iterated-view/00-gap-analysis-and-constraints.md`
->    — the feasibility analysis, the constraints, and every ruling with
->    its date.
-> 3. The three prototype pages. Open them in a browser, do not only read
->    the markup: `inspector-iterated.html`, `banner-iterated.html`,
->    `map-iterated.html`. Each page's legend at the foot is its
->    specification and records which rulings it follows.
-> 4. `CLAUDE.md`, then every file in `.claude/rules/`, then
->    `.claude/DESIGN.md`, then `docs/harness.md`.
+>    — the feasibility analysis and every ruling with its date.
+> 3. The three prototype pages, **opened in a browser, not only read as
+>    markup**: `inspector-iterated.html`, `banner-iterated.html`,
+>    `map-iterated.html`. Click the tabs, open the menus and popovers,
+>    resize. Each page's legend at the foot is its specification.
+> 4. `CLAUDE.md`, every file in `.claude/rules/`, `.claude/DESIGN.md`,
+>    and `docs/harness.md`.
 >
-> Then invoke `superpowers:writing-plans`. We have already brainstormed —
-> do not re-enter brainstorming, and do not invoke any other
-> implementation skill. Produce a plan for **Phase 1 only**, in the order
-> this file sets out. Phases are sequential and each ends at a checkpoint
-> Karthik verifies; do not plan past the first one.
+> **How to run it.** Use superpowers throughout:
+> - `superpowers:using-git-worktrees` first. Other sessions commit to
+>   this branch; work in an isolated worktree and integrate at the end.
+> - `superpowers:writing-plans` to produce the plan for **all four
+>   phases** up front, saved to disk, before touching code. We have
+>   already brainstormed — do not re-enter brainstorming.
+> - `superpowers:executing-plans` to work through it. Use
+>   `superpowers:subagent-driven-development` for independent tasks
+>   within a phase.
+> - `superpowers:test-driven-development` on every change. Red first.
+> - `superpowers:systematic-debugging` the moment something misbehaves —
+>   before proposing a fix, not after the third attempt.
+> - `superpowers:verification-before-completion` and
+>   `superpowers:requesting-code-review` at each phase boundary.
+> - `superpowers:finishing-a-development-branch` at the end.
 >
-> Two things govern everything and you should read them before planning,
-> not after: `.claude/rules/verification.md` decides what counts as proof
-> that something is done, and `.claude/rules/invariants.md` lists what a
-> change can break without a test obviously failing. Where a superpowers
-> skill and `verification.md` disagree about whether something has been
-> demonstrated, `verification.md` wins — stop and report the conflict
-> rather than resolving it.
+> **Do not stop between phases.** Commit at each boundary, append to the
+> ledger (below), and continue to the next. I am not driving this
+> task by task.
 >
-> The work is TDD. Every change pairs with a runnable check, red first.
-> Any change under `src-tauri/src/` gets its own red/green cycle and its
-> own diff. Any edit to a test, detector or allowlist is reported with
-> its cause and committed separately from the change that forced it.
-
----
+> **The ledger.** Maintain
+> `docs/v4-prototypes/_iterated-view/03-implementation-ledger.md` as you
+> go. One section per phase: what landed, the gate output verbatim with
+> exit codes, every deviation from the prototype and why, every
+> human-gated item you could not self-certify, and anything you found
+> that contradicts the design. Append as you finish each phase, not at
+> the end — it is how I follow along without interrupting you.
+>
+> **When something is undecided, do not halt.** The prototypes draw a
+> chosen state for almost everything. Implement what is drawn, record the
+> alternative and the fact that it is unruled in the ledger, and keep
+> going. This applies to all ten open decisions listed in the handover.
+>
+> **What you must never self-certify.** `.claude/rules/verification.md`
+> is binding and outranks any superpowers skill on whether something has
+> been demonstrated. Three things need me and cannot be signed off by you
+> — collect them in the ledger and carry on rather than blocking:
+> 1. **Copy.** Fourteen first-time strings are drawn and unsigned.
+>    Implement them **verbatim as drawn**; do not improve, shorten or
+>    re-word any of them, and do not invent new user-facing strings. If a
+>    layout genuinely cannot hold a string, record it — do not solve it by
+>    rewriting the string.
+> 2. **UI acceptance.** A screenshot from a running build is evidence of
+>    what is on screen; only I close an iteration. Take them per
+>    `.claude/rules/verifying-ui.md` — window frontmost, bounds re-read
+>    immediately before every click, and the frame corroborated by state,
+>    because a capture by window id is not evidence your click reached
+>    that window.
+> 3. **The ten open rulings** in the handover.
+>
+> **Hard stops — these do halt the run and wait for me.** A pinned gate
+> that will not go green. A prototype that contradicts the code. Any
+> destructive git operation. Any change that would need a test, detector
+> or allowlist weakened to pass. A schema migration whose test you cannot
+> write first.
+>
+> **Non-negotiables, from `.claude/rules/`.** Counts come from the
+> backend, never the frontend. Styling is semantic tokens only. Link
+> state is derived at read time. Schema changes are `PRAGMA user_version`
+> migrations in `preferences.rs::init_db`, and `store_migration_tests.rs`
+> is the source of truth for the current version, not prose. Any change
+> under `src-tauri/src/` gets its own red/green cycle and its own diff.
+> Any edit to a test, detector or allowlist is reported with its cause
+> and committed separately from the change that forced it.
+>
+> **The four pinned gates**, run from the stated directory, in the
+> dispatch that reports them, at every phase boundary: `npx vitest run`
+> from the repo root, `cargo test` from `src-tauri/`, `bunx tsc --noEmit`,
+> and `gitleaks detect` twice per `CLAUDE.md`. A gate result is valid only
+> for the tree at the moment it ran.
+>
+> Start now. Plan all four phases, then build them in order.
 
 ## What gates the whole programme
 
@@ -247,8 +301,13 @@ code makes it true. The two-button-radius ruling is currently in its
 
 `.claude/rules/verification.md` owns this; the short version:
 
-- Every phase ends at a checkpoint. Stop, report, wait. Do not begin the
-  next phase because this one went smoothly.
+- Karthik has authorised **continuous execution across phases** — the
+  run does not stop at each boundary. It commits, appends to the ledger,
+  and continues. That is a deliberate relaxation of this rule's "stop,
+  report, wait", and it relaxes only the *pausing*. It does not relax
+  what counts as proof: nothing human-gated may be self-certified, and
+  anything that cannot be demonstrated goes in the ledger as outstanding
+  rather than being marked done.
 - A phase that changes UI needs **a screenshot from a running build**,
   taken per `.claude/rules/verifying-ui.md` — the window must be
   frontmost, its bounds re-read immediately before any click, and the
