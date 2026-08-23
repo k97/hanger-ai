@@ -16,8 +16,8 @@ const graph = (overrides: Partial<LinkGraph> = {}): LinkGraph => ({
       skill_count: 8, rule_count: 0, subagent_count: 2, tool_count: 0, linked_from: 0, rules: [] },
     { id: 3, kind: "engine_root", label: "Claude Desktop", path: "/u/k/Library/Claude", asset_count: 1, linked: false,
       skill_count: 0, rule_count: 0, subagent_count: 0, tool_count: 1, linked_from: 0, rules: [] },
-    { id: 4, kind: "project", label: "metrics-board", path: "/u/k/w/metrics-board", asset_count: 82, linked: null,
-      skill_count: 9, rule_count: 3, subagent_count: 0, tool_count: 5, linked_from: 0, rules: ["AGENTS.md", "CLAUDE.md"] },
+    { id: 4, kind: "project", label: "metrics-board", path: "/u/k/w/metrics-board", asset_count: 16, linked: null,
+      skill_count: 9, rule_count: 2, subagent_count: 0, tool_count: 5, linked_from: 0, rules: ["AGENTS.md", "CLAUDE.md"] },
   ],
   // Order matters to the tests below: the layout preserves it, so hit-path
   // N is edges[N].
@@ -404,5 +404,26 @@ describe("LinkMapPane", () => {
     );
     const dot = screen.getByTestId("map-node-4").querySelector('[data-testid="map-state-dot"]')!;
     expect(dot.getAttribute("class")).toContain("fill-state-warning");
+  });
+
+  // The fixture is only useful if the backend could produce it. scanner.rs
+  // computes total_assets as exactly the sum of the four kinds, and a project
+  // node's rule_count and rules list are read from the same assets rows.
+  it("every fixture node describes a state the backend could produce", () => {
+    for (const n of graph().nodes) {
+      expect({
+        node: n.label,
+        total: n.asset_count,
+      }).toEqual({
+        node: n.label,
+        total: n.skill_count + n.rule_count + n.subagent_count + n.tool_count,
+      });
+      if (n.kind === "project") {
+        expect({ node: n.label, rules: n.rule_count }).toEqual({
+          node: n.label,
+          rules: n.rules.length,
+        });
+      }
+    }
   });
 });
