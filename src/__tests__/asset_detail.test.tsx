@@ -355,13 +355,29 @@ describe("Asset detail — the inspector's document screen", () => {
     expect(symlinkRow.querySelector("svg")?.outerHTML).toContain("M13.19 8.688");
   });
 
-  it("draws no folder section for a rule, and none when the folder cannot be listed", async () => {
-    dirResult = [];
+  // Split from one case that claimed both. It set `dirResult = []` AND
+  // switched the category to Rules — but the category switch alone makes the
+  // effect return before `invoke` (`AssetDetail.tsx:202`), so the assertion
+  // passed whatever `dirResult` held and the empty-list branch for a genuine
+  // Skills asset was never reached.
+  it("draws no folder section for a rule, and does not even ask for a listing", async () => {
     render(<AssetDetail asset={{ ...asset, category: "Rules", path: "/home/me/.agents/rules/x.md" }} inventory={inventory} />);
     await screen.findByRole("tab", { name: "Details" });
     openDetails();
     expect(screen.queryByText("Contents")).toBeNull();
     expect(invoke).not.toHaveBeenCalledWith("list_asset_dir", expect.anything());
+  });
+
+  it("asks for the listing of a skill whose folder is empty, and draws no Contents over nothing", async () => {
+    dirResult = [];
+    render(<AssetDetail asset={asset} inventory={inventory} />);
+    await screen.findByRole("tab", { name: "Details" });
+    openDetails();
+    // The command HAVING been called is the half the old case could not
+    // reach: it is what distinguishes "listed, and empty" from "never asked".
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("list_asset_dir", { path: SOURCE }));
+    expect(screen.queryByText("Contents")).toBeNull();
+    expect(screen.queryAllByTestId("skill-dir-row")).toHaveLength(0);
   });
 
   it("Content leads with what reading the skill costs, bytes as the fact and tokens as an estimate", async () => {
