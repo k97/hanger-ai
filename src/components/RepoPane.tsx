@@ -318,27 +318,13 @@ export default function RepoPane({
 
   return (
     <div className="flex-1 flex flex-col min-h-0 overflow-hidden bg-page animate-fade-in font-sans">
-      {/* Inventory summary strip */}
-      <div className="mx-[18px] mt-[18px]">
-        <SummaryStrip
-          total={assetCounts?.total ?? 0}
-          subtitle={stripSubtitle}
-          scannedAt={scannedAt}
-          scanning={loading}
-          counts={stripCounts}
-          activeStateFilter={stateFilter}
-          onFilterState={(f) => onStateFilterChange?.(f)}
-          onRescan={onRefresh}
-        />
-      </div>
-
       {/* Facet chips. No View control here (§5.6's "Rows" choice lives on
           ProfilePane only): `get_mcp_servers` is machine-global
           (`discover_machine`, not `discover_repo`), so there is no
           repo-scoped grouping for a control here to drive — this pane's
           Tools rows stay per-registration regardless, and a control that
           cannot regroup its own rows would be inert chrome, not a fix. */}
-      <div className="px-[18px] pt-3 pb-2.5 flex items-center gap-3">
+      <div className="px-[18px] pt-3.5 pb-1.5 flex items-center gap-3">
         {/* No `?? 0` here. The chip distinguishes "not counted yet"
             (undefined) from "empty" (0) so it can keep a chip through a scan
             and hide it only on a known zero. Collapsing undefined to 0 erased
@@ -356,6 +342,20 @@ export default function RepoPane({
             loading={loading}
           />
         </div>
+      </div>
+
+      {/* Inventory summary strip */}
+      <div className="mx-[18px] mt-2.5 mb-2.5">
+        <SummaryStrip
+          total={assetCounts?.total ?? 0}
+          subtitle={stripSubtitle}
+          scannedAt={scannedAt}
+          scanning={loading}
+          counts={stripCounts}
+          activeStateFilter={stateFilter}
+          onFilterState={(f) => onStateFilterChange?.(f)}
+          onRescan={onRefresh}
+        />
       </div>
 
       {/* Engines line + anything needing attention, above the list plane */}

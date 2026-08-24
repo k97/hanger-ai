@@ -130,6 +130,13 @@ describe("ProfilePane Component-Level Filtering Integration", () => {
     const subagentsCard = screen.getAllByText("Subagents").find(el => el.closest("[tabindex]"))?.closest("[tabindex]");
     expect(subagentsCard?.textContent).toBe("Subagents1");
   });
+
+  it("the category track sits above the strip — the control above what it changes", () => {
+    render(<ProfilePane inventory={mockInventory} loading={false} onSelectAsset={vi.fn()} onLinkAsset={vi.fn()} />);
+    const track = screen.getByRole("tablist", { name: "Filter by category" });
+    const strip = screen.getByLabelText("Inventory summary");
+    expect(track.compareDocumentPosition(strip) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
 });
 
 describe("ProfilePane — the empty state is a finding, not a default", () => {

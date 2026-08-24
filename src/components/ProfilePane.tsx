@@ -732,22 +732,8 @@ export default function ProfilePane({
 
   return (
     <div className="flex-1 flex flex-col min-h-0 overflow-hidden font-sans">
-      {/* Inventory summary strip */}
-      <div className="mx-[18px] mt-[18px]">
-        <SummaryStrip
-          total={sumGlobalAssets(assetCounts)}
-          subtitle={stripSubtitle}
-          scannedAt={scannedAt}
-          scanning={loading}
-          counts={stripCounts}
-          activeStateFilter={stateFilter}
-          onFilterState={(f) => onStateFilterChange?.(f)}
-          onRescan={onRescan}
-        />
-      </div>
-
       {/* Facet chips */}
-      <div className="px-[18px] pt-3 pb-2.5">
+      <div className="px-[18px] pt-3.5 pb-1.5">
         <CategoryFilterCards
           selectedCategory={selectedCategory}
           onSelectCategory={setSelectedCategory}
@@ -757,6 +743,20 @@ export default function ProfilePane({
           rulesCount={assetCounts?.byCategory.rule?.global}
           subagentsCount={assetCounts?.byCategory.subagent?.global}
           loading={loading}
+        />
+      </div>
+
+      {/* Inventory summary strip */}
+      <div className="mx-[18px] mt-2.5 mb-2.5">
+        <SummaryStrip
+          total={sumGlobalAssets(assetCounts)}
+          subtitle={stripSubtitle}
+          scannedAt={scannedAt}
+          scanning={loading}
+          counts={stripCounts}
+          activeStateFilter={stateFilter}
+          onFilterState={(f) => onStateFilterChange?.(f)}
+          onRescan={onRescan}
         />
       </div>
 

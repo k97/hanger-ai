@@ -96,6 +96,22 @@ describe("RepoPane Linking Gestures Integration", () => {
     expect(handleLinkFromProfile).toHaveBeenCalledTimes(1);
     expect(handleLinkFromProfile).toHaveBeenCalledWith("/home/user/empty-project");
   });
+
+  it("the category track sits above the strip — the control above what it changes", () => {
+    render(
+      <RepoPane
+        repoPath="/home/user/project"
+        inventory={mockInventory}
+        loading={false}
+        onRefresh={vi.fn()}
+        onSelectAsset={vi.fn()}
+        onLinkFromProfile={vi.fn()}
+      />
+    );
+    const track = screen.getByRole("tablist", { name: "Filter by category" });
+    const strip = screen.getByLabelText("Inventory summary");
+    expect(track.compareDocumentPosition(strip) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
 });
 
 describe("RepoPane — the empty state is a finding, not a default", () => {
