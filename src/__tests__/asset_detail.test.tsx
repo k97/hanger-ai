@@ -4,7 +4,6 @@ import { render, screen, fireEvent, waitFor, cleanup, within } from "@testing-li
 import AssetDetail from "../components/AssetDetail";
 import type { Inventory } from "../App";
 import { invoke } from "@tauri-apps/api/core";
-import { openPath } from "@tauri-apps/plugin-opener";
 
 const SOURCE = "/home/me/.agents/skills/agent-browser/SKILL.md";
 
@@ -109,10 +108,10 @@ describe("Asset detail — the inspector's document screen", () => {
     ];
   });
 
-  it("states the file's relationships in one line", async () => {
-    render(<AssetDetail asset={asset} inventory={inventory} />);
-    expect(await screen.findByText("The source for 2 copies")).toBeTruthy();
-  });
+  // "states the file's relationships in one line" removed: the state line
+  // (the dot + "The source for N copies" statement) moved to the cap's kind
+  // glyph. Successor: InspectorCap.test.tsx, "marks the kind glyph with a
+  // state dot only when the asset has findings".
 
   it("reads the file through the backend, by path", async () => {
     render(<AssetDetail asset={asset} inventory={inventory} />);
@@ -165,38 +164,27 @@ describe("Asset detail — the inspector's document screen", () => {
     expect(screen.getByText("431 B · 21 lines")).toBeTruthy();
   });
 
-  it("opens the file in its editor", async () => {
-    render(<AssetDetail asset={asset} inventory={inventory} />);
-    fireEvent.click(await screen.findByText("Open in editor"));
-    await waitFor(() => {
-      expect(openPath).toHaveBeenCalledWith(SOURCE);
-    });
-  });
+  // "opens the file in its editor" removed: Open in editor moved to the
+  // cap's overflow menu. Successor: InspectorCap.test.tsx, "wires the menu's
+  // Open in editor item to onOpenInEditor, and only onOpenInEditor".
 
-  it("offers the link flow only when one is given", async () => {
-    const onLink = vi.fn();
-    const { unmount } = render(<AssetDetail asset={asset} inventory={inventory} onLink={onLink} />);
-    fireEvent.click(await screen.findByText("Link to…"));
-    expect(onLink).toHaveBeenCalled();
-    unmount();
-
-    render(<AssetDetail asset={asset} inventory={inventory} />);
-    await screen.findByText("Open in editor");
-    expect(screen.queryByText("Link to…")).toBeNull();
-  });
+  // "offers the link flow only when one is given" removed: Link to… moved to
+  // the cap. Successor: InspectorCap.test.tsx, "orders the trailing cluster
+  // Link to…, More actions, Expand inspector, Toggle inspector" (presence)
+  // and "renders no Link to… and no overflow menu for an MCP asset with none
+  // of the menu callbacks" (absence).
 
   it("shows the document it read, not the folder it was handed", async () => {
     // A skill is identified by its folder, so that is what the panel receives.
-    // Showing a directory above a rendered file reads as a mistake.
+    // Showing a directory above a rendered file reads as a mistake. The path
+    // now renders in Details › Identity, not in an always-visible chip.
     const folder = "/home/me/.agents/skills/agent-browser";
     bodyPath = `${folder}/SKILL.md`;
     render(<AssetDetail asset={{ ...asset, path: folder }} inventory={inventory} />);
 
+    await screen.findByRole("tab", { name: "Details" });
+    openDetails();
     expect(await screen.findByTitle(`${folder}/SKILL.md`)).toBeTruthy();
-    fireEvent.click(screen.getByText("Open in editor"));
-    await waitFor(() => {
-      expect(openPath).toHaveBeenCalledWith(`${folder}/SKILL.md`);
-    });
   });
 
   it("formats a tool's config instead of reading braces as prose", async () => {
@@ -248,8 +236,9 @@ describe("Asset detail — the inspector's document screen", () => {
 
     expect(await screen.findByText(/Refusing to read a file outside/)).toBeTruthy();
     openDetails();
-    // The relationships do not depend on the file's contents.
-    expect(screen.getByText("The source for 2 copies")).toBeTruthy();
+    // The relationships do not depend on the file's contents. (The state
+    // line itself — "The source for 2 copies" — moved to the cap; this
+    // panel no longer restates it in prose.)
     expect(screen.getByText("Linked into")).toBeTruthy();
     // With no document there is nothing to switch between.
     expect(screen.queryByRole("button", { name: "View source" })).toBeNull();
@@ -295,6 +284,7 @@ describe("Asset detail — the inspector's document screen", () => {
     expect(rows).toEqual([
       "identity-row-engine", "identity-row-scope", "identity-row-linked-into", "identity-row-origin",
       "identity-row-version", "identity-row-size", "identity-row-modified", "identity-row-license",
+      "identity-row-path",
     ]);
     expect(within(section).getByText("Modified").nextElementSibling?.textContent).toBe("Jul 20, 2026");
     expect(within(section).getByText("Size").nextElementSibling?.textContent).toBe("431 B · 21 lines");

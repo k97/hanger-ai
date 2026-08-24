@@ -180,8 +180,11 @@ describe("Avionics A5 — Docked Right Inspector Integration", () => {
     // Click an asset row — tapping a row means "inspect this"
     fireEvent.click(skillRow);
 
-    // Inspector opens immediately, showing the tapped asset (not the empty state)
-    await screen.findByText("~/Work/demo/skills/inspector-skill-1");
+    // Inspector opens immediately, showing the tapped asset (not the empty
+    // state). The path now renders in Details › Identity's row title, not
+    // as plain text on Content.
+    fireEvent.click(await screen.findByRole("tab", { name: "Details" }));
+    await screen.findByTitle("~/Work/demo/skills/inspector-skill-1");
     expect(screen.queryByText("Nothing selected")).toBeNull();
 
     // The open state persists like the toolbar toggle does
@@ -203,9 +206,11 @@ describe("Avionics A5 — Docked Right Inspector Integration", () => {
     const rowContainer = skillRow.closest("div") || skillRow;
     fireEvent.click(rowContainer);
 
-    // Assert the full path string renders
+    // Assert the full path string renders — behind Details now that the
+    // path lives in Identity's row title, not the always-visible Content tab.
+    fireEvent.click(await screen.findByRole("tab", { name: "Details" }));
     await waitFor(() => {
-      expect(screen.getByText("~/Work/demo/skills/inspector-skill-1")).toBeDefined();
+      expect(screen.getByTitle("~/Work/demo/skills/inspector-skill-1")).toBeDefined();
     });
   });
 
@@ -236,7 +241,10 @@ describe("Avionics A5 — Docked Right Inspector Integration", () => {
     fireEvent.click(toolRow);
 
     // The config path lives behind Details now that the MCP panel opens on
-    // Tools first (M1) -- open it before asserting on the path string.
+    // Tools first (M1) -- open it before asserting on the path string. A
+    // Tool's detail view is McpServerDetail, not AssetDetail (Flyout routes
+    // "Tools" to its own panel) -- its config path is plain text, not an
+    // Identity row title, so this stays getByText rather than getByTitle.
     fireEvent.click(await screen.findByRole("tab", { name: "Details" }));
 
     await waitFor(() => {
@@ -253,17 +261,18 @@ describe("Avionics A5 — Docked Right Inspector Integration", () => {
     const skillRow = await screen.findByText("Inspector Skill One");
     fireEvent.click(skillRow);
 
-    await screen.findByText("~/Work/demo/skills/inspector-skill-1");
+    fireEvent.click(await screen.findByRole("tab", { name: "Details" }));
+    await screen.findByTitle("~/Work/demo/skills/inspector-skill-1");
 
     // Change scope to the Global store in the sidebar. "Global" also renders
-    // in the inspector's provenance eyebrow, so scope the query to the
-    // sidebar landmark.
+    // in the inspector cap's eyebrow, so scope the query to the sidebar
+    // landmark.
     const profileSidebarBtn = within(screen.getByTestId("sidebar")).getByText("Global");
     fireEvent.click(profileSidebarBtn);
 
     // Inspector MUST clear selection and return to empty state
     await waitFor(() => {
-      expect(screen.queryByText("~/Work/demo/skills/inspector-skill-1")).toBeNull();
+      expect(screen.queryByTitle("~/Work/demo/skills/inspector-skill-1")).toBeNull();
       expect(screen.getByText("Nothing selected")).toBeDefined();
     });
   });
@@ -276,7 +285,8 @@ describe("Avionics A5 — Docked Right Inspector Integration", () => {
     const skillRow = await screen.findByText("Inspector Skill One");
     fireEvent.click(skillRow);
 
-    await screen.findByText("~/Work/demo/skills/inspector-skill-1");
+    fireEvent.click(await screen.findByRole("tab", { name: "Details" }));
+    await screen.findByTitle("~/Work/demo/skills/inspector-skill-1");
 
     // Filter by Tools category
     const toolsFilter = screen.getByText("MCP servers");
@@ -293,7 +303,7 @@ describe("Avionics A5 — Docked Right Inspector Integration", () => {
     // assertion is back to what it was before Task 15 touched this test,
     // not a new claim.
     await waitFor(() => {
-      expect(screen.queryByText("~/Work/demo/skills/inspector-skill-1")).toBeNull();
+      expect(screen.queryByTitle("~/Work/demo/skills/inspector-skill-1")).toBeNull();
       expect(screen.getByText("Nothing selected")).toBeDefined();
     });
   });
@@ -314,6 +324,8 @@ describe("Avionics A5 — Docked Right Inspector Integration", () => {
     // The config path below lives behind Details now that the MCP panel
     // opens on Tools first (M1). The data-selected checks in the same
     // waitFor are on rows outside the panel and are unaffected by the tab.
+    // A Tool's detail view is McpServerDetail, not AssetDetail, so its path
+    // stays plain text (getByText), not an Identity row title.
     fireEvent.click(await screen.findByRole("tab", { name: "Details" }));
 
     await waitFor(() => {
@@ -322,13 +334,16 @@ describe("Avionics A5 — Docked Right Inspector Integration", () => {
       expect(screen.getByText("~/Work/demo/tools/inspector-tool-1.json")).toBeDefined();
     });
 
-    // Select skill row
+    // Select skill row. Selecting a different asset resets AssetDetail's own
+    // tab state back to Content (the asset.path/kind effect), so Details is
+    // clicked again before the path title is queried.
     fireEvent.click(skillRow);
+    fireEvent.click(await screen.findByRole("tab", { name: "Details" }));
 
     await waitFor(() => {
       expect(skillContainer.getAttribute("data-selected")).toBe("true");
       expect(toolContainer.getAttribute("data-selected")).toBe("false");
-      expect(screen.getByText("~/Work/demo/skills/inspector-skill-1")).toBeDefined();
+      expect(screen.getByTitle("~/Work/demo/skills/inspector-skill-1")).toBeDefined();
     });
   });
 
@@ -339,8 +354,10 @@ describe("Avionics A5 — Docked Right Inspector Integration", () => {
     const skillRow = await screen.findByText("Inspector Skill One");
     fireEvent.click(skillRow);
 
+    fireEvent.click(await screen.findByRole("tab", { name: "Details" }));
+
     await waitFor(() => {
-      expect(screen.getByText("~/Work/demo/skills/inspector-skill-1")).toBeDefined();
+      expect(screen.getByTitle("~/Work/demo/skills/inspector-skill-1")).toBeDefined();
       expect(screen.queryByText(/Size:/i)).toBeNull();
       expect(screen.queryByText(/characters/i)).toBeNull();
     });
