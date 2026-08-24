@@ -69,6 +69,13 @@ interface Props {
   summary: McpEngineSummaryData;
 }
 
+/** The sentence stating what a registered server costs on every request,
+ *  regardless of whether it's ever been probed. Shared with SummaryStrip's
+ *  MCP-mode facts line so the two surfaces never drift onto different
+ *  wording for the same claim. */
+export const REQUEST_CARRIES =
+  "Every tool a registered server can reach is described to the model on every request.";
+
 /**
  * The note beneath the rows: how much of the picture above is actually
  * known, and why registering a server is not free. Every number is a
@@ -87,9 +94,7 @@ function partialityNote(total: number, answered: number, unasked: number, unaska
   if (unaskable > 0) {
     parts.push(`${unaskable} can't be asked at all. No local process to start, nothing to dial.`);
   }
-  parts.push(
-    "Every tool a registered server can reach is described to the model on every request. That's the running cost of what's registered."
-  );
+  parts.push(`${REQUEST_CARRIES} That's the running cost of what's registered.`);
   return parts.join(" ");
 }
 

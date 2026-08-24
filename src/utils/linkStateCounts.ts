@@ -1,5 +1,6 @@
 import { registrationKey } from "./mcpRegistration";
 import { isGlobalScope, isRepoScope, type Scope } from "./scopeAccess";
+import type { CategoryType } from "./filterPredicate";
 import type { Inventory } from "../App";
 
 /** The four render states a row can be in, plus the rail's review preset. */
@@ -102,8 +103,18 @@ function dedupeBy<T>(items: T[], key: (item: T) => string): T[] {
  * Splits the in-scope inventory by link state for the summary strip's bar.
  * This derives only the SPLIT — the authoritative asset total still comes
  * from the backend count command; scope filtering mirrors filterPredicate.
+ *
+ * `category` restricts the split to one of the four arrays filterPredicate
+ * itself filters on ("Skills" | "Tools" | "Rules" | "Subagents"); null or
+ * omitted keeps today's behaviour of counting all four. "Agents" is not one
+ * of the four arrays this function ever drew from, so it counts nothing —
+ * same as any other value outside the four.
  */
-export function linkStateCounts(inventory: Inventory | null, scope: CountScope): StateCounts {
+export function linkStateCounts(
+  inventory: Inventory | null,
+  scope: CountScope,
+  category?: CategoryType | null
+): StateCounts {
   const counts: StateCounts = { linked: 0, drifted: 0, broken: 0, local: 0, total: 0 };
   if (!inventory) return counts;
 
@@ -112,11 +123,20 @@ export function linkStateCounts(inventory: Inventory | null, scope: CountScope):
       ? isGlobalScope(asset.scope as Scope)
       : isRepoScope(asset.scope as Scope, scope.root);
 
+  const wantsAll = category === undefined || category === null;
   const assets: ReviewableAsset[] = [
-    ...dedupeBy(inventory.skills.filter(inScope), (s) => s.path),
-    ...dedupeBy(inventory.tools.filter(inScope), registrationKey),
-    ...dedupeBy(inventory.rules.filter(inScope), (r) => r.path),
-    ...dedupeBy(inventory.subagents.filter(inScope), (sa) => sa.path),
+    ...(wantsAll || category === "Skills"
+      ? dedupeBy(inventory.skills.filter(inScope), (s) => s.path)
+      : []),
+    ...(wantsAll || category === "Tools"
+      ? dedupeBy(inventory.tools.filter(inScope), registrationKey)
+      : []),
+    ...(wantsAll || category === "Rules"
+      ? dedupeBy(inventory.rules.filter(inScope), (r) => r.path)
+      : []),
+    ...(wantsAll || category === "Subagents"
+      ? dedupeBy(inventory.subagents.filter(inScope), (sa) => sa.path)
+      : []),
   ];
 
   for (const asset of assets) {

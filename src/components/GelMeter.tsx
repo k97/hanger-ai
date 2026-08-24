@@ -7,9 +7,11 @@ export interface MeterSegment {
   /** Token class painting the segment's ground under the gloss — a state
    *  colour, or nothing for plain glass. */
   barClass?: string;
-  /** The linked share wears the aqua gel. Aqua is the PROGRESS fill and
-   *  nothing else (Karthik's ruling, 2026-08-15): it may only mark the
-   *  share that is actually linked, never an all-quiet or empty state. */
+  /** The linked share wears the aqua gel — and, in SummaryStrip's MCP mode,
+   *  the answered share. Aqua is the PROGRESS fill and nothing else
+   *  (Karthik's ruling, 2026-08-15): it may only mark a share that is
+   *  actually true — linked, or answered — never an all-quiet or empty
+   *  state. */
   aqua?: boolean;
 }
 

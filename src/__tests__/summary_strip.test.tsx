@@ -86,4 +86,30 @@ describe("SummaryStrip", () => {
     expect(screen.getByText("Scanned 4 min ago")).toBeTruthy();
     expect(screen.queryByText("Scanning…")).toBeNull();
   });
+
+  it("in MCP mode the meter is probe coverage, the legend is labels, the pill counts disagreeing servers", () => {
+    const onToggleReview = vi.fn();
+    renderStrip({
+      total: 19,
+      subtitle: "MCP servers registered · 16 host configs read",
+      mcp: { answered: 9, unasked: 7, unaskable: 7, checkedFileCount: 16, conflicting: 2, reviewActive: false, onToggleReview },
+    });
+    expect(screen.getByText("19")).toBeTruthy();
+    expect(screen.getByText("MCP servers registered · 16 host configs read")).toBeTruthy();
+    expect(screen.getByRole("img", { name: "9 answered, 7 not yet asked, 7 can't be asked" })).toBeTruthy();
+    expect(screen.getByText("answered").closest("button")).toBeNull();
+    expect(screen.getByText("can't be asked")).toBeTruthy();
+    expect(screen.getByText("Every tool a registered server can reach is described to the model on every request.")).toBeTruthy();
+    const pill = screen.getByText("Needs review 2");
+    expect(pill.getAttribute("aria-pressed")).toBe("false");
+    fireEvent.click(pill);
+    expect(onToggleReview).toHaveBeenCalledTimes(1);
+    // The link legend is not drawn in this mode.
+    expect(screen.queryByText("local only")).toBeNull();
+  });
+
+  it("in MCP mode no pill when nothing disagrees", () => {
+    renderStrip({ mcp: { answered: 1, unasked: 0, unaskable: 0, checkedFileCount: 2, conflicting: 0, reviewActive: false, onToggleReview: vi.fn() } });
+    expect(screen.queryByText(/Needs review \d/)).toBeNull();
+  });
 });

@@ -102,6 +102,49 @@ describe("linkStateCounts", () => {
   });
 });
 
+describe("linkStateCounts restricted to one category", () => {
+  const categoryInventory: Inventory = {
+    ...emptyInventory,
+    skills: [
+      { id: "1", name: "s1", description: "", version: "1", path: "/s1", scope: { Global: { agent: "claude" } }, is_symlink: true },
+    ],
+    rules: [
+      { id: "2", name: "r1", path: "/r1", content: "", scope: { Global: { agent: "claude" } } },
+    ],
+    tools: [
+      { id: "3", name: "t1", command: "", transport: "", config_path: "/t1", scope: { Global: { agent: "claude" } }, owning_agent: "claude" },
+    ],
+  };
+
+  it("counts all four categories with no category given", () => {
+    expect(linkStateCounts(categoryInventory, { kind: "global" }).total).toBe(3);
+  });
+
+  it("restricts to Skills", () => {
+    expect(linkStateCounts(categoryInventory, { kind: "global" }, "Skills")).toEqual({
+      linked: 1,
+      drifted: 0,
+      broken: 0,
+      local: 0,
+      total: 1,
+    });
+  });
+
+  it("restricts to Rules", () => {
+    expect(linkStateCounts(categoryInventory, { kind: "global" }, "Rules")).toEqual({
+      linked: 0,
+      drifted: 0,
+      broken: 0,
+      local: 1,
+      total: 1,
+    });
+  });
+
+  it("counts nothing for Agents", () => {
+    expect(linkStateCounts(categoryInventory, { kind: "global" }, "Agents").total).toBe(0);
+  });
+});
+
 describe("annotationStateCounts", () => {
   it("splits by the backend's mechanism words, symlink and copy both counting as linked", async () => {
     const { annotationStateCounts } = await import("./linkStateCounts");
