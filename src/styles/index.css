@@ -35,6 +35,10 @@
   --color-scrim: var(--scrim);
   /* Registers the shadow-overlay utility — the system's one elevation. */
   --shadow-overlay: var(--overlay-shadow);
+  /* The capsule's surface, for `bg-capsule`. Its elevation is NOT a
+     `shadow-*` utility — the off-token guard permits only shadow-overlay —
+     and lives in the capsule-raised utility below. */
+  --color-capsule: var(--capsule);
   --color-on-primary: var(--on-primary);
 
   --color-brand-lime: var(--brand-lime);
@@ -142,6 +146,13 @@
 }
 @utility tabular {
   font-variant-numeric: tabular-nums;
+}
+
+/* The raised capsule: surface and elevation together, under one name a
+   component can carry without spelling either token. */
+@utility capsule-raised {
+  background-color: var(--capsule);
+  box-shadow: var(--capsule-shadow);
 }
 
 /* Entrance beats. A sheet drops from the title bar the way a macOS sheet does;

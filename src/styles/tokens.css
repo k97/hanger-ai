@@ -48,6 +48,13 @@
    * Everything else in the mono system stays flat — ruled 2026-08-15. */
   --overlay-shadow: 0 0 3px rgba(0, 0, 0, 0.05), 0 11px 34px rgba(0, 0, 0, 0.16);
 
+  /* The segmented track's selected capsule (Karthik, 2026-08-22): no
+   * border, a tight contact elevation — a second, smaller one beside the
+   * map's, sized for a 28px capsule. Its surface is a token of its own
+   * because dark cannot cast it (below). */
+  --capsule: var(--page);
+  --capsule-shadow: 0 1px 2px rgba(0, 0, 0, 0.10), 0 2px 6px rgba(0, 0, 0, 0.06);
+
   /* Type — content voice and utility voice share the system stack */
   --font-sans: -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
   --font-flex: -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
@@ -176,6 +183,11 @@
   /* Same geometry, ~3x the weight: on a dark ground the shadow is the only
    * depth cue left. */
   --overlay-shadow: 0 0 3px rgba(0, 0, 0, 0.4), 0 11px 34px rgba(0, 0, 0, 0.55);
+
+  /* An elevation is invisible on black, and --page on --plane is one value
+   * step — so in dark the capsule lightens instead, the way iOS's does. */
+  --capsule: var(--tint);
+  --capsule-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
 
   /* Legacy role aliases (dark) */
   --surface: var(--page);
