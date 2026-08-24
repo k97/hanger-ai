@@ -92,6 +92,24 @@ describe("OverflowMenu", () => {
     expect(menu.className).not.toContain("left-0");
   });
 
+  it("puts exactly one padding utility on the panel", () => {
+    // The panel used to carry `p-1` from the base string while ViewControl
+    // appended `p-1.5`, so both landed on one element and Tailwind's emission
+    // order decided — verified empirically to give the intended p-1.5, but
+    // declared nowhere and true only by accident of ordering. Padding now
+    // belongs to the caller, and this is what stops a second one creeping
+    // back in beside it.
+    render(
+      <OverflowMenu trigger={(p) => <Trigger {...p} />} ariaLabel="Actions" align="left" className="w-[224px] p-1.5">
+        {() => <div>Item</div>}
+      </OverflowMenu>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Trigger" }));
+    const menu = screen.getByRole("menu", { name: "Actions" });
+    const padding = menu.className.split(/\s+/).filter((c) => /^p-[\d.]+(?:\[|$)/.test(c));
+    expect(padding, `panel padding utilities: ${padding.join(", ")}`).toEqual(["p-1.5"]);
+  });
+
   it("closes when an item calls the close callback it is handed", () => {
     render(
       <OverflowMenu trigger={(p) => <Trigger {...p} />} ariaLabel="Actions" align="left">

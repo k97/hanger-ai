@@ -228,7 +228,7 @@ export default function InspectorCap({
               )}
               ariaLabel="More actions"
               align="right"
-              className="min-w-[184px]"
+              className="min-w-[184px] p-1"
             >
               {(close) => (
                 <>

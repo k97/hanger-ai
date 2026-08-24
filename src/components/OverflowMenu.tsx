@@ -77,7 +77,7 @@ export default function OverflowMenu({
           data-testid={dataTestId}
           role="menu"
           aria-label={ariaLabel}
-          className={`absolute top-[calc(100%+6px)] z-[20] bg-page border border-line rounded-inner p-1 shadow-overlay origin-top-left animate-tip ${align === "left" ? "left-0" : "right-0"} ${className ?? ""}`}
+          className={`absolute top-[calc(100%+6px)] z-[20] bg-page border border-line rounded-inner shadow-overlay origin-top-left animate-tip ${align === "left" ? "left-0" : "right-0"} ${className ?? ""}`}
         >
           {children(() => setOpen(false))}
         </div>
