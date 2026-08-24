@@ -415,13 +415,44 @@ any green was counted. The red output travels in each commit body.
   together now. A `not.toMatch(/order-/)` line was written and removed: the
   className assertion fails first, so nothing could have made it fire.
 
-**Nine more from Phases 1 and 2a**, recorded when they were parked: T3 icons
-(passes against any Heroicons mark), T4 `ListCard` divider (Tailwind CSS never
-loads under test), T5 `miniButton` (`toContain` proves presence, not
-exclusivity), T6 `ScanStamp` dead default and boundary gaps, T9 re-flow
-(alphabetical sort makes pre/post-layout indistinguishable), T10 missing absence
-assertion, T14 clamp never executes, F6 empty-directory branch never exercised,
-M5 `toolCount` equals `tools.length` in its own fixture.
+**Nine more from Phases 1 and 2a** — **all closed** (2026-08-25). Each was
+re-proven blind against the current tree before it was fixed; the red output
+travels in each commit body.
+
+- ~~T3 icons~~ — `80f3a4b`. The assertions were `viewBox`/`width`/`stroke-width`,
+  all supplied by the `sized` wrapper rather than the mark. Each export is now
+  compared against the Heroicons mark it claims to wrap, which pins identity
+  without hardcoding path data, plus a distinctness check a consistent pair
+  swap would otherwise satisfy. The loop of twelve row marks had the same hole
+  and was not named in the ledger; it is covered by the same table.
+- ~~T4 `ListCard` divider~~ — `730de83`. Half is genuinely un-assertable and
+  stays a screenshot claim: no Tailwind CSS under happy-dom. The other half
+  was not — `>` matches DIRECT children, so one wrapper div breaks every
+  divider while leaving all class strings correct.
+- ~~T5 `miniButton`~~ — `d9c00e8`. Whole class strings, the way `miniSetClass`
+  alone already did. A fill button carrying both `bg-fill` and `bg-page` passed
+  before.
+- ~~T6 `ScanStamp`~~ — `3bb79b3` (boundaries) and `3f51276` (the dead default,
+  production). Correction: the ledger says the samples are "interiors"; two of
+  the three already sat ON their boundary. What no sample reached was the
+  59-side, and **four of six** single-unit threshold moves shipped green.
+  The dead default became a required prop, so the compiler enforces it.
+- ~~T9 re-flow~~ — `2774649`. Correction: not the alphabetical sort. The
+  fixture's unlinked root is LAST in its column, so filtering before layout and
+  hiding after it produce byte-identical output. A third root beneath it splits
+  them, and positions reach the DOM as `<rect y>`.
+- ~~T10 absence assertion~~ — `1e244b2`. The toolbar slot is gated on
+  `linkmap`; ungating it so the stamp leaks into every view passed before.
+- ~~T14 clamp~~ — `9217856`. Stubbed rects let the effect run. Note: stubbing
+  is exactly what bypasses the zero-rect guard, so removing that guard stayed
+  green until a deliberately unstubbed fourth case was added for it.
+- ~~F6 empty directory~~ — `51e8cb7`. The case set `dirResult = []` and also
+  switched category to Rules; the switch alone returns before `invoke`, so the
+  empty branch was never reached. Split, and the new case asserts the command
+  WAS called before asserting the absence.
+- ~~M5 `toolCount`~~ — `5263832`. The backend now says 5 while the list holds
+  3, and a `perTool` entry has no twin. That splits two choices at once: the
+  tab's source, and the row set's.
 
 **Guards that cannot see what they exist to check**
 
