@@ -14,6 +14,7 @@ function summary(overrides: Partial<McpEngineSummaryData>): McpEngineSummaryData
     answered_server_count: 0,
     unasked_server_count: 0,
     unaskable_server_count: 0,
+    conflicting_server_count: 0,
     ...overrides,
   };
 }
