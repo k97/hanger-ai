@@ -73,9 +73,9 @@ describe("Design system — the system, rendered by the app that uses it", () =>
 
   it("interactive specimens interact: a category chip presses, a legend toggles", () => {
     render(<DesignSystemPane section="controls" />);
-    const chips = screen.getByRole("group", { name: "Filter by category" });
-    fireEvent.click(within(chips).getByRole("button", { name: /^Skills/ }));
-    expect(within(chips).getByRole("button", { name: /^Skills/ }).getAttribute("aria-pressed")).toBe("true");
+    const chips = screen.getByRole("tablist", { name: "Filter by category" });
+    fireEvent.click(within(chips).getByRole("tab", { name: /^Skills/ }));
+    expect(within(chips).getByRole("tab", { name: /^Skills/ }).getAttribute("aria-selected")).toBe("true");
 
     fireEvent.click(screen.getByText("drifted"));
     expect(screen.getByText("drifted").closest("button")!.getAttribute("aria-pressed")).toBe("true");
