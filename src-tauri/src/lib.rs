@@ -1520,14 +1520,22 @@ pub struct AssetDirEntry {
     pub file_count: Option<usize>,
 }
 
+/// Walks a folder counting the files beneath it, the figure a folder row
+/// shows. Classifies each entry with `symlink_metadata`, which does not
+/// follow the link, so a symlink — whether it points at a file or a
+/// directory — is never recursed into: no cycle from a link back into its
+/// own ancestry, and no size or count read from something outside every
+/// scanned root. A symlink still counts as one entry here, the same as any
+/// other file; only what is behind it goes uncounted.
 fn count_files_beneath(dir: &Path) -> usize {
     let mut n = 0;
     if let Ok(entries) = fs::read_dir(dir) {
         for entry in entries.flatten() {
             let path = entry.path();
-            if path.is_dir() {
+            let Ok(meta) = fs::symlink_metadata(&path) else { continue };
+            if meta.is_dir() {
                 n += count_files_beneath(&path);
-            } else if path.is_file() {
+            } else {
                 n += 1;
             }
         }
@@ -1538,6 +1546,12 @@ fn count_files_beneath(dir: &Path) -> usize {
 /// A skill folder's top level, SKILL.md first, hidden entries skipped. A
 /// folder carries how many files sit beneath it — the frontend lists and
 /// never counts.
+///
+/// Every entry is classified with `symlink_metadata`, which does not follow
+/// the link, so a symlink is never treated as a directory: it is listed by
+/// name, but nothing recurses into it and no size or count is read from
+/// whatever it points at. Root-checking every entry was considered and not
+/// chosen — this is the classification that makes it unnecessary.
 pub fn list_asset_dir_of(folder: &Path) -> Result<Vec<AssetDirEntry>, String> {
     if !folder.is_dir() {
         return Err("Not a folder".to_string());
@@ -1551,7 +1565,11 @@ pub fn list_asset_dir_of(folder: &Path) -> Result<Vec<AssetDirEntry>, String> {
                 return None;
             }
             let path = entry.path();
-            if path.is_dir() {
+            let meta = fs::symlink_metadata(&path).ok()?;
+            if meta.file_type().is_symlink() {
+                return Some(AssetDirEntry { name, kind: "symlink".to_string(), bytes: None, file_count: None });
+            }
+            if meta.is_dir() {
                 Some(AssetDirEntry {
                     name: format!("{name}/"),
                     kind: "dir".to_string(),
@@ -1559,8 +1577,7 @@ pub fn list_asset_dir_of(folder: &Path) -> Result<Vec<AssetDirEntry>, String> {
                     file_count: Some(count_files_beneath(&path)),
                 })
             } else {
-                let bytes = fs::metadata(&path).map(|m| m.len()).unwrap_or(0);
-                Some(AssetDirEntry { name, kind: "file".to_string(), bytes: Some(bytes), file_count: None })
+                Some(AssetDirEntry { name, kind: "file".to_string(), bytes: Some(meta.len()), file_count: None })
             }
         })
         .collect();
