@@ -3,7 +3,10 @@ import { timeAgo } from "../utils/timeAgo";
 
 interface ScanStampProps {
   scannedAt: Date | null;
-  className?: string;
+  /** Required: both call sites pass one, and the fallback this used to carry
+   *  was unreachable. Making it required moves the guarantee to the compiler,
+   *  which is where a dead default cannot come back. */
+  className: string;
 }
 
 /**
@@ -19,5 +22,5 @@ export default function ScanStamp({ scannedAt, className }: ScanStampProps) {
     return () => clearInterval(interval);
   }, []);
   const text = scannedAt ? `Scanned ${timeAgo(scannedAt, new Date())}` : "Not scanned yet";
-  return <span className={className ?? "text-micro text-ink-3 font-flex"}>{text}</span>;
+  return <span className={className}>{text}</span>;
 }
