@@ -224,7 +224,10 @@ describe("Asset detail — the inspector's document screen", () => {
       />
     );
 
-    await screen.findByText("Open in editor");
+    // Open in editor moved to the cap; Identity — always shown, never
+    // tab-gated, for a kind with no document — is what proves this
+    // rendered rather than silently rendering nothing.
+    await screen.findByText("Identity");
     expect(invoke).not.toHaveBeenCalledWith("read_asset_body", expect.anything());
     expect(screen.queryByRole("tab", { name: "Content" })).toBeNull();
     expect(screen.queryByText("Reading the file…")).toBeNull();
