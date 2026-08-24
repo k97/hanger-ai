@@ -17,6 +17,7 @@ import { buildMcpServerView, type ProcessMatch } from "../utils/mcpServerView";
 import LinkPanel from "./LinkPanel";
 import DiffChooser, { AlignedSection } from "./DiffChooser";
 import { categoryNoun } from "../utils/prose";
+import { documentKindFor } from "../utils/skillDocument";
 
 export interface FlatAssetItem {
   type: "header" | "asset";
@@ -619,6 +620,22 @@ export default function Flyout({
      equivalent is future work, not this round. */
   const showEngineSummary = showEmptyMcpEyebrow && !isRepoScope;
 
+  /* Whether a tab row (`UnderlineTabs`, via `AssetDetail` or
+     `McpServerDetail`) renders beneath the header wrapper below. The
+     wrapper's own bottom --line border exists only to separate the header
+     from a body that draws no line of its own — when a tab row follows, its
+     own bottom border already does that job, and the wrapper's would double
+     it. `documentKindFor` is the same test `AssetDetail` uses to decide
+     whether it renders `UnderlineTabs` at all ("none" only for Agents,
+     which has no document to preview); Tools resolves to "json" here
+     exactly as it does there, matching `McpServerDetail`'s own
+     unconditional tab row. The link flow never reaches a tab row
+     regardless of what `targetAsset` holds, because `linking` takes the
+     body over first (LinkPanel or DiffChooser, neither of which renders
+     one). */
+  const tabsFollow =
+    !linking && !!targetAsset && documentKindFor(targetAsset.category) !== "none";
+
   /* McpEngineSummary's own data, fetched here rather than threaded down
      from App -- the same division of labour as `mcp_cached_probe` above:
      this panel's own local questions get their own local fetch. `null`
@@ -673,7 +690,10 @@ export default function Flyout({
           was a gap between two empty things. The heading is what the panel
           opens with, and every pixel taken here comes off the content. */}
       {(linking || targetAsset || selectedBubble || showEmptyMcpEyebrow) && (
-      <div className="px-[18px] pt-0.5 pb-3 border-b border-line shrink-0">
+      <div
+        data-testid="inspector-header"
+        className={`px-[18px] pt-2 pb-4 shrink-0${tabsFollow ? "" : " border-b border-line"}`}
+      >
         {eyebrowShown && (
         <div className="flex items-center gap-2 font-flex text-micro font-medium tracking-[.06em] uppercase text-ink-3">
           {linking ? (
