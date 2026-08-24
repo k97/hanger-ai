@@ -45,10 +45,10 @@ describe("SummaryStrip", () => {
 
   it("shows the review pill only when something needs review", () => {
     renderStrip({ counts: cleanCounts });
-    expect(screen.queryByText(/Review \d/)).toBeNull();
+    expect(screen.queryByText(/Needs review \d/)).toBeNull();
     cleanup();
     renderStrip();
-    expect(screen.getByText("Review 3 →")).toBeTruthy();
+    expect(screen.getByText("Needs review 3")).toBeTruthy();
   });
 
   it("legend buttons toggle their state filter", () => {
@@ -65,7 +65,7 @@ describe("SummaryStrip", () => {
 
   it("the review pill applies the needs-review preset", () => {
     const { onFilterState } = renderStrip();
-    fireEvent.click(screen.getByText("Review 3 →"));
+    fireEvent.click(screen.getByText("Needs review 3"));
     expect(onFilterState).toHaveBeenCalledWith("needs-review");
   });
 

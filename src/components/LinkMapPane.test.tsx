@@ -461,7 +461,7 @@ describe("LinkMapPane", () => {
     expect(screen.getByTestId("chip-unlinked").getAttribute("aria-pressed")).toBe("false");
   });
 
-  it("Only drift and dangling hides linked edges and keeps the nodes", () => {
+  it("Only drifted and dangling hides linked edges and keeps the nodes", () => {
     renderPane(graph());
     fireEvent.click(screen.getByTestId("map-layers"));
     expect(screen.getAllByTestId("map-edge")).toHaveLength(4);

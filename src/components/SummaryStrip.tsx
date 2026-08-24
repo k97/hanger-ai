@@ -118,7 +118,7 @@ export default function SummaryStrip({
               aria-pressed={activeStateFilter === "needs-review"}
               className="h-[30px] px-[15px] inline-flex items-center text-small font-medium tabular bg-fill text-on-fill rounded-pill cursor-pointer transition-[transform] duration-press ease-spring hover:-translate-y-px active:scale-[0.96]"
             >
-              Review {reviewCount} →
+              Needs review {reviewCount}
             </button>
           )}
         </div>
