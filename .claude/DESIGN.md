@@ -51,17 +51,21 @@ surface it sits on (`tokens.css:15-16`).
 System state, the brand mark, and the meter's aqua gel. `--brand` —
 `#00c3bf` light, `#2fd8d4` dark (`tokens.css:19`, dark block) — paints the
 hanger mark in the rail and nothing else; the token's own comment forbids it
-as a UI state. `--gel-aqua` (`tokens.css:32`, `:163`) is a brand-family
-gradient that exists only inside `GelMeter`, and only as the linked share's
-progress fill — never an all-quiet or empty state (Karthik's ruling,
-2026-08-15). State colour (`tokens.css:21-24`):
+as a UI state. `--gel-aqua` (`tokens.css:38`, `:179`) is a brand-family
+gradient painted by `GelMeter` and by the legend dots beside it that mirror
+its segments, and marks only a share that is actually true: the linked
+share in the asset strip's meter, and — since the strip's MCP mode
+(`SummaryStrip.tsx:104-154`) — the answered share too (`:110` sets the
+meter segment `aqua`, `:124-126` the matching legend dot), never an
+all-quiet or empty state (Karthik's ruling, 2026-08-15, extended to the MCP
+mode by `a066c9e`). State colour (`tokens.css:21-24`):
 
-- `--state-success` `#0f7a52` light / `#4ec08c` dark (`tokens.css:19`, `:135`)
-- `--state-warning` `#8a5a00` light / `#d9a441` dark (`tokens.css:20`, `:136`)
-- `--state-danger` `#b3261e` light / `#e8635b` dark (`tokens.css:21`, `:137`)
+- `--state-success` `#0f7a52` light / `#4ec08c` dark (`tokens.css:22`, `:171`)
+- `--state-warning` `#8a5a00` light / `#d9a441` dark (`tokens.css:23`, `:172`)
+- `--state-danger` `#b3261e` light / `#e8635b` dark (`tokens.css:24`, `:173`)
 
 One overlay token: `--scrim`, `rgba(0,0,0,.55)` light, `rgba(0,0,0,.8)` dark
-(`tokens.css:24`, `:139`).
+(`tokens.css:42`, `:182`).
 
 ### Theming mechanism
 
@@ -189,6 +193,36 @@ as the `shadow-overlay` utility, the only shadow the off-token guard
 permits). The value is Apple's floating-surface recipe: a tight contact
 shadow under a large soft ambient, ~3× heavier in dark where shadow is the
 only depth cue. In-canvas SVG content and every static card stay flat.
+
+**A second, smaller elevation exists for the segmented track's capsule.**
+`--capsule` and `--capsule-shadow` sit beside `--overlay-shadow` in the same
+Overlay block of `tokens.css` (`:51-56` light, `:187-190` dark; Karthik,
+2026-08-22) — "no border, a tight contact elevation — a second, smaller one
+beside the map's" (`:51-53`). The capsule's surface is its own token because
+dark cannot cast a shadow that reads on black: light keeps the segmented
+track's plane and lifts the capsule to `--page` under a light contact shadow
+(`--capsule: var(--page)`, `:55`); dark instead lightens the capsule to
+`--tint` and drops to a plain `0 1px 2px` shadow, the way iOS's selected-
+segment capsule does (`:187-190`). Surface and elevation are bundled into
+one `@utility capsule-raised` (`index.css:151-156`) rather than applied as
+two classes, because the off-token guard permits only the `shadow-overlay`
+utility in a `.tsx` file (§7) — a caller reaches for `capsule-raised` and
+never spells `shadow` at all. `--color-capsule` separately registers
+`bg-capsule` for the bare surface (`index.css:38-41`), but nothing in `src/`
+uses it: `capsule-raised` already carries the surface, so no `.tsx` line has
+reason to. `SegmentedTrack`'s selected pill is the only caller (§5).
+
+**The capsule's colour pair sits outside the contrast guard's reach, by
+construction, not by oversight.** `tokens_contrast.test.ts` finds every pair
+it checks by scanning `.tsx` files for a `bg-*` class name
+(`:99-114` walks `src/` for them, `:119` the pattern); no `.tsx` line in `src/`
+spells `bg-capsule`, because `capsule-raised` already carries the surface
+(above), so the guard never sees this pair and structurally cannot while the
+capsule stays a bundled utility. Measured by hand against the same WCAG
+formula the guard runs: `--ink-1` on `--capsule` is 21:1 in light (black on
+white, `tokens.css:14`, `:5`/`:55`) and ~15.7:1 in dark (white on `#232323`,
+`:164`, `:159`/`:189`) — comfortably above 4.5:1 today, but that margin is
+asserted here, not enforced anywhere.
 
 ### Motion — one spring, three beats
 
@@ -690,23 +724,30 @@ map view's toolbar slot holds Rescan instead of the inspector toggle
 
 ### Surfaces and controls
 
-**`SummaryStrip`** (`SummaryStrip.tsx:5-18`) — `total`, `subtitle`,
+**`SummaryStrip`** (`SummaryStrip.tsx:24-39`) — `total`, `subtitle`,
 `scannedAt`, `scanning`, `counts`, `activeStateFilter`, `onFilterState`,
-`onRescan?`. Two contracts are stated in the props themselves: `total` is
-"Backend-owned asset total for the scope — never derived on the frontend"
-(`:6-7`), and Rescan lives here rather than in the toolbar because it is the
-control that changes the figure directly above it (`:14-16`).
+`onRescan?`, and `mcp?: McpStripFigures` — the MCP mode, which "replaces the
+entire link-state branch — meter, legend and the Needs review pill — with
+these figures; `total`/`subtitle` still render as passed by the caller"
+(`:7-10`, interface `:11-22`). Two contracts are stated in the link-state
+props themselves: `total` is "Backend-owned asset total for the scope —
+never derived on the frontend" (`:25`), and Rescan lives here rather than in
+the toolbar because it is the control that changes the figure directly
+above it (`:33-35`).
 
 **`GelMeter`** (`GelMeter.tsx`) — the design system's one meter: a glassy
 retro-Aqua gel on a recessed track (`--gel-gloss`, `--gel-aqua`,
-`--bar-track`, `tokens.css:31-33`, `:162-164`). Segments are
+`--bar-track`, `tokens.css:37-39`, `:178-180`). Segments are
 `{key, value, barClass?, aqua?}` — `value` is a backend-owned count that
 sets the segment's flex share, zero-count segments are omitted, and `aqua`
-may mark only the linked share. Both strips draw through it
+may mark only a share that is actually true — linked, or, since the strip's
+MCP mode, answered (`GelMeter.tsx:10-14`; Karthik's ruling, 2026-08-15,
+extended to MCP by `a066c9e`). Both strips draw through it
 (`SummaryStrip.tsx`, `NeedsReviewPane.tsx`); a proportional bar styled by
 hand is a divergence, not a variant. The glass is painted with stacked
-gradients, not cast — the system's one elevation (`--overlay-shadow`)
-belongs to the map's overlays, not to bars.
+gradients, not cast — `--overlay-shadow` belongs to the map's overlays and
+`--capsule-shadow` (§3) to the segmented track's capsule; neither elevation
+belongs to a bar.
 
 **`MechanismGlyph`** (`MechanismGlyph.tsx`) — the per-row attachment glyph:
 one of five backend words (`symlink | copy | drift | broken | none`), drawn
@@ -735,12 +776,42 @@ SVG canvas). Renders `<use href="#brand-…">`; nothing for any-agent;
 **`EngineLabel`** (`EngineLabel.tsx:4-22`) — `BrandIcon` + children in an
 `inline-flex items-center gap-1.5` (`:17`); the one icon-plus-name compound.
 
+**`SegmentedTrack`** (`SegmentedTrack.tsx`) — the category row's tablist:
+`segments: TrackSegment[]` (`{id, label, count?}`, `:4-9`);
+`SegmentedTrackProps` adds `selectedId`, `onSelect`, `ariaLabel`, `loading?`
+(`:10-16`). `role="tablist"` on the outer element, one `role="tab"` per
+segment (`:82`, `:98`); roving focus — the selected tab is `tabIndex={0}`,
+every other `-1`, Left/Right/Home/End move focus without selecting,
+Enter/Space selects (`:46-78`, `:100-101`). A segment's own count sits
+beside its label; `count === undefined` under `loading` draws a spinner in
+its place rather than a stale zero (`:112-118`). The track scrolls rather
+than wraps at narrow widths — `overflow-x-auto [scrollbar-width:none]` on
+the outer element (`:84`) — and selecting a segment calls its own button's
+`scrollIntoView` so an off-screen selection brings itself on screen
+(`:40`). The selected segment carries a floating pill, `<i
+data-testid="track-capsule">`, styled `capsule-raised` (§3) and
+repositioned by measuring the selected button's own box in a
+`useLayoutEffect` (`:32-44`, `:86-91`) — a second idiom from
+`UnderlineTabs`' own sliding rule (below), at capsule geometry rather than
+an underline. No automated test asserts the capsule's resulting position:
+under `happy-dom`, `offsetTop`/`offsetLeft`/`offsetWidth` all read 0, the
+same limitation `UnderlineTabs`' indicator already carries — only a
+screenshot from a running build confirms the capsule actually slides
+(`.claude/rules/verifying-ui.md`; `SegmentedTrack.test.tsx` asserts the
+capsule's classes, `:20-22`, never its geometry). `CategoryFilterCards` is
+the first caller (below).
+
 **`CategoryFilterCards`** (`CategoryFilterCards.tsx:5-15`) — per-category
 counts, `selectedCategory`, `onSelectCategory`, `loading`. `allCount` is
-labelled "Backend-owned total for the All chip" (`:6`). Chip geometry is
-`h-7 px-3.5 rounded-pill border border-line-2` unpressed, and pressed swaps to
-`bg-tint text-tint-ink font-medium` with asymmetric padding for the check mark
-(`:17-21`).
+labelled "Backend-owned total for the All chip" (`:6`). It no longer draws
+its own chips: it builds five `TrackSegment`s (`:46-55`), filters out empty
+ones by the hide-at-zero rule stated in its own doc comment — with one
+exemption for a zero-count Tools chip (`:57-69`) — and hands the result to
+one `SegmentedTrack` (`:81-87`, above). The class strings that used to draw
+pressed/unpressed chips by hand, `chipBaseClass` / `chipPressedClass`, are
+gone with them; `NeedsReviewPane.tsx` declares its own identically-named
+pair for an unrelated, non-tablist chip row (§6, Pane composition) — the
+two are not the same constants.
 
 **`AssetRow`** (`AssetRow.tsx:22-28`) — `item`, `isSelected?`,
 `showKindColumn?`, `onClick?`, `onLink?`, `onUnlink?`. **`AssetHeaderRow`**
@@ -891,29 +962,61 @@ time.
 
 ### Pane composition
 
-Every pane follows the same vertical order: summary strip in
-`mx-[18px] mt-[18px]`, a chip row, a list plane, a foot line. The list plane
-rounds only its top corners and runs off the bottom edge —
-`mx-[18px] bg-plane border border-line rounded-tl-plane rounded-tr-plane`
-(`ProfilePane.tsx:288`, `NeedsReviewPane.tsx:199`, `DiscoveryPane.tsx:145`).
+The panes no longer share one vertical order — `ProfilePane` and `RepoPane`
+gained a track above their strip (`2de751a`) that the other two never had.
 
-The chip row is `flex items-center gap-[7px] px-[18px] pt-3 pb-2.5 overflow-x-auto shrink-0`
-with `role="group"` and an `aria-label` (`NeedsReviewPane.tsx:168-172`,
-`DiscoveryPane.tsx:116-120`).
+**`ProfilePane` and `RepoPane`: track, strip, list plane, foot.** The
+category track (`CategoryFilterCards`, above) opens the pane in
+`px-[18px] pt-3.5 pb-1.5` (`ProfilePane.tsx:813`; `RepoPane.tsx:339`, where
+it is nested one level deeper in a `min-w-0 flex-1` wrapper, `:345`, so the
+track can shrink beside a control that does not exist yet — the comment at
+`:333-338` says none is needed here). Then the `SummaryStrip` itself, now in
+`mx-[18px] mt-2.5 mb-2.5` rather than owning the top margin
+(`ProfilePane.tsx:827`, `RepoPane.tsx:360`). Then the list plane, flat per
+§3 — no `bg-plane` — rounding only its top corners and running off the
+bottom edge: `@container flex-1 min-h-0 overflow-y-auto mx-[18px] border
+border-line rounded-tl-plane rounded-tr-plane pb-1.5`
+(`ProfilePane.tsx:990-992`), the same shape plus `mt-2.5` since the strip
+above no longer supplies that gap on its own (`RepoPane.tsx:558`). Then the
+foot, `h-[30px] shrink-0 px-[18px] flex items-center gap-4 font-flex
+text-micro text-ink-3` with the scan status pushed right by `ml-auto`
+(`ProfilePane.tsx:1174`, `RepoPane.tsx:728`).
 
-The foot is `h-[30px] shrink-0 px-[18px] font-flex text-micro text-ink-3` with
-the scan status pushed right by `ml-auto` (`ProfilePane.tsx:404-413`).
+**`NeedsReviewPane` keeps the pre-track order: strip, chip row, list plane,
+foot.** It was not touched by the reorder — it has no category to put on a
+track. Its own inline strip, `mx-[18px] mt-[18px] px-4 py-3.5 border
+border-line rounded-plane shrink-0`, sits first (`:90`); then a chip row,
+`flex items-center gap-[7px] px-[18px] pt-3 pb-2.5 overflow-x-auto
+shrink-0` with `role="group"` and an `aria-label` (`:171-175`); then the
+list plane (`:202`); then the foot (`:289`). The chip row is a plain button
+group, not a tablist — it filters by place (All / Repo-level / Cross-repo),
+not by asset category — styled by its own `chipBaseClass` /
+`chipPressedClass` (`:46-48`), a same-named but unrelated pair to the class
+strings `CategoryFilterCards` dropped (above); `SegmentedTrack` was never a
+candidate for this row.
+
+**`DiscoveryPane` has neither a strip nor a chip row.** Its category facet
+moved into `DiscoverySidebar`'s second column before this phase (Karthik's
+ruling, 2026-08-15, §5, Shell), so there is nothing here for a track to
+replace. It opens with a plain `<header>` (`:213-225`) straight into the
+list plane, `flex-1 min-h-0 overflow-y-auto mx-[18px] mt-3.5 p-1.5 border
+border-line rounded-tl-plane rounded-tr-plane` (`:229`), then a foot at
+`:279` — `h-8` (32px), not the other three panes' `h-[30px]`, an
+unremarked 2px difference from the pattern above.
 
 Section eyebrows are `font-flex text-micro font-medium tracking-[.06em] uppercase text-ink-3`
-(`ProfilePane.tsx:229-230`).
+(`ProfilePane.tsx:801-802`).
 
 ### Repeated variants are hoisted, not computed
 
 The house idiom is a module-level `const` class string above the component,
 selected by ternary — never `clsx`, never `cva`. `railBtnClass` /
-`railBtnActiveClass` (`IconRail.tsx:18-21`), `tbBtnClass` / `tbBtnActiveClass`
-(`App.tsx:739-742`), `chipBaseClass` / `chipPressedClass`
-(`CategoryFilterCards.tsx:17-21`).
+`railBtnActiveClass` (`IconRail.tsx:21-24`), `tbBtnClass` /
+`tbBtnActiveClass` (`App.tsx:1118-1121`). `CategoryFilterCards` no longer
+belongs on this list — its `chipBaseClass` / `chipPressedClass` were deleted
+when it moved onto `SegmentedTrack` (§5); `NeedsReviewPane.tsx:46-48`
+declares an unrelated pair under the same two names, for its own
+non-tablist chip row (Pane composition, above).
 
 ### Scroll caps
 
