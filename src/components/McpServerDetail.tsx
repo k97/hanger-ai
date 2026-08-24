@@ -700,7 +700,7 @@ export default function McpServerDetail({
         {anyVerified?.cost && (
           <section className={SECTION}>
             <div className="flex items-baseline justify-between gap-2 mb-[10px]">
-              <h3 className={HEADING}>Context</h3>
+              <h3 className={HEADING}>Context per request</h3>
             </div>
             <div className={`${HEADING} mb-1`}>Composition</div>
             <ListCard>

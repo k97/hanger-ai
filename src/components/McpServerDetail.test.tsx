@@ -1139,7 +1139,7 @@ describe("McpServerDetail — the tool table and Context (M5)", () => {
     // The tab and the section count carry the backend's figure.
     expect(screen.getByRole("tab", { name: "Tools 3" })).toBeTruthy();
     // Composition leads the panel and is checkable against the table.
-    const context = screen.getByRole("heading", { name: "Context" }).closest("section")!;
+    const context = screen.getByRole("heading", { name: "Context per request" }).closest("section")!;
     expect(within(context).getByText("Composition")).toBeTruthy();
     expect(context.textContent).toContain("Descriptions109 B · 2 of 3 tools");
     expect(context.textContent).toContain("Input schemasthe remainder, not in the store");
@@ -1148,7 +1148,7 @@ describe("McpServerDetail — the tool table and Context (M5)", () => {
   });
   it("draws no Context section before anything has answered", () => {
     render(<McpServerDetail server={base} />);
-    expect(screen.queryByRole("heading", { name: "Context" })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Context per request" })).toBeNull();
     expect(screen.getByRole("tab", { name: "Tools" })).toBeTruthy();
   });
 });
