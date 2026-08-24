@@ -43,8 +43,6 @@ import {
   ShieldCheckIcon,
   SpinnerIcon,
   ArrowPathIcon,
-  CollapseIcon,
-  ExpandIcon,
   PanelLeftIcon,
   PanelRightIcon
 } from "./components/icons";
@@ -76,16 +74,20 @@ import ScanStamp from "./components/ScanStamp";
 import type { LinkGraph } from "./utils/linkMapLayout";
 import SidebarScanModal from "./components/SidebarScanModal";
 import Flyout from "./components/Flyout";
+import InspectorCap, { type InspectorCapAsset } from "./components/InspectorCap";
 import type { AssetAnnotationView } from "./components/AssetRow";
 import { SortField, SortDirection } from "./components/AssetHeaderRow";
 import type { ServerGrouping, ServerSort } from "./components/ViewControl";
 import { StateFilter } from "./utils/linkStateCounts";
 import { registrationKey } from "./utils/mcpRegistration";
+import { provenanceOf } from "./utils/assetProvenance";
 import { unaccountedProcesses, type ProcessMatch } from "./utils/mcpServerView";
 import type { McpServerRow } from "./utils/serverRows";
 import type { McpEngineSummaryData } from "./components/McpEngineSummary";
+import { openPath, revealItemInDir } from "@tauri-apps/plugin-opener";
 import {
   deriveReviewIssues,
+  issuesForAsset,
   matchesIssueFilter,
   type IssueKind,
   type ReviewIssue,
@@ -236,6 +238,13 @@ export function reconciledDiscoveryKind(kind: string, favouritesCount: number): 
   return kind === "Favourites" && favouritesCount === 0 ? "All" : kind;
 }
 
+/** The folder holding a file — what "Reveal in Finder" reveals. Moved here
+ *  from AssetDetail.tsx, which no longer needs it: the cap owns Reveal now. */
+function parentDirOf(path: string): string {
+  const cut = path.lastIndexOf("/");
+  return cut > 0 ? path.slice(0, cut) : path;
+}
+
 export default function App() {
   // Appearance is a three-way choice: pin light, pin dark, or follow the OS.
   // Auto is the default, so a fresh install matches the rest of the desktop.
@@ -333,6 +342,9 @@ export default function App() {
   // A per-session "zoom", not a saved layout choice — deliberately not
   // persisted to preferences, and always reset when the inspector closes.
   const [inspectorExpanded, setInspectorExpanded] = useState<boolean>(false);
+  // The inspector column itself — the cap's finding chip clamps its popover
+  // against this so it never spills past the column's own edge.
+  const asideRef = useRef<HTMLElement>(null);
   // Toolbar filter — narrows the visible rows of the active pane by name.
   const [filterText, setFilterText] = useState<string>("");
   // Discovery's category facet — owned here because DiscoverySidebar sets it
@@ -854,6 +866,19 @@ export default function App() {
   };
 
   const [selectedAsset, setSelectedAsset] = useState<any>(null);
+  // What AssetDetail actually read, reported back once its body loads — a
+  // skill's own path is the folder holding it, so the cap's Open in
+  // editor / Copy path / Reveal act on this when it is known, and on the
+  // asset's own path otherwise (before the body has loaded, or for a kind
+  // AssetDetail never fetches a body for).
+  const [inspectorDocumentPath, setInspectorDocumentPath] = useState<string | null>(null);
+  // AssetDetail's own body-load effect keys on `asset.path`; this mirrors
+  // that so a stale document path from the PREVIOUS asset never shows
+  // through while the new one's body is still loading (or never loads —
+  // an Agent has no file, and `onDocumentPath` is never called for one).
+  useEffect(() => {
+    setInspectorDocumentPath(null);
+  }, [selectedAsset?.path]);
 
   /* Ask what is running the first time the user looks at Tools, and never
      before. Failure is silent on purpose: running state enriches the view,
@@ -1117,8 +1142,6 @@ export default function App() {
   // itself rather than just letting the button overflow.
   const tbBtnClass =
     "relative h-[27px] min-w-[27px] px-2 rounded-pill inline-flex items-center justify-center shrink-0 text-ink-2 hover:bg-plane-2 hover:text-ink-1 transition-colors duration-hover ease-spring cursor-pointer";
-  const tbBtnActiveClass =
-    "relative h-[27px] min-w-[27px] px-2 rounded-pill inline-flex items-center justify-center shrink-0 bg-tint text-tint-ink transition-colors duration-hover ease-spring cursor-pointer";
   // On the plane the toggle is a plain glyph — the plane already reads as a
   // chrome zone, so hover tints with --tint-plane and pressed adds nothing.
   const tbBtnPlaneClass =
@@ -1158,6 +1181,74 @@ export default function App() {
   const reviewShown = review.issues.filter((issue) =>
     matchesIssueFilter(issue, reviewKind, reviewPlace, filterText)
   );
+
+  /* The selected asset's own findings, for the cap's chip. A server's `path`
+   * is its config file, and a typical `~/.claude.json` declares ten servers
+   * — matching a Tool by path the way every other category matches (there
+   * the path IS the asset) would hand it every neighbour's findings.
+   * Karthik's ruling, 2026-08-24: a Tool matches by registration identity
+   * and by its own name (for a duplicate-registration issue), never by the
+   * file it shares with other servers.
+   */
+  const assetFindings = selectedAsset
+    ? issuesForAsset(
+        review,
+        selectedAsset.category === "Tools"
+          ? { registrationKeys: selectedAsset.id ? [selectedAsset.id] : [], serverName: selectedAsset.name }
+          : { path: selectedAsset.path }
+      )
+    : null;
+
+  /* The cap's own identity slice of `selectedAsset` — `null` when nothing is
+   * selected, or when the selection is an Agent: `IssueCategory` (and so
+   * the cap) has no representation for one, since an Agent is a folder
+   * layout the scan inferred, not a harness asset with a link state or
+   * findings.
+   */
+  const capAsset: InspectorCapAsset | null =
+    selectedAsset && selectedAsset.category !== "Agents"
+      ? {
+          name: selectedAsset.name,
+          category: selectedAsset.category,
+          path: selectedAsset.path,
+          scope: selectedAsset.scope,
+        }
+      : null;
+  const capPlace = selectedAsset ? provenanceOf(selectedAsset, inventory).place : "";
+
+  // The document AssetDetail actually read, once known — a skill's own path
+  // is the folder holding it. Falls back to the asset's own path before the
+  // body has loaded, and for a Tool, whose detail view is McpServerDetail,
+  // not AssetDetail, and never reports a document path back up.
+  const inspectorShownPath = inspectorDocumentPath ?? selectedAsset?.path ?? "";
+
+  // Moved, not copied: the same category exclusion Flyout.tsx's own link
+  // button already applies (neither an Agent nor a Subagent has anywhere to
+  // be linked) — mirrored here because the control itself moved to the cap.
+  const onLinkForCap =
+    selectedAsset && selectedAsset.category !== "Agents" && selectedAsset.category !== "Subagents"
+      ? () => handleLinkAsset(selectedAsset)
+      : undefined;
+  const onOpenInEditorForCap = selectedAsset
+    ? () => {
+        openPath(inspectorShownPath).catch(() => {});
+      }
+    : undefined;
+  const onCopyPathForCap = selectedAsset
+    ? () => {
+        navigator.clipboard?.writeText(inspectorShownPath).catch(() => {});
+      }
+    : undefined;
+  const onRevealForCap = selectedAsset
+    ? () => {
+        revealItemInDir(parentDirOf(inspectorShownPath)).catch(() => {});
+      }
+    : undefined;
+  const onReviewForCap = (issue: ReviewIssue) => {
+    handleSelectSidebarItem("review");
+    invoke("set_preference", { key: "selected_sidebar_item", value: "review" }).catch(() => {});
+    setSelectedIssue(issue);
+  };
 
   // Crumb never shows a filesystem path — folder names only.
   const crumbSegments: string[] =
@@ -1664,6 +1755,7 @@ export default function App() {
         selectedSidebarItem !== "design" &&
         (selectedSidebarItem === "review" || inventory) && (
         <aside
+          ref={asideRef}
           style={inspectorExpanded ? undefined : { width: inspectorWidth }}
           className={`shrink-0 h-full min-h-0 border-l border-line bg-page flex flex-col relative ${inspectorExpanded ? "flex-1" : ""}`}
         >
@@ -1673,44 +1765,30 @@ export default function App() {
               className="absolute top-0 bottom-0 left-0 w-1.5 cursor-col-resize hover:bg-line-2 active:bg-line-2 z-10 transition-colors duration-hover"
             />
           )}
-          <div
-            data-tauri-drag-region
-            className="relative h-10 shrink-0 flex items-center pl-[18px] pr-3 select-none font-flex text-micro font-medium tracking-[.06em] uppercase text-ink-3"
-          >
-            {/* No label. "Inspector" named the furniture, not the contents,
-                and the panel's own eyebrow already says what is being
-                inspected — so the word cost a row and told you nothing. The
-                row itself stays: it is the window drag region for this
-                column, and its height keeps the panel aligned with the
-                toolbar beside it. */}
+          {/* The window drag region for this column, and its height keeps
+              the panel aligned with the toolbar beside it — kept exactly as
+              it was. What used to sit in it (only the two panel-level
+              controls) now carries the selected asset's identity too: a
+              kind glyph with a state dot, an eyebrow, a finding chip, then
+              Link to… and the overflow menu, ahead of the same Expand/Hide
+              pair. `capDragOverlay` stays first so the row is still
+              draggable everywhere the cap itself has nothing painted. */}
+          <div data-tauri-drag-region className="relative h-10 shrink-0">
             {capDragOverlay}
-            {/* The same toggle that lives in the toolbar when this column is
-                closed. Docking it here while open, rather than leaving it in
-                the toolbar and adding a second close control, keeps one
-                control at the window's trailing edge instead of two doing
-                the same job from different places. */}
-            <Tooltip label={inspectorExpanded ? "Collapse inspector" : "Expand inspector"} placement="bottom">
-              <button
-                onClick={toggleInspectorExpanded}
-                aria-label={inspectorExpanded ? "Collapse inspector" : "Expand inspector"}
-                className={`ml-auto ${tbBtnClass}`}
-              >
-                {inspectorExpanded ? (
-                  <CollapseIcon size={15} aria-hidden="true" />
-                ) : (
-                  <ExpandIcon size={15} aria-hidden="true" />
-                )}
-              </button>
-            </Tooltip>
-            <Tooltip label="Toggle inspector" placement="bottom">
-              <button
-                onClick={toggleInspector}
-                aria-label="Toggle inspector"
-                className={tbBtnActiveClass}
-              >
-                <PanelRightIcon size={15} aria-hidden="true" />
-              </button>
-            </Tooltip>
+            <InspectorCap
+              asset={capAsset}
+              place={capPlace}
+              findings={assetFindings ?? { issues: [], count: 0, severity: "warning" }}
+              inspectorExpanded={inspectorExpanded}
+              clampTo={asideRef}
+              onLink={onLinkForCap}
+              onOpenInEditor={onOpenInEditorForCap}
+              onCopyPath={onCopyPathForCap}
+              onReveal={onRevealForCap}
+              onReview={onReviewForCap}
+              onToggleExpanded={toggleInspectorExpanded}
+              onToggleInspector={toggleInspector}
+            />
           </div>
           <div className="flex-1 min-h-0 flex flex-col">
             {selectedSidebarItem === "review" ? (
@@ -1748,6 +1826,7 @@ export default function App() {
                 activeCategory={inspectorActiveCategory}
                 paneScope={inspectorScope}
                 isRepoScope={inspectorIsRepoScope}
+                onAssetDocumentPath={setInspectorDocumentPath}
               />
             )}
           </div>

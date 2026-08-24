@@ -1,7 +1,6 @@
 import { Fragment, useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { openPath, revealItemInDir } from "@tauri-apps/plugin-opener";
 import {
   ArrowDownTrayIcon,
   ClockIcon,
@@ -14,8 +13,6 @@ import {
   GaugeIcon,
   GlobeAltIcon,
   LinkIcon,
-  RevealInFileManagerIcon,
-  Square2StackIcon,
   TagIcon,
 } from "./icons";
 import Tooltip from "./Tooltip";
@@ -79,32 +76,17 @@ interface AssetDirEntry {
 interface AssetDetailProps {
   asset: DetailAsset;
   inventory: Inventory | null;
-  /** Opens the link flow on this asset. Absent for kinds that cannot deploy. */
-  onLink?: () => void;
+  /** The panel's own body has loaded a document at this path — which, for a
+   *  skill, is one level inside the folder `asset.path` names. Lifted so the
+   *  cap's overflow menu (Open in editor, Copy path, Reveal) acts on the
+   *  same path this panel is showing, not the folder it was handed. */
+  onDocumentPath?: (path: string) => void;
   /** The backend's per-engine verdicts for this asset. The Reach column draws
    *  at most three of them, so this panel is where the rest are answerable.
    *  Null means the backend had no verdict — the section is omitted rather
    *  than asserting an absence of engines. */
   annotation?: AssetAnnotationView | null;
 }
-
-const btnClass =
-  "h-[30px] px-4 rounded-pill border border-line-2 text-small font-medium text-ink-1 cursor-pointer transition-[background-color,transform] duration-nav ease-spring hover:bg-plane-2 active:scale-[0.96]";
-const btnPrimaryClass =
-  "h-[30px] px-4 rounded-pill border border-transparent bg-fill text-on-fill text-small font-medium cursor-pointer transition-transform duration-press ease-spring active:scale-[0.96]";
-
-const DOT: Record<string, string> = {
-  linked: "bg-state-success",
-  drifted: "bg-state-warning",
-  broken: "bg-state-danger",
-  local: "border-2 border-line-2",
-};
-const STATE_INK: Record<string, string> = {
-  linked: "text-state-success",
-  drifted: "text-state-warning",
-  broken: "text-state-danger",
-  local: "text-ink-3",
-};
 
 const eyebrowClass = "font-flex text-micro font-medium tracking-[.06em] uppercase text-ink-3";
 
@@ -129,11 +111,6 @@ const REACH_GROUPS: { key: string; title: string; holds: (r: EngineReachInfo) =>
   { key: "format", title: "Another engine's format", holds: (r) => !r.reached && r.reason === "format" },
 ];
 
-function parentOf(path: string): string {
-  const cut = path.lastIndexOf("/");
-  return cut > 0 ? path.slice(0, cut) : path;
-}
-
 /** "3.1 kB" or "431 B" — the backend's own byte count, never re-measured. */
 function formatBytes(n: number): string {
   return n < 1024 ? `${n} B` : `${(n / 1024).toFixed(1)} kB`;
@@ -152,7 +129,7 @@ function basenameOf(path: string): string {
  * line, the meta grid — exists to answer the questions the document itself
  * cannot: where the file sits and what else on the machine depends on it.
  */
-export default function AssetDetail({ asset, inventory, onLink, annotation }: AssetDetailProps) {
+export default function AssetDetail({ asset, inventory, onDocumentPath, annotation }: AssetDetailProps) {
   const [tab, setTab] = useState<"content" | "details">("content");
   const [view, setView] = useState<"preview" | "source">("preview");
   const [body, setBody] = useState<AssetBody | null>(null);
@@ -188,6 +165,7 @@ export default function AssetDetail({ asset, inventory, onLink, annotation }: As
         if (cancelled) return;
         setBody(result);
         setDocumentPath(result.path);
+        onDocumentPath?.(result.path);
       })
       .catch((err) => {
         if (!cancelled) setDocError(String(err));
@@ -348,54 +326,29 @@ export default function AssetDetail({ asset, inventory, onLink, annotation }: As
         ]
       : []),
     ...specRows,
+    // Last (Decision 11): every other row says something about the asset;
+    // this one says where it is. `shownPath` is the document AssetDetail
+    // actually read, not the folder the panel was handed (a skill's own
+    // path is its containing folder). `<bdi>` isolates the path's own
+    // direction so a home-relative segment can't skew a trailing filename.
+    {
+      key: "path",
+      label: "Path",
+      icon: <FolderIcon size={14} aria-hidden="true" />,
+      value: (
+        <span className="block max-w-55 truncate" title={shownPath}>
+          <bdi>{shownPath}</bdi>
+        </span>
+      ),
+    },
   ];
 
   return (
     <div className="flex-1 min-h-0 flex flex-col font-sans">
-      <div className="px-[18px] pt-3 pb-3.5 border-b border-line shrink-0">
-        <div className="flex items-center gap-[7px] mb-3">
-          <i className={`w-2 h-2 rounded-pill shrink-0 ${DOT[provenance.state]}`} />
-          <span className={`font-flex text-small ${STATE_INK[provenance.state]}`}>
-            {provenance.statement}
-          </span>
-        </div>
-
-        <div className="flex items-center gap-2 bg-plane rounded-inner pl-2.5 pr-1.5 py-2 font-mono text-micro text-ink-2">
-          <span className="flex-1 min-w-0 truncate select-all" title={shownPath}>
-            {shownPath}
-          </span>
-          <Tooltip label="Copy path" placement="bottom">
-            <button
-              aria-label="Copy path"
-              onClick={() => navigator.clipboard?.writeText(shownPath).catch(() => {})}
-              className="p-1 rounded-pill grid place-items-center text-ink-3 hover:bg-plane-2 hover:text-ink-1 transition-colors duration-hover cursor-pointer"
-            >
-              <Square2StackIcon size={13} aria-hidden="true" />
-            </button>
-          </Tooltip>
-          <Tooltip label="Reveal in Finder" placement="bottom">
-            <button
-              aria-label="Reveal in Finder"
-              onClick={() => revealItemInDir(parentOf(shownPath)).catch(() => {})}
-              className="p-1 rounded-pill grid place-items-center text-ink-3 hover:bg-plane-2 hover:text-ink-1 transition-colors duration-hover cursor-pointer"
-            >
-              <RevealInFileManagerIcon size={13} aria-hidden="true" />
-            </button>
-          </Tooltip>
-        </div>
-      </div>
-
-      <div className="flex gap-2 px-[18px] py-3 border-b border-line shrink-0">
-        {onLink && (
-          <button onClick={onLink} className={btnPrimaryClass}>
-            Link to…
-          </button>
-        )}
-        <button onClick={() => openPath(shownPath).catch(() => {})} className={btnClass}>
-          Open in editor
-        </button>
-      </div>
-
+      {/* The state line, the path chip and the Link/Open actions moved up
+          into the inspector cap (App.tsx) — the panel no longer restates
+          the asset's identity above its own tabs. The path itself moved
+          into Details > Identity's Path row, below. */}
       {kind !== "none" && (
         <UnderlineTabs
           tabs={[{ id: "content", label: "Content" }, { id: "details", label: "Details" }]}

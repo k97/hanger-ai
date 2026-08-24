@@ -16,7 +16,6 @@ import BrandIcon from "./BrandIcon";
 import { buildMcpServerView, type ProcessMatch } from "../utils/mcpServerView";
 import LinkPanel from "./LinkPanel";
 import DiffChooser, { AlignedSection } from "./DiffChooser";
-import { kindLabel, provenanceOf } from "../utils/assetProvenance";
 import { categoryNoun } from "../utils/prose";
 
 export interface FlatAssetItem {
@@ -77,6 +76,11 @@ interface FlyoutProps {
    *  body instead of a machine-wide table sitting under that repo's own
    *  heading. */
   isRepoScope?: boolean;
+  /** The cap's Open in editor / Copy path / Reveal act on the document
+   *  AssetDetail actually read, not the folder its asset names (a skill's
+   *  own path is the folder holding it). App.tsx owns the cap, so this
+   *  callback just carries AssetDetail's own `onDocumentPath` one level up. */
+  onAssetDocumentPath?: (path: string) => void;
 }
 
 interface RuleSection {
@@ -98,7 +102,8 @@ export default function Flyout({
   annotation,
   activeCategory,
   paneScope,
-  isRepoScope
+  isRepoScope,
+  onAssetDocumentPath
 }: FlyoutProps) {
   const [linking, setLinking] = useState<FlatAssetItem | null>(null);
 
@@ -585,14 +590,23 @@ export default function Flyout({
       ? buildMcpServerView(inventory?.tools, targetAsset.name, mcpProcesses ?? [])
       : null;
 
-  const provenance = targetAsset ? provenanceOf(targetAsset as never, inventory) : null;
-
   /* Nothing is selected, but the pane's own filter already says what kind of
      thing an empty result set would have held. Scoped to "Tools" only —
      Karthik's ruling, 2026-08-18: a Skills-filtered view must not claim
      "MCP servers" over its own empty list. */
   const showEmptyMcpEyebrow =
     !linking && !targetAsset && !selectedBubble && activeCategory === "Tools";
+
+  /* Whether the eyebrow row has anything left to say. A selected asset's own
+     kind · place moved to the cap, so `targetAsset` alone no longer earns
+     the row; linking (the "Back to" nav), a bubble scope with no asset
+     drilled into, the empty-MCP category label, and the layered-rules flag
+     can all still occupy it — the last of those independently of
+     `targetAsset`, since selecting an asset inside a layered project does
+     not make the project stop being layered. */
+  const eyebrowShown = Boolean(
+    linking || (!targetAsset && (selectedBubble || showEmptyMcpEyebrow)) || selectedProjectScan?.layered
+  );
 
   /* The chrome (eyebrow) is the same for a repo pane and the global one --
      it already names whichever scope it is via `paneScope`. The BODY is
@@ -645,6 +659,14 @@ export default function Flyout({
           result set belongs to and skips the title, since there is no name
           to give one.
 
+          A selected asset's own kind · place no longer repeats here — that
+          identity moved up into the inspector cap (App.tsx), which is always
+          on screen above this panel, so restating it a second time would be
+          the "moved, never copied" rule's exact failure mode. `eyebrowShown`
+          is false for a bare targetAsset with nothing else this row can
+          say, and the title block below drops the top margin it used when
+          resting on a row that is actually there.
+
           Sits tight under the cap. The cap used to carry the word "Inspector",
           so this header needed its own top padding to read as a separate
           block; with the cap now bearing only the close control, that padding
@@ -652,6 +674,7 @@ export default function Flyout({
           opens with, and every pixel taken here comes off the content. */}
       {(linking || targetAsset || selectedBubble || showEmptyMcpEyebrow) && (
       <div className="px-[18px] pt-0.5 pb-3 border-b border-line shrink-0">
+        {eyebrowShown && (
         <div className="flex items-center gap-2 font-flex text-micro font-medium tracking-[.06em] uppercase text-ink-3">
           {linking ? (
             <button
@@ -666,26 +689,18 @@ export default function Flyout({
             <>
               <span>
                 {targetAsset
-                  ? kindLabel(targetAsset.category)
+                  ? null
                   : selectedBubble
                   ? `${selectedBubble.type} scope`
                   : showEmptyMcpEyebrow
                   ? categoryNoun("Tools", "many")
                   : "Inspector"}
               </span>
-              {provenance ? (
+              {showEmptyMcpEyebrow && paneScope && (
                 <>
                   <span aria-hidden="true">·</span>
-                  <span className="truncate">{provenance.place}</span>
+                  <span className="truncate">{paneScope}</span>
                 </>
-              ) : (
-                showEmptyMcpEyebrow &&
-                paneScope && (
-                  <>
-                    <span aria-hidden="true">·</span>
-                    <span className="truncate">{paneScope}</span>
-                  </>
-                )
               )}
             </>
           )}
@@ -696,8 +711,9 @@ export default function Flyout({
             </span>
           )}
         </div>
+        )}
         {!showEmptyMcpEyebrow && (
-        <div className="flex items-center gap-2 mt-1 min-w-0">
+        <div className={`flex items-center gap-2 min-w-0 ${eyebrowShown ? "mt-1" : ""}`}>
           {!linking && !targetAsset && selectedBubble?.type === "agent" && (
             <BrandIcon engineKey={selectedBubble.id} engineName={selectedBubble.name} size={16} />
           )}
@@ -765,15 +781,13 @@ export default function Flyout({
           declined={mcpDeclined}
         />
       ) : targetAsset ? (
+        // Link to… lives in the cap now (App.tsx), not this panel's own
+        // action row — AssetDetail no longer takes an onLink prop.
         <AssetDetail
           asset={targetAsset as any}
           inventory={inventory}
           annotation={annotation}
-          onLink={
-            targetAsset.category !== "Agents" && targetAsset.category !== "Subagents"
-              ? () => setLinking(targetAsset as FlatAssetItem)
-              : undefined
-          }
+          onDocumentPath={onAssetDocumentPath}
         />
       ) : selectedBubble ? (
         /* Regular flyout content list for bubble scope */
