@@ -354,7 +354,7 @@ glyph sits on the baseline and renders low in a 16px slot however its line box
 is centred, and correcting it would mean an offset tuned to one font's
 metrics.
 The inspector's Reach card groups by verdict rather than listing sentences.
-`REACH_GROUPS` (`AssetDetail.tsx:78-82`) is the reading order — "Reaches it",
+`REACH_GROUPS` (`AssetDetail.tsx:108-112`) is the reading order — "Reaches it",
 then "Root not linked", then "Another engine's format" — and a group with no
 members is dropped (`:154-157`), so the card never heads an empty list.
 `annotations.rs` emits only those two reasons, so three groups is the ceiling.
@@ -594,9 +594,11 @@ all.
 ### Inspectors
 
 Two inspectors exist with different payloads, mounted per view rather than one
-generic panel: `AssetDetail` for assets (`AssetDetail.tsx:26-31`: `asset`,
-`inventory`, `onLink?`, absent for kinds that cannot deploy) and
-`ReviewInspector` for issues (`ReviewInspector.tsx:6-13`: `issue`, `position`,
+generic panel: `AssetDetail` for assets (`AssetDetail.tsx:76-89`: `asset`,
+`inventory`, `onDocumentPath?`, `annotation?` — `onLink` moved out this phase,
+replaced by `onDocumentPath`, since the panel no longer opens the link flow
+itself; see below) and `ReviewInspector` for issues (`ReviewInspector.tsx:6-13`:
+`issue`, `position`,
 `outOf`, `onClose`, `onSkip`). `ReviewInspector` documents that `position` and
 `outOf` are not totals of anything, because the list is already filtered
 (`:8-9`). `McpServerDetail` is a third, for MCP servers — props `server`,
@@ -612,24 +614,110 @@ already running; it comes from the answer, never from the panel's own
 so the panel can see that a request of either kind is outstanding.
 
 **Both inspectors open on their breakdown, not their identity.** `AssetDetail`
-switches Content/Details, defaulting to Content (`AssetDetail.tsx:156`, tabs
-`:399-406`); `McpServerDetail` switches Tools/Details, defaulting to Tools and
+switches Content/Details, defaulting to Content (`AssetDetail.tsx:133`, tabs
+`:351-358`); `McpServerDetail` switches Tools/Details, defaulting to Tools and
 resetting to it on every new server so a stale Environment tab never survives
 a selection change (`McpServerDetail.tsx:403-406`, tabs `:666-688`). Both
 switches are the same `UnderlineTabs` (Surfaces and controls, below). Every
 section beneath either tab strip takes the section format: an eyebrow label
-(`eyebrowClass`, `AssetDetail.tsx:109`; a plain `<h3>` on the MCP side,
+(`eyebrowClass`, `AssetDetail.tsx:91`; a plain `<h3>` on the MCP side,
 `HEADING`, `McpServerDetail.tsx:198`) above a `ListCard`/`ListCardRow` stack.
+
+**The identity row moved out of the panel and into the cap; what survives
+above the tabs is three pieces with nothing between them.** Selecting an
+asset used to earn Flyout's eyebrow row a `kind · place` pair; `targetAsset`
+now renders `null` there instead (`Flyout.tsx:690-696`), because that
+identity lives in the cap and restating it a second time would be "the
+'moved, never copied' rule's exact failure mode" (the panel's own comment,
+`Flyout.tsx:662-668`). For a plain asset selection the eyebrow row now has
+nothing left to say at all: `eyebrowShown` is `false` whenever nothing but a
+bare `targetAsset` would have earned it (`Flyout.tsx:607-609`), so the row
+does not render and the title block below drops the top margin it used when
+resting on a row that is actually there (`:716`). The eyebrow still renders
+for what is not a plain asset selection — the link flow's own "Back to
+‹name›" nav (`:679-687`), a bubble scope with no asset drilled into, or the
+empty-MCP category label — plus, independently, a layered-rules flag that can
+sit beside any of them.
+
+Below that, the header is exactly: the cap's identity row — kind glyph with a
+state dot, a `KIND · PLACE` eyebrow, a finding chip (`InspectorCap.tsx:160-203`;
+the cap itself, Surfaces and controls below) — then Flyout's title block
+(the `<h2>`, `Flyout.tsx:720`), then `AssetDetail`'s own `UnderlineTabs`
+switch. Nothing else: `AssetDetail` used to open with a state line, a path
+chip and a Link/Open action row, each behind its own `border-b border-line`,
+all now gone — the render goes straight from the panel's outer div to a
+comment recording the move and then the tab switch, with no hairline of its
+own left in that gap (`AssetDetail.tsx:346-358`). One hairline still stands
+in the assembled header: Flyout's own `border-b border-line`, beneath the
+title and above the tabs (`Flyout.tsx:676`) — untouched by this phase, and it
+falls between the title and the tabs, not between the cap and the title,
+where nothing separates them at all.
+
+**The cap sheds two things, in order, when it does not fit, and none of it
+runs under test.** After every render, one effect compares the row's own
+`scrollWidth` against its `clientWidth` and climbs one rung — sheds `Link
+to…` first, the finding chip second — when the row overflows
+(`InspectorCap.tsx:140-147`); a second, separate effect holds a
+`ResizeObserver` on the same row purely to catch it growing back, resetting
+the climb to `0` the same width it left (`:115-134`). Both are inert under
+`happy-dom`, the environment every component test runs in, for two different
+reasons: the render-time comparison never overflows because `scrollWidth`
+and `clientWidth` both read `0` there — the same limitation `SegmentedTrack`'s
+and `UnderlineTabs`' own geometry already carry (Surfaces and controls,
+below) — while the `ResizeObserver` effect's own guard, `typeof
+ResizeObserver === "undefined"` (`:122`), does not even trip: `happy-dom`
+does define a `ResizeObserver` class, so `typeof` reads `"function"` and the
+code proceeds to call `observe()` — which is a documented no-op there that
+never invokes its callback
+(`node_modules/happy-dom/lib/resize-observer/ResizeObserver.js:12-14`). A
+test-only `forceShed` prop drives the collapsed states directly instead
+(`InspectorCap.tsx:65-69`; every case in `InspectorCap.test.tsx`), so a
+broken threshold, a flipped comparison, or a disconnected ref in either
+effect would still pass every test in the suite.
+
+**An MCP server's cap never sheds and never draws a ⋮**, derived from the
+absence of its callbacks rather than a category check: `canShed` is
+`Boolean(onLink || onCopyPath || onReveal || onOpenInEditor)`
+(`InspectorCap.tsx:112`), and a server has none of the four — no path to
+copy, nowhere to reveal, nothing to open, nothing to link — so `canShed` is
+`false` and the effective shed is pinned to `0` regardless of `forceShed` or
+the measured `autoShed` (`:113`). Its finding chip therefore stays on the
+surface at every width, and `menuHasContent` never turns true for it, so no
+⋮ renders at all (`:151-157`; `InspectorCap.test.tsx`'s two "never sheds an
+MCP server's cap" cases, at `forceShed=1` and `forceShed=2`). Karthik's
+ruling, 2026-08-24.
+
+**A server's findings are matched by identity, never by the config file it
+shares.** `~/.claude.json` typically declares ten servers in one file, and a
+server's own `path` is that file — matching it the way a skill, rule or
+subagent is matched (there the path IS the asset) would hand one healthy
+server every neighbour's findings from the same registration file. The cap's
+`findings` prop is computed by `issuesForAsset`, called with a server's
+registration key and name rather than its path
+(`App.tsx:1198-1205`). `AssetIdentity` makes the mixed shape a compile error
+rather than a convention a caller has to remember: `{ path }` and `{
+registrationKeys, serverName }` each satisfy exactly one arm, and the two
+together satisfy neither (`reviewIssues.ts:405-407`). `issuesForAsset` itself
+matches on the asset's own path or a duplicate's `copies` for everything
+else, and on a registration key or (for a server's own duplicate issue) its
+name for a Tool (`:409-434`). Karthik's ruling, 2026-08-24.
+
+**The path itself moved with the rest.** `AssetDetail`'s Details tab Identity
+card gained a `Path` row, last in the ruled order, holding `documentPath ??
+asset.path` (`shownPath`) inside a `<bdi>` so a home-relative segment cannot
+skew a trailing filename (`AssetDetail.tsx:329-343`; pinned by
+`asset_detail.test.tsx`'s "Identity is one list card in the ruled order"
+case, which asserts `identity-row-path` last).
 
 **`AssetDetail` (`AssetDetail.tsx`), Content tab.** The document sits behind
 the same card shape as everything else: a filename row with a `View source`
 toggle when there is a formatted view to fall back from, then the rendered
 body — `MarkdownDoc` for a skill's markdown, formatted JSON for a config that
-parses, or the raw source either way (`:435-476`, the toggle's gate `:244`).
+parses, or the raw source either way (`:388-429`, the toggle's gate `:222`).
 For a skill specifically, a `Context` section sits above the document and
 states what the skill costs to have around: name and description always
 loaded, the whole file's size when it is opened, and an estimated token
-figure the row itself labels as one (`:411-433`). This differs from the MCP
+figure the row itself labels as one (`:364-385`). This differs from the MCP
 side's `Context per request` (below) by design — a skill's cost is paid
 once, on open; a server's is paid on every request, hence the different
 eyebrows.
@@ -637,25 +725,27 @@ eyebrows.
 **`AssetDetail` (`AssetDetail.tsx`), Details tab.**
 - **Identity** carries Size and Modified once the body has loaded, both read
   from `AssetBody` and never re-derived: Size is `formatBytes(bytes) · N
-  lines` (`:323-330`); Modified is a formatted date from `modified_ms`, and
+  lines` (`:301-308`); Modified is a formatted date from `modified_ms`, and
   the row is dropped outright when `modified_ms` is `null` rather than
-  rendering a fabricated date — the platform reported no mtime (`:331-347`;
-  the field is `number | null` on the frontend, `:64`, and `Option<i64>` on
-  the backend, `lib.rs:1447`). Rows built `:268-351`, rendered `:494-510`.
+  rendering a fabricated date — the platform reported no mtime (`:309-325`;
+  the field is `number | null` on the frontend, `:61`, and `Option<i64>` on
+  the backend, `lib.rs:1447`). Last in the row order (since this phase) is
+  Path: `documentPath ?? asset.path`, wrapped in a `<bdi>` (`:329-343`, above).
+  Rows built `:246-344`, rendered `:447-463`.
 - **Contents** lists a skill's folder, one row per top-level entry
-  (`:512-545`). A directory states how many files sit beneath it; a file
+  (`:465-497`). A directory states how many files sit beneath it; a file
   states its size; a symlink states neither — `LinkIcon` and an em dash —
   because `list_asset_dir` classifies every entry with `symlink_metadata` and
   never follows the link, so nothing on the far side of it was ever read
   (`lib.rs:1569`, doc comment `:1547-1555`).
 - **Capabilities** lists the skill's declared `allowed-tools`, one row each;
   a tool beginning `Bash` carries the value `Shell access`, every other tool
-  carries none (`:547-564`, the rule `:559`).
+  carries none (`:500-516`, the rule `:512`).
 - **Reach** groups every engine the backend holds a verdict for by why:
   reaches it, root not linked, another engine's format (`REACH_GROUPS`,
-  `:126-130`; rendered `:573-632`). One `→ store` figure sits beside the
+  `:108-112`; rendered `:526-585`). One `→ store` figure sits beside the
   eyebrow, keyed off the asset's own root so it cannot disagree with the rows
-  beneath it (`:581-585`).
+  beneath it (`:534-538`).
 
 **`McpServerDetail` (`McpServerDetail.tsx`), Tools tab.**
 - **Context per request → Composition** appears only once a probe has
@@ -848,7 +938,7 @@ views inside one surface instead (`:6-8`). A tab is `{id, label, count?}`
 The rule is positioned from the active tab's own box in a `useLayoutEffect`;
 a zero-width box, as under a test runner, draws no rule at all (`:31-38`,
 the `<i data-testid="tab-indicator">` it moves, `:67-72`). First callers:
-`AssetDetail`'s Content/Details switch (`AssetDetail.tsx:400-405`) and
+`AssetDetail`'s Content/Details switch (`AssetDetail.tsx:351-358`) and
 `McpServerDetail`'s Tools/Details switch, where Tools alone carries an
 optional count (`McpServerDetail.tsx:666-688`).
 
@@ -869,16 +959,53 @@ decides whether the popover carries `shadow-overlay` (`:95-97`). Its lines
 are not new copy: `LinkMapPlacecard` passes the popover the same strings the
 map already draws on the edge labels themselves, built by `edgeSummary`
 (`LinkMapPane.tsx:407-408`, drawn on the map `:477`). `Needs review →`
-(`:106-110`) fires `onReview`, which `App.tsx` wires to switch to the
-Needs review pane (`App.tsx:1545-1548`).
+(`:106-110`) fires `onReview`, which each caller wires to switch to the
+Needs review pane: `LinkMapPlacecard`'s at `App.tsx:1661-1663`, and — since
+this phase — the inspector cap's own chip (`InspectorCap`, below) at
+`App.tsx:1252-1256`, which also selects the issue so the pane opens on it.
 
 **`ScanStamp`** (`ScanStamp.tsx`) — how old the figure beside it is;
 stays an age during a scan rather than restating that one is running
 (`:9-14`). Two callers: `SummaryStrip.tsx` (`:67`) and the map cap, beside
 Rescan, since the map view's toolbar slot holds Rescan in place of an
-inspector toggle (`App.tsx:1402`). Re-renders on a 30s interval so the
+inspector toggle (`App.tsx:1517`). Re-renders on a 30s interval so the
 age keeps pace with no scan event (`:17-20`); the wording — "moments ago"
 under a minute, then minutes, hours, days — is `timeAgo.ts` (`:2-11`).
+
+**`OverflowMenu`** (`OverflowMenu.tsx:39-87`, props `:17-30`) — the popover
+behind two different triggers: `ViewControl`'s "View" control and the
+inspector cap's ⋮. `trigger` is a render prop the caller uses to draw its own
+button, wired with the `aria-haspopup`/`aria-expanded`/`onClick` triple it
+must spread (`:19`); `ariaLabel` names the resulting `role="menu"`; `align`
+picks which edge the panel hangs from — `ViewControl` opens from its left
+edge, the cap's ⋮ from its right, inward, because the aside clips (`:22-23`);
+`children` is a render prop taking a `close` callback each item calls after
+acting (`:26`). The panel itself — `shadow-overlay`, `rounded-inner`,
+`animate-tip` — opens on click and closes on Escape or an outside
+pointerdown (`:50-66`). Extracted from `ViewControl`, which used to own this
+mechanism directly and is now its first caller (`b48b8c3`); `ViewControl`
+keeps `menuItemClass`/`menuLabelClass` as its own row styles (`:3-7`), the
+cap's menu items use `menuActionClass` instead (`:9-10`), and `MenuSeparator`
+(`:13-15`) is shared by both.
+
+**`InspectorCap`** (`InspectorCap.tsx`, props `:44-70`) — the inspector
+column's 40px cap, and since this phase the selected asset's identity as
+well as the two panel-level controls it used to hold alone: a kind glyph
+with a state dot when the asset has findings, a `KIND · PLACE` eyebrow, a
+finding chip, then `Link to…`, a ⋮ overflow (`OverflowMenu`, above), and
+Expand/Collapse plus Toggle inspector (`:159-335`; the shed order, its
+measurement, and the MCP exception are under Inspectors, above). Renders
+only the two trailing controls when nothing is selected (`asset: null`,
+pinned by `InspectorCap.test.tsx`'s "renders only Expand and Hide" case).
+`asset.scope` travels with the rest of `InspectorCapAsset` (`:37-42`) since
+`50fe6b8`: a clicked asset used to reach the cap without its own `scope`,
+so the eyebrow read `SKILL · GLOBAL` for a project-scoped asset too, and the
+kind glyph's tooltip — which only renders when `place !== "Global"`
+(`:163-169`) — silently never showed. `tbBtnClass`/`tbBtnActiveClass`
+declare its own two trailing buttons, copied verbatim from `App.tsx` rather
+than imported from a shared module (`:79-85`; the duplication itself, and
+why, is recorded under Repeated variants are hoisted, not computed, §6,
+below).
 
 **`DisclosureBanner`** (`DisclosureBanner.tsx:4-10`) — `variant: "warning" | "error" | "info"`,
 `summary`, `count`, `children`, `defaultOpen?`. Every variant sits on the same
@@ -912,8 +1039,8 @@ holds `selectedSidebarItem`, persisted under `selected_sidebar_item`
 
 ### Window chrome — one vertical baseline
 
-Every cap — the sidebar cap (`App.tsx:961`), the content header (`App.tsx:1052`),
-the inspector cap (`App.tsx:1317`) — is `h-10 flex items-center`: a 40px band
+Every cap — the sidebar cap (`App.tsx:1325`), the content header (`App.tsx:1440`),
+the inspector cap (`App.tsx:1781`) — is `h-10 flex items-center`: a 40px band
 with its contents optically centered on the same line, 20px from the cap's
 top. The native traffic lights are tuned to sit on that identical line:
 `trafficLightPosition.y: 22` in `tauri.conf.json:26` was set by measuring the
@@ -924,20 +1051,33 @@ one, so this value is empirical and window-height-dependent. If the cap
 height (`h-10`) ever changes, `trafficLightPosition.y` must be re-measured
 against it, not recomputed by formula.
 
+**The inspector cap's content changed this phase; its height did not.** The
+identity row, the finding chip and the overflow menu were added ahead of the
+same Expand/Collapse and Toggle inspector pair the cap always carried
+(`InspectorCap`, §5); the wrapping `<div data-tauri-drag-region
+className="relative h-10 shrink-0">` around it kept `h-10` exactly as it was
+before the cap grew a component of its own (`App.tsx:1781`, and the removed
+cap it replaced carried the same `h-10` — Both inspectors open on their
+breakdown, §5, above). Because the baseline this section states is keyed off
+that class, not off what fills the row, `trafficLightPosition.y` needed no
+re-measurement for this phase and none was done.
+
 Any future cap, toolbar, or menubar row must keep this same `h-10
 flex items-center` shape so its contents land on this baseline by
 construction, rather than each screen re-deriving its own vertical rhythm.
 
 **Toolbar buttons must carry `shrink-0`, or a squeezed cap silently shrinks
-the icon inside them.** `tbBtnClass` / `tbBtnActiveClass` / `tbBtnPlaneClass`
-(`App.tsx:859-867`) all declare it. This was found the hard way: the sidebar
-cap leads with a spacer (`w-[76px] shrink-0`, `App.tsx:963`) so the toggle
-button stays reachable when the source list is collapsed and the cap's
-content overflows its 56px rail on purpose (`App.tsx:956-960`). Without
-`shrink-0` on the button, that overflow's negative free space fell through to
-the button — clamped there by `min-w-[27px]` — and then into the icon inside
-it, rendering the same `size={15}` icon at ~10pt instead of ~13pt with no
-change to its props at all; `react-dom/server` output for the two icons was
+the icon inside them.** `tbBtnClass` / `tbBtnPlaneClass` (`App.tsx:1148-1153`)
+both declare it, and so does `tbBtnActiveClass` — which, since this phase,
+lives only in `InspectorCap.tsx:84-85` (Repeated variants are hoisted, not
+computed, below). This was found the hard way: the sidebar cap leads with a
+spacer (`w-[76px] shrink-0`, `App.tsx:1327`) so the toggle button stays
+reachable when the source list is collapsed and the cap's content overflows
+its 56px rail on purpose (`App.tsx:1320-1324`). Without `shrink-0` on the
+button, that overflow's negative free space fell through to the button —
+clamped there by `min-w-[27px]` — and then into the icon inside it,
+rendering the same `size={15}` icon at ~10pt instead of ~13pt with no change
+to its props at all; `react-dom/server` output for the two icons was
 byte-identical, so the bug was purely this missing shrink guard, confirmed by
 pixel-measuring the live window before and after. Any button meant to
 overflow a shrinking container needs this same guard, or its icon silently
@@ -945,15 +1085,15 @@ shrinks instead of the button just overflowing as intended.
 
 **The leading gap after the traffic lights is tuned to match the gap between
 the lights themselves — not derived, measured.** The three native dots keep
-~9.5pt between each other. `App.tsx:963`'s spacer (`w-[76px]`) lands the
+~9.5pt between each other. `App.tsx:1327`'s spacer (`w-[76px]`) lands the
 toggle icon's own ink ~11.5pt after the dot cluster ends, and the collapsed
-crumb's `pl-[51px]` (`App.tsx:1064`, only when `sidebarCollapsed`; `pl-[18px]`
-otherwise) lands the breadcrumb text ~10.5pt after the icon's ink — three
-gaps within ~2pt of each other, read as one uniform rhythm rather than three
-independently-guessed numbers. None of these three values can be derived from
-the others by formula (native traffic lights aren't in the DOM, and glyph ink
-extent isn't the same as box width), so every one of them was set by
-measuring a live, running window pixel-by-pixel, not by eyeballing a
+crumb's `pl-[51px]` (`App.tsx:1451-1453`, only when `sidebarCollapsed`;
+`pl-[18px]` otherwise) lands the breadcrumb text ~10.5pt after the icon's ink
+— three gaps within ~2pt of each other, read as one uniform rhythm rather
+than three independently-guessed numbers. None of these three values can be
+derived from the others by formula (native traffic lights aren't in the DOM,
+and glyph ink extent isn't the same as box width), so every one of them was
+set by measuring a live, running window pixel-by-pixel, not by eyeballing a
 screenshot or computing from CSS box models alone. If the spacer, the button
 padding, the icon size, or `trafficLightPosition.x` ever change, re-measure
 the live window and retune both the spacer and the crumb's collapsed padding
@@ -1012,11 +1152,26 @@ Section eyebrows are `font-flex text-micro font-medium tracking-[.06em] uppercas
 The house idiom is a module-level `const` class string above the component,
 selected by ternary — never `clsx`, never `cva`. `railBtnClass` /
 `railBtnActiveClass` (`IconRail.tsx:21-24`), `tbBtnClass` /
-`tbBtnActiveClass` (`App.tsx:1118-1121`). `CategoryFilterCards` no longer
+`tbBtnPlaneClass` (`App.tsx:1148-1153`). `CategoryFilterCards` no longer
 belongs on this list — its `chipBaseClass` / `chipPressedClass` were deleted
 when it moved onto `SegmentedTrack` (§5); `NeedsReviewPane.tsx:46-48`
 declares an unrelated pair under the same two names, for its own
 non-tablist chip row (Pane composition, above).
+
+**`tbBtnClass` is a real, deliberate exception to "declared once": it exists
+verbatim in two files.** `App.tsx:1148-1149` still declares it for the
+toolbar's own buttons; `InspectorCap.tsx:82-83` declares the identical
+string again (checked byte-for-byte) for the cap's Expand/Collapse button,
+with a comment recording the ruling: `App`'s copy is local to the component
+body and not exported, and `App` keeps needing its own regardless, so
+extracting a shared module would have staled the citations already written
+against both files' bodies rather than removed a duplicate
+(`InspectorCap.tsx:79-81`). `tbBtnActiveClass` is not the same story: it used
+to live in `App.tsx` too, painting the same "Toggle inspector" button this
+cap now paints, but when that button moved into `InspectorCap` (`af1c305`)
+`App`'s own copy was deleted rather than left unused — so today
+`tbBtnActiveClass` exists in exactly one file, `InspectorCap.tsx:84-85`, and
+only `tbBtnClass` is the actual two-file duplicate.
 
 ### Scroll caps
 
