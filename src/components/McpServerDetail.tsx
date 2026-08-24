@@ -580,11 +580,13 @@ export default function McpServerDetail({
       ? `${reg.host} (${basename(reg.configPath)})`
       : reg.host
   );
+  // Only the agreeing case gets a sentence here. A diverging launch is
+  // already explained beside the diff that shows which part differs
+  // (Registered in, below) -- saying so twice was the defect this task
+  // exists to remove, and this panel's rule is said once.
   const detail = !diverges
     ? `All ${regCount} launches agree — the same command from ${joinNames(labels)}.`
-    : launchesDiverge
-    ? `These hosts launch ${server.name} differently. Whichever you are using decides which version you get.`
-    : `These hosts reach ${server.name} at different endpoints. Whichever you are using decides which server answers.`;
+    : undefined;
   /* Compare scrolls to the aligned launch diff two sections down; a ref
      rather than an anchor + hash because this is the panel's own scroll
      container jumping to its own content, not navigation the URL should
@@ -972,7 +974,9 @@ export default function McpServerDetail({
                   />
                   <span className="font-medium">{headline}</span>
                 </span>
-                <span className="text-micro text-ink-3 leading-[1.5]">{detail}</span>
+                {detail && (
+                  <span className="text-micro text-ink-3 leading-[1.5]">{detail}</span>
+                )}
               </div>
             </ListCard>
             <div className={`${miniSetClass} mt-2`}>
