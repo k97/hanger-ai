@@ -26,7 +26,29 @@ fn a_document_read_carries_bytes_lines_mtime_and_a_token_estimate() {
     assert_eq!(body.estimated_tokens, 3, "13 / 4, integer division");
     let now_ms = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH).unwrap().as_millis() as i64;
-    assert!(body.modified_ms > 0 && body.modified_ms <= now_ms, "mtime is read at request time");
+    let modified_ms = body.modified_ms.expect("a freshly written file has a real mtime");
+    assert!(modified_ms > 0 && modified_ms <= now_ms, "mtime is read at request time");
+}
+
+/// A file whose mtime cannot be expressed as milliseconds since the epoch —
+/// here, a real mtime set before 1970, which `duration_since(UNIX_EPOCH)`
+/// refuses — must report `None`, not a fabricated epoch date. `unwrap_or(0)`
+/// used to render this identically to a file genuinely last touched at
+/// midnight UTC, January 1 1970: the frontend has no way to tell "no mtime"
+/// from "mtime is exactly zero".
+#[test]
+fn a_document_whose_mtime_cannot_be_read_reports_none_not_a_fabricated_epoch() {
+    let dir = fresh_dir("hanger_test_asset_body_no_mtime");
+    let doc = dir.join("SKILL.md");
+    fs::write(&doc, "x").unwrap();
+
+    let before_epoch = std::time::UNIX_EPOCH - std::time::Duration::from_secs(3600);
+    let file = fs::File::options().write(true).open(&doc).unwrap();
+    let times = fs::FileTimes::new().set_modified(before_epoch);
+    file.set_times(times).expect("this filesystem accepts a pre-epoch mtime");
+
+    let body = asset_body_of(&doc).expect("a readable UTF-8 file");
+    assert_eq!(body.modified_ms, None, "no epoch date is invented when the real mtime can't be expressed since UNIX_EPOCH");
 }
 
 #[test]

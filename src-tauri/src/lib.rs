@@ -1441,8 +1441,10 @@ pub struct AssetBody {
     pub bytes: u64,
     /// `text.split('\n').count()`, the line count the panel has always shown.
     pub lines: usize,
-    /// mtime, milliseconds since the epoch, read at request time — never stored.
-    pub modified_ms: i64,
+    /// mtime, milliseconds since the epoch, read at request time — never
+    /// stored. `None` when the platform reports no mtime, so no caller can
+    /// render a fabricated epoch date in its place.
+    pub modified_ms: Option<i64>,
     /// bytes / 4, integer division: an estimate, labelled as one on screen.
     pub estimated_tokens: u64,
 }
@@ -1461,8 +1463,7 @@ pub fn asset_body_of(document: &Path) -> Result<AssetBody, String> {
         .modified()
         .ok()
         .and_then(|m| m.duration_since(std::time::UNIX_EPOCH).ok())
-        .map(|d| d.as_millis() as i64)
-        .unwrap_or(0);
+        .map(|d| d.as_millis() as i64);
     Ok(AssetBody {
         path: document.to_string_lossy().to_string(),
         lines: text.split('\n').count(),
