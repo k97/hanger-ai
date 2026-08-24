@@ -64,6 +64,22 @@ describe("OverflowMenu", () => {
     expect(screen.queryByRole("menu", { name: "Actions" })).toBeNull();
   });
 
+  it("hangs the panel from its left edge when align=\"left\"", () => {
+    // The value ViewControl actually ships, and the one nothing guarded:
+    // hardcoding `right-0` regardless of `align` passed the whole suite.
+    // Asserting the absence of `right-0` too is what makes it a choice
+    // rather than a presence check — both classes could be emitted at once.
+    render(
+      <OverflowMenu trigger={(p) => <Trigger {...p} />} ariaLabel="Actions" align="left">
+        {() => <div>Item</div>}
+      </OverflowMenu>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Trigger" }));
+    const menu = screen.getByRole("menu", { name: "Actions" });
+    expect(menu.className).toContain("left-0");
+    expect(menu.className).not.toContain("right-0");
+  });
+
   it("hangs the panel from its right edge when align=\"right\"", () => {
     render(
       <OverflowMenu trigger={(p) => <Trigger {...p} />} ariaLabel="Actions" align="right">
@@ -71,7 +87,9 @@ describe("OverflowMenu", () => {
       </OverflowMenu>,
     );
     fireEvent.click(screen.getByRole("button", { name: "Trigger" }));
-    expect(screen.getByRole("menu", { name: "Actions" }).className).toContain("right-0");
+    const menu = screen.getByRole("menu", { name: "Actions" });
+    expect(menu.className).toContain("right-0");
+    expect(menu.className).not.toContain("left-0");
   });
 
   it("closes when an item calls the close callback it is handed", () => {
