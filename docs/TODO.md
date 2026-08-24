@@ -357,3 +357,91 @@ on each, and any renames have landed.
 **Not in scope:** re-reviewing copy he has already signed off — the empty and
 pending states from stage 2, the eyebrow forms, "Needs review", "Design
 system".
+
+---
+
+## T12 — The v4 hardening pass
+
+**Karthik asked for this on 2026-08-23**, after Phase 1's reviews found five
+tests that were live, green, and asserted nothing. It grew across all four
+phases. Recorded here because the per-phase SDD ledgers it came from live in
+`.superpowers/sdd/`, which is git-ignored and dies with the worktree.
+
+Every item below was **found by a reviewer, and most were proven by mutation** —
+the defect was planted, the suite stayed green, the defect was reverted. They
+are not suspicions.
+
+**Tests that assert nothing (proven: planting the defect left the suite green)**
+
+- `SegmentedTrack` capsule position — swapping `top` and `left` passes all three
+  of its tests. `happy-dom` returns 0 for every offset, so the capsule's whole
+  purpose is unverified. *Done when:* a running-build screenshot confirms it, or
+  the position logic moves somewhere assertable.
+- `SegmentedTrack` arrow-key wraparound — deleting wraparound entirely passes.
+  The keyboard test proves one non-wrapping step. *Done when:* ArrowLeft from
+  the first segment asserts a landing on the last, and ArrowRight from the last
+  on the first.
+- `OverflowMenu` `align` — hardcoding `right-0` regardless of `align` passes all
+  13 tests. `align="left"` is the only value shipping (`ViewControl`) and the one
+  nothing guards. *Done when:* `align="left"` asserts `left-0`.
+- `ProfilePane`'s `mcpReviewOnly` reset — deleting `setMcpReviewOnly(false)` from
+  `setSelectedCategory` passes all 49. *Done when:* a case selects Tools, toggles
+  review, switches category and back, and asserts the filter cleared.
+- The track/strip ordering assertion reads **markup** order, not paint order, and
+  never reads `className` — a CSS `order` flip, or reverting the four spacing
+  values, passes silently.
+
+**Nine more from Phases 1 and 2a**, recorded when they were parked: T3 icons
+(passes against any Heroicons mark), T4 `ListCard` divider (Tailwind CSS never
+loads under test), T5 `miniButton` (`toContain` proves presence, not
+exclusivity), T6 `ScanStamp` dead default and boundary gaps, T9 re-flow
+(alphabetical sort makes pre/post-layout indistinguishable), T10 missing absence
+assertion, T14 clamp never executes, F6 empty-directory branch never exercised,
+M5 `toolCount` equals `tools.length` in its own fixture.
+
+**Guards that cannot see what they exist to check**
+
+- `tokens_contrast.test.ts` collects pairs by matching `bg-*` **class names** in
+  `.tsx`. The capsule's surface comes from the `capsule-raised` CSS utility, and
+  no `.tsx` may ever spell `bg-capsule` — that is why the utility exists. So the
+  pair is invisible to it permanently, not merely yet. Measured by hand it is
+  fine (`--ink-1` on `--capsule`: 21:1 light, 15.7:1 dark). *Done when:* the
+  guard resolves `@utility` background declarations, or the pair is pinned
+  explicitly.
+- `no-frontend-counting` has a false positive on array-index arithmetic:
+  `(i - 1 + segments.length) % segments.length` trips the `+ …length` rule.
+  Worked around with a ternary rather than an allowlist entry (correctly).
+  *Done when:* the rule distinguishes index math from asset counting.
+- `issuesForAsset`'s registration-key branch is tested only against an id shape
+  `deriveReviewIssues` never builds. Faults carry the key
+  (`Tools:broken:<key>`); duplicates carry the name (`duplicate:Tools::<name>`),
+  so real MCP duplicates are reached by the `copies` branch, which has no test.
+  *Done when:* a `Tools:broken:<registrationKey>` fixture is queried by
+  `registrationKeys` alone.
+
+**Debt taken deliberately, with the reason**
+
+- `InspectorCapAsset` declares `name`, `path` and `scope`; the component reads
+  only `category`, and `App.tsx` constructs all three. Same shape as the dead
+  `count?` prop deleted from `FindingChip` in Phase 2a. *Done when:* the
+  interface carries only what is read.
+- `tbBtnClass` is byte-identical in `App.tsx` and `InspectorCap.tsx`. Extracting
+  it was ruled out at the time because App keeps needing its own copy for the
+  toolbar and extraction would stale two `DESIGN.md` citations. `tbBtnActiveClass`
+  is **not** duplicated — App's copy went when its button moved.
+- `forceShed` is production code whose only caller is a test. The measured shed
+  cannot run under `happy-dom` at all: its `ResizeObserver` exists but
+  `observe()` never fires, and `scrollWidth`/`clientWidth` stay 0.
+- `ViewControl`'s panel carries both `p-1` and `p-1.5`. Verified empirically (by
+  compiling the CSS) that `p-1.5` is emitted later and wins — but it depends on
+  Tailwind's emission order rather than anything declared.
+
+**Stale `DESIGN.md` citations predating this work** — found while writing the
+Phase 2b entry and left alone as out of scope. The "Shell" subsection cites
+`App.tsx:249` for the inspector's default width, plus three more nearby; and
+`DESIGN.md:384` says "24 components, flat in `src/components/`" against an
+actual **46**. Overlaps T2, which is the same class of drift. *Done when:* a
+citation pass covers both.
+
+**Not in scope:** re-litigating any ruling recorded in the phase ledgers or in
+the commit bodies — the reasoning travels with the commits that made each call.
