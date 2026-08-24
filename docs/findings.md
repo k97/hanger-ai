@@ -612,3 +612,50 @@ resolve the running process's own executable path (`sysinfo` exposes `exe()`,
 which this module does not currently read) and compare that against the
 declaration's resolved target. That answers `npx`, `uvx` and `bunx` with one
 mechanism instead of three tables.
+
+---
+
+**F53 — the MCP strip shows two units side by side, and says so nowhere.**
+Recorded 2026-08-24 from the running build at `a0e4d7d`, after Karthik looked
+at the shipped surface and observed that 19 appears consistently everywhere
+else.
+
+With MCP servers selected, the Global pane's summary strip reads:
+
+```
+19  MCP servers registered · 11 host configs read
+    ●  10 answered   ○  6 not yet asked   ⌁  7 can't be asked
+```
+
+`10 + 6 + 7 = 23`, against a headline of 19. **Neither figure is wrong.**
+
+- **19** is distinct server names — the same count the category chip, the list
+  header (`MCP SERVERS · 19`) and the foot (`Showing 19 of 144`) all carry, so
+  it is consistent across every other surface.
+- **23** is `(host, server name)` pairs. `mcp::engine_summary::McpEngineSummary`
+  says so in its own doc comment: the buckets are "(host, server name) pairs,
+  never a launch count and never a globally deduplicated server count." A
+  server registered by two hosts is one of the 19 and two of the 23.
+
+The plan for Phase 3 drew it this way deliberately — its Decision 7 states
+"**these are two units and the prototype draws them side by side**" and marks
+the question *unruled — report*. This entry is that report, now that the
+surface exists to look at.
+
+**Why it is not a defect.** The two counts answer different questions: how many
+servers are declared, and how many host-server pairs Hanger has managed to ask.
+A meter that deduplicated to 19 would have to pick one host's answer per server
+and discard the rest, which is the cross-host coverage the feature exists to
+show.
+
+**Why it is still worth recording.** Nothing on the surface tells a reader the
+meter is measuring something else, and the two numbers sit within about 200px
+of each other. The legend's words ("answered", "not yet asked") are about
+asking, which hints at it, but never names the unit.
+
+**Options, if it is taken up.** Leave it as drawn; or add a qualifier naming
+the meter's unit — new user-facing copy, so it needs a naming brief and
+Karthik's sign-off under `ui-copy.md`; or make the headline the pair count,
+which is worse, because it would then disagree with the chip above it and the
+list below it. Karthik's own reading on 2026-08-24 was that 19 reads
+consistently; no change was made.
