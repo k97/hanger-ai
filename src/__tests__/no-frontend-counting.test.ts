@@ -119,9 +119,24 @@ function getAllSrcFiles(dir: string): string[] {
   return files;
 }
 
-function isCountComputationLine(line: string): boolean {
+// Index arithmetic, not asset counting. A wraparound walks an array by
+// modulo — `(i - 1 + xs.length) % xs.length` — and the `+ xs.length` term
+// there rotates an index; it is not a total of anything. Recognised by the
+// modulo that immediately consumes the sum, which no asset count has.
+//
+// Narrow on purpose: it suppresses only the sum signal, so a line that is
+// index math AND reduces, or AND reads inventory, AND is named `…Count`,
+// still fails on those. `SegmentedTrack` currently avoids the shape with a
+// ternary rather than relying on this, so nothing in `src/` exercises the
+// exemption — the table in "distinguishes index math from asset counting"
+// below is what keeps it honest.
+const INDEX_WRAPAROUND = /\(\s*[^()]*[-+]\s*\d+\s*\+\s*[a-zA-Z0-9_$.?]*\.length\s*\)\s*%/;
+
+export function isCountComputationLine(line: string): boolean {
   // Pattern 1: .length in a numeric sum (+ operator directly with .length) or assigned to identifier matching /count|total/i
-  const hasLengthInSum = /\.length\s*\+|\+\s*[a-zA-Z0-9_$.?]*\.length|agentSkillsCount\s*\+/.test(line);
+  const hasLengthInSum =
+    !INDEX_WRAPAROUND.test(line) &&
+    /\.length\s*\+|\+\s*[a-zA-Z0-9_$.?]*\.length|agentSkillsCount\s*\+/.test(line);
   const hasLengthCountAssignment = /([a-zA-Z0-9_$]*(count|total)[a-zA-Z0-9_$]*\s*[:=].*\.length|const\s+totalGlobalAssets\s*=)/i.test(line);
   // `inventory\?\.` only caught optional chaining, so `inventory.skills.length`
   // — and anything not assigned to a count/total-named identifier, e.g. a bare
@@ -134,6 +149,32 @@ function isCountComputationLine(line: string): boolean {
 
   return hasLengthInSum || hasLengthCountAssignment || hasInventoryLengthAccess || hasReduce;
 }
+
+describe("the counting rule itself", () => {
+  // The exemption above has no caller in `src/` by design, so a scan of the
+  // tree can never exercise it. This table can, and fails if the rule stops
+  // telling the two apart in either direction.
+  const INDEX_MATH = [
+    "        focusSegment((index - 1 + segments.length) % segments.length);",
+    "  const next = (i + 1 + xs.length) % xs.length;",
+  ];
+  const REAL_COUNTING = [
+    "  const totalAssets = inventory.skills.length + inventory.tools.length;",
+    "  const n = items.reduce((acc, x) => acc + x, 0);",
+    "  const fooCount = rows.length;",
+    "  count: filteredAssets.length,",
+    "  return inventory.skills.length;",
+    // Counting wearing index math's clothes: the modulo suppresses only the
+    // sum signal, and the other three still catch each of these.
+    "  const skillCount = (i + inventory.skills.length) % inventory.skills.length;",
+    "  const t = (i + rows.length) % rows.length + other.length;",
+  ];
+
+  it("distinguishes index math from asset counting", () => {
+    expect(INDEX_MATH.filter(isCountComputationLine)).toEqual([]);
+    expect(REAL_COUNTING.filter((l) => !isCountComputationLine(l))).toEqual([]);
+  });
+});
 
 describe("No Frontend Counting Enforcement", () => {
   it("verifies that all count computations in src/ match the allowlist and no stale allowlist entries exist", () => {
