@@ -175,6 +175,35 @@ describe("ProfilePane Component-Level Filtering Integration", () => {
     fireEvent.click(within(strip).getByText("Needs review 1"));
     expect(screen.getByText("spades")).toBeTruthy();
   });
+
+  it("clears the Review filter when the category changes, so it never carries back to Tools", () => {
+    const counts = { total: 3, byCategory: { tool: { total: 2, global: 2, project: 0 } }, engines: {} };
+    const mcpServers = [
+      { name: "tauri", transport: "stdio", registration_count: 2, distinct_spec_count: 2, agreement: "Conflicting", aliased_with: [], plugin: null, registrations: ["/a:tauri", "/b:tauri"] },
+      { name: "spades", transport: "stdio", registration_count: 1, distinct_spec_count: 1, agreement: "Consistent", aliased_with: [], plugin: null, registrations: ["/a:spades"] },
+    ];
+    const summary = { rows: [{ engine_id: "claude-code", engine_name: "Claude Code", server_count: 2, tools_known: 4 }], total_server_count: 3, answered_server_count: 1, unasked_server_count: 2, unaskable_server_count: 0, conflicting_server_count: 1 };
+    render(<ProfilePane inventory={mockInventory} assetCounts={counts} mcpServers={mcpServers as never} serverGrouping="server" serverSort="name" mcpEngineSummary={summary} mcpCoverage={{ checked_file_count: 16, checked_engine_count: 2, checked_files: [], problems: [] }} loading={false} onSelectAsset={vi.fn()} onLinkAsset={vi.fn()} />);
+    const card = (label: string) =>
+      screen.getAllByText(label).find((el) => el.closest("[tabindex]"))!.closest("[tabindex]")!;
+    const pill = () => within(screen.getByLabelText("Inventory summary")).getByText("Needs review 1");
+
+    fireEvent.click(card("MCP servers"));
+    fireEvent.click(pill());
+    // The filter is genuinely on before the category moves — without this the
+    // rest could pass vacuously against a pill that never applied.
+    expect(screen.queryByText("spades")).toBeNull();
+    expect(pill().getAttribute("aria-pressed")).toBe("true");
+
+    fireEvent.click(card("Skills"));
+    fireEvent.click(card("MCP servers"));
+
+    // Both halves: the pill is unpressed AND the list it gates is unfiltered.
+    // Asserting only the row would pass a reset that left the pill lit.
+    expect(pill().getAttribute("aria-pressed")).toBe("false");
+    expect(screen.getByText("spades")).toBeTruthy();
+    expect(screen.getByText("tauri")).toBeTruthy();
+  });
 });
 
 describe("ProfilePane — the empty state is a finding, not a default", () => {
