@@ -652,7 +652,7 @@ export default function LinkMapPane({
                   onClick={() => setOnlyFaults((v) => !v)}
                   className={layerRowClass}
                 >
-                  Only drift and dangling
+                  Only drifted and dangling
                   <LayerSwitch on={onlyFaults} />
                 </button>
               </div>

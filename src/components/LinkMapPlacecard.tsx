@@ -49,7 +49,7 @@ interface LinkMapPlacecardProps {
   /** The node's faulty edges, restated as the map already draws them; empty means no chip. */
   findings: string[];
   findingSeverity: "warning" | "danger";
-  /** Review →: every finding routes to Needs review. */
+  /** Needs review →: every finding routes there. */
   onReview: () => void;
 }
 
@@ -299,7 +299,8 @@ export default function LinkMapPlacecard({
           </h2>
           {/* Drawn only for a node with a finding: a chip that is always
               there stops meaning anything. The dot on the canvas says which
-              node; this says it wants a decision; the popover says what. */}
+              node; the chip states the count; the popover lists what and
+              names where it goes. */}
           {findings.length > 0 && (
             <FindingChip
               severity={findingSeverity}

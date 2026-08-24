@@ -2,11 +2,11 @@ import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type 
 import { miniBtnClass, miniSetClass } from "./miniButton";
 
 /**
- * A finding is a chip with a popover (Karthik, 2026-08-23). The chip says
- * "this wants a decision" and is the thing you click; the popover says what,
- * once, and routes every finding to Needs review (docs/findings.md F34).
- * The dot carries the verdict's severity; the count, when drawn, says how
- * much is behind the chip before it opens.
+ * A finding is a chip with a popover (Karthik, 2026-08-23). The chip names
+ * the state — how many findings are behind it — and is the thing you click;
+ * the popover says what they are and names its own destination, once,
+ * routing every finding to Needs review (docs/findings.md F34). The dot
+ * carries the verdict's severity.
  *
  * The popover clamps to a surface rather than being hand-placed: anchored to
  * the chip, a 264px panel runs past a 300px placecard, so it measures its own
@@ -16,7 +16,6 @@ import { miniBtnClass, miniSetClass } from "./miniButton";
  */
 
 export interface FindingChipProps {
-  count?: number;
   severity: "warning" | "danger";
   lines: string[];
   onReview: () => void;
@@ -29,7 +28,7 @@ const REST_LEFT = 14;
 const ARROW_REST = 30;
 const POP_MARGIN = 12;
 
-export default function FindingChip({ count, severity, lines, onReview, elevated, clampTo }: FindingChipProps) {
+export default function FindingChip({ severity, lines, onReview, elevated, clampTo }: FindingChipProps) {
   const [open, setOpen] = useState(false);
   const [shift, setShift] = useState(0);
   const rootRef = useRef<HTMLSpanElement>(null);
@@ -84,14 +83,13 @@ export default function FindingChip({ count, severity, lines, onReview, elevated
         className={`${miniBtnClass} ${open ? "bg-plane-2" : ""}`}
       >
         <i aria-hidden="true" className={`w-2 h-2 rounded-pill shrink-0 not-italic ${dot}`} />
-        <span>Review</span>
-        {count !== undefined && <span className="tabular text-ink-3">{count}</span>}
+        <span>{lines.length} flagged</span>
       </button>
       {open && (
         <div
           ref={popRef}
           role="dialog"
-          aria-label="Needs a decision"
+          aria-label={`${lines.length} flagged`}
           data-testid="finding-popover"
           style={popStyle}
           className={`absolute top-[30px] z-40 w-[264px] p-3 flex flex-col gap-2.5 bg-page border border-line rounded-inner before:content-[''] before:absolute before:-top-1.5 before:left-[var(--arrow)] before:w-2.5 before:h-2.5 before:bg-page before:border-l before:border-t before:border-line before:rotate-45 ${
@@ -107,7 +105,7 @@ export default function FindingChip({ count, severity, lines, onReview, elevated
           </ul>
           <div className={miniSetClass}>
             <button type="button" onClick={onReview} className={miniBtnClass}>
-              Review →
+              Needs review →
             </button>
           </div>
         </div>

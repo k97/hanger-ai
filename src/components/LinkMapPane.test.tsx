@@ -440,7 +440,7 @@ describe("LinkMapPane", () => {
     fireEvent.click(screen.getByTestId("map-layers"));
     const panel = screen.getByTestId("map-layers-panel");
     const rows = Array.from(panel.querySelectorAll("button"));
-    expect(rows.map((r) => r.textContent)).toEqual(["Projects", "Unlinked roots", "Only drift and dangling"]);
+    expect(rows.map((r) => r.textContent)).toEqual(["Projects", "Unlinked roots", "Only drifted and dangling"]);
     expect(rows.map((r) => r.getAttribute("aria-pressed"))).toEqual(["true", "true", "false"]);
     // A switch, not a check mark: every row carries the 26×16 glyph.
     for (const row of rows) {
@@ -543,31 +543,31 @@ describe("LinkMapPane", () => {
     expect(callbacks.onOpenProject).toHaveBeenCalledWith("/u/k/w/metrics-board");
   });
 
-  it("a node with a faulty edge into it carries the Review chip; its popover restates the edges the map draws", () => {
+  it("a node with a faulty edge into it carries the 2 flagged chip; its popover restates the edges the map draws", () => {
     const callbacks = renderPane(graph());
     fireEvent.click(screen.getByTestId("map-node-4"));
     const card = screen.getByTestId("map-placecard");
-    const chip = within(card).getByRole("button", { name: "Review" });
+    const chip = within(card).getByRole("button", { name: "2 flagged" });
     // The chip sits on the head's own row beside the node name.
     expect(chip.closest("div")?.querySelector("h2")?.textContent).toBe("metrics-board");
     expect(chip.querySelector("i")?.className).toContain("bg-state-danger");
     fireEvent.click(chip);
-    const pop = screen.getByRole("dialog", { name: "Needs a decision" });
+    const pop = screen.getByRole("dialog", { name: "2 flagged" });
     expect(Array.from(pop.querySelectorAll("li")).map((li) => li.textContent)).toEqual([
       "1 tracked copy · drifted",
       "1 symlink · dangling",
     ]);
     // No second elevation inside the card.
     expect(pop.className).not.toContain("shadow-overlay");
-    fireEvent.click(within(pop).getByRole("button", { name: "Review →" }));
+    fireEvent.click(within(pop).getByRole("button", { name: "Needs review →" }));
     expect(callbacks.onReview).toHaveBeenCalledTimes(1);
   });
 
   it("a node with only linked edges, and the store, carry no chip", () => {
     renderPane(graph());
     fireEvent.click(screen.getByTestId("map-node-2"));
-    expect(within(screen.getByTestId("map-placecard")).queryByRole("button", { name: "Review" })).toBeNull();
+    expect(within(screen.getByTestId("map-placecard")).queryByRole("button", { name: /flagged/ })).toBeNull();
     fireEvent.click(screen.getByTestId("map-node-1"));
-    expect(within(screen.getByTestId("map-placecard")).queryByRole("button", { name: "Review" })).toBeNull();
+    expect(within(screen.getByTestId("map-placecard")).queryByRole("button", { name: /flagged/ })).toBeNull();
   });
 });
