@@ -212,4 +212,42 @@ describe("InspectorCap", () => {
     renderCap({ place: "hanger-ai" });
     expect(screen.getByRole("img", { name: "Skill · hanger-ai" })).toBeTruthy();
   });
+
+  it("never sheds an MCP server's cap: findings do not open a dangling ⋮ menu (forceShed=2)", () => {
+    renderCap({
+      asset: { name: "spades-audio", category: "Tools", path: "/repo/.mcp.json" },
+      onLink: undefined,
+      onOpenInEditor: undefined,
+      onCopyPath: undefined,
+      onReveal: undefined,
+      findings: ONE_FINDING,
+      forceShed: 2,
+    });
+    expect(screen.queryByRole("button", { name: "More actions" })).toBeNull();
+    expect(screen.getByRole("button", { name: "1 flagged" })).toBeTruthy();
+  });
+
+  it("never sheds an MCP server's cap: still no ⋮ at forceShed=1", () => {
+    renderCap({
+      asset: { name: "spades-audio", category: "Tools", path: "/repo/.mcp.json" },
+      onLink: undefined,
+      onOpenInEditor: undefined,
+      onCopyPath: undefined,
+      onReveal: undefined,
+      findings: ONE_FINDING,
+      forceShed: 1,
+    });
+    expect(screen.queryByRole("button", { name: "More actions" })).toBeNull();
+  });
+
+  it("still sheds Needs review · {n} for a non-server asset (forceShed=2) — regression guard for the server-cap fix", () => {
+    renderCap({ forceShed: 2, findings: ONE_FINDING });
+    expect(screen.queryByRole("button", { name: "1 flagged" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "More actions" }));
+    const menu = screen.getByRole("menu", { name: "More actions" });
+    const items = within(menu)
+      .getAllByRole("menuitem")
+      .map((b) => b.textContent);
+    expect(items).toEqual(["Link to…", "Needs review · 1", "Copy path", "Reveal in Finder", "Open in editor"]);
+  });
 });

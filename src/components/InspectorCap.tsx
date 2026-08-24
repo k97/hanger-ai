@@ -105,7 +105,12 @@ export default function InspectorCap({
 }: InspectorCapProps) {
   const rowRef = useRef<HTMLDivElement>(null);
   const [autoShed, setAutoShed] = useState<0 | 1 | 2>(0);
-  const shed = forceShed ?? autoShed;
+  // An asset with no overflow destination cannot shed (Decision 4): a server
+  // has no path to copy, nowhere to reveal, nothing to open, nothing to
+  // link, so pinning it to 0 overrides both the measured and forced shed
+  // regardless of how many findings it carries.
+  const canShed = Boolean(onLink || onCopyPath || onReveal || onOpenInEditor);
+  const shed = canShed ? forceShed ?? autoShed : 0;
 
   // Watches the row's own width to catch it growing back — the only signal
   // that can tell us a previously shed control might fit again, since a row
