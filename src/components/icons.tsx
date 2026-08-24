@@ -42,6 +42,7 @@ import {
   CpuChipIcon as HeroCpuChip,
   DocumentIcon as HeroDocument,
   DocumentTextIcon as HeroDocumentText,
+  EllipsisVerticalIcon as HeroEllipsisVertical,
   ExclamationCircleIcon as HeroExclamationCircle,
   ExclamationTriangleIcon as HeroExclamationTriangle,
   FolderIcon as HeroFolder,
@@ -144,6 +145,7 @@ export const ComputerDesktopIcon = sized(HeroComputerDesktop, 1.12);
 export const CpuChipIcon = sized(HeroCpuChip);
 export const DocumentIcon = sized(HeroDocument);
 export const DocumentTextIcon = sized(HeroDocumentText);
+export const EllipsisVerticalIcon = sized(HeroEllipsisVertical);
 export const ExclamationCircleIcon = sized(HeroExclamationCircle, 1.11);
 export const ExclamationTriangleIcon = sized(HeroExclamationTriangle, 1.04);
 export const FolderIcon = sized(HeroFolder);
