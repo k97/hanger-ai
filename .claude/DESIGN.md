@@ -122,10 +122,10 @@ One system stack, five sizes, two weights.
 The scale is closed at five steps — 11 / 12 / 13 / 16 / 32
 (`tokens.css:30-34`, registered as `text-micro`, `text-small`, `text-base-app`,
 `text-lg-app`, `text-display` at `index.css:82-87`). Two weights only:
-`--fw-regular: 400`, `--fw-medium: 500` (`tokens.css:35-36`).
+`--fw-regular: 400`, `--fw-medium: 500` (`tokens.css:67-68`).
 
 Body text is set in `--font-sans` at the document root with
-`-webkit-font-smoothing: antialiased` (`index.css:190-191`).
+`-webkit-font-smoothing: antialiased` (`index.css:260`).
 
 A `tabular` utility exists for figures that must not jitter as they change
 (`index.css:126-128`) and is applied wherever counts render.
@@ -148,7 +148,7 @@ fails if any `--spacing-<n>` is declared, and `:31-36` pins the base step to
 `0.25rem` if one is set at all.
 
 Two spacing constants are declared as tokens: `--gutter: 18px` and
-`--step: 8px` (`tokens.css:42-43`). The 18px gutter is what appears throughout
+`--step: 8px` (`tokens.css:76-77`). The 18px gutter is what appears throughout
 the panes as `px-[18px]` / `mx-[18px]`.
 
 ### Radius
@@ -235,8 +235,8 @@ asserted here, not enforced anywhere.
 
 Tailwind v4 durations are not themeable, so the three beats are declared as
 first-class utilities instead — `duration-hover`, `duration-nav`,
-`duration-press` (`index.css:115-125`) — alongside `ease-spring`
-(`index.css:112`).
+`duration-press` (`index.css:144-146`) — alongside `ease-spring`
+(`index.css:124`).
 
 Three entrance animations exist, each with a stated physical rationale:
 `animate-drop` for a sheet falling from the title bar, `animate-rise` for a
@@ -245,7 +245,7 @@ and `animate-tip` for tooltips, which scales from `0.97` rather than `0` because
 "nothing in the world appears from nothing" (`index.css:152-167`).
 
 All motion is removed under `prefers-reduced-motion: reduce`, transitions and
-animations both, with `!important` (`index.css:208-215`).
+animations both, with `!important` (`index.css:281-282`).
 
 ### Focus
 
@@ -259,7 +259,7 @@ zoom (`index.css:201-206`).
 ## 4. Icon system
 
 Icons are not used raw. Every export in `src/components/icons.tsx` is wrapped
-in `sized()` (`icons.tsx:82-94`), which does two things a plain import cannot.
+in `sized()` (`icons.tsx:111`), which does two things a plain import cannot.
 
 **Stroke compensation.** Heroicons' outline set is drawn on a 24px grid at 1.5
 stroke; at this shell's working sizes of 10–17px that thins to ~0.7px and goes
@@ -292,10 +292,10 @@ file's name — mapping the names literally would paint the white glyph onto
 **Brand marks.** Engines and MCP hosts are drawn with the vendor's own mark
 (`src/components/BrandIcon.tsx`), colour where the brand has colour, the
 vendor's `currentColor` form where it is monochrome — `ink: true` for
-Cursor, Windsurf, Zed, Copilot, OpenCode (`src/data/brands.ts:59-64`, the
-field's doc comment at `:42`). Eleven marks — nine from
+Cursor, Windsurf, Zed, Copilot, OpenCode (the `BrandId` union,
+`src/data/brands.ts:30-48`; the `source` field's doc comment at `:59`). Eleven marks — nine from
 `@lobehub/icons-static-svg`, VS Code and Zed vendored in `src/assets/brand/`
-(`brands.ts:9-20`) — plus one in-house generic `>_` fallback are joined into
+(`brands.ts:26-27`, alongside the generic fallback at `:28`) — plus one in-house generic `>_` fallback are joined into
 a sprite at module load (`BrandSprite.tsx:6-14`), mounted once in
 `main.tsx:19` (import `:7`), and referenced everywhere by `<use
 href="#brand-…">` (`BrandIcon.tsx:52-53`), so a mark's geometry exists once
@@ -316,16 +316,16 @@ One brand ships a second mark for the dark page: Codex's colour file paints
 a white plate that glares on `--page` dark, so `BrandMark` carries an
 optional `darkSvg` — "absent means the one mark serves both themes"
 (`brands.ts:38-41`) — and only `codex` sets it, to the vendor's own
-monochrome `codex.svg` (`brands.ts:52`). The sprite then emits a second
-symbol, `#brand-codex-dark` (`BrandSprite.tsx:6-14`), and `BrandIcon`
+monochrome `codex.svg` (`brands.ts:12`, wired at `:67`). The sprite then emits a second
+symbol, `#brand-codex-dark` (`BrandSprite.tsx:5`, emitted at `:10`), and `BrandIcon`
 renders two `<use>` elements whenever a brand has one (`BrandIcon.tsx:37`,
 `:52-53`). The swap is CSS, not state, so it rides the `.dark` toggle with
 no re-render and no flash (`BrandIcon.tsx:49-51`): three rules —
 `.brand-dark-only { display: none }`, `.dark .brand-light-only { display:
 none }`, `.dark .brand-dark-only { display: inline }`
-(`src/styles/index.css:125-127`) — because this project's dark mode is a
+(`src/styles/index.css:132-134`) — because this project's dark mode is a
 `.dark` class on `<html>` (§1, Theming mechanism) and declares no
-`@custom-variant dark` (`index.css:120-122`), under which a Tailwind
+`@custom-variant dark` (the absence is recorded at `index.css:127-131`), under which a Tailwind
 `dark:` utility would silently do nothing.
 
 Reach tiles hold the same mark at 12px in a 16px slot
@@ -381,9 +381,16 @@ Design record (local-only, not tracked in this repo):
 
 ## 5. Component inventory
 
-24 components, flat in `src/components/`, one per file, all default-exported
-with an `interface <Name>Props` declared directly above. Views are suffixed
-`Pane`.
+46 non-test `.tsx` files, flat in `src/components/` — no subdirectory — one
+component per file. Views are suffixed `Pane`.
+
+The "all default-exported, with an `interface <Name>Props` declared directly
+above" rule holds for most and has named exceptions, listed here so the rule
+is not read as universal: `icons.tsx` is a mark library of 62 named exports
+rather than a component, and `ScanStatusIndicator.tsx` exports a named
+`React.FC` instead of a default. Five more carry no `interface <Name>Props`
+— `BrandSprite`, `EngineReachTiles`, `MarkdownDoc`, `McpEngineSummary`,
+`McpServerDetail` — taking their props inline or from a shared type.
 
 ### Shell
 
@@ -1027,18 +1034,22 @@ colour, not the ground" (`:21-32`). It pluralises its own summary from `count`
 
 ### Shell
 
-Three fixed columns and a content area: icon rail (56px, `IconRail.tsx:40`),
-an optional source list (240px default, `App.tsx:220`, clamped 200–320),
-the pane, and an inspector (396px default, `App.tsx:249`, persisted under
-`inspector_width`, `App.tsx:512-514`). The body is
-`flex-1 flex overflow-hidden` (`App.tsx:838`).
+Three fixed columns and a content area: icon rail (`w-14`, so 56px,
+`IconRail.tsx:45`), an optional source list (216px default, `App.tsx:310`,
+clamped 216–320, `App.tsx:777`), the pane, and an inspector (384px default,
+`App.tsx:341`, persisted under `inspector_width` — read `App.tsx:802`,
+written `App.tsx:1177`). The body is `flex-1 flex min-h-0` (`App.tsx:1336`).
 
-The second column is view-dependent: Discovery renders none, review renders
-`ReviewSidebar`, everything else renders `Sidebar` (`App.tsx:865-886`).
+The second column is view-dependent, and the branch order is the map first:
+the **link map** renders none, `design` renders `DesignSystemSidebar` behind
+a `Suspense`, Discovery renders `DiscoverySidebar`, review renders
+`ReviewSidebar`, and everything else renders `Sidebar`
+(`App.tsx:1374-1432`).
 
-Views are switched by a single string state, not a router — `App.tsx:217`
-holds `selectedSidebarItem`, persisted under `selected_sidebar_item`
-(`App.tsx:851` and each rail handler).
+Views are switched by a single string state, not a router — `App.tsx:307`
+holds `selectedSidebarItem`, defaulting to `"profile"`, persisted under
+`selected_sidebar_item` (read at `App.tsx:758`, written at `:1040`, `:1126`
+and each rail handler).
 
 ### Window chrome — one vertical baseline
 
@@ -1182,7 +1193,7 @@ Two independent surfaces cap a scrolling body at exactly 240px —
 `DisclosureBanner.tsx:83` and the MCP tool list (@b383a08). Modal bodies cap
 differently: `max-h-[85vh]` for the shell and `max-h-[350px]` for its inner
 list (`SidebarScanModal.tsx:94`, `:160`). The repo pane's banner stack caps at
-`max-h-[45%]` (`RepoPane.tsx:302`).
+`max-h-[45%]` (`RepoPane.tsx:374`).
 
 ---
 
@@ -1239,13 +1250,13 @@ about sixty aliases — `--brand-lime`, `--brand-pink`, `--brand-violet`,
 `--n-0…--n-950`, `--warning-bg`, `--fs-row`, `--duration-rail`, `--hairline` —
 under a comment saying they are "revalued onto the mono palette so unmigrated
 components render coherently mid-migration; retired as tasks land"
-(`:51-52`). They are all still exported into the Tailwind namespace
+(`:85-86`). They are all still exported into the Tailwind namespace
 (`index.css:19-91`). The brand hues are revalued to `--ink-2`
-(`tokens.css:61-63`), so the names survive while their meaning has gone.
+(`tokens.css:95-97`), so the names survive while their meaning has gone.
 
 **The dark neutral ramp is partial.** Light declares `--n-0` through `--n-950`,
-thirteen stops (`tokens.css:77-89`); `.dark` redefines only four, `--n-0`
-through `--n-100` (`tokens.css:165-168`). Any component using `--n-200` or
+thirteen stops (`tokens.css:111-123`); `.dark` redefines only four, `--n-0`
+through `--n-100` (`tokens.css:216-219`). Any component using `--n-200` or
 darker gets the light value in dark mode. How I know: direct comparison of the
 two blocks.
 
@@ -1296,7 +1307,7 @@ sits alongside a 4px grid with nothing reading it.
 **Per-theme brand-mark files, for ten of the eleven brands.** `BrandMark`'s
 `darkSvg` field is optional and, by its own doc comment, "absent means the
 one mark serves both themes" (`src/data/brands.ts:38-41`). Only `codex` sets
-it, to the vendor's monochrome `codex.svg` (`brands.ts:52`); the other ten —
+it, to the vendor's monochrome `codex.svg` (`brands.ts:12`, wired at `:67`); the other ten —
 `claude_code`, `gemini`, `claude_desktop`, `claude_ai`, `vscode`, `cursor`,
 `windsurf`, `zed`, `copilot`, `opencode` (`BRANDS`, `brands.ts:47-65`) —
 have no per-theme variant, and none is needed.
