@@ -452,12 +452,40 @@ describe("LinkMapPane", () => {
   });
 
   it("Unlinked roots off removes the unlinked engine root and re-flows the column", () => {
-    renderPane(graph());
+    // The shared fixture cannot show a re-flow: its unlinked root is LAST in
+    // the engine column (y=90, with nothing beneath it), so filtering before
+    // layout and hiding after layout produce byte-identical output and the
+    // old assertions — node 3 gone, node 2 still there — passed either way.
+    // A third root BELOW the unlinked one is what makes the two distinguishable
+    // (`LinkMapPane.tsx:213-218` filters before `layoutLinkGraph`).
+    const g = graph();
+    const withThirdRoot = {
+      ...g,
+      nodes: [
+        ...g.nodes,
+        { id: 5, kind: "engine_root" as const, label: "Zed", path: "/u/k/.zed", asset_count: 2, linked: true,
+          skill_count: 2, rule_count: 0, subagent_count: 0, tool_count: 0, linked_from: 0, rules: [] },
+      ],
+    };
+    const yOf = (id: number) =>
+      screen.getByTestId(`map-node-${id}`).querySelector("rect")!.getAttribute("y");
+
+    renderPane(withThirdRoot);
     fireEvent.click(screen.getByTestId("map-layers"));
     expect(screen.getByTestId("map-node-3")).toBeTruthy();
+    const zedBefore = yOf(5);
+    const unlinkedY = yOf(3);
+    // Zed sits below the unlinked root, which is the whole point of the fixture.
+    expect(Number(zedBefore)).toBeGreaterThan(Number(unlinkedY));
+
     fireEvent.click(screen.getByTestId("chip-unlinked"));
+
     expect(screen.queryByTestId("map-node-3")).toBeNull();
     expect(screen.getByTestId("map-node-2")).toBeTruthy();
+    // Re-flow: Zed takes the slot the unlinked root vacated. Post-layout
+    // hiding would leave it exactly where it was.
+    expect(yOf(5)).toBe(unlinkedY);
+    expect(Number(yOf(5))).toBeLessThan(Number(zedBefore));
     expect(screen.getByTestId("chip-unlinked").getAttribute("aria-pressed")).toBe("false");
   });
 
