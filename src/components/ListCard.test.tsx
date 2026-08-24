@@ -24,6 +24,39 @@ describe("ListCard — the section format", () => {
     expect(screen.getByTestId("row-1").className).not.toContain("border-t");
   });
 
+  /**
+   * happy-dom never loads Tailwind's CSS, so whether `[&>*+*]:border-t`
+   * compiles to a rule and paints a hairline cannot be asserted here at all.
+   * That half is a screenshot claim and stays one.
+   *
+   * What IS assertable is the structural precondition the selector depends
+   * on, and which the class assertion above cannot see: `>` matches DIRECT
+   * children only. Wrap the rows in anything — a fragment host, a scroll
+   * div, a group per section — and every class string above stays correct
+   * while the dividers silently stop being drawn. That is a class of
+   * regression a substring check is blind to by construction.
+   */
+  it("keeps every row a direct child, which is what the >*+* selector needs", () => {
+    render(
+      <ListCard data-testid="card">
+        <ListCardRow data-testid="row-1" label="Assets" value="122" />
+        <ListCardRow data-testid="row-2" label="Skills" value="110" />
+        <ListCardRow data-testid="row-3" label="Rules" value="2" />
+      </ListCard>
+    );
+    const card = screen.getByTestId("card");
+    for (const id of ["row-1", "row-2", "row-3"]) {
+      expect(screen.getByTestId(id).parentElement, `${id} is not a direct child of the card`).toBe(card);
+    }
+    // And the card has no other element children that would take a divider
+    // of their own, or displace one from a row.
+    expect(Array.from(card.children).map((c) => c.getAttribute("data-testid"))).toEqual([
+      "row-1",
+      "row-2",
+      "row-3",
+    ]);
+  });
+
   it("a row is icon · label · right-aligned value, value in mono micro ink-3", () => {
     render(
       <ListCard>
