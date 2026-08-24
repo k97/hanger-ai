@@ -85,6 +85,16 @@ describe("the map cap", () => {
     expect(within(header).queryByText("Scanned moments ago")).toBeNull();
     expect(within(header).queryByText("Not scanned yet")).toBeNull();
     expect(within(header).queryByLabelText("Rescan")).toBeNull();
+
+    // Unmount HERE, not at the next `beforeEach`. `mockPreferences` is one
+    // mutable record shared by every test in this file, and `set_preference`
+    // writes into it (`:34`), so a still-mounted App can persist
+    // `selected_sidebar_item: "profile"` AFTER `beforeEach` has reset it to
+    // "linkmap" — leaving the next test on the wrong pane, with no map node
+    // to find. This is the only test here that leaves the map view, so it is
+    // the only one that can do that. Seen once in a full parallel run.
+    cleanup();
+    mockPreferences.selected_sidebar_item = "linkmap";
   });
 
   it("Show its assets goes to Global with the engine's own list in the inspector", async () => {
