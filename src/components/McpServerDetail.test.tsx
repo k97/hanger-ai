@@ -1124,8 +1124,14 @@ describe("McpServerDetail — the tool table and Context (M5)", () => {
             { name: "list_audio_apps", description: "List the apps currently producing audio." },
             { name: "undescribed" },
           ],
-          cost: { toolCount: 3, describedToolCount: 2, descriptionBytesTotal: 109,
-            perTool: [{ name: "get_system_volume", descriptionBytes: 69 }, { name: "list_audio_apps", descriptionBytes: 40 }, { name: "undescribed", descriptionBytes: 0 }] },
+          // Deliberately divergent, because the old fixture had toolCount ===
+          // tools.length (3 and 3) and a perTool entry for every tool. That
+          // made "reads the backend count" and "computes it from the array"
+          // indistinguishable, and "rows come from tools" indistinguishable
+          // from "rows come from perTool". Here the backend says 5 while the
+          // list holds 3, and `ghost_tool` is a perTool entry with no twin.
+          cost: { toolCount: 5, describedToolCount: 2, descriptionBytesTotal: 109,
+            perTool: [{ name: "get_system_volume", descriptionBytes: 69 }, { name: "list_audio_apps", descriptionBytes: 40 }, { name: "undescribed", descriptionBytes: 0 }, { name: "ghost_tool", descriptionBytes: 12 }] },
         } }}
       />
     );
@@ -1136,11 +1142,23 @@ describe("McpServerDetail — the tool table and Context (M5)", () => {
     expect(within(block).getByText("69 B")).toBeTruthy();
     expect(within(block).getByText("40 B")).toBeTruthy();
     expect(within(block).getAllByText("—")).toHaveLength(3);
-    // The tab and the section count carry the backend's figure.
-    expect(screen.getByRole("tab", { name: "Tools 3" })).toBeTruthy();
+    // The tab and the section count carry the backend's figure — 5, which is
+    // NOT `tools.length` (3), so an implementation that counted the array
+    // fails here.
+    expect(screen.getByRole("tab", { name: "Tools 5" })).toBeTruthy();
+    // Rows come from `result.tools`, never `cost.perTool`: `perTool` entries
+    // carry no description, so sourcing rows there would silently drop every
+    // one. `ghost_tool` has bytes and no tool, and must not draw a row.
+    expect(within(block).getByText("get_system_volume")).toBeTruthy();
+    expect(within(block).getByText("list_audio_apps")).toBeTruthy();
+    expect(within(block).getByText("undescribed")).toBeTruthy();
+    expect(screen.queryByText("ghost_tool")).toBeNull();
+    expect(screen.queryByText("12 B")).toBeNull();
+    // And the descriptions themselves render, which only the tools source has.
+    expect(within(block).getByText("Get the current macOS system volume level (0–100) and mute state.")).toBeTruthy();
     // The section leads the panel and is checkable against the table.
     const context = screen.getByRole("heading", { name: "Context per request" }).closest("section")!;
-    expect(context.textContent).toContain("Descriptions109 B · 2 of 3 tools");
+    expect(context.textContent).toContain("Descriptions109 B · 2 of 5 tools");
     expect(context.textContent).toContain("Input schemasthe remainder, not in the store");
     expect(context.textContent).toContain("A request carries the whole definition. Hanger keeps a tool’s name and its description and drops the schema, so the store can account for the smaller part of that figure and not the larger.");
     expect(context.textContent).not.toContain("tool definitions in every request");
