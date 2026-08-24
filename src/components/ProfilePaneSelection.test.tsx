@@ -34,7 +34,7 @@ describe("selecting one MCP server", () => {
         selectedAsset={{ id: "/home/.claude.json-tauri", path: "/home/.claude.json" } as any}
       />
     );
-    const selected = document.querySelectorAll('[aria-selected="true"], [data-selected="true"]');
+    const selected = document.querySelectorAll('[data-selected="true"]');
     expect(selected.length).toBe(1);
   });
 

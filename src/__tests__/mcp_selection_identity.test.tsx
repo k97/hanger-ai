@@ -123,9 +123,7 @@ describe("selecting one MCP server out of a file that declares four", () => {
     fireEvent.click(row.closest("[tabindex]") as HTMLElement);
 
     await waitFor(() => {
-      const marked = document.querySelectorAll(
-        '[aria-selected="true"], [data-selected="true"]'
-      );
+      const marked = document.querySelectorAll('[data-selected="true"]');
       expect(marked.length).toBe(1);
     });
   });
@@ -137,9 +135,7 @@ describe("selecting one MCP server out of a file that declares four", () => {
     fireEvent.click(row.closest("[tabindex]") as HTMLElement);
 
     await waitFor(() => {
-      const marked = document.querySelector(
-        '[aria-selected="true"], [data-selected="true"]'
-      );
+      const marked = document.querySelector('[data-selected="true"]');
       expect(marked?.textContent).toContain("Granola");
     });
   });
