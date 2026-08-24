@@ -577,6 +577,89 @@ already running; it comes from the answer, never from the panel's own
 `reg.running`, which can be minutes old. `verifying` is a list, not one key,
 so the panel can see that a request of either kind is outstanding.
 
+**Both inspectors open on their breakdown, not their identity.** `AssetDetail`
+switches Content/Details, defaulting to Content (`AssetDetail.tsx:156`, tabs
+`:399-406`); `McpServerDetail` switches Tools/Details, defaulting to Tools and
+resetting to it on every new server so a stale Environment tab never survives
+a selection change (`McpServerDetail.tsx:403-406`, tabs `:666-688`). Both
+switches are the same `UnderlineTabs` (Surfaces and controls, below). Every
+section beneath either tab strip takes the section format: an eyebrow label
+(`eyebrowClass`, `AssetDetail.tsx:109`; a plain `<h3>` on the MCP side,
+`HEADING`, `McpServerDetail.tsx:198`) above a `ListCard`/`ListCardRow` stack.
+
+**`AssetDetail` (`AssetDetail.tsx`), Content tab.** The document sits behind
+the same card shape as everything else: a filename row with a `View source`
+toggle when there is a formatted view to fall back from, then the rendered
+body — `MarkdownDoc` for a skill's markdown, formatted JSON for a config that
+parses, or the raw source either way (`:435-476`, the toggle's gate `:244`).
+For a skill specifically, a `Context` section sits above the document and
+states what the skill costs to have around: name and description always
+loaded, the whole file's size when it is opened, and an estimated token
+figure the row itself labels as one (`:411-433`). This differs from the MCP
+side's `Context per request` (below) by design — a skill's cost is paid
+once, on open; a server's is paid on every request, hence the different
+eyebrows.
+
+**`AssetDetail` (`AssetDetail.tsx`), Details tab.**
+- **Identity** carries Size and Modified once the body has loaded, both read
+  from `AssetBody` and never re-derived: Size is `formatBytes(bytes) · N
+  lines` (`:323-330`); Modified is a formatted date from `modified_ms`, and
+  the row is dropped outright when `modified_ms` is `null` rather than
+  rendering a fabricated date — the platform reported no mtime (`:331-347`;
+  the field is `number | null` on the frontend, `:64`, and `Option<i64>` on
+  the backend, `lib.rs:1447`). Rows built `:268-351`, rendered `:494-510`.
+- **Contents** lists a skill's folder, one row per top-level entry
+  (`:512-545`). A directory states how many files sit beneath it; a file
+  states its size; a symlink states neither — `LinkIcon` and an em dash —
+  because `list_asset_dir` classifies every entry with `symlink_metadata` and
+  never follows the link, so nothing on the far side of it was ever read
+  (`lib.rs:1569`, doc comment `:1547-1555`).
+- **Capabilities** lists the skill's declared `allowed-tools`, one row each;
+  a tool beginning `Bash` carries the value `Shell access`, every other tool
+  carries none (`:547-564`, the rule `:559`).
+- **Reach** groups every engine the backend holds a verdict for by why:
+  reaches it, root not linked, another engine's format (`REACH_GROUPS`,
+  `:126-130`; rendered `:573-632`). One `→ store` figure sits beside the
+  eyebrow, keyed off the asset's own root so it cannot disagree with the rows
+  beneath it (`:581-585`).
+
+**`McpServerDetail` (`McpServerDetail.tsx`), Tools tab.**
+- **Context per request → Composition** appears only once a probe has
+  answered with a `cost` (`:700-721`). A `Descriptions` row states the bytes
+  the store can account for (`formatBytes(descriptionBytesTotal) · M of N
+  tools`) beside an `Input schemas` row whose value is the constant string
+  "the remainder, not in the store" — schema bytes are never captured
+  (`ToolCost`, `probe.rs:112-121`, no schema field at all). The eyebrow reads
+  `Context per request`, not the skill's plain `Context`, because this cost
+  recurs on every request rather than once on open.
+- **The tool table** — `Tool` / `Description` / `Schema` header row
+  (`:341-345`), then one row per tool: its name, a description-bytes figure
+  or an em dash when `cost` did not travel with this probe, a `Schema` column
+  that is always an em dash because schema bytes are never measured, and the
+  description text itself beneath when the server sent one (`ProbedToolList`,
+  `:322-368`).
+
+**`McpServerDetail` (`McpServerDetail.tsx`), Details tab.**
+- **Identity & capabilities** is a `ListCard` of up to six rows: Server and
+  Protocol only when the handshake returned them, Transport always,
+  Tools/Resources/Prompts each `offered` or `not offered` from the server's
+  advertised capability list (`:906-947`, heading `:891`).
+- **The verdict card** appears only once there are two or more registrations
+  to compare (`:961-1003`). Its headline states how many times the server is
+  declared, and whether the same engine declares it twice (`:573`). Its
+  detail sentence — "All N launches agree — the same command from …" — is
+  drawn only when every launch agrees; a divergent launch is explained once,
+  beside the aligned diff in Registered in, rather than being said in both
+  places (`:587-589`, rendered `:977-979`). `Compare`, shown only when
+  launches or endpoints diverge, scrolls to that diff; `Open config` always
+  opens the first registration's file (`:982-1001`).
+- **Registered in** lists one row per registration: host and tier, the config
+  path with a reveal button, the launch itself only when hosts disagree about
+  it, this registration's own probe result once one exists, and a running
+  line only while a matching process is up (`:1005-1072`). Below the rows, a
+  warning sentence per kind of disagreement — endpoints, launches — and the
+  aligned launch diff for the latter (`:1073-1118`).
+
 `Flyout` is the asset inspector's coordinator and owns its own `<aside>`
 (@b383a08).
 
@@ -683,6 +766,20 @@ an optional 14px `icon`, a `label`, and either a mono `value` or a sans
 callers: the link map's placecards (`LinkMapPlacecard.tsx:15` import,
 `:239`, `:332`, `:385`); the doc comment states the inspector's sections
 are meant to take the same card next (`ListCard.tsx:10-11`).
+
+**`UnderlineTabs`** (`UnderlineTabs.tsx`, Karthik, 2026-08-22) — the
+inspector's view switch: labels in `--ink-2` on a `--line` baseline, the
+active one `--ink-1` at medium weight with a 2px rule beneath, sliding on the
+nav beat (`:4-9`). Deliberately a second idiom from the pane's category
+selector, which is a segmented track that filters a list — this switches
+views inside one surface instead (`:6-8`). A tab is `{id, label, count?}`
+(`:12-16`); props are `tabs`, `active`, `onChange`, `ariaLabel` (`:18-23`).
+The rule is positioned from the active tab's own box in a `useLayoutEffect`;
+a zero-width box, as under a test runner, draws no rule at all (`:31-38`,
+the `<i data-testid="tab-indicator">` it moves, `:67-72`). First callers:
+`AssetDetail`'s Content/Details switch (`AssetDetail.tsx:400-405`) and
+`McpServerDetail`'s Tools/Details switch, where Tools alone carries an
+optional count (`McpServerDetail.tsx:666-688`).
 
 **`FindingChip`** (`FindingChip.tsx`) — a chip plus an edge-clamped
 popover (Karthik, 2026-08-23): the chip says a node wants a decision;
@@ -939,6 +1036,28 @@ it, to the vendor's monochrome `codex.svg` (`brands.ts:52`); the other ten —
 `claude_code`, `gemini`, `claude_desktop`, `claude_ai`, `vscode`, `cursor`,
 `windsurf`, `zed`, `copilot`, `opencode` (`BRANDS`, `brands.ts:47-65`) —
 have no per-theme variant, and none is needed.
+
+**The MCP Context section states no request-wide total.** `Context per
+request` shows only what the store can account for — a `Descriptions` row
+with a real bytes figure, and an `Input schemas` row whose value is the fixed
+string "the remainder, not in the store" (`McpServerDetail.tsx:707-713`).
+There is no combined headline beside the section's own `<h3>` (`:702-704`)
+the way the skill's `Context` section states one (`AssetDetail.tsx:411-433`),
+because the backend's `ToolCost` carries no schema-bytes field to add in —
+the schema half of a tool definition is dropped before it ever reaches the
+store (`probe.rs:100-121`; the panel's own comment says the same,
+`:326-331`). The section understates the true per-request cost until schema
+bytes are kept somewhere.
+
+**`Runs from` — an Identity row naming a server's install path — is not
+built.** Its value would be the launch target, and only `args` carries that;
+`args` is deliberately never serialised across IPC — `Tool.args` is marked
+`#[serde(skip_serializing, default)]`, with a doc comment explaining why: a
+config can put a bearer token in `--header` or `--api-key`, and only
+`launch_display`, the backend's own redacted rendering, is meant to reach
+the frontend (`domain.rs:44-62`, the attribute `:61`). No row of that shape
+exists in `McpServerDetail.tsx`'s Identity & capabilities card (`:906-947`)
+or anywhere else in the panel.
 
 ---
 
