@@ -532,7 +532,6 @@ describe("issuesForAsset", () => {
 
   it("finds a server's issue by registration key alone, when neither its path nor its copies match", () => {
     const { issues, count, severity } = issuesForAsset(findingsDerivation, {
-      path: "~/.claude.json",
       registrationKeys: ["~/.claude.json:spades-audio"],
     });
 
