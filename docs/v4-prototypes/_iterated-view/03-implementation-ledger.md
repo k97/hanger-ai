@@ -273,10 +273,84 @@ un-assertable in `happy-dom`:
 
 ## Phase 2b — the inspector header
 
-Pending.
+**NOT RUN — skipped out of order, discovered 2026-08-24 after Phase 3 closed.**
+
+The brief was to execute the plans in numbered order. Execution went
+1 → 2a → **3**, and 2b was never dispatched: there is no
+`.superpowers/sdd/2026-08-23-v4-phase-2b-inspector-header/` workspace, and
+neither `InspectorCap` nor `OverflowMenu` exists under `src/components/`.
+Its six tasks (H1, H3–H7) are all outstanding.
+
+Phase 3's own header states "**Prerequisites:** Phases 1, 2a, 2b merged". That
+line was read during Phase 3's preflight and not acted on — the miss is
+recorded here rather than quietly repaired.
+
+**Phase 3 did not depend on it in practice.** The same header adds that the
+plan "touches none of their files except `SummaryStrip.tsx`", and the two
+plans' file sets are in fact disjoint apart from `App.tsx`, where Phase 3 added
+only the `mcpEngineSummary` state and its refresh. All four gates are green at
+Phase 3's final tree, so nothing shipped broken — but 2b is real, unexecuted
+work, and it is the change its own plan calls "the riskiest in the programme".
 
 ---
 
 ## Phase 3 — the strip and the track
 
-Pending.
+**Complete.** S1–S7 landed; S8 (screenshot) is human-gated and outstanding.
+
+Eight commits: `ce4ff2f` capsule tokens · `e40db04` `conflicting_server_count`
+· `cb47be2` forced tablist test edit (red) · `e3f7960` `SegmentedTrack` ·
+`e1c7c83` second forced test edit (red, controller ruling) · `2de751a` track
+above strip · `a066c9e` strip MCP mode · `778c766` forced fixture edit (red) ·
+`9509e63` panes feed the strip · `0532c44` DESIGN.md.
+
+### Gates — run at `0532c44`, `git status --porcelain` empty
+
+```
+$ npx vitest run                      # from the repo root
+ Test Files  92 passed (92)
+      Tests  766 passed (766)
+   Duration  5.75s
+
+$ cargo test                          # from src-tauri/
+binaries=36 passed=442 failed=0
+
+$ bunx tsc --noEmit; echo "tsc exit=$?"
+tsc exit=0
+
+$ gitleaks detect --source .
+INF 808 commits scanned.
+INF scanned ~7207409 bytes (7.21 MB) in 2.17s
+INF no leaks found
+exit=0
+
+$ gitleaks detect --source . --no-git -c .gitleaks.toml
+INF scanned ~10236577 bytes (10.24 MB) in 710ms
+INF no leaks found
+exit=0
+```
+
+Movement: frontend **750 → 766** (+16), backend **440 → 442** (+2).
+
+### Task S8 — screenshot, OUTSTANDING, awaiting Karthik
+
+Two things here cannot be asserted in `happy-dom` at all, both proven by
+mutation during review rather than assumed:
+
+1. **The capsule's position.** Swapping `top` and `left` in `SegmentedTrack`'s
+   positioning leaves all three of its tests passing, because every
+   `offsetTop`/`offsetLeft`/`offsetWidth` is 0 under the test environment.
+   "The capsule slides to the selection" — the point of the whole task — is
+   confirmed by nothing but a real capture.
+2. **The capsule's contrast**, which is outside `tokens_contrast.test.ts`
+   permanently and by construction: that guard collects `bg-*` class names
+   from `.tsx`, and the capsule's surface comes from the `capsule-raised` CSS
+   utility, which exists precisely because no `.tsx` line may contain the word
+   `shadow`. Measured by hand it is fine — `--ink-1` on `--capsule` is 21:1
+   light, 15.7:1 dark — but nothing will notice if either token moves.
+
+The plan's own capture list: Global with All (track above the strip); Skills
+selected (headline and noun); MCP servers selected with the summary loaded
+(coverage meter, facts line, the pill); the pill pressed (list filtered); and
+the window narrowed until the source list sits beside a 368px pane, to show
+the track scrolling. Read `selected_sidebar_item` before and after.
