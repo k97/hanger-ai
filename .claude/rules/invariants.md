@@ -65,3 +65,13 @@ disclosure. `SECRET_WORDS`, `looks_secret` and `HEADER_FLAGS` live once, in
 shipped: `observe` was fixed for two leak shapes and never learned the header
 handling its sibling already had, under a comment asserting parity that no test
 exercised. Adding a rule to one side without the other is the failure mode.
+
+**A bare `data-tauri-drag-region` fires only on the pointer's exact target.**
+Tauri's injected `drag.js` ends with
+`if (attr === '' || attr === 'true') return el === composedPath[0]` — an
+ancestor carrying the attribute never counts. So any positioned element that
+covers a cap's drag overlay kills dragging for the whole strip, silently and
+untestably: `happy-dom` has no paint order, so no test can catch it. Phase 2b
+broke every inspector drag this way by putting `relative` on a full-width row
+above the overlay. Keep drag-region children individually positioned and their
+container unpositioned, or use `data-tauri-drag-region="deep"`.

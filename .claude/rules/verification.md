@@ -86,6 +86,15 @@ Nothing else is evidence.
 - Browser-mock shims in application code. UI verification happens in the real
   Tauri window only; if it cannot be driven, hand verification to Karthik —
   never simulate it in a mocked web build.
+- **A green test in `happy-dom` is not evidence about geometry.** It lays
+  nothing out: every `offsetTop`/`offsetLeft`/`offsetWidth`/`scrollWidth` and
+  every `getBoundingClientRect` is 0, there is no paint order, and its
+  `ResizeObserver` exists (`typeof` is `"function"`) but `observe()` is a no-op
+  that never fires. So position, overflow, shedding, clamping and hit-testing
+  are unassertable here — swapping a capsule's `top` and `left` left three
+  tests green. Say which claims the environment cannot reach, and route them to
+  a screenshot rather than counting the green. A class-contract guard is an
+  honest substitute only if its comment says that is what it is.
 
 Backend-only work: when a task changes no meaningful UI, no screenshot is
 acceptable evidence for its exit criteria; a checkpoint that contains one is

@@ -37,3 +37,16 @@ time, and they commit to the same branch. `ListAgents` shows the others.
   away the hunks you just staged. Once you have staged deliberately, a bare
   `git commit` is what preserves that. `-a` is never right in this repo.
 - Say so before touching a file a peer is mid-edit on (`SendMessage`).
+
+- **Concurrent subagents share one git index, and that inverts the rule
+  above.** Two agents working in the same worktree on *disjoint* files must
+  commit with explicit paths — a bare `git commit` commits the whole index,
+  including whatever the sibling had just `git add`ed. The no-paths rule is for
+  a peer holding hunks in the *same file*; it is the wrong instruction for
+  disjoint concurrent work. Say which hazard applies when dispatching, not just
+  which command to run.
+- **`git commit -- <path>` cannot commit an untracked file** (`pathspec … did
+  not match any file(s) known to git`). New files need `git add` first; then
+  check `git diff --cached --name-only` lists only yours before committing.
+- Agents read unexpected commits as a peer's. If you commit while a subagent
+  runs, expect its report to attribute your work to a stranger.

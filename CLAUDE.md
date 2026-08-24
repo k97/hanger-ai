@@ -62,8 +62,8 @@ in `src/App.tsx`, persisted as the `selected_sidebar_item` preference.
   touching counting, scan warnings, or diagnostics UI; the DisclosureBanner
   rule.
 
-Queued work with a defined finish line lives in [docs/TODO.md](docs/TODO.md);
-two entries there are waiting on the concurrent sessions to end.
+Queued work with a defined finish line lives in [docs/TODO.md](docs/TODO.md).
+T1 was blocked on the concurrent sessions, which have now ended.
 
 ## Verification
 
@@ -85,15 +85,12 @@ checkout).
 
 ## Documentation
 
-`docs/` is tracked except for four local-only subdirectories listed in
-`.gitignore` (`to-be-reviewed/`, `superpowers/`, `evidence/`, `references/`).
+`docs/` is tracked except for four local-only subdirectories in `.gitignore`
+(`to-be-reviewed/`, `superpowers/`, `evidence/`, `references/`).
 `docs/to-be-reviewed/` is a holding pen, not a specification — several files
-there assert behaviour the code does not implement; check against the code
-first. `docs/harness.md` is the conceptual model (the harness, the standards
-it has, ownership versus reach). `docs/findings.md` records defects
-deliberately left unfixed, with evidence; `docs/roadmap.md` records deferred
-work with the reason it was deferred. `docs/archive/` holds retired
-agent-instruction files.
+there assert behaviour the code does not implement; check the code first.
+`docs/harness.md` is the conceptual model; `docs/findings.md` records defects
+deliberately left unfixed, with evidence; `docs/roadmap.md`, deferred work.
 
 ## Gaps
 

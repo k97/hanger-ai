@@ -10,6 +10,11 @@ Always on. This is the preventive half of the stage-gate reviews;
    When a task names an external reference (a design spec, an API doc, a
    standard), fetch it and cite it in the plan before implementing; building
    from memory of a named reference is a verification-integrity violation.
+   **A brief extracted from a plan is not the plan.** Extraction drops the
+   decisions a task depends on: twice in one cycle a worker called a
+   plan-mandated value "my interpretation" or made "a reasoned choice" for a
+   decision whose literal text sat in the same worktree. Before treating
+   anything as unspecified, grep the plan for it.
 2. **Simplest thing that works.** No speculative abstractions, no
    configurability nobody asked for. A shared component earns its existence
    with a second real caller, not a hunch that one is coming.
