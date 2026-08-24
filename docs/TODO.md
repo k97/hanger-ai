@@ -373,23 +373,39 @@ are not suspicions.
 
 **Tests that assert nothing (proven: planting the defect left the suite green)**
 
-- `SegmentedTrack` capsule position — swapping `top` and `left` passes all three
-  of its tests. `happy-dom` returns 0 for every offset, so the capsule's whole
-  purpose is unverified. *Done when:* a running-build screenshot confirms it, or
-  the position logic moves somewhere assertable.
-- `SegmentedTrack` arrow-key wraparound — deleting wraparound entirely passes.
-  The keyboard test proves one non-wrapping step. *Done when:* ArrowLeft from
-  the first segment asserts a landing on the last, and ArrowRight from the last
-  on the first.
-- `OverflowMenu` `align` — hardcoding `right-0` regardless of `align` passes all
-  13 tests. `align="left"` is the only value shipping (`ViewControl`) and the one
-  nothing guards. *Done when:* `align="left"` asserts `left-0`.
-- `ProfilePane`'s `mcpReviewOnly` reset — deleting `setMcpReviewOnly(false)` from
-  `setSelectedCategory` passes all 49. *Done when:* a case selects Tools, toggles
-  review, switches category and back, and asserts the filter cleared.
+The first four are **closed** (2026-08-25). Each was re-proven against the
+current tree before it was fixed — the defect planted, the suite watched to
+stay green — then the new test was watched to go red on that same defect
+before any green was counted. The red output travels in each commit body.
+
+- ~~`SegmentedTrack` capsule position~~ — **closed**, `7be2554`. Split in two,
+  because one test could not carry both halves. The wiring half is assertable
+  and now pinned: shadowing `offsetTop`/`offsetLeft`/`offsetWidth` with three
+  distinct values proves each reaches its own CSS property (planting the swap
+  in the layout effect *and* in the JSX style binding each fails it). The
+  geometry half is not assertable in `happy-dom` at all and was routed to a
+  screenshot, per `verification.md`: `docs/evidence/t12-capsule-*.png`, from
+  the running dev app, with the capsule on **MCP servers** — the third
+  segment, where `offsetLeft` is ~178pt and `offsetTop` is still the 4px
+  inset, so a swap would drive the capsule out of the track. On `All`, the
+  first segment, both offsets are the same 4px inset and the shot proves
+  nothing; that is why the third segment is the one captured.
+- ~~`SegmentedTrack` arrow-key wraparound~~ — **closed**, `7be2554`. ArrowLeft
+  from the first asserts a landing on the last and ArrowRight from the last on
+  the first. Each half was planted separately and fails independently.
+- ~~`OverflowMenu` `align`~~ — **closed**, `cea2a7c`. The count in the original
+  entry was wrong: `OverflowMenu.test.tsx` holds 6 tests, not 13. The claim
+  holds and is worse than recorded — hardcoding `right-0` passed **31** tests,
+  every one that touches the component (OverflowMenu 6, InspectorCap 20,
+  toolbar_avionics 5). Both edges now assert their own class *and* the absence
+  of the other, so it is a choice and not a presence check.
+- ~~`ProfilePane`'s `mcpReviewOnly` reset~~ — **closed**, `b675f98`. Deleting
+  the reset passed 70, not 49 (ProfilePaneIntegration 49, ProfilePaneSelection
+  6, mcp_card_row 15). The case asserts both halves — the pill unpressed and
+  the list it gates unfiltered — and each fails on its own.
 - The track/strip ordering assertion reads **markup** order, not paint order, and
   never reads `className` — a CSS `order` flip, or reverting the four spacing
-  values, passes silently.
+  values, passes silently. **Still open.**
 
 **Nine more from Phases 1 and 2a**, recorded when they were parked: T3 icons
 (passes against any Heroicons mark), T4 `ListCard` divider (Tailwind CSS never
