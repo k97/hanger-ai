@@ -38,6 +38,10 @@ let bodyPath = SOURCE;
 // that cares about the Context row's arithmetic overrides this; every other
 // test gets the values the suite has always returned.
 let bodyFigures = { bytes: 431, lines: 21, estimated_tokens: 107 };
+// The backend's mtime read, `Option<i64>` since 62cf6f8. Null when the
+// platform reports no mtime; a test that cares about the absent-mtime case
+// overrides this, every other test gets a real timestamp.
+let bodyModifiedMs: number | null = Date.UTC(2026, 6, 20, 12);
 let dirResult: Array<{ name: string; kind: string; bytes: number | null; file_count: number | null }> = [
   { name: "SKILL.md", kind: "file", bytes: 431, file_count: null },
   { name: "references/", kind: "dir", bytes: null, file_count: 3 },
@@ -52,7 +56,7 @@ vi.mock("@tauri-apps/api/core", () => ({
           path: bodyPath,
           text: bodyResult.text,
           ...bodyFigures,
-          modified_ms: Date.UTC(2026, 6, 20, 12),
+          modified_ms: bodyModifiedMs,
         };
       throw bodyResult.error;
     }
@@ -97,6 +101,7 @@ describe("Asset detail — the inspector's document screen", () => {
     bodyResult = { ok: true, text: DOC };
     bodyPath = SOURCE;
     bodyFigures = { bytes: 431, lines: 21, estimated_tokens: 107 };
+    bodyModifiedMs = Date.UTC(2026, 6, 20, 12);
     dirResult = [
       { name: "SKILL.md", kind: "file", bytes: 431, file_count: null },
       { name: "references/", kind: "dir", bytes: null, file_count: 3 },
@@ -294,6 +299,20 @@ describe("Asset detail — the inspector's document screen", () => {
     expect(within(section).getByText("Modified").nextElementSibling?.textContent).toBe("Jul 20, 2026");
     expect(within(section).getByText("Size").nextElementSibling?.textContent).toBe("431 B · 21 lines");
     expect(section.querySelector("dl")).toBeNull();
+  });
+
+  it("omits the Modified row when the file has no mtime, rather than inventing an epoch date", async () => {
+    bodyModifiedMs = null;
+    render(<AssetDetail asset={asset} inventory={inventory} />);
+    await screen.findByRole("tab", { name: "Details" });
+    openDetails();
+    const section = screen.getByText("Identity").closest("section")!;
+    const rows = Array.from(section.querySelectorAll('[data-testid^="identity-row-"]')).map((r) => r.getAttribute("data-testid"));
+    expect(rows).not.toContain("identity-row-modified");
+    expect(within(section).queryByText("Modified")).toBeNull();
+    expect(screen.queryByText("Jan 1, 1970")).toBeNull();
+    // Size still renders — only the unmeasurable field is dropped.
+    expect(within(section).getByText("Size").nextElementSibling?.textContent).toBe("431 B · 21 lines");
   });
 
   it("lists what else is in the skill's folder, folders with their file counts", async () => {

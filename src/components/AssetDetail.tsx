@@ -58,7 +58,10 @@ interface AssetBody {
   text: string;
   bytes: number;
   lines: number;
-  modified_ms: number;
+  /** `None` when the platform reports no mtime (or it predates the epoch) —
+   *  never a fabricated zero. The Modified row is omitted rather than
+   *  rendering that as a date. */
+  modified_ms: number | null;
   estimated_tokens: number;
 }
 
@@ -323,16 +326,23 @@ export default function AssetDetail({ asset, inventory, onLink, annotation }: As
             icon: <DocumentIcon size={14} aria-hidden="true" />,
             value: `${formatBytes(body.bytes)} · ${body.lines} lines`,
           },
-          {
-            key: "modified",
-            label: "Modified",
-            icon: <ClockIcon size={14} aria-hidden="true" />,
-            value: new Date(body.modified_ms).toLocaleDateString("en-US", {
-              month: "short",
-              day: "numeric",
-              year: "numeric",
-            }),
-          },
+          // Hide-at-zero: `modified_ms` is `None` when the platform reports
+          // no mtime, so the row is omitted rather than rendering a
+          // fabricated epoch date (formerly `unwrap_or(0)` → "Jan 1, 1970").
+          ...(body.modified_ms !== null
+            ? [
+                {
+                  key: "modified",
+                  label: "Modified",
+                  icon: <ClockIcon size={14} aria-hidden="true" />,
+                  value: new Date(body.modified_ms).toLocaleDateString("en-US", {
+                    month: "short",
+                    day: "numeric",
+                    year: "numeric",
+                  }),
+                },
+              ]
+            : []),
         ]
       : []),
     ...specRows,
