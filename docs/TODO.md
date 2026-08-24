@@ -524,12 +524,30 @@ executed".
   panel's shadow, radius and animation, not its padding, so no citation went
   stale. Guarded against a second one creeping back.
 
-**Stale `DESIGN.md` citations predating this work** — found while writing the
-Phase 2b entry and left alone as out of scope. The "Shell" subsection cites
-`App.tsx:249` for the inspector's default width, plus three more nearby; and
-`DESIGN.md:384` says "24 components, flat in `src/components/`" against an
-actual **46**. Overlaps T2, which is the same class of drift. *Done when:* a
-citation pass covers both.
+~~**Stale `DESIGN.md` citations predating this work**~~ — **closed**,
+`5c5ac3d`. Both named spots fixed, and both were worse than recorded. Every
+one of the Shell subsection's eight citations was stale, and four of its
+claims were wrong as well as mis-cited — the inspector is 384px not 396
+(there is no `396` in `App.tsx` at all), the source list clamps 216–320 not
+200–320, and it is the **link map** that renders no second column, not
+Discovery, which has one. The inventory said 24 components against 46, under
+a "all default-exported with an `interface <Name>Props`" rule that has seven
+exceptions, now named.
+
+Checking those turned up that the drift is systemic. All 215 `file:line`
+citations in `DESIGN.md` are IN BOUNDS, so a bounds check proves nothing
+here: `App.tsx:249` was in bounds and pointed at a comment about Appearance.
+Checking whether the backticked token beside a citation appears near the
+cited line found **16 of 25** such citations stale; all repointed, each
+verified against the code.
+
+**No guard shipped, deliberately.** The bounds rule cannot see this failure,
+and the proximity rule false-positives on any paraphrased token — it flagged
+`sized()` against `function sized(Icon: SvgIcon`, and
+`display: inline }` against `display: inline;`. A guard authors must write
+around is worse than none. **For T2:** the 190 citations with no adjacent
+token are unchecked by any means, and the ~25 with one now pass proximity —
+that is the state to start from.
 
 **Not in scope:** re-litigating any ruling recorded in the phase ledgers or in
 the commit bodies — the reasoning travels with the commits that made each call.
