@@ -362,4 +362,31 @@ describe("Avionics A5 — Docked Right Inspector Integration", () => {
       expect(screen.queryByText(/characters/i)).toBeNull();
     });
   });
+
+  it("12. A clicked, project-scoped asset resolves its own place — not Global — in the cap eyebrow and Identity's Scope row", async () => {
+    setupMockInvoke("true");
+    render(<App />);
+
+    // "Inspector Skill One" is fixtured with `scope: { Project: { agent:
+    // "claude", root: "~/Work/demo" } } }` — its place is the repo's own
+    // basename, "demo", never the global store.
+    const skillRow = await screen.findByText("Inspector Skill One");
+    fireEvent.click(skillRow);
+
+    // The cap's eyebrow (`SKILL · <place>`) renders as soon as the row is
+    // selected, without opening Details.
+    await waitFor(() => {
+      const eyebrow = screen.getByTestId("inspector-cap-eyebrow");
+      expect(eyebrow.textContent).toContain("demo");
+      expect(eyebrow.textContent).not.toContain("Global");
+    });
+
+    // Identity's own Scope row states the same place.
+    fireEvent.click(await screen.findByRole("tab", { name: "Details" }));
+    await waitFor(() => {
+      const scopeRow = screen.getByTestId("identity-row-scope");
+      expect(scopeRow.textContent).toContain("demo");
+      expect(scopeRow.textContent).not.toContain("Global");
+    });
+  });
 });

@@ -975,6 +975,11 @@ export default function App() {
         source_origin: fullAsset.source_origin,
         isSymlink: !!fullAsset.is_symlink,
         is_symlink: !!fullAsset.is_symlink,
+        // The scope object itself, not just its display string below —
+        // `provenanceOf`/`placeOf` (assetProvenance.ts) read `scope` to
+        // resolve where the asset actually lives. Without it every clicked
+        // asset resolved to "Global" regardless of its real scope.
+        scope: fullAsset.scope,
         scopeBadge: fullAsset.scope?.Global ? "Global" : "Project",
         version: fullAsset.version,
         details: asset.category === "Skills" 
