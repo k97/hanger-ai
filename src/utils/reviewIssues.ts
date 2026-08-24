@@ -417,7 +417,17 @@ export function issuesForAsset(
   for (const issue of derivation.issues) {
     const ownPath = asset.path !== undefined && issue.path === asset.path;
     const asCopy = asset.path !== undefined && (issue.copies?.includes(asset.path) ?? false);
-    const asRegistration = asset.registrationKeys?.some((key) => issue.id.endsWith(key)) ?? false;
+    // Whole-id equality, not `endsWith`. A fault id is
+    // `${category}:${fault}:${identity}` (see the id built above) and a
+    // server's identity is its registration key, so the key's id can be
+    // reconstructed exactly. A suffix match let one config path end another —
+    // `/b/a/.claude.json:x` ends with `/a/.claude.json:x` — and handed a
+    // healthy server a different server's fault, which is the failure the
+    // 2026-08-24 ruling closed for `path` and this reopened through `id`.
+    const asRegistration =
+      asset.registrationKeys?.some(
+        (key) => issue.id === `${issue.category}:${issue.kind}:${key}`
+      ) ?? false;
     const asServerDuplicate =
       asset.serverName !== undefined &&
       issue.category === "Tools" &&

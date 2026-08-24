@@ -648,3 +648,49 @@ describe("issuesForAsset — a server matches by identity, not by its config fil
     expect(severity).toBe("warning");
   });
 });
+
+/**
+ * The same "one server gets its neighbour's findings" failure Karthik's
+ * 2026-08-24 ruling closed for config-file paths, reopened through the id.
+ * Two servers named `x`, in two different files, where one config path is a
+ * suffix of the other: `"/b/a/.claude.json:x".endsWith("/a/.claude.json:x")`
+ * is true, so a suffix match hands the healthy server in `/a/.claude.json` a
+ * fault that belongs to a different server entirely.
+ */
+const suffixDerivation: ReviewDerivation = {
+  issues: [
+    {
+      id: "Tools:broken:/b/a/.claude.json:x",
+      name: "x",
+      category: "Tools",
+      kind: "broken",
+      problem: "Target missing",
+      path: "/b/a/.claude.json",
+      whereLabel: "one",
+      whereKeys: ["/one"],
+      crossRepo: false,
+    },
+  ],
+  counts: { broken: 1, drifted: 0, duplicate: 0, parse: 0, crossRepo: 0, total: 1 },
+  places: [],
+};
+
+describe("issuesForAsset — a registration key matches whole, never as a suffix", () => {
+  it("does not hand a server the fault of another whose config path ends the same way", () => {
+    const { issues, count } = issuesForAsset(suffixDerivation, {
+      registrationKeys: ["/a/.claude.json:x"],
+    });
+
+    expect(issues).toEqual([]);
+    expect(count).toBe(0);
+  });
+
+  it("still finds the fault for the server the key actually belongs to", () => {
+    const { issues, count } = issuesForAsset(suffixDerivation, {
+      registrationKeys: ["/b/a/.claude.json:x"],
+    });
+
+    expect(issues.map((i) => i.id)).toEqual(["Tools:broken:/b/a/.claude.json:x"]);
+    expect(count).toBe(1);
+  });
+});
