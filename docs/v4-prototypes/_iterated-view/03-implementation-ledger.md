@@ -172,7 +172,102 @@ exit 0
 
 ## Phase 2a — the inspector body
 
-Pending.
+Complete. 33 commits across three parallel lanes — the Rust backend, the asset
+inspector, and the MCP server panel — plus nine correction commits landing
+Karthik's rulings of 2026-08-24.
+
+### Gates at `d273c09`
+
+```
+$ npx vitest run          # from the repo root
+
+ Test Files  90 passed (90)
+      Tests  750 passed (750)
+   Duration  4.93s
+```
+exit 0  (Phase 1 closed at 89 files / 729 tests; this phase added 1 file, 21 tests)
+
+```
+$ cargo test              # from src-tauri/
+
+every suite "test result: ok."; 440 passed, 0 failed.
+```
+exit 0  (Phase 1 closed at 430)
+
+```
+$ bunx tsc --noEmit
+(no output)
+```
+exit 0
+
+```
+$ gitleaks detect --source .
+797 commits scanned.
+scanned ~7158060 bytes (7.16 MB) in 2.62s
+no leaks found
+```
+exit 0
+
+```
+$ gitleaks detect --source . --no-git -c .gitleaks.toml
+scanned ~10196300 bytes (10.20 MB) in 666ms
+no leaks found
+```
+exit 0
+
+**Running-binary provenance:** `find src-tauri/src -type f -newer
+src-tauri/target/debug/tauri-app` returns empty, so the dev app's Rust side
+carries every backend change in the tree — including this phase's
+`symlink_metadata` and `Option<i64>` work, which rebuilt and restarted the app.
+
+### How the suite went green
+
+Four tests stood red when the phase's implementation finished, and both causes
+were resolved by ruling rather than by editing assertions:
+
+- Three failed because the verdict card repeated, word for word, a sentence the
+  Registered-in section already rendered on the same tab. The card now carries
+  a detail line **only when the launches agree**; the diverging explanation
+  stays beside the aligned diff that shows which part differs. **The three tests
+  went green untouched** — `git diff` on the test file after the fix was empty.
+- One failed because `UnderlineTabs` correctly marks the active tab with
+  `aria-selected`, which a row-count assertion was matching. The query narrowed
+  to `[data-selected="true"]` — what rows actually carry — at all three sites
+  that had it, including two that were passing only by document order. No
+  assertion's matcher or expected value changed, proved by an empty
+  `git diff | grep "^[-+].*expect"`.
+
+### Copy signed off
+
+Thirty first-time strings had landed marked "unsigned" across both plans —
+the convention those plans adopted, which `.claude/rules/ui-copy.md` does not
+permit. Karthik reviewed both Copy tables on 2026-08-24 and five changes
+followed: the finding chip now states a count (`{n} flagged`) rather than
+promising an action two clicks away, with its accessible name finally matching
+its visible text and its action naming its destination (`Needs review →`);
+the summary strip's pill became `Needs review {n}` with no arrow, because it is
+a filter toggle and nothing navigates; `In this skill` became `Contents`;
+`runs commands` became `Shell access`; `Only drift and dangling` became
+`Only drifted and dangling`, matching the map legend's own words.
+
+### Task 17 and S1 — screenshots, OUTSTANDING, awaiting Karthik
+
+Neither phase's screenshot has been taken. The dev app is running from this
+worktree and Karthik is at the keyboard, so driving it with synthetic clicks
+was not something to do unasked. Five things the captures must settle, all
+un-assertable in `happy-dom`:
+
+1. **The `ListCard` divider** — drawn only between rows, never beneath the last,
+   never on a one-row card. The unit test can only assert a class substring,
+   because Tailwind's compiled CSS never loads in the test environment.
+2. **The state dot's ring** — whether `stroke-page` reads as a cutout against
+   the node's own `fill-page`, or as a visible border.
+3. **The finding popover's clamp** — its correction branch never executes under
+   `happy-dom`, where every `getBoundingClientRect` is 0x0.
+4. **The symlink row** in Contents — `LinkIcon` and an em dash, a controller
+   ruling rather than a plan decision, and the one change here Karthik has not
+   seen rendered.
+5. **The new copy in situ** — the five strings above at real width.
 
 ---
 
