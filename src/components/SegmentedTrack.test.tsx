@@ -42,6 +42,45 @@ describe("SegmentedTrack", () => {
     expect(onSelect).toHaveBeenLastCalledWith("Skills");
   });
 
+  it("wraps the arrow keys around both ends of the track", () => {
+    render(<SegmentedTrack segments={segments} selectedId="all" onSelect={vi.fn()} ariaLabel="Filter by category" />);
+    const first = screen.getByRole("tab", { name: "All 144" });
+    const last = screen.getByRole("tab", { name: "MCP servers 19" });
+    // The two steps the non-wrapping walk cannot take. Deleting wraparound
+    // leaves focus where it was, so asserting the landing — not merely that
+    // focus moved — is what makes this fail.
+    first.focus();
+    fireEvent.keyDown(first, { key: "ArrowLeft" });
+    expect(document.activeElement).toBe(last);
+    fireEvent.keyDown(last, { key: "ArrowRight" });
+    expect(document.activeElement).toBe(first);
+  });
+
+  it("hands the selected tab's measured box to the capsule, each offset to its own property", () => {
+    // happy-dom lays nothing out: every offset reads 0, so the capsule's real
+    // geometry cannot be asserted here (verification.md, "a green test in
+    // happy-dom is not evidence about geometry"). Shadowing the three offsets
+    // with three DISTINCT values proves the part that is assertable — that
+    // offsetTop reaches `top`, offsetLeft reaches `left`, and offsetWidth
+    // reaches `width`, rather than each other. That the capsule then lands
+    // under the selected tab on screen is a screenshot claim, not this one.
+    const { rerender } = render(
+      <SegmentedTrack segments={segments} selectedId="all" onSelect={vi.fn()} ariaLabel="Filter by category" />,
+    );
+    const skills = screen.getByRole("tab", { name: "Skills 110" });
+    // None of these equals another, and none equals the resting {top:4,left:4,width:0}.
+    Object.defineProperty(skills, "offsetTop", { value: 6, configurable: true });
+    Object.defineProperty(skills, "offsetLeft", { value: 96, configurable: true });
+    Object.defineProperty(skills, "offsetWidth", { value: 120, configurable: true });
+    rerender(
+      <SegmentedTrack segments={segments} selectedId="Skills" onSelect={vi.fn()} ariaLabel="Filter by category" />,
+    );
+    const capsule = screen.getByTestId("track-capsule");
+    expect(capsule.style.top).toBe("6px");
+    expect(capsule.style.left).toBe("96px");
+    expect(capsule.style.width).toBe("120px");
+  });
+
   it("draws a spinner for a count that has not arrived, while loading", () => {
     render(<SegmentedTrack segments={[{ id: "all", label: "All" }]} selectedId="all" onSelect={vi.fn()} ariaLabel="x" loading />);
     expect(screen.getByRole("tab").querySelector("svg.animate-spin")).toBeTruthy();
