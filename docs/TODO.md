@@ -494,22 +494,35 @@ had recorded wrongly.
   through `id`, where its `never` arms could not see it. Now whole-id
   equality.
 
-**Debt taken deliberately, with the reason**
+**Debt taken deliberately, with the reason** — **all four addressed**
+(2026-08-25). Only the first carried a *Done when*; for the other three the
+reasons were re-checked and found to still hold, so each got the control it
+was missing rather than a rewrite. A decision recorded and left unguarded is
+the failure `verification.md` calls "a ruling recorded is not a ruling
+executed".
 
-- `InspectorCapAsset` declares `name`, `path` and `scope`; the component reads
-  only `category`, and `App.tsx` constructs all three. Same shape as the dead
-  `count?` prop deleted from `FindingChip` in Phase 2a. *Done when:* the
-  interface carries only what is read.
-- `tbBtnClass` is byte-identical in `App.tsx` and `InspectorCap.tsx`. Extracting
-  it was ruled out at the time because App keeps needing its own copy for the
-  toolbar and extraction would stale two `DESIGN.md` citations. `tbBtnActiveClass`
-  is **not** duplicated — App's copy went when its button moved.
-- `forceShed` is production code whose only caller is a test. The measured shed
-  cannot run under `happy-dom` at all: its `ResizeObserver` exists but
-  `observe()` never fires, and `scrollWidth`/`clientWidth` stay 0.
-- `ViewControl`'s panel carries both `p-1` and `p-1.5`. Verified empirically (by
-  compiling the CSS) that `p-1.5` is emitted later and wins — but it depends on
-  Tailwind's emission order rather than anything declared.
+- ~~`InspectorCapAsset`~~ — **closed**, `bd26400`. Narrowed to `category`,
+  the only field read. `capAsset` is an annotated object literal, so
+  excess-property checking makes the compiler the control: narrowing alone,
+  before touching callers, errors at `App.tsx:1216` and three fixtures. The
+  fixture edit could not be split into its own commit — the wide interface
+  REQUIRES `name` there and the narrow one forbids it, so no ordering leaves
+  both halves typechecking; reported in the commit body instead.
+- ~~`tbBtnClass`~~ — guarded, `223e7f3`. Both reasons still true, and the two
+  copies are still byte-identical. But a duplicate taken on purpose still
+  drifts, and nothing would have noticed. Now three plants fail it: drift, a
+  third declaring file, and a rename (which throws rather than passing on
+  nothing, per the text-guard warning).
+- ~~`forceShed`~~ — guarded, `5baa71c`. Reason still true; happy-dom's
+  `observe()` is still a no-op. The unguarded failure is a *production* call
+  site passing it, which pins the shed and disables the measured path at
+  `InspectorCap.tsx:141`, with nothing red because the suite passes this prop
+  on purpose.
+- ~~`ViewControl`'s `p-1`/`p-1.5`~~ — **fixed**, `6623d2d`. Padding moved to
+  the call sites, so exactly one lands on the panel and nothing depends on
+  Tailwind's emission order. Rendered output unchanged; DESIGN.md cites the
+  panel's shadow, radius and animation, not its padding, so no citation went
+  stale. Guarded against a second one creeping back.
 
 **Stale `DESIGN.md` citations predating this work** — found while writing the
 Phase 2b entry and left alone as out of scope. The "Shell" subsection cites
