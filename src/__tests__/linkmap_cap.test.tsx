@@ -64,6 +64,29 @@ describe("the map cap", () => {
     expect(stamp.nextElementSibling?.contains(rescan) || stamp.nextElementSibling === rescan).toBe(true);
   });
 
+  it("keeps the stamp out of another view's header — the toolbar slot is the map's alone", async () => {
+    // The sibling above asserts only PRESENCE in the map view, so a stamp
+    // that leaked into every view's toolbar would pass it. The slot is gated
+    // on `selectedSidebarItem === "linkmap"` (`App.tsx:1518`); this is the
+    // other half of that gate. The panes' own stamp lives inside SummaryStrip,
+    // which is not the banner, so scoping to the header keeps the two apart.
+    mockPreferences.selected_sidebar_item = "profile";
+    render(<App />);
+    const header = await screen.findByRole("banner");
+    // A positive anchor first: without it the absences below could pass on a
+    // header that had not finished rendering anything at all.
+    expect(within(header).getByPlaceholderText(/Search .* assets/)).toBeTruthy();
+
+    eventListeners["scan://complete"]({ payload: { inventory: emptyInventory } });
+    await waitFor(() => {
+      expect(within(header).getByPlaceholderText(/Search .* assets/)).toBeTruthy();
+    });
+
+    expect(within(header).queryByText("Scanned moments ago")).toBeNull();
+    expect(within(header).queryByText("Not scanned yet")).toBeNull();
+    expect(within(header).queryByLabelText("Rescan")).toBeNull();
+  });
+
   it("Show its assets goes to Global with the engine's own list in the inspector", async () => {
     render(<App />);
     const node = await screen.findByTestId("map-node-2");
