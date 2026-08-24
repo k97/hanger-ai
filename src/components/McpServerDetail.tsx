@@ -702,7 +702,6 @@ export default function McpServerDetail({
             <div className="flex items-baseline justify-between gap-2 mb-[10px]">
               <h3 className={HEADING}>Context per request</h3>
             </div>
-            <div className={`${HEADING} mb-1`}>Composition</div>
             <ListCard>
               <ListCardRow
                 label="Descriptions"
