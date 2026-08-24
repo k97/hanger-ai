@@ -210,4 +210,61 @@ describe("Cockpit Derived Token Contrast Check", () => {
 
     expect(failures, `Contrast enforcement failures:\n${failures.join("\n")}`).toEqual([]);
   });
+
+  /**
+   * Pairs the scan above structurally cannot reach, named by hand.
+   *
+   * That scan pairs a `bg-*` with a `text-*` found in the SAME className
+   * expression. The selected capsule breaks that model twice over. Its surface
+   * comes from the `capsule-raised` @utility, and no `.tsx` may ever spell
+   * `bg-capsule` — that is why the utility exists (`index.css:151-156`). And,
+   * decisively, the surface sits on an absolutely positioned `<i>`
+   * (`SegmentedTrack.tsx:89`) while the text it backs is on sibling buttons
+   * (`:108`, `:112`); they are composited by z-index and never co-located in
+   * one className. So teaching the scan to resolve @utility backgrounds — the
+   * fix T12 proposed — would still not have found this pair. It has to be
+   * named, which is what this does.
+   *
+   * `capsule_tokens.test.ts` pins what the token IS. This pins whether the
+   * result is LEGIBLE, which is the half that moves when the surface is
+   * legitimately redesigned. Planted as `#c8c8c8` in dark, a plausible
+   * overshoot of the lightening at `tokens.css:188`, the label fell to 1.67:1
+   * and all 806 tests passed.
+   *
+   * Resolved through the same tokens.css the scan uses, never hardcoded hexes,
+   * so a token change moves these numbers rather than going stale behind them.
+   */
+  const UNREACHABLE_PAIRS = [
+    { fg: "ink-1", bg: "capsule", what: "the selected segment's label" },
+    { fg: "ink-2", bg: "capsule", what: "the selected segment's count" },
+  ];
+
+  it("verifies the pairs the class scan cannot see, capsule included", () => {
+    const failures: string[] = [];
+
+    for (const { fg, bg, what } of UNREACHABLE_PAIRS) {
+      for (const isDark of [false, true]) {
+        const theme = isDark ? "DARK" : "LIGHT";
+        const fgRes = resolveTokenToHex(fg, isDark);
+        const bgRes = resolveTokenToHex(bg, isDark);
+
+        if (!fgRes.hex || !bgRes.hex) {
+          failures.push(
+            `[UNRESOLVED ${theme}] ${what}: --${fg} (${fgRes.hex}) on --${bg} (${bgRes.hex})`
+          );
+          continue;
+        }
+
+        const ratio = getContrastRatio(fgRes.hex, bgRes.hex);
+        if (ratio < 4.5) {
+          failures.push(
+            `[${theme} FAIL] ${what}: --${fg} (${fgRes.hex}) on --${bg} (${bgRes.hex}) ` +
+              `-> ratio = ${ratio.toFixed(2)}:1 (< 4.5:1)`
+          );
+        }
+      }
+    }
+
+    expect(failures, `Capsule contrast failures:\n${failures.join("\n")}`).toEqual([]);
+  });
 });
