@@ -1,4 +1,4 @@
-import { CheckIcon, SpinnerIcon } from "./icons";
+import SegmentedTrack from "./SegmentedTrack";
 
 export type CategoryType = "Skills" | "Agents" | "Tools" | "Rules" | "Subagents";
 
@@ -13,11 +13,6 @@ interface CategoryFilterCardsProps {
   onSelectCategory: (category: CategoryType | null) => void;
   loading: boolean;
 }
-
-const chipBaseClass =
-  "h-7 px-3.5 rounded-pill border border-line-2 font-flex text-small text-ink-2 whitespace-nowrap inline-flex items-center gap-2 cursor-pointer transition-colors duration-nav ease-spring hover:bg-plane-2";
-const chipPressedClass =
-  "h-7 pl-2.5 pr-3.5 rounded-pill border border-transparent bg-tint text-tint-ink font-medium whitespace-nowrap inline-flex items-center gap-2 cursor-pointer transition-colors duration-nav ease-spring font-flex text-small";
 
 /** The category decision line — M3 filter-chip behaviour on the mono palette.
  *
@@ -82,40 +77,14 @@ export default function CategoryFilterCards({
   };
 
   return (
-    <section
-      className="font-sans select-none shrink-0"
-      role="group"
-      aria-label="Filter by category"
-    >
-      <div className="flex items-center gap-[7px] overflow-x-auto">
-        {visibleChips.map((chip) => {
-          const isPressed =
-            chip.id === null ? selectedCategory === null : selectedCategory === chip.id;
-          return (
-            <button
-              key={chip.label}
-              tabIndex={0}
-              aria-pressed={isPressed}
-              onClick={() => handleChipClick(chip.id)}
-              className={isPressed ? chipPressedClass : chipBaseClass}
-            >
-              {isPressed && <CheckIcon size={14} className="shrink-0" />}
-              <span>{chip.label}</span>
-              <span
-                className={`text-micro tabular ${
-                  isPressed ? "text-tint-ink opacity-70" : "text-ink-3"
-                }`}
-              >
-                {chip.count === undefined && loading ? (
-                  <SpinnerIcon className="animate-spin" size={11} />
-                ) : (
-                  chip.count ?? 0
-                )}
-              </span>
-            </button>
-          );
-        })}
-      </div>
+    <section className="font-sans select-none shrink-0">
+      <SegmentedTrack
+        segments={visibleChips.map((c) => ({ id: c.id ?? "all", label: c.label, count: c.count }))}
+        selectedId={selectedCategory ?? "all"}
+        onSelect={(id) => handleChipClick(id === "all" ? null : (id as CategoryType))}
+        ariaLabel="Filter by category"
+        loading={loading}
+      />
     </section>
   );
 }
