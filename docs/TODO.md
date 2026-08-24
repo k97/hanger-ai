@@ -425,23 +425,43 @@ M5 `toolCount` equals `tools.length` in its own fixture.
 
 **Guards that cannot see what they exist to check**
 
-- `tokens_contrast.test.ts` collects pairs by matching `bg-*` **class names** in
-  `.tsx`. The capsule's surface comes from the `capsule-raised` CSS utility, and
-  no `.tsx` may ever spell `bg-capsule` — that is why the utility exists. So the
-  pair is invisible to it permanently, not merely yet. Measured by hand it is
-  fine (`--ink-1` on `--capsule`: 21:1 light, 15.7:1 dark). *Done when:* the
-  guard resolves `@utility` background declarations, or the pair is pinned
-  explicitly.
-- `no-frontend-counting` has a false positive on array-index arithmetic:
-  `(i - 1 + segments.length) % segments.length` trips the `+ …length` rule.
-  Worked around with a ternary rather than an allowlist entry (correctly).
-  *Done when:* the rule distinguishes index math from asset counting.
-- `issuesForAsset`'s registration-key branch is tested only against an id shape
-  `deriveReviewIssues` never builds. Faults carry the key
-  (`Tools:broken:<key>`); duplicates carry the name (`duplicate:Tools::<name>`),
-  so real MCP duplicates are reached by the `copies` branch, which has no test.
-  *Done when:* a `Tools:broken:<registrationKey>` fixture is queried by
-  `registrationKeys` alone.
+**All three are closed** (2026-08-25), and each corrected something the entry
+had recorded wrongly.
+
+- ~~`tokens_contrast.test.ts`~~ — **closed**, `38bbc0a`. The recorded mechanism
+  was only half of it, and the proposed fix would not have worked. The scan
+  pairs a `bg-*` with a `text-*` **in the same className**; the capsule's
+  surface sits on an absolutely positioned `<i>` (`SegmentedTrack.tsx:89`)
+  while the text it backs is on sibling buttons (`:108`, `:112`), composited
+  by z-index. So resolving `@utility` backgrounds would still not have found
+  the pair — and `capsule-raised` is in any case the only `@utility` carrying
+  one. Pinned explicitly instead, resolved through the same `tokens.css` the
+  scan reads. `capsule_tokens.test.ts` pins what the token IS; this pins
+  whether the result is LEGIBLE, the half that moves when the surface is
+  redesigned. Reproduced by planting `--capsule: #c8c8c8` in dark and moving
+  the declaration guard with it, as a real edit would: a selected label at
+  **1.67:1** passed all 806 tests. The count pair (`--ink-2`) is pinned
+  alongside the label pair the entry named — a light-theme plant failed the
+  count and legitimately passed the label.
+- ~~`no-frontend-counting`~~ — **closed**, `704f1e2`. The exemption is a modulo
+  that immediately consumes the sum, which no asset count has, and it
+  suppresses only the sum signal — the reduce, inventory and `…Count` rules
+  still apply to the same line. Six real violations were planted in production
+  source and all still fail, including counting disguised as index math.
+  `SegmentedTrack` keeps its ternary, so nothing in `src/` exercises the
+  exemption; it has a direct table instead, which fails in both directions.
+- ~~`issuesForAsset`~~ — **closed**, `a0e461a`. The Tools fixture is now a
+  fault carrying a real registration key, queried by `registrationKeys` and
+  nothing else. Correction: the entry says real duplicates "are reached by the
+  `copies` branch, which has no test" — they cannot be, since `asCopy` requires
+  `asset.path !== undefined` and `AssetIdentity`'s server arm types `path` as
+  `never`. They are reached by `asServerDuplicate`, which is tested.
+  **This one turned up a live defect** (`3420ee0`, production): the branch
+  matched with `issue.id.endsWith(key)`, and config paths nest, so
+  `"/b/a/.claude.json:x".endsWith("/a/.claude.json:x")` handed a healthy
+  server another server's fault — the 2026-08-24 ruling's failure reopened
+  through `id`, where its `never` arms could not see it. Now whole-id
+  equality.
 
 **Debt taken deliberately, with the reason**
 
