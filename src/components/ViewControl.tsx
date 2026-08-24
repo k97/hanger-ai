@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from "react";
 import { AdjustmentsHorizontalIcon, CheckIcon } from "./icons";
+import OverflowMenu, { menuItemClass, menuLabelClass } from "./OverflowMenu";
 import Tooltip from "./Tooltip";
 
 /** Card rows have no clickable column headers, so the MCP section's grouping
@@ -36,12 +36,6 @@ const SORT_OPTIONS: { value: ServerSort; label: string }[] = [
 const triggerClass =
   "shrink-0 p-1 rounded-pill grid place-items-center text-ink-3 hover:bg-plane-2 hover:text-ink-1 transition-colors duration-hover cursor-pointer";
 
-const menuLabelClass =
-  "font-flex text-micro tracking-[.06em] uppercase text-ink-3 px-1.5 pt-1 pb-1";
-
-const menuItemClass =
-  "w-full h-7 px-1.5 rounded-soft flex items-center justify-between font-flex text-small text-ink-1 hover:bg-plane-2 transition-colors duration-hover cursor-pointer";
-
 /**
  * "The Display control" of spec §5.6, signed off as "View". An icon-only
  * trigger — it sits inline in the MCP section header, before the "MCP
@@ -61,48 +55,22 @@ const menuItemClass =
  * from the foot.
  */
 export default function ViewControl({ grouping, sort, onGroupingChange, onSortChange }: ViewControlProps) {
-  const [open, setOpen] = useState(false);
-  const rootRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const onPointerDown = (e: PointerEvent) => {
-      if (rootRef.current && !rootRef.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
-    };
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
-    };
-    window.addEventListener("pointerdown", onPointerDown);
-    window.addEventListener("keydown", onKeyDown);
-    return () => {
-      window.removeEventListener("pointerdown", onPointerDown);
-      window.removeEventListener("keydown", onKeyDown);
-    };
-  }, [open]);
-
   return (
-    <div ref={rootRef} className="relative inline-block shrink-0 font-sans">
-      <Tooltip label="View" placement="bottom">
-        <button
-          type="button"
-          aria-haspopup="true"
-          aria-expanded={open}
-          aria-label="View"
-          onClick={() => setOpen((v) => !v)}
-          className={triggerClass}
-        >
-          <AdjustmentsHorizontalIcon size={14} aria-hidden="true" />
-        </button>
-      </Tooltip>
-      {open && (
-        <div
-          data-testid="view-control-panel"
-          role="menu"
-          aria-label="View"
-          className="absolute left-0 top-[calc(100%+6px)] z-[20] w-[224px] bg-page border border-line rounded-inner p-1.5 shadow-overlay origin-top-left animate-tip"
-        >
+    <OverflowMenu
+      trigger={(triggerProps) => (
+        <Tooltip label="View" placement="bottom">
+          <button type="button" aria-label="View" className={triggerClass} {...triggerProps}>
+            <AdjustmentsHorizontalIcon size={14} aria-hidden="true" />
+          </button>
+        </Tooltip>
+      )}
+      ariaLabel="View"
+      align="left"
+      className="w-[224px] p-1.5"
+      data-testid="view-control-panel"
+    >
+      {(close) => (
+        <>
           <div className={menuLabelClass}>Rows</div>
           {ROWS_OPTIONS.map((opt) => (
             <button
@@ -112,7 +80,7 @@ export default function ViewControl({ grouping, sort, onGroupingChange, onSortCh
               aria-checked={grouping === opt.value}
               onClick={() => {
                 onGroupingChange(opt.value);
-                setOpen(false);
+                close();
               }}
               className={menuItemClass}
             >
@@ -132,7 +100,7 @@ export default function ViewControl({ grouping, sort, onGroupingChange, onSortCh
               aria-checked={sort === opt.value}
               onClick={() => {
                 onSortChange(opt.value);
-                setOpen(false);
+                close();
               }}
               className={menuItemClass}
             >
@@ -140,8 +108,8 @@ export default function ViewControl({ grouping, sort, onGroupingChange, onSortCh
               {sort === opt.value && <CheckIcon size={12} aria-hidden="true" />}
             </button>
           ))}
-        </div>
+        </>
       )}
-    </div>
+    </OverflowMenu>
   );
 }
