@@ -12,11 +12,12 @@ import { registrationKey } from "../utils/mcpRegistration";
 import { groupProcesses, type ProcessMatch } from "../utils/mcpServerView";
 import { cardSecondLine, mergeReach, sortServerRows, type McpServerRow } from "../utils/serverRows";
 import DisclosureBanner from "./DisclosureBanner";
-import { sumGlobalAssets } from "../utils/globalAssetCount";
+import { sumGlobalAssets, categoryCountKey } from "../utils/globalAssetCount";
 import SummaryStrip from "./SummaryStrip";
 import { ScanStatusIndicator } from "./ScanStatusIndicator";
 import { annotationStateCounts, linkStateCounts, matchesStateFilter, StateFilter } from "../utils/linkStateCounts";
 import { categoryNoun, joinNames, joinNamesTruncated } from "../utils/prose";
+import type { McpEngineSummaryData } from "./McpEngineSummary";
 
 /** The frontend's mirror of Rust's `ConfigProblem`
  *  (`src-tauri/src/mcp/discover.rs`), carried on `mcpCoverage.problems`.
@@ -97,6 +98,11 @@ interface ProfilePaneProps {
    *  section falls back to per-registration rows until it does, so a scan
    *  never flashes an empty list waiting on a second IPC round trip. */
   mcpServers?: McpServerRow[] | null;
+  /** `get_mcp_engine_summary`'s answer, fetched once in App.tsx and refreshed
+   *  alongside `mcpCoverage` on every scan. Present and grouped rows in view
+   *  together switch the strip to MCP mode — probe coverage instead of link
+   *  state, with a Review pill that filters to conflicting servers. */
+  mcpEngineSummary?: McpEngineSummaryData | null;
   serverGrouping?: ServerGrouping;
   serverSort?: ServerSort;
   onServerGroupingChange?: (grouping: ServerGrouping) => void;
@@ -349,6 +355,7 @@ export default function ProfilePane({
   onCategoryChange,
   unaccountedProcesses,
   mcpServers,
+  mcpEngineSummary = null,
   serverGrouping: propServerGrouping,
   serverSort: propServerSort,
   onServerGroupingChange,
@@ -362,6 +369,10 @@ export default function ProfilePane({
   // fixture in mcp_card_row.test.tsx renders ProfilePane standalone).
   const [internalServerGrouping, setInternalServerGrouping] = useState<ServerGrouping>("server");
   const [internalServerSort, setInternalServerSort] = useState<ServerSort>("attention");
+  // The strip's MCP-mode Review pill, own state — reset on every category
+  // change so switching away from Tools and back never carries a stale
+  // filter over from a different session's look at the list.
+  const [mcpReviewOnly, setMcpReviewOnly] = useState(false);
 
   // Lookup only — keyed by the backend's own asset_path. A row without an
   // entry renders empty annotation cells rather than a guessed state.
@@ -391,6 +402,7 @@ export default function ProfilePane({
 
   const setSelectedCategory = (cat: CategoryType | null) => {
     setInternalCategory(cat);
+    setMcpReviewOnly(false);
     onCategoryChange?.(cat);
     if (onClearSelection) onClearSelection();
   };
@@ -497,16 +509,75 @@ export default function ProfilePane({
     (sa) => nameMatches(sa.name) && matchesStateFilter(sa, stateFilter)
   );
 
+  // One row per server (the View control's default) — moved up from its
+  // original point of use below (still true there; see that comment for
+  // what it drives in the Tools section itself) because the strip's MCP
+  // mode needs it before `stripSubtitle` is composed.
+  const useGroupedTools = serverGrouping === "server" && mcpServers != null;
+
   // Strip data: backend-owned total; the state split prefers the backend's
   // annotations (which see directory-level links) and falls back to the
-  // inventory classification while they load.
-  const stripCounts = annotations
-    ? annotationStateCounts(annotations)
-    : linkStateCounts(inventory, { kind: "global" });
+  // inventory classification while they load. A selected category narrows
+  // both the total and the split to that category's own figures rather than
+  // the whole store's — `categoryCountKey` is the same category-to-field map
+  // both panes share.
+  const kindKey = selectedCategory ? categoryCountKey(selectedCategory) : null;
+  const stripTotal =
+    selectedCategory === null || kindKey === null
+      ? sumGlobalAssets(assetCounts)
+      : assetCounts?.byCategory[kindKey]?.global ?? 0;
+
+  // MCP mode: probe coverage instead of link state. Gated on a grouped row
+  // existing to point the Review pill's filter at — a per-registration view
+  // has no `agreement` verdict to filter on.
+  const mcpMode = selectedCategory === "Tools" && mcpEngineSummary !== null && useGroupedTools;
+
+  // Identity set for the selected category's own rows — the same keys
+  // `annotationFor` uses (path for everything but Tools, `registrationKey`
+  // for Tools) — so the annotations-sourced split can be narrowed to just
+  // this category without re-deriving link state itself.
+  const categoryPaths = new Set<string>([
+    ...scopedSkills.map((s) => s.path),
+    ...scopedRules.map((r) => r.path),
+    ...scopedSubagents.map((sa) => sa.path),
+    ...scopedTools.map((t) => registrationKey(t)),
+  ]);
+
+  const stripCounts =
+    selectedCategory === null
+      ? annotations
+        ? annotationStateCounts(annotations)
+        : linkStateCounts(inventory, { kind: "global" })
+      : annotations
+        ? annotationStateCounts(annotations.filter((a) => categoryPaths.has(a.asset_path)))
+        : linkStateCounts(inventory, { kind: "global" }, selectedCategory);
+
   const engineCount = Object.keys(assetCounts?.engines ?? {}).filter((k) => k !== "none").length;
-  const stripSubtitle = `assets in the global store · ${engineCount} ${
-    engineCount === 1 ? "engine" : "engines"
-  }`;
+  const stripSubtitle =
+    selectedCategory === null
+      ? `assets in the global store · ${engineCount} ${engineCount === 1 ? "engine" : "engines"}`
+      : mcpMode
+        ? `MCP servers registered · ${mcpCoverage?.checked_file_count ?? 0} host configs read`
+        : `${categoryNoun(selectedCategory)} in the global store · ${engineCount} ${
+            engineCount === 1 ? "engine" : "engines"
+          }`;
+
+  // The strip's MCP-mode figures, or undefined to keep it in the ordinary
+  // link-state mode — `mcpEngineSummary &&` (not just `mcpMode`, which TS
+  // cannot narrow through) is what lets this read `mcpEngineSummary`'s
+  // fields without a non-null assertion.
+  const mcpFigures =
+    mcpMode && mcpEngineSummary
+      ? {
+          answered: mcpEngineSummary.answered_server_count,
+          unasked: mcpEngineSummary.unasked_server_count,
+          unaskable: mcpEngineSummary.unaskable_server_count,
+          checkedFileCount: mcpCoverage?.checked_file_count ?? 0,
+          conflicting: mcpEngineSummary.conflicting_server_count,
+          reviewActive: mcpReviewOnly,
+          onToggleReview: () => setMcpReviewOnly((v) => !v),
+        }
+      : undefined;
 
   // Appendix A.3/A.4's rows (§6.3 states 5-7) — every problem discovery hit
   // while checking, restricted to the three kinds Appendix A gives copy to
@@ -608,7 +679,8 @@ export default function ProfilePane({
   // `get_mcp_servers`, never from `inventory.tools`: `registration_count`
   // and `distinct_spec_count` are backend-owned, and this is the one place
   // that renders them rather than recomputing anything from `registrations`.
-  const useGroupedTools = serverGrouping === "server" && mcpServers != null;
+  // (`useGroupedTools` itself is declared above, near `stripCounts` — the
+  // strip's MCP mode needs it before this point.)
   // Reach is keyed by REGISTRATION in `annotations`, but one grouped row
   // stands for every registration of a server name at once — looked up
   // alongside the row so `toolAnnotationFor` below can hand `AssetRow` the
@@ -616,7 +688,12 @@ export default function ProfilePane({
   const groupedAnnotationById = new Map<string, AssetAnnotationView | null>();
   const groupedTools: AssetItem[] = useGroupedTools
     ? sortServerRows(
-        mcpServers!.filter((row) => nameMatches(row.name)),
+        // The strip's Review pill filters this same list to disagreeing
+        // servers when active — one gate, so the card rows and the strip's
+        // own "tauri"/"spades" count never disagree on what "filtered" means.
+        mcpServers!.filter(
+          (row) => nameMatches(row.name) && (!mcpReviewOnly || row.agreement === "Conflicting")
+        ),
         serverSort
       ).map((row) => {
         const id = row.registrations[0] ?? row.name;
@@ -749,7 +826,7 @@ export default function ProfilePane({
       {/* Inventory summary strip */}
       <div className="mx-[18px] mt-2.5 mb-2.5">
         <SummaryStrip
-          total={sumGlobalAssets(assetCounts)}
+          total={stripTotal}
           subtitle={stripSubtitle}
           scannedAt={scannedAt}
           scanning={loading}
@@ -757,6 +834,7 @@ export default function ProfilePane({
           activeStateFilter={stateFilter}
           onFilterState={(f) => onStateFilterChange?.(f)}
           onRescan={onRescan}
+          mcp={mcpFigures}
         />
       </div>
 

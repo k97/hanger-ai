@@ -15,6 +15,7 @@ import SummaryStrip from "./SummaryStrip";
 import { ScanStatusIndicator } from "./ScanStatusIndicator";
 import { categoryNoun } from "../utils/prose";
 import { linkStateCounts, matchesStateFilter, StateFilter } from "../utils/linkStateCounts";
+import { categoryCountKey } from "../utils/globalAssetCount";
 
 interface RepoPaneProps {
   repoPath: string;
@@ -173,13 +174,24 @@ export default function RepoPane({
     (sa) => nameMatches(sa.name) && matchesStateFilter(sa, stateFilter)
   );
 
-  // Strip data: backend-owned total, frontend-derived state split.
+  // Strip data: backend-owned total, frontend-derived state split. A
+  // selected category narrows both to that category's own figures rather
+  // than the repo's whole total — `categoryCountKey` is the same
+  // category-to-field map ProfilePane's strip uses.
   const repoFolderName = repoPath.split("/").pop() || repoPath;
-  const stripCounts = linkStateCounts(inventory, { kind: "repo", root: repoPath });
+  const kindKey = selectedCategory ? categoryCountKey(selectedCategory) : null;
+  const stripTotal =
+    selectedCategory === null || kindKey === null
+      ? assetCounts?.total ?? 0
+      : assetCounts?.byCategory[kindKey]?.total ?? 0;
+  const stripCounts = linkStateCounts(inventory, { kind: "repo", root: repoPath }, selectedCategory);
   const engineCount = Object.keys(assetCounts?.engines ?? {}).filter((k) => k !== "none").length;
-  const stripSubtitle = `assets in ${repoFolderName} · ${engineCount} ${
-    engineCount === 1 ? "engine" : "engines"
-  }`;
+  const stripSubtitle =
+    selectedCategory === null
+      ? `assets in ${repoFolderName} · ${engineCount} ${engineCount === 1 ? "engine" : "engines"}`
+      : `${categoryNoun(selectedCategory)} in ${repoFolderName} · ${engineCount} ${
+          engineCount === 1 ? "engine" : "engines"
+        }`;
 
   const showSkills = selectedCategory === null || selectedCategory === "Skills";
   const showTools = selectedCategory === null || selectedCategory === "Tools";
@@ -347,7 +359,7 @@ export default function RepoPane({
       {/* Inventory summary strip */}
       <div className="mx-[18px] mt-2.5 mb-2.5">
         <SummaryStrip
-          total={assetCounts?.total ?? 0}
+          total={stripTotal}
           subtitle={stripSubtitle}
           scannedAt={scannedAt}
           scanning={loading}

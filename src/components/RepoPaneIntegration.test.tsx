@@ -112,6 +112,25 @@ describe("RepoPane Linking Gestures Integration", () => {
     const strip = screen.getByLabelText("Inventory summary");
     expect(track.compareDocumentPosition(strip) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
+
+  it("the strip follows the selected category: the repo's skill total and the skill noun", () => {
+    const counts = { total: 9, byCategory: { skill: { total: 7, global: 0, project: 7 }, tool: { total: 0, global: 0, project: 0 } } };
+    render(
+      <RepoPane
+        repoPath="/home/user/project"
+        inventory={mockInventory}
+        assetCounts={counts}
+        loading={false}
+        onRefresh={vi.fn()}
+        onSelectAsset={vi.fn()}
+        onLinkFromProfile={vi.fn()}
+      />
+    );
+    fireEvent.click(screen.getAllByText("Skills").find((el) => el.closest("[tabindex]"))!.closest("[tabindex]")!);
+    const strip = screen.getByLabelText("Inventory summary");
+    expect(within(strip).getByText("7")).toBeTruthy();
+    expect(within(strip).getByText("skills in project · 0 engines")).toBeTruthy();
+  });
 });
 
 describe("RepoPane — the empty state is a finding, not a default", () => {

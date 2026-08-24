@@ -137,6 +137,44 @@ describe("ProfilePane Component-Level Filtering Integration", () => {
     const strip = screen.getByLabelText("Inventory summary");
     expect(track.compareDocumentPosition(strip) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
+
+  it("the strip follows the selected category: the skill count, the skill noun, the skill split", () => {
+    const counts = { total: 3, byCategory: { skill: { total: 200, global: 200, project: 0 }, tool: { total: 8, global: 8, project: 0 }, rule: { total: 3, global: 3, project: 0 }, subagent: { total: 1, global: 1, project: 0 } }, engines: { "claude-code": 3 } };
+    render(<ProfilePane inventory={mockInventory} assetCounts={counts} loading={false} onSelectAsset={vi.fn()} onLinkAsset={vi.fn()} />);
+    fireEvent.click(screen.getAllByText("Skills").find((el) => el.closest("[tabindex]"))!.closest("[tabindex]")!);
+    const strip = screen.getByLabelText("Inventory summary");
+    expect(within(strip).getByText("200")).toBeTruthy();
+    expect(within(strip).getByText("skills in the global store · 1 engine")).toBeTruthy();
+    // One global skill in the fixture, local: the split is the skill's alone.
+    expect(within(strip).getByRole("img", { name: "0 linked, 0 drifted, 0 broken, 1 local only" })).toBeTruthy();
+  });
+
+  it("with MCP servers selected and the summary in hand, the strip is probe coverage and the pill filters disagreeing servers", () => {
+    const counts = { total: 3, byCategory: { tool: { total: 2, global: 2, project: 0 } }, engines: {} };
+    const mcpServers = [
+      { name: "tauri", transport: "stdio", registration_count: 2, distinct_spec_count: 2, agreement: "Conflicting", aliased_with: [], plugin: null, registrations: ["/a:tauri", "/b:tauri"] },
+      { name: "spades", transport: "stdio", registration_count: 1, distinct_spec_count: 1, agreement: "Consistent", aliased_with: [], plugin: null, registrations: ["/a:spades"] },
+    ];
+    const summary = { rows: [{ engine_id: "claude-code", engine_name: "Claude Code", server_count: 2, tools_known: 4 }], total_server_count: 3, answered_server_count: 1, unasked_server_count: 2, unaskable_server_count: 0, conflicting_server_count: 1 };
+    render(<ProfilePane inventory={mockInventory} assetCounts={counts} mcpServers={mcpServers as never} serverGrouping="server" serverSort="name" mcpEngineSummary={summary} mcpCoverage={{ checked_file_count: 16, checked_engine_count: 2, checked_files: [], problems: [] }} loading={false} onSelectAsset={vi.fn()} onLinkAsset={vi.fn()} />);
+    fireEvent.click(screen.getAllByText("MCP servers").find((el) => el.closest("[tabindex]"))!.closest("[tabindex]")!);
+    const strip = screen.getByLabelText("Inventory summary");
+    // Not `getByText("2")`: this fixture's "not yet asked" figure is also 2,
+    // and SummaryStrip (S5) renders each legend bucket's number in its own
+    // element — a plain text query for "2" matches both and throws. Scoped
+    // to the headline's own class disambiguates without changing either
+    // figure.
+    expect(strip.querySelector(".text-display")?.textContent).toBe("2");
+    expect(within(strip).getByText("MCP servers registered · 16 host configs read")).toBeTruthy();
+    expect(within(strip).getByRole("img", { name: "1 answered, 2 not yet asked, 0 can't be asked" })).toBeTruthy();
+    expect(screen.getByText("tauri")).toBeTruthy();
+    expect(screen.getByText("spades")).toBeTruthy();
+    fireEvent.click(within(strip).getByText("Needs review 1"));
+    expect(screen.getByText("tauri")).toBeTruthy();
+    expect(screen.queryByText("spades")).toBeNull();
+    fireEvent.click(within(strip).getByText("Needs review 1"));
+    expect(screen.getByText("spades")).toBeTruthy();
+  });
 });
 
 describe("ProfilePane — the empty state is a finding, not a default", () => {

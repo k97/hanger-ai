@@ -63,6 +63,12 @@ export interface McpEngineSummaryData {
    * no Verify button that ever changes this one.
    */
   unaskable_server_count: number;
+  /** Servers whose registering hosts disagree on the launch spec — the
+   *  strip's MCP-mode Review pill filters the grouped list to these
+   *  (`row.agreement === "Conflicting"`). A backend field
+   *  (`mcp::engine_summary::engine_summary`), not a count of anything the
+   *  frontend already has grouped rows for. */
+  conflicting_server_count: number;
 }
 
 interface Props {

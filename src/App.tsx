@@ -83,6 +83,7 @@ import { StateFilter } from "./utils/linkStateCounts";
 import { registrationKey } from "./utils/mcpRegistration";
 import { unaccountedProcesses, type ProcessMatch } from "./utils/mcpServerView";
 import type { McpServerRow } from "./utils/serverRows";
+import type { McpEngineSummaryData } from "./components/McpEngineSummary";
 import {
   deriveReviewIssues,
   matchesIssueFilter,
@@ -275,6 +276,12 @@ export default function App() {
   // and (since it never could) no longer takes this value as a prop at all
   // — removed along with its inert View control.
   const [mcpServers, setMcpServers] = useState<McpServerRow[] | null>(null);
+  // `get_mcp_engine_summary`'s answer, refetched alongside `mcpServers` and
+  // `mcpCoverage` on every scan (same reason as both: a fresh answer per
+  // scan, not a cached one). ProfilePane's strip reads this for MCP mode —
+  // Flyout.tsx fetches its own copy locally rather than reading this one,
+  // the same division of labour `mcpCoverage`'s doc comment describes.
+  const [mcpEngineSummary, setMcpEngineSummary] = useState<McpEngineSummaryData | null>(null);
   // The View control's own state — grouping and sort for the MCP section,
   // shared between both panes the way sortField/sortDirection already are.
   // "server" and "attention" are the signed-off defaults (2026-08-18).
@@ -584,6 +591,17 @@ export default function App() {
     }
   };
 
+  // Same re-derive-from-disk pattern as `refreshMcpCoverage` above — the
+  // strip's MCP mode reads this for probe coverage and the conflicting-server
+  // figure the Review pill filters on.
+  const refreshMcpEngineSummary = async () => {
+    try {
+      setMcpEngineSummary(await invoke<McpEngineSummaryData>("get_mcp_engine_summary"));
+    } catch {
+      setMcpEngineSummary(null);
+    }
+  };
+
   // Re-fetch counts when the grouping choice changes so the chip agrees with
   // the rows immediately, not just after the next scan. Skips the mount
   // render — `refreshGlobalCounts` already runs once scan://complete fires,
@@ -673,6 +691,7 @@ export default function App() {
         await refreshAnnotations();
         await refreshMcpServers();
         await refreshMcpCoverage();
+        await refreshMcpEngineSummary();
 
         // If onboarding was incomplete, mark it complete now!
         setOnboardingComplete((prev) => {
@@ -1477,6 +1496,7 @@ export default function App() {
               onCategoryChange={(c) => setProfileCategory(c)}
               unaccountedProcesses={unaccountedProcesses(mcpProcesses ?? undefined)}
               mcpServers={mcpServers}
+              mcpEngineSummary={mcpEngineSummary}
               serverGrouping={serverGrouping}
               serverSort={serverSort}
               onServerGroupingChange={handleServerGroupingChange}
