@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 import { describe, it, expect } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
+import type { ComponentType } from "react";
 import {
   ArchiveBoxIcon,
   ArrowDownTrayIcon,
@@ -18,35 +19,107 @@ import {
   SkillIcon,
   TagIcon,
 } from "../components/icons";
+import {
+  ArchiveBoxIcon as HeroArchiveBox,
+  ArrowDownTrayIcon as HeroArrowDownTray,
+  ArrowPathRoundedSquareIcon as HeroArrowPathRoundedSquare,
+  ArrowsRightLeftIcon as HeroArrowsRightLeft,
+  ChatBubbleOvalLeftIcon as HeroChatBubbleOvalLeft,
+  ClockIcon as HeroClock,
+  CodeBracketIcon as HeroCodeBracket,
+  CpuChipIcon as HeroCpuChip,
+  DocumentIcon as HeroDocument,
+  KeyIcon as HeroKey,
+  PencilSquareIcon as HeroPencilSquare,
+  SignalIcon as HeroSignal,
+  TagIcon as HeroTag,
+} from "@heroicons/react/24/outline";
+
+/**
+ * These tests used to assert only `viewBox`, `width` and `stroke-width` — every
+ * one of which is supplied by the `sized` wrapper, not by the mark inside it.
+ * So they passed against ANY Heroicons outline mark on the 24 grid: swapping
+ * `ArchiveBoxIcon` for `DocumentIcon` changed nothing they could see.
+ *
+ * Identity is the `d` attributes, and `sized` passes them through untouched
+ * (its optical correction is a transform, not a path rewrite). Comparing each
+ * export against the Heroicons mark it claims to wrap pins identity WITHOUT
+ * hardcoding path data here, so a Heroicons version bump moves both sides
+ * together instead of failing spuriously.
+ */
+const pathData = (html: string) => Array.from(html.matchAll(/\sd="([^"]+)"/g)).map((m) => m[1]);
+
+const WRAPPED: Array<[string, ComponentType<{ size?: number }>, ComponentType]> = [
+  ["ArchiveBoxIcon", ArchiveBoxIcon, HeroArchiveBox],
+  ["ArrowDownTrayIcon", ArrowDownTrayIcon, HeroArrowDownTray],
+  ["ArrowPathRoundedSquareIcon", ArrowPathRoundedSquareIcon, HeroArrowPathRoundedSquare],
+  ["ArrowsRightLeftIcon", ArrowsRightLeftIcon, HeroArrowsRightLeft],
+  ["ChatBubbleOvalLeftIcon", ChatBubbleOvalLeftIcon, HeroChatBubbleOvalLeft],
+  ["ClockIcon", ClockIcon, HeroClock],
+  ["CodeBracketIcon", CodeBracketIcon, HeroCodeBracket],
+  ["CpuChipIcon", CpuChipIcon, HeroCpuChip],
+  ["DocumentIcon", DocumentIcon, HeroDocument],
+  ["KeyIcon", KeyIcon, HeroKey],
+  ["PencilSquareIcon", PencilSquareIcon, HeroPencilSquare],
+  ["SignalIcon", SignalIcon, HeroSignal],
+  ["TagIcon", TagIcon, HeroTag],
+];
 
 describe("v4 marks", () => {
-  it("ArchiveBoxIcon is a Heroicons outline mark on the 24 grid, stroke-compensated at 14px", () => {
-    const html = renderToStaticMarkup(<ArchiveBoxIcon size={14} />);
-    expect(html).toContain('viewBox="0 0 24 24"');
-    expect(html).toContain('width="14"');
-    // strokeFor(14) is 1.9 (icons.tsx:76-81)
-    expect(html).toContain('stroke-width="1.9"');
+  it("each wrapped export draws the Heroicons mark it names, not merely some mark", () => {
+    const wrong: string[] = [];
+    for (const [name, Ours, Hero] of WRAPPED) {
+      const ours = pathData(renderToStaticMarkup(<Ours size={14} />));
+      const hero = pathData(renderToStaticMarkup(<Hero />));
+      // A mark that inked nothing would compare equal to another that inked
+      // nothing, so an empty render is its own failure.
+      if (ours.length === 0) wrong.push(`${name}: renders no path data at all`);
+      else if (JSON.stringify(ours) !== JSON.stringify(hero)) {
+        wrong.push(`${name}: draws ${JSON.stringify(ours[0]).slice(0, 60)}…, expected the Heroicons mark of the same name`);
+      }
+    }
+    expect(wrong, `Marks drawing the wrong glyph:\n${wrong.join("\n")}`).toEqual([]);
   });
 
-  it("SkillIcon is the hand-drawn document-with-sparkle on the same grid", () => {
+  it("no two wrapped exports are the same glyph", () => {
+    // The check above compares each export against its own twin, so a global
+    // rename that swapped a PAIR consistently would satisfy it. Distinctness
+    // is the second half.
+    const seen = new Map<string, string>();
+    const collisions: string[] = [];
+    for (const [name, Ours] of WRAPPED) {
+      const key = JSON.stringify(pathData(renderToStaticMarkup(<Ours size={14} />)));
+      const prior = seen.get(key);
+      if (prior) collisions.push(`${prior} and ${name} draw the same glyph`);
+      else seen.set(key, name);
+    }
+    expect(collisions).toEqual([]);
+  });
+
+  it("the sized wrapper puts every mark on the 24 grid, stroke-compensated at 14px", () => {
+    for (const [name, Ours] of WRAPPED) {
+      const html = renderToStaticMarkup(<Ours size={14} />);
+      expect(html, name).toContain('viewBox="0 0 24 24"');
+      expect(html, name).toContain('width="14"');
+      // strokeFor(14) is 1.9 (icons.tsx:76-81)
+      expect(html, name).toContain('stroke-width="1.9"');
+    }
+  });
+
+  it("SkillIcon is the hand-drawn document-with-sparkle, all three strokes", () => {
+    const paths = pathData(renderToStaticMarkup(<SkillIcon size={14} />));
     const html = renderToStaticMarkup(<SkillIcon size={14} />);
     expect(html).toContain('viewBox="0 0 24 24"');
     expect(html).toContain('stroke="currentColor"');
     expect(html).toContain('stroke-width="1.9"');
-    // The sparkle path is what makes it a skill and not a document.
-    expect(html).toContain("M18.25 2.75c.45 1.85 1.15 2.55 3 3");
-  });
-
-  it("the inspector's row marks are exported, sized and stroke-compensated", () => {
-    const marks = [
-      ArrowDownTrayIcon, ArrowPathRoundedSquareIcon, ArrowsRightLeftIcon, ChatBubbleOvalLeftIcon,
-      ClockIcon, CodeBracketIcon, CpuChipIcon, DocumentIcon, KeyIcon, PencilSquareIcon, SignalIcon, TagIcon,
-    ];
-    for (const Mark of marks) {
-      const html = renderToStaticMarkup(<Mark size={14} />);
-      expect(html).toContain('viewBox="0 0 24 24"');
-      expect(html).toContain('stroke-width="1.9"');
-    }
+    // The document body and its two rules were unasserted: only the sparkle
+    // was checked, so a SkillIcon that lost its page still passed.
+    expect(paths[0]).toContain("M14.5 4.25H7A2.25 2.25 0 004.75 6.5v12.25");
+    expect(paths[1]).toBe("M8.5 12.5h6.5M8.5 16.25h4");
+    // The sparkle is what makes it a skill and not a document.
+    expect(paths[2]).toContain("M18.25 2.75c.45 1.85 1.15 2.55 3 3");
+    // And it is not simply Heroicons' document.
+    expect(paths).not.toEqual(pathData(renderToStaticMarkup(<HeroDocument />)));
   });
 
   it("GaugeIcon is the hand-drawn dial: an arc and a needle, no reading", () => {
