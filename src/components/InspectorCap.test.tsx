@@ -254,6 +254,44 @@ describe("InspectorCap", () => {
     expect(screen.queryByRole("button", { name: "More actions" })).toBeNull();
   });
 
+  /**
+   * Class-contract guard, not a behavioural test: `happy-dom` lays nothing
+   * out, so paint order and hit testing do not exist here and no test in
+   * this file can prove the window actually drags. What made the window
+   * undraggable was `relative` on this root: Tauri's injected drag.js starts
+   * a window drag on a bare `data-tauri-drag-region` only when the pointer's
+   * exact target carries it (`el === composedPath[0]`), and a `relative`
+   * root — positioned, full-row, painted after `capDragOverlay` in DOM order
+   * — covers every background pixel of the strip, so the walk up from the
+   * click target never reaches the overlay. Karthik's ruling, 2026-08-24:
+   * drop `relative` from the root; each direct child already carries its own
+   * `relative` (verified below is out of scope for this file — see
+   * App.tsx's cap row), which is what actually keeps the controls clickable.
+   * This test only pins the class; verifying the drag itself requires a
+   * running build (`verifying-ui.md`).
+   */
+  it("[class contract] the cap's root is not itself `relative` — that painted it over its own drag overlay", () => {
+    const host = createRef<HTMLDivElement>();
+    const { container } = render(
+      <InspectorCap
+        asset={ASSET}
+        place="Global"
+        findings={NO_FINDINGS}
+        inspectorExpanded={false}
+        clampTo={host}
+        onLink={vi.fn()}
+        onOpenInEditor={vi.fn()}
+        onCopyPath={vi.fn()}
+        onReveal={vi.fn()}
+        onReview={vi.fn()}
+        onToggleExpanded={vi.fn()}
+        onToggleInspector={vi.fn()}
+      />
+    );
+    const row = container.firstElementChild as HTMLElement;
+    expect(row.className.split(/\s+/)).not.toContain("relative");
+  });
+
   it("still sheds Needs review · {n} for a non-server asset (forceShed=2) — regression guard for the server-cap fix", () => {
     renderCap({ forceShed: 2, findings: ONE_FINDING });
     expect(screen.queryByRole("button", { name: "1 flagged" })).toBeNull();

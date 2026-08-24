@@ -157,7 +157,7 @@ export default function InspectorCap({
   );
 
   return (
-    <div ref={rowRef} className="relative h-10 flex items-center gap-2 pl-[18px] pr-3 select-none">
+    <div ref={rowRef} className="h-10 flex items-center gap-2 pl-[18px] pr-3 select-none">
       {asset && Icon && (
         <div className="shrink-0 relative inline-flex">
           {place === "Global" ? (
