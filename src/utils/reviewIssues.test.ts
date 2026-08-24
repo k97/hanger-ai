@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import type { Inventory } from "../App";
-import { deriveReviewIssues, matchesIssueFilter } from "./reviewIssues";
+import type { ReviewDerivation } from "./reviewIssues";
+import { deriveReviewIssues, matchesIssueFilter, issuesForAsset } from "./reviewIssues";
 
 const EMPTY: Inventory = {
   skills: [],
@@ -436,5 +437,115 @@ describe("deriveReviewIssues — two faults in one config file", () => {
 
     expect(parse).toHaveLength(2);
     expect(new Set(parse.map((i) => i.id)).size).toBe(2);
+  });
+});
+
+/**
+ * The fixture is hand-built, not run through `deriveReviewIssues`: the
+ * function under test takes a `ReviewDerivation`, not an `Inventory`, and a
+ * hand-built derivation is the only way to hold each of the three match
+ * paths (own path, a duplicate's `copies`, a server's registration key)
+ * apart from the other two so a dropped one goes red on its own.
+ *
+ * Deliberately NOT realistic in one respect: `deriveReviewIssues` never
+ * embeds a Tool's registration key in a *duplicate* issue's `id` today (only
+ * fault issues get identity-based ids) — the Tools duplicate below embeds
+ * one anyway, because `issuesForAsset` has to have some structural place to
+ * find a registration key on an issue, and `id` is the only field a Tool's
+ * key already lives in.
+ */
+const findingsDerivation: ReviewDerivation = {
+  issues: [
+    {
+      id: "Skills:broken:/a",
+      name: "broken-skill",
+      category: "Skills",
+      kind: "broken",
+      problem: "Target missing",
+      path: "/a",
+      whereLabel: "one",
+      whereKeys: ["/one"],
+      crossRepo: false,
+    },
+    {
+      // Its own `path` is deliberately NOT "/a" — only `copies` is, so this
+      // issue can only be reached through the copies match.
+      id: "duplicate:Skills::dup-skill",
+      name: "dup-skill",
+      category: "Skills",
+      kind: "duplicate",
+      problem: "2 copies, no shared source",
+      path: "/elsewhere/dup-skill",
+      whereLabel: "2 repos",
+      whereKeys: ["/one", "/two"],
+      crossRepo: true,
+      copies: ["/elsewhere/dup-skill", "/a"],
+    },
+    {
+      id: "Rules:drifted:/b",
+      name: "drifted-rule",
+      category: "Rules",
+      kind: "drifted",
+      problem: "Copy diverged",
+      path: "/b",
+      whereLabel: "one",
+      whereKeys: ["/one"],
+      crossRepo: false,
+    },
+    {
+      // Neither `path` nor `copies` is "~/.claude.json" — only the id's
+      // registration-key suffix is, so this issue can only be reached
+      // through the registration-key match.
+      id: "duplicate:Tools::~/.claude.json:spades-audio",
+      name: "spades-audio",
+      category: "Tools",
+      kind: "duplicate",
+      problem: "2 copies, no shared source",
+      path: "/repo-a/.mcp.json",
+      whereLabel: "2 repos",
+      whereKeys: ["/repo-a", "/repo-b"],
+      crossRepo: true,
+      copies: ["/repo-a/.mcp.json", "/repo-b/.mcp.json"],
+    },
+  ],
+  counts: { broken: 1, drifted: 1, duplicate: 2, parse: 0, crossRepo: 2, total: 4 },
+  places: [],
+};
+
+describe("issuesForAsset", () => {
+  it("gathers an asset's own-path issue together with a duplicate that copies its path", () => {
+    const { issues, count, severity } = issuesForAsset(findingsDerivation, { path: "/a" });
+
+    expect(issues.map((i) => i.kind).sort()).toEqual(["broken", "duplicate"]);
+    expect(count).toBe(2);
+    expect(severity).toBe("danger");
+  });
+
+  it("finds the one issue at a path with no duplicate involvement", () => {
+    const { issues, count, severity } = issuesForAsset(findingsDerivation, { path: "/b" });
+
+    expect(issues).toHaveLength(1);
+    expect(issues[0].kind).toBe("drifted");
+    expect(count).toBe(1);
+    expect(severity).toBe("warning");
+  });
+
+  it("finds a server's issue by registration key alone, when neither its path nor its copies match", () => {
+    const { issues, count, severity } = issuesForAsset(findingsDerivation, {
+      path: "~/.claude.json",
+      registrationKeys: ["~/.claude.json:spades-audio"],
+    });
+
+    expect(issues).toHaveLength(1);
+    expect(issues[0].id).toBe("duplicate:Tools::~/.claude.json:spades-audio");
+    expect(count).toBe(1);
+    expect(severity).toBe("warning");
+  });
+
+  it("finds nothing for a path and registration keys that match no issue", () => {
+    const result = issuesForAsset(findingsDerivation, { path: "/nowhere" });
+
+    expect(result.issues).toEqual([]);
+    expect(result.count).toBe(0);
   });
 });

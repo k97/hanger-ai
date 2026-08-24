@@ -366,6 +366,44 @@ export function deriveReviewIssues(inventory: Inventory | null): ReviewDerivatio
   return { issues, counts, places };
 }
 
+export interface AssetFindings {
+  issues: ReviewIssue[];
+  count: number;
+  severity: "warning" | "danger";
+}
+
+/**
+ * Every issue that concerns one asset — by its own path, by a duplicate's
+ * `copies`, or (for a server) by any of its registration keys. A Tool's
+ * registration key has nowhere else to live on a `ReviewIssue`, so it is
+ * read off the tail of `id`: `deriveReviewIssues` builds a fault issue's id
+ * from `candidate.identity`, and identity is the registration key.
+ *
+ * `count` is accumulated in the loop below, not read off `.length` — see the
+ * counting note at the top of this file.
+ */
+export function issuesForAsset(
+  derivation: ReviewDerivation,
+  asset: { path: string; registrationKeys?: string[] }
+): AssetFindings {
+  const issues: ReviewIssue[] = [];
+  let count = 0;
+  let severity: "warning" | "danger" = "warning";
+
+  for (const issue of derivation.issues) {
+    const ownPath = issue.path === asset.path;
+    const asCopy = issue.copies?.includes(asset.path) ?? false;
+    const asRegistration = asset.registrationKeys?.some((key) => issue.id.endsWith(key)) ?? false;
+    if (!ownPath && !asCopy && !asRegistration) continue;
+
+    issues.push(issue);
+    count += 1;
+    if (issue.kind === "broken" || issue.kind === "parse") severity = "danger";
+  }
+
+  return { issues, count, severity };
+}
+
 /** True when an issue survives the kind chip, the place row and the filter field. */
 export function matchesIssueFilter(
   issue: ReviewIssue,
