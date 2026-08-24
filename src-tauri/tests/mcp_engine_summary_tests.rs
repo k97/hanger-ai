@@ -392,3 +392,28 @@ fn no_registrations_at_all_yields_an_empty_summary() {
     assert!(summary.rows.is_empty());
     assert_eq!(summary.total_server_count, 0);
 }
+
+#[test]
+fn counts_servers_whose_launches_disagree_and_not_duplicates() {
+    // tauri: two hosts, two different launches — Conflicting.
+    // spades: one host, the same launch twice — Duplicate, which is agreement.
+    // solo: one registration — nothing to disagree with.
+    let discovered = discovery(vec![
+        stdio_reg("tauri", "claude-code", "npx", &["tauri-mcp@2.9.1"]),
+        stdio_reg("tauri", "codex", "npx", &["tauri-mcp@latest"]),
+        stdio_reg("spades", "claude-code", "node", &["spades.js"]),
+        duplicate_stdio_reg("spades", "claude-code", "node", &["spades.js"]),
+        stdio_reg("solo", "gemini", "npx", &["solo"]),
+    ]);
+    let summary = engine_summary(&discovered, |_| None);
+    assert_eq!(summary.conflicting_server_count, 1, "tauri disagrees; spades merely repeats; solo stands alone");
+}
+
+#[test]
+fn an_agreeing_machine_has_no_conflicting_servers() {
+    let discovered = discovery(vec![
+        stdio_reg("tauri", "claude-code", "npx", &["tauri-mcp@2.9.1"]),
+        stdio_reg("tauri", "codex", "npx", &["tauri-mcp@2.9.1"]),
+    ]);
+    assert_eq!(engine_summary(&discovered, |_| None).conflicting_server_count, 0);
+}

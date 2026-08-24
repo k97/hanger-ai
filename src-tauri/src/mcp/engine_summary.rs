@@ -62,9 +62,11 @@
 
 use std::collections::{HashMap, HashSet};
 
+use crate::mcp::agreement::Agreement;
 use crate::mcp::discover::{engine_display_name, DiscoveryResult, Registration};
 use crate::mcp::probe::{cache_key, probe_launch, ProbeLaunch};
 use crate::mcp::registry::host_by_id;
+use crate::mcp::servers::group_servers;
 
 /// One row: one host, the servers it registers, and what is known of what
 /// they expose.
@@ -106,6 +108,10 @@ pub struct McpEngineSummary {
     /// connector, or any other declaration with no command and no dial
     /// target. Never "not yet asked": there is no action that changes this.
     pub unaskable_server_count: usize,
+    /// Server names whose registrations disagree — `Agreement::Conflicting`
+    /// over the same population the rows fold. `Duplicate` is agreement and
+    /// is not counted. The strip's Review pill renders this figure.
+    pub conflicting_server_count: usize,
 }
 
 /// Fold `discovered` and a probe-cache lookup into [`McpEngineSummary`].
@@ -235,6 +241,10 @@ where
         answered_server_count,
         unasked_server_count,
         unaskable_server_count,
+        conflicting_server_count: group_servers(&discovered.registrations)
+            .iter()
+            .filter(|row| row.agreement == Agreement::Conflicting)
+            .count(),
     }
 }
 
