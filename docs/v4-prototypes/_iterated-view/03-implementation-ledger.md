@@ -280,12 +280,12 @@ plan wrongly assumed existed, `OverflowMenu` extracted from `ViewControl`,
 plus four forced test-edit commits and four corrections, each committed
 separately with its cause.
 
-### Gates — run at `a6e0008`, `git status --porcelain` empty
+### Gates — run at `d6d99e2`, `git status --porcelain` empty
 
 ```
 $ npx vitest run                      # from the repo root
- Test Files  94 passed (94)
-      Tests  796 passed (796)
+ Test Files  95 passed (95)
+      Tests  802 passed (802)
 
 $ cargo test                          # from src-tauri/
 binaries=36 passed=442 failed=0
@@ -294,19 +294,41 @@ $ bunx tsc --noEmit; echo "tsc exit=$?"
 tsc exit=0
 
 $ gitleaks detect --source .
-INF 824 commits scanned.
-INF scanned ~7281702 bytes (7.28 MB) in 1.96s
+INF 832 commits scanned.
+INF scanned ~7298585 bytes (7.30 MB) in 2.74s
 INF no leaks found
 exit=0
 
 $ gitleaks detect --source . --no-git -c .gitleaks.toml
-INF scanned ~10297346 bytes (10.30 MB) in 671ms
+INF scanned ~10313602 bytes (10.31 MB) in 1.34s
 INF no leaks found
 exit=0
 ```
 
-Movement: frontend **766 → 796** (+30); backend unchanged at 442 — this phase
+Movement: frontend **766 → 802** (+36); backend unchanged at 442 — this phase
 touched no Rust.
+
+### A third defect, found by review rather than by the screenshot
+
+**The inspector column could no longer be dragged.** The identity row took over
+the strip carrying `data-tauri-drag-region`, and the plan instructed its root
+to be `relative` so it would sit "above the drag overlay". Tauri's injected
+`drag.js` starts a drag on a bare attribute only when the pointer's exact
+target carries it — `if (attr === '' || attr === 'true') return el ===
+composedPath[0]` — so a positioned, full-width root painting over the overlay
+killed dragging across the whole strip. Found by reading the vendor's source,
+confirmed against DOM paint order, and fixed by dropping that one class; each
+of the row's children already carried its own `relative`, which is what keeps
+the controls clickable.
+
+This is the invariant the plan named as its own biggest risk, and it would
+otherwise have been discovered by dragging a window that did not move.
+
+Two plan Decisions were also found unimplemented (7: the review route did not
+clear standing filters; 13: the title block's padding and border). Decision 13
+turned out to be wrong as written — it assumes a tab row supplies the
+separating line, which holds for only one of the four views sharing that
+wrapper, so the border is now conditional on a tab row actually following.
 
 ### Two defects found during execution, both ruled on by Karthik
 
