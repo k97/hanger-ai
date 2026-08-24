@@ -95,7 +95,7 @@ vi.mock("@tauri-apps/api/core", () => ({
 }));
 
 const enterMcpView = async () => {
-  const chip = await screen.findByRole("button", { name: /MCP servers/ });
+  const chip = await screen.findByRole("tab", { name: /MCP servers/ });
   fireEvent.click(chip);
   return chip;
 };
