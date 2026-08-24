@@ -136,6 +136,27 @@ describe("ProfilePane Component-Level Filtering Integration", () => {
     const track = screen.getByRole("tablist", { name: "Filter by category" });
     const strip = screen.getByLabelText("Inventory summary");
     expect(track.compareDocumentPosition(strip) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+    // The line above reads MARKUP order, which is all happy-dom has — it lays
+    // nothing out and has no paint order (verification.md). So `order-2` on
+    // the track flips what the user actually sees and leaves that line green;
+    // planted, it passed all 806 tests, as did reverting the four spacing
+    // values `2de751a` set, which nothing read either.
+    //
+    // What follows is a CLASS CONTRACT, not a paint-order assertion. It is the
+    // honest substitute this environment can carry: pinning each wrapper's
+    // exact class list means an `order` utility cannot be added without
+    // failing here. A separate `not.toMatch(/order-/)` was written and then
+    // removed — the assertion below fails first, so nothing could ever have
+    // made that line fire. Real paint order stays a screenshot claim.
+    const trackBox = track.parentElement!.parentElement!; // wrapper > section > tablist
+    const stripBox = strip.parentElement!;
+    // Siblings under one flex column, which is the only arrangement in which
+    // an `order` utility would apply at all.
+    expect(trackBox.parentElement).toBe(stripBox.parentElement);
+    // Cited verbatim by DESIGN.md -> Pane composition; change them together.
+    expect(trackBox.className).toBe("px-[18px] pt-3.5 pb-1.5");
+    expect(stripBox.className).toBe("mx-[18px] mt-2.5 mb-2.5");
   });
 
   it("the strip follows the selected category: the skill count, the skill noun, the skill split", () => {
