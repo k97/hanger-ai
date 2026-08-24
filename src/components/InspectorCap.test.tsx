@@ -203,7 +203,7 @@ describe("InspectorCap", () => {
 
   it("renders no Link to… and no overflow menu for an MCP asset with none of the menu callbacks", () => {
     renderCap({
-      asset: { name: "spades-audio", category: "Tools", path: "/repo/.mcp.json" },
+      asset: { category: "Tools" },
       onLink: undefined,
       onOpenInEditor: undefined,
       onCopyPath: undefined,
@@ -229,7 +229,7 @@ describe("InspectorCap", () => {
 
   it("never sheds an MCP server's cap: findings do not open a dangling ⋮ menu (forceShed=2)", () => {
     renderCap({
-      asset: { name: "spades-audio", category: "Tools", path: "/repo/.mcp.json" },
+      asset: { category: "Tools" },
       onLink: undefined,
       onOpenInEditor: undefined,
       onCopyPath: undefined,
@@ -243,7 +243,7 @@ describe("InspectorCap", () => {
 
   it("never sheds an MCP server's cap: still no ⋮ at forceShed=1", () => {
     renderCap({
-      asset: { name: "spades-audio", category: "Tools", path: "/repo/.mcp.json" },
+      asset: { category: "Tools" },
       onLink: undefined,
       onOpenInEditor: undefined,
       onCopyPath: undefined,

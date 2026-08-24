@@ -1212,12 +1212,7 @@ export default function App() {
    */
   const capAsset: InspectorCapAsset | null =
     selectedAsset && selectedAsset.category !== "Agents"
-      ? {
-          name: selectedAsset.name,
-          category: selectedAsset.category,
-          path: selectedAsset.path,
-          scope: selectedAsset.scope,
-        }
+      ? { category: selectedAsset.category }
       : null;
   const capPlace = selectedAsset ? provenanceOf(selectedAsset, inventory).place : "";
 

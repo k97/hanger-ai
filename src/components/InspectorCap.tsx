@@ -34,11 +34,11 @@ import {
  * consts live in App's component body and are not exported).
  */
 
+/** Only what the cap reads. It draws a kind label and a kind icon, both from
+ *  `category` (`:149-150`); it has never read a name, a path or a scope, and
+ *  declaring them invited callers to believe otherwise. */
 export interface InspectorCapAsset {
-  name: string;
   category: IssueCategory;
-  path: string;
-  scope?: unknown;
 }
 
 export interface InspectorCapProps {
