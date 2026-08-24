@@ -748,8 +748,11 @@ eyebrows.
   beneath it (`:534-538`).
 
 **`McpServerDetail` (`McpServerDetail.tsx`), Tools tab.**
-- **Context per request → Composition** appears only once a probe has
-  answered with a `cost` (`:700-721`). A `Descriptions` row states the bytes
+- **Context per request** appears only once a probe has
+  answered with a `cost` (`:700-720`). One heading, not two: the card
+  carried a second `Composition` eyebrow directly beneath the section's own
+  until 2026-08-24, which is why every other section here has exactly one
+  `h3` and this one had a pair. A `Descriptions` row states the bytes
   the store can account for (`formatBytes(descriptionBytesTotal) · M of N
   tools`) beside an `Input schemas` row whose value is the constant string
   "the remainder, not in the store" — schema bytes are never captured
