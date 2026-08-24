@@ -374,27 +374,44 @@ export interface AssetFindings {
 
 /**
  * Every issue that concerns one asset — by its own path, by a duplicate's
- * `copies`, or (for a server) by any of its registration keys. A Tool's
- * registration key has nowhere else to live on a `ReviewIssue`, so it is
- * read off the tail of `id`: `deriveReviewIssues` builds a fault issue's id
- * from `candidate.identity`, and identity is the registration key.
+ * `copies`, by (for a server) any of its registration keys, or (for a
+ * server's duplicate) its name. A Tool's registration key has nowhere else
+ * to live on a `ReviewIssue`, so it is read off the tail of `id`:
+ * `deriveReviewIssues` builds a fault issue's id from `candidate.identity`,
+ * and identity is the registration key.
+ *
+ * A server's `path` is its config file, and a config file is shared — a
+ * typical `~/.claude.json` declares ten servers. Matching a server by path,
+ * the way a skill or rule is matched (there the path IS the asset), hands
+ * one server every finding that belongs to its neighbours in the same file.
+ * Karthik's ruling, 2026-08-24: a server matches by identity, never by the
+ * file it shares — `asset.path` is for non-server assets only, and callers
+ * must not pass it for a server. `asset.serverName` carries a server's name
+ * for matching its own duplicate issue (`category === "Tools"`,
+ * `kind === "duplicate"`, `issue.name === asset.serverName`) without relying
+ * on `path` or on a registration key threaded through `id`.
  *
  * `count` is accumulated in the loop below, not read off `.length` — see the
  * counting note at the top of this file.
  */
 export function issuesForAsset(
   derivation: ReviewDerivation,
-  asset: { path: string; registrationKeys?: string[] }
+  asset: { path?: string; registrationKeys?: string[]; serverName?: string }
 ): AssetFindings {
   const issues: ReviewIssue[] = [];
   let count = 0;
   let severity: "warning" | "danger" = "warning";
 
   for (const issue of derivation.issues) {
-    const ownPath = issue.path === asset.path;
-    const asCopy = issue.copies?.includes(asset.path) ?? false;
+    const ownPath = asset.path !== undefined && issue.path === asset.path;
+    const asCopy = asset.path !== undefined && (issue.copies?.includes(asset.path) ?? false);
     const asRegistration = asset.registrationKeys?.some((key) => issue.id.endsWith(key)) ?? false;
-    if (!ownPath && !asCopy && !asRegistration) continue;
+    const asServerDuplicate =
+      asset.serverName !== undefined &&
+      issue.category === "Tools" &&
+      issue.kind === "duplicate" &&
+      issue.name === asset.serverName;
+    if (!ownPath && !asCopy && !asRegistration && !asServerDuplicate) continue;
 
     issues.push(issue);
     count += 1;

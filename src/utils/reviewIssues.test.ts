@@ -549,3 +549,99 @@ describe("issuesForAsset", () => {
     expect(result.count).toBe(0);
   });
 });
+
+/**
+ * A server's `path` is its config file, and a config file is shared: three
+ * servers below all sit in `~/.claude.json`. Matching a server by that path —
+ * as the four tests above do for a skill or a rule, where the path IS the
+ * asset — hands one server every finding that belongs to its neighbours.
+ * Karthik's 2026-08-24 ruling: a server matches by identity (its
+ * registration key, or its name for a duplicate), never by the file it
+ * shares with everything else declared there. `path` is never populated
+ * below, on any query, to prove the fix does not depend on it.
+ *
+ * `server-b` never appears in `issues` at all — it is the innocent neighbour
+ * on the same shared file, present only as the thing that must NOT be
+ * found.
+ */
+const serverFindingsDerivation: ReviewDerivation = {
+  issues: [
+    {
+      id: "Tools:broken:~/.claude.json:server-a",
+      name: "server-a",
+      category: "Tools",
+      kind: "broken",
+      problem: "Target missing",
+      path: "~/.claude.json",
+      whereLabel: "Global",
+      whereKeys: ["global"],
+      crossRepo: false,
+    },
+    {
+      id: "duplicate:Tools::server-x",
+      name: "server-x",
+      category: "Tools",
+      kind: "duplicate",
+      problem: "2 copies, no shared source",
+      path: "~/.claude.json",
+      whereLabel: "2 repos",
+      whereKeys: ["global", "/repo-x"],
+      crossRepo: true,
+      copies: ["~/.claude.json", "/repo-x/.mcp.json"],
+    },
+    {
+      // Same shared file as server-x's duplicate above, different server —
+      // the case that must stay unmatched when server-x is queried.
+      id: "duplicate:Tools::server-y",
+      name: "server-y",
+      category: "Tools",
+      kind: "duplicate",
+      problem: "2 copies, no shared source",
+      path: "~/.claude.json",
+      whereLabel: "2 repos",
+      whereKeys: ["global", "/repo-y"],
+      crossRepo: true,
+      copies: ["~/.claude.json", "/repo-y/.mcp.json"],
+    },
+  ],
+  counts: { broken: 1, drifted: 0, duplicate: 2, parse: 0, crossRepo: 2, total: 3 },
+  places: [],
+};
+
+describe("issuesForAsset — a server matches by identity, not by its config file", () => {
+  it("does not hand a healthy server its neighbour's fault or duplicates, sharing its config file", () => {
+    // server-b owns none of the three issues above, but all three sit in the
+    // same config file server-b would report as its `path`. Passing no path
+    // at all is the point: the old signature required one, so this call
+    // could not even be written against it.
+    const { issues, count } = issuesForAsset(serverFindingsDerivation, {
+      registrationKeys: ["~/.claude.json:server-b"],
+      serverName: "server-b",
+    });
+
+    expect(issues).toEqual([]);
+    expect(count).toBe(0);
+  });
+
+  it("still finds a server's own fault by registration key", () => {
+    const { issues, count, severity } = issuesForAsset(serverFindingsDerivation, {
+      registrationKeys: ["~/.claude.json:server-a"],
+      serverName: "server-a",
+    });
+
+    expect(issues.map((i) => i.id)).toEqual(["Tools:broken:~/.claude.json:server-a"]);
+    expect(count).toBe(1);
+    expect(severity).toBe("danger");
+  });
+
+  it("finds a server's duplicate by name, and not a different server's duplicate in the same file", () => {
+    const { issues, count, severity } = issuesForAsset(serverFindingsDerivation, {
+      registrationKeys: ["~/.claude.json:server-x"],
+      serverName: "server-x",
+    });
+
+    expect(issues.map((i) => i.id)).toEqual(["duplicate:Tools::server-x"]);
+    expect(count).toBe(1);
+    expect(severity).toBe("warning");
+  });
+});
