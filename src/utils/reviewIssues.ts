@@ -394,9 +394,21 @@ export interface AssetFindings {
  * `count` is accumulated in the loop below, not read off `.length` — see the
  * counting note at the top of this file.
  */
+/**
+ * How one asset names itself to `issuesForAsset`, as two shapes that cannot
+ * be mixed. A skill, rule or subagent IS its path. A server is not: its path
+ * is a config file it shares with every other server declared there, so
+ * matching one by it hands it the neighbours' findings (Karthik's ruling,
+ * 2026-08-24). The `never` arms make that mistake a compile error rather than
+ * a convention a caller has to remember.
+ */
+export type AssetIdentity =
+  | { path: string; registrationKeys?: never; serverName?: never }
+  | { path?: never; registrationKeys: string[]; serverName?: string };
+
 export function issuesForAsset(
   derivation: ReviewDerivation,
-  asset: { path?: string; registrationKeys?: string[]; serverName?: string }
+  asset: AssetIdentity
 ): AssetFindings {
   const issues: ReviewIssue[] = [];
   let count = 0;
