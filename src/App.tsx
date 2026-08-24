@@ -1252,6 +1252,11 @@ export default function App() {
   const onReviewForCap = (issue: ReviewIssue) => {
     handleSelectSidebarItem("review");
     invoke("set_preference", { key: "selected_sidebar_item", value: "review" }).catch(() => {});
+    // Decision 7: the route clears any standing kind/place filter, not just
+    // selects the issue — otherwise a filter left over from a previous visit
+    // can filter the routed-to issue straight back out of the list.
+    setReviewKind(null);
+    setReviewPlace(null);
     setSelectedIssue(issue);
   };
 

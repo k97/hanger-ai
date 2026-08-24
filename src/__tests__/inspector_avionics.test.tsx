@@ -28,6 +28,18 @@ const mockInventoryData = {
       is_symlink: true,
       scope: { Project: { agent: "claude", root: "~/Work/demo" } },
     },
+    // For test 13 only: a broken link gives the cap a finding to route from.
+    {
+      id: "skill-2",
+      name: "Broken Skill",
+      description: "Sample skill with a broken link, for the cap's review route",
+      version: "1.0.0",
+      path: "~/Work/demo/skills/broken-skill",
+      source_origin: "~/Source/skills/broken-skill",
+      is_symlink: true,
+      link_state: "broken",
+      scope: { Project: { agent: "claude", root: "~/Work/demo" } },
+    },
   ],
   tools: [
     {
@@ -387,6 +399,55 @@ describe("Avionics A5 — Docked Right Inspector Integration", () => {
       const scopeRow = screen.getByTestId("identity-row-scope");
       expect(scopeRow.textContent).toContain("demo");
       expect(scopeRow.textContent).not.toContain("Global");
+    });
+  });
+
+  it("13. The cap's review route (Decision 7) resets any standing kind/place filter, not just the issue — Needs review lands on Everything, Everywhere", async () => {
+    setupMockInvoke("true");
+    render(<App />);
+
+    // Land on Needs review first and pick a filter that is not the
+    // default — exactly the state a previous visit could leave behind.
+    fireEvent.click(await screen.findByLabelText(/^Needs review/));
+    const reviewSidebar = await screen.findByTestId("review-sidebar");
+    fireEvent.click(within(reviewSidebar).getByRole("button", { name: /Duplicates/ }));
+    fireEvent.click(within(reviewSidebar).getByRole("button", { name: /^demo/ }));
+    await waitFor(() => {
+      expect(
+        within(reviewSidebar).getByRole("button", { name: /Duplicates/ }).getAttribute("aria-current")
+      ).toBe("true");
+      expect(
+        within(reviewSidebar).getByRole("button", { name: /^demo/ }).getAttribute("aria-current")
+      ).toBe("true");
+    });
+
+    // Back to the repository to select the broken asset the cap routes
+    // from. `handleSelectSidebarItem` clears the selection on every
+    // navigation, so this has to come after the filter is set, not before.
+    fireEvent.click(screen.getByLabelText("My machine"));
+    const sidebar = await screen.findByTestId("sidebar");
+    fireEvent.click(within(sidebar).getByText("demo"));
+
+    const brokenRow = await screen.findByText("Broken Skill");
+    fireEvent.click(brokenRow);
+
+    // Open the cap's finding chip and take its popover's route to Needs
+    // review — Decision 7's path: handleSelectSidebarItem("review"),
+    // setReviewKind(null), setReviewPlace(null), setSelectedIssue(issue).
+    fireEvent.click(await screen.findByText("1 flagged"));
+    fireEvent.click(await screen.findByText("Needs review →"));
+
+    // Left unset, "Duplicates"/"demo" would still read active and the
+    // asset's own issue (a "broken" fault, not a duplicate) would be
+    // filtered straight back out of the list it was just routed to.
+    await waitFor(() => {
+      const sidebarAfter = screen.getByTestId("review-sidebar");
+      expect(
+        within(sidebarAfter).getByRole("button", { name: /^Everything/ }).getAttribute("aria-current")
+      ).toBe("true");
+      expect(
+        within(sidebarAfter).getByRole("button", { name: /^Everywhere/ }).getAttribute("aria-current")
+      ).toBe("true");
     });
   });
 });
