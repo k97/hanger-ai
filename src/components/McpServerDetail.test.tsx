@@ -1138,9 +1138,8 @@ describe("McpServerDetail — the tool table and Context (M5)", () => {
     expect(within(block).getAllByText("—")).toHaveLength(3);
     // The tab and the section count carry the backend's figure.
     expect(screen.getByRole("tab", { name: "Tools 3" })).toBeTruthy();
-    // Composition leads the panel and is checkable against the table.
+    // The section leads the panel and is checkable against the table.
     const context = screen.getByRole("heading", { name: "Context per request" }).closest("section")!;
-    expect(within(context).getByText("Composition")).toBeTruthy();
     expect(context.textContent).toContain("Descriptions109 B · 2 of 3 tools");
     expect(context.textContent).toContain("Input schemasthe remainder, not in the store");
     expect(context.textContent).toContain("A request carries the whole definition. Hanger keeps a tool’s name and its description and drops the schema, so the store can account for the smaller part of that figure and not the larger.");
