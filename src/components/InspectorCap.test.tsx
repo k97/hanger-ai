@@ -139,6 +139,54 @@ describe("InspectorCap", () => {
     expect(items).toEqual(["Link to…", "Needs review · 1", "Copy path", "Reveal in Finder", "Open in editor"]);
   });
 
+  it("wires the menu's Copy path item to onCopyPath, and only onCopyPath", () => {
+    const callbacks = renderCap({ forceShed: 0 });
+    fireEvent.click(screen.getByRole("button", { name: "More actions" }));
+    const menu = screen.getByRole("menu", { name: "More actions" });
+    fireEvent.click(within(menu).getByRole("menuitem", { name: "Copy path" }));
+
+    expect(callbacks.onCopyPath).toHaveBeenCalledTimes(1);
+    expect(callbacks.onReveal).not.toHaveBeenCalled();
+    expect(callbacks.onOpenInEditor).not.toHaveBeenCalled();
+    expect(callbacks.onLink).not.toHaveBeenCalled();
+  });
+
+  it("wires the menu's Reveal in Finder item to onReveal, and only onReveal", () => {
+    const callbacks = renderCap({ forceShed: 0 });
+    fireEvent.click(screen.getByRole("button", { name: "More actions" }));
+    const menu = screen.getByRole("menu", { name: "More actions" });
+    fireEvent.click(within(menu).getByRole("menuitem", { name: "Reveal in Finder" }));
+
+    expect(callbacks.onReveal).toHaveBeenCalledTimes(1);
+    expect(callbacks.onCopyPath).not.toHaveBeenCalled();
+    expect(callbacks.onOpenInEditor).not.toHaveBeenCalled();
+    expect(callbacks.onLink).not.toHaveBeenCalled();
+  });
+
+  it("wires the menu's Open in editor item to onOpenInEditor, and only onOpenInEditor", () => {
+    const callbacks = renderCap({ forceShed: 0 });
+    fireEvent.click(screen.getByRole("button", { name: "More actions" }));
+    const menu = screen.getByRole("menu", { name: "More actions" });
+    fireEvent.click(within(menu).getByRole("menuitem", { name: "Open in editor" }));
+
+    expect(callbacks.onOpenInEditor).toHaveBeenCalledTimes(1);
+    expect(callbacks.onCopyPath).not.toHaveBeenCalled();
+    expect(callbacks.onReveal).not.toHaveBeenCalled();
+    expect(callbacks.onLink).not.toHaveBeenCalled();
+  });
+
+  it("wires the menu's shed-in Link to… item to onLink, and only onLink (forceShed=1)", () => {
+    const callbacks = renderCap({ forceShed: 1 });
+    fireEvent.click(screen.getByRole("button", { name: "More actions" }));
+    const menu = screen.getByRole("menu", { name: "More actions" });
+    fireEvent.click(within(menu).getByRole("menuitem", { name: "Link to…" }));
+
+    expect(callbacks.onLink).toHaveBeenCalledTimes(1);
+    expect(callbacks.onCopyPath).not.toHaveBeenCalled();
+    expect(callbacks.onReveal).not.toHaveBeenCalled();
+    expect(callbacks.onOpenInEditor).not.toHaveBeenCalled();
+  });
+
   it("renders no Link to… and no overflow menu for an MCP asset with none of the menu callbacks", () => {
     renderCap({
       asset: { name: "spades-audio", category: "Tools", path: "/repo/.mcp.json" },
