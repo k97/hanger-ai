@@ -273,7 +273,79 @@ un-assertable in `happy-dom`:
 
 ## Phase 2b — the inspector header
 
-**NOT RUN — skipped out of order, discovered 2026-08-24 after Phase 3 closed.**
+**Complete**, run out of order after Phase 3. H1–H6 landed; H7 (screenshot) is
+human-gated and outstanding. Fifteen commits: the `EllipsisVerticalIcon` the
+plan wrongly assumed existed, `OverflowMenu` extracted from `ViewControl`,
+`issuesForAsset`, `InspectorCap`, the wiring into `App.tsx`, and `DESIGN.md` —
+plus four forced test-edit commits and four corrections, each committed
+separately with its cause.
+
+### Gates — run at `a6e0008`, `git status --porcelain` empty
+
+```
+$ npx vitest run                      # from the repo root
+ Test Files  94 passed (94)
+      Tests  796 passed (796)
+
+$ cargo test                          # from src-tauri/
+binaries=36 passed=442 failed=0
+
+$ bunx tsc --noEmit; echo "tsc exit=$?"
+tsc exit=0
+
+$ gitleaks detect --source .
+INF 824 commits scanned.
+INF scanned ~7281702 bytes (7.28 MB) in 1.96s
+INF no leaks found
+exit=0
+
+$ gitleaks detect --source . --no-git -c .gitleaks.toml
+INF scanned ~10297346 bytes (10.30 MB) in 671ms
+INF no leaks found
+exit=0
+```
+
+Movement: frontend **766 → 796** (+30); backend unchanged at 442 — this phase
+touched no Rust.
+
+### Two defects found during execution, both ruled on by Karthik
+
+**A server was about to inherit its config file's findings.** `~/.claude.json`
+typically declares ten servers, and the plan matched an asset's findings by its
+path — which for a server is that shared file. A healthy server would have worn
+a danger dot and a count belonging to a neighbour. Ruled: match by identity,
+never by file. Now enforced by the type system (`AssetIdentity`), not by a
+comment — the guard was watched rejecting the mixed shape (`TS2345`, `tsc`
+exit 2) before being counted as working.
+
+**Every clicked asset reported itself as Global.** Pre-existing and unrelated
+to this plan: `handleSelectAsset` carried `scopeBadge`, a display string, but
+never `scope`, the object `placeOf` reads — so `AssetDetail`'s Identity › Scope
+row had been wrong all along, and the new cap eyebrow would have read
+`SKILL · GLOBAL` for every project asset. Ruled: fix before the screenshot,
+since that capture is the only evidence for the cap.
+
+### Task H7 — screenshot, OUTSTANDING, awaiting Karthik
+
+Two things here are unreachable by any test, and one of them is the invariant
+this phase most risks:
+
+1. **The window still drags from the inspector cap.** The identity row takes
+   over the strip that carries `data-tauri-drag-region`. Drag the window by the
+   cap and record that it moved (window bounds before and after, via
+   CGWindowList). Nothing in the suite can confirm this.
+2. **The measured shed.** A `useEffect` climbs a rung when the row overflows,
+   and a `ResizeObserver` resets it when the row grows back. Under the test
+   environment neither runs — `happy-dom` has a `ResizeObserver` whose
+   `observe()` is a no-op, and `scrollWidth`/`clientWidth` stay 0 — so a broken
+   threshold, a flipped comparison or a disconnected ref would pass every test.
+   The collapsed states are driven in tests by a `forceShed` prop instead.
+
+The plan's capture list: four shots at the 384px floor and at 480 (drag the
+column edge; read `inspector_width` from the store to corroborate) — a skill
+with a finding (chip + state dot), the ⋮ open at 480 (three items, no divider),
+the ⋮ open at 384 (`Link to…` above a divider), and an MCP server (no ⋮ at all,
+chip on the surface at every width).
 
 The brief was to execute the plans in numbered order. Execution went
 1 → 2a → **3**, and 2b was never dispatched: there is no
