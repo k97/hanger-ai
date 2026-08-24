@@ -1,4 +1,4 @@
-//! `list_asset_dir_of`: the "In this skill" card. The backend lists and
+//! `list_asset_dir_of`: the "Contents" card. The backend lists and
 //! counts; the frontend renders what it is given.
 
 use std::fs;

@@ -1589,7 +1589,7 @@ pub fn list_asset_dir_of(folder: &Path) -> Result<Vec<AssetDirEntry>, String> {
     Ok(entries)
 }
 
-/// Lists a skill's folder for the inspector's "In this skill" card. Same
+/// Lists a skill's folder for the inspector's "Contents" card. Same
 /// boundary as `read_asset_body`: the path must canonicalise inside a root
 /// the scanner reads.
 #[tauri::command]

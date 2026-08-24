@@ -532,7 +532,7 @@ the dot.
 Projects (`:631-639`), whose state (`showProjects`) is a prop persisted by
 App as `linkmap_show_projects`, default off, as above; Unlinked roots
 (`:640-648`, `showUnlinked`, pane-local, default on, `:204`); and Only
-drift and dangling (`:649-657`, `onlyFaults`, pane-local, default off,
+drifted and dangling (`:649-657`, `onlyFaults`, pane-local, default off,
 `:205`).
 
 **`LinkMapPlacecard`'s node body.** A section-format `ListCard` with one
@@ -782,20 +782,23 @@ the `<i data-testid="tab-indicator">` it moves, `:67-72`). First callers:
 optional count (`McpServerDetail.tsx:666-688`).
 
 **`FindingChip`** (`FindingChip.tsx`) — a chip plus an edge-clamped
-popover (Karthik, 2026-08-23): the chip says a node wants a decision;
-opening it says what, once (`:4-16`). Props `count?`, `severity`, `lines`,
-`onReview`, `elevated`, `clampTo` (`:18-25`). The dot's colour is
-`severity` — `bg-state-danger` or `bg-state-warning` (`:71`, drawn
-`:86`). The popover measures its own box against `clampTo.current` in a
-`useLayoutEffect` and, only if it would run past the caller's surface,
-shifts back inside and moves the arrow the same amount so it still points
-at the chip (`:56-69`) — `Tooltip.tsx`'s window correction, here against
-the caller's own container. `elevated` decides whether the popover
-carries `shadow-overlay` (`:97-99`). Its lines are not new copy:
-`LinkMapPlacecard` passes the popover the same strings the map already
-draws on the edge labels themselves, built by `edgeSummary`
-(`LinkMapPane.tsx:407-408`, drawn on the map `:477`). `Review →`
-(`:109-111`) fires `onReview`, which `App.tsx` wires to switch to the
+popover (Karthik, 2026-08-23): the chip names the state — how many findings
+are behind it; opening it says what they are and names its own destination,
+once (`:4-16`). Props `severity`, `lines`, `onReview`, `elevated`, `clampTo`
+(`:18-24`) — `count?` was dropped when the chip stopped taking an externally
+supplied count and started stating its own (`5cf0c70`). The chip itself
+reads `{n} flagged` and the popover's `aria-label` carries the same string,
+not "Needs a decision" (`:86`, `:92`). The dot's colour is `severity` —
+`bg-state-danger` or `bg-state-warning` (`:70`). The popover measures its
+own box against `clampTo.current` in a `useLayoutEffect` and, only if it
+would run past the caller's surface, shifts back inside and moves the arrow
+the same amount so it still points at the chip (`:55-68`) — `Tooltip.tsx`'s
+window correction, here against the caller's own container. `elevated`
+decides whether the popover carries `shadow-overlay` (`:95-97`). Its lines
+are not new copy: `LinkMapPlacecard` passes the popover the same strings the
+map already draws on the edge labels themselves, built by `edgeSummary`
+(`LinkMapPane.tsx:407-408`, drawn on the map `:477`). `Needs review →`
+(`:106-110`) fires `onReview`, which `App.tsx` wires to switch to the
 Needs review pane (`App.tsx:1545-1548`).
 
 **`ScanStamp`** (`ScanStamp.tsx`) — how old the figure beside it is;
