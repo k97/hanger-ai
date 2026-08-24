@@ -294,6 +294,21 @@ describe("Asset detail — the inspector's document screen", () => {
     expect(section.querySelector("dl")).toBeNull();
   });
 
+  // Pins the word itself, not just the row's presence: `rows` above only
+  // asserts the testid `identity-row-path` (derived from the row's `key`,
+  // never its `label`) is in the right slot, so a reviewer found relabelling
+  // "Path" to "File path" — signed-off copy (the plan's copy table,
+  // "Details › Identity, new row") — left that test and inspector_avionics
+  // fully green.
+  it("labels the last Identity row exactly \"Path\" — the word Karthik signed off, not a paraphrase", async () => {
+    render(<AssetDetail asset={asset} inventory={inventory} />);
+    await screen.findByRole("tab", { name: "Details" });
+    openDetails();
+    const section = screen.getByText("Identity").closest("section")!;
+    const pathRow = within(section).getByTestId("identity-row-path");
+    expect(within(pathRow).getByText("Path")).toBeTruthy();
+  });
+
   it("omits the Modified row when the file has no mtime, rather than inventing an epoch date", async () => {
     bodyModifiedMs = null;
     render(<AssetDetail asset={asset} inventory={inventory} />);

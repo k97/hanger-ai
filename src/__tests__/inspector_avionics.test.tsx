@@ -61,7 +61,16 @@ const mockInventoryData = {
       scope: { Project: { agent: "claude", root: "~/Work/demo" } },
     },
   ],
-  subagents: [],
+  subagents: [
+    {
+      id: "subagent-1",
+      name: "Inspector Subagent One",
+      description: "Sample subagent for inspector test",
+      path: "~/Work/demo/subagents/inspector-subagent-1",
+      declared_tools: [],
+      scope: { Project: { agent: "claude", root: "~/Work/demo" } },
+    },
+  ],
   project_scans: [
     {
       path: "~/Work/demo",
@@ -449,5 +458,29 @@ describe("Avionics A5 — Docked Right Inspector Integration", () => {
         within(sidebarAfter).getByRole("button", { name: /^Everywhere/ }).getAttribute("aria-current")
       ).toBe("true");
     });
+  });
+
+  // A reviewer found this unguarded by mutation: removing the
+  // `!== "Subagents"` clause from `onLinkForCap` (App.tsx, near :1234) left
+  // the whole 796-test suite green. `Agents` is separately protected because
+  // `capAsset` excludes that category outright; nothing shielded Subagents.
+  it("14. A Subagent asset gets no Link to… from the cap, on the surface or in the menu", async () => {
+    setupMockInvoke("true");
+    render(<App />);
+
+    const subagentRow = await screen.findByText("Inspector Subagent One");
+    fireEvent.click(subagentRow);
+
+    // The other three menu callbacks (copy/reveal/open) are wired for any
+    // selected asset regardless of category, so "More actions" itself still
+    // renders — Link to… specifically, on the surface and in the menu, is
+    // the thing the category exclusion is meant to withhold.
+    await waitFor(() => {
+      expect(screen.queryByRole("button", { name: "Link to…" })).toBeNull();
+      expect(screen.getByRole("button", { name: "More actions" })).toBeTruthy();
+    });
+    fireEvent.click(screen.getByRole("button", { name: "More actions" }));
+    const menu = screen.getByRole("menu", { name: "More actions" });
+    expect(within(menu).queryByRole("menuitem", { name: "Link to…" })).toBeNull();
   });
 });
