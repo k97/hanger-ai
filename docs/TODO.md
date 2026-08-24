@@ -373,10 +373,10 @@ are not suspicions.
 
 **Tests that assert nothing (proven: planting the defect left the suite green)**
 
-The first four are **closed** (2026-08-25). Each was re-proven against the
-current tree before it was fixed — the defect planted, the suite watched to
-stay green — then the new test was watched to go red on that same defect
-before any green was counted. The red output travels in each commit body.
+**All five are closed** (2026-08-25). Each was re-proven against the current
+tree before it was fixed — the defect planted, the suite watched to stay
+green — then the new test was watched to go red on that same defect before
+any green was counted. The red output travels in each commit body.
 
 - ~~`SegmentedTrack` capsule position~~ — **closed**, `7be2554`. Split in two,
   because one test could not carry both halves. The wiring half is assertable
@@ -403,9 +403,17 @@ before any green was counted. The red output travels in each commit body.
   the reset passed 70, not 49 (ProfilePaneIntegration 49, ProfilePaneSelection
   6, mcp_card_row 15). The case asserts both halves — the pill unpressed and
   the list it gates unfiltered — and each fails on its own.
-- The track/strip ordering assertion reads **markup** order, not paint order, and
-  never reads `className` — a CSS `order` flip, or reverting the four spacing
-  values, passes silently. **Still open.**
+- ~~The track/strip ordering assertion~~ — **closed**, `f308e16`. Both blind
+  spots re-proven against the current tree, each passing the **full 806**:
+  `order-2`/`order-1` on the two wrappers, and the four spacing values
+  reverted to their pre-`2de751a` form (`pt-3` `pb-2.5` `mt-[18px]`, no
+  `mb`). Fixed with a class contract whose comment says that is what it is —
+  each wrapper's exact class list, plus a sibling check, since siblings under
+  one flex column is the only arrangement where `order` applies. Paint order
+  itself stays a screenshot claim; happy-dom has none. Both panes carry it,
+  and `DESIGN.md` → Pane composition cites the same two strings, so they move
+  together now. A `not.toMatch(/order-/)` line was written and removed: the
+  className assertion fails first, so nothing could have made it fire.
 
 **Nine more from Phases 1 and 2a**, recorded when they were parked: T3 icons
 (passes against any Heroicons mark), T4 `ListCard` divider (Tailwind CSS never
