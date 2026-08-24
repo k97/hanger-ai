@@ -500,7 +500,7 @@ export default function AssetDetail({ asset, inventory, onLink, annotation }: As
             {dirEntries && dirEntries.length > 0 && (
               <section className="mx-[18px] my-3.5">
                 <div className="flex items-baseline justify-between gap-2 mb-3">
-                  <span className={eyebrowClass}>In this skill</span>
+                  <span className={eyebrowClass}>Contents</span>
                 </div>
                 <ListCard>
                   {dirEntries.map((e) => (
@@ -532,7 +532,7 @@ export default function AssetDetail({ asset, inventory, onLink, annotation }: As
                       data-testid="capability-row"
                       icon={<CommandLineIcon size={14} aria-hidden="true" />}
                       label={<span className="font-mono">{tool}</span>}
-                      wide={tool.startsWith("Bash") ? "runs commands" : undefined}
+                      wide={tool.startsWith("Bash") ? "Shell access" : undefined}
                     />
                   ))}
                 </ListCard>

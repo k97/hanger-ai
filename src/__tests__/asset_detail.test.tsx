@@ -147,7 +147,7 @@ describe("Asset detail — the inspector's document screen", () => {
     expect(screen.getByText("MIT")).toBeTruthy();
     const caps = screen.getByText("Capabilities").closest("section")!;
     const rows = Array.from(caps.querySelectorAll('[data-testid="capability-row"]')).map((r) => r.textContent);
-    expect(rows).toEqual(["Read", "Bashruns commands"]);
+    expect(rows).toEqual(["Read", "BashShell access"]);
     expect(screen.queryByText("Allowed tools")).toBeNull();
   });
 
@@ -300,7 +300,7 @@ describe("Asset detail — the inspector's document screen", () => {
     render(<AssetDetail asset={asset} inventory={inventory} />);
     await screen.findByRole("tab", { name: "Details" });
     openDetails();
-    const section = (await screen.findByText("In this skill")).closest("section")!;
+    const section = (await screen.findByText("Contents")).closest("section")!;
     const rows = Array.from(section.querySelectorAll('[data-testid="skill-dir-row"]')).map((r) => r.textContent);
     expect(rows).toEqual(["SKILL.md431 B", "references/3 files", "scripts/1 file"]);
   });
@@ -310,7 +310,7 @@ describe("Asset detail — the inspector's document screen", () => {
     render(<AssetDetail asset={{ ...asset, category: "Rules", path: "/home/me/.agents/rules/x.md" }} inventory={inventory} />);
     await screen.findByRole("tab", { name: "Details" });
     openDetails();
-    expect(screen.queryByText("In this skill")).toBeNull();
+    expect(screen.queryByText("Contents")).toBeNull();
     expect(invoke).not.toHaveBeenCalledWith("list_asset_dir", expect.anything());
   });
 
