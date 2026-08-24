@@ -447,12 +447,14 @@ describe("deriveReviewIssues — two faults in one config file", () => {
  * paths (own path, a duplicate's `copies`, a server's registration key)
  * apart from the other two so a dropped one goes red on its own.
  *
- * Deliberately NOT realistic in one respect: `deriveReviewIssues` never
- * embeds a Tool's registration key in a *duplicate* issue's `id` today (only
- * fault issues get identity-based ids) — the Tools duplicate below embeds
- * one anyway, because `issuesForAsset` has to have some structural place to
- * find a registration key on an issue, and `id` is the only field a Tool's
- * key already lives in.
+ * The Tools issue below is a FAULT, not a duplicate, because that is the only
+ * shape whose id carries a registration key: `deriveReviewIssues` builds a
+ * fault id as `${category}:${fault}:${identity}` (`reviewIssues.ts:283`) and a
+ * server's identity IS its registration key (`:167`), while a duplicate id is
+ * `duplicate:${category}::${name}` (`:321`) and is reached by name through the
+ * `serverName` match instead. This fixture used to embed a key in a duplicate
+ * id — a shape the deriver never builds — so the registration-key branch was
+ * only ever exercised against something that could not occur.
  */
 const findingsDerivation: ReviewDerivation = {
   issues: [
@@ -493,22 +495,21 @@ const findingsDerivation: ReviewDerivation = {
       crossRepo: false,
     },
     {
-      // Neither `path` nor `copies` is "~/.claude.json" — only the id's
-      // registration-key suffix is, so this issue can only be reached
-      // through the registration-key match.
-      id: "duplicate:Tools::~/.claude.json:spades-audio",
+      // Neither `path` nor `copies` is the registration key — only the id is,
+      // so this issue can only be reached through the registration-key match.
+      id: "Tools:broken:~/.claude.json:spades-audio",
       name: "spades-audio",
       category: "Tools",
-      kind: "duplicate",
-      problem: "2 copies, no shared source",
-      path: "/repo-a/.mcp.json",
-      whereLabel: "2 repos",
-      whereKeys: ["/repo-a", "/repo-b"],
-      crossRepo: true,
+      kind: "broken",
+      problem: "Target missing",
+      path: "~/.claude.json",
+      whereLabel: "one",
+      whereKeys: ["/one"],
+      crossRepo: false,
       copies: ["/repo-a/.mcp.json", "/repo-b/.mcp.json"],
     },
   ],
-  counts: { broken: 1, drifted: 1, duplicate: 2, parse: 0, crossRepo: 2, total: 4 },
+  counts: { broken: 2, drifted: 1, duplicate: 1, parse: 0, crossRepo: 1, total: 4 },
   places: [],
 };
 
@@ -530,15 +531,18 @@ describe("issuesForAsset", () => {
     expect(severity).toBe("warning");
   });
 
-  it("finds a server's issue by registration key alone, when neither its path nor its copies match", () => {
+  it("finds a server's fault by registration key alone, when neither its path nor its copies match", () => {
+    // `registrationKeys` and nothing else — no `serverName`, so the duplicate
+    // match cannot answer, and no `path`, so neither the own-path nor the
+    // copies match can. Only the registration-key branch can find this.
     const { issues, count, severity } = issuesForAsset(findingsDerivation, {
       registrationKeys: ["~/.claude.json:spades-audio"],
     });
 
     expect(issues).toHaveLength(1);
-    expect(issues[0].id).toBe("duplicate:Tools::~/.claude.json:spades-audio");
+    expect(issues[0].id).toBe("Tools:broken:~/.claude.json:spades-audio");
     expect(count).toBe(1);
-    expect(severity).toBe("warning");
+    expect(severity).toBe("danger");
   });
 
   it("finds nothing for a path and registration keys that match no issue", () => {
