@@ -66,10 +66,12 @@ interface AssetBody {
 }
 
 /** What `list_asset_dir` answers for a skill's folder: its top-level entries,
- *  folders carrying how many files sit beneath them — never counted here. */
+ *  folders carrying how many files sit beneath them — never counted here.
+ *  `symlink` (90f0f8a): the backend never follows a link, so a symlink entry
+ *  carries neither `bytes` nor `file_count` — nothing read its target. */
 interface AssetDirEntry {
   name: string;
-  kind: "file" | "dir";
+  kind: "file" | "dir" | "symlink";
   bytes: number | null;
   file_count: number | null;
 }
@@ -517,12 +519,24 @@ export default function AssetDetail({ asset, inventory, onLink, annotation }: As
                     <ListCardRow
                       key={e.name}
                       data-testid="skill-dir-row"
-                      icon={e.kind === "dir" ? <FolderIcon size={14} aria-hidden="true" /> : <DocumentIcon size={14} aria-hidden="true" />}
+                      icon={
+                        e.kind === "dir" ? (
+                          <FolderIcon size={14} aria-hidden="true" />
+                        ) : e.kind === "symlink" ? (
+                          <LinkIcon size={14} aria-hidden="true" />
+                        ) : (
+                          <DocumentIcon size={14} aria-hidden="true" />
+                        )
+                      }
                       label={<span className="font-mono">{e.name}</span>}
                       value={
                         e.kind === "dir"
                           ? `${e.file_count ?? 0} ${e.file_count === 1 ? "file" : "files"}`
-                          : formatBytes(e.bytes ?? 0)
+                          // A symlink's target was never read, so its size is
+                          // not "0 B" — it is not known.
+                          : e.kind === "symlink"
+                            ? "—"
+                            : formatBytes(e.bytes ?? 0)
                       }
                     />
                   ))}

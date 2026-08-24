@@ -324,6 +324,29 @@ describe("Asset detail — the inspector's document screen", () => {
     expect(rows).toEqual(["SKILL.md431 B", "references/3 files", "scripts/1 file"]);
   });
 
+  it("a symlinked entry takes the link mark and states no size it never measured", async () => {
+    // 90f0f8a: list_asset_dir stops following symlinks, so an entry that is
+    // one arrives with kind: "symlink" and no bytes or file_count.
+    dirResult = [
+      { name: "SKILL.md", kind: "file", bytes: 431, file_count: null },
+      { name: "escape", kind: "symlink", bytes: null, file_count: null },
+    ];
+    render(<AssetDetail asset={asset} inventory={inventory} />);
+    await screen.findByRole("tab", { name: "Details" });
+    openDetails();
+    const section = (await screen.findByText("Contents")).closest("section")!;
+    const rows = Array.from(section.querySelectorAll('[data-testid="skill-dir-row"]'));
+    const symlinkRow = rows.find((r) => r.textContent?.startsWith("escape")) as HTMLElement;
+    expect(symlinkRow).toBeTruthy();
+    // The em dash this app already uses for "not known" (the MCP tools
+    // table's Schema column) — not "0 B", which would state a size nobody
+    // measured.
+    expect(symlinkRow.textContent).toBe("escape—");
+    expect(symlinkRow.textContent).not.toContain("0 B");
+    // LinkIcon, not DocumentIcon: unique path data from @heroicons LinkIcon.
+    expect(symlinkRow.querySelector("svg")?.outerHTML).toContain("M13.19 8.688");
+  });
+
   it("draws no folder section for a rule, and none when the folder cannot be listed", async () => {
     dirResult = [];
     render(<AssetDetail asset={{ ...asset, category: "Rules", path: "/home/me/.agents/rules/x.md" }} inventory={inventory} />);
