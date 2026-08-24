@@ -187,6 +187,20 @@ describe("InspectorCap", () => {
     expect(callbacks.onOpenInEditor).not.toHaveBeenCalled();
   });
 
+  it("wires the menu's shed-in Needs review · {n} item to onReview with the first issue, and only onReview (forceShed=2)", () => {
+    const callbacks = renderCap({ forceShed: 2, findings: ONE_FINDING });
+    fireEvent.click(screen.getByRole("button", { name: "More actions" }));
+    const menu = screen.getByRole("menu", { name: "More actions" });
+    fireEvent.click(within(menu).getByRole("menuitem", { name: "Needs review · 1" }));
+
+    expect(callbacks.onReview).toHaveBeenCalledTimes(1);
+    expect(callbacks.onReview).toHaveBeenCalledWith(ONE_FINDING.issues[0]);
+    expect(callbacks.onCopyPath).not.toHaveBeenCalled();
+    expect(callbacks.onReveal).not.toHaveBeenCalled();
+    expect(callbacks.onOpenInEditor).not.toHaveBeenCalled();
+    expect(callbacks.onLink).not.toHaveBeenCalled();
+  });
+
   it("renders no Link to… and no overflow menu for an MCP asset with none of the menu callbacks", () => {
     renderCap({
       asset: { name: "spades-audio", category: "Tools", path: "/repo/.mcp.json" },
