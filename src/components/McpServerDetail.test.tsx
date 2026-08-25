@@ -135,8 +135,11 @@ describe("McpServerDetail", () => {
     ).toBe("-0.6s");
     // The icon-only control's accessible name is constant -- the spin is
     // the only signal that a check is running, so a class assertion is the
-    // only way to pin it.
-    expect(button.querySelector("svg")?.getAttribute("class")).toMatch(/animate-spin/);
+    // only way to pin it. Repointed for task 10: ServerRelayIcon carries its
+    // motion on an inner <g class="aim-loop">, not on the svg's own class
+    // attribute, so the svg-level `animate-spin` check this used to be has
+    // nothing left to match.
+    expect(button.querySelector("g.aim-loop")).toBeTruthy();
   });
 
   it("puts Verify in the section header when the server has one unprobed launch spec", () => {
