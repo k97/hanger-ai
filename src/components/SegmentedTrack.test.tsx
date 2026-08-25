@@ -20,7 +20,15 @@ describe("SegmentedTrack", () => {
     const capsule = screen.getByTestId("track-capsule");
     expect(capsule.className).toContain("capsule-raised");
     expect(capsule.className).toContain("duration-nav");
-    expect(list.querySelector("svg:not(.animate-spin)")).toBeNull();
+    // No mark renders here at all (every segment has a count), so the only
+    // svg this could ever tolerate is a live loading spinner — one whose
+    // motion now lives on an inner <g class="aim-loop">, not on the <svg>
+    // itself, since animate-spin never lands on the <svg> after the mark
+    // swap. `svg:not(.animate-spin)` stopped encoding that and would match
+    // the very spinner it was written to exclude.
+    expect(list.querySelector("svg") === null || list.querySelector("g.aim-loop") !== null).toBe(
+      true
+    );
     const tools = screen.getByRole("tab", { name: "MCP servers 19" });
     expect(tools.getAttribute("aria-selected")).toBe("true");
     expect(tools.className).toContain("font-medium");
@@ -83,6 +91,8 @@ describe("SegmentedTrack", () => {
 
   it("draws a spinner for a count that has not arrived, while loading", () => {
     render(<SegmentedTrack segments={[{ id: "all", label: "All" }]} selectedId="all" onSelect={vi.fn()} ariaLabel="x" loading />);
-    expect(screen.getByRole("tab").querySelector("svg.animate-spin")).toBeTruthy();
+    // The motion class moved from the <svg> to the inner <g> the mark swap
+    // introduced; the loop is still live, just found in a different place.
+    expect(screen.getByRole("tab").querySelector("g.aim-loop")).toBeTruthy();
   });
 });
