@@ -79,9 +79,9 @@ const ALLOWLIST: AllowlistEntry[] = [
   },
   {
     file: "src/components/ReviewInspector.tsx",
-    linePattern: /^import \{ RevealInFileManagerIcon, Square2StackIcon, CursorClickIcon \} from "\.\/icons";$/,
+    linePattern: /import \{[^}]*\bCursorClickIcon\b[^}]*\} from "\.\/icons";/,
     reason:
-      "Task 9's second call site for the mark: an import specifier, not rendered copy. Same `CursorClickIcon`/Cursor-host collision as the icons.tsx entry above.",
+      "Task 9's second call site for the mark: an import specifier, not rendered copy. Same `CursorClickIcon`/Cursor-host collision as the icons.tsx entry above. Narrowed (fix round, review finding) to just the CursorClickIcon token within the import braces — the original pinned the whole specifier list verbatim, including two unrelated icon names and their order, so a routine unrelated import edit would have broken it.",
   },
   {
     file: "src/components/ReviewInspector.tsx",
