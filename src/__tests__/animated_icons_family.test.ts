@@ -51,15 +51,52 @@ describe("the animated-icon family rule", () => {
     // place applying it — the fork this test exists to catch is a hand-added
     // className carrying the class, e.g. a plain <svg> or <div> outside
     // icons.tsx spun up with className="aim-spin".
-    const classAttrPattern = /\bclass(?:Name)?\s*=\s*(?:"([^"]*)"|'([^']*)'|`([^`]*)`)/g;
+    //
+    // A value is either a plain quoted string (className="...") or a
+    // JSXExpressionContainer (className={...}) — this codebase composes
+    // classes both ways (SegmentedTrack.tsx's template-literal className,
+    // ternary classNames elsewhere), so both are extracted and scanned: a
+    // bare string/backtick match for the first form, a brace-depth walk for
+    // the second so a template literal or a conditional inside the braces —
+    // `` className={`h-full aim-spin`} `` or
+    // `className={cond ? "aim-spin" : ""}` — is still visible to the scan.
+    function classAttrValues(src: string): string[] {
+      const values: string[] = [];
+      const attrRegex = /\bclass(?:Name)?\s*=\s*/g;
+      for (
+        let match = attrRegex.exec(src);
+        match !== null;
+        match = attrRegex.exec(src)
+      ) {
+        const start = match.index + match[0].length;
+        const opener = src[start];
+        if (opener === '"' || opener === "'" || opener === "`") {
+          const end = src.indexOf(opener, start + 1);
+          if (end === -1) continue;
+          values.push(src.slice(start + 1, end));
+          attrRegex.lastIndex = end + 1;
+        } else if (opener === "{") {
+          let depth = 0;
+          let i = start;
+          for (; i < src.length; i++) {
+            if (src[i] === "{") depth++;
+            else if (src[i] === "}") {
+              depth--;
+              if (depth === 0) {
+                i++;
+                break;
+              }
+            }
+          }
+          values.push(src.slice(start + 1, i - 1));
+          attrRegex.lastIndex = i;
+        }
+      }
+      return values;
+    }
     const offenders = OTHER_FILES.filter((f) => {
       const src = fs.readFileSync(f, "utf-8");
-      let m: RegExpExecArray | null;
-      while ((m = classAttrPattern.exec(src)) !== null) {
-        const value = m[1] ?? m[2] ?? m[3] ?? "";
-        if (/\baim-[a-z][a-z-]*/.test(value)) return true;
-      }
-      return false;
+      return classAttrValues(src).some((v) => /\baim-[a-z][a-z-]*/.test(v));
     });
     expect(offenders).toEqual([]);
   });
