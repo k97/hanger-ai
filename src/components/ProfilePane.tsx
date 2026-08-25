@@ -15,6 +15,7 @@ import DisclosureBanner from "./DisclosureBanner";
 import { sumGlobalAssets, categoryCountKey } from "../utils/globalAssetCount";
 import SummaryStrip from "./SummaryStrip";
 import { ScanStatusIndicator } from "./ScanStatusIndicator";
+import EmptyState from "./EmptyState";
 import { annotationStateCounts, linkStateCounts, matchesStateFilter, StateFilter } from "../utils/linkStateCounts";
 import { categoryNoun, joinNames, joinNamesTruncated } from "../utils/prose";
 import type { McpEngineSummaryData } from "./McpEngineSummary";
@@ -800,8 +801,6 @@ export default function ProfilePane({
   // Uppercase micro voice for section labels inside the list plane.
   const secClass =
     "px-3.5 pt-[11px] pb-[5px] font-flex text-micro font-medium tracking-[.06em] uppercase text-ink-3";
-  const emptyPlaneClass =
-    "flex-1 mx-[18px] mb-[18px] min-h-0 flex flex-col items-center justify-center text-center border border-dashed border-line rounded-plane animate-in fade-in duration-200";
 
   // Visible rows post-filter for the foot line — a display subset, never the
   // asset total (which stays backend-owned).
@@ -887,17 +886,16 @@ export default function ProfilePane({
            says what the store's silence means right now. "Once the scan
            finishes" is literal: App sets inventory on scan://complete and
            ignores scan://progress, so nothing lands here root by root. */
-        <div className={emptyPlaneClass} data-testid="scan-pending">
-          <SpinnerIcon className={`text-ink-3 mb-2 ${loading ? "animate-spin" : ""}`} size={40} />
-          <span className="text-base-app font-medium text-ink-1">
-            {loading ? "Scanning your machine" : "Not scanned yet"}
-          </span>
-          <span className="text-small text-ink-3 max-w-sm mt-1">
-            {loading
+        <EmptyState
+          testId="scan-pending"
+          icon={<SpinnerIcon className={`text-ink-3 mb-2 ${loading ? "animate-spin" : ""}`} size={40} />}
+          headline={loading ? "Scanning your machine" : "Not scanned yet"}
+          sub={
+            loading
               ? "Assets in the global store show up here once the scan finishes."
-              : "Rescan when you're ready."}
-          </span>
-        </div>
+              : "Rescan when you're ready."
+          }
+        />
       ) : emptyState && selectedCategory !== "Tools" ? (
         /* Tools is excluded here even though a fully empty store makes this
            condition true too: A.1 and A.2 below are Tools' own, more precise
@@ -907,34 +905,33 @@ export default function ProfilePane({
            selecting the Tools chip on a totally fresh store would show this
            generic line first and A.1/A.2 would only ever be reachable in the
            narrower case where Tools alone is empty. */
-        <div className={emptyPlaneClass}>
-          <ExclamationCircleIcon className="text-ink-3 mb-2" size={40} />
-          {enginesDetected ? (
-            /* The engines are here; their global folders are not empty of
-               files, just of anything Hanger tracks. Name them: the sidebar
-               already shows their marks, and the line should agree with it. */
-            <>
-              <span className="text-base-app font-medium text-ink-1">Nothing in the global store yet</span>
-              <span className="text-small text-ink-3 max-w-sm mt-1">
+        <EmptyState
+          icon={<ExclamationCircleIcon className="text-ink-3 mb-2" size={40} />}
+          headline={enginesDetected ? "Nothing in the global store yet" : "No engine folders on this machine yet"}
+          sub={
+            enginesDetected ? (
+              /* The engines are here; their global folders are not empty of
+                 files, just of anything Hanger tracks. Name them: the
+                 sidebar already shows their marks, and the line should
+                 agree with it. */
+              <>
                 {joinNames(engineNames)} {engineNames.length === 1 ? "is" : "are"} here, but{" "}
                 {engineNames.length === 1 ? "its global folder holds" : "their global folders hold"} no
                 skills, rules, MCP servers or subagents yet.
-              </span>
-            </>
-          ) : (
-            /* No engine has a folder in the home directory
-               (scanner::get_global_agents found none). The roster comes from
-               the backend, so adding an engine updates this sentence. */
-            <>
-              <span className="text-base-app font-medium text-ink-1">No engine folders on this machine yet</span>
-              <span className="text-small text-ink-3 max-w-sm mt-1">
+              </>
+            ) : (
+              /* No engine has a folder in the home directory
+                 (scanner::get_global_agents found none). The roster comes
+                 from the backend, so adding an engine updates this
+                 sentence. */
+              <>
                 {knownEngineNames.length > 0
                   ? `Hanger looks in your home directory for the folders ${joinNames(knownEngineNames)} keep there, and found none. Run one of them once, then rescan.`
                   : "Hanger looks in your home directory for the folders coding agents keep there, and found none. Run one once, then rescan."}
-              </span>
-            </>
-          )}
-        </div>
+              </>
+            )
+          }
+        />
       ) : isCategoryEmpty && selectedCategory ? (
         /* Category-specific empty state. Three reasons share it, told apart
            by the copy: a scan running right now is not yet an answer (this
@@ -944,21 +941,25 @@ export default function ProfilePane({
            category with nothing in it; and a category genuinely empty
            after a finished scan is a real finding. */
         categoryPending ? (
-          <div className={emptyPlaneClass} data-testid="scan-pending">
-            <SpinnerIcon className="text-ink-3 mb-2 animate-spin" size={40} />
-            <span className="text-base-app font-medium text-ink-1">Scanning your machine</span>
-            <span className="text-small text-ink-3 max-w-sm mt-1">
-              {categoryNoun(selectedCategory, "many")} show up here once the scan finishes.
-            </span>
-          </div>
+          <EmptyState
+            testId="scan-pending"
+            icon={<SpinnerIcon className="text-ink-3 mb-2 animate-spin" size={40} />}
+            headline="Scanning your machine"
+            sub={`${categoryNoun(selectedCategory, "many")} show up here once the scan finishes.`}
+          />
         ) : (
-          <div className={emptyPlaneClass}>
-            <ExclamationCircleIcon className="text-ink-3 mb-2" size={40} />
-            {filterActive ? (
-              <span className="text-base-app font-medium text-ink-1">
-                No {categoryNoun(selectedCategory, "one")} matches that filter
-              </span>
-            ) : selectedCategory === "Tools" ? (
+          <EmptyState
+            icon={<ExclamationCircleIcon className="text-ink-3 mb-2" size={40} />}
+            headline={
+              filterActive
+                ? `No ${categoryNoun(selectedCategory, "one")} matches that filter`
+                : selectedCategory === "Tools"
+                  ? ""
+                  : `No ${categoryNoun(selectedCategory)} in the global store`
+            }
+            sub={filterActive || selectedCategory === "Tools" ? undefined : "The scan finished without finding any."}
+          >
+            {selectedCategory === "Tools" && !filterActive ? (
               /* Appendix A.1/A.2 (§6.3 states 1 and 2), normative. Both are
                  Tools' own reading of "nothing configured" — A.1 when the
                  engines Hanger found are real but declared no server, A.2
@@ -970,17 +971,8 @@ export default function ProfilePane({
               ) : (
                 <McpNoEnginesEmptyState registryEngineNames={knownEngineNames} locations={knownEngineLocations} />
               )
-            ) : (
-              <>
-                <span className="text-base-app font-medium text-ink-1">
-                  No {categoryNoun(selectedCategory)} in the global store
-                </span>
-                <span className="text-small text-ink-3 max-w-sm mt-1">
-                  The scan finished without finding any.
-                </span>
-              </>
-            )}
-          </div>
+            ) : null}
+          </EmptyState>
         )
       ) : (
         <>

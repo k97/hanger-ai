@@ -13,6 +13,7 @@ import { registrationKey } from "../utils/mcpRegistration";
 import { formatEngineLabel } from "../utils/engineUtils";
 import SummaryStrip from "./SummaryStrip";
 import { ScanStatusIndicator } from "./ScanStatusIndicator";
+import EmptyState from "./EmptyState";
 import { categoryNoun } from "../utils/prose";
 import { linkStateCounts, matchesStateFilter, StateFilter } from "../utils/linkStateCounts";
 import { categoryCountKey } from "../utils/globalAssetCount";
@@ -321,8 +322,6 @@ export default function RepoPane({
   // Uppercase micro voice for section labels inside the list plane.
   const secClass =
     "px-3.5 pt-[11px] pb-[5px] font-flex text-micro font-medium tracking-[.06em] uppercase text-ink-3";
-  const emptyPlaneClass =
-    "flex-1 mx-[18px] mb-[18px] min-h-0 flex flex-col items-center justify-center text-center border border-dashed border-line rounded-plane animate-in fade-in duration-200";
 
   // Visible rows post-filter for the foot line — a display subset, never the
   // asset total (which stays backend-owned).
@@ -485,36 +484,40 @@ export default function RepoPane({
         /* Pending: no claim either way. Root-by-root progress already lives
            in the foot line's ScanStatusIndicator; "once the scan finishes" is
            literal (inventory lands on scan://complete, not per root). */
-        <div className={`${emptyPlaneClass} mt-2.5`} data-testid="scan-pending">
-          <SpinnerIcon className={`text-ink-3 mb-2 ${loading ? "animate-spin" : ""}`} size={40} />
-          <span className="text-base-app font-medium text-ink-1">
-            {loading ? "Scanning your machine" : "Not scanned yet"}
-          </span>
-          <span className="text-small text-ink-3 max-w-sm mt-1">
-            {loading
+        <EmptyState
+          className="mt-2.5"
+          testId="scan-pending"
+          icon={<SpinnerIcon className={`text-ink-3 mb-2 ${loading ? "animate-spin" : ""}`} size={40} />}
+          headline={loading ? "Scanning your machine" : "Not scanned yet"}
+          sub={
+            loading
               ? `Assets in ${repoFolderName} show up here once the scan finishes.`
-              : "Rescan when you're ready."}
-          </span>
-        </div>
+              : "Rescan when you're ready."
+          }
+        />
       ) : isRepoEmpty ? (
         /* Empty, after a scan. The two ways out are both named: link from
            the global store, or add files here and rescan. */
-        <div className={`${emptyPlaneClass} mt-2.5`}>
-          <InformationCircleIcon className="text-ink-3 mb-2" size={40} />
-          <span className="text-base-app font-medium text-ink-1">Nothing in {repoFolderName} yet</span>
-          <span className="text-small text-ink-3 max-w-sm mt-1 mb-4">
-            Hanger found no skills, rules, MCP servers or subagents in this repository. Link one from
-            the global store, or add files here and rescan.
-          </span>
-          {/* "Global", not "Profile": the crumb and the sidebar call it Global
-              (Karthik's ruling on the naming). */}
-          <button
-            onClick={() => onLinkFromProfile(repoPath)}
-            className="px-4 h-[30px] bg-fill text-on-fill text-small font-medium rounded-pill cursor-pointer transition-transform duration-press ease-spring active:scale-[0.96]"
-          >
-            Link an asset from Global
-          </button>
-        </div>
+        <EmptyState
+          className="mt-2.5"
+          icon={<InformationCircleIcon className="text-ink-3 mb-2" size={40} />}
+          headline={`Nothing in ${repoFolderName} yet`}
+          sub="Hanger found no skills, rules, MCP servers or subagents in this repository. Link one from the global store, or add files here and rescan."
+          action={
+            // "Global", not "Profile": the crumb and the sidebar call it
+            // Global (Karthik's ruling on the naming). `mt-4` here (rather
+            // than `mb-4` on the sub, as before extraction) reproduces the
+            // same 16px gap: EmptyState's sub is the fixed classes shared by
+            // all eight sites, with no per-site override, so the space above
+            // the button moves onto the button instead of the line above it.
+            <button
+              onClick={() => onLinkFromProfile(repoPath)}
+              className="mt-4 px-4 h-[30px] bg-fill text-on-fill text-small font-medium rounded-pill cursor-pointer transition-transform duration-press ease-spring active:scale-[0.96]"
+            >
+              Link an asset from Global
+            </button>
+          }
+        />
       ) : isCategoryEmpty && selectedCategory ? (
         /* Category-specific empty state. Three reasons share it, told apart
            by the copy: a scan running right now is not yet an answer (this
@@ -524,31 +527,24 @@ export default function RepoPane({
            category with nothing in it; and a category genuinely empty
            after a finished scan is a real finding. */
         isCategoryPending ? (
-          <div className={`${emptyPlaneClass} mt-2.5`} data-testid="scan-pending">
-            <SpinnerIcon className="text-ink-3 mb-2 animate-spin" size={40} />
-            <span className="text-base-app font-medium text-ink-1">Scanning this repository</span>
-            <span className="text-small text-ink-3 max-w-sm mt-1">
-              {categoryNoun(selectedCategory, "many")} show up here once the scan finishes.
-            </span>
-          </div>
+          <EmptyState
+            className="mt-2.5"
+            testId="scan-pending"
+            icon={<SpinnerIcon className="text-ink-3 mb-2 animate-spin" size={40} />}
+            headline="Scanning this repository"
+            sub={`${categoryNoun(selectedCategory, "many")} show up here once the scan finishes.`}
+          />
         ) : (
-          <div className={`${emptyPlaneClass} mt-2.5`}>
-            <InformationCircleIcon className="text-ink-3 mb-2" size={40} />
-            {filterActive ? (
-              <span className="text-base-app font-medium text-ink-1">
-                No {categoryNoun(selectedCategory, "one")} matches that filter
-              </span>
-            ) : (
-              <>
-                <span className="text-base-app font-medium text-ink-1">
-                  No {categoryNoun(selectedCategory)} in {repoFolderName}
-                </span>
-                <span className="text-small text-ink-3 max-w-sm mt-1">
-                  The scan finished without finding any.
-                </span>
-              </>
-            )}
-          </div>
+          <EmptyState
+            className="mt-2.5"
+            icon={<InformationCircleIcon className="text-ink-3 mb-2" size={40} />}
+            headline={
+              filterActive
+                ? `No ${categoryNoun(selectedCategory, "one")} matches that filter`
+                : `No ${categoryNoun(selectedCategory)} in ${repoFolderName}`
+            }
+            sub={filterActive ? undefined : "The scan finished without finding any."}
+          />
         )
       ) : (
         <>

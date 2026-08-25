@@ -13,6 +13,7 @@ import SummaryStrip from "./SummaryStrip";
 import { ScanStatusIndicator } from "./ScanStatusIndicator";
 import HangerMark from "./HangerMark";
 import { ArrowPathIcon, MagnifyingGlassIcon, PanelRightIcon } from "./icons";
+import EmptyState from "./EmptyState";
 import type { StateFilter } from "../utils/linkStateCounts";
 import {
   type DesignSectionId,
@@ -422,6 +423,14 @@ export default function DesignSystemPane({ section }: DesignSystemPaneProps) {
               selectedCategory={category}
               onSelectCategory={setCategory}
               loading={false}
+            />
+          </Specimen>
+
+          <Specimen name="EmptyState" file="EmptyState.tsx" note="eight near-identical planes, now one component (T5)">
+            <EmptyState
+              icon={<MagnifyingGlassIcon className="text-ink-3 mb-2" size={40} />}
+              headline="No results"
+              sub="Try a different search term."
             />
           </Specimen>
 

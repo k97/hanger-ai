@@ -138,7 +138,7 @@ rows not yet loaded".
 
 ---
 
-## T5 — `EmptyState` was never extracted
+## T5 — `EmptyState` was never extracted — CLOSED
 
 Four empty-plane blocks in `ProfilePane.tsx` and four in `RepoPane.tsx`, all
 the same markup (`emptyPlaneClass` + icon + headline + subline, sometimes a
@@ -152,6 +152,14 @@ which is the second caller that justifies it.
 
 **Done when:** one component, both panes using it, and a specimen on the
 design system page — or a decision that eight near-duplicates are fine.
+
+**Closed 2026-08-25: extracted as `EmptyState.tsx`** with the design-page
+specimen as the ninth caller; see
+`docs/superpowers/plans/2026-08-25-animated-icons.md`. All eight sites in
+`ProfilePane.tsx` and `RepoPane.tsx` were pure refactors — same icons, same
+copy, same `data-testid="scan-pending"` placement — verified by
+`ProfilePaneIntegration.test.tsx` and `RepoPaneIntegration.test.tsx` passing
+unmodified against the new component.
 
 ---
 
