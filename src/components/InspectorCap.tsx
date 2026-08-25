@@ -226,7 +226,7 @@ export default function InspectorCap({
           <OverflowMenu
             trigger={(triggerProps) => (
               <button type="button" aria-label="More actions" className={tbBtnClass} {...triggerProps}>
-                <EllipsisVerticalIcon size={13} aria-hidden="true" />
+                <EllipsisVerticalIcon size={15} aria-hidden="true" />
               </button>
             )}
             ariaLabel="More actions"

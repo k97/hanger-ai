@@ -152,7 +152,11 @@ export const ComputerDesktopIcon = sized(HeroComputerDesktop, 1.12);
 export const CpuChipIcon = sized(HeroCpuChip);
 export const DocumentIcon = sized(HeroDocument);
 export const DocumentTextIcon = sized(HeroDocumentText);
-export const EllipsisVerticalIcon = sized(HeroEllipsisVertical);
+// Heroicons draws this as three r=0.75 dots at y=6/12/18 — ink extent 13.5 of
+// the 24 grid (56%), against the 75% of the lucide `panel-right`/`panel-left`
+// marks it sits beside in the inspector cap. 1.33 (18/13.5, the two marks'
+// raw extent ratio) brings its painted box back to the same height as theirs.
+export const EllipsisVerticalIcon = sized(HeroEllipsisVertical, 1.33);
 export const ExclamationCircleIcon = sized(HeroExclamationCircle, 1.11);
 export const ExclamationTriangleIcon = sized(HeroExclamationTriangle, 1.04);
 export const FolderIcon = sized(HeroFolder);

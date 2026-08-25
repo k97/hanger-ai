@@ -12,6 +12,7 @@ import {
   CodeBracketIcon,
   CpuChipIcon,
   DocumentIcon,
+  EllipsisVerticalIcon,
   GaugeIcon,
   KeyIcon,
   PencilSquareIcon,
@@ -29,6 +30,7 @@ import {
   CodeBracketIcon as HeroCodeBracket,
   CpuChipIcon as HeroCpuChip,
   DocumentIcon as HeroDocument,
+  EllipsisVerticalIcon as HeroEllipsisVertical,
   KeyIcon as HeroKey,
   PencilSquareIcon as HeroPencilSquare,
   SignalIcon as HeroSignal,
@@ -104,6 +106,21 @@ describe("v4 marks", () => {
       // strokeFor(14) is 1.9 (icons.tsx:76-81)
       expect(html, name).toContain('stroke-width="1.9"');
     }
+  });
+
+  it("EllipsisVerticalIcon carries an optical factor — its painted box outgrows its nominal size", () => {
+    // Heroicons draws ⋮ as three r=0.75 dots (56% ink extent of the 24 grid)
+    // against the 75% of the lucide panel-toggle marks it sits beside in the
+    // inspector cap; without a correction it renders a plain 15px box like
+    // any unfactored mark and reads visibly smaller next to them.
+    const html = renderToStaticMarkup(<EllipsisVerticalIcon size={15} />);
+    expect(html).toContain('width="19.95"');
+    expect(html).toContain('height="19.95"');
+    // strokeFor(19.95) is 1.7 (icons.tsx:99-103) — the box crossed the
+    // 16px band, so the stroke thins a step even as the box grows.
+    expect(html).toContain('stroke-width="1.7"');
+    // Still the Heroicons ellipsis mark itself, not a substitute.
+    expect(pathData(html)).toEqual(pathData(renderToStaticMarkup(<HeroEllipsisVertical />)));
   });
 
   it("SkillIcon is the hand-drawn document-with-sparkle, all three strokes", () => {
