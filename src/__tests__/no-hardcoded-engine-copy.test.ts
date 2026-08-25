@@ -65,6 +65,30 @@ const ALLOWLIST: AllowlistEntry[] = [
     reason:
       "An entering()-mark export name, not rendered copy: `Cursor` here names the mouse pointer the mark's sparks radiate around (Lucide's mouse-pointer-click, kept as CursorClickIcon per the task-4 naming ruling), unrelated to the Cursor MCP host this guard exists to catch. The guard's substring match reads source text and cannot tell an identifier from a string literal.",
   },
+  {
+    file: "src/components/Flyout.tsx",
+    linePattern: /^CursorClickIcon,$/,
+    reason:
+      "Task 9's first call site for the mark: an import specifier, not rendered copy. Same `CursorClickIcon`/Cursor-host collision as the icons.tsx entry above — the identifier names the mouse pointer, not the MCP host.",
+  },
+  {
+    file: "src/components/Flyout.tsx",
+    linePattern: /^<CursorClickIcon size=\{36\} className="mb-2" \/>$/,
+    reason:
+      "The same mark's JSX call site, Flyout's own nothing-selected empty state. Same identifier collision as above, not a display-name literal.",
+  },
+  {
+    file: "src/components/ReviewInspector.tsx",
+    linePattern: /^import \{ RevealInFileManagerIcon, Square2StackIcon, CursorClickIcon \} from "\.\/icons";$/,
+    reason:
+      "Task 9's second call site for the mark: an import specifier, not rendered copy. Same `CursorClickIcon`/Cursor-host collision as the icons.tsx entry above.",
+  },
+  {
+    file: "src/components/ReviewInspector.tsx",
+    linePattern: /^<CursorClickIcon size=\{36\} className="mb-2 text-ink-3" \/>$/,
+    reason:
+      "The same mark's JSX call site, ReviewInspector's own nothing-selected empty state — the mark the two inspectors now share. Same identifier collision as above, not a display-name literal.",
+  },
 ];
 
 /** Read the `name`/`display_name` string literals out of Hanger's own
