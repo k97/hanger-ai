@@ -500,4 +500,49 @@ describe("Avionics A5 — Docked Right Inspector Integration", () => {
     const menu = screen.getByRole("menu", { name: "More actions" });
     expect(within(menu).queryByRole("menuitem", { name: "Link to…" })).toBeNull();
   });
+
+  // Karthik found the ⋮ "crowded and difficult to click": its trigger was
+  // 21x21px, sat between two 27x27px neighbours (Expand/Collapse, Toggle
+  // inspector) built from `tbBtnClass`, with only 2px of clearance. The fix
+  // gives it the same footprint — asserted here as the sizing half of
+  // `tbBtnClass` (`h-[27px] min-w-[27px]`), not the full class string, which
+  // `tbbtn-duplicate.test.ts` already owns and would fire on a real edit to
+  // the shared constant.
+  it("15. The ⋮ trigger carries the shared 27px toolbar footprint, not a smaller one of its own", async () => {
+    setupMockInvoke("true");
+    render(<App />);
+
+    const subagentRow = await screen.findByText("Inspector Subagent One");
+    fireEvent.click(subagentRow);
+
+    const trigger = await screen.findByRole("button", { name: "More actions" });
+    expect(trigger.className).toContain("h-[27px]");
+    expect(trigger.className).toContain("min-w-[27px]");
+    expect(trigger.className).not.toContain("h-[21px]");
+    expect(trigger.className).not.toContain("w-[21px]");
+  });
+
+  // The uneven gaps Karthik flagged ("disparate spacing") traced to a lone
+  // `mr-2` on the ⋮'s wrapper, fighting the cluster's own `gap-*`. A snapshot
+  // of the container's class string wouldn't catch a *new* stray margin
+  // landing on some other control, so this instead asserts the structural
+  // property the fix depends on: none of the cluster's direct children — the
+  // things a single `gap` value is supposed to space — carries its own
+  // horizontal margin utility.
+  it("16. No control in the cap's trailing cluster carries its own horizontal margin — spacing comes from the container's gap alone", async () => {
+    setupMockInvoke("true");
+    render(<App />);
+
+    const subagentRow = await screen.findByText("Inspector Subagent One");
+    fireEvent.click(subagentRow);
+
+    await screen.findByRole("button", { name: "More actions" });
+    const cluster = screen.getByTestId("inspector-cap-trailing");
+    expect(cluster.children.length).toBeGreaterThan(0);
+    for (const child of Array.from(cluster.children)) {
+      const classes = (child as HTMLElement).className.split(/\s+/).filter(Boolean);
+      const strayMargin = classes.find((c) => /^m[xlr]-/.test(c));
+      expect(strayMargin, `unexpected margin class on a direct child: "${strayMargin}"`).toBeUndefined();
+    }
+  });
 });

@@ -213,7 +213,7 @@ export default function InspectorCap({
 
       <div
         data-testid="inspector-cap-trailing"
-        className="shrink-0 relative ml-auto flex items-center gap-0.5"
+        className="shrink-0 relative ml-auto flex items-center gap-1"
       >
         {showLinkOnSurface && onLink && (
           <button type="button" onClick={onLink} className={miniBtnFillClass}>
@@ -223,104 +223,97 @@ export default function InspectorCap({
         )}
 
         {menuHasContent && (
-          <div className="mr-2">
-            <OverflowMenu
-              trigger={(triggerProps) => (
-                <button
-                  type="button"
-                  aria-label="More actions"
-                  className="w-[21px] h-[21px] rounded-pill grid place-items-center text-ink-3 hover:bg-plane-2 hover:text-ink-1"
-                  {...triggerProps}
-                >
-                  <EllipsisVerticalIcon size={13} aria-hidden="true" />
-                </button>
-              )}
-              ariaLabel="More actions"
-              align="right"
-              className="min-w-[184px] p-1"
-            >
-              {(close) => (
-                <>
-                  {showLinkInMenu && onLink && (
-                    <button
-                      type="button"
-                      role="menuitem"
-                      onClick={() => {
-                        onLink();
-                        close();
-                      }}
-                      className={menuActionClass}
-                    >
-                      <LinkIcon size={14} aria-hidden="true" className="text-ink-3" />
-                      <span>Link to…</span>
-                    </button>
-                  )}
-                  {showReviewInMenu && (
-                    <button
-                      type="button"
-                      role="menuitem"
-                      onClick={() => {
-                        onReview(findings.issues[0]);
-                        close();
-                      }}
-                      className={menuActionClass}
-                    >
-                      <span className="w-3.5 grid place-items-center">
-                        <i
-                          aria-hidden="true"
-                          className={`w-2 h-2 rounded-pill not-italic ${severityDot(findings.severity)}`}
-                        />
-                      </span>
-                      <span>Needs review · {findings.count}</span>
-                    </button>
-                  )}
-                  {(showLinkInMenu || showReviewInMenu) && <MenuSeparator />}
-                  {onCopyPath && (
-                    <button
-                      type="button"
-                      role="menuitem"
-                      onClick={() => {
-                        onCopyPath();
-                        close();
-                      }}
-                      className={menuActionClass}
-                    >
-                      <Square2StackIcon size={14} aria-hidden="true" className="text-ink-3" />
-                      <span>Copy path</span>
-                    </button>
-                  )}
-                  {onReveal && (
-                    <button
-                      type="button"
-                      role="menuitem"
-                      onClick={() => {
-                        onReveal();
-                        close();
-                      }}
-                      className={menuActionClass}
-                    >
-                      <RevealInFileManagerIcon size={14} aria-hidden="true" className="text-ink-3" />
-                      <span>Reveal in Finder</span>
-                    </button>
-                  )}
-                  {onOpenInEditor && (
-                    <button
-                      type="button"
-                      role="menuitem"
-                      onClick={() => {
-                        onOpenInEditor();
-                        close();
-                      }}
-                      className={menuActionClass}
-                    >
-                      <PencilSquareIcon size={14} aria-hidden="true" className="text-ink-3" />
-                      <span>Open in editor</span>
-                    </button>
-                  )}
-                </>
-              )}
-            </OverflowMenu>
-          </div>
+          <OverflowMenu
+            trigger={(triggerProps) => (
+              <button type="button" aria-label="More actions" className={tbBtnClass} {...triggerProps}>
+                <EllipsisVerticalIcon size={13} aria-hidden="true" />
+              </button>
+            )}
+            ariaLabel="More actions"
+            align="right"
+            className="min-w-[184px] p-1"
+          >
+            {(close) => (
+              <>
+                {showLinkInMenu && onLink && (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      onLink();
+                      close();
+                    }}
+                    className={menuActionClass}
+                  >
+                    <LinkIcon size={14} aria-hidden="true" className="text-ink-3" />
+                    <span>Link to…</span>
+                  </button>
+                )}
+                {showReviewInMenu && (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      onReview(findings.issues[0]);
+                      close();
+                    }}
+                    className={menuActionClass}
+                  >
+                    <span className="w-3.5 grid place-items-center">
+                      <i
+                        aria-hidden="true"
+                        className={`w-2 h-2 rounded-pill not-italic ${severityDot(findings.severity)}`}
+                      />
+                    </span>
+                    <span>Needs review · {findings.count}</span>
+                  </button>
+                )}
+                {(showLinkInMenu || showReviewInMenu) && <MenuSeparator />}
+                {onCopyPath && (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      onCopyPath();
+                      close();
+                    }}
+                    className={menuActionClass}
+                  >
+                    <Square2StackIcon size={14} aria-hidden="true" className="text-ink-3" />
+                    <span>Copy path</span>
+                  </button>
+                )}
+                {onReveal && (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      onReveal();
+                      close();
+                    }}
+                    className={menuActionClass}
+                  >
+                    <RevealInFileManagerIcon size={14} aria-hidden="true" className="text-ink-3" />
+                    <span>Reveal in Finder</span>
+                  </button>
+                )}
+                {onOpenInEditor && (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      onOpenInEditor();
+                      close();
+                    }}
+                    className={menuActionClass}
+                  >
+                    <PencilSquareIcon size={14} aria-hidden="true" className="text-ink-3" />
+                    <span>Open in editor</span>
+                  </button>
+                )}
+              </>
+            )}
+          </OverflowMenu>
         )}
 
         <Tooltip label={inspectorExpanded ? "Collapse inspector" : "Expand inspector"} placement="bottom">
