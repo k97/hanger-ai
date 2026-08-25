@@ -304,7 +304,7 @@ and Ruling 3 (`docs/v5-animate-icons/00-state-inventory.md` §1) settled the
 family question for all of them at once rather than per mark: looping marks
 (`Disc3Icon`, `FolderSyncIcon`, `LoaderCircleIcon`, `RotateCcwIcon`,
 `ServerRelayIcon`, `FrameIcon`, `FileTextIcon`, `Link2Icon`,
-`icons.tsx:409-503`) spin or redraw only while `active`; entering marks
+`icons.tsx:409-504`) spin or redraw only while `active`; entering marks
 (`FolderClockIcon`, `PackageOpenIcon`, `FolderXIcon`, `SearchIcon`,
 `InboxIcon`, `PlugZapIcon`, `ZapOffIcon`, `UnlinkIcon`, `CursorClickIcon`,
 `MonitorCheckIcon`, `FolderPlusIcon`, `GitPullRequestClosedIcon`,
@@ -493,7 +493,7 @@ a pending plane instead: `Disc3Icon` at 40, spinning while `loading`
 (`FolderSyncIcon` in `RepoPane`, the repo-scoped looping mark for the same
 state — `icons.tsx:421-435`), or `FolderClockIcon` at 40 — the entering() mark
 whose clock hands sweep once and hold — once no scan is running
-(`icons.tsx:510-522`). Headline "Scanning your machine" with a subline that
+(`icons.tsx:510-523`). Headline "Scanning your machine" with a subline that
 names the place and is literal about timing ("Assets in the global store show
 up here once the scan finishes." / "Assets in ‹repo› show up here once the
 scan finishes." — App sets inventory on `scan://complete` and ignores
