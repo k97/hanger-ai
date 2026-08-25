@@ -17,7 +17,8 @@
  * glyph (`RevealInFileManagerIcon`), because it draws the current platform's
  * actual file manager rather than a generic folder.
  */
-import type { ComponentType, SVGProps } from "react";
+import { createElement } from "react";
+import type { ComponentType, CSSProperties, SVGProps } from "react";
 import {
   AdjustmentsHorizontalIcon as HeroAdjustmentsHorizontal,
   ArchiveBoxIcon as HeroArchiveBox,
@@ -281,3 +282,136 @@ function GaugeMark({ width, height, strokeWidth, ...props }: SVGProps<SVGSVGElem
 
 /** The Context section's row mark. */
 export const GaugeIcon = sized(GaugeMark);
+
+/* ── Animated marks — v5 (docs/v5-animate-icons/00-state-inventory.md).
+ *
+ * Geometry is Lucide (ISC), hand-transcribed: lucide-react's components
+ * render their elements flat, and per-element motion needs a <g> around the
+ * moving subset, so each mark's elements are declared here and the moving
+ * indices named. Transcription is pinned by animated_icons.test.tsx, which
+ * compares every geometry attribute against the installed lucide-react — a
+ * wrong or stale transcription cannot pass.
+ *
+ * Two shapes (ruling 4): looping() marks take `active` and spin only while
+ * the work they name is running; entering() marks play once on mount and
+ * hold — a finding, stated and then still.
+ *
+ * Origins: aim-part rotates about the 24-grid centre unless the group
+ * overrides --ox/--oy. A moving sub-group that is off-centre MUST override —
+ * measured, not assumed (inventory §2.1): folder-sync (17,16), folder-clock
+ * (16,16), cursor-click (9.3,9.3). The failure is invisible at 0deg and 360deg.
+ */
+type AimElement = readonly [
+  tag: "path" | "circle" | "line" | "rect" | "polyline",
+  attrs: Record<string, string | number>,
+];
+
+interface AimGroup {
+  /** indices into elements that move together */
+  readonly indices: readonly number[];
+  /** grid-unit origin override for off-centre groups */
+  readonly origin?: readonly [number, number];
+  /** phase offset, e.g. "-0.6s" for the relay's second rack */
+  readonly delay?: string;
+}
+
+interface AimSpec {
+  readonly elements: readonly AimElement[];
+  /** motion classes, e.g. "aim-draw aim-stagger" */
+  readonly motion: string;
+  readonly groups: readonly AimGroup[];
+  /** pathLength="1" + --i per moving element (draw/scan motions) */
+  readonly drawn?: boolean;
+}
+
+export interface AnimatedIconProps extends Omit<SVGProps<SVGSVGElement>, "ref"> {
+  size?: number;
+}
+export interface LoopingIconProps extends AnimatedIconProps {
+  active?: boolean;
+}
+
+/**
+ * `AimElement`'s attrs are a loose `Record<string, string | number>` because
+ * the tag varies per element (`circle` takes `cx`/`cy`/`r`, `path` takes `d`,
+ * and so on) and the spec table is declarative data, not per-tag-typed
+ * markup. `createElement` accepts that looseness directly — a JSX spread
+ * onto a literal tag name does not, since JSX narrows the attrs type to
+ * whichever tag the literal names. This keeps `AimSpec` exactly as
+ * documented while staying honestly typed.
+ */
+function el([tag, attrs]: AimElement, key: number, extra?: Record<string, unknown>) {
+  return createElement(tag, { key, ...attrs, ...extra });
+}
+
+function AimSvg({
+  spec,
+  size = DEFAULT_SIZE,
+  rule,
+  ...props
+}: AnimatedIconProps & { spec: AimSpec; rule: "aim-loop" | "aim-once" | null }) {
+  const grouped = new Set(spec.groups.flatMap((g) => g.indices));
+  const drawExtra = (seq?: number): Record<string, unknown> | undefined =>
+    spec.drawn && rule !== null && seq !== undefined
+      ? { pathLength: 1, style: { "--i": seq } as CSSProperties }
+      : undefined;
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={strokeFor(size)}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      {...props}
+    >
+      {spec.elements.map((e, i) => (grouped.has(i) ? null : el(e, i)))}
+      {spec.groups.map((g, gi) => (
+        <g
+          key={`g${gi}`}
+          className={rule ? `aim-part ${spec.motion} ${rule}` : undefined}
+          style={
+            {
+              ...(g.origin && { "--ox": `${g.origin[0]}px`, "--oy": `${g.origin[1]}px` }),
+              ...(rule && g.delay && { animationDelay: g.delay }),
+            } as CSSProperties
+          }
+        >
+          {g.indices.map((i, seq) => el(spec.elements[i], i, drawExtra(seq)))}
+        </g>
+      ))}
+    </svg>
+  );
+}
+
+function looping(spec: AimSpec) {
+  return function LoopingIcon({ active = false, ...props }: LoopingIconProps) {
+    return <AimSvg spec={spec} rule={active ? "aim-loop" : null} {...props} />;
+  };
+}
+
+// Exported, not module-private as first drafted: this task adds no
+// entering()-based mark, and an unreferenced top-level function fails
+// `noUnusedLocals` (tsconfig.json) — a real project gate, not a style
+// preference. The later tasks that call this live in this same file, so the
+// export changes nothing about how they consume it; see task-2-report.md.
+export function entering(spec: AimSpec) {
+  return function EnteringIcon(props: AnimatedIconProps) {
+    return <AimSvg spec={spec} rule="aim-once" {...props} />;
+  };
+}
+
+/** Scanning — the record turns while the scan runs. Arcs spin; rim and hub hold. */
+export const Disc3Icon = looping({
+  elements: [
+    ["circle", { cx: 12, cy: 12, r: 10 }],
+    ["path", { d: "M6 12c0-1.7.7-3.2 1.8-4.2" }],
+    ["circle", { cx: 12, cy: 12, r: 2 }],
+    ["path", { d: "M18 12c0 1.7-.7 3.2-1.8 4.2" }],
+  ],
+  motion: "aim-spin",
+  groups: [{ indices: [1, 3] }],
+});
