@@ -501,3 +501,215 @@ export const Link2Icon = looping({
   groups: [{ indices: [0, 1, 2] }],
   drawn: true,
 });
+
+/* ── entering() marks — findings, stated once on mount and then still. Each
+ * plays on entry (`aim-once`); there is no active/inactive distinction. */
+
+/** Not scanned yet — the rest state before a store's first scan; the clock's hands sweep once and stop. */
+export const FolderClockIcon = entering({
+  elements: [
+    ["circle", { cx: 16, cy: 16, r: 6 }],
+    [
+      "path",
+      {
+        d: "M7 20H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H20a2 2 0 0 1 2 2",
+      },
+    ],
+    ["path", { d: "M16 14v2l1 1" }],
+  ],
+  motion: "aim-spin",
+  groups: [{ indices: [2], origin: [16, 16] }],
+});
+
+/** Nothing tracked yet — engines are here, but their global folders hold no skills, rules, MCP servers or subagents. */
+export const PackageOpenIcon = entering({
+  elements: [
+    ["path", { d: "M12 22v-9" }],
+    [
+      "path",
+      {
+        d: "M15.17 2.21a1.67 1.67 0 0 1 1.63 0L21 4.57a1.93 1.93 0 0 1 0 3.36L8.82 14.79a1.655 1.655 0 0 1-1.64 0L3 12.43a1.93 1.93 0 0 1 0-3.36z",
+      },
+    ],
+    [
+      "path",
+      {
+        d: "M20 13v3.87a2.06 2.06 0 0 1-1.11 1.83l-6 3.08a1.93 1.93 0 0 1-1.78 0l-6-3.08A2.06 2.06 0 0 1 4 16.87V13",
+      },
+    ],
+    [
+      "path",
+      {
+        d: "M21 12.43a1.93 1.93 0 0 0 0-3.36L8.83 2.2a1.64 1.64 0 0 0-1.63 0L3 4.57a1.93 1.93 0 0 0 0 3.36l12.18 6.86a1.636 1.636 0 0 0 1.63 0z",
+      },
+    ],
+  ],
+  motion: "aim-draw aim-stagger",
+  groups: [{ indices: [0, 1, 2, 3] }],
+  drawn: true,
+});
+
+/** No engine folders on this machine — Hanger found none of the directories engines read from. */
+export const FolderXIcon = entering({
+  elements: [
+    [
+      "path",
+      {
+        d: "M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z",
+      },
+    ],
+    ["path", { d: "m9.5 10.5 5 5" }],
+    ["path", { d: "m14.5 10.5-5 5" }],
+  ],
+  motion: "aim-draw aim-stagger",
+  groups: [{ indices: [1, 2] }],
+  drawn: true,
+});
+
+/** A filter, not an absence — the category holds rows; the current filter hides all of them. */
+export const SearchIcon = entering({
+  elements: [
+    ["circle", { cx: 11, cy: 11, r: 8 }],
+    ["path", { d: "m21 21-4.3-4.3" }],
+  ],
+  motion: "aim-seek",
+  groups: [{ indices: [0, 1] }],
+});
+
+/** Genuinely empty — the scan finished and found none of this category, no filter involved. */
+export const InboxIcon = entering({
+  elements: [
+    ["polyline", { points: "22 12 16 12 14 15 10 15 8 12 2 12" }],
+    [
+      "path",
+      {
+        d: "M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z",
+      },
+    ],
+  ],
+  motion: "aim-draw aim-stagger",
+  groups: [{ indices: [0, 1] }],
+  drawn: true,
+});
+
+/** No engines at all — nothing here could register an MCP server in the first place. */
+export const PlugZapIcon = entering({
+  elements: [
+    [
+      "path",
+      { d: "M6.3 20.3a2.4 2.4 0 0 0 3.4 0L12 18l-6-6-2.3 2.3a2.4 2.4 0 0 0 0 3.4Z" },
+    ],
+    ["path", { d: "m2 22 3-3" }],
+    ["path", { d: "M7.5 13.5 10 11" }],
+    ["path", { d: "M10.5 16.5 13 14" }],
+    ["path", { d: "m18 3-4 4h6l-4 4" }],
+  ],
+  motion: "aim-draw aim-stagger",
+  groups: [{ indices: [0, 1, 2, 3, 4] }],
+  drawn: true,
+});
+
+/** Engines here, none configured — the capability exists and nothing uses it yet. */
+export const ZapOffIcon = entering({
+  elements: [
+    ["path", { d: "M10.513 4.856 13.12 2.17a.5.5 0 0 1 .86.46l-1.377 4.317" }],
+    ["path", { d: "M15.656 10H20a1 1 0 0 1 .78 1.63l-1.72 1.773" }],
+    [
+      "path",
+      {
+        d: "M16.273 16.273 10.88 21.83a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14H4a1 1 0 0 1-.78-1.63l4.507-4.643",
+      },
+    ],
+    ["path", { d: "m2 2 20 20" }],
+  ],
+  motion: "aim-draw aim-stagger",
+  groups: [{ indices: [0, 1, 2, 3] }],
+  drawn: true,
+});
+
+/** Link panel, no destinations — every repository the panel could point at is unlinked. */
+export const UnlinkIcon = entering({
+  elements: [
+    [
+      "path",
+      {
+        d: "m18.84 12.25 1.72-1.71h-.02a5.004 5.004 0 0 0-.12-7.07 5.006 5.006 0 0 0-6.95 0l-1.72 1.71",
+      },
+    ],
+    [
+      "path",
+      {
+        d: "m5.17 11.75-1.71 1.71a5.004 5.004 0 0 0 .12 7.07 5.006 5.006 0 0 0 6.95 0l1.71-1.71",
+      },
+    ],
+    ["line", { x1: 8, x2: 8, y1: 2, y2: 5 }],
+    ["line", { x1: 2, x2: 5, y1: 8, y2: 8 }],
+    ["line", { x1: 16, x2: 16, y1: 19, y2: 22 }],
+    ["line", { x1: 19, x2: 22, y1: 16, y2: 16 }],
+  ],
+  motion: "aim-burst",
+  groups: [{ indices: [2, 3, 4, 5] }],
+});
+
+/** Nothing selected — the inspector or review panel waiting for a click on an asset or repository. */
+export const CursorClickIcon = entering({
+  elements: [
+    ["path", { d: "M14 4.1 12 6" }],
+    ["path", { d: "m5.1 8-2.9-.8" }],
+    ["path", { d: "m6 12-1.9 2" }],
+    ["path", { d: "M7.2 2.2 8 5.1" }],
+    [
+      "path",
+      {
+        d: "M9.037 9.69a.498.498 0 0 1 .653-.653l11 4.5a.5.5 0 0 1-.074.949l-4.349 1.041a1 1 0 0 0-.74.739l-1.04 4.35a.5.5 0 0 1-.95.074z",
+      },
+    ],
+  ],
+  motion: "aim-burst",
+  groups: [{ indices: [0, 1, 2, 3], origin: [9.3, 9.3] }],
+});
+
+/** Needs review, clean — every link resolves and every file parses; nothing needs a decision. */
+export const MonitorCheckIcon = entering({
+  elements: [
+    ["path", { d: "m9 10 2 2 4-4" }],
+    ["rect", { width: 20, height: 14, x: 2, y: 3, rx: 2 }],
+    ["path", { d: "M12 17v4" }],
+    ["path", { d: "M8 21h8" }],
+  ],
+  motion: "aim-draw",
+  groups: [{ indices: [0] }],
+  drawn: true,
+});
+
+/** No repositories linked — the sidebar's invitation to link the first one. */
+export const FolderPlusIcon = entering({
+  elements: [
+    ["path", { d: "M12 10v6" }],
+    ["path", { d: "M9 13h6" }],
+    [
+      "path",
+      {
+        d: "M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z",
+      },
+    ],
+  ],
+  motion: "aim-draw aim-stagger",
+  groups: [{ indices: [0, 1] }],
+  drawn: true,
+});
+
+/** No link graph yet — a connection that terminates rather than resolves, the same as no graph at all. */
+export const GitPullRequestClosedIcon = entering({
+  elements: [
+    ["circle", { cx: 6, cy: 6, r: 3 }],
+    ["path", { d: "M6 9v12" }],
+    ["path", { d: "m21 3-6 6" }],
+    ["path", { d: "m21 9-6-6" }],
+    ["path", { d: "M18 11.5V15" }],
+    ["circle", { cx: 18, cy: 18, r: 3 }],
+  ],
+  motion: "aim-draw aim-stagger",
+  groups: [{ indices: [0, 1, 2, 3, 4, 5] }],
+  drawn: true,
+});

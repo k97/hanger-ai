@@ -10,6 +10,18 @@ import {
   Frame,
   FileText,
   Link2,
+  FolderClock,
+  PackageOpen,
+  FolderX,
+  Search,
+  Inbox,
+  PlugZap,
+  ZapOff,
+  Unlink,
+  MousePointerClick,
+  MonitorCheck,
+  FolderPlus,
+  GitPullRequestClosed,
 } from "lucide-react";
 import {
   Disc3Icon,
@@ -20,6 +32,18 @@ import {
   FrameIcon,
   FileTextIcon,
   Link2Icon,
+  FolderClockIcon,
+  PackageOpenIcon,
+  FolderXIcon,
+  SearchIcon,
+  InboxIcon,
+  PlugZapIcon,
+  ZapOffIcon,
+  UnlinkIcon,
+  CursorClickIcon,
+  MonitorCheckIcon,
+  FolderPlusIcon,
+  GitPullRequestClosedIcon,
 } from "../components/icons";
 
 /** Every drawable element's geometry attrs, order-independent. */
@@ -54,7 +78,7 @@ describe("Disc3Icon", () => {
     const group = active.match(/<g class="aim-part aim-spin aim-loop">([\s\S]*?)<\/g>/)![1];
     expect(group.match(/<path/g)?.length).toBe(2);
     expect(group).not.toMatch(/<circle/);
-    expect(still).not.toMatch(/aim-loop/);
+    expect(still).not.toMatch(/aim-/); // no aim-* class at all while inactive
   });
 
   it("is hidden from the accessibility tree", () => {
@@ -234,5 +258,298 @@ describe("Link2Icon", () => {
 
   it("is hidden from the accessibility tree", () => {
     expect(renderToStaticMarkup(<Link2Icon size={40} />)).toMatch(/aria-hidden="true"/);
+  });
+});
+
+// ── entering() marks — play once on mount and hold. No `active` prop: every
+// render carries `aim-once`, and `aim-loop` never appears.
+
+describe("FolderClockIcon", () => {
+  it("carries exactly the installed lucide folder-clock geometry", () => {
+    const ours = geometry(renderToStaticMarkup(<FolderClockIcon size={40} />));
+    const theirs = geometry(renderToStaticMarkup(<FolderClock size={40} />));
+    expect(ours).toEqual(theirs);
+  });
+
+  it("plays once on mount; only the clock hands turn", () => {
+    const html = renderToStaticMarkup(<FolderClockIcon size={40} />);
+    expect(html).toMatch(/<g class="aim-part aim-spin aim-once"/);
+    expect(html).not.toMatch(/aim-loop/);
+    const group = html.match(/<g class="aim-part aim-spin aim-once"[^>]*>([\s\S]*?)<\/g>/)![1];
+    expect(group.match(/<path/g)?.length).toBe(1);
+    expect(html.match(/<circle/g)?.length).toBe(1); // the dial, held still
+  });
+
+  it("is hidden from the accessibility tree", () => {
+    expect(renderToStaticMarkup(<FolderClockIcon size={40} />)).toMatch(/aria-hidden="true"/);
+  });
+
+  it("the clock hands turn about the dial's own centre, not the grid's", () => {
+    const html = renderToStaticMarkup(<FolderClockIcon size={40} />);
+    expect(html).toMatch(/--ox:\s*16px/);
+    expect(html).toMatch(/--oy:\s*16px/);
+  });
+});
+
+describe("PackageOpenIcon", () => {
+  it("carries exactly the installed lucide package-open geometry", () => {
+    const ours = geometry(renderToStaticMarkup(<PackageOpenIcon size={40} />));
+    const theirs = geometry(renderToStaticMarkup(<PackageOpen size={40} />));
+    expect(ours).toEqual(theirs);
+  });
+
+  it("plays once on mount; the whole package draws", () => {
+    const html = renderToStaticMarkup(<PackageOpenIcon size={40} />);
+    expect(html).toMatch(/<g class="aim-part aim-draw aim-stagger aim-once"/);
+    expect(html).not.toMatch(/aim-loop/);
+    const group = html.match(
+      /<g class="aim-part aim-draw aim-stagger aim-once"[^>]*>([\s\S]*?)<\/g>/,
+    )![1];
+    expect(group.match(/<path/g)?.length).toBe(4);
+    expect(html.match(/<path/g)?.length).toBe(4); // every element moves
+    expect(group).toMatch(/pathLength="1"/);
+  });
+
+  it("is hidden from the accessibility tree", () => {
+    expect(renderToStaticMarkup(<PackageOpenIcon size={40} />)).toMatch(/aria-hidden="true"/);
+  });
+});
+
+describe("FolderXIcon", () => {
+  it("carries exactly the installed lucide folder-x geometry", () => {
+    const ours = geometry(renderToStaticMarkup(<FolderXIcon size={40} />));
+    const theirs = geometry(renderToStaticMarkup(<FolderX size={40} />));
+    expect(ours).toEqual(theirs);
+  });
+
+  it("plays once on mount; the folder holds, the X strokes draw", () => {
+    const html = renderToStaticMarkup(<FolderXIcon size={40} />);
+    expect(html).toMatch(/<g class="aim-part aim-draw aim-stagger aim-once"/);
+    expect(html).not.toMatch(/aim-loop/);
+    const group = html.match(
+      /<g class="aim-part aim-draw aim-stagger aim-once"[^>]*>([\s\S]*?)<\/g>/,
+    )![1];
+    expect(group.match(/<path/g)?.length).toBe(2);
+    expect(html.match(/<path/g)?.length).toBe(3); // folder outline plus the 2 X strokes
+  });
+
+  it("is hidden from the accessibility tree", () => {
+    expect(renderToStaticMarkup(<FolderXIcon size={40} />)).toMatch(/aria-hidden="true"/);
+  });
+});
+
+describe("SearchIcon", () => {
+  it("carries exactly the installed lucide search geometry", () => {
+    const ours = geometry(renderToStaticMarkup(<SearchIcon size={40} />));
+    const theirs = geometry(renderToStaticMarkup(<Search size={40} />));
+    expect(ours).toEqual(theirs);
+  });
+
+  it("plays once on mount; the whole glass moves", () => {
+    const html = renderToStaticMarkup(<SearchIcon size={40} />);
+    expect(html).toMatch(/<g class="aim-part aim-seek aim-once"/);
+    expect(html).not.toMatch(/aim-loop/);
+    const group = html.match(/<g class="aim-part aim-seek aim-once"[^>]*>([\s\S]*?)<\/g>/)![1];
+    expect(group.match(/<(circle|path)/g)?.length).toBe(2);
+    expect(html.match(/<(circle|path)/g)?.length).toBe(2); // every element moves
+  });
+
+  it("is hidden from the accessibility tree", () => {
+    expect(renderToStaticMarkup(<SearchIcon size={40} />)).toMatch(/aria-hidden="true"/);
+  });
+});
+
+describe("InboxIcon", () => {
+  it("carries exactly the installed lucide inbox geometry", () => {
+    const ours = geometry(renderToStaticMarkup(<InboxIcon size={40} />));
+    const theirs = geometry(renderToStaticMarkup(<Inbox size={40} />));
+    expect(ours).toEqual(theirs);
+  });
+
+  it("plays once on mount; the whole tray draws", () => {
+    const html = renderToStaticMarkup(<InboxIcon size={40} />);
+    expect(html).toMatch(/<g class="aim-part aim-draw aim-stagger aim-once"/);
+    expect(html).not.toMatch(/aim-loop/);
+    const group = html.match(
+      /<g class="aim-part aim-draw aim-stagger aim-once"[^>]*>([\s\S]*?)<\/g>/,
+    )![1];
+    expect(group.match(/<(polyline|path)/g)?.length).toBe(2);
+    expect(html.match(/<(polyline|path)/g)?.length).toBe(2); // every element moves
+  });
+
+  it("is hidden from the accessibility tree", () => {
+    expect(renderToStaticMarkup(<InboxIcon size={40} />)).toMatch(/aria-hidden="true"/);
+  });
+});
+
+describe("PlugZapIcon", () => {
+  it("carries exactly the installed lucide plug-zap geometry", () => {
+    const ours = geometry(renderToStaticMarkup(<PlugZapIcon size={40} />));
+    const theirs = geometry(renderToStaticMarkup(<PlugZap size={40} />));
+    expect(ours).toEqual(theirs);
+  });
+
+  it("plays once on mount; the whole plug draws", () => {
+    const html = renderToStaticMarkup(<PlugZapIcon size={40} />);
+    expect(html).toMatch(/<g class="aim-part aim-draw aim-stagger aim-once"/);
+    expect(html).not.toMatch(/aim-loop/);
+    const group = html.match(
+      /<g class="aim-part aim-draw aim-stagger aim-once"[^>]*>([\s\S]*?)<\/g>/,
+    )![1];
+    expect(group.match(/<path/g)?.length).toBe(5);
+    expect(html.match(/<path/g)?.length).toBe(5); // every element moves
+  });
+
+  it("is hidden from the accessibility tree", () => {
+    expect(renderToStaticMarkup(<PlugZapIcon size={40} />)).toMatch(/aria-hidden="true"/);
+  });
+});
+
+describe("ZapOffIcon", () => {
+  it("carries exactly the installed lucide zap-off geometry", () => {
+    const ours = geometry(renderToStaticMarkup(<ZapOffIcon size={40} />));
+    const theirs = geometry(renderToStaticMarkup(<ZapOff size={40} />));
+    expect(ours).toEqual(theirs);
+  });
+
+  it("plays once on mount; the whole bolt draws", () => {
+    const html = renderToStaticMarkup(<ZapOffIcon size={40} />);
+    expect(html).toMatch(/<g class="aim-part aim-draw aim-stagger aim-once"/);
+    expect(html).not.toMatch(/aim-loop/);
+    const group = html.match(
+      /<g class="aim-part aim-draw aim-stagger aim-once"[^>]*>([\s\S]*?)<\/g>/,
+    )![1];
+    expect(group.match(/<path/g)?.length).toBe(4);
+    expect(html.match(/<path/g)?.length).toBe(4); // every element moves
+  });
+
+  it("is hidden from the accessibility tree", () => {
+    expect(renderToStaticMarkup(<ZapOffIcon size={40} />)).toMatch(/aria-hidden="true"/);
+  });
+});
+
+describe("UnlinkIcon", () => {
+  it("carries exactly the installed lucide unlink geometry", () => {
+    const ours = geometry(renderToStaticMarkup(<UnlinkIcon size={40} />));
+    const theirs = geometry(renderToStaticMarkup(<Unlink size={40} />));
+    expect(ours).toEqual(theirs);
+  });
+
+  it("plays once on mount; the hooks hold, the break marks burst", () => {
+    const html = renderToStaticMarkup(<UnlinkIcon size={40} />);
+    expect(html).toMatch(/<g class="aim-part aim-burst aim-once"/);
+    expect(html).not.toMatch(/aim-loop/);
+    const group = html.match(/<g class="aim-part aim-burst aim-once"[^>]*>([\s\S]*?)<\/g>/)![1];
+    expect(group.match(/<line/g)?.length).toBe(4);
+    expect(html.match(/<path/g)?.length).toBe(2); // the two hooks, held still
+    expect(html.match(/<line/g)?.length).toBe(4);
+  });
+
+  it("is hidden from the accessibility tree", () => {
+    expect(renderToStaticMarkup(<UnlinkIcon size={40} />)).toMatch(/aria-hidden="true"/);
+  });
+});
+
+describe("CursorClickIcon", () => {
+  it("carries exactly the installed lucide mouse-pointer-click geometry", () => {
+    const ours = geometry(renderToStaticMarkup(<CursorClickIcon size={40} />));
+    const theirs = geometry(renderToStaticMarkup(<MousePointerClick size={40} />));
+    expect(ours).toEqual(theirs);
+  });
+
+  it("plays once on mount; only the sparks radiate", () => {
+    const html = renderToStaticMarkup(<CursorClickIcon size={40} />);
+    expect(html).toMatch(/<g class="aim-part aim-burst aim-once"/);
+    expect(html).not.toMatch(/aim-loop/);
+    const group = html.match(/<g class="aim-part aim-burst aim-once"[^>]*>([\s\S]*?)<\/g>/)![1];
+    expect(group.match(/<path/g)?.length).toBe(4);
+    expect(html.match(/<path/g)?.length).toBe(5); // the 4 sparks plus the cursor
+  });
+
+  it("is hidden from the accessibility tree", () => {
+    expect(renderToStaticMarkup(<CursorClickIcon size={40} />)).toMatch(/aria-hidden="true"/);
+  });
+
+  it("the sparks radiate from the cursor's tip, not the grid's centre", () => {
+    const html = renderToStaticMarkup(<CursorClickIcon size={40} />);
+    expect(html).toMatch(/--ox:\s*9\.3px/);
+    expect(html).toMatch(/--oy:\s*9\.3px/);
+  });
+
+  it("the cursor itself sits outside the moving group", () => {
+    const html = renderToStaticMarkup(<CursorClickIcon size={40} />);
+    const group = html.match(/<g class="aim-part aim-burst aim-once"[^>]*>([\s\S]*?)<\/g>/)![1];
+    expect(group).not.toMatch(/M9\.037/);
+    expect(html).toMatch(/<path d="M9\.037/); // present, just outside the group
+  });
+});
+
+describe("MonitorCheckIcon", () => {
+  it("carries exactly the installed lucide monitor-check geometry", () => {
+    const ours = geometry(renderToStaticMarkup(<MonitorCheckIcon size={40} />));
+    const theirs = geometry(renderToStaticMarkup(<MonitorCheck size={40} />));
+    expect(ours).toEqual(theirs);
+  });
+
+  it("plays once on mount; the monitor holds, only the tick draws", () => {
+    const html = renderToStaticMarkup(<MonitorCheckIcon size={40} />);
+    expect(html).toMatch(/<g class="aim-part aim-draw aim-once"/);
+    expect(html).not.toMatch(/aim-loop/);
+    const group = html.match(/<g class="aim-part aim-draw aim-once"[^>]*>([\s\S]*?)<\/g>/)![1];
+    expect(group.match(/<path/g)?.length).toBe(1);
+    expect(html.match(/<rect/g)?.length).toBe(1); // the monitor body, held still
+    expect(html.match(/<path/g)?.length).toBe(3); // tick, plus the stand and base held still
+  });
+
+  it("is hidden from the accessibility tree", () => {
+    expect(renderToStaticMarkup(<MonitorCheckIcon size={40} />)).toMatch(/aria-hidden="true"/);
+  });
+});
+
+describe("FolderPlusIcon", () => {
+  it("carries exactly the installed lucide folder-plus geometry", () => {
+    const ours = geometry(renderToStaticMarkup(<FolderPlusIcon size={40} />));
+    const theirs = geometry(renderToStaticMarkup(<FolderPlus size={40} />));
+    expect(ours).toEqual(theirs);
+  });
+
+  it("plays once on mount; the folder holds, the plus draws", () => {
+    const html = renderToStaticMarkup(<FolderPlusIcon size={40} />);
+    expect(html).toMatch(/<g class="aim-part aim-draw aim-stagger aim-once"/);
+    expect(html).not.toMatch(/aim-loop/);
+    const group = html.match(
+      /<g class="aim-part aim-draw aim-stagger aim-once"[^>]*>([\s\S]*?)<\/g>/,
+    )![1];
+    expect(group.match(/<path/g)?.length).toBe(2);
+    expect(html.match(/<path/g)?.length).toBe(3); // folder outline plus the 2 plus-strokes
+  });
+
+  it("is hidden from the accessibility tree", () => {
+    expect(renderToStaticMarkup(<FolderPlusIcon size={40} />)).toMatch(/aria-hidden="true"/);
+  });
+});
+
+describe("GitPullRequestClosedIcon", () => {
+  it("carries exactly the installed lucide git-pull-request-closed geometry", () => {
+    const ours = geometry(renderToStaticMarkup(<GitPullRequestClosedIcon size={40} />));
+    const theirs = geometry(renderToStaticMarkup(<GitPullRequestClosed size={40} />));
+    expect(ours).toEqual(theirs);
+  });
+
+  it("plays once on mount; the whole graph draws", () => {
+    const html = renderToStaticMarkup(<GitPullRequestClosedIcon size={40} />);
+    expect(html).toMatch(/<g class="aim-part aim-draw aim-stagger aim-once"/);
+    expect(html).not.toMatch(/aim-loop/);
+    const group = html.match(
+      /<g class="aim-part aim-draw aim-stagger aim-once"[^>]*>([\s\S]*?)<\/g>/,
+    )![1];
+    expect(group.match(/<(circle|path)/g)?.length).toBe(6);
+    expect(html.match(/<(circle|path)/g)?.length).toBe(6); // every element moves
+  });
+
+  it("is hidden from the accessibility tree", () => {
+    expect(renderToStaticMarkup(<GitPullRequestClosedIcon size={40} />)).toMatch(
+      /aria-hidden="true"/,
+    );
   });
 });
