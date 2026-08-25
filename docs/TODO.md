@@ -122,7 +122,7 @@ a test pins it the way `needs_review_pane.test.tsx` pins the list body.
 
 ---
 
-## T4 — "Showing 0 of 3"
+## T4 — "Showing 0 of 3" — CLOSED
 
 When the backend count for a repository is already known but the inventory
 has not arrived, the foot line pairs a real total with an empty table:
@@ -155,6 +155,56 @@ what the repository pane already renders.
 
 **Done when:** the foot line has a deliberate answer for "count known,
 rows not yet loaded".
+
+**Closed 2026-08-25.** Both panes now key `pendingState`/`isRepoPending` on a
+new `nothingToShow`, not on `storeEmpty`. `storeEmpty` reads `assetCounts`
+first — the exact mechanism above — so it was the wrong gate for "is there
+anything to draw"; `nothingToShow` asks that question directly, over every
+row source each pane can actually put on screen:
+
+- **`ProfilePane.tsx`**: the four global-scope asset arrays — skills, tools,
+  rules, subagents. `storeEmpty`'s own formula had never checked subagents;
+  fixed here, since a subagents-only pending screen would otherwise have
+  blanked real rows the same way the counts race did. On top of those,
+  `nothingToShow` also checks two sources `storeEmpty` never considered at
+  all, because neither comes from `inventory`: `mcpServers` (the grouped MCP
+  server rows — a second, machine-global fetch that can resolve before a
+  scan's `inventory` does) and `configProblemRows` (Appendix A.3/A.4's rows,
+  sourced from `mcpCoverage`). Missing either would have covered real,
+  already-arrived rows with the pending plane instead of fixing the blank
+  table it exists to replace.
+- **`RepoPane.tsx`**: the same four arrays, unscoped by category
+  (`unscoped`, already computed for `storeEmpty`'s own fallback branch — no
+  new derivation needed). This pane has no `mcpServers`-style second fetch
+  and no config-problem rows — Tools here stays per-registration, sourced
+  from `inventory` alone — so those four are everything a row in its list
+  can come from. `unscoped.agents` is left out on purpose: RepoPane renders
+  no Agents section at all, so an agents-only repository has no row here for
+  the plane to cover.
+
+**`emptyState` / `isRepoEmpty` were left alone, deliberately.** Both still
+key on `storeEmpty` exactly as written and ruled 2026-08-16/08-18: a
+negative claim ("Nothing in the global store yet") is a finding, and a
+finding still needs a finished scan and real counts behind it — that ruling
+holds unchanged. Only the *pending* branch changed; it now answers "do I
+have rows to draw?" instead of silently treating a non-zero count as proof
+that rows exist.
+
+Seven tests pin this (`ProfilePaneIntegration.test.tsx`,
+`RepoPaneIntegration.test.tsx`, `describe("... — T4: ...")`): the bug itself
+in each pane — non-zero counts, `inventory` null, mid-scan, no `scannedAt` —
+must render the scanning plane, not a blank table under a real header; both
+were confirmed red by temporarily reverting just the two source files
+(tests left in place) and rerunning, then green again on restore.
+`emptyState`/`isRepoEmpty` each get a dedicated regression test proving the
+finding still requires a finished, idle, genuinely-empty store. And in each
+pane, the most load-bearing case: counts *and* rows both already arrived,
+still `loading` (a rescan) — the table must render, not the plane, which is
+what actually exercises `nothingToShow` rather than a coincidentally-correct
+`storeEmpty`. ProfilePane carries a fourth: Appendix A's config-problem rows
+must not be covered by the pending plane either, with `inventory` still
+`null` — proving the `mcpServers`/`configProblemRows` half of the fix is not
+decorative.
 
 ---
 
