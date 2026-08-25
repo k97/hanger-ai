@@ -137,7 +137,7 @@ export default function ReviewInspector({
         </div>
       </div>
 
-      <div className="flex-1 min-h-0 overflow-y-auto">
+      <div className="flex-1 min-h-0 overflow-y-auto scroll-gutter-stable">
         <div className="mx-[18px] mt-3.5 grid gap-px bg-line rounded-plane overflow-hidden">
           {pairs.map((pair, idx) => (
             <section key={`${pair.key}-${idx}`} className="bg-plane px-3.5 py-2.5">

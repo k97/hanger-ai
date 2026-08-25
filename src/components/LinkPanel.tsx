@@ -243,7 +243,7 @@ export default function LinkPanel({
 
   return (
     <div className="flex-1 min-h-0 flex flex-col font-sans">
-      <div className="flex-1 min-h-0 overflow-y-auto">
+      <div className="flex-1 min-h-0 overflow-y-auto scroll-gutter-stable">
         <div className="px-[18px] pt-4">
           <span className={labelClass} id="link-destinations">
             Destinations

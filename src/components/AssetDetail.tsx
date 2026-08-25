@@ -359,7 +359,7 @@ export default function AssetDetail({ asset, inventory, onDocumentPath, annotati
         />
       )}
 
-      <div className="flex-1 min-h-0 overflow-y-auto">
+      <div className="flex-1 min-h-0 overflow-y-auto scroll-gutter-stable">
         {kind !== "none" && tab === "content" && (
           <div role="tabpanel" id="panel-content" aria-labelledby="tab-content">
             {asset.category === "Skills" && body && (

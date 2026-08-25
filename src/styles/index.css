@@ -148,6 +148,26 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* Reserves an equal inline-edge gutter on both sides of a scroll container,
+   so content stays centred whether or not the platform draws a scrollbar.
+   macOS switches from overlay to classic, space-taking scrollbars when a
+   mouse is attached and "Show scroll bars" is left at its default
+   "Automatic" — the classic scrollbar then shrinks the container's content
+   box from one edge only, so a child's symmetric inset (e.g. `mx-[18px]`) is
+   symmetric on paper but renders wider on one side than the other (the
+   inspector body, found 2026-08-24: 18px left, 18px + scrollbar right).
+   `stable both-edges` reserves the gutter on both edges regardless of scroll
+   direction, so the box stays centred either way. Inert when scrollbars are
+   overlay — MDN: "the scrollbar-gutter property has no effect" in that case
+   — so a trackpad-only machine sees no change at all; this only ever moves
+   the classic-scrollbar case it exists for. Belongs on the bare scroll
+   container itself, not on the padded child inside it — see
+   ProfilePane.tsx's bordered list for the same inset-on-the-scroller shape
+   done from the start. */
+@utility scroll-gutter-stable {
+  scrollbar-gutter: stable both-edges;
+}
+
 /* The raised capsule: surface and elevation together, under one name a
    component can carry without spelling either token. */
 @utility capsule-raised {
