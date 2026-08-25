@@ -273,3 +273,48 @@ describe("App shell v5 marks", () => {
     }
   });
 });
+
+// The toolbar search field (App.tsx:1484-1509) had no way to empty itself
+// short of selecting the text and deleting it by hand. The clear control
+// must only exist while there is something to clear, must not submit
+// anything, and must hand focus back to the input it just emptied — a user
+// clearing a search is about to type again.
+describe("Toolbar search — the clear control", () => {
+  beforeEach(() => {
+    cleanup();
+    eventListeners = {};
+    mockPreferences = {
+      onboarding_complete: "true",
+      consent_crash: "true",
+      consent_usage: "true",
+      sidebar_collapsed: "false",
+      selected_sidebar_item: "discovery",
+      inspector_open: "false",
+      discovery_confirm_open: "true",
+    };
+  });
+
+  afterEach(() => {
+    cleanup();
+  });
+
+  it("appears only once there is text, is a non-submitting button, empties the field, and returns focus to the input", async () => {
+    render(<App />);
+    await screen.findByText("Smithery");
+
+    const input = screen.getByLabelText("Search") as HTMLInputElement;
+    // Empty field: no clear control to click.
+    expect(screen.queryByLabelText("Clear search")).toBeNull();
+
+    fireEvent.change(input, { target: { value: "smith" } });
+    const clearButton = await screen.findByLabelText("Clear search");
+    expect(clearButton.getAttribute("type")).toBe("button");
+
+    fireEvent.click(clearButton);
+
+    expect(input.value).toBe("");
+    expect(document.activeElement).toBe(input);
+    // Vanishes again once the field it clears is empty.
+    expect(screen.queryByLabelText("Clear search")).toBeNull();
+  });
+});

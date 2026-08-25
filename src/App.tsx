@@ -347,6 +347,8 @@ export default function App() {
   const asideRef = useRef<HTMLElement>(null);
   // Toolbar filter — narrows the visible rows of the active pane by name.
   const [filterText, setFilterText] = useState<string>("");
+  // So the clear control can hand focus back once it empties the field.
+  const filterInputRef = useRef<HTMLInputElement>(null);
   // Discovery's category facet — owned here because DiscoverySidebar sets it
   // and DiscoveryPane filters by it (the chips moved into the second column).
   const [discoveryKind, setDiscoveryKind] = useState<string>("All");
@@ -1493,6 +1495,7 @@ export default function App() {
                   Settings). The object keeps the placeholder honest about
                   what the field actually reaches. Karthik's call, 2026-08-15. */}
               <input
+                ref={filterInputRef}
                 value={filterText}
                 onChange={(e) => setFilterText(e.target.value)}
                 aria-label="Search"
@@ -1503,8 +1506,23 @@ export default function App() {
                     ? `Search ${review.counts.total} issues`
                     : `Search ${activeTotal} assets`
                 }
-                className="w-full h-full rounded-pill border border-transparent bg-plane pl-[30px] pr-3.5 text-small text-ink-1 placeholder:text-ink-3 focus:outline-none focus:border-ink-1 focus:bg-page transition-colors duration-hover ease-spring"
+                className={`w-full h-full rounded-pill border border-transparent bg-plane pl-[30px] ${
+                  filterText ? "pr-[30px]" : "pr-3.5"
+                } text-small text-ink-1 placeholder:text-ink-3 focus:outline-none focus:border-ink-1 focus:bg-page transition-colors duration-hover ease-spring`}
               />
+              {filterText && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFilterText("");
+                    filterInputRef.current?.focus();
+                  }}
+                  aria-label="Clear search"
+                  className="absolute right-2.5 top-2 text-ink-3 hover:text-ink-1 transition-colors duration-hover cursor-pointer"
+                >
+                  <XMarkIcon size={12} />
+                </button>
+              )}
             </div>
             )}
 
