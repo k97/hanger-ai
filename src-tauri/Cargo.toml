@@ -1,7 +1,7 @@
 [package]
 name = "tauri-app"
 version = "1.1.0"
-description = "Local-first inventory for AI agent assets across Claude Code, Codex, and Gemini CLI"
+description = "Local-first macOS app that inventories, monitors and deploys the agent harness: skills, rules, subagents and MCP servers"
 authors = ["Karthik Rajendran"]
 edition = "2021"
 
