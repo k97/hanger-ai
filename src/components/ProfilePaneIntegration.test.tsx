@@ -280,8 +280,15 @@ describe("ProfilePane — the empty state is a finding, not a default", () => {
       detectedEngines: [{ id: "claude", name: "Claude Code" }, { id: "gemini", name: "Gemini CLI" }],
     });
     expect(screen.getByText("Nothing in the global store yet")).toBeTruthy();
+    // The WHOLE subline, not a prefix. The old regex stopped before the final
+    // full stop, so it could not see what came after it — and what came after
+    // it was "Discovery lists places to find some.", cut on Karthik's ruling
+    // (T6) because an empty state should report a finding, not sell a pane.
+    // Anchored so putting a sentence back fails here rather than shipping.
     expect(
-      screen.getByText(/Claude Code and Gemini CLI are here, but their global folders hold no skills, rules, MCP servers or subagents yet/)
+      screen.getByText(
+        "Claude Code and Gemini CLI are here, but their global folders hold no skills, rules, MCP servers or subagents yet."
+      )
     ).toBeTruthy();
     expect(screen.queryByText("No engine folders on this machine yet")).toBeNull();
   });

@@ -464,9 +464,9 @@ The empty copy itself, reviewed 2026-08-16 (Karthik: "review with
 
 - Global, engine folders present but nothing in them: "Nothing in the global
   store yet" / "‹Claude Code and Codex› are here, but their global folders
-  hold no skills, rules, MCP servers or subagents yet. Discovery lists places
-  to find some." — the names come from `detectedEngines` (the
-  `get_detected_engines` filesystem probe), joined by `joinNames`
+  hold no skills, rules, MCP servers or subagents yet." — the names come from
+  `detectedEngines` (the `get_detected_engines` filesystem probe), joined by
+  `joinNames`
   (`src/utils/prose.ts`), singular when there is one. Not
   `assetCounts.engines`, which is built from asset rows and is empty whenever
   the store is (`scanner.rs:34-46,76`) (`ProfilePane.tsx:150-157`, `:419-430`).

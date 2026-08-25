@@ -918,7 +918,7 @@ export default function ProfilePane({
               <span className="text-small text-ink-3 max-w-sm mt-1">
                 {joinNames(engineNames)} {engineNames.length === 1 ? "is" : "are"} here, but{" "}
                 {engineNames.length === 1 ? "its global folder holds" : "their global folders hold"} no
-                skills, rules, MCP servers or subagents yet. Discovery lists places to find some.
+                skills, rules, MCP servers or subagents yet.
               </span>
             </>
           ) : (

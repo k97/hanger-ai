@@ -155,7 +155,7 @@ design system page — or a decision that eight near-duplicates are fine.
 
 ---
 
-## T6 — One copy line never ruled on
+## T6 — One copy line never ruled on — CLOSED
 
 The Global empty state, engines-present branch, ends with "Discovery lists
 places to find some." It is accurate and points at a real pane, but it is
@@ -163,7 +163,16 @@ the empty state selling a feature, which may not be wanted. Raised twice on
 2026-08-16 and 2026-08-17 without a ruling; keeping it is the current
 default. `ProfilePane.tsx`, the `enginesDetected` branch.
 
-**Done when:** Karthik says keep or cut. One-line change either way.
+**Closed 2026-08-25: Karthik ruled CUT.** The subline now ends at the
+finding — "…hold no skills, rules, MCP servers or subagents yet." — with no
+pitch after it, matching the sibling branch, which states its finding and
+then names an action the user can actually take ("Run one of them once, then
+rescan"). There is no such action here, so the sentence simply stops.
+
+Pinned, because nothing held it: the test asserted a *prefix* regex that
+stopped before the final full stop, so it could not see the trailing
+sentence at all and would have passed just as happily with it restored. It
+now matches the whole subline, and putting a sentence back fails it.
 
 ---
 
