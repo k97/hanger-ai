@@ -244,8 +244,11 @@ describe("LinkMapPane", () => {
     renderPane(null, { loading: true });
     const body = screen.getByText("Reading the link graph…").closest("div")!;
     // v5 mark: frame — the grid that grounds the map redraws itself, looping
-    // while the read is in flight.
-    expect(body.querySelector('g.aim-loop line[x1="22"]')).toBeTruthy();
+    // while the read is in flight. aim-loop sits on the line itself, not a
+    // wrapping <g> — frame is one of the ten stagger marks (finding 1,
+    // final review), so the class and the geometry it delays are the same
+    // element, not ancestor and descendant.
+    expect(body.querySelector('line[x1="22"].aim-loop')).toBeTruthy();
   });
 
   it("shows the closed-connection mark, once, when there is no graph at all", () => {
@@ -253,7 +256,11 @@ describe("LinkMapPane", () => {
     const body = screen.getByText("No link graph yet.").closest("div")!;
     // v5 mark: git-pull-request-closed — a connection that terminates rather
     // than resolves, played once since this is a standing fact, not progress.
-    expect(body.querySelector('g.aim-once circle[cx="6"]')).toBeTruthy();
+    // aim-once sits on the circle itself, not a wrapping <g> —
+    // git-pull-request-closed is one of the ten stagger marks (finding 1,
+    // final review), so the class and the geometry it delays are the same
+    // element, not ancestor and descendant.
+    expect(body.querySelector('circle[cx="6"].aim-once')).toBeTruthy();
   });
 
   it("draws an engine-root node's mark inside the node and shifts its label right", () => {

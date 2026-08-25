@@ -103,7 +103,9 @@ describe("Link panel — choosing where a file should also live", () => {
     // check is in flight, before the checks' promises have resolved.
     const reading = screen.getByText("Checking each project…").closest("div")!;
     expect(reading.querySelector('path[d="M10 9H8"]')).toBeTruthy();
-    expect(reading.querySelector("g.aim-loop")).toBeTruthy();
+    // aim-loop sits on the animating element itself, not a wrapping <g> —
+    // file-text is one of the ten stagger marks (finding 1, final review).
+    expect(reading.querySelector(".aim-loop")).toBeTruthy();
 
     await waitFor(() => {
       expect(screen.getByText("mei-recipes")).toBeTruthy();
@@ -186,7 +188,9 @@ describe("Link panel — choosing where a file should also live", () => {
     // calls are in flight, synchronously true before the first await lands.
     const linkingBtn = screen.getByText("Linking…").closest("button")!;
     expect(linkingBtn.querySelector('path[d="M15 7h2a5 5 0 1 1 0 10h-2"]')).toBeTruthy();
-    expect(linkingBtn.querySelector("g.aim-loop")).toBeTruthy();
+    // aim-loop sits on the animating element itself, not a wrapping <g> —
+    // link-2 is one of the ten stagger marks (finding 1, final review).
+    expect(linkingBtn.querySelector(".aim-loop")).toBeTruthy();
 
     await waitFor(() => expect(deployed).toHaveLength(2));
     expect(deployed.map((d) => d.target)).toEqual(["/work/mei-recipes", "/work/metrics-board"]);

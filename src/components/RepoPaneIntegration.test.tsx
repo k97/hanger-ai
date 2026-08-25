@@ -223,8 +223,10 @@ describe("RepoPane — the empty state is a finding, not a default", () => {
     expect(
       screen.getByText("Nothing in empty-project yet").closest("div")?.querySelector('path[d="M12 10v6"]')
     ).toBeTruthy();
+    // aim-once sits on the animating element itself, not a wrapping <g> —
+    // folder-plus is one of the ten stagger marks (finding 1, final review).
     expect(
-      screen.getByText("Nothing in empty-project yet").closest("div")?.querySelector("g.aim-once")
+      screen.getByText("Nothing in empty-project yet").closest("div")?.querySelector(".aim-once")
     ).toBeTruthy();
   });
 
@@ -331,8 +333,10 @@ describe("RepoPane — the empty state is a finding, not a default", () => {
         .closest("div")
         ?.querySelector('polyline[points="22 12 16 12 14 15 10 15 8 12 2 12"]')
     ).toBeTruthy();
+    // aim-once sits on the animating element itself, not a wrapping <g> —
+    // inbox is one of the ten stagger marks (finding 1, final review).
     expect(
-      screen.getByText("No MCP servers in project").closest("div")?.querySelector("g.aim-once")
+      screen.getByText("No MCP servers in project").closest("div")?.querySelector(".aim-once")
     ).toBeTruthy();
   });
 

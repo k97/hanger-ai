@@ -241,7 +241,9 @@ describe("Asset detail — the inspector's document screen", () => {
     // still in flight, before its promise has settled either way.
     const readingLine = screen.getByText("Reading the file…").closest("p")!;
     expect(readingLine.querySelector('path[d="M10 9H8"]')).toBeTruthy();
-    expect(readingLine.querySelector("g.aim-loop")).toBeTruthy();
+    // aim-loop sits on the animating element itself, not a wrapping <g> —
+    // file-text is one of the ten stagger marks (finding 1, final review).
+    expect(readingLine.querySelector(".aim-loop")).toBeTruthy();
 
     expect(await screen.findByText(/Refusing to read a file outside/)).toBeTruthy();
     openDetails();
