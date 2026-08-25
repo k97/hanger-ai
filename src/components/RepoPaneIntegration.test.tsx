@@ -380,6 +380,78 @@ describe("RepoPane — the empty state is a finding, not a default", () => {
   });
 });
 
+describe("RepoPane — T4: counts without rows is pending, not a blank table", () => {
+  // Same race as ProfilePane's: the backend serves `assetCounts` from
+  // SQLite instantly on start; `inventory` only lands on scan://complete.
+  // `storeEmpty` read `assetCounts` first and never consulted `inventory`,
+  // so a repository row with counts persisted from an earlier scan rendered
+  // `AssetHeaderRow`'s column labels over zero rows. Karthik saw the global
+  // pane's version of this live, 2026-08-25; RepoPane reads its own
+  // `storeEmpty` the identical way.
+
+  it("counts have arrived (12, non-zero) but inventory has not: the scanning plane renders, not a blank table", () => {
+    render(
+      <RepoPane
+        repoPath="/home/user/project"
+        inventory={null}
+        assetCounts={{ total: 12, byCategory: {} }}
+        loading={true}
+        scannedAt={null}
+        onRefresh={vi.fn()}
+        onSelectAsset={vi.fn()}
+        onLinkFromProfile={vi.fn()}
+      />
+    );
+    expect(screen.getByTestId("scan-pending")).toBeTruthy();
+    expect(screen.getByText("Scanning your machine")).toBeTruthy();
+    expect(
+      screen.getByTestId("scan-pending").querySelector('path[d="M12 10v4h4"]')
+    ).toBeTruthy();
+    expect(screen.getByTestId("scan-pending").querySelector("g.aim-loop")).toBeTruthy();
+    // Never both on screen together — the bug this pins is precisely
+    // `AssetHeaderRow`'s "Name" column rendering while nothing backs it.
+    expect(screen.queryByText("Name")).toBeNull();
+  });
+
+  it("isRepoEmpty did not regress: a genuinely empty, finished, idle repository still claims the finding", () => {
+    render(
+      <RepoPane
+        repoPath="/home/user/empty-project"
+        inventory={{ agents: [], skills: [], tools: [], rules: [], subagents: [], project_scans: [] }}
+        assetCounts={{ total: 0, byCategory: {} }}
+        loading={false}
+        scannedAt={new Date()}
+        onRefresh={vi.fn()}
+        onSelectAsset={vi.fn()}
+        onLinkFromProfile={vi.fn()}
+      />
+    );
+    expect(screen.queryByTestId("scan-pending")).toBeNull();
+    expect(screen.getByText("Nothing in empty-project yet")).toBeTruthy();
+  });
+
+  it("pending does not cover real content: counts and rows have both arrived, the table renders even mid-rescan", () => {
+    // The over-broad-guard case: `nothingToShow` must not stay true just
+    // because a rescan is running and counts exist — real rows already in
+    // `inventory` have to suppress the pending plane.
+    render(
+      <RepoPane
+        repoPath="/home/user/project"
+        inventory={mockInventory}
+        assetCounts={{ total: 2, byCategory: {} }}
+        loading={true}
+        scannedAt={new Date()}
+        onRefresh={vi.fn()}
+        onSelectAsset={vi.fn()}
+        onLinkFromProfile={vi.fn()}
+      />
+    );
+    expect(screen.queryByTestId("scan-pending")).toBeNull();
+    expect(screen.getByText("Project Skill")).toBeTruthy();
+    expect(screen.getByText("Native Skill")).toBeTruthy();
+  });
+});
+
 describe("RepoPane — the All tab's own filter-empty state", () => {
   // Same bug class as ProfilePane's: `isCategoryEmpty` is a disjunction over
   // `selectedCategory === "<literal>"`, so on All (`selectedCategory` null)

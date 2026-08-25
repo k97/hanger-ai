@@ -549,6 +549,135 @@ describe("ProfilePane — the empty state is a finding, not a default", () => {
   });
 });
 
+describe("ProfilePane — T4: counts without rows is pending, not a blank table", () => {
+  // The backend serves `assetCounts` from SQLite instantly on start;
+  // `inventory` only lands on scan://complete. In that window `storeEmpty`
+  // read `assetCounts` first and never consulted `inventory` at all, so a
+  // global store with counts persisted from an earlier scan rendered
+  // `AssetHeaderRow`'s column labels over zero rows — "Showing 0 of 144"
+  // under a blank table. Karthik saw this live, twice, 2026-08-25.
+
+  it("counts have arrived (144, non-zero) but inventory has not: the scanning plane renders, not a blank table", () => {
+    render(
+      <ProfilePane
+        inventory={null}
+        assetCounts={{
+          total: 144,
+          byCategory: {
+            skill: { total: 100, global: 100, project: 0 },
+            tool: { total: 30, global: 30, project: 0 },
+            rule: { total: 10, global: 10, project: 0 },
+            subagent: { total: 4, global: 4, project: 0 },
+          },
+        }}
+        loading={true}
+        scannedAt={null}
+        onSelectAsset={vi.fn()}
+        onLinkAsset={vi.fn()}
+      />
+    );
+    expect(screen.getByTestId("scan-pending")).toBeTruthy();
+    expect(screen.getByText("Scanning your machine")).toBeTruthy();
+    // The scanning disc, looping — same mark the other pending tests pin.
+    expect(
+      screen.getByTestId("scan-pending").querySelector('path[d="M6 12c0-1.7.7-3.2 1.8-4.2"]')
+    ).toBeTruthy();
+    expect(screen.getByTestId("scan-pending").querySelector("g.aim-loop")).toBeTruthy();
+    // Never both on screen together — the bug this pins is precisely a
+    // header rendering while nothing backs it.
+    expect(screen.queryByTestId("asset-list-scroll")).toBeNull();
+  });
+
+  it("emptyState did not regress: a genuinely empty, finished, idle store still claims the finding", () => {
+    render(
+      <ProfilePane
+        inventory={{ agents: [], skills: [], tools: [], rules: [], subagents: [], project_scans: [] }}
+        assetCounts={{ total: 0, byCategory: {} }}
+        loading={false}
+        scannedAt={new Date()}
+        onSelectAsset={vi.fn()}
+        onLinkAsset={vi.fn()}
+      />
+    );
+    expect(screen.queryByTestId("scan-pending")).toBeNull();
+    expect(screen.getByText("No engine folders on this machine yet")).toBeTruthy();
+  });
+
+  it("pending does not cover real content: counts and rows have both arrived, the table renders even mid-rescan", () => {
+    // The over-broad-guard case: `nothingToShow` must not stay true just
+    // because a scan is running and counts exist — real rows already in
+    // `inventory` have to suppress the pending plane, same as a re-scan of
+    // an already-populated store should never blank the screen.
+    render(
+      <ProfilePane
+        inventory={mockInventory}
+        assetCounts={{
+          total: 3,
+          byCategory: {
+            skill: { total: 1, global: 1, project: 0 },
+            tool: { total: 1, global: 1, project: 0 },
+            rule: { total: 1, global: 1, project: 0 },
+          },
+        }}
+        loading={true}
+        scannedAt={new Date()}
+        onSelectAsset={vi.fn()}
+        onLinkAsset={vi.fn()}
+      />
+    );
+    expect(screen.queryByTestId("scan-pending")).toBeNull();
+    expect(screen.getByTestId("asset-list-scroll")).toBeTruthy();
+    expect(screen.getByText("Claude Math Skill")).toBeTruthy();
+    expect(screen.getByText("Node Runner Tool")).toBeTruthy();
+    expect(screen.getByText("CLAUDE.md")).toBeTruthy();
+  });
+
+  it("Appendix A's config-problem rows have already arrived: the pending plane does not cover them either", () => {
+    // The same race T4 is about, but through the OTHER source ProfilePane
+    // can draw from while `inventory` is still null: `mcpCoverage` is its
+    // own fetch, independent of the scan's `inventory`. A `nothingToShow`
+    // that only checked the four scope-filtered asset arrays would still
+    // blank this row out.
+    render(
+      <ProfilePane
+        inventory={null}
+        assetCounts={{
+          total: 144,
+          byCategory: {
+            skill: { total: 100, global: 100, project: 0 },
+            tool: { total: 30, global: 30, project: 0 },
+            rule: { total: 10, global: 10, project: 0 },
+            subagent: { total: 4, global: 4, project: 0 },
+          },
+        }}
+        loading={true}
+        scannedAt={null}
+        mcpCoverage={{
+          checked_file_count: 1,
+          checked_engine_count: 1,
+          checked_files: [],
+          problems: [
+            {
+              kind: "Unreadable",
+              path: "/home/user/.codex/config.toml",
+              detail: "permission denied",
+              line: null,
+              engine: "Codex",
+            },
+          ],
+        }}
+        onSelectAsset={vi.fn()}
+        onLinkAsset={vi.fn()}
+      />
+    );
+    expect(screen.queryByTestId("scan-pending")).toBeNull();
+    expect(screen.getByTestId("mcp-config-problem-row")).toBeTruthy();
+    expect(
+      screen.getByText("/home/user/.codex/config.toml — couldn't be read (permission denied)")
+    ).toBeTruthy();
+  });
+});
+
 describe("ProfilePane — Tools' own empty states (Appendix A.1, A.2)", () => {
   // Reachable only by filtering to Tools with zero servers and a completed
   // scan — Task 10's chip exemption is what lets the chip be clicked at all

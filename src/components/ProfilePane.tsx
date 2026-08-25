@@ -462,6 +462,24 @@ export default function ProfilePane({
       ? globalAssetsTotal === 0
       : inventory === null || (globalSkills.length === 0 && globalTools.length === 0 && globalRules.length === 0);
 
+  // Appendix A.3/A.4's rows (§6.3 states 5-7) — every problem discovery hit
+  // while checking, restricted to the three kinds Appendix A gives copy to
+  // here. `DeclaredNothing` carries no row text (`configProblemLine`'s
+  // exhaustive switch would return ""), so it is filtered out before it
+  // could ever render an empty row. Computed here, ahead of its other call
+  // sites below, because `nothingToShow` (T4, just below) needs it: these
+  // rows come from `mcpCoverage`, not `inventory`, so they can already be on
+  // screen before a scan's `inventory` ever lands.
+  const configProblemRows: ConfigProblemRow[] = (mcpCoverage?.problems ?? []).filter(
+    (p) => p.kind === "Unreadable" || p.kind === "Unparseable" || p.kind === "FormatUnread"
+  );
+
+  // Subagents is one of the four asset kinds (CLAUDE.md), same as skills,
+  // tools and rules above, at the same global scope. `storeEmpty` above
+  // never checked it — that formula is frozen (see the ruling below) — so
+  // this exists only for `nothingToShow`.
+  const globalSubagents = inventory?.subagents.filter((sa) => sa.scope?.Global) || [];
+
   // A negative claim needs a completed scan behind it. `scannedAt` is set
   // only when a scan finishes (App.tsx, scan://complete), so before then an
   // empty store means "not looked yet", not "nothing there" — the slot
@@ -476,7 +494,33 @@ export default function ProfilePane({
   // asserting "nothing here" while a fresh answer was on its way. Ruled
   // 2026-08-18.
   const hasScanned = scannedAt !== null;
-  const pendingState = storeEmpty && (loading || !hasScanned);
+
+  // T4, 2026-08-25 (Karthik hit this live, twice). `storeEmpty` reads
+  // `assetCounts` first, and the backend serves counts from SQLite instantly
+  // on start, well before `inventory` arrives on scan://complete — so a
+  // global store with counts persisted from an earlier scan was never
+  // "empty" by that measure, `pendingState` below never fired, and the table
+  // branch rendered `AssetHeaderRow` over an `inventory` still `null`: a real
+  // headline ("144 assets"), a real "Showing 0 of 144", and zero rows.
+  // `nothingToShow` asks the question `storeEmpty` skipped — is there
+  // anything to actually draw — over every source a row can come from, not
+  // just the scope-filtered asset arrays: `mcpServers` (the grouped MCP
+  // server rows) is a second, machine-global fetch (App.tsx) that can
+  // resolve before a scan's `inventory` does, and `configProblemRows` comes
+  // from `mcpCoverage`, same story — both can carry real, already-arrived
+  // rows while `inventory` is still `null`. Checking only the
+  // inventory-derived arrays would have traded one way of covering real
+  // content for another. `storeEmpty` itself is untouched: `emptyState`
+  // below still keys on it exactly as ruled 2026-08-16/08-18 — a negative
+  // claim still needs a finished scan and real counts behind it.
+  const nothingToShow =
+    globalSkills.length === 0 &&
+    globalTools.length === 0 &&
+    globalRules.length === 0 &&
+    globalSubagents.length === 0 &&
+    (mcpServers == null || mcpServers.length === 0) &&
+    configProblemRows.length === 0;
+  const pendingState = nothingToShow && (loading || !hasScanned);
   const emptyState = storeEmpty && hasScanned && !loading;
 
   // Two different absences share the empty plane. "No developer agent
@@ -590,14 +634,8 @@ export default function ProfilePane({
         }
       : undefined;
 
-  // Appendix A.3/A.4's rows (§6.3 states 5-7) — every problem discovery hit
-  // while checking, restricted to the three kinds Appendix A gives copy to
-  // here. `DeclaredNothing` carries no row text (`configProblemLine`'s
-  // exhaustive switch would return ""), so it is filtered out before it
-  // could ever render an empty row.
-  const configProblemRows: ConfigProblemRow[] = (mcpCoverage?.problems ?? []).filter(
-    (p) => p.kind === "Unreadable" || p.kind === "Unparseable" || p.kind === "FormatUnread"
-  );
+  // configProblemRows (Appendix A.3/A.4's rows) is computed earlier, near
+  // `nothingToShow`, which needs it before this point — see that comment.
 
   // Check if the selected category itself is empty. Tools is not empty just
   // because it has zero servers if it has a problem to report instead — "a

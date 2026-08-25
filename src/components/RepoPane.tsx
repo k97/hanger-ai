@@ -318,7 +318,32 @@ export default function RepoPane({
   // `loading` too, the plane kept asserting "nothing here" while a fresh
   // answer was on its way. Ruled 2026-08-18.
   const hasScanned = scannedAt !== null;
-  const isRepoPending = storeEmpty && (loading || !hasScanned);
+
+  // T4, 2026-08-25 (Karthik hit this live, twice, in ProfilePane and here).
+  // `storeEmpty` reads `assetCounts` first, and the backend serves counts
+  // instantly from SQLite while `inventory` still waits on scan://complete —
+  // so a repository row with counts persisted from an earlier scan was
+  // never "empty" by that measure, `isRepoPending` never fired, and the
+  // table branch rendered `AssetHeaderRow` over an `inventory` still `null`.
+  // `nothingToShow` is the question `storeEmpty` skipped: is there anything
+  // to actually draw, over the same four unscoped arrays `storeEmpty`'s own
+  // fallback already reads (`unscoped`, above). This pane has no
+  // `mcpServers`-style second fetch and no config-problem rows the way
+  // ProfilePane does — Tools here stays per-registration, sourced from
+  // `inventory` alone (see the Tools section's own comment below) — so
+  // those four are everything a row in this pane's list can come from.
+  // `unscoped.agents` is deliberately left out: RepoPane renders no Agents
+  // section at all (no fifth collection — see `isAllEmpty`'s own comment
+  // below), so an agents-only repository has no row here for the plane to
+  // cover. `storeEmpty` itself is untouched: `isRepoEmpty` below still keys
+  // on it exactly as ruled 2026-08-16/08-18 — a negative claim still needs a
+  // finished scan and real counts behind it.
+  const nothingToShow =
+    unscoped.skills.length === 0 &&
+    unscoped.tools.length === 0 &&
+    unscoped.rules.length === 0 &&
+    unscoped.subagents.length === 0;
+  const isRepoPending = nothingToShow && (loading || !hasScanned);
   const isRepoEmpty = storeEmpty && hasScanned && !loading;
 
   // Same "a scan in flight is not an absence" rule, scoped to one category.
