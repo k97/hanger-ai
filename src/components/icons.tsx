@@ -356,6 +356,16 @@ function AimSvg({
     spec.drawn && rule !== null && seq !== undefined
       ? { pathLength: 1, style: { "--i": seq } as CSSProperties }
       : undefined;
+  const motionClass = rule ? `aim-part ${spec.motion} ${rule}` : undefined;
+  // aim-stagger's per-element delay only means something on the element
+  // that is itself animating: animation-name is not inherited, so a group
+  // carrying the motion class while its children carry --i (what this
+  // shipped as) computes a delay for children with no animation-name of
+  // their own — the group's dashoffset simply inherits down uniformly, so
+  // every child draws in lockstep. Every other motion (spin, spin-ccw,
+  // relay, burst, seek) rotates, fades or translates the group as one rigid
+  // unit and stays on the <g>, which is correct there and unaffected here.
+  const perElement = rule !== null && spec.motion.includes("aim-stagger");
   return (
     <svg
       width={size}
@@ -373,7 +383,7 @@ function AimSvg({
       {spec.groups.map((g, gi) => (
         <g
           key={`g${gi}`}
-          className={rule ? `aim-part ${spec.motion} ${rule}` : undefined}
+          className={perElement ? undefined : motionClass}
           style={
             {
               ...(g.origin && { "--ox": `${g.origin[0]}px`, "--oy": `${g.origin[1]}px` }),
@@ -381,7 +391,12 @@ function AimSvg({
             } as CSSProperties
           }
         >
-          {g.indices.map((i, seq) => el(spec.elements[i], i, drawExtra(seq)))}
+          {g.indices.map((i, seq) =>
+            el(spec.elements[i], i, {
+              ...drawExtra(seq),
+              ...(perElement ? { className: motionClass } : undefined),
+            }),
+          )}
         </g>
       ))}
     </svg>

@@ -58,6 +58,31 @@ const geometry = (html: string) =>
     })
     .sort();
 
+/**
+ * Confirms the stagger delay lands on the element that is itself animating
+ * — finding 1 of the final branch review. `animation-name` is not
+ * inherited, so a wrapping `<g>` carrying the motion class while its
+ * children carry `--i` (the shape this shipped as) computes a delay for
+ * children with no animation-name of their own to delay; the group's
+ * dashoffset just inherits down to every child at once and they all draw
+ * together. Fails if the class carrying the animation and the `--i` that
+ * delays it ever separate again — either back onto the wrapping `<g>`, or
+ * onto different elements than the ones the delay is computed for.
+ */
+function assertStaggerWired(html: string, motionAndRule: string, count: number) {
+  const moving = Array.from(
+    html.matchAll(/<(?:path|circle|line|rect|polyline)\b[^>]*>/g),
+  ).filter((m) => m[0].includes('pathLength="1"'));
+  expect(moving.length).toBe(count);
+  for (const [tag] of moving) {
+    expect(tag).toContain(`class="${motionAndRule}"`);
+    expect(tag).toMatch(/--i:\s*\d/);
+  }
+  // the class must never be stranded on the wrapping group instead of the
+  // element whose --i it is meant to delay
+  expect(html).not.toMatch(/<g class="[^"]*aim-/);
+}
+
 describe("Disc3Icon", () => {
   it("carries exactly the installed lucide disc-3 geometry", () => {
     const ours = geometry(renderToStaticMarkup(<Disc3Icon size={40} />));
@@ -195,16 +220,11 @@ describe("FrameIcon", () => {
     expect(ours).toEqual(theirs);
   });
 
-  it("loops only while active; the whole grid redraws", () => {
+  it("loops only while active; each grid line carries its own animation and delay", () => {
     const active = renderToStaticMarkup(<FrameIcon size={40} active />);
     const still = renderToStaticMarkup(<FrameIcon size={40} />);
-    expect(active).toMatch(/<g class="aim-part aim-scan aim-stagger aim-loop">/);
-    const group = active.match(
-      /<g class="aim-part aim-scan aim-stagger aim-loop">([\s\S]*?)<\/g>/,
-    )![1];
-    expect(group.match(/<line/g)?.length).toBe(4);
     expect(active.match(/<line/g)?.length).toBe(4); // every element moves
-    expect(group).toMatch(/pathLength="1"/); // drawn: true
+    assertStaggerWired(active, "aim-part aim-scan aim-stagger aim-loop", 4);
     expect(still).not.toMatch(/aim-/);
   });
 
@@ -220,15 +240,11 @@ describe("FileTextIcon", () => {
     expect(ours).toEqual(theirs);
   });
 
-  it("loops only while active; the text lines redraw, page and fold hold", () => {
+  it("loops only while active; the text lines redraw with their own delay, page and fold hold", () => {
     const active = renderToStaticMarkup(<FileTextIcon size={40} active />);
     const still = renderToStaticMarkup(<FileTextIcon size={40} />);
-    expect(active).toMatch(/<g class="aim-part aim-scan aim-stagger aim-loop">/);
-    const group = active.match(
-      /<g class="aim-part aim-scan aim-stagger aim-loop">([\s\S]*?)<\/g>/,
-    )![1];
-    expect(group.match(/<path/g)?.length).toBe(3);
     expect(active.match(/<path/g)?.length).toBe(5); // page, fold, and the 3 grouped lines
+    assertStaggerWired(active, "aim-part aim-scan aim-stagger aim-loop", 3);
     expect(still).not.toMatch(/aim-/);
   });
 
@@ -244,15 +260,11 @@ describe("Link2Icon", () => {
     expect(ours).toEqual(theirs);
   });
 
-  it("loops only while active; the whole link redraws", () => {
+  it("loops only while active; every element redraws with its own delay", () => {
     const active = renderToStaticMarkup(<Link2Icon size={40} active />);
     const still = renderToStaticMarkup(<Link2Icon size={40} />);
-    expect(active).toMatch(/<g class="aim-part aim-draw aim-stagger aim-loop">/);
-    const group = active.match(
-      /<g class="aim-part aim-draw aim-stagger aim-loop">([\s\S]*?)<\/g>/,
-    )![1];
-    expect(group.match(/<(path|line)/g)?.length).toBe(3);
     expect(active.match(/<(path|line)/g)?.length).toBe(3); // every element moves
+    assertStaggerWired(active, "aim-part aim-draw aim-stagger aim-loop", 3);
     expect(still).not.toMatch(/aim-/);
   });
 
@@ -299,16 +311,11 @@ describe("PackageOpenIcon", () => {
     expect(ours).toEqual(theirs);
   });
 
-  it("plays once on mount; the whole package draws", () => {
+  it("plays once on mount; the whole package draws, each stroke with its own delay", () => {
     const html = renderToStaticMarkup(<PackageOpenIcon size={40} />);
-    expect(html).toMatch(/<g class="aim-part aim-draw aim-stagger aim-once"/);
     expect(html).not.toMatch(/aim-loop/);
-    const group = html.match(
-      /<g class="aim-part aim-draw aim-stagger aim-once"[^>]*>([\s\S]*?)<\/g>/,
-    )![1];
-    expect(group.match(/<path/g)?.length).toBe(4);
     expect(html.match(/<path/g)?.length).toBe(4); // every element moves
-    expect(group).toMatch(/pathLength="1"/);
+    assertStaggerWired(html, "aim-part aim-draw aim-stagger aim-once", 4);
   });
 
   it("is hidden from the accessibility tree", () => {
@@ -323,15 +330,11 @@ describe("FolderXIcon", () => {
     expect(ours).toEqual(theirs);
   });
 
-  it("plays once on mount; the folder holds, the X strokes draw", () => {
+  it("plays once on mount; the folder holds, each X stroke draws with its own delay", () => {
     const html = renderToStaticMarkup(<FolderXIcon size={40} />);
-    expect(html).toMatch(/<g class="aim-part aim-draw aim-stagger aim-once"/);
     expect(html).not.toMatch(/aim-loop/);
-    const group = html.match(
-      /<g class="aim-part aim-draw aim-stagger aim-once"[^>]*>([\s\S]*?)<\/g>/,
-    )![1];
-    expect(group.match(/<path/g)?.length).toBe(2);
     expect(html.match(/<path/g)?.length).toBe(3); // folder outline plus the 2 X strokes
+    assertStaggerWired(html, "aim-part aim-draw aim-stagger aim-once", 2);
   });
 
   it("is hidden from the accessibility tree", () => {
@@ -367,15 +370,11 @@ describe("InboxIcon", () => {
     expect(ours).toEqual(theirs);
   });
 
-  it("plays once on mount; the whole tray draws", () => {
+  it("plays once on mount; the whole tray draws, each edge with its own delay", () => {
     const html = renderToStaticMarkup(<InboxIcon size={40} />);
-    expect(html).toMatch(/<g class="aim-part aim-draw aim-stagger aim-once"/);
     expect(html).not.toMatch(/aim-loop/);
-    const group = html.match(
-      /<g class="aim-part aim-draw aim-stagger aim-once"[^>]*>([\s\S]*?)<\/g>/,
-    )![1];
-    expect(group.match(/<(polyline|path)/g)?.length).toBe(2);
     expect(html.match(/<(polyline|path)/g)?.length).toBe(2); // every element moves
+    assertStaggerWired(html, "aim-part aim-draw aim-stagger aim-once", 2);
   });
 
   it("is hidden from the accessibility tree", () => {
@@ -390,15 +389,11 @@ describe("PlugZapIcon", () => {
     expect(ours).toEqual(theirs);
   });
 
-  it("plays once on mount; the whole plug draws", () => {
+  it("plays once on mount; the whole plug draws, each stroke with its own delay", () => {
     const html = renderToStaticMarkup(<PlugZapIcon size={40} />);
-    expect(html).toMatch(/<g class="aim-part aim-draw aim-stagger aim-once"/);
     expect(html).not.toMatch(/aim-loop/);
-    const group = html.match(
-      /<g class="aim-part aim-draw aim-stagger aim-once"[^>]*>([\s\S]*?)<\/g>/,
-    )![1];
-    expect(group.match(/<path/g)?.length).toBe(5);
     expect(html.match(/<path/g)?.length).toBe(5); // every element moves
+    assertStaggerWired(html, "aim-part aim-draw aim-stagger aim-once", 5);
   });
 
   it("is hidden from the accessibility tree", () => {
@@ -413,15 +408,11 @@ describe("ZapOffIcon", () => {
     expect(ours).toEqual(theirs);
   });
 
-  it("plays once on mount; the whole bolt draws", () => {
+  it("plays once on mount; the whole bolt draws, each stroke with its own delay", () => {
     const html = renderToStaticMarkup(<ZapOffIcon size={40} />);
-    expect(html).toMatch(/<g class="aim-part aim-draw aim-stagger aim-once"/);
     expect(html).not.toMatch(/aim-loop/);
-    const group = html.match(
-      /<g class="aim-part aim-draw aim-stagger aim-once"[^>]*>([\s\S]*?)<\/g>/,
-    )![1];
-    expect(group.match(/<path/g)?.length).toBe(4);
     expect(html.match(/<path/g)?.length).toBe(4); // every element moves
+    assertStaggerWired(html, "aim-part aim-draw aim-stagger aim-once", 4);
   });
 
   it("is hidden from the accessibility tree", () => {
@@ -516,15 +507,11 @@ describe("FolderPlusIcon", () => {
     expect(ours).toEqual(theirs);
   });
 
-  it("plays once on mount; the folder holds, the plus draws", () => {
+  it("plays once on mount; the folder holds, each plus-stroke draws with its own delay", () => {
     const html = renderToStaticMarkup(<FolderPlusIcon size={40} />);
-    expect(html).toMatch(/<g class="aim-part aim-draw aim-stagger aim-once"/);
     expect(html).not.toMatch(/aim-loop/);
-    const group = html.match(
-      /<g class="aim-part aim-draw aim-stagger aim-once"[^>]*>([\s\S]*?)<\/g>/,
-    )![1];
-    expect(group.match(/<path/g)?.length).toBe(2);
     expect(html.match(/<path/g)?.length).toBe(3); // folder outline plus the 2 plus-strokes
+    assertStaggerWired(html, "aim-part aim-draw aim-stagger aim-once", 2);
   });
 
   it("is hidden from the accessibility tree", () => {
@@ -539,15 +526,11 @@ describe("GitPullRequestClosedIcon", () => {
     expect(ours).toEqual(theirs);
   });
 
-  it("plays once on mount; the whole graph draws", () => {
+  it("plays once on mount; the whole graph draws, each element with its own delay", () => {
     const html = renderToStaticMarkup(<GitPullRequestClosedIcon size={40} />);
-    expect(html).toMatch(/<g class="aim-part aim-draw aim-stagger aim-once"/);
     expect(html).not.toMatch(/aim-loop/);
-    const group = html.match(
-      /<g class="aim-part aim-draw aim-stagger aim-once"[^>]*>([\s\S]*?)<\/g>/,
-    )![1];
-    expect(group.match(/<(circle|path)/g)?.length).toBe(6);
     expect(html.match(/<(circle|path)/g)?.length).toBe(6); // every element moves
+    assertStaggerWired(html, "aim-part aim-draw aim-stagger aim-once", 6);
   });
 
   it("is hidden from the accessibility tree", () => {
