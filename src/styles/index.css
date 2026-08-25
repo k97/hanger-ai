@@ -246,6 +246,120 @@
   }
 }
 
+/* ── Icon motion vocabulary — v5 (docs/v5-animate-icons/00-state-inventory.md).
+   Geometry is Lucide, in icons.tsx; the motion lives here so the vocabulary is
+   one place and the reduced-motion kill below removes all of it. Longhand
+   only: aim-loop / aim-once compose by setting iteration-count and fill-mode,
+   and a shorthand would reset them. Two rules carry meaning (ruling 4):
+   aim-loop while work is happening; aim-once for a finding — plays on mount,
+   then holds. fill-mode is `both`, not `forwards`: aim-burst delays 350ms and
+   must hold its 0% frame BEFORE it starts or the sparks sit visible through
+   the delay and blink out. Motion always sits on a <g> inside the svg
+   (aim-part), never the svg itself, so a sub-group moves while the rest of
+   the mark holds still; the origin defaults to the 24-grid centre and marks
+   whose moving group is off-centre override it inline via --ox/--oy —
+   folder-sync (17,16), folder-clock (16,16), cursor-click (9.3,9.3). */
+@utility aim-part {
+  transform-box: view-box;
+  transform-origin: var(--ox, 12px) var(--oy, 12px);
+}
+@utility aim-spin {
+  animation-name: hanger-aim-spin;
+  animation-duration: 1s;
+  animation-timing-function: linear;
+}
+/* Counter-clockwise, for marks whose arrowhead points that way: rotate-ccw
+   spun clockwise reads as an arrow travelling backwards along its own path. */
+@utility aim-spin-ccw {
+  animation-name: hanger-aim-spin-ccw;
+  animation-duration: 1s;
+  animation-timing-function: linear;
+}
+/* Path draw. Elements carry pathLength="1", the SVG-native normalisation, so
+   one dasharray serves every path with no per-mark measurement. */
+@utility aim-draw {
+  stroke-dasharray: 1;
+  animation-name: hanger-aim-draw;
+  animation-duration: 0.7s;
+  animation-timing-function: var(--spring);
+}
+/* A line erasing and redrawing — reading. The page never moves. */
+@utility aim-scan {
+  stroke-dasharray: 1;
+  animation-name: hanger-aim-scan;
+  animation-duration: 1.4s;
+  animation-timing-function: ease-in-out;
+}
+/* A small four-point wander — searching. */
+@utility aim-seek {
+  animation-name: hanger-aim-seek;
+  animation-duration: 2.2s;
+  animation-timing-function: var(--spring);
+}
+/* Scale-and-fade in from the origin, after a settle delay — a click's sparks,
+   a link's break marks. Once, never looped: a cursor clicking forever is a
+   cursor nobody is holding. */
+@utility aim-burst {
+  animation-name: hanger-aim-burst;
+  animation-duration: 0.5s;
+  animation-timing-function: var(--spring);
+  animation-delay: 0.35s;
+}
+/* Two groups trading emphasis out of phase — server racks relaying traffic.
+   Opacity, not translation: the rack gap is 4 grid units, so any visible
+   travel overlaps and the mark collapses to a bar; opacity reads the same at
+   12 as at 40 (inventory §4.8). The second group runs animation-delay -0.6s
+   inline to sit half a cycle out of phase. */
+@utility aim-relay {
+  animation-name: hanger-aim-relay;
+  animation-duration: 1.2s;
+  animation-timing-function: ease-in-out;
+}
+/* Per-element cascade; each element carries --i inline. */
+@utility aim-stagger {
+  & > * {
+    animation-delay: calc(var(--i, 0) * 110ms);
+  }
+}
+@utility aim-loop {
+  animation-iteration-count: infinite;
+}
+@utility aim-once {
+  animation-iteration-count: 1;
+  animation-fill-mode: both;
+}
+@keyframes hanger-aim-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+@keyframes hanger-aim-spin-ccw {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(-360deg); }
+}
+@keyframes hanger-aim-draw {
+  from { stroke-dashoffset: 1; }
+  to { stroke-dashoffset: 0; }
+}
+@keyframes hanger-aim-scan {
+  0%, 100% { stroke-dashoffset: 0; }
+  50% { stroke-dashoffset: 1; }
+}
+@keyframes hanger-aim-seek {
+  0%, 100% { transform: translate(0, 0); }
+  25% { transform: translate(1.5px, -1px); }
+  50% { transform: translate(-1px, 1.5px); }
+  75% { transform: translate(1px, 1px); }
+}
+@keyframes hanger-aim-burst {
+  0% { opacity: 0; transform: scale(0.5); }
+  55% { opacity: 1; }
+  100% { opacity: 1; transform: scale(1); }
+}
+@keyframes hanger-aim-relay {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.25; }
+}
+
 html,
 body,
 #root {
