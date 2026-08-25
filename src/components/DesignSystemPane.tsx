@@ -12,7 +12,7 @@ import AssetRow from "./AssetRow";
 import SummaryStrip from "./SummaryStrip";
 import { ScanStatusIndicator } from "./ScanStatusIndicator";
 import HangerMark from "./HangerMark";
-import { MagnifyingGlassIcon, PanelRightIcon, RotateCcwIcon } from "./icons";
+import { Disc3Icon, FolderClockIcon, MagnifyingGlassIcon, PanelRightIcon, RotateCcwIcon } from "./icons";
 import EmptyState from "./EmptyState";
 import type { StateFilter } from "../utils/linkStateCounts";
 import {
@@ -370,6 +370,14 @@ export default function DesignSystemPane({ section }: DesignSystemPaneProps) {
               </div>
               <div className="h-8 px-4 rounded-pill bg-fill text-on-fill text-small inline-flex items-center animate-rise">
                 animate-rise
+              </div>
+              <div className="w-28 h-10 rounded-inner border border-line bg-page flex flex-col items-center justify-center gap-1 text-micro text-ink-3">
+                <Disc3Icon size={16} active />
+                aim-spin aim-loop
+              </div>
+              <div className="w-28 h-10 rounded-inner border border-line bg-page flex flex-col items-center justify-center gap-1 text-micro text-ink-3">
+                <FolderClockIcon size={16} />
+                aim-once
               </div>
             </div>
           </div>

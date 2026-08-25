@@ -8,10 +8,18 @@
  * lands on screen at roughly 1px whatever the size — the weight the mono-tight
  * prototype was drawn against.
  *
- * Six marks have no Heroicons equivalent and stay on lucide: the two titlebar
- * panel toggles, the nested-repo folder, the diff-merge header, and the
- * inspector's expand/collapse pair. They run through the same size/stroke
- * table so they sit at the same weight.
+ * Seven marks have no Heroicons equivalent and stay on lucide: the two
+ * titlebar panel toggles, the nested-repo folder pair (symlink and tree), the
+ * diff-merge header, and the inspector's expand/collapse pair. They run
+ * through the same size/stroke table so they sit at the same weight.
+ *
+ * Twenty more are animated (below, "Animated marks") and stay on lucide for a
+ * different reason than the first seven: Heroicons has no motion story, and
+ * picking a family per animated mark was the judgment call that produced
+ * `SpinnerIcon` — a mark literally borrowed for a job its geometry didn't
+ * fit. The rule that replaced the judgment call: animated implies lucide,
+ * full stop, enforced by `src/__tests__/animated_icons_family.test.ts`,
+ * which fails if `lucide-react` is imported anywhere in `src/` but this file.
  *
  * One mark is hand-drawn rather than pulled from a set: the OS file-manager
  * glyph (`RevealInFileManagerIcon`), because it draws the current platform's
@@ -175,13 +183,6 @@ export const TrashIcon = sized(HeroTrash);
 export const UserIcon = sized(HeroUser, 0.93);
 export const WrenchScrewdriverIcon = sized(HeroWrenchScrewdriver);
 export const XMarkIcon = sized(HeroXMark);
-
-/**
- * Heroicons has no dedicated spinner. `ArrowPathIcon` under `animate-spin` is
- * the family's stand-in; the alias keeps loading sites reading as loading
- * rather than as a refresh affordance.
- */
-export const SpinnerIcon = ArrowPathIcon;
 
 export const FolderSymlinkIcon = sized(LucideFolderSymlink as SvgIcon);
 export const FolderTreeIcon = sized(LucideFolderTree as SvgIcon);

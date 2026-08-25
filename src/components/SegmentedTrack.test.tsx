@@ -95,4 +95,15 @@ describe("SegmentedTrack", () => {
     // introduced; the loop is still live, just found in a different place.
     expect(screen.getByRole("tab").querySelector("g.aim-loop")).toBeTruthy();
   });
+
+  it("draws the counting-slot spinner at 12px, not 11 — the retired outlier size", () => {
+    // docs/v5-animate-icons/00-state-inventory.md ruling 8: 11 was a bespoke
+    // size at one animated site (CategoryFilterCards.tsx:110, since moved to
+    // 12) and was retired rather than kept as a second small size. This was
+    // the app's only other size-11 animated site; pin it so a regression
+    // back to 11 fails here rather than being re-discovered by inspection.
+    render(<SegmentedTrack segments={[{ id: "all", label: "All" }]} selectedId="all" onSelect={vi.fn()} ariaLabel="x" loading />);
+    const svg = screen.getByRole("tab").querySelector("svg");
+    expect(svg?.getAttribute("width")).toBe("12");
+  });
 });
