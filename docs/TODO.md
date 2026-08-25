@@ -230,64 +230,85 @@ shape as T6.
 
 ---
 
-## T10 — The MCP redesign stopped after stage 1
+## T10 — The MCP redesign: stages 1-3 shipped, §6.1 partly unbuilt
 
-**Status, 2026-08-19: stage 2 MERGED at `15da8c2`; stage 3 is in flight**
-(`docs/superpowers/plans/2026-08-19-mcp-stage-3.md`). Everything below
-describes the gap as it stood on 2026-08-17 and is kept for the record of why
-it stalled. Check the plan before trusting any "outstanding" claim here.
+**Audited 2026-08-25.** The body of this entry was written 2026-08-17 and was
+wrong in most particulars by the time anyone read it again. Rewritten against
+the code and the ledgers; the old text is in git.
 
-The dispatch was staged: **§4 the detector, §5 the list, §6 the panel**
-(`docs/superpowers/specs/2026-08-16-mcp-identity-design.md`). Stage 1 shipped
-and is in `main`. Stage 2 and stage 3 were never started.
+**Stage 3 is COMPLETE at `ff02faa` (2026-08-20)** — all 15 tasks, per
+`.superpowers/sdd/2026-08-19-mcp-stage-3/progress.md:1549`. Stage 2 merged
+with `main` at `15da8c2`. Both stages' exit criteria have evidence:
+`docs/superpowers/evidence/2026-08-18-mcp-stage-2-list/` for §5.8, and
+fourteen `docs/evidence/s3-t14-*.png` screenshots from a running build for
+§6.5.
 
-The one stage-2 item that did land is §5.3, the annotation-key leak — Reach
-was blank on every MCP row, so it was fixed as a defect rather than as part of
-the stage. Everything else in §5 and §6 is outstanding:
+**Verified done, against the code** (this entry listed all of these as
+outstanding):
 
-- **§5.6 the list** — one row per server rather than one per registration; the
-  `Display` control beside the category tabs (grouping: one per server / one
-  per registration, plus sort); section headers carrying their own column
-  labels so the All view can hold sections of different shape.
-- **§5.2 agreement** — consistent / conflicting / duplicate / aliased as the
-  row's second line, in prose. Karthik's ruling: the comparison key is
-  `(transport, launch)`, and an unwrapped `mcp-remote` bridge normalises to
-  `(http, url)` before comparison or every bridged server reads as permanently
-  conflicting.
-- **§5.5 persisted verification** — done. v6 added `probe_results` during
-  stage 2; v7 added its freshness columns (`ttl_ms`, `cache_scope`,
-  `launch_mtime`) during stage 3.
-- **§6.1 the panel** — the inspector eyebrow (`MCP servers · user profile` with
-  nothing selected, `MCP server · user profile` with a row selected), the
-  verdict card, the launch-spec diff aligned on the token that differs, and the
-  Reconcile / Compare / Open config actions. What `McpServerDetail` renders
-  today — Registered in / Identity / Tools — is stage 1's panel, built to carry
-  the detector's output honestly. It is not this.
-- **§6.3** — the nine states that must render.
+- **§5.6 the list** — one row per server (`useGroupedTools`), grouping and
+  sort in `ViewControl`.
+- **§5.2 agreement** — `agreementLine` (`src/utils/serverRows.ts:42`) renders
+  Consistent, Conflicting and Duplicate as the row's second line.
+- **§6.1, the parts that were planned** — the launch-spec diff aligned on the
+  differing token (`DiffChooser`, task 8, `b8ad4ce`), the normalisation and
+  bridged-endpoint note (task 9), `Open config`.
+- **§6.3 the nine states** — tasks 11-13, evidenced. One caveat below.
+- **The `Display` naming brief is SATISFIED.** `ViewControl.tsx:40` records
+  it: *"The Display control" of spec §5.6, signed off as "View"*. This entry
+  still demanded the brief; it had already happened.
 
-**Why it stalled:** the `mcp-identity` branch was created for stage 2 and was
-then consumed, in order, by the annotation-key leak, the `RegistrationKey` type
-that leak turned out to need, and two `reviewIssues` defects that surfaced from
-there. Each was real and each was authorised as it came up; none of them was
-the list or the panel. The drift was never reported, and nothing tracked
-recorded the gap — which is what this entry exists to stop.
+**Genuinely outstanding:**
 
-**Before any of it:** the spec's §5.6 and §6.1 describe a prototype
-(`docs/v3-prototype-references/hanger-mcp-identity.html`). Karthik was explicit
-at the outset that the UI has evolved and the prototype is **reference, not
-spec** — take the MCP elements and the filter beside the tabs, not the layout.
-Reconcile against the code first; the code is the fact and the disagreement is
-the report.
+- **§5.2 `Aliased` is carried but never rendered.** `aliased_with: string[]`
+  is on the row type (`serverRows.ts:15`) and `agreementLine`'s switch has no
+  case for it, so an aliased server reads as whatever its other fields say.
+- **§6.1's verdict card, `Reconcile` and `Compare`** were never planned into
+  stage 3 — the plan covers the diff and the note, not these — and do not
+  exist. Only `Open config` shipped (`McpServerDetail.tsx:998`).
+- **The inspector eyebrow differs from the spec.** It reads
+  `MCP servers · {count}`, not `MCP servers · user profile`; the place became
+  a figure. Decide which is wanted rather than assuming drift.
+- **§6.3 state 7 (FormatUnread) is unreachable live** — no SOURCES row uses
+  `Dialect::Unsupported`, so it is evidenced at harness level only, and it is
+  the one state with no screenshot. The registry comment names Continue as
+  the intended first occupant, blocked by brand-coverage floors.
 
-**`Display` is a first-time label** and needs a researched naming brief and
-Karthik's sign-off before it lands (`.claude/rules/ui-copy.md`).
+**Eight items needing Karthik's eye**, rescued here from
+`.superpowers/sdd/2026-08-19-mcp-stage-3/finishing-report.md`, which is
+gitignored and dies with its worktree — the same loss T12 exists to prevent:
 
-**Done when:** §5.8 and §6.5 — the stages' own exit criteria — have evidence
-attached, in one report, including a screenshot from a running build.
+1. State 7 above, as a spec-vs-code finding.
+2. The summary panel counts 23 (host, server) pairs beside a list of 19
+   distinct servers. Both true, neither labels its unit. Copy question → T11.
+3. Row-level display cannot distinguish "unaskable" from "not yet asked";
+   only the panel note explains. Design question.
+4. Every stage-3 string is unsigned → T11, including two changed surfaces:
+   the project-override note now renders for the first time, and the
+   multi-launch Tools label can show an endpoint where a command stands.
+5. Zed's `HostKind` classification, flagged at task 11 and untouched.
+6. A peer session's exploratory `ProfilePane`/`ViewControl` tweak: land or drop.
+7. The manual app check from the stage brief: a running server's declined
+   probe reads as deliberate; a stopped server fills on open and reopens
+   instantly from cache.
+8. Nine parked minors, all AGREE-PARK at final review, listed in that
+   worktree's `final-review-parked-list.md` — answered-covers-errored
+   wording, freshness ignored on cached reads, blank-fetching inspector body,
+   Local-tier divergence, "N files across 0 engines" grammar, T11 header
+   count drift, IPC sanitisation control, RepoPane Project-tier gap,
+   machine-scoped undeclared banner in fixture instances.
+
+**Done when:** the four outstanding items above are built or ruled out of
+scope, and items 1-8 have Karthik's answer.
+
+**Still true from the original entry:** the prototype
+(`docs/v3-prototype-references/hanger-mcp-identity.html`) is **reference, not
+spec** — take the MCP elements and the filter beside the tabs, not the
+layout. Reconcile against the code first.
 
 ---
 
-## T11 — Seven MCP strings shipped without a naming brief
+## T11 — The MCP strings shipped without a naming brief
 
 `.claude/rules/ui-copy.md` wants a researched naming brief and Karthik's
 sign-off before a first-time label lands, and a `/humanizer` pass on every
@@ -393,6 +414,17 @@ In the queue:
     endpoint where it previously showed an empty string. That is a URL
     standing where a launch command normally stands — check it reads as a
     label rather than as something to run.
+
+- **Added by the T10 audit, 2026-08-25**, routed here by stage 3's finishing
+  report: the summary panel counts **23** `(host, server)` pairs beside a list
+  of **19** distinct servers. Both figures are true and neither labels its
+  unit, so the two read as a contradiction. This is a copy problem, not a
+  counting one — the backend owns both numbers.
+
+**Audited 2026-08-25.** Every string below still exists in the code, checked
+one by one. The title said "Seven"; the body has since grown to cover Task
+11's empty states, Task 15's `McpEngineSummary` and the 2026-08-20 fix wave,
+so the count was the only stale part and the heading now carries no number.
 
 **Done when:** the set has had one deliberate pass together, Karthik has ruled
 on each, and any renames have landed.
