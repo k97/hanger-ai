@@ -41,8 +41,8 @@ import {
   GlobeAltIcon,
   MagnifyingGlassIcon,
   ShieldCheckIcon,
-  SpinnerIcon,
-  ArrowPathIcon,
+  Disc3Icon,
+  RotateCcwIcon,
   PanelLeftIcon,
   PanelRightIcon
 } from "./components/icons";
@@ -1049,7 +1049,7 @@ export default function App() {
   if (onboardingComplete === null) {
     return (
       <div className="min-h-screen bg-page flex items-center justify-center font-sans">
-        <SpinnerIcon className="animate-spin text-ink-2" size={32} />
+        <Disc3Icon size={32} active className="text-ink-2" />
       </div>
     );
   }
@@ -1522,10 +1522,10 @@ export default function App() {
                     aria-label="Rescan"
                     className={tbBtnClass}
                   >
-                    <ArrowPathIcon
+                    <RotateCcwIcon
                       size={15}
+                      active={loading || scanning}
                       aria-hidden="true"
-                      className={loading || scanning ? "animate-spin" : ""}
                     />
                   </button>
                 </Tooltip>

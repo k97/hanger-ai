@@ -4,6 +4,8 @@ import BrandIcon from "./BrandIcon";
 import {
   ArrowsPointingOutIcon,
   ExclamationTriangleIcon,
+  FrameIcon,
+  GitPullRequestClosedIcon,
   InformationCircleIcon,
   MapIcon,
   MinusIcon,
@@ -320,9 +322,16 @@ export default function LinkMapPane({
   if (!graph || !layout) {
     return (
       <div className="h-full grid place-items-center bg-page">
-        <span className="text-small text-ink-3">
-          {loading ? "Reading the link graph…" : "No link graph yet."}
-        </span>
+        <div className="flex flex-col items-center">
+          {loading ? (
+            <FrameIcon size={40} active className="text-ink-3 mb-2" />
+          ) : (
+            <GitPullRequestClosedIcon size={40} className="text-ink-3 mb-2" />
+          )}
+          <span className="text-small text-ink-3">
+            {loading ? "Reading the link graph…" : "No link graph yet."}
+          </span>
+        </div>
       </div>
     );
   }
