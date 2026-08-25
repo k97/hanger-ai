@@ -28,10 +28,19 @@ import {
  * used to be the cap's only occupants.
  *
  * Standalone and prop-driven: every value it shows and every side effect it
- * triggers arrives as a prop. A later task wires it into `App.tsx`, which
- * today owns the two trailing buttons' markup directly
- * (`tbBtnClass`/`tbBtnActiveClass`, copied verbatim below because those
- * consts live in App's component body and are not exported).
+ * triggers arrives as a prop. `App.tsx:1783` renders it — the "later task"
+ * this comment used to promise has happened.
+ *
+ * `tbBtnClass` below is a verbatim copy of App's (`App.tsx:1148`), because
+ * App's lives in its component body and is not exported, and App keeps
+ * needing its own for the toolbar. That duplicate is deliberate and now has
+ * a control: `src/__tests__/tbbtn-duplicate.test.ts` fails if the two drift,
+ * if a third file declares one, or if either is renamed away.
+ *
+ * `tbBtnActiveClass` (`:84`) is NOT a copy — it appears in this file alone.
+ * App's went when the "Toggle inspector" button moved here (`af1c305`). The
+ * comment this replaces named both consts as copied, which was true of only
+ * one of them.
  */
 
 /** Only what the cap reads. It draws a kind label and a kind icon, both from

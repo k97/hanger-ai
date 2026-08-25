@@ -13,7 +13,10 @@ interface ScanStampProps {
  * How old the figure beside it is. Stays an age during a scan — whatever
  * control sits next to it already says a scan is running, and saying it
  * twice reads as two pieces of news. Re-renders every 30 s so the age keeps
- * pace without a scan event. Two callers: the summary strip and the map cap.
+ * pace without a scan event. Two callers: `SummaryStrip` (`:101`), and the
+ * content header's toolbar slot while the link map is selected
+ * (`App.tsx:1517`) — the map has no inspector column, so that slot holds
+ * Rescan and this stamp beside it.
  */
 export default function ScanStamp({ scannedAt, className }: ScanStampProps) {
   const [, setTick] = useState(0);
