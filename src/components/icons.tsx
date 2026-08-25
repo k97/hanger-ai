@@ -31,7 +31,6 @@ import {
   AdjustmentsHorizontalIcon as HeroAdjustmentsHorizontal,
   ArchiveBoxIcon as HeroArchiveBox,
   ArrowDownTrayIcon as HeroArrowDownTray,
-  ArrowPathIcon as HeroArrowPath,
   ArrowPathRoundedSquareIcon as HeroArrowPathRoundedSquare,
   ArrowRightIcon as HeroArrowRight,
   ArrowTopRightOnSquareIcon as HeroArrowTopRightOnSquare,
@@ -134,7 +133,6 @@ function sized(Icon: SvgIcon, optical = 1) {
 export const AdjustmentsHorizontalIcon = sized(HeroAdjustmentsHorizontal);
 export const ArchiveBoxIcon = sized(HeroArchiveBox);
 export const ArrowDownTrayIcon = sized(HeroArrowDownTray);
-export const ArrowPathIcon = sized(HeroArrowPath);
 export const ArrowPathRoundedSquareIcon = sized(HeroArrowPathRoundedSquare);
 export const ArrowRightIcon = sized(HeroArrowRight, 0.79);
 export const ArrowTopRightOnSquareIcon = sized(HeroArrowTopRightOnSquare);
@@ -409,12 +407,7 @@ function looping(spec: AimSpec) {
   };
 }
 
-// Exported, not module-private as first drafted: this task adds no
-// entering()-based mark, and an unreferenced top-level function fails
-// `noUnusedLocals` (tsconfig.json) — a real project gate, not a style
-// preference. The later tasks that call this live in this same file, so the
-// export changes nothing about how they consume it; see task-2-report.md.
-export function entering(spec: AimSpec) {
+function entering(spec: AimSpec) {
   return function EnteringIcon(props: AnimatedIconProps) {
     return <AimSvg spec={spec} rule="aim-once" {...props} />;
   };

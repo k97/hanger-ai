@@ -58,6 +58,19 @@ const geometry = (html: string) =>
     })
     .sort();
 
+describe("geometry() helper", () => {
+  it("extracts real attribute data, not just tag names", () => {
+    // If the inner attrs regex ever stops matching, every entry collapses
+    // to the bare tag name plus a trailing space (e.g. "path "), and any
+    // two marks with the same tag multiset would compare equal above — the
+    // identity tests would stay green while transcribing nothing.
+    const g = geometry(renderToStaticMarkup(<FileTextIcon size={40} />));
+    expect(g.length).toBeGreaterThan(0);
+    expect(g.every((entry) => /=/.test(entry))).toBe(true);
+    expect(g.join(" ")).toContain("d=");
+  });
+});
+
 /**
  * Confirms the stagger delay lands on the element that is itself animating
  * — finding 1 of the final branch review. `animation-name` is not

@@ -12,7 +12,14 @@ import AssetRow from "./AssetRow";
 import SummaryStrip from "./SummaryStrip";
 import { ScanStatusIndicator } from "./ScanStatusIndicator";
 import HangerMark from "./HangerMark";
-import { Disc3Icon, FolderClockIcon, MagnifyingGlassIcon, PanelRightIcon, RotateCcwIcon } from "./icons";
+import {
+  Disc3Icon,
+  FolderClockIcon,
+  MagnifyingGlassIcon,
+  PanelRightIcon,
+  RotateCcwIcon,
+  SearchIcon,
+} from "./icons";
 import EmptyState from "./EmptyState";
 import type { StateFilter } from "../utils/linkStateCounts";
 import {
@@ -436,7 +443,7 @@ export default function DesignSystemPane({ section }: DesignSystemPaneProps) {
 
           <Specimen name="EmptyState" file="EmptyState.tsx" note="eight near-identical planes, now one component (T5)">
             <EmptyState
-              icon={<MagnifyingGlassIcon className="text-ink-3 mb-2" size={40} />}
+              icon={<SearchIcon size={40} className="text-ink-3 mb-2" />}
               headline="No results"
               sub="Try a different search term."
             />
