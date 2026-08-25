@@ -59,6 +59,12 @@ const ALLOWLIST: AllowlistEntry[] = [
     linePattern: /Absent for a Claude\.ai connector -- there is nothing local/,
     reason: "Code comment, same Claude.ai connector explanation as above.",
   },
+  {
+    file: "src/components/icons.tsx",
+    linePattern: /export const CursorClickIcon = entering\(\{/,
+    reason:
+      "An entering()-mark export name, not rendered copy: `Cursor` here names the mouse pointer the mark's sparks radiate around (Lucide's mouse-pointer-click, kept as CursorClickIcon per the task-4 naming ruling), unrelated to the Cursor MCP host this guard exists to catch. The guard's substring match reads source text and cannot tell an identifier from a string literal.",
+  },
 ];
 
 /** Read the `name`/`display_name` string literals out of Hanger's own
