@@ -247,6 +247,24 @@ and `animate-tip` for tooltips, which scales from `0.97` rather than `0` because
 All motion is removed under `prefers-reduced-motion: reduce`, transitions and
 animations both, with `!important` (`index.css:281-282`).
 
+**Icon motion.** A second vocabulary, `aim-*`, drives the animated marks in
+`icons.tsx` (§4) and lives entirely in `index.css:262-361`: `aim-part` sets
+the rotation origin a moving `<g>` reads (`--ox`/`--oy`, defaulting to the
+24-grid centre, `:262-265`); `aim-spin`, `aim-spin-ccw`, `aim-draw`,
+`aim-scan`, `aim-seek`, `aim-burst` and `aim-relay` are the seven motions
+(`:266-317`), each its own `animation-name` and its own `@keyframes` block
+(`:331-361`) rather than the shorthand, so the two composing rules below can
+still set iteration count and fill mode on top; `aim-stagger` stitches a
+per-element `--i` into a cascading delay (`:319-323`). Two rules carry the
+meaning (ruling 4, `docs/v5-animate-icons/00-state-inventory.md` §1): `aim-loop`
+plays while the work it names is running, infinite (`:324-326`); `aim-once`
+plays on mount and holds, both ends (`:327-330`) — a finding stated once, not
+a state sustained. `src/__tests__/icon_motion_vocabulary.test.ts` pins the
+utilities and the two rules; `src/__tests__/animated_icons_family.test.ts`
+pins that every `animation-name` these utilities declare has a matching
+`@keyframes` block, and that `lucide-react` and the `aim-*` classes stay out
+of every other file (§4's family rule).
+
 ### Focus
 
 One global focus ring: a 2px `--ink-1` outline at 2px offset with a 4px radius
@@ -259,29 +277,53 @@ zoom (`index.css:201-206`).
 ## 4. Icon system
 
 Icons are not used raw. Every export in `src/components/icons.tsx` is wrapped
-in `sized()` (`icons.tsx:111`), which does two things a plain import cannot.
+in `sized()` (`icons.tsx:120`), which does two things a plain import cannot.
 
 **Stroke compensation.** Heroicons' outline set is drawn on a 24px grid at 1.5
 stroke; at this shell's working sizes of 10–17px that thins to ~0.7px and goes
 soft. `strokeFor()` scales the stroke back up per size band so it lands near
-1px on screen (`icons.tsx:61-66`): ≤12px → 2.2, ≤16px → 1.9, ≤20px → 1.7,
+1px on screen (`icons.tsx:99-104`): ≤12px → 2.2, ≤16px → 1.9, ≤20px → 1.7,
 above → 1.5.
 
 **Optical correction.** A per-mark `optical` ratio corrects for how much of the
 24 grid each mark actually inks, because a 1:1 family swap inherits the
 difference — most visibly in the icon rail, where four marks stack at one size
-and any mismatch reads as a wobble (`icons.tsx:70-81`). The factors are stated
+and any mismatch reads as a wobble (`icons.tsx:108-119`). The factors are stated
 as measured ink-extent ratios, not estimates, and anything within 4% is left at
-1. Examples: `ChevronDownIcon` 0.81 (`icons.tsx:100`), `Square2StackIcon` 1.2
-(`:119`), `Cog6ToothIcon` 1.12 (`:104`).
+1. Examples: `ChevronDownIcon` 0.81 (`icons.tsx:145`), `Square2StackIcon` 1.2
+(`:176`), `Cog6ToothIcon` 1.12 (`:151`).
 
-The family is Heroicons 24/outline (`icons.tsx:16-46`), with exactly four marks
-on lucide because Heroicons has no equivalent: `FolderTree`, `GitMerge`,
-`PanelLeft`, `PanelRight` (`icons.tsx:47-52`, exported `:133-136`). Default
-size is 16 (`icons.tsx:58`).
+The family is Heroicons 24/outline (`icons.tsx:30-80`), with seven static
+marks on lucide because Heroicons has no equivalent: `FolderSymlink`,
+`FolderTree`, `GitMerge`, `PanelLeft`, `PanelRight`, `Maximize2`, `Minimize2`
+(`icons.tsx:82-90`, exported `:187-196`). Default size is 16 (`icons.tsx:96`).
 
-`SpinnerIcon` is an alias of `ArrowPathIcon` so loading sites read as loading
-rather than as a refresh affordance (`icons.tsx:126-131`).
+Twenty more marks are animated, and every one of them is lucide too — not
+because Heroicons lacks their geometry, but because it has no motion story,
+and Ruling 3 (`docs/v5-animate-icons/00-state-inventory.md` §1) settled the
+family question for all of them at once rather than per mark: looping marks
+(`Disc3Icon`, `FolderSyncIcon`, `LoaderCircleIcon`, `RotateCcwIcon`,
+`ServerRelayIcon`, `FrameIcon`, `FileTextIcon`, `Link2Icon`,
+`icons.tsx:409-503`) spin or redraw only while `active`; entering marks
+(`FolderClockIcon`, `PackageOpenIcon`, `FolderXIcon`, `SearchIcon`,
+`InboxIcon`, `PlugZapIcon`, `ZapOffIcon`, `UnlinkIcon`, `CursorClickIcon`,
+`MonitorCheckIcon`, `FolderPlusIcon`, `GitPullRequestClosedIcon`,
+`icons.tsx:510-716`) play once on mount and hold. Geometry is Lucide (ISC),
+hand-transcribed rather than imported, because per-element motion needs a
+`<g>` around the moving subset and lucide-react's components render flat
+(`icons.tsx:289-294`); `animated_icons.test.tsx` pins every transcription
+against the installed package. `src/__tests__/animated_icons_family.test.ts`
+makes the rule checkable going forward — `lucide-react` imported nowhere but
+`icons.tsx`, and no `aim-*` class applied outside it or `index.css` — which is
+what replaced picking a family mark by mark and produced `SpinnerIcon`, below.
+
+Heroicons has no dedicated spinner, so the earliest loading sites reused
+`ArrowPathIcon` under `animate-spin`, aliased as `SpinnerIcon` so they at
+least read as loading rather than as a refresh affordance — a mark literally
+borrowed for a job its geometry didn't fit. The alias has been retired:
+`Disc3Icon`, `FolderSyncIcon` and `LoaderCircleIcon` are marks drawn to loop,
+not a refresh glyph pressed into service, and every site that held
+`SpinnerIcon` now holds one of them (§5, Panes).
 
 The brand mark is separate: `HangerMark` renders the app icon's own SVG layers,
 choosing the variant by the resolved appearance rather than by the source
@@ -447,17 +489,21 @@ rather than swapping views.
 **Empty is a finding, pending is not.** All three panes gate their negative
 copy on `scannedAt !== null` — App's `lastScanAt`, set only on
 `scan://complete` — so an empty store before the first scan finishes renders
-a pending plane instead: `SpinnerIcon` at 40 (spinning while `loading`),
-headline "Scanning your machine" with a subline that names the place and is
-literal about timing ("Assets in the global store show up here once the scan
-finishes." / "Assets in ‹repo› show up here once the scan finishes." — App
-sets inventory on `scan://complete` and ignores `scan://progress`, so nothing
-lands root by root), or "Not scanned yet / Rescan when you're ready." when
-no scan is running; all under `data-testid="scan-pending"`
-(`ProfilePane.tsx:136-149`, `:399-416`; `RepoPane.tsx:269-284`, `:442-456`;
-`NeedsReviewPane.tsx:213-227`, where it is the list plane's centred `<p>`:
-"Scanning your machine. Anything that needs a decision shows up here once the
-scan finishes."). Only `empty && hasScanned` shows an empty state.
+a pending plane instead: `Disc3Icon` at 40, spinning while `loading`
+(`FolderSyncIcon` in `RepoPane`, the repo-scoped looping mark for the same
+state — `icons.tsx:421-435`), or `FolderClockIcon` at 40 — the entering() mark
+whose clock hands sweep once and hold — once no scan is running
+(`icons.tsx:510-522`). Headline "Scanning your machine" with a subline that
+names the place and is literal about timing ("Assets in the global store show
+up here once the scan finishes." / "Assets in ‹repo› show up here once the
+scan finishes." — App sets inventory on `scan://complete` and ignores
+`scan://progress`, so nothing lands root by root), or "Not scanned yet /
+Rescan when you're ready." when no scan is running; all under
+`data-testid="scan-pending"` (`ProfilePane.tsx:893-914`, `:965-971`;
+`RepoPane.tsx:492-514`, `:544-550`; `NeedsReviewPane.tsx:220-244`, where it is
+the list plane's centred `<span>`: "Scanning your machine. Anything that
+needs a decision shows up here once the scan finishes."). Only `empty &&
+hasScanned` shows an empty state.
 
 The empty copy itself, reviewed 2026-08-16 (Karthik: "review with
 /humanizer") — plain copulas, the app's own nouns, no machine-speak:

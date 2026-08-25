@@ -634,3 +634,32 @@ that is the state to start from.
 
 **Not in scope:** re-litigating any ruling recorded in the phase ledgers or in
 the commit bodies — the reasoning travels with the commits that made each call.
+
+---
+
+## T13 — Four never-iconed states, proposed but never judged in the app
+
+`docs/v5-animate-icons/00-state-inventory.md` §3 marks four sites `•` —
+"has no icon today; the mark is a proposal, not a swap" — and the animated-icon
+pass that closed out every other family in that document left these four
+exactly where it found them:
+
+- `DiscoveryPane.tsx:230-235`, a filter hiding every directory — proposed
+  `telescope`.
+- `Sidebar.tsx:180`, no repositories linked — proposed `folder-plus`.
+- `NeedsReviewPane.tsx:242`, a filter hiding every issue — proposed `search`.
+- `LinkMapPane.tsx`'s notices control (`ExclamationTriangleIcon` /
+  `InformationCircleIcon`, `:613`/`:615`) — proposed `badge-alert` /
+  `circle-help`.
+
+Confirmed still true against the running tree 2026-08-25: all four render
+today exactly as the inventory describes — plain text or the pre-existing
+Heroicons, no animated mark. Left alone deliberately, not missed: the other
+34 sites in the document were swaps of an existing mark for an animated one,
+judgeable against a screenshot; these four would add a mark where none exists
+today, which is a design call for the running app, not a code change with an
+obvious right answer.
+
+**Done when:** each of the four is looked at on screen and Karthik rules
+accept, replace with a different mark, or "no icon here" — and whichever are
+accepted get iconed and pinned the way the rest of the family now is.
