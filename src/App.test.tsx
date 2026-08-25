@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, fireEvent, waitFor, cleanup } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, cleanup, act } from "@testing-library/react";
 import App, { reconciledDiscoveryKind } from "./App";
 import { DIRECTORIES } from "./data/directories";
 
@@ -159,5 +159,117 @@ describe("Discovery favourites — the facet doesn't strand the user at zero", (
     expect(
       screen.getByRole("button", { name: /^All /}).getAttribute("aria-current")
     ).toBe("true");
+  });
+});
+
+// Task 11's boot and toolbar icon swaps were reported unasserted on the
+// premise that App.test.tsx could not reach either site. That premise did
+// not hold: onboardingComplete starts `null` (App.tsx:659) and only flips
+// once the mocked, necessarily-async `get_preference` resolves, so a
+// synchronous read right after `render()` still sees the boot gate. The
+// toolbar rescan control is gated only on `selectedSidebarItem === "linkmap"`
+// (App.tsx:1513), independent of the link graph itself.
+describe("App shell v5 marks", () => {
+  beforeEach(() => {
+    cleanup();
+    eventListeners = {};
+    mockPreferences = {
+      onboarding_complete: "true",
+      consent_crash: "true",
+      consent_usage: "true",
+      sidebar_collapsed: "false",
+      selected_sidebar_item: "discovery",
+      inspector_open: "false",
+      discovery_confirm_open: "true",
+    };
+  });
+
+  afterEach(() => {
+    cleanup();
+  });
+
+  // `mockPreferences`/`eventListeners` are module-level `let`s shared by
+  // every test in this file (`:65-66`). `initializeApp`'s async chain keeps
+  // running in the background for as long as it takes to settle, whether or
+  // not the test that triggered it is still executing — a test that asserts
+  // mid-flight and returns without draining that chain leaves it to finish
+  // during the NEXT test, racing that test's own instance for the same
+  // shared listener registrations. Every test below drains its own instance
+  // to a fully-settled, unmounted rest state before returning, so nothing
+  // it started can fire during a later test.
+  const settle = async () => {
+    for (let i = 0; i < 200; i++) {
+      await act(async () => {
+        await Promise.resolve();
+      });
+    }
+  };
+
+  it("shows the boot mark, turning, before onboarding state has resolved", async () => {
+    vi.useFakeTimers();
+    try {
+      const { container, unmount } = render(<App />);
+      // No `await` above this line: `invoke` in the mock is declared
+      // `async`, so "get_preference" cannot have resolved yet —
+      // onboardingComplete is still null and the boot screen, not the app
+      // shell, is what's on screen right now.
+      // v5 mark: Disc3Icon — the record turns while startup state loads.
+      expect(
+        container.querySelector('g.aim-loop path[d="M6 12c0-1.7.7-3.2 1.8-4.2"]')
+      ).toBeTruthy();
+
+      // Drain this instance to rest (frozen timer released, never re-armed
+      // since `vi.useRealTimers()` below discards anything still pending)
+      // and unmount before the next test's instance registers its own
+      // listeners into the same shared object.
+      await settle();
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+      unmount();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("turns the rescan mark while the startup scan is in flight, and drops it once the scan completes", async () => {
+    mockPreferences.selected_sidebar_item = "linkmap";
+    vi.useFakeTimers();
+    try {
+      const { unmount } = render(<App />);
+      // initializeApp's `await invoke("get_preference", ...)` chain is a
+      // long sequence of plain microtasks — draining it costs no real timer.
+      // The only thing separating "scanning" from "rest" is the fake timer
+      // behind the mocked start_scan's scan://complete event, which stays
+      // frozen until we explicitly advance it below. Flushing microtasks
+      // this way (rather than `waitFor`/`findBy`, whose polling can itself
+      // cross a timer boundary) lands deterministically mid-scan.
+      for (let i = 0; i < 200 && !screen.queryByLabelText("Rescan"); i++) {
+        await act(async () => {
+          await Promise.resolve();
+        });
+      }
+      const button = screen.getByLabelText("Rescan");
+      // v5 mark: RotateCcwIcon, looping while `loading || scanning` holds.
+      expect(button.querySelector('g.aim-loop path[d="M3 3v5h5"]')).toBeTruthy();
+
+      // Release only the mocked start_scan's 0ms timer — not
+      // `vi.runAllTimersAsync()`, which never returns here: ScanStamp
+      // re-arms a 30s tick (`ScanStamp.tsx:24`) that "run all" chases
+      // forever. Advancing by 0ms fires the pending scan://complete without
+      // reaching that interval's next tick.
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+      expect(button.querySelector("g.aim-loop")).toBeNull();
+
+      // Drain the scan-complete handler's own follow-up awaits
+      // (refreshGlobalCounts and friends) before unmounting, for the same
+      // reason as the boot test above.
+      await settle();
+      unmount();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
