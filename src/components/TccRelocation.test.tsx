@@ -46,6 +46,16 @@ describe("RepoPane TCC Warnings Relocation", () => {
     // Verify TCC Fix Panel button
     expect(screen.getByText("Retry Scan")).toBeDefined();
 
+    // The retry button carries the animated rescan mark at 13px — the
+    // "keep the split, fix the outlier" ruling (this was the one 12px
+    // button among the app's action-button icons; 13px is where those sit).
+    const retrySvg = screen.getByText("Retry Scan").closest("button")!.querySelector("svg")!;
+    expect(retrySvg.getAttribute("width")).toBe("13");
+    expect(retrySvg.querySelector('path[d="M3 3v5h5"]')).toBeTruthy();
+    // Not scanning in this fixture (loading: false) — the mark should not
+    // be mid-loop.
+    expect(retrySvg.querySelector("g.aim-loop")).toBeNull();
+
     // Verify normal warnings list is rendered via DisclosureBanner
     const warningBanner = screen.getByRole("button", { name: /1 scan warning/i });
     expect(warningBanner).toBeDefined();

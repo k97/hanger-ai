@@ -186,6 +186,18 @@ describe("RepoPane — the empty state is a finding, not a default", () => {
     expect(screen.getByText("Assets in empty-project show up here once the scan finishes.")).toBeTruthy();
     expect(screen.queryByText("Nothing in empty-project yet")).toBeNull();
     expect(screen.queryByText("Link an asset from Global")).toBeNull();
+    // Scanning: the folder holds, the sync arrows turn — the loop rule is
+    // what tells it apart from the idle folder-clock below.
+    expect(
+      screen.getByTestId("scan-pending").querySelector('path[d="M12 10v4h4"]')
+    ).toBeTruthy();
+    const pendingLoop = screen.getByTestId("scan-pending").querySelector("g.aim-loop");
+    expect(pendingLoop).toBeTruthy();
+    // The arrows sit bottom-right on this glyph and rotate about (17,16),
+    // not the 24-grid centre — invisible at 0/360deg, so a regression here
+    // is silent unless the origin itself is pinned.
+    expect(pendingLoop!.getAttribute("style")).toMatch(/--ox:\s*17px/);
+    expect(pendingLoop!.getAttribute("style")).toMatch(/--oy:\s*16px/);
   });
 
   it("with no scan running and none finished, says so rather than 'nothing here'", () => {
@@ -194,6 +206,11 @@ describe("RepoPane — the empty state is a finding, not a default", () => {
     expect(within(screen.getByTestId("scan-pending")).getByText("Not scanned yet")).toBeTruthy();
     expect(screen.getByText("Rescan when you're ready.")).toBeTruthy();
     expect(screen.queryByText("Nothing in empty-project yet")).toBeNull();
+    // Idle: the folder-clock's hands sweep once and hold — never looping, so
+    // a stopped scan never reads as a frozen spinner.
+    expect(screen.getByTestId("scan-pending").querySelector('path[d="M16 14v2l1 1"]')).toBeTruthy();
+    expect(screen.getByTestId("scan-pending").querySelector("g.aim-loop")).toBeNull();
+    expect(screen.getByTestId("scan-pending").querySelector("g.aim-once")).toBeTruthy();
   });
 
   it("claims the repository is empty only after a completed scan finds nothing", () => {
@@ -201,6 +218,14 @@ describe("RepoPane — the empty state is a finding, not a default", () => {
     expect(screen.queryByTestId("scan-pending")).toBeNull();
     expect(screen.getByText("Nothing in empty-project yet")).toBeTruthy();
     expect(screen.getByText("Link an asset from Global")).toBeTruthy();
+    // Genuinely empty, no repository to sync yet — the folder-plus mark,
+    // played once.
+    expect(
+      screen.getByText("Nothing in empty-project yet").closest("div")?.querySelector('path[d="M12 10v6"]')
+    ).toBeTruthy();
+    expect(
+      screen.getByText("Nothing in empty-project yet").closest("div")?.querySelector("g.aim-once")
+    ).toBeTruthy();
   });
 
   it("a category emptied by a filter says so; a category with nothing says that", () => {
@@ -221,6 +246,13 @@ describe("RepoPane — the empty state is a finding, not a default", () => {
       />
     );
     expect(screen.getByText("No skill matches that filter")).toBeTruthy();
+    // A filter, not an absence — the search glyph, entering once.
+    expect(
+      screen.getByText("No skill matches that filter").closest("div")?.querySelector('path[d="m21 21-4.3-4.3"]')
+    ).toBeTruthy();
+    expect(
+      screen.getByText("No skill matches that filter").closest("div")?.querySelector("g.aim-once")
+    ).toBeTruthy();
     unmount();
 
     render(
@@ -252,6 +284,11 @@ describe("RepoPane — the empty state is a finding, not a default", () => {
     expect(screen.getByText("Scanning your machine")).toBeTruthy();
     expect(screen.queryByText("Nothing in empty-project yet")).toBeNull();
     expect(screen.queryByText("Link an asset from Global")).toBeNull();
+    // Same re-scan, same sync mark, same loop rule.
+    expect(
+      screen.getByTestId("scan-pending").querySelector('path[d="M12 10v4h4"]')
+    ).toBeTruthy();
+    expect(screen.getByTestId("scan-pending").querySelector("g.aim-loop")).toBeTruthy();
   });
 
   it("filtering to a category with nothing in it, mid-scan, is pending -- not an absence claim", () => {
@@ -268,6 +305,12 @@ describe("RepoPane — the empty state is a finding, not a default", () => {
     expect(screen.getByText("Scanning this repository")).toBeTruthy();
     expect(screen.getByText("MCP servers show up here once the scan finishes.")).toBeTruthy();
     expect(screen.queryByText("No MCP servers in project")).toBeNull();
+    // Category-scoped pending is always scanning (same as the whole-repo
+    // plane above) — same sync mark, same loop.
+    expect(
+      screen.getByTestId("scan-pending").querySelector('path[d="M12 10v4h4"]')
+    ).toBeTruthy();
+    expect(screen.getByTestId("scan-pending").querySelector("g.aim-loop")).toBeTruthy();
   });
 
   it("filtering to a category with nothing in it, scan finished, correctly claims the absence", () => {
@@ -281,6 +324,16 @@ describe("RepoPane — the empty state is a finding, not a default", () => {
     expect(screen.queryByTestId("scan-pending")).toBeNull();
     expect(screen.getByText("No MCP servers in project")).toBeTruthy();
     expect(screen.getByText("The scan finished without finding any.")).toBeTruthy();
+    // Genuinely empty, no filter involved — the inbox mark, entering once.
+    expect(
+      screen
+        .getByText("No MCP servers in project")
+        .closest("div")
+        ?.querySelector('polyline[points="22 12 16 12 14 15 10 15 8 12 2 12"]')
+    ).toBeTruthy();
+    expect(
+      screen.getByText("No MCP servers in project").closest("div")?.querySelector("g.aim-once")
+    ).toBeTruthy();
   });
 
   // One of everything, scoped to this repository, so emptying a single
@@ -316,5 +369,9 @@ describe("RepoPane — the empty state is a finding, not a default", () => {
     expect(screen.getByTestId("scan-pending")).toBeTruthy();
     expect(screen.getByText("Scanning this repository")).toBeTruthy();
     expect(screen.getByText(`${noun} show up here once the scan finishes.`)).toBeTruthy();
+    expect(
+      screen.getByTestId("scan-pending").querySelector('path[d="M12 10v4h4"]')
+    ).toBeTruthy();
+    expect(screen.getByTestId("scan-pending").querySelector("g.aim-loop")).toBeTruthy();
   });
 });
