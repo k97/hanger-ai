@@ -125,7 +125,7 @@ The scale is closed at five steps — 11 / 12 / 13 / 16 / 32
 `--fw-regular: 400`, `--fw-medium: 500` (`tokens.css:67-68`).
 
 Body text is set in `--font-sans` at the document root with
-`-webkit-font-smoothing: antialiased` (`index.css:260`).
+`-webkit-font-smoothing: antialiased` (`index.css:376`).
 
 A `tabular` utility exists for figures that must not jitter as they change
 (`index.css:126-128`) and is applied wherever counts render.
@@ -245,21 +245,22 @@ and `animate-tip` for tooltips, which scales from `0.97` rather than `0` because
 "nothing in the world appears from nothing" (`index.css:152-167`).
 
 All motion is removed under `prefers-reduced-motion: reduce`, transitions and
-animations both, with `!important` (`index.css:281-282`).
+animations both, with `!important` (`index.css:397-398`).
 
 **Icon motion.** A second vocabulary, `aim-*`, drives the animated marks in
-`icons.tsx` (§4) and lives entirely in `index.css:262-361`: `aim-part` sets
+`icons.tsx` (§4) and lives entirely in `index.css:262-363`: `aim-part` sets
 the rotation origin a moving `<g>` reads (`--ox`/`--oy`, defaulting to the
 24-grid centre, `:262-265`); `aim-spin`, `aim-spin-ccw`, `aim-draw`,
 `aim-scan`, `aim-seek`, `aim-burst` and `aim-relay` are the seven motions
 (`:266-317`), each its own `animation-name` and its own `@keyframes` block
-(`:331-361`) rather than the shorthand, so the two composing rules below can
+(`:333-363`) rather than the shorthand, so the two composing rules below can
 still set iteration count and fill mode on top; `aim-stagger` stitches a
-per-element `--i` into a cascading delay (`:319-323`). Two rules carry the
-meaning (ruling 4, `docs/v5-animate-icons/00-state-inventory.md` §1): `aim-loop`
-plays while the work it names is running, infinite (`:324-326`); `aim-once`
-plays on mount and holds, both ends (`:327-330`) — a finding stated once, not
-a state sustained. `src/__tests__/icon_motion_vocabulary.test.ts` pins the
+per-element `--i` into a cascading delay, sitting directly on the animating
+element since `animation-name` is not inherited (`:323-325`). Two rules carry
+the meaning (ruling 4, `docs/v5-animate-icons/00-state-inventory.md` §1):
+`aim-loop` plays while the work it names is running, infinite (`:326-328`);
+`aim-once` plays on mount and holds, both ends (`:329-332`) — a finding stated
+once, not a state sustained. `src/__tests__/icon_motion_vocabulary.test.ts` pins the
 utilities and the two rules; `src/__tests__/animated_icons_family.test.ts`
 pins that every `animation-name` these utilities declare has a matching
 `@keyframes` block, and that `lucide-react` and the `aim-*` classes stay out
@@ -277,26 +278,26 @@ zoom (`index.css:201-206`).
 ## 4. Icon system
 
 Icons are not used raw. Every export in `src/components/icons.tsx` is wrapped
-in `sized()` (`icons.tsx:120`), which does two things a plain import cannot.
+in `sized()` (`icons.tsx:119`), which does two things a plain import cannot.
 
 **Stroke compensation.** Heroicons' outline set is drawn on a 24px grid at 1.5
 stroke; at this shell's working sizes of 10–17px that thins to ~0.7px and goes
 soft. `strokeFor()` scales the stroke back up per size band so it lands near
-1px on screen (`icons.tsx:99-104`): ≤12px → 2.2, ≤16px → 1.9, ≤20px → 1.7,
+1px on screen (`icons.tsx:98-103`): ≤12px → 2.2, ≤16px → 1.9, ≤20px → 1.7,
 above → 1.5.
 
 **Optical correction.** A per-mark `optical` ratio corrects for how much of the
 24 grid each mark actually inks, because a 1:1 family swap inherits the
 difference — most visibly in the icon rail, where four marks stack at one size
-and any mismatch reads as a wobble (`icons.tsx:108-119`). The factors are stated
+and any mismatch reads as a wobble (`icons.tsx:107-118`). The factors are stated
 as measured ink-extent ratios, not estimates, and anything within 4% is left at
-1. Examples: `ChevronDownIcon` 0.81 (`icons.tsx:145`), `Square2StackIcon` 1.2
-(`:176`), `Cog6ToothIcon` 1.12 (`:151`).
+1. Examples: `ChevronDownIcon` 0.81 (`icons.tsx:143`), `Square2StackIcon` 1.2
+(`:174`), `Cog6ToothIcon` 1.12 (`:149`).
 
-The family is Heroicons 24/outline (`icons.tsx:30-80`), with seven static
+The family is Heroicons 24/outline (`icons.tsx:30-79`), with seven static
 marks on lucide because Heroicons has no equivalent: `FolderSymlink`,
 `FolderTree`, `GitMerge`, `PanelLeft`, `PanelRight`, `Maximize2`, `Minimize2`
-(`icons.tsx:82-90`, exported `:187-196`). Default size is 16 (`icons.tsx:96`).
+(`icons.tsx:81-89`, exported `:185-194`). Default size is 16 (`icons.tsx:95`).
 
 Twenty more marks are animated, and every one of them is lucide too — not
 because Heroicons lacks their geometry, but because it has no motion story,
@@ -304,14 +305,14 @@ and Ruling 3 (`docs/v5-animate-icons/00-state-inventory.md` §1) settled the
 family question for all of them at once rather than per mark: looping marks
 (`Disc3Icon`, `FolderSyncIcon`, `LoaderCircleIcon`, `RotateCcwIcon`,
 `ServerRelayIcon`, `FrameIcon`, `FileTextIcon`, `Link2Icon`,
-`icons.tsx:409-504`) spin or redraw only while `active`; entering marks
+`icons.tsx:417-512`) spin or redraw only while `active`; entering marks
 (`FolderClockIcon`, `PackageOpenIcon`, `FolderXIcon`, `SearchIcon`,
 `InboxIcon`, `PlugZapIcon`, `ZapOffIcon`, `UnlinkIcon`, `CursorClickIcon`,
 `MonitorCheckIcon`, `FolderPlusIcon`, `GitPullRequestClosedIcon`,
-`icons.tsx:510-716`) play once on mount and hold. Geometry is Lucide (ISC),
+`icons.tsx:518-724`) play once on mount and hold. Geometry is Lucide (ISC),
 hand-transcribed rather than imported, because per-element motion needs a
 `<g>` around the moving subset and lucide-react's components render flat
-(`icons.tsx:289-294`); `animated_icons.test.tsx` pins every transcription
+(`icons.tsx:287-292`); `animated_icons.test.tsx` pins every transcription
 against the installed package. `src/__tests__/animated_icons_family.test.ts`
 makes the rule checkable going forward — `lucide-react` imported nowhere but
 `icons.tsx`, and no `aim-*` class applied outside it or `index.css` — which is
@@ -428,7 +429,7 @@ component per file. Views are suffixed `Pane`.
 
 The "all default-exported, with an `interface <Name>Props` declared directly
 above" rule holds for most and has named exceptions, listed here so the rule
-is not read as universal: `icons.tsx` is a mark library of 62 named exports
+is not read as universal: `icons.tsx` is a mark library of 82 named exports
 rather than a component, and `ScanStatusIndicator.tsx` exports a named
 `React.FC` instead of a default. Five more carry no `interface <Name>Props`
 — `BrandSprite`, `EngineReachTiles`, `MarkdownDoc`, `McpEngineSummary`,
@@ -491,9 +492,9 @@ copy on `scannedAt !== null` — App's `lastScanAt`, set only on
 `scan://complete` — so an empty store before the first scan finishes renders
 a pending plane instead: `Disc3Icon` at 40, spinning while `loading`
 (`FolderSyncIcon` in `RepoPane`, the repo-scoped looping mark for the same
-state — `icons.tsx:421-435`), or `FolderClockIcon` at 40 — the entering() mark
+state — `icons.tsx:429-443`), or `FolderClockIcon` at 40 — the entering() mark
 whose clock hands sweep once and hold — once no scan is running
-(`icons.tsx:510-523`). Headline "Scanning your machine" with a subline that
+(`icons.tsx:518-531`). Headline "Scanning your machine" with a subline that
 names the place and is literal about timing ("Assets in the global store show
 up here once the scan finishes." / "Assets in ‹repo› show up here once the
 scan finishes." — App sets inventory on `scan://complete` and ignores
