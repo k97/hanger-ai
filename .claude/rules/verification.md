@@ -132,7 +132,14 @@ rejected without review.
 - Any edit to a test, detector, or allowlist forced by another change is
   reported with its cause and committed separately from the change that
   forced it. An unreported enforcement-file edit fails the task even if
-  correct.
+  correct. **Unless no ordering leaves both commits passing the gates** —
+  a narrowed type whose fixtures must stop feeding it the removed fields is
+  the shape: the wide type *requires* them and the narrow one *forbids*
+  them, so either half alone fails `tsc`. Then combine them, and name the
+  forced edit and its cause in the body. Karthik's ruling, 2026-08-25, on
+  `bd26400`. The exception is about ordering only — it never licenses
+  folding in an edit that *weakens* a control, which stays separate and
+  stays reported whatever it costs.
 
 ## Scope
 
