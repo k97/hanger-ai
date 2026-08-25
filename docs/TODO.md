@@ -776,3 +776,36 @@ worse than none.
 
 **Done when:** there is a ruling on window-vs-webview and on the fast-start
 case, and whatever ships is verified on a cold launch, not a reload.
+
+---
+
+## T16 — `Link2Icon` may blink on its first cycle, unverified
+
+Found by the final review of the animated-icons work, 2026-08-25, and
+deliberately not chased: Karthik's call was that the linking workflow it
+lives in "needs to be reworked" anyway, so a mark inside it is not worth
+verifying yet.
+
+**The mechanism, so nobody re-derives it.** `@utility aim-loop`
+(`src/styles/index.css`) originally set only `animation-iteration-count`,
+with no `animation-fill-mode`. A *staggered looping* mark gives its 2nd and
+3rd elements delays of 110ms and 220ms, and during that delay an element
+with no backwards fill renders in its un-animated state — for `aim-draw`
+that is `stroke-dasharray: 1` with `stroke-dashoffset` at its default 0,
+i.e. **fully drawn**. It then snaps invisible and draws in.
+
+`Link2Icon` (`LinkPanel.tsx:423`, the Link button while running) is the only
+exposed mark: it is the only `aim-draw aim-stagger` mark that also loops.
+`FrameIcon` and `FileTextIcon` are immune because `hanger-aim-scan`'s 0%
+frame is `stroke-dashoffset: 0`, identical to the un-animated state.
+
+**A fix already shipped** (`374e73d`, `animation-fill-mode: backwards` on
+`aim-loop`) but was verified **declaration-only** — happy-dom has no CSS
+engine, so the test pins that the declaration exists, not that the blink is
+gone. Confirming it needs the running app and a real link operation, which
+writes to disk.
+
+**Done when:** either the linking workflow rework lands and this is checked
+as part of it, or someone watches the Link button in a running build and
+confirms the mark draws in from nothing rather than flashing complete first.
+
