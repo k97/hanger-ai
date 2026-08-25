@@ -42,4 +42,21 @@ describe("the icon-motion vocabulary", () => {
   it("pins the origin mechanism: aim-part reads --ox/--oy, defaulting to the grid centre", () => {
     expect(css).toMatch(/@utility aim-part \{[^}]*transform-box: view-box;[^}]*transform-origin: var\(--ox, 12px\) var\(--oy, 12px\);[^}]*\}/s);
   });
+
+  // happy-dom does not compile Tailwind's `@utility` at-rule syntax or
+  // resolve computed animation state (no dashoffset/fill-mode timeline), so
+  // this pins the CSS declaration itself rather than asserting the resolved
+  // rendering — declaration-only, not behavioural.
+
+  it("pins aim-loop's backwards fill, the guard against a staggered loop's first-cycle blink", () => {
+    // Without a backwards fill, a delayed element in a looping stagger group
+    // (aim-loop + aim-stagger, e.g. Link2Icon's 110ms/220ms delays) renders
+    // its un-animated state through the delay — for aim-draw that's
+    // stroke-dashoffset's default of 0, fully drawn — then snaps to the 0%
+    // frame's dashoffset:1 (invisible) the instant the delay ends and the
+    // animation starts: a visible blink before the first draw. `backwards`,
+    // not `both`: the loop is infinite, so there is no natural end for a
+    // forwards fill to hold.
+    expect(css).toMatch(/@utility aim-loop \{[^}]*animation-fill-mode: backwards;[^}]*\}/s);
+  });
 });

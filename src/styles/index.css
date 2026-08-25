@@ -323,8 +323,16 @@
 @utility aim-stagger {
   animation-delay: calc(var(--i, 0) * 110ms);
 }
+/* Backwards fill: a staggered loop's delayed elements must hold their 0%
+   frame through the delay, or aim-draw's stroke-dasharray:1 with no
+   dashoffset set renders fully drawn (the browser default, 0) until the
+   delay ends, then snaps to the 0% frame's dashoffset:1 (invisible) the
+   instant the animation starts — Link2Icon's 110ms/220ms-delayed elements
+   blink before their first draw. Not `forwards`: the loop is infinite, so
+   there is no natural end for it to hold. */
 @utility aim-loop {
   animation-iteration-count: infinite;
+  animation-fill-mode: backwards;
 }
 @utility aim-once {
   animation-iteration-count: 1;
