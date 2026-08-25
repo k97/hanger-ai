@@ -1,5 +1,5 @@
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
-import { RevealInFileManagerIcon, Square2StackIcon } from "./icons";
+import { RevealInFileManagerIcon, Square2StackIcon, CursorClickIcon } from "./icons";
 import type { IssueKind, ReviewIssue } from "../utils/reviewIssues";
 import Tooltip from "./Tooltip";
 
@@ -58,6 +58,7 @@ export default function ReviewInspector({
   if (!issue) {
     return (
       <div className="h-full flex flex-col items-center justify-center gap-2 px-6 text-center bg-page">
+        <CursorClickIcon size={36} className="mb-2 text-ink-3" />
         <span className="text-base-app font-medium text-ink-1">Nothing selected</span>
         <span className="text-small text-ink-3 leading-[1.6]">
           Pick an issue to see where it lives and what else it affects.

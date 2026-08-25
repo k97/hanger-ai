@@ -239,8 +239,17 @@ describe("Avionics A5 — Docked Right Inspector Integration", () => {
     setupMockInvoke("true");
     render(<App />);
 
-    await screen.findByText("Nothing selected");
+    const headline = await screen.findByText("Nothing selected");
     await screen.findByText("Pick an asset or a repository to see its details.");
+
+    // The cursor-click mark, played once: the cursor body sits outside the
+    // moving group and never moves, so it is pinned separately from the
+    // spark lines' burst group and its off-centre origin.
+    const emptyState = headline.closest("div")!;
+    expect(emptyState.querySelector('path[d^="M9.037"]')).toBeTruthy();
+    const burst = emptyState.querySelector("g.aim-once");
+    expect(burst).toBeTruthy();
+    expect(burst!.getAttribute("style")).toMatch(/--ox:\s*9\.3px/);
   });
 
   it("6. Content pane and inspector coexist; both render simultaneously", async () => {
@@ -418,6 +427,14 @@ describe("Avionics A5 — Docked Right Inspector Integration", () => {
     // Land on Needs review first and pick a filter that is not the
     // default — exactly the state a previous visit could leave behind.
     fireEvent.click(await screen.findByLabelText(/^Needs review/));
+
+    // No issue is selected yet — ReviewInspector renders the same cursor
+    // mark Flyout's own empty state wears (Flyout.tsx's comment: the two
+    // inspectors share the words, and now the mark too).
+    const reviewEmptyState = (await screen.findByText("Nothing selected")).closest("div")!;
+    expect(reviewEmptyState.querySelector('path[d^="M9.037"]')).toBeTruthy();
+    expect(reviewEmptyState.querySelector("g.aim-once")).toBeTruthy();
+
     const reviewSidebar = await screen.findByTestId("review-sidebar");
     fireEvent.click(within(reviewSidebar).getByRole("button", { name: /Duplicates/ }));
     fireEvent.click(within(reviewSidebar).getByRole("button", { name: /^demo/ }));

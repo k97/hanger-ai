@@ -237,6 +237,12 @@ describe("Asset detail — the inspector's document screen", () => {
     bodyResult = { ok: false, error: "Refusing to read a file outside the folders Hanger scans" };
     render(<AssetDetail asset={asset} inventory={inventory} />);
 
+    // Reading: the file-text mark scans (looping) while read_asset_body is
+    // still in flight, before its promise has settled either way.
+    const readingLine = screen.getByText("Reading the file…").closest("p")!;
+    expect(readingLine.querySelector('path[d="M10 9H8"]')).toBeTruthy();
+    expect(readingLine.querySelector("g.aim-loop")).toBeTruthy();
+
     expect(await screen.findByText(/Refusing to read a file outside/)).toBeTruthy();
     openDetails();
     // The relationships do not depend on the file's contents. (The state

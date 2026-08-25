@@ -98,6 +98,13 @@ describe("Link panel — choosing where a file should also live", () => {
 
   it("checks every destination on arrival, not at the moment you press the button", async () => {
     mount();
+
+    // Reading: the file-text mark scans (looping) while every destination's
+    // check is in flight, before the checks' promises have resolved.
+    const reading = screen.getByText("Checking each project…").closest("div")!;
+    expect(reading.querySelector('path[d="M10 9H8"]')).toBeTruthy();
+    expect(reading.querySelector("g.aim-loop")).toBeTruthy();
+
     await waitFor(() => {
       expect(screen.getByText("mei-recipes")).toBeTruthy();
     });
@@ -175,6 +182,12 @@ describe("Link panel — choosing where a file should also live", () => {
     fireEvent.click(screen.getByRole("button", { name: "Tracked copy" }));
     fireEvent.click(screen.getByRole("button", { name: "Link" }));
 
+    // Linking: the connection draws itself (looping) while execute_deploy
+    // calls are in flight, synchronously true before the first await lands.
+    const linkingBtn = screen.getByText("Linking…").closest("button")!;
+    expect(linkingBtn.querySelector('path[d="M15 7h2a5 5 0 1 1 0 10h-2"]')).toBeTruthy();
+    expect(linkingBtn.querySelector("g.aim-loop")).toBeTruthy();
+
     await waitFor(() => expect(deployed).toHaveLength(2));
     expect(deployed.map((d) => d.target)).toEqual(["/work/mei-recipes", "/work/metrics-board"]);
     expect(deployed.every((d) => d.type === "copy")).toBe(true);
@@ -249,7 +262,15 @@ describe("Link panel — choosing where a file should also live", () => {
   it("says so plainly when there is nowhere to link to", async () => {
     checks = {};
     mount({ destinations: [] });
-    expect(await screen.findByText(/No repositories are linked yet/)).toBeTruthy();
+    const message = await screen.findByText(/No repositories are linked yet/);
+    expect(message).toBeTruthy();
+
+    // The break-mark: a snapped link, played once — one of its four short
+    // lines pinned by geometry, inside the group carrying the once rule.
+    const wrapper = message.closest("div")!;
+    const burst = wrapper.querySelector("g.aim-once");
+    expect(burst).toBeTruthy();
+    expect(burst!.querySelector('line[x1="8"][y1="2"][x2="8"][y2="5"]')).toBeTruthy();
   });
 
   it("shows a destination whose preflight refused outright, and says why, instead of dropping the row", async () => {

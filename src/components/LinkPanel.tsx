@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { CheckIcon, ExclamationTriangleIcon, SpinnerIcon } from "./icons";
+import { CheckIcon, ExclamationTriangleIcon, FileTextIcon, Link2Icon, UnlinkIcon } from "./icons";
 import {
   actionable,
   allowsManyDestinations,
@@ -251,13 +251,16 @@ export default function LinkPanel({
 
           {reading ? (
             <div className="flex items-center gap-2 text-ink-3 text-small py-2">
-              <SpinnerIcon className="animate-spin" size={12} aria-hidden="true" />
+              <FileTextIcon size={12} active aria-hidden="true" />
               Checking each project…
             </div>
           ) : rows.length === 0 ? (
-            <p className="text-small text-ink-3 leading-[1.6]">
-              No repositories are linked yet. Add one from the sidebar and it will appear here.
-            </p>
+            <div className="flex flex-col items-center text-center">
+              <UnlinkIcon size={36} className="text-ink-3 mb-2" />
+              <p className="text-small text-ink-3 leading-[1.6]">
+                No repositories are linked yet. Add one from the sidebar and it will appear here.
+              </p>
+            </div>
           ) : (
             <div
               role="group"
@@ -420,7 +423,7 @@ export default function LinkPanel({
         >
           {running ? (
             <span className="flex items-center justify-center gap-2">
-              <SpinnerIcon className="animate-spin" size={12} aria-hidden="true" />
+              <Link2Icon size={12} active aria-hidden="true" />
               Linking…
             </span>
           ) : needsMerge ? (

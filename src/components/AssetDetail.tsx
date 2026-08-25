@@ -9,6 +9,7 @@ import {
   CpuChipIcon,
   DocumentIcon,
   DocumentTextIcon,
+  FileTextIcon,
   FolderIcon,
   GaugeIcon,
   GlobeAltIcon,
@@ -428,7 +429,12 @@ export default function AssetDetail({ asset, inventory, onDocumentPath, annotati
               </section>
             )}
 
-            {loading && <p className="px-[18px] py-3 text-small text-ink-3">Reading the file…</p>}
+            {loading && (
+              <p className="px-[18px] py-3 text-small text-ink-3 flex items-center gap-2">
+                <FileTextIcon size={12} active />
+                Reading the file…
+              </p>
+            )}
 
             {docError && (
               <p className="mx-[18px] my-3 px-3.5 py-2.5 bg-plane rounded-inner text-small text-ink-3 leading-[1.6]">
