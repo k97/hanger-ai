@@ -1,0 +1,461 @@
+/* Shared base for the iterated views.
+   The palette is not restated here: tokens.css is the app's own file,
+   imported by relative path, so every colour, size, radius and beat in
+   these pages is the running app's value — light and dark. Classes mirror
+   the Tailwind utility names the real components use (bg-plane, text-ink-3,
+   rounded-inner …) so a reviewer can read a prototype and the .tsx side by
+   side. Anything not here is stated inline with var(--…), never a literal. */
+@import url("../../src/styles/tokens.css");
+
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  font-family: var(--font-sans);
+  font-size: var(--fs-base);
+  font-weight: var(--fw-regular);
+  color: var(--ink-1);
+  background: var(--page);
+  -webkit-font-smoothing: antialiased;
+  padding: 32px 24px 48px;
+}
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+h1, h2, h3, p, dl, dd, dt, ul { margin: 0; }
+ul { padding: 0; list-style: none; }
+code { font-family: var(--font-mono); }
+
+/* ── Surfaces ── */
+.bg-page { background: var(--page); }
+.bg-plane { background: var(--plane); }
+.bg-plane-2 { background: var(--plane-2); }
+.bg-tint { background: var(--tint); }
+.bg-tint-plane { background: var(--tint-plane); }
+.bg-fill { background: var(--fill); }
+.border-line { border: 1px solid var(--line); }
+.border-line-2 { border: 1px solid var(--line-2); }
+.border-b-line { border-bottom: 1px solid var(--line); }
+.border-t-line { border-top: 1px solid var(--line); }
+.rounded-plane { border-radius: var(--radius-plane); }
+.rounded-inner { border-radius: var(--radius-inner); }
+.rounded-soft { border-radius: var(--radius-soft); }
+.rounded-pill { border-radius: var(--radius-pill); }
+.rounded-mini { border-radius: var(--radius-mini); }
+.shadow-overlay { box-shadow: var(--overlay-shadow); }
+
+/* ── Ink ── */
+.text-ink-1 { color: var(--ink-1); }
+.text-ink-2 { color: var(--ink-2); }
+.text-ink-3 { color: var(--ink-3); }
+.text-on-fill { color: var(--on-fill); }
+.text-tint-ink { color: var(--tint-ink); }
+.text-state-success { color: var(--state-success); }
+.text-state-warning { color: var(--state-warning); }
+.text-state-danger { color: var(--state-danger); }
+.bg-state-success { background: var(--state-success); }
+.bg-state-warning { background: var(--state-warning); }
+.bg-state-danger { background: var(--state-danger); }
+
+/* ── Type: five sizes, two weights ── */
+.text-micro { font-size: var(--fs-micro); }
+.text-small { font-size: var(--fs-small); }
+.text-base-app { font-size: var(--fs-base); }
+.text-lg-app { font-size: var(--fs-lg); }
+.text-display { font-size: var(--fs-display); line-height: 1.1; letter-spacing: -0.5px; }
+.font-medium { font-weight: var(--fw-medium); }
+.font-mono { font-family: var(--font-mono); }
+.font-flex { font-family: var(--font-flex); }
+.tabular { font-variant-numeric: tabular-nums; }
+.truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.break-all { word-break: break-all; }
+/* Section eyebrow — ProfilePane.tsx:229-230, LinkMapPlacecard.tsx */
+.eyebrow { font-family: var(--font-flex); font-size: var(--fs-micro); font-weight: var(--fw-medium); letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); }
+
+/* ── Layout helpers ── */
+.flex { display: flex; }
+.flex-col { flex-direction: column; }
+.items-center { align-items: center; }
+.items-baseline { align-items: baseline; }
+.items-start { align-items: flex-start; }
+.justify-between { justify-content: space-between; }
+.flex-1 { flex: 1 1 0; min-width: 0; }
+.shrink-0 { flex-shrink: 0; }
+.ml-auto { margin-left: auto; }
+.gap-1 { gap: 4px; } .gap-1\.5 { gap: 6px; } .gap-2 { gap: 8px; } .gap-3 { gap: 12px; } .gap-4 { gap: 16px; }
+.min-w-0 { min-width: 0; }
+.relative { position: relative; }
+.hidden { display: none !important; }
+
+/* ── The shell at true size: 1024×700 window, 56px rail, 384px inspector ──
+   App.tsx: rail w-14; inspector default 384 (floor), max 480. The source
+   list is drawn collapsed, as in the reference screenshots. */
+.shell { width: 1024px; height: 700px; display: flex; overflow: hidden; background: var(--page); border: 1px solid var(--line-2); border-radius: 10px; }
+.shell .rail { width: 56px; flex-shrink: 0; background: var(--plane); border-right: 1px solid var(--line); display: flex; flex-direction: column; align-items: center; padding-top: 14px; gap: 14px; }
+.shell .rail i { display: block; width: 32px; height: 32px; border-radius: var(--radius-soft); }
+.shell .rail i.on { background: var(--tint-plane); }
+.shell .main { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; }
+.shell .cap { height: 40px; display: flex; align-items: center; padding: 0 18px; gap: 8px; flex-shrink: 0; font-size: var(--fs-base); }
+.shell .aside { width: 384px; flex-shrink: 0; border-left: 1px solid var(--line); display: flex; flex-direction: column; overflow: hidden; }
+.shell .canvas { flex: 1 1 0; min-height: 0; overflow: hidden; position: relative; }
+
+/* Pane composition — DESIGN.md §6: strip mx-[18px] mt-[18px], chip row, list plane, foot */
+.strip { margin: 18px 18px 0; padding: 14px 16px; border: 1px solid var(--line); border-radius: var(--radius-plane); flex-shrink: 0; }
+.chips { display: flex; align-items: center; gap: 7px; padding: 12px 18px 10px; overflow-x: auto; flex-shrink: 0; }
+.chip { height: 28px; padding: 0 14px; border-radius: var(--radius-pill); border: 1px solid var(--line-2); font-family: var(--font-flex); font-size: var(--fs-small); color: var(--ink-2); display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.chip b { font-weight: var(--fw-regular); color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.chip.on { background: var(--tint); color: var(--tint-ink); border-color: transparent; font-weight: var(--fw-medium); padding-left: 11px; }
+.chip.on b { color: var(--tint-ink); }
+.list-plane { margin: 0 18px; background: var(--plane); border: 1px solid var(--line); border-radius: var(--radius-plane) var(--radius-plane) 0 0; flex: 1 1 0; min-height: 0; overflow: hidden; }
+.foot { height: 30px; flex-shrink: 0; padding: 0 18px; display: flex; align-items: center; font-family: var(--font-flex); font-size: var(--fs-micro); color: var(--ink-3); }
+
+/* ── GelMeter.tsx, verbatim geometry ── */
+.gel { display: flex; height: 10px; gap: 3px; padding: 1px; border-radius: var(--radius-pill); border: 1px solid var(--line); background: var(--bar-track); }
+.gel > span { display: block; height: 100%; border-radius: var(--radius-pill); background-image: var(--gel-gloss); }
+.gel > span.aqua { background-image: var(--gel-gloss), var(--gel-aqua); }
+.gel > span.warn { background-color: var(--state-warning); }
+.gel > span.danger { background-color: var(--state-danger); }
+.gel > span.plain { background-color: var(--plane-2); }
+
+/* Legend dot — SummaryStrip.tsx */
+.dot { display: inline-block; width: 8px; height: 8px; border-radius: var(--radius-pill); flex-shrink: 0; }
+.dot.aqua { background-image: var(--gel-aqua); }
+.dot.hollow { background: transparent; border: 2px solid var(--line-2); }
+
+/* Buttons — SummaryStrip.tsx Rescan / Review, LinkMapPlacecard actionBtnClass */
+.btn { height: 30px; padding: 0 14px; border-radius: var(--radius-pill); border: 1px solid var(--line-2); font-size: var(--fs-small); font-weight: var(--fw-medium); color: var(--ink-1); display: inline-flex; align-items: center; gap: 6px; transition: background-color var(--dur-hover) var(--spring); }
+.btn:hover { background: var(--plane-2); }
+.btn.fill { background: var(--fill); color: var(--on-fill); border-color: transparent; padding: 0 15px; font-variant-numeric: tabular-nums; }
+.icon-btn { width: 27px; height: 27px; border-radius: var(--radius-pill); display: grid; place-items: center; color: var(--ink-3); transition: background-color var(--dur-hover) var(--spring), color var(--dur-hover) var(--spring); }
+.icon-btn:hover { background: var(--plane-2); color: var(--ink-1); }
+
+/* Path chip — LinkMapPlacecard.tsx PathChip, AssetDetail path row */
+.path-chip { display: flex; align-items: center; gap: 8px; background: var(--plane); border-radius: var(--radius-inner); padding: 8px 6px 8px 10px; font-family: var(--font-mono); font-size: var(--fs-micro); color: var(--ink-2); }
+.path-chip span { flex: 1 1 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Facts grid — AssetDetail meta <dl> (92px label) / LinkMapPlacecard Facts (110px) */
+.facts { display: grid; grid-template-columns: 92px 1fr; gap: 6px 10px; padding: 10px 12px; background: var(--plane); border-radius: var(--radius-inner); font-size: var(--fs-small); }
+.facts.wide { grid-template-columns: 110px 1fr; }
+.facts dt { font-family: var(--font-flex); color: var(--ink-3); }
+.facts dd { color: var(--ink-1); min-width: 0; overflow-wrap: anywhere; }
+
+/* Pills — McpServerDetail identity pills, Flyout transport pill */
+.pill { display: inline-flex; align-items: center; gap: 4px; height: 22px; padding: 0 9px; border-radius: var(--radius-pill); background: var(--plane); border: 1px solid var(--line); font-family: var(--font-mono); font-size: var(--fs-micro); color: var(--ink-2); }
+.pill b { font-weight: var(--fw-medium); color: var(--ink-1); }
+
+/* DisclosureBanner.tsx — neutral plane in every variant; state carries the colour */
+.disclosure { border-radius: var(--radius-inner); border: 1px solid var(--line); background: var(--plane); font-size: var(--fs-small); }
+.disclosure > button { width: 100%; display: flex; align-items: center; gap: 8px; padding: 12px; font-weight: var(--fw-medium); text-align: left; border-radius: var(--radius-inner); }
+.disclosure.warning > button { color: var(--state-warning); }
+.disclosure.info > button { color: var(--ink-2); }
+.disclosure > div { padding: 4px 12px 12px; border-top: 1px solid var(--line); color: var(--ink-2); max-height: 240px; overflow-y: auto; }
+
+/* Inspector section — McpServerDetail SECTION: px-[18px] py-[18px] border-b border-line */
+.section { padding: 18px; border-bottom: 1px solid var(--line); }
+.section-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 12px; }
+
+/* Placecard — LinkMapPlacecard.tsx cardClass */
+.placecard { position: absolute; left: 12px; top: 12px; bottom: 12px; width: 300px; z-index: 20; display: flex; flex-direction: column; background: var(--page); border: 1px solid var(--line); border-radius: var(--radius-plane); overflow: hidden; box-shadow: var(--overlay-shadow); }
+.placecard .head { padding: 14px 16px 12px; border-bottom: 1px solid var(--line); flex-shrink: 0; }
+.placecard .body { flex: 1 1 0; min-height: 0; overflow-y: auto; }
+
+/* ── PROPOSED TOKENS — not in tokens.css yet; the plan adds them ──
+   Karthik's ruling, 2026-08-22, for the segmented track's selected capsule:
+   no border, a shadow instead. The system's one elevation (--overlay-shadow,
+   0 11px 34px) is sized for the map's floating cards; a 28px capsule wants
+   a tight contact shadow, so this is a second, smaller elevation. And a
+   shadow is invisible on black: in dark the capsule lightens instead
+   (iOS does the same), so its surface is a token of its own — --page in
+   light, --tint in dark.
+
+   Karthik's ruling, 2026-08-23, for button radius: there are two button
+   sizes and the radius follows the size, not the role. A normal button
+   (30px, .btn) stays a full pill — unchanged. A mini button (26px, .mini)
+   takes a small radius instead, so the two never read as the same control
+   at different scales. "Squircle" was figurative (ruled 2026-08-23): this
+   is a radius value, not a superellipse, and needs no corner-shape support
+   from the webview.
+
+   It is NOT a fifth radius. --radius-control: 6px already exists
+   (src/styles/tokens.css:139) and is already registered as a Tailwind
+   theme value (src/styles/index.css:117, so `rounded-control` works
+   today) — declared, retired, and used by nothing. .claude/DESIGN.md:797
+   files it as debt: "outlived its retirement note." The mini radius is
+   that token revived, which is why the value below is 6 and why the
+   amendment to DESIGN.md is a correction, not an addition. 6/8/10 are
+   drawn at true size for the ruling. */
+:root {
+  --capsule: var(--page);
+  --capsule-shadow: 0 1px 2px rgba(0, 0, 0, 0.10), 0 2px 6px rgba(0, 0, 0, 0.06);
+  --radius-mini: 6px;  /* = --radius-control, revived */
+}
+.dark {
+  --capsule: var(--tint);
+  --capsule-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+}
+.capsule-raised { background: var(--capsule); box-shadow: var(--capsule-shadow); border: 0; }
+
+/* ── The segmented track ──
+   Moved here from topnav-iterated.html 2026-08-23 so the summary strip's
+   chip row can be the same control rather than a second one that looks
+   like it. Option B is the only survivor, so .track carries its shape
+   directly and there are no A/C variants left to switch between. */
+.track-wrap { padding: 14px 18px 6px; }
+.track { position: relative; display: inline-flex; gap: 0; padding: 4px; max-width: 100%; border-radius: var(--radius-pill); background: var(--plane); border: 1px solid var(--line); overflow-x: auto; scrollbar-width: none; }
+.track::-webkit-scrollbar { display: none; }
+.track > button { position: relative; z-index: 1; height: 28px; padding: 0 16px; border-radius: var(--radius-pill); font-family: var(--font-flex); font-size: var(--fs-small); color: var(--ink-2); display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; flex-shrink: 0; transition: color var(--dur-nav) var(--spring); }
+.track > button:hover { color: var(--ink-1); }
+.track > button:focus-visible { outline: 2px solid var(--line-2); outline-offset: -2px; }
+.track > button b { font-size: var(--fs-micro); color: var(--ink-3); font-variant-numeric: tabular-nums; transition: color var(--dur-nav) var(--spring); }
+.track > button[aria-selected="true"] { color: var(--ink-1); }
+.track > button[aria-selected="true"] b { color: var(--ink-2); }
+/* Scoped to .track deliberately. As a bare `.ind` this rule reached the
+   inspector's tab underline too and pinned it to the TOP of the tab row:
+   `top: 0` here versus `bottom: -1px` there is over-constrained, and top
+   wins. It also lent a 2px bar a pill radius and a capsule shadow. */
+.track .ind { position: absolute; top: 0; left: 0; width: 0; height: 28px; border-radius: var(--radius-pill); background: var(--capsule); box-shadow: var(--capsule-shadow); border: 0; }
+.track.ready .ind { transition: left var(--dur-nav) var(--spring), width var(--dur-nav) var(--spring); }
+
+/* ── Section format (Karthik, 2026-08-22) ──
+   Moved here from inspector-iterated.html 2026-08-23: the map's placecards
+   take the same format, and two copies is how they drift apart. An eyebrow,
+   then ONE bordered card whose rows are icon · label · right-aligned value.
+   The divider lives on .row + .row, so a one-row card carries none and the
+   last row never does. margin and flex-wrap are restated because a page's
+   own outer .row (the review layout) would otherwise leak into these rows.
+   .v and .vw are scoped under .lc on purpose — a bare `.ind` in this file
+   reached the inspector's tab underline and pinned it to the top of the
+   row, and one-letter class names in a shared sheet are that bug waiting. */
+.lc { border: 1px solid var(--line); border-radius: var(--radius-inner); background: var(--page); overflow: hidden; }
+.lc .row { display: flex; align-items: center; gap: 10px; padding: 9px 12px; min-height: 36px; font-size: var(--fs-small); color: var(--ink-1); margin: 0; flex-wrap: nowrap; }
+.lc .row + .row { border-top: 1px solid var(--line); }
+.lc .row.stack { align-items: flex-start; flex-direction: column; gap: 3px; }
+.lc .row.stack .ln { display: flex; align-items: center; gap: 8px; align-self: stretch; min-width: 0; }
+.lc .lcb { padding: 12px; border-top: 1px solid var(--line); }
+.lc .ri { width: 14px; height: 14px; flex-shrink: 0; color: var(--ink-3); }
+.lc .v { margin-left: auto; font-family: var(--font-mono); font-size: var(--fs-micro); color: var(--ink-3); }
+.lc .vw { margin-left: auto; }
+
+/* ── Mini action set (Karthik's reference, 2026-08-22) ──
+   Equal outlined buttons, icon + label. Its own control class rather than a
+   .btn variant — .btn is medium weight and the set is regular, which a
+   page's body weight gives for free. The radius is the ruling of
+   2026-08-23: --radius-mini (= --radius-control revived), never the pill
+   that .btn keeps. Tone is the header's business only; in-section sets stay
+   equal and outlined. */
+.mini-set { display: flex; flex-wrap: wrap; gap: 6px; }
+.mini { height: 26px; padding: 0 10px; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; font-size: var(--fs-small); color: var(--ink-1); border: 1px solid var(--line-2); border-radius: var(--radius-mini); background: var(--page); transition: background-color var(--dur-hover) var(--spring); }
+.mini:hover { background: var(--plane-2); }
+.mini.fill { background: var(--fill); color: var(--on-fill); border-color: transparent; }
+.mini.fill:hover { background: var(--fill); }
+.mini.tonal { background: var(--plane-2); border-color: transparent; }
+.mini.tonal:hover { background: var(--tint); }
+.mini[aria-expanded="true"] { background: var(--plane-2); }
+
+/* Map ground — LinkMapPane.tsx:352-357, a dot grid painted from --line */
+.map-ground { background-color: var(--page); background-image: radial-gradient(var(--line) 1px, transparent 1px); background-size: 24px 24px; }
+
+/* ── Review chrome (not part of the design): page title, option labels, the dark toggle ── */
+.review-title { font-size: var(--fs-lg); font-weight: var(--fw-medium); margin-bottom: 4px; }
+.review-note { font-size: var(--fs-small); color: var(--ink-2); max-width: 72ch; line-height: 1.55; margin-bottom: 18px; }
+.review-note code { background: var(--plane); padding: 1px 5px; border-radius: 4px; font-size: var(--fs-micro); }
+.option { margin: 28px 0 12px; display: flex; align-items: baseline; gap: 10px; }
+.option h2 { font-size: var(--fs-base); font-weight: var(--fw-medium); }
+.option span { font-size: var(--fs-small); color: var(--ink-3); }
+.sample { position: absolute; right: 14px; bottom: 10px; font-family: var(--font-flex); font-size: var(--fs-micro); color: var(--ink-3); letter-spacing: .06em; text-transform: uppercase; pointer-events: none; }
+.toggle-bar { position: fixed; top: 12px; right: 16px; display: flex; gap: 8px; z-index: 100; }
+.annot { font-family: var(--font-flex); font-size: var(--fs-micro); color: var(--ink-3); border: 1px dashed var(--line-2); border-radius: var(--radius-inner); padding: 6px 10px; line-height: 1.5; }
+.annot b { color: var(--ink-1); font-weight: var(--fw-medium); }
+
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition: none !important; animation: none !important; } }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   ANIMATED ICON VOCABULARY — v5
+   ══════════════════════════════════════════════════════════════════════════
+
+   Geometry is Lucide (ISC, already a dependency at lucide-react ^0.470.0).
+   Motion is re-implemented here in CSS rather than lifted from a Motion-
+   driven library, for three reasons established 2026-08-24:
+
+   1. LICENCE. animate-ui is MIT + Commons Clause ("do not ... redistribute
+      the components themselves in their original form"). Hanger is a public
+      MIT repo, so vendoring that source is not available to us. Lucide's
+      geometry is ISC and pqoqubbw/icons (MIT) is a motion reference only.
+   2. NO NEW DEPENDENCY. The app ships zero animation libraries; every beat
+      is CSS (--spring, three durations, four @utility keyframes).
+   3. REDUCED MOTION FOR FREE. index.css:208-215 kills animation with
+      `animation: none !important` on `*`. That shorthand resets the
+      longhands below, so every motion here is removed under
+      prefers-reduced-motion without a single hand-wired hook. A JS
+      animation library writes inline styles and would escape that rule
+      entirely — 35 sites would each need useReducedMotion().
+
+   WHY LUCIDE AND NOT HEROICONS. Heroicons 24/outline ship ONE compound
+   <path> per mark: ExclamationCircle is 1 element, ArrowPath is 1 element
+   holding 3 subpaths inside a single `d` string, GlobeAlt 1 element holding
+   4. CSS cannot select a subpath — there is no node. So Heroicons support
+   whole-mark rotate/fade/scale and nothing else. Lucide ships element
+   arrays (disc-3 = 4, folder-sync = 5, waypoints = 7, radar = 8), which is
+   what per-element motion requires. The family rule therefore becomes
+   "animated ⇒ Lucide", which a guard can check, unlike the current
+   "lucide where Heroicons has no equivalent" (a judgement call that has
+   already drifted: icons.tsx:11 says six marks, DESIGN.md:234 says four,
+   the code exports seven).
+
+   THE TWO-RULE SYSTEM (Karthik, 2026-08-24). Motion carries meaning, so it
+   is not applied uniformly:
+
+     .aim-loop   ACTIVE  — something is happening right now. Loops until it
+                           stops. "Scanning your machine", "Linking…".
+     .aim-once   RESTING — a finding. Plays once on mount and holds. The
+                           still frame IS the message: nothing is running.
+                           "Nothing in the global store yet".
+
+   Applying a loop to a resting state animates a conclusion, which is why
+   the two are separate classes rather than one default.
+   ────────────────────────────────────────────────────────────────────── */
+
+/* Base mark. Lucide's own render contract: 24 grid, stroke 2, round joins.
+   `stroke-width` is stated here rather than per-size because these marks do
+   NOT pass through icons.tsx sized(); when they land in the app they will,
+   and strokeFor() will take over. See 00-state-inventory.md. */
+/* NOTE: stroke-width is deliberately NOT set here. It is emitted as a
+   presentation attribute per <svg>, from the app's own strokeFor() table
+   (icons.tsx:76-81) — 2.2 at <=12, 1.9 at <=16, 1.7 at <=20, 1.5 above. A
+   CSS declaration would override that attribute (presentation attributes sit
+   below author CSS in the cascade) and every mark would render at one weight,
+   which is precisely the thing the app corrects for. */
+.aim { display: block; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; }
+
+/* Every motion lives on a <g> inside the svg, never on the svg itself, so a
+   sub-group can move while the rest of the mark holds still (folder-sync's
+   arrows, layers' sheets).
+
+   ORIGIN. Default is 12px 12px — the exact centre of Lucide's 24 grid, and
+   the right answer for any whole-mark rotate, because Lucide draws its marks
+   centred. It is the WRONG answer for a sub-group that does not sit at the
+   centre: folder-sync's arrows span x 12-22, y 10-22, so their own centre is
+   (17, 16), and rotating them about (12, 12) swings them through a wide arc
+   instead of spinning them in place. Motion avoids this by defaulting to each
+   element's own bounding box; we make it explicit instead, via --ox/--oy on
+   the group, so the value is visible and editable in the markup rather than
+   inferred at runtime. Set it whenever a sub-group is off-centre. */
+.aim g[class*="aim-"] { transform-box: view-box; transform-origin: var(--ox, 12px) var(--oy, 12px); }
+
+/* ── The four motions ────────────────────────────────────────────────────
+   Longhand, never the `animation` shorthand: .aim-loop / .aim-once compose
+   on top by setting iteration-count and fill-mode, and a shorthand here
+   would reset them. */
+
+/* 1 — ROTATE. disc-3 scanning, refresh-cw rescan, folder-sync arrows. */
+@keyframes aim-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+.aim-spin { animation-name: aim-spin; animation-duration: 1s; animation-timing-function: linear; }
+/* Counter-clockwise, for marks whose arrowhead points that way. `rotate-ccw`
+   spun clockwise reads as an arrow travelling backwards along its own path —
+   the geometry states a direction and the motion must agree with it. */
+@keyframes aim-spin-ccw { from { transform: rotate(0deg); } to { transform: rotate(-360deg); } }
+.aim-spin-ccw { animation-name: aim-spin-ccw; animation-duration: 1s; animation-timing-function: linear; }
+
+/* 2 — PATH DRAW. Requires pathLength="1" on the element, which normalises
+   any path to a 0-1 scale — the SVG-native equivalent of Motion's
+   pathLength, and the reason this needs no measurement per mark. */
+@keyframes aim-draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+.aim-draw { stroke-dasharray: 1; animation-name: aim-draw; animation-duration: .7s; animation-timing-function: var(--spring); }
+
+/* 3 — STAGGER. Per-element delay from an inline --i index. waypoints' seven
+   elements cascade; radar's eight sweep. */
+.aim-stagger > * { animation-delay: calc(var(--i, 0) * 110ms); }
+
+/* 4 — TRANSLATE a sub-path. layers' sheets separating, search's wander. */
+@keyframes aim-lift { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-1.5px); } }
+.aim-lift { animation-name: aim-lift; animation-duration: 1.6s; animation-timing-function: var(--spring); }
+@keyframes aim-seek { 0%, 100% { transform: translate(0, 0); } 25% { transform: translate(1.5px, -1px); } 50% { transform: translate(-1px, 1.5px); } 75% { transform: translate(1px, 1px); } }
+.aim-seek { animation-name: aim-seek; animation-duration: 2.2s; animation-timing-function: var(--spring); }
+
+/* 5 — RELAY. Two sub-groups trading emphasis, out of phase. Lucide's `server`
+   is two racks; dimming them alternately reads as traffic moving between them,
+   which is what an MCP probe is.
+
+   WHY NOT TRANSLATION. pqoqubbw slide the racks past each other
+   (y: [0, 12, 12, 0]). That is authored for HOVER, where you see the transit
+   once. Looped it fails twice over, and the sizes decide it:
+     - The gap between racks is 4 units (y=10 to y=14). A travel of 12 sends
+       them clean through one another, and at the midpoint the mark collapses
+       into a single bar — twice per cycle it stops being a server.
+     - The largest travel that never overlaps is 1.5 units. At size 12 that is
+       0.75px. Rendered side by side against the rest position it is
+       indistinguishable, so the motion may as well not exist.
+   Opacity has no such floor: it reads the same at 12 as at 40. Verified by
+   rendering all three at 12, 13 and 40 before choosing.
+
+   GENERAL RULE. A motion authored for hover-once does not automatically
+   survive being looped, and a translation small enough to be safe is often
+   too small to be seen. Prefer opacity or rotation for continuous states at
+   inline sizes; save translation for marks with room to move. */
+@keyframes aim-relay { 0%, 100% { opacity: 1; } 50% { opacity: .25; } }
+.aim-relay { animation-name: aim-relay; animation-duration: 1.2s; animation-timing-function: ease-in-out; }
+
+/* 6 — BURST. A click's spark lines radiating from the cursor tip, once.
+   Lucide's `mouse-pointer-click` (pqoqubbw calls it `cursor-click`) is four
+   spark lines plus the cursor itself; the cursor holds and only the sparks
+   move, scaling out from the tip at (9.3, 9.3). The delay lets the mark
+   settle before it fires, so it reads as "arrive, then click" rather than as
+   a mark that was mid-animation when you got there. */
+@keyframes aim-burst {
+  0%   { opacity: 0; transform: scale(.5); }
+  55%  { opacity: 1; }
+  100% { opacity: 1; transform: scale(1); }
+}
+.aim-burst { animation-name: aim-burst; animation-duration: .5s; animation-timing-function: var(--spring); animation-delay: .35s; }
+
+/* 7 — SCAN. A line erasing and redrawing, looped. Lucide's `file-text` is a
+   page plus three text lines; pulsing only the lines, staggered, reads as the
+   file being read line by line. pqoqubbw does the same with
+   pathLength: [1, 0, 1]. The page itself never moves — the document is not
+   going anywhere, the reading is. */
+@keyframes aim-scan { 0%, 100% { stroke-dashoffset: 0; } 50% { stroke-dashoffset: 1; } }
+.aim-scan { stroke-dasharray: 1; animation-name: aim-scan; animation-duration: 1.4s; animation-timing-function: ease-in-out; }
+
+/* Breathing — the resting-but-waiting case ("Not scanned yet"). Deliberately
+   opacity only: nothing moves, because nothing is moving. */
+@keyframes aim-breathe { 0%, 100% { opacity: 1; } 50% { opacity: .45; } }
+.aim-breathe { animation-name: aim-breathe; animation-duration: 2.4s; animation-timing-function: ease-in-out; }
+
+/* ── The two rules ─────────────────────────────────────────────────────── */
+.aim-loop { animation-iteration-count: infinite; }
+/* `both`, not `forwards`: an animation with a delay must also hold its 0%
+   frame BEFORE it starts, or aim-burst's sparks sit visible for 350ms and
+   then jump to invisible when the animation begins. */
+.aim-once { animation-iteration-count: 1; animation-fill-mode: both; }
+
+/* ── Empty / pending plane — RepoPane.tsx:313 emptyPlaneClass, verbatim:
+   "flex-1 mx-[18px] mb-[18px] min-h-0 flex flex-col items-center
+   justify-center text-center border border-dashed border-line
+   rounded-plane" ── */
+.plane { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; border: 1px dashed var(--line); border-radius: var(--radius-plane); padding: 40px 24px; min-height: 208px; }
+.plane .mark { color: var(--ink-3); margin-bottom: 8px; }
+.plane .head { font-size: var(--fs-base); font-weight: var(--fw-medium); color: var(--ink-1); }
+.plane .sub { font-size: var(--fs-small); color: var(--ink-3); max-width: 24rem; margin-top: 4px; line-height: 1.55; }
+.plane .meta { font-size: var(--fs-micro); color: var(--ink-3); margin-top: 8px; }
+.plane .btn { margin-top: 16px; }
+
+/* ── Review chrome for this page only ── */
+.fam { margin: 40px 0 0; }
+.fam > h2 { font-size: var(--fs-lg); font-weight: var(--fw-medium); margin-bottom: 2px; }
+.fam > p { font-size: var(--fs-small); color: var(--ink-2); max-width: 74ch; line-height: 1.6; margin-bottom: 6px; }
+.grid2 { display: grid; grid-template-columns: repeat(auto-fill, minmax(452px, 1fr)); gap: 18px; margin-top: 18px; }
+.state { border: 1px solid var(--line); border-radius: var(--radius-plane); padding: 14px; background: var(--page); }
+.state > header { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+.state > header .src { font-family: var(--font-mono); font-size: var(--fs-micro); color: var(--ink-3); }
+.tag { font-family: var(--font-flex); font-size: var(--fs-micro); font-weight: var(--fw-medium); letter-spacing: .06em; text-transform: uppercase; padding: 2px 7px; border-radius: var(--radius-pill); }
+.tag.current  { background: var(--plane); color: var(--ink-3); }
+.tag.proposed { background: var(--tint); color: var(--tint-ink); }
+.tag.loop     { background: var(--plane); color: var(--state-success); }
+.tag.once     { background: var(--plane); color: var(--ink-2); }
+.tag.newicon  { background: var(--plane); color: var(--state-warning); }
+/* Candidate strip — alternates at true size, so a mark is judged at the
+   size it ships at, never scaled up for review. */
+.alts { display: flex; align-items: flex-end; gap: 14px; margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--line); flex-wrap: wrap; }
+.alts > div { display: flex; flex-direction: column; align-items: center; gap: 5px; color: var(--ink-3); }
+.alts .nm { font-family: var(--font-mono); font-size: 10px; color: var(--ink-3); }
+.alts .nm.pick { color: var(--ink-1); font-weight: var(--fw-medium); }
+.inline-row { display: flex; align-items: center; gap: 8px; font-size: var(--fs-small); color: var(--ink-3); padding: 9px 0; }
+.legend { display: flex; gap: 18px; flex-wrap: wrap; margin: 14px 0 0; padding: 12px 14px; border: 1px solid var(--line); border-radius: var(--radius-inner); background: var(--plane); font-size: var(--fs-small); color: var(--ink-2); }
+.legend div { display: flex; align-items: center; gap: 7px; }

@@ -1,0 +1,1540 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Animated icons — state kitchen sink</title>
+<link rel="stylesheet" href="_proto.css">
+</head>
+<body>
+<div class="toggle-bar">
+  <button class="btn" id="dark" type="button">Dark
+  </button>
+</div>
+<h1 class="review-title">Animated icons &mdash; state kitchen sink
+</h1>
+<p class="review-note">Every empty, pending and loading state in the app, in one page, at true size. Geometry is <b>Lucide</b> (ISC, already a dependency); motion is CSS, re-implemented in <code>_proto.css</code> &mdash; no <code>motion</code> package, and <code>prefers-reduced-motion</code> removes all of it for free. Colours, sizes, radii and beats come from the running app&rsquo;s own <code>tokens.css</code>, so light and dark are real.
+</p>
+<p class="review-note"><b>To swap a mark:</b> replace the inline <code>&lt;svg&gt;</code> paths for that state and keep its motion class. The class vocabulary is what ports into <code>index.css</code> later &mdash; the geometry is what you are choosing here.
+</p>
+<div class="legend">
+  <div><span class="tag loop">loop</span> Active &mdash; something is happening. Runs until it stops.
+  </div>
+  <div><span class="tag once">once</span> Resting &mdash; a finding. Plays once, then holds still.
+  </div>
+  <div><span class="tag current">current</span> The mark that ships today.
+  </div>
+  <div><span class="tag proposed">proposed</span> A change to an existing mark.
+  </div>
+  <div><span class="tag newicon">new</span> This state has <b>no icon at all</b> today.
+  </div>
+</div>
+<section class="fam">
+  <h2>1 &mdash; Whole-pane pending
+  </h2>
+  <p>Five sites. All gate on <code>scannedAt !== null</code>: an empty store before the first scan is a pending plane, never a finding. Each has two variants &mdash; a scan running (<b>loop</b>), and no scan running (<b>rest</b>). The rest variant takes a <b>different mark</b> &mdash; <code>folder-clock</code> (Karthik, 2026-08-24), its hands sweeping once and stopping. An earlier draft held the scanning mark still instead; naming the waiting explicitly beats a stopped record, which reads as a rendering fault rather than a statement.
+  </p>
+  <div class="grid2">
+    <div class="state">
+      <header><b style="font-size:var(--fs-small)">Global store &mdash; scanning</b><span class="tag current">Spinner @40</span><span class="tag proposed">disc-3</span><span class="tag loop">loop</span><span class="src">ProfilePane.tsx:812-822</span>
+      </header>
+      <div class="plane"><span class="mark">
+        <svg class="aim" width="40" height="40" viewBox="0 0 24 24" stroke-width="1.5" aria-hidden="true">
+          <circle cx="12" cy="12" r="10"/>
+          <circle cx="12" cy="12" r="2"/>
+          <g class="aim-spin aim-loop">
+            <path d="M6 12c0-1.7.7-3.2 1.8-4.2"/>
+            <path d="M18 12c0 1.7-.7 3.2-1.8 4.2"/>
+          </g>
+        </svg></span><span class="head">Scanning your machine</span><span class="sub">Assets in the global store show up here once the scan finishes.</span>
+      </div>
+      <div class="alts">
+        <div>
+          <svg class="aim" width="40" height="40" viewBox="0 0 24 24" stroke-width="1.5" aria-hidden="true">
+            <circle cx="12" cy="12" r="10"/>
+            <circle cx="12" cy="12" r="2"/>
+            <g class="aim-spin aim-loop">
+              <path d="M6 12c0-1.7.7-3.2 1.8-4.2"/>
+              <path d="M18 12c0 1.7-.7 3.2-1.8 4.2"/>
+            </g>
+          </svg><span class="nm pick">disc-3</span>
+        </div>
+        <div>
+          <svg class="aim" width="40" height="40" viewBox="0 0 24 24" stroke-width="1.5" aria-hidden="true">
+            <g class="aim-spin aim-loop">
+              <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+            </g>
+          </svg><span class="nm">loader-circle</span>
+        </div>
+        <div>
+          <svg class="aim" width="40" height="40" viewBox="0 0 24 24" stroke-width="1.5" aria-hidden="true">
+            <g class="aim-draw aim-loop aim-stagger">
+              <path d="M3 7V5a2 2 0 0 1 2-2h2" pathLength="1" style="--i:0"/>
+              <path d="M17 3h2a2 2 0 0 1 2 2v2" pathLength="1" style="--i:1"/>
+              <path d="M21 17v2a2 2 0 0 1-2 2h-2" pathLength="1" style="--i:2"/>
+              <path d="M7 21H5a2 2 0 0 1-2-2v-2" pathLength="1" style="--i:3"/>
+              <circle cx="12" cy="12" r="3" pathLength="1" style="--i:4"/>
+              <path d="m16 16-1.9-1.9" pathLength="1" style="--i:5"/>
+            </g>
+          </svg><span class="nm">scan-search</span>
+        </div>
+      </div>
+    </div>
+    <div class="state">
+      <header><b style="font-size:var(--fs-small)">Global store &mdash; not scanned</b><span class="tag current">Spinner @40</span><span class="tag proposed">folder-clock</span><span class="tag once">rest</span><span class="src">ProfilePane.tsx:812-822 <i>(loading=false)</i></span>
+      </header>
+      <div class="plane"><span class="mark">
+        <svg class="aim" width="40" height="40" viewBox="0 0 24 24" stroke-width="1.5" aria-hidden="true">
+          <circle cx="16" cy="16" r="6"/>
+          <path d="M7 20H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H20a2 2 0 0 1 2 2"/>
+          <g class="aim-spin aim-once" style="--ox:16px;--oy:16px">
+            <path d="M16 14v2l1 1"/>
+          </g>
+        </svg></span><span class="head">Not scanned yet</span><span class="sub">Rescan when you&rsquo;re ready.</span>
+      </div>
+      <div class="alts">
+        <div>
+          <svg class="aim" width="40" height="40" viewBox="0 0 24 24" stroke-width="1.5" aria-hidden="true">
+            <circle cx="16" cy="16" r="6"/>
+            <path d="M7 20H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H20a2 2 0 0 1 2 2"/>
+            <g class="aim-spin aim-once" style="--ox:16px;--oy:16px">
+              <path d="M16 14v2l1 1"/>
+            </g>
+          </svg><span class="nm pick">folder-clock</span>
+        </div>
+        <div>
+          <svg class="aim" width="40" height="40" viewBox="0 0 24 24" stroke-width="1.5" aria-hidden="true">
+            <g class="aim-breathe aim-once">
+              <path d="M5 22h14"/>
+              <path d="M5 2h14"/>
+              <path d="M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22"/>
+              <path d="M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2"/>
+            </g>
+          </svg><span class="nm">hourglass</span>
+        </div>
+        <div>
+          <svg class="aim" width="40" height="40" viewBox="0 0 24 24" stroke-width="1.5" aria-hidden="true">
+            <circle cx="12" cy="12" r="10"/>
+            <circle cx="12" cy="12" r="2"/>
+            <g class="aim-spin aim-once">
+              <path d="M6 12c0-1.7.7-3.2 1.8-4.2"/>
+              <path d="M18 12c0 1.7-.7 3.2-1.8 4.2"/>
+            </g>
+          </svg><span class="nm">disc-3</span>
+        </div>
+      </div>
+    </div>
+    <div class="state">
+      <header><b style="font-size:var(--fs-small)">Global category &mdash; scanning</b><span class="tag current">Spinner @40</span><span class="tag proposed">disc-3</span><span class="tag loop">loop</span><span class="src">ProfilePane.tsx:869-877</span>
+      </header>
+      <div class="plane"><span class="mark">
+        <svg class="aim" width="40" height="40" viewBox="0 0 24 24" stroke-width="1.5" aria-hidden="true">
+          <circle cx="12" cy="12" r="10"/>
+          <circle cx="12" cy="12" r="2"/>
+          <g class="aim-spin aim-loop">
+            <path d="M6 12c0-1.7.7-3.2 1.8-4.2"/>
+            <path d="M18 12c0 1.7-.7 3.2-1.8 4.2"/>
+          </g>
+        </svg></span><span class="head">Scanning your machine</span><span class="sub">Skills show up here once the scan finishes.</span>
+      </div>
+    </div>
+    <div class="state">
+      <header><b style="font-size:var(--fs-small)">Repository &mdash; scanning</b><span class="tag current">Spinner @40</span><span class="tag proposed">folder-sync</span><span class="tag loop">loop</span><span class="src">RepoPane.tsx:476-486</span>
+      </header>
+      <div class="plane"><span class="mark">
+        <svg class="aim" width="40" height="40" viewBox="0 0 24 24" stroke-width="1.5" aria-hidden="true">
+          <path d="M9 20H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H20a2 2 0 0 1 2 2v.5"/>
+          <g class="aim-spin aim-loop" style="--ox:17px;--oy:16px">
+            <path d="M12 10v4h4"/>
+            <path d="m12 14 1.535-1.605a5 5 0 0 1 8 1.5"/>
+            <path d="M22 22v-4h-4"/>
+            <path d="m22 18-1.535 1.605a5 5 0 0 1-8-1.5"/>
+          </g>
+        </svg></span><span class="head">Scanning your machine</span><span class="sub">Assets in hanger-ai show up here once the scan finishes.</span>
+      </div>
+      <div class="alts">
+        <div>
+          <svg class="aim" width="40" height="40" viewBox="0 0 24 24" stroke-width="1.5" aria-hidden="true">
+            <path d="M9 20H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H20a2 2 0 0 1 2 2v.5"/>
+            <g class="aim-spin aim-loop" style="--ox:17px;--oy:16px">
+              <path d="M12 10v4h4"/>
+              <path d="m12 14 1.535-1.605a5 5 0 0 1 8 1.5"/>
+              <path d="M22 22v-4h-4"/>
+              <path d="m22 18-1.535 1.605a5 5 0 0 1-8-1.5"/>
+            </g>
+          </svg><span class="nm pick">folder-sync</span>
+        </div>
+        <div>
+          <svg class="aim" width="40" height="40" viewBox="0 0 24 24" stroke-width="1.5" aria-hidden="true">
+            <circle cx="12" cy="12" r="10"/>
+            <circle cx="12" cy="12" r="2"/>
+            <g class="aim-spin aim-loop">
+              <path d="M6 12c0-1.7.7-3.2 1.8-4.2"/>
+              <path d="M18 12c0 1.7-.7 3.2-1.8 4.2"/>
+            </g>
+          </svg><span class="nm">disc-3</span>
+        </div>
+        <div>
+          <svg class="aim" width="40" height="40" viewBox="0 0 24 24" stroke-width="1.5" aria-hidden="true">
+            <g class="aim-draw aim-loop aim-stagger">
+              <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" pathLength="1" style="--i:0"/>
+              <path d="M14 2v4a2 2 0 0 0 2 2h4" pathLength="1" style="--i:1"/>
+              <circle cx="11.5" cy="14.5" r="2.5" pathLength="1" style="--i:2"/>
+              <path d="M13.3 16.3 15 18" pathLength="1" style="--i:3"/>
+            </g>
+          </svg><span class="nm">file-search-2</span>
+        </div>
+      </div>
+    </div>
+    <div class="state">
+      <header><b style="font-size:var(--fs-small)">Repository &mdash; not scanned</b><span class="tag current">Spinner @40</span><span class="tag proposed">folder-clock</span><span class="tag once">rest</span><span class="src">RepoPane.tsx:476-486 <i>(loading=false)</i></span>
+      </header>
+      <div class="plane"><span class="mark">
+        <svg class="aim" width="40" height="40" viewBox="0 0 24 24" stroke-width="1.5" aria-hidden="true">
+          <circle cx="16" cy="16" r="6"/>
+          <path d="M7 20H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H20a2 2 0 0 1 2 2"/>
+          <g class="aim-spin aim-once" style="--ox:16px;--oy:16px">
+            <path d="M16 14v2l1 1"/>
+          </g>
+        </svg></span><span class="head">Not scanned yet</span><span class="sub">Rescan when you&rsquo;re ready.</span>
+      </div>
+    </div>
+    <div class="state">
+      <header><b style="font-size:var(--fs-small)">Repository category &mdash; scanning</b><span class="tag current">Spinner @40</span><span class="tag proposed">folder-sync</span><span class="tag loop">loop</span><span class="src">RepoPane.tsx:515-523</span>
+      </header>
+      <div class="plane"><span class="mark">
+        <svg class="aim" width="40" height="40" viewBox="0 0 24 24" stroke-width="1.5" aria-hidden="true">
+          <path d="M9 20H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H20a2 2 0 0 1 2 2v.5"/>
+          <g class="aim-spin aim-loop" style="--ox:17px;--oy:16px">
+            <path d="M12 10v4h4"/>
+            <path d="m12 14 1.535-1.605a5 5 0 0 1 8 1.5"/>
+            <path d="M22 22v-4h-4"/>
+            <path d="m22 18-1.535 1.605a5 5 0 0 1-8-1.5"/>
+          </g>
+        </svg></span><span class="head">Scanning this repository</span><span class="sub">MCP servers show up here once the scan finishes.</span>
+      </div>
+    </div>
+    <div class="state">
+      <header><b style="font-size:var(--fs-small)">Needs review &mdash; scanning</b><span class="tag newicon">no icon today</span><span class="tag proposed">disc-3</span><span class="tag loop">loop</span><span class="src">NeedsReviewPane.tsx:213-227</span>
+      </header>
+      <div class="plane"><span class="mark">
+        <svg class="aim" width="40" height="40" viewBox="0 0 24 24" stroke-width="1.5" aria-hidden="true">
+          <circle cx="12" cy="12" r="10"/>
+          <circle cx="12" cy="12" r="2"/>
+          <g class="aim-spin aim-loop">
+            <path d="M6 12c0-1.7.7-3.2 1.8-4.2"/>
+            <path d="M18 12c0 1.7-.7 3.2-1.8 4.2"/>
+          </g>
+        </svg></span><span class="head">Scanning your machine</span><span class="sub">Anything that needs a decision shows up here once the scan finishes.</span>
+      </div>
+    </div>
+    <div class="state">
+      <header><b style="font-size:var(--fs-small)">Needs review &mdash; not scanned</b><span class="tag newicon">no icon today</span><span class="tag proposed">folder-clock</span><span class="tag once">rest</span><span class="src">NeedsReviewPane.tsx:213-227</span>
+      </header>
+      <div class="plane"><span class="mark">
+        <svg class="aim" width="40" height="40" viewBox="0 0 24 24" stroke-width="1.5" aria-hidden="true">
+          <circle cx="16" cy="16" r="6"/>
+          <path d="M7 20H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H20a2 2 0 0 1 2 2"/>
+          <g class="aim-spin aim-once" style="--ox:16px;--oy:16px">
+            <path d="M16 14v2l1 1"/>
+          </g>
+        </svg></span><span class="head">Not scanned yet</span><span class="sub">Rescan when you&rsquo;re ready.</span>
+      </div>
+    </div>
+  </div>
+</section>
+<section class="fam">
+  <h2>2 &mdash; Whole-pane empty <span style="font-weight:400;color:var(--ink-3);font-size:var(--fs-small)">&mdash; a finding</span>
+  </h2>
+  <p>Ten sites. Every one of these is an <i>answer</i>: the scan finished and this is what it found. So every one plays once and holds &mdash; a looping mark here would animate a conclusion. Four of them carry no icon at all today; those are drawn as proposals.
+  </p>
+  <div class="grid2">
+    <div class="state">
+      <header><b style="font-size:var(--fs-small)">Global &mdash; engines present, nothing tracked</b><span class="tag current">ExclamationCircle @40</span><span class="tag proposed">package-open</span><span class="tag once">rest</span><span class="src">ProfilePane.tsx:823-843</span>
+      </header>
+      <div class="plane"><span class="mark">
+        <svg class="aim" width="40" height="40" viewBox="0 0 24 24" stroke-width="1.5" aria-hidden="true">
+          <g class="aim-draw aim-once aim-stagger">
+            <path d="M12 22v-9" pathLength="1" style="--i:0"/>
+            <path d="M15.17 2.21a1.67 1.67 0 0 1 1.63 0L21 4.57a1.93 1.93 0 0 1 0 3.36L8.82 14.79a1.655 1.655 0 0 1-1.64 0L3 12.43a1.93 1.93 0 0 1 0-3.36z" pathLength="1" style="--i:1"/>
+            <path d="M20 13v3.87a2.06 2.06 0 0 1-1.11 1.83l-6 3.08a1.93 1.93 0 0 1-1.78 0l-6-3.08A2.06 2.06 0 0 1 4 16.87V13" pathLength="1" style="--i:2"/>
+            <path d="M21 12.43a1.93 1.93 0 0 0 0-3.36L8.83 2.2a1.64 1.64 0 0 0-1.63 0L3 4.57a1.93 1.93 0 0 0 0 3.36l12.18 6.86a1.636 1.636 0 0 0 1.63 0z" pathLength="1" style="--i:3"/>
+          </g>
+        </svg></span><span class="head">Nothing in the global store yet</span><span class="sub">Claude Code and Codex are here, but their global folders hold no skills, rules, MCP servers or subagents yet. Discovery lists places to find some.</span>
+      </div>
+      <div class="alts">
+        <div>
+          <svg class="aim" width="40" height="40" viewBox="0 0 24 24" stroke-width="1.5" aria-hidden="true">
+            <g class="aim-draw aim-once aim-stagger">
+              <path d="M12 22v-9" pathLength="1" style="--i:0"/>
+              <path d="M15.17 2.21a1.67 1.67 0 0 1 1.63 0L21 4.57a1.93 1.93 0 0 1 0 3.36L8.82 14.79a1.655 1.655 0 0 1-1.64 0L3 12.43a1.93 1.93 0 0 1 0-3.36z" pathLength="1" style="--i:1"/>
+              <path d="M20 13v3.87a2.06 2.06 0 0 1-1.11 1.83l-6 3.08a1.93 1.93 0 0 1-1.78 0l-6-3.08A2.06 2.06 0 0 1 4 16.87V13" pathLength="1" style="--i:2"/>
+              <path d="M21 12.43a1.93 1.93 0 0 0 0-3.36L8.83 2.2a1.64 1.64 0 0 0-1.63 0L3 4.57a1.93 1.93 0 0 0 0 3.36l12.18 6.86a1.636 1.636 0 0 0 1.63 0z" pathLength="1" style="--i:3"/>
+            </g>
+          </svg><span class="nm pick">package-open</span>
+        </div>
+        <div>
+          <svg class="aim" width="40" height="40" viewBox="0 0 24 24" stroke-width="1.5" aria-hidden="true">
+            <g class="aim-draw aim-once aim-stagger">
+              <polyline points="22 12 16 12 14 15 10 15 8 12 2 12" pathLength="1" style="--i:0"/>
+              <path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" pathLength="1" style="--i:1"/>
+            </g>
+          </svg><span class="nm">inbox</span>
+        </div>
+        <div>
+          <svg class="aim" width="40" height="40" viewBox="0 0 24 24" stroke-width="1.5" aria-hidden="true">
+            <g class="aim-draw aim-once aim-stagger">
+              <rect width="20" height="5" x="2" y="3" rx="1" pathLength="1" style="--i:0"/>
+              <path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8" pathLength="1" style="--i:1"/>
+              <path d="M10 12h4" pathLength="1" style="--i:2"/>
+            </g>
+          </svg><span class="nm">archive</span>
+        </div>
+        <div>
+          <svg class="aim" width="40" height="40" viewBox="0 0 24 24" stroke-width="1.5" aria-hidden="true">
+            <g class="aim-draw aim-once aim-stagger">
+              <path d="M2.97 12.92A2 2 0 0 0 2 14.63v3.24a2 2 0 0 0 .97 1.71l3 1.8a2 2 0 0 0 2.06 0L12 19v-5.5l-5-3-4.03 2.42Z" pathLength="1" style="--i:0"/>
+              <path d="m7 16.5-4.74-2.85" pathLength="1" style="--i:1"/>
+              <path d="m7 16.5 5-3" pathLength="1" style="--i:2"/>
+              <path d="M7 16.5v5.17" pathLength="1" style="--i:3"/>
+              <path d="M12 13.5V19l3.97 2.38a2 2 0 0 0 2.06 0l3-1.8a2 2 0 0 0 .97-1.71v-3.24a2 2 0 0 0-.97-1.71L17 10.5l-5 3Z" pathLength="1" style="--i:4"/>
+              <path d="m17 16.5-5-3" pathLength="1" style="--i:5"/>
+              <path d="m17 16.5 4.74-2.85" pathLength="1" style="--i:6"/>
+              <path d="M17 16.5v5.17" pathLength="1" style="--i:7"/>
+              <path d="M7.97 4.42A2 2 0 0 0 7 6.13v4.37l5 3 5-3V6.13a2 2 0 0 0-.97-1.71l-3-1.8a2 2 0 0 0-2.06 0l-3 1.8Z" pathLength="1" style="--i:8"/>
+              <path d="M12 8 7.26 5.15" pathLength="1" style="--i:9"/>
+              <path d="m12 8 4.74-2.85" pathLength="1" style="--i:10"/>
+              <path d="M12 13.5V8" pathLength="1" style="--i:11"/>
+            </g>
+          </svg><span class="nm">boxes</span>
+        </div>
+      </div>
+    </div>
+    <div class="state">
+      <header><b style="font-size:var(--fs-small)">Global &mdash; no engine folders</b><span class="tag current">ExclamationCircle @40</span><span class="tag proposed">folder-x</span><span class="tag once">rest</span><span class="src">ProfilePane.tsx:844-857</span>
+      </header>
+      <div class="plane"><span class="mark">
+        <svg class="aim" width="40" height="40" viewBox="0 0 24 24" stroke-width="1.5" aria-hidden="true">
+          <path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>
+          <g class="aim-draw aim-once aim-stagger">
+            <path d="m9.5 10.5 5 5" pathLength="1" style="--i:0"/>
+            <path d="m14.5 10.5-5 5" pathLength="1" style="--i:1"/>
+          </g>
+        </svg></span><span class="head">No engine folders on this machine yet</span><span class="sub">Hanger looks in your home directory for the folders Claude Code, Codex and Gemini keep there, and found none. Run one of them once, then rescan.</span>
+      </div>
+      <div class="alts">
+        <div>
+          <svg class="aim" width="40" height="40" viewBox="0 0 24 24" stroke-width="1.5" aria-hidden="true">
+            <path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>
+            <g class="aim-draw aim-once aim-stagger">
+              <path d="m9.5 10.5 5 5" pathLength="1" style="--i:0"/>
+              <path d="m14.5 10.5-5 5" pathLength="1" style="--i:1"/>
+            </g>
+          </svg><span class="nm pick">folder-x</span>
+        </div>
+        <div>
+          <svg class="aim" width="40" height="40" viewBox="0 0 24 24" stroke-width="1.5" aria-hidden="true">
+            <g class="aim-draw aim-once">
+              <path d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2" pathLength="1"/>
+            </g>
+          </svg><span class="nm">folder-open</span>
+        </div>
+        <div>
+          <svg class="aim" width="40" height="40" viewBox="0 0 24 24" stroke-width="1.5" aria-hidden="true">
+            <g class="aim-draw aim-once aim-stagger">
+              <path d="m10.065 12.493-6.18 1.318a.934.934 0 0 1-1.108-.702l-.537-2.15a1.07 1.07 0 0 1 .691-1.265l13.504-4.44" pathLength="1" style="--i:0"/>
+              <path d="m13.56 11.747 4.332-.924" pathLength="1" style="--i:1"/>
+              <path d="m16 21-3.105-6.21" pathLength="1" style="--i:2"/>
+              <path d="M16.485 5.94a2 2 0 0 1 1.455-2.425l1.09-.272a1 1 0 0 1 1.212.727l1.515 6.06a1 1 0 0 1-.727 1.213l-1.09.272a2 2 0 0 1-2.425-1.455z" pathLength="1" style="--i:3"/>
+              <path d="m6.158 8.633 1.114 4.456" pathLength="1" style="--i:4"/>
+              <path d="m8 21 3.105-6.21" pathLength="1" style="--i:5"/>
+              <circle cx="12" cy="13" r="2" pathLength="1" style="--i:6"/>
+            </g>
+          </svg><span class="nm">telescope</span>
+        </div>
+      </div>
+    </div>
+    <div class="state">
+      <header><b style="font-size:var(--fs-small)">Repository &mdash; empty</b><span class="tag current">InformationCircle @40</span><span class="tag proposed">folder-plus</span><span class="tag once">rest</span><span class="src">RepoPane.tsx:487-505</span>
+      </header>
+      <div class="plane"><span class="mark">
+        <svg class="aim" width="40" height="40" viewBox="0 0 24 24" stroke-width="1.5" aria-hidden="true">
+          <path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>
+          <g class="aim-draw aim-once aim-stagger">
+            <path d="M12 10v6" pathLength="1" style="--i:0"/>
+            <path d="M9 13h6" pathLength="1" style="--i:1"/>
+          </g>
+        </svg></span><span class="head">Nothing in hanger-ai yet</span><span class="sub">Hanger found no skills, rules, MCP servers or subagents in this repository. Link one from the global store, or add files here and rescan.</span>
+        <button class="btn fill">Link an asset from Global
+        </button>
+      </div>
+      <div class="alts">
+        <div>
+          <svg class="aim" width="40" height="40" viewBox="0 0 24 24" stroke-width="1.5" aria-hidden="true">
+            <path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>
+            <g class="aim-draw aim-once aim-stagger">
+              <path d="M12 10v6" pathLength="1" style="--i:0"/>
+              <path d="M9 13h6" pathLength="1" style="--i:1"/>
+            </g>
+          </svg><span class="nm pick">folder-plus</span>
+        </div>
+        <div>
+          <svg class="aim" width="40" height="40" viewBox="0 0 24 24" stroke-width="1.5" aria-hidden="true">
+            <g class="aim-draw aim-once">
+              <path d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2" pathLength="1"/>
+            </g>
+          </svg><span class="nm">folder-open</span>
+        </div>
+        <div>
+          <svg class="aim" width="40" height="40" viewBox="0 0 24 24" stroke-width="1.5" aria-hidden="true">
+            <g class="aim-draw aim-once aim-stagger">
+              <path d="M12 22v-9" pathLength="1" style="--i:0"/>
+              <path d="M15.17 2.21a1.67 1.67 0 0 1 1.63 0L21 4.57a1.93 1.93 0 0 1 0 3.36L8.82 14.79a1.655 1.655 0 0 1-1.64 0L3 12.43a1.93 1.93 0 0 1 0-3.36z" pathLength="1" style="--i:1"/>
+              <path d="M20 13v3.87a2.06 2.06 0 0 1-1.11 1.83l-6 3.08a1.93 1.93 0 0 1-1.78 0l-6-3.08A2.06 2.06 0 0 1 4 16.87V13" pathLength="1" style="--i:2"/>
+              <path d="M21 12.43a1.93 1.93 0 0 0 0-3.36L8.83 2.2a1.64 1.64 0 0 0-1.63 0L3 4.57a1.93 1.93 0 0 0 0 3.36l12.18 6.86a1.636 1.636 0 0 0 1.63 0z" pathLength="1" style="--i:3"/>
+            </g>
+          </svg><span class="nm">package-open</span>
+        </div>
+      </div>
+    </div>
+    <div class="state">
+      <header><b style="font-size:var(--fs-small)">Category empty &mdash; filter hides every row</b><span class="tag current">ExclamationCircle @40</span><span class="tag proposed">search</span><span class="tag once">rest</span><span class="src">ProfilePane.tsx / RepoPane.tsx</span>
+      </header>
+      <div class="plane"><span class="mark">
+        <svg class="aim" width="40" height="40" viewBox="0 0 24 24" stroke-width="1.5" aria-hidden="true">
+          <g class="aim-seek aim-once">
+            <circle cx="11" cy="11" r="8"/>
+            <path d="m21 21-4.3-4.3"/>
+          </g>
+        </svg></span><span class="head">No skill matches that filter</span><span class="sub"></span>
+      </div>
+      <div class="alts">
+        <div>
+          <svg class="aim" width="40" height="40" viewBox="0 0 24 24" stroke-width="1.5" aria-hidden="true">
+            <g class="aim-seek aim-once">
+              <circle cx="11" cy="11" r="8"/>
+              <path d="m21 21-4.3-4.3"/>
+            </g>
+          </svg><span class="nm pick">search</span>
+        </div>
+        <div>
+          <svg class="aim" width="40" height="40" viewBox="0 0 24 24" stroke-width="1.5" aria-hidden="true">
+            <g class="aim-draw aim-once aim-stagger">
+              <path d="M3 7V5a2 2 0 0 1 2-2h2" pathLength="1" style="--i:0"/>
+              <path d="M17 3h2a2 2 0 0 1 2 2v2" pathLength="1" style="--i:1"/>
+              <path d="M21 17v2a2 2 0 0 1-2 2h-2" pathLength="1" style="--i:2"/>
+              <path d="M7 21H5a2 2 0 0 1-2-2v-2" pathLength="1" style="--i:3"/>
+              <circle cx="12" cy="12" r="3" pathLength="1" style="--i:4"/>
+              <path d="m16 16-1.9-1.9" pathLength="1" style="--i:5"/>
+            </g>
+          </svg><span class="nm">scan-search</span>
+        </div>
+        <div>
+          <svg class="aim" width="40" height="40" viewBox="0 0 24 24" stroke-width="1.5" aria-hidden="true">
+            <g class="aim-draw aim-once aim-stagger">
+              <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" pathLength="1" style="--i:0"/>
+              <path d="M14 2v4a2 2 0 0 0 2 2h4" pathLength="1" style="--i:1"/>
+              <circle cx="11.5" cy="14.5" r="2.5" pathLength="1" style="--i:2"/>
+              <path d="M13.3 16.3 15 18" pathLength="1" style="--i:3"/>
+            </g>
+          </svg><span class="nm">file-search-2</span>
+        </div>
+      </div>
+    </div>
+    <div class="state">
+      <header><b style="font-size:var(--fs-small)">Category empty &mdash; genuinely none (global)</b><span class="tag current">ExclamationCircle @40</span><span class="tag proposed">inbox</span><span class="tag once">rest</span><span class="src">ProfilePane.tsx:896-903 <i>(Tools never reaches here)</i></span>
+      </header>
+      <div class="plane"><span class="mark">
+        <svg class="aim" width="40" height="40" viewBox="0 0 24 24" stroke-width="1.5" aria-hidden="true">
+          <g class="aim-draw aim-once aim-stagger">
+            <polyline points="22 12 16 12 14 15 10 15 8 12 2 12" pathLength="1" style="--i:0"/>
+            <path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" pathLength="1" style="--i:1"/>
+          </g>
+        </svg></span><span class="head">No skills in the global store</span><span class="sub">The scan finished without finding any.</span>
+        <div class="meta">Tools never reaches this branch &mdash; ProfilePane.tsx:883 sends it to A.1/A.2. One mark here serves all four categories.
+        </div>
+      </div>
+      <div class="alts">
+        <div>
+          <svg class="aim" width="40" height="40" viewBox="0 0 24 24" stroke-width="1.5" aria-hidden="true">
+            <g class="aim-draw aim-once aim-stagger">
+              <polyline points="22 12 16 12 14 15 10 15 8 12 2 12" pathLength="1" style="--i:0"/>
+              <path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" pathLength="1" style="--i:1"/>
+            </g>
+          </svg><span class="nm pick">inbox</span>
+        </div>
+        <div>
+          <svg class="aim" width="40" height="40" viewBox="0 0 24 24" stroke-width="1.5" aria-hidden="true">
+            <g class="aim-draw aim-once aim-stagger">
+              <rect width="20" height="5" x="2" y="3" rx="1" pathLength="1" style="--i:0"/>
+              <path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8" pathLength="1" style="--i:1"/>
+              <path d="M10 12h4" pathLength="1" style="--i:2"/>
+            </g>
+          </svg><span class="nm">archive</span>
+        </div>
+        <div>
+          <svg class="aim" width="40" height="40" viewBox="0 0 24 24" stroke-width="1.5" aria-hidden="true">
+            <path d="M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83z"/>
+            <g class="aim-lift aim-once">
+              <path d="M2 12a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 12"/>
+              <path d="M2 17a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 17"/>
+            </g>
+          </svg><span class="nm">layers</span>
+        </div>
+        <div>
+          <svg class="aim" width="40" height="40" viewBox="0 0 24 24" stroke-width="1.5" aria-hidden="true">
+            <g class="aim-draw aim-once aim-stagger">
+              <path d="M2.97 12.92A2 2 0 0 0 2 14.63v3.24a2 2 0 0 0 .97 1.71l3 1.8a2 2 0 0 0 2.06 0L12 19v-5.5l-5-3-4.03 2.42Z" pathLength="1" style="--i:0"/>
+              <path d="m7 16.5-4.74-2.85" pathLength="1" style="--i:1"/>
+              <path d="m7 16.5 5-3" pathLength="1" style="--i:2"/>
+              <path d="M7 16.5v5.17" pathLength="1" style="--i:3"/>
+              <path d="M12 13.5V19l3.97 2.38a2 2 0 0 0 2.06 0l3-1.8a2 2 0 0 0 .97-1.71v-3.24a2 2 0 0 0-.97-1.71L17 10.5l-5 3Z" pathLength="1" style="--i:4"/>
+              <path d="m17 16.5-5-3" pathLength="1" style="--i:5"/>
+              <path d="m17 16.5 4.74-2.85" pathLength="1" style="--i:6"/>
+              <path d="M17 16.5v5.17" pathLength="1" style="--i:7"/>
+              <path d="M7.97 4.42A2 2 0 0 0 7 6.13v4.37l5 3 5-3V6.13a2 2 0 0 0-.97-1.71l-3-1.8a2 2 0 0 0-2.06 0l-3 1.8Z" pathLength="1" style="--i:8"/>
+              <path d="M12 8 7.26 5.15" pathLength="1" style="--i:9"/>
+              <path d="m12 8 4.74-2.85" pathLength="1" style="--i:10"/>
+              <path d="M12 13.5V8" pathLength="1" style="--i:11"/>
+            </g>
+          </svg><span class="nm">boxes</span>
+        </div>
+      </div>
+    </div>
+    <div class="state">
+      <header><b style="font-size:var(--fs-small)">Category empty &mdash; genuinely none (repo)</b><span class="tag current">InformationCircle @40</span><span class="tag proposed">inbox</span><span class="tag once">rest</span><span class="src">RepoPane.tsx:524-538</span>
+      </header>
+      <div class="plane"><span class="mark">
+        <svg class="aim" width="40" height="40" viewBox="0 0 24 24" stroke-width="1.5" aria-hidden="true">
+          <g class="aim-draw aim-once aim-stagger">
+            <polyline points="22 12 16 12 14 15 10 15 8 12 2 12" pathLength="1" style="--i:0"/>
+            <path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" pathLength="1" style="--i:1"/>
+          </g>
+        </svg></span><span class="head">No MCP servers in hanger-ai</span><span class="sub">The scan finished without finding any.</span>
+      </div>
+    </div>
+    <div class="state">
+      <header><b style="font-size:var(--fs-small)">MCP &mdash; engines here, none configured <i>(A.1)</i></b><span class="tag current">ExclamationCircle @40</span><span class="tag proposed">zap-off</span><span class="tag once">rest</span><span class="src">ProfilePane.tsx:129-185</span>
+      </header>
+      <div class="plane"><span class="mark">
+        <svg class="aim" width="40" height="40" viewBox="0 0 24 24" stroke-width="1.5" aria-hidden="true">
+          <g class="aim-draw aim-once aim-stagger">
+            <path d="M10.513 4.856 13.12 2.17a.5.5 0 0 1 .86.46l-1.377 4.317" pathLength="1" style="--i:0"/>
+            <path d="M15.656 10H20a1 1 0 0 1 .78 1.63l-1.72 1.773" pathLength="1" style="--i:1"/>
+            <path d="M16.273 16.273 10.88 21.83a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14H4a1 1 0 0 1-.78-1.63l4.507-4.643" pathLength="1" style="--i:2"/>
+            <path d="m2 2 20 20" pathLength="1" style="--i:3"/>
+          </g>
+        </svg></span><span class="head">No MCP servers registered</span><span class="sub">Claude Code and Codex are installed here, but neither has a server configured.</span>
+        <div class="meta">Checked 7 config files across 2 engines &middot; <u>Show files</u>
+        </div>
+      </div>
+      <div class="alts">
+        <div>
+          <svg class="aim" width="40" height="40" viewBox="0 0 24 24" stroke-width="1.5" aria-hidden="true">
+            <g class="aim-draw aim-once aim-stagger">
+              <path d="M10.513 4.856 13.12 2.17a.5.5 0 0 1 .86.46l-1.377 4.317" pathLength="1" style="--i:0"/>
+              <path d="M15.656 10H20a1 1 0 0 1 .78 1.63l-1.72 1.773" pathLength="1" style="--i:1"/>
+              <path d="M16.273 16.273 10.88 21.83a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14H4a1 1 0 0 1-.78-1.63l4.507-4.643" pathLength="1" style="--i:2"/>
+              <path d="m2 2 20 20" pathLength="1" style="--i:3"/>
+            </g>
+          </svg><span class="nm pick">zap-off</span>
+        </div>
+        <div>
+          <svg class="aim" width="40" height="40" viewBox="0 0 24 24" stroke-width="1.5" aria-hidden="true">
+            <g class="aim-draw aim-once aim-stagger">
+              <path d="M7 2h13a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-5" pathLength="1" style="--i:0"/>
+              <path d="M10 10 2.5 2.5C2 2 2 2.5 2 5v3a2 2 0 0 0 2 2h6z" pathLength="1" style="--i:1"/>
+              <path d="M22 17v-1a2 2 0 0 0-2-2h-1" pathLength="1" style="--i:2"/>
+              <path d="M4 14a2 2 0 0 0-2 2v4a2 2 0 0 0 2 2h16.5l1-.5.5.5-8-8H4z" pathLength="1" style="--i:3"/>
+              <path d="M6 18h.01" pathLength="1" style="--i:4"/>
+              <path d="m2 2 20 20" pathLength="1" style="--i:5"/>
+            </g>
+          </svg><span class="nm">server-off</span>
+        </div>
+        <div>
+          <svg class="aim" width="40" height="40" viewBox="0 0 24 24" stroke-width="1.5" aria-hidden="true">
+            <g class="aim-draw aim-once aim-stagger">
+              <path d="M6 10H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-2" pathLength="1" style="--i:0"/>
+              <path d="M6 14H4a2 2 0 0 0-2 2v4a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-4a2 2 0 0 0-2-2h-2" pathLength="1" style="--i:1"/>
+              <path d="M6 6h.01" pathLength="1" style="--i:2"/>
+              <path d="M6 18h.01" pathLength="1" style="--i:3"/>
+              <path d="m13 6-4 6h6l-4 6" pathLength="1" style="--i:4"/>
+            </g>
+          </svg><span class="nm">server-crash</span>
+        </div>
+        <div>
+          <svg class="aim" width="40" height="40" viewBox="0 0 24 24" stroke-width="1.5" aria-hidden="true">
+            <g class="aim-draw aim-once aim-stagger">
+              <path d="M6.3 20.3a2.4 2.4 0 0 0 3.4 0L12 18l-6-6-2.3 2.3a2.4 2.4 0 0 0 0 3.4Z" pathLength="1" style="--i:0"/>
+              <path d="m2 22 3-3" pathLength="1" style="--i:1"/>
+              <path d="M7.5 13.5 10 11" pathLength="1" style="--i:2"/>
+              <path d="M10.5 16.5 13 14" pathLength="1" style="--i:3"/>
+              <path d="m18 3-4 4h6l-4 4" pathLength="1" style="--i:4"/>
+            </g>
+          </svg><span class="nm">plug-zap</span>
+        </div>
+      </div>
+    </div>
+    <div class="state">
+      <header><b style="font-size:var(--fs-small)">MCP &mdash; no engines at all <i>(A.2)</i></b><span class="tag current">ExclamationCircle @40</span><span class="tag proposed">plug-zap</span><span class="tag once">rest</span><span class="src">ProfilePane.tsx:231-262</span>
+      </header>
+      <div class="plane"><span class="mark">
+        <svg class="aim" width="40" height="40" viewBox="0 0 24 24" stroke-width="1.5" aria-hidden="true">
+          <g class="aim-draw aim-once aim-stagger">
+            <path d="M6.3 20.3a2.4 2.4 0 0 0 3.4 0L12 18l-6-6-2.3 2.3a2.4 2.4 0 0 0 0 3.4Z" pathLength="1" style="--i:0"/>
+            <path d="m2 22 3-3" pathLength="1" style="--i:1"/>
+            <path d="M7.5 13.5 10 11" pathLength="1" style="--i:2"/>
+            <path d="M10.5 16.5 13 14" pathLength="1" style="--i:3"/>
+            <path d="m18 3-4 4h6l-4 4" pathLength="1" style="--i:4"/>
+          </g>
+        </svg></span><span class="head">No AI engines found</span><span class="sub">Hanger looks for Claude Code, Codex and Gemini in their standard locations.</span>
+        <div class="meta">Checked 11 locations &middot; <u>Show locations</u>
+        </div>
+      </div>
+    </div>
+    <div class="state">
+      <header><b style="font-size:var(--fs-small)">Needs review &mdash; clean</b><span class="tag newicon">no icon today</span><span class="tag proposed">monitor-check</span><span class="tag once">rest</span><span class="src">NeedsReviewPane.tsx:222</span>
+      </header>
+      <div class="plane"><span class="mark">
+        <svg class="aim" width="40" height="40" viewBox="0 0 24 24" stroke-width="1.5" aria-hidden="true">
+          <rect width="20" height="14" x="2" y="3" rx="2"/>
+          <path d="M12 17v4"/>
+          <path d="M8 21h8"/>
+          <g class="aim-draw aim-once">
+            <path d="m9 10 2 2 4-4" pathLength="1"/>
+          </g>
+        </svg></span><span class="head">Nothing needs a decision</span><span class="sub">Every link resolves and every file parses.</span>
+      </div>
+      <div class="alts">
+        <div>
+          <svg class="aim" width="40" height="40" viewBox="0 0 24 24" stroke-width="1.5" aria-hidden="true">
+            <rect width="20" height="14" x="2" y="3" rx="2"/>
+            <path d="M12 17v4"/>
+            <path d="M8 21h8"/>
+            <g class="aim-draw aim-once">
+              <path d="m9 10 2 2 4-4" pathLength="1"/>
+            </g>
+          </svg><span class="nm pick">monitor-check</span>
+        </div>
+        <div>
+          <svg class="aim" width="40" height="40" viewBox="0 0 24 24" stroke-width="1.5" aria-hidden="true">
+            <circle cx="12" cy="12" r="10"/>
+            <g class="aim-draw aim-once">
+              <path d="m9 12 2 2 4-4" pathLength="1"/>
+            </g>
+          </svg><span class="nm">circle-check</span>
+        </div>
+        <div>
+          <svg class="aim" width="40" height="40" viewBox="0 0 24 24" stroke-width="1.5" aria-hidden="true">
+            <g class="aim-draw aim-once aim-stagger">
+              <path d="M18 6 7 17l-5-5" pathLength="1" style="--i:0"/>
+              <path d="m22 10-7.5 7.5L13 16" pathLength="1" style="--i:1"/>
+            </g>
+          </svg><span class="nm">check-check</span>
+        </div>
+      </div>
+    </div>
+    <div class="state">
+      <header><b style="font-size:var(--fs-small)">Needs review &mdash; filter hides every issue</b><span class="tag newicon">no icon today</span><span class="tag proposed">search</span><span class="tag once">rest</span><span class="src">NeedsReviewPane.tsx:226</span>
+      </header>
+      <div class="plane"><span class="mark">
+        <svg class="aim" width="40" height="40" viewBox="0 0 24 24" stroke-width="1.5" aria-hidden="true">
+          <g class="aim-seek aim-once">
+            <circle cx="11" cy="11" r="8"/>
+            <path d="m21 21-4.3-4.3"/>
+          </g>
+        </svg></span><span class="head">No issue matches that filter</span><span class="sub"></span>
+      </div>
+    </div>
+    <div class="state">
+      <header><b style="font-size:var(--fs-small)">Discovery &mdash; filter hides every directory</b><span class="tag newicon">no icon today</span><span class="tag proposed">telescope</span><span class="tag once">rest</span><span class="src">DiscoveryPane.tsx:233-234</span>
+      </header>
+      <div class="plane"><span class="mark">
+        <svg class="aim" width="40" height="40" viewBox="0 0 24 24" stroke-width="1.5" aria-hidden="true">
+          <g class="aim-draw aim-once aim-stagger">
+            <path d="m10.065 12.493-6.18 1.318a.934.934 0 0 1-1.108-.702l-.537-2.15a1.07 1.07 0 0 1 .691-1.265l13.504-4.44" pathLength="1" style="--i:0"/>
+            <path d="m13.56 11.747 4.332-.924" pathLength="1" style="--i:1"/>
+            <path d="m16 21-3.105-6.21" pathLength="1" style="--i:2"/>
+            <path d="M16.485 5.94a2 2 0 0 1 1.455-2.425l1.09-.272a1 1 0 0 1 1.212.727l1.515 6.06a1 1 0 0 1-.727 1.213l-1.09.272a2 2 0 0 1-2.425-1.455z" pathLength="1" style="--i:3"/>
+            <path d="m6.158 8.633 1.114 4.456" pathLength="1" style="--i:4"/>
+            <path d="m8 21 3.105-6.21" pathLength="1" style="--i:5"/>
+            <circle cx="12" cy="13" r="2" pathLength="1" style="--i:6"/>
+          </g>
+        </svg></span><span class="head">No directory matches that filter</span><span class="sub"></span>
+      </div>
+      <div class="alts">
+        <div>
+          <svg class="aim" width="40" height="40" viewBox="0 0 24 24" stroke-width="1.5" aria-hidden="true">
+            <g class="aim-draw aim-once aim-stagger">
+              <path d="m10.065 12.493-6.18 1.318a.934.934 0 0 1-1.108-.702l-.537-2.15a1.07 1.07 0 0 1 .691-1.265l13.504-4.44" pathLength="1" style="--i:0"/>
+              <path d="m13.56 11.747 4.332-.924" pathLength="1" style="--i:1"/>
+              <path d="m16 21-3.105-6.21" pathLength="1" style="--i:2"/>
+              <path d="M16.485 5.94a2 2 0 0 1 1.455-2.425l1.09-.272a1 1 0 0 1 1.212.727l1.515 6.06a1 1 0 0 1-.727 1.213l-1.09.272a2 2 0 0 1-2.425-1.455z" pathLength="1" style="--i:3"/>
+              <path d="m6.158 8.633 1.114 4.456" pathLength="1" style="--i:4"/>
+              <path d="m8 21 3.105-6.21" pathLength="1" style="--i:5"/>
+              <circle cx="12" cy="13" r="2" pathLength="1" style="--i:6"/>
+            </g>
+          </svg><span class="nm pick">telescope</span>
+        </div>
+        <div>
+          <svg class="aim" width="40" height="40" viewBox="0 0 24 24" stroke-width="1.5" aria-hidden="true">
+            <g class="aim-seek aim-once">
+              <circle cx="11" cy="11" r="8"/>
+              <path d="m21 21-4.3-4.3"/>
+            </g>
+          </svg><span class="nm">search</span>
+        </div>
+        <div>
+          <svg class="aim" width="40" height="40" viewBox="0 0 24 24" stroke-width="1.5" aria-hidden="true">
+            <g class="aim-draw aim-once aim-stagger">
+              <path d="M3 7V5a2 2 0 0 1 2-2h2" pathLength="1" style="--i:0"/>
+              <path d="M17 3h2a2 2 0 0 1 2 2v2" pathLength="1" style="--i:1"/>
+              <path d="M21 17v2a2 2 0 0 1-2 2h-2" pathLength="1" style="--i:2"/>
+              <path d="M7 21H5a2 2 0 0 1-2-2v-2" pathLength="1" style="--i:3"/>
+              <circle cx="12" cy="12" r="3" pathLength="1" style="--i:4"/>
+              <path d="m16 16-1.9-1.9" pathLength="1" style="--i:5"/>
+            </g>
+          </svg><span class="nm">scan-search</span>
+        </div>
+      </div>
+    </div>
+    <div class="state">
+      <header><b style="font-size:var(--fs-small)">Sidebar &mdash; no repositories linked</b><span class="tag newicon">no icon today</span><span class="tag proposed">folder-plus</span><span class="tag once">rest</span><span class="src">Sidebar.tsx:180</span>
+      </header>
+      <div class="plane"><span class="mark">
+        <svg class="aim" width="40" height="40" viewBox="0 0 24 24" stroke-width="1.5" aria-hidden="true">
+          <path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>
+          <g class="aim-draw aim-once aim-stagger">
+            <path d="M12 10v6" pathLength="1" style="--i:0"/>
+            <path d="M9 13h6" pathLength="1" style="--i:1"/>
+          </g>
+        </svg></span><span class="head">No repositories linked</span><span class="sub">Link a project folder to manage and deploy assets.</span>
+      </div>
+      <div class="alts">
+        <div>
+          <svg class="aim" width="40" height="40" viewBox="0 0 24 24" stroke-width="1.5" aria-hidden="true">
+            <path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>
+            <g class="aim-draw aim-once aim-stagger">
+              <path d="M12 10v6" pathLength="1" style="--i:0"/>
+              <path d="M9 13h6" pathLength="1" style="--i:1"/>
+            </g>
+          </svg><span class="nm pick">folder-plus</span>
+        </div>
+        <div>
+          <svg class="aim" width="40" height="40" viewBox="0 0 24 24" stroke-width="1.5" aria-hidden="true">
+            <g class="aim-draw aim-once">
+              <path d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2" pathLength="1"/>
+            </g>
+          </svg><span class="nm">folder-open</span>
+        </div>
+        <div>
+          <svg class="aim" width="40" height="40" viewBox="0 0 24 24" stroke-width="1.5" aria-hidden="true">
+            <g class="aim-draw aim-once aim-stagger">
+              <path d="M9 17H7A5 5 0 0 1 7 7h2" pathLength="1" style="--i:0"/>
+              <path d="M15 7h2a5 5 0 1 1 0 10h-2" pathLength="1" style="--i:1"/>
+              <line x1="8" x2="16" y1="12" y2="12" pathLength="1" style="--i:2"/>
+            </g>
+          </svg><span class="nm">link-2</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+<section class="fam">
+  <h2>3 &mdash; Inspector empty
+  </h2>
+  <p>Three sites, all resting. The two &ldquo;Nothing selected&rdquo; states deliberately share their words so the inspectors read as one surface (<code>Flyout.tsx:886-887</code>); today only one of them carries a mark. Giving both the same one finishes that thought.
+  </p>
+  <div class="grid2">
+    <div class="state">
+      <header><b style="font-size:var(--fs-small)">Asset inspector &mdash; nothing selected</b><span class="tag current">GlobeAlt @36 opacity-50</span><span class="tag proposed">mouse-pointer-click</span><span class="tag once">rest</span><span class="src">Flyout.tsx:883-890</span>
+      </header>
+      <div class="plane"><span class="mark">
+        <svg class="aim" width="36" height="36" viewBox="0 0 24 24" stroke-width="1.5" aria-hidden="true">
+          <path d="M9.037 9.69a.498.498 0 0 1 .653-.653l11 4.5a.5.5 0 0 1-.074.949l-4.349 1.041a1 1 0 0 0-.74.739l-1.04 4.35a.5.5 0 0 1-.95.074z"/>
+          <g class="aim-burst aim-once" style="--ox:9.3px;--oy:9.3px">
+            <path d="M14 4.1 12 6"/>
+            <path d="m5.1 8-2.9-.8"/>
+            <path d="m6 12-1.9 2"/>
+            <path d="M7.2 2.2 8 5.1"/>
+          </g>
+        </svg></span><span class="head">Nothing selected</span><span class="sub">Pick an asset or a repository to see its details.</span>
+      </div>
+      <div class="alts">
+        <div>
+          <svg class="aim" width="36" height="36" viewBox="0 0 24 24" stroke-width="1.5" aria-hidden="true">
+            <path d="M9.037 9.69a.498.498 0 0 1 .653-.653l11 4.5a.5.5 0 0 1-.074.949l-4.349 1.041a1 1 0 0 0-.74.739l-1.04 4.35a.5.5 0 0 1-.95.074z"/>
+            <g class="aim-burst aim-once" style="--ox:9.3px;--oy:9.3px">
+              <path d="M14 4.1 12 6"/>
+              <path d="m5.1 8-2.9-.8"/>
+              <path d="m6 12-1.9 2"/>
+              <path d="M7.2 2.2 8 5.1"/>
+            </g>
+          </svg><span class="nm pick">mouse-pointer-click</span>
+        </div>
+        <div>
+          <svg class="aim" width="36" height="36" viewBox="0 0 24 24" stroke-width="1.5" aria-hidden="true">
+            <path d="M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83z"/>
+            <g class="aim-lift aim-once">
+              <path d="M2 12a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 12"/>
+              <path d="M2 17a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 17"/>
+            </g>
+          </svg><span class="nm">layers</span>
+        </div>
+        <div>
+          <svg class="aim" width="36" height="36" viewBox="0 0 24 24" stroke-width="1.5" aria-hidden="true">
+            <g class="aim-draw aim-once aim-stagger">
+              <path d="M2.97 12.92A2 2 0 0 0 2 14.63v3.24a2 2 0 0 0 .97 1.71l3 1.8a2 2 0 0 0 2.06 0L12 19v-5.5l-5-3-4.03 2.42Z" pathLength="1" style="--i:0"/>
+              <path d="m7 16.5-4.74-2.85" pathLength="1" style="--i:1"/>
+              <path d="m7 16.5 5-3" pathLength="1" style="--i:2"/>
+              <path d="M7 16.5v5.17" pathLength="1" style="--i:3"/>
+              <path d="M12 13.5V19l3.97 2.38a2 2 0 0 0 2.06 0l3-1.8a2 2 0 0 0 .97-1.71v-3.24a2 2 0 0 0-.97-1.71L17 10.5l-5 3Z" pathLength="1" style="--i:4"/>
+              <path d="m17 16.5-5-3" pathLength="1" style="--i:5"/>
+              <path d="m17 16.5 4.74-2.85" pathLength="1" style="--i:6"/>
+              <path d="M17 16.5v5.17" pathLength="1" style="--i:7"/>
+              <path d="M7.97 4.42A2 2 0 0 0 7 6.13v4.37l5 3 5-3V6.13a2 2 0 0 0-.97-1.71l-3-1.8a2 2 0 0 0-2.06 0l-3 1.8Z" pathLength="1" style="--i:8"/>
+              <path d="M12 8 7.26 5.15" pathLength="1" style="--i:9"/>
+              <path d="m12 8 4.74-2.85" pathLength="1" style="--i:10"/>
+              <path d="M12 13.5V8" pathLength="1" style="--i:11"/>
+            </g>
+          </svg><span class="nm">boxes</span>
+        </div>
+      </div>
+    </div>
+    <div class="state">
+      <header><b style="font-size:var(--fs-small)">Review inspector &mdash; nothing selected</b><span class="tag newicon">no icon today</span><span class="tag proposed">mouse-pointer-click</span><span class="tag once">rest</span><span class="src">ReviewInspector.tsx:58-66</span>
+      </header>
+      <div class="plane"><span class="mark">
+        <svg class="aim" width="36" height="36" viewBox="0 0 24 24" stroke-width="1.5" aria-hidden="true">
+          <path d="M9.037 9.69a.498.498 0 0 1 .653-.653l11 4.5a.5.5 0 0 1-.074.949l-4.349 1.041a1 1 0 0 0-.74.739l-1.04 4.35a.5.5 0 0 1-.95.074z"/>
+          <g class="aim-burst aim-once" style="--ox:9.3px;--oy:9.3px">
+            <path d="M14 4.1 12 6"/>
+            <path d="m5.1 8-2.9-.8"/>
+            <path d="m6 12-1.9 2"/>
+            <path d="M7.2 2.2 8 5.1"/>
+          </g>
+        </svg></span><span class="head">Nothing selected</span><span class="sub">Pick an issue to see where it lives and what else it affects.</span>
+      </div>
+    </div>
+    <div class="state">
+      <header><b style="font-size:var(--fs-small)">Link panel &mdash; no destinations</b><span class="tag newicon">no icon today</span><span class="tag proposed">unlink</span><span class="tag once">rest</span><span class="src">LinkPanel.tsx:257-259</span>
+      </header>
+      <div class="plane"><span class="mark">
+        <svg class="aim" width="36" height="36" viewBox="0 0 24 24" stroke-width="1.5" aria-hidden="true">
+          <path d="m18.84 12.25 1.72-1.71h-.02a5.004 5.004 0 0 0-.12-7.07 5.006 5.006 0 0 0-6.95 0l-1.72 1.71"/>
+          <path d="m5.17 11.75-1.71 1.71a5.004 5.004 0 0 0 .12 7.07 5.006 5.006 0 0 0 6.95 0l1.71-1.71"/>
+          <g class="aim-burst aim-once">
+            <line x1="8" x2="8" y1="2" y2="5"/>
+            <line x1="2" x2="5" y1="8" y2="8"/>
+            <line x1="16" x2="16" y1="19" y2="22"/>
+            <line x1="19" x2="22" y1="16" y2="16"/>
+          </g>
+        </svg></span><span class="head">No repositories are linked yet</span><span class="sub">Add one from the sidebar and it will appear here.</span>
+      </div>
+      <div class="alts">
+        <div>
+          <svg class="aim" width="36" height="36" viewBox="0 0 24 24" stroke-width="1.5" aria-hidden="true">
+            <path d="m18.84 12.25 1.72-1.71h-.02a5.004 5.004 0 0 0-.12-7.07 5.006 5.006 0 0 0-6.95 0l-1.72 1.71"/>
+            <path d="m5.17 11.75-1.71 1.71a5.004 5.004 0 0 0 .12 7.07 5.006 5.006 0 0 0 6.95 0l1.71-1.71"/>
+            <g class="aim-burst aim-once">
+              <line x1="8" x2="8" y1="2" y2="5"/>
+              <line x1="2" x2="5" y1="8" y2="8"/>
+              <line x1="16" x2="16" y1="19" y2="22"/>
+              <line x1="19" x2="22" y1="16" y2="16"/>
+            </g>
+          </svg><span class="nm pick">unlink</span>
+        </div>
+        <div>
+          <svg class="aim" width="36" height="36" viewBox="0 0 24 24" stroke-width="1.5" aria-hidden="true">
+            <path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>
+            <g class="aim-draw aim-once aim-stagger">
+              <path d="M12 10v6" pathLength="1" style="--i:0"/>
+              <path d="M9 13h6" pathLength="1" style="--i:1"/>
+            </g>
+          </svg><span class="nm">folder-plus</span>
+        </div>
+        <div>
+          <svg class="aim" width="36" height="36" viewBox="0 0 24 24" stroke-width="1.5" aria-hidden="true">
+            <g class="aim-draw aim-once aim-stagger">
+              <path d="M9 17H7A5 5 0 0 1 7 7h2" pathLength="1" style="--i:0"/>
+              <path d="M15 7h2a5 5 0 1 1 0 10h-2" pathLength="1" style="--i:1"/>
+              <line x1="8" x2="16" y1="12" y2="12" pathLength="1" style="--i:2"/>
+            </g>
+          </svg><span class="nm">link-2</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+<section class="fam">
+  <h2>4 &mdash; Link map
+  </h2>
+  <p>Two states, both text-only today (<code>LinkMapPane.tsx:280-285</code>). The two states take <b>different marks</b> (Karthik, 2026-08-24), the same pattern as <code>folder-clock</code> in family 1. Reading is <code>frame</code>: four lines of a grid, redrawn in sequence &mdash; and the map&rsquo;s own ground is a dot grid (<code>LinkMapPane.tsx:352-357</code>), so the mark echoes the surface being read. Empty is <code>git-pull-request-closed</code>: a connection that terminates rather than resolves, which is what no graph means. Both stagger per element &mdash; the reason per-element geometry mattered, and something Heroicons could not do at all.
+  </p>
+  <div class="grid2">
+    <div class="state">
+      <header><b style="font-size:var(--fs-small)">Reading the graph</b><span class="tag newicon">no icon today</span><span class="tag proposed">frame</span><span class="tag loop">loop</span><span class="src">LinkMapPane.tsx:282</span>
+      </header>
+      <div class="plane"><span class="mark">
+        <svg class="aim" width="40" height="40" viewBox="0 0 24 24" stroke-width="1.5" aria-hidden="true">
+          <g class="aim-scan aim-loop aim-stagger">
+            <line x1="22" x2="2" y1="6" y2="6" pathLength="1" style="--i:0"/>
+            <line x1="22" x2="2" y1="18" y2="18" pathLength="1" style="--i:1"/>
+            <line x1="6" x2="6" y1="2" y2="22" pathLength="1" style="--i:2"/>
+            <line x1="18" x2="18" y1="2" y2="22" pathLength="1" style="--i:3"/>
+          </g>
+        </svg></span><span class="head">Reading the link graph&hellip;</span><span class="sub"></span>
+      </div>
+      <div class="alts">
+        <div>
+          <svg class="aim" width="40" height="40" viewBox="0 0 24 24" stroke-width="1.5" aria-hidden="true">
+            <g class="aim-scan aim-loop aim-stagger">
+              <line x1="22" x2="2" y1="6" y2="6" pathLength="1" style="--i:0"/>
+              <line x1="22" x2="2" y1="18" y2="18" pathLength="1" style="--i:1"/>
+              <line x1="6" x2="6" y1="2" y2="22" pathLength="1" style="--i:2"/>
+              <line x1="18" x2="18" y1="2" y2="22" pathLength="1" style="--i:3"/>
+            </g>
+          </svg><span class="nm pick">frame</span>
+        </div>
+        <div>
+          <svg class="aim" width="40" height="40" viewBox="0 0 24 24" stroke-width="1.5" aria-hidden="true">
+            <g class="aim-draw aim-loop aim-stagger">
+              <circle cx="5" cy="6" r="3" pathLength="1" style="--i:0"/>
+              <path d="M5 9v6" pathLength="1" style="--i:1"/>
+              <circle cx="5" cy="18" r="3" pathLength="1" style="--i:2"/>
+              <path d="M12 3v18" pathLength="1" style="--i:3"/>
+              <circle cx="19" cy="6" r="3" pathLength="1" style="--i:4"/>
+              <path d="M16 15.7A9 9 0 0 0 19 9" pathLength="1" style="--i:5"/>
+            </g>
+          </svg><span class="nm">git-graph</span>
+        </div>
+        <div>
+          <svg class="aim" width="40" height="40" viewBox="0 0 24 24" stroke-width="1.5" aria-hidden="true">
+            <g class="aim-draw aim-loop aim-stagger">
+              <circle cx="12" cy="4.5" r="2.5" pathLength="1" style="--i:0"/>
+              <path d="m10.2 6.3-3.9 3.9" pathLength="1" style="--i:1"/>
+              <circle cx="4.5" cy="12" r="2.5" pathLength="1" style="--i:2"/>
+              <path d="M7 12h10" pathLength="1" style="--i:3"/>
+              <circle cx="19.5" cy="12" r="2.5" pathLength="1" style="--i:4"/>
+              <path d="m13.8 17.7 3.9-3.9" pathLength="1" style="--i:5"/>
+              <circle cx="12" cy="19.5" r="2.5" pathLength="1" style="--i:6"/>
+            </g>
+          </svg><span class="nm">waypoints</span>
+        </div>
+        <div>
+          <svg class="aim" width="40" height="40" viewBox="0 0 24 24" stroke-width="1.5" aria-hidden="true">
+            <g class="aim-draw aim-loop">
+              <rect x="16" y="16" width="6" height="6" rx="1" pathLength="1"/>
+              <rect x="2" y="16" width="6" height="6" rx="1" pathLength="1"/>
+              <rect x="9" y="2" width="6" height="6" rx="1" pathLength="1"/>
+              <path d="M5 16v-3a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v3" pathLength="1"/>
+              <path d="M12 12V8" pathLength="1"/>
+            </g>
+          </svg><span class="nm">network</span>
+        </div>
+      </div>
+    </div>
+    <div class="state">
+      <header><b style="font-size:var(--fs-small)">No graph yet</b><span class="tag newicon">no icon today</span><span class="tag proposed">git-pull-request-closed</span><span class="tag once">rest</span><span class="src">LinkMapPane.tsx:282</span>
+      </header>
+      <div class="plane"><span class="mark">
+        <svg class="aim" width="40" height="40" viewBox="0 0 24 24" stroke-width="1.5" aria-hidden="true">
+          <g class="aim-draw aim-once aim-stagger">
+            <circle cx="6" cy="6" r="3" pathLength="1" style="--i:0"/>
+            <path d="M6 9v12" pathLength="1" style="--i:1"/>
+            <path d="m21 3-6 6" pathLength="1" style="--i:2"/>
+            <path d="m21 9-6-6" pathLength="1" style="--i:3"/>
+            <path d="M18 11.5V15" pathLength="1" style="--i:4"/>
+            <circle cx="18" cy="18" r="3" pathLength="1" style="--i:5"/>
+          </g>
+        </svg></span><span class="head">No link graph yet.</span><span class="sub"></span>
+      </div>
+    </div>
+    <div class="state">
+      <header><b style="font-size:var(--fs-small)">Map notices &mdash; warning / info</b><span class="tag current">Heroicons triangle / circle</span><span class="tag proposed">badge-alert / circle-help</span><span class="tag once">rest</span><span class="src">LinkMapPane.tsx:295-320, LinkMapPlacecard.tsx:140-151</span>
+      </header>
+      <div class="plane" style="min-height:150px">
+        <div class="inline-row" style="color:var(--state-warning)">
+          <svg class="aim" width="20" height="20" viewBox="0 0 24 24" stroke-width="1.7" aria-hidden="true">
+            <path d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z"/>
+            <g class="aim-draw aim-once aim-stagger">
+              <line x1="12" x2="12" y1="8" y2="12" pathLength="1" style="--i:0"/>
+              <line x1="12" x2="12.01" y1="16" y2="16" pathLength="1" style="--i:1"/>
+            </g>
+          </svg><span>Not everything could be drawn</span>
+        </div>
+        <div class="inline-row">
+          <svg class="aim" width="20" height="20" viewBox="0 0 24 24" stroke-width="1.7" aria-hidden="true">
+            <circle cx="12" cy="12" r="10"/>
+            <g class="aim-draw aim-once aim-stagger">
+              <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" pathLength="1" style="--i:0"/>
+              <path d="M12 17h.01" pathLength="1" style="--i:1"/>
+            </g>
+          </svg><span>Nothing is wrong &mdash; context for what you see</span>
+        </div>
+        <div class="meta">The unread dot is unchanged: <code>w-2 h-2 bg-state-danger ring-2 ring-page</code>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+<section class="fam">
+  <h2>5 &mdash; Inline spinners
+  </h2>
+  <p>Ten sites at 11&ndash;13px, plus one at 32. <b>This is where mark choice is constrained by size, not taste.</b> See the size ladder below before picking: <code>disc-3</code> loses its arcs under about 16px, so the big planes and the inline sites cannot share one mark. <code>loader-circle</code> is a single arc and survives all the way down.
+  </p>
+  <div class="grid2">
+    <div class="state">
+      <header><b style="font-size:var(--fs-small)">Category chip &mdash; counting</b><span class="tag current">Spinner @11</span><span class="tag proposed">loader-circle</span><span class="tag loop">loop</span><span class="src">CategoryFilterCards.tsx:110</span>
+      </header>
+      <div class="plane" style="min-height:auto;padding:18px 20px;align-items:flex-start">
+        <div class="inline-row"><span class="chip">Skills
+          <svg class="aim" width="11" height="11" viewBox="0 0 24 24" stroke-width="2.2" aria-hidden="true">
+            <g class="aim-spin aim-loop">
+              <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+            </g>
+          </svg></span><span class="chip on">Rules <b>12</b></span><span class="chip">Tools <b>4</b></span>
+        </div>
+      </div>
+    </div>
+    <div class="state">
+      <header><b style="font-size:var(--fs-small)">Rescan &mdash; summary strip</b><span class="tag current">ArrowPath @13</span><span class="tag proposed">rotate-ccw</span><span class="tag loop">loop while scanning</span><span class="src">SummaryStrip.tsx:134</span>
+      </header>
+      <div class="plane" style="min-height:auto;padding:18px 20px;align-items:flex-start">
+        <div class="inline-row">
+          <button class="btn">
+          <svg class="aim" width="13" height="13" viewBox="0 0 24 24" stroke-width="1.9" aria-hidden="true">
+            <g class="aim-spin-ccw aim-loop">
+              <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+              <path d="M3 3v5h5"/>
+            </g>
+          </svg> Rescan
+          </button>
+          <button class="btn">
+          <svg class="aim" width="13" height="13" viewBox="0 0 24 24" stroke-width="1.9" aria-hidden="true">
+            <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+            <path d="M3 3v5h5"/>
+          </svg> Rescan <span style="color:var(--ink-3)">(idle)</span>
+          </button>
+        </div>
+      </div>
+    </div>
+    <div class="state">
+      <header><b style="font-size:var(--fs-small)">Rescan &mdash; needs review / repo / toolbar</b><span class="tag current">ArrowPath @12-13</span><span class="tag proposed">rotate-ccw</span><span class="tag loop">loop</span><span class="src">NeedsReviewPane.tsx:153, RepoPane.tsx:407, App.tsx:1405</span>
+      </header>
+      <div class="plane" style="min-height:auto;padding:18px 20px;align-items:flex-start">
+        <div class="inline-row">
+          <svg class="aim" width="13" height="13" viewBox="0 0 24 24" stroke-width="1.9" aria-hidden="true">
+            <g class="aim-spin-ccw aim-loop">
+              <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+              <path d="M3 3v5h5"/>
+            </g>
+          </svg><span>Rescan @13</span><span style="width:18px"></span>
+          <svg class="aim" width="12" height="12" viewBox="0 0 24 24" stroke-width="2.2" aria-hidden="true">
+            <g class="aim-spin-ccw aim-loop">
+              <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+              <path d="M3 3v5h5"/>
+            </g>
+          </svg><span>Refresh @12</span>
+        </div>
+      </div>
+    </div>
+    <div class="state">
+      <header><b style="font-size:var(--fs-small)">MCP probe &mdash; asking the server</b><span class="tag current">Spinner @12 / ArrowPath @13</span><span class="tag proposed">server</span><span class="tag loop">loop</span><span class="src">McpServerDetail.tsx:166, :275</span>
+      </header>
+      <div class="plane" style="min-height:auto;padding:18px 20px;align-items:flex-start">
+        <div class="inline-row" style="border:1px dashed var(--line-2);border-radius:var(--radius-inner);padding:14px 18px;width:100%">
+          <svg class="aim" width="12" height="12" viewBox="0 0 24 24" stroke-width="2.2" aria-hidden="true">
+            <g class="aim-relay aim-loop">
+              <rect width="20" height="8" x="2" y="2" rx="2" ry="2"/>
+              <line x1="6" x2="6.01" y1="6" y2="6"/>
+            </g>
+            <g class="aim-relay aim-loop" style="animation-delay:-.6s">
+              <rect width="20" height="8" x="2" y="14" rx="2" ry="2"/>
+              <line x1="6" x2="6.01" y1="18" y2="18"/>
+            </g>
+          </svg><span style="font-size:var(--fs-micro)">Asking the server&hellip;</span>
+        </div>
+        <div class="inline-row">
+          <button class="btn">
+          <svg class="aim" width="13" height="13" viewBox="0 0 24 24" stroke-width="1.9" aria-hidden="true">
+            <g class="aim-relay aim-loop">
+              <rect width="20" height="8" x="2" y="2" rx="2" ry="2"/>
+              <line x1="6" x2="6.01" y1="6" y2="6"/>
+            </g>
+            <g class="aim-relay aim-loop" style="animation-delay:-.6s">
+              <rect width="20" height="8" x="2" y="14" rx="2" ry="2"/>
+              <line x1="6" x2="6.01" y1="18" y2="18"/>
+            </g>
+          </svg> Verify
+          </button><span style="font-size:var(--fs-micro)">&larr; :275, spins only while verifying</span>
+        </div>
+        <div class="alts" style="width:100%">
+          <div>
+            <svg class="aim" width="40" height="40" viewBox="0 0 24 24" stroke-width="1.5" aria-hidden="true">
+              <g class="aim-relay aim-loop">
+                <rect width="20" height="8" x="2" y="2" rx="2" ry="2"/>
+                <line x1="6" x2="6.01" y1="6" y2="6"/>
+              </g>
+              <g class="aim-relay aim-loop" style="animation-delay:-.6s">
+                <rect width="20" height="8" x="2" y="14" rx="2" ry="2"/>
+                <line x1="6" x2="6.01" y1="18" y2="18"/>
+              </g>
+            </svg><span class="nm pick">server</span>
+          </div>
+          <div>
+            <svg class="aim" width="40" height="40" viewBox="0 0 24 24" stroke-width="1.5" aria-hidden="true">
+              <g class="aim-draw aim-loop">
+                <circle cx="12" cy="12" r="3" pathLength="1"/>
+                <path d="M4.5 10H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-.5" pathLength="1"/>
+                <path d="M4.5 14H4a2 2 0 0 0-2 2v4a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-4a2 2 0 0 0-2-2h-.5" pathLength="1"/>
+                <path d="M6 6h.01" pathLength="1"/>
+                <path d="M6 18h.01" pathLength="1"/>
+                <path d="m15.7 13.4-.9-.3" pathLength="1"/>
+                <path d="m9.2 10.9-.9-.3" pathLength="1"/>
+                <path d="m10.6 15.7.3-.9" pathLength="1"/>
+                <path d="m13.6 15.7-.4-1" pathLength="1"/>
+                <path d="m10.8 9.3-.4-1" pathLength="1"/>
+                <path d="m8.3 13.6 1-.4" pathLength="1"/>
+                <path d="m14.7 10.8 1-.4" pathLength="1"/>
+                <path d="m13.4 8.3-.3.9" pathLength="1"/>
+              </g>
+            </svg><span class="nm">server-cog</span>
+          </div>
+          <div>
+            <svg class="aim" width="40" height="40" viewBox="0 0 24 24" stroke-width="1.5" aria-hidden="true">
+              <g class="aim-spin aim-loop">
+                <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+              </g>
+            </svg><span class="nm">loader-circle</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="state">
+      <header><b style="font-size:var(--fs-small)">Link panel &mdash; reading / linking</b><span class="tag current">Spinner @12</span><span class="tag proposed">file-text / link-2</span><span class="tag loop">loop</span><span class="src">LinkPanel.tsx:254, :423</span>
+      </header>
+      <div class="plane" style="min-height:auto;padding:18px 20px;align-items:flex-start">
+        <div class="inline-row">
+          <svg class="aim" width="12" height="12" viewBox="0 0 24 24" stroke-width="2.2" aria-hidden="true">
+            <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/>
+            <path d="M14 2v4a2 2 0 0 0 2 2h4"/>
+            <g class="aim-scan aim-loop aim-stagger">
+              <path d="M10 9H8" pathLength="1" style="--i:0"/>
+              <path d="M16 13H8" pathLength="1" style="--i:1"/>
+              <path d="M16 17H8" pathLength="1" style="--i:2"/>
+            </g>
+          </svg><span>Checking each project&hellip;</span>
+        </div>
+        <div class="inline-row">
+          <button class="btn fill">
+          <svg class="aim" width="12" height="12" viewBox="0 0 24 24" stroke-width="2.2" aria-hidden="true">
+            <g class="aim-draw aim-loop aim-stagger">
+              <path d="M9 17H7A5 5 0 0 1 7 7h2" pathLength="1" style="--i:0"/>
+              <path d="M15 7h2a5 5 0 1 1 0 10h-2" pathLength="1" style="--i:1"/>
+              <line x1="8" x2="16" y1="12" y2="12" pathLength="1" style="--i:2"/>
+            </g>
+          </svg> Linking&hellip;
+          </button>
+        </div>
+      </div>
+    </div>
+    <div class="state">
+      <header><b style="font-size:var(--fs-small)">Asset detail &mdash; reading the file</b><span class="tag newicon">no icon today</span><span class="tag proposed">file-text</span><span class="tag loop">loop</span><span class="src">AssetDetail.tsx:391-392</span>
+      </header>
+      <div class="plane" style="min-height:auto;padding:18px 20px;align-items:flex-start">
+        <div class="inline-row">
+          <svg class="aim" width="12" height="12" viewBox="0 0 24 24" stroke-width="2.2" aria-hidden="true">
+            <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/>
+            <path d="M14 2v4a2 2 0 0 0 2 2h4"/>
+            <g class="aim-scan aim-loop aim-stagger">
+              <path d="M10 9H8" pathLength="1" style="--i:0"/>
+              <path d="M16 13H8" pathLength="1" style="--i:1"/>
+              <path d="M16 17H8" pathLength="1" style="--i:2"/>
+            </g>
+          </svg><span>Reading the file&hellip;</span>
+        </div>
+        <div class="inline-row">
+          <svg class="aim" width="16" height="16" viewBox="0 0 24 24" stroke-width="1.9" aria-hidden="true">
+            <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/>
+            <path d="M14 2v4a2 2 0 0 0 2 2h4"/>
+            <g class="aim-scan aim-loop aim-stagger">
+              <path d="M10 9H8" pathLength="1" style="--i:0"/>
+              <path d="M16 13H8" pathLength="1" style="--i:1"/>
+              <path d="M16 17H8" pathLength="1" style="--i:2"/>
+            </g>
+          </svg><span>same at 16, for legibility</span>
+        </div>
+      </div>
+    </div>
+    <div class="state">
+      <header><b style="font-size:var(--fs-small)">App boot</b><span class="tag current">Spinner @32</span><span class="tag proposed">disc-3</span><span class="tag loop">loop</span><span class="src">App.tsx:1000-1003</span>
+      </header>
+      <div class="plane" style="min-height:auto;padding:18px 20px;align-items:flex-start">
+        <div class="inline-row" style="justify-content:center;width:100%;padding:20px 0">
+          <svg class="aim" width="32" height="32" viewBox="0 0 24 24" stroke-width="1.5" aria-hidden="true">
+            <circle cx="12" cy="12" r="10"/>
+            <circle cx="12" cy="12" r="2"/>
+            <g class="aim-spin aim-loop">
+              <path d="M6 12c0-1.7.7-3.2 1.8-4.2"/>
+              <path d="M18 12c0 1.7-.7 3.2-1.8 4.2"/>
+            </g>
+          </svg>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+<section class="fam">
+  <h2>Size ladder <span style="font-weight:400;color:var(--ink-3);font-size:var(--fs-small)">&mdash; the constraint that decides family 5</span>
+  </h2>
+  <p>Only the sizes animated sites <b>actually use</b>, counted from the tree: <b>12</b> (5 sites), <b>13</b> (4), <b>32</b> (1, app boot), <b>40</b> (4, the planes). Judge at 100% zoom.
+  </p>
+  <p><b>11 is an outlier</b> &mdash; exactly one animated site uses it, <code>CategoryFilterCards.tsx:110</code>. It is drawn below the rule for comparison only; moving that site to 12 retires the size and costs nothing. The one other size-11 icon in the app (<code>DiscoveryPane.tsx:109</code>) is a static hover glyph, not animated.
+  </p>
+  <p>The finding this ladder exists for: <b>one mark cannot serve both 40 and 12.</b> <code>disc-3</code>&rsquo;s two arcs and 2-unit hub collapse into the rim below about 16; <code>loader-circle</code> is a single arc and holds. That argues for a pair &mdash; <code>disc-3</code> on the planes, <code>loader-circle</code> inline &mdash; not one mark stretched across both.
+  </p>
+  <p><b>Element count is its own limit</b> (Karthik, 2026-08-24). <code>radar</code> was dropped from every candidate strip: 8 elements read fine as a static mark and turn to mush the moment they move at 12&ndash;13. As a rough rule, a mark that animates at inline sizes wants <b>4 elements or fewer</b> &mdash; <code>disc-3</code> is 4, <code>server</code> is 4, <code>loader-circle</code> is 1. Denser marks stay static, or stay on the 40 planes.
+  </p>
+  <p><b>12 vs 13 is not noise.</b> 13 is where action buttons sit (Rescan in <code>SummaryStrip</code>, <code>NeedsReviewPane</code>; Verify in <code>McpServerDetail</code>); 12 is inline status beside text. One site breaks it: <code>RepoPane.tsx:407</code> is a button at 12. Worth deciding whether to keep the split and fix that site, or collapse both to one size.
+  </p>
+  <div class="state">
+    <div class="alts" style="border:0;padding-top:0;gap:22px">
+      <div style="align-items:flex-start">
+        <div class="alts" style="border:0;padding:0;margin:0;gap:14px">
+          <div>
+            <svg class="aim" width="12" height="12" viewBox="0 0 24 24" stroke-width="2.2" aria-hidden="true">
+              <circle cx="12" cy="12" r="10"/>
+              <circle cx="12" cy="12" r="2"/>
+              <g class="aim-spin aim-loop">
+                <path d="M6 12c0-1.7.7-3.2 1.8-4.2"/>
+                <path d="M18 12c0 1.7-.7 3.2-1.8 4.2"/>
+              </g>
+            </svg><span class="nm">12</span>
+          </div>
+          <div>
+            <svg class="aim" width="13" height="13" viewBox="0 0 24 24" stroke-width="1.9" aria-hidden="true">
+              <circle cx="12" cy="12" r="10"/>
+              <circle cx="12" cy="12" r="2"/>
+              <g class="aim-spin aim-loop">
+                <path d="M6 12c0-1.7.7-3.2 1.8-4.2"/>
+                <path d="M18 12c0 1.7-.7 3.2-1.8 4.2"/>
+              </g>
+            </svg><span class="nm">13</span>
+          </div>
+          <div>
+            <svg class="aim" width="32" height="32" viewBox="0 0 24 24" stroke-width="1.5" aria-hidden="true">
+              <circle cx="12" cy="12" r="10"/>
+              <circle cx="12" cy="12" r="2"/>
+              <g class="aim-spin aim-loop">
+                <path d="M6 12c0-1.7.7-3.2 1.8-4.2"/>
+                <path d="M18 12c0 1.7-.7 3.2-1.8 4.2"/>
+              </g>
+            </svg><span class="nm">32</span>
+          </div>
+          <div>
+            <svg class="aim" width="40" height="40" viewBox="0 0 24 24" stroke-width="1.5" aria-hidden="true">
+              <circle cx="12" cy="12" r="10"/>
+              <circle cx="12" cy="12" r="2"/>
+              <g class="aim-spin aim-loop">
+                <path d="M6 12c0-1.7.7-3.2 1.8-4.2"/>
+                <path d="M18 12c0 1.7-.7 3.2-1.8 4.2"/>
+              </g>
+            </svg><span class="nm">40</span>
+          </div>
+          <div style="width:1px;align-self:stretch;background:var(--line);margin:0 4px">
+          </div>
+          <div style="opacity:.55">
+            <svg class="aim" width="11" height="11" viewBox="0 0 24 24" stroke-width="2.2" aria-hidden="true">
+              <circle cx="12" cy="12" r="10"/>
+              <circle cx="12" cy="12" r="2"/>
+              <g class="aim-spin aim-loop">
+                <path d="M6 12c0-1.7.7-3.2 1.8-4.2"/>
+                <path d="M18 12c0 1.7-.7 3.2-1.8 4.2"/>
+              </g>
+            </svg><span class="nm">11</span>
+          </div>
+        </div><span class="nm pick" style="margin-top:6px">disc-3</span>
+      </div>
+      <div style="align-items:flex-start">
+        <div class="alts" style="border:0;padding:0;margin:0;gap:14px">
+          <div>
+            <svg class="aim" width="12" height="12" viewBox="0 0 24 24" stroke-width="2.2" aria-hidden="true">
+              <g class="aim-spin aim-loop">
+                <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+              </g>
+            </svg><span class="nm">12</span>
+          </div>
+          <div>
+            <svg class="aim" width="13" height="13" viewBox="0 0 24 24" stroke-width="1.9" aria-hidden="true">
+              <g class="aim-spin aim-loop">
+                <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+              </g>
+            </svg><span class="nm">13</span>
+          </div>
+          <div>
+            <svg class="aim" width="32" height="32" viewBox="0 0 24 24" stroke-width="1.5" aria-hidden="true">
+              <g class="aim-spin aim-loop">
+                <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+              </g>
+            </svg><span class="nm">32</span>
+          </div>
+          <div>
+            <svg class="aim" width="40" height="40" viewBox="0 0 24 24" stroke-width="1.5" aria-hidden="true">
+              <g class="aim-spin aim-loop">
+                <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+              </g>
+            </svg><span class="nm">40</span>
+          </div>
+          <div style="width:1px;align-self:stretch;background:var(--line);margin:0 4px">
+          </div>
+          <div style="opacity:.55">
+            <svg class="aim" width="11" height="11" viewBox="0 0 24 24" stroke-width="2.2" aria-hidden="true">
+              <g class="aim-spin aim-loop">
+                <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+              </g>
+            </svg><span class="nm">11</span>
+          </div>
+        </div><span class="nm pick" style="margin-top:6px">loader-circle</span>
+      </div>
+      <div style="align-items:flex-start">
+        <div class="alts" style="border:0;padding:0;margin:0;gap:14px">
+          <div>
+            <svg class="aim" width="12" height="12" viewBox="0 0 24 24" stroke-width="2.2" aria-hidden="true">
+              <g class="aim-spin aim-loop">
+                <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/>
+                <path d="M21 3v5h-5"/>
+                <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/>
+                <path d="M8 16H3v5"/>
+              </g>
+            </svg><span class="nm">12</span>
+          </div>
+          <div>
+            <svg class="aim" width="13" height="13" viewBox="0 0 24 24" stroke-width="1.9" aria-hidden="true">
+              <g class="aim-spin aim-loop">
+                <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/>
+                <path d="M21 3v5h-5"/>
+                <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/>
+                <path d="M8 16H3v5"/>
+              </g>
+            </svg><span class="nm">13</span>
+          </div>
+          <div>
+            <svg class="aim" width="32" height="32" viewBox="0 0 24 24" stroke-width="1.5" aria-hidden="true">
+              <g class="aim-spin aim-loop">
+                <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/>
+                <path d="M21 3v5h-5"/>
+                <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/>
+                <path d="M8 16H3v5"/>
+              </g>
+            </svg><span class="nm">32</span>
+          </div>
+          <div>
+            <svg class="aim" width="40" height="40" viewBox="0 0 24 24" stroke-width="1.5" aria-hidden="true">
+              <g class="aim-spin aim-loop">
+                <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/>
+                <path d="M21 3v5h-5"/>
+                <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/>
+                <path d="M8 16H3v5"/>
+              </g>
+            </svg><span class="nm">40</span>
+          </div>
+          <div style="width:1px;align-self:stretch;background:var(--line);margin:0 4px">
+          </div>
+          <div style="opacity:.55">
+            <svg class="aim" width="11" height="11" viewBox="0 0 24 24" stroke-width="2.2" aria-hidden="true">
+              <g class="aim-spin aim-loop">
+                <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/>
+                <path d="M21 3v5h-5"/>
+                <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/>
+                <path d="M8 16H3v5"/>
+              </g>
+            </svg><span class="nm">11</span>
+          </div>
+        </div><span class="nm pick" style="margin-top:6px">refresh-cw</span>
+      </div>
+      <div style="align-items:flex-start">
+        <div class="alts" style="border:0;padding:0;margin:0;gap:14px">
+          <div>
+            <svg class="aim" width="12" height="12" viewBox="0 0 24 24" stroke-width="2.2" aria-hidden="true">
+              <path d="M9 20H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H20a2 2 0 0 1 2 2v.5"/>
+              <g class="aim-spin aim-loop" style="--ox:17px;--oy:16px">
+                <path d="M12 10v4h4"/>
+                <path d="m12 14 1.535-1.605a5 5 0 0 1 8 1.5"/>
+                <path d="M22 22v-4h-4"/>
+                <path d="m22 18-1.535 1.605a5 5 0 0 1-8-1.5"/>
+              </g>
+            </svg><span class="nm">12</span>
+          </div>
+          <div>
+            <svg class="aim" width="13" height="13" viewBox="0 0 24 24" stroke-width="1.9" aria-hidden="true">
+              <path d="M9 20H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H20a2 2 0 0 1 2 2v.5"/>
+              <g class="aim-spin aim-loop" style="--ox:17px;--oy:16px">
+                <path d="M12 10v4h4"/>
+                <path d="m12 14 1.535-1.605a5 5 0 0 1 8 1.5"/>
+                <path d="M22 22v-4h-4"/>
+                <path d="m22 18-1.535 1.605a5 5 0 0 1-8-1.5"/>
+              </g>
+            </svg><span class="nm">13</span>
+          </div>
+          <div>
+            <svg class="aim" width="32" height="32" viewBox="0 0 24 24" stroke-width="1.5" aria-hidden="true">
+              <path d="M9 20H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H20a2 2 0 0 1 2 2v.5"/>
+              <g class="aim-spin aim-loop" style="--ox:17px;--oy:16px">
+                <path d="M12 10v4h4"/>
+                <path d="m12 14 1.535-1.605a5 5 0 0 1 8 1.5"/>
+                <path d="M22 22v-4h-4"/>
+                <path d="m22 18-1.535 1.605a5 5 0 0 1-8-1.5"/>
+              </g>
+            </svg><span class="nm">32</span>
+          </div>
+          <div>
+            <svg class="aim" width="40" height="40" viewBox="0 0 24 24" stroke-width="1.5" aria-hidden="true">
+              <path d="M9 20H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H20a2 2 0 0 1 2 2v.5"/>
+              <g class="aim-spin aim-loop" style="--ox:17px;--oy:16px">
+                <path d="M12 10v4h4"/>
+                <path d="m12 14 1.535-1.605a5 5 0 0 1 8 1.5"/>
+                <path d="M22 22v-4h-4"/>
+                <path d="m22 18-1.535 1.605a5 5 0 0 1-8-1.5"/>
+              </g>
+            </svg><span class="nm">40</span>
+          </div>
+          <div style="width:1px;align-self:stretch;background:var(--line);margin:0 4px">
+          </div>
+          <div style="opacity:.55">
+            <svg class="aim" width="11" height="11" viewBox="0 0 24 24" stroke-width="2.2" aria-hidden="true">
+              <path d="M9 20H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H20a2 2 0 0 1 2 2v.5"/>
+              <g class="aim-spin aim-loop" style="--ox:17px;--oy:16px">
+                <path d="M12 10v4h4"/>
+                <path d="m12 14 1.535-1.605a5 5 0 0 1 8 1.5"/>
+                <path d="M22 22v-4h-4"/>
+                <path d="m22 18-1.535 1.605a5 5 0 0 1-8-1.5"/>
+              </g>
+            </svg><span class="nm">11</span>
+          </div>
+        </div><span class="nm pick" style="margin-top:6px">folder-sync</span>
+      </div>
+      <div style="align-items:flex-start">
+        <div class="alts" style="border:0;padding:0;margin:0;gap:14px">
+          <div>
+            <svg class="aim" width="12" height="12" viewBox="0 0 24 24" stroke-width="2.2" aria-hidden="true">
+              <g class="aim-draw aim-loop aim-stagger">
+                <circle cx="12" cy="4.5" r="2.5" pathLength="1" style="--i:0"/>
+                <path d="m10.2 6.3-3.9 3.9" pathLength="1" style="--i:1"/>
+                <circle cx="4.5" cy="12" r="2.5" pathLength="1" style="--i:2"/>
+                <path d="M7 12h10" pathLength="1" style="--i:3"/>
+                <circle cx="19.5" cy="12" r="2.5" pathLength="1" style="--i:4"/>
+                <path d="m13.8 17.7 3.9-3.9" pathLength="1" style="--i:5"/>
+                <circle cx="12" cy="19.5" r="2.5" pathLength="1" style="--i:6"/>
+              </g>
+            </svg><span class="nm">12</span>
+          </div>
+          <div>
+            <svg class="aim" width="13" height="13" viewBox="0 0 24 24" stroke-width="1.9" aria-hidden="true">
+              <g class="aim-draw aim-loop aim-stagger">
+                <circle cx="12" cy="4.5" r="2.5" pathLength="1" style="--i:0"/>
+                <path d="m10.2 6.3-3.9 3.9" pathLength="1" style="--i:1"/>
+                <circle cx="4.5" cy="12" r="2.5" pathLength="1" style="--i:2"/>
+                <path d="M7 12h10" pathLength="1" style="--i:3"/>
+                <circle cx="19.5" cy="12" r="2.5" pathLength="1" style="--i:4"/>
+                <path d="m13.8 17.7 3.9-3.9" pathLength="1" style="--i:5"/>
+                <circle cx="12" cy="19.5" r="2.5" pathLength="1" style="--i:6"/>
+              </g>
+            </svg><span class="nm">13</span>
+          </div>
+          <div>
+            <svg class="aim" width="32" height="32" viewBox="0 0 24 24" stroke-width="1.5" aria-hidden="true">
+              <g class="aim-draw aim-loop aim-stagger">
+                <circle cx="12" cy="4.5" r="2.5" pathLength="1" style="--i:0"/>
+                <path d="m10.2 6.3-3.9 3.9" pathLength="1" style="--i:1"/>
+                <circle cx="4.5" cy="12" r="2.5" pathLength="1" style="--i:2"/>
+                <path d="M7 12h10" pathLength="1" style="--i:3"/>
+                <circle cx="19.5" cy="12" r="2.5" pathLength="1" style="--i:4"/>
+                <path d="m13.8 17.7 3.9-3.9" pathLength="1" style="--i:5"/>
+                <circle cx="12" cy="19.5" r="2.5" pathLength="1" style="--i:6"/>
+              </g>
+            </svg><span class="nm">32</span>
+          </div>
+          <div>
+            <svg class="aim" width="40" height="40" viewBox="0 0 24 24" stroke-width="1.5" aria-hidden="true">
+              <g class="aim-draw aim-loop aim-stagger">
+                <circle cx="12" cy="4.5" r="2.5" pathLength="1" style="--i:0"/>
+                <path d="m10.2 6.3-3.9 3.9" pathLength="1" style="--i:1"/>
+                <circle cx="4.5" cy="12" r="2.5" pathLength="1" style="--i:2"/>
+                <path d="M7 12h10" pathLength="1" style="--i:3"/>
+                <circle cx="19.5" cy="12" r="2.5" pathLength="1" style="--i:4"/>
+                <path d="m13.8 17.7 3.9-3.9" pathLength="1" style="--i:5"/>
+                <circle cx="12" cy="19.5" r="2.5" pathLength="1" style="--i:6"/>
+              </g>
+            </svg><span class="nm">40</span>
+          </div>
+          <div style="width:1px;align-self:stretch;background:var(--line);margin:0 4px">
+          </div>
+          <div style="opacity:.55">
+            <svg class="aim" width="11" height="11" viewBox="0 0 24 24" stroke-width="2.2" aria-hidden="true">
+              <g class="aim-draw aim-loop aim-stagger">
+                <circle cx="12" cy="4.5" r="2.5" pathLength="1" style="--i:0"/>
+                <path d="m10.2 6.3-3.9 3.9" pathLength="1" style="--i:1"/>
+                <circle cx="4.5" cy="12" r="2.5" pathLength="1" style="--i:2"/>
+                <path d="M7 12h10" pathLength="1" style="--i:3"/>
+                <circle cx="19.5" cy="12" r="2.5" pathLength="1" style="--i:4"/>
+                <path d="m13.8 17.7 3.9-3.9" pathLength="1" style="--i:5"/>
+                <circle cx="12" cy="19.5" r="2.5" pathLength="1" style="--i:6"/>
+              </g>
+            </svg><span class="nm">11</span>
+          </div>
+        </div><span class="nm pick" style="margin-top:6px">waypoints</span>
+      </div>
+    </div>
+  </div>
+</section>
+<section class="fam">
+  <h2>6 &mdash; Existing motion <span style="font-weight:400;color:var(--ink-3);font-size:var(--fs-small)">&mdash; reference only, unchanged</span>
+  </h2>
+  <p>Not proposals. These already have considered motion you signed off on, drawn here so the new vocabulary can be checked against it &mdash; the question is whether families 1&ndash;5 sound like they belong to the same language, not whether these should change.
+  </p>
+  <div class="grid2">
+    <div class="state">
+      <header><b style="font-size:var(--fs-small)">Scan status &mdash; live progress</b><span class="tag current">pulsing dot</span><span class="tag loop">loop</span><span class="src">ScanStatusIndicator.tsx:29-35</span>
+      </header>
+      <div class="plane" style="min-height:auto;padding:20px">
+        <div class="inline-row"><span class="dot" style="width:6px;height:6px;background:var(--ink-2)" class="aim-breathe"></span><span style="font-size:var(--fs-micro)">Scanning ~/.claude &middot; 3 queued</span>
+        </div>
+        <div class="meta"><code>motion-safe:animate-pulse</code> &mdash; the one existing looping motion in the app
+        </div>
+      </div>
+    </div>
+    <div class="state">
+      <header><b style="font-size:var(--fs-small)">Favourite &mdash; pop + ring</b><span class="tag current">animate-heart-pop / -ring</span><span class="tag once">once</span><span class="src">FavouriteHeart.tsx:53-59</span>
+      </header>
+      <div class="plane" style="min-height:auto;padding:20px">
+        <div class="meta"><code>@keyframes</code> in <code>index.css:201-204</code>. Already play-once-and-hold &mdash; the rule family 2 adopts was, in effect, already here.
+        </div>
+      </div>
+    </div>
+    <div class="state">
+      <header><b style="font-size:var(--fs-small)">Toast / sheet entrances</b><span class="tag current">animate-rise / -drop / -tip</span><span class="tag once">once</span><span class="src">index.css:151-178, DiscoveryPane.tsx:347</span>
+      </header>
+      <div class="plane" style="min-height:auto;padding:20px">
+        <div class="meta">Three entrances with stated physical rationale. <code>animate-tip</code> scales from <code>0.97</code> because &ldquo;nothing in the world appears from nothing&rdquo; &mdash; the same instinct behind resting marks holding a still frame rather than looping.
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+<section class="fam">
+  <h2>What ports into the app
+  </h2>
+  <p>The class vocabulary above is the deliverable, not the HTML. It moves into <code>src/styles/index.css</code> as <code>@utility</code> rules beside <code>animate-drop</code> / <code>-rise</code> / <code>-tip</code>, and <code>src/components/icons.tsx</code> grows one wrapper beside <code>sized()</code>. Marks keep passing through <code>sized()</code>, so <code>strokeFor()</code> and the optical table still apply &mdash; these prototype SVGs hardcode <code>stroke-width: 2</code> only because they are not going through it here. See <code>00-state-inventory.md</code> for the per-site mapping and the open questions.
+  </p>
+</section>
+<script>
+  (function () {
+    var b = document.getElementById('dark');
+    b.addEventListener('click', function () {
+      var on = document.documentElement.classList.toggle('dark');
+      b.textContent = on ? 'Light' : 'Dark';
+    });
+  })();
+</script>
+</body>
+</html>
