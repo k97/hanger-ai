@@ -133,6 +133,26 @@ Not false — both halves are accurate — but it is a third state nobody
 designed, and it reads as a bug to anyone who sees it. Decide what it should
 say, rather than patching the arithmetic.
 
+**Seen in the running app, 2026-08-25 (Karthik).** Reported as "the global
+screen while scanning isn't showing anything" — a blank area where the table
+would be. Confirmed as this item, not a regression from the animated-icons
+work (`git diff 1cf00a7..HEAD -- ProfilePane.tsx` touches no gate condition;
+only which mark renders inside the planes).
+
+The asymmetry that makes it visible: **the repository pane animates while
+scanning and the global pane does not**, and both are correct.
+`ProfilePane.tsx:460` reads `storeEmpty` from `assetCounts` first, so a
+global store with counts persisted from an earlier scan is not empty ->
+`pendingState` never fires -> the table branch renders `AssetHeaderRow` over
+an `inventory` that is still `null`. A freshly linked repository has no
+counts, so `RepoPane.tsx:305` sees zero, `isRepoPending` fires, and the disc
+spins. Column headers over a void versus a designed plane.
+
+**Cheaper than when this was written.** `EmptyState` now exists (T5, closed
+2026-08-25) and the scanning plane is a component call, so the third state is
+a branch rather than new markup: counts known, rows not yet arrived, render
+what the repository pane already renders.
+
 **Done when:** the foot line has a deliberate answer for "count known,
 rows not yet loaded".
 
@@ -663,3 +683,46 @@ obvious right answer.
 **Done when:** each of the four is looked at on screen and Karthik rules
 accept, replace with a different mark, or "no icon here" — and whichever are
 accepted get iconed and pinned the way the rest of the family now is.
+
+---
+
+## T14 — The gel meter snaps instead of animating
+
+Raised by Karthik, 2026-08-25, from the running app: the hero banner's gel
+meter jumps to its new proportions when you switch tabs or screens rather
+than moving to them. It reads as a load artefact, not a transition.
+
+`GelMeter.tsx` sizes its segments from the counts it is handed, and a new
+scope hands it different counts in one render — nothing interpolates. The
+app has a spring and three beats (`--spring`, `--dur-hover/nav/press`) that
+every other moving thing already uses, so the vocabulary exists.
+
+Worth deciding what actually animates: the segment widths, or the whole bar
+fading through the change. A width transition on a bar whose segments can
+reach zero has a degenerate case to handle.
+
+**Done when:** switching scope moves the meter rather than redrawing it, on
+the app's own beats, and the zero-segment case is stated.
+
+---
+
+## T15 — Hanger has no splash screen
+
+Raised by Karthik, 2026-08-25. The app currently opens on
+`App.tsx:1052`'s centred boot mark (now `Disc3Icon`, spinning) while
+`onboardingComplete` resolves — functional, but it is a spinner on an empty
+page rather than an entrance.
+
+Potentially animated. The v5 icon-motion vocabulary landed 2026-08-25
+(`index.css`, `@utility aim-*`) and the hanger mark itself
+(`HangerMark.tsx`) has never moved, so there is material for one without new
+machinery.
+
+Two things to settle before building: whether Tauri shows it as a real
+splash window or as the webview's first paint (they behave differently on
+cold start, and the wrong one adds perceived latency rather than hiding it),
+and what it does when startup is fast — a splash that must be waited for is
+worse than none.
+
+**Done when:** there is a ruling on window-vs-webview and on the fast-start
+case, and whatever ships is verified on a cold launch, not a reload.
