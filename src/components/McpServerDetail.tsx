@@ -9,9 +9,8 @@ import UnderlineTabs from "./UnderlineTabs";
 import ListCard, { ListCardRow } from "./ListCard";
 import { miniBtnClass, miniSetClass } from "./miniButton";
 import {
-  ArrowPathIcon,
   RevealInFileManagerIcon,
-  SpinnerIcon,
+  ServerRelayIcon,
   TagIcon,
   SignalIcon,
   ArrowPathRoundedSquareIcon,
@@ -188,7 +187,7 @@ function ProbePending() {
   if (!longEnough) return null;
   return (
     <div className="border border-dashed border-line-2 rounded-inner px-[14px] py-[18px] flex items-center gap-2 text-micro text-ink-3">
-      <SpinnerIcon className="animate-spin" size={12} aria-hidden="true" />
+      <ServerRelayIcon size={12} active aria-hidden="true" />
       {PROBE_PENDING}
     </div>
   );
@@ -310,7 +309,7 @@ function CheckAgainButton({
         aria-label="Check again"
         className="shrink-0 text-ink-3 hover:text-ink-1 transition-colors duration-hover cursor-pointer disabled:opacity-60 disabled:cursor-default"
       >
-        <ArrowPathIcon size={13} aria-hidden="true" className={verifying ? "animate-spin" : ""} />
+        <ServerRelayIcon size={13} active={verifying} aria-hidden="true" />
       </button>
     </Tooltip>
   );

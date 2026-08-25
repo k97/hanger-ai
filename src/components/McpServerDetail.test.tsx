@@ -107,6 +107,9 @@ describe("McpServerDetail", () => {
       />
     );
     const button = screen.getByRole("button", { name: "Check again" });
+    // Resting is half of what `active` means -- no motion class at all
+    // while nothing is in flight, not merely a stopped-looking spin.
+    expect(button.querySelector("g.aim-loop")).toBeNull();
     fireEvent.click(button);
     expect(onVerify).toHaveBeenCalledWith("cc-user");
   });
@@ -123,6 +126,13 @@ describe("McpServerDetail", () => {
     );
     const button = screen.getByRole("button", { name: "Check again" });
     expect(button).toHaveProperty("disabled", true);
+    // Pins ServerRelayIcon by its distinctive geometry -- the rack rect --
+    // and its out-of-phase structure, not merely "a loop class is present".
+    expect(button.querySelectorAll("g.aim-relay.aim-loop")).toHaveLength(2);
+    expect(button.querySelector('rect[x="2"][y="2"]')).toBeTruthy();
+    expect(
+      (button.querySelectorAll("g.aim-relay.aim-loop")[1] as HTMLElement).style.animationDelay
+    ).toBe("-0.6s");
     // The icon-only control's accessible name is constant -- the spin is
     // the only signal that a check is running, so a class assertion is the
     // only way to pin it.
@@ -1357,6 +1367,20 @@ describe("McpServerDetail — lazy on open", () => {
         vi.advanceTimersByTime(1);
       });
       expect(screen.getByText("Asking the server…")).toBeTruthy();
+      // Pins ServerRelayIcon specifically, not just "some spinner appeared":
+      // two out-of-phase rack groups, the second half a cycle behind the
+      // first. Geometry read from ServerRelayIcon's spec in icons.tsx, not
+      // retyped from memory. A regression that merged the two racks into one
+      // group -- both fading together instead of trading emphasis -- would
+      // be visually wrong but invisible to any assertion that only checks a
+      // mark is present, so the count and the phase offset are both pinned
+      // here, alongside the geometry.
+      const pending = screen.getByText("Asking the server…").closest("div")!;
+      const relayGroups = pending.querySelectorAll("g.aim-relay");
+      expect(relayGroups).toHaveLength(2);
+      expect(pending.querySelector('rect[x="2"][y="2"]')).toBeTruthy();
+      expect((relayGroups[0] as HTMLElement).style.animationDelay).toBe("");
+      expect((relayGroups[1] as HTMLElement).style.animationDelay).toBe("-0.6s");
     } finally {
       vi.useRealTimers();
     }
