@@ -52,6 +52,48 @@ describe("scroll-gutter-stable is declared", () => {
   });
 });
 
+// The thin scrollbar (Karthik's ruling, 2026-08-25) pairs with the gutter
+// above: a stock macOS classic scrollbar draws at ~15px, so shrinking it to
+// 6px is what lets the panel's own inset shrink from 18px to 12px and still
+// land near the original ~18px total. Two things must hold for that ruling
+// to survive a future edit: the width stays 6px (a wider or narrower value
+// throws the 12+6=18 arithmetic off), and the thumb colour is a design
+// token, never a hardcoded hex or rgb() literal — the same guarantee
+// `no-off-token-styles.test.ts` makes for `.tsx`, applied here to the one
+// CSS file allowed to declare tokens in the first place.
+describe("scroll-thin is declared", () => {
+  const css = fs.readFileSync(path.resolve(__dirname, "../styles/index.css"), "utf-8");
+  // Non-greedy up to the first line-initial "}" — the utility's three nested
+  // ::-webkit-scrollbar rules all close on an indented "  }", so the first
+  // unindented "}" is the outer utility's own close, not an inner one.
+  const utilityMatch = css.match(/@utility scroll-thin \{([\s\S]*?)\n\}/);
+
+  it("exists in index.css", () => {
+    expect(utilityMatch, "@utility scroll-thin not found in index.css").not.toBeNull();
+  });
+
+  const body = utilityMatch?.[1] ?? "";
+
+  it("sets the custom scrollbar to 6px", () => {
+    expect(body).toMatch(/&::-webkit-scrollbar\s*\{[^}]*width:\s*6px;[^}]*\}/);
+  });
+
+  it("draws the thumb from a token, never a literal colour", () => {
+    const thumbMatch = body.match(/&::-webkit-scrollbar-thumb\s*\{([^}]*)\}/);
+    expect(thumbMatch, "scroll-thin has no ::-webkit-scrollbar-thumb rule").not.toBeNull();
+    const thumbBody = thumbMatch?.[1] ?? "";
+    expect(thumbBody).toMatch(/background-color:\s*var\(--[a-z0-9-]+\);/);
+    expect(thumbBody).not.toMatch(/#[0-9a-fA-F]{3,8}/);
+    expect(thumbBody).not.toMatch(/rgba?\(/);
+  });
+
+  it("gives the thumb a radius token, never a literal", () => {
+    const thumbMatch = body.match(/&::-webkit-scrollbar-thumb\s*\{([^}]*)\}/);
+    const thumbBody = thumbMatch?.[1] ?? "";
+    expect(thumbBody).toMatch(/border-radius:\s*var\(--radius-[a-z0-9-]+\);/);
+  });
+});
+
 describe("every bare overflow-y-auto scroll container in the inspector carries scroll-gutter-stable", () => {
   for (const file of INSPECTOR_FILES) {
     it(`${file}`, () => {

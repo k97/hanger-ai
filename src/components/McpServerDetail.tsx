@@ -689,7 +689,7 @@ export default function McpServerDetail({
       {/* One scroll region for the whole panel, as in AssetDetail. The tools
           list used to cap itself at 240px, which meant two nested scrollbars
           and a list you could only read a sixth of at a time. */}
-      <div className="flex-1 min-h-0 overflow-y-auto scroll-gutter-stable">
+      <div className="flex-1 min-h-0 overflow-y-auto scroll-gutter-stable scroll-thin">
       {tab === "tools" ? (
         <div role="tabpanel" id="panel-tools" aria-labelledby="tab-tools">
         {/* What a request actually carries, ahead of the list that produced

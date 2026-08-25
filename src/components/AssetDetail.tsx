@@ -359,11 +359,11 @@ export default function AssetDetail({ asset, inventory, onDocumentPath, annotati
         />
       )}
 
-      <div className="flex-1 min-h-0 overflow-y-auto scroll-gutter-stable">
+      <div className="flex-1 min-h-0 overflow-y-auto scroll-gutter-stable scroll-thin">
         {kind !== "none" && tab === "content" && (
           <div role="tabpanel" id="panel-content" aria-labelledby="tab-content">
             {asset.category === "Skills" && body && (
-              <section className="mx-[18px] my-3.5">
+              <section className="mx-[12px] my-3.5">
                 <div className="flex items-baseline justify-between gap-2 mb-3">
                   <span className={eyebrowClass}>Context</span>
                 </div>
@@ -387,7 +387,7 @@ export default function AssetDetail({ asset, inventory, onDocumentPath, annotati
             )}
 
             {text !== null && (
-              <section className="mx-[18px] my-3.5">
+              <section className="mx-[12px] my-3.5">
                 <ListCard>
                   <ListCardRow
                     icon={<DocumentIcon size={14} aria-hidden="true" />}
@@ -437,7 +437,7 @@ export default function AssetDetail({ asset, inventory, onDocumentPath, annotati
             )}
 
             {docError && (
-              <p className="mx-[18px] my-3 px-3.5 py-2.5 bg-plane rounded-inner text-small text-ink-3 leading-[1.6]">
+              <p className="mx-[12px] my-3 px-3.5 py-2.5 bg-plane rounded-inner text-small text-ink-3 leading-[1.6]">
                 {docError}
               </p>
             )}
@@ -450,7 +450,7 @@ export default function AssetDetail({ asset, inventory, onDocumentPath, annotati
             id={kind === "none" ? undefined : "panel-details"}
             aria-labelledby={kind === "none" ? undefined : "tab-details"}
           >
-            <section className="mx-[18px] my-3.5">
+            <section className="mx-[12px] my-3.5">
               <div className="flex items-baseline justify-between gap-2 mb-3">
                 <span className={eyebrowClass}>Identity</span>
               </div>
@@ -469,7 +469,7 @@ export default function AssetDetail({ asset, inventory, onDocumentPath, annotati
             </section>
 
             {dirEntries && dirEntries.length > 0 && (
-              <section className="mx-[18px] my-3.5">
+              <section className="mx-[12px] my-3.5">
                 <div className="flex items-baseline justify-between gap-2 mb-3">
                   <span className={eyebrowClass}>Contents</span>
                 </div>
@@ -504,7 +504,7 @@ export default function AssetDetail({ asset, inventory, onDocumentPath, annotati
             )}
 
             {allowedTools.length > 0 && (
-              <section className="mx-[18px] my-3.5">
+              <section className="mx-[12px] my-3.5">
                 <div className="flex items-baseline justify-between gap-2 mb-3">
                   <span className={eyebrowClass}>Capabilities</span>
                 </div>
@@ -530,7 +530,7 @@ export default function AssetDetail({ asset, inventory, onDocumentPath, annotati
                 nothing is missing and nothing is broken. Labels signed off
                 2026-08-17. */}
             {annotation && annotation.reach.length > 0 && (
-              <section data-testid="reach-detail" className="mx-[18px] my-3.5">
+              <section data-testid="reach-detail" className="mx-[12px] my-3.5">
                 <div className="flex items-baseline justify-between gap-2 mb-3">
                   <span className={eyebrowClass}>Reach</span>
                   {/* One store for the whole card, not one per row. `via_store` is

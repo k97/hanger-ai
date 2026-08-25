@@ -243,7 +243,7 @@ export default function LinkPanel({
 
   return (
     <div className="flex-1 min-h-0 flex flex-col font-sans">
-      <div className="flex-1 min-h-0 overflow-y-auto scroll-gutter-stable">
+      <div className="flex-1 min-h-0 overflow-y-auto scroll-gutter-stable scroll-thin">
         <div className="px-[18px] pt-4">
           <span className={labelClass} id="link-destinations">
             Destinations
@@ -367,7 +367,7 @@ export default function LinkPanel({
         </div>
 
         {picked.length > 0 && (
-          <div className="mx-[18px] mt-[18px] bg-plane rounded-plane pt-1 px-3.5 pb-2.5">
+          <div className="mx-[12px] mt-[18px] bg-plane rounded-plane pt-1 px-3.5 pb-2.5">
             <div className="py-2.5 font-flex text-micro uppercase tracking-[.06em] text-ink-3">
               {done ? "What happened" : "What will happen"}
             </div>
@@ -393,14 +393,14 @@ export default function LinkPanel({
         )}
 
         {failure && (
-          <div className="mx-[18px] mt-3 flex items-start gap-2 text-state-warning text-small leading-[1.6]">
+          <div className="mx-[12px] mt-3 flex items-start gap-2 text-state-warning text-small leading-[1.6]">
             <ExclamationTriangleIcon size={14} className="shrink-0 mt-0.5" aria-hidden="true" />
             <span>{failure}</span>
           </div>
         )}
 
         {done && !failure && (
-          <div className="mx-[18px] mt-3 flex items-center gap-1.5 text-state-success text-small font-medium">
+          <div className="mx-[12px] mt-3 flex items-center gap-1.5 text-state-success text-small font-medium">
             <CheckIcon size={14} aria-hidden="true" />
             Done. The inventory is refreshing.
           </div>

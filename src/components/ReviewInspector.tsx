@@ -137,8 +137,8 @@ export default function ReviewInspector({
         </div>
       </div>
 
-      <div className="flex-1 min-h-0 overflow-y-auto scroll-gutter-stable">
-        <div className="mx-[18px] mt-3.5 grid gap-px bg-line rounded-plane overflow-hidden">
+      <div className="flex-1 min-h-0 overflow-y-auto scroll-gutter-stable scroll-thin">
+        <div className="mx-[12px] mt-3.5 grid gap-px bg-line rounded-plane overflow-hidden">
           {pairs.map((pair, idx) => (
             <section key={`${pair.key}-${idx}`} className="bg-plane px-3.5 py-2.5">
               <div className="font-flex text-micro tracking-[.06em] uppercase text-ink-3 mb-1">
@@ -150,7 +150,7 @@ export default function ReviewInspector({
         </div>
 
         {issue.siblings && (
-          <div className="mx-[18px] mt-3.5 px-3.5 py-2.5 bg-plane rounded-plane">
+          <div className="mx-[12px] mt-3.5 px-3.5 py-2.5 bg-plane rounded-plane">
             <div className="font-flex text-micro tracking-[.06em] uppercase text-ink-3 mb-1.5">
               The same source also feeds
             </div>
@@ -166,7 +166,7 @@ export default function ReviewInspector({
           </div>
         )}
 
-        <dl className="mx-[18px] my-3.5 px-3.5 py-3 bg-plane rounded-plane grid grid-cols-[92px_1fr] gap-y-2 gap-x-3 text-small">
+        <dl className="mx-[12px] my-3.5 px-3.5 py-3 bg-plane rounded-plane grid grid-cols-[92px_1fr] gap-y-2 gap-x-3 text-small">
           <dt className="font-flex text-ink-3">Where</dt>
           <dd className="text-ink-1">{issue.whereLabel}</dd>
           <dt className="font-flex text-ink-3">Reaches</dt>

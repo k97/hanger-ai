@@ -168,6 +168,34 @@
   scrollbar-gutter: stable both-edges;
 }
 
+/* A stock macOS scrollbar is a light-mode artefact in this dark mono UI —
+   pale, drawn in the platform's own chrome rather than the app's ink, and
+   ~15px wide against an inspector panel that has no spare 15px to give up.
+   Styling ::-webkit-scrollbar with an explicit width switches WebKit from
+   the platform's scrollbar to a *custom* one at that width, so declaring
+   6px both draws the thumb in the app's own ink and shrinks what
+   scroll-gutter-stable (above) has to reserve on each edge — the two
+   utilities are meant to be applied together. Track stays transparent: the
+   scroller's own background already sits behind it, and painting a second
+   surface there is a plane nobody asked for. The thumb takes --line-2, the
+   app's second-tier border ink — defined in both themes, and reads as
+   structure rather than as a control the way a saturated colour would.
+   Scoped to the class, never a bare ::-webkit-scrollbar rule — see
+   scroll-gutter-stable's own note on why that would restyle every scroller
+   in the app, including ones nobody has looked at. */
+@utility scroll-thin {
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  &::-webkit-scrollbar-thumb {
+    background-color: var(--line-2);
+    border-radius: var(--radius-pill);
+  }
+}
+
 /* The raised capsule: surface and elevation together, under one name a
    component can carry without spelling either token. */
 @utility capsule-raised {
