@@ -27,8 +27,48 @@ that tells the truth from the `tauri dev` app:
 - Window ids change on every relaunch, and a peer's rebuild relaunches the dev
   app: re-read the pid and window id each run (CGWindowList; the process is
   `target/debug/tauri-app`, owner name "Hanger AI").
+- **`screencapture -o -x out.png` captures the MAIN display only.** This
+  machine has two. A window on the other one is simply absent from the frame,
+  which reads exactly like "the window is gone" — twice on 2026-08-25 that
+  produced a wrong diagnosis before `-D 2` showed the second display held a
+  browser, not Hanger. Capture per display, or capture by window id.
+- **`System Events` reports 0 windows for the Tauri webview**, so
+  `get {position, size} of window 1` fails with `-1719 Invalid index` even
+  with Accessibility granted, and even while the app's own **Window menu
+  still lists the window**. Do not read that as "the app has no window". The
+  tool that works here is CGWindowList via `swift`:
+
+  ```swift
+  import CoreGraphics
+  let l = CGWindowListCopyWindowInfo(.optionAll, kCGNullWindowID) as? [[String: Any]]
+  // filter kCGWindowOwnerName == "Hanger AI"; read kCGWindowNumber,
+  // kCGWindowBounds, kCGWindowIsOnscreen
+  ```
+
+  `python3` has no `Quartz` module on this machine, so the Python route in
+  older notes does not run. Clicking the window's entry in the app's Window
+  menu raises it when nothing else will.
 - `touch index.html` reloads the webview under `tauri dev`: a frontend cold
   start (state resets, the startup scan reruns) without killing anyone's
   process. Someone else may be in the app — read `selected_sidebar_item` from
   the store before you change it, and put it back.
 - Webview console: `~/Library/Logs/com.rkarthik.hanger/Hanger AI.log`.
+- **Mutation cycles kill the dev server. Run them in a detached worktree.**
+  Planting a defect, running a test and reverting takes seconds, so Vite's
+  watcher catches files mid-write. Once HMR fails it does not recover: on
+  2026-08-25 a `ListCard` plant/revert produced
+
+  ```
+  [vite] Failed to reload /src/components/ListCard.tsx.
+  [vite] Failed to reload /src/styles/index.css.
+  ```
+
+  and the webview stayed blank through `touch index.html`, a forced Rust
+  rebuild, and a full app relaunch. Only restarting `bun run tauri dev`
+  fixed it. `git worktree add --detach /tmp/<name> HEAD` plus a symlinked
+  `node_modules` runs the whole suite and never touches the watched tree.
+- **Blank webview: prove it is not the code before touching the app.** Load
+  the same dev URL in Chrome. If React boots there — the DevTools notice in
+  the console is the signal — and the page reaches its loading state, the
+  frontend is fine and the fault is the webview's. In Chrome the Tauri IPC
+  calls reject, so `Uncaught (in promise)` there is expected, not a finding.

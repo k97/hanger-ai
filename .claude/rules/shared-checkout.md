@@ -50,3 +50,13 @@ time, and they commit to the same branch. `ListAgents` shows the others.
   check `git diff --cached --name-only` lists only yours before committing.
 - Agents read unexpected commits as a peer's. If you commit while a subagent
   runs, expect its report to attribute your work to a stranger.
+
+- **Never copy whole files out of a worktree.** A worktree pinned at an older
+  commit holds pre-change versions of files you have since committed, so
+  `cp <worktree>/<file> <file>` silently reverts committed work — it looks
+  like a normal write and nothing goes red. This reverted a just-committed
+  interface narrowing on 2026-08-25; it was caught only by reading
+  `git diff` before staging. Apply the same targeted edit to both trees
+  instead, or `git -C <worktree> diff -- <file> | git apply`. Either way,
+  read the diff before you stage: the working tree is the only thing that
+  tells you what you actually changed.
