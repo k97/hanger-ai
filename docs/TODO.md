@@ -46,20 +46,54 @@ document. `docs/scanning.md`, `docs/ipc.md`, `SECURITY.md`, `scanner.rs`,
 
 ---
 
-## T2 — DESIGN.md's chrome citations need re-deriving
+## T2 — DESIGN.md's chrome citations need re-deriving — CLOSED
 
 **Half resolved 2026-08-17.** Karthik ruled the orphaned hunks should land;
 they did, as `40bc898`. `tauri.conf.json` now has `trafficLightPosition.y: 22`
 and `App.tsx` the crumb's `pl-[51px]` plus `shrink-0` on the three `tbBtn*`
 variants, so `DESIGN.md:606` and `:637` are true as written again.
 
-**What is left:** those two paragraphs cite lines that have since moved.
-`:637` cites `App.tsx:1064` for the crumb padding; line 1064 has not been the
-crumb for some time. Re-derive both citations against the current file, and
-check `:606`'s `tauri.conf.json:26` while you are there.
+**Closed 2026-08-25**, audited rather than assumed. Every citation in the
+"Window chrome — one vertical baseline" section (`DESIGN.md:1054-1116`) now
+points at what it claims, verified line by line:
 
-**Done when:** every `file:line` in `DESIGN.md:605-611` and `:633-645` points
-at the code it claims to.
+    App.tsx:1325        <div data-tauri-drag-region … relative z-40 h-10 shrink-0 flex items-center>
+    App.tsx:1440        <header data-tauri-drag-region … relative h-10 shrink-0 flex items-center>
+    App.tsx:1781        <div data-tauri-drag-region className="relative h-10 shrink-0">
+    App.tsx:1327        <div className="w-[76px] shrink-0" aria-hidden="true" />
+    App.tsx:1148-1153   const tbBtnClass = "relative h-[27px] min-w-[27px] …"
+    App.tsx:1320-1324   the z-40 comment
+    App.tsx:1451-1453   the crumb's pl-[51px] / pl-[18px]
+    tauri.conf.json:26  "y": 22
+    InspectorCap.tsx:93-94  const tbBtnActiveClass
+
+Three things the audit found that the entry did not predict:
+
+1. **The entry's own success criterion had drifted.** `DESIGN.md:605-611` and
+   `:633-645` hold Flyout props and the identity row today; the section moved
+   to `:1054-1116` during v4. A done-when written as line numbers into a
+   churning document decays exactly like the citations it polices.
+2. **The `App.tsx` citations became correct by accident.** Before `bd26400`,
+   `App.tsx:1325` pointed at a *comment*, five lines above the cap it names.
+   Narrowing `InspectorCapAsset` deleted five lines higher up and slid the
+   citation onto its target. Nobody re-derived it; arithmetic did.
+3. **Editing a comment invalidated nine citations.** Lengthening
+   `InspectorCap.tsx`'s header comment by nine lines (`08aceda`) shifted
+   seven `DESIGN.md` citations and two of that file's own. All repointed
+   here.
+
+One claim was also incomplete rather than mis-cited: the crumb's `pl-[51px]`
+applies when `sidebarCollapsed` **and** the view is not the link map, not on
+`sidebarCollapsed` alone. Corrected.
+
+**What this says for the citation problem generally.** Points 2 and 3 are the
+argument: a line citation into a file under active edit is correct only until
+the next unrelated change above it, and neither direction of drift produces a
+signal. All 215 citations are in bounds, so a bounds guard is decoration; the
+token-proximity check that found 16 stale ones covers only the ~25 citations
+with an adjacent backticked token and false-positives on paraphrase. The
+durable fix is a convention change — cite symbols, or ranges anchored to
+symbols — not a guard over line numbers. Left as a proposal, not taken.
 
 
 ---

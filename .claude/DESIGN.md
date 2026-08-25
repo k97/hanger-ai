@@ -647,7 +647,7 @@ empty-MCP category label — plus, independently, a layered-rules flag that can
 sit beside any of them.
 
 Below that, the header is exactly: the cap's identity row — kind glyph with a
-state dot, a `KIND · PLACE` eyebrow, a finding chip (`InspectorCap.tsx:160-203`;
+state dot, a `KIND · PLACE` eyebrow, a finding chip (`InspectorCap.tsx:169-212`;
 the cap itself, Surfaces and controls below) — then Flyout's title block
 (the `<h2>`, `Flyout.tsx:720`), then `AssetDetail`'s own `UnderlineTabs`
 switch. Nothing else: `AssetDetail` used to open with a state line, a path
@@ -664,7 +664,7 @@ where nothing separates them at all.
 runs under test.** After every render, one effect compares the row's own
 `scrollWidth` against its `clientWidth` and climbs one rung — sheds `Link
 to…` first, the finding chip second — when the row overflows
-(`InspectorCap.tsx:140-147`); a second, separate effect holds a
+(`InspectorCap.tsx:149-156`); a second, separate effect holds a
 `ResizeObserver` on the same row purely to catch it growing back, resetting
 the climb to `0` the same width it left (`:115-134`). Both are inert under
 `happy-dom`, the environment every component test runs in, for two different
@@ -678,14 +678,14 @@ code proceeds to call `observe()` — which is a documented no-op there that
 never invokes its callback
 (`node_modules/happy-dom/lib/resize-observer/ResizeObserver.js:12-14`). A
 test-only `forceShed` prop drives the collapsed states directly instead
-(`InspectorCap.tsx:65-69`; every case in `InspectorCap.test.tsx`), so a
+(`InspectorCap.tsx:74-78`; every case in `InspectorCap.test.tsx`), so a
 broken threshold, a flipped comparison, or a disconnected ref in either
 effect would still pass every test in the suite.
 
 **An MCP server's cap never sheds and never draws a ⋮**, derived from the
 absence of its callbacks rather than a category check: `canShed` is
 `Boolean(onLink || onCopyPath || onReveal || onOpenInEditor)`
-(`InspectorCap.tsx:112`), and a server has none of the four — no path to
+(`InspectorCap.tsx:121`), and a server has none of the four — no path to
 copy, nowhere to reveal, nothing to open, nothing to link — so `canShed` is
 `false` and the effective shed is pinned to `0` regardless of `forceShed` or
 the measured `autoShed` (`:113`). Its finding chip therefore stays on the
@@ -1083,7 +1083,7 @@ construction, rather than each screen re-deriving its own vertical rhythm.
 **Toolbar buttons must carry `shrink-0`, or a squeezed cap silently shrinks
 the icon inside them.** `tbBtnClass` / `tbBtnPlaneClass` (`App.tsx:1148-1153`)
 both declare it, and so does `tbBtnActiveClass` — which, since this phase,
-lives only in `InspectorCap.tsx:84-85` (Repeated variants are hoisted, not
+lives only in `InspectorCap.tsx:93-94` (Repeated variants are hoisted, not
 computed, below). This was found the hard way: the sidebar cap leads with a
 spacer (`w-[76px] shrink-0`, `App.tsx:1327`) so the toggle button stays
 reachable when the source list is collapsed and the cap's content overflows
@@ -1101,8 +1101,8 @@ shrinks instead of the button just overflowing as intended.
 the lights themselves — not derived, measured.** The three native dots keep
 ~9.5pt between each other. `App.tsx:1327`'s spacer (`w-[76px]`) lands the
 toggle icon's own ink ~11.5pt after the dot cluster ends, and the collapsed
-crumb's `pl-[51px]` (`App.tsx:1451-1453`, only when `sidebarCollapsed`;
-`pl-[18px]` otherwise) lands the breadcrumb text ~10.5pt after the icon's ink
+crumb's `pl-[51px]` (`App.tsx:1451-1453`, when `sidebarCollapsed` AND the
+view is not the link map; `pl-[18px]` otherwise) lands the breadcrumb text ~10.5pt after the icon's ink
 — three gaps within ~2pt of each other, read as one uniform rhythm rather
 than three independently-guessed numbers. None of these three values can be
 derived from the others by formula (native traffic lights aren't in the DOM,
@@ -1174,17 +1174,17 @@ non-tablist chip row (Pane composition, above).
 
 **`tbBtnClass` is a real, deliberate exception to "declared once": it exists
 verbatim in two files.** `App.tsx:1148-1149` still declares it for the
-toolbar's own buttons; `InspectorCap.tsx:82-83` declares the identical
+toolbar's own buttons; `InspectorCap.tsx:91-92` declares the identical
 string again (checked byte-for-byte) for the cap's Expand/Collapse button,
 with a comment recording the ruling: `App`'s copy is local to the component
 body and not exported, and `App` keeps needing its own regardless, so
 extracting a shared module would have staled the citations already written
 against both files' bodies rather than removed a duplicate
-(`InspectorCap.tsx:79-81`). `tbBtnActiveClass` is not the same story: it used
+(`InspectorCap.tsx:88-90`). `tbBtnActiveClass` is not the same story: it used
 to live in `App.tsx` too, painting the same "Toggle inspector" button this
 cap now paints, but when that button moved into `InspectorCap` (`af1c305`)
 `App`'s own copy was deleted rather than left unused — so today
-`tbBtnActiveClass` exists in exactly one file, `InspectorCap.tsx:84-85`, and
+`tbBtnActiveClass` exists in exactly one file, `InspectorCap.tsx:93-94`, and
 only `tbBtnClass` is the actual two-file duplicate.
 
 ### Scroll caps

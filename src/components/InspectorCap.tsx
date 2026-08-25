@@ -37,14 +37,14 @@ import {
  * a control: `src/__tests__/tbbtn-duplicate.test.ts` fails if the two drift,
  * if a third file declares one, or if either is renamed away.
  *
- * `tbBtnActiveClass` (`:84`) is NOT a copy — it appears in this file alone.
+ * `tbBtnActiveClass` (`:93`) is NOT a copy — it appears in this file alone.
  * App's went when the "Toggle inspector" button moved here (`af1c305`). The
  * comment this replaces named both consts as copied, which was true of only
  * one of them.
  */
 
 /** Only what the cap reads. It draws a kind label and a kind icon, both from
- *  `category` (`:149-150`); it has never read a name, a path or a scope, and
+ *  `category` (`:158-159`); it has never read a name, a path or a scope, and
  *  declaring them invited callers to believe otherwise. */
 export interface InspectorCapAsset {
   category: IssueCategory;
@@ -85,7 +85,7 @@ const KIND_ICON: Record<IssueCategory, ComponentType<IconProps>> = {
   Subagents: UserIcon,
 };
 
-// Toolbar control voice, copied verbatim from `App.tsx:1118-1121` per the
+// Toolbar control voice, copied verbatim from `App.tsx:1148-1149` per the
 // ledger's ruling: those consts are local to App's component body and not
 // exported, and extracting them is out of this task's scope.
 const tbBtnClass =
