@@ -661,7 +661,7 @@ export const UnlinkIcon = entering({
 });
 
 /** Nothing selected — the inspector or review panel waiting for a click on an asset or repository. */
-export const CursorClickIcon = entering({
+export const MousePointerClickIcon = entering({
   elements: [
     ["path", { d: "M14 4.1 12 6" }],
     ["path", { d: "m5.1 8-2.9-.8" }],

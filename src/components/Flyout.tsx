@@ -6,7 +6,7 @@ import {
   ExclamationTriangleIcon,
   LinkIcon,
   GlobeAltIcon,
-  CursorClickIcon,
+  MousePointerClickIcon,
 } from "./icons";
 import { Inventory } from "../App";
 import AssetDetail from "./AssetDetail";
@@ -930,7 +930,7 @@ export default function Flyout({
       ) : (
         /* Empty Inspector State when no asset or bubble is selected */
         <div className="flex-1 p-6 flex flex-col items-center justify-center text-center text-ink-3 font-sans">
-          <CursorClickIcon size={36} className="mb-2" />
+          <MousePointerClickIcon size={36} className="mb-2" />
           {/* Same words as ReviewInspector's empty state, so the two
               inspectors read as one. */}
           <span className="text-small font-medium text-ink-1 font-sans">Nothing selected</span>

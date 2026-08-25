@@ -307,7 +307,7 @@ family question for all of them at once rather than per mark: looping marks
 `ServerRelayIcon`, `FrameIcon`, `FileTextIcon`, `Link2Icon`,
 `icons.tsx:417-512`) spin or redraw only while `active`; entering marks
 (`FolderClockIcon`, `PackageOpenIcon`, `FolderXIcon`, `SearchIcon`,
-`InboxIcon`, `PlugZapIcon`, `ZapOffIcon`, `UnlinkIcon`, `CursorClickIcon`,
+`InboxIcon`, `PlugZapIcon`, `ZapOffIcon`, `UnlinkIcon`, `MousePointerClickIcon`,
 `MonitorCheckIcon`, `FolderPlusIcon`, `GitPullRequestClosedIcon`,
 `icons.tsx:518-724`) play once on mount and hold. Geometry is Lucide (ISC),
 hand-transcribed rather than imported, because per-element motion needs a

@@ -40,7 +40,7 @@ import {
   PlugZapIcon,
   ZapOffIcon,
   UnlinkIcon,
-  CursorClickIcon,
+  MousePointerClickIcon,
   MonitorCheckIcon,
   FolderPlusIcon,
   GitPullRequestClosedIcon,
@@ -456,15 +456,15 @@ describe("UnlinkIcon", () => {
   });
 });
 
-describe("CursorClickIcon", () => {
+describe("MousePointerClickIcon", () => {
   it("carries exactly the installed lucide mouse-pointer-click geometry", () => {
-    const ours = geometry(renderToStaticMarkup(<CursorClickIcon size={40} />));
+    const ours = geometry(renderToStaticMarkup(<MousePointerClickIcon size={40} />));
     const theirs = geometry(renderToStaticMarkup(<MousePointerClick size={40} />));
     expect(ours).toEqual(theirs);
   });
 
   it("plays once on mount; only the sparks radiate", () => {
-    const html = renderToStaticMarkup(<CursorClickIcon size={40} />);
+    const html = renderToStaticMarkup(<MousePointerClickIcon size={40} />);
     expect(html).toMatch(/<g class="aim-part aim-burst aim-once"/);
     expect(html).not.toMatch(/aim-loop/);
     const group = html.match(/<g class="aim-part aim-burst aim-once"[^>]*>([\s\S]*?)<\/g>/)![1];
@@ -473,17 +473,17 @@ describe("CursorClickIcon", () => {
   });
 
   it("is hidden from the accessibility tree", () => {
-    expect(renderToStaticMarkup(<CursorClickIcon size={40} />)).toMatch(/aria-hidden="true"/);
+    expect(renderToStaticMarkup(<MousePointerClickIcon size={40} />)).toMatch(/aria-hidden="true"/);
   });
 
   it("the sparks radiate from the cursor's tip, not the grid's centre", () => {
-    const html = renderToStaticMarkup(<CursorClickIcon size={40} />);
+    const html = renderToStaticMarkup(<MousePointerClickIcon size={40} />);
     expect(html).toMatch(/--ox:\s*9\.3px/);
     expect(html).toMatch(/--oy:\s*9\.3px/);
   });
 
   it("the cursor itself sits outside the moving group", () => {
-    const html = renderToStaticMarkup(<CursorClickIcon size={40} />);
+    const html = renderToStaticMarkup(<MousePointerClickIcon size={40} />);
     const group = html.match(/<g class="aim-part aim-burst aim-once"[^>]*>([\s\S]*?)<\/g>/)![1];
     expect(group).not.toMatch(/M9\.037/);
     expect(html).toMatch(/<path d="M9\.037/); // present, just outside the group
