@@ -277,6 +277,7 @@ describe("FolderClockIcon", () => {
     expect(html).not.toMatch(/aim-loop/);
     const group = html.match(/<g class="aim-part aim-spin aim-once"[^>]*>([\s\S]*?)<\/g>/)![1];
     expect(group.match(/<path/g)?.length).toBe(1);
+    expect(group).not.toMatch(/<circle/); // the dial sits outside the group
     expect(html.match(/<circle/g)?.length).toBe(1); // the dial, held still
   });
 
@@ -441,6 +442,7 @@ describe("UnlinkIcon", () => {
     expect(html).not.toMatch(/aim-loop/);
     const group = html.match(/<g class="aim-part aim-burst aim-once"[^>]*>([\s\S]*?)<\/g>/)![1];
     expect(group.match(/<line/g)?.length).toBe(4);
+    expect(group).not.toMatch(/<path/); // the two hooks sit outside the group
     expect(html.match(/<path/g)?.length).toBe(2); // the two hooks, held still
     expect(html.match(/<line/g)?.length).toBe(4);
   });
@@ -497,6 +499,7 @@ describe("MonitorCheckIcon", () => {
     expect(html).not.toMatch(/aim-loop/);
     const group = html.match(/<g class="aim-part aim-draw aim-once"[^>]*>([\s\S]*?)<\/g>/)![1];
     expect(group.match(/<path/g)?.length).toBe(1);
+    expect(group).not.toMatch(/<rect/); // the monitor body sits outside the group
     expect(html.match(/<rect/g)?.length).toBe(1); // the monitor body, held still
     expect(html.match(/<path/g)?.length).toBe(3); // tick, plus the stand and base held still
   });
