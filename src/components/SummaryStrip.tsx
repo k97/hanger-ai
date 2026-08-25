@@ -1,4 +1,4 @@
-import { ArrowPathIcon } from "./icons";
+import { RotateCcwIcon } from "./icons";
 import GelMeter from "./GelMeter";
 import ScanStamp from "./ScanStamp";
 import { REQUEST_CARRIES } from "./McpEngineSummary";
@@ -81,7 +81,7 @@ export default function SummaryStrip({
       aria-label="Refresh scan"
       className="h-[30px] min-w-[108px] px-3.5 inline-flex items-center justify-center gap-2 rounded-pill border border-line-2 text-small font-medium text-ink-1 cursor-pointer transition-[background-color,transform] duration-hover ease-spring hover:bg-plane-2 active:scale-[0.96] disabled:opacity-50 disabled:cursor-default"
     >
-      <ArrowPathIcon size={13} className={scanning ? "animate-spin" : ""} />
+      <RotateCcwIcon size={13} active={scanning} />
       {scanning ? "Scanning" : "Rescan"}
     </button>
   );

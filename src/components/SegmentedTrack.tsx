@@ -1,5 +1,5 @@
 import { useLayoutEffect, useRef, useState } from "react";
-import { SpinnerIcon } from "./icons";
+import { LoaderCircleIcon } from "./icons";
 
 export interface TrackSegment {
   id: string;
@@ -111,7 +111,7 @@ export default function SegmentedTrack({
             <span>{segment.label}</span>
             <span className={`text-micro tabular ${selected ? "text-ink-2" : "text-ink-3"}`}>
               {segment.count === undefined && loading ? (
-                <SpinnerIcon className="animate-spin" size={11} />
+                <LoaderCircleIcon size={12} active />
               ) : (
                 segment.count ?? 0
               )}

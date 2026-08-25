@@ -79,12 +79,24 @@ describe("SummaryStrip", () => {
     expect(screen.getByText("Scanned 4 min ago")).toBeTruthy();
     // One banner, one statement that a scan is running.
     expect(screen.getAllByText(/Scanning/)).toHaveLength(1);
+    // v5 mark: RotateCcwIcon turns while the rescan it names is running.
+    const btn = screen.getByLabelText("Refresh scan");
+    expect(btn.querySelector('path[d="M3 3v5h5"]')).toBeTruthy();
+    expect(btn.querySelector("g.aim-spin-ccw.aim-loop")).toBeTruthy();
   });
 
   it("keeps the stamp an age, never a status", () => {
-    renderStrip({ scanning: false, scannedAt: new Date(Date.now() - 4 * 60_000) });
+    renderStrip({
+      scanning: false,
+      scannedAt: new Date(Date.now() - 4 * 60_000),
+      onRescan: () => {},
+    });
     expect(screen.getByText("Scanned 4 min ago")).toBeTruthy();
     expect(screen.queryByText("Scanning…")).toBeNull();
+    // v5 mark: idle render carries the same glyph, not mid-loop.
+    const btn = screen.getByLabelText("Refresh scan");
+    expect(btn.querySelector('path[d="M3 3v5h5"]')).toBeTruthy();
+    expect(btn.querySelector("g.aim-loop")).toBeNull();
   });
 
   it("in MCP mode the meter is probe coverage, the legend is labels, the pill counts disagreeing servers", () => {

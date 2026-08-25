@@ -1,4 +1,11 @@
-import { ArrowPathIcon, ArrowRightIcon, CheckIcon } from "./icons";
+import {
+  ArrowRightIcon,
+  CheckIcon,
+  Disc3Icon,
+  FolderClockIcon,
+  MonitorCheckIcon,
+  RotateCcwIcon,
+} from "./icons";
 import GelMeter from "./GelMeter";
 import { ScanStatusIndicator } from "./ScanStatusIndicator";
 import {
@@ -150,7 +157,7 @@ export default function NeedsReviewPane({
                 aria-label="Refresh scan"
                 className="h-[30px] min-w-[108px] px-3.5 inline-flex items-center justify-center gap-2 rounded-pill border border-line-2 text-small font-medium text-ink-1 cursor-pointer transition-[background-color,transform] duration-hover ease-spring hover:bg-plane-2 active:scale-[0.96] disabled:opacity-50 disabled:cursor-default"
               >
-                <ArrowPathIcon size={13} className={scanning ? "animate-spin" : ""} />
+                <RotateCcwIcon size={13} active={scanning} />
                 {scanning ? "Scanning" : "Rescan"}
               </button>
             )}
@@ -211,20 +218,30 @@ export default function NeedsReviewPane({
         </div>
 
         {shown.length === 0 ? (
-          <p
-            className="py-9 px-3.5 text-center text-small text-ink-3"
+          <div
+            className="py-9 px-3.5 flex flex-col items-center text-center text-small text-ink-3"
             data-testid={counts.total === 0 && !hasScanned ? "scan-pending" : undefined}
           >
+            {counts.total === 0 &&
+              (hasScanned ? (
+                <MonitorCheckIcon size={40} className="text-ink-3 mb-2" />
+              ) : scanning ? (
+                <Disc3Icon size={40} active className="text-ink-3 mb-2" />
+              ) : (
+                <FolderClockIcon size={40} className="text-ink-3 mb-2" />
+              ))}
             {/* Zero issues before the first scan finishes is not a clean
                 machine, it is an unscanned one; the claim waits for scannedAt. */}
-            {counts.total === 0
-              ? hasScanned
-                ? "Nothing needs a decision. Every link resolves and every file parses."
-                : scanning
-                ? "Scanning your machine. Anything that needs a decision shows up here once the scan finishes."
-                : "Not scanned yet. Rescan when you're ready."
-              : "No issue matches that filter."}
-          </p>
+            <span>
+              {counts.total === 0
+                ? hasScanned
+                  ? "Nothing needs a decision. Every link resolves and every file parses."
+                  : scanning
+                  ? "Scanning your machine. Anything that needs a decision shows up here once the scan finishes."
+                  : "Not scanned yet. Rescan when you're ready."
+                : "No issue matches that filter."}
+            </span>
+          </div>
         ) : (
           shown.map((issue) => {
             const selected = selectedId === issue.id;

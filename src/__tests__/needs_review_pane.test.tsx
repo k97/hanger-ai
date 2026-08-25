@@ -138,6 +138,12 @@ describe("Needs review — repo-level and cross-repo in one list", () => {
       screen.getByText("Nothing needs a decision. Every link resolves and every file parses.")
     ).toBeTruthy();
     expect(screen.queryByTestId("scan-pending")).toBeNull();
+    // v5 mark: the monitor's check tick, played once on mount.
+    const body = screen
+      .getByText("Nothing needs a decision. Every link resolves and every file parses.")
+      .closest("div")!;
+    expect(body.querySelector('path[d="m9 10 2 2 4-4"]')).toBeTruthy();
+    expect(body.querySelector("g.aim-once")).toBeTruthy();
   });
 
   it("makes no claim before the first scan completes", () => {
@@ -147,18 +153,29 @@ describe("Needs review — repo-level and cross-repo in one list", () => {
     expect(screen.getByTestId("scan-pending")).toBeTruthy();
     expect(screen.getByText("Scanning your machine. Anything that needs a decision shows up here once the scan finishes.")).toBeTruthy();
     expect(screen.queryByText(/Nothing needs a decision/)).toBeNull();
+    // v5 mark: the disc turns while the scan runs.
+    const body = screen.getByTestId("scan-pending");
+    expect(body.querySelector('path[d="M6 12c0-1.7.7-3.2 1.8-4.2"]')).toBeTruthy();
+    expect(body.querySelector("g.aim-loop")).toBeTruthy();
   });
 
   it("with no scan running and none finished, says so rather than 'clean'", () => {
     renderPane({ issues: [], counts: clean, scanning: false, scannedAt: null });
     expect(screen.getByText("Not scanned yet. Rescan when you're ready.")).toBeTruthy();
     expect(screen.queryByText(/Nothing needs a decision/)).toBeNull();
+    // v5 mark: the clock's hands sweep once and stop — the rest state before a scan.
+    const body = screen.getByTestId("scan-pending");
+    expect(body.querySelector('path[d="M16 14v2l1 1"]')).toBeTruthy();
+    expect(body.querySelector("g.aim-once")).toBeTruthy();
   });
 
   it("a filter that matches nothing is still 'no match', scanned or not", () => {
     renderPane({ filterText: "zzz-no-such-asset", scannedAt: null });
     expect(screen.getByText("No issue matches that filter.")).toBeTruthy();
     expect(screen.queryByTestId("scan-pending")).toBeNull();
+    // Deferred by ruling: a filtered-empty list stays text-only, no mark.
+    const body = screen.getByText("No issue matches that filter.").closest("div")!;
+    expect(body.querySelector("svg")).toBeNull();
   });
 
   it("hands the whole issue to the inspector when a row is tapped", () => {

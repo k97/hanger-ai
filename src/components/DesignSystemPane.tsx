@@ -12,7 +12,7 @@ import AssetRow from "./AssetRow";
 import SummaryStrip from "./SummaryStrip";
 import { ScanStatusIndicator } from "./ScanStatusIndicator";
 import HangerMark from "./HangerMark";
-import { ArrowPathIcon, MagnifyingGlassIcon, PanelRightIcon } from "./icons";
+import { MagnifyingGlassIcon, PanelRightIcon, RotateCcwIcon } from "./icons";
 import EmptyState from "./EmptyState";
 import type { StateFilter } from "../utils/linkStateCounts";
 import {
@@ -388,7 +388,7 @@ export default function DesignSystemPane({ section }: DesignSystemPaneProps) {
                 Disabled
               </button>
               <button className="h-[30px] min-w-[108px] px-3.5 inline-flex items-center justify-center gap-2 rounded-pill border border-line-2 text-small font-medium text-ink-1 cursor-pointer transition-[background-color,transform] duration-hover ease-spring hover:bg-plane-2 active:scale-[0.96]">
-                <ArrowPathIcon size={13} />
+                <RotateCcwIcon size={13} />
                 Rescan
               </button>
             </div>
