@@ -503,23 +503,39 @@ describe("Avionics A5 — Docked Right Inspector Integration", () => {
 
   // Karthik found the ⋮ "crowded and difficult to click": its trigger was
   // 21x21px, sat between two 27x27px neighbours (Expand/Collapse, Toggle
-  // inspector) built from `tbBtnClass`, with only 2px of clearance. The fix
-  // gives it the same footprint — asserted here as the sizing half of
-  // `tbBtnClass` (`h-[27px] min-w-[27px]`), not the full class string, which
-  // `tbbtn-duplicate.test.ts` already owns and would fire on a real edit to
-  // the shared constant.
-  it("15. The ⋮ trigger carries the shared 27px toolbar footprint, not a smaller one of its own", async () => {
+  // inspector) built from `tbBtnClass`, with only 2px of clearance. That
+  // first fix gave the ⋮ the same OPTICAL size as its neighbours by scaling
+  // its glyph — but `tbBtnClass`'s footprint was still content-driven
+  // (`min-w-[27px] px-2`: a floor plus padding, not a fixed box), so the
+  // now-larger glyph pushed the ⋮'s own button past its neighbours' width
+  // (36px against their 31px) — a second, subtler proportion bug hiding
+  // inside the fix for the first one. The real fix pins the footprint
+  // itself — `h-[27px] w-[27px]`, no floor, no content-driven padding —
+  // asserted here as the sizing half of `tbBtnClass`/`tbBtnActiveClass`,
+  // not the full class string, which `tbbtn-duplicate.test.ts` already
+  // owns for the App/Cap pair and would fire on a real edit to the shared
+  // constant.
+  it("15. The cap's icon buttons carry a fixed 27×27px footprint, not a content-driven one", async () => {
     setupMockInvoke("true");
     render(<App />);
 
     const subagentRow = await screen.findByText("Inspector Subagent One");
     fireEvent.click(subagentRow);
 
-    const trigger = await screen.findByRole("button", { name: "More actions" });
-    expect(trigger.className).toContain("h-[27px]");
-    expect(trigger.className).toContain("min-w-[27px]");
-    expect(trigger.className).not.toContain("h-[21px]");
-    expect(trigger.className).not.toContain("w-[21px]");
+    const overflowTrigger = await screen.findByRole("button", { name: "More actions" });
+    const expandTrigger = await screen.findByRole("button", { name: "Expand inspector" });
+    const toggleTrigger = await screen.findByRole("button", { name: "Toggle inspector" });
+
+    for (const [name, el] of [
+      ["More actions", overflowTrigger],
+      ["Expand inspector", expandTrigger],
+      ["Toggle inspector", toggleTrigger],
+    ] as const) {
+      expect(el.className, `${name} is missing the fixed width`).toContain("w-[27px]");
+      expect(el.className, `${name} is missing the fixed height`).toContain("h-[27px]");
+      expect(el.className, `${name} still floors its width instead of fixing it`).not.toMatch(/\bmin-w-/);
+      expect(el.className, `${name} still pads its content instead of a fixed box`).not.toMatch(/\bpx-2\b/);
+    }
   });
 
   // The uneven gaps Karthik flagged ("disparate spacing") traced to a lone

@@ -1148,7 +1148,7 @@ export default function App() {
   // overflow depends on falls through to the icon and shrinks the glyph
   // itself rather than just letting the button overflow.
   const tbBtnClass =
-    "relative h-[27px] min-w-[27px] px-2 rounded-pill inline-flex items-center justify-center shrink-0 text-ink-2 hover:bg-plane-2 hover:text-ink-1 transition-colors duration-hover ease-spring cursor-pointer";
+    "relative h-[27px] w-[27px] rounded-pill inline-flex items-center justify-center shrink-0 text-ink-2 hover:bg-plane-2 hover:text-ink-1 transition-colors duration-hover ease-spring cursor-pointer";
   // On the plane the toggle is a plain glyph — the plane already reads as a
   // chrome zone, so hover tints with --tint-plane and pressed adds nothing.
   const tbBtnPlaneClass =
