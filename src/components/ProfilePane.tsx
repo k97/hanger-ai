@@ -1,5 +1,15 @@
 import { useState } from "react";
-import { ExclamationCircleIcon, SpinnerIcon } from "./icons";
+import {
+  ExclamationCircleIcon,
+  Disc3Icon,
+  FolderClockIcon,
+  PackageOpenIcon,
+  FolderXIcon,
+  SearchIcon,
+  InboxIcon,
+  ZapOffIcon,
+  PlugZapIcon,
+} from "./icons";
 import CategoryFilterCards, { CategoryType } from "./CategoryFilterCards";
 import AssetRow, { AssetItem, AssetAnnotationView } from "./AssetRow";
 import AssetHeaderRow, { SortField, SortDirection } from "./AssetHeaderRow";
@@ -888,7 +898,13 @@ export default function ProfilePane({
            ignores scan://progress, so nothing lands here root by root. */
         <EmptyState
           testId="scan-pending"
-          icon={<SpinnerIcon className={`text-ink-3 mb-2 ${loading ? "animate-spin" : ""}`} size={40} />}
+          icon={
+            loading ? (
+              <Disc3Icon active size={40} className="text-ink-3 mb-2" />
+            ) : (
+              <FolderClockIcon size={40} className="text-ink-3 mb-2" />
+            )
+          }
           headline={loading ? "Scanning your machine" : "Not scanned yet"}
           sub={
             loading
@@ -906,7 +922,13 @@ export default function ProfilePane({
            generic line first and A.1/A.2 would only ever be reachable in the
            narrower case where Tools alone is empty. */
         <EmptyState
-          icon={<ExclamationCircleIcon className="text-ink-3 mb-2" size={40} />}
+          icon={
+            enginesDetected ? (
+              <PackageOpenIcon size={40} className="text-ink-3 mb-2" />
+            ) : (
+              <FolderXIcon size={40} className="text-ink-3 mb-2" />
+            )
+          }
           headline={enginesDetected ? "Nothing in the global store yet" : "No engine folders on this machine yet"}
           sub={
             enginesDetected ? (
@@ -943,13 +965,25 @@ export default function ProfilePane({
         categoryPending ? (
           <EmptyState
             testId="scan-pending"
-            icon={<SpinnerIcon className="text-ink-3 mb-2 animate-spin" size={40} />}
+            icon={<Disc3Icon active size={40} className="text-ink-3 mb-2" />}
             headline="Scanning your machine"
             sub={`${categoryNoun(selectedCategory, "many")} show up here once the scan finishes.`}
           />
         ) : (
           <EmptyState
-            icon={<ExclamationCircleIcon className="text-ink-3 mb-2" size={40} />}
+            icon={
+              filterActive ? (
+                <SearchIcon size={40} className="text-ink-3 mb-2" />
+              ) : selectedCategory === "Tools" ? (
+                enginesDetected ? (
+                  <ZapOffIcon size={40} className="text-ink-3 mb-2" />
+                ) : (
+                  <PlugZapIcon size={40} className="text-ink-3 mb-2" />
+                )
+              ) : (
+                <InboxIcon size={40} className="text-ink-3 mb-2" />
+              )
+            }
             headline={
               filterActive
                 ? `No ${categoryNoun(selectedCategory, "one")} matches that filter`

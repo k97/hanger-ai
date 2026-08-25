@@ -249,6 +249,12 @@ describe("ProfilePane — the empty state is a finding, not a default", () => {
     // scan://complete only, so nothing here fills in root by root.
     expect(screen.getByText("Assets in the global store show up here once the scan finishes.")).toBeTruthy();
     expect(screen.queryByText("No engine folders on this machine yet")).toBeNull();
+    // Scanning: the disc, looping — the arc plus the loop rule together are
+    // what tell it apart from the idle folder-clock below.
+    expect(
+      screen.getByTestId("scan-pending").querySelector('path[d="M6 12c0-1.7.7-3.2 1.8-4.2"]')
+    ).toBeTruthy();
+    expect(screen.getByTestId("scan-pending").querySelector("g.aim-loop")).toBeTruthy();
   });
 
   it("with no scan running and none finished, says so rather than 'nothing here'", () => {
@@ -257,6 +263,11 @@ describe("ProfilePane — the empty state is a finding, not a default", () => {
     expect(within(screen.getByTestId("scan-pending")).getByText("Not scanned yet")).toBeTruthy();
     expect(screen.getByText("Rescan when you're ready.")).toBeTruthy();
     expect(screen.queryByText("No engine folders on this machine yet")).toBeNull();
+    // Idle: the folder-clock's hands, played once — never looping, so a
+    // stopped scan never reads as a frozen spinner.
+    expect(screen.getByTestId("scan-pending").querySelector('path[d="M16 14v2l1 1"]')).toBeTruthy();
+    expect(screen.getByTestId("scan-pending").querySelector("g.aim-loop")).toBeNull();
+    expect(screen.getByTestId("scan-pending").querySelector("g.aim-once")).toBeTruthy();
   });
 
   it("claims the store is empty only after a completed scan finds nothing", () => {
@@ -291,6 +302,14 @@ describe("ProfilePane — the empty state is a finding, not a default", () => {
       )
     ).toBeTruthy();
     expect(screen.queryByText("No engine folders on this machine yet")).toBeNull();
+    // Engines are here, tracked and empty — the open package, not the crossed
+    // folder the next test's "no engines at all" state wears.
+    expect(
+      screen
+        .getByText("Nothing in the global store yet")
+        .closest("div")
+        ?.querySelector('path[d="M12 22v-9"]')
+    ).toBeTruthy();
   });
 
   it("one engine reads in the singular", () => {
@@ -317,6 +336,13 @@ describe("ProfilePane — the empty state is a finding, not a default", () => {
     expect(screen.getByText("No engine folders on this machine yet")).toBeTruthy();
     expect(screen.getByText(/Run one of them once, then rescan/)).toBeTruthy();
     expect(screen.queryByText("Nothing in the global store yet")).toBeNull();
+    // No engines at all — the crossed folder, not the open package above.
+    expect(
+      screen
+        .getByText("No engine folders on this machine yet")
+        .closest("div")
+        ?.querySelector('path[d="m9.5 10.5 5 5"]')
+    ).toBeTruthy();
   });
 
   it("the engines it says it looks for come from the backend, never a literal", () => {
@@ -375,6 +401,13 @@ describe("ProfilePane — the empty state is a finding, not a default", () => {
       />
     );
     expect(screen.getByText("No skill matches that filter")).toBeTruthy();
+    // A filter, not an absence — the search glyph, not the inbox.
+    expect(
+      screen
+        .getByText("No skill matches that filter")
+        .closest("div")
+        ?.querySelector('path[d="m21 21-4.3-4.3"]')
+    ).toBeTruthy();
     unmount();
 
     render(
@@ -418,6 +451,12 @@ describe("ProfilePane — the empty state is a finding, not a default", () => {
     expect(screen.getByText("Scanning your machine")).toBeTruthy();
     expect(screen.queryByText("No engine folders on this machine yet")).toBeNull();
     expect(screen.queryByText("Nothing in the global store yet")).toBeNull();
+    // Same disc, same loop rule — a re-scan is scanning too, not a fresh
+    // mark of its own.
+    expect(
+      screen.getByTestId("scan-pending").querySelector('path[d="M6 12c0-1.7.7-3.2 1.8-4.2"]')
+    ).toBeTruthy();
+    expect(screen.getByTestId("scan-pending").querySelector("g.aim-loop")).toBeTruthy();
   });
 
   it("filtering to a category with nothing in it, mid-scan, is pending -- not an absence claim", () => {
@@ -434,6 +473,12 @@ describe("ProfilePane — the empty state is a finding, not a default", () => {
     expect(screen.getByText("Scanning your machine")).toBeTruthy();
     expect(screen.getByText("MCP servers show up here once the scan finishes.")).toBeTruthy();
     expect(screen.queryByText("No MCP servers in the global store")).toBeNull();
+    // Category-scoped pending is always scanning (ruling 12) — same disc,
+    // same loop.
+    expect(
+      screen.getByTestId("scan-pending").querySelector('path[d="M6 12c0-1.7.7-3.2 1.8-4.2"]')
+    ).toBeTruthy();
+    expect(screen.getByTestId("scan-pending").querySelector("g.aim-loop")).toBeTruthy();
   });
 
   it("filtering to a category with nothing in it, scan finished, correctly claims the absence", () => {
@@ -455,6 +500,13 @@ describe("ProfilePane — the empty state is a finding, not a default", () => {
     expect(screen.queryByTestId("scan-pending")).toBeNull();
     expect(screen.getByText("No skills in the global store")).toBeTruthy();
     expect(screen.getByText("The scan finished without finding any.")).toBeTruthy();
+    // Genuinely empty, no filter involved, no MCP appendix — the inbox mark.
+    expect(
+      screen
+        .getByText("No skills in the global store")
+        .closest("div")
+        ?.querySelector('polyline[points="22 12 16 12 14 15 10 15 8 12 2 12"]')
+    ).toBeTruthy();
   });
 
   // One of everything, at Global scope, so emptying a single category for
@@ -490,6 +542,10 @@ describe("ProfilePane — the empty state is a finding, not a default", () => {
     expect(screen.getByTestId("scan-pending")).toBeTruthy();
     expect(screen.getByText("Scanning your machine")).toBeTruthy();
     expect(screen.getByText(`${noun} show up here once the scan finishes.`)).toBeTruthy();
+    expect(
+      screen.getByTestId("scan-pending").querySelector('path[d="M6 12c0-1.7.7-3.2 1.8-4.2"]')
+    ).toBeTruthy();
+    expect(screen.getByTestId("scan-pending").querySelector("g.aim-loop")).toBeTruthy();
   });
 });
 
@@ -527,6 +583,13 @@ describe("ProfilePane — Tools' own empty states (Appendix A.1, A.2)", () => {
         )
       ).toBeTruthy();
       expect(screen.getByText("Checked 5 config files across 3 engines")).toBeTruthy();
+      // A.1 — engines exist, nothing configured: the crossed-out bolt.
+      expect(
+        screen
+          .getByText("No MCP servers registered")
+          .closest("div")
+          ?.querySelector('path[d="m2 2 20 20"]')
+      ).toBeTruthy();
     });
 
     it("truncates past three engines to 'and n others' — never a fixed list", () => {
@@ -712,6 +775,14 @@ describe("ProfilePane — Tools' own empty states (Appendix A.1, A.2)", () => {
         screen.getByText("Hanger looks for Aardvark, Bandicoot, Capybara and 1 other in their standard locations.")
       ).toBeTruthy();
       expect(screen.getByText("Checked 12 locations")).toBeTruthy();
+      // A.2 — no engines at all: the plug reaching for a bolt that never
+      // connects, not A.1's crossed-out bolt.
+      expect(
+        screen
+          .getByText("No AI engines found")
+          .closest("div")
+          ?.querySelector('path[d="m18 3-4 4h6l-4 4"]')
+      ).toBeTruthy();
     });
 
     it("reads the singular for exactly one checked location", () => {
