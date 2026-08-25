@@ -154,9 +154,16 @@ export const DocumentIcon = sized(HeroDocument);
 export const DocumentTextIcon = sized(HeroDocumentText);
 // Heroicons draws this as three r=0.75 dots at y=6/12/18 — ink extent 13.5 of
 // the 24 grid (56%), against the 75% of the lucide `panel-right`/`panel-left`
-// marks it sits beside in the inspector cap. 1.33 (18/13.5, the two marks'
-// raw extent ratio) brings its painted box back to the same height as theirs.
-export const EllipsisVerticalIcon = sized(HeroEllipsisVertical, 1.33);
+// marks it sits beside in the inspector cap, so unfactored it reads visibly
+// shorter than they do.
+//
+// The raw extent ratio is 18/13.5 = 1.33, which matches their painted height
+// exactly. It is deliberately NOT the shipped value: at 1.33 the box renders
+// 19.95 inside a 27px square control and crowds it, where the neighbouring
+// marks sit at 15. Backed off to 1.2 — a box of 18 — on Karthik's eye in the
+// running app, 2026-08-25. So this is the one factor in this file that is a
+// judgement rather than a measurement, and that is why it says so.
+export const EllipsisVerticalIcon = sized(HeroEllipsisVertical, 1.2);
 export const ExclamationCircleIcon = sized(HeroExclamationCircle, 1.11);
 export const ExclamationTriangleIcon = sized(HeroExclamationTriangle, 1.04);
 export const FolderIcon = sized(HeroFolder);

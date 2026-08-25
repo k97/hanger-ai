@@ -114,10 +114,10 @@ describe("v4 marks", () => {
     // inspector cap; without a correction it renders a plain 15px box like
     // any unfactored mark and reads visibly smaller next to them.
     const html = renderToStaticMarkup(<EllipsisVerticalIcon size={15} />);
-    expect(html).toContain('width="19.95"');
-    expect(html).toContain('height="19.95"');
-    // strokeFor(19.95) is 1.7 (icons.tsx:99-103) — the box crossed the
-    // 16px band, so the stroke thins a step even as the box grows.
+    expect(html).toContain('width="18"');
+    expect(html).toContain('height="18"');
+    // strokeFor(18) is 1.7 (icons.tsx:99-103) — the box crossed the 16px
+    // band, so the stroke thins a step even as the box grows.
     expect(html).toContain('stroke-width="1.7"');
     // Still the Heroicons ellipsis mark itself, not a substitute.
     expect(pathData(html)).toEqual(pathData(renderToStaticMarkup(<HeroEllipsisVertical />)));
