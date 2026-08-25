@@ -193,7 +193,7 @@ function ProbePending() {
   );
 }
 
-const SECTION = "px-[18px] py-[18px] border-b border-line";
+const SECTION = "px-[12px] py-[18px] border-b border-line";
 const HEADING = "text-micro font-medium text-ink-3 uppercase tracking-[.06em]";
 const COUNT = "text-micro font-mono text-ink-2 tabular";
 

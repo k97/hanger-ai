@@ -113,7 +113,7 @@ export default function McpEngineSummary({ summary }: Props) {
 
   return (
     <div className="flex-1 min-h-0 overflow-y-auto scroll-gutter-stable scroll-thin font-sans">
-      <section className="px-[18px] py-[18px]">
+      <section className="px-[12px] py-[18px]">
         <h3 className="text-small font-medium text-ink-1 mb-[10px]">What every request carries</h3>
         <div className="flex flex-col gap-px bg-line border border-line rounded-inner overflow-hidden">
           {summary.rows.map((row) => (

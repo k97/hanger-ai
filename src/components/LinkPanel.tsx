@@ -244,7 +244,7 @@ export default function LinkPanel({
   return (
     <div className="flex-1 min-h-0 flex flex-col font-sans">
       <div className="flex-1 min-h-0 overflow-y-auto scroll-gutter-stable scroll-thin">
-        <div className="px-[18px] pt-4">
+        <div className="px-[12px] pt-4">
           <span className={labelClass} id="link-destinations">
             Destinations
           </span>
@@ -317,7 +317,7 @@ export default function LinkPanel({
         </div>
 
         {asset.category === "Rules" && ruleCandidates.length > 0 && (
-          <div className="px-[18px] pt-4">
+          <div className="px-[12px] pt-4">
             <label className={labelClass} htmlFor="rule-target">
               Target file
             </label>
@@ -336,7 +336,7 @@ export default function LinkPanel({
           </div>
         )}
 
-        <div className="px-[18px] pt-4">
+        <div className="px-[12px] pt-4">
           <span className={labelClass} id="link-mechanism">
             Mechanism
           </span>

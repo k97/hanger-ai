@@ -444,7 +444,7 @@ export default function AssetDetail({ asset, inventory, onDocumentPath, annotati
             )}
 
             {loading && (
-              <p className="px-[18px] py-3 text-small text-ink-3 flex items-center gap-2">
+              <p className="px-[12px] py-3 text-small text-ink-3 flex items-center gap-2">
                 <FileTextIcon size={12} active />
                 Reading the file…
               </p>
