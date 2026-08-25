@@ -618,6 +618,31 @@ export default function ProfilePane({
   // own pending state, needed for exactly that case.
   const categoryPending = isCategoryEmpty && !!selectedCategory && loading;
 
+  // The All tab's own reading of the same bug class isCategoryEmpty exists
+  // to prevent, one level up: `isCategoryEmpty` is a disjunction over
+  // `selectedCategory === "<literal>"`, so on All (`selectedCategory ===
+  // null`) every arm is false and a non-matching filter fell through to the
+  // table, rendering `AssetHeaderRow`'s column labels over zero rows. Same
+  // four collections `isCategoryEmpty` checks per-category, checked together
+  // — Agents is not one of them because the Agents section only renders
+  // when `selectedCategory === "Agents"` (never on All), so it contributes
+  // no rows here to be empty or not. Gated on `filterActive` at the call
+  // site below, not here, to mirror `isCategoryEmpty` itself staying a pure
+  // "what's on screen" predicate.
+  const isAllEmpty =
+    selectedCategory === null &&
+    filteredSkills.length === 0 &&
+    filteredTools.length === 0 &&
+    configProblemRows.length === 0 &&
+    filteredRules.length === 0 &&
+    filteredSubagents.length === 0;
+
+  // categoryPending's own shape, scoped to the All tab instead of one
+  // category: a scan in flight is not yet an answer, so it must win over the
+  // "no assets match" reading below even when the filtered rows are
+  // currently zero.
+  const allPending = isAllEmpty && loading;
+
   const showSkills = selectedCategory === null || selectedCategory === "Skills";
   const showTools = selectedCategory === null || selectedCategory === "Tools";
   const showRules = selectedCategory === null || selectedCategory === "Rules";
@@ -1007,6 +1032,26 @@ export default function ProfilePane({
               )
             ) : null}
           </EmptyState>
+        )
+      ) : selectedCategory === null && isAllEmpty && filterActive ? (
+        /* The All tab's own filter-empty state. Reached only past every
+           whole-store branch above, so a fresh or mid-scan store never lands
+           here — this fires strictly for "a query that matched nothing",
+           never for "nothing scanned yet" (Karthik's ruling: search-results
+           copy must never assert during an initial or pending state). A scan
+           in flight still outranks it, same as categoryPending above. */
+        allPending ? (
+          <EmptyState
+            testId="scan-pending"
+            icon={<Disc3Icon active size={40} className="text-ink-3 mb-2" />}
+            headline="Scanning your machine"
+            sub="Assets in the global store show up here once the scan finishes."
+          />
+        ) : (
+          <EmptyState
+            icon={<SearchIcon size={40} className="text-ink-3 mb-2" />}
+            headline="No assets match that filter"
+          />
         )
       ) : (
         <>

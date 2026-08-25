@@ -328,6 +328,29 @@ export default function RepoPane({
   // that case.
   const isCategoryPending = isCategoryEmpty && !!selectedCategory && loading;
 
+  // The All tab's own reading of the same bug class isCategoryEmpty exists
+  // to prevent, one level up: `isCategoryEmpty` is a disjunction over
+  // `selectedCategory === "<literal>"`, so on All (`selectedCategory ===
+  // null`) every arm is false and a non-matching filter fell through to the
+  // table, rendering `AssetHeaderRow`'s column labels over zero rows. Same
+  // four collections `isCategoryEmpty` checks per-category, checked
+  // together — RepoPane never renders an Agents section at all, so there is
+  // no fifth collection to add here. Gated on `filterActive` at the call
+  // site below, not here, to mirror `isCategoryEmpty` itself staying a pure
+  // "what's on screen" predicate.
+  const isAllEmpty =
+    selectedCategory === null &&
+    filteredSkills.length === 0 &&
+    filteredTools.length === 0 &&
+    filteredRules.length === 0 &&
+    filteredSubagents.length === 0;
+
+  // isCategoryPending's own shape, scoped to the All tab instead of one
+  // category: a scan in flight is not yet an answer, so it must win over the
+  // "no assets match" reading below even when the filtered rows are
+  // currently zero.
+  const isAllPending = isAllEmpty && loading;
+
   // Uppercase micro voice for section labels inside the list plane.
   const secClass =
     "px-3.5 pt-[11px] pb-[5px] font-flex text-micro font-medium tracking-[.06em] uppercase text-ink-3";
@@ -565,6 +588,28 @@ export default function RepoPane({
                 : `No ${categoryNoun(selectedCategory)} in ${repoFolderName}`
             }
             sub={filterActive ? undefined : "The scan finished without finding any."}
+          />
+        )
+      ) : selectedCategory === null && isAllEmpty && filterActive ? (
+        /* The All tab's own filter-empty state. Reached only past every
+           whole-store branch above, so a fresh or mid-scan store never lands
+           here — this fires strictly for "a query that matched nothing",
+           never for "nothing scanned yet" (Karthik's ruling: search-results
+           copy must never assert during an initial or pending state). A scan
+           in flight still outranks it, same as isCategoryPending above. */
+        isAllPending ? (
+          <EmptyState
+            className="mt-2.5"
+            testId="scan-pending"
+            icon={<FolderSyncIcon active size={40} className="text-ink-3 mb-2" />}
+            headline="Scanning this repository"
+            sub={`Assets in ${repoFolderName} show up here once the scan finishes.`}
+          />
+        ) : (
+          <EmptyState
+            className="mt-2.5"
+            icon={<SearchIcon size={40} className="text-ink-3 mb-2" />}
+            headline="No assets match that filter"
           />
         )
       ) : (

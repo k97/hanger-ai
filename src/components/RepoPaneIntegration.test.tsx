@@ -379,3 +379,93 @@ describe("RepoPane — the empty state is a finding, not a default", () => {
     expect(screen.getByTestId("scan-pending").querySelector("g.aim-loop")).toBeTruthy();
   });
 });
+
+describe("RepoPane — the All tab's own filter-empty state", () => {
+  // Same bug class as ProfilePane's: `isCategoryEmpty` is a disjunction over
+  // `selectedCategory === "<literal>"`, so on All (`selectedCategory` null)
+  // every arm was false and a non-matching filter fell through to the table.
+  // A search-results empty state, so it must fire ONLY for an active query
+  // on a scanned, non-empty repo — never as a stand-in for the whole-repo
+  // pending/empty planes above it.
+
+  it("says so when a filter on All matches nothing, after a scan", () => {
+    render(
+      <RepoPane
+        repoPath="/home/user/project"
+        inventory={mockInventory}
+        loading={false}
+        scannedAt={new Date()}
+        filterText="zzzz"
+        onRefresh={vi.fn()}
+        onSelectAsset={vi.fn()}
+        onLinkFromProfile={vi.fn()}
+      />
+    );
+    expect(screen.getByText("No assets match that filter")).toBeTruthy();
+    // Never the table it replaces: no row for the filtered-out fixture assets.
+    expect(screen.queryByText("Project Skill")).toBeNull();
+    expect(screen.queryByText("Native Skill")).toBeNull();
+    // A filter, not an absence — the search glyph, same mark the
+    // per-category filter-empty state uses.
+    expect(
+      screen
+        .getByText("No assets match that filter")
+        .closest("div")
+        ?.querySelector('path[d="m21 21-4.3-4.3"]')
+    ).toBeTruthy();
+  });
+
+  it("does not appear with an empty filter box — the whole-repo empty plane wins instead", () => {
+    render(
+      <RepoPane
+        repoPath="/home/user/empty-project"
+        inventory={{ agents: [], skills: [], tools: [], rules: [], subagents: [], project_scans: [] }}
+        assetCounts={{ total: 0, byCategory: {} }}
+        loading={false}
+        scannedAt={new Date()}
+        onRefresh={vi.fn()}
+        onSelectAsset={vi.fn()}
+        onLinkFromProfile={vi.fn()}
+      />
+    );
+    expect(screen.getByText("Nothing in empty-project yet")).toBeTruthy();
+    expect(screen.queryByText("No assets match that filter")).toBeNull();
+  });
+
+  it("does not appear while a scan is running — the scanning plane wins instead", () => {
+    render(
+      <RepoPane
+        repoPath="/home/user/project"
+        inventory={mockInventory}
+        loading={true}
+        scannedAt={new Date()}
+        filterText="zzzz"
+        onRefresh={vi.fn()}
+        onSelectAsset={vi.fn()}
+        onLinkFromProfile={vi.fn()}
+      />
+    );
+    expect(screen.getByTestId("scan-pending")).toBeTruthy();
+    expect(screen.getByText("Scanning this repository")).toBeTruthy();
+    expect(screen.queryByText("No assets match that filter")).toBeNull();
+  });
+
+  it("does not appear before a first scan has completed", () => {
+    render(
+      <RepoPane
+        repoPath="/home/user/empty-project"
+        inventory={{ agents: [], skills: [], tools: [], rules: [], subagents: [], project_scans: [] }}
+        loading={false}
+        scannedAt={null}
+        filterText="zzzz"
+        onRefresh={vi.fn()}
+        onSelectAsset={vi.fn()}
+        onLinkFromProfile={vi.fn()}
+      />
+    );
+    // The strip carries its own "Not scanned yet" stamp too — scoped to the
+    // pending plane itself, same as the whole-repo pending test above.
+    expect(within(screen.getByTestId("scan-pending")).getByText("Not scanned yet")).toBeTruthy();
+    expect(screen.queryByText("No assets match that filter")).toBeNull();
+  });
+});

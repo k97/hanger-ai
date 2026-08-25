@@ -1110,3 +1110,89 @@ describe("ProfilePane — Tools' own problem rows (Appendix A.3, A.4)", () => {
     expect(screen.queryByText(/declares no MCP servers/)).toBeNull();
   });
 });
+
+describe("ProfilePane — the All tab's own filter-empty state", () => {
+  // `isCategoryEmpty` is a disjunction over `selectedCategory === "<literal>"`
+  // — on All, `selectedCategory` is null, so every arm was false and a
+  // non-matching filter fell through to the table, printing
+  // `AssetHeaderRow`'s column labels over zero rows (Karthik hit this typing
+  // "zzzz" with All selected). This is a search-results empty state, so it
+  // must fire ONLY for an active query on a scanned, non-empty store — never
+  // as a stand-in for the whole-store pending/empty planes above it.
+
+  it("says so when a filter on All matches nothing, after a scan", () => {
+    render(
+      <ProfilePane
+        inventory={mockInventory}
+        loading={false}
+        scannedAt={new Date()}
+        filterText="zzzz"
+        onSelectAsset={vi.fn()}
+        onLinkAsset={vi.fn()}
+      />
+    );
+    expect(screen.getByText("No assets match that filter")).toBeTruthy();
+    // Never the table it replaces: no header labels, no row for the
+    // filtered-out fixture assets.
+    expect(screen.queryByText("Claude Math Skill")).toBeNull();
+    expect(screen.queryByText("Node Runner Tool")).toBeNull();
+    expect(screen.queryByText("CLAUDE.md")).toBeNull();
+    expect(screen.queryByTestId("asset-list-scroll")).toBeNull();
+    // A filter, not an absence — the search glyph, same mark the
+    // per-category filter-empty state uses.
+    expect(
+      screen
+        .getByText("No assets match that filter")
+        .closest("div")
+        ?.querySelector('path[d="m21 21-4.3-4.3"]')
+    ).toBeTruthy();
+  });
+
+  it("does not appear with an empty filter box — the whole-store empty plane wins instead", () => {
+    render(
+      <ProfilePane
+        inventory={{ agents: [], skills: [], tools: [], rules: [], subagents: [], project_scans: [] }}
+        assetCounts={{ total: 0, byCategory: {} }}
+        loading={false}
+        scannedAt={new Date()}
+        onSelectAsset={vi.fn()}
+        onLinkAsset={vi.fn()}
+      />
+    );
+    expect(screen.getByText("No engine folders on this machine yet")).toBeTruthy();
+    expect(screen.queryByText("No assets match that filter")).toBeNull();
+  });
+
+  it("does not appear while a scan is running — the scanning plane wins instead", () => {
+    render(
+      <ProfilePane
+        inventory={mockInventory}
+        loading={true}
+        scannedAt={new Date()}
+        filterText="zzzz"
+        onSelectAsset={vi.fn()}
+        onLinkAsset={vi.fn()}
+      />
+    );
+    expect(screen.getByTestId("scan-pending")).toBeTruthy();
+    expect(screen.getByText("Scanning your machine")).toBeTruthy();
+    expect(screen.queryByText("No assets match that filter")).toBeNull();
+  });
+
+  it("does not appear before a first scan has completed", () => {
+    render(
+      <ProfilePane
+        inventory={null}
+        loading={false}
+        scannedAt={null}
+        filterText="zzzz"
+        onSelectAsset={vi.fn()}
+        onLinkAsset={vi.fn()}
+      />
+    );
+    // The strip carries its own "Not scanned yet" stamp too — scoped to the
+    // pending plane itself, same as the whole-store pending test above.
+    expect(within(screen.getByTestId("scan-pending")).getByText("Not scanned yet")).toBeTruthy();
+    expect(screen.queryByText("No assets match that filter")).toBeNull();
+  });
+});
