@@ -59,4 +59,17 @@ describe("the icon-motion vocabulary", () => {
     // forwards fill to hold.
     expect(css).toMatch(/@utility aim-loop \{[^}]*animation-fill-mode: backwards;[^}]*\}/s);
   });
+
+  it("pins aim-stagger's delay directly on the utility, not a descendant selector", () => {
+    // Guards the CSS side of the defect animated_icons.test.tsx's
+    // assertStaggerWired already guards on the DOM side: reverting to the
+    // old `& > * { animation-delay: … }` form resolves every element's
+    // delay to 0 (animation-name is not inherited, so a delay computed on a
+    // wrapping selector has no animation of its own to delay) and every
+    // staggered element draws simultaneously — shipped once already. This
+    // regex only matches when animation-delay sits directly in aim-stagger's
+    // own body; a nested `& > * { … }` selector between the opening brace
+    // and the declaration fails it.
+    expect(css).toMatch(/@utility aim-stagger \{\s*animation-delay:[^;]+;\s*\}/);
+  });
 });
