@@ -14,6 +14,7 @@ import {
   GaugeIcon,
   GlobeAltIcon,
   LinkIcon,
+  Square2StackIcon,
   TagIcon,
 } from "./icons";
 import Tooltip from "./Tooltip";
@@ -97,6 +98,7 @@ interface IdentityRow {
   icon: ReactNode;
   value?: ReactNode;
   wide?: ReactNode;
+  trailing?: ReactNode;
 }
 
 /* The Reach card's groups, in reading order: what reaches it, then why the
@@ -341,6 +343,18 @@ export default function AssetDetail({ asset, inventory, onDocumentPath, annotati
           <bdi>{shownPath}</bdi>
         </span>
       ),
+      trailing: (
+        <Tooltip label="Copy path" placement="bottom">
+          <button
+            type="button"
+            aria-label="Copy path"
+            onClick={() => navigator.clipboard?.writeText(shownPath).catch(() => {})}
+            className="p-1 rounded-pill grid place-items-center text-ink-3 hover:bg-plane-2 hover:text-ink-1 transition-colors duration-hover cursor-pointer"
+          >
+            <Square2StackIcon size={13} aria-hidden="true" />
+          </button>
+        </Tooltip>
+      ),
     },
   ];
 
@@ -463,6 +477,7 @@ export default function AssetDetail({ asset, inventory, onDocumentPath, annotati
                     label={row.label}
                     value={row.value}
                     wide={row.wide}
+                    trailing={row.trailing}
                   />
                 ))}
               </ListCard>

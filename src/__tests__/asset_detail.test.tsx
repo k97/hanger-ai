@@ -70,6 +70,8 @@ vi.mock("@tauri-apps/plugin-opener", () => ({
   revealItemInDir: vi.fn(async () => {}),
 }));
 
+const writeText = vi.fn(async () => {});
+
 const asset = {
   category: "Skills",
   name: "agent-browser",
@@ -106,6 +108,10 @@ describe("Asset detail — the inspector's document screen", () => {
       { name: "references/", kind: "dir", bytes: null, file_count: 3 },
       { name: "scripts/", kind: "dir", bytes: null, file_count: 1 },
     ];
+    Object.defineProperty(navigator, "clipboard", {
+      value: { writeText },
+      configurable: true,
+    });
   });
 
   // "states the file's relationships in one line" removed: the state line
@@ -315,6 +321,34 @@ describe("Asset detail — the inspector's document screen", () => {
     const section = screen.getByText("Identity").closest("section")!;
     const pathRow = within(section).getByTestId("identity-row-path");
     expect(within(pathRow).getByText("Path")).toBeTruthy();
+  });
+
+  it("the Path row carries a Copy path control", async () => {
+    render(<AssetDetail asset={asset} inventory={inventory} />);
+    await screen.findByRole("tab", { name: "Details" });
+    openDetails();
+    const pathRow = screen.getByTestId("identity-row-path");
+    expect(within(pathRow).getByRole("button", { name: "Copy path" })).toBeTruthy();
+  });
+
+  it("copies shownPath — the document actually read, not the folder asset.path names — when Copy path is clicked", async () => {
+    // Mirrors "shows the document it read, not the folder it was handed":
+    // for a skill, asset.path is the containing folder while the backend's
+    // read_asset_body resolves the file one level in.
+    const folder = "/home/me/.agents/skills/agent-browser";
+    const file = `${folder}/SKILL.md`;
+    bodyPath = file;
+    render(<AssetDetail asset={{ ...asset, path: folder }} inventory={inventory} />);
+
+    await screen.findByRole("tab", { name: "Details" });
+    openDetails();
+    const pathRow = await screen.findByTestId("identity-row-path");
+    fireEvent.click(within(pathRow).getByRole("button", { name: "Copy path" }));
+
+    await waitFor(() => {
+      expect(writeText).toHaveBeenCalledWith(file);
+    });
+    expect(writeText).not.toHaveBeenCalledWith(folder);
   });
 
   it("omits the Modified row when the file has no mtime, rather than inventing an epoch date", async () => {
