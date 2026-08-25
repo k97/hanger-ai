@@ -415,3 +415,89 @@ export const Disc3Icon = looping({
   motion: "aim-spin",
   groups: [{ indices: [1, 3] }],
 });
+
+/** Repository scanning — the folder holds; the sync arrows turn while it runs. */
+export const FolderSyncIcon = looping({
+  elements: [
+    [
+      "path",
+      {
+        d: "M9 20H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H20a2 2 0 0 1 2 2v.5",
+      },
+    ],
+    ["path", { d: "M12 10v4h4" }],
+    ["path", { d: "m12 14 1.535-1.605a5 5 0 0 1 8 1.5" }],
+    ["path", { d: "M22 22v-4h-4" }],
+    ["path", { d: "m22 18-1.535 1.605a5 5 0 0 1-8-1.5" }],
+  ],
+  motion: "aim-spin",
+  groups: [{ indices: [1, 2, 3, 4], origin: [17, 16] }],
+});
+
+/** Counting — the smallest spinner; a single arc where four elements would blur. */
+export const LoaderCircleIcon = looping({
+  elements: [["path", { d: "M21 12a9 9 0 1 1-6.219-8.56" }]],
+  motion: "aim-spin",
+  groups: [{ indices: [0] }],
+});
+
+/** Rescanning — the whole glyph turns while the rescan it names is running. */
+export const RotateCcwIcon = looping({
+  elements: [
+    ["path", { d: "M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" }],
+    ["path", { d: "M3 3v5h5" }],
+  ],
+  motion: "aim-spin-ccw",
+  groups: [{ indices: [0, 1] }],
+});
+
+/** MCP probe — the racks trade emphasis: traffic relaying. */
+export const ServerRelayIcon = looping({
+  elements: [
+    ["rect", { width: 20, height: 8, x: 2, y: 2, rx: 2, ry: 2 }],
+    ["rect", { width: 20, height: 8, x: 2, y: 14, rx: 2, ry: 2 }],
+    ["line", { x1: 6, x2: "6.01", y1: 6, y2: 6 }],
+    ["line", { x1: 6, x2: "6.01", y1: 18, y2: 18 }],
+  ],
+  motion: "aim-relay",
+  groups: [{ indices: [0, 2] }, { indices: [1, 3], delay: "-0.6s" }],
+});
+
+/** Reading the link graph — the grid that grounds the map redraws itself. */
+export const FrameIcon = looping({
+  elements: [
+    ["line", { x1: 22, x2: 2, y1: 6, y2: 6 }],
+    ["line", { x1: 22, x2: 2, y1: 18, y2: 18 }],
+    ["line", { x1: 6, x2: 6, y1: 2, y2: 22 }],
+    ["line", { x1: 18, x2: 18, y1: 2, y2: 22 }],
+  ],
+  motion: "aim-scan aim-stagger",
+  groups: [{ indices: [0, 1, 2, 3] }],
+  drawn: true,
+});
+
+/** Reading a file — the page holds; its text lines redraw as they're checked. */
+export const FileTextIcon = looping({
+  elements: [
+    ["path", { d: "M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" }],
+    ["path", { d: "M14 2v4a2 2 0 0 0 2 2h4" }],
+    ["path", { d: "M10 9H8" }],
+    ["path", { d: "M16 13H8" }],
+    ["path", { d: "M16 17H8" }],
+  ],
+  motion: "aim-scan aim-stagger",
+  groups: [{ indices: [2, 3, 4] }],
+  drawn: true,
+});
+
+/** Linking — the connection draws itself while the link is being made. */
+export const Link2Icon = looping({
+  elements: [
+    ["path", { d: "M9 17H7A5 5 0 0 1 7 7h2" }],
+    ["path", { d: "M15 7h2a5 5 0 1 1 0 10h-2" }],
+    ["line", { x1: 8, x2: 16, y1: 12, y2: 12 }],
+  ],
+  motion: "aim-draw aim-stagger",
+  groups: [{ indices: [0, 1, 2] }],
+  drawn: true,
+});
