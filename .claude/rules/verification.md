@@ -10,7 +10,15 @@ conflict rather than resolving it yourself.
 
 ## Gates
 
-`CLAUDE.md` → Verification pins the exact commands. A figure quoted from any
+`CLAUDE.md` → Verification pins the exact commands.
+
+**Parallel tool calls share one shell, and its working directory.** A
+backgrounded `cd src-tauri && cargo test` leaves a concurrent gate running from
+`src-tauri/`, where no `.gitleaks.toml` allowlist exists. That reported
+"leaks found: 2" against a clean tree on 2026-08-26 and was one step from being
+escalated as a security finding. Run each gate in its own call with an explicit
+`cd`, and re-read `pwd` before believing a gate that disagrees with the last one.
+ A figure quoted from any
 other invocation is not a gate result. Numeric exit criteria are run in the
 dispatch that reports them; a figure copied from an earlier log is fabricated
 evidence.
@@ -78,6 +86,13 @@ Nothing else is evidence.
   wiped the spec, plan and ledger, and reported that to Karthik before checking
   `pwd`. Nothing had been deleted. Use absolute paths, or `cd` to the root in
   the same command.
+- **A commit SHA you did not resolve is not a citation.** Writing release
+  notes on 2026-08-26 this session invented `1e2d5ff` for a changelog entry —
+  a plausible-looking hex string for a commit that does not exist. `git
+  cat-file -t <sha>` settles it in a second, and every SHA in a document that
+  cites them should be checked as a set, not spot-checked. The generated
+  entries were all real; the one hand-written line was not.
+
 - A control that fails to fire is a finding about the detector and is
   reported. Replacing it with one that fires, without disclosure, is
   fabricated evidence.

@@ -19,9 +19,7 @@ Reach column.
 Two places own their own domains:
 
 - **`.claude/rules/`** — the rules, linked below. `verification.md` is what
-  counts as proof; read it before reporting any work as done. (`AGENTS.md`
-  used to own this; it is archived under `docs/archive/` and the root file is
-  now a pointer.)
+  counts as proof; read it before reporting any work as done.
 - **`.claude/DESIGN.md`** — the design system, derived from code with every
   statement cited, and a "Not implemented" section for what the code does not
   yet do.
@@ -30,13 +28,11 @@ Two places own their own domains:
 
 Bun is the package manager, pinned at `bun@1.3.14`. The Bash tool's shell does
 not source the login profile: invoke it as `~/.bun/bin/bun` or export `PATH`
-first. ("Harness" in this repo means the asset layer Hanger models, per
-`docs/harness.md` — not the agent runtime.)
+first.
 
 - `bun run tauri dev` — full app. The Vite port is pinned at 8397 with
   `strictPort` (`vite.config.ts`) because Tauri loads it by absolute URL
   (`src-tauri/tauri.conf.json`); a floating port breaks `tauri dev`.
-- `bun run dev` — frontend only, on :8397.
 - `bun run build` / `bun run tauri build` — `tsc && vite build` / bundled .app.
 
 There is no router: views switch on one string state, `selectedSidebarItem`
@@ -58,6 +54,8 @@ in `src/App.tsx`, persisted as the `selected_sidebar_item` preference.
   string gets a `/humanizer` pass, empty states are findings.
 - [Verifying UI](.claude/rules/verifying-ui.md) — taking a screenshot of the
   dev app that tells the truth.
+- [Releasing](.claude/rules/releasing.md) — tag triggers, the four version
+  files, the updater's semver and key checks, never `--tags`.
 - [Known debt](.claude/rules/known-debt.md) — open items to know before
   touching counting, scan warnings, or diagnostics UI; the DisclosureBanner
   rule.
@@ -94,8 +92,8 @@ deliberately left unfixed, with evidence; `docs/roadmap.md`, deferred work.
 
 ## Gaps
 
-Not established, left out rather than guessed: whether CI runs the gates on
-push and where that workflow lives; whether Windows or Linux builds are
-intended (`tauri.conf.json` sets `"targets": "all"`, the README says macOS
-only); the release process (`docs/to-be-reviewed/release.md` exists but is
-unverified against the actual workflow).
+Not established, left out rather than guessed: whether Windows or Linux builds
+are intended (`tauri.conf.json` sets `"targets": "all"`, the README says macOS
+only). Resolved 2026-08-26: `ci.yml` runs all four gates on every push and PR;
+the release process is verified and lives in
+[Releasing](.claude/rules/releasing.md).
