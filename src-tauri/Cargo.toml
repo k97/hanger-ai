@@ -54,3 +54,16 @@ tauri-plugin-mcp-bridge = "0.12"
 objc2 = "0.6"
 objc2-foundation = "0.3"
 objc2-app-kit = { version = "0.3", features = ["NSApplication", "NSImage"] }
+
+# Build-artifact hygiene. `target/` reached 94 GiB of build output on 2026-08-26
+# (324,852 files), 26 GB of it debug symbols for dependencies alone. Cargo's
+# automatic garbage collection, stable since 1.88, only ever touches
+# `~/.cargo` — collecting `target/` is still unimplemented
+# (rust-lang/cargo#13136), so nothing reclaims this on its own.
+#
+# Dependencies get no debug info. Their symbols are what dominated `deps/`, and
+# the cost is only that a debugger cannot step inside a dependency's internals.
+# Hanger's own crate keeps full debug info, so backtraces and stepping through
+# this project are unaffected.
+[profile.dev.package."*"]
+debug = false

@@ -86,3 +86,64 @@ To build and release signed, notarised macOS binaries via GitHub Actions, the fo
 Development and production builds store their configuration, linked repositories list, and consent preferences in a local SQLite database file located at the standard OS-specific application support directories:
 - **macOS**: `~/Library/Application Support/com.rkarthik.hanger/hanger.db`
 
+
+---
+
+## Build Artifact Hygiene
+
+`src-tauri/target/` grows without bound and nothing reclaims it on its own.
+On 2026-08-26 it held **94.2 GiB across 324,852 files**. Cargo's automatic
+garbage collection, stable since 1.88, only ever touches `~/.cargo`; collecting
+`target/` is still unimplemented ([rust-lang/cargo#13136][gc-issue]), so this
+is manual maintenance.
+
+Where the space went, measured rather than assumed:
+
+| Cause | Size |
+|---|---|
+| `deps/` — every superseded build kept forever, keyed by content hash | 26 GB |
+| `incremental/` — 536 compilation sessions | 7.1 GB |
+| 237 test executables, one per integration suite, each statically linked | 3.0 GB |
+| `.a` static archives (`crate-type` includes `staticlib`) | 3.1 GB |
+
+Cargo never removes superseded artifacts from `deps/`: five copies of
+`libtauri_plugin_mcp_bridge.a` at 308–380 MB each had accumulated since August.
+Running the test suite is what drives this — 36 integration suites each link
+the whole library.
+
+### Routine
+
+- **Every few weeks, or when `deps/` passes a few GB:** `cargo sweep --time 30`
+  from `src-tauri/`, which deletes artifacts unused for 30 days and keeps what
+  you are actively building. Install once with `cargo install cargo-sweep`.
+- **When it has got away from you:** `cargo clean` from `src-tauri/`. Reclaims
+  everything at the cost of one full rebuild. Safe — `target/` is gitignored
+  with zero tracked files, CI builds on a fresh runner, and nothing but
+  compiled output lives there.
+- **Check before deciding:** `du -sh src-tauri/target/*` shows which of the
+  causes above is dominant.
+
+### What is already configured
+
+`[profile.dev.package."*"] debug = false` in `src-tauri/Cargo.toml` strips
+debug symbols from dependencies, which is what made `deps/` the largest
+contributor. Hanger's own crate keeps full debug info, so backtraces and
+stepping through this project are unaffected; only stepping *inside* a
+dependency is lost.
+
+`src-tauri/target/.metadata_never_index` keeps Spotlight from indexing the
+tree. Without it, stale `.app` bundles surface in Spotlight search and can be
+launched by accident — an old binary opening the current store is a real
+hazard, since migrations are forward-only and a 1.0.2 build understands schema
+v2 against a live v7 store.
+
+### Not done, deliberately
+
+`crate-type = ["staticlib", "cdylib", "rlib"]` produces the 740 MB
+`libtauri_app_lib.a`. No mobile targets are set up (`gen/` holds only
+`schemas`) and nothing in `build.rs` consumes the archive, so `staticlib` looks
+like `create-tauri-app` scaffolding — but `.claude/rules/invariants.md` marks
+the crate's naming and shape as load-bearing, so removing it needs its own
+red/green cycle rather than a drive-by edit.
+
+[gc-issue]: https://github.com/rust-lang/cargo/issues/13136

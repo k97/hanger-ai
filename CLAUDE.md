@@ -33,7 +33,8 @@ first.
 - `bun run tauri dev` — full app. The Vite port is pinned at 8397 with
   `strictPort` (`vite.config.ts`) because Tauri loads it by absolute URL
   (`src-tauri/tauri.conf.json`); a floating port breaks `tauri dev`.
-- `bun run build` / `bun run tauri build` — `tsc && vite build` / bundled .app.
+- `cargo sweep --time 30` / `cargo clean`, from `src-tauri/` — Cargo never
+  collects `target/`; it reached 94 GiB. `docs/setup.md` → Build artifact hygiene.
 
 There is no router: views switch on one string state, `selectedSidebarItem`
 in `src/App.tsx`, persisted as the `selected_sidebar_item` preference.
