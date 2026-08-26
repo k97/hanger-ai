@@ -113,9 +113,17 @@ the whole library.
 
 ### Routine
 
-- **Every few weeks, or when `deps/` passes a few GB:** `cargo sweep --time 30`
-  from `src-tauri/`, which deletes artifacts unused for 30 days and keeps what
-  you are actively building. Install once with `cargo install cargo-sweep`.
+Nothing cleans `target/` automatically, and deliberately so: sweeping on every
+build would delete artifacts you just made, and a 30-day threshold would no-op
+for a month and then remove a great deal at once, mid-work. The failure this
+guards against is silent growth over months, not sudden growth.
+
+- **Every few weeks, or when `deps/` passes a few GB:** `bun run tidy`. It
+  prints the size, runs `cargo sweep --time 30` — which deletes artifacts
+  unused for 30 days and keeps what you are actively building — then prints the
+  size again. Requires `cargo install cargo-sweep` (installed 2026-08-26).
+- **Preview first if you want:** `cargo sweep --dry-run --time 30` from
+  `src-tauri/` reports what it would remove without touching anything.
 - **When it has got away from you:** `cargo clean` from `src-tauri/`. Reclaims
   everything at the cost of one full rebuild. Safe — `target/` is gitignored
   with zero tracked files, CI builds on a fresh runner, and nothing but

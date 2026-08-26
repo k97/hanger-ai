@@ -11,7 +11,8 @@
     "tauri": "tauri",
     "typecheck": "tsc --noEmit",
     "test": "tsc --noEmit && vitest run",
-    "vitest": "vitest"
+    "vitest": "vitest",
+    "tidy": "cd src-tauri && du -sh target && cargo sweep --time 30 && du -sh target"
   },
   "dependencies": {
     "@heroicons/react": "^2.2.0",
