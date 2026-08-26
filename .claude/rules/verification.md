@@ -63,6 +63,18 @@ Nothing else is evidence.
   mirrored, which no test exercised. If the answer to "what would make this
   fail?" is "nothing", it is decoration. Plant that input, watch it fail, then
   count the green.
+- **A fixture built from the type, not from the producer, is that failure
+  wearing a shape.** The probe answer types `error` and `cost` as independent
+  optionals, so it can express four states where the backend emits three: a
+  FAILED probe arrives carrying *both* an error *and* a truthy all-zero cost,
+  because `tool_cost` is built unconditionally over an empty tool list. Every
+  error fixture in `McpServerDetail.test.tsx` omitted `cost`, so none of them
+  could exercise the bug they existed to catch — and a card shipped reading
+  "0 of 0 tools carry one" for a server that never answered. Where a type
+  permits states its producer never emits, narrow the type at the boundary; a
+  guard repeated at five call sites is the same bug waiting for a sixth.
+  A hand-written mirror of a Rust struct is the usual source, and codegen does
+  not fix it — it reproduces the wide type faithfully.
 - **A floor set below the real number is that failure wearing a number.**
   `brand-coverage.test.ts` carried per-source floors of 3/9/5/2 against actual
   counts of 11/16/13/2 — live, green, and able to sleep through a fourfold
