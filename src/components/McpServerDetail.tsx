@@ -196,7 +196,7 @@ function ProbePending() {
    what made this panel's rhythm read as foreign once the rule came off.
    `src/__tests__/inspector-section-rhythm.test.ts` holds the two spellings
    together. */
-const SECTION = "mx-[12px] my-3.5";
+const SECTION = "mx-[12px] my-5";
 const HEADING = "text-micro font-medium text-ink-3 uppercase tracking-[.06em]";
 const COUNT = "text-micro font-mono text-ink-2 tabular";
 
@@ -757,7 +757,7 @@ export default function McpServerDetail({
           <section className={SECTION}>
             {/* items-center, not items-baseline: the trigger is a glyph, and
                 a glyph has no baseline to share with the eyebrow beside it. */}
-            <div className="flex items-center justify-between gap-2 mb-[10px]">
+            <div className="flex items-center justify-between gap-2 mb-2">
               <h3 className={HEADING}>Context per request</h3>
               <ContextNote />
             </div>
@@ -765,7 +765,7 @@ export default function McpServerDetail({
           </section>
         )}
         <section className={SECTION}>
-          <div className="flex items-baseline justify-between gap-2 mb-[10px]">
+          <div className="flex items-baseline justify-between gap-2 mb-2">
             <h3 className={HEADING}>Tools</h3>
             {/* A tool count is honest in this slot only when the server has a
                 single launch spec -- one launch means one tool surface, so
@@ -948,7 +948,7 @@ export default function McpServerDetail({
       ) : (
         <div role="tabpanel" id="panel-details" aria-labelledby="tab-details">
         <section className={SECTION}>
-          <div className="flex items-baseline justify-between gap-2 mb-[10px]">
+          <div className="flex items-baseline justify-between gap-2 mb-2">
             <h3 className={HEADING}>Identity & capabilities</h3>
             <span className={COUNT}>
               {anyVerified
@@ -1064,7 +1064,7 @@ export default function McpServerDetail({
         )}
 
         <section className={SECTION}>
-          <div className="flex items-baseline justify-between gap-2 mb-[10px]">
+          <div className="flex items-baseline justify-between gap-2 mb-2">
             <h3 className={HEADING}>Registered in</h3>
             <span className={COUNT}>
               {`${regCount} ${regCount === 1 ? "registration" : "registrations"}`}
@@ -1181,7 +1181,7 @@ export default function McpServerDetail({
 
         {server.envKeys.length > 0 && (
           <section className={SECTION}>
-            <div className="flex items-baseline justify-between gap-2 mb-[10px]">
+            <div className="flex items-baseline justify-between gap-2 mb-2">
               <h3 className={HEADING}>Environment</h3>
               <span className={COUNT}>{server.envKeys.length}</span>
             </div>

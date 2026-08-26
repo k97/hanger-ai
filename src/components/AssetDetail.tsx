@@ -392,10 +392,10 @@ export default function AssetDetail({ asset, inventory, onDocumentPath, annotati
         {kind !== "none" && tab === "content" && (
           <div role="tabpanel" id="panel-content" aria-labelledby="tab-content">
             {asset.category === "Skills" && body && (
-              <section className="mx-[12px] my-3.5">
+              <section className="mx-[12px] my-5">
                 {/* items-center, not items-baseline: the trigger is a glyph,
                     and a glyph has no baseline to share with the eyebrow. */}
-                <div className="flex items-center justify-between gap-2 mb-3">
+                <div className="flex items-center justify-between gap-2 mb-2">
                   <span className={eyebrowClass}>Context</span>
                   <InfoPopover label="About these figures">{CONTEXT_NOTE}</InfoPopover>
                 </div>
@@ -441,7 +441,7 @@ export default function AssetDetail({ asset, inventory, onDocumentPath, annotati
             )}
 
             {text !== null && (
-              <section className="mx-[12px] my-3.5">
+              <section className="mx-[12px] my-5">
                 <ListCard>
                   <ListCardRow
                     icon={<DocumentIcon size={14} aria-hidden="true" />}
@@ -504,8 +504,8 @@ export default function AssetDetail({ asset, inventory, onDocumentPath, annotati
             id={kind === "none" ? undefined : "panel-details"}
             aria-labelledby={kind === "none" ? undefined : "tab-details"}
           >
-            <section className="mx-[12px] my-3.5">
-              <div className="flex items-baseline justify-between gap-2 mb-3">
+            <section className="mx-[12px] my-5">
+              <div className="flex items-baseline justify-between gap-2 mb-2">
                 <span className={eyebrowClass}>Identity</span>
               </div>
               <ListCard>
@@ -524,8 +524,8 @@ export default function AssetDetail({ asset, inventory, onDocumentPath, annotati
             </section>
 
             {dirEntries && dirEntries.length > 0 && (
-              <section className="mx-[12px] my-3.5">
-                <div className="flex items-baseline justify-between gap-2 mb-3">
+              <section className="mx-[12px] my-5">
+                <div className="flex items-baseline justify-between gap-2 mb-2">
                   <span className={eyebrowClass}>Contents</span>
                 </div>
                 <ListCard>
@@ -567,8 +567,8 @@ export default function AssetDetail({ asset, inventory, onDocumentPath, annotati
             )}
 
             {allowedTools.length > 0 && (
-              <section className="mx-[12px] my-3.5">
-                <div className="flex items-baseline justify-between gap-2 mb-3">
+              <section className="mx-[12px] my-5">
+                <div className="flex items-baseline justify-between gap-2 mb-2">
                   <span className={eyebrowClass}>Capabilities</span>
                 </div>
                 <ListCard>
@@ -594,7 +594,7 @@ export default function AssetDetail({ asset, inventory, onDocumentPath, annotati
                 2026-08-17. */}
             {annotation && annotation.reach.length > 0 && (
               <section data-testid="reach-detail" className="mx-[12px] my-3.5">
-                <div className="flex items-baseline justify-between gap-2 mb-3">
+                <div className="flex items-baseline justify-between gap-2 mb-2">
                   <span className={eyebrowClass}>Reach</span>
                   {/* One store for the whole card, not one per row. `via_store` is
                       keyed off the asset's own root in annotations.rs, so every
