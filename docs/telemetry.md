@@ -28,7 +28,15 @@ Every caught exception, panic, or log is routed through `before_send_sanitised` 
 ## 2. Google Analytics 4 (GA4) Measurement Protocol
 
 ### Endpoint & Secrets
-- **Secrets:** `GA4_MEASUREMENT_ID` and `GA4_API_SECRET` are injected at build time using `option_env!`. If absent, analytics are disabled.
+- **Measurement ID:** compiled in as `DEFAULT_MEASUREMENT_ID`. A measurement ID is a
+  public identifier rather than a credential, the same call this project makes for the
+  Sentry DSN. `GA4_MEASUREMENT_ID` overrides it at build time.
+- **API secret:** `GA4_API_SECRET`, injected at build time using `option_env!`, with no
+  default. Absent secret means nothing is sent, which is what keeps a developer build
+  out of the production property. It must belong to the same data stream as the
+  measurement ID; a mismatched pair is rejected with 401.
+- **Delivery is checked:** a non-2xx response is logged with its status, and the
+  request URL — which carries the API secret — is never part of any log line.
 - **Endpoint:** Dispatches HTTPS POST payloads to the Measurement Protocol endpoint:
   - Production: `https://www.google-analytics.com/mp/collect`
   - Debug Validation: `https://www.google-analytics.com/debug/mp/collect` (used in test profiles or when `GA4_DEBUG_ENDPOINT` is set).

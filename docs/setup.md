@@ -51,8 +51,13 @@ Hanger supports telemetry (consent-gated crash reporting and usage analytics) wh
 
 ### Telemetry Config Environment Variables:
 - `SENTRY_DSN` - The DSN URL for Sentry error monitoring.
-- `GA4_MEASUREMENT_ID` - Google Analytics 4 Measurement ID.
+- `GA4_MEASUREMENT_ID` - Google Analytics 4 Measurement ID. Optional: builds
+  fall back to the desktop property compiled into `DEFAULT_MEASUREMENT_ID`
+  (`src-tauri/src/lib.rs`). Set it only to report a build elsewhere.
 - `GA4_API_SECRET` - Google Analytics 4 Measurement Protocol API Secret.
+  Required for any analytics to be sent, and has no default. It must belong
+  to the **same data stream** as the measurement ID in use; a mismatched
+  pair is answered with 401.
 
 > [!NOTE]
 > **No-Telemetries fallback**:

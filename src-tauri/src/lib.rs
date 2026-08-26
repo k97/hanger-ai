@@ -198,6 +198,24 @@ fn get_telemetry_client_id(store: &PreferencesStore) -> Option<String> {
     }
 }
 
+/// The GA4 property Hanger's desktop builds report into.
+///
+/// A measurement ID is a public identifier, not a credential: it appears in
+/// the page source of every site running GA, and `SECURITY.md` already draws
+/// this same line for the Sentry DSN. Baking it in removes a build-time secret
+/// that had to be kept in sync with the API secret, and getting that pairing
+/// wrong is silent — the two must belong to the same data stream or GA4
+/// answers 401.
+///
+/// `GA4_MEASUREMENT_ID` still overrides it at build time, for reporting a
+/// build into a different property.
+pub const DEFAULT_MEASUREMENT_ID: &str = "G-FSF08F45QS";
+
+/// The measurement ID this build reports into.
+pub fn measurement_id() -> &'static str {
+    option_env!("GA4_MEASUREMENT_ID").unwrap_or(DEFAULT_MEASUREMENT_ID)
+}
+
 /// The log line for a GA4 response that was delivered but not accepted, or
 /// `None` when it was.
 ///
@@ -236,7 +254,10 @@ pub async fn track_event_async(app: AppHandle, name: &str, params: serde_json::V
         return;
     }
 
-    let measurement_id = option_env!("GA4_MEASUREMENT_ID").unwrap_or("");
+    let measurement_id = measurement_id();
+    // No default, deliberately: the ID is public but the secret is not, and an
+    // absent secret is what stops an unconfigured developer build from
+    // reporting into the production property.
     let api_secret = option_env!("GA4_API_SECRET").unwrap_or("");
 
     if measurement_id.is_empty() || api_secret.is_empty() {
