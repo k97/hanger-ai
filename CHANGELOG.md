@@ -13,6 +13,27 @@ internal-refactor commits are omitted.
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-08-26
+
+The inspector prices context. A skill and an MCP server now each say what they
+cost a model per request, in tokens, with every figure computed in the backend.
+
+### Added
+
+- **inspector:** Price a skill's context as a two-tier ledger led by tokens — what loads on every request against what the model only reaches for ([a49ca8a](https://github.com/k97/hanger-ai/commit/a49ca8a))
+- **inspector:** Measure the always-on share of a skill, so the ledger's first tier is a measurement rather than an estimate ([c48ec95](https://github.com/k97/hanger-ai/commit/c48ec95))
+- **inspector:** Tie the Contents card to what actually loads, marking SKILL.md as the only entry read into context ([cc7c1f8](https://github.com/k97/hanger-ai/commit/cc7c1f8))
+- **mcp:** Lead a server's request ledger with tokens and name the half that is not measured, rather than implying the total is complete ([d02c574](https://github.com/k97/hanger-ai/commit/d02c574))
+- **mcp:** Estimate tokens for every tool description, counted as bytes over four and presented as a size rather than a count ([0d29b53](https://github.com/k97/hanger-ai/commit/0d29b53))
+- **mcp:** Strip the tools list to what each tool is, leaving the figures to the ledger above it ([76d8fc1](https://github.com/k97/hanger-ai/commit/76d8fc1))
+
+### Fixed
+
+- **mcp:** Give each launch spec its own Context-per-request ledger. A server declared with disagreeing launches showed one ledger for all of them ([b592318](https://github.com/k97/hanger-ai/commit/b592318))
+- **mcp:** Stop showing a zero ledger for a probe that failed. An unmeasured server now says so instead of reporting nothing carried ([25d9f09](https://github.com/k97/hanger-ai/commit/25d9f09))
+- **inspector:** Correct three statements in the context cards that were not true of the code, including a total that did not match the list beneath it ([8da65d8](https://github.com/k97/hanger-ai/commit/8da65d8))
+- **inspector:** Tighten the context-cost cards after review — spacing, wording and the figures' alignment ([fb6a971](https://github.com/k97/hanger-ai/commit/fb6a971))
+
 ## [0.2.0] - 2026-08-26
 
 Usage analytics report into a new GA4 property and are on by default. The
@@ -390,7 +411,8 @@ stays off unless `HANGER_ENABLE_REAP` is set, as in 0.0.x.
 
 - **distribution:** Notarise the DMG with Apple and staple the ticket, so Gatekeeper clears it without a network round trip ([f862c7a](https://github.com/k97/hanger-ai/commit/f862c7a), [a392fb1](https://github.com/k97/hanger-ai/commit/a392fb1))
 
-[Unreleased]: https://github.com/k97/hanger-ai/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/k97/hanger-ai/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/k97/hanger-ai/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/k97/hanger-ai/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/k97/hanger-ai/compare/v0.0.3...v0.1.0
 [0.0.3]: https://github.com/k97/hanger-ai/compare/v0.0.2...v0.0.3
