@@ -42,7 +42,16 @@ let bodyFigures: {
   estimated_tokens: number;
   always_on_bytes: number | null;
   always_on_estimated_tokens: number | null;
-} = { bytes: 431, lines: 21, estimated_tokens: 107, always_on_bytes: 228, always_on_estimated_tokens: 57 };
+} = {
+  bytes: 431,
+  lines: 21,
+  estimated_tokens: 107,
+  always_on_bytes: 228,
+  // Deliberately not always_on_bytes / 4 (which is 57): a component that
+  // divided the byte figure instead of rendering the backend's own token
+  // estimate would still pass every test that uses this default.
+  always_on_estimated_tokens: 84,
+};
 // The backend's mtime read, `Option<i64>` since 62cf6f8. Null when the
 // platform reports no mtime; a test that cares about the absent-mtime case
 // overrides this, every other test gets a real timestamp.
@@ -107,7 +116,15 @@ describe("Asset detail — the inspector's document screen", () => {
     vi.clearAllMocks();
     bodyResult = { ok: true, text: DOC };
     bodyPath = SOURCE;
-    bodyFigures = { bytes: 431, lines: 21, estimated_tokens: 107, always_on_bytes: 228, always_on_estimated_tokens: 57 };
+    bodyFigures = {
+      bytes: 431,
+      lines: 21,
+      estimated_tokens: 107,
+      always_on_bytes: 228,
+      // Same reasoning as the module-level default above: not
+      // always_on_bytes / 4.
+      always_on_estimated_tokens: 84,
+    };
     bodyModifiedMs = Date.UTC(2026, 6, 20, 12);
     dirResult = [
       { name: "SKILL.md", kind: "file", bytes: 431, file_count: null },
@@ -448,19 +465,26 @@ describe("Asset detail — the inspector's document screen", () => {
     bodyFigures = {
       bytes: 8602,
       lines: 252,
-      estimated_tokens: 2150,
+      // Deliberately not bytes / 4 (which floors to 2,150): the UI copy
+      // asserted below states that rule as how the backend derived the
+      // figure, but the component itself only ever renders
+      // body.estimated_tokens -- it must not be reconstructible from bytes
+      // alone, or a component that divided instead of reading the field
+      // would pass unnoticed.
+      estimated_tokens: 2400,
       always_on_bytes: 228,
-      always_on_estimated_tokens: 57,
+      // Same reasoning: not always_on_bytes / 4 (57).
+      always_on_estimated_tokens: 91,
     };
     render(<AssetDetail asset={asset} inventory={inventory} />);
     const section = (await screen.findByText("Context")).closest("section")!;
     expect(section.textContent).toContain("Always on");
     expect(section.textContent).toContain("Name and description, in every engine’s startup list");
-    expect(section.textContent).toContain("≈ 57 tokens");
+    expect(section.textContent).toContain("≈ 91 tokens");
     expect(section.textContent).toContain("228 B");
     expect(section.textContent).toContain("When it opens");
     expect(section.textContent).toContain("SKILL.md, in full");
-    expect(section.textContent).toContain("≈ 2,150 tokens");
+    expect(section.textContent).toContain("≈ 2,400 tokens");
     expect(section.textContent).toContain("8.4 kB");
     expect(section.textContent).toContain("bytes divided by four");
     expect(section.textContent).not.toContain("not checked per engine");

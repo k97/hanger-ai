@@ -1143,7 +1143,11 @@ describe("McpServerDetail — the tool table and Context (M5)", () => {
           // indistinguishable, and "rows come from tools" indistinguishable
           // from "rows come from perTool". Here the backend says 5 while the
           // list holds 3, and `ghost_tool` is a perTool entry with no twin.
-          cost: { toolCount: 5, describedToolCount: 2, descriptionBytesTotal: 109, estimatedTokens: 27,
+          // estimatedTokens is deliberately not descriptionBytesTotal / 4
+          // either (that quotient is 27) -- a component that divided the byte
+          // figure instead of rendering the backend's own estimate would
+          // still have passed every assertion below.
+          cost: { toolCount: 5, describedToolCount: 2, descriptionBytesTotal: 109, estimatedTokens: 42,
             perTool: [{ name: "get_system_volume", descriptionBytes: 69 }, { name: "list_audio_apps", descriptionBytes: 40 }, { name: "undescribed", descriptionBytes: 0 }, { name: "ghost_tool", descriptionBytes: 12 }] },
         } }}
       />
@@ -1151,7 +1155,12 @@ describe("McpServerDetail — the tool table and Context (M5)", () => {
     const block = screen.getByTestId("tools-block");
     expect(within(block).queryByText("Tool")).toBeNull();
     expect(within(block).queryByText("Schema")).toBeNull();
+    expect(within(block).queryByText("Description")).toBeNull();
     expect(within(block).queryByText("69 B")).toBeNull();
+    // No per-row schema placeholder either -- the old table drew a "—" in
+    // every row's Schema column, and nothing in this shape should still be
+    // producing one.
+    expect(within(block).queryAllByText("—")).toHaveLength(0);
     expect(within(block).getByText("get_system_volume")).toBeTruthy();
     expect(within(block).getByText("list_audio_apps")).toBeTruthy();
     // Rows still come from `result.tools`, never `cost.perTool`: `perTool`
@@ -1170,7 +1179,7 @@ describe("McpServerDetail — the tool table and Context (M5)", () => {
     const context = screen.getByRole("heading", { name: "Context per request" }).closest("section")!;
     expect(context.textContent).toContain("Descriptions");
     expect(context.textContent).toContain("2 of 5 tools carry one");
-    expect(context.textContent).toContain("≈ 27 tokens");
+    expect(context.textContent).toContain("≈ 42 tokens");
     expect(context.textContent).toContain("109 B");
     expect(context.textContent).toContain("Input schemas");
     expect(context.textContent).toContain("Usually the larger part of a definition");

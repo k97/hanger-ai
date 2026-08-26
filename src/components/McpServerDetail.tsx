@@ -75,13 +75,15 @@ interface VerifiedIdentity {
   verifiedAt: number;
   /** Present when the probe could not complete. Shown instead of an empty list. */
   error?: string;
-  /** The description-bytes toll the probe's tool list carries. Absent until
-   *  M5 reads it -- not rendered by this task. */
+  /** The byte and token accounting for the probe's tool list -- how many
+   *  tools carry a description, their combined size, and the resulting
+   *  estimate. Rendered by the Context-per-request ledger below. */
   cost?: {
     toolCount: number;
     describedToolCount: number;
     descriptionBytesTotal: number;
     estimatedTokens: number;
+    /** Retained to document the wire shape; nothing in src/ reads it. */
     perTool: Array<{ name: string; descriptionBytes: number }>;
   };
 }

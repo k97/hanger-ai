@@ -1548,6 +1548,11 @@ pub fn asset_body_of(document: &Path) -> Result<AssetBody, String> {
         .ok()
         .and_then(|m| m.duration_since(std::time::UNIX_EPOCH).ok())
         .map(|d| d.as_millis() as i64);
+    // Runs for every document `asset_body_of` reads -- rules, agents and
+    // commands included -- because this function has no category to gate
+    // the parse on. The result is `None` for anything that does not parse as
+    // skill frontmatter, which is every caller but the Skills panel; that is
+    // accepted rather than threading a category through just to skip it.
     let always_on_bytes = scanner::parse_skill_frontmatter(&text)
         .ok()
         .map(|fm| (fm.name.len() + fm.description.len()) as u64);
