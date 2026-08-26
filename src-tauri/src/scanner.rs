@@ -2194,6 +2194,21 @@ mod denial_tests {
         );
     }
 
+    #[test]
+    fn sanitising_a_denial_preserves_the_prefix_the_frontend_routes_on() {
+        // RepoPane.tsx matches the *sanitised* string: scan() runs every
+        // parse_warning through sanitise_msg before it reaches the UI, and
+        // sanitise_msg rewrites `/`-leading words to <sanitised>/{filename}.
+        // Nothing else asserts that it leaves the leading phrase — and so the
+        // routing — intact.
+        let sanitised = crate::preferences::sanitise_msg("macOS blocked access to /Users/x/p");
+        assert!(
+            sanitised.starts_with("macOS blocked access to"),
+            "sanitisation must not disturb the prefix the panel routes on: {}",
+            sanitised
+        );
+    }
+
     #[cfg(unix)]
     #[test]
     fn probe_path_distinguishes_absent_from_blocked() {

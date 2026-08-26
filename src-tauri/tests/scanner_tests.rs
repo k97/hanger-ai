@@ -2129,16 +2129,28 @@ fn blocked_engine_root_yields_denial_not_absence() {
         !agents.iter().any(|a| a.id == "cline"),
         "a blocked root must not read as an installed engine"
     );
+    let cline_denial = denials
+        .iter()
+        .find(|d| d.contains("Documents/Cline"))
+        .unwrap_or_else(|| panic!("the denial names the path: {:?}", denials));
     assert!(
-        denials.iter().any(|d| d.contains("Permission denied") && d.contains("Documents/Cline")),
-        "the denial names the path: {:?}",
-        denials
+        cline_denial.contains("Permission denied"),
+        "the denial classifies the errno: {}",
+        cline_denial
     );
+    // Ruling E/A, stated positively. The absence form it replaces —
+    // `denials.iter().all(|d| !d.starts_with("macOS blocked access to"))` —
+    // could not fail under any mutation: no test can produce a real EPERM
+    // (only macOS's tccd does), so every string it ever saw was the EACCES
+    // "Permission denied: …", which never starts with that prefix whatever
+    // the format does. Asserting the engine name *leads* goes red the moment
+    // the format is reverted to the bare path-leading one RepoPane routes
+    // into the project TCC panel.
     assert!(
-        denials.iter().all(|d| !d.starts_with("macOS blocked access to")),
-        "Ruling E/A: an engine-root denial is machine-scope and must not lead \
-         with the project panel's trigger prefix: {:?}",
-        denials
+        cline_denial.starts_with("Cline "),
+        "an engine-root denial is machine-scope and must lead with the engine \
+         name, not the path: {}",
+        cline_denial
     );
 }
 
@@ -2287,15 +2299,25 @@ fn blocked_global_skills_walker_yields_denial_not_silence() {
 
     let inventory = result.unwrap();
     let warnings = &inventory.project_scans[0].parse_warnings;
+    let denial = warnings
+        .iter()
+        .find(|w| w.contains("skills folder"))
+        .unwrap_or_else(|| {
+            panic!("a blocked global skills walk must surface a denial, not a silent skip: {:?}", warnings)
+        });
     assert!(
-        warnings.iter().any(|w| w.contains("skills folder") && w.contains("Permission denied")),
-        "a blocked global skills walk must surface a denial, not a silent skip: {:?}",
-        warnings
+        denial.contains("Permission denied"),
+        "the denial classifies the errno: {}",
+        denial
     );
+    // Ruling E, stated positively — see
+    // blocked_engine_root_yields_denial_not_absence for why the absence form
+    // this replaces could never go red.
     assert!(
-        warnings.iter().all(|w| !w.starts_with("macOS blocked access to")),
-        "Ruling E: a machine-scope walker denial must not lead with the project panel's trigger prefix: {:?}",
-        warnings
+        denial.starts_with("Claude Code "),
+        "a machine-scope walker denial must lead with the engine name, not the \
+         path RepoPane routes into the project TCC panel: {}",
+        denial
     );
 }
 
@@ -2335,14 +2357,24 @@ fn blocked_global_subagents_walker_yields_denial_not_silence() {
 
     let inventory = result.unwrap();
     let warnings = &inventory.project_scans[0].parse_warnings;
+    let denial = warnings
+        .iter()
+        .find(|w| w.contains("subagents folder"))
+        .unwrap_or_else(|| {
+            panic!("a blocked global subagents walk must surface a denial, not a silent skip: {:?}", warnings)
+        });
     assert!(
-        warnings.iter().any(|w| w.contains("subagents folder") && w.contains("Permission denied")),
-        "a blocked global subagents walk must surface a denial, not a silent skip: {:?}",
-        warnings
+        denial.contains("Permission denied"),
+        "the denial classifies the errno: {}",
+        denial
     );
+    // Ruling E, stated positively — see
+    // blocked_engine_root_yields_denial_not_absence for why the absence form
+    // this replaces could never go red.
     assert!(
-        warnings.iter().all(|w| !w.starts_with("macOS blocked access to")),
-        "Ruling E: a machine-scope walker denial must not lead with the project panel's trigger prefix: {:?}",
-        warnings
+        denial.starts_with("Claude Code "),
+        "a machine-scope walker denial must lead with the engine name, not the \
+         path RepoPane routes into the project TCC panel: {}",
+        denial
     );
 }
