@@ -63,6 +63,15 @@ Nothing else is evidence.
   mirrored, which no test exercised. If the answer to "what would make this
   fail?" is "nothing", it is decoration. Plant that input, watch it fail, then
   count the green.
+- **An assertion of absence is decoration when its input cannot occur.** The TCC
+  branch pinned its central invariant with
+  `denials.iter().all(|d| !d.starts_with("macOS blocked access to"))` — three of
+  them, reported in the ledger as the invariant being pinned. No test can produce
+  an EPERM denial (only tccd does; `chmod` yields EACCES), so every string those
+  assertions ever saw began "Permission denied:" and none could fail under any
+  mutation. A reviewer reverted the guarded formatting outright and all 48 tests
+  stayed green. Assert the property positively — that the string *leads with* the
+  engine name — so reverting the code reddens the test.
 - **A fixture built from the type, not from the producer, is that failure
   wearing a shape.** The probe answer types `error` and `cost` as independent
   optionals, so it can express four states where the backend emits three: a
@@ -104,6 +113,15 @@ Nothing else is evidence.
   cat-file -t <sha>` settles it in a second, and every SHA in a document that
   cites them should be checked as a set, not spot-checked. The generated
   entries were all real; the one hand-written line was not.
+
+- **A citation that resolves only outside the repository strands the reader.**
+  The TCC branch shipped six comments in `scanner.rs` and `scanner_tests.rs`
+  justifying a design choice as "Ruling E" — a decision recorded in an SDD
+  ledger under `.superpowers/`, which is gitignored scratch and dies with the
+  worktree. The string existed nowhere in the tree, so nothing could resolve it.
+  Cite decisions the way this file does — a date and a commit — or state the
+  reason inline. A comment that defers to a document the reader cannot open is
+  worse than no comment, because it looks like there is an answer.
 
 - **A plan's checkboxes are not evidence of what was built.** This session
   reported a peer's Task 5 as "0 of 5 steps done" and told Karthik the panel
