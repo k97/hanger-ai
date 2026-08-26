@@ -344,7 +344,8 @@ pub fn get_engine_key(id_str: &str) -> Option<&'static str> {
 /// different advice — System Settings can fix the first, chmod the second —
 /// so they must not collapse into one warning. Constants are the raw POSIX
 /// numbers rather than libc's names so this compiles wherever scanner.rs
-/// does; probe.rs already links libc directly if names are ever preferred.
+/// does; `src/mcp/probe.rs` already links libc directly if names are ever
+/// preferred.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Denial {
     MacosBlocked,
@@ -361,10 +362,17 @@ pub(crate) fn classify_denial(err: Option<&std::io::Error>) -> Option<Denial> {
 
 /// The user-facing warning line for a denial.
 ///
-/// These strings are a contract: RepoPane.tsx routes "macOS blocked access
-/// to" into the TCC fix panel and everything else into the plain warnings
-/// list. The EACCES string is unchanged from the pre-classifier code so
-/// existing fixtures keep meaning what they meant.
+/// These strings are a contract: RepoPane.tsx routes a warning *starting
+/// with* "macOS blocked access to" into the TCC fix panel, and everything
+/// else into the plain warnings list. The distinction is load-bearing, not
+/// pedantry — the panel is captioned with the *project* path, so only the
+/// project walk's own denial may lead with this bare form. Machine-scope
+/// denials (engine roots, the two global walkers) deliberately prefix an
+/// engine name, which is what keeps them out of the panel while still
+/// containing the phrase. Containing it is not enough and must not be made
+/// enough: dropping those prefixes would route a machine-scope denial into
+/// a project-captioned panel. The EACCES string is unchanged from the
+/// pre-classifier code so existing fixtures keep meaning what they meant.
 pub(crate) fn denial_warning(denial: Denial, path: &str) -> String {
     match denial {
         Denial::MacosBlocked => format!("macOS blocked access to {}", path),

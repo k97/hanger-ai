@@ -2031,8 +2031,11 @@ fn a_parse_failure_is_not_a_link_state() {
     );
 }
 
+#[cfg(unix)]
 #[test]
 fn denied_subdir_yields_one_permission_warning_not_zero_not_many() {
+    use std::os::unix::fs::PermissionsExt;
+
     // Root bypasses mode bits, so chmod 000 would not deny anything and this
     // test would assert on a warning that can never appear.
     if unsafe { libc::geteuid() } == 0 {
@@ -2060,7 +2063,6 @@ fn denied_subdir_yields_one_permission_warning_not_zero_not_many() {
         let blocked = root.join(name);
         fs::create_dir_all(blocked.join("nested")).unwrap();
         let mut perms = fs::metadata(&blocked).unwrap().permissions();
-        use std::os::unix::fs::PermissionsExt;
         perms.set_mode(0o000);
         fs::set_permissions(&blocked, perms).unwrap();
     }
@@ -2074,12 +2076,13 @@ fn denied_subdir_yields_one_permission_warning_not_zero_not_many() {
     let result = scanner.scan(root);
 
     // Restore so tempdir can clean up, before any assertion can early-return.
-    use std::os::unix::fs::PermissionsExt;
+    // `let _ =` rather than `.unwrap()`, as in every sibling here: a restore
+    // failure must not panic ahead of the real assertions below.
     for name in blocked_dirs {
         let blocked = root.join(name);
         let mut perms = fs::metadata(&blocked).unwrap().permissions();
         perms.set_mode(0o755);
-        fs::set_permissions(&blocked, perms).unwrap();
+        let _ = fs::set_permissions(&blocked, perms);
     }
 
     let inventory = result.unwrap();
