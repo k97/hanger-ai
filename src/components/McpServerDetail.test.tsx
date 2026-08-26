@@ -1186,9 +1186,9 @@ describe("McpServerDetail — the tool table and Context (M5)", () => {
     expect(context.textContent).toContain("Not measured");
     expect(context.textContent).not.toContain("the remainder, not in the store");
     expect(context.textContent).toContain(
-      "A request carries a name, a description and an input schema for every tool. The " +
-        "schemas are never stored, so nothing here can weigh them. Token figures are bytes " +
-        "divided by four, so treat them as a size, not a count."
+      "A request carries a name, a description and an input schema for every tool. This weighs " +
+        "the descriptions in the list below; the schemas are never stored, so nothing here can " +
+        "weigh them. Token figures are bytes divided by four, so treat them as a size, not a count."
     );
     expect(context.textContent).not.toContain("tool definitions in every request");
   });
@@ -1196,6 +1196,81 @@ describe("McpServerDetail — the tool table and Context (M5)", () => {
     render(<McpServerDetail server={base} />);
     expect(screen.queryByRole("heading", { name: "Context per request" })).toBeNull();
     expect(screen.getByRole("tab", { name: "Tools" })).toBeTruthy();
+  });
+
+  it("gives each spec block its own ledger, with its own figures, when the specs differ", () => {
+    // Two launch specs, both probed, with deliberately divergent cost figures
+    // -- if both groups carried the same numbers, this test could not tell a
+    // per-group ledger from one shared figure floating above both blocks.
+    const server: McpServerView = {
+      ...base,
+      name: "tauri",
+      registrations: [
+        { key: "/a:tauri", host: "Claude Code", tier: "global", configPath: "~/.claude.json", command: "npx", launchDisplay: "npx -y @tauri/mcp@latest" },
+        { key: "/b:tauri", host: "Codex", tier: "global", configPath: "~/.codex/config.toml", command: "npx", launchDisplay: "npx -y @tauri/mcp@2.9.1" },
+      ],
+    };
+    render(
+      <McpServerDetail
+        server={server}
+        verified={{
+          "/a:tauri": {
+            capabilities: [],
+            tools: [{ name: "get_docs" }, { name: "new_tool" }],
+            verifiedAt: 1_700_000_000_000,
+            cost: { toolCount: 5, describedToolCount: 2, descriptionBytesTotal: 109, estimatedTokens: 42, perTool: [] },
+          },
+          "/b:tauri": {
+            capabilities: [],
+            tools: [{ name: "get_docs" }],
+            verifiedAt: 1_700_000_000_000,
+            cost: { toolCount: 3, describedToolCount: 3, descriptionBytesTotal: 512, estimatedTokens: 77, perTool: [] },
+          },
+        }}
+      />
+    );
+    const blocks = screen.getAllByTestId("tools-block");
+    expect(blocks).toHaveLength(2);
+    const [blockA, blockB] = blocks;
+    expect(within(blockA).getByText("2 of 5 tools carry one")).toBeTruthy();
+    expect(within(blockA).getByText(/≈ 42 tokens/)).toBeTruthy();
+    expect(within(blockA).getByText("109 B")).toBeTruthy();
+    expect(within(blockB).getByText("3 of 3 tools carry one")).toBeTruthy();
+    expect(within(blockB).getByText(/≈ 77 tokens/)).toBeTruthy();
+    expect(within(blockB).getByText("512 B")).toBeTruthy();
+    // The whole point: block A must not also show block B's figures, which is
+    // exactly what today's single shared `anyVerified.cost` ledger would do.
+    expect(within(blockA).queryByText("3 of 3 tools carry one")).toBeNull();
+    expect(within(blockA).queryByText(/≈ 77 tokens/)).toBeNull();
+    expect(within(blockA).queryByText("512 B")).toBeNull();
+    expect(within(blockB).queryByText("2 of 5 tools carry one")).toBeNull();
+    expect(within(blockB).queryByText(/≈ 42 tokens/)).toBeNull();
+    expect(within(blockB).queryByText("109 B")).toBeNull();
+  });
+
+  it("draws no section-level Context heading when the specs differ -- the ledger moves into each block", () => {
+    const server: McpServerView = {
+      ...base,
+      name: "tauri",
+      registrations: [
+        { key: "/a:tauri", host: "Claude Code", tier: "global", configPath: "~/.claude.json", command: "npx", launchDisplay: "npx -y @tauri/mcp@latest" },
+        { key: "/b:tauri", host: "Codex", tier: "global", configPath: "~/.codex/config.toml", command: "npx", launchDisplay: "npx -y @tauri/mcp@2.9.1" },
+      ],
+    };
+    render(
+      <McpServerDetail
+        server={server}
+        verified={{
+          "/a:tauri": {
+            capabilities: [],
+            tools: [{ name: "get_docs" }],
+            verifiedAt: 1_700_000_000_000,
+            cost: { toolCount: 1, describedToolCount: 0, descriptionBytesTotal: 0, estimatedTokens: 0, perTool: [] },
+          },
+        }}
+      />
+    );
+    expect(screen.queryByRole("heading", { name: "Context per request" })).toBeNull();
   });
 });
 

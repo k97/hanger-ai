@@ -351,6 +351,56 @@ function ProbedToolList({ result }: { result: VerifiedIdentity }) {
   );
 }
 
+/**
+ * What a request actually carries for one spec group's tools -- the byte and
+ * token accounting `cost` already holds. Extracted so each spec group in the
+ * multi-spec Tools layout can render its own ledger directly above its own
+ * `ProbedToolList`, rather than one figure floating above every group's list
+ * with nothing saying which list it describes.
+ */
+function ContextPerRequest({ cost }: { cost: NonNullable<VerifiedIdentity["cost"]> }) {
+  return (
+    <>
+      <ListCard>
+        <ListCardRow
+          label={
+            <span className="flex flex-col gap-0.5 min-w-0">
+              <span className="text-small leading-[1.5]">Descriptions</span>
+              <span className="text-micro text-ink-3 leading-[1.5]">
+                {cost.describedToolCount} of {cost.toolCount} tools carry one
+              </span>
+            </span>
+          }
+          value={
+            <span className="flex flex-col gap-0.5 items-end">
+              <span className="text-base-app text-ink-1">
+                ≈ {cost.estimatedTokens.toLocaleString("en-US")} tokens
+              </span>
+              <span>{formatBytes(cost.descriptionBytesTotal)}</span>
+            </span>
+          }
+        />
+        <ListCardRow
+          label={
+            <span className="flex flex-col gap-0.5 min-w-0">
+              <span className="text-small leading-[1.5]">Input schemas</span>
+              <span className="text-micro text-ink-3 leading-[1.5]">
+                Usually the larger part of a definition
+              </span>
+            </span>
+          }
+          wide={<span className="text-ink-3">Not measured</span>}
+        />
+      </ListCard>
+      <p className="text-micro text-ink-3 mt-2 leading-[1.5]">
+        A request carries a name, a description and an input schema for every tool. This weighs
+        the descriptions in the list below; the schemas are never stored, so nothing here can
+        weigh them. Token figures are bytes divided by four, so treat them as a size, not a count.
+      </p>
+    </>
+  );
+}
+
 /** One side of an aligned launch-spec diff: which host(s) launch it this
  *  way, and the tokens themselves with the differing ones picked out. Same
  *  mono face and warning color the per-registration launch line already
@@ -681,47 +731,12 @@ export default function McpServerDetail({
             it. Only knowable once a probe has answered -- `cost` travels
             with the same handshake result the tool list itself came from,
             so nothing here can exist before that. */}
-        {anyVerified?.cost && (
+        {specGroups.length === 1 && specGroups[0].result?.cost && (
           <section className={SECTION}>
             <div className="flex items-baseline justify-between gap-2 mb-[10px]">
               <h3 className={HEADING}>Context per request</h3>
             </div>
-            <ListCard>
-              <ListCardRow
-                label={
-                  <span className="flex flex-col gap-0.5 min-w-0">
-                    <span className="text-small leading-[1.5]">Descriptions</span>
-                    <span className="text-micro text-ink-3 leading-[1.5]">
-                      {anyVerified.cost.describedToolCount} of {anyVerified.cost.toolCount} tools carry one
-                    </span>
-                  </span>
-                }
-                value={
-                  <span className="flex flex-col gap-0.5 items-end">
-                    <span className="text-base-app text-ink-1">
-                      ≈ {anyVerified.cost.estimatedTokens.toLocaleString("en-US")} tokens
-                    </span>
-                    <span>{formatBytes(anyVerified.cost.descriptionBytesTotal)}</span>
-                  </span>
-                }
-              />
-              <ListCardRow
-                label={
-                  <span className="flex flex-col gap-0.5 min-w-0">
-                    <span className="text-small leading-[1.5]">Input schemas</span>
-                    <span className="text-micro text-ink-3 leading-[1.5]">
-                      Usually the larger part of a definition
-                    </span>
-                  </span>
-                }
-                wide={<span className="text-ink-3">Not measured</span>}
-              />
-            </ListCard>
-            <p className="text-micro text-ink-3 mt-2 leading-[1.5]">
-              A request carries a name, a description and an input schema for every tool. The
-              schemas are never stored, so nothing here can weigh them. Token figures are bytes
-              divided by four, so treat them as a size, not a count.
-            </p>
+            <ContextPerRequest cost={specGroups[0].result.cost} />
           </section>
         )}
         <section className={SECTION}>
@@ -865,6 +880,7 @@ export default function McpServerDetail({
                   <span className="text-micro font-mono text-ink-3 truncate">
                     {group.regs.map((r) => `${r.host} · ${r.tier}`).join(", ")}
                   </span>
+                  {group.result?.cost && <ContextPerRequest cost={group.result.cost} />}
                   {group.result ? (
                     <ProbedToolList result={group.result} />
                   ) : verifying.includes(group.regs[0].key) ? (
