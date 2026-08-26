@@ -1,8 +1,25 @@
 // @vitest-environment happy-dom
-import { describe, it, expect, vi } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { describe, it, expect, vi, afterEach } from "vitest";
+import { render, screen, fireEvent, waitFor, cleanup } from "@testing-library/react";
+import { open } from "@tauri-apps/plugin-dialog";
 import RepoPane from "./RepoPane";
 import { Inventory } from "../App";
+
+// System Settings > Files & Folders has no "+" — apps appear there only
+// after triggering a real TCC prompt, and Hanger never has. The picker is
+// the only remedy that actually works, so it is mocked rather than left to
+// hit a real dialog.
+vi.mock("@tauri-apps/plugin-dialog", () => ({
+  open: vi.fn(),
+}));
+
+// This file now renders RepoPane more than once; without an explicit
+// cleanup, later tests would query a DOM still holding earlier renders and
+// "getByText" would find duplicates across them.
+afterEach(() => {
+  cleanup();
+  vi.mocked(open).mockReset();
+});
 
 // Contract with scanner.rs::denial_warning: only a warning that STARTS WITH
 // "macOS blocked access to" is EPERM and drives the TCC panel. A Unix
@@ -76,5 +93,97 @@ describe("RepoPane TCC Warnings Relocation", () => {
       screen.getByText("Cline may be installed — macOS blocked access to /Users/user/Documents/Cline")
     ).toBeDefined();
     expect(screen.queryByText("macOS blocked access to /home/user/project")).toBeNull();
+  });
+
+  it("no longer sends the user on an impossible System Settings trip", () => {
+    render(
+      <RepoPane
+        repoPath="/home/user/project"
+        inventory={mockInventoryWithTccWarning}
+        loading={false}
+        onRefresh={vi.fn()}
+        onSelectAsset={vi.fn()}
+        onLinkFromProfile={vi.fn()}
+      />
+    );
+
+    // The Files & Folders pane cannot be used to grant access it was never
+    // asked for, and Hanger deliberately never wants Full Disk Access — both
+    // mentions must be gone from the panel body.
+    expect(screen.queryByText(/System Settings/)).toBeNull();
+    expect(screen.queryByText(/Full Disk Access/)).toBeNull();
+    expect(
+      screen.getByText(
+        "macOS is blocking Hanger from reading this folder. Choose it again to restore access: macOS counts picking a folder as permission to read it."
+      )
+    ).toBeDefined();
+  });
+
+  it("offers a folder picker defaulting to the blocked path, before Retry Scan", () => {
+    render(
+      <RepoPane
+        repoPath="/home/user/project"
+        inventory={mockInventoryWithTccWarning}
+        loading={false}
+        onRefresh={vi.fn()}
+        onSelectAsset={vi.fn()}
+        onLinkFromProfile={vi.fn()}
+      />
+    );
+
+    const chooseButton = screen.getByText("Choose Folder Again").closest("button")!;
+    const retryButton = screen.getByText("Retry Scan").closest("button")!;
+
+    // Placement: the picker is the primary action and comes first.
+    expect(
+      chooseButton.compareDocumentPosition(retryButton) & Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
+
+    fireEvent.click(chooseButton);
+
+    expect(open).toHaveBeenCalledWith(
+      expect.objectContaining({ directory: true, defaultPath: "/home/user/project" })
+    );
+  });
+
+  it("rescans after the user re-picks the blocked folder", async () => {
+    (open as unknown as ReturnType<typeof vi.fn>).mockResolvedValue("/home/user/project");
+    const handleRefresh = vi.fn();
+
+    render(
+      <RepoPane
+        repoPath="/home/user/project"
+        inventory={mockInventoryWithTccWarning}
+        loading={false}
+        onRefresh={handleRefresh}
+        onSelectAsset={vi.fn()}
+        onLinkFromProfile={vi.fn()}
+      />
+    );
+
+    fireEvent.click(screen.getByText("Choose Folder Again").closest("button")!);
+
+    await waitFor(() => expect(handleRefresh).toHaveBeenCalled());
+  });
+
+  it("does not rescan when the picker is dismissed with no selection", async () => {
+    (open as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+    const handleRefresh = vi.fn();
+
+    render(
+      <RepoPane
+        repoPath="/home/user/project"
+        inventory={mockInventoryWithTccWarning}
+        loading={false}
+        onRefresh={handleRefresh}
+        onSelectAsset={vi.fn()}
+        onLinkFromProfile={vi.fn()}
+      />
+    );
+
+    fireEvent.click(screen.getByText("Choose Folder Again").closest("button")!);
+
+    await waitFor(() => expect(open).toHaveBeenCalled());
+    expect(handleRefresh).not.toHaveBeenCalled();
   });
 });
