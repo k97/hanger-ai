@@ -15,6 +15,19 @@ internal-refactor commits are omitted.
 
 ## [0.1.0] - 2026-08-25
 
+The first release since the interface was rebuilt.
+
+Hanger recognises eleven engines, up from the four it knew at 0.0.3. It reads
+MCP server registrations from sixteen hosts, which it could not do at all
+before, and probes them to report which are running and which are unaccounted
+for. A link map draws which engines reach which assets and by what mechanism.
+
+The asset store moves from schema 2 to schema 7 on first launch. It is a
+one-way step; the migration note under Changed has the detail. Asset reaping
+stays off unless `HANGER_ENABLE_REAP` is set, as in 0.0.x.
+
+284 of the 542 commits in this range changed something a user can observe.
+
 ### Added
 
 - **a11y:** Real tooltips on icon-only controls; scan ticker moves to the foot ([f00ce10](https://github.com/k97/hanger-ai/commit/f00ce10))
