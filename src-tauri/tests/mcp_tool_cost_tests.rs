@@ -33,3 +33,20 @@ fn serialises_camel_case_for_the_panel() {
     assert!(json.contains("\"descriptionBytesTotal\":1"));
     assert!(json.contains("\"perTool\":[{\"name\":\"a\",\"descriptionBytes\":1}]"));
 }
+
+#[test]
+fn estimated_tokens_is_description_bytes_over_four_integer_division() {
+    // 13 bytes of description → 3 tokens, the same rule AssetBody uses.
+    let cost = tool_cost(&result(vec![ProbedTool {
+        name: "a".into(),
+        description: Some("thirteen chrs".into()),
+    }]));
+    assert_eq!(cost.description_bytes_total, 13);
+    assert_eq!(cost.estimated_tokens, 3, "13 / 4, integer division");
+}
+
+#[test]
+fn estimated_tokens_is_zero_when_nothing_is_described() {
+    let cost = tool_cost(&result(vec![ProbedTool { name: "a".into(), description: None }]));
+    assert_eq!(cost.estimated_tokens, 0);
+}

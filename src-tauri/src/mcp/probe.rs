@@ -117,6 +117,9 @@ pub struct ToolCost {
     pub described_tool_count: usize,
     /// UTF-8 bytes of every description, summed.
     pub description_bytes_total: u64,
+    /// `description_bytes_total / 4`, integer division — the same estimate rule
+    /// as `AssetBody.estimated_tokens`, labelled as an estimate on screen.
+    pub estimated_tokens: u64,
     pub per_tool: Vec<ToolCostRow>,
 }
 
@@ -129,10 +132,12 @@ pub fn tool_cost(result: &ProbeResult) -> ToolCost {
             description_bytes: t.description.as_ref().map(|d| d.len() as u64).unwrap_or(0),
         })
         .collect();
+    let description_bytes_total: u64 = per_tool.iter().map(|r| r.description_bytes).sum();
     ToolCost {
         tool_count: result.tools.len(),
         described_tool_count: result.tools.iter().filter(|t| t.description.is_some()).count(),
-        description_bytes_total: per_tool.iter().map(|r| r.description_bytes).sum(),
+        description_bytes_total,
+        estimated_tokens: description_bytes_total / 4,
         per_tool,
     }
 }
