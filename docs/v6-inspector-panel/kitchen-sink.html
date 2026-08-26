@@ -1,0 +1,1085 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>v6 · Inspector context cards — kitchen sink</title>
+<style>
+/* ══════════════════════════════════════════════════════════════════════
+   Tokens copied verbatim from src/styles/tokens.css so the prototype is
+   in the app's real values, not an approximation. Nothing invented.
+   ══════════════════════════════════════════════════════════════════════ */
+:root {
+  --page: #ffffff;
+  --plane: #f7f7f7;
+  --plane-2: #efefef;
+  --tint: #e8e8e8;
+  --tint-plane: #e0e0e0;
+  --tint-ink: #000000;
+  --line: rgba(0, 0, 0, 0.09);
+  --line-2: rgba(0, 0, 0, 0.20);
+  --ink-1: #000000;
+  --ink-2: #4d4d4d;
+  --ink-3: #636363;
+  --fill: #000000;
+  --on-fill: #ffffff;
+  --brand: #00c3bf;
+  --state-success: #0f7a52;
+  --state-warning: #8a5a00;
+  --state-danger:  #b3261e;
+  --gel-gloss: linear-gradient(180deg, rgba(255,255,255,.70) 0%, rgba(255,255,255,.22) 45%, rgba(255,255,255,0) 52%, rgba(0,0,0,.06) 100%);
+  --gel-aqua: linear-gradient(180deg, #6fe3e0 0%, #00c3bf 55%, #00a19e 100%);
+  --bar-track: rgba(0, 0, 0, 0.05);
+  --overlay-shadow: 0 0 3px rgba(0, 0, 0, 0.05), 0 11px 34px rgba(0, 0, 0, 0.16);
+  --font-sans: -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, monospace;
+  --fs-micro: 11px;
+  --fs-small: 12px;
+  --fs-base: 13px;
+  --fs-lg: 16px;
+  --fs-display: 32px;
+  --radius-plane: 16px;
+  --radius-inner: 12px;
+  --radius-soft: 10px;
+  --radius-pill: 9999px;
+  --spring: cubic-bezier(0.2, 0.85, 0.25, 1);
+  --dur-hover: 160ms;
+  --dur-nav: 180ms;
+}
+html[data-theme="dark"] {
+  --page: #000000;
+  --plane: #0e0e0e;
+  --plane-2: #171717;
+  --tint: #232323;
+  --tint-plane: #262626;
+  --tint-ink: #ffffff;
+  --line: rgba(255, 255, 255, 0.12);
+  --line-2: rgba(255, 255, 255, 0.22);
+  --ink-1: #ffffff;
+  --ink-2: #b0b0b0;
+  --ink-3: #8c8c8c;
+  --fill: #ffffff;
+  --on-fill: #000000;
+  --brand: #2fd8d4;
+  --state-success: #4ec08c;
+  --state-warning: #d9a441;
+  --state-danger:  #e8635b;
+  --gel-gloss: linear-gradient(180deg, rgba(255,255,255,.32) 0%, rgba(255,255,255,.10) 45%, rgba(255,255,255,0) 52%, rgba(0,0,0,.20) 100%);
+  --gel-aqua: linear-gradient(180deg, #3ee6e2 0%, #12b3af 55%, #0b8a87 100%);
+  --bar-track: rgba(255, 255, 255, 0.07);
+  --overlay-shadow: 0 0 3px rgba(0, 0, 0, 0.4), 0 11px 34px rgba(0, 0, 0, 0.55);
+}
+
+/* ── Study chrome. Deliberately NOT the app: the ground outside the
+      panels is a neutral studio wall so the 384px panel reads as an
+      object. Nothing here is proposed for the product. ── */
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  background: var(--plane);
+  color: var(--ink-1);
+  -webkit-font-smoothing: antialiased;
+}
+.wrap { max-width: 1500px; margin: 0 auto; padding: 40px 32px 120px; }
+
+header.masthead { padding-bottom: 28px; border-bottom: 1px solid var(--line); margin-bottom: 36px; }
+.kicker {
+  font-size: var(--fs-micro); font-weight: 500; color: var(--ink-3);
+  text-transform: uppercase; letter-spacing: .06em; margin: 0 0 10px;
+}
+h1 { font-size: var(--fs-display); line-height: 1.1; letter-spacing: -0.02em; margin: 0 0 14px; font-weight: 600; }
+.lede { font-size: var(--fs-base); line-height: 1.6; color: var(--ink-2); max-width: 62ch; margin: 0 0 4px; }
+.lede + .lede { margin-top: 10px; }
+.lede code, .note code { font-family: var(--font-mono); font-size: var(--fs-small); color: var(--ink-1); }
+
+.toolbar { display: flex; gap: 8px; align-items: center; margin-top: 22px; flex-wrap: wrap; }
+.tbtn {
+  font: inherit; font-size: var(--fs-small); color: var(--ink-1);
+  background: var(--page); border: 1px solid var(--line);
+  border-radius: var(--radius-pill); padding: 6px 14px; cursor: pointer;
+  transition: background var(--dur-hover) var(--spring), border-color var(--dur-hover) var(--spring);
+}
+.tbtn:hover { background: var(--plane-2); }
+.tbtn:focus-visible { outline: 2px solid var(--ink-1); outline-offset: 2px; }
+.tbtn[aria-pressed="true"] { background: var(--fill); color: var(--on-fill); border-color: var(--fill); }
+
+/* ── Option block ── */
+.option { margin-bottom: 56px; scroll-margin-top: 20px; }
+.option-head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 6px; flex-wrap: wrap; }
+.option-id {
+  font-family: var(--font-mono); font-size: var(--fs-micro); color: var(--ink-3);
+  border: 1px solid var(--line); border-radius: var(--radius-pill);
+  padding: 3px 9px; letter-spacing: .04em;
+}
+.option-name { font-size: var(--fs-lg); font-weight: 600; letter-spacing: -0.01em; margin: 0; }
+.option-thesis { font-size: var(--fs-base); line-height: 1.6; color: var(--ink-2); max-width: 66ch; margin: 0 0 18px; }
+.tags { display: flex; gap: 6px; flex-wrap: wrap; margin: 0 0 18px; }
+.tag {
+  font-size: var(--fs-micro); line-height: 1.4; padding: 3px 8px;
+  border-radius: var(--radius-pill); border: 1px solid var(--line); color: var(--ink-3);
+}
+.tag.needs { color: var(--state-warning); border-color: currentColor; }
+.tag.ruling { color: var(--state-danger); border-color: currentColor; }
+.tag.ready { color: var(--state-success); border-color: currentColor; }
+
+.pair { display: flex; gap: 28px; flex-wrap: wrap; align-items: flex-start; }
+.slot { display: flex; flex-direction: column; gap: 9px; }
+.slot-label {
+  font-size: var(--fs-micro); font-weight: 500; color: var(--ink-3);
+  text-transform: uppercase; letter-spacing: .06em;
+}
+
+/* The panel: 384px is App.tsx's default inspectorWidth. Content inset
+   12px each side, matching McpServerDetail's SECTION. */
+.panel {
+  width: 384px; background: var(--page);
+  border: 1px solid var(--line); border-radius: var(--radius-plane);
+  overflow: hidden; box-shadow: var(--overlay-shadow);
+}
+.panel-cap {
+  display: flex; align-items: center; gap: 8px;
+  padding: 12px 12px 10px; color: var(--ink-3);
+}
+.cap-eyebrow {
+  font-size: var(--fs-micro); font-weight: 500; text-transform: uppercase;
+  letter-spacing: .06em;
+}
+.panel-title { padding: 0 12px 12px; display: flex; align-items: center; gap: 8px; }
+.panel-title h2 { font-size: 22px; font-weight: 600; letter-spacing: -0.02em; margin: 0; color: var(--ink-1); }
+.chip-stdio {
+  font-family: var(--font-mono); font-size: var(--fs-small); color: var(--ink-2);
+  background: var(--plane-2); border-radius: var(--radius-pill); padding: 3px 9px;
+}
+.tabs { display: flex; gap: 20px; padding: 0 12px; border-bottom: 1px solid var(--line); }
+.tab {
+  font-size: var(--fs-base); color: var(--ink-3); padding: 0 0 9px;
+  border-bottom: 2px solid transparent; display: flex; gap: 6px; align-items: baseline;
+}
+.tab[aria-selected="true"] { color: var(--ink-1); font-weight: 500; border-bottom-color: var(--ink-1); }
+.tab .n { font-family: var(--font-mono); font-size: var(--fs-small); color: var(--ink-3); }
+
+/* SECTION / HEADING, from McpServerDetail.tsx:196-197 */
+.section { padding: 18px 12px; }
+.section + .section { border-top: 1px solid var(--line); }
+.heading {
+  font-size: var(--fs-micro); font-weight: 500; color: var(--ink-3);
+  text-transform: uppercase; letter-spacing: .06em; margin: 0 0 10px;
+  display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
+}
+.heading .aside { text-transform: none; letter-spacing: 0; font-weight: 400; }
+
+/* ListCard / ListCardRow, from ListCard.tsx */
+.card {
+  border: 1px solid var(--line); border-radius: var(--radius-inner);
+  background: var(--page); overflow: hidden;
+}
+.card > * + * { border-top: 1px solid var(--line); }
+.row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 12px; min-height: 36px;
+  font-size: var(--fs-small); color: var(--ink-1);
+}
+.row.top { align-items: flex-start; }
+.row .ico { width: 14px; height: 14px; flex: none; color: var(--ink-3); display: grid; place-items: center; }
+.row .lab { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 2px; }
+.row .lab .l1 { font-size: var(--fs-small); line-height: 1.5; }
+.row .lab .l2 { font-size: var(--fs-micro); line-height: 1.5; color: var(--ink-3); }
+.row .lab .l2.mono { font-family: var(--font-mono); }
+.row .val {
+  margin-left: auto; font-family: var(--font-mono); font-size: var(--fs-micro);
+  color: var(--ink-3); font-variant-numeric: tabular-nums; flex: none; text-align: right;
+}
+/* The figure the reader budgets in gets the 13px step and full ink; the byte
+   count it was derived from stays at 11px in --ink-3, one line under it. */
+.row .val .strong { color: var(--ink-1); font-size: var(--fs-base); line-height: 1.25; }
+.row .val .stack { display: flex; flex-direction: column; gap: 2px; align-items: flex-end; }
+.row .wide { margin-left: auto; font-size: var(--fs-small); color: var(--ink-2); flex: none; }
+.row .wide.absent { color: var(--ink-3); }
+
+.foot { font-size: var(--fs-micro); color: var(--ink-3); line-height: 1.5; margin: 8px 0 0; }
+.foot.tight { margin-top: 6px; }
+
+/* ── Meter, after GelMeter.tsx: painted glass on a recessed track ── */
+.meter {
+  display: flex; height: 10px; gap: 3px; padding: 1px;
+  border-radius: var(--radius-pill); border: 1px solid var(--line);
+  background: var(--bar-track);
+}
+/* min-width keeps a true-but-tiny share visible. A skill's always-on tier is
+   1% of its total; at its honest width it is sub-pixel and simply vanishes,
+   which reads as "there is no such tier" rather than "the tier is small". */
+.meter span { display: block; height: 100%; min-width: 5px; border-radius: var(--radius-pill); background-image: var(--gel-gloss); }
+.meter span.known { background-color: var(--ink-2); }
+.meter span.later { background-color: var(--line-2); }
+.meter span.unknown {
+  background-image:
+    repeating-linear-gradient(135deg, var(--line) 0 2px, transparent 2px 6px),
+    var(--gel-gloss);
+}
+.meter-key { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 9px; }
+.mk { display: flex; align-items: center; gap: 6px; font-size: var(--fs-micro); color: var(--ink-3); }
+.mk .sw { width: 9px; height: 9px; border-radius: 3px; border: 1px solid var(--line); flex: none; }
+.mk .sw.known { background: var(--ink-2); }
+.mk .sw.later { background: var(--line-2); }
+.mk .sw.unknown { background-image: repeating-linear-gradient(135deg, var(--line-2) 0 2px, transparent 2px 6px); }
+.mk .n { font-family: var(--font-mono); color: var(--ink-2); font-variant-numeric: tabular-nums; }
+
+/* ── Headline figure ── */
+.headline { display: flex; align-items: baseline; gap: 8px; }
+.headline .fig {
+  font-size: var(--fs-display); font-weight: 600; letter-spacing: -0.03em;
+  line-height: 1; color: var(--ink-1); font-variant-numeric: tabular-nums;
+}
+.headline .unit { font-size: var(--fs-base); color: var(--ink-2); }
+.headline-sub { font-size: var(--fs-small); color: var(--ink-2); line-height: 1.5; margin: 8px 0 0; }
+.statgrid { display: grid; grid-template-columns: 1fr 1fr; }
+.statgrid > div { padding: 10px 12px; }
+.statgrid > div + div { border-left: 1px solid var(--line); }
+.stat-k { font-size: var(--fs-micro); color: var(--ink-3); line-height: 1.4; margin: 0 0 3px; }
+.stat-v { font-family: var(--font-mono); font-size: var(--fs-base); color: var(--ink-1); font-variant-numeric: tabular-nums; }
+.stat-v.absent { font-family: var(--font-sans); font-size: var(--fs-small); color: var(--ink-3); }
+
+/* ── Per-tool breakdown ── */
+.tool { display: flex; align-items: center; gap: 10px; padding: 7px 12px; }
+.tool + .tool { border-top: 1px solid var(--line); }
+.tool .nm {
+  font-family: var(--font-mono); font-size: var(--fs-micro); color: var(--ink-1);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; min-width: 0;
+}
+.tool .bar { width: 68px; height: 5px; border-radius: var(--radius-pill); background: var(--bar-track); flex: none; overflow: hidden; }
+.tool .bar i { display: block; height: 100%; min-width: 3px; background: var(--ink-3); border-radius: var(--radius-pill); }
+.tool .b { font-family: var(--font-mono); font-size: var(--fs-micro); color: var(--ink-3); font-variant-numeric: tabular-nums; width: 54px; text-align: right; flex: none; white-space: nowrap; }
+.more { padding: 8px 12px; font-size: var(--fs-micro); color: var(--ink-3); display: flex; justify-content: space-between; }
+.more .b { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+
+/* ── Sentence-first ── */
+.lede-line { font-size: var(--fs-base); line-height: 1.55; color: var(--ink-1); margin: 0 0 12px; }
+.lede-line b { font-weight: 600; font-variant-numeric: tabular-nums; }
+.figstrip { display: flex; border: 1px solid var(--line); border-radius: var(--radius-inner); overflow: hidden; }
+.figstrip > div { flex: 1; padding: 9px 12px; }
+.figstrip > div + div { border-left: 1px solid var(--line); }
+
+/* ── Scale reference ── */
+.scalebar { height: 6px; border-radius: var(--radius-pill); background: var(--bar-track); overflow: hidden; margin: 10px 0 0; }
+.scalebar i { display: block; height: 100%; background: var(--ink-1); border-radius: var(--radius-pill); }
+
+.note {
+  border: 1px solid var(--line); border-radius: var(--radius-inner);
+  background: var(--page); padding: 14px 16px; max-width: 420px;
+  font-size: var(--fs-small); line-height: 1.6; color: var(--ink-2);
+}
+.note h4 { font-size: var(--fs-micro); text-transform: uppercase; letter-spacing: .06em; color: var(--ink-3); margin: 0 0 8px; font-weight: 500; }
+.note p { margin: 0 0 8px; }
+.note p:last-child { margin: 0; }
+.note.warn { border-color: var(--state-warning); }
+.note.warn h4 { color: var(--state-warning); }
+.note.pick { border-color: var(--ink-1); }
+.note.pick h4 { color: var(--ink-1); }
+
+/* ── A+E: the tools table as it already exists (ProbedToolList), with the
+      ledger's two rows as its column totals ── */
+/* No header row. The rows are not a grid — a name and a figure on one line,
+   then the description full-width beneath — so a column header labelled
+   "Description" sat above a byte count while the description itself ran
+   underneath it, unheaded. The Schema column went with it: the ledger's
+   "Input schemas · Not measured" says everything a permanently-em-dash
+   column was trying to. */
+.trow { display: flex; flex-direction: column; gap: 3px; padding: 9px 12px; }
+.trow .line { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.trow .nm {
+  font-family: var(--font-mono); font-size: var(--fs-small); color: var(--ink-1);
+  flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.trow .c2 { text-align: right; flex: none; font-family: var(--font-mono); font-size: var(--fs-micro); color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.trow .desc { font-size: var(--fs-small); color: var(--ink-2); line-height: 1.45; }
+/* No totals row either. The ledger above already carries 2.8 kB, and the tab
+   and the ledger's own caption already carry 29 — a footer repeating both
+   leaves the reader reconciling two printings of one fact. Keeping the ledger
+   and the list in agreement is a code guarantee, not a drawn one: both read the
+   same probe answer, `descriptionBytesTotal` and `perTool`.
+   Tokens stay in the ledger; the list is bytes throughout. */
+
+/* The one row of Contents the Context figure came from reads in full ink;
+   everything the figure excludes stays at --ink-3. */
+.row .val.loaded { color: var(--ink-1); }
+
+hr.rule { border: 0; border-top: 1px solid var(--line); margin: 0 0 40px; }
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; animation: none !important; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="masthead">
+  <p class="kicker">Hanger · v6 · inspector panel</p>
+  <h1>What a skill and a server cost you</h1>
+  <p class="lede">Six ways to draw the two context cards in the inspector: <b>Skills &rsaquo; Content &rsaquo; Context</b>
+    (<code>AssetDetail.tsx:381</code>) and <b>MCP server &rsaquo; Tools &rsaquo; Context per request</b>
+    (<code>McpServerDetail.tsx:699</code>). Every panel below is 384px, the default
+    <code>inspectorWidth</code>, drawn in the real tokens from <code>src/styles/tokens.css</code>.</p>
+  <p class="lede">The figures are the ones the code actually produces. Where an option shows a number the
+    backend does not supply yet, it carries a <span class="tag needs" style="display:inline-block">needs a backend field</span> tag
+    and <code>README.md</code> says which one.</p>
+  <div class="toolbar">
+    <button class="tbtn" id="theme" aria-pressed="false">Dark</button>
+    <button class="tbtn" id="widen" aria-pressed="false">Widen to 520px</button>
+  </div>
+</header>
+
+<!-- ══════════════════════════ BASELINE ══════════════════════════ -->
+<section class="option" id="opt-0">
+  <div class="option-head">
+    <span class="option-id">TODAY</span>
+    <h3 class="option-name">What ships now</h3>
+  </div>
+  <p class="option-thesis">The baseline, redrawn from the source so the comparison is fair. Both cards answer
+    a question the reader did not ask, and neither answers the one they did: <em>what is this costing me?</em>
+    The MCP card leads with 2.8&nbsp;kB, which is the smaller half of the toll; the Skills card asserts
+    &ldquo;always loaded&rdquo; and then gives no figure for it.</p>
+
+  <div class="pair">
+    <div class="slot">
+      <span class="slot-label">Skill</span>
+      <div class="panel">
+        <div class="panel-cap"><span class="cap-eyebrow">Skill &middot; Global</span></div>
+        <div class="panel-title"><h2>macos-hig-designer</h2></div>
+        <div class="tabs"><span class="tab" aria-selected="true">Content</span><span class="tab">Details</span></div>
+        <div class="section">
+          <p class="heading">Context</p>
+          <div class="card">
+            <div class="row top">
+              <span class="ico">◔</span>
+              <span class="lab">
+                <span class="l1">Name and description always loaded &middot; 22.6 kB when opened</span>
+                <span class="l2 mono">&asymp; 5,786 tokens, estimated &middot; not checked per engine</span>
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="slot">
+      <span class="slot-label">MCP server</span>
+      <div class="panel">
+        <div class="panel-cap"><span class="cap-eyebrow">MCP server &middot; Global</span></div>
+        <div class="panel-title"><h2>chrome-devtools</h2><span class="chip-stdio">stdio</span></div>
+        <div class="tabs"><span class="tab" aria-selected="true">Tools <span class="n">29</span></span><span class="tab">Details</span></div>
+        <div class="section">
+          <p class="heading">Context per request</p>
+          <div class="card">
+            <div class="row"><span class="lab"><span class="l1">Descriptions</span></span><span class="val">2.8 kB &middot; 29 of 29 tools</span></div>
+            <div class="row"><span class="lab"><span class="l1">Input schemas</span></span><span class="wide">the remainder, not in the store</span></div>
+          </div>
+          <p class="foot">A request carries the whole definition. Hanger keeps a tool&rsquo;s name and its
+            description and drops the schema, so the store can account for the smaller part of that figure
+            and not the larger.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="note warn">
+      <h4>What the redraw shows</h4>
+      <p><b>The value slot is carrying an absence.</b> &ldquo;the remainder, not in the store&rdquo; sits where
+        every other row puts a figure, so it parses as a quantity before it parses as a sentence.</p>
+      <p><b>Two units, two cards, no relationship.</b> Skills are priced in tokens, servers in bytes.
+        The same reader compares them minutes apart.</p>
+      <p><b>The tier that matters has no number.</b> A skill&rsquo;s name and description are in every engine&rsquo;s
+        startup list whether or not it ever fires. That is the only cost the user pays unconditionally,
+        and the card states it as a claim rather than a figure.</p>
+    </div>
+  </div>
+</section>
+
+<hr class="rule" />
+
+<!-- ══════════════════════════ A ══════════════════════════ -->
+<section class="option" id="opt-a">
+  <div class="option-head">
+    <span class="option-id">A</span>
+    <h3 class="option-name">Two tiers, named</h3>
+  </div>
+  <p class="option-thesis">The smallest change that fixes the information architecture. One row per tier of
+    the loading model, labelled by <em>when</em> the cost lands rather than by what the bytes are made of.
+    Absences go in the value slot as plain words in muted ink, never in the mono figure face, so a reader
+    can never mistake one for a number.</p>
+  <div class="tags">
+    <span class="tag ready">ships on today&rsquo;s data</span>
+    <span class="tag needs">skills: needs frontmatter bytes</span>
+    <span class="tag">same component, same section</span>
+  </div>
+
+  <div class="pair">
+    <div class="slot">
+      <span class="slot-label">Skill</span>
+      <div class="panel">
+        <div class="panel-cap"><span class="cap-eyebrow">Skill &middot; Global</span></div>
+        <div class="panel-title"><h2>macos-hig-designer</h2></div>
+        <div class="tabs"><span class="tab" aria-selected="true">Content</span><span class="tab">Details</span></div>
+        <div class="section">
+          <p class="heading"><span>Context</span></p>
+          <div class="card">
+            <div class="row top">
+              <span class="lab">
+                <span class="l1">Always on</span>
+                <span class="l2">Name and description, in every engine&rsquo;s startup list</span>
+              </span>
+              <span class="val"><span class="stack"><span class="strong">&asymp; 57 tokens</span><span>228 B</span></span></span>
+            </div>
+            <div class="row top">
+              <span class="lab">
+                <span class="l1">When it opens</span>
+                <span class="l2">The whole of SKILL.md</span>
+              </span>
+              <span class="val"><span class="stack"><span class="strong">&asymp; 5,786 tokens</span><span>22.6 kB</span></span></span>
+            </div>
+          </div>
+          <p class="foot">Token figures are bytes divided by four. Every engine tokenises differently, so treat
+            them as a size, not a count. Other files in the skill folder are not in this figure.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="slot">
+      <span class="slot-label">MCP server</span>
+      <div class="panel">
+        <div class="panel-cap"><span class="cap-eyebrow">MCP server &middot; Global</span></div>
+        <div class="panel-title"><h2>chrome-devtools</h2><span class="chip-stdio">stdio</span></div>
+        <div class="tabs"><span class="tab" aria-selected="true">Tools <span class="n">29</span></span><span class="tab">Details</span></div>
+        <div class="section">
+          <p class="heading"><span>Context per request</span></p>
+          <div class="card">
+            <div class="row top">
+              <span class="lab">
+                <span class="l1">Descriptions</span>
+                <span class="l2">29 of 29 tools carry one</span>
+              </span>
+              <span class="val"><span class="stack"><span class="strong">&asymp; 716 tokens</span><span>2.8 kB</span></span></span>
+            </div>
+            <div class="row top">
+              <span class="lab">
+                <span class="l1">Input schemas</span>
+                <span class="l2">Usually the larger part of a definition</span>
+              </span>
+              <span class="wide absent">Not measured</span>
+            </div>
+          </div>
+          <p class="foot">A request carries a name, a description and an input schema for every tool. Hanger
+            reads the first two and drops the schema, so this accounts for part of the toll, not all of it.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="note">
+      <h4>Why this one</h4>
+      <p>It is the only option here that needs no new visual language. <code>ListCard</code>, <code>ListCardRow</code>
+        and the two-line label already exist and are already used by this exact row.</p>
+      <p>&ldquo;Always on&rdquo; and &ldquo;When it opens&rdquo; are first-time labels and would need the naming brief
+        under <code>ui-copy.md</code>.</p>
+      <p>The 228 B figure is illustrative. Nothing in <code>AssetBody</code> measures the frontmatter today.</p>
+    </div>
+  </div>
+</section>
+
+<hr class="rule" />
+
+<!-- ══════════════════════════ B ══════════════════════════ -->
+<section class="option" id="opt-b">
+  <div class="option-head">
+    <span class="option-id">B</span>
+    <h3 class="option-name">Lead with the certain fact</h3>
+  </div>
+  <p class="option-thesis">Give the section one figure at display size, and make it a figure Hanger actually
+    knows. For a skill that is the body it will load. For a server it is the tool count, not the byte total,
+    because the count is exact and the bytes are a fraction. The partial measurement drops to a supporting
+    row where it cannot pose as the whole answer.</p>
+  <div class="tags">
+    <span class="tag ready">ships on today&rsquo;s data</span>
+    <span class="tag">uses the 32px step, unused in the inspector so far</span>
+    <span class="tag needs">skills: needs frontmatter bytes</span>
+  </div>
+
+  <div class="pair">
+    <div class="slot">
+      <span class="slot-label">Skill</span>
+      <div class="panel">
+        <div class="panel-cap"><span class="cap-eyebrow">Skill &middot; Global</span></div>
+        <div class="panel-title"><h2>macos-hig-designer</h2></div>
+        <div class="tabs"><span class="tab" aria-selected="true">Content</span><span class="tab">Details</span></div>
+        <div class="section">
+          <p class="heading">Context</p>
+          <div class="headline">
+            <span class="fig">22.6</span><span class="unit">kB when it opens</span>
+          </div>
+          <p class="headline-sub">Roughly 5,786 tokens of SKILL.md, read into the conversation the first time
+            this skill matches a task.</p>
+          <div class="card" style="margin-top:14px">
+            <div class="statgrid">
+              <div>
+                <p class="stat-k">Always on</p>
+                <p class="stat-v">228 B</p>
+              </div>
+              <div>
+                <p class="stat-k">Lines</p>
+                <p class="stat-v">642</p>
+              </div>
+            </div>
+          </div>
+          <p class="foot">&ldquo;Always on&rdquo; is the name and description, which sit in the startup list whether
+            or not the skill ever fires. Token figures are bytes divided by four.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="slot">
+      <span class="slot-label">MCP server</span>
+      <div class="panel">
+        <div class="panel-cap"><span class="cap-eyebrow">MCP server &middot; Global</span></div>
+        <div class="panel-title"><h2>chrome-devtools</h2><span class="chip-stdio">stdio</span></div>
+        <div class="tabs"><span class="tab" aria-selected="true">Tools <span class="n">29</span></span><span class="tab">Details</span></div>
+        <div class="section">
+          <p class="heading">Context per request</p>
+          <div class="headline">
+            <span class="fig">29</span><span class="unit">tool definitions, every request</span>
+          </div>
+          <p class="headline-sub">Each one carries a name, a description and an input schema, whether or not
+            the model calls it.</p>
+          <div class="card" style="margin-top:14px">
+            <div class="statgrid">
+              <div>
+                <p class="stat-k">Descriptions, measured</p>
+                <p class="stat-v">2.8 kB</p>
+              </div>
+              <div>
+                <p class="stat-k">Input schemas</p>
+                <p class="stat-v absent">Not measured</p>
+              </div>
+            </div>
+          </div>
+          <p class="foot">Hanger drops the schema when it stores a tool, so it can weigh the smaller part of
+            a definition and not the larger.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="note">
+      <h4>The trade</h4>
+      <p>A 32px number is a promise of precision. The skill figure survives it because bytes on disk are a
+        fact; the token line underneath stays hedged.</p>
+      <p>The server headline changes what the section is <em>about</em>: from &ldquo;here is a weight&rdquo; to
+        &ldquo;here is how many definitions ride along&rdquo;. That is defensible and it is a different claim.
+        Worth a ruling.</p>
+    </div>
+  </div>
+</section>
+
+<hr class="rule" />
+
+<!-- ══════════════════════════ C ══════════════════════════ -->
+<section class="option" id="opt-c">
+  <div class="option-head">
+    <span class="option-id">C</span>
+    <h3 class="option-name">Draw what is unknown</h3>
+  </div>
+  <p class="option-thesis">Put the measured and the unmeasured on one track and let the proportion say what a
+    sentence has been failing to say. <b>Hatching means one thing and only one thing: not measured.</b> Solid
+    ink is what lands now, flat grey is what lands later, hatch is what Hanger cannot weigh at all. On the MCP
+    card the hatch is most of the bar, which is the honest picture and is currently three lines of prose.</p>
+  <div class="tags">
+    <span class="tag ready">ships on today&rsquo;s data</span>
+    <span class="tag needs">new hatch pattern, not in the token set</span>
+    <span class="tag ruling">aqua stays off: it may only mark a true share</span>
+  </div>
+
+  <div class="pair">
+    <div class="slot">
+      <span class="slot-label">Skill</span>
+      <div class="panel">
+        <div class="panel-cap"><span class="cap-eyebrow">Skill &middot; Global</span></div>
+        <div class="panel-title"><h2>macos-hig-designer</h2></div>
+        <div class="tabs"><span class="tab" aria-selected="true">Content</span><span class="tab">Details</span></div>
+        <div class="section">
+          <p class="heading"><span>Context</span><span class="aside">22.8 kB total</span></p>
+          <div class="meter" role="img" aria-label="228 bytes always on, 22.6 kilobytes on open">
+            <span class="known" style="flex:228"></span>
+            <span class="later" style="flex:23146"></span>
+          </div>
+          <div class="meter-key">
+            <span class="mk"><i class="sw known"></i>Always on <span class="n">228 B</span></span>
+            <span class="mk"><i class="sw later"></i>On open <span class="n">22.6 kB</span></span>
+          </div>
+          <div class="card" style="margin-top:14px">
+            <div class="row"><span class="lab"><span class="l1">Estimated tokens on open</span></span><span class="val">&asymp; 5,786</span></div>
+            <div class="row"><span class="lab"><span class="l1">Bundled files in the folder</span></span><span class="wide absent">Not counted</span></div>
+          </div>
+          <p class="foot">The always-on sliver is what every engine holds for this skill at startup. The rest
+            arrives only when the skill matches a task.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="slot">
+      <span class="slot-label">MCP server</span>
+      <div class="panel">
+        <div class="panel-cap"><span class="cap-eyebrow">MCP server &middot; Global</span></div>
+        <div class="panel-title"><h2>chrome-devtools</h2><span class="chip-stdio">stdio</span></div>
+        <div class="tabs"><span class="tab" aria-selected="true">Tools <span class="n">29</span></span><span class="tab">Details</span></div>
+        <div class="section">
+          <p class="heading"><span>Context per request</span><span class="aside">29 tools</span></p>
+          <div class="meter" role="img" aria-label="2.8 kilobytes of descriptions measured, input schemas not measured">
+            <span class="known" style="flex:28"></span>
+            <span class="unknown" style="flex:72"></span>
+          </div>
+          <div class="meter-key">
+            <span class="mk"><i class="sw known"></i>Descriptions <span class="n">2.8 kB</span></span>
+            <span class="mk"><i class="sw unknown"></i>Input schemas <span class="n">not measured</span></span>
+          </div>
+          <p class="foot">The hatched share is drawn to published measurements, where input schemas run 60 to
+            80 per cent of a tool definition. Hanger does not weigh this server&rsquo;s own schemas, so the split
+            is an illustration and the 2.8 kB beside it is not.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="note warn">
+      <h4>The honest objection</h4>
+      <p>A bar drawn to somebody else&rsquo;s ratio is a picture of a fact Hanger has not established. It is the
+        one place in this study where the drawing is more confident than the data.</p>
+      <p>Two ways out: hatch the whole remainder at an <em>undrawn</em> width (a bar that trails off), or keep
+        the meter for the skill card, where both parts are measured, and leave the server card to option A.
+        The skill meter is unimpeachable; the server meter needs a ruling.</p>
+    </div>
+  </div>
+</section>
+
+<hr class="rule" />
+
+<!-- ══════════════════════════ D ══════════════════════════ -->
+<section class="option" id="opt-d">
+  <div class="option-head">
+    <span class="option-id">D</span>
+    <h3 class="option-name">Against a window</h3>
+  </div>
+  <p class="option-thesis">A number nobody can scale is not information. This option gives each figure a
+    denominator: a share of a 200k context window, and the published guidance for a skill body. It is the most
+    useful reading and the least defensible one, because both reference points come from outside the machine.</p>
+  <div class="tags">
+    <span class="tag ruling">contradicts a recorded ruling &mdash; see the note</span>
+    <span class="tag">most immediately useful to a reader</span>
+    <span class="tag ready">ships on today&rsquo;s data</span>
+  </div>
+
+  <div class="pair">
+    <div class="slot">
+      <span class="slot-label">Skill</span>
+      <div class="panel">
+        <div class="panel-cap"><span class="cap-eyebrow">Skill &middot; Global</span></div>
+        <div class="panel-title"><h2>macos-hig-designer</h2></div>
+        <div class="tabs"><span class="tab" aria-selected="true">Content</span><span class="tab">Details</span></div>
+        <div class="section">
+          <p class="heading">Context</p>
+          <div class="card">
+            <div class="row top">
+              <span class="lab"><span class="l1">On open</span><span class="l2">&asymp; 2.9% of a 200k window</span></span>
+              <span class="val"><span class="stack"><span class="strong">&asymp; 5,786</span><span>tokens</span></span></span>
+            </div>
+            <div class="row top">
+              <span class="lab"><span class="l1">Always on</span><span class="l2">&asymp; 0.03% of a 200k window</span></span>
+              <span class="val"><span class="stack"><span class="strong">&asymp; 57</span><span>tokens</span></span></span>
+            </div>
+          </div>
+          <div class="scalebar" role="img" aria-label="about 3 per cent of a 200,000 token window"><i style="width:2.9%"></i></div>
+          <p class="foot">Anthropic&rsquo;s own guidance puts a skill body under about 5,000 tokens. This one is
+            above that. The window figure is a common default, not this machine&rsquo;s.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="slot">
+      <span class="slot-label">MCP server</span>
+      <div class="panel">
+        <div class="panel-cap"><span class="cap-eyebrow">MCP server &middot; Global</span></div>
+        <div class="panel-title"><h2>chrome-devtools</h2><span class="chip-stdio">stdio</span></div>
+        <div class="tabs"><span class="tab" aria-selected="true">Tools <span class="n">29</span></span><span class="tab">Details</span></div>
+        <div class="section">
+          <p class="heading">Context per request</p>
+          <div class="card">
+            <div class="row top">
+              <span class="lab"><span class="l1">Descriptions</span><span class="l2">29 of 29 tools</span></span>
+              <span class="val"><span class="stack"><span class="strong">&asymp; 716</span><span>tokens</span></span></span>
+            </div>
+            <div class="row top">
+              <span class="lab"><span class="l1">Input schemas</span><span class="l2">Typically 60&ndash;80% of a definition</span></span>
+              <span class="wide absent">Not measured</span>
+            </div>
+            <div class="row top">
+              <span class="lab"><span class="l1">A median server</span><span class="l2">Across 3,165 measured, for scale</span></span>
+              <span class="val"><span class="stack"><span class="strong">&asymp; 1,900</span><span>tokens</span></span></span>
+            </div>
+          </div>
+          <p class="foot">The median is published third-party measurement, not Hanger&rsquo;s. It is here to give
+            the figure above it a size, and it will age.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="note warn">
+      <h4>Read this before choosing D</h4>
+      <p><code>McpServerDetail.tsx:34</code> records the opposite decision: <em>&ldquo;The context-budget bar in that
+        study is deliberately absent here: the ~40-tool ceiling is third-party guidance, not measured, and
+        spec &sect;5.5 excludes it.&rdquo;</em></p>
+      <p>D reopens that. It is drawn because you asked for iterations and because the reasoning has moved on
+        &mdash; there is a lot more published measurement now than there was &mdash; but it is a reversal, not a
+        refinement, and it is yours to take.</p>
+    </div>
+  </div>
+</section>
+
+<hr class="rule" />
+
+<!-- ══════════════════════════ E ══════════════════════════ -->
+<section class="option" id="opt-e">
+  <div class="option-head">
+    <span class="option-id">E</span>
+    <h3 class="option-name">Where it actually goes</h3>
+  </div>
+  <p class="option-thesis"><b>Kept as the record of an argument that failed.</b> The pitch was: a total tells
+    you a server is heavy, a ranking tells you which four tools made it heavy. The flaw is in the word
+    &ldquo;act&rdquo;. You cannot act on it. You do not choose a tool by the size of its description, you
+    cannot edit a third-party server&rsquo;s descriptions, and two tools you would never compare on merit are
+    put side by side here purely because one is wordier. The bars measure the one axis nobody uses. What
+    survives from E is the instinct that the per-tool list is worth having &mdash; see A&nbsp;+&nbsp;E, where
+    it is kept and the figures are dropped.</p>
+  <div class="tags">
+    <span class="tag ruling">premise did not survive &mdash; superseded by A + E</span>
+    <span class="tag">ranks tools on the one axis nobody chooses by</span>
+  </div>
+
+  <div class="pair">
+    <div class="slot">
+      <span class="slot-label">Skill</span>
+      <div class="panel">
+        <div class="panel-cap"><span class="cap-eyebrow">Skill &middot; Global</span></div>
+        <div class="panel-title"><h2>macos-hig-designer</h2></div>
+        <div class="tabs"><span class="tab" aria-selected="true">Content</span><span class="tab">Details</span></div>
+        <div class="section">
+          <p class="heading"><span>Context</span><span class="aside">22.8 kB</span></p>
+          <div class="card">
+            <div class="tool"><span class="nm">Name and description</span><span class="bar"><i style="width:2%"></i></span><span class="b">228 B</span></div>
+            <div class="tool"><span class="nm">SKILL.md body</span><span class="bar"><i style="width:100%"></i></span><span class="b">22.6 kB</span></div>
+            <div class="more"><span>Other files in the folder</span><span class="b">not read</span></div>
+          </div>
+          <p class="foot">Only the top row is in context before the skill fires. The body arrives on the turn
+            it matches; the rest of the folder arrives only if the body sends the engine there.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="slot">
+      <span class="slot-label">MCP server</span>
+      <div class="panel">
+        <div class="panel-cap"><span class="cap-eyebrow">MCP server &middot; Global</span></div>
+        <div class="panel-title"><h2>chrome-devtools</h2><span class="chip-stdio">stdio</span></div>
+        <div class="tabs"><span class="tab" aria-selected="true">Tools <span class="n">29</span></span><span class="tab">Details</span></div>
+        <div class="section">
+          <p class="heading"><span>Heaviest descriptions</span><span class="aside">2.8 kB over 29 tools</span></p>
+          <div class="card">
+            <div class="tool"><span class="nm">performance_start_trace</span><span class="bar"><i style="width:100%"></i></span><span class="b">412 B</span></div>
+            <div class="tool"><span class="nm">take_snapshot</span><span class="bar"><i style="width:65%"></i></span><span class="b">268 B</span></div>
+            <div class="tool"><span class="nm">evaluate_script</span><span class="bar"><i style="width:58%"></i></span><span class="b">241 B</span></div>
+            <div class="tool"><span class="nm">fill_form</span><span class="bar"><i style="width:48%"></i></span><span class="b">196 B</span></div>
+            <div class="tool"><span class="nm">list_network_requests</span><span class="bar"><i style="width:44%"></i></span><span class="b">183 B</span></div>
+            <div class="more"><span>24 more tools</span><span class="b">1.5 kB</span></div>
+          </div>
+          <p class="foot">Descriptions only. Each of these tools also carries an input schema, usually the
+            larger part, which Hanger does not store and cannot weigh.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="note warn">
+      <h4>Why it fails</h4>
+      <p><b>A ranking implies a decision, and there is no decision here.</b> Size ordering is only worth
+        drawing if the reader does something differently at the top of the list than the bottom. For tools
+        they do not: a tool earns its place by what it does.</p>
+      <p><b>The ranking is also true and useless at the same time</b>, which is the hard kind to catch. The
+        ordering of descriptions really is the ordering of descriptions. It just is not an ordering anyone
+        wants.</p>
+      <p><b>What was right in it.</b> The per-tool list belongs in the panel &mdash; and it already is one.
+        A&nbsp;+&nbsp;E keeps the list, drops every figure from it, and leaves the accounting in the ledger
+        where a total is the only figure that was ever doing work.</p>
+    </div>
+  </div>
+</section>
+
+<hr class="rule" />
+
+<!-- ══════════════════════════ F ══════════════════════════ -->
+<section class="option" id="opt-f">
+  <div class="option-head">
+    <span class="option-id">F</span>
+    <h3 class="option-name">Sentence first</h3>
+  </div>
+  <p class="option-thesis">Both cards today end in a paragraph explaining what the rows meant. This option
+    promotes that paragraph and demotes the table: one true sentence in reading ink at the top, the figures in
+    a compact strip beneath it. It suits a panel where the concept is unfamiliar and the numbers are estimates.</p>
+  <div class="tags">
+    <span class="tag ready">ships on today&rsquo;s data</span>
+    <span class="tag">no new components at all</span>
+    <span class="tag">most words, least scanning</span>
+  </div>
+
+  <div class="pair">
+    <div class="slot">
+      <span class="slot-label">Skill</span>
+      <div class="panel">
+        <div class="panel-cap"><span class="cap-eyebrow">Skill &middot; Global</span></div>
+        <div class="panel-title"><h2>macos-hig-designer</h2></div>
+        <div class="tabs"><span class="tab" aria-selected="true">Content</span><span class="tab">Details</span></div>
+        <div class="section">
+          <p class="heading">Context</p>
+          <p class="lede-line">Its name and description sit in the startup list at all times. Opening it adds
+            <b>22.6 kB</b>, roughly <b>5,786 tokens</b>, for the turn that needs it.</p>
+          <div class="figstrip">
+            <div><p class="stat-k">Always on</p><p class="stat-v">228 B</p></div>
+            <div><p class="stat-k">On open</p><p class="stat-v">22.6 kB</p></div>
+            <div><p class="stat-k">Lines</p><p class="stat-v">642</p></div>
+          </div>
+          <p class="foot">Tokens are bytes divided by four, so they are a size rather than a count. Other files
+            in the skill folder are not included.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="slot">
+      <span class="slot-label">MCP server</span>
+      <div class="panel">
+        <div class="panel-cap"><span class="cap-eyebrow">MCP server &middot; Global</span></div>
+        <div class="panel-title"><h2>chrome-devtools</h2><span class="chip-stdio">stdio</span></div>
+        <div class="tabs"><span class="tab" aria-selected="true">Tools <span class="n">29</span></span><span class="tab">Details</span></div>
+        <div class="section">
+          <p class="heading">Context per request</p>
+          <p class="lede-line">Every request carries all <b>29</b> tool definitions. Hanger weighs the
+            descriptions in them, <b>2.8 kB</b>, and cannot weigh the input schemas, which are usually the
+            larger part.</p>
+          <div class="figstrip">
+            <div><p class="stat-k">Tools</p><p class="stat-v">29</p></div>
+            <div><p class="stat-k">Described</p><p class="stat-v">29</p></div>
+            <div><p class="stat-k">Measured</p><p class="stat-v">2.8 kB</p></div>
+          </div>
+          <p class="foot">A definition is a name, a description and an input schema. The store keeps the first
+            two.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="note">
+      <h4>The trade</h4>
+      <p>Reads beautifully once and badly the fortieth time. A panel someone opens all day wants figures they
+        can find without reading; a panel someone opens twice wants a sentence.</p>
+      <p>Every string here needs the <code>/humanizer</code> pass before it lands, same as the rest.</p>
+    </div>
+  </div>
+</section>
+
+<hr class="rule" />
+
+<!-- ══════════════════════════ A+E ══════════════════════════ -->
+<section class="option" id="opt-ae">
+  <div class="option-head">
+    <span class="option-id">A + E</span>
+    <h3 class="option-name">The ledger and its list</h3>
+  </div>
+  <p class="option-thesis">Both panels <em>already</em> carry the list E wanted, directly beneath the card A
+    rewrites: the MCP panel has a per-tool table with a Description-bytes column
+    (<code>ProbedToolList</code>), and the skill panel has a Contents card with per-entry bytes
+    (<code>list_asset_dir</code>). Neither list is connected to the figure above it. So folding E under A is
+    not a new section, and it turns out not to be an addition at all: <b>the ledger says the things the list
+    was faking, and the list gives them up</b>. The header row, the Schema column and the totals row all
+    come out. On the skill side, one row of Contents is marked as the one the figure covers.</p>
+  <div class="tags">
+    <span class="tag ready">no new data, no new component</span>
+    <span class="tag ready">both lists already ship</span>
+    <span class="tag ready">MCP side is one deletion</span>
+    <span class="tag needs">skills: needs frontmatter bytes</span>
+  </div>
+
+  <div class="pair">
+    <div class="slot">
+      <span class="slot-label">Skill &mdash; Context, then the Contents card that already follows it</span>
+      <div class="panel">
+        <div class="panel-cap"><span class="cap-eyebrow">Skill &middot; Global</span></div>
+        <div class="panel-title"><h2>macos-hig-designer</h2></div>
+        <div class="tabs"><span class="tab" aria-selected="true">Content</span><span class="tab">Details</span></div>
+
+        <div class="section">
+          <p class="heading"><span>Context</span></p>
+          <div class="card">
+            <div class="row top">
+              <span class="lab">
+                <span class="l1">Always on</span>
+                <span class="l2">Name and description, in every engine&rsquo;s startup list</span>
+              </span>
+              <span class="val"><span class="stack"><span class="strong">&asymp; 57 tokens</span><span>228 B</span></span></span>
+            </div>
+            <div class="row top">
+              <span class="lab">
+                <span class="l1">When it opens</span>
+                <span class="l2">SKILL.md, in full</span>
+              </span>
+              <span class="val"><span class="stack"><span class="strong">&asymp; 5,786 tokens</span><span>22.6 kB</span></span></span>
+            </div>
+          </div>
+          <p class="foot">Token figures are bytes divided by four. Every engine tokenises differently, so
+            treat them as a size, not a count.</p>
+        </div>
+
+        <div class="section">
+          <p class="heading"><span>Contents</span><span class="aside">3 entries</span></p>
+          <div class="card">
+            <div class="row">
+              <span class="ico">▤</span>
+              <span class="lab"><span class="l1" style="font-family:var(--font-mono)">SKILL.md</span></span>
+              <span class="val loaded">22.6 kB</span>
+            </div>
+            <div class="row">
+              <span class="ico">▤</span>
+              <span class="lab"><span class="l1" style="font-family:var(--font-mono)">reference/</span></span>
+              <span class="val">6 files</span>
+            </div>
+            <div class="row">
+              <span class="ico">▤</span>
+              <span class="lab"><span class="l1" style="font-family:var(--font-mono)">checklist.md</span></span>
+              <span class="val">4.1 kB</span>
+            </div>
+          </div>
+          <p class="foot">Only SKILL.md is in the figure above. Everything else here reaches the model only if
+            the body sends the engine to it.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="slot">
+      <span class="slot-label">MCP server &mdash; Context per request, then the Tools table that already follows it</span>
+      <div class="panel">
+        <div class="panel-cap"><span class="cap-eyebrow">MCP server &middot; Global</span></div>
+        <div class="panel-title"><h2>chrome-devtools</h2><span class="chip-stdio">stdio</span></div>
+        <div class="tabs"><span class="tab" aria-selected="true">Tools <span class="n">29</span></span><span class="tab">Details</span></div>
+
+        <div class="section">
+          <p class="heading"><span>Context per request</span></p>
+          <div class="card">
+            <div class="row top">
+              <span class="lab">
+                <span class="l1">Descriptions</span>
+                <span class="l2">29 of 29 tools carry one</span>
+              </span>
+              <span class="val"><span class="stack"><span class="strong">&asymp; 716 tokens</span><span>2.8 kB</span></span></span>
+            </div>
+            <div class="row top">
+              <span class="lab">
+                <span class="l1">Input schemas</span>
+                <span class="l2">Usually the larger part of a definition</span>
+              </span>
+              <span class="wide absent">Not measured</span>
+            </div>
+          </div>
+          <p class="foot">A request carries a name, a description and an input schema for every tool. The
+            Descriptions figure is the list below, totalled. The schemas are never stored, so nothing on this
+            panel can weigh them.</p>
+        </div>
+
+        <div class="section">
+          <p class="heading"><span>Tools</span></p>
+          <div class="card">
+            <div class="trow">
+              <span class="line"><span class="nm">performance_start_trace</span></span>
+              <span class="desc">Starts a performance trace and reloads the page, then stops the trace and
+                returns the insights found.</span>
+            </div>
+            <div class="trow">
+              <span class="line"><span class="nm">take_snapshot</span></span>
+              <span class="desc">Take a text snapshot of the currently selected page. The snapshot lists page
+                elements along with a uid for each.</span>
+            </div>
+            <div class="trow">
+              <span class="line"><span class="nm">evaluate_script</span></span>
+              <span class="desc">Evaluate a JavaScript function inside the target page.</span>
+            </div>
+            <div class="trow">
+              <span class="line"><span class="nm">fill_form</span></span>
+              <span class="desc">Fill out multiple form elements at once.</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="note pick">
+      <h4>What actually changes in the code</h4>
+      <p><b>MCP: the whole change is deletion.</b> Out of <code>ProbedToolList</code> come the header row,
+        the Schema column, and the per-tool byte figure. Nothing is added &mdash; no sort, no totals row, no
+        aside. The list keeps the order the server exposed it in, and a probed tool is
+        <code>{ name, description }</code> and nothing else, so what is left on a row is exactly what the
+        tool is.</p>
+      <p><b>Every figure moved to the ledger, and only the total survived the move.</b> A per-tool size is
+        accounting sitting in a content list: you do not choose a tool by how wordy it is, and you cannot
+        edit a third-party server&rsquo;s descriptions, so the number has no decision attached to it. The
+        server-level total does &mdash; whether to keep the server. So the ledger holds it and the list
+        holds none.</p>
+      <p><b>Two sections, two jobs, no overlap.</b> The ledger answers &ldquo;what is this costing me&rdquo;
+        in one place with one figure per tier. The list answers &ldquo;what does this thing do&rdquo; and is
+        now readable as prose rather than scanned as a table. Neither restates the other, which is why the
+        header row, the Schema column, the totals row and the per-tool bytes could all go without anything
+        taking their place.</p>
+      <p><b>Skill, two edits.</b> Full ink on the Contents row the Context figure came from, muted on the
+        rest; one footnote saying the rest is excluded.</p>
+      <p><b>The header row and the Schema column both go.</b> The rows were never a grid &mdash; a name and
+        a figure on one line, the description full-width beneath &mdash; so &ldquo;Description&rdquo; sat above
+        a byte count while the description itself ran underneath it, unheaded. And a column that has always
+        held <code>&mdash;</code> is not a column. Both were doing the ledger&rsquo;s job badly; the ledger
+        now does it. The section aside names the sort, which is what tells you the figure is a description
+        size in the first place.</p>
+      <p><b>Tokens lead, bytes support &mdash; in the ledger.</b> Tokens are what the reader is spending;
+        bytes are what Hanger measured. So in the ledger the token figure takes the 13px step and full ink,
+        with the byte count beneath it at 11px. <b>The table stays in bytes throughout</b>, totals row
+        included: there the question is which tool is heavier than which, an exact figure serves a ranking
+        better than a divided-by-four one, and one unit per column beats two. The ledger&rsquo;s second line
+        is what ties the two together &mdash; the same 2.8 kB appears in both.</p>
+      <p><b>Two honest gaps.</b> A single-file skill has no Contents card, so there is nothing to fold and the
+        ledger stands alone. And a server with more than one launch spec draws one tools block per spec
+        (<code>specGroups</code>), while <code>cost</code> is read from <code>anyVerified</code> — one
+        ledger over several tables. That case needs its own answer before this ships.</p>
+    </div>
+  </div>
+</section>
+
+</div>
+
+<script>
+(function () {
+  var t = document.getElementById("theme");
+  t.addEventListener("click", function () {
+    var dark = document.documentElement.getAttribute("data-theme") === "dark";
+    document.documentElement.setAttribute("data-theme", dark ? "light" : "dark");
+    t.setAttribute("aria-pressed", String(!dark));
+    t.textContent = dark ? "Dark" : "Light";
+  });
+
+  var w = document.getElementById("widen");
+  w.addEventListener("click", function () {
+    var wide = w.getAttribute("aria-pressed") === "true";
+    document.querySelectorAll(".panel").forEach(function (p) {
+      p.style.width = wide ? "384px" : "520px";
+    });
+    w.setAttribute("aria-pressed", String(!wide));
+    w.textContent = wide ? "Widen to 520px" : "Back to 384px";
+  });
+})();
+</script>
+</body>
+</html>
