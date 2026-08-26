@@ -1272,6 +1272,72 @@ describe("McpServerDetail — the tool table and Context (M5)", () => {
     );
     expect(screen.queryByRole("heading", { name: "Context per request" })).toBeNull();
   });
+
+  it("draws no ledger for a failed probe, even though the backend still sends a zeroed cost object", () => {
+    // Mirrors what the real backend actually sends, not a hand-simplified
+    // fixture: `lib.rs` builds `cost` unconditionally via `tool_cost()`, and
+    // `tool_cost` over an empty tool list (a failed probe's `tools: []`) is a
+    // truthy all-zero object, not `undefined`. A fixture that omits `cost` on
+    // an error entry can never exercise the bug this guards against.
+    render(
+      <McpServerDetail
+        server={{ ...base, registrations: [base.registrations[0]] }}
+        verified={{
+          "cc-user": {
+            capabilities: [],
+            tools: [],
+            verifiedAt: 1_700_000_000_000,
+            error: "Timed out after 20s waiting for the server to respond",
+            cost: { toolCount: 0, describedToolCount: 0, descriptionBytesTotal: 0, estimatedTokens: 0, perTool: [] },
+          },
+        }}
+      />
+    );
+    expect(screen.queryByRole("heading", { name: "Context per request" })).toBeNull();
+    expect(screen.queryByText("0 of 0 tools carry one")).toBeNull();
+    expect(screen.queryByText(/≈ 0 tokens/)).toBeNull();
+    // The failure itself still renders -- this isn't a test that the error
+    // vanishes, only that no ledger is fabricated alongside it.
+    expect(screen.getByText(/Timed out after 20s/)).toBeTruthy();
+  });
+
+  it("draws no ledger for a failed spec group in the multi-spec layout either, while its probed sibling still gets one", () => {
+    const server: McpServerView = {
+      ...base,
+      name: "tauri",
+      registrations: [
+        { key: "/a:tauri", host: "Claude Code", tier: "global", configPath: "~/.claude.json", command: "npx", launchDisplay: "npx -y @tauri/mcp@latest" },
+        { key: "/b:tauri", host: "Codex", tier: "global", configPath: "~/.codex/config.toml", command: "npx", launchDisplay: "npx -y @tauri/mcp@2.9.1" },
+      ],
+    };
+    render(
+      <McpServerDetail
+        server={server}
+        verified={{
+          "/a:tauri": {
+            capabilities: [],
+            tools: [],
+            verifiedAt: 1_700_000_000_000,
+            error: "Connection refused",
+            cost: { toolCount: 0, describedToolCount: 0, descriptionBytesTotal: 0, estimatedTokens: 0, perTool: [] },
+          },
+          "/b:tauri": {
+            capabilities: [],
+            tools: [{ name: "get_docs" }],
+            verifiedAt: 1_700_000_000_000,
+            cost: { toolCount: 1, describedToolCount: 1, descriptionBytesTotal: 60, estimatedTokens: 15, perTool: [] },
+          },
+        }}
+      />
+    );
+    const blocks = screen.getAllByTestId("tools-block");
+    expect(blocks).toHaveLength(2);
+    const [blockA, blockB] = blocks;
+    expect(within(blockA).queryByText("0 of 0 tools carry one")).toBeNull();
+    expect(within(blockA).getByText(/Connection refused/)).toBeTruthy();
+    expect(within(blockB).getByText("1 of 1 tools carry one")).toBeTruthy();
+    expect(within(blockB).getByText(/≈ 15 tokens/)).toBeTruthy();
+  });
 });
 
 /**

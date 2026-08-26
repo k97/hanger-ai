@@ -730,8 +730,14 @@ export default function McpServerDetail({
         {/* What a request actually carries, ahead of the list that produced
             it. Only knowable once a probe has answered -- `cost` travels
             with the same handshake result the tool list itself came from,
-            so nothing here can exist before that. */}
-        {specGroups.length === 1 && specGroups[0].result?.cost && (
+            so nothing here can exist before that. A failed probe still
+            builds a `cost` object (zeroed, over an empty tool list -- the
+            backend does not special-case it), so `.cost` truthy is not
+            enough on its own; `!error` is what the count slot two sections
+            down already checks for the same reason. Without it a failed
+            probe would draw "0 of 0 tools carry one" for a server that
+            never answered. */}
+        {specGroups.length === 1 && specGroups[0].result?.cost && !specGroups[0].result.error && (
           <section className={SECTION}>
             <div className="flex items-baseline justify-between gap-2 mb-[10px]">
               <h3 className={HEADING}>Context per request</h3>
@@ -880,7 +886,13 @@ export default function McpServerDetail({
                   <span className="text-micro font-mono text-ink-3 truncate">
                     {group.regs.map((r) => `${r.host} · ${r.tier}`).join(", ")}
                   </span>
-                  {group.result?.cost && <ContextPerRequest cost={group.result.cost} />}
+                  {/* Same `!error` guard as the single-spec ledger above and
+                      the same reason: a failed probe still carries a zeroed
+                      `cost`, and `group.result` here is set regardless of
+                      error (first member wins until a success arrives). */}
+                  {group.result?.cost && !group.result.error && (
+                    <ContextPerRequest cost={group.result.cost} />
+                  )}
                   {group.result ? (
                     <ProbedToolList result={group.result} />
                   ) : verifying.includes(group.regs[0].key) ? (
