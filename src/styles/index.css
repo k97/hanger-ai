@@ -203,6 +203,30 @@
   box-shadow: var(--capsule-shadow);
 }
 
+/* The rail column's Finder-style collapse is the one place in this app that
+   animates a layout property, and it earns it: the column is a flex parent
+   whose children have to reflow into the new size, so a transform would scale
+   them rather than resize it. The transition itself lives on the element as
+   Tailwind (`transition-[width] duration-nav`, App.tsx); this rule turns it
+   off for the length of a drag.
+
+   Both are needed because `sidebarWidth` has two writers with opposite needs.
+   Collapsing is a discrete state change — 56 + width → 56 — and eases. The
+   resize handle writes the same value on every mousemove, and against a live
+   transition each of those writes restarts a fresh interpolation, so the
+   column eases toward a target the cursor has already left and trails it for
+   the whole drag, only landing once the mouse stops. A transition belongs to
+   a state change, never to a value the user has hold of.
+
+   Keyed off body rather than a React prop because the drag is owned by
+   SourceListShell, four sidebar components below the element that needs to
+   know — threading a flag up through all four to say "a mouse is down" is a
+   lot of prop for a fact the document can hold. SourceListShell sets and
+   clears the attribute in its own mouse handlers. */
+body[data-resizing-sidebar] [data-rail-column] {
+  transition: none;
+}
+
 /* Entrance beats. A sheet drops from the title bar the way a macOS sheet does;
    a toast rises from the foot. Both run on the press beat and the shared
    spring, and both are killed by the reduced-motion rule at the foot of this
@@ -212,6 +236,37 @@
 }
 @utility animate-rise {
   animation: hanger-rise var(--dur-press) var(--spring);
+}
+
+/* The plain fade — the fourth entrance, and the only one with no geometry.
+   A scrim has no edge to arrive from and no size to settle into; it is either
+   there or it is not, so opacity is the whole of its motion. On the press
+   beat like the two above, deliberately: a scrim and the sheet it backs are
+   one appearance, and landing them on different beats reads as two things
+   arriving.
+
+   `ease-out` rather than the spring, for the same reason the spring is right
+   for the other two and wrong here. The spring's value is what it does near
+   the end of its travel, and opacity has no travel to shape — its curve is
+   invisible on a value that only goes 0 → 1.
+
+   Eight elements named this utility before it existed (App.tsx's settings
+   scrim and its result blocks, RepoPane's unlink scrim, SidebarScanModal's).
+   Tailwind emits nothing for a class it does not recognise and reports no
+   error, so every one of them rendered with no animation at all and nothing
+   was red — `src/__tests__/animation-classes-resolve.test.ts` is the control
+   that now makes that state fail. */
+@utility animate-fade-in {
+  animation: hanger-fade-in var(--dur-press) ease-out;
+}
+
+@keyframes hanger-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 @keyframes hanger-drop {

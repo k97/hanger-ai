@@ -1065,10 +1065,10 @@ export default function App() {
 
   if (onboardingComplete === false) {
     return (
-      <div className="min-h-screen bg-page flex items-center justify-center font-sans p-4 relative overflow-hidden transition-colors duration-200">
+      <div className="min-h-screen bg-page flex items-center justify-center font-sans p-4 relative overflow-hidden transition-colors duration-press">
         {/* Step 1: Welcome Screen */}
         {onboardingStep === 1 && (
-          <div className="w-full max-w-md bg-plane border border-line rounded-plane p-8 flex flex-col gap-6 text-center animate-in zoom-in-95 duration-200">
+          <div className="w-full max-w-md bg-plane border border-line rounded-plane p-8 flex flex-col gap-6 text-center animate-drop">
             <div className="flex flex-col items-center gap-2">
               <div className="w-14 h-14 rounded-pill bg-fill flex items-center justify-center text-on-fill mx-auto select-none">
                 <ShieldCheckIcon size={24} />
@@ -1089,7 +1089,7 @@ export default function App() {
 
         {/* Step 2: Privacy & Telemetry Consent */}
         {onboardingStep === 2 && (
-          <div className="w-full max-w-md bg-plane border border-line rounded-plane p-8 flex flex-col gap-5 animate-in zoom-in-95 duration-200">
+          <div className="w-full max-w-md bg-plane border border-line rounded-plane p-8 flex flex-col gap-5 animate-drop">
             <div className="flex flex-col gap-1.5 border-b border-line pb-3.5">
               <h2 className="text-lg-app font-medium tracking-[-0.3px] text-ink-1">Privacy & telemetry consent</h2>
               <p className="text-small text-ink-2 leading-[1.65]">
@@ -1308,7 +1308,7 @@ export default function App() {
       : assetCounts?.total ?? 0;
 
   return (
-    <div className="h-screen w-screen bg-page text-ink-1 flex font-sans transition-colors duration-200 overflow-hidden">
+    <div className="h-screen w-screen bg-page text-ink-1 flex font-sans transition-colors duration-press overflow-hidden">
       {/* ══ Left column: rail + source list share one plane and carry their
           own 40px cap, so the column edge runs uninterrupted top to bottom.
           The native traffic lights overlay the first ~66px of the cap
@@ -1317,7 +1317,8 @@ export default function App() {
           keep their position when the source list collapses, overflowing the
           56px rail on purpose — the toggle must stay reachable to reopen. */}
       <div
-        className="shrink-0 h-full bg-plane border-r border-line flex flex-col min-h-0 transition-[width] duration-240"
+        data-rail-column
+        className="shrink-0 h-full bg-plane border-r border-line flex flex-col min-h-0 transition-[width] duration-nav"
         style={{
           width:
             56 +
@@ -1587,7 +1588,7 @@ export default function App() {
         </header>
 
           {error && (
-            <div className="absolute top-4 left-4 right-4 z-40 p-3.5 rounded-inner border border-line bg-plane text-state-danger flex items-center justify-between text-small animate-fade-in">
+            <div className="absolute top-4 left-4 right-4 z-40 p-3.5 rounded-inner border border-line bg-plane text-state-danger flex items-center justify-between text-small animate-drop">
               <div className="flex items-center gap-2 min-w-0">
                 <ExclamationTriangleIcon size={16} className="shrink-0" />
                 <span className="break-all">{error}</span>
@@ -1880,7 +1881,7 @@ export default function App() {
       {/* Settings Modal Overlay */}
       {showSettingsModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-scrim p-4 animate-fade-in font-sans">
-          <div className="w-full max-w-md bg-page border border-line rounded-plane p-[18px] flex flex-col gap-4">
+          <div className="w-full max-w-md bg-page border border-line rounded-plane p-[18px] flex flex-col gap-4 animate-drop">
             <div className="flex justify-between items-center border-b border-line pb-3">
               <h3 className="text-base-app font-medium text-ink-1 flex items-center gap-2">
                 <GlobeAltIcon size={16} className="text-ink-2" />

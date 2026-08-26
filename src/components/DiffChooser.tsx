@@ -36,7 +36,7 @@ export default function DiffChooser({
   const currentSection = alignedSections[activeSectionIndex];
 
   return (
-    <div className="absolute inset-0 bg-page flex flex-col z-[60] p-6 border-t border-line animate-in fade-in slide-in-from-bottom duration-200">
+    <div className="absolute inset-0 bg-page flex flex-col z-[60] p-6 border-t border-line animate-rise">
       <div className="flex justify-between items-center border-b border-line pb-4 mb-4">
         <div className="flex items-center gap-2 text-ink-1 font-medium">
           <GitMergeIcon size={18} />
@@ -46,7 +46,7 @@ export default function DiffChooser({
 
       {deploySuccess ? (
         <div className="flex-1 flex flex-col items-center justify-center gap-2 text-state-success">
-          <div className="w-12 h-12 rounded-pill bg-plane border border-line flex items-center justify-center animate-in fade-in zoom-in-95 duration-200">
+          <div className="w-12 h-12 rounded-pill bg-plane border border-line flex items-center justify-center">
             <CheckIcon size={24} />
           </div>
           <span className="text-base-app font-medium font-sans mt-2">Deploying merged rule...</span>

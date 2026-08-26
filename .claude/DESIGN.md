@@ -227,25 +227,53 @@ asserted here, not enforced anywhere.
 ### Motion — one spring, three beats
 
 ```
---spring: cubic-bezier(0.2, 0.85, 0.25, 1);   tokens.css:46
---dur-hover: 160ms;                            tokens.css:47
---dur-nav:   180ms;                            tokens.css:48
---dur-press: 200ms;                            tokens.css:49
+--spring: cubic-bezier(0.2, 0.85, 0.25, 1);   tokens.css:80
+--dur-hover: 160ms;                            tokens.css:81
+--dur-nav:   180ms;                            tokens.css:82
+--dur-press: 200ms;                            tokens.css:83
 ```
 
 Tailwind v4 durations are not themeable, so the three beats are declared as
 first-class utilities instead — `duration-hover`, `duration-nav`,
-`duration-press` (`index.css:144-146`) — alongside `ease-spring`
+`duration-press` (`index.css:138-146`) — alongside `ease-spring`
 (`index.css:124`).
 
-Three entrance animations exist, each with a stated physical rationale:
-`animate-drop` for a sheet falling from the title bar, `animate-rise` for a
-toast from the foot (`index.css:130-139`, keyframes `:141-150`, `:169-178`),
-and `animate-tip` for tooltips, which scales from `0.97` rather than `0` because
-"nothing in the world appears from nothing" (`index.css:152-167`).
+Four entrance animations exist, each with a stated physical rationale:
+`animate-drop` for a sheet falling from the title bar and `animate-rise` for a
+toast from the foot (`index.css:234-239`, keyframes `:272-281`, `:300-309`);
+`animate-tip` for tooltips, which scales from `0.97` rather than `0` because
+"nothing in the world appears from nothing" (`:285-297`); and `animate-fade-in`
+(`:259-269`), the one with no geometry, for a scrim — which has no edge to
+arrive from and no size to settle into, so opacity is the whole of its motion.
+It runs on the press beat like the two sheets, so a scrim and the sheet it
+backs land together, and on `ease-out` rather than the spring, since a curve
+is invisible on a value that only travels 0 → 1.
+
+`animate-fade-in` was named by eight elements for some time before it existed.
+Tailwind emits nothing for a class it does not recognise and reports no error,
+so those elements simply rendered with no animation and nothing went red;
+`animate-in`, `zoom-in-95`, `fade-in` and `slide-in-from-bottom` sat on seven
+more, all from the `tailwindcss-animate` plugin, which this project has never
+installed. `src/__tests__/animation-classes-resolve.test.ts` is the control:
+every `animate-*` a component applies resolves to a declared utility or a
+Tailwind built-in, and the plugin's vocabulary appears nowhere.
+
+**The one layout property that animates.** The rail column eases its width on
+collapse (`App.tsx`, `transition-[width] duration-nav` on `[data-rail-column]`)
+because its children have to reflow into the new size — a transform would scale
+them. `sidebarWidth` has a second writer, though: the resize handle, which
+writes it on every mousemove. Against a live transition each of those writes
+restarts a fresh interpolation, so the column eases toward a target the cursor
+has already left and trails it for the whole drag. `SourceListShell` marks the
+drag on `document.body` and `index.css:226-228` turns the transition off while
+the mark is set — a transition belongs to a state change, never to a value the
+user has hold of. The source list inside carries no width transition at all: it
+unmounts on collapse, so one there could only ever have animated the drag.
+Pinned by `src/__tests__/sidebar_resize_motion.test.tsx`, whose class-contract
+half is explicit that happy-dom cannot show the transition actually stopping.
 
 All motion is removed under `prefers-reduced-motion: reduce`, transitions and
-animations both, with `!important` (`index.css:397-398`).
+animations both, with `!important` (`index.css:504-510`).
 
 **Icon motion.** A second vocabulary, `aim-*`, drives the animated marks in
 `icons.tsx` (§4) and lives entirely in `index.css:262-363`: `aim-part` sets

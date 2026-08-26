@@ -91,7 +91,7 @@ export default function SidebarScanModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-scrim animate-fade-in font-sans">
-      <div className="w-full max-w-lg bg-page border border-line rounded-plane flex flex-col max-h-[85vh] overflow-hidden">
+      <div className="w-full max-w-lg bg-page border border-line rounded-plane flex flex-col max-h-[85vh] overflow-hidden animate-drop">
         {/* Modal Header */}
         <div className="flex items-center justify-between p-[18px] pb-3.5 border-b border-line">
           <div className="flex flex-col">

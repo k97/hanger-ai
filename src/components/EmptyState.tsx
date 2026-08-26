@@ -22,7 +22,7 @@ export interface EmptyStateProps {
 }
 
 const PLANE_CLASS =
-  "flex-1 mx-[18px] mb-[18px] min-h-0 flex flex-col items-center justify-center text-center border border-dashed border-line rounded-plane animate-in fade-in duration-200";
+  "flex-1 mx-[18px] mb-[18px] min-h-0 flex flex-col items-center justify-center text-center border border-dashed border-line rounded-plane animate-fade-in";
 
 export default function EmptyState({
   icon,

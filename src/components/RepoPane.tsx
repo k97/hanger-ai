@@ -385,7 +385,7 @@ export default function RepoPane({
   const visibleCount = sortedSkills.length + sortedTools.length + sortedRules.length + sortedSubagents.length;
 
   return (
-    <div className="flex-1 flex flex-col min-h-0 overflow-hidden bg-page animate-fade-in font-sans">
+    <div className="flex-1 flex flex-col min-h-0 overflow-hidden bg-page font-sans">
       {/* Facet chips. No View control here (§5.6's "Rows" choice lives on
           ProfilePane only): `get_mcp_servers` is machine-global
           (`discover_machine`, not `discover_repo`), so there is no
@@ -456,7 +456,7 @@ export default function RepoPane({
 
         {/* macOS Permission denied TCC Fix Panel */}
         {permissionDeniedWarnings.length > 0 && (
-          <div className="flex flex-col gap-3 p-3.5 border border-line rounded-inner leading-relaxed animate-in fade-in duration-200">
+          <div className="flex flex-col gap-3 p-3.5 border border-line rounded-inner leading-relaxed animate-fade-in">
             <div className="flex gap-2 text-state-danger">
               <ExclamationTriangleIcon className="shrink-0 mt-0.5" size={16} />
               <div className="flex flex-col gap-1 min-w-0">
@@ -757,7 +757,7 @@ export default function RepoPane({
 
       {showUnlinkConfirm && assetToUnlink && (
         <div className="fixed inset-0 bg-scrim flex items-center justify-center z-[100] animate-fade-in">
-          <div className="w-full max-w-sm bg-page rounded-plane border border-line p-[18px] relative flex flex-col gap-4 font-sans animate-in zoom-in-95 duration-150">
+          <div className="w-full max-w-sm bg-page rounded-plane border border-line p-[18px] relative flex flex-col gap-4 font-sans animate-drop">
             <div className="flex justify-between items-center pb-2 border-b border-line">
               <h3 className="text-base-app font-medium text-ink-1 flex items-center gap-1.5">
                 <ExclamationTriangleIcon className="text-state-warning" size={16} />

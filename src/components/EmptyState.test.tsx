@@ -9,8 +9,17 @@ afterEach(cleanup);
 
 // The plane class as it exists at all eight call sites today
 // (ProfilePane.tsx / RepoPane.tsx `emptyPlaneClass`), character-identical.
+//
+// The tail changed on 2026-08-26: three classes from the `tailwindcss-animate`
+// plugin became the one real `animate-fade-in`. Not a loosening — the string is
+// still pinned in full and still asserted to appear exactly once. The plugin is
+// not installed and never has been, so the old tail compiled to nothing and the
+// empty state never faded. This copy is
+// deliberately a duplicate rather than an import, so it could not follow the
+// component on its own; updating it is forced by the fix, and there is no
+// order in which both files pass the gates separately.
 const PLANE_CLASS =
-  "flex-1 mx-[18px] mb-[18px] min-h-0 flex flex-col items-center justify-center text-center border border-dashed border-line rounded-plane animate-in fade-in duration-200";
+  "flex-1 mx-[18px] mb-[18px] min-h-0 flex flex-col items-center justify-center text-center border border-dashed border-line rounded-plane animate-fade-in";
 
 describe("EmptyState", () => {
   it("renders the icon slot, headline, sub, action and children", () => {
