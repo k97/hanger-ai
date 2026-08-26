@@ -691,14 +691,22 @@ export default function App() {
   useEffect(() => {
     initializeApp();
 
-    let unlistenProgress: (() => void) | null = null;
-    let unlistenComplete: (() => void) | null = null;
-    let unlistenError: (() => void) | null = null;
+    // A listener that outlives its component keeps receiving emits addressed
+    // to a callback id the page no longer holds — Tauri never clears its JS
+    // listener registry on a reload. Cleanup can also beat listen()'s promise,
+    // which StrictMode does on every mount in development, so a handle that
+    // arrives late unregisters itself rather than leaking.
+    let cancelled = false;
+    const unlisteners: Array<() => void> = [];
+
+    const track = async (event: string, handler: (e: any) => void) => {
+      const unlisten = await listen<any>(event, handler);
+      if (cancelled) unlisten();
+      else unlisteners.push(unlisten);
+    };
 
     const setupListeners = async () => {
-      unlistenProgress = await listen<any>("scan://progress", () => {});
-
-      unlistenComplete = await listen<any>("scan://complete", async (event) => {
+      await track("scan://complete", async (event) => {
         const payload = event.payload;
         setInventory(payload.inventory);
         setScanning(false);
@@ -721,7 +729,7 @@ export default function App() {
         });
       });
 
-      unlistenError = await listen<any>("scan://error", (event) => {
+      await track("scan://error", (event) => {
         const payload = event.payload;
         setError(payload.error);
         setScanning(false);
@@ -732,9 +740,9 @@ export default function App() {
     setupListeners();
 
     return () => {
-      if (unlistenProgress) unlistenProgress();
-      if (unlistenComplete) unlistenComplete();
-      if (unlistenError) unlistenError();
+      cancelled = true;
+      unlisteners.forEach((unlisten) => unlisten());
+      unlisteners.length = 0;
     };
   }, []);
 

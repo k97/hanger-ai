@@ -318,3 +318,54 @@ describe("Toolbar search — the clear control", () => {
     expect(screen.queryByLabelText("Clear search")).toBeNull();
   });
 });
+
+/*
+ * Scan event listeners must not outlive the component that registered them.
+ *
+ * Tauri keys its JS listener registry by webview label and never clears it on
+ * a page reload — in tauri 2.11.5 `unlisten_js` (src/event/listener.rs:239) is
+ * reachable only from the explicit `plugin:event|unlisten` command, and no
+ * navigation path calls it. A listener that fails to unregister therefore
+ * keeps receiving emits addressed to a callback id the reloaded page no
+ * longer holds, and Tauri's core.js logs
+ * "[TAURI] Couldn't find callback id N" for each one. On 2026-08-27 that was
+ * 16,458 lines, 81% of the app log.
+ */
+describe("Scan event listeners are released on unmount", () => {
+  beforeEach(() => {
+    cleanup();
+    eventListeners = {};
+    mockPreferences = {
+      onboarding_complete: "true",
+      consent_crash: "true",
+      consent_usage: "true",
+      sidebar_collapsed: "false",
+      selected_sidebar_item: "discovery",
+      inspector_open: "false",
+    };
+  });
+
+  afterEach(() => {
+    cleanup();
+  });
+
+  it("releases them when unmounted before listen() resolves", async () => {
+    const { unmount } = render(<App />);
+    // Unmount in the same tick, before any listen() promise settles. This is
+    // exactly what React StrictMode does on every mount in development, so a
+    // cleanup that reads its unlisten handles too early leaks on every load.
+    unmount();
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    expect(Object.keys(eventListeners).filter((e) => e.startsWith("scan"))).toEqual([]);
+  });
+
+  it("does not subscribe to scan://progress, which no handler consumes", async () => {
+    render(<App />);
+    await waitFor(() => expect(eventListeners["scan://complete"]).toBeDefined());
+
+    expect(eventListeners["scan://progress"]).toBeUndefined();
+  });
+});
