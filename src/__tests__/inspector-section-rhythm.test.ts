@@ -27,14 +27,15 @@ function read(rel: string): string {
  * What a content section in an inspector panel is spaced with. Margins, so
  * adjacent sections collapse to one gap rather than summing two.
  *
- * 28px between sections, 14px above the first one, 8px from a section's
+ * 28px between sections, 18px above the first one, 8px from a section's
  * heading to its own card.
  *
- * The first section's gap is deliberately half. A section gap separates two
- * sections; above the first there is no section, only the tab bar, and that
- * underline is already the boundary. Spending a full gap there measures
+ * The first section's gap is deliberately smaller. A section gap separates
+ * two sections; above the first there is no section, only the tab bar, and
+ * that underline is already the boundary. Spending a full gap there measures
  * against the wrong thing and reads as the panel sagging away from its own
- * tabs. `first:` follows the DOM, so it lands on whichever section actually
+ * tabs. It started at half (14) and went up one step on the same 4px ladder
+ * the section gap was walked up. `first:` follows the DOM, so it lands on whichever section actually
  * renders first -- both panels lead with a conditional one.
  *
  * Where those come from, precisely, because the two halves are not sourced
@@ -62,7 +63,7 @@ function read(rel: string): string {
  * has widened that ratio, and the 8 has stayed put on purpose -- it is what
  * binds a heading to its own card while the gap above it grows.
  */
-const SECTION_SPACING = "mx-[12px] my-7 first:mt-3.5";
+const SECTION_SPACING = "mx-[12px] my-7 first:mt-4.5";
 
 /** Gap from a section's heading row to the card beneath it. */
 const HEADING_GAP = "mb-2";

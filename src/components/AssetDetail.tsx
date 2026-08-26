@@ -392,7 +392,7 @@ export default function AssetDetail({ asset, inventory, onDocumentPath, annotati
         {kind !== "none" && tab === "content" && (
           <div role="tabpanel" id="panel-content" aria-labelledby="tab-content">
             {asset.category === "Skills" && body && (
-              <section className="mx-[12px] my-7 first:mt-3.5">
+              <section className="mx-[12px] my-7 first:mt-4.5">
                 {/* items-center, not items-baseline: the trigger is a glyph,
                     and a glyph has no baseline to share with the eyebrow. */}
                 <div className="flex items-center justify-between gap-2 mb-2">
@@ -441,7 +441,7 @@ export default function AssetDetail({ asset, inventory, onDocumentPath, annotati
             )}
 
             {text !== null && (
-              <section className="mx-[12px] my-7 first:mt-3.5">
+              <section className="mx-[12px] my-7 first:mt-4.5">
                 <ListCard>
                   <ListCardRow
                     icon={<DocumentIcon size={14} aria-hidden="true" />}
@@ -504,7 +504,7 @@ export default function AssetDetail({ asset, inventory, onDocumentPath, annotati
             id={kind === "none" ? undefined : "panel-details"}
             aria-labelledby={kind === "none" ? undefined : "tab-details"}
           >
-            <section className="mx-[12px] my-7 first:mt-3.5">
+            <section className="mx-[12px] my-7 first:mt-4.5">
               <div className="flex items-baseline justify-between gap-2 mb-2">
                 <span className={eyebrowClass}>Identity</span>
               </div>
@@ -524,7 +524,7 @@ export default function AssetDetail({ asset, inventory, onDocumentPath, annotati
             </section>
 
             {dirEntries && dirEntries.length > 0 && (
-              <section className="mx-[12px] my-7 first:mt-3.5">
+              <section className="mx-[12px] my-7 first:mt-4.5">
                 <div className="flex items-baseline justify-between gap-2 mb-2">
                   <span className={eyebrowClass}>Contents</span>
                 </div>
@@ -567,7 +567,7 @@ export default function AssetDetail({ asset, inventory, onDocumentPath, annotati
             )}
 
             {allowedTools.length > 0 && (
-              <section className="mx-[12px] my-7 first:mt-3.5">
+              <section className="mx-[12px] my-7 first:mt-4.5">
                 <div className="flex items-baseline justify-between gap-2 mb-2">
                   <span className={eyebrowClass}>Capabilities</span>
                 </div>
