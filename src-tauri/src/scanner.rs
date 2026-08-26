@@ -337,6 +337,41 @@ pub fn get_engine_key(id_str: &str) -> Option<&'static str> {
     }
 }
 
+/// A denied filesystem read, split by what denied it.
+///
+/// macOS's TCC privacy layer returns EPERM ("Operation not permitted");
+/// ordinary Unix mode bits return EACCES ("Permission denied"). The two need
+/// different advice — System Settings can fix the first, chmod the second —
+/// so they must not collapse into one warning. Constants are the raw POSIX
+/// numbers rather than libc's names so this compiles wherever scanner.rs
+/// does; probe.rs already links libc directly if names are ever preferred.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Denial {
+    MacosBlocked,
+    UnixPermission,
+}
+
+pub(crate) fn classify_denial(err: Option<&std::io::Error>) -> Option<Denial> {
+    match err?.raw_os_error() {
+        Some(1) => Some(Denial::MacosBlocked),   // EPERM
+        Some(13) => Some(Denial::UnixPermission), // EACCES
+        _ => None,
+    }
+}
+
+/// The user-facing warning line for a denial.
+///
+/// These strings are a contract: RepoPane.tsx routes "macOS blocked access
+/// to" into the TCC fix panel and everything else into the plain warnings
+/// list. The EACCES string is unchanged from the pre-classifier code so
+/// existing fixtures keep meaning what they meant.
+pub(crate) fn denial_warning(denial: Denial, path: &str) -> String {
+    match denial {
+        Denial::MacosBlocked => format!("macOS blocked access to {}", path),
+        Denial::UnixPermission => format!("Permission denied: {}", path),
+    }
+}
+
 pub(crate) fn get_home_dir() -> PathBuf {
     if let Ok(test_home) = std::env::var("HANGER_TEST_HOME") {
         return PathBuf::from(test_home);
@@ -1984,4 +2019,43 @@ pub fn split_rule_sections(content: &str) -> Vec<crate::domain::RuleSection> {
     }
 
     sections
+}
+
+#[cfg(test)]
+mod denial_tests {
+    use super::*;
+    use std::io;
+
+    #[test]
+    fn eperm_classifies_as_macos_blocked() {
+        let e = io::Error::from_raw_os_error(1); // EPERM — what tccd returns
+        assert!(matches!(classify_denial(Some(&e)), Some(Denial::MacosBlocked)));
+    }
+
+    #[test]
+    fn eacces_classifies_as_unix_permission() {
+        let e = io::Error::from_raw_os_error(13); // EACCES — chmod-style denial
+        assert!(matches!(classify_denial(Some(&e)), Some(Denial::UnixPermission)));
+    }
+
+    #[test]
+    fn other_errors_and_non_io_do_not_classify() {
+        let e = io::Error::from_raw_os_error(2); // ENOENT
+        assert!(classify_denial(Some(&e)).is_none());
+        assert!(classify_denial(None).is_none());
+    }
+
+    #[test]
+    fn warning_strings_are_the_frontend_contract() {
+        // RepoPane.tsx routes on these exact prefixes. Change them together
+        // or not at all.
+        assert_eq!(
+            denial_warning(Denial::MacosBlocked, "/Users/x/Documents"),
+            "macOS blocked access to /Users/x/Documents"
+        );
+        assert_eq!(
+            denial_warning(Denial::UnixPermission, "/Users/x/p"),
+            "Permission denied: /Users/x/p"
+        );
+    }
 }
