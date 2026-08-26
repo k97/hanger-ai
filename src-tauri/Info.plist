@@ -14,5 +14,23 @@
 	-->
 	<key>CFBundleIconName</key>
 	<string>AppIcon</string>
+	<!--
+	  TCC usage descriptions. macOS shows these inside its own consent
+	  dialog when Hanger first touches a protected folder (Documents,
+	  Desktop, Downloads, removable and network volumes). Without them the
+	  prompt falls back to Apple's generic wording and Hanger never gets to
+	  say why it is asking. Hanger deliberately does not request Full Disk
+	  Access; these five are the whole surface.
+	-->
+	<key>NSDocumentsFolderUsageDescription</key>
+	<string>Hanger scans the folders you link for skills, rules, subagents and MCP servers. Some coding agents keep theirs in Documents.</string>
+	<key>NSDesktopFolderUsageDescription</key>
+	<string>Hanger reads this folder only when you link a project inside it.</string>
+	<key>NSDownloadsFolderUsageDescription</key>
+	<string>Hanger reads this folder only when you link a project inside it.</string>
+	<key>NSRemovableVolumesUsageDescription</key>
+	<string>Hanger reads an external drive only when you link a project on it.</string>
+	<key>NSNetworkVolumesUsageDescription</key>
+	<string>Hanger reads a network drive only when you link a project on it.</string>
 </dict>
 </plist>
