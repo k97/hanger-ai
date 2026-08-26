@@ -188,8 +188,15 @@ function ProbePending() {
    one, and the skill panel beside it has never needed one. Every section here
    already leads with an eyebrow and encloses a bordered card; that is the
    structure, and a rule on top of it was a third statement of the same
-   boundary. */
-const SECTION = "px-[12px] py-3.5";
+   boundary.
+
+   Margins, not padding, and the exact string AssetDetail uses: adjacent
+   margins collapse to one gap, adjacent padding sums to two. The same 14px
+   spelled `py-` drew twice the gap here that `my-` drew next door, which is
+   what made this panel's rhythm read as foreign once the rule came off.
+   `src/__tests__/inspector-section-rhythm.test.ts` holds the two spellings
+   together. */
+const SECTION = "mx-[12px] my-3.5";
 const HEADING = "text-micro font-medium text-ink-3 uppercase tracking-[.06em]";
 const COUNT = "text-micro font-mono text-ink-2 tabular";
 
