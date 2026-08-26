@@ -65,6 +65,7 @@ describe("McpServerDetail", () => {
         server={base}
         verified={{
           "cc-user": {
+            kind: "answered",
             serverVersion: "1.0.0",
             protocolVersion: "2025-06-18",
             capabilities: ["tools"],
@@ -102,7 +103,7 @@ describe("McpServerDetail", () => {
         server={{ ...base, registrations: [base.registrations[0]] }}
         onVerify={onVerify}
         verified={{
-          "cc-user": { capabilities: [], tools: [{ name: "get_system_volume" }], verifiedAt: 1_700_000_000_000 },
+          "cc-user": { kind: "answered", capabilities: [], tools: [{ name: "get_system_volume" }], verifiedAt: 1_700_000_000_000 },
         }}
       />
     );
@@ -120,7 +121,7 @@ describe("McpServerDetail", () => {
         server={{ ...base, registrations: [base.registrations[0]] }}
         verifying={["cc-user"]}
         verified={{
-          "cc-user": { capabilities: [], tools: [{ name: "get_system_volume" }], verifiedAt: 1_700_000_000_000 },
+          "cc-user": { kind: "answered", capabilities: [], tools: [{ name: "get_system_volume" }], verifiedAt: 1_700_000_000_000 },
         }}
       />
     );
@@ -160,6 +161,7 @@ describe("McpServerDetail", () => {
         server={{ ...base, registrations: [base.registrations[0]] }}
         verified={{
           "cc-user": {
+            kind: "answered",
             capabilities: [],
             tools: [{ name: "get_system_volume" }, { name: "set_system_volume" }],
             verifiedAt: 1_700_000_000_000,
@@ -192,8 +194,8 @@ describe("McpServerDetail", () => {
       <McpServerDetail
         server={server}
         verified={{
-          "/a:tauri": { capabilities: [], tools: [{ name: "get_docs" }], verifiedAt: 1_700_000_000_000 },
-          "/b:tauri": { capabilities: [], tools: [{ name: "search_api" }, { name: "extra" }], verifiedAt: 1_700_000_000_000 },
+          "/a:tauri": { kind: "answered", capabilities: [], tools: [{ name: "get_docs" }], verifiedAt: 1_700_000_000_000 },
+          "/b:tauri": { kind: "answered", capabilities: [], tools: [{ name: "search_api" }, { name: "extra" }], verifiedAt: 1_700_000_000_000 },
         }}
       />
     );
@@ -256,8 +258,7 @@ describe("McpServerDetail", () => {
         server={base}
         verified={{
           "cc-user": {
-            capabilities: [],
-            tools: [],
+            kind: "failed",
             verifiedAt: 1_700_000_000_000,
             error: "Timed out after 20s waiting for the server to respond",
           },
@@ -273,6 +274,7 @@ describe("McpServerDetail", () => {
         server={{ ...base, name: "tauri" }}
         verified={{
           "cc-user": {
+            kind: "answered",
             serverVersion: "0.12.0",
             protocolVersion: "2024-11-05",
             capabilities: ["prompts", "tools"],
@@ -313,8 +315,8 @@ describe("McpServerDetail", () => {
       <McpServerDetail
         server={diverged}
         verified={{
-          a: { protocolVersion: "2025-06-18", capabilities: [], tools: [], verifiedAt: 1_700_000_000_000 },
-          b: { protocolVersion: "2024-11-05", capabilities: [], tools: [], verifiedAt: 1_700_000_000_000 },
+          a: { kind: "answered", protocolVersion: "2025-06-18", capabilities: [], tools: [], verifiedAt: 1_700_000_000_000 },
+          b: { kind: "answered", protocolVersion: "2024-11-05", capabilities: [], tools: [], verifiedAt: 1_700_000_000_000 },
         }}
       />
     );
@@ -596,7 +598,7 @@ describe("McpServerDetail", () => {
       <McpServerDetail
         server={server}
         verified={{
-          "cc-1": { capabilities: [], tools: [{ name: "create_issue" }], verifiedAt: 1 },
+          "cc-1": { kind: "answered", capabilities: [], tools: [{ name: "create_issue" }], verifiedAt: 1 },
         }}
       />
     );
@@ -903,8 +905,8 @@ describe("McpServerDetail", () => {
       <McpServerDetail
         server={diverged}
         verified={{
-          a: { capabilities: ["tools"], tools: [{ name: "pinned_only" }], verifiedAt: 1_700_000_000_000 },
-          b: { capabilities: ["tools"], tools: [{ name: "floating_only" }, { name: "extra" }], verifiedAt: 1_700_000_000_000 },
+          a: { kind: "answered", capabilities: ["tools"], tools: [{ name: "pinned_only" }], verifiedAt: 1_700_000_000_000 },
+          b: { kind: "answered", capabilities: ["tools"], tools: [{ name: "floating_only" }, { name: "extra" }], verifiedAt: 1_700_000_000_000 },
         }}
       />
     );
@@ -943,7 +945,7 @@ describe("McpServerDetail", () => {
       <McpServerDetail
         server={diverged}
         verified={{
-          a: { capabilities: ["tools"], tools: [{ name: "solo_tool" }], verifiedAt: 1_700_000_000_000 },
+          a: { kind: "answered", capabilities: ["tools"], tools: [{ name: "solo_tool" }], verifiedAt: 1_700_000_000_000 },
         }}
       />
     );
@@ -1022,9 +1024,9 @@ describe("McpServerDetail", () => {
       <McpServerDetail
         server={server}
         verified={{
-          "/a:tauri": { capabilities: [], tools: [{ name: "get_docs" }, { name: "search_api" }], verifiedAt: 1_700_000_000_000 },
-          "/b:tauri": { capabilities: [], tools: [{ name: "get_docs" }, { name: "search_api" }], verifiedAt: 1_700_000_000_000 },
-          "/c:tauri": { capabilities: [], tools: [{ name: "get_docs" }, { name: "search_api" }], verifiedAt: 1_700_000_000_000 },
+          "/a:tauri": { kind: "answered", capabilities: [], tools: [{ name: "get_docs" }, { name: "search_api" }], verifiedAt: 1_700_000_000_000 },
+          "/b:tauri": { kind: "answered", capabilities: [], tools: [{ name: "get_docs" }, { name: "search_api" }], verifiedAt: 1_700_000_000_000 },
+          "/c:tauri": { kind: "answered", capabilities: [], tools: [{ name: "get_docs" }, { name: "search_api" }], verifiedAt: 1_700_000_000_000 },
         }}
       />
     );
@@ -1053,8 +1055,8 @@ describe("McpServerDetail", () => {
       <McpServerDetail
         server={server}
         verified={{
-          "/a:tauri": { capabilities: [], tools: [{ name: "get_docs" }, { name: "new_tool" }], verifiedAt: 1_700_000_000_000 },
-          "/b:tauri": { capabilities: [], tools: [{ name: "get_docs" }], verifiedAt: 1_700_000_000_000 },
+          "/a:tauri": { kind: "answered", capabilities: [], tools: [{ name: "get_docs" }, { name: "new_tool" }], verifiedAt: 1_700_000_000_000 },
+          "/b:tauri": { kind: "answered", capabilities: [], tools: [{ name: "get_docs" }], verifiedAt: 1_700_000_000_000 },
         }}
       />
     );
@@ -1088,8 +1090,8 @@ describe("McpServerDetail", () => {
       <McpServerDetail
         server={server}
         verified={{
-          "/a:tauri": { capabilities: [], tools: [], verifiedAt: 1_700_000_000_000, error: "Timed out after 20s waiting for the server to respond" },
-          "/b:tauri": { capabilities: [], tools: [{ name: "get_docs" }, { name: "search_api" }], verifiedAt: 1_700_000_000_000 },
+          "/a:tauri": { kind: "failed", verifiedAt: 1_700_000_000_000, error: "Timed out after 20s waiting for the server to respond" },
+          "/b:tauri": { kind: "answered", capabilities: [], tools: [{ name: "get_docs" }, { name: "search_api" }], verifiedAt: 1_700_000_000_000 },
         }}
       />
     );
@@ -1115,8 +1117,8 @@ describe("McpServerDetail", () => {
       <McpServerDetail
         server={server}
         verified={{
-          "/a:tauri": { capabilities: [], tools: [], verifiedAt: 1_700_000_000_000, error: "Timed out after 20s waiting for the server to respond" },
-          "/b:tauri": { capabilities: [], tools: [], verifiedAt: 1_700_000_000_000, error: "Connection refused" },
+          "/a:tauri": { kind: "failed", verifiedAt: 1_700_000_000_000, error: "Timed out after 20s waiting for the server to respond" },
+          "/b:tauri": { kind: "failed", verifiedAt: 1_700_000_000_000, error: "Connection refused" },
         }}
       />
     );
@@ -1131,7 +1133,7 @@ describe("McpServerDetail — the tool table and Context (M5)", () => {
       <McpServerDetail
         server={{ ...base, registrations: [base.registrations[0]] }}
         verified={{ "cc-user": {
-          capabilities: ["tools"], verifiedAt: 1_700_000_000_000,
+          kind: "answered", capabilities: ["tools"], verifiedAt: 1_700_000_000_000,
           tools: [
             { name: "get_system_volume", description: "Get the current macOS system volume level (0–100) and mute state." },
             { name: "list_audio_apps", description: "List the apps currently producing audio." },
@@ -1215,12 +1217,14 @@ describe("McpServerDetail — the tool table and Context (M5)", () => {
         server={server}
         verified={{
           "/a:tauri": {
+            kind: "answered",
             capabilities: [],
             tools: [{ name: "get_docs" }, { name: "new_tool" }],
             verifiedAt: 1_700_000_000_000,
             cost: { toolCount: 5, describedToolCount: 2, descriptionBytesTotal: 109, estimatedTokens: 42, perTool: [] },
           },
           "/b:tauri": {
+            kind: "answered",
             capabilities: [],
             tools: [{ name: "get_docs" }],
             verifiedAt: 1_700_000_000_000,
@@ -1262,6 +1266,7 @@ describe("McpServerDetail — the tool table and Context (M5)", () => {
         server={server}
         verified={{
           "/a:tauri": {
+            kind: "answered",
             capabilities: [],
             tools: [{ name: "get_docs" }],
             verifiedAt: 1_700_000_000_000,
@@ -1274,21 +1279,20 @@ describe("McpServerDetail — the tool table and Context (M5)", () => {
   });
 
   it("draws no ledger for a failed probe, even though the backend still sends a zeroed cost object", () => {
-    // Mirrors what the real backend actually sends, not a hand-simplified
-    // fixture: `lib.rs` builds `cost` unconditionally via `tool_cost()`, and
-    // `tool_cost` over an empty tool list (a failed probe's `tools: []`) is a
-    // truthy all-zero object, not `undefined`. A fixture that omits `cost` on
-    // an error entry can never exercise the bug this guards against.
+    // `lib.rs` builds `cost` unconditionally via `tool_cost()`, so on the wire
+    // a failed probe's zeroed `cost` arrives alongside its `error` -- that is
+    // what motivated the union in the first place. `parseProbe` (the one
+    // place that wire crosses IPC) now strips `cost` for the failed arm
+    // before this component ever sees it, so the fixture below is that arm
+    // directly: no `cost` field to carry, because the type no longer has one.
     render(
       <McpServerDetail
         server={{ ...base, registrations: [base.registrations[0]] }}
         verified={{
           "cc-user": {
-            capabilities: [],
-            tools: [],
+            kind: "failed",
             verifiedAt: 1_700_000_000_000,
             error: "Timed out after 20s waiting for the server to respond",
-            cost: { toolCount: 0, describedToolCount: 0, descriptionBytesTotal: 0, estimatedTokens: 0, perTool: [] },
           },
         }}
       />
@@ -1315,13 +1319,12 @@ describe("McpServerDetail — the tool table and Context (M5)", () => {
         server={server}
         verified={{
           "/a:tauri": {
-            capabilities: [],
-            tools: [],
+            kind: "failed",
             verifiedAt: 1_700_000_000_000,
             error: "Connection refused",
-            cost: { toolCount: 0, describedToolCount: 0, descriptionBytesTotal: 0, estimatedTokens: 0, perTool: [] },
           },
           "/b:tauri": {
+            kind: "answered",
             capabilities: [],
             tools: [{ name: "get_docs" }],
             verifiedAt: 1_700_000_000_000,
@@ -1454,7 +1457,7 @@ describe("McpServerDetail — lazy on open", () => {
         server={base}
         onAutoProbe={onAutoProbe}
         verified={{
-          "cc-user": { capabilities: [], tools: [{ name: "get_system_volume" }], verifiedAt: 1_700_000_000_000 },
+          "cc-user": { kind: "answered", capabilities: [], tools: [{ name: "get_system_volume" }], verifiedAt: 1_700_000_000_000 },
         }}
       />
     );
@@ -1606,6 +1609,7 @@ describe("McpServerDetail — Identity & capabilities card", () => {
         server={base}
         verified={{
           "cc-user": {
+            kind: "answered",
             serverVersion: "1.0.0",
             protocolVersion: "2025-06-18",
             capabilities: ["tools"],

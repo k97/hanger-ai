@@ -8,6 +8,7 @@ import Tooltip from "./Tooltip";
 import UnderlineTabs from "./UnderlineTabs";
 import ListCard, { ListCardRow } from "./ListCard";
 import { miniBtnClass, miniSetClass } from "./miniButton";
+import type { ProbeView, ToolCost } from "../utils/probeView";
 import {
   RevealInFileManagerIcon,
   ServerRelayIcon,
@@ -67,26 +68,10 @@ interface Registration {
   running?: { pid: number; spawningHost?: string };
 }
 
-interface VerifiedIdentity {
-  serverVersion?: string;
-  protocolVersion?: string;
-  capabilities: string[];
-  tools: Array<{ name: string; description?: string }>;
-  verifiedAt: number;
-  /** Present when the probe could not complete. Shown instead of an empty list. */
-  error?: string;
-  /** The byte and token accounting for the probe's tool list -- how many
-   *  tools carry a description, their combined size, and the resulting
-   *  estimate. Rendered by the Context-per-request ledger below. */
-  cost?: {
-    toolCount: number;
-    describedToolCount: number;
-    descriptionBytesTotal: number;
-    estimatedTokens: number;
-    /** Retained to document the wire shape; nothing in src/ reads it. */
-    perTool: Array<{ name: string; descriptionBytes: number }>;
-  };
-}
+/** The panel's own name for the probe union -- `answered` carries the tool
+ *  list and its optional cost, `failed` carries only the error. See
+ *  `src/utils/probeView.ts` for why the wire cannot express this directly. */
+type VerifiedIdentity = ProbeView;
 
 /** Every registration that launches the server the same way, collapsed to
  *  one Tools block regardless of whether any of them has been probed yet.
@@ -239,7 +224,7 @@ function relativeTime(then: number): string {
  */
 function RegistrationVerifyStatus({ result }: { result?: VerifiedIdentity }) {
   if (!result) return null;
-  if (result.error) {
+  if (result.kind === "failed") {
     return <span className="text-micro font-mono text-state-danger">verify failed</span>;
   }
   return (
@@ -322,7 +307,7 @@ function CheckAgainButton({
  *  reported instead. Shared by the Tools section's single-probed (unlabelled)
  *  and multi-probed (labelled) layouts, so the two never drift apart. */
 function ProbedToolList({ result }: { result: VerifiedIdentity }) {
-  if (result.error) {
+  if (result.kind === "failed") {
     return <p className="text-micro text-state-danger leading-[1.5]">{result.error}</p>;
   }
   return (
@@ -358,7 +343,7 @@ function ProbedToolList({ result }: { result: VerifiedIdentity }) {
  * `ProbedToolList`, rather than one figure floating above every group's list
  * with nothing saying which list it describes.
  */
-function ContextPerRequest({ cost }: { cost: NonNullable<VerifiedIdentity["cost"]> }) {
+function ContextPerRequest({ cost }: { cost: ToolCost }) {
   return (
     <>
       <ListCard>
@@ -491,7 +476,7 @@ export default function McpServerDetail({
       // already showing, and an early failure never hides a later success.
       // Only fall through to the first result overall when every member of
       // the group failed, and never overwrite with "still unprobed".
-      if (result && (!group.result || (group.result.error && !result.error))) {
+      if (result && (!group.result || (group.result.kind === "failed" && result.kind !== "failed"))) {
         group.result = result;
       }
     } else {
@@ -516,9 +501,17 @@ export default function McpServerDetail({
   // than one registration answered, the count slot below names which one
   // this is -- it does not compare them or flag disagreement, which is a
   // stage-2 concern with its own mechanism.
-  const succeeded = probed.filter((p) => !p.result.error);
+  const succeeded = probed.filter(
+    (p): p is { reg: Registration; result: Extract<VerifiedIdentity, { kind: "answered" }> } =>
+      p.result.kind === "answered"
+  );
   const anyVerifiedEntry = succeeded[0];
   const anyVerified = anyVerifiedEntry?.result;
+
+  // The single spec's own result, narrowed once here rather than re-indexed
+  // (and re-narrowed) at every read below -- `specGroups[0].result.kind`
+  // repeated inline does not stay narrowed across expressions.
+  const soloResult = specGroups.length === 1 ? specGroups[0].result : undefined;
 
   // Nothing to spawn: a Claude.ai connector lives on Anthropic's servers, a
   // remote server answers over HTTP. Both are real MCP servers; neither is a
@@ -709,10 +702,7 @@ export default function McpServerDetail({
             // that has no one figure. The backend's own count, never
             // `.tools.length`: a probe's tool list can outrun what the
             // store paid to keep (`cost.toolCount` already reconciles that).
-            count:
-              specGroups.length === 1 && specGroups[0].result && !specGroups[0].result.error
-                ? specGroups[0].result.cost?.toolCount
-                : undefined,
+            count: soloResult?.kind === "answered" ? soloResult.cost?.toolCount : undefined,
           },
           { id: "details", label: "Details" },
         ]}
@@ -737,12 +727,12 @@ export default function McpServerDetail({
             down already checks for the same reason. Without it a failed
             probe would draw "0 of 0 tools carry one" for a server that
             never answered. */}
-        {specGroups.length === 1 && specGroups[0].result?.cost && !specGroups[0].result.error && (
+        {soloResult?.kind === "answered" && soloResult.cost && (
           <section className={SECTION}>
             <div className="flex items-baseline justify-between gap-2 mb-[10px]">
               <h3 className={HEADING}>Context per request</h3>
             </div>
-            <ContextPerRequest cost={specGroups[0].result.cost} />
+            <ContextPerRequest cost={soloResult.cost} />
           </section>
         )}
         <section className={SECTION}>
@@ -769,12 +759,12 @@ export default function McpServerDetail({
                 surfaces, so they cannot disagree about whether the question is
                 askable. */}
             {!nothingToAsk && specGroups.length === 1 ? (
-              specGroups[0].result ? (
+              soloResult ? (
                 <span className="inline-flex items-center gap-2">
                   <span className={COUNT}>
-                    {specGroups[0].result.error
+                    {soloResult.kind === "failed"
                       ? "—"
-                      : specGroups[0].result.cost?.toolCount ?? specGroups[0].result.tools.length}
+                      : soloResult.cost?.toolCount ?? soloResult.tools.length}
                   </span>
                   <CheckAgainButton
                     registrationKey={specGroups[0].regs[0].key}
@@ -869,7 +859,9 @@ export default function McpServerDetail({
                     {group.result && (
                       <span className="inline-flex items-center gap-2">
                         <span className={COUNT}>
-                          {group.result.error ? "—" : group.result.cost?.toolCount ?? group.result.tools.length}
+                          {group.result.kind === "failed"
+                            ? "—"
+                            : group.result.cost?.toolCount ?? group.result.tools.length}
                         </span>
                         <CheckAgainButton
                           registrationKey={group.regs[0].key}
@@ -886,11 +878,12 @@ export default function McpServerDetail({
                   <span className="text-micro font-mono text-ink-3 truncate">
                     {group.regs.map((r) => `${r.host} · ${r.tier}`).join(", ")}
                   </span>
-                  {/* Same `!error` guard as the single-spec ledger above and
-                      the same reason: a failed probe still carries a zeroed
-                      `cost`, and `group.result` here is set regardless of
-                      error (first member wins until a success arrives). */}
-                  {group.result?.cost && !group.result.error && (
+                  {/* Same `kind` check as the single-spec ledger above: the
+                      union's `failed` arm has no `cost` at all, so this can
+                      no longer read a zeroed one for a probe that never
+                      answered. `group.result` is set regardless of outcome
+                      (first member wins until a success arrives). */}
+                  {group.result?.kind === "answered" && group.result.cost && (
                     <ContextPerRequest cost={group.result.cost} />
                   )}
                   {group.result ? (

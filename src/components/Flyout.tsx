@@ -15,6 +15,7 @@ import McpServerDetail from "./McpServerDetail";
 import McpEngineSummary, { type McpEngineSummaryData } from "./McpEngineSummary";
 import BrandIcon from "./BrandIcon";
 import { buildMcpServerView, type ProcessMatch } from "../utils/mcpServerView";
+import { parseProbe, type ProbeView, type ProbeWire } from "../utils/probeView";
 import LinkPanel from "./LinkPanel";
 import DiffChooser, { AlignedSection } from "./DiffChooser";
 import { categoryNoun } from "../utils/prose";
@@ -123,21 +124,7 @@ export default function Flyout({
   /* Verify results, keyed by REGISTRATION key. Keyed by server name until
      2026-08-16, which was a single slot that could not hold two answers when
      two hosts launch the same server differently. */
-  const [mcpVerified, setMcpVerified] = useState<Record<string, {
-    serverVersion?: string;
-    protocolVersion?: string;
-    capabilities: string[];
-    tools: Array<{ name: string; description?: string }>;
-    verifiedAt: number;
-    error?: string;
-    cost?: {
-      toolCount: number;
-      describedToolCount: number;
-      descriptionBytesTotal: number;
-      estimatedTokens: number;
-      perTool: Array<{ name: string; descriptionBytes: number }>;
-    };
-  }>>({});
+  const [mcpVerified, setMcpVerified] = useState<Record<string, ProbeView>>({});
   /* A list, not one slot. The panel caps itself at one request at a time, but
      "one at a time" is a property of the queue, not of the slot — a single
      slot could not represent an explicit Verify overlapping the automatic ask
@@ -179,26 +166,7 @@ export default function Flyout({
     mcpInFlight.current.add(registrationKey);
     setMcpVerifying((prev) => (prev.includes(registrationKey) ? prev : [...prev, registrationKey]));
     try {
-      const r = await invoke<{
-        result: {
-          server_name?: string;
-          server_version?: string;
-          protocol_version?: string;
-          capabilities: string[];
-          tools: Array<{ name: string; description?: string }>;
-          error?: string;
-        } | null;
-        verifiedAt: number | null;
-        fromCache: boolean;
-        declined: boolean;
-        cost?: {
-          toolCount: number;
-          describedToolCount: number;
-          descriptionBytesTotal: number;
-          estimatedTokens: number;
-          perTool: Array<{ name: string; descriptionBytes: number }>;
-        } | null;
-      }>("mcp_cached_probe", { registrationKey, force, running });
+      const r = await invoke<ProbeWire>("mcp_cached_probe", { registrationKey, force, running });
       /* Read the answer apart BEFORE handing anything to a setter. A state
          updater is a closure React invokes during a later render, outside
          this try — so a field read inside one escapes the catch below and
@@ -206,7 +174,6 @@ export default function Flyout({
          a failed probe. Found by `inspector_avionics.test.tsx`, whose mock
          answers a command it does not model with null. */
       const declinedNow = r?.declined === true;
-      const answer = r?.result ?? null;
       const learnedAt = r?.verifiedAt ?? null;
 
       setMcpDeclined((prev) => {
@@ -217,29 +184,18 @@ export default function Flyout({
       /* No result at all means the backend declined and had nothing cached to
          offer instead. Not an error, and not an empty tool list: recording
          either would put a wrong answer on screen where the panel's own
-         explanation belongs. */
-      if (!answer) return;
+         explanation belongs. `parseProbe` narrows the wire's `result`/`cost`
+         into the union at this one IPC boundary. */
+      const view = parseProbe(r, learnedAt ?? Date.now());
+      if (!view) return;
       setMcpVerified((prev) => ({
         ...prev,
-        [registrationKey]: {
-          serverVersion: answer.server_version,
-          protocolVersion: answer.protocol_version,
-          capabilities: answer.capabilities ?? [],
-          tools: answer.tools ?? [],
-          verifiedAt: learnedAt ?? Date.now(),
-          error: answer.error ?? undefined,
-          cost: r?.cost ?? undefined,
-        },
+        [registrationKey]: view,
       }));
     } catch (e) {
       setMcpVerified((prev) => ({
         ...prev,
-        [registrationKey]: {
-          capabilities: [],
-          tools: [],
-          verifiedAt: Date.now(),
-          error: String(e),
-        },
+        [registrationKey]: { kind: "failed", verifiedAt: Date.now(), error: String(e) },
       }));
     } finally {
       mcpInFlight.current.delete(registrationKey);
