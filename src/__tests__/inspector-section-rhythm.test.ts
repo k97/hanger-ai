@@ -27,7 +27,15 @@ function read(rel: string): string {
  * What a content section in an inspector panel is spaced with. Margins, so
  * adjacent sections collapse to one gap rather than summing two.
  *
- * 32px between sections, 8px from a section's heading to its own card.
+ * 28px between sections, 14px above the first one, 8px from a section's
+ * heading to its own card.
+ *
+ * The first section's gap is deliberately half. A section gap separates two
+ * sections; above the first there is no section, only the tab bar, and that
+ * underline is already the boundary. Spending a full gap there measures
+ * against the wrong thing and reads as the panel sagging away from its own
+ * tabs. `first:` follows the DOM, so it lands on whichever section actually
+ * renders first -- both panels lead with a conditional one.
  *
  * Where those come from, precisely, because the two halves are not sourced
  * equally. Apple's CURRENT HIG publishes no macOS spacing number at all --
@@ -44,8 +52,8 @@ function read(rel: string): string {
  *
  * So: 8 is Apple's. The section gap beside it is not, and nothing in Apple's
  * documentation asks for the value it currently holds. It was walked up the
- * 4px scale in the running app -- 14, 20, 24, 28, 32 -- with Karthik judging each
- * one on screen. Written down because a citation that overstates its source
+ * 4px scale in the running app -- 14, 20, 24, 28, 32 -- with Karthik judging
+ * each one on screen, and settled back at 28. Written down because a citation that overstates its source
  * is worse than none: this half is a judgement, not a standard.
  *
  * The ratio is the part that carries the meaning. At 14/10 a heading was
@@ -54,7 +62,7 @@ function read(rel: string): string {
  * has widened that ratio, and the 8 has stayed put on purpose -- it is what
  * binds a heading to its own card while the gap above it grows.
  */
-const SECTION_SPACING = "mx-[12px] my-8";
+const SECTION_SPACING = "mx-[12px] my-7 first:mt-3.5";
 
 /** Gap from a section's heading row to the card beneath it. */
 const HEADING_GAP = "mb-2";
