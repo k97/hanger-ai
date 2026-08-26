@@ -164,6 +164,25 @@ fn init_sentry_client(enabled: bool) {
     }
 }
 
+/// How an unset `consent_usage` preference reads at startup.
+///
+/// The row does not exist until the user passes the onboarding consent step,
+/// so `None` has to mean something. It meant off, through
+/// `unwrap_or_default() == "true"` flattening `None` to `""`. It now means on:
+/// Hanger is a local utility and usage events are what tell its development
+/// where to go (Karthik's ruling, 2026-08-26). The onboarding screen carries
+/// the box pre-ticked, so the choice is still shown before anything is sent.
+///
+/// An explicitly stored value always wins. A user who turned analytics off
+/// stays off across restarts, and an empty string is a written value rather
+/// than an absent one.
+pub fn usage_consent_from_stored(stored: Option<String>) -> bool {
+    match stored {
+        Some(value) => value == "true",
+        None => true,
+    }
+}
+
 fn get_telemetry_client_id(store: &PreferencesStore) -> Option<String> {
     if let Ok(Some(client_id)) = store.get_preference("telemetry_client_id") {
         if !client_id.is_empty() {
@@ -1839,7 +1858,7 @@ pub fn run() {
             updates::spawn_background_checks(handle.clone());
             if let Ok(store) = get_store(handle) {
                 let crash = store.get_preference("consent_crash").ok().flatten().unwrap_or_default() == "true";
-                let usage = store.get_preference("consent_usage").ok().flatten().unwrap_or_default() == "true";
+                let usage = usage_consent_from_stored(store.get_preference("consent_usage").ok().flatten());
 
                 CRASH_CONSENT_ENABLED.store(crash, Ordering::SeqCst);
                 USAGE_CONSENT_ENABLED.store(usage, Ordering::SeqCst);

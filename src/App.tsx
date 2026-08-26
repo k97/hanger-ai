@@ -661,7 +661,11 @@ export default function App() {
   const [onboardingComplete, setOnboardingComplete] = useState<boolean | null>(null);
   const [onboardingStep, setOnboardingStep] = useState<number>(1);
   const [consentCrash, setConsentCrash] = useState<boolean>(false);
-  const [consentUsage, setConsentUsage] = useState<boolean>(false);
+  // Usage analytics default to on; crash reporting does not. The onboarding
+  // consent step renders this pre-ticked so the choice is still shown and
+  // refusable before anything is sent. Backend twin:
+  // `usage_consent_from_stored` in src-tauri/src/lib.rs.
+  const [consentUsage, setConsentUsage] = useState<boolean>(true);
 
   // Selected scope for drill-down flyout (agent or project)
   const [selectedBubble, setSelectedBubble] = useState<{
@@ -753,7 +757,10 @@ export default function App() {
       const usage = await invoke<string | null>("get_preference", { key: "consent_usage" });
 
       setConsentCrash(crash === "true");
-      setConsentUsage(usage === "true");
+      // `null` means the preference row has never been written, which is the
+      // default-on case. An explicit stored value always wins, so a user who
+      // declined stays declined.
+      setConsentUsage(usage === null ? true : usage === "true");
       setOnboardingComplete(onboarding === "true");
 
       // Load persistent layout state (selection & width)

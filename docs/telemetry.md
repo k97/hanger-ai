@@ -1,6 +1,9 @@
 # Hanger Telemetry & Privacy Documentation
 
-Hanger is designed as a local-first application, putting developer data privacy first. Telemetry collection is entirely opt-in (default-off) and is sanitised locally to prevent path or credential disclosure.
+Hanger is designed as a local-first application, putting developer data privacy first. Crash reporting is opt-in and defaults to off. Usage analytics default to **on**,
+shown pre-enabled on the onboarding consent step so the choice is visible and can
+be refused before any event is sent; an explicit refusal is stored and wins over
+the default. Both are sanitised locally to prevent path or credential disclosure.
 
 ---
 

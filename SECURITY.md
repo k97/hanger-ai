@@ -17,7 +17,13 @@ No file contents, project source files, local path strings, or environment crede
 
 ## Telemetry and Consent
 
-Telemetry and crash reporting are strictly opt-in and transmit no data prior to explicit user consent (`src-tauri/src/lib.rs:19-20`, `src-tauri/src/lib.rs:57`, `src-tauri/src/lib.rs:175`).
+Crash reporting is opt-in and off until you turn it on. Usage analytics are on by
+default: the onboarding consent step shows the switch already enabled, and you can
+turn it off there before anything is sent, or later from Settings. Turning it off
+is remembered and survives restarts (`src-tauri/src/lib.rs:167-186`).
+
+Neither transmits anything while its consent atom is false, and no file contents,
+source, local paths or credentials are ever included in either.
 
 - **Crash Reporting (Sentry):** Crash events are gated by an in-memory atomic boolean (`src-tauri/src/lib.rs:19`, `src-tauri/src/lib.rs:57`). When enabled, stacktraces and error messages are filtered through sanitisation helpers to scrub local filesystem paths prior to dispatch (`src-tauri/src/lib.rs:45-129`).
 - **Usage Metrics (GA4):** Anonymised usage events are gated by an in-memory atomic boolean (`src-tauri/src/lib.rs:20`, `src-tauri/src/lib.rs:175`). Event payloads contain only high-level event names and generic category badges, with path strings explicitly rejected (`src-tauri/src/lib.rs:174-220`).
