@@ -8,26 +8,12 @@ the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Hanger has never used pull requests, so entries link to the commit that made the
 change rather than to a PR.
 
+Entries cover changes a user can observe. Test-only, documentation-only and
+internal-refactor commits are omitted.
+
 ## [Unreleased]
 
 ## [0.1.0] - 2026-08-25
-
-The first release since the interface was rebuilt.
-
-Hanger recognises eleven engines, up from the four it knew at 0.0.3. It reads
-MCP server registrations from sixteen hosts, which it could not do at all
-before, and probes them to report which are running and which are unaccounted
-for. A link map draws which engines reach which assets and by what mechanism.
-
-The asset store moved from schema 2 to schema 7. The five migrations run once,
-on first launch, and are forward-only: an older Hanger build will open a
-version 7 store without migrating it back, so downgrading to 0.0.x is not
-supported. Asset reaping stays off unless `HANGER_ENABLE_REAP` is set, as in
-0.0.x.
-
-Entries below are grouped the Keep a Changelog way. Test-only, documentation-only
-and internal-refactor commits are left out; 284 of the 542 commits in this range
-changed something a user can observe.
 
 ### Added
 
@@ -195,6 +181,15 @@ changed something a user can observe.
 
 ### Changed
 
+- **store:** **Breaking:** Migrate the asset store from schema 2 to schema 7 ([e42ad11](https://github.com/k97/hanger-ai/commit/e42ad11), [5021b07](https://github.com/k97/hanger-ai/commit/5021b07), [af20848](https://github.com/k97/hanger-ai/commit/af20848), [1403d41](https://github.com/k97/hanger-ai/commit/1403d41), [bb61ddb](https://github.com/k97/hanger-ai/commit/bb61ddb))
+
+  **Migration:** The five migrations run once, on first launch, and no action is
+  required. They are forward-only: an older Hanger opens a version 7 store
+  without migrating it back, so downgrading to 0.0.x is not supported once
+  0.1.0 has run. The store is at
+  `~/Library/Application Support/com.rkarthik.hanger/hanger.db` if you want a
+  copy first.
+
 - **mcp:** A probe reads one config file, not the whole machine ([0f420eb](https://github.com/k97/hanger-ai/commit/0f420eb))
 
 ### Removed
@@ -355,11 +350,9 @@ changed something a user can observe.
 
 ## [0.0.1] - 2026-08-12
 
-First public release. macOS only, distributed as a universal DMG.
-
 ### Added
 
-- **app:** Inventory, monitor and deploy harness assets across the engine directories on your machine, recorded in a local SQLite store ([325ed19](https://github.com/k97/hanger-ai/commit/325ed19))
+- **app:** First public release: inventory, monitor and deploy harness assets across the engine directories on your machine, recorded in a local SQLite store. macOS only, distributed as a universal DMG ([325ed19](https://github.com/k97/hanger-ai/commit/325ed19))
 - **release:** Publish under the MIT licence with a README and a security policy ([180d4a2](https://github.com/k97/hanger-ai/commit/180d4a2))
 
 ### Security
