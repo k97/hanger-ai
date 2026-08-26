@@ -13,6 +13,33 @@ internal-refactor commits are omitted.
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-08-27
+
+When macOS blocks a folder, Hanger says so instead of showing fewer assets. A
+blocked project offers to re-pick the folder, which is how macOS grants access.
+
+### Added
+
+- **macos:** Ship the five permission descriptions macOS shows in its own consent dialog, so a prompt explains what Hanger wants the folder for instead of using Apple's generic wording ([1e0d4df](https://github.com/k97/hanger-ai/commit/1e0d4df))
+- **scanner:** Classify a refused folder by errno rather than by matching error text, so a macOS denial ("Operation not permitted") is no longer mistaken for no error at all ([11f97b4](https://github.com/k97/hanger-ai/commit/11f97b4))
+- **scanner:** Distinguish a root that is absent from one that is blocked, so an engine Hanger cannot read is no longer reported as not installed ([7b55210](https://github.com/k97/hanger-ai/commit/7b55210))
+- **inspector:** Put the derivation notes behind an info popover ([f401167](https://github.com/k97/hanger-ai/commit/f401167))
+
+### Fixed
+
+- **ui:** Offer to re-pick the folder instead of sending the user to System Settings. Apps appear in Files & Folders only after macOS has prompted for them and cannot be added by hand, so the old instruction could not be followed ([b399630](https://github.com/k97/hanger-ai/commit/b399630))
+- **scanner:** Report a blocked project root instead of returning an empty pane. The scan discarded the whole result, so "macOS refused" rendered as "there is nothing here" ([47c994c](https://github.com/k97/hanger-ai/commit/47c994c))
+- **ui:** Fire the macOS access panel on macOS denials rather than on ordinary permission errors, where its advice did not apply ([21e40f0](https://github.com/k97/hanger-ai/commit/21e40f0))
+- **scanner:** Surface a denial met during a project walk, which previously produced no warning at all ([ebaf865](https://github.com/k97/hanger-ai/commit/ebaf865))
+- **scanner:** Report a blocked engine root as a finding, naming the engine that may be installed behind it ([abf8e16](https://github.com/k97/hanger-ai/commit/abf8e16))
+- **scanner:** Stop telling the user an engine "may be installed" when it demonstrably is, and cover both global asset walkers ([3217671](https://github.com/k97/hanger-ai/commit/3217671))
+- **macos:** Say "engine" rather than "agent" in the Documents prompt, matching the app's own vocabulary ([6f8cf4b](https://github.com/k97/hanger-ai/commit/6f8cf4b))
+- **motion:** Restore fifteen animations across six files that named uninstalled classes and rendered with no motion, and stop the sidebar trailing the cursor while it is dragged ([3585240](https://github.com/k97/hanger-ai/commit/3585240))
+- **a11y:** Name each info trigger for the section it sits in ([a8912b4](https://github.com/k97/hanger-ai/commit/a8912b4))
+- **mcp:** Report a failed probe's cost as unmeasured rather than as zero ([4f5e783](https://github.com/k97/hanger-ai/commit/4f5e783))
+- **cap:** Clear the traffic lights on the link map, which has no toggle to hide behind ([ed8da2b](https://github.com/k97/hanger-ai/commit/ed8da2b))
+- **inspector:** Line `Link to…` up with the chip beside it ([187a361](https://github.com/k97/hanger-ai/commit/187a361))
+
 ## [0.3.0] - 2026-08-26
 
 The inspector prices context. A skill and an MCP server now each say what they
