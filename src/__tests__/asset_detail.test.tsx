@@ -486,7 +486,15 @@ describe("Asset detail — the inspector's document screen", () => {
     expect(section.textContent).toContain("SKILL.md in full, frontmatter included");
     expect(section.textContent).toContain("≈ 2,400 tokens");
     expect(section.textContent).toContain("8.4 kB");
-    expect(section.textContent).toContain("bytes divided by four");
+    // How the figures were derived is a footnote, not a finding: it sits
+    // behind the header's info trigger rather than under the ledger, where a
+    // sentence read once outweighed the numbers it qualifies.
+    expect(section.textContent).not.toContain("bytes divided by four");
+    fireEvent.click(within(section).getByRole("button", { name: "About these figures" }));
+    expect(within(section).getByRole("note").textContent).toBe(
+      "Token figures are bytes divided by four. Every engine tokenises differently, so " +
+        "treat them as a size, not a count."
+    );
     expect(section.textContent).not.toContain("not checked per engine");
     // It precedes the document card.
     const panel = screen.getByRole("tabpanel");

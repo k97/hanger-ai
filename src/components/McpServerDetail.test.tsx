@@ -1188,7 +1188,12 @@ describe("McpServerDetail — the tool table and Context (M5)", () => {
     expect(context.textContent).toContain("Usually the larger part of a definition");
     expect(context.textContent).toContain("Not measured");
     expect(context.textContent).not.toContain("the remainder, not in the store");
-    expect(context.textContent).toContain(
+    // The derivation note is behind the header's info trigger now, not under
+    // the ledger -- so it is absent until asked for, and complete when it
+    // arrives.
+    expect(context.textContent).not.toContain("A request carries a name");
+    fireEvent.click(within(context).getByRole("button", { name: "About these figures" }));
+    expect(within(context).getByRole("note").textContent).toBe(
       "A request carries a name, a description and an input schema for every tool. This weighs " +
         "the descriptions in the list below; the schemas are never stored, so nothing here can " +
         "weigh them. Token figures are bytes divided by four, so treat them as a size, not a count."
@@ -1245,6 +1250,38 @@ describe("McpServerDetail — the tool table and Context (M5)", () => {
     expect(within(blockB).queryByText("2 of 5 tools carry one")).toBeNull();
     expect(within(blockB).queryByText(/≈ 42 tokens/)).toBeNull();
     expect(within(blockB).queryByText("109 B")).toBeNull();
+    // Each block carries its own note trigger -- there is no section heading
+    // here to hang one shared trigger from. Opening B's must not open A's:
+    // a hardcoded id inside InfoPopover would tie both triggers to one region.
+    fireEvent.click(within(blockB).getByRole("button", { name: "About these figures" }));
+    expect(within(blockB).getByRole("note").textContent).toContain("A request carries a name");
+    expect(within(blockA).queryByRole("note")).toBeNull();
+  });
+
+  it("offers no note on a block whose probe failed -- there is no ledger to explain", () => {
+    const server: McpServerView = {
+      ...base,
+      name: "tauri",
+      registrations: [
+        { key: "/a:tauri", host: "Claude Code", tier: "global", configPath: "~/.claude.json", command: "npx", launchDisplay: "npx -y @tauri/mcp@latest" },
+        { key: "/b:tauri", host: "Codex", tier: "global", configPath: "~/.codex/config.toml", command: "npx", launchDisplay: "npx -y @tauri/mcp@2.9.1" },
+      ],
+    };
+    render(
+      <McpServerDetail
+        server={server}
+        verified={{
+          "/a:tauri": probeAnswered({
+            tools: [{ name: "get_docs" }],
+            cost: { toolCount: 1, describedToolCount: 1, descriptionBytesTotal: 40, estimatedTokens: 9, perTool: [] },
+          }),
+          "/b:tauri": probeFailed("Could not start `npx`: No such file or directory"),
+        }}
+      />
+    );
+    const [blockA, blockB] = screen.getAllByTestId("tools-block");
+    expect(within(blockA).getByRole("button", { name: "About these figures" })).toBeTruthy();
+    expect(within(blockB).queryByRole("button", { name: "About these figures" })).toBeNull();
   });
 
   it("draws no section-level Context heading when the specs differ -- the ledger moves into each block", () => {

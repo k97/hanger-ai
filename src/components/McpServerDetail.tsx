@@ -4,6 +4,7 @@ import { MANAGE_URL } from "../utils/mcpServerView";
 import { diffLaunch, type LaunchDiffToken } from "../utils/launchDiff";
 import { joinNames } from "../utils/prose";
 import EngineLabel from "./EngineLabel";
+import InfoPopover from "./InfoPopover";
 import Tooltip from "./Tooltip";
 import UnderlineTabs from "./UnderlineTabs";
 import ListCard, { ListCardRow } from "./ListCard";
@@ -345,8 +346,7 @@ function ProbedToolList({ result }: { result: VerifiedIdentity }) {
  */
 function ContextPerRequest({ cost }: { cost: ToolCost }) {
   return (
-    <>
-      <ListCard>
+    <ListCard>
         <ListCardRow
           label={
             <span className="flex flex-col gap-0.5 min-w-0">
@@ -374,16 +374,27 @@ function ContextPerRequest({ cost }: { cost: ToolCost }) {
               </span>
             </span>
           }
-          wide={<span className="text-ink-3">Not measured</span>}
-        />
-      </ListCard>
-      <p className="text-micro text-ink-3 mt-2 leading-[1.5]">
-        A request carries a name, a description and an input schema for every tool. This weighs
-        the descriptions in the list below; the schemas are never stored, so nothing here can
-        weigh them. Token figures are bytes divided by four, so treat them as a size, not a count.
-      </p>
-    </>
+        wide={<span className="text-ink-3">Not measured</span>}
+      />
+    </ListCard>
   );
+}
+
+/**
+ * How the ledger above got its figures, and what it cannot reach. Lives
+ * behind the info trigger in whichever header row owns the ledger -- the
+ * section heading when there is one launch spec, the block's own launch line
+ * when there are several. Read once and then in the way, which is what a
+ * popover is for.
+ */
+const CONTEXT_NOTE =
+  "A request carries a name, a description and an input schema for every tool. This weighs " +
+  "the descriptions in the list below; the schemas are never stored, so nothing here can " +
+  "weigh them. Token figures are bytes divided by four, so treat them as a size, not a count.";
+
+/** The one trigger both ledgers hang their note from. */
+function ContextNote() {
+  return <InfoPopover label="About these figures">{CONTEXT_NOTE}</InfoPopover>;
 }
 
 /** One side of an aligned launch-spec diff: which host(s) launch it this
@@ -730,8 +741,11 @@ export default function McpServerDetail({
             one" for a server that never answered. */}
         {soloResult?.kind === "answered" && soloResult.cost && (
           <section className={SECTION}>
-            <div className="flex items-baseline justify-between gap-2 mb-[10px]">
+            {/* items-center, not items-baseline: the trigger is a glyph, and
+                a glyph has no baseline to share with the eyebrow beside it. */}
+            <div className="flex items-center justify-between gap-2 mb-[10px]">
               <h3 className={HEADING}>Context per request</h3>
+              <ContextNote />
             </div>
             <ContextPerRequest cost={soloResult.cost} />
           </section>
@@ -847,7 +861,7 @@ export default function McpServerDetail({
             <div className="flex flex-col gap-3">
               {specGroups.map((group) => (
                 <div key={group.key} data-testid="tools-block" className="flex flex-col gap-1.5">
-                  <div className="flex items-baseline justify-between gap-2">
+                  <div className="flex items-center justify-between gap-2">
                     {/* The spec this block's tools came from -- the rule this
                         redesign exists to hold: a tool count never appears
                         without the launch that produced it. `key`, not
@@ -869,6 +883,12 @@ export default function McpServerDetail({
                           verifying={verifying.includes(group.regs[0].key)}
                           onVerify={onVerify}
                         />
+                        {/* This block has no heading of its own, so the note
+                            hangs from the nearest row that owns its figures --
+                            beside the count it explains. Gated on exactly what
+                            gates the ledger below, or a failed probe would
+                            offer an explanation of numbers it never drew. */}
+                        {group.result.kind === "answered" && group.result.cost && <ContextNote />}
                       </span>
                     )}
                   </div>

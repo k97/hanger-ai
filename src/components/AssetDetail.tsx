@@ -16,6 +16,7 @@ import {
   Square2StackIcon,
   TagIcon,
 } from "./icons";
+import InfoPopover from "./InfoPopover";
 import Tooltip from "./Tooltip";
 import MarkdownDoc from "./MarkdownDoc";
 import UnderlineTabs from "./UnderlineTabs";
@@ -96,6 +97,15 @@ interface AssetDetailProps {
 }
 
 const eyebrowClass = "font-flex text-micro font-medium tracking-[.06em] uppercase text-ink-3";
+
+/**
+ * The caveat on every token figure in the Context ledger. Behind the
+ * section's info trigger rather than under the card: it qualifies the
+ * numbers, it does not compete with them.
+ */
+const CONTEXT_NOTE =
+  "Token figures are bytes divided by four. Every engine tokenises differently, so " +
+  "treat them as a size, not a count.";
 
 interface IdentityRow {
   key: string;
@@ -383,8 +393,11 @@ export default function AssetDetail({ asset, inventory, onDocumentPath, annotati
           <div role="tabpanel" id="panel-content" aria-labelledby="tab-content">
             {asset.category === "Skills" && body && (
               <section className="mx-[12px] my-3.5">
-                <div className="flex items-baseline justify-between gap-2 mb-3">
+                {/* items-center, not items-baseline: the trigger is a glyph,
+                    and a glyph has no baseline to share with the eyebrow. */}
+                <div className="flex items-center justify-between gap-2 mb-3">
                   <span className={eyebrowClass}>Context</span>
+                  <InfoPopover label="About these figures">{CONTEXT_NOTE}</InfoPopover>
                 </div>
                 <ListCard>
                   {body.always_on_bytes != null && body.always_on_estimated_tokens != null && (
@@ -424,10 +437,6 @@ export default function AssetDetail({ asset, inventory, onDocumentPath, annotati
                     }
                   />
                 </ListCard>
-                <p className="text-micro text-ink-3 mt-2 leading-[1.5]">
-                  Token figures are bytes divided by four. Every engine tokenises differently, so
-                  treat them as a size, not a count.
-                </p>
               </section>
             )}
 
