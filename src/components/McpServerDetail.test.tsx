@@ -1126,7 +1126,7 @@ describe("McpServerDetail", () => {
 });
 
 describe("McpServerDetail — the tool table and Context (M5)", () => {
-  it("the tool table has Tool · Description · Schema columns, description bytes per tool, schema pending", () => {
+  it("the tools list is name and description only — no header, no schema column, no per-tool bytes", () => {
     render(
       <McpServerDetail
         server={{ ...base, registrations: [base.registrations[0]] }}
@@ -1149,24 +1149,21 @@ describe("McpServerDetail — the tool table and Context (M5)", () => {
       />
     );
     const block = screen.getByTestId("tools-block");
-    expect(within(block).getByText("Tool")).toBeTruthy();
-    expect(within(block).getByText("Description")).toBeTruthy();
-    expect(within(block).getByText("Schema")).toBeTruthy();
-    expect(within(block).getByText("69 B")).toBeTruthy();
-    expect(within(block).getByText("40 B")).toBeTruthy();
-    expect(within(block).getAllByText("—")).toHaveLength(3);
-    // The tab and the section count carry the backend's figure — 5, which is
-    // NOT `tools.length` (3), so an implementation that counted the array
-    // fails here.
-    expect(screen.getByRole("tab", { name: "Tools 5" })).toBeTruthy();
-    // Rows come from `result.tools`, never `cost.perTool`: `perTool` entries
-    // carry no description, so sourcing rows there would silently drop every
-    // one. `ghost_tool` has bytes and no tool, and must not draw a row.
+    expect(within(block).queryByText("Tool")).toBeNull();
+    expect(within(block).queryByText("Schema")).toBeNull();
+    expect(within(block).queryByText("69 B")).toBeNull();
     expect(within(block).getByText("get_system_volume")).toBeTruthy();
     expect(within(block).getByText("list_audio_apps")).toBeTruthy();
+    // Rows still come from `result.tools`, never `cost.perTool`: `perTool`
+    // entries carry no description, so sourcing rows there would silently
+    // drop every one. `ghost_tool` has bytes and no tool, and must not draw
+    // a row.
+    expect(within(block).queryByText("ghost_tool")).toBeNull();
+    // The tab and the section count still carry the backend's figure — 5,
+    // which is NOT `tools.length` (3), so an implementation that counted the
+    // array fails here.
+    expect(screen.getByRole("tab", { name: "Tools 5" })).toBeTruthy();
     expect(within(block).getByText("undescribed")).toBeTruthy();
-    expect(screen.queryByText("ghost_tool")).toBeNull();
-    expect(screen.queryByText("12 B")).toBeNull();
     // And the descriptions themselves render, which only the tools source has.
     expect(within(block).getByText("Get the current macOS system volume level (0–100) and mute state.")).toBeTruthy();
     // The section leads the panel and is checkable against the table.

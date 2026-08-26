@@ -323,40 +323,22 @@ function ProbedToolList({ result }: { result: VerifiedIdentity }) {
   if (result.error) {
     return <p className="text-micro text-state-danger leading-[1.5]">{result.error}</p>;
   }
-  // The description-bytes toll for one tool, from the same probe answer the
-  // list itself came from -- never re-measured here. Absent whenever `cost`
-  // is: an older cache entry, or a probe this session hasn't re-run since
-  // B3 started shipping it. Schema bytes are not tracked at all (they never
-  // leave the store, per the Composition card below), so that column is
-  // always the pending mark rather than a number waiting to arrive.
-  const bytesFor = (name: string): string => {
-    const row = result.cost?.perTool.find((t) => t.name === name);
-    return row ? `${row.descriptionBytes} B` : "—";
-  };
   return (
     // Not height-capped. DESIGN.md's 240px rule covers DisclosureBanner
     // regions; this is the panel's primary content, and a nested scrollbar
     // inside a scrolling panel is worse than a long page.
+    //
+    // No header, no schema column, no per-tool figure: a probed tool is a
+    // name and a description and the row shows exactly that. The section's
+    // accounting lives in the Context-per-request ledger; a per-tool size
+    // has no decision attached to it, so it earns no place here.
     <ListCard>
-      <div className="flex items-center gap-2 px-3 py-[9px] min-h-9">
-        <span className={`${HEADING} flex-1`}>Tool</span>
-        <span className={`${HEADING} w-[84px] text-right shrink-0`}>Description</span>
-        <span className={`${HEADING} w-[54px] text-right shrink-0`}>Schema</span>
-      </div>
       {result.tools.map((tool) => (
         <div key={tool.name} className="flex flex-col gap-[3px] px-3 py-[9px]">
-          <span className="flex items-center gap-2 min-w-0">
-            {/* Tool names are code identifiers, so the mono face is semantic
-                here rather than decorative. */}
-            <span className="font-mono text-small text-ink-1 flex-1 min-w-0 truncate">
-              {tool.name}
-            </span>
-            <span className="w-[84px] text-right shrink-0 font-mono text-micro text-ink-3 tabular">
-              {bytesFor(tool.name)}
-            </span>
-            <span className="w-[54px] text-right shrink-0 font-mono text-micro text-ink-3">
-              —
-            </span>
+          {/* Tool names are code identifiers, so the mono face is semantic
+              here rather than decorative. */}
+          <span className="font-mono text-small text-ink-1 min-w-0 truncate">
+            {tool.name}
           </span>
           {tool.description && (
             <span className="text-small text-ink-2 leading-[1.45]">{tool.description}</span>
