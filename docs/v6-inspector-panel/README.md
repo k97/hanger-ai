@@ -206,3 +206,70 @@ line is the tie — the same 2.8 kB appears in both places.
   the app under `.claude/rules/verification.md`.
 - The 228 B always-on figure is illustrative. It needs a backend field before
   any option that shows it can ship.
+
+## Multi-spec MCP servers — research, 2026-08-26
+
+The one case this work left open: the Context-per-request ledger reads
+`anyVerified` (the first *succeeded* probe across all registrations,
+`McpServerDetail.tsx:470-471`), while the Tools section renders one
+`ProbedToolList` **per** `specGroup` (`:836`). Two launch specs, both probed →
+one figure over two lists, and nothing says which list the figure describes.
+
+### The case is real, not hypothetical
+
+A server's tool surface is a function of how it is launched. GitHub's official
+MCP server makes this explicit: `--toolsets` selects which groups of tools are
+exposed, `--dynamic-toolsets` changes discovery entirely, and read-only mode
+exposes only the read tools — with the `GITHUB_TOOLSETS` env var taking
+precedence over the command-line flag.
+([GitHub docs](https://docs.github.com/en/copilot/how-tos/provide-context/use-mcp/configure-toolsets),
+[github/github-mcp-server](https://github.com/github/github-mcp-server),
+[changelog](https://github.blog/changelog/2025-12-10-the-github-mcp-server-adds-support-for-tool-specific-configuration-and-more/))
+
+So two registrations of one server name, launched differently, can legitimately
+answer with different tool counts, different descriptions, and therefore
+different byte and token totals. A single ledger over both is not a rounding
+error; it can be the wrong number.
+
+### But it does not occur on this machine today
+
+Scanned every config path in `mcp/registry.rs` plus `~/.codex/config.toml`:
+**0 server names carry more than one distinct launch spec.** Two names appear in
+three host files each — `spades-audio` (`.claude.json`, `.claude/mcp.json`,
+Claude Desktop) and `tauri` (`.claude.json`, `.codex/config.toml`,
+`.gemini/settings.json`) — but with identical specs, so both collapse to a
+single `specGroup`. Caveat: that scan found 7 names against the 19 the app
+reports, because it does not read project-scoped `.mcp.json` or plugin
+marketplace files. It is a sample, not a census.
+
+### A distinction the current grouping cannot make
+
+Hosts resolve same-name collisions by precedence — local overrides project
+overrides user, in both Claude Code and Cursor
+([Cursor/Claude Code scopes](https://agent-drop.com/claude-code-vs-cursor-mcp)).
+So two specs **within one host** means one of them is shadowed and never runs;
+two specs **across different hosts** means both genuinely run. `specKeyOf`
+groups on `launchDisplay` alone (`:431`), regardless of host, so the panel
+cannot presently tell "both live" from "one dead". Worth deciding separately
+from the ledger question.
+
+### Prior art is thin
+
+The reference Inspector has an open issue for an interface diff tool that
+compares two servers' tools, prompts, resources and schemas
+([modelcontextprotocol/inspector#1034](https://github.com/modelcontextprotocol/inspector/issues/1034)) —
+no maintainer response, and an open question about whether it belongs in
+Inspector at all. MCPJam supports multi-*server* workspaces but not one server
+in several configurations. Nobody has an answer to copy.
+
+### Options
+
+| | Shape | Cost | Trade |
+| --- | --- | --- | --- |
+| **A** | Gate the ledger on `specGroups.length === 1` | One line | Matches the file's existing honesty pattern — the tab count (`:663`) and Verify (`:750`) already do exactly this. Multi-spec users lose the card entirely. |
+| **B** | One ledger per spec group, above that group's tools block | Small | `SpecGroup.result` already carries `cost` (`:105`, `:81`), so **no backend work**. Single-spec renders identically to today. Makes the deleted "the tool list below, totalled" sentence true again in every case. |
+| **C** | Keep one ledger, label which launch it describes | Small | Honest but still answers a question nobody asked — the reader wants the cost of the tools they are looking at. |
+
+**Recommended: B.** It is the only option that makes the figure correct rather
+than merely honest about being possibly wrong, it costs nothing the code does
+not already have, and it restores the ledger-to-list tie that had to be cut.
