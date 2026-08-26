@@ -541,11 +541,19 @@ export default function AssetDetail({ asset, inventory, onDocumentPath, annotati
                           // not "0 B" — it is not known.
                           : e.kind === "symlink"
                             ? "—"
-                            : formatBytes(e.bytes ?? 0)
+                            // SKILL.md is the only entry a model ever loads;
+                            // its size carries the weight the rest do not.
+                            : e.name === "SKILL.md"
+                              ? <span className="text-ink-1">{formatBytes(e.bytes ?? 0)}</span>
+                              : formatBytes(e.bytes ?? 0)
                       }
                     />
                   ))}
                 </ListCard>
+                <p className="text-micro text-ink-3 mt-2 leading-[1.5]">
+                  Only SKILL.md is read into context. The rest reaches the model only if SKILL.md
+                  sends the engine there.
+                </p>
               </section>
             )}
 

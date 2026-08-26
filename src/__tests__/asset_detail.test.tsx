@@ -428,6 +428,19 @@ describe("Asset detail — the inspector's document screen", () => {
     expect(screen.queryAllByTestId("skill-dir-row")).toHaveLength(0);
   });
 
+  it("Contents says only SKILL.md is read into context, and sets its size in full ink", async () => {
+    render(<AssetDetail asset={asset} inventory={inventory} />);
+    await screen.findByRole("tab", { name: "Details" });
+    openDetails();
+    const section = (await screen.findByText("Contents")).closest("section")!;
+    expect(section.textContent).toContain("Only SKILL.md is read into context.");
+    const skillRow = within(section).getByText("SKILL.md").closest('[data-testid="skill-dir-row"]')!;
+    // Class-contract only: happy-dom lays nothing out, so computed color is
+    // unassertable here. This checks the emphasis class landed on the row,
+    // not that it renders visibly lighter — that needs a real-build screenshot.
+    expect(skillRow.querySelector(".text-ink-1")).toBeTruthy();
+  });
+
   it("Context is a two-tier ledger: always-on and on-open, tokens leading, bytes beneath", async () => {
     bodyFigures = {
       bytes: 8602,
