@@ -431,15 +431,15 @@ pub fn get_global_agents() -> Vec<Agent> {
 }
 
 #[derive(Deserialize)]
-struct SkillFrontmatter {
-    name: String,
-    description: String,
+pub(crate) struct SkillFrontmatter {
+    pub(crate) name: String,
+    pub(crate) description: String,
     version: Option<String>,
     #[serde(alias = "source-origin")]
     source_origin: Option<String>,
 }
 
-fn parse_skill_frontmatter(content: &str) -> Result<SkillFrontmatter, String> {
+pub(crate) fn parse_skill_frontmatter(content: &str) -> Result<SkillFrontmatter, String> {
     if !content.starts_with("---") {
         return Err("Missing frontmatter block delimiter '---'".to_string());
     }

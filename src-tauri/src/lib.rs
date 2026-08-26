@@ -1525,6 +1525,12 @@ pub struct AssetBody {
     pub modified_ms: Option<i64>,
     /// bytes / 4, integer division: an estimate, labelled as one on screen.
     pub estimated_tokens: u64,
+    /// UTF-8 bytes of the frontmatter name + description — the share of this
+    /// document in every engine's startup list, whether or not it ever fires.
+    /// `None` when the document does not parse as skill frontmatter.
+    pub always_on_bytes: Option<u64>,
+    /// bytes / 4, integer division, same estimate rule as `estimated_tokens`.
+    pub always_on_estimated_tokens: Option<u64>,
 }
 
 /// Reads one document for the inspector: the text, and the figures the panel
@@ -1542,12 +1548,17 @@ pub fn asset_body_of(document: &Path) -> Result<AssetBody, String> {
         .ok()
         .and_then(|m| m.duration_since(std::time::UNIX_EPOCH).ok())
         .map(|d| d.as_millis() as i64);
+    let always_on_bytes = scanner::parse_skill_frontmatter(&text)
+        .ok()
+        .map(|fm| (fm.name.len() + fm.description.len()) as u64);
     Ok(AssetBody {
         path: document.to_string_lossy().to_string(),
         lines: text.split('\n').count(),
         bytes,
         modified_ms,
         estimated_tokens: bytes / 4,
+        always_on_bytes,
+        always_on_estimated_tokens: always_on_bytes.map(|b| b / 4),
         text,
     })
 }

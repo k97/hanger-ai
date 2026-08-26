@@ -58,3 +58,32 @@ fn a_file_that_is_not_text_is_refused_with_the_panel_s_own_words() {
     fs::write(&doc, [0xff, 0xfe, 0x00, 0x80]).unwrap();
     assert_eq!(asset_body_of(&doc).unwrap_err(), "File is not text");
 }
+
+#[test]
+fn always_on_measures_name_and_description_when_frontmatter_parses() {
+    let dir = tempfile::tempdir().unwrap();
+    let doc = dir.path().join("SKILL.md");
+    // name "measured" (8 bytes) + description "measures skill mass" (19 bytes)
+    // = 27 bytes. 27 / 4 truncates to 6 but rounds to 7 — chosen deliberately
+    // so a round-to-nearest implementation would fail this assertion; a
+    // 13-byte value (13/4 = 3 either way) would not pin integer division.
+    assert_eq!("measured".len() + "measures skill mass".len(), 27);
+    std::fs::write(
+        &doc,
+        "---\nname: measured\ndescription: measures skill mass\n---\nbody\n",
+    )
+    .unwrap();
+    let body = asset_body_of(&doc).expect("a readable UTF-8 file");
+    assert_eq!(body.always_on_bytes, Some(27));
+    assert_eq!(body.always_on_estimated_tokens, Some(6), "27 / 4, integer division");
+}
+
+#[test]
+fn always_on_is_absent_when_the_document_has_no_skill_frontmatter() {
+    let dir = tempfile::tempdir().unwrap();
+    let doc = dir.path().join("notes.md");
+    std::fs::write(&doc, "just prose, no frontmatter\n").unwrap();
+    let body = asset_body_of(&doc).expect("a readable UTF-8 file");
+    assert_eq!(body.always_on_bytes, None);
+    assert_eq!(body.always_on_estimated_tokens, None);
+}
