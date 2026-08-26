@@ -13,11 +13,11 @@ export interface ProbedTool {
 }
 
 /**
- * The shape `mcp_cached_probe` returns for one registration. Fields the
- * function below doesn't consume (`fromCache`, `declined`, the wire's own
- * `verifiedAt`) stay optional here even though the backend always sends
- * them, because callers other than `parseProbe` read those directly off the
- * raw answer rather than through this narrowing.
+ * The shape `mcp_cached_probe` returns for one registration — mirrors
+ * `Flyout.tsx`'s inline `invoke<...>` type exactly, so a later task can type
+ * that call against this instead of re-declaring it. `verifiedAt`,
+ * `fromCache` and `declined` are required (the backend always sends them);
+ * only `cost` is genuinely optional on the wire.
  */
 export interface ProbeWire {
   result: {
@@ -28,9 +28,9 @@ export interface ProbeWire {
     tools: ProbedTool[];
     error?: string;
   } | null;
-  verifiedAt?: number | null;
-  fromCache?: boolean;
-  declined?: boolean;
+  verifiedAt: number | null;
+  fromCache: boolean;
+  declined: boolean;
   cost?: ToolCost | null;
 }
 
@@ -58,8 +58,16 @@ export type ProbeView =
  *
  * Returns null when the backend declined and had nothing cached: that is
  * neither an error nor an empty tool list, and the panel says so itself.
+ *
+ * Takes only `result` and `cost` — the two fields this function reads — so
+ * `ProbeWire` itself can stay faithful to the full wire response (and the
+ * `invoke` call can be typed against it) without forcing every fixture here
+ * to carry fields this narrowing never looks at.
  */
-export function parseProbe(wire: ProbeWire, verifiedAt: number): ProbeView | null {
+export function parseProbe(
+  wire: Pick<ProbeWire, "result" | "cost">,
+  verifiedAt: number
+): ProbeView | null {
   const answer = wire?.result ?? null;
   if (!answer) return null;
   if (answer.error) {
