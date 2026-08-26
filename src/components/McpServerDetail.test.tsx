@@ -2,6 +2,7 @@
 import { render, screen, cleanup, fireEvent, within, act } from "@testing-library/react";
 import { describe, it, expect, afterEach, vi } from "vitest";
 import McpServerDetail, { McpServerView } from "./McpServerDetail";
+import { probeAnswered, probeFailed } from "../__tests__/probeFixtures";
 
 const openUrl = vi.fn().mockResolvedValue(undefined);
 vi.mock("@tauri-apps/plugin-opener", () => ({
@@ -315,8 +316,8 @@ describe("McpServerDetail", () => {
       <McpServerDetail
         server={diverged}
         verified={{
-          a: { kind: "answered", protocolVersion: "2025-06-18", capabilities: [], tools: [], verifiedAt: 1_700_000_000_000 },
-          b: { kind: "answered", protocolVersion: "2024-11-05", capabilities: [], tools: [], verifiedAt: 1_700_000_000_000 },
+          a: probeAnswered({ protocolVersion: "2025-06-18" }),
+          b: probeAnswered({ protocolVersion: "2024-11-05" }),
         }}
       />
     );
@@ -1117,8 +1118,8 @@ describe("McpServerDetail", () => {
       <McpServerDetail
         server={server}
         verified={{
-          "/a:tauri": { kind: "failed", verifiedAt: 1_700_000_000_000, error: "Timed out after 20s waiting for the server to respond" },
-          "/b:tauri": { kind: "failed", verifiedAt: 1_700_000_000_000, error: "Connection refused" },
+          "/a:tauri": probeFailed("Timed out after 20s waiting for the server to respond"),
+          "/b:tauri": probeFailed("Connection refused"),
         }}
       />
     );
@@ -1132,8 +1133,8 @@ describe("McpServerDetail — the tool table and Context (M5)", () => {
     render(
       <McpServerDetail
         server={{ ...base, registrations: [base.registrations[0]] }}
-        verified={{ "cc-user": {
-          kind: "answered", capabilities: ["tools"], verifiedAt: 1_700_000_000_000,
+        verified={{ "cc-user": probeAnswered({
+          capabilities: ["tools"],
           tools: [
             { name: "get_system_volume", description: "Get the current macOS system volume level (0–100) and mute state." },
             { name: "list_audio_apps", description: "List the apps currently producing audio." },
@@ -1151,7 +1152,7 @@ describe("McpServerDetail — the tool table and Context (M5)", () => {
           // still have passed every assertion below.
           cost: { toolCount: 5, describedToolCount: 2, descriptionBytesTotal: 109, estimatedTokens: 42,
             perTool: [{ name: "get_system_volume", descriptionBytes: 69 }, { name: "list_audio_apps", descriptionBytes: 40 }, { name: "undescribed", descriptionBytes: 0 }, { name: "ghost_tool", descriptionBytes: 12 }] },
-        } }}
+        }) }}
       />
     );
     const block = screen.getByTestId("tools-block");
@@ -1216,20 +1217,14 @@ describe("McpServerDetail — the tool table and Context (M5)", () => {
       <McpServerDetail
         server={server}
         verified={{
-          "/a:tauri": {
-            kind: "answered",
-            capabilities: [],
+          "/a:tauri": probeAnswered({
             tools: [{ name: "get_docs" }, { name: "new_tool" }],
-            verifiedAt: 1_700_000_000_000,
             cost: { toolCount: 5, describedToolCount: 2, descriptionBytesTotal: 109, estimatedTokens: 42, perTool: [] },
-          },
-          "/b:tauri": {
-            kind: "answered",
-            capabilities: [],
+          }),
+          "/b:tauri": probeAnswered({
             tools: [{ name: "get_docs" }],
-            verifiedAt: 1_700_000_000_000,
             cost: { toolCount: 3, describedToolCount: 3, descriptionBytesTotal: 512, estimatedTokens: 77, perTool: [] },
-          },
+          }),
         }}
       />
     );
@@ -1265,13 +1260,10 @@ describe("McpServerDetail — the tool table and Context (M5)", () => {
       <McpServerDetail
         server={server}
         verified={{
-          "/a:tauri": {
-            kind: "answered",
-            capabilities: [],
+          "/a:tauri": probeAnswered({
             tools: [{ name: "get_docs" }],
-            verifiedAt: 1_700_000_000_000,
             cost: { toolCount: 1, describedToolCount: 0, descriptionBytesTotal: 0, estimatedTokens: 0, perTool: [] },
-          },
+          }),
         }}
       />
     );
@@ -1323,13 +1315,10 @@ describe("McpServerDetail — the tool table and Context (M5)", () => {
             verifiedAt: 1_700_000_000_000,
             error: "Connection refused",
           },
-          "/b:tauri": {
-            kind: "answered",
-            capabilities: [],
+          "/b:tauri": probeAnswered({
             tools: [{ name: "get_docs" }],
-            verifiedAt: 1_700_000_000_000,
             cost: { toolCount: 1, describedToolCount: 1, descriptionBytesTotal: 60, estimatedTokens: 15, perTool: [] },
-          },
+          }),
         }}
       />
     );
@@ -1608,14 +1597,11 @@ describe("McpServerDetail — Identity & capabilities card", () => {
       <McpServerDetail
         server={base}
         verified={{
-          "cc-user": {
-            kind: "answered",
+          "cc-user": probeAnswered({
             serverVersion: "1.0.0",
             protocolVersion: "2025-06-18",
             capabilities: ["tools"],
-            tools: [],
-            verifiedAt: 1_700_000_000_000,
-          },
+          }),
         }}
       />
     );
