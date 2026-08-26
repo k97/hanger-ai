@@ -1,13 +1,21 @@
-import type { ProbeView, ToolCost } from "../utils/probeView";
+import type { ProbeView } from "../utils/probeView";
 
-const ZERO: ToolCost = { toolCount: 0, describedToolCount: 0,
-  descriptionBytesTotal: 0, estimatedTokens: 0, perTool: [] };
-
-/** An answered probe. Pass only what the test cares about. */
+/**
+ * An answered probe. Pass only what the test cares about.
+ *
+ * `cost` defaults to omitted, not zeroed: `McpServerDetail.tsx` treats
+ * "cost present" and "cost absent" as different states, not "cost absent"
+ * and "cost zero" -- the Tools tab badge (`:705`) and the two `?? tools.length`
+ * fallbacks (`:767`, `:864`) all key off `cost === undefined`, and the
+ * "Context per request" ledger (`:730`, `:886`) renders only when `cost` is
+ * truthy at all. A zeroed default would silently attach a badge/ledger a
+ * caller who only set `tools` never asked for. A test that wants a real
+ * (possibly zeroed) cost object passes one explicitly.
+ */
 export function probeAnswered(over: Partial<Extract<ProbeView, { kind: "answered" }>> = {})
   : ProbeView {
   return { kind: "answered", verifiedAt: 1_700_000_000_000, capabilities: [],
-           tools: [], cost: ZERO, ...over };
+           tools: [], ...over };
 }
 
 /** A failed probe. Carries no cost, because the failed arm has none. */
