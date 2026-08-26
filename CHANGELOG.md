@@ -10,20 +10,20 @@ change rather than to a PR.
 
 ## [Unreleased]
 
-## [1.1.0] - 2026-08-25
+## [0.1.0] - 2026-08-25
 
 The first release since the interface was rebuilt.
 
-Hanger recognises eleven engines, up from the four it knew at 1.0.2. It reads
+Hanger recognises eleven engines, up from the four it knew at 0.0.3. It reads
 MCP server registrations from sixteen hosts, which it could not do at all
 before, and probes them to report which are running and which are unaccounted
 for. A link map draws which engines reach which assets and by what mechanism.
 
 The asset store moved from schema 2 to schema 7. The five migrations run once,
 on first launch, and are forward-only: an older Hanger build will open a
-version 7 store without migrating it back, so downgrading to 1.0.x is not
+version 7 store without migrating it back, so downgrading to 0.0.x is not
 supported. Asset reaping stays off unless `HANGER_ENABLE_REAP` is set, as in
-1.0.x.
+0.0.x.
 
 Entries below are grouped the Keep a Changelog way. Test-only, documentation-only
 and internal-refactor commits are left out; 284 of the 542 commits in this range
@@ -328,7 +328,7 @@ changed something a user can observe.
 - **telemetry:** The webview can report an engine it has no mark for, once sanitised ([de9a2a4](https://github.com/k97/hanger-ai/commit/de9a2a4))
 - **telemetry:** An unmapped engine is reported once a session, never a path ([f6e347e](https://github.com/k97/hanger-ai/commit/f6e347e))
 
-## [1.0.2] - 2026-08-12
+## [0.0.3] - 2026-08-12
 
 ### Added
 
@@ -338,7 +338,7 @@ changed something a user can observe.
 
 - **dialogs:** Permit native `plugin-dialog` surfaces while keeping the ban on blocking webview dialogs ([ac0e44a](https://github.com/k97/hanger-ai/commit/ac0e44a))
 
-## [1.0.1] - 2026-08-12
+## [0.0.2] - 2026-08-12
 
 ### Added
 
@@ -353,7 +353,7 @@ changed something a user can observe.
 
 - **updater:** Sign updates with the CI key that the app actually trusts. Updates published before this fix could not be verified by an installed build ([fa0a194](https://github.com/k97/hanger-ai/commit/fa0a194))
 
-## [1.0.0] - 2026-08-12
+## [0.0.1] - 2026-08-12
 
 First public release. macOS only, distributed as a universal DMG.
 
@@ -366,8 +366,8 @@ First public release. macOS only, distributed as a universal DMG.
 
 - **distribution:** Notarise the DMG with Apple and staple the ticket, so Gatekeeper clears it without a network round trip ([f862c7a](https://github.com/k97/hanger-ai/commit/f862c7a), [a392fb1](https://github.com/k97/hanger-ai/commit/a392fb1))
 
-[Unreleased]: https://github.com/k97/hanger-ai/compare/v1.1.0...HEAD
-[1.1.0]: https://github.com/k97/hanger-ai/compare/v1.0.2...v1.1.0
-[1.0.2]: https://github.com/k97/hanger-ai/compare/v1.0.1...v1.0.2
-[1.0.1]: https://github.com/k97/hanger-ai/compare/v1.0.0...v1.0.1
-[1.0.0]: https://github.com/k97/hanger-ai/releases/tag/v1.0.0
+[Unreleased]: https://github.com/k97/hanger-ai/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/k97/hanger-ai/compare/v0.0.3...v0.1.0
+[0.0.3]: https://github.com/k97/hanger-ai/compare/v0.0.2...v0.0.3
+[0.0.2]: https://github.com/k97/hanger-ai/compare/v0.0.1...v0.0.2
+[0.0.1]: https://github.com/k97/hanger-ai/releases/tag/v0.0.1
