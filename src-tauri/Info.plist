@@ -23,7 +23,7 @@
 	  Access; these five are the whole surface.
 	-->
 	<key>NSDocumentsFolderUsageDescription</key>
-	<string>Hanger scans the folders you link for skills, rules, subagents and MCP servers. Some coding agents keep theirs in Documents.</string>
+	<string>Hanger scans the folders you link for skills, rules, subagents and MCP servers. Some engines keep theirs in Documents.</string>
 	<key>NSDesktopFolderUsageDescription</key>
 	<string>Hanger reads this folder only when you link a project inside it.</string>
 	<key>NSDownloadsFolderUsageDescription</key>
