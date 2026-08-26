@@ -473,15 +473,38 @@ fn canonicalize_asset_path(path: &Path, parse_warnings: &mut Vec<String>) -> Str
 }
 
 pub fn get_global_agents() -> Vec<Agent> {
+    get_global_agents_with_denials().0
+}
+
+/// Detection plus what could not be established. `Path::exists()` collapses
+/// "denied" into "absent" — a TCC-blocked ~/Documents/Cline would read as
+/// "Cline is not installed", a wrong answer stated confidently. `probe_path`
+/// keeps the distinction, and a `Blocked` probe here is a finding — "Cline
+/// may be installed, macOS is in the way" — never a silent absence. The
+/// denial strings ride the same parse_warnings channel MCP discovery
+/// problems already use (see the scan call site), accepting that channel's
+/// known scope-leak debt rather than minting a new surface.
+pub fn get_global_agents_with_denials() -> (Vec<Agent>, Vec<String>) {
     let home = get_home_dir();
     let mut agents = Vec::new();
+    let mut denials = Vec::new();
     for config in AGENT_CONFIGS {
         let mut resolved_path = None;
         for rel_path in config.global_roots {
             let path = home.join(rel_path);
-            if path.exists() {
-                resolved_path = Some(path.to_string_lossy().to_string());
-                break;
+            match probe_path(&path) {
+                RootPresence::Present => {
+                    resolved_path = Some(path.to_string_lossy().to_string());
+                    break;
+                }
+                RootPresence::Blocked(d) => {
+                    denials.push(format!(
+                        "{} may be installed — {}",
+                        config.name,
+                        denial_warning(d, &path.to_string_lossy())
+                    ));
+                }
+                RootPresence::Absent => {}
             }
         }
         // An agent that owns no directory is found by its config file
@@ -493,9 +516,19 @@ pub fn get_global_agents() -> Vec<Agent> {
         if resolved_path.is_none() {
             for rel_path in config.detect_files {
                 let path = home.join(rel_path);
-                if path.exists() {
-                    resolved_path = Some(path.to_string_lossy().to_string());
-                    break;
+                match probe_path(&path) {
+                    RootPresence::Present => {
+                        resolved_path = Some(path.to_string_lossy().to_string());
+                        break;
+                    }
+                    RootPresence::Blocked(d) => {
+                        denials.push(format!(
+                            "{} may be installed — {}",
+                            config.name,
+                            denial_warning(d, &path.to_string_lossy())
+                        ));
+                    }
+                    RootPresence::Absent => {}
                 }
             }
         }
@@ -508,7 +541,7 @@ pub fn get_global_agents() -> Vec<Agent> {
             });
         }
     }
-    agents
+    (agents, denials)
 }
 
 #[derive(Deserialize)]
@@ -926,8 +959,9 @@ impl DirectoryScanner {
             }
         }
 
-        let detected_agents = get_global_agents();
+        let (detected_agents, engine_root_denials) = get_global_agents_with_denials();
         let mut parse_warnings = Vec::new();
+        parse_warnings.extend(engine_root_denials);
 
         let store_opt = crate::preferences::PreferencesStore::new(&self.db_path).ok();
         let now = std::time::SystemTime::now()
@@ -1108,8 +1142,19 @@ impl DirectoryScanner {
                     for entry in walker {
                         let entry = match entry {
                             Ok(e) => e,
-                            Err(_) => {
+                            Err(e) => {
                                 global_has_skips = true;
+                                // walk_denial_source unwraps the ignore
+                                // crate's Custom-kind wrapper down to the
+                                // errno-bearing io::Error; classify_denial(
+                                // e.io_error()) alone would silently
+                                // classify nothing (see its doc comment).
+                                if let Some(d) = classify_denial(walk_denial_source(&e)) {
+                                    let w = denial_warning(d, &skills_path.to_string_lossy());
+                                    if !parse_warnings.contains(&w) {
+                                        parse_warnings.push(w);
+                                    }
+                                }
                                 continue;
                             }
                         };
@@ -1219,8 +1264,17 @@ impl DirectoryScanner {
                         for entry in walker {
                             let entry = match entry {
                                 Ok(e) => e,
-                                Err(_) => {
+                                Err(e) => {
                                     global_has_skips = true;
+                                    // Same unwrap as the skills walker above:
+                                    // classify_denial(e.io_error()) alone
+                                    // would silently classify nothing.
+                                    if let Some(d) = classify_denial(walk_denial_source(&e)) {
+                                        let w = denial_warning(d, &subagents_path.to_string_lossy());
+                                        if !parse_warnings.contains(&w) {
+                                            parse_warnings.push(w);
+                                        }
+                                    }
                                     continue;
                                 }
                             };

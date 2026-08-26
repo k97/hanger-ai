@@ -2087,3 +2087,46 @@ fn denied_subdir_yields_one_permission_warning_not_zero_not_many() {
     let denied: Vec<_> = warnings.iter().filter(|w| w.contains("Permission denied")).collect();
     assert_eq!(denied.len(), 1, "one warning per denied root, deduplicated: {:?}", warnings);
 }
+
+#[test]
+fn blocked_engine_root_yields_denial_not_absence() {
+    use std::os::unix::fs::PermissionsExt;
+
+    // Root bypasses mode bits, so chmod 000 would not deny anything and this
+    // test would assert on a denial that can never appear.
+    if unsafe { libc::geteuid() } == 0 {
+        eprintln!("skipping blocked_engine_root_yields_denial_not_absence: running as root, mode bits do not deny");
+        return;
+    }
+
+    let _guard = ENV_MUTEX.get_or_init(|| Mutex::new(())).lock().unwrap();
+
+    // Fake home where ~/Documents is unreadable, so the stat of
+    // Documents/Cline (agents.rs AGENT_CONFIGS, cline.global_roots) is
+    // denied rather than absent.
+    let home = tempfile::tempdir().unwrap();
+    let docs = home.path().join("Documents");
+    fs::create_dir_all(&docs).unwrap();
+    let mut p = fs::metadata(&docs).unwrap().permissions();
+    p.set_mode(0o000);
+    fs::set_permissions(&docs, p).unwrap();
+
+    std::env::set_var("HANGER_TEST_HOME", home.path().to_string_lossy().to_string());
+
+    let (agents, denials) = tauri_app_lib::scanner::get_global_agents_with_denials();
+
+    // Restore so tempdir can clean up, before any assertion can early-return.
+    let mut p = fs::metadata(&docs).unwrap().permissions();
+    p.set_mode(0o755);
+    fs::set_permissions(&docs, p).unwrap();
+
+    assert!(
+        !agents.iter().any(|a| a.id == "cline"),
+        "a blocked root must not read as an installed engine"
+    );
+    assert!(
+        denials.iter().any(|d| d.contains("Permission denied") && d.contains("Documents/Cline")),
+        "the denial names the path: {:?}",
+        denials
+    );
+}
