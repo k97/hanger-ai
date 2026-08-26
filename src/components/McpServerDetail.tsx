@@ -182,7 +182,14 @@ function ProbePending() {
   );
 }
 
-const SECTION = "px-[12px] py-[18px] border-b border-line";
+/* Sections separate on whitespace, not a rule. The --line border in this
+   panel family means header-from-body (Flyout, ReviewInspector) -- spending
+   it between content sections too left this the only panel in the app drawing
+   one, and the skill panel beside it has never needed one. Every section here
+   already leads with an eyebrow and encloses a bordered card; that is the
+   structure, and a rule on top of it was a third statement of the same
+   boundary. */
+const SECTION = "px-[12px] py-3.5";
 const HEADING = "text-micro font-medium text-ink-3 uppercase tracking-[.06em]";
 const COUNT = "text-micro font-mono text-ink-2 tabular";
 
