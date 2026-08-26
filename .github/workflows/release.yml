@@ -77,6 +77,46 @@ jobs:
           security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "build-pwd" build.keychain
           security find-identity -v -p codesigning build.keychain
 
+      - name: Resolve Release Notes
+        id: notes
+        if: github.event.inputs.dry_run != 'true'
+        run: |
+          set -euo pipefail
+          VERSION="${GITHUB_REF_NAME#v}"
+
+          if [ -f "docs/release-notes/${VERSION}.md" ]; then
+            SRC="docs/release-notes/${VERSION}.md"
+            BODY=$(cat "$SRC")
+          elif [ -f CHANGELOG.md ]; then
+            SRC="CHANGELOG.md section [${VERSION}]"
+            BODY=$(awk -v v="## [${VERSION}]" '
+              index($0, v)==1 {f=1; next}
+              f && /^## \[/ {exit}
+              f {print}
+            ' CHANGELOG.md | sed -e '/./,$!d')
+          fi
+
+          if [ -z "${BODY:-}" ] || [ -z "$(printf '%s' "${BODY:-}" | tr -d '[:space:]')" ]; then
+            echo "::error::LOUD FAILURE: no release notes for ${VERSION}. Add docs/release-notes/${VERSION}.md or a '## [${VERSION}]' section to CHANGELOG.md. Refusing to publish placeholder notes."
+            exit 1
+          fi
+
+          # A multi-line value written to $GITHUB_OUTPUT by heredoc can be
+          # escaped by content containing the delimiter, letting it set outputs
+          # of its own. The notes come from the repo, so this needs write access
+          # to exploit, but the check is free.
+          if printf '%s' "$BODY" | grep -q 'HANGER_NOTES_EOF'; then
+            echo "::error::Release notes contain the output delimiter HANGER_NOTES_EOF. Refusing to write them."
+            exit 1
+          fi
+
+          echo "Release notes source: ${SRC} ($(printf '%s\n' "$BODY" | wc -l | tr -d ' ') lines)"
+          {
+            echo "body<<HANGER_NOTES_EOF"
+            printf '%s\n' "$BODY"
+            echo "HANGER_NOTES_EOF"
+          } >> "$GITHUB_OUTPUT"
+
       - name: Build and Package Tauri App
         uses: tauri-apps/tauri-action@1deb371b0cd8bd54025b384f1cd735e725c4060f # v1.0.0
         env:
@@ -94,7 +134,7 @@ jobs:
         with:
           tagName: ${{ (github.event.inputs.dry_run == 'true') && '' || github.ref_name }}
           releaseName: 'Release ${{ github.ref_name }}'
-          releaseBody: 'Production release of Hanger AI. Signed and notarised.'
+          releaseBody: ${{ steps.notes.outputs.body }}
           releaseDraft: true
           prerelease: false
           uploadUpdaterJson: true
