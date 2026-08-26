@@ -13,6 +13,11 @@ internal-refactor commits are omitted.
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-08-26
+
+Usage analytics report into a new GA4 property and are on by default. The
+release pipeline now publishes real notes instead of a placeholder.
+
 ### Changed
 
 - **telemetry:** Turn usage analytics on by default. The onboarding consent step shows the switch already enabled, so the choice stays visible and refusable before anything is sent; an explicit refusal is stored and survives restarts. Crash reporting is unchanged and still off by default ([64533d6](https://github.com/k97/hanger-ai/commit/64533d6))
@@ -385,7 +390,8 @@ stays off unless `HANGER_ENABLE_REAP` is set, as in 0.0.x.
 
 - **distribution:** Notarise the DMG with Apple and staple the ticket, so Gatekeeper clears it without a network round trip ([f862c7a](https://github.com/k97/hanger-ai/commit/f862c7a), [a392fb1](https://github.com/k97/hanger-ai/commit/a392fb1))
 
-[Unreleased]: https://github.com/k97/hanger-ai/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/k97/hanger-ai/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/k97/hanger-ai/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/k97/hanger-ai/compare/v0.0.3...v0.1.0
 [0.0.3]: https://github.com/k97/hanger-ai/compare/v0.0.2...v0.0.3
 [0.0.2]: https://github.com/k97/hanger-ai/compare/v0.0.1...v0.0.2
