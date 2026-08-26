@@ -2249,17 +2249,31 @@ fn blocked_root_alongside_a_resolved_sibling_root_is_not_told_it_may_be_installe
         "Documents/Cline resolved; cline is demonstrably installed: {:?}",
         agents
     );
-    assert!(
-        denials.iter().any(|d| d.contains("Cline")
+    let cline_denial = denials
+        .iter()
+        .find(|d| d.contains("Cline")
             && d.contains("has a folder Hanger could not read")
-            && d.contains("Permission denied")),
-        "a blocked sibling root of a resolved engine is still worth reporting: {:?}",
-        denials
-    );
+            && d.contains("Permission denied"))
+        .unwrap_or_else(|| panic!("a blocked sibling root of a resolved engine is still worth reporting: {:?}", denials));
     assert!(
         !denials.iter().any(|d| d.contains("may be installed")),
         "an engine that resolved via a sibling root must not also be told it may be installed: {:?}",
         denials
+    );
+    // Ruling E/A, stated positively — see
+    // blocked_engine_root_yields_denial_not_absence for why the absence form
+    // this replaces could never go red: no test can produce a real EPERM, so
+    // every string this test ever saw was the EACCES "Permission denied: …",
+    // which never starts with "macOS blocked access to" whatever the format
+    // does. This is the resolved-sibling format
+    // (`"{} has a folder Hanger could not read — {}"`), the only one of the
+    // four invariant-bearing formats left without a leading assertion.
+    assert!(
+        cline_denial.starts_with("Cline "),
+        "a resolved-sibling denial is machine-scope and must lead with the \
+         engine name, not the path RepoPane routes into the project TCC \
+         panel: {}",
+        cline_denial
     );
 }
 
