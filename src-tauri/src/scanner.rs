@@ -1165,13 +1165,15 @@ impl DirectoryScanner {
                                 // e.io_error()) alone would silently
                                 // classify nothing (see its doc comment).
                                 //
-                                // Ruling E: this is a machine-scope denial —
-                                // leading with the bare "macOS blocked access
-                                // to" form would make RepoPane.tsx route it
-                                // into the project-scoped TCC panel, wrongly
-                                // captioned with a project path. That prefix
-                                // is reserved for the project walk's own
-                                // denial (see its site further down).
+                                // A machine-scope denial must lead with the
+                                // engine name, not the path: RepoPane.tsx
+                                // routes any warning starting with "macOS
+                                // blocked access to" into the panel that
+                                // renders the project path, so leading with
+                                // that prefix here would caption it with the
+                                // wrong path. That prefix is reserved for the
+                                // project walk's own denial (see its site
+                                // further down).
                                 if let Some(d) = classify_denial(walk_denial_source(&e)) {
                                     let w = format!(
                                         "{} skills folder — {}",
@@ -1296,9 +1298,13 @@ impl DirectoryScanner {
                                     // Same unwrap as the skills walker above:
                                     // classify_denial(e.io_error()) alone
                                     // would silently classify nothing. Same
-                                    // Ruling E reason for the "{agent} …
-                                    // folder —" lead-in: machine-scope, must
-                                    // not trigger the project TCC panel.
+                                    // reason for the "{agent} … folder —"
+                                    // lead-in: this is a machine-scope
+                                    // denial, and RepoPane.tsx routes any
+                                    // warning starting with "macOS blocked
+                                    // access to" into the panel that renders
+                                    // the project path — leading with that
+                                    // prefix here would caption it wrongly.
                                     if let Some(d) = classify_denial(walk_denial_source(&e)) {
                                         let w = format!(
                                             "{} subagents folder — {}",
