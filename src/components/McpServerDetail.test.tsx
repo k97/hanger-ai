@@ -1187,8 +1187,8 @@ describe("McpServerDetail — the tool table and Context (M5)", () => {
     expect(context.textContent).not.toContain("the remainder, not in the store");
     expect(context.textContent).toContain(
       "A request carries a name, a description and an input schema for every tool. The " +
-        "Descriptions figure is the tool list below, totalled. The schemas are never stored, " +
-        "so nothing on this panel can weigh them."
+        "schemas are never stored, so nothing here can weigh them. Token figures are bytes " +
+        "divided by four, so treat them as a size, not a count."
     );
     expect(context.textContent).not.toContain("tool definitions in every request");
   });

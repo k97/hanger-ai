@@ -719,8 +719,8 @@ export default function McpServerDetail({
             </ListCard>
             <p className="text-micro text-ink-3 mt-2 leading-[1.5]">
               A request carries a name, a description and an input schema for every tool. The
-              Descriptions figure is the tool list below, totalled. The schemas are never stored,
-              so nothing on this panel can weigh them.
+              schemas are never stored, so nothing here can weigh them. Token figures are bytes
+              divided by four, so treat them as a size, not a count.
             </p>
           </section>
         )}

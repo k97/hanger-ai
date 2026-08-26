@@ -411,7 +411,7 @@ export default function AssetDetail({ asset, inventory, onDocumentPath, annotati
                     label={
                       <span className="flex flex-col gap-0.5 min-w-0">
                         <span className="text-small leading-[1.5]">When it opens</span>
-                        <span className="text-micro text-ink-3 leading-[1.5]">SKILL.md, in full</span>
+                        <span className="text-micro text-ink-3 leading-[1.5]">SKILL.md in full, frontmatter included</span>
                       </span>
                     }
                     value={

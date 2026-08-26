@@ -483,7 +483,7 @@ describe("Asset detail — the inspector's document screen", () => {
     expect(section.textContent).toContain("≈ 91 tokens");
     expect(section.textContent).toContain("228 B");
     expect(section.textContent).toContain("When it opens");
-    expect(section.textContent).toContain("SKILL.md, in full");
+    expect(section.textContent).toContain("SKILL.md in full, frontmatter included");
     expect(section.textContent).toContain("≈ 2,400 tokens");
     expect(section.textContent).toContain("8.4 kB");
     expect(section.textContent).toContain("bytes divided by four");
