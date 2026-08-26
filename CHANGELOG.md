@@ -13,6 +13,19 @@ internal-refactor commits are omitted.
 
 ## [Unreleased]
 
+### Changed
+
+- **telemetry:** Turn usage analytics on by default. The onboarding consent step shows the switch already enabled, so the choice stays visible and refusable before anything is sent; an explicit refusal is stored and survives restarts. Crash reporting is unchanged and still off by default ([64533d6](https://github.com/k97/hanger-ai/commit/64533d6))
+- **telemetry:** Compile the GA4 measurement ID into the binary instead of requiring it as a build secret. A measurement ID is a public identifier, unlike the API secret, which still has no default ([5cf85c6](https://github.com/k97/hanger-ai/commit/5cf85c6))
+
+### Fixed
+
+- **telemetry:** Report a GA4 response that was delivered but not accepted. A rejected event — a mismatched measurement ID and API secret is answered with 401 — used to be indistinguishable from a delivered one ([41addb7](https://github.com/k97/hanger-ai/commit/41addb7))
+
+### Security
+
+- **telemetry:** Stop writing the GA4 API secret to the application log. The Measurement Protocol URL carries the secret in its query string and `reqwest::Error` embeds that URL, so a failed dispatch logged the credential ([41addb7](https://github.com/k97/hanger-ai/commit/41addb7))
+
 ## [0.1.0] - 2026-08-25
 
 The first release since the interface was rebuilt.
