@@ -2030,3 +2030,60 @@ fn a_parse_failure_is_not_a_link_state() {
         "a parse failure must not wear a link state; it files under parse, not broken links"
     );
 }
+
+#[test]
+fn denied_subdir_yields_one_permission_warning_not_zero_not_many() {
+    // Root bypasses mode bits, so chmod 000 would not deny anything and this
+    // test would assert on a warning that can never appear.
+    if unsafe { libc::geteuid() } == 0 {
+        eprintln!("skipping denied_subdir_yields_one_permission_warning_not_zero_not_many: running as root, mode bits do not deny");
+        return;
+    }
+
+    let _guard = ENV_MUTEX.get_or_init(|| Mutex::new(())).lock().unwrap();
+
+    // chmod 0o000 on a subdirectory makes the walk's read of it fail with
+    // EACCES. (EPERM/TCC cannot be produced in a test; tccd owns it. The
+    // classifier's EPERM branch is unit-tested in scanner.rs.)
+    //
+    // Two separately-blocked subdirectories, not one: a single unreadable
+    // directory can't be descended into, so the walker yields exactly one
+    // Err for it and even the old per-entry push would already look
+    // deduplicated by coincidence. Two blocked dirs force two Err events
+    // under the same root, which is what actually distinguishes "one
+    // warning per failed entry" (old code, both entries stringify to the
+    // same root-based message) from "one warning per root" (new code).
+    let temp_dir = tempfile::tempdir().unwrap();
+    let root = temp_dir.path();
+    let blocked_dirs = ["blocked_a", "blocked_b"];
+    for name in blocked_dirs {
+        let blocked = root.join(name);
+        fs::create_dir_all(blocked.join("nested")).unwrap();
+        let mut perms = fs::metadata(&blocked).unwrap().permissions();
+        use std::os::unix::fs::PermissionsExt;
+        perms.set_mode(0o000);
+        fs::set_permissions(&blocked, perms).unwrap();
+    }
+
+    std::env::set_var("HANGER_TEST_HOME", root.to_string_lossy().to_string());
+
+    let scanner = DirectoryScanner {
+        db_path: root.join("hanger.db"),
+        cancellation_token: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
+    };
+    let result = scanner.scan(root);
+
+    // Restore so tempdir can clean up, before any assertion can early-return.
+    use std::os::unix::fs::PermissionsExt;
+    for name in blocked_dirs {
+        let blocked = root.join(name);
+        let mut perms = fs::metadata(&blocked).unwrap().permissions();
+        perms.set_mode(0o755);
+        fs::set_permissions(&blocked, perms).unwrap();
+    }
+
+    let inventory = result.unwrap();
+    let warnings = &inventory.project_scans[0].parse_warnings;
+    let denied: Vec<_> = warnings.iter().filter(|w| w.contains("Permission denied")).collect();
+    assert_eq!(denied.len(), 1, "one warning per denied root, deduplicated: {:?}", warnings);
+}

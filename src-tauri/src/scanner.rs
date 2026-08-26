@@ -372,6 +372,29 @@ pub(crate) fn denial_warning(denial: Denial, path: &str) -> String {
     }
 }
 
+/// The raw errno-bearing `io::Error` behind a directory-walk failure, if any.
+///
+/// `ignore::Error::io_error()` returns the original `io::Error` only for
+/// errors it builds directly (e.g. failing to read a `.gitignore` file). A
+/// failure to descend into a directory is one layer deeper: `ignore` wraps
+/// the `walkdir::Error` it gets from `walkdir` in a Custom-kind `io::Error`
+/// (`impl From<walkdir::Error> for io::Error`), and a Custom-kind error's
+/// `raw_os_error()` is always `None` — the errno lives inside the boxed
+/// `walkdir::Error`, one `get_ref()`/`downcast_ref()` away. Skipping this
+/// step and calling `classify_denial(e.io_error())` directly compiles and
+/// looks right, but silently classifies every walk denial as `None` — EACCES
+/// and EPERM alike — because the wrapper's own `raw_os_error()` never sees
+/// the code. Confirmed against the real walker in
+/// `denied_subdir_yields_one_permission_warning_not_zero_not_many`.
+fn walk_denial_source(err: &ignore::Error) -> Option<&std::io::Error> {
+    let outer = err.io_error()?;
+    outer
+        .get_ref()
+        .and_then(|inner| inner.downcast_ref::<walkdir::Error>())
+        .and_then(|wd| wd.io_error())
+        .or(Some(outer))
+}
+
 pub(crate) fn get_home_dir() -> PathBuf {
     if let Ok(test_home) = std::env::var("HANGER_TEST_HOME") {
         return PathBuf::from(test_home);
@@ -1470,9 +1493,18 @@ impl DirectoryScanner {
                 Ok(e) => e,
                 Err(e) => {
                     project_has_skips = true;
-                    let err_str = e.to_string();
-                    if err_str.contains("Permission denied") || err_str.contains("permission denied") {
-                        parse_warnings.push(format!("Permission denied: {}", root.to_string_lossy()));
+                    // errno, not error text: TCC says "Operation not permitted"
+                    // (EPERM), which the old substring match on "Permission
+                    // denied" could never see — a TCC-blocked folder produced
+                    // no warning at all. One line per root, not per failed
+                    // entry. walk_denial_source unwraps the walker's error
+                    // down to the errno-bearing io::Error; see its doc for why
+                    // e.io_error() alone is not enough here.
+                    if let Some(d) = classify_denial(walk_denial_source(&e)) {
+                        let w = denial_warning(d, &root.to_string_lossy());
+                        if !parse_warnings.contains(&w) {
+                            parse_warnings.push(w);
+                        }
                     }
                     continue;
                 }
