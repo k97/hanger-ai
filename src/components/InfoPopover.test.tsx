@@ -8,7 +8,7 @@ afterEach(cleanup);
 const NOTE = "Token figures are bytes divided by four.";
 
 function Subject() {
-  return <InfoPopover label="About these figures">{NOTE}</InfoPopover>;
+  return <InfoPopover label="About the context figures">{NOTE}</InfoPopover>;
 }
 
 describe("InfoPopover", () => {
@@ -16,13 +16,13 @@ describe("InfoPopover", () => {
     render(<Subject />);
     expect(screen.queryByRole("note")).toBeNull();
     expect(screen.queryByText(NOTE)).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "About these figures" }));
+    fireEvent.click(screen.getByRole("button", { name: "About the context figures" }));
     expect(screen.getByRole("note").textContent).toBe(NOTE);
   });
 
   it("flips aria-expanded on the trigger", () => {
     render(<Subject />);
-    const trigger = screen.getByRole("button", { name: "About these figures" });
+    const trigger = screen.getByRole("button", { name: "About the context figures" });
     expect(trigger.getAttribute("aria-expanded")).toBe("false");
     fireEvent.click(trigger);
     expect(trigger.getAttribute("aria-expanded")).toBe("true");
@@ -35,7 +35,7 @@ describe("InfoPopover", () => {
     // are one thing. It is only meaningful if it resolves: an id that names
     // no element is worse than no attribute at all.
     render(<Subject />);
-    const trigger = screen.getByRole("button", { name: "About these figures" });
+    const trigger = screen.getByRole("button", { name: "About the context figures" });
     fireEvent.click(trigger);
     const id = trigger.getAttribute("aria-controls");
     expect(id).toBeTruthy();
@@ -62,7 +62,7 @@ describe("InfoPopover", () => {
 
   it("closes on Escape", () => {
     render(<Subject />);
-    fireEvent.click(screen.getByRole("button", { name: "About these figures" }));
+    fireEvent.click(screen.getByRole("button", { name: "About the context figures" }));
     expect(screen.getByRole("note")).toBeTruthy();
     fireEvent.keyDown(window, { key: "Escape" });
     expect(screen.queryByRole("note")).toBeNull();
@@ -75,7 +75,7 @@ describe("InfoPopover", () => {
         <Subject />
       </div>,
     );
-    fireEvent.click(screen.getByRole("button", { name: "About these figures" }));
+    fireEvent.click(screen.getByRole("button", { name: "About the context figures" }));
     expect(screen.getByRole("note")).toBeTruthy();
     fireEvent.pointerDown(screen.getByTestId("outside"));
     expect(screen.queryByRole("note")).toBeNull();
@@ -85,7 +85,7 @@ describe("InfoPopover", () => {
     // Selecting the text to copy it is a pointerdown like any other; closing
     // on it would make the note unselectable.
     render(<Subject />);
-    fireEvent.click(screen.getByRole("button", { name: "About these figures" }));
+    fireEvent.click(screen.getByRole("button", { name: "About the context figures" }));
     fireEvent.pointerDown(screen.getByRole("note"));
     expect(screen.getByRole("note")).toBeTruthy();
   });

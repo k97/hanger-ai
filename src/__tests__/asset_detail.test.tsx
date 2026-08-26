@@ -490,7 +490,7 @@ describe("Asset detail — the inspector's document screen", () => {
     // behind the header's info trigger rather than under the ledger, where a
     // sentence read once outweighed the numbers it qualifies.
     expect(section.textContent).not.toContain("bytes divided by four");
-    fireEvent.click(within(section).getByRole("button", { name: "About these figures" }));
+    fireEvent.click(within(section).getByRole("button", { name: "About the context figures" }));
     expect(within(section).getByRole("note").textContent).toBe(
       "Token figures are bytes divided by four. Every engine tokenises differently, so " +
         "treat them as a size, not a count."

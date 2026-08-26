@@ -1192,7 +1192,7 @@ describe("McpServerDetail — the tool table and Context (M5)", () => {
     // the ledger -- so it is absent until asked for, and complete when it
     // arrives.
     expect(context.textContent).not.toContain("A request carries a name");
-    fireEvent.click(within(context).getByRole("button", { name: "About these figures" }));
+    fireEvent.click(within(context).getByRole("button", { name: "About the request figures" }));
     expect(within(context).getByRole("note").textContent).toBe(
       "A request carries a name, a description and an input schema for every tool. This weighs " +
         "the descriptions in the list below; the schemas are never stored, so nothing here can " +
@@ -1253,7 +1253,7 @@ describe("McpServerDetail — the tool table and Context (M5)", () => {
     // Each block carries its own note trigger -- there is no section heading
     // here to hang one shared trigger from. Opening B's must not open A's:
     // a hardcoded id inside InfoPopover would tie both triggers to one region.
-    fireEvent.click(within(blockB).getByRole("button", { name: "About these figures" }));
+    fireEvent.click(within(blockB).getByRole("button", { name: "About the request figures" }));
     expect(within(blockB).getByRole("note").textContent).toContain("A request carries a name");
     expect(within(blockA).queryByRole("note")).toBeNull();
   });
@@ -1280,8 +1280,8 @@ describe("McpServerDetail — the tool table and Context (M5)", () => {
       />
     );
     const [blockA, blockB] = screen.getAllByTestId("tools-block");
-    expect(within(blockA).getByRole("button", { name: "About these figures" })).toBeTruthy();
-    expect(within(blockB).queryByRole("button", { name: "About these figures" })).toBeNull();
+    expect(within(blockA).getByRole("button", { name: "About the request figures" })).toBeTruthy();
+    expect(within(blockB).queryByRole("button", { name: "About the request figures" })).toBeNull();
   });
 
   it("draws no section-level Context heading when the specs differ -- the ledger moves into each block", () => {

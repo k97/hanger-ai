@@ -397,7 +397,11 @@ export default function AssetDetail({ asset, inventory, onDocumentPath, annotati
                     and a glyph has no baseline to share with the eyebrow. */}
                 <div className="flex items-center justify-between gap-2 mb-2">
                   <span className={eyebrowClass}>Context</span>
-                  <InfoPopover label="About these figures">{CONTEXT_NOTE}</InfoPopover>
+                  {/* Names this panel's section, where the MCP panel says
+                      "About the request figures" -- see the ContextNote
+                      comment in McpServerDetail.tsx for why the two are
+                      deliberately different strings. */}
+                  <InfoPopover label="About the context figures">{CONTEXT_NOTE}</InfoPopover>
                 </div>
                 <ListCard>
                   {body.always_on_bytes != null && body.always_on_estimated_tokens != null && (

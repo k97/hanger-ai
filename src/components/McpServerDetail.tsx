@@ -407,9 +407,25 @@ const CONTEXT_NOTE =
   "the descriptions in the list below; the schemas are never stored, so nothing here can " +
   "weigh them. Token figures are bytes divided by four, so treat them as a size, not a count.";
 
-/** The one trigger both ledgers hang their note from. */
+/**
+ * The one trigger both of this panel's ledgers hang their note from.
+ *
+ * "About the request figures", where the skill panel says "About the context
+ * figures". Deliberately two strings, not one shared constant -- Karthik's
+ * ruling, 2026-08-26, after a naming brief. An icon-only button is named
+ * entirely by its aria-label, and the guidance that decided it is that an
+ * accessible name has to stand up without visual context: tabbing here, a
+ * screen reader says "About the request figures, button, collapsed", and
+ * "these figures" would have pointed at something the listener has not
+ * necessarily reached. Each label names the section it sits in -- "Context
+ * per request" here, "Context" there.
+ *
+ * No verb, on purpose. The disclosure pattern announces `aria-expanded`
+ * itself, so "Show" would duplicate the state the screen reader already
+ * speaks.
+ */
 function ContextNote() {
-  return <InfoPopover label="About these figures">{CONTEXT_NOTE}</InfoPopover>;
+  return <InfoPopover label="About the request figures">{CONTEXT_NOTE}</InfoPopover>;
 }
 
 /** One side of an aligned launch-spec diff: which host(s) launch it this
