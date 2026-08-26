@@ -2378,3 +2378,84 @@ fn blocked_global_subagents_walker_yields_denial_not_silence() {
         denial
     );
 }
+
+#[cfg(unix)]
+#[test]
+fn blocked_project_root_still_yields_a_project_scan_carrying_the_denial() {
+    use std::os::unix::fs::PermissionsExt;
+
+    // `Path::exists()` is `fs::metadata(self).is_ok()`, so it is false on a
+    // permission error. scan()'s `if !root.exists()` early return therefore
+    // fired for a *blocked* root and returned before pushing any ProjectScan
+    // at all — the frontend's `projectScan` came back undefined, rawWarnings
+    // empty, and because the scan completed, RepoPane affirmatively rendered
+    // its empty state. "macOS refused" read as "there is nothing here",
+    // which is the collapse this branch exists to eliminate. It also
+    // discarded every engine-root and global-walker denial collected earlier
+    // in the same scan().
+    //
+    // Reproduced with mode bits rather than TCC: stat needs +x on the
+    // parent, so chmod 000 on the parent denies the root's own metadata read
+    // with EACCES. (A real EPERM/TCC denial is not producible in a test;
+    // only tccd issues one. This exercises the EACCES path.)
+    if unsafe { libc::geteuid() } == 0 {
+        eprintln!("skipping blocked_project_root_still_yields_a_project_scan_carrying_the_denial: running as root, mode bits do not deny");
+        return;
+    }
+
+    let _guard = ENV_MUTEX.get_or_init(|| Mutex::new(())).lock().unwrap();
+
+    // An empty home, so the global pass contributes nothing and the only
+    // denial in play is the project root's own.
+    let home = tempfile::tempdir().unwrap();
+    std::env::set_var("HANGER_TEST_HOME", home.path().to_string_lossy().to_string());
+
+    let outer = tempfile::tempdir().unwrap();
+    let parent = outer.path().join("parent");
+    let root = parent.join("blocked_project");
+    fs::create_dir_all(&root).unwrap();
+
+    // The store lives outside the blocked subtree, or the failure under test
+    // would be SQLite's rather than the walk's.
+    let db_home = tempfile::tempdir().unwrap();
+
+    let mut p = fs::metadata(&parent).unwrap().permissions();
+    p.set_mode(0o000);
+    fs::set_permissions(&parent, p).unwrap();
+
+    let scanner = DirectoryScanner {
+        db_path: db_home.path().join("hanger.db"),
+        cancellation_token: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
+    };
+    let result = scanner.scan(&root);
+
+    // Restore before any assertion can early-return via panic, so tempdir's
+    // Drop is not left with an unreadable directory. `let _ =` for the same
+    // reason as the sibling tests: a restore failure must not panic ahead of
+    // the real assertions.
+    let mut p = fs::metadata(&parent).unwrap().permissions();
+    p.set_mode(0o755);
+    let _ = fs::set_permissions(&parent, p);
+
+    let inventory = result.unwrap();
+    let scan = inventory
+        .project_scans
+        .first()
+        .expect("a blocked project root is a finding, not an absence: it must still produce a ProjectScan, or the pane renders its empty state");
+    assert!(
+        scan.parse_warnings
+            .iter()
+            .any(|w| w.starts_with("Permission denied: ") && w.contains("blocked_project")),
+        "the ProjectScan must carry the denial so the pane can say what happened: {:?}",
+        scan.parse_warnings
+    );
+    // One line per root: the probe and the walk below it both classify the
+    // same EACCES on the same path, and scan()'s `!parse_warnings.contains`
+    // dedupe is what keeps that from reaching the pane twice.
+    let denials: Vec<_> = scan
+        .parse_warnings
+        .iter()
+        .filter(|w| w.starts_with("Permission denied: "))
+        .collect();
+    assert_eq!(denials.len(), 1, "one denial per root, deduplicated: {:?}", denials);
+}

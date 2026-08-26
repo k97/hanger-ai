@@ -1526,9 +1526,30 @@ impl DirectoryScanner {
             }
         }
 
-        // Return early if project path does not exist
-        if !root.exists() || root.as_os_str().is_empty() {
+        // Return early if the project path is not there — but "not there" and
+        // "not allowed" are different answers. `Path::exists()` is
+        // `fs::metadata(self).is_ok()`, so it is false on a permission error
+        // too; returning here for a blocked root pushed no ProjectScan at
+        // all, the frontend saw `projectScan` undefined with no warnings, and
+        // RepoPane rendered its empty state — "macOS refused" shown as "there
+        // is nothing here", the exact collapse probe_path exists to prevent.
+        // It also threw away every engine-root and global-walker denial
+        // gathered above. So a Blocked probe records the denial and falls
+        // through, and only Absent still returns early. The walk below will
+        // fail on the same path and classify the same string; scan()'s
+        // `!parse_warnings.contains` dedupe is what keeps it to one line.
+        if root.as_os_str().is_empty() {
             return Ok(inventory);
+        }
+        match probe_path(root) {
+            RootPresence::Present => {}
+            RootPresence::Blocked(d) => {
+                let w = denial_warning(d, &root.to_string_lossy());
+                if !parse_warnings.contains(&w) {
+                    parse_warnings.push(w);
+                }
+            }
+            RootPresence::Absent => return Ok(inventory),
         }
 
         let mut found_rules = Vec::new();
