@@ -678,10 +678,13 @@ succeeds on a blocked directory exactly as it would on an unblocked one, and
 `Path::exists()` is built on `stat`, so it returns true for both.
 
 The plan this branch executed, `docs/superpowers/plans/2026-08-26-tcc-denial-classification.md`,
-asserted in its Background that `Path::exists()` "collapses blocked into
-absent — a blocked `~/Documents/Cline` reads as 'Cline is not installed'"
-(line 20), and repeats the claim at lines 308–309 and 494. **That is false
-for TCC.** It is true only for a mode-bit (EACCES) denial — a `chmod 000`
+asserted in its Background (line 20) that `Path::exists()` "collapses blocked
+into absent — a blocked Cline reads as 'not installed'". The fuller wording —
+"a blocked `~/Documents/Cline` reads as 'Cline is not installed'" — belongs
+to lines 308–309 and 494, not to line 20; the plan file is gitignored and
+local-only, so this quotation cannot be checked against it, which is exactly
+why it should not overstate what line 20 says. **That is false for TCC**
+regardless of which wording is read. It is true only for a mode-bit (EACCES) denial — a `chmod 000`
 parent directory — which does deny `stat`. The two error kinds this branch
 exists to distinguish behave differently at the exact call the plan's
 motivating example rests on.
@@ -722,9 +725,9 @@ in a future pass over the plan's own prose, not in this branch.
 
 ---
 
-**F55 — the TCC panel recommends Full Disk Access, which Hanger does not
-want. DECIDED, revisit later.** `src/components/RepoPane.tsx` around line
-465, inside the TCC denial panel:
+**F55 — the TCC panel recommended Full Disk Access, which Hanger does not
+want. FIXED 2026-08-27.** `src/components/RepoPane.tsx` around line 465,
+inside the TCC denial panel, read:
 
 > To proceed, grant Hanger permission to access this folder. Open **System
 > Settings → Privacy & Security → Files & Folders** (or Full Disk Access),
@@ -734,15 +737,41 @@ Full Disk Access grants an app everything under TCC's file-access umbrella —
 Mail, Safari history, other apps' containers, even the TCC database itself.
 Hanger needs none of it: every path it reads is either unprotected
 (`~/.claude`, `~/.config`, `~/Library/Application Support/<host>`) or covered
-by the narrower Files & Folders per-folder grant the copy already names
+by the narrower Files & Folders per-folder grant the copy already named
 first. For a product whose pitch is that it only reads the harness, offering
-Full Disk Access as an equal alternative asks for far more than the job
-needs.
+Full Disk Access as an equal alternative asked for far more than the job
+needed.
 
-**Why it is not being fixed now.** Karthik reviewed this on 2026-08-26 and
-chose to leave the copy as-is for the moment, to revisit later. Nothing in
-the panel's *behaviour* is wrong — it reads the same denial correctly either
-way — the finding is only about what the recommendation asks a user to grant.
+That was the smaller problem. The Files & Folders instruction itself was
+impossible to follow: that pane lists an app only after the app has
+triggered a TCC prompt, and has no "+" to add one that has not. Hanger never
+triggers one — every folder it reads arrives through the picker's open-panel
+selection, which macOS treats as user intent and grants via `com.apple.macl`
+(WWDC 2019 Session 701), a mechanism the TCC database, and therefore that
+pane, cannot see. Confirmed from screenshots of both the Files & Folders and
+the Full Disk Access panes on 2026-08-27: Hanger appears in neither. The copy
+was sending a denied user to a settings screen where the fix it described
+does not exist.
+
+**Why this was fixed.** Karthik reviewed the finding on 2026-08-26 and chose
+to leave the copy as-is for the moment, to revisit later — at that point the
+finding read as over-asking, not as broken. Seeing the screenshots above
+changed that: the instruction was not just asking for more than necessary,
+it was asking for something the user could not do. He approved the rewrite
+on 2026-08-27. `b399630` ("fix(ui): offer the folder picker, not an
+impossible Settings trip") replaced the panel's copy with:
+
+> macOS is blocking Hanger from reading this folder. Choose it again to
+> restore access: macOS counts picking a folder as permission to read it.
+
+and a `Choose Folder Again` button that re-invokes the picker. No
+"System Settings" or "Full Disk Access" text remains in the panel. The
+remedy works because an open-panel selection is Apple's "User Intent"
+mechanism and writes `com.apple.macl`, which the kernel honours independently
+of TCC — the same mechanism that made Hanger invisible to both settings
+panes in the first place. Left in the record rather than deleted: the
+reasoning above is worth keeping even though the copy it was written against
+is gone.
 
 ---
 
@@ -825,3 +854,34 @@ replacing a real repository to force a fresh inode — was not something to do t
 a user's working tree. Reaching it needs a second user account or a fresh VM
 where Hanger holds no grants at all. The happy-dom tests prove the routing and
 the handler wiring; they lay nothing out, and no screenshot exists.
+
+---
+
+**F57 — an engine-root denial repeats once per linked repository, not once
+per machine.** `get_global_agents_with_denials()` (`src-tauri/src/scanner.rs:495`)
+is called from inside `DirectoryScanner::scan` (`scanner.rs:977`), which
+`run_scan`'s `for dir in dirs` loop (`src-tauri/src/lib.rs:809`) invokes once
+per linked directory. Each call folds its own denials straight into that
+call's `parse_warnings`, and the `!parse_warnings.contains(&w)` guard around
+each push (`scanner.rs:1183`, `:1314`) only de-duplicates within that one
+list. Nothing de-duplicates across `project_scans`: `dedupe_combined`
+(`lib.rs:760`) retains skills, agents, tools, rules and subagents by key but
+never touches `project_scans` or the warnings inside it.
+
+So a user with N linked repositories and one genuinely blocked engine root
+(a `chmod`-mangled `~/.claude/skills`, say) sees the same "Cline may be
+installed — …" line (format string at `scanner.rs:547`) once in each of the
+N panes, not once for the machine.
+
+**Why it is not being fixed now.** It is bounded, not a flood — one line per
+linked repo, not an unbounded or growing count. It does not reach the TCC
+panel: the format leads with the engine name, not "macOS blocked access to",
+by design (see F54 and the "Ruling E" comments this branch's later cleanup
+turned into stated reasons, `scanner.rs:1168`, `:1298`), so RepoPane.tsx's
+`startsWith` routing never picks it up. And per F54, an OS-policy TCC denial
+essentially never reaches this path at all — TCC gates `readdir`/`open`, not
+`stat`, so in practice seeing this repeated line needs a user to have
+`chmod`-mangled their own engine root, not macOS acting on its own. This is
+the same family of debt already named in `.claude/rules/known-debt.md` — a
+warning from one scope leaking into a panel scoped to another — not a new
+defect, so it is recorded here rather than fixed in this branch.
