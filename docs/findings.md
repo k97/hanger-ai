@@ -777,3 +777,51 @@ silently never built, no warning appears, and the difference from "no
 skills/ directory at all" is invisible. Left as-is; the fix is a small
 extension of the same classification this branch already added to the
 walkers' `Err` arms, applied one level higher, to the `exists()` check itself.
+
+## `com.apple.macl` cannot be revoked, so the denial panel is rarer than the feature assumes
+
+Recorded 2026-08-27, from a live attempt to photograph the TCC panel on a
+real build.
+
+Selecting a folder in an open panel makes macOS infer consent and stamp
+`com.apple.macl` on that folder (Apple's "User Intent", WWDC 2019 Session
+701). The grant is held by the kernel's Sandbox.kext rather than the TCC
+database. Two consequences already recorded above; this entry is the third,
+and it is the one that changes how often any of this is seen.
+
+**The grant cannot be taken back.** Measured on this machine:
+
+```
+$ xattr -d com.apple.macl ~/Documents/gemini-superpowers-antigravity
+$ xattr ~/Documents/gemini-superpowers-antigravity
+com.apple.macl
+com.apple.provenance
+```
+
+`xattr -d` returns success and removes nothing. There is no error to read.
+System Settings cannot revoke it either — Privacy & Security reads TCC.db and
+`macl` is not in TCC.db, which is the same reason Hanger appears in neither
+the Files & Folders nor the Full Disk Access list. `tccutil reset` does not
+reach it for the same reason.
+
+**So the denied state is hard to arrive at.** Once a user has picked a folder,
+Hanger keeps access to it for as long as that folder exists. A denial needs
+the *item* to change, not the permission: a repository deleted and re-cloned,
+restored from a backup, replaced by a sync tool, or checked out fresh at the
+same path — each gives a new inode carrying no grant. A user who links a
+folder and leaves it alone will never see the panel.
+
+**Why this is recorded rather than acted on.** Nothing here is wrong. The
+classification is still correct, the panel still says the true thing, and the
+`Choose Folder Again` remedy is still the only one that works — more so, given
+System Settings genuinely cannot help. What changes is expected frequency: this
+is a rare-path feature, and it should be weighed as one when deciding how much
+further work it earns.
+
+**It also blocked its own verification.** The panel has never been rendered in
+a real build. It could not be photographed on this machine, because producing a
+denial requires removing a grant that cannot be removed, and the alternative —
+replacing a real repository to force a fresh inode — was not something to do to
+a user's working tree. Reaching it needs a second user account or a fresh VM
+where Hanger holds no grants at all. The happy-dom tests prove the routing and
+the handler wiring; they lay nothing out, and no screenshot exists.
