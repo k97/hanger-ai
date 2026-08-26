@@ -659,3 +659,169 @@ Karthik's sign-off under `ui-copy.md`; or make the headline the pair count,
 which is worse, because it would then disagree with the chip above it and the
 list below it. Karthik's own reading on 2026-08-24 was that 19 reads
 consistently; no change was made.
+
+## TCC denial classification (2026-08-26)
+
+**F54 — TCC does not deny `stat(2)`, and one of this branch's stated
+motivations was wrong.** Measured on this machine on 2026-08-26 against
+`~/Library/Safari`, which is TCC-protected for a process without Full Disk
+Access:
+
+```
+~/Library/Safari                      stat OK     listdir EPERM (errno 1)   exists() -> True
+~/Library/Safari/Bookmarks.plist      stat OK                               exists() -> True
+~/Library/Safari/definitely-not-here  stat ENOENT (errno 2)                 exists() -> False
+```
+
+TCC gates directory *contents* — `readdir`, `open` — not metadata. `stat`
+succeeds on a blocked directory exactly as it would on an unblocked one, and
+`Path::exists()` is built on `stat`, so it returns true for both.
+
+The plan this branch executed, `docs/superpowers/plans/2026-08-26-tcc-denial-classification.md`,
+asserted in its Background that `Path::exists()` "collapses blocked into
+absent — a blocked `~/Documents/Cline` reads as 'Cline is not installed'"
+(line 20), and repeats the claim at lines 308–309 and 494. **That is false
+for TCC.** It is true only for a mode-bit (EACCES) denial — a `chmod 000`
+parent directory — which does deny `stat`. The two error kinds this branch
+exists to distinguish behave differently at the exact call the plan's
+motivating example rests on.
+
+**Consequences that follow, not just the wrong sentence:**
+
+- `probe_path` (`src-tauri/src/scanner.rs`) can never return
+  `Blocked(Denial::MacosBlocked)` in practice. It calls `stat` (via
+  `Path::exists`/`symlink_metadata`), which TCC does not deny. Tasks 3 and 4
+  of the plan — the ones that added `Denial::MacosBlocked` and its
+  classification — catch EACCES only; no code path exercised by those tasks
+  can produce the errno they were written to distinguish.
+- TCC denials on engine roots are still caught, just not by `probe_path`: the
+  two global walkers (skills, subagents) and the project walk all reach
+  `readdir`/`open` directly, and those calls are where TCC actually acts.
+- The good consequence: because `exists()` reads true for a blocked root, a
+  linked repo inside a blocked `~/Documents` is not silently discarded as
+  absent. The walk proceeds, fails at `readdir`, and is classified into the
+  TCC panel the way a live denial should be.
+- **Limit on this measurement.** It was taken against a path gated by Full
+  Disk Access (`kTCCServiceSystemPolicyAllFiles`), not against the
+  Documents-folder grant specifically
+  (`kTCCServiceSystemPolicyDocumentsFolder`), which is the one `~/Documents`
+  itself sits behind. The enforcement mechanism is the same TCC file-access
+  layer, but the Documents case has not been separately measured on this
+  machine.
+
+**Why it is not being fixed now.** The plan's own tasks (3, 4, and the walker
+classification) are already correct for the errno that actually reaches them
+— `probe_path` was written to classify `Blocked`, and EACCES is the only
+input any test, real or synthetic, can produce for it (no test can manufacture
+a real EPERM; only macOS's tccd can). Nothing in the shipped code is wrong.
+What is wrong is the stated reason for building it, and the fix for that is
+this correction, not a code change. Re-deriving the true motivation — that
+`probe_path`'s `Blocked` arm exists for defence in depth against a
+mode-bit-denied global root, not for the TCC case the plan led with — belongs
+in a future pass over the plan's own prose, not in this branch.
+
+---
+
+**F55 — the TCC panel recommends Full Disk Access, which Hanger does not
+want. DECIDED, revisit later.** `src/components/RepoPane.tsx` around line
+465, inside the TCC denial panel:
+
+> To proceed, grant Hanger permission to access this folder. Open **System
+> Settings → Privacy & Security → Files & Folders** (or Full Disk Access),
+> check **Hanger**, and then retry the scan.
+
+Full Disk Access grants an app everything under TCC's file-access umbrella —
+Mail, Safari history, other apps' containers, even the TCC database itself.
+Hanger needs none of it: every path it reads is either unprotected
+(`~/.claude`, `~/.config`, `~/Library/Application Support/<host>`) or covered
+by the narrower Files & Folders per-folder grant the copy already names
+first. For a product whose pitch is that it only reads the harness, offering
+Full Disk Access as an equal alternative asks for far more than the job
+needs.
+
+**Why it is not being fixed now.** Karthik reviewed this on 2026-08-26 and
+chose to leave the copy as-is for the moment, to revisit later. Nothing in
+the panel's *behaviour* is wrong — it reads the same denial correctly either
+way — the finding is only about what the recommendation asks a user to grant.
+
+---
+
+**F56 — two `exists()` sites carry the same stat/readdir collapse as F54,
+deliberately left.** `src-tauri/src/scanner.rs:1152` (`skills_path.exists()`)
+and `:1286` (`subagents_path.exists()`): if the skills or subagents root
+*itself* is unreadable, `exists()` reads true or false purely off `stat`, the
+walker is constructed (or skipped) on that answer alone, and the new
+classifier downstream of `readdir` never sees anything either way. The same
+family shows up at `:1139`, where a failed `fs::read_dir(g_path_buf)` on the
+engine's own global root sets `global_has_skips = true` with no
+classification at all — a plain skip, not a denial.
+
+Per F54, TCC exposure here is nil: `stat` succeeds under TCC regardless, and
+none of `~/.claude/skills`, `~/.claude/agents`, or the equivalent per-engine
+paths sit behind a TCC-protected location in the first place. Mode-bit
+(EACCES) exposure is real — a `chmod 000` on `~/.claude/skills` itself would
+hit exactly this gap — but low value: it requires the user to have broken
+their own global config directory's permissions, not an OS policy acting
+without their input.
+
+This branch's own test fixtures
+(`blocked_global_skills_walker_yields_denial_not_silence`,
+`blocked_global_subagents_walker_yields_denial_not_silence`) block a
+*subdirectory* of `skills/`/`agents/` (`.claude/skills/blocked`,
+`.claude/agents/blocked`), never the root itself, so the suite cannot see
+this gap — it was never trying to.
+
+**Why it is not being fixed now.** Reproduction: `chmod 000` the skills root
+itself (`~/.claude/skills`, not a child of it) and rescan — the walker is
+silently never built, no warning appears, and the difference from "no
+skills/ directory at all" is invisible. Left as-is; the fix is a small
+extension of the same classification this branch already added to the
+walkers' `Err` arms, applied one level higher, to the `exists()` check itself.
+
+## `com.apple.macl` cannot be revoked, so the denial panel is rarer than the feature assumes
+
+Recorded 2026-08-27, from a live attempt to photograph the TCC panel on a
+real build.
+
+Selecting a folder in an open panel makes macOS infer consent and stamp
+`com.apple.macl` on that folder (Apple's "User Intent", WWDC 2019 Session
+701). The grant is held by the kernel's Sandbox.kext rather than the TCC
+database. Two consequences already recorded above; this entry is the third,
+and it is the one that changes how often any of this is seen.
+
+**The grant cannot be taken back.** Measured on this machine:
+
+```
+$ xattr -d com.apple.macl ~/Documents/gemini-superpowers-antigravity
+$ xattr ~/Documents/gemini-superpowers-antigravity
+com.apple.macl
+com.apple.provenance
+```
+
+`xattr -d` returns success and removes nothing. There is no error to read.
+System Settings cannot revoke it either — Privacy & Security reads TCC.db and
+`macl` is not in TCC.db, which is the same reason Hanger appears in neither
+the Files & Folders nor the Full Disk Access list. `tccutil reset` does not
+reach it for the same reason.
+
+**So the denied state is hard to arrive at.** Once a user has picked a folder,
+Hanger keeps access to it for as long as that folder exists. A denial needs
+the *item* to change, not the permission: a repository deleted and re-cloned,
+restored from a backup, replaced by a sync tool, or checked out fresh at the
+same path — each gives a new inode carrying no grant. A user who links a
+folder and leaves it alone will never see the panel.
+
+**Why this is recorded rather than acted on.** Nothing here is wrong. The
+classification is still correct, the panel still says the true thing, and the
+`Choose Folder Again` remedy is still the only one that works — more so, given
+System Settings genuinely cannot help. What changes is expected frequency: this
+is a rare-path feature, and it should be weighed as one when deciding how much
+further work it earns.
+
+**It also blocked its own verification.** The panel has never been rendered in
+a real build. It could not be photographed on this machine, because producing a
+denial requires removing a grant that cannot be removed, and the alternative —
+replacing a real repository to force a fresh inode — was not something to do to
+a user's working tree. Reaching it needs a second user account or a fresh VM
+where Hanger holds no grants at all. The happy-dom tests prove the routing and
+the handler wiring; they lay nothing out, and no screenshot exists.

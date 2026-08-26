@@ -337,6 +337,95 @@ pub fn get_engine_key(id_str: &str) -> Option<&'static str> {
     }
 }
 
+/// A denied filesystem read, split by what denied it.
+///
+/// macOS's TCC privacy layer returns EPERM ("Operation not permitted");
+/// ordinary Unix mode bits return EACCES ("Permission denied"). The two need
+/// different advice — System Settings can fix the first, chmod the second —
+/// so they must not collapse into one warning. Constants are the raw POSIX
+/// numbers rather than libc's names so this compiles wherever scanner.rs
+/// does; `src/mcp/probe.rs` already links libc directly if names are ever
+/// preferred.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Denial {
+    MacosBlocked,
+    UnixPermission,
+}
+
+pub(crate) fn classify_denial(err: Option<&std::io::Error>) -> Option<Denial> {
+    match err?.raw_os_error() {
+        Some(1) => Some(Denial::MacosBlocked),   // EPERM
+        Some(13) => Some(Denial::UnixPermission), // EACCES
+        _ => None,
+    }
+}
+
+/// The user-facing warning line for a denial.
+///
+/// These strings are a contract: RepoPane.tsx routes a warning *starting
+/// with* "macOS blocked access to" into the TCC fix panel, and everything
+/// else into the plain warnings list. The distinction is load-bearing, not
+/// pedantry — the panel is captioned with the *project* path, so only the
+/// project walk's own denial may lead with this bare form. Machine-scope
+/// denials (engine roots, the two global walkers) deliberately prefix an
+/// engine name, which is what keeps them out of the panel while still
+/// containing the phrase. Containing it is not enough and must not be made
+/// enough: dropping those prefixes would route a machine-scope denial into
+/// a project-captioned panel. The EACCES string is unchanged from the
+/// pre-classifier code so existing fixtures keep meaning what they meant.
+pub(crate) fn denial_warning(denial: Denial, path: &str) -> String {
+    match denial {
+        Denial::MacosBlocked => format!("macOS blocked access to {}", path),
+        Denial::UnixPermission => format!("Permission denied: {}", path),
+    }
+}
+
+/// The raw errno-bearing `io::Error` behind a directory-walk failure, if any.
+///
+/// `ignore::Error::io_error()` returns the original `io::Error` only for
+/// errors it builds directly (e.g. failing to read a `.gitignore` file). A
+/// failure to descend into a directory is one layer deeper: `ignore` wraps
+/// the `walkdir::Error` it gets from `walkdir` in a Custom-kind `io::Error`
+/// (`impl From<walkdir::Error> for io::Error`), and a Custom-kind error's
+/// `raw_os_error()` is always `None` — the errno lives inside the boxed
+/// `walkdir::Error`, one `get_ref()`/`downcast_ref()` away. Skipping this
+/// step and calling `classify_denial(e.io_error())` directly compiles and
+/// looks right, but silently classifies every walk denial as `None` — EACCES
+/// and EPERM alike — because the wrapper's own `raw_os_error()` never sees
+/// the code. Confirmed against the real walker in
+/// `denied_subdir_yields_one_permission_warning_not_zero_not_many`.
+fn walk_denial_source(err: &ignore::Error) -> Option<&std::io::Error> {
+    let outer = err.io_error()?;
+    outer
+        .get_ref()
+        .and_then(|inner| inner.downcast_ref::<walkdir::Error>())
+        .and_then(|wd| wd.io_error())
+        .or(Some(outer))
+}
+
+/// What a stat of a candidate root actually established.
+///
+/// `Path::exists()` collapses "denied" into "absent" — a TCC-blocked
+/// ~/Documents/Cline read as "Cline is not installed", a wrong answer
+/// stated confidently. `fs::metadata` (not `symlink_metadata`: `exists()`
+/// follows links, and this must preserve that) keeps the error.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum RootPresence {
+    Present,
+    Absent,
+    Blocked(Denial),
+}
+
+pub(crate) fn probe_path(path: &Path) -> RootPresence {
+    match fs::metadata(path) {
+        Ok(_) => RootPresence::Present,
+        Err(e) => match classify_denial(Some(&e)) {
+            Some(d) => RootPresence::Blocked(d),
+            None => RootPresence::Absent,
+        },
+    }
+}
+
 pub(crate) fn get_home_dir() -> PathBuf {
     if let Ok(test_home) = std::env::var("HANGER_TEST_HOME") {
         return PathBuf::from(test_home);
@@ -392,15 +481,42 @@ fn canonicalize_asset_path(path: &Path, parse_warnings: &mut Vec<String>) -> Str
 }
 
 pub fn get_global_agents() -> Vec<Agent> {
+    get_global_agents_with_denials().0
+}
+
+/// Detection plus what could not be established. `Path::exists()` collapses
+/// "denied" into "absent" — a TCC-blocked ~/Documents/Cline would read as
+/// "Cline is not installed", a wrong answer stated confidently. `probe_path`
+/// keeps the distinction, and a `Blocked` probe here is a finding — "Cline
+/// may be installed, macOS is in the way" — never a silent absence. The
+/// denial strings ride the same parse_warnings channel MCP discovery
+/// problems already use (see the scan call site), accepting that channel's
+/// known scope-leak debt rather than minting a new surface.
+pub fn get_global_agents_with_denials() -> (Vec<Agent>, Vec<String>) {
     let home = get_home_dir();
     let mut agents = Vec::new();
+    let mut denials = Vec::new();
     for config in AGENT_CONFIGS {
         let mut resolved_path = None;
+        // Buffered until every root/detect-file for this config has been
+        // probed: a config with an earlier blocked root and a later readable
+        // one is demonstrably installed, and saying it "may be installed" in
+        // that case would be false (Karthik's finding on the first cut of
+        // this function). The sentence is chosen once, below, from whether
+        // anything resolved — never suppressed, since an unreadable root is
+        // still worth reporting even when a sibling root covers detection.
+        let mut config_denial_texts: Vec<String> = Vec::new();
         for rel_path in config.global_roots {
             let path = home.join(rel_path);
-            if path.exists() {
-                resolved_path = Some(path.to_string_lossy().to_string());
-                break;
+            match probe_path(&path) {
+                RootPresence::Present => {
+                    resolved_path = Some(path.to_string_lossy().to_string());
+                    break;
+                }
+                RootPresence::Blocked(d) => {
+                    config_denial_texts.push(denial_warning(d, &path.to_string_lossy()));
+                }
+                RootPresence::Absent => {}
             }
         }
         // An agent that owns no directory is found by its config file
@@ -412,11 +528,24 @@ pub fn get_global_agents() -> Vec<Agent> {
         if resolved_path.is_none() {
             for rel_path in config.detect_files {
                 let path = home.join(rel_path);
-                if path.exists() {
-                    resolved_path = Some(path.to_string_lossy().to_string());
-                    break;
+                match probe_path(&path) {
+                    RootPresence::Present => {
+                        resolved_path = Some(path.to_string_lossy().to_string());
+                        break;
+                    }
+                    RootPresence::Blocked(d) => {
+                        config_denial_texts.push(denial_warning(d, &path.to_string_lossy()));
+                    }
+                    RootPresence::Absent => {}
                 }
             }
+        }
+        for text in config_denial_texts {
+            denials.push(if resolved_path.is_some() {
+                format!("{} has a folder Hanger could not read — {}", config.name, text)
+            } else {
+                format!("{} may be installed — {}", config.name, text)
+            });
         }
         if let Some(g_path) = resolved_path {
             agents.push(Agent {
@@ -427,7 +556,7 @@ pub fn get_global_agents() -> Vec<Agent> {
             });
         }
     }
-    agents
+    (agents, denials)
 }
 
 #[derive(Deserialize)]
@@ -845,8 +974,9 @@ impl DirectoryScanner {
             }
         }
 
-        let detected_agents = get_global_agents();
+        let (detected_agents, engine_root_denials) = get_global_agents_with_denials();
         let mut parse_warnings = Vec::new();
+        parse_warnings.extend(engine_root_denials);
 
         let store_opt = crate::preferences::PreferencesStore::new(&self.db_path).ok();
         let now = std::time::SystemTime::now()
@@ -1027,8 +1157,31 @@ impl DirectoryScanner {
                     for entry in walker {
                         let entry = match entry {
                             Ok(e) => e,
-                            Err(_) => {
+                            Err(e) => {
                                 global_has_skips = true;
+                                // walk_denial_source unwraps the ignore
+                                // crate's Custom-kind wrapper down to the
+                                // errno-bearing io::Error; classify_denial(
+                                // e.io_error()) alone would silently
+                                // classify nothing (see its doc comment).
+                                //
+                                // Ruling E: this is a machine-scope denial —
+                                // leading with the bare "macOS blocked access
+                                // to" form would make RepoPane.tsx route it
+                                // into the project-scoped TCC panel, wrongly
+                                // captioned with a project path. That prefix
+                                // is reserved for the project walk's own
+                                // denial (see its site further down).
+                                if let Some(d) = classify_denial(walk_denial_source(&e)) {
+                                    let w = format!(
+                                        "{} skills folder — {}",
+                                        agent.name,
+                                        denial_warning(d, &skills_path.to_string_lossy())
+                                    );
+                                    if !parse_warnings.contains(&w) {
+                                        parse_warnings.push(w);
+                                    }
+                                }
                                 continue;
                             }
                         };
@@ -1138,8 +1291,24 @@ impl DirectoryScanner {
                         for entry in walker {
                             let entry = match entry {
                                 Ok(e) => e,
-                                Err(_) => {
+                                Err(e) => {
                                     global_has_skips = true;
+                                    // Same unwrap as the skills walker above:
+                                    // classify_denial(e.io_error()) alone
+                                    // would silently classify nothing. Same
+                                    // Ruling E reason for the "{agent} …
+                                    // folder —" lead-in: machine-scope, must
+                                    // not trigger the project TCC panel.
+                                    if let Some(d) = classify_denial(walk_denial_source(&e)) {
+                                        let w = format!(
+                                            "{} subagents folder — {}",
+                                            agent.name,
+                                            denial_warning(d, &subagents_path.to_string_lossy())
+                                        );
+                                        if !parse_warnings.contains(&w) {
+                                            parse_warnings.push(w);
+                                        }
+                                    }
                                     continue;
                                 }
                             };
@@ -1365,9 +1534,30 @@ impl DirectoryScanner {
             }
         }
 
-        // Return early if project path does not exist
-        if !root.exists() || root.as_os_str().is_empty() {
+        // Return early if the project path is not there — but "not there" and
+        // "not allowed" are different answers. `Path::exists()` is
+        // `fs::metadata(self).is_ok()`, so it is false on a permission error
+        // too; returning here for a blocked root pushed no ProjectScan at
+        // all, the frontend saw `projectScan` undefined with no warnings, and
+        // RepoPane rendered its empty state — "macOS refused" shown as "there
+        // is nothing here", the exact collapse probe_path exists to prevent.
+        // It also threw away every engine-root and global-walker denial
+        // gathered above. So a Blocked probe records the denial and falls
+        // through, and only Absent still returns early. The walk below will
+        // fail on the same path and classify the same string; scan()'s
+        // `!parse_warnings.contains` dedupe is what keeps it to one line.
+        if root.as_os_str().is_empty() {
             return Ok(inventory);
+        }
+        match probe_path(root) {
+            RootPresence::Present => {}
+            RootPresence::Blocked(d) => {
+                let w = denial_warning(d, &root.to_string_lossy());
+                if !parse_warnings.contains(&w) {
+                    parse_warnings.push(w);
+                }
+            }
+            RootPresence::Absent => return Ok(inventory),
         }
 
         let mut found_rules = Vec::new();
@@ -1435,9 +1625,18 @@ impl DirectoryScanner {
                 Ok(e) => e,
                 Err(e) => {
                     project_has_skips = true;
-                    let err_str = e.to_string();
-                    if err_str.contains("Permission denied") || err_str.contains("permission denied") {
-                        parse_warnings.push(format!("Permission denied: {}", root.to_string_lossy()));
+                    // errno, not error text: TCC says "Operation not permitted"
+                    // (EPERM), which the old substring match on "Permission
+                    // denied" could never see — a TCC-blocked folder produced
+                    // no warning at all. One line per root, not per failed
+                    // entry. walk_denial_source unwraps the walker's error
+                    // down to the errno-bearing io::Error; see its doc for why
+                    // e.io_error() alone is not enough here.
+                    if let Some(d) = classify_denial(walk_denial_source(&e)) {
+                        let w = denial_warning(d, &root.to_string_lossy());
+                        if !parse_warnings.contains(&w) {
+                            parse_warnings.push(w);
+                        }
                     }
                     continue;
                 }
@@ -1984,4 +2183,101 @@ pub fn split_rule_sections(content: &str) -> Vec<crate::domain::RuleSection> {
     }
 
     sections
+}
+
+#[cfg(test)]
+mod denial_tests {
+    use super::*;
+    use std::io;
+
+    #[test]
+    fn eperm_classifies_as_macos_blocked() {
+        let e = io::Error::from_raw_os_error(1); // EPERM — what tccd returns
+        assert!(matches!(classify_denial(Some(&e)), Some(Denial::MacosBlocked)));
+    }
+
+    #[test]
+    fn eacces_classifies_as_unix_permission() {
+        let e = io::Error::from_raw_os_error(13); // EACCES — chmod-style denial
+        assert!(matches!(classify_denial(Some(&e)), Some(Denial::UnixPermission)));
+    }
+
+    #[test]
+    fn other_errors_and_non_io_do_not_classify() {
+        let e = io::Error::from_raw_os_error(2); // ENOENT
+        assert!(classify_denial(Some(&e)).is_none());
+        assert!(classify_denial(None).is_none());
+    }
+
+    #[test]
+    fn warning_strings_are_the_frontend_contract() {
+        // RepoPane.tsx routes on these exact prefixes. Change them together
+        // or not at all.
+        assert_eq!(
+            denial_warning(Denial::MacosBlocked, "/Users/x/Documents"),
+            "macOS blocked access to /Users/x/Documents"
+        );
+        assert_eq!(
+            denial_warning(Denial::UnixPermission, "/Users/x/p"),
+            "Permission denied: /Users/x/p"
+        );
+    }
+
+    #[test]
+    fn sanitising_a_denial_preserves_the_prefix_the_frontend_routes_on() {
+        // RepoPane.tsx matches the *sanitised* string: scan() runs every
+        // parse_warning through sanitise_msg before it reaches the UI, and
+        // sanitise_msg rewrites `/`-leading words to <sanitised>/{filename}.
+        // Nothing else asserts that it leaves the leading phrase — and so the
+        // routing — intact.
+        let sanitised = crate::preferences::sanitise_msg("macOS blocked access to /Users/x/p");
+        assert!(
+            sanitised.starts_with("macOS blocked access to"),
+            "sanitisation must not disturb the prefix the panel routes on: {}",
+            sanitised
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn probe_path_distinguishes_absent_from_blocked() {
+        use std::os::unix::fs::PermissionsExt;
+
+        // Root bypasses mode bits, so chmod 000 would not deny anything and
+        // this test would assert on a "blocked" state that can never occur.
+        if unsafe { libc::geteuid() } == 0 {
+            eprintln!("skipping probe_path_distinguishes_absent_from_blocked: running as root, mode bits do not deny");
+            return;
+        }
+
+        let dir = tempfile::tempdir().unwrap();
+
+        // Absent: no entry at all.
+        assert!(matches!(probe_path(&dir.path().join("nope")), RootPresence::Absent));
+
+        // Present.
+        let there = dir.path().join("there");
+        std::fs::create_dir(&there).unwrap();
+        assert!(matches!(probe_path(&there), RootPresence::Present));
+
+        // Blocked: stat through an unreadable parent fails EACCES, the same
+        // errno-shape a TCC EPERM takes through classify_denial. (Real EPERM
+        // is unreachable in-test; the classifier's EPERM branch is covered
+        // above.)
+        let parent = dir.path().join("parent");
+        std::fs::create_dir_all(parent.join("child")).unwrap();
+        let mut p = std::fs::metadata(&parent).unwrap().permissions();
+        p.set_mode(0o000);
+        std::fs::set_permissions(&parent, p).unwrap();
+
+        let result = probe_path(&parent.join("child"));
+
+        // Restore before asserting: a failed assertion must not strand an
+        // unreadable directory for tempdir's Drop to choke on.
+        let mut p = std::fs::metadata(&parent).unwrap().permissions();
+        p.set_mode(0o755);
+        let _ = std::fs::set_permissions(&parent, p);
+
+        assert!(matches!(result, RootPresence::Blocked(Denial::UnixPermission)));
+    }
 }

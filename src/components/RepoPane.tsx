@@ -10,6 +10,7 @@ import {
   LoaderCircleIcon,
 } from "./icons";
 import { invoke } from "@tauri-apps/api/core";
+import { open } from "@tauri-apps/plugin-dialog";
 import CategoryFilterCards, { CategoryType } from "./CategoryFilterCards";
 import AssetRow, { AssetItem } from "./AssetRow";
 import EngineLabel from "./EngineLabel";
@@ -133,13 +134,39 @@ export default function RepoPane({
     }
   };
 
+  // The only remedy that works for a TCC-blocked folder: macOS infers
+  // consent from an open-panel selection and writes com.apple.macl, which
+  // the kernel (Sandbox.kext) honours independently of TCC.db — System
+  // Settings cannot grant this, because Hanger never triggers the prompt
+  // that would list it there. A cancelled picker resolves to null, so only
+  // a genuine pick triggers the rescan.
+  const handleChooseFolderAgain = async () => {
+    try {
+      const selected = await open({ directory: true, defaultPath: repoPath });
+      if (selected && typeof selected === "string") {
+        onRefresh();
+      }
+    } catch {
+      // RepoPane has no error-surfacing prop for this flow; a rejected
+      // picker just leaves the panel in place for the user to try again.
+    }
+  };
+
   const projectScan = inventory?.project_scans.find(
     (p) => p.path === repoPath
   );
 
   const rawWarnings = projectScan?.parse_warnings || [];
-  const permissionDeniedWarnings = rawWarnings.filter(w => w.includes("Permission denied") || w.includes("permission denied"));
-  const nonPermissionWarnings = rawWarnings.filter(w => !w.includes("Permission denied") && !w.includes("permission denied"));
+  // Contract with scanner.rs::denial_warning: "macOS blocked access to …"
+  // is EPERM — the TCC panel applies. A Unix
+  // "Permission denied" (EACCES) is a chmod problem and stays in the plain
+  // warnings list, where its own text is the advice. `startsWith`, not
+  // `includes`: a machine-scope denial deliberately leads with an engine
+  // name (e.g. "<engine> may be installed — macOS blocked access to …")
+  // precisely so it cannot hijack a panel that renders this repo's own
+  // project path.
+  const tccWarnings = rawWarnings.filter((w) => w.startsWith("macOS blocked access to"));
+  const nonTccWarnings = rawWarnings.filter((w) => !w.startsWith("macOS blocked access to"));
 
   // Repositories sitting inside this root that are not linked in their own
   // right. Their assets currently roll up into this row, which is visible and
@@ -455,7 +482,7 @@ export default function RepoPane({
         )}
 
         {/* macOS Permission denied TCC Fix Panel */}
-        {permissionDeniedWarnings.length > 0 && (
+        {tccWarnings.length > 0 && (
           <div className="flex flex-col gap-3 p-3.5 border border-line rounded-inner leading-relaxed animate-fade-in">
             <div className="flex gap-2 text-state-danger">
               <ExclamationTriangleIcon className="shrink-0 mt-0.5" size={16} />
@@ -465,28 +492,40 @@ export default function RepoPane({
               </div>
             </div>
             <p className="text-small text-ink-2 leading-relaxed">
-              To proceed, grant Hanger permission to access this folder. Open <strong className="font-medium">System Settings → Privacy & Security → Files & Folders</strong> (or Full Disk Access), check <strong className="font-medium">Hanger</strong>, and then retry the scan.
+              macOS is blocking Hanger from reading this folder. Choose it again to restore access: macOS counts picking a folder as permission to read it.
             </p>
-            <button
-              disabled={loading}
-              onClick={onRefresh}
-              className="self-start px-4 h-[30px] bg-fill text-on-fill font-medium text-small rounded-pill transition-transform duration-press ease-spring active:scale-[0.96] cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
-            >
-              <RotateCcwIcon size={13} active={loading} />
-              <span>Retry Scan</span>
-            </button>
+            <div className="flex items-center gap-2">
+              {/* Primary: picking the folder again is the remedy that actually
+                  works — System Settings has no "+" to add Hanger manually. */}
+              <button
+                disabled={loading}
+                onClick={handleChooseFolderAgain}
+                className="self-start px-4 h-[30px] bg-fill text-on-fill font-medium text-small rounded-pill transition-transform duration-press ease-spring active:scale-[0.96] cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+              >
+                <span>Choose Folder Again</span>
+              </button>
+              {/* Secondary: still useful if access was restored another way. */}
+              <button
+                disabled={loading}
+                onClick={onRefresh}
+                className="self-start px-4 h-[30px] rounded-pill border border-line-2 hover:bg-plane-2 text-small font-medium text-ink-2 hover:text-ink-1 transition-colors duration-hover ease-spring cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+              >
+                <RotateCcwIcon size={13} active={loading} />
+                <span>Retry Scan</span>
+              </button>
+            </div>
           </div>
         )}
 
-        {/* Non-permission warnings section */}
-        {nonPermissionWarnings.length > 0 && (
+        {/* Non-TCC warnings section */}
+        {nonTccWarnings.length > 0 && (
           <DisclosureBanner
             variant="warning"
             summary="scan warning"
-            count={nonPermissionWarnings.length}
+            count={nonTccWarnings.length}
           >
             <ul className="list-disc list-inside space-y-1 text-small text-ink-2 font-mono">
-              {nonPermissionWarnings.map((warning, idx) => (
+              {nonTccWarnings.map((warning, idx) => (
                 <li key={idx} className="font-mono break-all leading-relaxed">
                   {warning}
                 </li>
