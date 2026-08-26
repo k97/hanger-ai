@@ -720,13 +720,14 @@ export default function McpServerDetail({
         {/* What a request actually carries, ahead of the list that produced
             it. Only knowable once a probe has answered -- `cost` travels
             with the same handshake result the tool list itself came from,
-            so nothing here can exist before that. A failed probe still
-            builds a `cost` object (zeroed, over an empty tool list -- the
-            backend does not special-case it), so `.cost` truthy is not
-            enough on its own; `!error` is what the count slot two sections
-            down already checks for the same reason. Without it a failed
-            probe would draw "0 of 0 tools carry one" for a server that
-            never answered. */}
+            so nothing here can exist before that. The union's `failed` arm
+            has no `cost` at all, so `kind === "answered"` is the whole
+            check; `.cost` on top of that is still needed because it stays
+            optional even on an answered probe. Before the narrowing, a
+            failed probe still built a `cost` object (zeroed, over an empty
+            tool list -- the backend did not special-case it), which is why
+            a bare `.cost` truthy check would have drawn "0 of 0 tools carry
+            one" for a server that never answered. */}
         {soloResult?.kind === "answered" && soloResult.cost && (
           <section className={SECTION}>
             <div className="flex items-baseline justify-between gap-2 mb-[10px]">

@@ -1270,13 +1270,14 @@ describe("McpServerDetail — the tool table and Context (M5)", () => {
     expect(screen.queryByRole("heading", { name: "Context per request" })).toBeNull();
   });
 
-  it("draws no ledger for a failed probe, even though the backend still sends a zeroed cost object", () => {
-    // `lib.rs` builds `cost` unconditionally via `tool_cost()`, so on the wire
-    // a failed probe's zeroed `cost` arrives alongside its `error` -- that is
-    // what motivated the union in the first place. `parseProbe` (the one
-    // place that wire crosses IPC) now strips `cost` for the failed arm
-    // before this component ever sees it, so the fixture below is that arm
-    // directly: no `cost` field to carry, because the type no longer has one.
+  it("draws no ledger for a failed probe", () => {
+    // The wire-level behaviour this pins against -- a failed probe's zeroed
+    // `cost` arriving alongside its `error` -- is exercised at the layer
+    // that actually sees it: `src/utils/probeView.test.ts`, "reads a failed
+    // probe as failed, discarding the zeroed cost the backend still sends".
+    // `parseProbe` strips `cost` for the failed arm before this component
+    // ever sees it, so the fixture below is that arm directly: no `cost`
+    // field to carry, because the type no longer has one.
     render(
       <McpServerDetail
         server={{ ...base, registrations: [base.registrations[0]] }}
