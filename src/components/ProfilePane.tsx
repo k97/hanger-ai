@@ -882,7 +882,7 @@ export default function ProfilePane({
   return (
     <div className="flex-1 flex flex-col min-h-0 overflow-hidden font-sans">
       {/* Facet chips */}
-      <div className="px-[18px] pt-3.5 pb-1.5">
+      <div className="px-[18px] pt-3.5 pb-3.5">
         <CategoryFilterCards
           selectedCategory={selectedCategory}
           onSelectCategory={setSelectedCategory}
@@ -896,7 +896,7 @@ export default function ProfilePane({
       </div>
 
       {/* Inventory summary strip */}
-      <div className="mx-[18px] mt-2.5 mb-2.5">
+      <div className="mx-[18px] mb-3.5">
         <SummaryStrip
           total={stripTotal}
           subtitle={stripSubtitle}
@@ -919,7 +919,7 @@ export default function ProfilePane({
           knows its own children and nothing else's, and none of them know
           about the servers that outlived whatever started them. */}
       {unaccounted.length > 0 && (
-        <div className="px-[18px] pb-2.5">
+        <div className="px-[18px] pb-3.5">
           {/* `summary` is a bare singular noun: the banner prepends the count
               and pluralises by appending "s", as with "scan warning" and
               "nested repo". A sentence here renders as "…accounts fors". */}

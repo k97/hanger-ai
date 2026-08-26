@@ -392,7 +392,7 @@ export default function RepoPane({
           repo-scoped grouping for a control here to drive — this pane's
           Tools rows stay per-registration regardless, and a control that
           cannot regroup its own rows would be inert chrome, not a fix. */}
-      <div className="px-[18px] pt-3.5 pb-1.5 flex items-center gap-3">
+      <div className="px-[18px] pt-3.5 pb-3.5 flex items-center gap-3">
         {/* No `?? 0` here. The chip distinguishes "not counted yet"
             (undefined) from "empty" (0) so it can keep a chip through a scan
             and hide it only on a known zero. Collapsing undefined to 0 erased
@@ -413,7 +413,7 @@ export default function RepoPane({
       </div>
 
       {/* Inventory summary strip */}
-      <div className="mx-[18px] mt-2.5 mb-2.5">
+      <div className="mx-[18px] mb-3.5">
         <SummaryStrip
           total={stripTotal}
           subtitle={stripSubtitle}
@@ -427,7 +427,7 @@ export default function RepoPane({
       </div>
 
       {/* Engines line + anything needing attention, above the list plane */}
-      <div className="px-[18px] flex flex-col gap-2.5 empty:hidden shrink-0 max-h-[45%] overflow-y-auto">
+      <div className="px-[18px] pb-3.5 flex flex-col gap-2.5 empty:hidden shrink-0 max-h-[45%] overflow-y-auto">
         {/* Engines Group */}
         {assetCounts?.engines && (
           <div className="flex items-baseline gap-2 font-flex text-micro text-ink-3">
@@ -642,7 +642,7 @@ export default function RepoPane({
           {/* The list lives on its own plane */}
           {/* Table background dropped by Karthik's ruling (2026-08-15):
               flat on the page, edge drawn by the --line border alone. */}
-          <div className="@container flex-1 min-h-0 overflow-y-auto mx-[18px] mt-2.5 border border-line rounded-tl-plane rounded-tr-plane pb-1.5">
+          <div className="@container flex-1 min-h-0 overflow-y-auto mx-[18px] border border-line rounded-tl-plane rounded-tr-plane pb-1.5">
             {/* The MCP section carries its own column labels below
                 (Registered in / Tools), so this header stays out of the way
                 entirely when Tools is the only section on screen — the same

@@ -1168,17 +1168,16 @@ gained a track above their strip (`2de751a`) that the other two never had.
 
 **`ProfilePane` and `RepoPane`: track, strip, list plane, foot.** The
 category track (`CategoryFilterCards`, above) opens the pane in
-`px-[18px] pt-3.5 pb-1.5` (`ProfilePane.tsx:813`; `RepoPane.tsx:339`, where
-it is nested one level deeper in a `min-w-0 flex-1` wrapper, `:345`, so the
-track can shrink beside a control that does not exist yet — the comment at
-`:333-338` says none is needed here). Then the `SummaryStrip` itself, now in
-`mx-[18px] mt-2.5 mb-2.5` rather than owning the top margin
-(`ProfilePane.tsx:827`, `RepoPane.tsx:360`). Then the list plane, flat per
-§3 — no `bg-plane` — rounding only its top corners and running off the
-bottom edge: `@container flex-1 min-h-0 overflow-y-auto mx-[18px] border
-border-line rounded-tl-plane rounded-tr-plane pb-1.5`
-(`ProfilePane.tsx:990-992`), the same shape plus `mt-2.5` since the strip
-above no longer supplies that gap on its own (`RepoPane.tsx:558`). Then the
+`px-[18px] pt-3.5 pb-3.5` (`ProfilePane.tsx:885`; `RepoPane.tsx:395`, where
+it is nested one level deeper in a `min-w-0 flex-1` wrapper, so the
+track can shrink beside a control that does not exist yet — the comment
+above it says none is needed here). Then the `SummaryStrip` itself, in
+`mx-[18px] mb-3.5` (`ProfilePane.tsx:899`, `RepoPane.tsx:416`). Then the
+list plane, flat per §3 — no `bg-plane` — rounding only its top corners and
+running off the bottom edge: `@container flex-1 min-h-0 overflow-y-auto
+mx-[18px] border border-line rounded-tl-plane rounded-tr-plane pb-1.5`
+(`ProfilePane.tsx:1101`, `RepoPane.tsx:645`) — identical in both panes now.
+Then the
 foot, `h-[30px] shrink-0 px-[18px] flex items-center gap-4 font-flex
 text-micro text-ink-3` with the scan status pushed right by `ml-auto`
 (`ProfilePane.tsx:1174`, `RepoPane.tsx:728`).

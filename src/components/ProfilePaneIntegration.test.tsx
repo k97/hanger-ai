@@ -155,8 +155,8 @@ describe("ProfilePane Component-Level Filtering Integration", () => {
     // an `order` utility would apply at all.
     expect(trackBox.parentElement).toBe(stripBox.parentElement);
     // Cited verbatim by DESIGN.md -> Pane composition; change them together.
-    expect(trackBox.className).toBe("px-[18px] pt-3.5 pb-1.5");
-    expect(stripBox.className).toBe("mx-[18px] mt-2.5 mb-2.5");
+    expect(trackBox.className).toBe("px-[18px] pt-3.5 pb-3.5");
+    expect(stripBox.className).toBe("mx-[18px] mb-3.5");
   });
 
   it("the strip follows the selected category: the skill count, the skill noun, the skill split", () => {
