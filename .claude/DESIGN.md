@@ -1148,10 +1148,20 @@ shrinks instead of the button just overflowing as intended.
 the lights themselves — not derived, measured.** The three native dots keep
 ~9.5pt between each other. `App.tsx:1327`'s spacer (`w-[76px]`) lands the
 toggle icon's own ink ~11.5pt after the dot cluster ends, and the collapsed
-crumb's `pl-[51px]` (`App.tsx:1451-1453`, when `sidebarCollapsed` AND the
-view is not the link map; `pl-[18px]` otherwise) lands the breadcrumb text ~10.5pt after the icon's ink
-— three gaps within ~2pt of each other, read as one uniform rhythm rather
-than three independently-guessed numbers. None of these three values can be
+crumb's `pl-[51px]` (`App.tsx:1470-1476`, when `sidebarCollapsed` and the
+view is not the link map) lands the breadcrumb text ~10.5pt after the icon's
+ink — three gaps within ~2pt of each other, read as one uniform rhythm rather
+than three independently-guessed numbers.
+
+The link map is the fourth gap, and it was wrong until 2026-08-26. That view
+hides the source list AND gates out the toggle (`App.tsx:1337`), so nothing
+occupies the band the dots sit in and the crumb must clear them itself. It
+was falling through to `pl-[18px]`, which put the breadcrumb ink 1.5pt after
+the green dot — measured at 2x on the live window, green ink ending at x=147
+and crumb ink starting at x=150. `pl-[28px]` restores it to ~11.5pt, the same
+clearance the toggle icon gets elsewhere in the cluster.
+`src/__tests__/linkmap_cap.test.tsx` pins the branch as a class contract; it
+cannot see the gap, only which inset the link map takes. None of these three values can be
 derived from the others by formula (native traffic lights aren't in the DOM,
 and glyph ink extent isn't the same as box width), so every one of them was
 set by measuring a live, running window pixel-by-pixel, not by eyeballing a

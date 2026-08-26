@@ -97,6 +97,34 @@ describe("the map cap", () => {
     mockPreferences.selected_sidebar_item = "linkmap";
   });
 
+  it("clears the traffic lights itself, since this view renders no sidebar toggle", async () => {
+    // The link map hides the source list and, with it, the sidebar toggle
+    // (`App.tsx:1337`). On every other view that toggle sits in the band the
+    // native traffic lights occupy and the crumb steps aside for it; here
+    // nothing does, so the crumb has to clear the dots on its own.
+    //
+    // It did not: `pl-[18px]` put the breadcrumb 1.5pt after the green dot's
+    // ink, measured at 2x on the live window (green ends x=147, crumb ink
+    // starts x=150). The other two gaps in this cluster are ~11.5pt and
+    // ~10.5pt, so this one read as an overlap.
+    //
+    // A CLASS CONTRACT, not a spacing measurement: happy-dom lays nothing
+    // out, so nothing here can see a gap. What it can do is fail if the
+    // link-map branch goes back to sharing the narrow inset with the views
+    // that have a toggle to hide behind. The pt figures live in DESIGN.md
+    // and are retuned by measuring a live window.
+    render(<App />);
+    await screen.findByTestId("map-node-2");
+
+    // The premise, asserted rather than assumed: no toggle in this view.
+    expect(screen.queryByLabelText("Toggle sidebar")).toBeNull();
+
+    const crumb = screen.getByText("Link map").parentElement!;
+    expect(crumb.className).toContain("pl-[28px]");
+    expect(crumb.className).not.toContain("pl-[18px]");
+    expect(crumb.className).not.toContain("pl-[51px]");
+  });
+
   it("Show its assets goes to Global with the engine's own list in the inspector", async () => {
     render(<App />);
     const node = await screen.findByTestId("map-node-2");

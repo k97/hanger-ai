@@ -1448,16 +1448,30 @@ export default function App() {
             toolbar guards assert against that landmark. */}
         <header data-tauri-drag-region className="relative h-10 shrink-0 flex items-center gap-2.5 select-none z-30 font-flex">
           {capDragOverlay}
-          {/* When the source list is collapsed the sidebar toggle overflows
-              the 56px rail into this cap; the crumb steps aside for it.
-              51px, not the 56px rail width — measured against a live window
-              so the gap after the icon's ink roughly matches the ~10px gap
-              the traffic lights keep between themselves (App.tsx:963's
-              spacer + button set that icon's position). Re-measure this if
-              the spacer, button padding, or icon size changes. */}
+          {/* Three cases, because what sits between the rail and this crumb
+              differs in each, and all three gaps are measured against a live
+              window rather than derived (native traffic lights are not in the
+              DOM). Re-measure all of them if the spacer, button padding, icon
+              size, or trafficLightPosition changes.
+
+              Link map: no source list AND no sidebar toggle (the toggle is
+              gated out below), so nothing occupies the band the traffic
+              lights sit in and the crumb has to clear them itself. 28px puts
+              its ink ~11.5pt past the green dot — the same clearance the
+              toggle icon gets on every other view. It was 18px, which left
+              1.5pt and read as an overlap.
+
+              Collapsed, not the link map: the toggle overflows the 56px rail
+              into this cap and the crumb steps aside for it. 51px, not the
+              56px rail width, so the gap after the icon's ink matches.
+
+              Otherwise: the source list sits between the rail and this
+              column, so the lights are nowhere near the crumb. */}
           <div
             className={`flex items-center gap-[7px] text-small text-ink-3 whitespace-nowrap shrink-0 ${
-              selectedSidebarItem !== "linkmap" && sidebarCollapsed
+              selectedSidebarItem === "linkmap"
+                ? "pl-[28px]"
+                : sidebarCollapsed
                 ? "pl-[51px]"
                 : "pl-[18px]"
             }`}
