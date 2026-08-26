@@ -292,6 +292,48 @@ describe("InspectorCap", () => {
     expect(row.className.split(/\s+/)).not.toContain("relative");
   });
 
+  /**
+   * `1 flagged` and `Link to…` sit side by side and are one size tier: both
+   * are built from `miniButton.ts`'s shared `base`, so both are 26px. They
+   * still read as two different sizes, for two reasons neither of which was
+   * the height.
+   *
+   * The chip's wrapper was a plain block, so FindingChip's `inline-flex` root
+   * sat on its baseline — measured in the running app at 2x, the chip spanned
+   * y 15..66 against Link to…'s y 14..65. One device pixel, on both edges,
+   * enough to see. As a flex item the wrapper blockifies to `flex`, which
+   * takes the child off the baseline; both now span y 14..65.
+   *
+   * And the link icon carried `mr-1` on top of the base's `gap-1.5` — the
+   * only mini button in the app with a 10px icon lead rather than 6px, which
+   * made it 4.5px wider than the chip. Measured after: 0.5px apart.
+   *
+   * A CLASS CONTRACT, and only that. happy-dom lays nothing out, so no
+   * assertion here can see a pixel of either problem — `getBoundingClientRect`
+   * is 0 and there is no baseline (`verification.md`, on geometry). The
+   * geometry is verified by screenshot; this keeps the two classes that
+   * produce it from being quietly dropped.
+   */
+  it("[class contract] keeps the chip off the baseline and the link icon on the base's own gap", () => {
+    renderCap({ findings: ONE_FINDING });
+
+    const chip = screen.getByRole("button", { name: /1 flagged/ });
+    const wrapper = chip.closest("div") as HTMLElement;
+    expect(wrapper, "the chip's wrapper").toBeTruthy();
+    expect(
+      wrapper.className.split(/\s+/),
+      "a block wrapper puts FindingChip's inline-flex root back on the baseline",
+    ).toContain("inline-flex");
+
+    const link = screen.getByRole("button", { name: /Link to/ });
+    const icon = link.querySelector("svg");
+    expect(icon, "the link button's icon").toBeTruthy();
+    expect(
+      icon!.getAttribute("class") ?? "",
+      "the mini base already spaces icon from label with gap-1.5",
+    ).not.toMatch(/\bm[rxl]-/);
+  });
+
   it("still sheds Needs review · {n} for a non-server asset (forceShed=2) — regression guard for the server-cap fix", () => {
     renderCap({ forceShed: 2, findings: ONE_FINDING });
     expect(screen.queryByRole("button", { name: "1 flagged" })).toBeNull();

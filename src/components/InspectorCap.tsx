@@ -200,7 +200,13 @@ export default function InspectorCap({
       )}
 
       {showChip && (
-        <div className="shrink-0 relative">
+        // `inline-flex` like the glyph wrapper above, and for the same reason.
+        // As a flex item this blockifies to `flex`, which takes FindingChip's
+        // own inline-flex root off the baseline. Left as a plain block, the
+        // chip sat half a pixel below `Link to…` beside it — both are 26px,
+        // but their top and bottom edges landed one device pixel apart on
+        // retina, which is enough to read as two different sizes.
+        <div className="shrink-0 relative inline-flex">
           <FindingChip
             severity={findings.severity}
             lines={findings.issues.map((issue) => issue.problem)}
@@ -217,7 +223,11 @@ export default function InspectorCap({
       >
         {showLinkOnSurface && onLink && (
           <button type="button" onClick={onLink} className={miniBtnFillClass}>
-            <LinkIcon size={13} aria-hidden="true" className="mr-1" />
+            {/* No `mr-1`: the mini base already spaces icon from label with
+                `gap-1.5`, and the extra margin made this the only mini button
+                in the app with a 10px lead instead of 6px — 4px wider than
+                the chip beside it for no reason anyone chose. */}
+            <LinkIcon size={13} aria-hidden="true" />
             Link to…
           </button>
         )}
