@@ -218,3 +218,63 @@ fn test_asset_deployed_telemetry_no_leak() {
     });
     assert_eq!(payload, expected);
 }
+
+// ---------------------------------------------------------------------------
+// GA4 dispatch reporting.
+//
+// The Measurement Protocol URL carries `api_secret` in its query string, so
+// anything that formats the request or its error is a credential-disclosure
+// surface. `reqwest::Error`'s `Debug` includes the URL it was built from, and
+// the old dispatch line printed that error whole into
+// `~/Library/Logs/com.rkarthik.hanger/Hanger AI.log`.
+//
+// The first test below asserts the leak is real before asserting it is closed,
+// so the control cannot pass vacuously if `without_url` ever stops stripping.
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn ga4_dispatch_error_line_never_carries_the_api_secret() {
+    let secret = "fake-mp-secret-must-not-reach-a-log";
+    let url = format!(
+        "http://127.0.0.1:1/mp/collect?measurement_id=G-TESTONLY&api_secret={}",
+        secret
+    );
+    let err = reqwest::Client::new()
+        .post(&url)
+        .json(&serde_json::json!({}))
+        .send()
+        .await
+        .expect_err("port 1 must refuse the connection");
+
+    // Control: the unredacted error really does carry the secret. If this
+    // stops holding, the assertion below proves nothing and must be revisited.
+    assert!(
+        format!("{:?}", err).contains(secret),
+        "precondition failed: reqwest::Error no longer embeds the URL, so the \
+         redaction below is untested rather than passing"
+    );
+
+    let line = tauri_app_lib::dispatch_error_line(err);
+    assert!(
+        !line.contains(secret),
+        "the logged line leaked the API secret: {}",
+        line
+    );
+    assert!(!line.contains("api_secret"), "line still names the query: {}", line);
+}
+
+#[test]
+fn ga4_non_success_status_is_reported_and_success_is_silent() {
+    // GA4 answers a good request with 204 and a bad measurement_id/api_secret
+    // pair with 401. The old code matched only on transport errors, so a 401
+    // was indistinguishable from delivery.
+    assert_eq!(tauri_app_lib::dispatch_status_line(204), None);
+    assert_eq!(tauri_app_lib::dispatch_status_line(200), None);
+
+    let unauthorized = tauri_app_lib::dispatch_status_line(401)
+        .expect("401 must be reported");
+    assert!(unauthorized.contains("401"), "line must name the status: {}", unauthorized);
+
+    assert!(tauri_app_lib::dispatch_status_line(400).is_some());
+    assert!(tauri_app_lib::dispatch_status_line(500).is_some());
+}

@@ -198,6 +198,39 @@ fn get_telemetry_client_id(store: &PreferencesStore) -> Option<String> {
     }
 }
 
+/// The log line for a GA4 response that was delivered but not accepted, or
+/// `None` when it was.
+///
+/// GA4 answers an accepted event with 204, and a bad `measurement_id` /
+/// `api_secret` pair with 401. The dispatch used to match only on transport
+/// errors, so a 401 and a delivered event produced identical output — nothing
+/// — and "are analytics working?" could not be answered from the running app.
+///
+/// The status is all this carries. The request URL holds the API secret in its
+/// query string and is never part of a log line.
+pub fn dispatch_status_line(status: u16) -> Option<String> {
+    if (200..300).contains(&status) {
+        None
+    } else {
+        Some(format!(
+            "[Telemetry] GA4 did not accept the event: HTTP {}",
+            status
+        ))
+    }
+}
+
+/// The log line for a GA4 request that never completed, with the URL stripped.
+///
+/// `reqwest::Error`'s `Debug` embeds the URL the request was built from, and
+/// that URL carries `api_secret`. Printing the error whole wrote the
+/// credential into the app log. `without_url` is reqwest's own affordance for
+/// exactly this; `leak_tests.rs` asserts the raw error really does carry the
+/// secret before asserting this line does not, so the control cannot pass by
+/// accident.
+pub fn dispatch_error_line(e: reqwest::Error) -> String {
+    format!("[Telemetry] GA4 dispatch failed: {:?}", e.without_url())
+}
+
 pub async fn track_event_async(app: AppHandle, name: &str, params: serde_json::Value) {
     if !USAGE_CONSENT_ENABLED.load(Ordering::SeqCst) {
         return;
@@ -244,14 +277,19 @@ pub async fn track_event_async(app: AppHandle, name: &str, params: serde_json::V
     let client = reqwest::Client::new();
     match client.post(&url).json(&body).send().await {
         Ok(resp) => {
+            let status = resp.status().as_u16();
             if is_debug {
+                // The debug endpoint validates the payload and describes what
+                // it disliked, which the status alone does not.
                 if let Ok(text) = resp.text().await {
-                    println!("[Telemetry Debug Validation] Response: {}", text);
+                    println!("[Telemetry Debug Validation] HTTP {} — {}", status, text);
                 }
+            } else if let Some(line) = dispatch_status_line(status) {
+                eprintln!("{}", line);
             }
         }
         Err(e) => {
-            eprintln!("[Telemetry] GA4 dispatch failed: {:?}", e);
+            eprintln!("{}", dispatch_error_line(e));
         }
     }
 }
