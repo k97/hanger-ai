@@ -59,9 +59,9 @@ const ALLOWLIST: AllowlistEntry[] = [
   },
   {
     file: "src/components/RepoPane.tsx",
-    linePattern: /count=\{nonPermissionWarnings\.length\}/,
+    linePattern: /count=\{nonTccWarnings\.length\}/,
     category: "ui",
-    reason: "Counts non-permission scan warning messages for DisclosureBanner",
+    reason: "Counts non-TCC scan warning messages for DisclosureBanner",
   },
   {
     file: "src/components/ProfilePane.tsx",

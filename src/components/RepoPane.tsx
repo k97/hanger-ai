@@ -138,8 +138,16 @@ export default function RepoPane({
   );
 
   const rawWarnings = projectScan?.parse_warnings || [];
-  const permissionDeniedWarnings = rawWarnings.filter(w => w.includes("Permission denied") || w.includes("permission denied"));
-  const nonPermissionWarnings = rawWarnings.filter(w => !w.includes("Permission denied") && !w.includes("permission denied"));
+  // Contract with scanner.rs::denial_warning: "macOS blocked access to …"
+  // is EPERM — the TCC panel's System Settings advice applies. A Unix
+  // "Permission denied" (EACCES) is a chmod problem and stays in the plain
+  // warnings list, where its own text is the advice. `startsWith`, not
+  // `includes`: a machine-scope denial deliberately leads with an engine
+  // name (e.g. "<engine> may be installed — macOS blocked access to …")
+  // precisely so it cannot hijack a panel that renders this repo's own
+  // project path.
+  const tccWarnings = rawWarnings.filter((w) => w.startsWith("macOS blocked access to"));
+  const nonTccWarnings = rawWarnings.filter((w) => !w.startsWith("macOS blocked access to"));
 
   // Repositories sitting inside this root that are not linked in their own
   // right. Their assets currently roll up into this row, which is visible and
@@ -455,7 +463,7 @@ export default function RepoPane({
         )}
 
         {/* macOS Permission denied TCC Fix Panel */}
-        {permissionDeniedWarnings.length > 0 && (
+        {tccWarnings.length > 0 && (
           <div className="flex flex-col gap-3 p-3.5 border border-line rounded-inner leading-relaxed animate-in fade-in duration-200">
             <div className="flex gap-2 text-state-danger">
               <ExclamationTriangleIcon className="shrink-0 mt-0.5" size={16} />
@@ -478,15 +486,15 @@ export default function RepoPane({
           </div>
         )}
 
-        {/* Non-permission warnings section */}
-        {nonPermissionWarnings.length > 0 && (
+        {/* Non-TCC warnings section */}
+        {nonTccWarnings.length > 0 && (
           <DisclosureBanner
             variant="warning"
             summary="scan warning"
-            count={nonPermissionWarnings.length}
+            count={nonTccWarnings.length}
           >
             <ul className="list-disc list-inside space-y-1 text-small text-ink-2 font-mono">
-              {nonPermissionWarnings.map((warning, idx) => (
+              {nonTccWarnings.map((warning, idx) => (
                 <li key={idx} className="font-mono break-all leading-relaxed">
                   {warning}
                 </li>
