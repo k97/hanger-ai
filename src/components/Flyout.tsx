@@ -134,6 +134,7 @@ export default function Flyout({
       toolCount: number;
       describedToolCount: number;
       descriptionBytesTotal: number;
+      estimatedTokens: number;
       perTool: Array<{ name: string; descriptionBytes: number }>;
     };
   }>>({});
@@ -194,6 +195,7 @@ export default function Flyout({
           toolCount: number;
           describedToolCount: number;
           descriptionBytesTotal: number;
+          estimatedTokens: number;
           perTool: Array<{ name: string; descriptionBytes: number }>;
         } | null;
       }>("mcp_cached_probe", { registrationKey, force, running });

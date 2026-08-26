@@ -1143,7 +1143,7 @@ describe("McpServerDetail — the tool table and Context (M5)", () => {
           // indistinguishable, and "rows come from tools" indistinguishable
           // from "rows come from perTool". Here the backend says 5 while the
           // list holds 3, and `ghost_tool` is a perTool entry with no twin.
-          cost: { toolCount: 5, describedToolCount: 2, descriptionBytesTotal: 109,
+          cost: { toolCount: 5, describedToolCount: 2, descriptionBytesTotal: 109, estimatedTokens: 27,
             perTool: [{ name: "get_system_volume", descriptionBytes: 69 }, { name: "list_audio_apps", descriptionBytes: 40 }, { name: "undescribed", descriptionBytes: 0 }, { name: "ghost_tool", descriptionBytes: 12 }] },
         } }}
       />
@@ -1171,9 +1171,19 @@ describe("McpServerDetail — the tool table and Context (M5)", () => {
     expect(within(block).getByText("Get the current macOS system volume level (0–100) and mute state.")).toBeTruthy();
     // The section leads the panel and is checkable against the table.
     const context = screen.getByRole("heading", { name: "Context per request" }).closest("section")!;
-    expect(context.textContent).toContain("Descriptions109 B · 2 of 5 tools");
-    expect(context.textContent).toContain("Input schemasthe remainder, not in the store");
-    expect(context.textContent).toContain("A request carries the whole definition. Hanger keeps a tool’s name and its description and drops the schema, so the store can account for the smaller part of that figure and not the larger.");
+    expect(context.textContent).toContain("Descriptions");
+    expect(context.textContent).toContain("2 of 5 tools carry one");
+    expect(context.textContent).toContain("≈ 27 tokens");
+    expect(context.textContent).toContain("109 B");
+    expect(context.textContent).toContain("Input schemas");
+    expect(context.textContent).toContain("Usually the larger part of a definition");
+    expect(context.textContent).toContain("Not measured");
+    expect(context.textContent).not.toContain("the remainder, not in the store");
+    expect(context.textContent).toContain(
+      "A request carries a name, a description and an input schema for every tool. The " +
+        "Descriptions figure is the tool list below, totalled. The schemas are never stored, " +
+        "so nothing on this panel can weigh them."
+    );
     expect(context.textContent).not.toContain("tool definitions in every request");
   });
   it("draws no Context section before anything has answered", () => {

@@ -81,6 +81,7 @@ interface VerifiedIdentity {
     toolCount: number;
     describedToolCount: number;
     descriptionBytesTotal: number;
+    estimatedTokens: number;
     perTool: Array<{ name: string; descriptionBytes: number }>;
   };
 }
@@ -703,17 +704,39 @@ export default function McpServerDetail({
             </div>
             <ListCard>
               <ListCardRow
-                label="Descriptions"
-                value={`${formatBytes(anyVerified.cost.descriptionBytesTotal)} · ${
-                  anyVerified.cost.describedToolCount
-                } of ${anyVerified.cost.toolCount} tools`}
+                label={
+                  <span className="flex flex-col gap-0.5 min-w-0">
+                    <span className="text-small leading-[1.5]">Descriptions</span>
+                    <span className="text-micro text-ink-3 leading-[1.5]">
+                      {anyVerified.cost.describedToolCount} of {anyVerified.cost.toolCount} tools carry one
+                    </span>
+                  </span>
+                }
+                value={
+                  <span className="flex flex-col gap-0.5 items-end">
+                    <span className="text-base-app text-ink-1">
+                      ≈ {anyVerified.cost.estimatedTokens.toLocaleString("en-US")} tokens
+                    </span>
+                    <span>{formatBytes(anyVerified.cost.descriptionBytesTotal)}</span>
+                  </span>
+                }
               />
-              <ListCardRow label="Input schemas" wide="the remainder, not in the store" />
+              <ListCardRow
+                label={
+                  <span className="flex flex-col gap-0.5 min-w-0">
+                    <span className="text-small leading-[1.5]">Input schemas</span>
+                    <span className="text-micro text-ink-3 leading-[1.5]">
+                      Usually the larger part of a definition
+                    </span>
+                  </span>
+                }
+                wide={<span className="text-ink-3">Not measured</span>}
+              />
             </ListCard>
             <p className="text-micro text-ink-3 mt-2 leading-[1.5]">
-              A request carries the whole definition. Hanger keeps a tool&rsquo;s name and its
-              description and drops the schema, so the store can account for the smaller part of
-              that figure and not the larger.
+              A request carries a name, a description and an input schema for every tool. The
+              Descriptions figure is the tool list below, totalled. The schemas are never stored,
+              so nothing on this panel can weigh them.
             </p>
           </section>
         )}
