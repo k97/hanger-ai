@@ -11,7 +11,6 @@ import {
   DocumentTextIcon,
   FileTextIcon,
   FolderIcon,
-  GaugeIcon,
   GlobeAltIcon,
   LinkIcon,
   Square2StackIcon,
@@ -62,6 +61,12 @@ interface AssetBody {
    *  rendering that as a date. */
   modified_ms: number | null;
   estimated_tokens: number;
+  /** The measurements for the frontmatter alone — name and description, the
+   *  slice every engine loads into its startup list regardless of whether the
+   *  skill ever opens. `None` when the backend could not isolate it; the
+   *  Always on row is omitted rather than asserting a made-up figure. */
+  always_on_bytes: number | null;
+  always_on_estimated_tokens: number | null;
 }
 
 /** What `list_asset_dir` answers for a skill's folder: its top-level entries,
@@ -382,21 +387,47 @@ export default function AssetDetail({ asset, inventory, onDocumentPath, annotati
                   <span className={eyebrowClass}>Context</span>
                 </div>
                 <ListCard>
+                  {body.always_on_bytes != null && body.always_on_estimated_tokens != null && (
+                    <ListCardRow
+                      label={
+                        <span className="flex flex-col gap-0.5 min-w-0">
+                          <span className="text-small leading-[1.5]">Always on</span>
+                          <span className="text-micro text-ink-3 leading-[1.5]">
+                            Name and description, in every engine&rsquo;s startup list
+                          </span>
+                        </span>
+                      }
+                      value={
+                        <span className="flex flex-col gap-0.5 items-end">
+                          <span className="text-base-app text-ink-1">
+                            ≈ {body.always_on_estimated_tokens.toLocaleString("en-US")} tokens
+                          </span>
+                          <span>{formatBytes(body.always_on_bytes)}</span>
+                        </span>
+                      }
+                    />
+                  )}
                   <ListCardRow
-                    icon={<GaugeIcon size={14} aria-hidden="true" />}
                     label={
                       <span className="flex flex-col gap-0.5 min-w-0">
-                        <span className="text-small leading-[1.5]">
-                          Name and description always loaded · {formatBytes(body.bytes)} when opened
+                        <span className="text-small leading-[1.5]">When it opens</span>
+                        <span className="text-micro text-ink-3 leading-[1.5]">SKILL.md, in full</span>
+                      </span>
+                    }
+                    value={
+                      <span className="flex flex-col gap-0.5 items-end">
+                        <span className="text-base-app text-ink-1">
+                          ≈ {body.estimated_tokens.toLocaleString("en-US")} tokens
                         </span>
-                        <span className="font-mono text-micro text-ink-3 leading-[1.5]">
-                          ≈ {body.estimated_tokens.toLocaleString("en-US")} tokens, estimated · not checked per
-                          engine
-                        </span>
+                        <span>{formatBytes(body.bytes)}</span>
                       </span>
                     }
                   />
                 </ListCard>
+                <p className="text-micro text-ink-3 mt-2 leading-[1.5]">
+                  Token figures are bytes divided by four. Every engine tokenises differently, so
+                  treat them as a size, not a count.
+                </p>
               </section>
             )}
 

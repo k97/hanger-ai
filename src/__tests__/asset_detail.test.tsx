@@ -36,7 +36,13 @@ let bodyPath = SOURCE;
 // The measurements `read_asset_body` took while reading the file. A test
 // that cares about the Context row's arithmetic overrides this; every other
 // test gets the values the suite has always returned.
-let bodyFigures = { bytes: 431, lines: 21, estimated_tokens: 107 };
+let bodyFigures: {
+  bytes: number;
+  lines: number;
+  estimated_tokens: number;
+  always_on_bytes: number | null;
+  always_on_estimated_tokens: number | null;
+} = { bytes: 431, lines: 21, estimated_tokens: 107, always_on_bytes: 228, always_on_estimated_tokens: 57 };
 // The backend's mtime read, `Option<i64>` since 62cf6f8. Null when the
 // platform reports no mtime; a test that cares about the absent-mtime case
 // overrides this, every other test gets a real timestamp.
@@ -101,7 +107,7 @@ describe("Asset detail — the inspector's document screen", () => {
     vi.clearAllMocks();
     bodyResult = { ok: true, text: DOC };
     bodyPath = SOURCE;
-    bodyFigures = { bytes: 431, lines: 21, estimated_tokens: 107 };
+    bodyFigures = { bytes: 431, lines: 21, estimated_tokens: 107, always_on_bytes: 228, always_on_estimated_tokens: 57 };
     bodyModifiedMs = Date.UTC(2026, 6, 20, 12);
     dirResult = [
       { name: "SKILL.md", kind: "file", bytes: 431, file_count: null },
@@ -422,15 +428,42 @@ describe("Asset detail — the inspector's document screen", () => {
     expect(screen.queryAllByTestId("skill-dir-row")).toHaveLength(0);
   });
 
-  it("Content leads with what reading the skill costs, bytes as the fact and tokens as an estimate", async () => {
-    bodyFigures = { bytes: 8602, lines: 252, estimated_tokens: 2150 };
+  it("Context is a two-tier ledger: always-on and on-open, tokens leading, bytes beneath", async () => {
+    bodyFigures = {
+      bytes: 8602,
+      lines: 252,
+      estimated_tokens: 2150,
+      always_on_bytes: 228,
+      always_on_estimated_tokens: 57,
+    };
     render(<AssetDetail asset={asset} inventory={inventory} />);
     const section = (await screen.findByText("Context")).closest("section")!;
-    expect(section.textContent).toContain("Name and description always loaded · 8.4 kB when opened");
-    expect(section.textContent).toContain("≈ 2,150 tokens, estimated · not checked per engine");
+    expect(section.textContent).toContain("Always on");
+    expect(section.textContent).toContain("Name and description, in every engine’s startup list");
+    expect(section.textContent).toContain("≈ 57 tokens");
+    expect(section.textContent).toContain("228 B");
+    expect(section.textContent).toContain("When it opens");
+    expect(section.textContent).toContain("SKILL.md, in full");
+    expect(section.textContent).toContain("≈ 2,150 tokens");
+    expect(section.textContent).toContain("8.4 kB");
+    expect(section.textContent).toContain("bytes divided by four");
+    expect(section.textContent).not.toContain("not checked per engine");
     // It precedes the document card.
     const panel = screen.getByRole("tabpanel");
     expect(panel.firstElementChild).toBe(section);
+  });
+  it("the always-on row is absent when the backend could not measure it", async () => {
+    bodyFigures = {
+      bytes: 8602,
+      lines: 252,
+      estimated_tokens: 2150,
+      always_on_bytes: null,
+      always_on_estimated_tokens: null,
+    };
+    render(<AssetDetail asset={asset} inventory={inventory} />);
+    const section = (await screen.findByText("Context")).closest("section")!;
+    expect(section.textContent).not.toContain("Always on");
+    expect(section.textContent).toContain("When it opens");
   });
   it("a rule has no Context section — the tiers are a skill's", async () => {
     render(<AssetDetail asset={{ ...asset, category: "Rules" }} inventory={inventory} />);
