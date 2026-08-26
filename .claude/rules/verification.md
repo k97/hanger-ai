@@ -93,6 +93,13 @@ Nothing else is evidence.
   cites them should be checked as a set, not spot-checked. The generated
   entries were all real; the one hand-written line was not.
 
+- **A plan's checkboxes are not evidence of what was built.** This session
+  reported a peer's Task 5 as "0 of 5 steps done" and told Karthik the panel
+  was mid-build, having counted unticked `- [ ]` boxes. Every task in that
+  plan read 0 of N: the session executing it simply never ticked them. The
+  commit log showed all five tasks landed. Read what the work produced —
+  commits, files, tests — never the tracking artefact that describes it.
+
 - A control that fails to fire is a finding about the detector and is
   reported. Replacing it with one that fires, without disclosure, is
   fabricated evidence.

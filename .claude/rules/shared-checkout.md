@@ -48,6 +48,16 @@ time, and they commit to the same branch. `ListAgents` shows the others.
 - **`git commit -- <path>` cannot commit an untracked file** (`pathspec … did
   not match any file(s) known to git`). New files need `git add` first; then
   check `git diff --cached --name-only` lists only yours before committing.
+- **A computed range silently absorbs a peer's commits.** Misreading the log is
+  one hazard; the other is never reading it. A review package built from
+  `BASE..HEAD`, a `git diff` across a span, a changelog generated from
+  `git log` — each takes whatever landed inside the range, and nothing in the
+  output marks it foreign. On 2026-08-26 a peer nearly sent this session's
+  Cargo.toml and docs commits to a reviewer as its own plan's work, and this
+  session generated a 284-entry changelog from a 542-commit range with no way
+  to tell which entries were its own. Bound the range to your own commits, or
+  say in the report that it may not be only yours.
+
 - Agents read unexpected commits as a peer's. If you commit while a subagent
   runs, expect its report to attribute your work to a stranger.
 
