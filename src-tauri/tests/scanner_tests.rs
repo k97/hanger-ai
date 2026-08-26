@@ -2088,6 +2088,7 @@ fn denied_subdir_yields_one_permission_warning_not_zero_not_many() {
     assert_eq!(denied.len(), 1, "one warning per denied root, deduplicated: {:?}", warnings);
 }
 
+#[cfg(unix)]
 #[test]
 fn blocked_engine_root_yields_denial_not_absence() {
     use std::os::unix::fs::PermissionsExt;
@@ -2115,10 +2116,14 @@ fn blocked_engine_root_yields_denial_not_absence() {
 
     let (agents, denials) = tauri_app_lib::scanner::get_global_agents_with_denials();
 
-    // Restore so tempdir can clean up, before any assertion can early-return.
+    // Restore before any assertion can early-return via panic: a failed
+    // assertion must not strand an unreadable directory for tempdir's Drop
+    // to choke on. `let _ =` rather than `.unwrap()` — Task 3's precedent
+    // (probe_path_distinguishes_absent_from_blocked) — so a restore failure
+    // itself cannot panic ahead of the real assertions below.
     let mut p = fs::metadata(&docs).unwrap().permissions();
     p.set_mode(0o755);
-    fs::set_permissions(&docs, p).unwrap();
+    let _ = fs::set_permissions(&docs, p);
 
     assert!(
         !agents.iter().any(|a| a.id == "cline"),
@@ -2128,5 +2133,216 @@ fn blocked_engine_root_yields_denial_not_absence() {
         denials.iter().any(|d| d.contains("Permission denied") && d.contains("Documents/Cline")),
         "the denial names the path: {:?}",
         denials
+    );
+    assert!(
+        denials.iter().all(|d| !d.starts_with("macOS blocked access to")),
+        "Ruling E/A: an engine-root denial is machine-scope and must not lead \
+         with the project panel's trigger prefix: {:?}",
+        denials
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn blocked_detect_file_root_yields_denial_not_absence() {
+    use std::os::unix::fs::PermissionsExt;
+
+    // Finding 4: the `detect_files` Blocked arm is a copy-paste twin of the
+    // `global_roots` one above but lives in a separate loop, so a break in
+    // it alone leaves the suite green unless something reaches it directly.
+    // Zed is the only AGENT_CONFIGS row with an empty `global_roots` and a
+    // non-empty `detect_files`, so probing it can only ever exercise this
+    // second loop's Blocked branch, never the first's.
+    if unsafe { libc::geteuid() } == 0 {
+        eprintln!("skipping blocked_detect_file_root_yields_denial_not_absence: running as root, mode bits do not deny");
+        return;
+    }
+
+    let _guard = ENV_MUTEX.get_or_init(|| Mutex::new(())).lock().unwrap();
+
+    let home = tempfile::tempdir().unwrap();
+    let zed_dir = home.path().join(".config/zed");
+    fs::create_dir_all(&zed_dir).unwrap();
+    let mut p = fs::metadata(&zed_dir).unwrap().permissions();
+    p.set_mode(0o000);
+    fs::set_permissions(&zed_dir, p).unwrap();
+
+    std::env::set_var("HANGER_TEST_HOME", home.path().to_string_lossy().to_string());
+
+    let (agents, denials) = tauri_app_lib::scanner::get_global_agents_with_denials();
+
+    let mut p = fs::metadata(&zed_dir).unwrap().permissions();
+    p.set_mode(0o755);
+    let _ = fs::set_permissions(&zed_dir, p);
+
+    assert!(
+        !agents.iter().any(|a| a.id == "zed"),
+        "a blocked detect-file root must not read as an installed engine"
+    );
+    assert!(
+        denials.iter().any(|d| d.contains("Zed")
+            && d.contains("may be installed")
+            && d.contains("Permission denied")
+            && d.contains("settings.json")),
+        "the denial names Zed's detect-file path: {:?}",
+        denials
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn blocked_root_alongside_a_resolved_sibling_root_is_not_told_it_may_be_installed() {
+    use std::os::unix::fs::PermissionsExt;
+
+    // Finding 5: cline.global_roots is [".cline", "Documents/Cline"]. Block
+    // only the first so the second still resolves, and check the engine is
+    // both detected AND not told it "may be installed" — it demonstrably
+    // is. Blocking `.cline` via chmod on `home` itself would also deny
+    // Documents/Cline (both live under home), so `.cline` is instead a
+    // symlink into a directory that alone gets chmod 000 — a real EACCES on
+    // resolving that one root, leaving Documents/Cline's own permissions
+    // untouched.
+    if unsafe { libc::geteuid() } == 0 {
+        eprintln!("skipping blocked_root_alongside_a_resolved_sibling_root_is_not_told_it_may_be_installed: running as root, mode bits do not deny");
+        return;
+    }
+
+    let _guard = ENV_MUTEX.get_or_init(|| Mutex::new(())).lock().unwrap();
+
+    let home = tempfile::tempdir().unwrap();
+
+    let docs_cline = home.path().join("Documents/Cline");
+    fs::create_dir_all(&docs_cline).unwrap();
+
+    let hidden = home.path().join("hidden");
+    fs::create_dir_all(hidden.join("target")).unwrap();
+    std::os::unix::fs::symlink(hidden.join("target"), home.path().join(".cline")).unwrap();
+    let mut p = fs::metadata(&hidden).unwrap().permissions();
+    p.set_mode(0o000);
+    fs::set_permissions(&hidden, p).unwrap();
+
+    std::env::set_var("HANGER_TEST_HOME", home.path().to_string_lossy().to_string());
+
+    let (agents, denials) = tauri_app_lib::scanner::get_global_agents_with_denials();
+
+    let mut p = fs::metadata(&hidden).unwrap().permissions();
+    p.set_mode(0o755);
+    let _ = fs::set_permissions(&hidden, p);
+
+    assert!(
+        agents.iter().any(|a| a.id == "cline"),
+        "Documents/Cline resolved; cline is demonstrably installed: {:?}",
+        agents
+    );
+    assert!(
+        denials.iter().any(|d| d.contains("Cline")
+            && d.contains("has a folder Hanger could not read")
+            && d.contains("Permission denied")),
+        "a blocked sibling root of a resolved engine is still worth reporting: {:?}",
+        denials
+    );
+    assert!(
+        !denials.iter().any(|d| d.contains("may be installed")),
+        "an engine that resolved via a sibling root must not also be told it may be installed: {:?}",
+        denials
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn blocked_global_skills_walker_yields_denial_not_silence() {
+    use std::os::unix::fs::PermissionsExt;
+
+    // Finding 1: deleting the classify_denial block from the skills walker's
+    // Err(e) arm left 38 binaries green — denied_subdir_... exercises the
+    // PROJECT walk, not this one. Drive a real global walk through
+    // DirectoryScanner::scan with a Claude Code config root whose skills/
+    // folder contains an unreadable subdirectory.
+    if unsafe { libc::geteuid() } == 0 {
+        eprintln!("skipping blocked_global_skills_walker_yields_denial_not_silence: running as root, mode bits do not deny");
+        return;
+    }
+
+    let _guard = ENV_MUTEX.get_or_init(|| Mutex::new(())).lock().unwrap();
+
+    let home = tempfile::tempdir().unwrap();
+    let blocked = home.path().join(".claude/skills/blocked");
+    fs::create_dir_all(blocked.join("nested")).unwrap();
+    let mut p = fs::metadata(&blocked).unwrap().permissions();
+    p.set_mode(0o000);
+    fs::set_permissions(&blocked, p).unwrap();
+
+    std::env::set_var("HANGER_TEST_HOME", home.path().to_string_lossy().to_string());
+
+    let project = tempfile::tempdir().unwrap();
+    let scanner = DirectoryScanner {
+        db_path: project.path().join("hanger.db"),
+        cancellation_token: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
+    };
+    let result = scanner.scan(project.path());
+
+    let mut p = fs::metadata(&blocked).unwrap().permissions();
+    p.set_mode(0o755);
+    let _ = fs::set_permissions(&blocked, p);
+
+    let inventory = result.unwrap();
+    let warnings = &inventory.project_scans[0].parse_warnings;
+    assert!(
+        warnings.iter().any(|w| w.contains("skills folder") && w.contains("Permission denied")),
+        "a blocked global skills walk must surface a denial, not a silent skip: {:?}",
+        warnings
+    );
+    assert!(
+        warnings.iter().all(|w| !w.starts_with("macOS blocked access to")),
+        "Ruling E: a machine-scope walker denial must not lead with the project panel's trigger prefix: {:?}",
+        warnings
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn blocked_global_subagents_walker_yields_denial_not_silence() {
+    use std::os::unix::fs::PermissionsExt;
+
+    // Same as blocked_global_skills_walker_yields_denial_not_silence, for
+    // the sibling subagents walker (Claude Code's .claude/agents/).
+    if unsafe { libc::geteuid() } == 0 {
+        eprintln!("skipping blocked_global_subagents_walker_yields_denial_not_silence: running as root, mode bits do not deny");
+        return;
+    }
+
+    let _guard = ENV_MUTEX.get_or_init(|| Mutex::new(())).lock().unwrap();
+
+    let home = tempfile::tempdir().unwrap();
+    let blocked = home.path().join(".claude/agents/blocked");
+    fs::create_dir_all(blocked.join("nested")).unwrap();
+    let mut p = fs::metadata(&blocked).unwrap().permissions();
+    p.set_mode(0o000);
+    fs::set_permissions(&blocked, p).unwrap();
+
+    std::env::set_var("HANGER_TEST_HOME", home.path().to_string_lossy().to_string());
+
+    let project = tempfile::tempdir().unwrap();
+    let scanner = DirectoryScanner {
+        db_path: project.path().join("hanger.db"),
+        cancellation_token: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
+    };
+    let result = scanner.scan(project.path());
+
+    let mut p = fs::metadata(&blocked).unwrap().permissions();
+    p.set_mode(0o755);
+    let _ = fs::set_permissions(&blocked, p);
+
+    let inventory = result.unwrap();
+    let warnings = &inventory.project_scans[0].parse_warnings;
+    assert!(
+        warnings.iter().any(|w| w.contains("subagents folder") && w.contains("Permission denied")),
+        "a blocked global subagents walk must surface a denial, not a silent skip: {:?}",
+        warnings
+    );
+    assert!(
+        warnings.iter().all(|w| !w.starts_with("macOS blocked access to")),
+        "Ruling E: a machine-scope walker denial must not lead with the project panel's trigger prefix: {:?}",
+        warnings
     );
 }

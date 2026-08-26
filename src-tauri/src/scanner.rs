@@ -490,6 +490,14 @@ pub fn get_global_agents_with_denials() -> (Vec<Agent>, Vec<String>) {
     let mut denials = Vec::new();
     for config in AGENT_CONFIGS {
         let mut resolved_path = None;
+        // Buffered until every root/detect-file for this config has been
+        // probed: a config with an earlier blocked root and a later readable
+        // one is demonstrably installed, and saying it "may be installed" in
+        // that case would be false (Karthik's finding on the first cut of
+        // this function). The sentence is chosen once, below, from whether
+        // anything resolved — never suppressed, since an unreadable root is
+        // still worth reporting even when a sibling root covers detection.
+        let mut config_denial_texts: Vec<String> = Vec::new();
         for rel_path in config.global_roots {
             let path = home.join(rel_path);
             match probe_path(&path) {
@@ -498,11 +506,7 @@ pub fn get_global_agents_with_denials() -> (Vec<Agent>, Vec<String>) {
                     break;
                 }
                 RootPresence::Blocked(d) => {
-                    denials.push(format!(
-                        "{} may be installed — {}",
-                        config.name,
-                        denial_warning(d, &path.to_string_lossy())
-                    ));
+                    config_denial_texts.push(denial_warning(d, &path.to_string_lossy()));
                 }
                 RootPresence::Absent => {}
             }
@@ -522,15 +526,18 @@ pub fn get_global_agents_with_denials() -> (Vec<Agent>, Vec<String>) {
                         break;
                     }
                     RootPresence::Blocked(d) => {
-                        denials.push(format!(
-                            "{} may be installed — {}",
-                            config.name,
-                            denial_warning(d, &path.to_string_lossy())
-                        ));
+                        config_denial_texts.push(denial_warning(d, &path.to_string_lossy()));
                     }
                     RootPresence::Absent => {}
                 }
             }
+        }
+        for text in config_denial_texts {
+            denials.push(if resolved_path.is_some() {
+                format!("{} has a folder Hanger could not read — {}", config.name, text)
+            } else {
+                format!("{} may be installed — {}", config.name, text)
+            });
         }
         if let Some(g_path) = resolved_path {
             agents.push(Agent {
@@ -1149,8 +1156,20 @@ impl DirectoryScanner {
                                 // errno-bearing io::Error; classify_denial(
                                 // e.io_error()) alone would silently
                                 // classify nothing (see its doc comment).
+                                //
+                                // Ruling E: this is a machine-scope denial —
+                                // leading with the bare "macOS blocked access
+                                // to" form would make RepoPane.tsx route it
+                                // into the project-scoped TCC panel, wrongly
+                                // captioned with a project path. That prefix
+                                // is reserved for the project walk's own
+                                // denial (see its site further down).
                                 if let Some(d) = classify_denial(walk_denial_source(&e)) {
-                                    let w = denial_warning(d, &skills_path.to_string_lossy());
+                                    let w = format!(
+                                        "{} skills folder — {}",
+                                        agent.name,
+                                        denial_warning(d, &skills_path.to_string_lossy())
+                                    );
                                     if !parse_warnings.contains(&w) {
                                         parse_warnings.push(w);
                                     }
@@ -1268,9 +1287,16 @@ impl DirectoryScanner {
                                     global_has_skips = true;
                                     // Same unwrap as the skills walker above:
                                     // classify_denial(e.io_error()) alone
-                                    // would silently classify nothing.
+                                    // would silently classify nothing. Same
+                                    // Ruling E reason for the "{agent} …
+                                    // folder —" lead-in: machine-scope, must
+                                    // not trigger the project TCC panel.
                                     if let Some(d) = classify_denial(walk_denial_source(&e)) {
-                                        let w = denial_warning(d, &subagents_path.to_string_lossy());
+                                        let w = format!(
+                                            "{} subagents folder — {}",
+                                            agent.name,
+                                            denial_warning(d, &subagents_path.to_string_lossy())
+                                        );
                                         if !parse_warnings.contains(&w) {
                                             parse_warnings.push(w);
                                         }
