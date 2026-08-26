@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import * as fs from "fs";
 import * as path from "path";
+import { BLOCK_GAP, HEADING_GAP } from "./spacingContract";
 
 /**
  * The two inspector panels stack content sections the same way.
@@ -27,46 +28,18 @@ function read(rel: string): string {
  * What a content section in an inspector panel is spaced with. Margins, so
  * adjacent sections collapse to one gap rather than summing two.
  *
- * 28px between sections, 18px above the first one, 8px from a section's
- * heading to its own card.
+ * The gap itself is `BLOCK_GAP`, shared with the panes -- see
+ * `spacingContract.ts` for why it is one constant and not two equal ones.
+ * There is no longer a separate value above the first section: the panes open
+ * on the same gap they stack with, and matching them means matching that too.
  *
- * The first section's gap is deliberately smaller. A section gap separates
- * two sections; above the first there is no section, only the tab bar, and
- * that underline is already the boundary. Spending a full gap there measures
- * against the wrong thing and reads as the panel sagging away from its own
- * tabs. It started at half (14) and went up one step on the same 4px ladder
- * the section gap was walked up. `first:` follows the DOM, so it lands on whichever section actually
- * renders first -- both panels lead with a conditional one.
- *
- * Where those come from, precisely, because the two halves are not sourced
- * equally. Apple's CURRENT HIG publishes no macOS spacing number at all --
- * it gives figures for tvOS and visionOS and, for macOS, only the principle:
- * "Make essential information easy to find by giving it sufficient space...
- * don't obscure it by crowding it with nonessential details."
- *
- * The numbers survive in the Aqua-era HIG, where Apple specified "8 pixels:
- * between section labels and first control" and "12 pixels: spacing between
- * control groups". The 8 is taken literally. The 12 is NOT: it describes a
- * 2009 preferences dialog of packed controls, it is tighter than the 14 this
- * panel already had, and Karthik's read was that 14 was crowded -- so
- * following it would move the wrong way.
- *
- * So: 8 is Apple's. The section gap beside it is not, and nothing in Apple's
- * documentation asks for the value it currently holds. It was walked up the
- * 4px scale in the running app -- 14, 20, 24, 28, 32 -- with Karthik judging
- * each one on screen, and settled back at 28. Written down because a citation that overstates its source
- * is worse than none: this half is a judgement, not a standard.
- *
- * The ratio is the part that carries the meaning. At 14/10 a heading was
- * almost as far from its own card as from the section above it, so proximity
- * said nothing about which content the heading belonged to. Every step since
- * has widened that ratio, and the 8 has stayed put on purpose -- it is what
- * binds a heading to its own card while the gap above it grows.
+ * The ratio is what carries the meaning, and it survives the number changing.
+ * At 14/10 a heading sat almost as far from its own card as from the section
+ * above it, so proximity said nothing about which content it belonged to. The
+ * heading gap is 8 now and does not move with the block gap, so the binding
+ * holds wherever the block gap lands.
  */
-const SECTION_SPACING = "mx-[12px] my-7 first:mt-4.5";
-
-/** Gap from a section's heading row to the card beneath it. */
-const HEADING_GAP = "mb-2";
+const SECTION_SPACING = `mx-[12px] my-${BLOCK_GAP}`;
 
 describe("inspector section rhythm", () => {
   it("spaces MCP panel sections with the same class the skill panel uses", () => {

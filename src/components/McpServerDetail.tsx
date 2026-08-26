@@ -184,19 +184,20 @@ function ProbePending() {
 
 /* Sections separate on whitespace, not a rule. The --line border in this
    panel family means header-from-body (Flyout, ReviewInspector) -- spending
-   it between content sections too left this the only panel in the app drawing
-   one, and the skill panel beside it has never needed one. Every section here
-   already leads with an eyebrow and encloses a bordered card; that is the
-   structure, and a rule on top of it was a third statement of the same
-   boundary.
+   it between content sections too left this the only panel in the app
+   drawing one, and the skill panel beside it has never needed one. Every
+   section here already leads with an eyebrow and encloses a bordered card;
+   that is the structure, and a rule on top of it was a third statement of
+   the same boundary.
 
    Margins, not padding, and the exact string AssetDetail uses: adjacent
    margins collapse to one gap, adjacent padding sums to two. The same 14px
-   spelled `py-` drew twice the gap here that `my-` drew next door, which is
-   what made this panel's rhythm read as foreign once the rule came off.
-   `src/__tests__/inspector-section-rhythm.test.ts` holds the two spellings
-   together. */
-const SECTION = "mx-[12px] my-7 first:mt-4.5";
+   spelled `py-` drew twice the gap here that `my-` drew next door.
+
+   14px is the panes' block gap, reused deliberately (Karthik, 2026-08-26).
+   `src/__tests__/spacingContract.ts` holds the one value both rhythm guards
+   read, so the inspector and the panes cannot drift apart. */
+const SECTION = "mx-[12px] my-3.5";
 const HEADING = "text-micro font-medium text-ink-3 uppercase tracking-[.06em]";
 const COUNT = "text-micro font-mono text-ink-2 tabular";
 

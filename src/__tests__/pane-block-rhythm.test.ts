@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import * as fs from "fs";
 import * as path from "path";
+import { BLOCK_GAP } from "./spacingContract";
 
 /**
  * The two content panes stack the same four blocks, and space them the same.
@@ -30,8 +31,6 @@ function read(rel: string): string {
   return fs.readFileSync(path.join(ROOT, rel), "utf8");
 }
 
-/** The gap between two stacked blocks in a pane. */
-const BLOCK_GAP = "3.5";
 /** The pane's inset from the icon rail and from the window edge. */
 const INSET = "18px";
 
