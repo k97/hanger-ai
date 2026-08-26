@@ -196,7 +196,7 @@ function ProbePending() {
    what made this panel's rhythm read as foreign once the rule came off.
    `src/__tests__/inspector-section-rhythm.test.ts` holds the two spellings
    together. */
-const SECTION = "mx-[12px] my-5";
+const SECTION = "mx-[12px] my-8";
 const HEADING = "text-micro font-medium text-ink-3 uppercase tracking-[.06em]";
 const COUNT = "text-micro font-mono text-ink-2 tabular";
 

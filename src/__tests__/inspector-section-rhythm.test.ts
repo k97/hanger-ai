@@ -27,7 +27,7 @@ function read(rel: string): string {
  * What a content section in an inspector panel is spaced with. Margins, so
  * adjacent sections collapse to one gap rather than summing two.
  *
- * 20px between sections, 8px from a section's heading to its own card.
+ * 32px between sections, 8px from a section's heading to its own card.
  *
  * Where those come from, precisely, because the two halves are not sourced
  * equally. Apple's CURRENT HIG publishes no macOS spacing number at all --
@@ -40,19 +40,21 @@ function read(rel: string): string {
  * control groups". The 8 is taken literally. The 12 is NOT: it describes a
  * 2009 preferences dialog of packed controls, it is tighter than the 14 this
  * panel already had, and Karthik's read was that 14 was crowded -- so
- * following it would move the wrong way. 20 is the margin Apple repeats
- * along window sides and bottoms throughout that same document, and it is
- * what this app's own chrome already echoes.
+ * following it would move the wrong way.
  *
- * So: 8 is Apple's, 20 is ours, chosen against Apple's stated principle
- * rather than a stated number. Said plainly here because a citation that
- * overstates its source is worse than none.
+ * So: 8 is Apple's. The section gap beside it is not, and nothing in Apple's
+ * documentation asks for the value it currently holds. It was walked up the
+ * 4px scale in the running app -- 14, 20, 24, 28, 32 -- with Karthik judging each
+ * one on screen. Written down because a citation that overstates its source
+ * is worse than none: this half is a judgement, not a standard.
  *
- * The ratio is the part that matters. At 14/10 a heading was almost as far
- * from its own card as from the section above it, so proximity said nothing
- * about which content the heading belonged to. At 20/8 it binds.
+ * The ratio is the part that carries the meaning. At 14/10 a heading was
+ * almost as far from its own card as from the section above it, so proximity
+ * said nothing about which content the heading belonged to. Every step since
+ * has widened that ratio, and the 8 has stayed put on purpose -- it is what
+ * binds a heading to its own card while the gap above it grows.
  */
-const SECTION_SPACING = "mx-[12px] my-5";
+const SECTION_SPACING = "mx-[12px] my-8";
 
 /** Gap from a section's heading row to the card beneath it. */
 const HEADING_GAP = "mb-2";
