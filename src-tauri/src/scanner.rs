@@ -395,6 +395,29 @@ fn walk_denial_source(err: &ignore::Error) -> Option<&std::io::Error> {
         .or(Some(outer))
 }
 
+/// What a stat of a candidate root actually established.
+///
+/// `Path::exists()` collapses "denied" into "absent" — a TCC-blocked
+/// ~/Documents/Cline read as "Cline is not installed", a wrong answer
+/// stated confidently. `fs::metadata` (not `symlink_metadata`: `exists()`
+/// follows links, and this must preserve that) keeps the error.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum RootPresence {
+    Present,
+    Absent,
+    Blocked(Denial),
+}
+
+pub(crate) fn probe_path(path: &Path) -> RootPresence {
+    match fs::metadata(path) {
+        Ok(_) => RootPresence::Present,
+        Err(e) => match classify_denial(Some(&e)) {
+            Some(d) => RootPresence::Blocked(d),
+            None => RootPresence::Absent,
+        },
+    }
+}
+
 pub(crate) fn get_home_dir() -> PathBuf {
     if let Ok(test_home) = std::env::var("HANGER_TEST_HOME") {
         return PathBuf::from(test_home);
@@ -2089,5 +2112,48 @@ mod denial_tests {
             denial_warning(Denial::UnixPermission, "/Users/x/p"),
             "Permission denied: /Users/x/p"
         );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn probe_path_distinguishes_absent_from_blocked() {
+        use std::os::unix::fs::PermissionsExt;
+
+        // Root bypasses mode bits, so chmod 000 would not deny anything and
+        // this test would assert on a "blocked" state that can never occur.
+        if unsafe { libc::geteuid() } == 0 {
+            eprintln!("skipping probe_path_distinguishes_absent_from_blocked: running as root, mode bits do not deny");
+            return;
+        }
+
+        let dir = tempfile::tempdir().unwrap();
+
+        // Absent: no entry at all.
+        assert!(matches!(probe_path(&dir.path().join("nope")), RootPresence::Absent));
+
+        // Present.
+        let there = dir.path().join("there");
+        std::fs::create_dir(&there).unwrap();
+        assert!(matches!(probe_path(&there), RootPresence::Present));
+
+        // Blocked: stat through an unreadable parent fails EACCES, the same
+        // errno-shape a TCC EPERM takes through classify_denial. (Real EPERM
+        // is unreachable in-test; the classifier's EPERM branch is covered
+        // above.)
+        let parent = dir.path().join("parent");
+        std::fs::create_dir_all(parent.join("child")).unwrap();
+        let mut p = std::fs::metadata(&parent).unwrap().permissions();
+        p.set_mode(0o000);
+        std::fs::set_permissions(&parent, p).unwrap();
+
+        let result = probe_path(&parent.join("child"));
+
+        // Restore before asserting: a failed assertion must not strand an
+        // unreadable directory for tempdir's Drop to choke on.
+        let mut p = std::fs::metadata(&parent).unwrap().permissions();
+        p.set_mode(0o755);
+        let _ = std::fs::set_permissions(&parent, p);
+
+        assert!(matches!(result, RootPresence::Blocked(Denial::UnixPermission)));
     }
 }
