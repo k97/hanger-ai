@@ -436,9 +436,12 @@ describe("Asset detail — the inspector's document screen", () => {
     expect(section.textContent).toContain("Only SKILL.md is read into context.");
     const skillRow = within(section).getByText("SKILL.md").closest('[data-testid="skill-dir-row"]')!;
     // Class-contract only: happy-dom lays nothing out, so computed color is
-    // unassertable here. This checks the emphasis class landed on the row,
-    // not that it renders visibly lighter — that needs a real-build screenshot.
+    // unassertable here. This checks the emphasis class landed on the
+    // SKILL.md row and nowhere else, not that it renders visibly lighter —
+    // that needs a real-build screenshot.
     expect(skillRow.querySelector(".text-ink-1")).toBeTruthy();
+    const referencesRow = within(section).getByText("references/").closest('[data-testid="skill-dir-row"]')!;
+    expect(referencesRow.querySelector(".text-ink-1")).toBeNull();
   });
 
   it("Context is a two-tier ledger: always-on and on-open, tokens leading, bytes beneath", async () => {
