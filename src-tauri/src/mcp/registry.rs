@@ -175,6 +175,10 @@ pub const SOURCES: &[McpSource] = &[
 
     // VS Code
     McpSource { host_id: "vscode", location: HomeRelative, path: "Library/Application Support/Code/User/mcp.json", tier: Global, dialect: VsCodeServers },
+    // Per-profile servers — each VS Code profile carries its own mcp.json
+    // (code.visualstudio.com MCP docs, fetched 2026-08-27). Same dialect as
+    // the default profile's User/mcp.json above.
+    McpSource { host_id: "vscode", location: HomeRelative, path: "Library/Application Support/Code/User/profiles/*/mcp.json", tier: Global, dialect: VsCodeServers },
     McpSource { host_id: "vscode", location: RepoRelative, path: ".vscode/mcp.json", tier: Project, dialect: VsCodeServers },
 
     // Cursor

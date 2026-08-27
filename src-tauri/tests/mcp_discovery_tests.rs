@@ -1584,3 +1584,25 @@ fn discover_machine_at_reads_home_mcp_json() {
         "~/.mcp.json registration not discovered"
     );
 }
+
+// ─── Task 4: VS Code per-profile mcp.json ──────────────────────────────────
+
+#[test]
+fn discover_machine_at_reads_vscode_profile_mcp_json() {
+    let home = tempfile::tempdir().unwrap();
+    let profile = home
+        .path()
+        .join("Library/Application Support/Code/User/profiles/-1abc2def");
+    std::fs::create_dir_all(&profile).unwrap();
+    std::fs::write(
+        profile.join("mcp.json"),
+        r#"{"servers": {"profile-probe": {"type": "stdio", "command": "/bin/true"}}}"#,
+    )
+    .unwrap();
+    let result = discover::discover_machine_at(home.path(), no_system_root());
+    assert!(
+        result.registrations.iter().any(|r| r.server.name == "profile-probe"
+            && r.host_id == "vscode"),
+        "per-profile VS Code mcp.json not discovered"
+    );
+}
