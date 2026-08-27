@@ -43,6 +43,13 @@ function Spans({ spans }: { spans: Span[] }) {
             </strong>
           );
         }
+        if (span.em) {
+          return (
+            <em key={i} className="italic">
+              {span.text}
+            </em>
+          );
+        }
         return <span key={i}>{span.text}</span>;
       })}
     </>

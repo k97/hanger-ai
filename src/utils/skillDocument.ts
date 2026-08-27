@@ -69,6 +69,7 @@ export interface Span {
   text: string;
   code?: boolean;
   strong?: boolean;
+  em?: boolean;
   href?: string;
 }
 
@@ -163,9 +164,9 @@ export function parseSkillDocument(text: string): SkillDocument {
   return { frontmatter, body: lines.slice(close + 1).join("\n") };
 }
 
-const INLINE = /(`[^`]+`|\*\*[^*]+\*\*|\[[^\]]+\]\([^)\s]+\))/;
+const INLINE = /(`[^`]+`|\*\*[^*]+\*\*|\*[^*\s][^*]*\*|\[[^\]]+\]\([^)\s]+\))/;
 
-/** Splits a line into text, inline code, bold and links. */
+/** Splits a line into text, inline code, bold, emphasis and links. */
 function toSpans(line: string): Span[] {
   const spans: Span[] = [];
   let rest = line;
@@ -186,6 +187,11 @@ function toSpans(line: string): Span[] {
       spans.push({ text: token.slice(1, -1), code: true });
     } else if (token.startsWith("**")) {
       spans.push({ text: token.slice(2, -2), strong: true });
+    } else if (token.startsWith("*")) {
+      // Single-asterisk emphasis. Ordered after `**` so bold wins at a shared
+      // position; the regex requires a non-space after the opening star, so a
+      // bare `2 * 3` never opens one.
+      spans.push({ text: token.slice(1, -1), em: true });
     } else {
       const link = /^\[([^\]]+)\]\(([^)\s]+)\)$/.exec(token)!;
       // Only http(s) travels as a link. Any other scheme — javascript:, file:,

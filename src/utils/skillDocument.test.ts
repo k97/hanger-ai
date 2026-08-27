@@ -156,6 +156,20 @@ describe("toBlocks — the document subset a SKILL.md actually uses", () => {
     });
   });
 
+  it("reads *single-asterisk* emphasis, and still prefers **bold** over it", () => {
+    const [block] = toBlocks("a *soft* word, a **hard** one, and 2 * 3 math.");
+    expect(block).toEqual({
+      kind: "paragraph",
+      spans: [
+        { text: "a " },
+        { text: "soft", em: true },
+        { text: " word, a " },
+        { text: "hard", strong: true },
+        { text: " one, and 2 * 3 math." },
+      ],
+    });
+  });
+
   it("only accepts http and https links, so no other scheme can ride in", () => {
     for (const url of ["javascript:void(0)", "data:text/html,<script>", "file:///etc/passwd"]) {
       const [block] = toBlocks(`[click](${url})`);
