@@ -330,16 +330,30 @@ pub fn git_remote_origin(
             let cfg = d.join(".git/config");
             match std::fs::read_to_string(&cfg) {
                 Ok(text) => {
-                    found = parse_origin_url(&text).and_then(|raw| {
-                        normalize_source_url(&raw).map(|(label, url)| Origin {
-                            label,
-                            url: Some(url),
-                            kind: OriginKind::CheckedOut,
-                            commit: None,
-                            delivered_by: None,
-                            installed_at_ms: None,
+                    // `d` resolved inside home, but `.git/config` itself can
+                    // still be a symlink to somewhere outside it — check the
+                    // leaf file's real location too before trusting its
+                    // content. A `.git` marker found here still ends the
+                    // walk (this IS the nearest checkout root); a poisoned
+                    // config just yields no usable origin, same as a config
+                    // with no parseable remote.
+                    let cfg_within = std::fs::canonicalize(&cfg)
+                        .map(|real| real == home_canon || real.starts_with(&home_canon))
+                        .unwrap_or(false);
+                    found = if cfg_within {
+                        parse_origin_url(&text).and_then(|raw| {
+                            normalize_source_url(&raw).map(|(label, url)| Origin {
+                                label,
+                                url: Some(url),
+                                kind: OriginKind::CheckedOut,
+                                commit: None,
+                                delivered_by: None,
+                                installed_at_ms: None,
+                            })
                         })
-                    });
+                    } else {
+                        None
+                    };
                     break;
                 }
                 Err(e) if e.kind() == std::io::ErrorKind::PermissionDenied => {

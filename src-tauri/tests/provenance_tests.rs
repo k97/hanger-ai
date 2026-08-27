@@ -251,3 +251,32 @@ fn test_walk_does_not_follow_symlinked_ancestor_outside_home() {
         "must not resolve a remote through a symlinked ancestor that escapes home"
     );
 }
+
+/// The fence also has to hold for the leaf file, not just the directories
+/// walked to reach it: a directory genuinely inside `home` can still house
+/// a `.git/config` that is ITSELF a symlink to a file outside `home`, and
+/// `read_to_string` follows that transparently. The ancestor-canonicalize
+/// check alone does not see this — `d` (the containing directory) resolves
+/// fine inside home; only the leaf file resolves outside it.
+#[test]
+fn test_git_config_itself_a_symlink_outside_home_is_not_followed() {
+    let td = tempfile::tempdir().unwrap();
+    let home = td.path().join("home");
+    let repo = home.join("repo");
+    fs::create_dir_all(repo.join(".git")).unwrap();
+    let outside_cfg = td.path().join("evil-config");
+    fs::write(
+        &outside_cfg,
+        "[remote \"origin\"]\n\turl = https://github.com/owner/evil\n",
+    )
+    .unwrap();
+    std::os::unix::fs::symlink(&outside_cfg, repo.join(".git/config")).unwrap();
+    let asset = repo.join("skills/a/SKILL.md");
+    fs::create_dir_all(asset.parent().unwrap()).unwrap();
+    let mut cache = HashMap::new();
+    let (o, _) = git_remote_origin(&asset, &home, &mut cache);
+    assert!(
+        o.is_none(),
+        "must not resolve a remote through a symlinked .git/config that escapes home"
+    );
+}
