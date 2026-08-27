@@ -2621,3 +2621,118 @@ fn test_global_sites_is_global_argument_is_load_bearing() {
         assert_eq!(o.label, "owner/checked-out-home", "{kind}");
     }
 }
+
+/// Task 8, fix round 1 (IMPORTANT 1): `test_origin_resolution_per_class`
+/// above and `test_global_sites_is_global_argument_is_load_bearing` prove,
+/// through a real scan, that a `Skill`/`Rule`/`Subagent` ROW carries what
+/// `OriginResolver` returns — not just that the resolver method itself
+/// returns the right thing. Tools had no equivalent: all four `resolve_tool`
+/// tests in `provenance_tests.rs` call the resolver directly, and nothing
+/// asserted that a `Tool` row in `inventory.tools` actually carries the
+/// result.
+///
+/// A plugin-cache path can NOT sit directly under a scanned project root —
+/// tried that first, and the project walker's own engine-root guard
+/// (`scanner.rs`, "Never let a project walk descend into an engine root",
+/// `protected_forms.iter().any(|pf| path.starts_with(pf))`) refuses to
+/// enter `.claude` at all once Claude Code is detected, which happens the
+/// moment `.claude` exists — and the plugin store is hardcoded at
+/// `home.join(".claude/plugins")` (`PluginIndex::load`), so it is always
+/// under `.claude`. So this reaches the plugin cache the same way
+/// `subagent_reaches_a_plugin_delivered_file_through_a_symlink`-shaped
+/// fixtures already do for subagents (see the long comment above
+/// `test_origin_resolution_per_class`): a project directory holding
+/// SYMLINKS to the real files inside the plugin cache. The walker sees the
+/// symlink's own path (`myproject/.mcp.json`), which does not start with
+/// `.claude` and so is never filtered by the engine-root guard; reading and
+/// canonicalizing it both transparently follow the link to the real,
+/// plugin-cache-nested target.
+///
+/// One symlinked `.mcp.json` (parses) and one symlinked `mcp_config.json`
+/// (does not) sit side by side in the project directory, so this exercises
+/// BOTH `Tool`-construction sites this task touched in one scan: the
+/// successfully-parsed path through `tool_from_registration`
+/// (`scanner.rs`, the `origin: resolved.origin` assignment inside it) and
+/// the project pass's failed-parse `Tool` literal (`scanner.rs`, the
+/// `Err(err_msg) =>` arm). Both must carry the SAME Delivered origin, since
+/// both symlinks resolve under the same plugin-cache prefix.
+///
+/// Proven load-bearing by hand, both sites, one at a time: reverting
+/// `origin: resolved.origin, origin_blocked: resolved.blocked.then_some(true)`
+/// to `origin: None, origin_blocked: None` at the `tool_from_registration`
+/// site alone reddens the `parsed` assertion below and leaves `failed`
+/// green; doing the same at the failed-parse literal alone reddens
+/// `failed` and leaves `parsed` green. See the Task 8 fix-round-1 report
+/// for both transcripts.
+#[test]
+fn test_tool_origin_wiring_reaches_both_construction_sites() {
+    let _guard = ENV_MUTEX.get_or_init(|| Mutex::new(())).lock().unwrap();
+    let temp_dir = tempfile::tempdir().unwrap();
+    let home_dir = temp_dir.path().join("home");
+    let plugins = home_dir.join(".claude/plugins");
+    fs::create_dir_all(&plugins).unwrap();
+    fs::write(
+        plugins.join("known_marketplaces.json"),
+        r#"{"mkt-a":{"source":{"source":"github","repo":"owner/market-repo"}}}"#,
+    )
+    .unwrap();
+    fs::write(
+        plugins.join("installed_plugins.json"),
+        r#"{"version":2,"plugins":{"tool-x@mkt-a":[{"scope":"user",
+             "installedAt":"2026-07-20T02:30:08.089Z",
+             "gitCommitSha":"b0b9f02b0581696da41e20d6c536ec639b44080f"}]}}"#,
+    )
+    .unwrap();
+
+    let cache_leaf = plugins.join("cache/mkt-a/tool-x/1.0.0");
+    fs::create_dir_all(&cache_leaf).unwrap();
+    fs::write(
+        cache_leaf.join(".mcp.json"),
+        r#"{"mcpServers": {"delivered-tool": {"command": "npx", "args": ["some-pkg"]}}}"#,
+    )
+    .unwrap();
+    fs::write(cache_leaf.join("mcp_config.json"), "{ not valid json").unwrap();
+
+    // A normal project directory -- NOT nested under `.claude` -- whose two
+    // MCP config files are symlinks into the plugin cache above.
+    let project_root = home_dir.join("myproject");
+    fs::create_dir_all(&project_root).unwrap();
+    std::os::unix::fs::symlink(cache_leaf.join(".mcp.json"), project_root.join(".mcp.json"))
+        .unwrap();
+    std::os::unix::fs::symlink(
+        cache_leaf.join("mcp_config.json"),
+        project_root.join("mcp_config.json"),
+    )
+    .unwrap();
+
+    std::env::set_var("HANGER_TEST_HOME", home_dir.to_str().unwrap());
+    let db_path = temp_dir.path().join("tool_origin_wiring_test.db");
+    let scanner = DirectoryScanner {
+        db_path,
+        cancellation_token: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
+    };
+    let inventory = scanner.scan(&project_root).unwrap();
+
+    let parsed = inventory
+        .tools
+        .iter()
+        .find(|t| t.name == "delivered-tool")
+        .expect("the successfully-parsed, symlinked .mcp.json server must be discovered");
+    assert_eq!(parsed.parse_status.as_deref(), Some("ok"));
+    let o = parsed.origin.as_ref().expect(
+        "a tool built by tool_from_registration through a symlink into the plugin cache must carry a Delivered origin",
+    );
+    assert!(matches!(o.kind, tauri_app_lib::provenance::OriginKind::Delivered));
+    assert_eq!(o.label, "owner/market-repo");
+
+    let failed = inventory
+        .tools
+        .iter()
+        .find(|t| t.parse_status.as_deref() == Some("failed"))
+        .expect("the malformed, symlinked mcp_config.json must still produce a row");
+    let fo = failed.origin.as_ref().expect(
+        "the failed-parse Tool literal, reached through a symlink into the plugin cache, must carry a Delivered origin too",
+    );
+    assert!(matches!(fo.kind, tauri_app_lib::provenance::OriginKind::Delivered));
+    assert_eq!(fo.label, "owner/market-repo");
+}

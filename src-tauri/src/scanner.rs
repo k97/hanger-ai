@@ -1879,6 +1879,15 @@ impl DirectoryScanner {
                                 path_str, e
                             ));
                             let parent_dir_canon = canonicalize_asset_path(parent_dir, &mut parse_warnings);
+                            // No frontmatter survived the parse failure, so
+                            // there is nothing to read a Declared source
+                            // from — but the path is still trustworthy, and
+                            // Delivered and Checked-out are both path-based,
+                            // not frontmatter-based. `declared: None` skips
+                            // only the Declared class; the failed-parse tool
+                            // literal resolves the same way, for the same
+                            // reason (shared-asset-machinery.md).
+                            let resolved = origin_resolver.resolve_file(None, &parent_dir_canon, false);
                             inventory.skills.push(Skill {
                                 id: parent_dir_str.clone(),
                                 name: filename.to_string(),
@@ -1898,8 +1907,8 @@ impl DirectoryScanner {
                                 // A parse failure is not a link state (ruled 2026-08-15): it files
                                 // under parse_status, never under broken links.
                                 link_state: None,
-                                origin: None,
-                                origin_blocked: None,
+                                origin: resolved.origin,
+                                origin_blocked: resolved.blocked.then_some(true),
                             });
                             if let (Some(store), Some(r_id)) = (&store_opt, project_root_id) {
                                 let _ = store.upsert_asset(

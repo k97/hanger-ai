@@ -863,19 +863,71 @@ impl OriginResolver {
 /// path up to the nearest existing ancestor, canonicalize THAT (resolving
 /// any symlinked directory in the part that does exist), and rejoin the
 /// non-existent tail lexically. A path that exists in full canonicalizes on
-/// the very first try, identically to `fs::canonicalize`. `Path::ancestors`
-/// always terminates at a root component, and every real filesystem root
+/// the very first try, identically to `fs::canonicalize` — byte for byte,
+/// not merely to the same directory: the first ancestor IS the path itself,
+/// so its "suffix" is empty, and without the `is_empty` check below,
+/// `canon.join("")` appends a trailing separator `fs::canonicalize` would
+/// never produce (proven at `test_matches_plain_canonicalize_when_the_full_path_exists`
+/// below — remove the check and it reddens). `Path::ancestors` always
+/// terminates at a root component, and every real filesystem root
 /// canonicalizes, so this returns before exhausting the iterator on any
 /// real input; the fallback below only guards a filesystem that somehow
 /// canonicalizes nothing at all, so this never panics on adversarial input.
 fn canonicalize_lenient(path: &Path) -> PathBuf {
     for ancestor in path.ancestors() {
         if let Ok(canon) = std::fs::canonicalize(ancestor) {
-            return match path.strip_prefix(ancestor) {
-                Ok(suffix) => canon.join(suffix),
-                Err(_) => canon,
+            let suffix = match path.strip_prefix(ancestor) {
+                Ok(s) => s,
+                Err(_) => return canon,
+            };
+            return if suffix.as_os_str().is_empty() {
+                canon
+            } else {
+                canon.join(suffix)
             };
         }
     }
     path.to_path_buf()
+}
+
+#[cfg(test)]
+mod canonicalize_lenient_tests {
+    use super::*;
+
+    /// The parity claim in the doc comment above: a path that exists in
+    /// full must canonicalize identically to `fs::canonicalize`, not merely
+    /// to the same directory with a spurious trailing separator
+    /// (`PathBuf::join("")` appends one, since an empty relative path still
+    /// has one component to join). `PathBuf`'s own `PartialEq` compares
+    /// path COMPONENTS, not bytes, so it cannot see that separator — two
+    /// `PathBuf`s built as `"/tmp"` and `PathBuf::from("/tmp").join("")`
+    /// are `==` even though their `to_string_lossy()` differ
+    /// (`"/tmp"` vs `"/tmp/"`). `resolve_tool`'s actual caller compares
+    /// STRINGS (`canonical.to_string_lossy()`, fed into `origin_for`'s
+    /// prefix match), so this asserts on the string form too — a `PathBuf`
+    /// comparison here would stay green with the `is_empty` guard removed
+    /// and prove nothing. Removing the guard reddens this.
+    #[test]
+    fn test_matches_plain_canonicalize_when_the_full_path_exists() {
+        let td = tempfile::tempdir().unwrap();
+        let f = td.path().join("real.txt");
+        std::fs::write(&f, "x").unwrap();
+        let plain = std::fs::canonicalize(&f).unwrap();
+        assert_eq!(
+            canonicalize_lenient(&f).to_string_lossy(),
+            plain.to_string_lossy(),
+        );
+    }
+
+    /// A leaf (and here, a whole missing subtree) that does not exist still
+    /// resolves the existing prefix and rejoins the missing tail lexically.
+    #[test]
+    fn test_rejoins_nonexistent_tail_onto_canonical_prefix() {
+        let td = tempfile::tempdir().unwrap();
+        let real = td.path().join("real");
+        std::fs::create_dir_all(&real).unwrap();
+        let missing = real.join("nope/deeper/x.json");
+        let canon_real = std::fs::canonicalize(&real).unwrap();
+        assert_eq!(canonicalize_lenient(&missing), canon_real.join("nope/deeper/x.json"));
+    }
 }
