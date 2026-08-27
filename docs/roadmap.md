@@ -114,6 +114,14 @@ non-file source honestly. This is a design question for the Reach column, not
 a registry row, and needs a naming brief per `ui-copy.md` before any state
 label ships.
 
+**Open question, NOT verified 2026-08-27**: gemini-cli's enterprise
+documentation may describe a system *defaults* file alongside the system
+settings file at `/Library/Application Support/GeminiCli/` — distinct from
+the system settings row this branch already added. Nobody has fetched that
+doc to confirm the file exists or that it can carry `mcpServers`; if it can,
+it would be a sibling gap to the one above. Flagged here as something to
+check, not a confirmed finding.
+
 ## Config-directory env vars are not honoured, and cannot be fixed per-kind
 
 Recorded 2026-08-27, cut from the MCP source-locations plan as pre-flight P1.
