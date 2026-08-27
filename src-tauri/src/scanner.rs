@@ -569,13 +569,26 @@ fn declared_str(value: Option<&str>) -> Option<&str> {
     value.map(str::trim).filter(|s| !s.is_empty())
 }
 
+/// Coerces a raw frontmatter `Value` field to the owned `String` the `Skill`
+/// domain type carries for `source_origin`, via the same coercion and trim
+/// rule as `declared_str`. A non-string shape or a whitespace-only value
+/// yields `None`, matching what `declared_source()` would resolve to for
+/// that key rather than failing the document.
+fn declared_owned(value: &Option<serde_yaml::Value>) -> Option<String> {
+    declared_str(value.as_ref().and_then(|v| v.as_str())).map(|s| s.to_string())
+}
+
 #[derive(Deserialize)]
 pub(crate) struct SkillFrontmatter {
     pub(crate) name: String,
     pub(crate) description: String,
     version: Option<String>,
+    /// Arbitrary shape by design, same reasoning as `source` below: this is
+    /// one of the keys `declared_source()` itself reads, so it must degrade
+    /// the same way `source` and `homepage` do rather than fail the whole
+    /// document when written as a list or map.
     #[serde(alias = "source-origin")]
-    source_origin: Option<String>,
+    source_origin: Option<serde_yaml::Value>,
     /// Arbitrary shape by design, same reasoning as `metadata`: some authors
     /// list several sources or write a citation object instead of a bare
     /// URL. Only a plain string value is read.
@@ -591,7 +604,7 @@ pub(crate) struct SkillFrontmatter {
 impl SkillFrontmatter {
     /// The asset's own claim about where it came from, strongest key first.
     pub(crate) fn declared_source(&self) -> Option<&str> {
-        declared_str(self.source_origin.as_deref())
+        declared_str(self.source_origin.as_ref().and_then(|v| v.as_str()))
             .or_else(|| declared_str(self.source.as_ref().and_then(|v| v.as_str())))
             .or_else(|| declared_str(self.homepage.as_ref().and_then(|v| v.as_str())))
             .or_else(|| {
@@ -1266,7 +1279,7 @@ impl DirectoryScanner {
                                             description: fm.description,
                                             version: fm.version.clone().unwrap_or_else(|| "v0.0.0-draft".to_string()),
                                             path: skill_identity.clone(),
-                                            source_origin: fm.source_origin,
+                                            source_origin: declared_owned(&fm.source_origin),
                                             scope: Some(Scope::Global {
                                                 agent: skill_agent,
                                             }),
@@ -1805,7 +1818,7 @@ impl DirectoryScanner {
                                 description: fm.description,
                                 version: fm.version.clone().unwrap_or_else(|| "v0.0.0-draft".to_string()),
                                 path: parent_dir_str.clone(),
-                                source_origin: fm.source_origin,
+                                source_origin: declared_owned(&fm.source_origin),
                                 scope: Some(Scope::Project {
                                     agent: "".to_string(),
                                     root: project_path_abs.clone(),
@@ -2408,6 +2421,27 @@ mod denial_tests {
         )
         .unwrap();
         assert_eq!(fm.declared_source(), Some("https://github.com/win/s"));
+    }
+
+    #[test]
+    fn test_source_origin_as_list_still_parses_and_falls_through_to_source() {
+        // source-origin written as a list must not fail the document; it
+        // must fall through to the next key in precedence, proving both
+        // non-failure and the fallthrough in one assertion.
+        let fm = parse_skill_frontmatter(
+            "---\nname: x\ndescription: d\nsource-origin:\n  - https://a.example\n  - https://b.example\nsource: https://github.com/real/s\n---\nbody",
+        );
+        assert!(fm.is_ok());
+        assert_eq!(fm.unwrap().declared_source(), Some("https://github.com/real/s"));
+    }
+
+    #[test]
+    fn test_source_origin_as_map_still_parses_and_falls_through_to_source() {
+        let fm = parse_skill_frontmatter(
+            "---\nname: x\ndescription: d\nsource-origin:\n  repo: https://a.example\n  commit: abc123\nsource: https://github.com/real/s\n---\nbody",
+        );
+        assert!(fm.is_ok());
+        assert_eq!(fm.unwrap().declared_source(), Some("https://github.com/real/s"));
     }
 
     #[test]
