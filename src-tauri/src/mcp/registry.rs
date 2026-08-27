@@ -134,6 +134,11 @@ pub const SOURCES: &[McpSource] = &[
     // Claude Code — user tier and local tier share one file.
     McpSource { host_id: "claude-code", location: HomeRelative, path: ".claude.json", tier: User, dialect: ClaudeJson },
     McpSource { host_id: "claude-code", location: HomeRelative, path: ".claude.json", tier: Local, dialect: ClaudeJson },
+    // ~/.mcp.json — reached by Claude Code's ancestor walk from any project
+    // under $HOME (measured 2026-08-27; the docs say "project root" and are
+    // incomplete). Global by ruling: it reaches every project under home.
+    // Mid-tree .mcp.json files are the RepoAncestors row in Plan B.
+    McpSource { host_id: "claude-code", location: HomeRelative, path: ".mcp.json", tier: Global, dialect: McpServers },
     McpSource { host_id: "claude-code", location: HomeRelative, path: ".claude/mcp.json", tier: Global, dialect: McpServers },
     McpSource { host_id: "claude-code", location: HomeRelative, path: ".claude/settings.json", tier: Global, dialect: McpServers },
     McpSource { host_id: "claude-code", location: HomeRelative, path: ".claude/plugins/marketplaces/*/.mcp.json", tier: Global, dialect: McpServers },

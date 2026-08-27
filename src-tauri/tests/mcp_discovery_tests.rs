@@ -1551,3 +1551,36 @@ fn a_toml_parse_error_never_carries_the_broken_config_line() {
         err
     );
 }
+
+// ─── Task 3: ~/.mcp.json as a home-level Claude Code source ───────────────
+
+#[test]
+fn home_level_mcp_json_is_a_declared_source() {
+    // Finding 1: Claude Code resolves .mcp.json from every ancestor of the
+    // cwd, so ~/.mcp.json reaches every project under $HOME. Measured
+    // 2026-08-27; the docs' "project root" reading is incomplete.
+    let source = registry::SOURCES
+        .iter()
+        .find(|s| s.location == SourceLocation::HomeRelative && s.path == ".mcp.json")
+        .expect("no home-level .mcp.json source");
+    assert_eq!(source.host_id, "claude-code");
+    assert_eq!(source.tier, ScopeTier::Global); // Karthik's ruling 2026-08-27
+    assert_eq!(source.dialect, Dialect::McpServers);
+}
+
+#[test]
+fn discover_machine_at_reads_home_mcp_json() {
+    let home = tempfile::tempdir().unwrap();
+    std::fs::write(
+        home.path().join(".mcp.json"),
+        r#"{"mcpServers": {"home-probe": {"command": "/bin/true", "args": []}}}"#,
+    )
+    .unwrap();
+    let result = discover::discover_machine_at(home.path(), no_system_root());
+    assert!(
+        result.registrations.iter().any(|r| r.server.name == "home-probe"
+            && r.host_id == "claude-code"
+            && r.tier == ScopeTier::Global),
+        "~/.mcp.json registration not discovered"
+    );
+}
