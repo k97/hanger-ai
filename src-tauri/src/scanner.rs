@@ -566,6 +566,23 @@ pub(crate) struct SkillFrontmatter {
     version: Option<String>,
     #[serde(alias = "source-origin")]
     source_origin: Option<String>,
+    source: Option<String>,
+    homepage: Option<String>,
+    /// Arbitrary shape by design: the wild writes strings, maps and lists
+    /// under this key, and a strict type here would turn parseable skills
+    /// into failures. Only `metadata.homepage` is read.
+    metadata: Option<serde_yaml::Value>,
+}
+
+impl SkillFrontmatter {
+    /// The asset's own claim about where it came from, strongest key first.
+    pub(crate) fn declared_source(&self) -> Option<&str> {
+        self.source_origin
+            .as_deref()
+            .or(self.source.as_deref())
+            .or(self.homepage.as_deref())
+            .or_else(|| self.metadata.as_ref()?.get("homepage")?.as_str())
+    }
 }
 
 pub(crate) fn parse_skill_frontmatter(content: &str) -> Result<SkillFrontmatter, String> {
@@ -586,6 +603,15 @@ struct SubagentFrontmatter {
     name: String,
     description: String,
     tools: Option<Vec<String>>,
+    source: Option<String>,
+    homepage: Option<String>,
+}
+
+impl SubagentFrontmatter {
+    /// The asset's own claim about where it came from, strongest key first.
+    fn declared_source(&self) -> Option<&str> {
+        self.source.as_deref().or(self.homepage.as_deref())
+    }
 }
 
 fn parse_subagent_frontmatter(content: &str) -> Result<SubagentFrontmatter, String> {
@@ -2307,5 +2333,85 @@ mod denial_tests {
         let _ = std::fs::set_permissions(&parent, p);
 
         assert!(matches!(result, RootPresence::Blocked(Denial::UnixPermission)));
+    }
+
+    #[test]
+    fn test_declared_source_precedence() {
+        let fm = parse_skill_frontmatter(
+            "---\nname: x\ndescription: d\nsource: https://github.com/a/b\nhomepage: https://c.d\n---\nbody",
+        )
+        .unwrap();
+        assert_eq!(fm.declared_source(), Some("https://github.com/a/b"));
+    }
+
+    #[test]
+    fn test_declared_source_from_metadata_homepage() {
+        let fm = parse_skill_frontmatter(
+            "---\nname: x\ndescription: d\nmetadata:\n  author: someone\n  homepage: \"https://fontfyi.com/\"\n---\nbody",
+        )
+        .unwrap();
+        assert_eq!(fm.declared_source(), Some("https://fontfyi.com/"));
+    }
+
+    #[test]
+    fn test_odd_metadata_shape_still_parses() {
+        let fm = parse_skill_frontmatter(
+            "---\nname: x\ndescription: d\nmetadata:\n  tags:\n    - a\n    - b\n---\nbody",
+        );
+        assert!(fm.is_ok());
+        assert_eq!(fm.unwrap().declared_source(), None);
+    }
+
+    #[test]
+    fn test_odd_metadata_shape_nested_map_still_parses() {
+        // Real-world metadata carries arbitrary nested structure, not just
+        // lists. A struct-typed `metadata` would reject this document
+        // outright; `Option<serde_yaml::Value>` must accept it.
+        let fm = parse_skill_frontmatter(
+            "---\nname: x\ndescription: d\nmetadata:\n  author:\n    name: 誰か\n    contact:\n      email: a@b.co\n---\nbody",
+        );
+        assert!(fm.is_ok());
+        assert_eq!(fm.unwrap().declared_source(), None);
+    }
+
+    #[test]
+    fn test_odd_metadata_shape_scalar_still_parses() {
+        // Some skills write `metadata: unknown` — a bare scalar, not a map.
+        let fm = parse_skill_frontmatter("---\nname: x\ndescription: d\nmetadata: unknown\n---\nbody");
+        assert!(fm.is_ok());
+        assert_eq!(fm.unwrap().declared_source(), None);
+    }
+
+    #[test]
+    fn test_source_origin_still_wins() {
+        let fm = parse_skill_frontmatter(
+            "---\nname: x\ndescription: d\nsource-origin: https://github.com/win/s\nsource: https://github.com/lose/s\n---\nbody",
+        )
+        .unwrap();
+        assert_eq!(fm.declared_source(), Some("https://github.com/win/s"));
+    }
+
+    #[test]
+    fn test_declared_source_falls_back_to_metadata_homepage_when_source_and_homepage_absent() {
+        let fm = parse_skill_frontmatter(
+            "---\nname: x\ndescription: d\n---\nbody",
+        )
+        .unwrap();
+        assert_eq!(fm.declared_source(), None);
+    }
+
+    #[test]
+    fn test_subagent_declared_source_precedence() {
+        let fm = parse_subagent_frontmatter(
+            "---\nname: x\ndescription: d\nsource: https://github.com/a/b\nhomepage: https://c.d\n---\nbody",
+        )
+        .unwrap();
+        assert_eq!(fm.declared_source(), Some("https://github.com/a/b"));
+
+        let fm2 = parse_subagent_frontmatter(
+            "---\nname: x\ndescription: d\nhomepage: https://c.d\n---\nbody",
+        )
+        .unwrap();
+        assert_eq!(fm2.declared_source(), Some("https://c.d"));
     }
 }
