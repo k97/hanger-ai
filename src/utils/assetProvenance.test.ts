@@ -159,6 +159,36 @@ describe("originRow", () => {
     expect(v.subRows.map((r) => r.label)).toEqual(["Pinned at", "Delivered by", "Installed"]);
     expect(v.subRows[0].value).toBe("b0b9f02");
     expect(v.subRows[1].value).toBe("tool-x");
+    expect(v.subRows[2].value).toBe(new Date(1784500208089).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    }));
+  });
+
+  it("delivered with none of the three fields: value and tooltip still correct, no sub-rows", () => {
+    // The real shape for PluginIndex::origin_for's marketplaces_prefix branch
+    // (plugin: None forces commit/delivered_by/installed_at_ms all to None) —
+    // the only origin shape that reaches production on this machine today,
+    // per the coordinator's fix-round-1 note. Guards must degrade
+    // independently rather than requiring all three fields together.
+    const v = originRow(
+      { label: "everything-claude-code", url: "https://github.com/owner/everything-claude-code", kind: "delivered" },
+      undefined
+    );
+    expect(v.value).toBe("everything-claude-code");
+    expect(v.tooltip).toBe("Hanger read this from the plugin that installed it");
+    expect(v.subRows).toEqual([]);
+  });
+
+  it("delivered with only delivered_by: exactly one sub-row, the right one", () => {
+    // PluginIndex::origin_for's cache_prefix branch: delivered_by can be
+    // Some(name) while commit and installed_at_ms stay None.
+    const v = originRow(
+      { label: "owner/cache-repo", kind: "delivered", delivered_by: "tool-y" },
+      undefined
+    );
+    expect(v.subRows).toEqual([{ label: "Delivered by", value: "tool-y", mono: false }]);
   });
 
   it("checked_out and launched carry no sub-rows", () => {
