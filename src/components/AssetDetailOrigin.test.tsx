@@ -4,8 +4,16 @@
 // (collapsed/expanded, presence/absence, wiring to `openUrl`); indentation,
 // the plane fill and hover motion are geometry, unassertable here, and go to
 // Task 12's screenshot (`verification.md`, happy-dom).
-import { render, screen, fireEvent, cleanup } from "@testing-library/react";
-import { describe, expect, it, vi, beforeEach } from "vitest";
+//
+// The tooltip's TEXT is pinned below — the linked cases via the link's own
+// `aria-label` (which already carries it, no hover needed), the muted cases
+// by actually triggering `Tooltip`'s hover-open (`fireEvent.pointerEnter` +
+// fake timers, the same recipe `tooltip.test.tsx` uses). What is NOT pinned
+// here is `Tooltip`'s own hover behaviour — its delay, its animation, its
+// dismissal — that contract belongs to `tooltip.test.tsx` and is out of
+// scope for this row.
+import { render, screen, fireEvent, cleanup, act } from "@testing-library/react";
+import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 
 const openUrl = vi.fn(async (..._args: unknown[]) => {});
 vi.mock("@tauri-apps/plugin-opener", () => ({
@@ -31,6 +39,20 @@ const delivered = {
   },
 };
 
+// A second kind, for the tooltip-swap test below: same shape (a link), a
+// different `kind`, so a lookup table that returned the same string for
+// every kind — or one with two entries swapped — would still redden here.
+const declared = {
+  category: "Skills",
+  name: "declared-skill",
+  path: "/home/.agents/skills/declared-skill",
+  origin: {
+    label: "owner/declared-repo",
+    url: "https://github.com/owner/declared-repo",
+    kind: "declared" as const,
+  },
+};
+
 // The Identity section — and the Origin row inside it — only renders on the
 // Details tab (AssetDetail opens on Content). Drive the real tab control
 // rather than an injected starting state, which would couple these tests to
@@ -48,8 +70,27 @@ describe("the Origin row", () => {
     openDetails();
     const link = screen.getByTestId("origin-open-link");
     expect(link.textContent).toContain("owner/market-repo");
+    // The tooltip's job is explaining HOW Hanger knows. For a delivered
+    // asset that's specifically the plugin story, not a generic "found a
+    // link" — the link's own aria-label already carries this string, so no
+    // hover is needed to pin it.
+    expect(link.getAttribute("aria-label")).toContain(
+      "Hanger read this from the plugin that installed it"
+    );
     fireEvent.click(link);
     expect(openUrl).toHaveBeenCalledWith("https://github.com/owner/market-repo");
+  });
+
+  it("gives a different kind of origin a different tooltip, not the same string reused", () => {
+    render(<AssetDetail asset={declared} inventory={null} />);
+    openDetails();
+    const link = screen.getByTestId("origin-open-link");
+    expect(link.getAttribute("aria-label")).toContain("The asset declares this");
+    // And not the delivered kind's explanation — catches a lookup table
+    // collapsed to one string, or two entries swapped.
+    expect(link.getAttribute("aria-label")).not.toContain(
+      "Hanger read this from the plugin that installed it"
+    );
   });
 
   it("discloses the delivery facts on demand, collapsed first", () => {
@@ -74,6 +115,30 @@ describe("the Origin row", () => {
     expect(screen.queryByTestId("origin-disclosure")).toBeNull();
     expect(screen.queryByTestId("origin-open-link")).toBeNull();
     expect(screen.getByTestId("identity-row-origin").textContent).toContain("Written here");
+  });
+
+  // The muted states have no link, so there is no aria-label to read the
+  // tooltip string off of — the value is a plain, unfocusable `<span>`, and
+  // the only way its explanation ever reaches anyone is a mouse parked over
+  // it. That's the brief's markup as given (raised separately as an a11y
+  // question, not this test's fix); what this test can and does pin is that
+  // the string underneath is still the right one.
+  describe("the muted states' tooltip, reached the only way it can be: hover", () => {
+    beforeEach(() => vi.useFakeTimers());
+    afterEach(() => vi.useRealTimers());
+
+    it("still carries the tooltip's explanation when nothing was found", () => {
+      render(<AssetDetail asset={{ category: "Skills", name: "plain", path: "/x" }} inventory={null} />);
+      openDetails();
+      const value = screen.getByText("Written here");
+      fireEvent.pointerEnter(value);
+      act(() => {
+        vi.advanceTimersByTime(80);
+      });
+      expect(screen.getByTestId("tooltip").textContent).toBe(
+        "Hanger found nothing that names a source"
+      );
+    });
   });
 
   it("words a blocked check differently from an empty one", () => {
