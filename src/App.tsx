@@ -1234,6 +1234,12 @@ export default function App() {
     // The room a drag has is fixed for its duration — the window is not being
     // resized while the mouse is down — so it is measured once, here, rather
     // than read from state that the drag itself is about to invalidate.
+    // The pointer leaves this 6px strip almost at once, so the fact that a
+    // drag is running has to live somewhere the whole document can see: the
+    // cursor must stay `col-resize` and text must stop selecting until the
+    // mouse comes up. Same mechanism the source list already uses
+    // (`body[data-resizing-sidebar]`, `src/styles/index.css`).
+    document.body.setAttribute("data-resizing-inspector", "");
     const dragRoom = measureRoom();
     // The width the pointer is asking for is its distance from the window's
     // right edge: the aside is the last flow child of a `w-screen` row, so
@@ -1257,6 +1263,10 @@ export default function App() {
     const onUp = (ev: MouseEvent) => {
       window.removeEventListener("mousemove", onMove);
       window.removeEventListener("mouseup", onUp);
+      // Before the early return, not after: a press that never moved still
+      // ends a drag, and leaving the mark set would strand the whole document
+      // in resize-cursor mode with selection disabled.
+      document.body.removeAttribute("data-resizing-inspector");
       if (!moved) return;
       const fit = resolveInspectorDrag(askedFor(ev), dragRoom);
       setInspectorWidth(fit.width);
@@ -1890,7 +1900,7 @@ export default function App() {
           <div
             data-testid="inspector-resize-handle"
             onMouseDown={handleInspectorResizeStart}
-            className="absolute top-0 bottom-0 left-0 w-1.5 cursor-col-resize hover:bg-line-2 active:bg-line-2 z-10 transition-colors duration-hover"
+            className="absolute top-0 bottom-0 left-0 w-1.5 cursor-col-resize hover:bg-line-2 active:bg-ink-3 z-10 transition-colors duration-hover"
           />
           {/* The window drag region for this column, and its height keeps
               the panel aligned with the toolbar beside it — kept exactly as

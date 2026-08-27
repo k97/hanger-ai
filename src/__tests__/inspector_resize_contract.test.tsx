@@ -284,3 +284,49 @@ describe("The inspector's cap leads the window when it is the leftmost column", 
     expect(capRow().className).not.toContain("pl-[51px]");
   });
 });
+
+/**
+ * A drag is a mode, and the document has to know it is in one.
+ *
+ * The pointer leaves the 6px handle almost immediately once a drag starts, and
+ * without a body-level flag the cursor reverts to the default arrow while the
+ * drag is still running, and text under the pointer selects. The sidebar
+ * already solves this the same way (`body[data-resizing-sidebar]`,
+ * `src/styles/index.css`); this is the inspector's half.
+ *
+ * What is assertable here is the flag, which is state. What it BUYS — the
+ * cursor staying `col-resize`, selection suppressed — is computed style during
+ * a live gesture, which happy-dom does not have. That is Karthik's drag.
+ */
+describe("The drag tells the document it is happening", () => {
+  it("marks the body for the length of the drag, and only for its length", async () => {
+    render(<App />);
+    await screen.findByText("Claude Math Skill");
+    const handle = screen.getByTestId("inspector-resize-handle");
+
+    expect(document.body.hasAttribute("data-resizing-inspector")).toBe(false);
+
+    fireEvent.mouseDown(handle, { clientX: 640 });
+    expect(document.body.hasAttribute("data-resizing-inspector")).toBe(true);
+
+    fireEvent.mouseMove(window, { clientX: 600 });
+    expect(document.body.hasAttribute("data-resizing-inspector")).toBe(true);
+
+    fireEvent.mouseUp(window, { clientX: 600 });
+    expect(document.body.hasAttribute("data-resizing-inspector")).toBe(false);
+  });
+
+  it("clears the mark even when the press never moved", async () => {
+    // `onUp` returns early for a press that never moved (the guard that stops a
+    // stray click rewriting the stored width). The mark must be cleared BEFORE
+    // that return, or a single click leaves the whole document stuck in
+    // resize-cursor mode with selection disabled.
+    render(<App />);
+    await screen.findByText("Claude Math Skill");
+    const handle = screen.getByTestId("inspector-resize-handle");
+
+    fireEvent.mouseDown(handle, { clientX: 640 });
+    fireEvent.mouseUp(window, { clientX: 640 });
+    expect(document.body.hasAttribute("data-resizing-inspector")).toBe(false);
+  });
+});

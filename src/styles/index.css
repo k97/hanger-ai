@@ -231,6 +231,19 @@ body[data-resizing-sidebar] [data-rail-column] {
   transition: none;
 }
 
+/* The inspector's own resize, and the other half of the same problem. The
+   handle is 6px wide and the pointer is off it within a frame of the drag
+   starting, so without this the cursor reverts to an arrow mid-gesture and
+   the panel's text selects under the moving pointer. Set on mousedown and
+   cleared on mouseup by `handleInspectorResizeStart` (App.tsx), including on
+   the press-that-never-moved path. No `transition: none` counterpart here:
+   the inspector column deliberately has no width transition to suppress —
+   its width is a value the user has hold of on every path that changes it. */
+body[data-resizing-inspector] {
+  cursor: col-resize;
+  user-select: none;
+}
+
 /* Entrance beats. A sheet drops from the title bar the way a macOS sheet does;
    a toast rises from the foot. Both run on the press beat and the shared
    spring, and both are killed by the reduced-motion rule at the foot of this
