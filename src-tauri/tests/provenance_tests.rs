@@ -444,11 +444,11 @@ fn test_secret_bearing_args_never_reach_the_origin() {
 /// The pinned control above places the package name FIRST, so the fence is
 /// never actually tested against a secret occupying the "first non-flag
 /// token" slot the package-picking scan reads from. Put the secret there
-/// instead. Unlike the original version of this test, the outcome is no
-/// longer left open with an `if let` hedge: an unrecognized flag without
-/// `=` (`--header` here) is assumed to consume the next token as its
-/// value, so the scan lands on `some-server`, not on the flag's value —
-/// this must hold, not merely "if it happens to hold".
+/// instead. Under the recognition-only rule (round 2), `--header` is not a
+/// flag any runner's recognized set names, so the scan declines outright —
+/// `None`, not a guess at `some-server`. That is the point: an unattributed
+/// server is honest, and this test now asserts that positively rather than
+/// hedging on whatever the scan happens to produce.
 #[test]
 fn test_secret_bearing_flag_value_before_package_never_leaks() {
     let o = launched_origin(
@@ -459,9 +459,8 @@ fn test_secret_bearing_flag_value_before_package_never_leaks() {
             "some-server".into(),
         ],
         "stdio",
-    )
-    .unwrap();
-    assert_eq!(o.label, "npm: some-server");
+    );
+    assert!(o.is_none(), "an unrecognized flag must decline, not guess: {o:?}");
     let json = serde_json::to_string(&o).unwrap();
     assert!(!json.contains("SECRET"), "origin must never carry arg values: {json}");
 }
@@ -469,13 +468,16 @@ fn test_secret_bearing_flag_value_before_package_never_leaks() {
 // --- Fix: value-taking flags must never donate their value as the package ---
 //
 // `is_valid_package_name` admits any lowercase `[a-z0-9-._~]+` token, which
-// is exactly the shape of many API keys, ports and other flag values. The
-// original scan ("first token that doesn't start with '-'") had no notion
-// that a preceding flag might have consumed the very next token as its
-// value, so `npx --api-key <secret> some-server` minted an Origin whose
-// label and url WERE the secret. These tests pin the fix: an unrecognized
-// flag without `=` is assumed to consume the next token, so scanning skips
-// past it rather than risk treating that token as the package.
+// is exactly the shape of many API keys, ports and other flag values. Round
+// 1 fixed the case where the package sat right after the flag by assuming
+// any unrecognized flag without `=` consumes the next token — but that is
+// still a guess, and guessing a flag's arity is unsound in both directions
+// (see the doc comment on `launched_origin`). Round 2 replaces the guess
+// with recognition: an unrecognized flag makes the whole call decline.
+// These tests assert that positively — no more `if let Some(o)` hedges,
+// per the ruling that a hedge which happens to hold today asserts nothing
+// against a future mutation that makes the input resolve to `None` for the
+// wrong reason.
 
 #[test]
 fn test_flag_value_never_becomes_package_name() {
@@ -484,11 +486,9 @@ fn test_flag_value_never_becomes_package_name() {
         &["--api-key".into(), "sk-live-abc123".into(), "some-server".into()],
         "stdio",
     );
-    if let Some(o) = &o {
-        assert_eq!(o.label, "npm: some-server");
-        let json = serde_json::to_string(o).unwrap();
-        assert!(!json.contains("sk-live-abc123"), "flag value leaked into origin: {json}");
-    }
+    assert!(o.is_none(), "--api-key is not a recognized npx flag; must decline: {o:?}");
+    let json = serde_json::to_string(&o).unwrap();
+    assert!(!json.contains("sk-live-abc123"), "flag value leaked into origin: {json}");
 }
 
 #[test]
@@ -498,9 +498,94 @@ fn test_port_flag_value_never_becomes_package_name() {
         &["--port".into(), "3000".into(), "some-server".into()],
         "stdio",
     );
-    if let Some(o) = &o {
-        assert_ne!(o.label, "npm: 3000", "a port number is not a package name");
-    }
+    assert!(o.is_none(), "--port is not a recognized npx flag; must decline: {o:?}");
+}
+
+#[test]
+fn test_unknown_valueless_flag_before_a_value_taking_flag_never_leaks() {
+    // The regression the recognition-only rule exists to close: an
+    // unrecognized flag that happens to be valueless (`--silent`) used to
+    // be skipped bare by the old "assume value-taking" guess only when it
+    // matched a hardcoded allowlist; anything else fell through the
+    // "assume it consumes a value" branch, which for an ODD number of
+    // unknown flags before a real value-taking one landed the scan on the
+    // secret two hops later. Recognition fixes this the same way as a
+    // single unknown flag: `--silent` itself is unrecognized, so the call
+    // declines before it ever reaches `--api-key`.
+    let o = launched_origin(
+        "npx",
+        &[
+            "--silent".into(),
+            "--api-key".into(),
+            "sk-live-abc123".into(),
+            "some-server".into(),
+        ],
+        "stdio",
+    );
+    assert!(o.is_none(), "an unrecognized flag must decline, not guess past it: {o:?}");
+    let json = serde_json::to_string(&o).unwrap();
+    assert!(!json.contains("sk-live-abc123"), "flag value leaked into origin: {json}");
+}
+
+#[test]
+fn test_another_unknown_valueless_flag_before_a_value_taking_flag_never_leaks() {
+    let o = launched_origin(
+        "npx",
+        &[
+            "--no-install".into(),
+            "--api-key".into(),
+            "sk-live-abc123".into(),
+            "pkg".into(),
+        ],
+        "stdio",
+    );
+    assert!(o.is_none(), "an unrecognized flag must decline, not guess past it: {o:?}");
+    let json = serde_json::to_string(&o).unwrap();
+    assert!(!json.contains("sk-live-abc123"), "flag value leaked into origin: {json}");
+}
+
+#[test]
+fn test_uvx_from_names_the_package_directly() {
+    // --from is uvx's package-flag: its OWN value is the package, not the
+    // token after it.
+    let o = launched_origin(
+        "uvx",
+        &["--from".into(), "mcp-server-fetch".into(), "fetch-server".into()],
+        "stdio",
+    )
+    .unwrap();
+    assert_eq!(o.label, "PyPI: mcp-server-fetch");
+}
+
+#[test]
+fn test_uvx_from_a_git_source_declines_rather_than_falling_through() {
+    // --from's value can be a git URL, a local path, or anything pip
+    // accepts as a source -- none of that is a package name. When it fails
+    // validation, the call must return None outright, not scan past it to
+    // whatever token comes next.
+    let o = launched_origin(
+        "uvx",
+        &["--from".into(), "git+https://github.com/foo/bar".into(), "mcp-foo".into()],
+        "stdio",
+    );
+    assert!(o.is_none(), "a non-package --from value must decline, not fall through: {o:?}");
+}
+
+#[test]
+fn test_npx_package_flag_names_the_package_directly() {
+    let o = launched_origin(
+        "npx",
+        &["--package".into(), "some-pkg".into(), "cmd".into()],
+        "stdio",
+    )
+    .unwrap();
+    assert_eq!(o.label, "npm: some-pkg");
+}
+
+#[test]
+fn test_double_dash_marks_the_next_token_as_the_package() {
+    let o = launched_origin("npx", &["--".into(), "some-server".into()], "stdio").unwrap();
+    assert_eq!(o.label, "npm: some-server");
 }
 
 #[test]
@@ -539,10 +624,12 @@ fn test_codex_single_string_form_matches_split_form_and_never_leaks() {
         combined.as_ref().map(|o| o.label.clone()),
         "the split-args and single-string launch shapes must resolve identically"
     );
-    if let Some(o) = &combined {
-        let json = serde_json::to_string(o).unwrap();
-        assert!(!json.contains("sk-live-abc123"), "flag value leaked into origin: {json}");
-    }
+    assert!(combined.is_none(), "--api-key is not recognized; both forms must decline: {combined:?}");
+    // Unconditional: serialize the Option itself (serde_json emits `null`
+    // for None) so the assertion fires regardless of Some/None, rather than
+    // hedging inside an `if let` that a future mutation could sail past.
+    let json = serde_json::to_string(&combined).unwrap();
+    assert!(!json.contains("sk-live-abc123"), "flag value leaked into origin: {json}");
 }
 
 // --- Fix: three MINOR findings from the same review round ---

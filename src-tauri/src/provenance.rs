@@ -455,17 +455,83 @@ fn parse_origin_url(config: &str) -> Option<String> {
 /// `npx --api-key sk-live-… some-server` must not read `sk-live-…` as the
 /// package just because it comes right after a flag and happens to match
 /// the package-name character class — an API key does too. There is no way
-/// to know, for an arbitrary unrecognized flag, whether it takes a value.
-/// The rule here: a flag written `--flag=value` is self-contained and never
-/// consumes the next token; a short allowlist of flags known to be
-/// valueless (`-y`/`--yes`) is skipped bare; every other flag is assumed to
-/// consume the next token as its value. When that assumption runs the scan
-/// off the end of argv, the result is `None`, not a guess — an absent
-/// origin is honest, a wrong one that happens to be a secret is not. The
-/// cost: a launch that uses some OTHER valueless flag we don't know about
-/// (e.g. uvx's `-q`/`-v`/`--isolated`) has its package token skipped as if
-/// it were that flag's value, and now resolves to `None` instead of the
-/// real package — a completeness loss, never a leak.
+/// to know an arbitrary unrecognized flag's arity, and guessing is unsound
+/// in both directions: guess "takes a value" and an unrecognized valueless
+/// flag before a real value-taking one lets that value's value leak through
+/// two hops later; guess "takes no value" and a real value-taking flag
+/// donates its value as the package. Both shapes shipped as bugs here.
+///
+/// So the scan does not guess. It recognizes, per runner, three kinds of
+/// flag from each tool's own documented options:
+/// - **valueless** — skipped bare (`-y`/`--yes` for npx, `--bun` for bunx,
+///   `--isolated`/`--no-cache`/`--refresh`/`-q`/`--quiet`/`-v`/`--verbose`
+///   for uvx).
+/// - **value-taking** — skipped along with the token after it (`-c`/`--call`
+///   for npx; `--with`/`--python`/`-p` for uvx). The value is never read as
+///   the package.
+/// - **package-flag** — the flag's OWN value is the package (`-p`/`--package`
+///   for npx; `--from` for uvx). That token is validated as a package name
+///   on its own; if it fails, the whole call returns `None` rather than
+///   falling through to scan past it for something else.
+///
+/// `--flag=value` is always self-contained (skip one token) regardless of
+/// recognition, since the `=` makes the boundary unambiguous. A bare `--`
+/// marks the next token as the package outright, whatever it looks like.
+/// **Any flag that is not `--`, not `=`-joined, and not in one of the three
+/// sets above makes the whole call return `None` immediately** — an
+/// unattributed server is honest; guessing past an unknown flag is how the
+/// leak happened. The cost: a launch that uses a real flag we simply didn't
+/// enumerate here declines to resolve at all, rather than resolving wrong.
+/// How a recognized flag consumes argv tokens.
+enum FlagArity {
+    /// Takes no value; only the flag itself is consumed.
+    Valueless,
+    /// Takes a value in the next token; that token is not the package.
+    ValueTaking,
+    /// The flag's OWN value (the next token) is the package itself.
+    IsPackage,
+}
+
+/// Look up a flag's arity from each runner's own documented options. Only
+/// flags we are confident about appear here — an omission merely declines
+/// to resolve a launch; a wrong entry could misattribute or leak, so
+/// nothing goes in this table on a guess.
+///
+/// Sources (checked against the tools' own `--help` / docs, 2026-08-27):
+/// - npx (`npm exec`): `-y`/`--yes` bypasses the install-confirmation
+///   prompt and takes no value; `-p`/`--package <spec>` names the package
+///   to install when it differs from the command to run; `-c`/`--call
+///   <cmd>` runs a command string and takes a value that is not a package.
+/// - bunx: `--bun` forces the script to run under Bun's own runtime rather
+///   than shelling out to Node; it takes no value.
+/// - uvx (`uv tool run`): `--from <pkg>` names the package to install when
+///   it differs from the command to run; `--with <pkg>` and `--python
+///   <version>`/`-p` take a value that is not the package; `--isolated`,
+///   `--no-cache`, `--refresh`, `-q`/`--quiet`, `-v`/`--verbose` take none.
+fn recognized_flag(runner: &str, flag: &str) -> Option<FlagArity> {
+    match runner {
+        "npx" => match flag {
+            "-y" | "--yes" => Some(FlagArity::Valueless),
+            "-c" | "--call" => Some(FlagArity::ValueTaking),
+            "-p" | "--package" => Some(FlagArity::IsPackage),
+            _ => None,
+        },
+        "bunx" => match flag {
+            "--bun" => Some(FlagArity::Valueless),
+            _ => None,
+        },
+        "uvx" => match flag {
+            "--isolated" | "--no-cache" | "--refresh" | "-q" | "--quiet" | "-v" | "--verbose" => {
+                Some(FlagArity::Valueless)
+            }
+            "--with" | "--python" | "-p" => Some(FlagArity::ValueTaking),
+            "--from" => Some(FlagArity::IsPackage),
+            _ => None,
+        },
+        _ => None,
+    }
+}
+
 pub fn launched_origin(command: &str, args: &[String], transport: &str) -> Option<Origin> {
     // Remote endpoint: transport is an already-sanitised URL (dialect.rs:27).
     // Host only — never any other part of the URL reaches the result.
@@ -502,23 +568,38 @@ pub fn launched_origin(command: &str, args: &[String], transport: &str) -> Optio
         "uvx" => "pypi",
         _ => return None,
     };
-    // First non-flag token after the runner is the package — but a flag
-    // that isn't self-contained (`=`-joined) or known-valueless is assumed
-    // to consume the token after it, so that token is never read as the
-    // package. See the rule spelled out in the doc comment above.
-    const VALUELESS_FLAGS: &[&str] = &["-y", "--yes"];
+    // Walk argv deciding each flag's arity by recognition only — never by
+    // guessing. See the rule spelled out in the doc comment above.
     let rest = &tokens[1..];
     let mut i = 0;
     let mut raw_pkg: Option<&str> = None;
     while i < rest.len() {
         let t = rest[i];
+        if t == "--" {
+            // Whatever follows is the package, syntax notwithstanding.
+            raw_pkg = rest.get(i + 1).copied();
+            break;
+        }
         if t.starts_with('-') {
-            if t.contains('=') || VALUELESS_FLAGS.contains(&t) {
+            if t.contains('=') {
                 i += 1;
-            } else {
-                i += 2; // assume this flag consumes the next token as its value
+                continue;
             }
-            continue;
+            match recognized_flag(runner.as_str(), t) {
+                Some(FlagArity::Valueless) => {
+                    i += 1;
+                    continue;
+                }
+                Some(FlagArity::ValueTaking) => {
+                    i += 2;
+                    continue;
+                }
+                Some(FlagArity::IsPackage) => {
+                    raw_pkg = rest.get(i + 1).copied();
+                    break;
+                }
+                None => return None, // unrecognized flag: decline, don't guess
+            }
         }
         raw_pkg = Some(t);
         break;
