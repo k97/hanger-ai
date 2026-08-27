@@ -87,7 +87,8 @@ pub struct McpHost {
 pub struct McpSource {
     pub host_id: &'static str,
     pub location: SourceLocation,
-    /// Home-relative or repo-relative. A `*` segment marks a glob.
+    /// Relative to whichever base `location` names — home, a repo root, or
+    /// the filesystem root. A `*` segment marks a glob.
     pub path: &'static str,
     pub tier: ScopeTier,
     pub dialect: Dialect,
