@@ -421,7 +421,7 @@ export default function RepoPane({
           repo-scoped grouping for a control here to drive — this pane's
           Tools rows stay per-registration regardless, and a control that
           cannot regroup its own rows would be inert chrome, not a fix. */}
-      <div className="px-[18px] pt-3.5 pb-3.5 flex items-center gap-3">
+      <div className="px-[18px] pt-2 pb-3.5 flex items-center gap-3">
         {/* No `?? 0` here. The chip distinguishes "not counted yet"
             (undefined) from "empty" (0) so it can keep a chip through a scan
             and hide it only on a known zero. Collapsing undefined to 0 erased

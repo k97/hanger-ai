@@ -1159,6 +1159,32 @@ Any future cap, toolbar, or menubar row must keep this same `h-10
 flex items-center` shape so its contents land on this baseline by
 construction, rather than each screen re-deriving its own vertical rhythm.
 
+**6.5px of that band is unpainted, and the first row below it has to spend
+that slack rather than add to it.** The cap is 40px around `h-[27px]`
+controls, so its tallest control's ink ends at 33.5 while its box ends at 40.
+Everything below the cap is spaced between painted edges, so a `pt` measured
+from the *band* prints a gap 6.5px larger than the number says. Until
+2026-08-27 `ProfilePane` and `RepoPane` opened at `pt-3.5`, which put the
+category track's pill 20.5px below the toolbar's ink against a 14px rhythm
+for every gap under it — Karthik read it as "slightly large" and it was.
+`pt-2` (8px) spends the slack: 8 + 6.5 = 14.5. Measured on the live window
+over the dev bridge, before and after:
+
+| | before | after |
+|---|---|---|
+| toolbar ink → track pill | 20.5 | 14.5 |
+| track pill → summary strip | 14 | 14 |
+| summary strip → list plane | 14 | 14 |
+
+**The rail leans the other way off the same band, and was retuned with it.**
+`IconRail`'s mark carried `mt-0.5`, putting it 8.5px below the same ink where
+the rail's own rhythm is 12px (`my-[9px]` + `gap-[3px]` — mark → rule and
+rule → first button both measure 12). `mt-[6px]` makes it 12.5. The two
+columns' first elements were 12px apart (mark top 42, track top 54) and are
+now 2px apart (46 and 48). The other three panes were left alone: Discovery
+and Design system open on a prose `<header pt-5>` and Needs review on
+`mt-[18px]`, none of which is a pill sitting against a rhythm.
+
 **Toolbar buttons must carry `shrink-0`, or a squeezed cap silently shrinks
 the icon inside them.** `tbBtnClass` / `tbBtnPlaneClass` (`App.tsx:1148-1153`)
 both declare it, and so does `tbBtnActiveClass` — which, since this phase,
@@ -1210,7 +1236,7 @@ gained a track above their strip (`2de751a`) that the other two never had.
 
 **`ProfilePane` and `RepoPane`: track, strip, list plane, foot.** The
 category track (`CategoryFilterCards`, above) opens the pane in
-`px-[18px] pt-3.5 pb-3.5` (`ProfilePane.tsx:885`; `RepoPane.tsx:395`, where
+`px-[18px] pt-2 pb-3.5` (`ProfilePane.tsx:887`; `RepoPane.tsx:424`, where
 it is nested one level deeper in a `min-w-0 flex-1` wrapper, so the
 track can shrink beside a control that does not exist yet — the comment
 above it says none is needed here). Then the `SummaryStrip` itself, in

@@ -51,7 +51,7 @@ export default function IconRail({
         <button
           aria-label="Hanger"
           onClick={onSelectMachine}
-          className="mt-0.5 cursor-pointer transition-opacity duration-hover ease-spring hover:opacity-75"
+          className="mt-[6px] cursor-pointer transition-opacity duration-hover ease-spring hover:opacity-75"
         >
           <HangerMark size={22} />
         </button>
