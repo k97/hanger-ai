@@ -435,7 +435,7 @@ fn matching_sources(config_path: &str) -> Vec<&'static McpSource> {
 
     let machine: Vec<&'static McpSource> = SOURCES
         .iter()
-        .filter(|s| s.location == SourceLocation::MachineAbsolute && !s.path.contains('*'))
+        .filter(|s| s.location == SourceLocation::HomeRelative && !s.path.contains('*'))
         .filter(|s| home.join(s.path).as_path() == path)
         .collect();
     if !machine.is_empty() {
@@ -494,7 +494,7 @@ pub fn discover_machine(home: &Path) -> DiscoveryResult {
     let mut out = DiscoveryResult::default();
     for source in SOURCES
         .iter()
-        .filter(|s| s.location == SourceLocation::MachineAbsolute)
+        .filter(|s| s.location == SourceLocation::HomeRelative)
     {
         read_source(home, source, &mut out);
     }

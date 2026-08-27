@@ -537,7 +537,7 @@ fn a_vscode_registration_is_read_with_its_declared_dialect_not_guessed() {
     let home = tempfile::tempdir().unwrap();
     let _home_guard = TestHome::set(home.path());
 
-    // The exact MachineAbsolute path SOURCES declares for vscode.
+    // The exact HomeRelative path SOURCES declares for vscode.
     let config = home.path().join("Library/Application Support/Code/User/mcp.json");
     std::fs::create_dir_all(config.parent().unwrap()).unwrap();
     // VS Code's own key is "servers", not "mcpServers". A dialect guessed
@@ -562,7 +562,7 @@ fn a_zed_registration_is_read_with_its_declared_dialect_not_guessed() {
     let home = tempfile::tempdir().unwrap();
     let _home_guard = TestHome::set(home.path());
 
-    // The exact MachineAbsolute path SOURCES declares for zed.
+    // The exact HomeRelative path SOURCES declares for zed.
     let config = home.path().join(".config/zed/settings.json");
     std::fs::create_dir_all(config.parent().unwrap()).unwrap();
     // Zed nests under "context_servers" with a {command:{path,args}} shape —

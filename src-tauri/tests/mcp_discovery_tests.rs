@@ -842,7 +842,7 @@ fn a_missing_source_is_silent() {
 #[test]
 fn checked_records_every_file_the_sweep_actually_opened() {
     // mcp_home has exactly seven physical config files on disk; three
-    // MachineAbsolute SOURCES rows (claude-code/User, claude-code/Local,
+    // HomeRelative SOURCES rows (claude-code/User, claude-code/Local,
     // claude-ai/Global) all name the same `.claude.json`, so a naive
     // per-row tally would over-count that one file three times over.
     let result = discover::discover_machine(fixture_home());
@@ -901,7 +901,7 @@ fn checked_engine_count_counts_only_detected_engines() {
     // engines. Population is `detected`, passed in directly, never derived
     // from `HostKind`.
     let dir = tempfile::tempdir().unwrap();
-    // .claude.json is read by three MachineAbsolute rows: claude-code/User,
+    // .claude.json is read by three HomeRelative rows: claude-code/User,
     // claude-code/Local and claude-ai/Global — one physical file, three
     // checked entries, only one of which (claude-code) is ever detectable.
     std::fs::write(dir.path().join(".claude.json"), "{}").unwrap();

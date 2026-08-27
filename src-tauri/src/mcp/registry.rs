@@ -66,7 +66,7 @@ pub enum Dialect {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SourceLocation {
     /// Path is relative to the home directory.
-    MachineAbsolute,
+    HomeRelative,
     /// Path is relative to a repository root.
     RepoRelative,
 }
@@ -127,61 +127,61 @@ use SourceLocation::*;
 
 pub const SOURCES: &[McpSource] = &[
     // Claude Code — user tier and local tier share one file.
-    McpSource { host_id: "claude-code", location: MachineAbsolute, path: ".claude.json", tier: User, dialect: ClaudeJson },
-    McpSource { host_id: "claude-code", location: MachineAbsolute, path: ".claude.json", tier: Local, dialect: ClaudeJson },
-    McpSource { host_id: "claude-code", location: MachineAbsolute, path: ".claude/mcp.json", tier: Global, dialect: McpServers },
-    McpSource { host_id: "claude-code", location: MachineAbsolute, path: ".claude/settings.json", tier: Global, dialect: McpServers },
-    McpSource { host_id: "claude-code", location: MachineAbsolute, path: ".claude/plugins/marketplaces/*/.mcp.json", tier: Global, dialect: McpServers },
+    McpSource { host_id: "claude-code", location: HomeRelative, path: ".claude.json", tier: User, dialect: ClaudeJson },
+    McpSource { host_id: "claude-code", location: HomeRelative, path: ".claude.json", tier: Local, dialect: ClaudeJson },
+    McpSource { host_id: "claude-code", location: HomeRelative, path: ".claude/mcp.json", tier: Global, dialect: McpServers },
+    McpSource { host_id: "claude-code", location: HomeRelative, path: ".claude/settings.json", tier: Global, dialect: McpServers },
+    McpSource { host_id: "claude-code", location: HomeRelative, path: ".claude/plugins/marketplaces/*/.mcp.json", tier: Global, dialect: McpServers },
     McpSource { host_id: "claude-code", location: RepoRelative, path: ".mcp.json", tier: Project, dialect: McpServers },
     McpSource { host_id: "claude-code", location: RepoRelative, path: ".claude/settings.json", tier: Project, dialect: McpServers },
 
     // Claude.ai — account-level connectors, not machine configuration.
-    McpSource { host_id: "claude-ai", location: MachineAbsolute, path: ".claude.json", tier: Global, dialect: ClaudeAiConnectors },
+    McpSource { host_id: "claude-ai", location: HomeRelative, path: ".claude.json", tier: Global, dialect: ClaudeAiConnectors },
 
     // Codex
-    McpSource { host_id: "codex", location: MachineAbsolute, path: ".codex/config.toml", tier: Global, dialect: CodexToml },
+    McpSource { host_id: "codex", location: HomeRelative, path: ".codex/config.toml", tier: Global, dialect: CodexToml },
     McpSource { host_id: "codex", location: RepoRelative, path: ".codex/config.toml", tier: Project, dialect: CodexToml },
 
     // Gemini
-    McpSource { host_id: "gemini", location: MachineAbsolute, path: ".gemini/settings.json", tier: Global, dialect: McpServers },
+    McpSource { host_id: "gemini", location: HomeRelative, path: ".gemini/settings.json", tier: Global, dialect: McpServers },
     McpSource { host_id: "gemini", location: RepoRelative, path: ".gemini/settings.json", tier: Project, dialect: McpServers },
 
     // Claude Desktop
-    McpSource { host_id: "claude-desktop", location: MachineAbsolute, path: "Library/Application Support/Claude/claude_desktop_config.json", tier: Global, dialect: McpServers },
+    McpSource { host_id: "claude-desktop", location: HomeRelative, path: "Library/Application Support/Claude/claude_desktop_config.json", tier: Global, dialect: McpServers },
 
     // VS Code
-    McpSource { host_id: "vscode", location: MachineAbsolute, path: "Library/Application Support/Code/User/mcp.json", tier: Global, dialect: VsCodeServers },
+    McpSource { host_id: "vscode", location: HomeRelative, path: "Library/Application Support/Code/User/mcp.json", tier: Global, dialect: VsCodeServers },
     McpSource { host_id: "vscode", location: RepoRelative, path: ".vscode/mcp.json", tier: Project, dialect: VsCodeServers },
 
     // Cursor
-    McpSource { host_id: "cursor", location: MachineAbsolute, path: ".cursor/mcp.json", tier: Global, dialect: McpServers },
+    McpSource { host_id: "cursor", location: HomeRelative, path: ".cursor/mcp.json", tier: Global, dialect: McpServers },
     McpSource { host_id: "cursor", location: RepoRelative, path: ".cursor/mcp.json", tier: Project, dialect: McpServers },
 
     // Devin Desktop (formerly Windsurf).
     // Legacy Cascade agent — still read, so still declared.
-    McpSource { host_id: "windsurf", location: MachineAbsolute, path: ".codeium/windsurf/mcp_config.json", tier: Global, dialect: McpServers },
+    McpSource { host_id: "windsurf", location: HomeRelative, path: ".codeium/windsurf/mcp_config.json", tier: Global, dialect: McpServers },
     // Devin Local, the default agent for new tabs. Without these three a
     // Devin Desktop user on the default agent sees zero servers.
-    McpSource { host_id: "windsurf", location: MachineAbsolute, path: ".config/devin/config.json", tier: Global, dialect: McpServers },
+    McpSource { host_id: "windsurf", location: HomeRelative, path: ".config/devin/config.json", tier: Global, dialect: McpServers },
     McpSource { host_id: "windsurf", location: RepoRelative, path: ".devin/config.json", tier: Project, dialect: McpServers },
     McpSource { host_id: "windsurf", location: RepoRelative, path: ".devin/mcp_config.json", tier: Project, dialect: McpServers },
 
     // Zed
-    McpSource { host_id: "zed", location: MachineAbsolute, path: ".config/zed/settings.json", tier: Global, dialect: ZedContextServers },
+    McpSource { host_id: "zed", location: HomeRelative, path: ".config/zed/settings.json", tier: Global, dialect: ZedContextServers },
 
     // Kiro
-    McpSource { host_id: "kiro", location: MachineAbsolute, path: ".kiro/settings/mcp.json", tier: Global, dialect: McpServers },
+    McpSource { host_id: "kiro", location: HomeRelative, path: ".kiro/settings/mcp.json", tier: Global, dialect: McpServers },
     McpSource { host_id: "kiro", location: RepoRelative, path: ".kiro/settings/mcp.json", tier: Project, dialect: McpServers },
 
     // Trae
     McpSource { host_id: "trae", location: RepoRelative, path: ".trae/mcp.json", tier: Project, dialect: McpServers },
 
     // OpenCode
-    McpSource { host_id: "opencode", location: MachineAbsolute, path: ".config/opencode/opencode.json", tier: Global, dialect: OpenCodeMcp },
+    McpSource { host_id: "opencode", location: HomeRelative, path: ".config/opencode/opencode.json", tier: Global, dialect: OpenCodeMcp },
     McpSource { host_id: "opencode", location: RepoRelative, path: "opencode.json", tier: Project, dialect: OpenCodeMcp },
 
     // Amp — servers nest inside a settings file Amp does not own.
-    McpSource { host_id: "amp", location: MachineAbsolute, path: ".config/amp/settings.json", tier: Global, dialect: AmpSettingsKey },
+    McpSource { host_id: "amp", location: HomeRelative, path: ".config/amp/settings.json", tier: Global, dialect: AmpSettingsKey },
 
     // Roo Code
     McpSource { host_id: "roocode", location: RepoRelative, path: ".roo/mcp.json", tier: Project, dialect: McpServers },
@@ -191,14 +191,14 @@ pub const SOURCES: &[McpSource] = &[
     // precedence between `.kilo/kilo.jsonc` and the root `kilo.jsonc` below.
     // Kilo Code itself prefers `.kilo/kilo.jsonc` when both are present, but
     // a user with both and an overlapping server name sees both entries here.
-    McpSource { host_id: "kilocode", location: MachineAbsolute, path: ".config/kilo/kilo.jsonc", tier: Global, dialect: OpenCodeMcp },
+    McpSource { host_id: "kilocode", location: HomeRelative, path: ".config/kilo/kilo.jsonc", tier: Global, dialect: OpenCodeMcp },
     McpSource { host_id: "kilocode", location: RepoRelative, path: ".kilo/kilo.jsonc", tier: Project, dialect: OpenCodeMcp },
     McpSource { host_id: "kilocode", location: RepoRelative, path: "kilo.jsonc", tier: Project, dialect: OpenCodeMcp },
 
     // Cline — its MCP settings live in VS Code's extension storage, keyed by
     // an extension id that can change. Declared explicitly so a change breaks
     // a test rather than silently reporting zero servers.
-    McpSource { host_id: "cline", location: MachineAbsolute, path: "Library/Application Support/Code/User/globalStorage/saoudrizwan.claude-dev/settings/cline_mcp_settings.json", tier: Global, dialect: McpServers },
+    McpSource { host_id: "cline", location: HomeRelative, path: "Library/Application Support/Code/User/globalStorage/saoudrizwan.claude-dev/settings/cline_mcp_settings.json", tier: Global, dialect: McpServers },
 
     // Continue is NOT registered here. Its format and path were verified
     // against upstream docs and qualify ("YAML at a path we can name" —

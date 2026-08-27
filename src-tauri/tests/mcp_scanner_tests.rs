@@ -351,7 +351,7 @@ fn a_tool_carries_the_registrations_bridged_flag() {
 ///
 /// Chosen fixture: `.codex/config.toml` is reachable both through the `codex`
 /// agent config's `.codex` global root and through the registry's
-/// `MachineAbsolute` source, which is exactly the overlap the run found.
+/// `HomeRelative` source, which is exactly the overlap the run found.
 #[test]
 fn one_registration_is_one_row_however_many_passes_reach_it() {
     let _guard = ENV_MUTEX.get_or_init(|| Mutex::new(())).lock().unwrap();
