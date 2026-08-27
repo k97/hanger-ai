@@ -3,6 +3,7 @@ import { openUrl, openPath, revealItemInDir } from "@tauri-apps/plugin-opener";
 import { MANAGE_URL } from "../utils/mcpServerView";
 import { diffLaunch, type LaunchDiffToken } from "../utils/launchDiff";
 import { joinNames } from "../utils/prose";
+import { originRow, type OriginWire } from "../utils/assetProvenance";
 import EngineLabel from "./EngineLabel";
 import InfoPopover from "./InfoPopover";
 import Tooltip from "./Tooltip";
@@ -22,6 +23,7 @@ import {
   KeyIcon,
   ArrowsRightLeftIcon,
   DocumentTextIcon,
+  ArrowTopRightOnSquareIcon,
 } from "./icons";
 
 /**
@@ -59,6 +61,16 @@ interface Registration {
    *  (mcp-remote) rather than declaring the endpoint directly. Backend-owned
    *  (`Tool.bridged`) — never inferred here from `launchDisplay`'s text. */
   bridged?: boolean;
+  /** The backend's resolved origin for this registration, narrowed at the
+   *  boundary (`assetProvenance.ts`, `OriginWire`). Per registration, not per
+   *  server -- the same server can be a plugin-store delivery under one
+   *  host's config and a bare launch under another's, so this cannot live on
+   *  `McpServerView` itself. */
+  origin?: OriginWire;
+  /** True when the backend could not check every place a source is named for
+   *  this registration -- a different fact from finding nothing, and
+   *  `originRow` words them differently. */
+  originBlocked?: boolean;
   /**
    * Present only while a process matching this launch is running.
    *
@@ -1088,7 +1100,21 @@ export default function McpServerDetail({
             </span>
           </div>
           <ListCard>
-            {server.registrations.map((reg, i) => (
+            {server.registrations.map((reg, i) => {
+              // Origin is per registration, not per server: `buildMcpServerView`
+              // groups by name, so the same server can be a plugin-store
+              // delivery under one host's config and a bare launch under
+              // another's. Rendered only when there is something to say --
+              // `originRow` returns "Written here" for the ordinary case of
+              // no origin found, and restating that on every row would be the
+              // same noise the launch line above was trimmed of.
+              const originView = originRow(reg.origin, reg.originBlocked);
+              const hasOrigin = !!reg.origin || !!reg.originBlocked;
+              // Named only two facts on purpose (commit, delivering plugin) --
+              // the install date lives in the Origin row's own disclosure
+              // elsewhere and would be one fact too many for a compact line.
+              const deliveryFacts = originView.subRows.filter((r) => r.label !== "Installed");
+              return (
               <div
                 key={`${reg.configPath}-${i}`}
                 className="flex flex-col gap-[3px] px-3 py-[9px] text-small"
@@ -1120,6 +1146,39 @@ export default function McpServerDetail({
                     </button>
                   </Tooltip>
                 </div>
+                {hasOrigin && (
+                  <div className="flex items-center gap-1.5 min-w-0" data-testid="registration-origin">
+                    <Tooltip label={originView.tooltip} placement="bottom">
+                      {originView.url ? (
+                        <button
+                          type="button"
+                          data-testid="registration-origin-link"
+                          aria-label={`${originView.value} — ${originView.tooltip}`}
+                          onClick={() => openUrl(originView.url!).catch(() => {})}
+                          className="inline-flex items-center gap-1 min-w-0 text-micro text-ink-2 border-b border-line-2 hover:border-ink-1 transition-colors duration-hover cursor-pointer"
+                        >
+                          <span className="truncate">{originView.value}</span>
+                          <ArrowTopRightOnSquareIcon
+                            size={10}
+                            aria-hidden="true"
+                            className="text-ink-3 shrink-0"
+                          />
+                        </button>
+                      ) : (
+                        <span
+                          className={`truncate ${originView.muted ? "text-ink-3" : "text-ink-2"}`}
+                        >
+                          {originView.value}
+                        </span>
+                      )}
+                    </Tooltip>
+                  </div>
+                )}
+                {deliveryFacts.length > 0 && (
+                  <span className="text-micro text-ink-3" data-testid="registration-origin-detail">
+                    {deliveryFacts.map((r) => `${r.label} ${r.value}`).join(" · ")}
+                  </span>
+                )}
                 {/* What it launches -- only when hosts disagree about it. An
                     agreeing launch is already implied by every sibling row
                     saying nothing, and restating it three times over was the
@@ -1146,7 +1205,8 @@ export default function McpServerDetail({
                   </span>
                 )}
               </div>
-            ))}
+              );
+            })}
           </ListCard>
           {endpointsDiverge && (
             <p className="text-micro text-state-warning leading-[1.45] mt-2">

@@ -1,6 +1,7 @@
 import type { McpServerView } from "../components/McpServerDetail";
 import { registrationKey } from "./mcpRegistration";
 import { scopeAgent, scopeRoot, type Scope } from "./scopeAccess";
+import type { OriginWire } from "./assetProvenance";
 
 /** The subset of a `Tool` row this view needs. */
 interface ToolRow {
@@ -19,6 +20,16 @@ interface ToolRow {
    *  (mcp-remote) rather than declaring the endpoint directly. Backend-owned
    *  (`Tool.bridged`) — never guessed here from `launch_display`'s text. */
   bridged?: boolean;
+  /** The backend's resolved origin for THIS registration (`Tool.origin`),
+   *  narrowed at the boundary -- see `assetProvenance.ts`, `OriginWire`. Per
+   *  registration, not per server: `buildMcpServerView` groups by name, and
+   *  the same server can be a plugin-store delivery under one host's config
+   *  and a bare launch under another's. */
+  origin?: OriginWire;
+  /** True when the backend could not check every place a source is named for
+   *  this registration (`Tool.origin_blocked`) -- a different fact from
+   *  finding nothing; `originRow` words them differently. */
+  origin_blocked?: boolean;
 }
 
 /**
@@ -172,6 +183,8 @@ export function buildMcpServerView(
       // it has to tell apart.
       transport: t.transport ?? "",
       bridged: t.bridged ?? false,
+      origin: t.origin,
+      originBlocked: t.origin_blocked,
       ...(hit ? { running: { pid: hit.pid, spawningHost: hit.spawning_host } } : {}),
     };
   });

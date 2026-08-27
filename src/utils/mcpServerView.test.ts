@@ -155,4 +155,54 @@ describe("buildMcpServerView", () => {
     );
     expect(view?.registrations.map((r) => r.bridged)).toEqual([true, false]);
   });
+
+  it("threads each registration's own origin off the matching Tool row -- not one value for the whole server", () => {
+    // context7 registered by two hosts with genuinely different origins: a
+    // plugin-store delivery in one config, a blocked check in the other.
+    // A server-level origin would have to pick one and lie about the rest.
+    const view = buildMcpServerView(
+      [
+        {
+          id: "/tmp/a/mcp.json:context7",
+          name: "context7",
+          command: "npx",
+          transport: "stdio",
+          config_path: "/tmp/a/mcp.json",
+          scope: { Global: { agent: "claude-code" } },
+          origin: {
+            label: "owner/market-repo",
+            url: "https://github.com/owner/market-repo",
+            kind: "delivered",
+            commit: "b0b9f02b0581696da41e20d6c536ec639b44080f",
+            delivered_by: "tool-x",
+          },
+        },
+        {
+          id: "/tmp/b/mcp.json:context7",
+          name: "context7",
+          command: "npx",
+          transport: "stdio",
+          config_path: "/tmp/b/mcp.json",
+          scope: { Global: { agent: "codex" } },
+          origin_blocked: true,
+        },
+      ],
+      "context7"
+    )!;
+
+    expect(view.registrations[0].origin).toEqual({
+      label: "owner/market-repo",
+      url: "https://github.com/owner/market-repo",
+      kind: "delivered",
+      commit: "b0b9f02b0581696da41e20d6c536ec639b44080f",
+      delivered_by: "tool-x",
+    });
+    expect(view.registrations[0].originBlocked).toBeUndefined();
+    // The second registration must not inherit the first's origin -- if
+    // buildMcpServerView read `matches[0].origin` for the whole server (the
+    // way it already does for `command`/`transport`), this would wrongly
+    // equal the first row's delivered origin instead of being absent.
+    expect(view.registrations[1].origin).toBeUndefined();
+    expect(view.registrations[1].originBlocked).toBe(true);
+  });
 });
