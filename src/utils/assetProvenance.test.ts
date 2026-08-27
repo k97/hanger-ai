@@ -159,19 +159,23 @@ describe("originRow", () => {
     expect(v.subRows.map((r) => r.label)).toEqual(["Pinned at", "Delivered by", "Installed"]);
     expect(v.subRows[0].value).toBe("b0b9f02");
     expect(v.subRows[1].value).toBe("tool-x");
-    expect(v.subRows[2].value).toBe(new Date(1784500208089).toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    }));
+    // Hardcoded literal, not a re-derived toLocaleDateString call: computing
+    // the expectation with the same options the implementation uses would
+    // pass under any format the implementation happens to pick, and could
+    // never catch a divergence from the Modified row's format.
+    expect(v.subRows[2].value).toBe("Jul 20, 2026");
   });
 
   it("delivered with none of the three fields: value and tooltip still correct, no sub-rows", () => {
     // The real shape for PluginIndex::origin_for's marketplaces_prefix branch
     // (plugin: None forces commit/delivered_by/installed_at_ms all to None) —
     // the only origin shape that reaches production on this machine today,
-    // per the coordinator's fix-round-1 note. Guards must degrade
-    // independently rather than requiring all three fields together.
+    // per the coordinator's fix-round-1 note. This pins that specific shape;
+    // it does not by itself prove the three guards are independent — a
+    // combined `if (commit && delivered_by && installed_at_ms)` guard also
+    // yields [] here and would pass undetected. The "only delivered_by" case
+    // below is what actually distinguishes independent guards from a
+    // combined one.
     const v = originRow(
       { label: "everything-claude-code", url: "https://github.com/owner/everything-claude-code", kind: "delivered" },
       undefined
