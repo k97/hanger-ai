@@ -163,3 +163,108 @@ export function provenanceOf(asset: ScopedAsset, inventory: Inventory | null): P
 
   return { state, statement, linkedInto, source, place };
 }
+
+/**
+ * The Origin row's view model.
+ *
+ * `OriginWire` is a discriminated union on `kind`, not four independent
+ * optionals, because the Rust producer only ever populates `commit`,
+ * `delivered_by` and `installed_at_ms` when `kind === "delivered"` (each
+ * field carries `skip_serializing_if = "Option::is_none"`). A flat interface
+ * would let a fixture claim `kind: "declared"` with a `commit` attached — a
+ * state the backend can never emit — which is the exact shape that shipped a
+ * defect elsewhere in this project (a probe-answer type that let `error` and
+ * `cost` vary independently). Narrowing at the boundary makes that state
+ * unrepresentable instead of merely untested.
+ *
+ * Strings below are ruled by Karthik 2026-08-27 (`/humanizer`-passed); the
+ * two no-origin strings are provisional pending his sign-off. They are not
+ * to be reworded.
+ */
+export type OriginKind = "declared" | "delivered" | "checked_out" | "launched";
+
+interface OriginFace {
+  label: string;
+  url?: string;
+}
+
+export type OriginWire =
+  | (OriginFace & { kind: "declared" })
+  | (OriginFace & { kind: "delivered"; commit?: string; delivered_by?: string; installed_at_ms?: number })
+  | (OriginFace & { kind: "checked_out" })
+  | (OriginFace & { kind: "launched" });
+
+export interface OriginSubRow {
+  label: string;
+  value: string;
+  mono: boolean;
+}
+
+export interface OriginRowView {
+  /** The face: the row's primary displayed value. */
+  value: string;
+  /** Present only when the face links out. */
+  url?: string;
+  tooltip: string;
+  /** Non-empty only when the disclosure exists (kind === "delivered"). */
+  subRows: OriginSubRow[];
+  /** True for the two no-origin states. */
+  muted: boolean;
+}
+
+const ORIGIN_TOOLTIPS: Record<OriginKind, string> = {
+  declared: "The asset declares this",
+  delivered: "Hanger read this from the plugin that installed it",
+  checked_out: "Hanger read this from the folder's git remote",
+  launched: "Hanger read this from the launch command",
+};
+
+/** Turns the backend's resolved `origin` into the inspector's Origin row. */
+export function originRow(origin: OriginWire | null | undefined, blocked: boolean | undefined): OriginRowView {
+  if (!origin) {
+    return blocked
+      ? {
+          value: "Not determined",
+          tooltip: "Hanger couldn't check every place a source is named",
+          subRows: [],
+          muted: true,
+        }
+      : {
+          value: "Written here",
+          tooltip: "Hanger found nothing that names a source",
+          subRows: [],
+          muted: true,
+        };
+  }
+
+  const subRows: OriginSubRow[] = [];
+  if (origin.kind === "delivered") {
+    if (origin.commit) {
+      subRows.push({ label: "Pinned at", value: origin.commit.slice(0, 7), mono: true });
+    }
+    if (origin.delivered_by) {
+      subRows.push({ label: "Delivered by", value: origin.delivered_by, mono: false });
+    }
+    if (origin.installed_at_ms !== undefined) {
+      subRows.push({
+        label: "Installed",
+        // Same options as the Modified row (AssetDetail.tsx, ~line 353) — the
+        // two rows sit in one card and must not disagree on date format.
+        value: new Date(origin.installed_at_ms).toLocaleDateString("en-US", {
+          month: "short",
+          day: "numeric",
+          year: "numeric",
+        }),
+        mono: true,
+      });
+    }
+  }
+
+  return {
+    value: origin.label,
+    url: origin.url,
+    tooltip: ORIGIN_TOOLTIPS[origin.kind],
+    subRows,
+    muted: false,
+  };
+}

@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import type { Inventory } from "../App";
-import { engineLabel, provenanceOf, sourceLabel } from "./assetProvenance";
+import { engineLabel, provenanceOf, sourceLabel, originRow } from "./assetProvenance";
 
 const SOURCE = "/home/me/.agents/skills/agent-browser";
 
@@ -125,5 +125,59 @@ describe("sourceLabel", () => {
 
   it("says local rather than leaving a blank", () => {
     expect(sourceLabel(skill({}))).toBe("Local · not from a registry");
+  });
+});
+
+describe("originRow", () => {
+  it("declared: links and says the asset declares it", () => {
+    const v = originRow({ label: "owner/repo", url: "https://github.com/owner/repo", kind: "declared" }, undefined);
+    expect(v.value).toBe("owner/repo");
+    expect(v.url).toBe("https://github.com/owner/repo");
+    expect(v.tooltip).toBe("The asset declares this");
+    expect(v.subRows).toEqual([]);
+    expect(v.muted).toBe(false);
+  });
+
+  it("declared without a url stays label-only", () => {
+    const v = originRow({ label: "community", kind: "declared" }, undefined);
+    expect(v.url).toBeUndefined();
+  });
+
+  it("delivered: carries the three sub-rows", () => {
+    const v = originRow(
+      {
+        label: "owner/market-repo",
+        url: "https://github.com/owner/market-repo",
+        kind: "delivered",
+        commit: "b0b9f02b0581696da41e20d6c536ec639b44080f",
+        delivered_by: "tool-x",
+        installed_at_ms: 1784500208089,
+      },
+      undefined
+    );
+    expect(v.tooltip).toBe("Hanger read this from the plugin that installed it");
+    expect(v.subRows.map((r) => r.label)).toEqual(["Pinned at", "Delivered by", "Installed"]);
+    expect(v.subRows[0].value).toBe("b0b9f02");
+    expect(v.subRows[1].value).toBe("tool-x");
+  });
+
+  it("checked_out and launched carry no sub-rows", () => {
+    expect(originRow({ label: "owner/dotfiles", url: "https://github.com/owner/dotfiles", kind: "checked_out" }, undefined).subRows).toEqual([]);
+    expect(originRow({ label: "npm: pkg", url: "https://www.npmjs.com/package/pkg", kind: "launched" }, undefined).tooltip).toBe("Hanger read this from the launch command");
+  });
+
+  it("none found", () => {
+    const v = originRow(undefined, undefined);
+    expect(v.value).toBe("Written here");
+    expect(v.tooltip).toBe("Hanger found nothing that names a source");
+    expect(v.url).toBeUndefined();
+    expect(v.muted).toBe(true);
+  });
+
+  it("blocked outranks none-found wording", () => {
+    const v = originRow(undefined, true);
+    expect(v.value).toBe("Not determined");
+    expect(v.tooltip).toBe("Hanger couldn't check every place a source is named");
+    expect(v.muted).toBe(true);
   });
 });
