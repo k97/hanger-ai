@@ -885,3 +885,30 @@ essentially never reaches this path at all — TCC gates `readdir`/`open`, not
 the same family of debt already named in `.claude/rules/known-debt.md` — a
 warning from one scope leaking into a panel scoped to another — not a new
 defect, so it is recorded here rather than fixed in this branch.
+
+## Claude Code's .mcp.json ancestor walk is undocumented
+
+2026-08-27. The MCP docs place `.mcp.json` at "the project root"; measured
+behaviour is an ancestor walk. A probe server defined only in an ad-hoc
+directory's `.mcp.json` resolved from a grandchild cwd with no config of its
+own, and stopped resolving outside that tree. `~/.mcp.json` therefore reaches
+every project under `$HOME` — which is how a `skill-retrieval` registration
+sat invisible to Hanger while `claude mcp list` showed it from every repo.
+
+The registry models this as three rows: `HomeRelative`/Global at home
+(shipped), `RepoAncestors`/Project in between (Plan B), `RepoRelative`/Project
+at the root (pre-existing). If Claude Code documents or changes the walk,
+those rows are where the model lives.
+
+## discover_repo has no production callers
+
+2026-08-27. `mcp::discover::discover_repo` is called by no production code:
+the project pass finds repository MCP configs through the directory-walk
+sweep (`found_tools` + `parse_swept`, `scanner.rs`), not through the registry.
+That is why a `.mcp.json` in a directory above a project root is invisible to
+both paths — it sits inside no project root and no agent root, so no walk
+reaches it.
+
+Left in place deliberately (Karthik's ruling, 2026-08-27) rather than deleted
+alongside unrelated work. Anyone reworking `mcp/` should decide whether to
+remove it or route the project pass through it.

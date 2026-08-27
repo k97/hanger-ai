@@ -87,3 +87,49 @@ MCP detector's stage 1.
   mirroring `get_mcp_servers`), `RepoPane` rendering grouped rows from it,
   and `fetchRepoCounts` passing the active grouping the way
   `refreshGlobalCounts` already does.
+
+## Reach is gated after declaration — Hanger shows the gate as open
+
+Recorded 2026-08-27. Three mechanisms sit between a declared registration and
+an engine actually loading it, and the Reach column models none:
+
+- Claude Code holds `.mcp.json` servers at "Pending approval" until accepted
+  in an interactive session (observed on this machine via `claude mcp list`,
+  2026-08-27).
+- Codex ignores a project `.codex/config.toml` unless the project has
+  `trust_level = "trusted"`.
+- A deployed `managed-mcp.json` takes exclusive control: every other source is
+  suppressed, including plugin servers, and `allowedMcpServers` /
+  `deniedMcpServers` in managed settings filter what remains
+  (code.claude.com/docs/en/managed-mcp). **Hanger reads that file as of
+  2026-08-27 but still lists the suppressed sources as reaching** — shipped
+  knowingly on Karthik's ruling that day, with the gap recorded here rather
+  than blocking the read.
+
+Also outside registry reach entirely: MDM-delivered policy (the
+`com.anthropic.claudecode` preference domain) and server-managed settings from
+the claude.ai console, where no local config file exists. The
+`ClaudeAiConnectors` breadcrumb (`registry.rs`) is the precedent for naming a
+non-file source honestly. This is a design question for the Reach column, not
+a registry row, and needs a naming brief per `ui-copy.md` before any state
+label ships.
+
+## Config-directory env vars are not honoured, and cannot be fixed per-kind
+
+Recorded 2026-08-27, cut from the MCP source-locations plan as pre-flight P1.
+`CODEX_HOME` relocates `~/.codex` and `CLAUDE_CONFIG_DIR` relocates
+`~/.claude`; Hanger resolves both against `$HOME` unconditionally
+(`scanner.rs:510` for agent roots, `discover.rs` for MCP sources) and reads
+neither variable anywhere.
+
+Fixing it for MCP alone would be worse than the current uniform miss: those
+directories also own skills, rules and subagents (`agents.rs:111-116`,
+`:122-127`), so Hanger would report tools from the relocated directory and
+zero skills from the old one — rendering an absence as a finding about the
+user's machine under `ui-copy.md`'s "empty is a finding". Any fix spans all
+four asset kinds and belongs in its own plan
+(`.claude/rules/shared-asset-machinery.md`).
+
+Known ceiling for that plan: Hanger sees only its own process environment.
+Launched from Finder it inherits launchd's, not the user's shell, so a
+variable exported in `~/.zshrc` is invisible either way.
