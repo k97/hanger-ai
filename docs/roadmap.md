@@ -126,9 +126,10 @@ Fixing it for MCP alone would be worse than the current uniform miss: those
 directories also own skills, rules and subagents (`agents.rs:111-116`,
 `:122-127`), so Hanger would report tools from the relocated directory and
 zero skills from the old one — rendering an absence as a finding about the
-user's machine under `ui-copy.md`'s "empty is a finding". Any fix spans all
-four asset kinds and belongs in its own plan
-(`.claude/rules/shared-asset-machinery.md`).
+user's machine under `ui-copy.md`'s "empty is a finding". Any fix must span
+all four asset kinds together — skills, rules, subagents and MCP config —
+rather than land as an MCP-only patch, so it belongs in its own plan, not as
+a follow-on to this one.
 
 Known ceiling for that plan: Hanger sees only its own process environment.
 Launched from Finder it inherits launchd's, not the user's shell, so a
