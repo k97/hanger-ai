@@ -1,10 +1,8 @@
 import { Fragment, useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { openUrl } from "@tauri-apps/plugin-opener";
 import {
   ArrowDownTrayIcon,
-  ArrowTopRightOnSquareIcon,
   ChevronDownIcon,
   ClockIcon,
   CodeBracketIcon,
@@ -21,6 +19,7 @@ import {
 } from "./icons";
 import InfoPopover from "./InfoPopover";
 import Tooltip from "./Tooltip";
+import OriginValue from "./OriginValue";
 import MarkdownDoc from "./MarkdownDoc";
 import UnderlineTabs from "./UnderlineTabs";
 import ListCard, { ListCardRow } from "./ListCard";
@@ -559,42 +558,7 @@ export default function AssetDetail({ asset, inventory, onDocumentPath, annotati
                         data-testid="identity-row-origin"
                         icon={<ArrowDownTrayIcon size={14} aria-hidden="true" />}
                         label="Origin"
-                        wide={
-                          <Tooltip label={originView.tooltip} placement="bottom">
-                            {originView.url ? (
-                              <button
-                                type="button"
-                                data-testid="origin-open-link"
-                                aria-label={`${originView.value} — ${originView.tooltip}`}
-                                onClick={() => openUrl(originView.url!).catch(() => {})}
-                                /* The underline is a hover affordance, not a
-                                   resting state (Karthik, 2026-08-28): the
-                                   external-link mark already says it is a
-                                   link, so a permanent rule under every
-                                   origin is decoration. `border-transparent`
-                                   rather than no border, so the 1px is
-                                   reserved and the row does not shift when
-                                   the rule appears. */
-                                className="inline-flex items-center gap-1 text-small text-ink-1 border-b border-transparent hover:border-ink-1 transition-colors duration-hover cursor-pointer"
-                              >
-                                <span className="truncate max-w-55">{originView.value}</span>
-                                <ArrowTopRightOnSquareIcon
-                                  size={11}
-                                  aria-hidden="true"
-                                  className="text-ink-3 shrink-0"
-                                />
-                              </button>
-                            ) : (
-                              <span
-                                className={`truncate max-w-55 inline-block align-bottom ${
-                                  originView.muted ? "text-ink-3" : "text-ink-2"
-                                }`}
-                              >
-                                {originView.value}
-                              </span>
-                            )}
-                          </Tooltip>
-                        }
+                        wide={<OriginValue origin={originView} variant="identity" />}
                         trailing={
                           originView.subRows.length > 0 ? (
                             <button

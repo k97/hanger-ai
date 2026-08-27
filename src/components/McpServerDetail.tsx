@@ -7,6 +7,7 @@ import { originRow, type OriginWire } from "../utils/assetProvenance";
 import EngineLabel from "./EngineLabel";
 import InfoPopover from "./InfoPopover";
 import Tooltip from "./Tooltip";
+import OriginValue from "./OriginValue";
 import UnderlineTabs from "./UnderlineTabs";
 import ListCard, { ListCardRow } from "./ListCard";
 import { miniBtnClass, miniSetClass } from "./miniButton";
@@ -23,7 +24,6 @@ import {
   KeyIcon,
   ArrowsRightLeftIcon,
   DocumentTextIcon,
-  ArrowTopRightOnSquareIcon,
 } from "./icons";
 
 /**
@@ -1161,33 +1161,7 @@ export default function McpServerDetail({
                 </div>
                 {originView && (
                   <div className="flex items-center gap-1.5 min-w-0" data-testid="registration-origin">
-                    <Tooltip label={originView.tooltip} placement="bottom">
-                      {originView.url ? (
-                        <button
-                          type="button"
-                          data-testid="registration-origin-link"
-                          aria-label={`${originView.value} — ${originView.tooltip}`}
-                          onClick={() => openUrl(originView.url!).catch(() => {})}
-                          /* Underline on hover only, matching AssetDetail's
-                             origin link (Karthik, 2026-08-28). Transparent
-                             rather than absent so the 1px stays reserved. */
-                          className="inline-flex items-center gap-1 min-w-0 text-micro text-ink-2 border-b border-transparent hover:border-ink-1 transition-colors duration-hover cursor-pointer"
-                        >
-                          <span className="truncate">{originView.value}</span>
-                          <ArrowTopRightOnSquareIcon
-                            size={10}
-                            aria-hidden="true"
-                            className="text-ink-3 shrink-0"
-                          />
-                        </button>
-                      ) : (
-                        <span
-                          className={`truncate ${originView.muted ? "text-ink-3" : "text-ink-2"}`}
-                        >
-                          {originView.value}
-                        </span>
-                      )}
-                    </Tooltip>
+                    <OriginValue origin={originView} variant="registration" />
                   </div>
                 )}
                 {deliveryFacts.length > 0 && (
