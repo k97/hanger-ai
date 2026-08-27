@@ -1167,23 +1167,33 @@ from the *band* prints a gap 6.5px larger than the number says. Until
 2026-08-27 `ProfilePane` and `RepoPane` opened at `pt-3.5`, which put the
 category track's pill 20.5px below the toolbar's ink against a 14px rhythm
 for every gap under it — Karthik read it as "slightly large" and it was.
-`pt-2` (8px) spends the slack: 8 + 6.5 = 14.5. Measured on the live window
-over the dev bridge, before and after:
+`pt-1.5` (6px) spends it: 6 + 6.5 = 12.5. Measured on the live window over
+the dev bridge, before and after:
 
 | | before | after |
 |---|---|---|
-| toolbar ink → track pill | 20.5 | 14.5 |
+| toolbar ink → track pill | 20.5 | **12.5** |
 | track pill → summary strip | 14 | 14 |
 | summary strip → list plane | 14 | 14 |
+
+**12.5 is not the value that matches the rhythm below it, and that is the
+point.** `pt-2` would give 14.5 and match; `pt-1` gives 10.5. All three were
+rendered in the running app and Karthik picked 12.5 (2026-08-27). What it
+buys is the *other* alignment: it lands the track pill's top on the rail
+mark's, both at 46, so the two columns open on one line. Under 14.5 they sat
+2px apart and under 10.5 they sat 2px apart the other way. The content column
+now keeps the rail's 12px rhythm at its top edge rather than the pane's 14px
+one — a deliberate trade of the vertical match for the horizontal one, not an
+oversight to be tidied later.
 
 **The rail leans the other way off the same band, and was retuned with it.**
 `IconRail`'s mark carried `mt-0.5`, putting it 8.5px below the same ink where
 the rail's own rhythm is 12px (`my-[9px]` + `gap-[3px]` — mark → rule and
-rule → first button both measure 12). `mt-[6px]` makes it 12.5. The two
-columns' first elements were 12px apart (mark top 42, track top 54) and are
-now 2px apart (46 and 48). The other three panes were left alone: Discovery
-and Design system open on a prose `<header pt-5>` and Needs review on
-`mt-[18px]`, none of which is a pill sitting against a rhythm.
+rule → first button both measure 12). `mt-[6px]` makes it 12.5 — the same
+number the content column arrives at from the other side, which is why the
+two now line up. The other three panes were left alone: Discovery and Design
+system open on a prose `<header pt-5>` and Needs review on `mt-[18px]`, none
+of which is a pill sitting against a rhythm.
 
 **Toolbar buttons must carry `shrink-0`, or a squeezed cap silently shrinks
 the icon inside them.** `tbBtnClass` / `tbBtnPlaneClass` (`App.tsx:1148-1153`)
@@ -1236,7 +1246,7 @@ gained a track above their strip (`2de751a`) that the other two never had.
 
 **`ProfilePane` and `RepoPane`: track, strip, list plane, foot.** The
 category track (`CategoryFilterCards`, above) opens the pane in
-`px-[18px] pt-2 pb-3.5` (`ProfilePane.tsx:887`; `RepoPane.tsx:424`, where
+`px-[18px] pt-1.5 pb-3.5` (`ProfilePane.tsx:891`; `RepoPane.tsx:424`, where
 it is nested one level deeper in a `min-w-0 flex-1` wrapper, so the
 track can shrink beside a control that does not exist yet — the comment
 above it says none is needed here). Then the `SummaryStrip` itself, in
