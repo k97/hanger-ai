@@ -123,12 +123,12 @@ export default function Sidebar({
           }}
           tabIndex={0}
           className={`flex items-center gap-2 h-[46px] px-3 rounded-pill cursor-pointer transition-colors duration-nav ease-spring ${
-            selectedItem === "profile" ? "bg-tint-plane text-tint-ink" : "text-ink-2 hover:bg-tint-plane"
+            selectedItem === "profile" ? "bg-sidebar-sel text-sidebar-sel-ink" : "text-sidebar-ink hover:bg-sidebar-sel"
           }`}
         >
           <GlobeAltIcon
             size={15}
-            className={`shrink-0 ${selectedItem === "profile" ? "text-tint-ink" : "text-ink-3"}`}
+            className={`shrink-0 ${selectedItem === "profile" ? "text-sidebar-sel-ink" : "text-sidebar-ink"}`}
           />
           <div className="flex-1 min-w-0">
             <span
@@ -140,7 +140,7 @@ export default function Sidebar({
             </span>
             <span
               className={`text-micro flex items-center gap-1 min-w-0 ${
-                selectedItem === "profile" ? "text-tint-ink opacity-70" : "text-ink-3"
+                selectedItem === "profile" ? "text-sidebar-sel-ink opacity-70" : "text-ink-3"
               }`}
               data-testid="global-engines-subtitle"
             >
@@ -154,7 +154,7 @@ export default function Sidebar({
           </div>
           <span
             className={`text-micro tabular font-flex shrink-0 ${
-              selectedItem === "profile" ? "text-tint-ink opacity-70" : "text-ink-3"
+              selectedItem === "profile" ? "text-sidebar-sel-ink opacity-70" : "text-ink-3"
             }`}
           >
             {globalAssetsTotal}
@@ -168,7 +168,7 @@ export default function Sidebar({
             <button
               onClick={handleAddRepo}
               aria-label="Add a repository"
-              className="w-[22px] h-[22px] rounded-pill grid place-items-center text-ink-2 hover:bg-tint-plane hover:text-ink-1 transition-colors duration-hover ease-spring cursor-pointer"
+              className="w-[22px] h-[22px] rounded-pill grid place-items-center text-sidebar-ink hover:bg-sidebar-sel hover:text-ink-1 transition-colors duration-hover ease-spring cursor-pointer"
             >
               <PlusIcon size={14} aria-hidden="true" />
             </button>
@@ -208,18 +208,18 @@ export default function Sidebar({
                     // Iconless rows align to the icon column, not the padding
                     // edge: 12px pad + 15px icon + 9px gap = 36px.
                     child ? "pl-9 pr-3" : "px-3"
-                  } ${isActive ? "bg-tint-plane text-tint-ink" : "text-ink-2 hover:bg-tint-plane"}`}
+                  } ${isActive ? "bg-sidebar-sel text-sidebar-sel-ink" : "text-sidebar-ink hover:bg-sidebar-sel"}`}
                 >
                   {!child &&
                     (container ? (
                       <FolderTreeIcon
                         size={15}
-                        className={`shrink-0 ${isActive ? "text-tint-ink" : "text-ink-3"}`}
+                        className={`shrink-0 ${isActive ? "text-sidebar-sel-ink" : "text-sidebar-ink"}`}
                       />
                     ) : (
                       <FolderIcon
                         size={15}
-                        className={`shrink-0 ${isActive ? "text-tint-ink" : "text-ink-3"}`}
+                        className={`shrink-0 ${isActive ? "text-sidebar-sel-ink" : "text-sidebar-ink"}`}
                       />
                     ))}
                   <div className="flex-1 min-w-0">
@@ -232,7 +232,7 @@ export default function Sidebar({
                     {container && (
                       <span
                         className={`text-micro truncate block ${
-                          isActive ? "text-tint-ink opacity-70" : "text-ink-3"
+                          isActive ? "text-sidebar-sel-ink opacity-70" : "text-ink-3"
                         }`}
                       >
                         {containerSubtitle(childCount)}
@@ -241,7 +241,7 @@ export default function Sidebar({
                   </div>
                   <span
                     className={`text-micro tabular font-flex shrink-0 ${
-                      isActive ? "text-tint-ink opacity-70" : "text-ink-3"
+                      isActive ? "text-sidebar-sel-ink opacity-70" : "text-ink-3"
                     }`}
                   >
                     {count}
@@ -260,7 +260,7 @@ export default function Sidebar({
                         setError(String(err));
                       }
                     }}
-                    className="p-1 rounded-pill hover:bg-tint-plane text-ink-3 hover:text-ink-1 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity duration-hover cursor-pointer shrink-0"
+                    className="p-1 rounded-pill hover:bg-sidebar-sel text-sidebar-ink hover:text-ink-1 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity duration-hover cursor-pointer shrink-0"
                     aria-label="Unlink repository"
                   >
                     <TrashIcon size={12} aria-hidden="true" />

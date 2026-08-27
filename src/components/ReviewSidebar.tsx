@@ -44,11 +44,11 @@ export default function ReviewSidebar({
 }: ReviewSidebarProps) {
   const row = (active: boolean) =>
     `flex items-center gap-2 h-8 px-3 rounded-pill cursor-pointer transition-colors duration-nav ease-spring ${
-      active ? "bg-tint-plane text-tint-ink" : "text-ink-2 hover:bg-tint-plane"
+      active ? "bg-sidebar-sel text-sidebar-sel-ink" : "text-sidebar-ink hover:bg-sidebar-sel"
     }`;
 
   const tally = (active: boolean) =>
-    `text-micro tabular font-flex shrink-0 ${active ? "text-tint-ink opacity-70" : "text-ink-3"}`;
+    `text-micro tabular font-flex shrink-0 ${active ? "text-sidebar-sel-ink opacity-70" : "text-ink-3"}`;
 
   return (
     <SourceListShell

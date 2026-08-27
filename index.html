@@ -4,9 +4,55 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Hanger</title>
+    <style>
+      /* Boot surface only: shown from first paint until React mounts, over
+         the window's native material. Self-contained by necessity — the
+         token sheet has not loaded yet. Debossed look: fill darker than the
+         surface, one-pixel light catch on the lower edge. */
+      #boot-mark {
+        position: fixed;
+        inset: 0;
+        display: grid;
+        place-items: center;
+      }
+      #boot-mark svg {
+        color: rgba(0, 0, 0, 0.13);
+        filter: drop-shadow(0 1px 0 rgba(255, 255, 255, 0.45));
+      }
+      @media (prefers-color-scheme: dark) {
+        #boot-mark svg {
+          color: rgba(0, 0, 0, 0.38);
+          filter: drop-shadow(0 1px 0 rgba(255, 255, 255, 0.07));
+        }
+      }
+      /* The 1px window hairline macOS stops drawing once the window is
+         transparent; painted back at the window's measured 17.5px corner.
+         data-appearance (set by the shell at mount) wins over the system
+         guess once the app has resolved its own theme. */
+      #win-border {
+        position: fixed;
+        inset: 0;
+        border: 1px solid rgba(0, 0, 0, 0.1);
+        border-radius: 17.5px;
+        pointer-events: none;
+        z-index: 2147483647;
+      }
+      @media (prefers-color-scheme: dark) {
+        #win-border { border-color: rgba(255, 255, 255, 0.13); }
+      }
+      html[data-appearance="light"] #win-border { border-color: rgba(0, 0, 0, 0.1); }
+      html[data-appearance="dark"] #win-border { border-color: rgba(255, 255, 255, 0.13); }
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div id="boot-mark" aria-hidden="true">
+        <svg width="44" height="44" viewBox="120 120 783 783" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M511.5 120C407.668 120 308.088 161.247 234.668 234.668C161.247 308.088 120 407.668 120 511.5L120 903H903V511.5C903 407.668 861.753 308.088 788.332 234.668C714.912 161.247 615.332 120 511.5 120ZM315.75 707.25V511.5C315.75 459.584 336.374 409.794 373.084 373.084C409.794 336.374 459.584 315.75 511.5 315.75C563.416 315.75 613.206 336.374 649.916 373.084C686.626 409.794 707.25 459.584 707.25 511.5V707.25H315.75Z" fill="currentColor"/>
+        </svg>
+      </div>
+    </div>
+    <div id="win-border" aria-hidden="true"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

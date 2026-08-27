@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, lazy, Suspense } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { save, open } from "@tauri-apps/plugin-dialog";
 import { info, warn, error } from "@tauri-apps/plugin-log";
 
@@ -1061,6 +1062,17 @@ export default function App() {
   // an explicit pick or from the OS by way of Auto.
   useEffect(() => {
     document.documentElement.classList.toggle("dark", darkMode);
+    // index.html's 1px window edge line reads this attribute once the app has
+    // resolved its theme; before mount it falls back to the system guess.
+    document.documentElement.dataset.appearance = darkMode ? "dark" : "light";
+    // The window's vibrancy material reads the NSWindow appearance, not the CSS
+    // class, so the same pick has to reach both. Absent Tauri internals (tests,
+    // a plain browser) there is no window to theme.
+    if ("__TAURI_INTERNALS__" in window) {
+      getCurrentWindow()
+        .setTheme(darkMode ? "dark" : "light")
+        .catch(() => {});
+    }
   }, [darkMode]);
 
   if (onboardingComplete === null) {
@@ -1316,7 +1328,7 @@ export default function App() {
       : assetCounts?.total ?? 0;
 
   return (
-    <div className="h-screen w-screen bg-page text-ink-1 flex font-sans transition-colors duration-press overflow-hidden">
+    <div className="h-screen w-screen text-ink-1 flex font-sans transition-colors duration-press overflow-hidden">
       {/* ══ Left column: rail + source list share one plane and carry their
           own 40px cap, so the column edge runs uninterrupted top to bottom.
           The native traffic lights overlay the first ~66px of the cap
@@ -1326,7 +1338,7 @@ export default function App() {
           56px rail on purpose — the toggle must stay reachable to reopen. */}
       <div
         data-rail-column
-        className="shrink-0 h-full bg-sidebar border-r border-line flex flex-col min-h-0 transition-[width] duration-nav"
+        className="shrink-0 h-full bg-sidebar flex flex-col min-h-0 transition-[width] duration-nav"
         style={{
           width:
             56 +

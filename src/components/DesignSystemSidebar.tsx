@@ -28,7 +28,7 @@ export default function DesignSystemSidebar({
 }: DesignSystemSidebarProps) {
   const row = (active: boolean) =>
     `flex items-center gap-2 h-8 px-3 rounded-pill cursor-pointer transition-colors duration-nav ease-spring ${
-      active ? "bg-tint-plane text-tint-ink" : "text-ink-2 hover:bg-tint-plane"
+      active ? "bg-sidebar-sel text-sidebar-sel-ink" : "text-sidebar-ink hover:bg-sidebar-sel"
     }`;
 
   return (

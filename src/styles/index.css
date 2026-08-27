@@ -5,6 +5,9 @@
   /* ── Mono palette ── */
   --color-page: var(--page);
   --color-sidebar: var(--sidebar);
+  --color-sidebar-sel: var(--sidebar-sel);
+  --color-sidebar-sel-ink: var(--sidebar-sel-ink);
+  --color-sidebar-ink: var(--sidebar-ink);
   --color-plane: var(--plane);
   --color-plane-2: var(--plane-2);
   --color-tint: var(--tint);
@@ -482,7 +485,7 @@ body,
   overflow: hidden;
   margin: 0;
   padding: 0;
-  background-color: var(--page);
+  background-color: transparent;
   color: var(--ink-1);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;

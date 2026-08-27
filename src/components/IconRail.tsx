@@ -16,12 +16,12 @@ interface IconRailProps {
   onOpenSettings: () => void;
 }
 
-// 32×32, radius 10 (--radius-soft), tonal --tint-plane fill on current: the
-// rail sits on the plane, where --tint would disappear.
+// 32×32, radius 10 (--radius-soft), quiet --sidebar-sel fill on current: a
+// neutral step off the sidebar surface, never a brand hue.
 const railBtnClass =
-  "relative w-8 h-8 rounded-soft grid place-items-center text-ink-2 hover:bg-tint-plane hover:text-ink-1 transition-colors duration-nav ease-spring cursor-pointer";
+  "relative w-8 h-8 rounded-soft grid place-items-center text-sidebar-ink hover:bg-sidebar-sel hover:text-ink-1 transition-colors duration-nav ease-spring cursor-pointer";
 const railBtnActiveClass =
-  "relative w-8 h-8 rounded-soft grid place-items-center bg-tint-plane text-tint-ink transition-colors duration-nav ease-spring cursor-pointer";
+  "relative w-8 h-8 rounded-soft grid place-items-center bg-sidebar-sel text-sidebar-sel-ink transition-colors duration-nav ease-spring cursor-pointer";
 
 /** Leftmost shell column: the three sections, plus settings.
  *

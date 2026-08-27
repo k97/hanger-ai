@@ -3,8 +3,12 @@
      never a hue. Semantic colour survives in exactly one place: system
      state. Spec: docs/v3/hanger-mono-tight.html ══ */
   --page: #ffffff;
-  --sidebar: #fcfcfc;        /* the shell's left column only — one step off --page,
-                                where --plane was two. Karthik, 2026-08-27. */
+  --sidebar: rgba(252, 252, 252, 0.65);  /* the shell's left column only: a tint over the
+                                            window's vibrancy material, so the column reads
+                                            what is behind the window. Karthik, 2026-08-27. */
+  --sidebar-sel: #e6e6e6;    /* selection on the sidebar — quiet neutral, no brand hue */
+  --sidebar-sel-ink: #1f1f1f;
+  --sidebar-ink: #3e4144;    /* sidebar rows and icons — one shade up from --ink-2 */
   --plane: #f7f7f7;          /* the plane is a value step, not a colour */
   --plane-2: #efefef;
   --tint: #e8e8e8;           /* tonal container for selection, neutral */
@@ -18,7 +22,7 @@
   --ink-3: #636363;          /* prototype ink at 44%, darkened to clear 4.5:1 on --tint-plane */
   --fill: #000000;           /* the single strong action */
   --on-fill: #ffffff;
-  --brand: #00c3bf;          /* the hanger mark only, never a UI state */
+  --brand: #009a97;          /* the hanger mark only, never a UI state — deepened for the light sidebar, Karthik 2026-08-27 */
 
   /* System state — the only saturated colour in the app */
   --state-success: #0f7a52;
@@ -156,8 +160,12 @@
 
 .dark {
   --page: #000000;
-  --sidebar: #131313;        /* lifts off pure black harder than --plane does:
-                                on #000 a one-step surface disappears. */
+  --sidebar: rgba(19, 19, 19, 0.55);  /* thinner than the light tint: the dark material is
+                                         already close to the ink, and on #000 a heavier
+                                         tint would go flat. */
+  --sidebar-sel: #3a3a3c;
+  --sidebar-sel-ink: #ececec;
+  --sidebar-ink: #cfd1d3;
   --plane: #0e0e0e;
   --plane-2: #171717;
   --tint: #232323;

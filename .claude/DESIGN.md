@@ -27,6 +27,10 @@ light palette declares eleven neutral roles (`tokens.css:5-16`):
 | Token | Light | Dark | Role |
 |---|---|---|---|
 | `--page` | `#ffffff` | `#000000` | window ground |
+| `--sidebar` | `rgba(252,252,252,.65)` | `rgba(19,19,19,.55)` | the shell's left column: a tint over the window's vibrancy material (`tokens.css:6`) |
+| `--sidebar-sel` | `#e6e6e6` | `#3a3a3c` | selection on the sidebar, neutral (`tokens.css:9`) |
+| `--sidebar-sel-ink` | `#1f1f1f` | `#ececec` | text on `--sidebar-sel` |
+| `--sidebar-ink` | `#3e4144` | `#cfd1d3` | sidebar rows and icons, one shade up from `--ink-2` |
 | `--plane` | `#f7f7f7` | `#0e0e0e` | list and card surface |
 | `--plane-2` | `#efefef` | `#171717` | hover / press step |
 | `--tint` | `#e8e8e8` | `#232323` | tonal container for selection |
@@ -49,7 +53,7 @@ surface it sits on (`tokens.css:15-16`).
 ### Saturated colour appears in exactly three places
 
 System state, the brand mark, and the meter's aqua gel. `--brand` —
-`#00c3bf` light, `#2fd8d4` dark (`tokens.css:19`, dark block) — paints the
+`#009a97` light, `#2fd8d4` dark (`tokens.css:25`, dark block) — paints the
 hanger mark in the rail and nothing else; the token's own comment forbids it
 as a UI state. `--gel-aqua` (`tokens.css:38`, `:179`) is a brand-family
 gradient painted by `GelMeter` and by the legend dots beside it that mirror
@@ -469,7 +473,7 @@ rather than a component, and `ScanStatusIndicator.tsx` exports a named
 "discovery" | "review" | "design"`, `needsReviewCount: number`,
 `onSelectMachine`, `onSelectLinkMap`, `onSelectDiscovery`, `onSelectReview`,
 `onSelectDesign?`, `onOpenSettings`. Fixed 56px column (`w-14`). Buttons are
-32×32 `rounded-soft`, tonal `bg-tint-plane` when current (`IconRail.tsx:21-24`).
+32×32 `rounded-soft`, neutral `bg-sidebar-sel` when current (`IconRail.tsx:21-24`).
 The hanger mark at the top is the home button — it fires `onSelectMachine`,
 same as the machine button (ruled 2026-08-15). `onSelectDesign` is optional
 because the entry it renders — the Design system page, below the spacer
