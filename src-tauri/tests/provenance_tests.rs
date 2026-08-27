@@ -809,3 +809,108 @@ fn test_remote_transport_preserves_original_scheme() {
     assert_eq!(o.label, "mcp.example.com");
     assert_eq!(o.url.as_deref(), Some("http://mcp.example.com"));
 }
+
+// --- Task 7: resolver scope rule ---
+
+#[test]
+fn test_project_scope_skips_checkout_lookup() {
+    // resolve_file with is_global=false must not consult git at all: a
+    // project asset's repo is already the pane's subject.
+    let td = tempfile::tempdir().unwrap();
+    let repo = td.path().join("proj");
+    std::fs::create_dir_all(repo.join(".git")).unwrap();
+    std::fs::write(repo.join(".git/config"),
+        "[remote \"origin\"]\n\turl = https://github.com/owner/proj\n").unwrap();
+    let mut r = tauri_app_lib::provenance::OriginResolver::new(td.path());
+    let file = repo.join("CLAUDE.md");
+    let res = r.resolve_file(None, &file.to_string_lossy(), false);
+    assert!(res.origin.is_none());
+    let res_global = r.resolve_file(None, &file.to_string_lossy(), true);
+    assert_eq!(res_global.origin.unwrap().label, "owner/proj");
+}
+
+/// The Delivered class through the resolver, not just through
+/// `PluginIndex::origin_for` directly (Task 2 already pins that): proves
+/// `OriginResolver::resolve_file` reaches the plugin index at all, that
+/// declared still outranks it even when the path would ALSO resolve via the
+/// plugin index, and that it does not require global scope (unlike the
+/// checked-out class). No real scan fixture can exercise this end-to-end —
+/// see the comment on `test_origin_resolution_per_class` in
+/// `scanner_tests.rs`.
+#[test]
+fn test_resolver_delivered_class_and_precedence() {
+    let td = plugin_home();
+    let mut r = tauri_app_lib::provenance::OriginResolver::new(td.path());
+    let p = td
+        .path()
+        .join(".claude/plugins/cache/mkt-a/tool-x/1.0.0/skills/s/SKILL.md");
+
+    // No declaration: falls through to the plugin index.
+    let res = r.resolve_file(None, &p.to_string_lossy(), false);
+    assert!(!res.blocked);
+    let o = res.origin.unwrap();
+    assert!(matches!(o.kind, tauri_app_lib::provenance::OriginKind::Delivered));
+    assert_eq!(o.label, "owner/market-repo");
+    assert_eq!(o.delivered_by.as_deref(), Some("tool-x"));
+    assert_eq!(o.commit.as_deref(), Some("b0b9f02b0581696da41e20d6c536ec639b44080f"));
+
+    // A declared source on the SAME path still wins outright: declared >
+    // delivered, even though the plugin index would also match.
+    let declared_res = r.resolve_file(
+        Some("https://github.com/other/declared"),
+        &p.to_string_lossy(),
+        false,
+    );
+    let d = declared_res.origin.unwrap();
+    assert!(matches!(d.kind, tauri_app_lib::provenance::OriginKind::Declared));
+    assert_eq!(d.label, "other/declared");
+}
+
+/// A refused read of the plugin manifest, with nothing else found, must
+/// surface as "could not check" — not silently collapse to "nothing here".
+#[test]
+fn test_resolver_reports_blocked_when_plugin_manifest_unreadable_and_nothing_found() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let td = tempfile::tempdir().unwrap();
+    let pl = td.path().join(".claude/plugins");
+    fs::create_dir_all(&pl).unwrap();
+    let known = pl.join("known_marketplaces.json");
+    fs::write(&known, r#"{"mkt-a":{"source":{"source":"github","repo":"owner/x"}}}"#).unwrap();
+    fs::set_permissions(&known, fs::Permissions::from_mode(0o000)).unwrap();
+
+    let mut r = tauri_app_lib::provenance::OriginResolver::new(td.path());
+    let p = td.path().join("some/unrelated/file.md");
+    let res = r.resolve_file(None, &p.to_string_lossy(), false);
+    assert!(res.origin.is_none());
+    assert!(res.blocked, "an unreadable manifest with nothing else found must report blocked");
+
+    let _ = fs::set_permissions(&known, fs::Permissions::from_mode(0o644));
+}
+
+/// The inverse of the test above: a found origin outranks a blocked
+/// side-path. `installed_plugins.json` is unreadable (degrading commit /
+/// installed-at metadata only), but `known_marketplaces.json` still
+/// resolves the marketplace for a path under its cache — that resolved
+/// origin must not be reported as blocked.
+#[test]
+fn test_resolver_found_origin_outranks_blocked_plugin_index() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let td = plugin_home();
+    let installed = td.path().join(".claude/plugins/installed_plugins.json");
+    fs::set_permissions(&installed, fs::Permissions::from_mode(0o000)).unwrap();
+
+    let mut r = tauri_app_lib::provenance::OriginResolver::new(td.path());
+    let p = td
+        .path()
+        .join(".claude/plugins/cache/mkt-a/tool-x/1.0.0/skills/s/SKILL.md");
+    let res = r.resolve_file(None, &p.to_string_lossy(), false);
+    assert!(
+        !res.blocked,
+        "a resolved origin must win over a blocked side-path, not be reported as blocked"
+    );
+    assert_eq!(res.origin.unwrap().label, "owner/market-repo");
+
+    let _ = fs::set_permissions(&installed, fs::Permissions::from_mode(0o644));
+}

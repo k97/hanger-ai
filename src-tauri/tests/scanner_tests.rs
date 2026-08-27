@@ -2480,3 +2480,46 @@ fn blocked_project_root_still_yields_a_project_scan_carrying_the_denial() {
         .collect();
     assert_eq!(denials.len(), 1, "one denial per root, deduplicated: {:?}", denials);
 }
+
+// The brief for this task asked for a third case here — a skill delivered
+// via a plugin, reached through a symlink placed directly inside an
+// engine's skills/ folder (`.claude/skills/delivered-skill` ->
+// `.claude/plugins/cache/.../skills/delivered-skill`). That fixture cannot
+// be exercised through a real scan: both the global and the project walkers
+// build with `ignore`'s default `follow_links(false)`, and a symlinked
+// directory entry is yielded but never descended into (see the comment at
+// this file's project-walk symlink handling, and the dedicated ignore-crate
+// check recorded in the Task 7 report) — so `SKILL.md` inside such a
+// directory is invisible to the walk, in both scopes, today. Making it
+// visible would mean turning `follow_links` on for the skills/subagents
+// walkers, which would also surface it to `test_scanner_fixtures`'s
+// hard-pinned skill count above and to the DB row count guarded by
+// `shared-asset-machinery.md` — a change out of this task's scope ("must
+// not change any count"). The Delivered class's precedence and field
+// mapping through `OriginResolver` is proven at unit level instead, in
+// `provenance_tests.rs::test_resolver_delivered_class_and_precedence`,
+// mirroring how the Checked-out class is already unit-tested there for an
+// analogous fixture-format limitation (a `.git` directory can't be
+// committed as fixture content).
+#[test]
+fn test_origin_resolution_per_class() {
+    let _guard = ENV_MUTEX.get_or_init(|| Mutex::new(())).lock().unwrap();
+    std::env::set_var("HANGER_TEST_HOME", "tests/fixtures/home");
+    let scanner = DirectoryScanner {
+        db_path: Path::new("tests/fixtures/home/hanger.db").to_path_buf(),
+        cancellation_token: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
+    };
+    let inventory = scanner.scan(Path::new("tests/fixtures/project")).unwrap();
+
+    // Declared: the fixture skill whose frontmatter carries source-origin.
+    let declared = inventory.skills.iter().find(|s| s.name == "git-commit").unwrap();
+    let o = declared.origin.as_ref().unwrap();
+    assert!(matches!(o.kind, tauri_app_lib::provenance::OriginKind::Declared));
+    assert_eq!(o.url.as_deref(), Some("https://github.com/example/git-commit"));
+
+    // None-found: a fixture asset with no declaration, no store path, no
+    // checkout — origin absent, blocked absent.
+    let plain = inventory.skills.iter().find(|s| s.name == "custom-skill").unwrap();
+    assert!(plain.origin.is_none());
+    assert!(plain.origin_blocked.is_none());
+}

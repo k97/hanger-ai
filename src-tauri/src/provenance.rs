@@ -714,3 +714,68 @@ pub fn origin_from_declared(raw: &str) -> Origin {
         },
     }
 }
+
+/// A single call's verdict: what was found, and whether some lookup along
+/// the way was refused by the OS. `blocked` is true ONLY when nothing was
+/// found AND a refusal happened — a resolved origin always outranks a
+/// blocked side-path, per the panel's "looked and found nothing" vs
+/// "couldn't check" distinction (Karthik's ruling, 2026-08-27).
+pub struct Resolved {
+    pub origin: Option<Origin>,
+    pub blocked: bool,
+}
+
+/// One resolver per scan, holding the one thing every class but `declared`
+/// needs: `home`, for the plugin store's manifests and as the fence for the
+/// checked-out walk's git cache. Built once (`new`), asked about many files
+/// (`resolve_file`).
+pub struct OriginResolver {
+    home: PathBuf,
+    plugins: Option<PluginIndex>,
+    plugins_blocked: bool,
+    git_cache: HashMap<PathBuf, (Option<Origin>, bool)>,
+}
+
+impl OriginResolver {
+    pub fn new(home: &Path) -> Self {
+        let (plugins, plugins_blocked) = PluginIndex::load(home);
+        OriginResolver {
+            home: home.to_path_buf(),
+            plugins,
+            plugins_blocked,
+            git_cache: HashMap::new(),
+        }
+    }
+
+    /// declared > delivered > (global only) checked-out. `path` is the
+    /// asset's canonical path string, as the scanner already computes it —
+    /// the plugin-index and checked-out lookups both key off the resolved
+    /// (symlink-followed) location, not the lexical one a deployed asset
+    /// was reached through.
+    ///
+    /// The checked-out git lookup runs for global-scoped assets only: a
+    /// project- or local-scoped asset's own pane already names the
+    /// repository it lives in, so printing that repo's own remote as the
+    /// asset's "origin" would be noise, not information.
+    pub fn resolve_file(&mut self, declared: Option<&str>, path: &str, is_global: bool) -> Resolved {
+        if let Some(d) = declared {
+            if !d.trim().is_empty() {
+                return Resolved { origin: Some(origin_from_declared(d)), blocked: false };
+            }
+        }
+        let mut blocked = self.plugins_blocked;
+        if let Some(idx) = &self.plugins {
+            if let Some(o) = idx.origin_for(path) {
+                return Resolved { origin: Some(o), blocked: false };
+            }
+        }
+        if is_global {
+            let (o, b) = git_remote_origin(Path::new(path), &self.home, &mut self.git_cache);
+            blocked |= b;
+            if o.is_some() {
+                return Resolved { origin: o, blocked: false };
+            }
+        }
+        Resolved { origin: None, blocked }
+    }
+}

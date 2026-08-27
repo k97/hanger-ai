@@ -1038,6 +1038,12 @@ impl DirectoryScanner {
         let mut parse_warnings = Vec::new();
         parse_warnings.extend(engine_root_denials);
 
+        // One resolver for the whole scan: it loads the plugin-store
+        // manifests once and memoizes the checked-out git walk per
+        // directory. Both are keyed to THIS scan's home — never share this
+        // resolver's cache with one built against a different home.
+        let mut origin_resolver = crate::provenance::OriginResolver::new(&get_home_dir());
+
         let store_opt = crate::preferences::PreferencesStore::new(&self.db_path).ok();
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
@@ -1160,6 +1166,8 @@ impl DirectoryScanner {
                                 }
                                 let path_str = path.to_string_lossy().to_string();
                                 let link_state = if drifted == Some(true) { Some(crate::domain::LinkState::Drifted) } else if is_sym == Some(true) || source_path.is_some() { Some(crate::domain::LinkState::Linked) } else { None };
+                                let canon_p = canonicalize_asset_path(&path, &mut parse_warnings);
+                                let resolved = origin_resolver.resolve_file(None, &canon_p, true);
                                 inventory.rules.push(Rule {
                                     id: path_str.clone(),
                                     name: filename.to_string(),
@@ -1174,11 +1182,10 @@ impl DirectoryScanner {
                                     parse_status: Some("ok".to_string()),
                                     parse_error: None,
                                     link_state,
-                                    origin: None,
-                                    origin_blocked: None,
+                                    origin: resolved.origin,
+                                    origin_blocked: resolved.blocked.then_some(true),
                                 });
                                 if let (Some(store), Some(r_id)) = (&store_opt, global_root_id) {
-                                    let canon_p = canonicalize_asset_path(&path, &mut parse_warnings);
                                     // ~/.claude/CLAUDE.md → ~/.agents/AGENTS.md is
                                     // stored at the target, and stamping the target
                                     // with the engine that linked it is the exact
@@ -1273,6 +1280,11 @@ impl DirectoryScanner {
                                     let already_present = skills_shared
                                         && inventory.skills.iter().any(|s| s.id == skill_identity);
                                     if !already_present {
+                                        let resolved = origin_resolver.resolve_file(
+                                            fm.declared_source(),
+                                            &parent_dir_canon,
+                                            true,
+                                        );
                                         inventory.skills.push(Skill {
                                             id: skill_identity.clone(),
                                             name: fm.name.clone(),
@@ -1289,8 +1301,8 @@ impl DirectoryScanner {
                                             parse_status: Some("ok".to_string()),
                                             parse_error: None,
                                             link_state,
-                                            origin: None,
-                                            origin_blocked: None,
+                                            origin: resolved.origin,
+                                            origin_blocked: resolved.blocked.then_some(true),
                                         });
                                     }
                                     if let Some(store) = &store_opt {
@@ -1400,6 +1412,11 @@ impl DirectoryScanner {
                                     match parse_subagent_frontmatter(&content) {
                                         Ok(fm) => {
                                             if !already_present {
+                                                let resolved = origin_resolver.resolve_file(
+                                                    fm.declared_source(),
+                                                    &path_canon,
+                                                    true,
+                                                );
                                                 inventory.subagents.push(Subagent {
                                                     id: sub_identity.clone(),
                                                     name: fm.name.clone(),
@@ -1413,8 +1430,8 @@ impl DirectoryScanner {
                                                     parse_status: Some("ok".to_string()),
                                                     parse_error: None,
                                                     link_state: None,
-                                                    origin: None,
-                                                    origin_blocked: None,
+                                                    origin: resolved.origin,
+                                                    origin_blocked: resolved.blocked.then_some(true),
                                                 });
                                             }
                                             if let Some(store) = &store_opt {
@@ -1437,6 +1454,7 @@ impl DirectoryScanner {
                                                 path_str, e
                                             ));
                                             if !already_present {
+                                                let resolved = origin_resolver.resolve_file(None, &path_canon, true);
                                                 inventory.subagents.push(Subagent {
                                                     id: sub_identity.clone(),
                                                     name: filename.to_string(),
@@ -1452,8 +1470,8 @@ impl DirectoryScanner {
                                                     // A parse failure is not a link state (ruled 2026-08-15): it files
                                 // under parse_status, never under broken links.
                                 link_state: None,
-                                                    origin: None,
-                                                    origin_blocked: None,
+                                                    origin: resolved.origin,
+                                                    origin_blocked: resolved.blocked.then_some(true),
                                                 });
                                             }
                                             if let Some(store) = &store_opt {
@@ -1812,6 +1830,12 @@ impl DirectoryScanner {
                                 parse_warnings.push(w);
                             }
                             let link_state = if drifted == Some(true) { Some(crate::domain::LinkState::Drifted) } else if is_sym == Some(true) || source_path.is_some() { Some(crate::domain::LinkState::Linked) } else { None };
+                            let parent_dir_canon = canonicalize_asset_path(parent_dir, &mut parse_warnings);
+                            let resolved = origin_resolver.resolve_file(
+                                fm.declared_source(),
+                                &parent_dir_canon,
+                                false,
+                            );
                             inventory.skills.push(Skill {
                                 id: parent_dir_str.clone(),
                                 name: fm.name.clone(),
@@ -1829,11 +1853,10 @@ impl DirectoryScanner {
                                 parse_status: Some("ok".to_string()),
                                 parse_error: None,
                                 link_state,
-                                origin: None,
-                                origin_blocked: None,
+                                origin: resolved.origin,
+                                origin_blocked: resolved.blocked.then_some(true),
                             });
                             if let (Some(store), Some(r_id)) = (&store_opt, project_root_id) {
-                                let parent_dir_canon = canonicalize_asset_path(parent_dir, &mut parse_warnings);
                                 let _ = store.upsert_asset(
                                     r_id, skill_engine_id, "skill", "project", &fm.name, &parent_dir_canon, fm.version.as_deref(), None, "ok", None, now, now
                                 );
@@ -1916,6 +1939,12 @@ impl DirectoryScanner {
                         Ok(fm) => {
                             let (_, _, _, source_path) = check_asset_drift(path, &checksums);
                             let link_state = if source_path.is_some() { Some(crate::domain::LinkState::Linked) } else { None };
+                            let sub_path_canon = canonicalize_asset_path(path, &mut parse_warnings);
+                            let resolved = origin_resolver.resolve_file(
+                                fm.declared_source(),
+                                &sub_path_canon,
+                                false,
+                            );
                             inventory.subagents.push(Subagent {
                                 id: path_str.clone(),
                                 name: fm.name.clone(),
@@ -1930,11 +1959,10 @@ impl DirectoryScanner {
                                 parse_status: Some("ok".to_string()),
                                 parse_error: None,
                                 link_state,
-                                origin: None,
-                                origin_blocked: None,
+                                origin: resolved.origin,
+                                origin_blocked: resolved.blocked.then_some(true),
                             });
                             if let (Some(store), Some(r_id)) = (&store_opt, project_root_id) {
-                                let sub_path_canon = canonicalize_asset_path(path, &mut parse_warnings);
                                 let _ = store.upsert_asset(
                                     r_id, subagent_engine_id, "subagent", "project", &fm.name, &sub_path_canon, None, None, "ok", None, now, now
                                 );
@@ -1946,6 +1974,7 @@ impl DirectoryScanner {
                                 path_str, e
                             ));
                             let sub_path_canon = canonicalize_asset_path(path, &mut parse_warnings);
+                            let resolved = origin_resolver.resolve_file(None, &sub_path_canon, false);
                             inventory.subagents.push(Subagent {
                                 id: path_str.clone(),
                                 name: filename.to_string(),
@@ -1962,8 +1991,8 @@ impl DirectoryScanner {
                                 // A parse failure is not a link state (ruled 2026-08-15): it files
                                 // under parse_status, never under broken links.
                                 link_state: None,
-                                origin: None,
-                                origin_blocked: None,
+                                origin: resolved.origin,
+                                origin_blocked: resolved.blocked.then_some(true),
                             });
                             if let (Some(store), Some(r_id)) = (&store_opt, project_root_id) {
                                 let _ = store.upsert_asset(
@@ -2105,6 +2134,8 @@ impl DirectoryScanner {
                             parse_warnings.push(w);
                         }
                         let link_state = if drifted == Some(true) { Some(crate::domain::LinkState::Drifted) } else if is_sym == Some(true) || source_path.is_some() { Some(crate::domain::LinkState::Linked) } else { None };
+                        let rule_canon = canonicalize_asset_path(Path::new(p_str), &mut parse_warnings);
+                        let resolved = origin_resolver.resolve_file(None, &rule_canon, false);
                         inventory.rules.push(Rule {
                             id: p_str.clone(),
                             name: name.clone(),
@@ -2120,11 +2151,10 @@ impl DirectoryScanner {
                             parse_status: Some("ok".to_string()),
                             parse_error: None,
                             link_state,
-                            origin: None,
-                            origin_blocked: None,
+                            origin: resolved.origin,
+                            origin_blocked: resolved.blocked.then_some(true),
                         });
                         if let (Some(store), Some(r_id)) = (&store_opt, project_root_id) {
-                            let rule_canon = canonicalize_asset_path(Path::new(p_str), &mut parse_warnings);
                             // A rules file is normally attributed by filename —
                             // `.cursorrules` says Cursor wherever it sits. Inside
                             // `.agents/` it does not: that directory is the shared
