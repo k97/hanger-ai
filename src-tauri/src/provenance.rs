@@ -67,6 +67,148 @@ pub fn normalize_source_url(raw: &str) -> Option<(String, String)> {
     Some((label, https))
 }
 
+use std::collections::HashMap;
+use std::path::Path;
+
+/// The plugin store's two manifests, read once per scan. A missing or
+/// malformed manifest is an absent class, never an error; a read the OS
+/// refused sets `blocked` so the caller can say "couldn't check" rather
+/// than "nothing found".
+pub struct PluginIndex {
+    /// marketplace name -> https repo url (github sources only carry repos).
+    marketplaces: HashMap<String, String>,
+    /// plugin name -> (commit sha, installed_at_ms), from the FIRST entry —
+    /// a plugin installed at several scopes shares one upstream.
+    plugins: HashMap<String, (Option<String>, Option<i64>)>,
+    cache_prefix: String,
+    marketplaces_prefix: String,
+}
+
+impl PluginIndex {
+    pub fn load(home: &Path) -> (Option<Self>, bool) {
+        let dir = home.join(".claude/plugins");
+        let mut blocked = false;
+        let mut read = |name: &str| -> Option<serde_json::Value> {
+            match std::fs::read_to_string(dir.join(name)) {
+                Ok(s) => serde_json::from_str(&s).ok(),
+                Err(e) => {
+                    if e.kind() == std::io::ErrorKind::PermissionDenied {
+                        blocked = true;
+                    }
+                    None
+                }
+            }
+        };
+        let known = read("known_marketplaces.json");
+        let installed = read("installed_plugins.json");
+        let Some(known) = known else { return (None, blocked) };
+
+        let mut marketplaces = HashMap::new();
+        if let Some(map) = known.as_object() {
+            for (name, entry) in map {
+                let source = &entry["source"];
+                if source["source"].as_str() == Some("github") {
+                    if let Some(repo) = source["repo"].as_str() {
+                        marketplaces
+                            .insert(name.clone(), format!("https://github.com/{}", repo));
+                    }
+                }
+            }
+        }
+        let mut plugins = HashMap::new();
+        if let Some(map) = installed
+            .as_ref()
+            .and_then(|v| v["plugins"].as_object())
+        {
+            for (key, entries) in map {
+                // "plugin-name@marketplace" — the name is the half before '@'.
+                let plugin = key.split('@').next().unwrap_or(key).to_string();
+                let first = entries.as_array().and_then(|a| a.first());
+                let sha = first
+                    .and_then(|e| e["gitCommitSha"].as_str())
+                    .map(String::from);
+                let at = first
+                    .and_then(|e| e["installedAt"].as_str())
+                    .and_then(parse_iso_ms);
+                plugins.insert(plugin, (sha, at));
+            }
+        }
+        (
+            Some(PluginIndex {
+                marketplaces,
+                plugins,
+                cache_prefix: dir.join("cache").to_string_lossy().into_owned(),
+                marketplaces_prefix: dir.join("marketplaces").to_string_lossy().into_owned(),
+            }),
+            blocked,
+        )
+    }
+
+    pub fn origin_for(&self, canonical_path: &str) -> Option<Origin> {
+        let (marketplace, plugin) = if let Some(rest) =
+            strip_dir_prefix(canonical_path, &self.cache_prefix)
+        {
+            let mut segs = rest.split('/');
+            (segs.next()?.to_string(), segs.next().map(String::from))
+        } else if let Some(rest) = strip_dir_prefix(canonical_path, &self.marketplaces_prefix) {
+            (rest.split('/').next()?.to_string(), None)
+        } else {
+            return None;
+        };
+        let repo_url = self.marketplaces.get(&marketplace)?;
+        let (label, url) = normalize_source_url(repo_url)?;
+        let (commit, installed_at_ms) = plugin
+            .as_deref()
+            .and_then(|p| self.plugins.get(p).cloned())
+            .unwrap_or((None, None));
+        Some(Origin {
+            label,
+            url: Some(url),
+            kind: OriginKind::Delivered,
+            commit,
+            delivered_by: plugin,
+            installed_at_ms,
+        })
+    }
+}
+
+/// "/a/b" under prefix "/a" -> Some("b"); never matches "/ab" from "/a".
+fn strip_dir_prefix<'a>(path: &'a str, prefix: &str) -> Option<&'a str> {
+    let rest = path.strip_prefix(prefix)?;
+    rest.strip_prefix('/')
+}
+
+/// "2026-07-20T02:30:08.089Z" -> epoch ms. Date arithmetic without a chrono
+/// dependency: days from civil algorithm (Howard Hinnant's), UTC only.
+fn parse_iso_ms(s: &str) -> Option<i64> {
+    let (date, time) = s.split_once('T')?;
+    let mut d = date.split('-');
+    let (y, m, day): (i64, i64, i64) = (
+        d.next()?.parse().ok()?,
+        d.next()?.parse().ok()?,
+        d.next()?.parse().ok()?,
+    );
+    let time = time.trim_end_matches('Z');
+    let (hms, ms) = match time.split_once('.') {
+        Some((a, b)) => (a, b.get(..3).unwrap_or("0").parse::<i64>().ok()?),
+        None => (time, 0),
+    };
+    let mut t = hms.split(':');
+    let (h, mi, sec): (i64, i64, i64) = (
+        t.next()?.parse().ok()?,
+        t.next()?.parse().ok()?,
+        t.next().unwrap_or("0").parse().ok()?,
+    );
+    let y2 = if m <= 2 { y - 1 } else { y };
+    let era = y2.div_euclid(400);
+    let yoe = y2 - era * 400;
+    let mp = (m + 9) % 12;
+    let doy = (153 * mp + 2) / 5 + day - 1;
+    let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+    let days = era * 146097 + doe - 719468;
+    Some(((days * 24 + h) * 60 + mi) * 60_000 + sec * 1000 + ms)
+}
+
 pub fn origin_from_declared(raw: &str) -> Origin {
     match normalize_source_url(raw) {
         Some((label, url)) => Origin {
