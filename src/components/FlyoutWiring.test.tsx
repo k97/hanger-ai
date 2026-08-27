@@ -5,6 +5,7 @@ import { useState } from "react";
 import RepoPane from "./RepoPane";
 import Flyout from "./Flyout";
 import { Inventory } from "../App";
+import { buildDetailAsset } from "../utils/detailAsset";
 
 // Mock Tauri invoke to avoid throwing
 vi.mock("@tauri-apps/api/core", () => ({
@@ -74,19 +75,11 @@ function TestAppHarness() {
     }
 
     if (fullAsset) {
-      setFlyoutInitialAsset({
-        type: "asset",
-        category: asset.category,
-        name: fullAsset.name,
-        path: asset.path,
-        scopeBadge: "Project",
-        isSymlink: false,
-        drifted: false,
-        // Task 11: the two fields App.tsx's real handleSelectAsset now
-        // threads onto the object it hands the inspector.
-        origin: fullAsset.origin,
-        origin_blocked: fullAsset.origin_blocked,
-      });
+      // The real production function App.tsx's handleSelectAsset calls —
+      // not a hand-rolled mirror. This is what makes the click below an
+      // actual exercise of the code Task 11 changed, not just a check that
+      // this test file agrees with itself.
+      setFlyoutInitialAsset({ type: "asset", ...buildDetailAsset(asset, fullAsset) });
     }
 
     setSelectedBubble({

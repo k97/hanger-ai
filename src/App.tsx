@@ -82,6 +82,7 @@ import type { ServerGrouping, ServerSort } from "./components/ViewControl";
 import { StateFilter } from "./utils/linkStateCounts";
 import { registrationKey } from "./utils/mcpRegistration";
 import { provenanceOf, type OriginWire } from "./utils/assetProvenance";
+import { buildDetailAsset } from "./utils/detailAsset";
 import { unaccountedProcesses, type ProcessMatch } from "./utils/mcpServerView";
 import type { McpServerRow } from "./utils/serverRows";
 import type { McpEngineSummaryData } from "./components/McpEngineSummary";
@@ -981,38 +982,7 @@ export default function App() {
     }
 
     if (fullAsset) {
-      const selectedItem = {
-        // Carried through, not dropped. Resolving by registrationKey above and
-        // then storing only `path` put the file back in charge of identity:
-        // ProfilePane compares what it is given, and for a tool `path` is the
-        // config FILE, so clicking one server in ~/.claude.json marked every
-        // server declared in it.
-        id: asset.id,
-        name: fullAsset.name,
-        category: asset.category,
-        path: asset.path,
-        source_path: fullAsset.source_path || fullAsset.source_origin,
-        source_origin: fullAsset.source_origin,
-        origin: fullAsset.origin,
-        origin_blocked: fullAsset.origin_blocked,
-        isSymlink: !!fullAsset.is_symlink,
-        is_symlink: !!fullAsset.is_symlink,
-        // The scope object itself, not just its display string below —
-        // `provenanceOf`/`placeOf` (assetProvenance.ts) read `scope` to
-        // resolve where the asset actually lives. Without it every clicked
-        // asset resolved to "Global" regardless of its real scope.
-        scope: fullAsset.scope,
-        scopeBadge: fullAsset.scope?.Global ? "Global" : "Project",
-        version: fullAsset.version,
-        details: asset.category === "Skills"
-          ? undefined
-          : asset.category === "Tools"
-            ? `Command: ${fullAsset.command} (Transport: ${fullAsset.transport})`
-            : asset.category === "Subagents"
-              ? (fullAsset.declared_tools?.length ? `Declared Tools: ${fullAsset.declared_tools.join(", ")}` : undefined)
-              : undefined,
-      };
-      setSelectedAsset(selectedItem);
+      setSelectedAsset(buildDetailAsset(asset, fullAsset));
     } else {
       setSelectedAsset(asset);
     }
