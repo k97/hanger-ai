@@ -912,3 +912,52 @@ reaches it.
 Left in place deliberately (Karthik's ruling, 2026-08-27) rather than deleted
 alongside unrelated work. Anyone reworking `mcp/` should decide whether to
 remove it or route the project pass through it.
+
+## Plugin-delivered skills are never inventoried
+
+2026-08-27. A skill installed by a plugin marketplace has no row in the store,
+on any machine. Measured: on this machine `karpathy-guidelines` exists at
+`~/.claude/plugins/cache/karpathy-skills/andrej-karpathy-skills/1.0.0/skills/karpathy-guidelines`
+and has zero rows, and
+
+```
+sqlite3 hanger.db "select category, count(*) from assets
+  where abs_path like '%/plugins/cache/%' group by category;"   -> (empty)
+sqlite3 hanger.db "select category, count(*) from assets
+  where abs_path like '%/plugins/marketplaces/%' group by category;" -> tool|6
+```
+
+So MCP sees the plugin store and the asset walks do not.
+
+**The cause is coverage, not symlinks.** The global skills walk is rooted at
+`<agent global root>/skills` (`scanner.rs:1216`, `WalkBuilder::new(&skills_path)`
+where `skills_path = g_path_buf.join("skills")`), and `AGENT_CONFIGS` gives
+claude-code `global_roots: [".claude", ".config/claude"]` with
+`skills: Some("skills")` (`agents.rs:109-117`). No engine's config names
+`plugins/cache` or `plugins/marketplaces`, so no agent-root walk ever arrives
+there. The six tool rows are found by MCP discovery, which uses its own
+SOURCES table rather than agent roots.
+
+`follow_links` being off is a *second*, independent barrier rather than the
+cause: it blocks the natural workaround of symlinking a plugin skill into
+`~/.claude/skills`. No `WalkBuilder` in `src-tauri/src/` enables it (the
+comment at `scanner.rs:1779` says so), and the project walker also skips
+directory entries outright. This matters because the two have different
+fixes — a declared root or source for the former, a walker flag plus
+cycle-safety for the latter. Distinguishing them was hanger-ai-e2's catch,
+2026-08-27; the first framing of this finding named only the second cause.
+
+**Kind asymmetry.** Subagents and rules are not affected the same way: their
+identity is the *file*, so a `.md` symlinked into the plugin cache is yielded
+by the walk and canonicalizes into it. A skill's identity is its *parent
+directory*, which is the thing the walk will not descend.
+
+**Why it is not being fixed now.** Making the scan reach the plugin store is a
+product change — a new root or source per engine — and it would move the
+per-kind counts, which the provenance work that surfaced it explicitly
+forbids itself from doing. Recorded here so the next person to touch asset
+discovery decides it deliberately. The consequence to know: the provenance
+work's "Delivered" origin class (repo + pinned commit, read from
+`known_marketplaces.json` and `installed_plugins.json`) is implemented
+uniformly but can only ever fire for subagents, rules and MCP servers — never
+for skills, the largest kind.
