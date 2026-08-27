@@ -36,6 +36,49 @@ time, and they commit to the same branch. `ListAgents` shows the others.
   wrong here: passing the path re-adds the whole working-tree file and throws
   away the hunks you just staged. Once you have staged deliberately, a bare
   `git commit` is what preserves that. `-a` is never right in this repo.
+
+  Read that paragraph twice before you commit. On 2026-08-27 a session that
+  had quoted this very rule to two peers an hour earlier then ran
+  `git commit -m "…" -- <paths>` on its own carefully split index, swept a
+  peer's entire uncommitted inspector-resize change into its commit, and
+  broke the branch tip. Knowing the rule is not the same as following it at
+  the moment you type the command.
+
+- **`--recount` is only for a hunk whose body you edited.** The recipe above
+  passes it unconditionally and that is wrong: on whole hunks kept intact,
+  whose counts are already correct, `git apply --cached --recount` fails with
+  "patch does not apply" while the same patch applies cleanly without it.
+  Use `--recount` when you have deleted lines from inside a hunk, fix the
+  `@@ -a,b +c,d @@` counts yourself and drop the flag when you have not, and
+  never `--unidiff-zero` either way.
+
+- **The `grep <their marker>` check is a denylist, and a denylist cannot see
+  what you have not met.** It confirms the thing you were watching for and
+  says nothing about the thing you were not. The 2026-08-27 split above was
+  classified with a marker list written by hand — and the peer's work
+  included an import the list had never heard of, so the hunk holding it was
+  read as "mine" and kept whole. The grep came back empty and the commit was
+  still wrong, in both directions: a marker list cannot see what a split
+  dropped *or* what it kept.
+
+  **Build the committed tree in isolation instead**, before you call it done:
+
+  ```
+  git worktree add --detach /tmp/verify-<sha> <sha>
+  ln -s "$PWD/node_modules" /tmp/verify-<sha>/node_modules
+  cd /tmp/verify-<sha> && npx vitest run
+  ```
+
+  Foreign content that references an untracked file fails to resolve there
+  immediately — that is how the broken tip was caught, with fifteen test
+  files unable to collect while the shared working tree stayed green,
+  because the file exists here and not in the commit. Note the limit
+  (hanger-ai-cf, same day): isolation catches an unresolvable import at once
+  and semantic contamination only if a test covers it. It is strictly better
+  than the grep and still not a guarantee.
+
+  The same check catches the mirror-image mistake: committing a file that
+  imports a new module of your own you forgot to `git add`.
 - Say so before touching a file a peer is mid-edit on (`SendMessage`).
 
 - **Concurrent subagents share one git index, and that inverts the rule
