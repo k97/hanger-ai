@@ -142,3 +142,28 @@ a follow-on to this one.
 Known ceiling for that plan: Hanger sees only its own process environment.
 Launched from Finder it inherits launchd's, not the user's shell, so a
 variable exported in `~/.zshrc` is invisible either way.
+
+## No help surface, and one homeless sentence waiting for it
+
+Recorded 2026-08-28. Hanger has no help, about or terms screen. The rail's
+gear opens "Hanger Settings & Maintenance" (`App.tsx`, the settings modal),
+which is an export/import dialog for the local store — not a place for
+explanatory text about how the harness behaves.
+
+This surfaced when the Contents card's "Only SKILL.md is read into context"
+line was removed from the inspector (Karthik's ruling, 2026-08-28: it is a
+fact about the harness, not about the asset on screen, so the panel was
+restating it on every asset opened). The fact itself now lives in
+`docs/harness.md` under the conventions the code encodes, which is the right
+home for the model but reaches no user of the app.
+
+Whoever builds the help surface: that sentence is the first thing that
+belongs in it, and it is unlikely to be the only one. The Context ledger's
+own caveat — "Token figures are bytes divided by four. Every engine
+tokenises differently, so treat them as a size, not a count."
+(`AssetDetail.tsx`, `CONTEXT_NOTE`) — is the same shape, currently behind an
+`InfoPopover` on every asset, and would move there too.
+
+Deliberately not built as part of the provenance work: a help screen is
+product work with its own naming and copy decisions under `ui-copy.md`, not
+somewhere to tuck a line that had nowhere else to go.
