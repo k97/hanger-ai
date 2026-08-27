@@ -46,6 +46,41 @@ fn every_source_names_a_declared_host() {
 }
 
 #[test]
+fn every_sources_row_is_claimed_by_exactly_one_discovery_path() {
+    // discover_machine_at (discover.rs) selects rows with
+    // `matches!(s.location, HomeRelative | SystemAbsolute)`; discover_repo
+    // selects `RepoRelative`. Both use `matches!`/`==`, which compile clean
+    // for an unmatched variant rather than erroring — so a future
+    // `SourceLocation` variant would be silently skipped by BOTH discovery
+    // paths, with nothing red, unless something here is exhaustive over the
+    // variant set. These two helper functions ARE exhaustive (no `_` arm),
+    // so adding a variant without updating them fails this test's own
+    // compilation rather than merely leaving a row unread at runtime.
+    fn read_by_discover_machine_at(loc: SourceLocation) -> bool {
+        match loc {
+            SourceLocation::HomeRelative | SourceLocation::SystemAbsolute => true,
+            SourceLocation::RepoRelative => false,
+        }
+    }
+    fn read_by_discover_repo(loc: SourceLocation) -> bool {
+        match loc {
+            SourceLocation::RepoRelative => true,
+            SourceLocation::HomeRelative | SourceLocation::SystemAbsolute => false,
+        }
+    }
+
+    for source in registry::SOURCES {
+        let claimants = read_by_discover_machine_at(source.location) as u8
+            + read_by_discover_repo(source.location) as u8;
+        assert_eq!(
+            claimants, 1,
+            "source {} (host {}, location {:?}) is claimed by {} discovery path(s), expected exactly 1",
+            source.path, source.host_id, source.location, claimants
+        );
+    }
+}
+
+#[test]
 fn claude_json_supplies_both_user_and_local_tiers() {
     let tiers: Vec<ScopeTier> = registry::SOURCES
         .iter()
