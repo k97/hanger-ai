@@ -87,6 +87,23 @@ pub struct PluginIndex {
 impl PluginIndex {
     pub fn load(home: &Path) -> (Option<Self>, bool) {
         let dir = home.join(".claude/plugins");
+        // `origin_for` compares `cache_prefix`/`marketplaces_prefix` against
+        // a CANONICAL asset path (`canonicalize_asset_path` in scanner.rs
+        // resolves every path component), so the prefix built here has to be
+        // canonical too — otherwise a symlinked `.claude`, `.claude/plugins`,
+        // or `.claude/plugins/cache` (dotfiles managers like stow/chezmoi lay
+        // out any of the three that way) never matches, and every Delivered
+        // origin beneath it is silently reported as absent (Task 7 review,
+        // round 2). Falling back to the lexical `dir` when canonicalize
+        // fails is deliberate and covers the overwhelmingly common case —
+        // no plugin store on this machine at all: the two manifest reads
+        // just below fail with "not found" either way, which already
+        // degrades correctly to "no index" via the `let Some(known) = ...`
+        // return below. A failed canonicalize must never produce a
+        // different, WRONG prefix that happens to match something
+        // unintended — falling back to the unresolved path can only ever
+        // under-match (miss a real symlinked store), never over-match.
+        let dir = std::fs::canonicalize(&dir).unwrap_or(dir);
         let mut blocked = false;
         let mut read = |name: &str| -> Option<serde_json::Value> {
             match std::fs::read_to_string(dir.join(name)) {
@@ -738,19 +755,26 @@ pub struct OriginResolver {
 
 impl OriginResolver {
     pub fn new(home: &Path) -> Self {
-        // `PluginIndex` builds its cache/marketplaces prefixes LEXICALLY
-        // from whatever `home` it is handed, while every path this
-        // resolver is later asked about comes from `canonicalize_asset_path`
-        // — fully symlink-resolved. Canonicalize once here so a symlinked
-        // $HOME still matches: comparing a canonical asset path against a
-        // prefix built from the raw (lexical) home would silently miss
-        // every Delivered origin under it, which is the exact
-        // false-statement-about-the-user's-machine `blocked` exists to
-        // prevent (Task 7 review, round 1). `git_remote_origin` already
-        // canonicalizes its own fence internally, so only the plugin side
-        // needed this. Falls back to the raw path when it does not
-        // resolve (home missing or unreadable) — same as
-        // `git_remote_origin`'s own fence, an absent origin, not a panic.
+        // KEPT, after briefly being removed as apparently-redundant and
+        // restored the same round (see the Task 7 report for the failing
+        // test that caught the reversal). `PluginIndex::load` now
+        // canonicalizes its own prefix independently, so this alone no
+        // longer carries that fix. But `git_remote_origin`'s walk
+        // termination — `let reached_home = d ==
+        // home` and the `.filter(|p| *p == home || p.starts_with(home))`
+        // that decides whether to keep climbing — compares directly against
+        // the RAW `home` parameter it is given, not against its own
+        // internally-canonicalized `home_canon` (that copy is used only for
+        // the `within_fence` check). Every `d` in that walk is canonical,
+        // because it descends from the scanner's already-canonicalized
+        // asset path. So an uncanonicalized `home` (a tempdir under
+        // macOS's `/var` -> `/private/var`, or any real symlinked-ancestor
+        // home) never satisfies either comparison, and the walk terminates
+        // one directory short of `home` itself — missing a `.git/config`
+        // that sits AT the fence, exactly the shape
+        // `test_global_sites_is_global_argument_is_load_bearing` builds.
+        // Canonicalizing here is what keeps `self.home`, and therefore
+        // every `d` it is compared against, in the same (canonical) space.
         let home = std::fs::canonicalize(home).unwrap_or_else(|_| home.to_path_buf());
         let (plugins, plugins_blocked) = PluginIndex::load(&home);
         OriginResolver {

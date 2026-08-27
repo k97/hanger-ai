@@ -2558,7 +2558,8 @@ fn test_origin_resolution_per_class() {
 /// checked-out origin by walking up to it. Flipping any one of those sites'
 /// `is_global` argument to `false` skips the checked-out lookup for that
 /// kind alone and reddens only that kind's assertion (verified by hand for
-/// the subagent site; see the Task 7 report).
+/// all three sites — rule, skill, and subagent — flipped one at a time and
+/// reverted after each; see the Task 7 report for the transcripts).
 #[test]
 fn test_global_sites_is_global_argument_is_load_bearing() {
     let _guard = ENV_MUTEX.get_or_init(|| Mutex::new(())).lock().unwrap();

@@ -73,9 +73,11 @@ fn test_plugin_cache_path_resolves_repo_and_commit() {
     let (idx, blocked) = PluginIndex::load(td.path());
     assert!(!blocked);
     let idx = idx.unwrap();
-    let p = td
-        .path()
-        .join(".claude/plugins/cache/mkt-a/tool-x/1.0.0/skills/s/SKILL.md");
+    // Canonicalized: `PluginIndex::load` now canonicalizes its own prefix
+    // (round 2), so the path handed to `origin_for` has to match that --
+    // same reasoning as the resolver-level tests further down this file.
+    let home_canon = fs::canonicalize(td.path()).unwrap();
+    let p = home_canon.join(".claude/plugins/cache/mkt-a/tool-x/1.0.0/skills/s/SKILL.md");
     let o = idx.origin_for(&p.to_string_lossy()).unwrap();
     assert_eq!(o.label, "owner/market-repo");
     assert_eq!(o.url.as_deref(), Some("https://github.com/owner/market-repo"));
@@ -108,9 +110,8 @@ fn test_scoped_plugin_key_resolves_commit_and_installed_at() {
     )
     .unwrap();
     let (idx, _) = PluginIndex::load(td.path());
-    let p = td
-        .path()
-        .join(".claude/plugins/cache/mkt-a/@scoped-tool/1.0.0/skills/s/SKILL.md");
+    let home_canon = fs::canonicalize(td.path()).unwrap();
+    let p = home_canon.join(".claude/plugins/cache/mkt-a/@scoped-tool/1.0.0/skills/s/SKILL.md");
     let o = idx.unwrap().origin_for(&p.to_string_lossy()).unwrap();
     assert_eq!(o.delivered_by.as_deref(), Some("@scoped-tool"));
     assert_eq!(o.commit.as_deref(), Some("b0b9f02b0581696da41e20d6c536ec639b44080f"));
@@ -121,7 +122,8 @@ fn test_scoped_plugin_key_resolves_commit_and_installed_at() {
 fn test_marketplace_clone_path_resolves_repo_without_commit() {
     let td = plugin_home();
     let (idx, _) = PluginIndex::load(td.path());
-    let p = td.path().join(".claude/plugins/marketplaces/mkt-a/skills/y/SKILL.md");
+    let home_canon = fs::canonicalize(td.path()).unwrap();
+    let p = home_canon.join(".claude/plugins/marketplaces/mkt-a/skills/y/SKILL.md");
     let o = idx.unwrap().origin_for(&p.to_string_lossy()).unwrap();
     assert_eq!(o.label, "owner/market-repo");
     assert_eq!(o.commit, None);
@@ -153,9 +155,8 @@ fn test_malformed_manifest_is_absence_not_error() {
 fn test_plugin_installed_at_exact_epoch_ms() {
     let td = plugin_home();
     let (idx, _) = PluginIndex::load(td.path());
-    let p = td
-        .path()
-        .join(".claude/plugins/cache/mkt-a/tool-x/1.0.0/skills/s/SKILL.md");
+    let home_canon = fs::canonicalize(td.path()).unwrap();
+    let p = home_canon.join(".claude/plugins/cache/mkt-a/tool-x/1.0.0/skills/s/SKILL.md");
     let o = idx.unwrap().origin_for(&p.to_string_lossy()).unwrap();
     assert_eq!(o.installed_at_ms, Some(1_784_514_608_089));
 }
@@ -993,4 +994,50 @@ fn test_resolver_reports_blocked_via_git_refusal_arm() {
     assert!(res.blocked, "an EACCES on .git/config reached through resolve_file must report blocked");
 
     let _ = fs::set_permissions(&cfg, fs::Permissions::from_mode(0o644));
+}
+
+/// Round 2 finding: the previous fix canonicalized `home` itself, closing
+/// the symlinked-`$HOME` case (`test_resolver_delivered_resolves_under_symlinked_home`
+/// above) but not this one — a real `$HOME` whose `.claude` is a symlink to
+/// a sibling directory (`ln -s ~/dotfiles/claude ~/.claude`, exactly how
+/// stow/chezmoi-managed dotfiles lay things out). `PluginIndex::load` built
+/// its prefixes from `home.join(".claude/plugins")` without canonicalizing
+/// THAT path, so a symlinked `.claude` (or `.claude/plugins`, or
+/// `.claude/plugins/cache`) still produced a prefix that never matched the
+/// fully-resolved asset path `resolve_file` is actually handed.
+#[test]
+fn test_resolver_delivered_resolves_under_symlinked_claude_dir() {
+    let td = tempfile::tempdir().unwrap();
+
+    // A REAL (non-symlinked) home directory.
+    let real_home = td.path().join("home");
+    fs::create_dir_all(&real_home).unwrap();
+
+    // The real target `.claude` points at -- a sibling directory, as a
+    // dotfiles manager would lay it out.
+    let real_claude = td.path().join("dotfiles/claude");
+    let pl = real_claude.join("plugins");
+    fs::create_dir_all(&pl).unwrap();
+    fs::write(
+        pl.join("known_marketplaces.json"),
+        r#"{"mkt-a":{"source":{"source":"github","repo":"owner/market-repo"}}}"#,
+    )
+    .unwrap();
+    let cache_leaf = real_claude.join("plugins/cache/mkt-a/tool-x/1.0.0/skills/s");
+    fs::create_dir_all(&cache_leaf).unwrap();
+    fs::write(cache_leaf.join("SKILL.md"), "---\nname: s\ndescription: d\n---\n").unwrap();
+
+    // `.claude` itself is the symlink; `home` is not.
+    std::os::unix::fs::symlink(&real_claude, real_home.join(".claude")).unwrap();
+
+    let lexical_asset_path =
+        real_home.join(".claude/plugins/cache/mkt-a/tool-x/1.0.0/skills/s/SKILL.md");
+    let canonical_asset_path = fs::canonicalize(&lexical_asset_path).unwrap();
+
+    let mut r = tauri_app_lib::provenance::OriginResolver::new(&real_home);
+    let res = r.resolve_file(None, &canonical_asset_path.to_string_lossy(), false);
+    let o = res.origin.expect(
+        "a symlinked .claude directory inside a real $HOME must not hide a Delivered origin the plugin index actually has",
+    );
+    assert_eq!(o.label, "owner/market-repo");
 }
