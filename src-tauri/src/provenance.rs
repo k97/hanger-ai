@@ -470,12 +470,12 @@ pub fn launched_origin(command: &str, args: &[String], transport: &str) -> Optio
     // Remote endpoint: transport is an already-sanitised URL (dialect.rs:27).
     // Host only — never any other part of the URL reaches the result.
     if transport.starts_with("http://") || transport.starts_with("https://") {
-        let after = transport.split_once("://")?.1;
+        let (scheme, after) = transport.split_once("://")?;
         let host = after.split(['/', '?', '#']).next()?;
         if !host.is_empty() {
             return Some(Origin {
                 label: host.to_string(),
-                url: Some(format!("https://{}", host)),
+                url: Some(format!("{}://{}", scheme, host)),
                 kind: OriginKind::Launched,
                 commit: None,
                 delivered_by: None,
@@ -560,12 +560,21 @@ fn strip_version_suffix(token: &str) -> &str {
 
 /// The npm name grammar, close enough to also fence PyPI names: an optional
 /// `@scope/` prefix, then a package segment; every segment restricted to
-/// lowercase alphanumerics and `-._~`. One pass, one rule, applied to
-/// whichever segments are present — no dead first pass. Anything outside it
-/// is not a package name and never becomes a link.
+/// lowercase alphanumerics and `-._~`, and forbidden from leading with `.`
+/// or `_` (which also rules out the bare segments `.` and `..` — a
+/// dot-only segment normalizes to the registry root in a browser, a link
+/// that does not go where its label claims). The full name is bounded at
+/// npm's own 214-character limit. One pass, one rule, applied to whichever
+/// segments are present — no dead first pass. Anything outside it is not a
+/// package name and never becomes a link.
 fn is_valid_package_name(name: &str) -> bool {
+    if name.is_empty() || name.len() > 214 {
+        return false;
+    }
     let segment_ok = |s: &str| {
         !s.is_empty()
+            && !s.starts_with('.')
+            && !s.starts_with('_')
             && s.chars()
                 .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || "-._~".contains(c))
     };

@@ -544,3 +544,53 @@ fn test_codex_single_string_form_matches_split_form_and_never_leaks() {
         assert!(!json.contains("sk-live-abc123"), "flag value leaked into origin: {json}");
     }
 }
+
+// --- Fix: three MINOR findings from the same review round ---
+
+#[test]
+fn test_dot_dot_is_not_a_package_name() {
+    // `npx ..` currently yields a URL that browsers normalize to the npm
+    // root — a link that does not go where its label claims. Real npm
+    // forbids `.` and `..` as package names outright.
+    assert!(
+        launched_origin("npx", &["..".into()], "stdio").is_none(),
+        "'..' must never resolve to an origin"
+    );
+    assert!(
+        launched_origin("npx", &[".".into()], "stdio").is_none(),
+        "'.' must never resolve to an origin"
+    );
+}
+
+#[test]
+fn test_leading_dot_or_underscore_package_name_is_rejected() {
+    // Real npm forbids a leading '.' or '_' in a package name.
+    assert!(launched_origin("npx", &[".hidden-pkg".into()], "stdio").is_none());
+    assert!(launched_origin("npx", &["_private-pkg".into()], "stdio").is_none());
+}
+
+#[test]
+fn test_package_name_over_214_chars_is_rejected() {
+    // npm's own limit is 214 characters, including any scope.
+    let long_name = "a".repeat(215);
+    assert!(
+        launched_origin("npx", &[long_name.into()], "stdio").is_none(),
+        "a package name over npm's 214-char limit must not resolve"
+    );
+}
+
+#[test]
+fn test_package_name_at_214_chars_still_resolves() {
+    let name_214 = "a".repeat(214);
+    let o = launched_origin("npx", &[name_214.clone().into()], "stdio").unwrap();
+    assert_eq!(o.label, format!("npm: {}", name_214));
+}
+
+#[test]
+fn test_remote_transport_preserves_original_scheme() {
+    // The transport may be a plain http:// endpoint; relabelling it https://
+    // produces a link to a scheme the endpoint may not actually serve.
+    let o = launched_origin("", &[], "http://mcp.example.com/v1/sse").unwrap();
+    assert_eq!(o.label, "mcp.example.com");
+    assert_eq!(o.url.as_deref(), Some("http://mcp.example.com"));
+}
