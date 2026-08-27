@@ -636,6 +636,40 @@ impl PreferencesStore {
             })?;
         }
 
+        // v8: the search palette's content index. An FTS5 virtual table,
+        // rebuilt from the combined inventory at the end of every scan and
+        // per registration after every probe (`search.rs`), so it never
+        // needs to survive a schema change — dropping and recreating it is
+        // always safe. `porter unicode61` stems, so "deploying" matches
+        // "deploy"; UNINDEXED columns are identity the read returns, not
+        // text the query can hit. `body` is re-read from disk at index
+        // time rather than stored anywhere else in this database.
+        if current_version < 8 {
+            let tx = conn.transaction().map_err(|_| {
+                SanitisedError("Failed to start database migration transaction".to_string())
+            })?;
+
+            tx.execute_batch(
+                "CREATE VIRTUAL TABLE IF NOT EXISTS asset_search USING fts5(
+                    kind UNINDEXED,
+                    ref UNINDEXED,
+                    path UNINDEXED,
+                    place UNINDEXED,
+                    server UNINDEXED,
+                    name,
+                    description,
+                    body,
+                    tokenize = 'porter unicode61'
+                );
+                PRAGMA user_version = 8;",
+            )
+            .map_err(|_| SanitisedError("Database migration failed".to_string()))?;
+
+            tx.commit().map_err(|_| {
+                SanitisedError("Failed to commit database migration transaction".to_string())
+            })?;
+        }
+
         Ok(())
     }
 
