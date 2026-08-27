@@ -399,7 +399,13 @@ export default function App() {
   // mid-transition, where a state-dep effect would read the pre-transition
   // width. happy-dom's `observe()` is a no-op that never fires, so nothing
   // here is testable in this repo; it is screenshot territory.
-  useEffect(() => {
+  //
+  // `useLayoutEffect`, not `useEffect`: `room` starts at 0, and
+  // `refitInspectorWidth` floors a room of 0 at INSPECTOR_MIN_WIDTH — so a
+  // measure that runs after paint shows a 384px panel for one frame before
+  // snapping to the user's remembered width, on every open and again on every
+  // expand toggle. Measuring before paint is the whole point of the hook.
+  useLayoutEffect(() => {
     const column = inspectorExpanded ? asideRef.current : mainRef.current;
     const remeasure = () => setRoom(measureRoom());
     remeasure();
