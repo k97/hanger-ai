@@ -478,11 +478,26 @@ fn matching_sources(config_path: &str) -> Vec<&'static McpSource> {
     // still matches the reviewer's instruction and costs nothing: a literal
     // `*` byte never appears in a real resolved path, so a future glob row
     // here would simply not match via `ends_with`, same as before.
-    SOURCES
+    let mut repo: Vec<&'static McpSource> = SOURCES
         .iter()
-        .filter(|s| s.location == SourceLocation::RepoRelative)
+        .filter(|s| {
+            matches!(
+                s.location,
+                SourceLocation::RepoRelative | SourceLocation::RepoAncestors
+            ) && !s.path.contains('*')
+        })
         .filter(|s| path.ends_with(s.path))
-        .collect()
+        .collect();
+    // RepoRelative and RepoAncestors both name `.mcp.json`. They differ only
+    // in where the file is looked for, and the caller has already settled
+    // that by handing us a concrete path — so identical
+    // (host, dialect, tier) triples are one candidate, not two.
+    //
+    // dedup_by_key removes only CONSECUTIVE duplicates: this depends on the
+    // two `.mcp.json` rows sitting adjacent in SOURCES. If they are ever
+    // separated, switch to a HashSet on the triple instead.
+    repo.dedup_by_key(|s| (s.host_id, s.dialect, s.tier));
+    repo
 }
 
 /// Like [`read_swept`], but surfaces a parse failure as `Err` instead of a
@@ -555,6 +570,38 @@ pub fn discover_machine_at(home: &Path, system: &Path) -> DiscoveryResult {
             _ => home,
         };
         read_source(base, source, &mut out);
+    }
+    out
+}
+
+/// Registrations reaching `repo_root` from `.mcp.json` files in ancestor
+/// directories.
+///
+/// The walk covers directories strictly between `repo_root` and `home`, both
+/// endpoints excluded: the root itself is read by the project pass's walk
+/// sweep, and home by the `HomeRelative` row in the machine pass. Including
+/// either here would persist the same file twice for one project.
+///
+/// A `repo_root` that is not under `home` walks nothing. Ancestor reach above
+/// an unrelated tree is a claim this function cannot verify, and walking to
+/// the filesystem root would read arbitrary directories.
+pub fn discover_repo_ancestors(repo_root: &Path, home: &Path) -> DiscoveryResult {
+    let mut out = DiscoveryResult::default();
+    if !repo_root.starts_with(home) {
+        return out;
+    }
+    for source in SOURCES
+        .iter()
+        .filter(|s| s.location == SourceLocation::RepoAncestors)
+    {
+        let mut dir = repo_root.parent();
+        while let Some(d) = dir {
+            if d == home || !d.starts_with(home) {
+                break;
+            }
+            read_source(d, source, &mut out);
+            dir = d.parent();
+        }
     }
     out
 }

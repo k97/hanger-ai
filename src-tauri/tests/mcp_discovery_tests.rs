@@ -49,29 +49,41 @@ fn every_source_names_a_declared_host() {
 fn every_sources_row_is_claimed_by_exactly_one_discovery_path() {
     // discover_machine_at (discover.rs) selects rows with
     // `matches!(s.location, HomeRelative | SystemAbsolute)`; discover_repo
-    // selects `RepoRelative`. Both use `matches!`/`==`, which compile clean
-    // for an unmatched variant rather than erroring — so a future
-    // `SourceLocation` variant would be silently skipped by BOTH discovery
-    // paths, with nothing red, unless something here is exhaustive over the
-    // variant set. These two helper functions ARE exhaustive (no `_` arm),
-    // so adding a variant without updating them fails this test's own
-    // compilation rather than merely leaving a row unread at runtime.
+    // selects `RepoRelative`; discover_repo_ancestors selects `RepoAncestors`.
+    // All three use `matches!`/`==`, which compile clean for an unmatched
+    // variant rather than erroring — so a future `SourceLocation` variant
+    // would be silently skipped by every discovery path, with nothing red,
+    // unless something here is exhaustive over the variant set. These three
+    // helper functions ARE exhaustive (no `_` arm), so adding a variant
+    // without updating them fails this test's own compilation rather than
+    // merely leaving a row unread at runtime.
     fn read_by_discover_machine_at(loc: SourceLocation) -> bool {
         match loc {
             SourceLocation::HomeRelative | SourceLocation::SystemAbsolute => true,
-            SourceLocation::RepoRelative => false,
+            SourceLocation::RepoRelative | SourceLocation::RepoAncestors => false,
         }
     }
     fn read_by_discover_repo(loc: SourceLocation) -> bool {
         match loc {
             SourceLocation::RepoRelative => true,
-            SourceLocation::HomeRelative | SourceLocation::SystemAbsolute => false,
+            SourceLocation::HomeRelative
+            | SourceLocation::SystemAbsolute
+            | SourceLocation::RepoAncestors => false,
+        }
+    }
+    fn read_by_discover_repo_ancestors(loc: SourceLocation) -> bool {
+        match loc {
+            SourceLocation::RepoAncestors => true,
+            SourceLocation::HomeRelative
+            | SourceLocation::SystemAbsolute
+            | SourceLocation::RepoRelative => false,
         }
     }
 
     for source in registry::SOURCES {
         let claimants = read_by_discover_machine_at(source.location) as u8
-            + read_by_discover_repo(source.location) as u8;
+            + read_by_discover_repo(source.location) as u8
+            + read_by_discover_repo_ancestors(source.location) as u8;
         assert_eq!(
             claimants, 1,
             "source {} (host {}, location {:?}) is claimed by {} discovery path(s), expected exactly 1",
@@ -1686,5 +1698,84 @@ fn discover_machine_at_reads_vscode_profile_mcp_json() {
         result.registrations.iter().any(|r| r.server.name == "profile-probe"
             && r.host_id == "vscode"),
         "per-profile VS Code mcp.json not discovered"
+    );
+}
+
+// ─── RepoAncestors: Claude Code's ancestor walk ────────────────────────────
+
+#[test]
+fn ancestor_walk_finds_mid_tree_and_leaves_the_endpoints_alone() {
+    let home = tempfile::tempdir().unwrap();
+    let repo = home.path().join("Work/Labs/proj");
+    std::fs::create_dir_all(&repo).unwrap();
+
+    // Mid-tree: reaches the repo, owned by no single project. The target.
+    std::fs::write(
+        home.path().join("Work/.mcp.json"),
+        r#"{"mcpServers": {"mid-tree": {"command": "/bin/true", "args": []}}}"#,
+    )
+    .unwrap();
+    // Home-level: the machine pass owns this (Plan A Task 3).
+    std::fs::write(
+        home.path().join(".mcp.json"),
+        r#"{"mcpServers": {"home-level": {"command": "/bin/true", "args": []}}}"#,
+    )
+    .unwrap();
+    // Repo-level: the project pass's walk sweep owns this.
+    std::fs::write(
+        repo.join(".mcp.json"),
+        r#"{"mcpServers": {"repo-level": {"command": "/bin/true", "args": []}}}"#,
+    )
+    .unwrap();
+
+    let result = discover::discover_repo_ancestors(&repo, home.path());
+    let names: Vec<&str> = result.registrations.iter().map(|r| r.server.name.as_str()).collect();
+
+    assert!(names.contains(&"mid-tree"), "ancestor .mcp.json missed: {:?}", names);
+    assert!(
+        !names.contains(&"home-level"),
+        "home is excluded: the machine pass already reads it, and including it \
+         here would double-count once per project"
+    );
+    assert!(
+        !names.contains(&"repo-level"),
+        "the repo root is excluded: the walk sweep already reads it"
+    );
+}
+
+#[test]
+fn ancestor_walk_finds_every_level_between_repo_and_home() {
+    let home = tempfile::tempdir().unwrap();
+    let repo = home.path().join("a/b/c");
+    std::fs::create_dir_all(&repo).unwrap();
+    for (dir, name) in [("a", "level-a"), ("a/b", "level-b")] {
+        std::fs::write(
+            home.path().join(dir).join(".mcp.json"),
+            format!(r#"{{"mcpServers": {{"{}": {{"command": "/bin/true", "args": []}}}}}}"#, name),
+        )
+        .unwrap();
+    }
+    let result = discover::discover_repo_ancestors(&repo, home.path());
+    let mut names: Vec<&str> = result.registrations.iter().map(|r| r.server.name.as_str()).collect();
+    names.sort();
+    assert_eq!(names, vec!["level-a", "level-b"], "every intervening level must be read");
+}
+
+#[test]
+fn ancestor_walk_ignores_a_repo_outside_home() {
+    let home = tempfile::tempdir().unwrap();
+    let outside = tempfile::tempdir().unwrap();
+    let repo = outside.path().join("proj");
+    std::fs::create_dir_all(&repo).unwrap();
+    std::fs::write(
+        outside.path().join(".mcp.json"),
+        r#"{"mcpServers": {"outside": {"command": "/bin/true", "args": []}}}"#,
+    )
+    .unwrap();
+    let result = discover::discover_repo_ancestors(&repo, home.path());
+    assert!(
+        result.registrations.is_empty(),
+        "a repo outside $HOME walks nothing — ancestor reach above an \
+         unrelated tree is a claim this function cannot verify"
     );
 }

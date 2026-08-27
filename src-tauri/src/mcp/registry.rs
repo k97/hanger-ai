@@ -74,6 +74,12 @@ pub enum SourceLocation {
     /// absolute path discards the base, which would defeat the system root
     /// `discover_machine_at` passes and silently read the host.
     SystemAbsolute,
+    /// Path is read in every ancestor directory strictly between a repository
+    /// root and the home directory. The root itself is covered by the project
+    /// pass's walk sweep, and home by a `HomeRelative` row, so this class
+    /// covers only the levels in between — which Claude Code's ancestor walk
+    /// reaches (measured 2026-08-27) and nothing else expressed.
+    RepoAncestors,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -144,6 +150,7 @@ pub const SOURCES: &[McpSource] = &[
     McpSource { host_id: "claude-code", location: HomeRelative, path: ".claude/settings.json", tier: Global, dialect: McpServers },
     McpSource { host_id: "claude-code", location: HomeRelative, path: ".claude/plugins/marketplaces/*/.mcp.json", tier: Global, dialect: McpServers },
     McpSource { host_id: "claude-code", location: RepoRelative, path: ".mcp.json", tier: Project, dialect: McpServers },
+    McpSource { host_id: "claude-code", location: RepoAncestors, path: ".mcp.json", tier: Project, dialect: McpServers },
     McpSource { host_id: "claude-code", location: RepoRelative, path: ".claude/settings.json", tier: Project, dialect: McpServers },
 
     // Managed MCP servers — a deployed, fleet-wide server set, same format as
