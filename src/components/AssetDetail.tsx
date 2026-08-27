@@ -276,6 +276,20 @@ export default function AssetDetail({ asset, inventory, onDocumentPath, annotati
   const specRows: IdentityRow[] = document
     ? (SPEC_FIELDS as readonly string[])
         .filter((key) => key !== "name" && key !== "description" && key !== "allowed-tools")
+        // Karthik's ruling, 2026-08-27: `compatibility` and `metadata` are
+        // dropped from this panel's own summary — not from SPEC_FIELDS,
+        // which documents the skill spec's six keys and is used elsewhere.
+        // `metadata` is a YAML map; `parseSkillDocument` is line-based and
+        // reads a key with no inline value as opening a LIST, so
+        // `metadata:` followed by indented sub-keys always stores an empty
+        // array and the row rendered blank on every skill that used it (15
+        // of 133 on this machine). `compatibility` is free prose with no
+        // length contract (24-141 chars observed here) and reads as an
+        // essay in a table row even when it parses correctly. Neither
+        // becomes unreachable: the Content tab's Source view still shows
+        // the raw frontmatter, so a skill's compatibility and metadata stay
+        // readable there — this only drops them from the Identity card.
+        .filter((key) => key !== "compatibility" && key !== "metadata")
         .filter((key) => document.frontmatter[key] !== undefined)
         .map((key) => {
           const label = key[0].toUpperCase() + key.slice(1);

@@ -191,6 +191,50 @@ describe("Asset detail — the inspector's document screen", () => {
   // Was also "and measures the file it actually read", asserting
   // `screen.getByText("431 B · 21 lines")` — Identity's Size row, removed
   // 2026-08-27 (Contents and the Context ledger already carry the bytes).
+  // Karthik's ruling, 2026-08-27: Compatibility and Metadata are dropped
+  // from the Identity summary. Metadata always rendered blank — the
+  // frontmatter parser (`skillDocument.ts`) is line-based and reads a key
+  // with no inline value as opening a LIST, so a YAML map under `metadata:`
+  // always stores an empty array, leaking its sub-keys out as separate
+  // top-level frontmatter entries. Compatibility is free prose with no
+  // length contract and reads as an essay in a table row even parsed
+  // correctly. Both stay reachable: the Content tab's Source view still
+  // shows the raw frontmatter, so nothing about the asset becomes
+  // unreadable, only absent from the summary card.
+  it("drops Compatibility and Metadata from Identity; License stays; both remain readable in Source", async () => {
+    bodyResult = {
+      ok: true,
+      text: [
+        "---",
+        "name: agent-browser",
+        "description: Drives a Chromium instance over CDP.",
+        "license: MIT",
+        "compatibility: Requires Node 18+ and a Chromium build with remote debugging enabled on macOS and Linux.",
+        "metadata:",
+        "  author: someone",
+        "  version: 3",
+        "---",
+        "",
+        "# agent-browser",
+      ].join("\n"),
+    };
+    render(<AssetDetail asset={asset} inventory={inventory} />);
+    await screen.findByRole("tab", { name: "Details" });
+    openDetails();
+    const section = screen.getByText("Identity").closest("section")!;
+    expect(within(section).queryByText("Compatibility")).toBeNull();
+    expect(within(section).queryByText("Metadata")).toBeNull();
+    expect(within(section).queryByTestId("identity-row-compatibility")).toBeNull();
+    expect(within(section).queryByTestId("identity-row-metadata")).toBeNull();
+    expect(within(section).getByText("MIT")).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("tab", { name: "Content" }));
+    fireEvent.click(screen.getByRole("button", { name: "View source" }));
+    const raw = screen.getByTestId("asset-source");
+    expect(raw.textContent).toContain("compatibility:");
+    expect(raw.textContent).toContain("metadata:");
+  });
+
   it("names the projects the source reaches", async () => {
     render(<AssetDetail asset={asset} inventory={inventory} />);
     await screen.findByRole("tab", { name: "Details" });

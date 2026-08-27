@@ -87,4 +87,47 @@ describe("ListCard — the section format", () => {
     expect(wide.className).toContain("text-ink-2");
     expect(wide.className).not.toContain("font-mono");
   });
+
+  /**
+   * The bug this pins: `value`/`wide` used to carry `shrink-0` with no
+   * truncation while the label box next to them is `min-w-0 flex-1`. A long
+   * value's box is then sized to its own max-content width regardless of
+   * the row's actual width, anchored to the right edge by `ml-auto` — so it
+   * extends leftward UNDER the label rather than being clipped, which is
+   * what a 141-character Compatibility value read as "drawn on top of" the
+   * label in the real app.
+   *
+   * happy-dom lays nothing out (`verification.md`), so the overlap itself —
+   * two boxes painting over each other — cannot be asserted here. What CAN
+   * be pinned is the class contract that prevents it: the item must be
+   * allowed to shrink (no `shrink-0`) and must ellipsize rather than wrap or
+   * overflow when it does (`min-w-0 truncate`, the same pairing this file's
+   * own docblock already prescribes for a label that wants one). The actual
+   * "does not overlap" claim is a screenshot from a running build.
+   */
+  it("the value slot can shrink and truncates instead of overflowing into the label", () => {
+    const long = "A".repeat(141);
+    render(
+      <ListCard>
+        <ListCardRow label="Compatibility" value={long} />
+      </ListCard>
+    );
+    const value = screen.getByText(long);
+    expect(value.className).not.toContain("shrink-0");
+    expect(value.className).toContain("min-w-0");
+    expect(value.className).toContain("truncate");
+  });
+
+  it("the wide slot gets the same treatment as value", () => {
+    const long = "B".repeat(141);
+    render(
+      <ListCard>
+        <ListCardRow label="Compatibility" wide={long} />
+      </ListCard>
+    );
+    const wide = screen.getByText(long);
+    expect(wide.className).not.toContain("shrink-0");
+    expect(wide.className).toContain("min-w-0");
+    expect(wide.className).toContain("truncate");
+  });
 });

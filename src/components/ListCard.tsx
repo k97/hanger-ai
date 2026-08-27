@@ -55,11 +55,20 @@ export function ListCardRow({ icon, label, value, wide, trailing, ...rest }: Lis
           row needs that); a caller that wants an ellipsis puts `truncate
           min-w-0` on its own label element. */}
       <span className="min-w-0 flex-1 flex items-center gap-2">{label}</span>
+      {/* `value`/`wide` used to be `shrink-0` with no truncation: a long
+          value's box sized to its own max-content width regardless of the
+          row's real width, then `ml-auto` anchored it to the right edge —
+          so it extended leftward UNDER the label instead of being clipped,
+          which is what a 141-character Compatibility value read as "drawn
+          on top of" the label. `min-w-0 truncate` (no `shrink-0`) lets the
+          flex algorithm shrink the box to whatever room the label leaves
+          and ellipsize there; a short value never hits that limit, so it
+          renders exactly as before. */}
       {value !== undefined && (
-        <span className="ml-auto font-mono text-micro text-ink-3 tabular shrink-0">{value}</span>
+        <span className="ml-auto font-mono text-micro text-ink-3 tabular min-w-0 truncate">{value}</span>
       )}
       {wide !== undefined && (
-        <span className="ml-auto text-small text-ink-2 shrink-0">{wide}</span>
+        <span className="ml-auto text-small text-ink-2 min-w-0 truncate">{wide}</span>
       )}
       {trailing}
     </div>
