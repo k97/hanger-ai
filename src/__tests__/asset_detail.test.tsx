@@ -429,6 +429,31 @@ describe("Asset detail — the inspector's document screen", () => {
     expect(rows).toEqual(["SKILL.md431 B", "references/3 files", "scripts/1 file"]);
   });
 
+  // The note explains that the other entries do NOT auto-load, which the file
+  // list alone does not tell you. On a folder holding SKILL.md and nothing
+  // else it names files that do not exist and restates the single row above
+  // it — Karthik, 2026-08-27: "pretty repetitive and adds no value". Both
+  // halves are asserted so deleting the condition reddens the second.
+  const NOTE = /Only SKILL\.md is read into context/;
+
+  it("explains that the rest of the folder does not auto-load, when there is a rest", async () => {
+    render(<AssetDetail asset={asset} inventory={inventory} />);
+    await screen.findByRole("tab", { name: "Details" });
+    openDetails();
+    const section = (await screen.findByText("Contents")).closest("section")!;
+    expect(within(section).getByText(NOTE)).toBeTruthy();
+  });
+
+  it("says nothing about the rest when SKILL.md is the whole skill", async () => {
+    dirResult = [{ name: "SKILL.md", kind: "file", bytes: 431, file_count: null }];
+    render(<AssetDetail asset={asset} inventory={inventory} />);
+    await screen.findByRole("tab", { name: "Details" });
+    openDetails();
+    const section = (await screen.findByText("Contents")).closest("section")!;
+    expect(within(section).getAllByTestId("skill-dir-row")).toHaveLength(1);
+    expect(within(section).queryByText(NOTE)).toBeNull();
+  });
+
   it("a symlinked entry takes the link mark and states no size it never measured", async () => {
     // 90f0f8a: list_asset_dir stops following symlinks, so an entry that is
     // one arrives with kind: "symlink" and no bytes or file_count.
