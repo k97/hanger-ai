@@ -121,8 +121,13 @@ impl PluginIndex {
             .and_then(|v| v["plugins"].as_object())
         {
             for (key, entries) in map {
-                // "plugin-name@marketplace" — the name is the half before '@'.
-                let plugin = key.split('@').next().unwrap_or(key).to_string();
+                // "plugin-name@marketplace" — the name is everything before
+                // the LAST '@', since a scoped plugin name can itself carry
+                // a leading '@' (e.g. "@scope/tool-x@mkt-a").
+                let plugin = key
+                    .rsplit_once('@')
+                    .map_or(key.as_str(), |(name, _)| name)
+                    .to_string();
                 let first = entries.as_array().and_then(|a| a.first());
                 let sha = first
                     .and_then(|e| e["gitCommitSha"].as_str())
@@ -190,7 +195,15 @@ fn parse_iso_ms(s: &str) -> Option<i64> {
     );
     let time = time.trim_end_matches('Z');
     let (hms, ms) = match time.split_once('.') {
-        Some((a, b)) => (a, b.get(..3).unwrap_or("0").parse::<i64>().ok()?),
+        Some((a, b)) => {
+            // Pad short fractional seconds out to milliseconds (".08" is
+            // 80ms, not 0) rather than truncating a `None` to zero.
+            let mut padded = b.to_string();
+            while padded.len() < 3 {
+                padded.push('0');
+            }
+            (a, padded[..3].parse::<i64>().ok()?)
+        }
         None => (time, 0),
     };
     let mut t = hms.split(':');
@@ -199,6 +212,22 @@ fn parse_iso_ms(s: &str) -> Option<i64> {
         t.next()?.parse().ok()?,
         t.next().unwrap_or("0").parse().ok()?,
     );
+    // A date that cannot be real is an absent timestamp, not a panic and not
+    // a silently wrapped number — bound every component to its calendar
+    // range before any arithmetic. Year is bounded to a range wide enough
+    // for any real installedAt timestamp (0..=9999, four digits) while still
+    // rejecting the adversarially large values that overflow the civil-days
+    // math below; month/day/hour/minute use their calendar ranges, and
+    // second allows 60 for a leap second.
+    if !(0..=9999).contains(&y)
+        || !(1..=12).contains(&m)
+        || !(1..=31).contains(&day)
+        || !(0..=23).contains(&h)
+        || !(0..=59).contains(&mi)
+        || !(0..=60).contains(&sec)
+    {
+        return None;
+    }
     let y2 = if m <= 2 { y - 1 } else { y };
     let era = y2.div_euclid(400);
     let yoe = y2 - era * 400;
@@ -207,6 +236,36 @@ fn parse_iso_ms(s: &str) -> Option<i64> {
     let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
     let days = era * 146097 + doe - 719468;
     Some(((days * 24 + h) * 60 + mi) * 60_000 + sec * 1000 + ms)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A 17-digit year parses cleanly as `i64` (well under `i64::MAX`'s 19
+    /// digits) but `era * 146097` overflows `i64` once `era` clears ~6.3e13
+    /// — this year's era is ~7.5e13. An unreal date is an absent timestamp,
+    /// never a panic.
+    #[test]
+    fn test_parse_iso_ms_oversized_year_does_not_panic() {
+        assert_eq!(parse_iso_ms("30000000000000000-07-20T02:30:08.089Z"), None);
+    }
+
+    /// Sub-3-digit fractional seconds are a valid ISO-8601 variant and must
+    /// scale up, not silently drop to 0.
+    #[test]
+    fn test_parse_iso_ms_short_fractional_seconds() {
+        // ".08" is 80ms.
+        assert_eq!(
+            parse_iso_ms("2026-07-20T02:30:08.08Z"),
+            parse_iso_ms("2026-07-20T02:30:08.080Z")
+        );
+        // ".8" is 800ms.
+        assert_eq!(
+            parse_iso_ms("2026-07-20T02:30:08.8Z"),
+            parse_iso_ms("2026-07-20T02:30:08.800Z")
+        );
+    }
 }
 
 pub fn origin_from_declared(raw: &str) -> Origin {

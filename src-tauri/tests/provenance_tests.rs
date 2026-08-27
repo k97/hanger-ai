@@ -81,7 +81,40 @@ fn test_plugin_cache_path_resolves_repo_and_commit() {
     assert_eq!(o.url.as_deref(), Some("https://github.com/owner/market-repo"));
     assert_eq!(o.commit.as_deref(), Some("b0b9f02b0581696da41e20d6c536ec639b44080f"));
     assert_eq!(o.delivered_by.as_deref(), Some("tool-x"));
-    assert!(o.installed_at_ms.is_some());
+    assert_eq!(o.installed_at_ms, Some(1_784_514_608_089));
+}
+
+/// A scoped plugin key ("@scoped-tool@mkt-a") has TWO '@'s; the plugin name
+/// is everything before the LAST one, not the first. Splitting at the first
+/// '@' yields an empty plugin name and the lookup misses commit/installed-at
+/// entirely.
+#[test]
+fn test_scoped_plugin_key_resolves_commit_and_installed_at() {
+    let td = tempfile::tempdir().unwrap();
+    let pl = td.path().join(".claude/plugins");
+    fs::create_dir_all(&pl).unwrap();
+    fs::write(
+        pl.join("known_marketplaces.json"),
+        r#"{"mkt-a":{"source":{"source":"github","repo":"owner/market-repo"},
+             "installLocation":"/ignored"}}"#,
+    )
+    .unwrap();
+    fs::write(
+        pl.join("installed_plugins.json"),
+        r#"{"version":2,"plugins":{"@scoped-tool@mkt-a":[{"scope":"user",
+             "installPath":"/ignored","version":"1.0.0",
+             "installedAt":"2026-07-20T02:30:08.089Z",
+             "gitCommitSha":"b0b9f02b0581696da41e20d6c536ec639b44080f"}]}}"#,
+    )
+    .unwrap();
+    let (idx, _) = PluginIndex::load(td.path());
+    let p = td
+        .path()
+        .join(".claude/plugins/cache/mkt-a/@scoped-tool/1.0.0/skills/s/SKILL.md");
+    let o = idx.unwrap().origin_for(&p.to_string_lossy()).unwrap();
+    assert_eq!(o.delivered_by.as_deref(), Some("@scoped-tool"));
+    assert_eq!(o.commit.as_deref(), Some("b0b9f02b0581696da41e20d6c536ec639b44080f"));
+    assert_eq!(o.installed_at_ms, Some(1_784_514_608_089));
 }
 
 #[test]
