@@ -118,7 +118,9 @@ describe("engineLabel", () => {
 
 describe("originRow", () => {
   it("declared: links and says the asset declares it", () => {
-    const v = originRow({ label: "owner/repo", url: "https://github.com/owner/repo", kind: "declared" }, undefined);
+    // Non-null: an origin was passed, so `originRow` cannot take the
+    // null-returning branch — narrowed for tsc, not a runtime check.
+    const v = originRow({ label: "owner/repo", url: "https://github.com/owner/repo", kind: "declared" }, undefined)!;
     expect(v.value).toBe("owner/repo");
     expect(v.url).toBe("https://github.com/owner/repo");
     expect(v.tooltip).toBe("The asset declares this");
@@ -127,7 +129,7 @@ describe("originRow", () => {
   });
 
   it("declared without a url stays label-only", () => {
-    const v = originRow({ label: "community", kind: "declared" }, undefined);
+    const v = originRow({ label: "community", kind: "declared" }, undefined)!;
     expect(v.url).toBeUndefined();
   });
 
@@ -142,7 +144,7 @@ describe("originRow", () => {
         installed_at_ms: 1784500208089,
       },
       undefined
-    );
+    )!;
     expect(v.tooltip).toBe("Hanger read this from the plugin that installed it");
     expect(v.subRows.map((r) => r.label)).toEqual(["Pinned at", "Delivered by", "Installed"]);
     expect(v.subRows[0].value).toBe("b0b9f02");
@@ -167,7 +169,7 @@ describe("originRow", () => {
     const v = originRow(
       { label: "everything-claude-code", url: "https://github.com/owner/everything-claude-code", kind: "delivered" },
       undefined
-    );
+    )!;
     expect(v.value).toBe("everything-claude-code");
     expect(v.tooltip).toBe("Hanger read this from the plugin that installed it");
     expect(v.subRows).toEqual([]);
@@ -179,27 +181,30 @@ describe("originRow", () => {
     const v = originRow(
       { label: "owner/cache-repo", kind: "delivered", delivered_by: "tool-y" },
       undefined
-    );
+    )!;
     expect(v.subRows).toEqual([{ label: "Delivered by", value: "tool-y", mono: false }]);
   });
 
   it("checked_out and launched carry no sub-rows", () => {
-    expect(originRow({ label: "owner/dotfiles", url: "https://github.com/owner/dotfiles", kind: "checked_out" }, undefined).subRows).toEqual([]);
-    expect(originRow({ label: "npm: pkg", url: "https://www.npmjs.com/package/pkg", kind: "launched" }, undefined).tooltip).toBe("Hanger read this from the launch command");
+    expect(originRow({ label: "owner/dotfiles", url: "https://github.com/owner/dotfiles", kind: "checked_out" }, undefined)!.subRows).toEqual([]);
+    expect(originRow({ label: "npm: pkg", url: "https://www.npmjs.com/package/pkg", kind: "launched" }, undefined)!.tooltip).toBe("Hanger read this from the launch command");
   });
 
-  it("none found", () => {
-    const v = originRow(undefined, undefined);
-    expect(v.value).toBe("Written here");
-    expect(v.tooltip).toBe("Hanger found nothing that names a source");
-    expect(v.url).toBeUndefined();
-    expect(v.muted).toBe(true);
+  // Changed 2026-08-27: the ordinary no-origin case used to render a row
+  // ("Written here") that only restated what the Path row already says two
+  // lines down. `originRow` now returns null so callers drop the row
+  // entirely — this asserts the absence, which fails again the moment
+  // something reintroduces a row for the plain no-origin case.
+  it("returns null when nothing was found and the check was not blocked", () => {
+    expect(originRow(undefined, undefined)).toBeNull();
+    expect(originRow(undefined, false)).toBeNull();
   });
 
-  it("blocked outranks none-found wording", () => {
+  it("blocked still returns a row, worded differently from none-found", () => {
     const v = originRow(undefined, true);
-    expect(v.value).toBe("Not determined");
-    expect(v.tooltip).toBe("Hanger couldn't check every place a source is named");
-    expect(v.muted).toBe(true);
+    expect(v).not.toBeNull();
+    expect(v!.value).toBe("Not determined");
+    expect(v!.tooltip).toBe("Hanger couldn't check every place a source is named");
+    expect(v!.muted).toBe(true);
   });
 });

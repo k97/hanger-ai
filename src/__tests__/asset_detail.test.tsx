@@ -175,8 +175,12 @@ describe("Asset detail — the inspector's document screen", () => {
     await screen.findByRole("tab", { name: "Details" });
     openDetails();
     expect(await screen.findByText("License")).toBeTruthy();
-    // The meta row and the Source tab must not share a word.
-    expect(screen.getByText("Origin")).toBeTruthy();
+    // Was also asserting the Origin row's label here ("Origin", not
+    // "Source" — the meta row and the Source tab must not share a word).
+    // Dropped 2026-08-27: `asset` below carries no `origin`/`origin_blocked`,
+    // and `originRow` now returns null for that ordinary case, so the row
+    // no longer renders for this fixture. AssetDetailOrigin.test.tsx covers
+    // the row's presence and content against fixtures that do carry one.
     expect(screen.getByText("MIT")).toBeTruthy();
     const caps = screen.getByText("Capabilities").closest("section")!;
     const rows = Array.from(caps.querySelectorAll('[data-testid="capability-row"]')).map((r) => r.textContent);
@@ -184,13 +188,15 @@ describe("Asset detail — the inspector's document screen", () => {
     expect(screen.queryByText("Allowed tools")).toBeNull();
   });
 
-  it("names the projects the source reaches, and measures the file it actually read", async () => {
+  // Was also "and measures the file it actually read", asserting
+  // `screen.getByText("431 B · 21 lines")` — Identity's Size row, removed
+  // 2026-08-27 (Contents and the Context ledger already carry the bytes).
+  it("names the projects the source reaches", async () => {
     render(<AssetDetail asset={asset} inventory={inventory} />);
     await screen.findByRole("tab", { name: "Details" });
     openDetails();
     expect(await screen.findByText("Linked into")).toBeTruthy();
     expect(screen.getByText("mei-recipes, metrics-board")).toBeTruthy();
-    expect(screen.getByText("431 B · 21 lines")).toBeTruthy();
   });
 
   // "opens the file in its editor" removed: Open in editor moved to the
@@ -339,13 +345,19 @@ describe("Asset detail — the inspector's document screen", () => {
     openDetails();
     const section = screen.getByText("Identity").closest("section")!;
     const rows = Array.from(section.querySelectorAll('[data-testid^="identity-row-"]')).map((r) => r.getAttribute("data-testid"));
+    // No "identity-row-origin": `asset` below carries no `origin` and no
+    // `origin_blocked`, and `originRow` now returns null for that ordinary
+    // case (2026-08-27) — the row is dropped rather than restating what the
+    // Path row already says. No "identity-row-size": the byte count/line
+    // count row was removed the same day; Contents and the Context ledger
+    // already carry the bytes.
     expect(rows).toEqual([
-      "identity-row-engine", "identity-row-scope", "identity-row-linked-into", "identity-row-origin",
-      "identity-row-version", "identity-row-size", "identity-row-modified", "identity-row-license",
+      "identity-row-engine", "identity-row-scope", "identity-row-linked-into",
+      "identity-row-version", "identity-row-modified", "identity-row-license",
       "identity-row-path",
     ]);
     expect(within(section).getByText("Modified").nextElementSibling?.textContent).toBe("Jul 20, 2026");
-    expect(within(section).getByText("Size").nextElementSibling?.textContent).toBe("431 B · 21 lines");
+    expect(within(section).queryByText("Size")).toBeNull();
     expect(section.querySelector("dl")).toBeNull();
   });
 
@@ -402,8 +414,10 @@ describe("Asset detail — the inspector's document screen", () => {
     expect(rows).not.toContain("identity-row-modified");
     expect(within(section).queryByText("Modified")).toBeNull();
     expect(screen.queryByText("Jan 1, 1970")).toBeNull();
-    // Size still renders — only the unmeasurable field is dropped.
-    expect(within(section).getByText("Size").nextElementSibling?.textContent).toBe("431 B · 21 lines");
+    // The rest of the card still renders — only the unmeasurable field is
+    // dropped. (Was "Size still renders"; that row was removed 2026-08-27 —
+    // Path is the row left after it in the ruled order.)
+    expect(rows).toContain("identity-row-path");
   });
 
   it("lists what else is in the skill's folder, folders with their file counts", async () => {

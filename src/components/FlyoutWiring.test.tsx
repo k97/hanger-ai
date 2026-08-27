@@ -164,9 +164,10 @@ describe("Detail Flyout Wiring Integration", () => {
 
   // Task 11: the backend resolves `origin`/`origin_blocked` on every asset,
   // but until the object handed to the inspector actually carries them, the
-  // Origin row always sees `undefined` and falls back to "Written here" for
-  // everything. Reverting the two fields added to the harness's own
-  // handleSelectAsset above (mirroring App.tsx's real one) reddens this.
+  // Origin row always sees `undefined` and (since it carries neither an
+  // origin nor a blocked check) renders nothing at all. Reverting the two
+  // fields added to the harness's own handleSelectAsset above (mirroring
+  // App.tsx's real one) reddens this.
   it("threads the resolved origin through to the inspector's Origin row", async () => {
     render(<TestAppHarness />);
 

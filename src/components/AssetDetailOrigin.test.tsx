@@ -5,15 +5,15 @@
 // the plane fill and hover motion are geometry, unassertable here, and go to
 // Task 12's screenshot (`verification.md`, happy-dom).
 //
-// The tooltip's TEXT is pinned below — the linked cases via the link's own
-// `aria-label` (which already carries it, no hover needed), the muted cases
-// by actually triggering `Tooltip`'s hover-open (`fireEvent.pointerEnter` +
-// fake timers, the same recipe `tooltip.test.tsx` uses). What is NOT pinned
-// here is `Tooltip`'s own hover behaviour — its delay, its animation, its
-// dismissal — that contract belongs to `tooltip.test.tsx` and is out of
-// scope for this row.
-import { render, screen, fireEvent, cleanup, act } from "@testing-library/react";
-import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
+// The tooltip's TEXT is pinned below via the link's own `aria-label` (which
+// already carries it, no hover needed) for the linked cases, and via the
+// row's plain text content for the blocked case — the only muted state left
+// with a row; the ordinary no-origin case renders no row at all (below) and
+// so has no tooltip to pin. What is NOT pinned here is `Tooltip`'s own hover
+// behaviour — its delay, its animation, its dismissal — that contract
+// belongs to `tooltip.test.tsx` and is out of scope for this row.
+import { render, screen, fireEvent, cleanup } from "@testing-library/react";
+import { describe, expect, it, vi, beforeEach } from "vitest";
 
 const openUrl = vi.fn(async (..._args: unknown[]) => {});
 vi.mock("@tauri-apps/plugin-opener", () => ({
@@ -109,39 +109,22 @@ describe("the Origin row", () => {
     ]);
   });
 
-  it("renders no chevron and no link when nothing was found", () => {
+  // Changed 2026-08-27: the ordinary no-origin case no longer renders a row
+  // at all — the Path row two lines below the Identity card already says
+  // where the asset lives, and restating "nothing named a source" on it was
+  // noise (fired for ~123 of 133 skills on Karthik's machine). Replaces the
+  // old "renders no chevron and no link when nothing was found" case, which
+  // asserted the row's muted content; this asserts the row's absence, which
+  // is what would actually catch a regression that brought it back.
+  it("renders no Origin row at all when nothing was found", () => {
     render(<AssetDetail asset={{ category: "Skills", name: "plain", path: "/x" }} inventory={null} />);
     openDetails();
     expect(screen.queryByTestId("origin-disclosure")).toBeNull();
     expect(screen.queryByTestId("origin-open-link")).toBeNull();
-    expect(screen.getByTestId("identity-row-origin").textContent).toContain("Written here");
+    expect(screen.queryByTestId("identity-row-origin")).toBeNull();
   });
 
-  // The muted states have no link, so there is no aria-label to read the
-  // tooltip string off of — the value is a plain, unfocusable `<span>`, and
-  // the only way its explanation ever reaches anyone is a mouse parked over
-  // it. That's the brief's markup as given (raised separately as an a11y
-  // question, not this test's fix); what this test can and does pin is that
-  // the string underneath is still the right one.
-  describe("the muted states' tooltip, reached the only way it can be: hover", () => {
-    beforeEach(() => vi.useFakeTimers());
-    afterEach(() => vi.useRealTimers());
-
-    it("still carries the tooltip's explanation when nothing was found", () => {
-      render(<AssetDetail asset={{ category: "Skills", name: "plain", path: "/x" }} inventory={null} />);
-      openDetails();
-      const value = screen.getByText("Written here");
-      fireEvent.pointerEnter(value);
-      act(() => {
-        vi.advanceTimersByTime(80);
-      });
-      expect(screen.getByTestId("tooltip").textContent).toBe(
-        "Hanger found nothing that names a source"
-      );
-    });
-  });
-
-  it("words a blocked check differently from an empty one", () => {
+  it("words a blocked check differently from an empty one, and still renders a row for it", () => {
     render(
       <AssetDetail
         asset={{ category: "Skills", name: "p", path: "/x", origin_blocked: true }}

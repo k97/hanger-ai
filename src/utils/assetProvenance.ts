@@ -170,9 +170,8 @@ export function provenanceOf(asset: ScopedAsset, inventory: Inventory | null): P
  * `cost` vary independently). Narrowing at the boundary makes that state
  * unrepresentable instead of merely untested.
  *
- * Strings below are ruled by Karthik 2026-08-27 (`/humanizer`-passed); the
- * two no-origin strings are provisional pending his sign-off. They are not
- * to be reworded.
+ * Strings below are ruled by Karthik 2026-08-27 (`/humanizer`-passed). They
+ * are not to be reworded.
  */
 export type OriginKind = "declared" | "delivered" | "checked_out" | "launched";
 
@@ -201,7 +200,7 @@ export interface OriginRowView {
   tooltip: string;
   /** Non-empty only when the disclosure exists (kind === "delivered"). */
   subRows: OriginSubRow[];
-  /** True for the two no-origin states. */
+  /** True for the blocked state — the one no-origin state left with a row. */
   muted: boolean;
 }
 
@@ -212,22 +211,30 @@ const ORIGIN_TOOLTIPS: Record<OriginKind, string> = {
   launched: "Hanger read this from the launch command",
 };
 
-/** Turns the backend's resolved `origin` into the inspector's Origin row. */
-export function originRow(origin: OriginWire | null | undefined, blocked: boolean | undefined): OriginRowView {
+/**
+ * Turns the backend's resolved `origin` into the inspector's Origin row.
+ *
+ * Returns `null` for the ordinary case — no origin found, and the check
+ * wasn't blocked — because the Path row two lines below already says where
+ * the asset lives; restating "nothing named a source" on every row (roughly
+ * 123 of 133 skills on Karthik's machine) is the noise `McpServerDetail`'s
+ * "Registered in" block already avoids for the same field. Callers render
+ * the row only when this returns non-null. The blocked state still returns
+ * a row: Hanger not having checked every place a source is named is a
+ * finding, not a null result.
+ */
+export function originRow(
+  origin: OriginWire | null | undefined,
+  blocked: boolean | undefined,
+): OriginRowView | null {
   if (!origin) {
-    return blocked
-      ? {
-          value: "Not determined",
-          tooltip: "Hanger couldn't check every place a source is named",
-          subRows: [],
-          muted: true,
-        }
-      : {
-          value: "Written here",
-          tooltip: "Hanger found nothing that names a source",
-          subRows: [],
-          muted: true,
-        };
+    if (!blocked) return null;
+    return {
+      value: "Not determined",
+      tooltip: "Hanger couldn't check every place a source is named",
+      subRows: [],
+      muted: true,
+    };
   }
 
   const subRows: OriginSubRow[] = [];

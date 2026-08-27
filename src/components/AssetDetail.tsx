@@ -342,7 +342,10 @@ export default function AssetDetail({ asset, inventory, onDocumentPath, annotati
     // are left empty/null on purpose, not "Origin" and the real icon, so
     // editing them here cannot look like it changes what renders; the row's
     // real label and icon are hardcoded in the explicit block below.
-    { key: "origin", label: "", icon: null, wide: undefined },
+    // Included only when `originRow` has something to say — the ordinary
+    // no-origin case returns null and the row is dropped entirely, the same
+    // way `linked-into` and `points-at` above are.
+    ...(originView ? [{ key: "origin", label: "", icon: null, wide: undefined }] : []),
     ...(asset.version
       ? [
           {
@@ -353,31 +356,25 @@ export default function AssetDetail({ asset, inventory, onDocumentPath, annotati
           },
         ]
       : []),
-    ...(body
+    // The byte count lives in Contents (per file) and the Context ledger
+    // (bytes plus tokens) already; Identity repeating it added nothing but
+    // the line count, which is not carried forward — a first-time label to
+    // keep it needs its own sign-off (`ui-copy.md`).
+    // Hide-at-zero: `modified_ms` is `None` when the platform reports no
+    // mtime, so the row is omitted rather than rendering a fabricated epoch
+    // date (formerly `unwrap_or(0)` → "Jan 1, 1970").
+    ...(body && body.modified_ms !== null
       ? [
           {
-            key: "size",
-            label: "Size",
-            icon: <DocumentIcon size={14} aria-hidden="true" />,
-            value: `${formatBytes(body.bytes)} · ${body.lines} lines`,
+            key: "modified",
+            label: "Modified",
+            icon: <ClockIcon size={14} aria-hidden="true" />,
+            value: new Date(body.modified_ms).toLocaleDateString("en-US", {
+              month: "short",
+              day: "numeric",
+              year: "numeric",
+            }),
           },
-          // Hide-at-zero: `modified_ms` is `None` when the platform reports
-          // no mtime, so the row is omitted rather than rendering a
-          // fabricated epoch date (formerly `unwrap_or(0)` → "Jan 1, 1970").
-          ...(body.modified_ms !== null
-            ? [
-                {
-                  key: "modified",
-                  label: "Modified",
-                  icon: <ClockIcon size={14} aria-hidden="true" />,
-                  value: new Date(body.modified_ms).toLocaleDateString("en-US", {
-                    month: "short",
-                    day: "numeric",
-                    year: "numeric",
-                  }),
-                },
-              ]
-            : []),
         ]
       : []),
     ...specRows,
@@ -552,6 +549,11 @@ export default function AssetDetail({ asset, inventory, onDocumentPath, annotati
               <ListCard>
                 {identityRows.map((row) =>
                   row.key === "origin" ? (
+                    // Only ever present in `identityRows` when `originView`
+                    // is non-null (see where the row is spliced in above);
+                    // the `originView &&` here is for TypeScript's benefit,
+                    // not a runtime branch.
+                    originView && (
                     <Fragment key="origin">
                       <ListCardRow
                         data-testid="identity-row-origin"
@@ -626,6 +628,7 @@ export default function AssetDetail({ asset, inventory, onDocumentPath, annotati
                           </div>
                         ))}
                     </Fragment>
+                    )
                   ) : (
                     <ListCardRow
                       key={row.key}

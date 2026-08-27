@@ -1119,15 +1119,14 @@ export default function McpServerDetail({
               // groups by name, so the same server can be a plugin-store
               // delivery under one host's config and a bare launch under
               // another's. Rendered only when there is something to say --
-              // `originRow` returns "Written here" for the ordinary case of
-              // no origin found, and restating that on every row would be the
-              // same noise the launch line above was trimmed of.
+              // `originRow` returns null for the ordinary case of no origin
+              // found, and restating that on every row would be the same
+              // noise the launch line above was trimmed of.
               const originView = originRow(reg.origin, reg.originBlocked);
-              const hasOrigin = !!reg.origin || !!reg.originBlocked;
               // Named only two facts on purpose (commit, delivering plugin) --
               // the install date lives in the Origin row's own disclosure
               // elsewhere and would be one fact too many for a compact line.
-              const deliveryFacts = originView.subRows.filter((r) => r.label !== "Installed");
+              const deliveryFacts = originView?.subRows.filter((r) => r.label !== "Installed") ?? [];
               return (
               <div
                 key={`${reg.configPath}-${i}`}
@@ -1160,7 +1159,7 @@ export default function McpServerDetail({
                     </button>
                   </Tooltip>
                 </div>
-                {hasOrigin && (
+                {originView && (
                   <div className="flex items-center gap-1.5 min-w-0" data-testid="registration-origin">
                     <Tooltip label={originView.tooltip} placement="bottom">
                       {originView.url ? (
