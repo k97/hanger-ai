@@ -75,7 +75,11 @@ use std::path::Path;
 /// refused sets `blocked` so the caller can say "couldn't check" rather
 /// than "nothing found".
 pub struct PluginIndex {
-    /// marketplace name -> https repo url (github sources only carry repos).
+    /// marketplace name -> a repo/remote url string, one of `github`'s
+    /// `repo` reassembled into an https url, or `url`/`git-subdir`'s own
+    /// `url` field passed through as-is (both normalized later, in
+    /// `origin_for`, by `normalize_source_url`). A `local` (plain-string
+    /// `source`) marketplace has no remote and never gets an entry here.
     marketplaces: HashMap<String, String>,
     /// plugin name -> (commit sha, installed_at_ms), from the FIRST entry —
     /// a plugin installed at several scopes shares one upstream.
@@ -123,12 +127,32 @@ impl PluginIndex {
         let mut marketplaces = HashMap::new();
         if let Some(map) = known.as_object() {
             for (name, entry) in map {
+                // `entry["source"]` is `Value::Null` for any entry that is
+                // not a JSON object (a local marketplace's `source` is a
+                // plain STRING path, not an object at all) — serde_json's
+                // Index impl returns Null rather than panicking when the
+                // receiver isn't an object/array, so indexing `source`
+                // below is safe whatever shape `entry["source"]` turns out
+                // to be: object, string, null, or number.
                 let source = &entry["source"];
-                if source["source"].as_str() == Some("github") {
-                    if let Some(repo) = source["repo"].as_str() {
-                        marketplaces
-                            .insert(name.clone(), format!("https://github.com/{}", repo));
+                let repo_url = match source["source"].as_str() {
+                    Some("github") => {
+                        source["repo"].as_str().map(|repo| format!("https://github.com/{}", repo))
                     }
+                    // `url` and `git-subdir` both carry the remote in their
+                    // own `url` field; `git-subdir`'s `path` identifies a
+                    // subdirectory within that repo, not a separate
+                    // location, so it is not appended here — the repo alone
+                    // is what a link to it can safely name.
+                    Some("url") | Some("git-subdir") => source["url"].as_str().map(String::from),
+                    // "github"/"url"/"git-subdir" are the only source kinds
+                    // known to this app; a plain-string `source` (local, no
+                    // remote) or any other/malformed shape yields no entry
+                    // here, which is correct — not a miss.
+                    _ => None,
+                };
+                if let Some(url) = repo_url {
+                    marketplaces.insert(name.clone(), url);
                 }
             }
         }
@@ -480,35 +504,93 @@ enum FlagArity {
 /// nothing goes in this table on a guess. Look up by NAME only — an
 /// `=`-joined value, if any, is split off by the caller before this runs.
 ///
-/// Sources (checked against the tools' own `--help` / docs, 2026-08-27):
-/// - npx (`npm exec`): `-y`/`--yes` bypasses the install-confirmation
-///   prompt and takes no value; `-p`/`--package <spec>` names the package
-///   to install when it differs from the command to run; `-c`/`--call
-///   <cmd>` runs a command string and takes a value that is not a package.
-/// - bunx: `--bun` forces the script to run under Bun's own runtime rather
-///   than shelling out to Node; `-y`/`--yes` bypasses Bun's own
-///   install-confirmation prompt, the same as npx's. Both take no value.
-/// - uvx (`uv tool run`): `--from <pkg>` names the package to install when
-///   it differs from the command to run; `--with <pkg>` and `--python
-///   <version>`/`-p` take a value that is not the package; `--isolated`,
-///   `--no-cache`, `--refresh`, `-q`/`--quiet`, `-v`/`--verbose` take none.
+/// Sources (checked against the tools' own `--help` / docs, 2026-08-27 and
+/// 2026-08-28): only flags we are confident about are listed — an omission
+/// merely declines to resolve a launch, but a wrong entry could misattribute
+/// or leak, so nothing goes in these tables on a guess. `-p` is deliberately
+/// different per runner: npx/bunx's own `--help` documents it as
+/// `--package` (IsPackage); uvx's documents it as `--python` (ValueTaking) —
+/// the dispatch is per-runner precisely so the two never collide.
+///
+/// - npx (`npm exec --help`): `-y`/`--yes`, `--workspaces`,
+///   `--include-workspace-root`, `--strict-allow-scripts` and
+///   `--dangerously-allow-all-scripts` take no value; `-c`/`--call`,
+///   `-w`/`--workspace` and `--allow-scripts` take a value that is not a
+///   package; `-p`/`--package <spec>` names the package to install when it
+///   differs from the command to run. npm's own global config flags also
+///   turn up in real MCP configs: `--registry`, `--prefix` and `--loglevel`
+///   take a value; `-s`/`--silent` takes none.
+/// - bunx (`bunx --help`): `-p`/`--package <spec>` names the package,
+///   mirroring npx; `--bun`, `--no-install`, `--verbose` and `--silent`
+///   take no value. `-y`/`--yes` is NOT in bunx's own `--help` — it is kept
+///   here only because configs written for npx get copied to bunx
+///   verbatim, and treating it as valueless is the safe classification
+///   either way.
+/// - uvx (`uv tool run` / `uvx --help`): `--from <pkg>` names the package to
+///   install when it differs from the command to run. Value-taking:
+///   `-w`/`--with`, `--with-editable`, `--with-requirements`,
+///   `-c`/`--constraints`, `-b`/`--build-constraints`, `--overrides`,
+///   `--env-file`, `--python-platform`, `--torch-backend`, `--index`,
+///   `--default-index`, `-i`/`--index-url`, `--extra-index-url`,
+///   `-f`/`--find-links`, `--index-strategy`, `--keyring-provider`,
+///   `-P`/`--upgrade-package`, `--upgrade-group`, `--resolution`,
+///   `--prerelease`, `--fork-strategy`, `--exclude-newer`,
+///   `--exclude-newer-package`, `--link-mode`, `-C`/`--config-setting`,
+///   `--config-settings-package`, `--no-build-isolation-package`,
+///   `--no-build-package`, `--no-binary-package`, `--cache-dir`,
+///   `--refresh-package`, `-p`/`--python`, `--color`,
+///   `--allow-insecure-host`, `--directory`, `--project`, `--config-file`.
+///   Valueless: `--isolated`, `--no-env-file`, `--lfs`, `--no-index`,
+///   `-U`/`--upgrade`, `-V`/`--version`, `--compile-bytecode`,
+///   `--no-build-isolation`, `--no-build`, `--no-binary`,
+///   `-n`/`--no-cache`, `--refresh`, `--managed-python`,
+///   `--no-managed-python`, `--no-python-downloads`, `-q`/`--quiet`,
+///   `-v`/`--verbose`, `--system-certs`, `--offline`, `--no-progress`,
+///   `--no-config`, `-h`/`--help`.
+///
+/// Short clusters (`-yq`) are not decomposed and stay unrecognized — a known
+/// limit, not an oversight; see the "decline, never guess" rule on
+/// `launched_origin` above.
 fn recognized_flag(runner: &str, flag: &str) -> Option<FlagArity> {
     match runner {
         "npx" => match flag {
-            "-y" | "--yes" => Some(FlagArity::Valueless),
-            "-c" | "--call" => Some(FlagArity::ValueTaking),
+            "-y" | "--yes" | "--workspaces" | "--include-workspace-root"
+            | "--strict-allow-scripts" | "--dangerously-allow-all-scripts" | "-s"
+            | "--silent" => Some(FlagArity::Valueless),
+            "-c" | "--call" | "-w" | "--workspace" | "--allow-scripts" | "--registry"
+            | "--prefix" | "--loglevel" => Some(FlagArity::ValueTaking),
             "-p" | "--package" => Some(FlagArity::IsPackage),
             _ => None,
         },
         "bunx" => match flag {
-            "--bun" | "-y" | "--yes" => Some(FlagArity::Valueless),
+            // -y/--yes: not in bunx's own --help; kept as valueless because
+            // npx configs get copied here verbatim and a boolean is safe.
+            "--bun" | "-y" | "--yes" | "--no-install" | "--verbose" | "--silent" => {
+                Some(FlagArity::Valueless)
+            }
+            "-p" | "--package" => Some(FlagArity::IsPackage),
             _ => None,
         },
         "uvx" => match flag {
-            "--isolated" | "--no-cache" | "--refresh" | "-q" | "--quiet" | "-v" | "--verbose" => {
-                Some(FlagArity::Valueless)
+            "--isolated" | "--no-cache" | "-n" | "--refresh" | "-q" | "--quiet" | "-v"
+            | "--verbose" | "--no-env-file" | "--lfs" | "--no-index" | "-U" | "--upgrade"
+            | "-V" | "--version" | "--compile-bytecode" | "--no-build-isolation"
+            | "--no-build" | "--no-binary" | "--managed-python" | "--no-managed-python"
+            | "--no-python-downloads" | "--system-certs" | "--offline" | "--no-progress"
+            | "--no-config" | "-h" | "--help" => Some(FlagArity::Valueless),
+            "--with" | "-w" | "--with-editable" | "--with-requirements" | "-c"
+            | "--constraints" | "-b" | "--build-constraints" | "--overrides" | "--env-file"
+            | "--python-platform" | "--torch-backend" | "--index" | "--default-index" | "-i"
+            | "--index-url" | "--extra-index-url" | "-f" | "--find-links"
+            | "--index-strategy" | "--keyring-provider" | "-P" | "--upgrade-package"
+            | "--upgrade-group" | "--resolution" | "--prerelease" | "--fork-strategy"
+            | "--exclude-newer" | "--exclude-newer-package" | "--link-mode" | "-C"
+            | "--config-setting" | "--config-settings-package"
+            | "--no-build-isolation-package" | "--no-build-package" | "--no-binary-package"
+            | "--cache-dir" | "--refresh-package" | "-p" | "--python" | "--color"
+            | "--allow-insecure-host" | "--directory" | "--project" | "--config-file" => {
+                Some(FlagArity::ValueTaking)
             }
-            "--with" | "--python" | "-p" => Some(FlagArity::ValueTaking),
             "--from" => Some(FlagArity::IsPackage),
             _ => None,
         },

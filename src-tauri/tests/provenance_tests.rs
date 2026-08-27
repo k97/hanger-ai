@@ -1151,3 +1151,358 @@ fn test_tool_resolves_delivered_from_lexical_config_path_under_symlinked_claude_
     );
     assert_eq!(o.label, "owner/market-repo");
 }
+
+// ── Task 16, Gap 1: expanded flag tables ───────────────────────────────────
+//
+// `recognized_flag` only knew a handful of flags per runner, so any ordinary,
+// documented flag in a real config (`--registry`, `--index-url`, ...) made
+// `launched_origin` decline outright. These tests pin the expanded tables
+// against the runners' own `--help` output (see the doc comment on
+// `recognized_flag`), and separately pin that the decline-on-unrecognized
+// guard the tables exist alongside still holds.
+
+/// The property the user actually asked about: a launch using a documented
+/// flag the OLD tables did not know must now resolve, not decline.
+#[test]
+fn test_npx_registry_flag_now_resolves_a_previously_unattributed_launch() {
+    let o = launched_origin(
+        "npx",
+        &["--registry".into(), "https://r.example.com".into(), "some-pkg".into()],
+        "stdio",
+    )
+    .unwrap();
+    assert_eq!(o.label, "npm: some-pkg");
+}
+
+/// Same property for uvx: `--index-url` is a real, documented `uv`/`uvx`
+/// flag that the old table did not know, sitting before the package-naming
+/// `--from`.
+#[test]
+fn test_uvx_index_url_flag_now_resolves_a_previously_unattributed_launch() {
+    let o = launched_origin(
+        "uvx",
+        &[
+            "--index-url".into(),
+            "https://i.example.com".into(),
+            "--from".into(),
+            "real-pkg".into(),
+            "entry".into(),
+        ],
+        "stdio",
+    )
+    .unwrap();
+    assert_eq!(o.label, "PyPI: real-pkg");
+}
+
+/// The guard the tables exist alongside must still hold: a flag no table —
+/// old or new — has ever listed still makes the whole call decline, never
+/// guess. Short clusters like `-yq` are a known, separate limit (see the
+/// doc comment on `recognized_flag`) and are not what this pins.
+#[test]
+fn test_still_unrecognized_flag_declines_after_table_expansion() {
+    let o = launched_origin(
+        "npx",
+        &["--this-flag-is-not-in-any-table".into(), "some-pkg".into()],
+        "stdio",
+    );
+    assert!(o.is_none(), "an unrecognized flag must still decline after the table grew: {o:?}");
+}
+
+// npx: new IsPackage/ValueTaking/Valueless entries from `npm exec --help`.
+
+#[test]
+fn test_npx_call_flag_is_value_taking() {
+    let o = launched_origin(
+        "npx",
+        &["--call".into(), "console.log(1)".into(), "some-pkg".into()],
+        "stdio",
+    )
+    .unwrap();
+    assert_eq!(o.label, "npm: some-pkg");
+}
+
+#[test]
+fn test_npx_workspace_short_flag_is_value_taking() {
+    let o = launched_origin("npx", &["-w".into(), "pkg-a".into(), "some-pkg".into()], "stdio")
+        .unwrap();
+    assert_eq!(o.label, "npm: some-pkg");
+}
+
+#[test]
+fn test_npx_allow_scripts_is_value_taking() {
+    // --allow-scripts <scope>: the scope value is skipped, and the PACKAGE
+    // is the next token after it, not the value itself.
+    let o = launched_origin(
+        "npx",
+        &["--allow-scripts".into(), "some-value".into(), "some-pkg".into()],
+        "stdio",
+    )
+    .unwrap();
+    assert_eq!(o.label, "npm: some-pkg");
+}
+
+#[test]
+fn test_npx_new_valueless_flags_all_still_resolve_the_package() {
+    // Every one of these must be skippable ALONE, with nothing eaten after
+    // it, per `npm exec --help`.
+    for flag in [
+        "--workspaces",
+        "--include-workspace-root",
+        "--strict-allow-scripts",
+        "--dangerously-allow-all-scripts",
+        "--silent",
+        "-s",
+    ] {
+        let o = launched_origin("npx", &[flag.into(), "some-server".into()], "stdio")
+            .unwrap_or_else(|| panic!("{flag} must be recognized as valueless"));
+        assert_eq!(o.label, "npm: some-server", "flag {flag} must not consume the package");
+    }
+}
+
+#[test]
+fn test_npx_new_value_taking_flags_all_resolve_and_never_leak_their_value() {
+    for flag in ["--registry", "--prefix", "--loglevel"] {
+        let o = launched_origin(
+            "npx",
+            &[flag.into(), "SECRET-VALUE".into(), "some-pkg".into()],
+            "stdio",
+        )
+        .unwrap_or_else(|| panic!("{flag} must be recognized as value-taking"));
+        assert_eq!(o.label, "npm: some-pkg", "flag {flag} must skip its own value, not consume it as the package");
+        let json = serde_json::to_string(&o).unwrap();
+        assert!(!json.contains("SECRET-VALUE"), "flag {flag}'s value leaked into the origin: {json}");
+    }
+}
+
+// bunx: `-p`/`--package` is IsPackage (bunx's own `--help` documents it,
+// unlike `-y`/`--yes` which is kept only for config compatibility), plus the
+// new valueless entries.
+
+#[test]
+fn test_bunx_package_flag_names_the_package_directly() {
+    for flag in ["-p", "--package"] {
+        let o = launched_origin("bunx", &[flag.into(), "some-pkg".into(), "cmd".into()], "stdio")
+            .unwrap_or_else(|| panic!("{flag} must be recognized as bunx's package flag"));
+        assert_eq!(o.label, "npm: some-pkg");
+    }
+}
+
+#[test]
+fn test_bunx_new_valueless_flags_all_still_resolve_the_package() {
+    for flag in ["--no-install", "--verbose", "--silent"] {
+        let o = launched_origin("bunx", &[flag.into(), "some-server".into()], "stdio")
+            .unwrap_or_else(|| panic!("{flag} must be recognized as valueless"));
+        assert_eq!(o.label, "npm: some-server");
+    }
+}
+
+// uvx: the large `uvx --help` table. Sampled across IsPackage (already
+// pinned by `test_uvx_from_names_the_package_directly` above),
+// ValueTaking and Valueless, including both short and long forms where a
+// short alias exists, and `-p` specifically to pin it means `--python`
+// (ValueTaking) for uvx — NOT `--package` (IsPackage) as it does for npx
+// and bunx, per the runner-specific dispatch `recognized_flag` already had.
+
+#[test]
+fn test_uvx_python_short_flag_is_value_taking_not_a_package_flag() {
+    // -p means --python for uvx, unlike npx/bunx where it means --package.
+    let o = launched_origin("uvx", &["-p".into(), "3.12".into(), "some-pkg".into()], "stdio")
+        .unwrap();
+    assert_eq!(o.label, "PyPI: some-pkg");
+}
+
+#[test]
+fn test_uvx_new_value_taking_flags_all_resolve_and_never_leak_their_value() {
+    for flag in [
+        "-w",
+        "--with",
+        "--with-editable",
+        "--with-requirements",
+        "-c",
+        "--constraints",
+        "-i",
+        "--index-url",
+        "--extra-index-url",
+        "-f",
+        "--find-links",
+        "-C",
+        "--config-setting",
+        "-P",
+        "--upgrade-package",
+        "--python",
+    ] {
+        let o = launched_origin(
+            "uvx",
+            &[flag.into(), "SECRET-VALUE".into(), "real-pkg".into()],
+            "stdio",
+        )
+        .unwrap_or_else(|| panic!("{flag} must be recognized as value-taking for uvx"));
+        assert_eq!(o.label, "PyPI: real-pkg", "flag {flag} must skip its own value, not consume it as the package");
+        let json = serde_json::to_string(&o).unwrap();
+        assert!(!json.contains("SECRET-VALUE"), "flag {flag}'s value leaked into the origin: {json}");
+    }
+}
+
+#[test]
+fn test_uvx_new_valueless_flags_all_still_resolve_the_package() {
+    for flag in [
+        "--no-env-file",
+        "--lfs",
+        "--no-index",
+        "-U",
+        "--upgrade",
+        "-V",
+        "--version",
+        "--compile-bytecode",
+        "--no-build-isolation",
+        "--no-build",
+        "--no-binary",
+        "--system-certs",
+        "--offline",
+        "--no-progress",
+        "--no-config",
+        "--managed-python",
+        "--no-managed-python",
+        "--no-python-downloads",
+        "-h",
+        "--help",
+    ] {
+        let o = launched_origin("uvx", &[flag.into(), "some-pkg".into()], "stdio")
+            .unwrap_or_else(|| panic!("{flag} must be recognized as valueless for uvx"));
+        assert_eq!(o.label, "PyPI: some-pkg", "flag {flag} must not consume the package");
+    }
+}
+
+// ── Task 16, Gap 2: PluginIndex marketplace source shapes ─────────────────
+//
+// `PluginIndex::load` previously understood only `{"source":"github","repo":
+// ...}` as a marketplace's inner source; every other documented shape
+// (`url`, `git-subdir`, and a plain-string local path) was silently skipped,
+// so none of that marketplace's plugins could ever resolve a Delivered
+// origin.
+
+fn marketplace_home(inner_source_json: &str, marketplace_name: &str) -> tempfile::TempDir {
+    let td = tempfile::tempdir().unwrap();
+    let pl = td.path().join(".claude/plugins");
+    fs::create_dir_all(&pl).unwrap();
+    fs::write(
+        pl.join("known_marketplaces.json"),
+        format!(
+            r#"{{"{}":{{"source":{},"installLocation":"/ignored"}}}}"#,
+            marketplace_name, inner_source_json
+        ),
+    )
+    .unwrap();
+    td
+}
+
+#[test]
+fn test_marketplace_url_source_resolves() {
+    let td = marketplace_home(
+        r#"{"source":"url","url":"https://gitlab.com/team/plugin.git"}"#,
+        "mkt-b",
+    );
+    let (idx, blocked) = PluginIndex::load(td.path());
+    assert!(!blocked);
+    let idx = idx.unwrap();
+    let home_canon = fs::canonicalize(td.path()).unwrap();
+    let p = home_canon.join(".claude/plugins/cache/mkt-b/some-plugin/1.0.0/skills/s/SKILL.md");
+    let o = idx
+        .origin_for(&p.to_string_lossy())
+        .expect("a 'url' marketplace source must resolve a Delivered origin");
+    assert_eq!(o.label, "team/plugin");
+    assert_eq!(o.url.as_deref(), Some("https://gitlab.com/team/plugin"));
+}
+
+/// `git-subdir` is identified by its repo; `path` is not appended to the
+/// link (per the task's guidance — appending it is not shown safe for every
+/// host, so the repo alone is linked).
+#[test]
+fn test_marketplace_git_subdir_source_resolves_to_the_repo() {
+    let td = marketplace_home(
+        r#"{"source":"git-subdir","url":"https://github.com/acme/monorepo.git","path":"tools/claude-plugin"}"#,
+        "mkt-c",
+    );
+    let (idx, _) = PluginIndex::load(td.path());
+    let idx = idx.unwrap();
+    let home_canon = fs::canonicalize(td.path()).unwrap();
+    let p = home_canon.join(".claude/plugins/cache/mkt-c/some-plugin/1.0.0/skills/s/SKILL.md");
+    let o = idx
+        .origin_for(&p.to_string_lossy())
+        .expect("a 'git-subdir' marketplace source must resolve a Delivered origin");
+    assert_eq!(o.label, "acme/monorepo");
+    assert_eq!(o.url.as_deref(), Some("https://github.com/acme/monorepo"));
+}
+
+/// A local marketplace's `source` is a plain STRING (a filesystem path), not
+/// an object — `known_marketplaces.json` can legitimately hold
+/// `{"source": "./plugins/my-marketplace"}`. That marketplace has no remote
+/// and must resolve to no origin: correct behaviour, not a miss. This also
+/// proves the string case cannot be misread as an object — the old code's
+/// `source["source"].as_str()` on a string `Value` must not panic.
+#[test]
+fn test_marketplace_string_source_is_local_and_yields_no_origin() {
+    let td = marketplace_home(r#""./plugins/my-marketplace""#, "mkt-d");
+    let (idx, blocked) = PluginIndex::load(td.path());
+    assert!(!blocked);
+    let idx = idx.unwrap();
+    let home_canon = fs::canonicalize(td.path()).unwrap();
+    let p = home_canon.join(".claude/plugins/cache/mkt-d/some-plugin/1.0.0/skills/s/SKILL.md");
+    assert!(
+        idx.origin_for(&p.to_string_lossy()).is_none(),
+        "a local (string) marketplace source must resolve to no origin, not panic or misattribute"
+    );
+}
+
+/// Adversarial inner-`source` shapes: `null`, a bare number, and a missing
+/// `source` key entirely. None of these describe a real marketplace kind;
+/// none may panic, and none may resolve an origin.
+#[test]
+fn test_marketplace_adversarial_source_shapes_do_not_panic() {
+    let td = tempfile::tempdir().unwrap();
+    let pl = td.path().join(".claude/plugins");
+    fs::create_dir_all(&pl).unwrap();
+    fs::write(
+        pl.join("known_marketplaces.json"),
+        r#"{
+            "mkt-e": {"source": null},
+            "mkt-f": {"source": 42},
+            "mkt-g": {}
+        }"#,
+    )
+    .unwrap();
+    let (idx, blocked) = PluginIndex::load(td.path());
+    assert!(!blocked);
+    let idx = idx.unwrap();
+    let home_canon = fs::canonicalize(td.path()).unwrap();
+    for mkt in ["mkt-e", "mkt-f", "mkt-g"] {
+        let p = home_canon.join(format!(".claude/plugins/cache/{mkt}/some-plugin/1.0.0/SKILL.md"));
+        assert!(idx.origin_for(&p.to_string_lossy()).is_none());
+    }
+}
+
+/// `known_marketplaces.json` itself can hold a mix of shapes side by side —
+/// a `github` marketplace and a `url` marketplace resolve independently,
+/// each hitting its own cache prefix and neither disturbing the other.
+#[test]
+fn test_marketplace_mixed_source_shapes_resolve_independently() {
+    let td = tempfile::tempdir().unwrap();
+    let pl = td.path().join(".claude/plugins");
+    fs::create_dir_all(&pl).unwrap();
+    fs::write(
+        pl.join("known_marketplaces.json"),
+        r#"{
+            "mkt-a": {"source": {"source": "github", "repo": "owner/market-repo"}},
+            "mkt-b": {"source": {"source": "url", "url": "https://gitlab.com/team/plugin.git"}}
+        }"#,
+    )
+    .unwrap();
+    let (idx, _) = PluginIndex::load(td.path());
+    let idx = idx.unwrap();
+    let home_canon = fs::canonicalize(td.path()).unwrap();
+
+    let p_a = home_canon.join(".claude/plugins/cache/mkt-a/x/1.0.0/SKILL.md");
+    let p_b = home_canon.join(".claude/plugins/cache/mkt-b/y/1.0.0/SKILL.md");
+    assert_eq!(idx.origin_for(&p_a.to_string_lossy()).unwrap().label, "owner/market-repo");
+    assert_eq!(idx.origin_for(&p_b.to_string_lossy()).unwrap().label, "team/plugin");
+}
