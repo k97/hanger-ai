@@ -79,6 +79,31 @@ time, and they commit to the same branch. `ListAgents` shows the others.
 
   The same check catches the mirror-image mistake: committing a file that
   imports a new module of your own you forgot to `git add`.
+
+- **`git diff` is "changes since the index", not "my changes" — and the index
+  may not be yours.** A peer staged fifteen files mid-classification on
+  2026-08-27. The hunk classifier then reported every hunk as mine and none
+  as theirs, which looked exactly like a clean split and was an artefact:
+  their work had already been subtracted from the comparison. Staging on that
+  would have committed their entire change set under someone else's message.
+
+  The property that makes this dangerous is that **it degrades toward false
+  confidence as you make progress** — the more of anyone's work sits in the
+  index, the cleaner the classifier looks. It is at its most reassuring when
+  it is most wrong.
+
+  Say `git diff HEAD -- <file>` when you mean everything uncommitted, and
+  re-read `git diff --cached --name-only` *immediately* before classifying,
+  not once ten minutes earlier: an empty index is not a state that stays
+  true here. Note that the verification grep is unaffected —
+  `git diff --cached | grep <marker>` compares the index against HEAD and
+  means what it says. It was only the classifier's *input* that lied.
+
+  What caught it was not a check firing. It was three facts that could not
+  all be true at once: a peer's test present in the working tree, absent at
+  `HEAD`, and absent from `git diff`. Reconciling the contradiction is what
+  found the staged index — so when two readings of the tree disagree, chase
+  it rather than picking the one that lets you continue.
 - Say so before touching a file a peer is mid-edit on (`SendMessage`).
 
 - **Concurrent subagents share one git index, and that inverts the rule
