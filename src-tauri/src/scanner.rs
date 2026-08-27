@@ -559,6 +559,16 @@ pub fn get_global_agents_with_denials() -> (Vec<Agent>, Vec<String>) {
     (agents, denials)
 }
 
+/// Coerces a would-be declared-source value to a usable string. A key
+/// present but shaped as a list, map, number or bool reads as absent rather
+/// than as a document-failing type mismatch — the same reasoning that keeps
+/// `metadata` untyped below, applied to every key `declared_source` reads.
+/// Whitespace-only values read as absent too, so they never travel onward
+/// as a real source.
+fn declared_str(value: Option<&str>) -> Option<&str> {
+    value.map(str::trim).filter(|s| !s.is_empty())
+}
+
 #[derive(Deserialize)]
 pub(crate) struct SkillFrontmatter {
     pub(crate) name: String,
@@ -566,8 +576,12 @@ pub(crate) struct SkillFrontmatter {
     version: Option<String>,
     #[serde(alias = "source-origin")]
     source_origin: Option<String>,
-    source: Option<String>,
-    homepage: Option<String>,
+    /// Arbitrary shape by design, same reasoning as `metadata`: some authors
+    /// list several sources or write a citation object instead of a bare
+    /// URL. Only a plain string value is read.
+    source: Option<serde_yaml::Value>,
+    /// Arbitrary shape by design, same reasoning as `source` above.
+    homepage: Option<serde_yaml::Value>,
     /// Arbitrary shape by design: the wild writes strings, maps and lists
     /// under this key, and a strict type here would turn parseable skills
     /// into failures. Only `metadata.homepage` is read.
@@ -577,11 +591,13 @@ pub(crate) struct SkillFrontmatter {
 impl SkillFrontmatter {
     /// The asset's own claim about where it came from, strongest key first.
     pub(crate) fn declared_source(&self) -> Option<&str> {
-        self.source_origin
-            .as_deref()
-            .or(self.source.as_deref())
-            .or(self.homepage.as_deref())
-            .or_else(|| self.metadata.as_ref()?.get("homepage")?.as_str())
+        declared_str(self.source_origin.as_deref())
+            .or_else(|| declared_str(self.source.as_ref().and_then(|v| v.as_str())))
+            .or_else(|| declared_str(self.homepage.as_ref().and_then(|v| v.as_str())))
+            .or_else(|| {
+                let metadata_homepage = self.metadata.as_ref()?.get("homepage")?.as_str();
+                declared_str(metadata_homepage)
+            })
     }
 }
 
@@ -603,14 +619,17 @@ struct SubagentFrontmatter {
     name: String,
     description: String,
     tools: Option<Vec<String>>,
-    source: Option<String>,
-    homepage: Option<String>,
+    /// Arbitrary shape by design — see `SkillFrontmatter::source`.
+    source: Option<serde_yaml::Value>,
+    /// Arbitrary shape by design — see `SkillFrontmatter::homepage`.
+    homepage: Option<serde_yaml::Value>,
 }
 
 impl SubagentFrontmatter {
     /// The asset's own claim about where it came from, strongest key first.
     fn declared_source(&self) -> Option<&str> {
-        self.source.as_deref().or(self.homepage.as_deref())
+        declared_str(self.source.as_ref().and_then(|v| v.as_str()))
+            .or_else(|| declared_str(self.homepage.as_ref().and_then(|v| v.as_str())))
     }
 }
 
@@ -2392,12 +2411,101 @@ mod denial_tests {
     }
 
     #[test]
-    fn test_declared_source_falls_back_to_metadata_homepage_when_source_and_homepage_absent() {
+    fn test_declared_source_none_when_all_keys_absent() {
+        // Renamed from the misleading
+        // ..._falls_back_to_metadata_homepage_when_source_and_homepage_absent:
+        // this body has no `metadata` key at all, so it only proved None
+        // when every declared-source key is missing. See
+        // test_declared_source_from_metadata_homepage for the actual
+        // metadata-fallback case.
         let fm = parse_skill_frontmatter(
             "---\nname: x\ndescription: d\n---\nbody",
         )
         .unwrap();
         assert_eq!(fm.declared_source(), None);
+    }
+
+    #[test]
+    fn test_declared_source_full_precedence_all_three_present() {
+        // source-origin, source and homepage all present in one document:
+        // source-origin must win over both.
+        let fm = parse_skill_frontmatter(
+            "---\nname: x\ndescription: d\nsource-origin: https://github.com/win/s\nsource: https://github.com/lose/s\nhomepage: https://lose.example\n---\nbody",
+        )
+        .unwrap();
+        assert_eq!(fm.declared_source(), Some("https://github.com/win/s"));
+    }
+
+    #[test]
+    fn test_source_as_list_still_parses() {
+        // `source:` in the wild is not always a scalar URL — some authors
+        // list several. A String-typed field would reject the whole
+        // document; Value must accept it and yield no declared source.
+        let fm = parse_skill_frontmatter(
+            "---\nname: x\ndescription: d\nsource:\n  - https://a.example\n  - https://b.example\n---\nbody",
+        );
+        assert!(fm.is_ok());
+        assert_eq!(fm.unwrap().declared_source(), None);
+    }
+
+    #[test]
+    fn test_source_as_map_still_parses() {
+        // Some authors write a citation object instead of a bare URL.
+        let fm = parse_skill_frontmatter(
+            "---\nname: x\ndescription: d\nsource:\n  repo: https://a.example\n  commit: abc123\n---\nbody",
+        );
+        assert!(fm.is_ok());
+        assert_eq!(fm.unwrap().declared_source(), None);
+    }
+
+    #[test]
+    fn test_homepage_as_list_still_parses() {
+        let fm = parse_skill_frontmatter(
+            "---\nname: x\ndescription: d\nhomepage:\n  - https://a.example\n  - https://b.example\n---\nbody",
+        );
+        assert!(fm.is_ok());
+        assert_eq!(fm.unwrap().declared_source(), None);
+    }
+
+    #[test]
+    fn test_homepage_as_map_still_parses() {
+        let fm = parse_skill_frontmatter(
+            "---\nname: x\ndescription: d\nhomepage:\n  url: https://a.example\n  verified: true\n---\nbody",
+        );
+        assert!(fm.is_ok());
+        assert_eq!(fm.unwrap().declared_source(), None);
+    }
+
+    #[test]
+    fn test_metadata_homepage_number_yields_none() {
+        // Pins the `.as_str()` coercion at the metadata.homepage leaf too:
+        // a non-string scalar there must degrade to no declared source, not
+        // be stringified into one.
+        let fm = parse_skill_frontmatter(
+            "---\nname: x\ndescription: d\nmetadata:\n  homepage: 42\n---\nbody",
+        )
+        .unwrap();
+        assert_eq!(fm.declared_source(), None);
+    }
+
+    #[test]
+    fn test_metadata_homepage_map_yields_none() {
+        let fm = parse_skill_frontmatter(
+            "---\nname: x\ndescription: d\nmetadata:\n  homepage:\n    url: https://a.example\n---\nbody",
+        )
+        .unwrap();
+        assert_eq!(fm.declared_source(), None);
+    }
+
+    #[test]
+    fn test_whitespace_only_source_is_treated_as_absent() {
+        // A whitespace-only value must not travel onward as a real source;
+        // fall through past it as if it were unset.
+        let fm = parse_skill_frontmatter(
+            "---\nname: x\ndescription: d\nsource: \"   \"\nhomepage: https://real.example\n---\nbody",
+        )
+        .unwrap();
+        assert_eq!(fm.declared_source(), Some("https://real.example"));
     }
 
     #[test]
@@ -2413,5 +2521,23 @@ mod denial_tests {
         )
         .unwrap();
         assert_eq!(fm2.declared_source(), Some("https://c.d"));
+    }
+
+    #[test]
+    fn test_subagent_source_as_list_still_parses() {
+        let fm = parse_subagent_frontmatter(
+            "---\nname: x\ndescription: d\nsource:\n  - https://a.example\n  - https://b.example\n---\nbody",
+        );
+        assert!(fm.is_ok());
+        assert_eq!(fm.unwrap().declared_source(), None);
+    }
+
+    #[test]
+    fn test_subagent_homepage_as_map_still_parses() {
+        let fm = parse_subagent_frontmatter(
+            "---\nname: x\ndescription: d\nhomepage:\n  url: https://a.example\n---\nbody",
+        );
+        assert!(fm.is_ok());
+        assert_eq!(fm.unwrap().declared_source(), None);
     }
 }
