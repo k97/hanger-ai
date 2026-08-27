@@ -211,16 +211,108 @@ fn test_walk_stops_at_home() {
     assert!(o.is_none());
 }
 
+/// `cache.len()` cannot move either way here: both assets share directory
+/// `x`, so the set of directories *visited* is identical whether or not
+/// memoization exists — `HashMap::insert` on an existing key never changes
+/// `.len()`. Deleting the early-return entirely would leave this green.
+/// Prove memoization by its observable consequence instead: change the
+/// on-disk remote between the two calls and assert the SECOND call still
+/// returns the FIRST value. That only holds if the second call trusts the
+/// cache rather than re-reading `.git/config`.
 #[test]
 fn test_memoization_reuses_directory_verdict() {
     let td = tempfile::tempdir().unwrap();
-    let asset_a = td.path().join("x/a.md");
-    let asset_b = td.path().join("x/b.md");
+    let dir = td.path().join("x");
+    fs::create_dir_all(dir.join(".git")).unwrap();
+    fs::write(
+        dir.join(".git/config"),
+        "[remote \"origin\"]\n\turl = https://github.com/owner/first\n",
+    )
+    .unwrap();
+    let asset_a = dir.join("a.md");
+    let asset_b = dir.join("b.md");
     let mut cache = HashMap::new();
-    git_remote_origin(&asset_a, td.path(), &mut cache);
-    let before = cache.len();
-    git_remote_origin(&asset_b, td.path(), &mut cache);
-    assert_eq!(cache.len(), before, "second file in same dir reads nothing new");
+
+    let (o_a, _) = git_remote_origin(&asset_a, td.path(), &mut cache);
+    assert_eq!(o_a.unwrap().label, "owner/first");
+
+    fs::write(
+        dir.join(".git/config"),
+        "[remote \"origin\"]\n\turl = https://github.com/owner/second\n",
+    )
+    .unwrap();
+
+    let (o_b, _) = git_remote_origin(&asset_b, td.path(), &mut cache);
+    assert_eq!(
+        o_b.unwrap().label,
+        "owner/first",
+        "second file in same dir must reuse the cached verdict, not re-read the changed file"
+    );
+}
+
+/// A cache hit must not silently drop a `blocked` disclosure. Directory `x`
+/// has a `.git/config` chmod'd unreadable; the FIRST asset that walks
+/// through `x` correctly reports `blocked`. Before this fix, the loop broke
+/// on the cache hit for the SECOND asset before any read was attempted, so
+/// `blocked` stayed at its initial `false` — a different answer for
+/// identical filesystem state, silently dropping the access-denied
+/// disclosure for every asset after the first.
+#[test]
+fn test_memoization_carries_blocked_across_cache_hits() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let td = tempfile::tempdir().unwrap();
+    let dir = td.path().join("x");
+    fs::create_dir_all(dir.join(".git")).unwrap();
+    let cfg = dir.join(".git/config");
+    fs::write(&cfg, "[remote \"origin\"]\n\turl = https://github.com/owner/repo\n").unwrap();
+    fs::set_permissions(&cfg, fs::Permissions::from_mode(0o000)).unwrap();
+
+    let asset_a = dir.join("a.md");
+    let asset_b = dir.join("b.md");
+    let mut cache = HashMap::new();
+
+    let (_, blocked_a) = git_remote_origin(&asset_a, td.path(), &mut cache);
+    assert!(blocked_a, "first read of an unreadable .git/config must report blocked");
+
+    let (_, blocked_b) = git_remote_origin(&asset_b, td.path(), &mut cache);
+    assert!(
+        blocked_b,
+        "a cache hit for the same directory must still report blocked, not silently drop it"
+    );
+
+    // Restore so the tempdir's own Drop cleanup can remove the file.
+    let _ = fs::set_permissions(&cfg, fs::Permissions::from_mode(0o644));
+}
+
+/// `.git/config` has no realistic size — the task's own constraints flag it
+/// as possibly enormous. `std::fs::read_to_string` with no size check is an
+/// unbounded-memory read during a home-directory walk. The codebase already
+/// has this exact pattern: `scanner.rs`'s hash budget skips a file over a
+/// 10MB cap rather than reading it (`src-tauri/src/scanner.rs:698-702`). A
+/// config far larger than any real one is an absent origin, not something
+/// to read fully into memory first.
+#[test]
+fn test_oversized_git_config_is_absent_not_read() {
+    let td = tempfile::tempdir().unwrap();
+    let repo = td.path().join("dotfiles");
+    fs::create_dir_all(repo.join(".git")).unwrap();
+    // A genuinely parseable remote, padded past the 10MB cap with a comment
+    // line. If the cap is honoured, this is never parsed — proven by the
+    // origin coming back None despite the valid url being present in the
+    // file.
+    let padding = "x".repeat(10_000_001);
+    let cfg_text = format!(
+        "[remote \"origin\"]\n\turl = https://github.com/owner/dotfiles\n# {}\n",
+        padding
+    );
+    fs::write(repo.join(".git/config"), cfg_text).unwrap();
+    let asset = repo.join("skills/a/SKILL.md");
+    fs::create_dir_all(asset.parent().unwrap()).unwrap();
+    let mut cache = HashMap::new();
+    let (o, blocked) = git_remote_origin(&asset, td.path(), &mut cache);
+    assert!(o.is_none(), "a config over the size cap must be treated as absent, not parsed");
+    assert!(!blocked, "an oversized file is an absent origin, not an access-denied block");
 }
 
 /// `home` is a fence, not a hint: a symlink that sits INSIDE home but

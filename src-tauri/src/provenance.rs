@@ -270,6 +270,14 @@ mod tests {
 
 use std::path::PathBuf;
 
+/// `.git/config` has no realistic size, but nothing enforces that: a
+/// pathological repo (or a symlink pointed at a device or a hostile file)
+/// could hand `read_to_string` an enormous target during a home-directory
+/// walk. Same cap and the same reasoning as the hash budget in
+/// `scanner.rs:698-702` — a file over this size is skipped and treated as
+/// an absent origin, not read into memory first.
+const GIT_CONFIG_SIZE_CAP: u64 = 10_000_000;
+
 /// The `[remote "origin"] url` of the nearest enclosing checkout, walking
 /// ancestors from the asset's directory up to and including `home` — never
 /// past it: above home sits the whole disk, and a hit there says nothing
@@ -291,10 +299,19 @@ use std::path::PathBuf;
 /// A directory that does not exist cannot be canonicalized; that is not an
 /// escape (there is nothing there to read) so it is treated as within the
 /// fence and the subsequent read simply fails with "not found".
+///
+/// The cache stores `(Option<Origin>, bool)` per directory, not just the
+/// origin: `blocked` is part of a directory's verdict, not a side effect of
+/// the specific call that first computed it. A cache-hit call must report
+/// the same `blocked` a fresh walk starting at that directory would — so
+/// each visited directory is cached with the "blocked from here onward"
+/// value (a suffix-OR over the chain to wherever the walk terminated), and a
+/// later lookup that lands on any of those directories, cached or not,
+/// reports the same answer for the same filesystem state.
 pub fn git_remote_origin(
     path: &Path,
     home: &Path,
-    cache: &mut HashMap<PathBuf, Option<Origin>>,
+    cache: &mut HashMap<PathBuf, (Option<Origin>, bool)>,
 ) -> (Option<Origin>, bool) {
     let home_canon = match std::fs::canonicalize(home) {
         Ok(h) => h,
@@ -308,17 +325,25 @@ pub fn git_remote_origin(
         path.parent().map(Path::to_path_buf).unwrap_or_else(|| path.to_path_buf())
     };
 
-    let mut blocked = false;
+    // `blocked` from whatever point the walk terminates at: a cache hit's
+    // own stored verdict, or `false` when the walk ends by a successful
+    // read, an oversized file, an escaped fence, or reaching the top with no
+    // block at that final step. `visited` collects only the NEW directories
+    // this call itself walked, each with whether ITS OWN read hit
+    // `PermissionDenied` — folded into a suffix-OR against `tail_blocked`
+    // once the walk ends, so every directory caches "blocked from here to
+    // the answer", not just "blocked at this one step".
+    let mut tail_blocked = false;
     let mut dir: Option<PathBuf> = Some(start);
-    let mut visited: Vec<PathBuf> = Vec::new();
+    let mut visited: Vec<(PathBuf, bool)> = Vec::new();
     let mut found: Option<Origin> = None;
 
-    while let Some(d) = dir {
-        if let Some(hit) = cache.get(&d) {
-            found = hit.clone();
-            break;
+    'walk: while let Some(d) = dir {
+        if let Some((hit_origin, hit_blocked)) = cache.get(&d) {
+            found = hit_origin.clone();
+            tail_blocked = *hit_blocked;
+            break 'walk;
         }
-        visited.push(d.clone());
 
         let within_fence = match std::fs::canonicalize(&d) {
             Ok(real) => real == home_canon || real.starts_with(&home_canon),
@@ -326,49 +351,67 @@ pub fn git_remote_origin(
             Err(_) => true,
         };
 
-        if within_fence {
-            let cfg = d.join(".git/config");
-            match std::fs::read_to_string(&cfg) {
-                Ok(text) => {
-                    // `d` resolved inside home, but `.git/config` itself can
-                    // still be a symlink to somewhere outside it — check the
-                    // leaf file's real location too before trusting its
-                    // content. A `.git` marker found here still ends the
-                    // walk (this IS the nearest checkout root); a poisoned
-                    // config just yields no usable origin, same as a config
-                    // with no parseable remote.
-                    let cfg_within = std::fs::canonicalize(&cfg)
-                        .map(|real| real == home_canon || real.starts_with(&home_canon))
-                        .unwrap_or(false);
-                    found = if cfg_within {
-                        parse_origin_url(&text).and_then(|raw| {
-                            normalize_source_url(&raw).map(|(label, url)| Origin {
-                                label,
-                                url: Some(url),
-                                kind: OriginKind::CheckedOut,
-                                commit: None,
-                                delivered_by: None,
-                                installed_at_ms: None,
-                            })
-                        })
-                    } else {
-                        None
-                    };
-                    break;
-                }
-                Err(e) if e.kind() == std::io::ErrorKind::PermissionDenied => {
-                    blocked = true;
-                }
-                Err(_) => {}
-            }
-        } else {
+        if !within_fence {
             // A `..`-escaped or symlinked ancestor resolves outside home:
             // stop rather than follow it off the fence.
-            break;
+            visited.push((d, false));
+            break 'walk;
         }
 
-        if d == home {
-            break;
+        let cfg = d.join(".git/config");
+        let too_large =
+            matches!(std::fs::metadata(&cfg), Ok(m) if m.len() > GIT_CONFIG_SIZE_CAP);
+        if too_large {
+            // A config this large is never a real one — skip it rather than
+            // read it into memory, same as scanner.rs's hash budget. A `.git`
+            // marker found here still ends the walk (this IS the nearest
+            // checkout root); an oversized config just yields no usable
+            // origin, and it's an absent origin, not a blocked read.
+            found = None;
+            visited.push((d, false));
+            break 'walk;
+        }
+
+        let mut blocked_here = false;
+        match std::fs::read_to_string(&cfg) {
+            Ok(text) => {
+                // `d` resolved inside home, but `.git/config` itself can
+                // still be a symlink to somewhere outside it — check the
+                // leaf file's real location too before trusting its
+                // content. A `.git` marker found here still ends the
+                // walk (this IS the nearest checkout root); a poisoned
+                // config just yields no usable origin, same as a config
+                // with no parseable remote.
+                let cfg_within = std::fs::canonicalize(&cfg)
+                    .map(|real| real == home_canon || real.starts_with(&home_canon))
+                    .unwrap_or(false);
+                found = if cfg_within {
+                    parse_origin_url(&text).and_then(|raw| {
+                        normalize_source_url(&raw).map(|(label, url)| Origin {
+                            label,
+                            url: Some(url),
+                            kind: OriginKind::CheckedOut,
+                            commit: None,
+                            delivered_by: None,
+                            installed_at_ms: None,
+                        })
+                    })
+                } else {
+                    None
+                };
+                visited.push((d, false));
+                break 'walk;
+            }
+            Err(e) if e.kind() == std::io::ErrorKind::PermissionDenied => {
+                blocked_here = true;
+            }
+            Err(_) => {}
+        }
+
+        let reached_home = d == home;
+        visited.push((d.clone(), blocked_here));
+        if reached_home {
+            break 'walk;
         }
         dir = d
             .parent()
@@ -376,10 +419,13 @@ pub fn git_remote_origin(
             .filter(|p| *p == home || p.starts_with(home));
     }
 
-    for v in visited {
-        cache.insert(v, found.clone());
+    let mut running_blocked = tail_blocked;
+    for (v, blocked_here) in visited.into_iter().rev() {
+        running_blocked = running_blocked || blocked_here;
+        cache.insert(v, (found.clone(), running_blocked));
     }
-    (found, blocked)
+
+    (found, running_blocked)
 }
 
 /// First `url =` under `[remote "origin"]`. Text parse, quotes as written
