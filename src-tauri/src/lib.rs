@@ -6,6 +6,7 @@ pub mod domain;
 pub mod linkmap;
 pub mod mcp;
 pub mod menu;
+pub mod provenance;
 pub mod scanner;
 pub mod updates;
 mod transactional;

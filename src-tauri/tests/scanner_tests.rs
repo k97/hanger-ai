@@ -471,6 +471,8 @@ fn test_scanner_deduplication_logic() {
         parse_status: Some("ok".to_string()),
         parse_error: None,
         link_state: None,
+        origin: None,
+        origin_blocked: None,
     });
     combined_inventory.skills.push(Skill {
         id: "2".to_string(),
@@ -486,6 +488,8 @@ fn test_scanner_deduplication_logic() {
         parse_status: Some("ok".to_string()),
         parse_error: None,
         link_state: None,
+        origin: None,
+        origin_blocked: None,
     });
 
     assert_eq!(combined_inventory.skills.len(), 2);

@@ -1326,7 +1326,7 @@ export default function App() {
           56px rail on purpose — the toggle must stay reachable to reopen. */}
       <div
         data-rail-column
-        className="shrink-0 h-full bg-plane border-r border-line flex flex-col min-h-0 transition-[width] duration-nav"
+        className="shrink-0 h-full bg-sidebar border-r border-line flex flex-col min-h-0 transition-[width] duration-nav"
         style={{
           width:
             56 +

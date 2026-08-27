@@ -230,6 +230,8 @@ fn merging_scans_keeps_every_server_not_one_per_config_file() {
         parse_status: Some("ok".to_string()),
         parse_error: None,
         link_state: None,
+        origin: None,
+        origin_blocked: None,
     };
 
     let mut inv = Inventory::default();

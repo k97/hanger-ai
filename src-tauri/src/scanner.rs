@@ -559,13 +559,59 @@ pub fn get_global_agents_with_denials() -> (Vec<Agent>, Vec<String>) {
     (agents, denials)
 }
 
+/// Coerces a would-be declared-source value to a usable string. A key
+/// present but shaped as a list, map, number or bool reads as absent rather
+/// than as a document-failing type mismatch — the same reasoning that keeps
+/// `metadata` untyped below, applied to every key `declared_source` reads.
+/// Whitespace-only values read as absent too, so they never travel onward
+/// as a real source.
+fn declared_str(value: Option<&str>) -> Option<&str> {
+    value.map(str::trim).filter(|s| !s.is_empty())
+}
+
+/// Coerces a raw frontmatter `Value` field to the owned `String` the `Skill`
+/// domain type carries for `source_origin`, via the same coercion and trim
+/// rule as `declared_str`. A non-string shape or a whitespace-only value
+/// yields `None`, matching what `declared_source()` would resolve to for
+/// that key rather than failing the document.
+fn declared_owned(value: &Option<serde_yaml::Value>) -> Option<String> {
+    declared_str(value.as_ref().and_then(|v| v.as_str())).map(|s| s.to_string())
+}
+
 #[derive(Deserialize)]
 pub(crate) struct SkillFrontmatter {
     pub(crate) name: String,
     pub(crate) description: String,
     version: Option<String>,
+    /// Arbitrary shape by design, same reasoning as `source` below: this is
+    /// one of the keys `declared_source()` itself reads, so it must degrade
+    /// the same way `source` and `homepage` do rather than fail the whole
+    /// document when written as a list or map.
     #[serde(alias = "source-origin")]
-    source_origin: Option<String>,
+    source_origin: Option<serde_yaml::Value>,
+    /// Arbitrary shape by design, same reasoning as `metadata`: some authors
+    /// list several sources or write a citation object instead of a bare
+    /// URL. Only a plain string value is read.
+    source: Option<serde_yaml::Value>,
+    /// Arbitrary shape by design, same reasoning as `source` above.
+    homepage: Option<serde_yaml::Value>,
+    /// Arbitrary shape by design: the wild writes strings, maps and lists
+    /// under this key, and a strict type here would turn parseable skills
+    /// into failures. Only `metadata.homepage` is read.
+    metadata: Option<serde_yaml::Value>,
+}
+
+impl SkillFrontmatter {
+    /// The asset's own claim about where it came from, strongest key first.
+    pub(crate) fn declared_source(&self) -> Option<&str> {
+        declared_str(self.source_origin.as_ref().and_then(|v| v.as_str()))
+            .or_else(|| declared_str(self.source.as_ref().and_then(|v| v.as_str())))
+            .or_else(|| declared_str(self.homepage.as_ref().and_then(|v| v.as_str())))
+            .or_else(|| {
+                let metadata_homepage = self.metadata.as_ref()?.get("homepage")?.as_str();
+                declared_str(metadata_homepage)
+            })
+    }
 }
 
 pub(crate) fn parse_skill_frontmatter(content: &str) -> Result<SkillFrontmatter, String> {
@@ -586,6 +632,18 @@ struct SubagentFrontmatter {
     name: String,
     description: String,
     tools: Option<Vec<String>>,
+    /// Arbitrary shape by design — see `SkillFrontmatter::source`.
+    source: Option<serde_yaml::Value>,
+    /// Arbitrary shape by design — see `SkillFrontmatter::homepage`.
+    homepage: Option<serde_yaml::Value>,
+}
+
+impl SubagentFrontmatter {
+    /// The asset's own claim about where it came from, strongest key first.
+    fn declared_source(&self) -> Option<&str> {
+        declared_str(self.source.as_ref().and_then(|v| v.as_str()))
+            .or_else(|| declared_str(self.homepage.as_ref().and_then(|v| v.as_str())))
+    }
 }
 
 fn parse_subagent_frontmatter(content: &str) -> Result<SubagentFrontmatter, String> {
@@ -660,6 +718,8 @@ pub fn tool_from_registration(
         parse_status: Some("ok".to_string()),
         parse_error: None,
         link_state: None,
+        origin: None,
+        origin_blocked: None,
     };
     // Identity comes from the domain, not from a format! repeated per call site.
     tool.id = tool.registration_key().to_string();
@@ -1114,6 +1174,8 @@ impl DirectoryScanner {
                                     parse_status: Some("ok".to_string()),
                                     parse_error: None,
                                     link_state,
+                                    origin: None,
+                                    origin_blocked: None,
                                 });
                                 if let (Some(store), Some(r_id)) = (&store_opt, global_root_id) {
                                     let canon_p = canonicalize_asset_path(&path, &mut parse_warnings);
@@ -1217,7 +1279,7 @@ impl DirectoryScanner {
                                             description: fm.description,
                                             version: fm.version.clone().unwrap_or_else(|| "v0.0.0-draft".to_string()),
                                             path: skill_identity.clone(),
-                                            source_origin: fm.source_origin,
+                                            source_origin: declared_owned(&fm.source_origin),
                                             scope: Some(Scope::Global {
                                                 agent: skill_agent,
                                             }),
@@ -1227,6 +1289,8 @@ impl DirectoryScanner {
                                             parse_status: Some("ok".to_string()),
                                             parse_error: None,
                                             link_state,
+                                            origin: None,
+                                            origin_blocked: None,
                                         });
                                     }
                                     if let Some(store) = &store_opt {
@@ -1349,6 +1413,8 @@ impl DirectoryScanner {
                                                     parse_status: Some("ok".to_string()),
                                                     parse_error: None,
                                                     link_state: None,
+                                                    origin: None,
+                                                    origin_blocked: None,
                                                 });
                                             }
                                             if let Some(store) = &store_opt {
@@ -1386,6 +1452,8 @@ impl DirectoryScanner {
                                                     // A parse failure is not a link state (ruled 2026-08-15): it files
                                 // under parse_status, never under broken links.
                                 link_state: None,
+                                                    origin: None,
+                                                    origin_blocked: None,
                                                 });
                                             }
                                             if let Some(store) = &store_opt {
@@ -1750,7 +1818,7 @@ impl DirectoryScanner {
                                 description: fm.description,
                                 version: fm.version.clone().unwrap_or_else(|| "v0.0.0-draft".to_string()),
                                 path: parent_dir_str.clone(),
-                                source_origin: fm.source_origin,
+                                source_origin: declared_owned(&fm.source_origin),
                                 scope: Some(Scope::Project {
                                     agent: "".to_string(),
                                     root: project_path_abs.clone(),
@@ -1761,6 +1829,8 @@ impl DirectoryScanner {
                                 parse_status: Some("ok".to_string()),
                                 parse_error: None,
                                 link_state,
+                                origin: None,
+                                origin_blocked: None,
                             });
                             if let (Some(store), Some(r_id)) = (&store_opt, project_root_id) {
                                 let parent_dir_canon = canonicalize_asset_path(parent_dir, &mut parse_warnings);
@@ -1794,6 +1864,8 @@ impl DirectoryScanner {
                                 // A parse failure is not a link state (ruled 2026-08-15): it files
                                 // under parse_status, never under broken links.
                                 link_state: None,
+                                origin: None,
+                                origin_blocked: None,
                             });
                             if let (Some(store), Some(r_id)) = (&store_opt, project_root_id) {
                                 let _ = store.upsert_asset(
@@ -1858,6 +1930,8 @@ impl DirectoryScanner {
                                 parse_status: Some("ok".to_string()),
                                 parse_error: None,
                                 link_state,
+                                origin: None,
+                                origin_blocked: None,
                             });
                             if let (Some(store), Some(r_id)) = (&store_opt, project_root_id) {
                                 let sub_path_canon = canonicalize_asset_path(path, &mut parse_warnings);
@@ -1888,6 +1962,8 @@ impl DirectoryScanner {
                                 // A parse failure is not a link state (ruled 2026-08-15): it files
                                 // under parse_status, never under broken links.
                                 link_state: None,
+                                origin: None,
+                                origin_blocked: None,
                             });
                             if let (Some(store), Some(r_id)) = (&store_opt, project_root_id) {
                                 let _ = store.upsert_asset(
@@ -1980,6 +2056,8 @@ impl DirectoryScanner {
                         // A parse failure is not a link state (ruled 2026-08-15): it files
                                 // under parse_status, never under broken links.
                                 link_state: None,
+                        origin: None,
+                        origin_blocked: None,
                     });
                     if let (Some(store), Some(r_id)) = (&store_opt, project_root_id) {
                         let _ = store.upsert_asset(
@@ -2042,6 +2120,8 @@ impl DirectoryScanner {
                             parse_status: Some("ok".to_string()),
                             parse_error: None,
                             link_state,
+                            origin: None,
+                            origin_blocked: None,
                         });
                         if let (Some(store), Some(r_id)) = (&store_opt, project_root_id) {
                             let rule_canon = canonicalize_asset_path(Path::new(p_str), &mut parse_warnings);
@@ -2285,5 +2365,213 @@ mod denial_tests {
         let _ = std::fs::set_permissions(&parent, p);
 
         assert!(matches!(result, RootPresence::Blocked(Denial::UnixPermission)));
+    }
+
+    #[test]
+    fn test_declared_source_precedence() {
+        let fm = parse_skill_frontmatter(
+            "---\nname: x\ndescription: d\nsource: https://github.com/a/b\nhomepage: https://c.d\n---\nbody",
+        )
+        .unwrap();
+        assert_eq!(fm.declared_source(), Some("https://github.com/a/b"));
+    }
+
+    #[test]
+    fn test_declared_source_from_metadata_homepage() {
+        let fm = parse_skill_frontmatter(
+            "---\nname: x\ndescription: d\nmetadata:\n  author: someone\n  homepage: \"https://fontfyi.com/\"\n---\nbody",
+        )
+        .unwrap();
+        assert_eq!(fm.declared_source(), Some("https://fontfyi.com/"));
+    }
+
+    #[test]
+    fn test_odd_metadata_shape_still_parses() {
+        let fm = parse_skill_frontmatter(
+            "---\nname: x\ndescription: d\nmetadata:\n  tags:\n    - a\n    - b\n---\nbody",
+        );
+        assert!(fm.is_ok());
+        assert_eq!(fm.unwrap().declared_source(), None);
+    }
+
+    #[test]
+    fn test_odd_metadata_shape_nested_map_still_parses() {
+        // Real-world metadata carries arbitrary nested structure, not just
+        // lists. A struct-typed `metadata` would reject this document
+        // outright; `Option<serde_yaml::Value>` must accept it.
+        let fm = parse_skill_frontmatter(
+            "---\nname: x\ndescription: d\nmetadata:\n  author:\n    name: 誰か\n    contact:\n      email: a@b.co\n---\nbody",
+        );
+        assert!(fm.is_ok());
+        assert_eq!(fm.unwrap().declared_source(), None);
+    }
+
+    #[test]
+    fn test_odd_metadata_shape_scalar_still_parses() {
+        // Some skills write `metadata: unknown` — a bare scalar, not a map.
+        let fm = parse_skill_frontmatter("---\nname: x\ndescription: d\nmetadata: unknown\n---\nbody");
+        assert!(fm.is_ok());
+        assert_eq!(fm.unwrap().declared_source(), None);
+    }
+
+    #[test]
+    fn test_source_origin_still_wins() {
+        let fm = parse_skill_frontmatter(
+            "---\nname: x\ndescription: d\nsource-origin: https://github.com/win/s\nsource: https://github.com/lose/s\n---\nbody",
+        )
+        .unwrap();
+        assert_eq!(fm.declared_source(), Some("https://github.com/win/s"));
+    }
+
+    #[test]
+    fn test_source_origin_as_list_still_parses_and_falls_through_to_source() {
+        // source-origin written as a list must not fail the document; it
+        // must fall through to the next key in precedence, proving both
+        // non-failure and the fallthrough in one assertion.
+        let fm = parse_skill_frontmatter(
+            "---\nname: x\ndescription: d\nsource-origin:\n  - https://a.example\n  - https://b.example\nsource: https://github.com/real/s\n---\nbody",
+        );
+        assert!(fm.is_ok());
+        assert_eq!(fm.unwrap().declared_source(), Some("https://github.com/real/s"));
+    }
+
+    #[test]
+    fn test_source_origin_as_map_still_parses_and_falls_through_to_source() {
+        let fm = parse_skill_frontmatter(
+            "---\nname: x\ndescription: d\nsource-origin:\n  repo: https://a.example\n  commit: abc123\nsource: https://github.com/real/s\n---\nbody",
+        );
+        assert!(fm.is_ok());
+        assert_eq!(fm.unwrap().declared_source(), Some("https://github.com/real/s"));
+    }
+
+    #[test]
+    fn test_declared_source_none_when_all_keys_absent() {
+        // Renamed from the misleading
+        // ..._falls_back_to_metadata_homepage_when_source_and_homepage_absent:
+        // this body has no `metadata` key at all, so it only proved None
+        // when every declared-source key is missing. See
+        // test_declared_source_from_metadata_homepage for the actual
+        // metadata-fallback case.
+        let fm = parse_skill_frontmatter(
+            "---\nname: x\ndescription: d\n---\nbody",
+        )
+        .unwrap();
+        assert_eq!(fm.declared_source(), None);
+    }
+
+    #[test]
+    fn test_declared_source_full_precedence_all_three_present() {
+        // source-origin, source and homepage all present in one document:
+        // source-origin must win over both.
+        let fm = parse_skill_frontmatter(
+            "---\nname: x\ndescription: d\nsource-origin: https://github.com/win/s\nsource: https://github.com/lose/s\nhomepage: https://lose.example\n---\nbody",
+        )
+        .unwrap();
+        assert_eq!(fm.declared_source(), Some("https://github.com/win/s"));
+    }
+
+    #[test]
+    fn test_source_as_list_still_parses() {
+        // `source:` in the wild is not always a scalar URL — some authors
+        // list several. A String-typed field would reject the whole
+        // document; Value must accept it and yield no declared source.
+        let fm = parse_skill_frontmatter(
+            "---\nname: x\ndescription: d\nsource:\n  - https://a.example\n  - https://b.example\n---\nbody",
+        );
+        assert!(fm.is_ok());
+        assert_eq!(fm.unwrap().declared_source(), None);
+    }
+
+    #[test]
+    fn test_source_as_map_still_parses() {
+        // Some authors write a citation object instead of a bare URL.
+        let fm = parse_skill_frontmatter(
+            "---\nname: x\ndescription: d\nsource:\n  repo: https://a.example\n  commit: abc123\n---\nbody",
+        );
+        assert!(fm.is_ok());
+        assert_eq!(fm.unwrap().declared_source(), None);
+    }
+
+    #[test]
+    fn test_homepage_as_list_still_parses() {
+        let fm = parse_skill_frontmatter(
+            "---\nname: x\ndescription: d\nhomepage:\n  - https://a.example\n  - https://b.example\n---\nbody",
+        );
+        assert!(fm.is_ok());
+        assert_eq!(fm.unwrap().declared_source(), None);
+    }
+
+    #[test]
+    fn test_homepage_as_map_still_parses() {
+        let fm = parse_skill_frontmatter(
+            "---\nname: x\ndescription: d\nhomepage:\n  url: https://a.example\n  verified: true\n---\nbody",
+        );
+        assert!(fm.is_ok());
+        assert_eq!(fm.unwrap().declared_source(), None);
+    }
+
+    #[test]
+    fn test_metadata_homepage_number_yields_none() {
+        // Pins the `.as_str()` coercion at the metadata.homepage leaf too:
+        // a non-string scalar there must degrade to no declared source, not
+        // be stringified into one.
+        let fm = parse_skill_frontmatter(
+            "---\nname: x\ndescription: d\nmetadata:\n  homepage: 42\n---\nbody",
+        )
+        .unwrap();
+        assert_eq!(fm.declared_source(), None);
+    }
+
+    #[test]
+    fn test_metadata_homepage_map_yields_none() {
+        let fm = parse_skill_frontmatter(
+            "---\nname: x\ndescription: d\nmetadata:\n  homepage:\n    url: https://a.example\n---\nbody",
+        )
+        .unwrap();
+        assert_eq!(fm.declared_source(), None);
+    }
+
+    #[test]
+    fn test_whitespace_only_source_is_treated_as_absent() {
+        // A whitespace-only value must not travel onward as a real source;
+        // fall through past it as if it were unset.
+        let fm = parse_skill_frontmatter(
+            "---\nname: x\ndescription: d\nsource: \"   \"\nhomepage: https://real.example\n---\nbody",
+        )
+        .unwrap();
+        assert_eq!(fm.declared_source(), Some("https://real.example"));
+    }
+
+    #[test]
+    fn test_subagent_declared_source_precedence() {
+        let fm = parse_subagent_frontmatter(
+            "---\nname: x\ndescription: d\nsource: https://github.com/a/b\nhomepage: https://c.d\n---\nbody",
+        )
+        .unwrap();
+        assert_eq!(fm.declared_source(), Some("https://github.com/a/b"));
+
+        let fm2 = parse_subagent_frontmatter(
+            "---\nname: x\ndescription: d\nhomepage: https://c.d\n---\nbody",
+        )
+        .unwrap();
+        assert_eq!(fm2.declared_source(), Some("https://c.d"));
+    }
+
+    #[test]
+    fn test_subagent_source_as_list_still_parses() {
+        let fm = parse_subagent_frontmatter(
+            "---\nname: x\ndescription: d\nsource:\n  - https://a.example\n  - https://b.example\n---\nbody",
+        );
+        assert!(fm.is_ok());
+        assert_eq!(fm.unwrap().declared_source(), None);
+    }
+
+    #[test]
+    fn test_subagent_homepage_as_map_still_parses() {
+        let fm = parse_subagent_frontmatter(
+            "---\nname: x\ndescription: d\nhomepage:\n  url: https://a.example\n---\nbody",
+        );
+        assert!(fm.is_ok());
+        assert_eq!(fm.unwrap().declared_source(), None);
     }
 }

@@ -49,6 +49,8 @@ fn tool_at(config_path: &str, name: &str) -> Tool {
         parse_status: Some("ok".into()),
         parse_error: None,
         link_state: None,
+        origin: None,
+        origin_blocked: None,
     }
 }
 
