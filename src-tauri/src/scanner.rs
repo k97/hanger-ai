@@ -693,11 +693,20 @@ fn agent_id_static(agent_id: &str) -> &'static str {
 /// Build a `Tool` domain row from a discovered registration.
 ///
 /// One place so the registry pass and the sweep cannot drift apart in what
-/// they produce.
+/// they produce. Takes the scan's one `OriginResolver` (`resolve_tool`) so
+/// every construction site resolves origin the same way, rather than each
+/// call site reimplementing delivered-then-launched precedence.
 pub fn tool_from_registration(
+    resolver: &mut crate::provenance::OriginResolver,
     reg: &crate::mcp::discover::Registration,
     scope: Scope,
 ) -> Tool {
+    let resolved = resolver.resolve_tool(
+        &reg.config_path,
+        &reg.server.command,
+        &reg.server.args,
+        &reg.server.transport,
+    );
     let mut tool = Tool {
         id: String::new(),
         name: reg.server.name.clone(),
@@ -718,8 +727,8 @@ pub fn tool_from_registration(
         parse_status: Some("ok".to_string()),
         parse_error: None,
         link_state: None,
-        origin: None,
-        origin_blocked: None,
+        origin: resolved.origin,
+        origin_blocked: resolved.blocked.then_some(true),
     };
     // Identity comes from the domain, not from a format! repeated per call site.
     tool.id = tool.registration_key().to_string();
@@ -1140,6 +1149,7 @@ impl DirectoryScanner {
                                     continue;
                                 }
                                 inventory.tools.push(tool_from_registration(
+                                    &mut origin_resolver,
                                     &reg,
                                     Scope::Global { agent: agent.id.clone() },
                                 ));
@@ -1540,6 +1550,7 @@ impl DirectoryScanner {
                 };
 
                 inventory.tools.push(tool_from_registration(
+                    &mut origin_resolver,
                     &reg,
                     Scope::Global { agent: reg.host_id.to_string() },
                 ));
@@ -2039,7 +2050,7 @@ impl DirectoryScanner {
                         if !seen_registrations.insert(key) {
                             continue;
                         }
-                        let mut tool = tool_from_registration(&reg, scope.clone());
+                        let mut tool = tool_from_registration(&mut origin_resolver, &reg, scope.clone());
                         // The sweep attributes ownership by footprint
                         // directory; the registration itself has no host.
                         tool.owning_agent = owning_agent.clone();
@@ -2063,6 +2074,11 @@ impl DirectoryScanner {
                     // in the project's DisclosureBanner. Both, as before.
                     parse_warnings.push(err_msg.clone());
                     let t_canon = canonicalize_asset_path(&tool_path, &mut parse_warnings);
+                    // A config that would not parse still has a location —
+                    // still worth checking against the plugin store, even
+                    // with no launch to infer from (there is none: the
+                    // parse failed before any command/args could be read).
+                    let resolved = origin_resolver.resolve_tool(&t_canon, "", &[], "");
                     inventory.tools.push(Tool {
                         id: t_canon.clone(),
                         name: tool_filename.to_string(),
@@ -2085,8 +2101,8 @@ impl DirectoryScanner {
                         // A parse failure is not a link state (ruled 2026-08-15): it files
                                 // under parse_status, never under broken links.
                                 link_state: None,
-                        origin: None,
-                        origin_blocked: None,
+                        origin: resolved.origin,
+                        origin_blocked: resolved.blocked.then_some(true),
                     });
                     if let (Some(store), Some(r_id)) = (&store_opt, project_root_id) {
                         let _ = store.upsert_asset(

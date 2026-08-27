@@ -283,7 +283,10 @@ fn a_tool_carries_a_redacted_launch_for_display() {
         config_path: "/tmp/mcp.json".to_string(),
     };
 
+    let home = tempfile::tempdir().unwrap();
+    let mut resolver = tauri_app_lib::provenance::OriginResolver::new(home.path());
     let tool = tauri_app_lib::scanner::tool_from_registration(
+        &mut resolver,
         &reg,
         tauri_app_lib::domain::Scope::Global { agent: "claude-code".to_string() },
     );
@@ -322,9 +325,13 @@ fn a_tool_carries_the_registrations_bridged_flag() {
         config_path: "/tmp/mcp.json".to_string(),
     };
     let scope = tauri_app_lib::domain::Scope::Global { agent: "claude-code".to_string() };
+    let home = tempfile::tempdir().unwrap();
+    let mut resolver = tauri_app_lib::provenance::OriginResolver::new(home.path());
 
-    let bridged_tool = tauri_app_lib::scanner::tool_from_registration(&reg_of(true), scope.clone());
-    let direct_tool = tauri_app_lib::scanner::tool_from_registration(&reg_of(false), scope);
+    let bridged_tool =
+        tauri_app_lib::scanner::tool_from_registration(&mut resolver, &reg_of(true), scope.clone());
+    let direct_tool =
+        tauri_app_lib::scanner::tool_from_registration(&mut resolver, &reg_of(false), scope);
 
     assert!(bridged_tool.bridged);
     assert!(!direct_tool.bridged);

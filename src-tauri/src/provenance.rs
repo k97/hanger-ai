@@ -816,4 +816,66 @@ impl OriginResolver {
         }
         Resolved { origin: None, blocked }
     }
+
+    /// delivered (plugin store) > launched (package or endpoint host).
+    ///
+    /// Tools have no declared class — nothing in an MCP registration is the
+    /// asset's own claim about where it came from, the way frontmatter is
+    /// for the other three kinds — and checked-out is skipped outright: a
+    /// registration's enclosing checkout is the repository the pane it
+    /// lives in already names, so printing that repo's own remote again as
+    /// the tool's "origin" would repeat information already on screen, not
+    /// add any.
+    ///
+    /// `config_path` arrives in different forms depending on which scanner
+    /// pass produced the registration: the machine pass stores it LEXICALLY
+    /// on purpose (scanner.rs, the registry-pass `upsert_asset` call site;
+    /// four `asset_annotations_tests` pin that it must stay that way), while
+    /// the project pass' own dedup key canonicalizes. `PluginIndex::origin_for`
+    /// only matches a canonical prefix, so this canonicalizes `config_path`
+    /// itself before comparing — the same fix Task 7 made to `PluginIndex`'s
+    /// own prefixes, applied here to the caller's input instead.
+    pub fn resolve_tool(
+        &mut self,
+        config_path: &str,
+        command: &str,
+        args: &[String],
+        transport: &str,
+    ) -> Resolved {
+        let canonical = canonicalize_lenient(Path::new(config_path));
+        if let Some(idx) = &self.plugins {
+            if let Some(o) = idx.origin_for(&canonical.to_string_lossy()) {
+                return Resolved { origin: Some(o), blocked: false };
+            }
+        }
+        match launched_origin(command, args, transport) {
+            Some(o) => Resolved { origin: Some(o), blocked: false },
+            None => Resolved { origin: None, blocked: self.plugins_blocked },
+        }
+    }
+}
+
+/// Best-effort canonicalization for a path whose leaf — or several
+/// trailing components — may not exist on disk: `fs::canonicalize` fails
+/// outright the moment any component is missing, which a registration's
+/// config path can be (a scan that has since moved on, or a test fixture
+/// that never materializes the full plugin-cache tree). Walk from the full
+/// path up to the nearest existing ancestor, canonicalize THAT (resolving
+/// any symlinked directory in the part that does exist), and rejoin the
+/// non-existent tail lexically. A path that exists in full canonicalizes on
+/// the very first try, identically to `fs::canonicalize`. `Path::ancestors`
+/// always terminates at a root component, and every real filesystem root
+/// canonicalizes, so this returns before exhausting the iterator on any
+/// real input; the fallback below only guards a filesystem that somehow
+/// canonicalizes nothing at all, so this never panics on adversarial input.
+fn canonicalize_lenient(path: &Path) -> PathBuf {
+    for ancestor in path.ancestors() {
+        if let Ok(canon) = std::fs::canonicalize(ancestor) {
+            return match path.strip_prefix(ancestor) {
+                Ok(suffix) => canon.join(suffix),
+                Err(_) => canon,
+            };
+        }
+    }
+    path.to_path_buf()
 }

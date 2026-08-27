@@ -1041,3 +1041,113 @@ fn test_resolver_delivered_resolves_under_symlinked_claude_dir() {
     );
     assert_eq!(o.label, "owner/market-repo");
 }
+
+// ── Task 8: OriginResolver::resolve_tool ──────────────────────────────────
+//
+// Tools are the one kind whose origin can be INFERRED from a launch command
+// rather than declared or read from a manifest, so there is no "declared"
+// class here at all, and "checked-out" is deliberately skipped too: a
+// registration's enclosing checkout is the repository the pane it lives in
+// already names, so printing that repo's own remote again as the tool's
+// origin would repeat information already on screen, not add any. So the
+// precedence is just delivered (plugin store) > launched (package or
+// endpoint host).
+
+/// The plugin-store class outranks a launch that would also resolve --
+/// `npx some-pkg` reads as npm launched, but a `.mcp.json` living under the
+/// plugin cache is Delivered by whatever marketplace shipped it. Neither
+/// the cache directory tree nor the `.mcp.json` leaf exists on disk here --
+/// `resolve_tool` still has to canonicalize a path it cannot fully stat, by
+/// resolving as far up the tree as something real exists (the `.claude/plugins`
+/// dir `plugin_home()` actually creates) and trusting the rest lexically.
+#[test]
+fn test_tool_delivered_outranks_launched() {
+    let td = plugin_home();
+    let mut r = tauri_app_lib::provenance::OriginResolver::new(td.path());
+    let cfg = td
+        .path()
+        .join(".claude/plugins/cache/mkt-a/tool-x/1.0.0/.mcp.json");
+    let res = r.resolve_tool(&cfg.to_string_lossy(), "npx", &["some-pkg".into()], "stdio");
+    let o = res.origin.unwrap();
+    assert!(matches!(o.kind, tauri_app_lib::provenance::OriginKind::Delivered));
+    assert!(!res.blocked);
+}
+
+/// No plugin store at all: falls through to the launch inference.
+#[test]
+fn test_tool_falls_back_to_launched() {
+    let td = tempfile::tempdir().unwrap();
+    let mut r = tauri_app_lib::provenance::OriginResolver::new(td.path());
+    let res = r.resolve_tool("/anywhere/.mcp.json", "npx", &["some-pkg".into()], "stdio");
+    assert_eq!(res.origin.unwrap().label, "npm: some-pkg");
+}
+
+/// A local binary launch is not a package runner and not a URL: neither
+/// class resolves, and nothing was blocked along the way.
+#[test]
+fn test_tool_local_binary_has_no_origin() {
+    let td = tempfile::tempdir().unwrap();
+    let mut r = tauri_app_lib::provenance::OriginResolver::new(td.path());
+    let res = r.resolve_tool("/anywhere/.mcp.json", "node", &["/app/index.js".into()], "stdio");
+    assert!(res.origin.is_none());
+    assert!(!res.blocked);
+}
+
+/// The bug this task exists to prevent, from the tool side: the machine
+/// scanner pass stores `Registration::config_path` LEXICALLY, unchanged, on
+/// purpose (`scanner.rs` ~1609, `docs/roadmap.md`) -- so `resolve_tool` can
+/// be handed a config path that still names a symlinked `.claude`
+/// component instead of the resolved directory `PluginIndex`'s prefixes are
+/// built from. Task 7 hit the same class of bug from the opposite
+/// direction (`resolve_file` given an already-canonical path, but built
+/// against an uncanonicalized plugin-index prefix); here the index side is
+/// already fixed and it is the CALLER's path that arrives lexical.
+/// `resolve_tool` must canonicalize `config_path` itself before matching,
+/// or this reads as Launched ("npm: some-pkg") instead of Delivered.
+#[test]
+fn test_tool_resolves_delivered_from_lexical_config_path_under_symlinked_claude_dir() {
+    let td = tempfile::tempdir().unwrap();
+
+    // A REAL (non-symlinked) home directory.
+    let real_home = td.path().join("home");
+    fs::create_dir_all(&real_home).unwrap();
+
+    // The real target `.claude` points at -- a sibling directory, as a
+    // dotfiles manager would lay it out.
+    let real_claude = td.path().join("dotfiles/claude");
+    let pl = real_claude.join("plugins");
+    fs::create_dir_all(&pl).unwrap();
+    fs::write(
+        pl.join("known_marketplaces.json"),
+        r#"{"mkt-a":{"source":{"source":"github","repo":"owner/market-repo"}}}"#,
+    )
+    .unwrap();
+    let cache_leaf = real_claude.join("plugins/cache/mkt-a/tool-x/1.0.0");
+    fs::create_dir_all(&cache_leaf).unwrap();
+    fs::write(cache_leaf.join(".mcp.json"), "{}").unwrap();
+
+    // `.claude` itself is the symlink; `home` is not.
+    std::os::unix::fs::symlink(&real_claude, real_home.join(".claude")).unwrap();
+
+    // The LEXICAL path -- exactly the string the machine pass stores in
+    // `Registration::config_path`, symlink component and all, never
+    // resolved. Not the canonical path a project-pass dedup key would use.
+    let lexical_config_path =
+        real_home.join(".claude/plugins/cache/mkt-a/tool-x/1.0.0/.mcp.json");
+
+    let mut r = tauri_app_lib::provenance::OriginResolver::new(&real_home);
+    let res = r.resolve_tool(
+        &lexical_config_path.to_string_lossy(),
+        "npx",
+        &["some-pkg".into()],
+        "stdio",
+    );
+    let o = res.origin.expect(
+        "a symlinked .claude directory inside a real $HOME must not hide a Delivered origin the plugin index actually has",
+    );
+    assert!(
+        matches!(o.kind, tauri_app_lib::provenance::OriginKind::Delivered),
+        "a lexical config path under a symlinked .claude must still resolve Delivered, not fall through to Launched"
+    );
+    assert_eq!(o.label, "owner/market-repo");
+}
