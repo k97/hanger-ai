@@ -450,6 +450,22 @@ fn parse_origin_url(config: &str) -> Option<String> {
 /// token or the transport URL's host. Raw args never flow into the result:
 /// a config can carry `--header "Bearer …"`, and both redactors exist
 /// because exactly that shipped once (see mcp::redact).
+///
+/// Picking the package token has to account for flags that take a value:
+/// `npx --api-key sk-live-… some-server` must not read `sk-live-…` as the
+/// package just because it comes right after a flag and happens to match
+/// the package-name character class — an API key does too. There is no way
+/// to know, for an arbitrary unrecognized flag, whether it takes a value.
+/// The rule here: a flag written `--flag=value` is self-contained and never
+/// consumes the next token; a short allowlist of flags known to be
+/// valueless (`-y`/`--yes`) is skipped bare; every other flag is assumed to
+/// consume the next token as its value. When that assumption runs the scan
+/// off the end of argv, the result is `None`, not a guess — an absent
+/// origin is honest, a wrong one that happens to be a secret is not. The
+/// cost: a launch that uses some OTHER valueless flag we don't know about
+/// (e.g. uvx's `-q`/`-v`/`--isolated`) has its package token skipped as if
+/// it were that flag's value, and now resolves to `None` instead of the
+/// real package — a completeness loss, never a leak.
 pub fn launched_origin(command: &str, args: &[String], transport: &str) -> Option<Origin> {
     // Remote endpoint: transport is an already-sanitised URL (dialect.rs:27).
     // Host only — never any other part of the URL reaches the result.
@@ -486,9 +502,28 @@ pub fn launched_origin(command: &str, args: &[String], transport: &str) -> Optio
         "uvx" => "pypi",
         _ => return None,
     };
-    // First non-flag token after the runner is the package. Anything after
-    // (ports, flags, header values, secrets) is never inspected.
-    let raw_pkg = tokens.iter().skip(1).find(|t| !t.starts_with('-'))?;
+    // First non-flag token after the runner is the package — but a flag
+    // that isn't self-contained (`=`-joined) or known-valueless is assumed
+    // to consume the token after it, so that token is never read as the
+    // package. See the rule spelled out in the doc comment above.
+    const VALUELESS_FLAGS: &[&str] = &["-y", "--yes"];
+    let rest = &tokens[1..];
+    let mut i = 0;
+    let mut raw_pkg: Option<&str> = None;
+    while i < rest.len() {
+        let t = rest[i];
+        if t.starts_with('-') {
+            if t.contains('=') || VALUELESS_FLAGS.contains(&t) {
+                i += 1;
+            } else {
+                i += 2; // assume this flag consumes the next token as its value
+            }
+            continue;
+        }
+        raw_pkg = Some(t);
+        break;
+    }
+    let raw_pkg = raw_pkg?;
     let name = strip_version_suffix(raw_pkg);
     if !is_valid_package_name(name) {
         return None;

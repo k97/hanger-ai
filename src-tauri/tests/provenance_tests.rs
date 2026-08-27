@@ -444,8 +444,11 @@ fn test_secret_bearing_args_never_reach_the_origin() {
 /// The pinned control above places the package name FIRST, so the fence is
 /// never actually tested against a secret occupying the "first non-flag
 /// token" slot the package-picking scan reads from. Put the secret there
-/// instead: whatever the outcome (an origin for `some-server`, or none at
-/// all), the secret must never surface in the result either way.
+/// instead. Unlike the original version of this test, the outcome is no
+/// longer left open with an `if let` hedge: an unrecognized flag without
+/// `=` (`--header` here) is assumed to consume the next token as its
+/// value, so the scan lands on `some-server`, not on the flag's value —
+/// this must hold, not merely "if it happens to hold".
 #[test]
 fn test_secret_bearing_flag_value_before_package_never_leaks() {
     let o = launched_origin(
@@ -456,9 +459,88 @@ fn test_secret_bearing_flag_value_before_package_never_leaks() {
             "some-server".into(),
         ],
         "stdio",
+    )
+    .unwrap();
+    assert_eq!(o.label, "npm: some-server");
+    let json = serde_json::to_string(&o).unwrap();
+    assert!(!json.contains("SECRET"), "origin must never carry arg values: {json}");
+}
+
+// --- Fix: value-taking flags must never donate their value as the package ---
+//
+// `is_valid_package_name` admits any lowercase `[a-z0-9-._~]+` token, which
+// is exactly the shape of many API keys, ports and other flag values. The
+// original scan ("first token that doesn't start with '-'") had no notion
+// that a preceding flag might have consumed the very next token as its
+// value, so `npx --api-key <secret> some-server` minted an Origin whose
+// label and url WERE the secret. These tests pin the fix: an unrecognized
+// flag without `=` is assumed to consume the next token, so scanning skips
+// past it rather than risk treating that token as the package.
+
+#[test]
+fn test_flag_value_never_becomes_package_name() {
+    let o = launched_origin(
+        "npx",
+        &["--api-key".into(), "sk-live-abc123".into(), "some-server".into()],
+        "stdio",
     );
-    if let Some(o) = o {
-        let json = serde_json::to_string(&o).unwrap();
-        assert!(!json.contains("SECRET"), "origin must never carry arg values: {json}");
+    if let Some(o) = &o {
+        assert_eq!(o.label, "npm: some-server");
+        let json = serde_json::to_string(o).unwrap();
+        assert!(!json.contains("sk-live-abc123"), "flag value leaked into origin: {json}");
+    }
+}
+
+#[test]
+fn test_port_flag_value_never_becomes_package_name() {
+    let o = launched_origin(
+        "npx",
+        &["--port".into(), "3000".into(), "some-server".into()],
+        "stdio",
+    );
+    if let Some(o) = &o {
+        assert_ne!(o.label, "npm: 3000", "a port number is not a package name");
+    }
+}
+
+#[test]
+fn test_valueless_flag_still_resolves_package() {
+    // -y takes no value; the scan must not skip past the package after it.
+    let o = launched_origin("npx", &["-y".into(), "some-server".into()], "stdio").unwrap();
+    assert_eq!(o.label, "npm: some-server");
+}
+
+#[test]
+fn test_versioned_package_after_runner_still_resolves() {
+    let o = launched_origin("npx", &["some-pkg@latest".into()], "stdio").unwrap();
+    assert_eq!(o.label, "npm: some-pkg");
+}
+
+#[test]
+fn test_equals_joined_flag_value_is_unambiguous() {
+    // `--flag=value` is self-contained: it cannot consume a following
+    // token, so the scan should not skip past the package looking for one.
+    let o = launched_origin("npx", &["--api-key=sk-LEAK".into(), "pkg".into()], "stdio").unwrap();
+    assert_eq!(o.label, "npm: pkg");
+    let json = serde_json::to_string(&o).unwrap();
+    assert!(!json.contains("LEAK"), "equals-joined flag value leaked: {json}");
+}
+
+#[test]
+fn test_codex_single_string_form_matches_split_form_and_never_leaks() {
+    let split = launched_origin(
+        "npx",
+        &["--api-key".into(), "sk-live-abc123".into(), "mcp-server".into()],
+        "stdio",
+    );
+    let combined = launched_origin("npx --api-key sk-live-abc123 mcp-server", &[], "stdio");
+    assert_eq!(
+        split.as_ref().map(|o| o.label.clone()),
+        combined.as_ref().map(|o| o.label.clone()),
+        "the split-args and single-string launch shapes must resolve identically"
+    );
+    if let Some(o) = &combined {
+        let json = serde_json::to_string(o).unwrap();
+        assert!(!json.contains("sk-live-abc123"), "flag value leaked into origin: {json}");
     }
 }
