@@ -841,9 +841,14 @@ fn test_project_scope_skips_checkout_lookup() {
 fn test_resolver_delivered_class_and_precedence() {
     let td = plugin_home();
     let mut r = tauri_app_lib::provenance::OriginResolver::new(td.path());
-    let p = td
-        .path()
-        .join(".claude/plugins/cache/mkt-a/tool-x/1.0.0/skills/s/SKILL.md");
+    // Canonicalized, matching what the resolver now does to `home`
+    // internally and what a real scan always feeds `resolve_file` (via
+    // `canonicalize_asset_path`) -- `td.path()` itself can be a symlink
+    // (macOS's /var -> /private/var), so building the asset path from the
+    // raw, uncanonicalized base would silently fail the prefix match this
+    // test exists to prove.
+    let home_canon = fs::canonicalize(td.path()).unwrap();
+    let p = home_canon.join(".claude/plugins/cache/mkt-a/tool-x/1.0.0/skills/s/SKILL.md");
 
     // No declaration: falls through to the plugin index.
     let res = r.resolve_file(None, &p.to_string_lossy(), false);
@@ -902,9 +907,11 @@ fn test_resolver_found_origin_outranks_blocked_plugin_index() {
     fs::set_permissions(&installed, fs::Permissions::from_mode(0o000)).unwrap();
 
     let mut r = tauri_app_lib::provenance::OriginResolver::new(td.path());
-    let p = td
-        .path()
-        .join(".claude/plugins/cache/mkt-a/tool-x/1.0.0/skills/s/SKILL.md");
+    // Canonicalized — see the comment in
+    // `test_resolver_delivered_class_and_precedence` on why the raw
+    // `td.path()` no longer matches post-fix.
+    let home_canon = fs::canonicalize(td.path()).unwrap();
+    let p = home_canon.join(".claude/plugins/cache/mkt-a/tool-x/1.0.0/skills/s/SKILL.md");
     let res = r.resolve_file(None, &p.to_string_lossy(), false);
     assert!(
         !res.blocked,
@@ -913,4 +920,77 @@ fn test_resolver_found_origin_outranks_blocked_plugin_index() {
     assert_eq!(res.origin.unwrap().label, "owner/market-repo");
 
     let _ = fs::set_permissions(&installed, fs::Permissions::from_mode(0o644));
+}
+
+/// `PluginIndex` builds its cache/marketplaces prefixes LEXICALLY from
+/// whatever `home` it is handed, while every path this resolver is asked
+/// about (`resolve_file`'s `path` argument) comes from
+/// `canonicalize_asset_path` -- fully symlink-resolved. Unequalised, a
+/// symlinked `$HOME` (`ln -s ~/dotfiles/claude_home ~/.claude_home`, then
+/// point `HANGER_TEST_HOME`/`HOME` at the symlink, which is exactly how a
+/// real dotfiles-managed machine is laid out) makes every Delivered lookup
+/// silently miss: the canonical asset path resolves through the symlink to
+/// the REAL directory, but the prefix built from the raw (lexical) home
+/// still names the symlink path, so `strip_dir_prefix` never matches.
+#[test]
+fn test_resolver_delivered_resolves_under_symlinked_home() {
+    let td = tempfile::tempdir().unwrap();
+
+    let real_home = td.path().join("dotfiles/claude_home");
+    let pl = real_home.join(".claude/plugins");
+    fs::create_dir_all(&pl).unwrap();
+    fs::write(
+        pl.join("known_marketplaces.json"),
+        r#"{"mkt-a":{"source":{"source":"github","repo":"owner/market-repo"}}}"#,
+    )
+    .unwrap();
+    let cache_leaf = real_home.join(".claude/plugins/cache/mkt-a/tool-x/1.0.0/skills/s");
+    fs::create_dir_all(&cache_leaf).unwrap();
+    fs::write(cache_leaf.join("SKILL.md"), "---\nname: s\ndescription: d\n---\n").unwrap();
+
+    // The symlinked home a scan would actually be pointed at.
+    let symlinked_home = td.path().join("home");
+    std::os::unix::fs::symlink(&real_home, &symlinked_home).unwrap();
+
+    // The path a scan would actually feed `resolve_file`: canonicalized,
+    // i.e. resolved straight through the symlink to the real directory --
+    // `canonicalize_asset_path` in scanner.rs does exactly this.
+    let lexical_asset_path =
+        symlinked_home.join(".claude/plugins/cache/mkt-a/tool-x/1.0.0/skills/s/SKILL.md");
+    let canonical_asset_path = fs::canonicalize(&lexical_asset_path).unwrap();
+
+    // Resolver constructed with the LEXICAL (symlinked) home, exactly as
+    // `scanner.rs` builds it from `get_home_dir()`.
+    let mut r = tauri_app_lib::provenance::OriginResolver::new(&symlinked_home);
+    let res = r.resolve_file(None, &canonical_asset_path.to_string_lossy(), false);
+    let o = res
+        .origin
+        .expect("a symlinked $HOME must not hide a Delivered origin the plugin index actually has");
+    assert_eq!(o.label, "owner/market-repo");
+}
+
+/// The git-refusal arm of `blocked`, driven through `resolve_file` rather
+/// than through `git_remote_origin` directly (already pinned at
+/// `test_memoization_carries_blocked_across_cache_hits` and friends, but
+/// never through the resolver's own precedence chain). No plugin manifests
+/// exist here, so the plugin-index arm of `blocked` stays false and this
+/// isolates the checked-out arm.
+#[test]
+fn test_resolver_reports_blocked_via_git_refusal_arm() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let td = tempfile::tempdir().unwrap();
+    let repo = td.path().join("proj");
+    fs::create_dir_all(repo.join(".git")).unwrap();
+    let cfg = repo.join(".git/config");
+    fs::write(&cfg, "[remote \"origin\"]\n\turl = https://github.com/owner/repo\n").unwrap();
+    fs::set_permissions(&cfg, fs::Permissions::from_mode(0o000)).unwrap();
+
+    let mut r = tauri_app_lib::provenance::OriginResolver::new(td.path());
+    let file = repo.join("CLAUDE.md");
+    let res = r.resolve_file(None, &file.to_string_lossy(), true);
+    assert!(res.origin.is_none());
+    assert!(res.blocked, "an EACCES on .git/config reached through resolve_file must report blocked");
+
+    let _ = fs::set_permissions(&cfg, fs::Permissions::from_mode(0o644));
 }

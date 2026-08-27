@@ -738,9 +738,23 @@ pub struct OriginResolver {
 
 impl OriginResolver {
     pub fn new(home: &Path) -> Self {
-        let (plugins, plugins_blocked) = PluginIndex::load(home);
+        // `PluginIndex` builds its cache/marketplaces prefixes LEXICALLY
+        // from whatever `home` it is handed, while every path this
+        // resolver is later asked about comes from `canonicalize_asset_path`
+        // — fully symlink-resolved. Canonicalize once here so a symlinked
+        // $HOME still matches: comparing a canonical asset path against a
+        // prefix built from the raw (lexical) home would silently miss
+        // every Delivered origin under it, which is the exact
+        // false-statement-about-the-user's-machine `blocked` exists to
+        // prevent (Task 7 review, round 1). `git_remote_origin` already
+        // canonicalizes its own fence internally, so only the plugin side
+        // needed this. Falls back to the raw path when it does not
+        // resolve (home missing or unreadable) — same as
+        // `git_remote_origin`'s own fence, an absent origin, not a panic.
+        let home = std::fs::canonicalize(home).unwrap_or_else(|_| home.to_path_buf());
+        let (plugins, plugins_blocked) = PluginIndex::load(&home);
         OriginResolver {
-            home: home.to_path_buf(),
+            home,
             plugins,
             plugins_blocked,
             git_cache: HashMap::new(),

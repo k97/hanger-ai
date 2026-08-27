@@ -2481,26 +2481,43 @@ fn blocked_project_root_still_yields_a_project_scan_carrying_the_denial() {
     assert_eq!(denials.len(), 1, "one denial per root, deduplicated: {:?}", denials);
 }
 
-// The brief for this task asked for a third case here — a skill delivered
+// The brief for this task asked for a third case here — a SKILL delivered
 // via a plugin, reached through a symlink placed directly inside an
 // engine's skills/ folder (`.claude/skills/delivered-skill` ->
-// `.claude/plugins/cache/.../skills/delivered-skill`). That fixture cannot
-// be exercised through a real scan: both the global and the project walkers
-// build with `ignore`'s default `follow_links(false)`, and a symlinked
-// directory entry is yielded but never descended into (see the comment at
-// this file's project-walk symlink handling, and the dedicated ignore-crate
-// check recorded in the Task 7 report) — so `SKILL.md` inside such a
-// directory is invisible to the walk, in both scopes, today. Making it
-// visible would mean turning `follow_links` on for the skills/subagents
-// walkers, which would also surface it to `test_scanner_fixtures`'s
-// hard-pinned skill count above and to the DB row count guarded by
-// `shared-asset-machinery.md` — a change out of this task's scope ("must
-// not change any count"). The Delivered class's precedence and field
-// mapping through `OriginResolver` is proven at unit level instead, in
+// `.claude/plugins/cache/.../skills/delivered-skill`). That specific
+// fixture cannot be exercised through a real scan: a skill's identity is
+// its PARENT DIRECTORY, and both the global and the project walkers build
+// with `ignore`'s default `follow_links(false)`, so a symlinked directory
+// entry is yielded but never descended into (see the comment at this
+// file's project-walk symlink handling, and the dedicated ignore-crate
+// check recorded in the Task 7 report) — `SKILL.md` inside such a
+// directory is invisible to the walk, in both scopes, today.
+//
+// This limitation is specific to skills. A subagent's or a rule's identity
+// is the FILE itself, not a containing directory, and a symlinked *file*
+// entry among a directory's contents IS yielded and read regardless of
+// `follow_links` (that flag gates descending into a symlinked directory,
+// not reading a symlinked file) — a subagent `.md` symlinked into the
+// plugin cache would be discovered and would canonicalize into the cache
+// like any other deployed file. Nobody has built that fixture: doing so
+// would add a new discoverable subagent to the shared fixtures, moving
+// `test_scanner_fixtures`'s pinned counts the same way a discoverable
+// skill would — out of this task's "must not change any count" bound —
+// so it is left as a documented possibility, not a gap in the same sense
+// as the skill case above.
+//
+// Making the skill case visible would mean turning `follow_links` on for
+// the skills/subagents walkers, which would also surface it to
+// `test_scanner_fixtures`'s hard-pinned skill count above and to the DB
+// row count guarded by `shared-asset-machinery.md`. The Delivered class's
+// precedence and field mapping through `OriginResolver` is proven at unit
+// level instead, in
 // `provenance_tests.rs::test_resolver_delivered_class_and_precedence`,
 // mirroring how the Checked-out class is already unit-tested there for an
 // analogous fixture-format limitation (a `.git` directory can't be
-// committed as fixture content).
+// committed as fixture content — see
+// `test_global_sites_is_global_argument_is_load_bearing` below for how
+// that limitation is instead worked around at test-runtime, uncommitted).
 #[test]
 fn test_origin_resolution_per_class() {
     let _guard = ENV_MUTEX.get_or_init(|| Mutex::new(())).lock().unwrap();
@@ -2522,4 +2539,84 @@ fn test_origin_resolution_per_class() {
     let plain = inventory.skills.iter().find(|s| s.name == "custom-skill").unwrap();
     assert!(plain.origin.is_none());
     assert!(plain.origin_blocked.is_none());
+}
+
+/// Proves the `is_global: true` argument at the global rule/skill/subagent
+/// call sites is load-bearing, not decoration — `test_origin_resolution_per_class`
+/// above only exercises project-scope sites (declared short-circuits before
+/// `is_global` is read at all, and the none-found case can't redden on a
+/// scope flip since there is nothing to find either way). A `.git` fixture
+/// can't be committed under `tests/fixtures/` (git refuses to track a path
+/// with a `.git` component — the same reason the brief pushed the
+/// Checked-out class to unit-level tests), so this builds a real,
+/// uncommitted checkout at test-runtime under a tempdir and points
+/// `HANGER_TEST_HOME` at it, exactly like the existing symlink-root count
+/// tests above do.
+///
+/// One `.git/config` sits at the home fence itself, so a rule, a skill and
+/// a subagent — three of the four wired global sites — all resolve the SAME
+/// checked-out origin by walking up to it. Flipping any one of those sites'
+/// `is_global` argument to `false` skips the checked-out lookup for that
+/// kind alone and reddens only that kind's assertion (verified by hand for
+/// the subagent site; see the Task 7 report).
+#[test]
+fn test_global_sites_is_global_argument_is_load_bearing() {
+    let _guard = ENV_MUTEX.get_or_init(|| Mutex::new(())).lock().unwrap();
+    let temp_dir = tempfile::tempdir().unwrap();
+    let home_dir = temp_dir.path().join("home");
+    let db_path = temp_dir.path().join("checked_out_home_test.db");
+
+    fs::create_dir_all(home_dir.join(".git")).unwrap();
+    fs::write(
+        home_dir.join(".git/config"),
+        "[remote \"origin\"]\n\turl = https://github.com/owner/checked-out-home\n",
+    )
+    .unwrap();
+
+    fs::create_dir_all(home_dir.join(".claude/agents")).unwrap();
+    fs::write(
+        home_dir.join(".claude/CLAUDE.md"),
+        "# rules with no declared source",
+    )
+    .unwrap();
+    fs::create_dir_all(home_dir.join(".claude/skills/checkout-skill")).unwrap();
+    fs::write(
+        home_dir.join(".claude/skills/checkout-skill/SKILL.md"),
+        "---\nname: checkout-skill\ndescription: no declared source\n---\n",
+    )
+    .unwrap();
+    fs::write(
+        home_dir.join(".claude/agents/checkout-subagent.md"),
+        "---\nname: Checkout Subagent\ndescription: no declared source\n---\n",
+    )
+    .unwrap();
+
+    std::env::set_var("HANGER_TEST_HOME", home_dir.to_str().unwrap());
+    let project_root = temp_dir.path().join("empty_project");
+    fs::create_dir_all(&project_root).unwrap();
+
+    let scanner = DirectoryScanner {
+        db_path,
+        cancellation_token: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
+    };
+    let inventory = scanner.scan(&project_root).unwrap();
+
+    let rule = inventory.rules.iter().find(|r| r.name == "CLAUDE.md")
+        .expect("global rule must be discovered");
+    let skill = inventory.skills.iter().find(|s| s.name == "checkout-skill")
+        .expect("global skill must be discovered");
+    let sub = inventory.subagents.iter().find(|s| s.name == "Checkout Subagent")
+        .expect("global subagent must be discovered");
+
+    for (kind, origin) in [("rule", &rule.origin), ("skill", &skill.origin), ("subagent", &sub.origin)] {
+        let o = origin.as_ref().unwrap_or_else(|| {
+            panic!("{kind}: a global asset above a checked-out home fixture must resolve a Checked-out origin when is_global is honoured")
+        });
+        assert!(
+            matches!(o.kind, tauri_app_lib::provenance::OriginKind::CheckedOut),
+            "{kind}: expected CheckedOut, got {:?}",
+            o.kind
+        );
+        assert_eq!(o.label, "owner/checked-out-home", "{kind}");
+    }
 }
