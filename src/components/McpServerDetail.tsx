@@ -24,6 +24,8 @@ import {
   KeyIcon,
   ArrowsRightLeftIcon,
   DocumentTextIcon,
+  ArrowDownTrayIcon,
+  ChevronDownIcon,
 } from "./icons";
 
 /**
@@ -227,6 +229,35 @@ const COUNT = "text-micro font-mono text-ink-2 tabular";
 function basename(path: string): string {
   const parts = path.split("/");
   return parts[parts.length - 1];
+}
+
+/**
+ * A registration's origin, reduced to the identity `originsAgree` (below)
+ * compares -- `origin.kind` paired with `origin.url` where present,
+ * otherwise `origin.label`, so two registrations pointing at the same repo
+ * through the same URL agree only when Hanger learned it the same way.
+ * `kind` is not a field like `commit` that two agreeing registrations can
+ * differ on freely: it is what the collapsed row's tooltip states --
+ * "Hanger read this from the plugin that installed it" versus "the launch
+ * command" versus "The asset declares this" are different claims about how
+ * Hanger knows, not cosmetic variation on one fact. Two registrations
+ * resolving the same URL by different mechanisms are not the same fact, and
+ * collapsing them would show the first one's tooltip asserted of both -- the
+ * exact failure the six tooltip strings exist to prevent. (This function's
+ * first version left `kind` out and collapsed that case silently; every
+ * registration keeps its own tooltip once it falls through to
+ * per-registration rendering instead, so more divergence here is more
+ * truth, not more noise.) Two registrations with no origin at all resolve
+ * to the same sentinel, so they agree too -- the ordinary case, and
+ * `originRow` already renders nothing for it either way. A blocked check
+ * (`originBlocked`) is its own third state, distinct from both "has an
+ * origin" and "found nothing" -- null-prefixed so it can never collide with
+ * a real label.
+ */
+function originKeyOf(reg: Pick<Registration, "origin" | "originBlocked">): string {
+  if (reg.origin) return `${reg.origin.kind}:${reg.origin.url ?? reg.origin.label}`;
+  if (reg.originBlocked) return "\u0000blocked";
+  return "\u0000none";
 }
 
 /** "3.1 kB" or "431 B" — the backend's own byte count, never re-measured. */
@@ -492,6 +523,17 @@ export default function McpServerDetail({
     onTabChange?.(next === "details" ? "details" : "primary");
   };
 
+  // Whether the Identity Origin row's delivery-facts disclosure is open --
+  // the same state `AssetDetail`'s own Origin row keeps, reset the same way:
+  // belongs to the server on screen, not carried to the next one. Unlike
+  // `tab` above, this panel is not remounted or keyed by `server.name` in
+  // `Flyout`, so without the effect below an open disclosure on one server
+  // would still read open on the next.
+  const [originOpen, setOriginOpen] = useState(false);
+  useEffect(() => {
+    setOriginOpen(false);
+  }, [server.name]);
+
   // Counts the rows below, not unique hosts. spades-audio is 3 registrations
   // across 2 hosts -- a count that disagreed with the visible row count would
   // read as a bug. The prototype said "3 hosts" and was simply wrong.
@@ -611,6 +653,35 @@ export default function McpServerDetail({
   );
   const endpointsDiverge = remoteEndpoints.size > 1;
   const diverges = launchesDiverge || endpointsDiverge;
+
+  /* The Origin row's counterpart to `diverges` above: whether every
+     registration resolves to the same origin, not just whether every launch
+     does. `AssetDetail` puts an asset's origin in its Identity card;
+     `McpServerDetail` used to put it inside every "Registered in" block
+     instead, on the claim that this panel has no Identity card -- wrong,
+     Identity & capabilities sits right above it, so a server with one
+     registration (the common case) buried its origin under a level every
+     other asset shows it above. When every registration agrees, the origin
+     now renders once, in Identity & capabilities, and the per-registration
+     line is dropped -- the same move `launchesDiverge` already makes for the
+     launch line, and for the same reason: restating an agreeing value once
+     per row was the noise it removed. Divergence keeps exactly today's
+     per-registration rendering, silently: showing one value in Identity
+     would assert it of every registration, which is false the moment they
+     disagree. `originKeyOf` (above) is what "agree" means here. */
+  const originsAgree = server.registrations.every(
+    (reg) => originKeyOf(reg) === originKeyOf(server.registrations[0])
+  );
+  /* The one Origin row to show in Identity when every registration agrees --
+     any registration's own origin/originBlocked works, since agreement means
+     they all resolve to the same key; the first is simplest, the same
+     "first wins" attribution the Identity section's verified fields already
+     use below. Null both when the agreed state is "no origin at all"
+     (nothing to show, matching `originRow`'s own null for that case) and
+     when the registrations disagree. */
+  const commonOriginView = originsAgree
+    ? originRow(server.registrations[0].origin, server.registrations[0].originBlocked)
+    : null;
 
   // `specGroups` already dedups by exact launchDisplay match (above), so
   // filtering out the empty-launch group here leaves exactly one entry per
@@ -1006,50 +1077,114 @@ export default function McpServerDetail({
                 : "unknown"}
             </span>
           </div>
-          {anyVerified ? (
+          {(commonOriginView || anyVerified) && (
             <ListCard>
-              {anyVerified.serverVersion && (
-                <ListCardRow
-                  data-testid="identity-row-server"
-                  icon={<TagIcon size={14} aria-hidden="true" />}
-                  label="Server"
-                  value={anyVerified.serverVersion}
-                />
+              {/* Origin, first -- the same position AssetDetail's Identity
+                  card gives it. Rendered only when every registration agrees
+                  (`commonOriginView`, computed above beside `diverges`); a
+                  divergent server keeps its per-registration Origin lines in
+                  "Registered in" below instead, and this card has nothing to
+                  say about it. Same disclosure shape as AssetDetail's own
+                  Origin row -- "Installed" included here, unlike the
+                  per-registration line's inline summary below, because that
+                  omission existed only to keep a compact per-row line from
+                  growing a third fact; a disclosure has room for all three. */}
+              {commonOriginView && (
+                <>
+                  <ListCardRow
+                    data-testid="identity-row-origin"
+                    icon={<ArrowDownTrayIcon size={14} aria-hidden="true" />}
+                    label="Origin"
+                    wide={<OriginValue origin={commonOriginView} variant="identity" />}
+                    trailing={
+                      commonOriginView.subRows.length > 0 ? (
+                        <button
+                          type="button"
+                          data-testid="origin-disclosure"
+                          aria-expanded={originOpen}
+                          aria-label={originOpen ? "Hide origin details" : "Show origin details"}
+                          onClick={() => setOriginOpen((v) => !v)}
+                          className="p-1 -m-1 text-ink-3 hover:text-ink-1 transition-colors duration-hover cursor-pointer"
+                        >
+                          <ChevronDownIcon
+                            size={12}
+                            aria-hidden="true"
+                            className={
+                              originOpen
+                                ? "rotate-180 transition-transform duration-hover"
+                                : "transition-transform duration-hover"
+                            }
+                          />
+                        </button>
+                      ) : undefined
+                    }
+                  />
+                  {originOpen &&
+                    commonOriginView.subRows.map((r) => (
+                      <div
+                        key={r.label}
+                        data-testid="origin-sub-row"
+                        className="flex items-center gap-2.5 pl-9 pr-3 py-[9px] min-h-9 bg-plane"
+                      >
+                        <span className="min-w-0 flex-1 text-small text-ink-3">{r.label}</span>
+                        <span
+                          className={`ml-auto shrink-0 ${
+                            r.mono ? "font-mono text-micro text-ink-3 tabular" : "text-small text-ink-2"
+                          }`}
+                        >
+                          {r.value}
+                        </span>
+                      </div>
+                    ))}
+                </>
               )}
-              {anyVerified.protocolVersion && (
-                <ListCardRow
-                  data-testid="identity-row-protocol"
-                  icon={<SignalIcon size={14} aria-hidden="true" />}
-                  label="Protocol"
-                  value={`MCP ${anyVerified.protocolVersion}`}
-                />
+              {anyVerified && (
+                <>
+                  {anyVerified.serverVersion && (
+                    <ListCardRow
+                      data-testid="identity-row-server"
+                      icon={<TagIcon size={14} aria-hidden="true" />}
+                      label="Server"
+                      value={anyVerified.serverVersion}
+                    />
+                  )}
+                  {anyVerified.protocolVersion && (
+                    <ListCardRow
+                      data-testid="identity-row-protocol"
+                      icon={<SignalIcon size={14} aria-hidden="true" />}
+                      label="Protocol"
+                      value={`MCP ${anyVerified.protocolVersion}`}
+                    />
+                  )}
+                  <ListCardRow
+                    data-testid="identity-row-transport"
+                    icon={<ArrowPathRoundedSquareIcon size={14} aria-hidden="true" />}
+                    label="Transport"
+                    value={server.transport}
+                  />
+                  <ListCardRow
+                    data-testid="identity-row-tools"
+                    icon={<WrenchScrewdriverIcon size={14} aria-hidden="true" />}
+                    label="Tools"
+                    wide={anyVerified.capabilities.includes("tools") ? "offered" : "not offered"}
+                  />
+                  <ListCardRow
+                    data-testid="identity-row-resources"
+                    icon={<ArchiveBoxIcon size={14} aria-hidden="true" />}
+                    label="Resources"
+                    wide={anyVerified.capabilities.includes("resources") ? "offered" : "not offered"}
+                  />
+                  <ListCardRow
+                    data-testid="identity-row-prompts"
+                    icon={<ChatBubbleOvalLeftIcon size={14} aria-hidden="true" />}
+                    label="Prompts"
+                    wide={anyVerified.capabilities.includes("prompts") ? "offered" : "not offered"}
+                  />
+                </>
               )}
-              <ListCardRow
-                data-testid="identity-row-transport"
-                icon={<ArrowPathRoundedSquareIcon size={14} aria-hidden="true" />}
-                label="Transport"
-                value={server.transport}
-              />
-              <ListCardRow
-                data-testid="identity-row-tools"
-                icon={<WrenchScrewdriverIcon size={14} aria-hidden="true" />}
-                label="Tools"
-                wide={anyVerified.capabilities.includes("tools") ? "offered" : "not offered"}
-              />
-              <ListCardRow
-                data-testid="identity-row-resources"
-                icon={<ArchiveBoxIcon size={14} aria-hidden="true" />}
-                label="Resources"
-                wide={anyVerified.capabilities.includes("resources") ? "offered" : "not offered"}
-              />
-              <ListCardRow
-                data-testid="identity-row-prompts"
-                icon={<ChatBubbleOvalLeftIcon size={14} aria-hidden="true" />}
-                label="Prompts"
-                wide={anyVerified.capabilities.includes("prompts") ? "offered" : "not offered"}
-              />
             </ListCard>
-          ) : (
+          )}
+          {!anyVerified && (
             <p className="text-micro text-ink-3 leading-[1.5]">
               Version, protocol revision and capabilities are only knowable by handshake. Nothing on
               disk records them.
@@ -1122,7 +1257,15 @@ export default function McpServerDetail({
               // `originRow` returns null for the ordinary case of no origin
               // found, and restating that on every row would be the same
               // noise the launch line above was trimmed of.
-              const originView = originRow(reg.origin, reg.originBlocked);
+              //
+              // Suppressed entirely when every registration agrees
+              // (`originsAgree`, computed beside `diverges` above): the
+              // agreed value renders once, in Identity & capabilities,
+              // instead, and repeating it here would be that same noise
+              // under a different name. Costs nothing in the ordinary
+              // no-origin case either -- `originRow` already returns null
+              // there, so this line changed nothing on screen for it.
+              const originView = originsAgree ? null : originRow(reg.origin, reg.originBlocked);
               // Named only two facts on purpose (commit, delivering plugin) --
               // the install date lives in the Origin row's own disclosure
               // elsewhere and would be one fact too many for a compact line.
