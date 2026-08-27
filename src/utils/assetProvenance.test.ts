@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import type { Inventory } from "../App";
-import { engineLabel, provenanceOf, sourceLabel, originRow } from "./assetProvenance";
+import { engineLabel, provenanceOf, originRow } from "./assetProvenance";
 
 const SOURCE = "/home/me/.agents/skills/agent-browser";
 
@@ -113,18 +113,6 @@ describe("engineLabel", () => {
 
   it("says any agent when nothing claims it", () => {
     expect(engineLabel(skill({}))).toBe("Any agent");
-  });
-});
-
-describe("sourceLabel", () => {
-  it("names the origin when the file records one", () => {
-    expect(sourceLabel(skill({ source_origin: "github.com/anthropics/skills" }))).toBe(
-      "github.com/anthropics/skills"
-    );
-  });
-
-  it("says local rather than leaving a blank", () => {
-    expect(sourceLabel(skill({}))).toBe("Local · not from a registry");
   });
 });
 

@@ -94,13 +94,6 @@ export function engineLabel(asset: ScopedAsset): string {
   return NAMES[agent] ?? agent;
 }
 
-/** Whether the file arrived from somewhere else, and if so from where. */
-export function sourceLabel(asset: ScopedAsset & { source_origin?: string }): string {
-  const origin = asset.source_origin;
-  if (origin) return origin;
-  return "Local · not from a registry";
-}
-
 /**
  * Reads one asset's relationships out of the whole inventory.
  *

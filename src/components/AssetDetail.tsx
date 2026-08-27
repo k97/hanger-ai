@@ -1,8 +1,11 @@
 import { Fragment, useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import {
   ArrowDownTrayIcon,
+  ArrowTopRightOnSquareIcon,
+  ChevronDownIcon,
   ClockIcon,
   CodeBracketIcon,
   CommandLineIcon,
@@ -22,7 +25,7 @@ import MarkdownDoc from "./MarkdownDoc";
 import UnderlineTabs from "./UnderlineTabs";
 import ListCard, { ListCardRow } from "./ListCard";
 import type { Inventory } from "../App";
-import { engineLabel, provenanceOf, sourceLabel } from "../utils/assetProvenance";
+import { engineLabel, originRow, provenanceOf, type OriginWire } from "../utils/assetProvenance";
 import { scopeAgent, type Scope } from "../utils/scopeAccess";
 import EngineLabel from "./EngineLabel";
 import BrandIcon from "./BrandIcon";
@@ -48,6 +51,14 @@ interface DetailAsset {
    *  callers pass. `scopeAgent` and `engineLabel` both treat a missing scope
    *  as "no agent", so the mark and the text stay in sync either way. */
   scope?: Scope;
+  /** The backend's resolved origin for this asset, narrowed at the boundary
+   *  (`assetProvenance.ts`, `OriginWire`). Absent when the backend found
+   *  nothing that names a source. */
+  origin?: OriginWire;
+  /** True when the backend could not check every place a source is named —
+   *  a different fact from finding nothing, and `originRow` words them
+   *  differently. */
+  origin_blocked?: boolean;
 }
 
 /** What `read_asset_body` answers: the file's text plus the measurements the
@@ -150,6 +161,11 @@ function basenameOf(path: string): string {
 export default function AssetDetail({ asset, inventory, onDocumentPath, annotation }: AssetDetailProps) {
   const [tab, setTab] = useState<"content" | "details">("content");
   const [view, setView] = useState<"preview" | "source">("preview");
+  // Whether the Origin row's delivery-facts disclosure is open. Reset with
+  // the rest of the asset's own state below, not carried across assets the
+  // way the tab is (that's the user's view preference; this belongs to the
+  // asset on screen).
+  const [originOpen, setOriginOpen] = useState(false);
   const [body, setBody] = useState<AssetBody | null>(null);
   // What the backend actually read. A skill's own path is the folder that
   // holds it, so the document sits one level in and the panel says so rather
@@ -169,6 +185,7 @@ export default function AssetDetail({ asset, inventory, onDocumentPath, annotati
     setDocError(null);
     setTab("content");
     setView("preview");
+    setOriginOpen(false);
 
     // An agent has no file of its own — it is a folder layout the scan
     // inferred — so there is nothing to read and no pane to fill.
@@ -232,6 +249,7 @@ export default function AssetDetail({ asset, inventory, onDocumentPath, annotati
   const reachStore = reachStoreRaw ? abbreviateHome(reachStoreRaw) : null;
 
   const provenance = provenanceOf(asset as never, inventory);
+  const originView = originRow(asset.origin, asset.origin_blocked);
   const shownPath = documentPath ?? asset.path;
   const document = text === null || kind !== "markdown" ? null : parseSkillDocument(text);
   // A config that will not parse keeps its Source tab and loses only the
@@ -299,13 +317,12 @@ export default function AssetDetail({ asset, inventory, onDocumentPath, annotati
         ]
       : []),
     // "Origin" rather than "Source": the Source tab below means the raw
-    // file, and one panel cannot use the same word for two things.
-    {
-      key: "origin",
-      label: "Origin",
-      icon: <ArrowDownTrayIcon size={14} aria-hidden="true" />,
-      wide: sourceLabel(asset as never),
-    },
+    // file, and one panel cannot use the same word for two things. The row
+    // itself is rendered explicitly below, out of this flat array, because
+    // its disclosure sub-rows must sit inside the card between it and the
+    // next row — a placeholder here (`key: "origin"`) marks where the loop
+    // splices it in.
+    { key: "origin", label: "Origin", icon: null, wide: undefined },
     ...(asset.version
       ? [
           {
@@ -513,17 +530,94 @@ export default function AssetDetail({ asset, inventory, onDocumentPath, annotati
                 <span className={eyebrowClass}>Identity</span>
               </div>
               <ListCard>
-                {identityRows.map((row) => (
-                  <ListCardRow
-                    key={row.key}
-                    data-testid={`identity-row-${row.key}`}
-                    icon={row.icon}
-                    label={row.label}
-                    value={row.value}
-                    wide={row.wide}
-                    trailing={row.trailing}
-                  />
-                ))}
+                {identityRows.map((row) =>
+                  row.key === "origin" ? (
+                    <Fragment key="origin">
+                      <ListCardRow
+                        data-testid="identity-row-origin"
+                        icon={<ArrowDownTrayIcon size={14} aria-hidden="true" />}
+                        label="Origin"
+                        wide={
+                          <Tooltip label={originView.tooltip} placement="bottom">
+                            {originView.url ? (
+                              <button
+                                type="button"
+                                data-testid="origin-open-link"
+                                aria-label={`${originView.value} — ${originView.tooltip}`}
+                                onClick={() => openUrl(originView.url!).catch(() => {})}
+                                className="inline-flex items-center gap-1 text-small text-ink-1 border-b border-line-2 hover:border-ink-1 transition-colors duration-hover cursor-pointer"
+                              >
+                                <span className="truncate max-w-55">{originView.value}</span>
+                                <ArrowTopRightOnSquareIcon
+                                  size={11}
+                                  aria-hidden="true"
+                                  className="text-ink-3 shrink-0"
+                                />
+                              </button>
+                            ) : (
+                              <span
+                                className={`truncate max-w-55 inline-block align-bottom ${
+                                  originView.muted ? "text-ink-3" : "text-ink-2"
+                                }`}
+                              >
+                                {originView.value}
+                              </span>
+                            )}
+                          </Tooltip>
+                        }
+                        trailing={
+                          originView.subRows.length > 0 ? (
+                            <button
+                              type="button"
+                              data-testid="origin-disclosure"
+                              aria-expanded={originOpen}
+                              aria-label={originOpen ? "Hide origin details" : "Show origin details"}
+                              onClick={() => setOriginOpen((v) => !v)}
+                              className="p-1 -m-1 text-ink-3 hover:text-ink-1 transition-colors duration-hover cursor-pointer"
+                            >
+                              <ChevronDownIcon
+                                size={12}
+                                aria-hidden="true"
+                                className={
+                                  originOpen
+                                    ? "rotate-180 transition-transform duration-hover"
+                                    : "transition-transform duration-hover"
+                                }
+                              />
+                            </button>
+                          ) : undefined
+                        }
+                      />
+                      {originOpen &&
+                        originView.subRows.map((r) => (
+                          <div
+                            key={r.label}
+                            data-testid="origin-sub-row"
+                            className="flex items-center gap-2.5 pl-9 pr-3 py-[9px] min-h-9 bg-plane"
+                          >
+                            <span className="min-w-0 flex-1 text-small text-ink-3">{r.label}</span>
+                            <span
+                              className={`ml-auto shrink-0 ${
+                                r.mono ? "font-mono text-micro text-ink-3 tabular" : "text-small text-ink-2"
+                              }`}
+                            >
+                              {r.value}
+                            </span>
+                          </div>
+                        ))}
+                    </Fragment>
+                  ) : (
+                    <ListCardRow
+                      key={row.key}
+                      data-testid={`identity-row-${row.key}`}
+                      icon={row.icon}
+                      label={row.label}
+                      value={row.value}
+                      wide={row.wide}
+                      trailing={row.trailing}
+                    />
+                  )
+                )}
               </ListCard>
             </section>
 
