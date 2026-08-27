@@ -442,6 +442,15 @@ fn matching_sources(config_path: &str) -> Vec<&'static McpSource> {
         return machine;
     }
 
+    let system: Vec<&'static McpSource> = SOURCES
+        .iter()
+        .filter(|s| s.location == SourceLocation::SystemAbsolute && !s.path.contains('*'))
+        .filter(|s| Path::new("/").join(s.path).as_path() == path)
+        .collect();
+    if !system.is_empty() {
+        return system;
+    }
+
     SOURCES
         .iter()
         .filter(|s| s.location == SourceLocation::RepoRelative && !s.path.contains('*'))
@@ -489,14 +498,36 @@ pub fn parse_swept(
         .collect())
 }
 
-/// Every machine-level registration under `home`.
+/// Every machine-level registration under `home`, reading system-wide
+/// configuration from the real filesystem root.
+///
+/// Production entry point; the four callers in `lib.rs` and `scanner.rs` use
+/// this. Tests use `discover_machine_at` so a fixture assertion cannot be
+/// changed by whatever managed configuration the host machine happens to
+/// carry.
 pub fn discover_machine(home: &Path) -> DiscoveryResult {
+    discover_machine_at(home, Path::new("/"))
+}
+
+/// `discover_machine` with the system root injected.
+///
+/// `SystemAbsolute` sources resolve against `system`, everything else against
+/// `home`. Splitting the two roots is what makes the fixture tests hermetic:
+/// they pass a root that holds nothing, so `registrations.len() == 16` stays
+/// a statement about the fixture rather than about the developer's machine.
+pub fn discover_machine_at(home: &Path, system: &Path) -> DiscoveryResult {
     let mut out = DiscoveryResult::default();
-    for source in SOURCES
-        .iter()
-        .filter(|s| s.location == SourceLocation::HomeRelative)
-    {
-        read_source(home, source, &mut out);
+    for source in SOURCES.iter().filter(|s| {
+        matches!(
+            s.location,
+            SourceLocation::HomeRelative | SourceLocation::SystemAbsolute
+        )
+    }) {
+        let base = match source.location {
+            SourceLocation::SystemAbsolute => system,
+            _ => home,
+        };
+        read_source(base, source, &mut out);
     }
     out
 }

@@ -89,6 +89,100 @@ fn repo_relative_sources_use_relative_paths() {
     }
 }
 
+/// A system root guaranteed to hold nothing, so a fixture test asserts on the
+/// fixture home alone. Without it, SystemAbsolute rows resolve against the
+/// real "/" and a developer machine with managed config deployed reads it into
+/// a fixture assertion.
+fn no_system_root() -> &'static Path {
+    Path::new("tests/fixtures/no_such_system_root")
+}
+
+#[test]
+fn system_absolute_sources_exist_for_the_two_system_configs() {
+    // Finding 3. managed-mcp.json is "the same format as a project .mcp.json"
+    // (code.claude.com/docs/en/managed-mcp, fetched 2026-08-27).
+    let claude = registry::SOURCES
+        .iter()
+        .find(|s| s.path.ends_with("ClaudeCode/managed-mcp.json"))
+        .expect("no managed-mcp.json source");
+    assert_eq!(claude.location, SourceLocation::SystemAbsolute);
+    assert_eq!(claude.host_id, "claude-code");
+    assert_eq!(claude.dialect, Dialect::McpServers);
+    assert_eq!(claude.tier, ScopeTier::Global);
+
+    let gemini = registry::SOURCES
+        .iter()
+        .find(|s| s.path.ends_with("GeminiCli/settings.json"))
+        .expect("no Gemini system settings source");
+    assert_eq!(gemini.location, SourceLocation::SystemAbsolute);
+    assert_eq!(gemini.host_id, "gemini");
+    assert_eq!(gemini.dialect, Dialect::McpServers);
+}
+
+#[test]
+fn system_absolute_paths_store_no_leading_slash() {
+    // Path::join on an absolute path DISCARDS the base, so a leading slash
+    // here resolves correctly in production and silently escapes any test
+    // root — a bug findable only on a managed machine. Pin it.
+    for source in registry::SOURCES {
+        if source.location == SourceLocation::SystemAbsolute {
+            assert!(
+                !source.path.starts_with('/'),
+                "system-absolute source {} must store a root-relative path",
+                source.path
+            );
+        }
+    }
+}
+
+#[test]
+fn discover_machine_at_reads_both_system_sources() {
+    let system = tempfile::tempdir().unwrap();
+    let cc = system.path().join("Library/Application Support/ClaudeCode");
+    std::fs::create_dir_all(&cc).unwrap();
+    std::fs::write(
+        cc.join("managed-mcp.json"),
+        r#"{"mcpServers": {"managed-probe": {"command": "/bin/true", "args": []}}}"#,
+    )
+    .unwrap();
+    let gem = system.path().join("Library/Application Support/GeminiCli");
+    std::fs::create_dir_all(&gem).unwrap();
+    std::fs::write(
+        gem.join("settings.json"),
+        r#"{"mcpServers": {"gemini-system-probe": {"command": "/bin/true", "args": []}}}"#,
+    )
+    .unwrap();
+
+    let home = tempfile::tempdir().unwrap(); // empty home isolates the assertion
+    let result = discover::discover_machine_at(home.path(), system.path());
+
+    assert!(
+        result.registrations.iter().any(|r| r.server.name == "managed-probe"
+            && r.host_id == "claude-code"
+            && r.tier == ScopeTier::Global),
+        "managed-mcp.json registration not discovered: {:?}",
+        result.registrations.iter().map(|r| &r.server.name).collect::<Vec<_>>()
+    );
+    assert!(
+        result.registrations.iter().any(|r| r.server.name == "gemini-system-probe"
+            && r.host_id == "gemini"),
+        "Gemini system settings registration not discovered"
+    );
+}
+
+#[test]
+fn discover_machine_at_ignores_system_sources_under_an_empty_root() {
+    // The hermeticity guarantee the fixture tests depend on. Without the
+    // system parameter this test cannot exist, and its absence is what let a
+    // host-dependent assertion look green.
+    let home = tempfile::tempdir().unwrap();
+    let result = discover::discover_machine_at(home.path(), no_system_root());
+    assert!(
+        result.registrations.is_empty(),
+        "an empty home and an empty system root must yield nothing"
+    );
+}
+
 // ─── Dialects ────────────────────────────────────────────────────────────────
 
 use tauri_app_lib::mcp::dialect::{self, McpServer};
@@ -712,7 +806,7 @@ fn fixture_home() -> &'static Path {
 
 #[test]
 fn discovery_finds_every_registration_in_the_fixture_home() {
-    let result = discover::discover_machine(fixture_home());
+    let result = discover::discover_machine_at(fixture_home(), no_system_root());
     assert_eq!(
         result.registrations.len(),
         16,
@@ -725,7 +819,7 @@ fn discovery_finds_every_registration_in_the_fixture_home() {
 
 #[test]
 fn library_resident_sources_are_read_despite_the_walk_exclusion() {
-    let result = discover::discover_machine(fixture_home());
+    let result = discover::discover_machine_at(fixture_home(), no_system_root());
     let desktop: Vec<&str> = result
         .registrations
         .iter()
@@ -755,7 +849,7 @@ fn the_walk_exclusion_itself_is_unchanged() {
 
 #[test]
 fn one_host_registering_the_same_server_twice_yields_two_registrations() {
-    let result = discover::discover_machine(fixture_home());
+    let result = discover::discover_machine_at(fixture_home(), no_system_root());
     let spades: Vec<&str> = result
         .registrations
         .iter()
@@ -772,7 +866,7 @@ fn one_host_registering_the_same_server_twice_yields_two_registrations() {
 
 #[test]
 fn plugin_marketplace_servers_are_discovered_through_the_glob() {
-    let result = discover::discover_machine(fixture_home());
+    let result = discover::discover_machine_at(fixture_home(), no_system_root());
     let names: Vec<&str> = result
         .registrations
         .iter()
@@ -784,7 +878,7 @@ fn plugin_marketplace_servers_are_discovered_through_the_glob() {
 
 #[test]
 fn local_tier_registrations_carry_their_project_root() {
-    let result = discover::discover_machine(fixture_home());
+    let result = discover::discover_machine_at(fixture_home(), no_system_root());
     let local: Vec<(&str, &str)> = result
         .registrations
         .iter()
@@ -797,7 +891,7 @@ fn local_tier_registrations_carry_their_project_root() {
 
 #[test]
 fn nothing_outside_the_two_mcp_keys_is_read_from_claude_json() {
-    let result = discover::discover_machine(fixture_home());
+    let result = discover::discover_machine_at(fixture_home(), no_system_root());
     let rendered = format!("{:#?}", result.registrations);
     assert!(!rendered.contains("must never be read"));
 }
@@ -810,7 +904,7 @@ fn a_recognised_source_yielding_no_servers_warns_instead_of_vanishing() {
     // VS Code's figma server disappear without trace.
     std::fs::write(dir.path().join(".claude/mcp.json"), "{}").unwrap();
 
-    let result = discover::discover_machine(dir.path());
+    let result = discover::discover_machine_at(dir.path(), no_system_root());
     assert!(
         result.problems.iter().any(|p| matches!(p.kind, ConfigProblemKind::DeclaredNothing)
             && p.path.contains("mcp.json")),
@@ -822,7 +916,7 @@ fn a_recognised_source_yielding_no_servers_warns_instead_of_vanishing() {
 #[test]
 fn a_missing_source_is_silent() {
     let dir = tempfile::tempdir().unwrap();
-    let result = discover::discover_machine(dir.path());
+    let result = discover::discover_machine_at(dir.path(), no_system_root());
     assert!(result.registrations.is_empty());
     assert!(
         result.problems.is_empty(),
@@ -845,7 +939,7 @@ fn checked_records_every_file_the_sweep_actually_opened() {
     // HomeRelative SOURCES rows (claude-code/User, claude-code/Local,
     // claude-ai/Global) all name the same `.claude.json`, so a naive
     // per-row tally would over-count that one file three times over.
-    let result = discover::discover_machine(fixture_home());
+    let result = discover::discover_machine_at(fixture_home(), no_system_root());
     assert_eq!(
         result.checked.len(),
         9,
@@ -859,7 +953,7 @@ fn checked_records_every_file_the_sweep_actually_opened() {
 fn coverage_deduplicates_files_but_not_the_engines_reading_them() {
     // The same physical file must not be counted, or shown, three times just
     // because three registry rows happen to name it.
-    let result = discover::discover_machine(fixture_home());
+    let result = discover::discover_machine_at(fixture_home(), no_system_root());
     // Fix round 2: `{m}` is the intersection of checked host ids with the
     // DETECTED engine population (the same one the headline's engine list
     // draws from), not a `HostKind` proxy — passed in explicitly here
@@ -906,7 +1000,7 @@ fn checked_engine_count_counts_only_detected_engines() {
     // checked entries, only one of which (claude-code) is ever detectable.
     std::fs::write(dir.path().join(".claude.json"), "{}").unwrap();
 
-    let result = discover::discover_machine(dir.path());
+    let result = discover::discover_machine_at(dir.path(), no_system_root());
     let detected: std::collections::HashSet<String> = ["claude-code".to_string()].into_iter().collect();
     let coverage = discover::coverage(&result, &detected);
     assert_eq!(coverage.checked_file_count, 1, "one physical file");
@@ -929,7 +1023,7 @@ fn checked_engine_count_counts_zed_when_zed_is_the_detected_engine() {
     std::fs::create_dir_all(dir.path().join(".config/zed")).unwrap();
     std::fs::write(dir.path().join(".config/zed/settings.json"), "{}").unwrap();
 
-    let result = discover::discover_machine(dir.path());
+    let result = discover::discover_machine_at(dir.path(), no_system_root());
     let detected: std::collections::HashSet<String> = ["zed".to_string()].into_iter().collect();
     let coverage = discover::coverage(&result, &detected);
     assert_eq!(coverage.checked_file_count, 1, "one physical file, Zed's own settings.json");
@@ -939,7 +1033,7 @@ fn checked_engine_count_counts_zed_when_zed_is_the_detected_engine() {
 #[test]
 fn coverage_of_a_machine_with_nothing_present_checked_nothing() {
     let dir = tempfile::tempdir().unwrap();
-    let result = discover::discover_machine(dir.path());
+    let result = discover::discover_machine_at(dir.path(), no_system_root());
     let coverage = discover::coverage(&result, &std::collections::HashSet::new());
     assert_eq!(coverage.checked_file_count, 0);
     assert_eq!(coverage.checked_engine_count, 0);
@@ -956,7 +1050,7 @@ fn a_config_that_parses_clean_and_empty_is_still_checked() {
     std::fs::create_dir_all(dir.path().join(".claude")).unwrap();
     std::fs::write(dir.path().join(".claude/mcp.json"), "{}").unwrap();
 
-    let result = discover::discover_machine(dir.path());
+    let result = discover::discover_machine_at(dir.path(), no_system_root());
     assert_eq!(discover::coverage(&result, &std::collections::HashSet::new()).checked_file_count, 1);
 }
 
@@ -973,7 +1067,7 @@ fn coverage_carries_every_problem_discovery_found() {
     // Unparseable: recognised path, broken JSON.
     std::fs::write(dir.path().join(".claude/mcp.json"), "{ \"mcpServers\": { \"a\": {").unwrap();
 
-    let result = discover::discover_machine(dir.path());
+    let result = discover::discover_machine_at(dir.path(), no_system_root());
     let coverage = discover::coverage(&result, &std::collections::HashSet::new());
     assert_eq!(
         coverage.problems.len(),
@@ -1363,12 +1457,12 @@ fn an_unregistered_host_id_falls_back_to_the_bare_id_rather_than_panicking() {
 fn each_fixture_machine_reports_what_it_declares() {
     let base = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures");
 
-    let claude_only = discover::discover_machine(&base.join("claude_only_home"));
+    let claude_only = discover::discover_machine_at(&base.join("claude_only_home"), no_system_root());
     assert!(claude_only.problems.is_empty(), "{:?}", claude_only.problems);
     let names: Vec<&str> = claude_only.registrations.iter().map(|r| r.server.name.as_str()).collect();
     assert!(names.contains(&"memory") && names.contains(&"protected"), "{:?}", names);
 
-    let jsonc = discover::discover_machine(&base.join("jsonc_home"));
+    let jsonc = discover::discover_machine_at(&base.join("jsonc_home"), no_system_root());
     assert!(jsonc.problems.is_empty(), "JSONC must parse cleanly: {:?}", jsonc.problems);
 
     // Zed's nested command survived normalisation into a runnable launch.
@@ -1387,7 +1481,7 @@ fn each_fixture_machine_reports_what_it_declares() {
     assert_eq!(linear[0], linear[1], "bridged and direct must agree: {:?}", linear);
     assert!(linear[0].starts_with("https://"), "{:?}", linear);
 
-    let empty = discover::discover_machine(&base.join("empty_home"));
+    let empty = discover::discover_machine_at(&base.join("empty_home"), no_system_root());
     assert!(empty.registrations.is_empty());
     assert!(empty.problems.is_empty(), "an empty machine is not a broken one: {:?}", empty.problems);
 }
@@ -1396,7 +1490,7 @@ fn each_fixture_machine_reports_what_it_declares() {
 fn no_fixture_credential_survives_into_a_displayable_launch() {
     let base = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures");
     for machine in ["claude_only_home", "jsonc_home", "empty_home"] {
-        let registrations = discover::discover_machine(&base.join(machine)).registrations;
+        let registrations = discover::discover_machine_at(&base.join(machine), no_system_root()).registrations;
         // A regression that made discovery return nothing would make this loop
         // iterate zero times and the test would report ok while proving the
         // opposite of what its name claims. claude_only_home and jsonc_home

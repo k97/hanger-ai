@@ -69,6 +69,11 @@ pub enum SourceLocation {
     HomeRelative,
     /// Path is relative to a repository root.
     RepoRelative,
+    /// Path is relative to the filesystem root — managed and system-wide
+    /// configuration. Stored WITHOUT a leading slash: `Path::join` on an
+    /// absolute path discards the base, which would defeat the system root
+    /// `discover_machine_at` passes and silently read the host.
+    SystemAbsolute,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -135,6 +140,15 @@ pub const SOURCES: &[McpSource] = &[
     McpSource { host_id: "claude-code", location: RepoRelative, path: ".mcp.json", tier: Project, dialect: McpServers },
     McpSource { host_id: "claude-code", location: RepoRelative, path: ".claude/settings.json", tier: Project, dialect: McpServers },
 
+    // Managed MCP servers — a deployed, fleet-wide server set, same format as
+    // a project .mcp.json (code.claude.com/docs/en/managed-mcp, fetched
+    // 2026-08-27). KNOWN GAP: when this file exists it takes EXCLUSIVE
+    // control and suppresses every other source, which Hanger reads but does
+    // not model — it will list the suppressed sources as reaching. Karthik's
+    // ruling 2026-08-27: ship the read now, record the gap
+    // (docs/roadmap.md, reach-state entry).
+    McpSource { host_id: "claude-code", location: SystemAbsolute, path: "Library/Application Support/ClaudeCode/managed-mcp.json", tier: Global, dialect: McpServers },
+
     // Claude.ai — account-level connectors, not machine configuration.
     McpSource { host_id: "claude-ai", location: HomeRelative, path: ".claude.json", tier: Global, dialect: ClaudeAiConnectors },
 
@@ -145,6 +159,11 @@ pub const SOURCES: &[McpSource] = &[
     // Gemini
     McpSource { host_id: "gemini", location: HomeRelative, path: ".gemini/settings.json", tier: Global, dialect: McpServers },
     McpSource { host_id: "gemini", location: RepoRelative, path: ".gemini/settings.json", tier: Project, dialect: McpServers },
+
+    // Gemini's system tier — outranks workspace and user, and MERGES with
+    // them rather than suppressing (gemini-cli docs/cli/enterprise.md,
+    // fetched 2026-08-27), so listing it alongside the others is accurate.
+    McpSource { host_id: "gemini", location: SystemAbsolute, path: "Library/Application Support/GeminiCli/settings.json", tier: Global, dialect: McpServers },
 
     // Claude Desktop
     McpSource { host_id: "claude-desktop", location: HomeRelative, path: "Library/Application Support/Claude/claude_desktop_config.json", tier: Global, dialect: McpServers },
