@@ -567,7 +567,15 @@ export default function AssetDetail({ asset, inventory, onDocumentPath, annotati
                                 data-testid="origin-open-link"
                                 aria-label={`${originView.value} — ${originView.tooltip}`}
                                 onClick={() => openUrl(originView.url!).catch(() => {})}
-                                className="inline-flex items-center gap-1 text-small text-ink-1 border-b border-line-2 hover:border-ink-1 transition-colors duration-hover cursor-pointer"
+                                /* The underline is a hover affordance, not a
+                                   resting state (Karthik, 2026-08-28): the
+                                   external-link mark already says it is a
+                                   link, so a permanent rule under every
+                                   origin is decoration. `border-transparent`
+                                   rather than no border, so the 1px is
+                                   reserved and the row does not shift when
+                                   the rule appears. */
+                                className="inline-flex items-center gap-1 text-small text-ink-1 border-b border-transparent hover:border-ink-1 transition-colors duration-hover cursor-pointer"
                               >
                                 <span className="truncate max-w-55">{originView.value}</span>
                                 <ArrowTopRightOnSquareIcon

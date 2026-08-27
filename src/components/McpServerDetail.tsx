@@ -1168,7 +1168,10 @@ export default function McpServerDetail({
                           data-testid="registration-origin-link"
                           aria-label={`${originView.value} — ${originView.tooltip}`}
                           onClick={() => openUrl(originView.url!).catch(() => {})}
-                          className="inline-flex items-center gap-1 min-w-0 text-micro text-ink-2 border-b border-line-2 hover:border-ink-1 transition-colors duration-hover cursor-pointer"
+                          /* Underline on hover only, matching AssetDetail's
+                             origin link (Karthik, 2026-08-28). Transparent
+                             rather than absent so the 1px stays reserved. */
+                          className="inline-flex items-center gap-1 min-w-0 text-micro text-ink-2 border-b border-transparent hover:border-ink-1 transition-colors duration-hover cursor-pointer"
                         >
                           <span className="truncate">{originView.value}</span>
                           <ArrowTopRightOnSquareIcon
