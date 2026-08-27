@@ -73,6 +73,13 @@
   --fw-regular: 400;
   --fw-medium: 500;
 
+  /* Leading — three, as tokens (audit 2026-08-27: 55 arbitrary values
+     before this). body for 13px prose and rows, caption for 12px
+     secondary lines, code for 11–12px mono blocks. */
+  --lh-body: 20px;
+  --lh-caption: 16px;
+  --lh-code: 18px;
+
   /* Geometry — pill for controls, 12px inner surfaces, 16px planes,
      10px for the rail's square-ish buttons */
   --radius-plane: 16px;

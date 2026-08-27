@@ -105,6 +105,11 @@
   --text-ui: var(--fs-ui);
   --text-title: var(--fs-title);
 
+  /* ── Leading: body 20 / caption 16 / code 18 ── */
+  --leading-body: var(--lh-body);
+  --leading-caption: var(--lh-caption);
+  --leading-code: var(--lh-code);
+
   /* ── Faces ── */
   --font-flex: var(--font-flex);
 
