@@ -1928,6 +1928,15 @@ pub fn run() {
             let handle = app.handle();
             scan::status::set_app_handle(handle.clone());
 
+            // Name the window after the build it came from. Dev-only in
+            // effect: `window_title(false)` is what tauri.conf.json already
+            // set, so a release build renames itself to the same string.
+            // See src/dev_icon.rs for why the window, not just the Dock tile,
+            // has to carry this.
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.set_title(dev_icon::window_title(cfg!(debug_assertions)));
+            }
+
             // Native menu (update check + diagnostics), then the updater's
             // silent launch check and periodic re-check.
             menu::install(app)?;

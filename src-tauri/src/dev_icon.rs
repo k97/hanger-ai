@@ -18,6 +18,33 @@
 //! Re-applied on `WindowEvent::ThemeChanged` so the Dock follows the system.
 //! Compiled out of release builds entirely — catalog bytes included.
 
+/// The window title for this build.
+///
+/// The Dock icon below gives a dev instance its own identity in the Dock and
+/// in ⌘-Tab. It does nothing for the *window*, and the window is what every
+/// capture path actually reads — `screencapture -l<id>`, `kCGWindowName`, the
+/// Window menu. On 2026-08-27 a `tauri dev` window and an installed
+/// `Hanger AI.app` window were both "Hanger AI" at 1024x700 @244,79, byte
+/// for byte, and a session screenshotted the release one, found it blank and
+/// reported the dev webview as dead to three other sessions. The release
+/// binary is an older build, so its DOM and stylesheet do not come from the
+/// working tree at all — a capture of it shows layout no reading of current
+/// source can explain, which is indistinguishable from a real defect.
+///
+/// A suffix on the title costs nothing visually: `titleBarStyle` is
+/// `"Overlay"` (`tauri.conf.json`), so the title is never drawn in the window
+/// chrome. It surfaces exactly where the confusion happens.
+///
+/// Takes `is_dev` rather than reading `cfg!` here so both branches are
+/// reachable from one test binary; `cargo test` only ever builds debug.
+pub fn window_title(is_dev: bool) -> &'static str {
+    if is_dev {
+        "Hanger AI (dev)"
+    } else {
+        "Hanger AI"
+    }
+}
+
 /// Point the Dock tile at the DEV icon, rendered for the current appearance.
 ///
 /// Best-effort: any failure leaves the existing icon alone rather than

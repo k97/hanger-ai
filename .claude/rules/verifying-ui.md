@@ -29,25 +29,32 @@ that tells the truth from the `tauri dev` app:
   `target/debug/tauri-app`, **owner name `tauri-app`**). The window also moves
   between reads — it was at `@244,79` and `@267,92` twenty minutes apart on
   2026-08-27 — so re-read bounds before every capture and every click.
-- **Filter CGWindowList by pid, never by owner name — `"Hanger AI"` is the
-  installed release app.** This bullet said owner name "Hanger AI" until
-  2026-08-27, and following it exactly returns a window belonging to
-  `/Applications/Hanger AI.app`, not to `tauri dev`. That evening both were
-  running at *byte-identical* bounds:
+- **The dev window names itself `Hanger AI (dev)`; `Hanger AI` is the
+  installed release app.** Since 2026-08-27 the dev build sets its own title
+  (`dev_icon::window_title`, applied in `lib.rs`'s `setup`), so a capture can
+  no longer silently be of the wrong build. Assert the title you got.
+
+  Before that, both builds were "Hanger AI" and could run at *byte-identical*
+  bounds — this pair was live that evening:
 
   ```
   num=14970 pid=26080 owner=tauri-app   title="Hanger AI"  1024x700 @244,79   <- tauri dev
   num=14721 pid=86869 owner="Hanger AI" title="Hanger AI"  1024x700 @244,79   <- /Applications
   ```
 
-  Nothing distinguishes them by geometry, title, or the frame's general look.
-  This session captured 14721, found it blank, and reported the dev webview
-  as HMR-dead to three other sessions; the dev build was rendering fine the
-  whole time. The release binary is an *older* build, so its DOM and
-  stylesheet do not come from the working tree at all — a capture of it shows
-  layout no reading of current source can explain, which is indistinguishable
-  from a real defect. Resolve the pid first
-  (`pgrep -f "target/debug/tauri-app"`), then match `kCGWindowOwnerPID`.
+  Nothing distinguished them by geometry, title, or the frame's general look.
+  A session captured 14721, found it blank, and reported the dev webview as
+  HMR-dead to three others; the dev build was rendering fine the whole time.
+  The release binary is an *older* build, so its DOM and stylesheet do not
+  come from the working tree at all — a capture of it shows layout no reading
+  of current source can explain, which is indistinguishable from a real
+  defect.
+
+  **Filtering by pid remains the robust form**, because the title is only as
+  good as the build you are running: resolve
+  `pgrep -f "target/debug/tauri-app"` and match `kCGWindowOwnerPID`. Never
+  filter on `kCGWindowOwnerName == "Hanger AI"` — that is the release app's
+  owner name; the dev build's is `tauri-app`.
   `ps -eo pid,lstart,command | grep -i hanger` shows whether a second copy is
   running at all; if one is, say so rather than quitting it — it may be
   Karthik's.
