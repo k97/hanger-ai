@@ -102,7 +102,7 @@ export default function IconRail({
           className={active === "review" ? railBtnActiveClass : railBtnClass}
         >
           {needsReviewCount > 0 && (
-            <span aria-hidden="true" className="absolute -top-[3px] -right-1 min-w-4 h-4 px-1 rounded-pill bg-fill text-on-fill text-[9px] leading-4 font-flex tabular ring-2 ring-plane">
+            <span aria-hidden="true" className="absolute -top-[3px] -right-1 min-w-4 h-4 px-1 rounded-pill bg-fill text-on-fill text-[9px] leading-4 font-flex tabular">
               {needsReviewCount}
             </span>
           )}
