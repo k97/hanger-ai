@@ -3,6 +3,8 @@
      never a hue. Semantic colour survives in exactly one place: system
      state. Spec: docs/v3/hanger-mono-tight.html ══ */
   --page: #ffffff;
+  --sidebar: #fcfcfc;        /* the shell's left column only — one step off --page,
+                                where --plane was two. Karthik, 2026-08-27. */
   --plane: #f7f7f7;          /* the plane is a value step, not a colour */
   --plane-2: #efefef;
   --tint: #e8e8e8;           /* tonal container for selection, neutral */
@@ -154,6 +156,8 @@
 
 .dark {
   --page: #000000;
+  --sidebar: #131313;        /* lifts off pure black harder than --plane does:
+                                on #000 a one-step surface disappears. */
   --plane: #0e0e0e;
   --plane-2: #171717;
   --tint: #232323;

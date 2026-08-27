@@ -4,6 +4,7 @@
 @theme {
   /* ── Mono palette ── */
   --color-page: var(--page);
+  --color-sidebar: var(--sidebar);
   --color-plane: var(--plane);
   --color-plane-2: var(--plane-2);
   --color-tint: var(--tint);
