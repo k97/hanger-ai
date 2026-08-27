@@ -57,6 +57,9 @@ in `src/App.tsx`, persisted as the `selected_sidebar_item` preference.
   dev app that tells the truth.
 - [Releasing](.claude/rules/releasing.md) — tag triggers, the four version
   files, the updater's semver and key checks, never `--tags`.
+- [Shared asset machinery](.claude/rules/shared-asset-machinery.md) — the
+  four kinds share directories, dedup sets, roots and counting; check the
+  other three before changing one, and prove it with per-kind counts.
 - [Known debt](.claude/rules/known-debt.md) — open items to know before
   touching counting, scan warnings, or diagnostics UI; the DisclosureBanner
   rule.
