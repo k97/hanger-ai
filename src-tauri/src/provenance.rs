@@ -445,6 +445,60 @@ fn parse_origin_url(config: &str) -> Option<String> {
     None
 }
 
+/// How a recognized flag consumes argv tokens.
+enum FlagArity {
+    /// Takes no value; only the flag itself is consumed.
+    Valueless,
+    /// Takes a value in the next token (or, `=`-joined, in itself); that
+    /// value is never the package.
+    ValueTaking,
+    /// The flag's OWN value (the next token, or `=`-joined) is the package
+    /// itself.
+    IsPackage,
+}
+
+/// Look up a flag's arity from each runner's own documented options. Only
+/// flags we are confident about appear here — an omission merely declines
+/// to resolve a launch; a wrong entry could misattribute or leak, so
+/// nothing goes in this table on a guess. Look up by NAME only — an
+/// `=`-joined value, if any, is split off by the caller before this runs.
+///
+/// Sources (checked against the tools' own `--help` / docs, 2026-08-27):
+/// - npx (`npm exec`): `-y`/`--yes` bypasses the install-confirmation
+///   prompt and takes no value; `-p`/`--package <spec>` names the package
+///   to install when it differs from the command to run; `-c`/`--call
+///   <cmd>` runs a command string and takes a value that is not a package.
+/// - bunx: `--bun` forces the script to run under Bun's own runtime rather
+///   than shelling out to Node; `-y`/`--yes` bypasses Bun's own
+///   install-confirmation prompt, the same as npx's. Both take no value.
+/// - uvx (`uv tool run`): `--from <pkg>` names the package to install when
+///   it differs from the command to run; `--with <pkg>` and `--python
+///   <version>`/`-p` take a value that is not the package; `--isolated`,
+///   `--no-cache`, `--refresh`, `-q`/`--quiet`, `-v`/`--verbose` take none.
+fn recognized_flag(runner: &str, flag: &str) -> Option<FlagArity> {
+    match runner {
+        "npx" => match flag {
+            "-y" | "--yes" => Some(FlagArity::Valueless),
+            "-c" | "--call" => Some(FlagArity::ValueTaking),
+            "-p" | "--package" => Some(FlagArity::IsPackage),
+            _ => None,
+        },
+        "bunx" => match flag {
+            "--bun" | "-y" | "--yes" => Some(FlagArity::Valueless),
+            _ => None,
+        },
+        "uvx" => match flag {
+            "--isolated" | "--no-cache" | "--refresh" | "-q" | "--quiet" | "-v" | "--verbose" => {
+                Some(FlagArity::Valueless)
+            }
+            "--with" | "--python" | "-p" => Some(FlagArity::ValueTaking),
+            "--from" => Some(FlagArity::IsPackage),
+            _ => None,
+        },
+        _ => None,
+    }
+}
+
 /// What a registration's launch says about where the server came from.
 /// Inference, not declaration — and built ONLY from a validated package
 /// token or the transport URL's host. Raw args never flow into the result:
@@ -461,77 +515,36 @@ fn parse_origin_url(config: &str) -> Option<String> {
 /// two hops later; guess "takes no value" and a real value-taking flag
 /// donates its value as the package. Both shapes shipped as bugs here.
 ///
-/// So the scan does not guess. It recognizes, per runner, three kinds of
-/// flag from each tool's own documented options:
-/// - **valueless** — skipped bare (`-y`/`--yes` for npx, `--bun` for bunx,
-///   `--isolated`/`--no-cache`/`--refresh`/`-q`/`--quiet`/`-v`/`--verbose`
-///   for uvx).
-/// - **value-taking** — skipped along with the token after it (`-c`/`--call`
-///   for npx; `--with`/`--python`/`-p` for uvx). The value is never read as
-///   the package.
-/// - **package-flag** — the flag's OWN value is the package (`-p`/`--package`
-///   for npx; `--from` for uvx). That token is validated as a package name
-///   on its own; if it fails, the whole call returns `None` rather than
-///   falling through to scan past it for something else.
+/// So the scan does not guess. For each `-`-prefixed token it splits on `=`
+/// FIRST, then looks up the flag NAME (never the whole `flag=value` token)
+/// against `recognized_flag`, and only then decides what to do — checking
+/// identity before shape matters: doing it the other way round treated
+/// every `=`-joined token as self-contained-and-irrelevant, so
+/// `--from=pkg` and `--package=pkg` fell through as if they carried nothing
+/// worth reading, skipping straight past the package name they actually
+/// carry. The three recognized arities:
+/// - **valueless** — skip the flag alone.
+/// - **value-taking** — skip the flag, and skip the following token too —
+///   UNLESS the flag was `=`-joined, in which case the value already
+///   travelled with it and there is no separate token to skip.
+/// - **package-flag** — the flag's own value (`=`-joined, or the next
+///   token when it wasn't) IS the package. That value is validated as a
+///   package name on its own; if it fails, the call returns `None` rather
+///   than falling through to scan past it for something else.
 ///
-/// `--flag=value` is always self-contained (skip one token) regardless of
-/// recognition, since the `=` makes the boundary unambiguous. A bare `--`
-/// marks the next token as the package outright, whatever it looks like.
-/// **Any flag that is not `--`, not `=`-joined, and not in one of the three
-/// sets above makes the whole call return `None` immediately** — an
-/// unattributed server is honest; guessing past an unknown flag is how the
-/// leak happened. The cost: a launch that uses a real flag we simply didn't
-/// enumerate here declines to resolve at all, rather than resolving wrong.
-/// How a recognized flag consumes argv tokens.
-enum FlagArity {
-    /// Takes no value; only the flag itself is consumed.
-    Valueless,
-    /// Takes a value in the next token; that token is not the package.
-    ValueTaking,
-    /// The flag's OWN value (the next token) is the package itself.
-    IsPackage,
-}
-
-/// Look up a flag's arity from each runner's own documented options. Only
-/// flags we are confident about appear here — an omission merely declines
-/// to resolve a launch; a wrong entry could misattribute or leak, so
-/// nothing goes in this table on a guess.
+/// A bare `--` marks the next token as the package outright — no runner
+/// lookup needed for it — but that token still has to pass
+/// `is_valid_package_name` below like any other candidate; `--` waives
+/// recognition, not validation.
 ///
-/// Sources (checked against the tools' own `--help` / docs, 2026-08-27):
-/// - npx (`npm exec`): `-y`/`--yes` bypasses the install-confirmation
-///   prompt and takes no value; `-p`/`--package <spec>` names the package
-///   to install when it differs from the command to run; `-c`/`--call
-///   <cmd>` runs a command string and takes a value that is not a package.
-/// - bunx: `--bun` forces the script to run under Bun's own runtime rather
-///   than shelling out to Node; it takes no value.
-/// - uvx (`uv tool run`): `--from <pkg>` names the package to install when
-///   it differs from the command to run; `--with <pkg>` and `--python
-///   <version>`/`-p` take a value that is not the package; `--isolated`,
-///   `--no-cache`, `--refresh`, `-q`/`--quiet`, `-v`/`--verbose` take none.
-fn recognized_flag(runner: &str, flag: &str) -> Option<FlagArity> {
-    match runner {
-        "npx" => match flag {
-            "-y" | "--yes" => Some(FlagArity::Valueless),
-            "-c" | "--call" => Some(FlagArity::ValueTaking),
-            "-p" | "--package" => Some(FlagArity::IsPackage),
-            _ => None,
-        },
-        "bunx" => match flag {
-            "--bun" => Some(FlagArity::Valueless),
-            _ => None,
-        },
-        "uvx" => match flag {
-            "--isolated" | "--no-cache" | "--refresh" | "-q" | "--quiet" | "-v" | "--verbose" => {
-                Some(FlagArity::Valueless)
-            }
-            "--with" | "--python" | "-p" => Some(FlagArity::ValueTaking),
-            "--from" => Some(FlagArity::IsPackage),
-            _ => None,
-        },
-        _ => None,
-    }
-}
-
+/// **Any flag that is not `--`, not recognized, and not `=`-joined makes
+/// the whole call return `None` immediately** — an unattributed server is
+/// honest; guessing past an unknown flag is how the leak happened. An
+/// unrecognized `=`-joined flag is the one case safe to skip without
+/// recognizing it: the `=` already proves it cannot consume the following
+/// token, so there is nothing left for it to misattribute. The cost: a
+/// launch using a real, un-enumerated flag (written without `=`) declines
+/// to resolve at all rather than resolving wrong.
 pub fn launched_origin(command: &str, args: &[String], transport: &str) -> Option<Origin> {
     // Remote endpoint: transport is an already-sanitised URL (dialect.rs:27).
     // Host only — never any other part of the URL reaches the result.
@@ -569,36 +582,49 @@ pub fn launched_origin(command: &str, args: &[String], transport: &str) -> Optio
         _ => return None,
     };
     // Walk argv deciding each flag's arity by recognition only — never by
-    // guessing. See the rule spelled out in the doc comment above.
+    // guessing. See the rule spelled out in the doc comment above: split on
+    // `=` FIRST, then look up the flag's NAME, then dispatch on its arity.
     let rest = &tokens[1..];
     let mut i = 0;
     let mut raw_pkg: Option<&str> = None;
     while i < rest.len() {
         let t = rest[i];
         if t == "--" {
-            // Whatever follows is the package, syntax notwithstanding.
+            // The next token is the package outright; recognition is
+            // skipped, but it still has to pass validation below.
             raw_pkg = rest.get(i + 1).copied();
             break;
         }
         if t.starts_with('-') {
-            if t.contains('=') {
-                i += 1;
-                continue;
-            }
-            match recognized_flag(runner.as_str(), t) {
+            let (flag, eq_value) = match t.split_once('=') {
+                Some((name, value)) => (name, Some(value)),
+                None => (t, None),
+            };
+            match recognized_flag(runner.as_str(), flag) {
                 Some(FlagArity::Valueless) => {
                     i += 1;
                     continue;
                 }
                 Some(FlagArity::ValueTaking) => {
-                    i += 2;
+                    // `=`-joined: the value travelled with the flag, so
+                    // there is no separate token after it to skip.
+                    i += if eq_value.is_some() { 1 } else { 2 };
                     continue;
                 }
                 Some(FlagArity::IsPackage) => {
-                    raw_pkg = rest.get(i + 1).copied();
+                    raw_pkg = eq_value.or_else(|| rest.get(i + 1).copied());
                     break;
                 }
-                None => return None, // unrecognized flag: decline, don't guess
+                None => {
+                    if eq_value.is_some() {
+                        // Unrecognized but self-contained: the `=` proves
+                        // it cannot consume the next token, so there is
+                        // nothing here to misattribute — safe to skip.
+                        i += 1;
+                        continue;
+                    }
+                    return None; // unrecognized, ambiguous arity: decline
+                }
             }
         }
         raw_pkg = Some(t);
