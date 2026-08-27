@@ -445,6 +445,104 @@ fn parse_origin_url(config: &str) -> Option<String> {
     None
 }
 
+/// What a registration's launch says about where the server came from.
+/// Inference, not declaration — and built ONLY from a validated package
+/// token or the transport URL's host. Raw args never flow into the result:
+/// a config can carry `--header "Bearer …"`, and both redactors exist
+/// because exactly that shipped once (see mcp::redact).
+pub fn launched_origin(command: &str, args: &[String], transport: &str) -> Option<Origin> {
+    // Remote endpoint: transport is an already-sanitised URL (dialect.rs:27).
+    // Host only — never any other part of the URL reaches the result.
+    if transport.starts_with("http://") || transport.starts_with("https://") {
+        let after = transport.split_once("://")?.1;
+        let host = after.split(['/', '?', '#']).next()?;
+        if !host.is_empty() {
+            return Some(Origin {
+                label: host.to_string(),
+                url: Some(format!("https://{}", host)),
+                kind: OriginKind::Launched,
+                commit: None,
+                delivered_by: None,
+                installed_at_ms: None,
+            });
+        }
+        return None;
+    }
+
+    // Codex-style single-string launches embed the whole command line in
+    // `command` with `args` empty; split it back into tokens so both shapes
+    // go through the same path.
+    let mut tokens: Vec<&str> = command.split_whitespace().collect();
+    tokens.extend(args.iter().map(String::as_str));
+    if tokens.is_empty() {
+        return None;
+    }
+    let runner = Path::new(tokens[0])
+        .file_name()
+        .map(|f| f.to_string_lossy().into_owned())
+        .unwrap_or_default();
+    let registry = match runner.as_str() {
+        "npx" | "bunx" => "npm",
+        "uvx" => "pypi",
+        _ => return None,
+    };
+    // First non-flag token after the runner is the package. Anything after
+    // (ports, flags, header values, secrets) is never inspected.
+    let raw_pkg = tokens.iter().skip(1).find(|t| !t.starts_with('-'))?;
+    let name = strip_version_suffix(raw_pkg);
+    if !is_valid_package_name(name) {
+        return None;
+    }
+    let (label, url) = match registry {
+        "npm" => (
+            format!("npm: {}", name),
+            format!("https://www.npmjs.com/package/{}", name),
+        ),
+        _ => (
+            format!("PyPI: {}", name),
+            format!("https://pypi.org/project/{}/", name),
+        ),
+    };
+    Some(Origin {
+        label,
+        url: Some(url),
+        kind: OriginKind::Launched,
+        commit: None,
+        delivered_by: None,
+        installed_at_ms: None,
+    })
+}
+
+/// "pkg@1.2.3" -> "pkg"; "@scope/pkg@latest" -> "@scope/pkg". Only the LAST
+/// '@' is a version separator — a leading '@' (scope marker) at index 0 is
+/// never treated as one.
+fn strip_version_suffix(token: &str) -> &str {
+    match token.rfind('@') {
+        Some(i) if i > 0 => &token[..i],
+        _ => token,
+    }
+}
+
+/// The npm name grammar, close enough to also fence PyPI names: an optional
+/// `@scope/` prefix, then a package segment; every segment restricted to
+/// lowercase alphanumerics and `-._~`. One pass, one rule, applied to
+/// whichever segments are present — no dead first pass. Anything outside it
+/// is not a package name and never becomes a link.
+fn is_valid_package_name(name: &str) -> bool {
+    let segment_ok = |s: &str| {
+        !s.is_empty()
+            && s.chars()
+                .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || "-._~".contains(c))
+    };
+    match name.strip_prefix('@') {
+        Some(rest) => match rest.split_once('/') {
+            Some((scope, pkg)) => segment_ok(scope) && segment_ok(pkg),
+            None => false,
+        },
+        None => segment_ok(name),
+    }
+}
+
 pub fn origin_from_declared(raw: &str) -> Origin {
     match normalize_source_url(raw) {
         Some((label, url)) => Origin {

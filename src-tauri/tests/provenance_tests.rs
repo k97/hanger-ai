@@ -372,3 +372,93 @@ fn test_git_config_itself_a_symlink_outside_home_is_not_followed() {
         "must not resolve a remote through a symlinked .git/config that escapes home"
     );
 }
+
+// --- Task 4: launched_origin ---
+
+use tauri_app_lib::provenance::launched_origin;
+
+#[test]
+fn test_npx_package_in_args() {
+    let o = launched_origin("npx", &["chrome-devtools-mcp@latest".into()], "stdio").unwrap();
+    assert_eq!(o.label, "npm: chrome-devtools-mcp");
+    assert_eq!(o.url.as_deref(), Some("https://www.npmjs.com/package/chrome-devtools-mcp"));
+}
+
+#[test]
+fn test_scoped_package_embedded_in_command() {
+    // Codex writes the whole launch into `command` with empty args.
+    let o = launched_origin("npx @hypothesi/tauri-mcp-server", &[], "stdio").unwrap();
+    assert_eq!(o.label, "npm: @hypothesi/tauri-mcp-server");
+    assert_eq!(
+        o.url.as_deref(),
+        Some("https://www.npmjs.com/package/@hypothesi/tauri-mcp-server")
+    );
+}
+
+#[test]
+fn test_flags_are_skipped() {
+    let o = launched_origin(
+        "npx",
+        &["-y".into(), "some-server".into(), "--port".into(), "3000".into()],
+        "stdio",
+    )
+    .unwrap();
+    assert_eq!(o.label, "npm: some-server");
+}
+
+#[test]
+fn test_uvx_maps_to_pypi() {
+    let o = launched_origin("uvx", &["mcp-server-fetch".into()], "stdio").unwrap();
+    assert_eq!(o.label, "PyPI: mcp-server-fetch");
+    assert_eq!(o.url.as_deref(), Some("https://pypi.org/project/mcp-server-fetch/"));
+}
+
+#[test]
+fn test_remote_transport_keeps_host_only() {
+    let o = launched_origin("", &[], "https://mcp.example.com/v1/sse?key=SECRET").unwrap();
+    assert_eq!(o.label, "mcp.example.com");
+    assert_eq!(o.url.as_deref(), Some("https://mcp.example.com"));
+}
+
+#[test]
+fn test_plain_binary_yields_nothing() {
+    assert!(launched_origin("node", &["/some/local/index.js".into()], "stdio").is_none());
+}
+
+#[test]
+fn test_secret_bearing_args_never_reach_the_origin() {
+    let o = launched_origin(
+        "npx",
+        &[
+            "some-server".into(),
+            "--header".into(),
+            "Authorization: Bearer sk-SECRET-TOKEN".into(),
+        ],
+        "stdio",
+    )
+    .unwrap();
+    let json = serde_json::to_string(&o).unwrap();
+    assert!(!json.contains("SECRET"), "origin must never carry arg values: {json}");
+}
+
+/// The pinned control above places the package name FIRST, so the fence is
+/// never actually tested against a secret occupying the "first non-flag
+/// token" slot the package-picking scan reads from. Put the secret there
+/// instead: whatever the outcome (an origin for `some-server`, or none at
+/// all), the secret must never surface in the result either way.
+#[test]
+fn test_secret_bearing_flag_value_before_package_never_leaks() {
+    let o = launched_origin(
+        "npx",
+        &[
+            "--header".into(),
+            "Authorization: Bearer sk-SECRET-TOKEN".into(),
+            "some-server".into(),
+        ],
+        "stdio",
+    );
+    if let Some(o) = o {
+        let json = serde_json::to_string(&o).unwrap();
+        assert!(!json.contains("SECRET"), "origin must never carry arg values: {json}");
+    }
+}
