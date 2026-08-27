@@ -660,6 +660,8 @@ pub fn tool_from_registration(
         parse_status: Some("ok".to_string()),
         parse_error: None,
         link_state: None,
+        origin: None,
+        origin_blocked: None,
     };
     // Identity comes from the domain, not from a format! repeated per call site.
     tool.id = tool.registration_key().to_string();
@@ -1114,6 +1116,8 @@ impl DirectoryScanner {
                                     parse_status: Some("ok".to_string()),
                                     parse_error: None,
                                     link_state,
+                                    origin: None,
+                                    origin_blocked: None,
                                 });
                                 if let (Some(store), Some(r_id)) = (&store_opt, global_root_id) {
                                     let canon_p = canonicalize_asset_path(&path, &mut parse_warnings);
@@ -1227,6 +1231,8 @@ impl DirectoryScanner {
                                             parse_status: Some("ok".to_string()),
                                             parse_error: None,
                                             link_state,
+                                            origin: None,
+                                            origin_blocked: None,
                                         });
                                     }
                                     if let Some(store) = &store_opt {
@@ -1349,6 +1355,8 @@ impl DirectoryScanner {
                                                     parse_status: Some("ok".to_string()),
                                                     parse_error: None,
                                                     link_state: None,
+                                                    origin: None,
+                                                    origin_blocked: None,
                                                 });
                                             }
                                             if let Some(store) = &store_opt {
@@ -1386,6 +1394,8 @@ impl DirectoryScanner {
                                                     // A parse failure is not a link state (ruled 2026-08-15): it files
                                 // under parse_status, never under broken links.
                                 link_state: None,
+                                                    origin: None,
+                                                    origin_blocked: None,
                                                 });
                                             }
                                             if let Some(store) = &store_opt {
@@ -1761,6 +1771,8 @@ impl DirectoryScanner {
                                 parse_status: Some("ok".to_string()),
                                 parse_error: None,
                                 link_state,
+                                origin: None,
+                                origin_blocked: None,
                             });
                             if let (Some(store), Some(r_id)) = (&store_opt, project_root_id) {
                                 let parent_dir_canon = canonicalize_asset_path(parent_dir, &mut parse_warnings);
@@ -1794,6 +1806,8 @@ impl DirectoryScanner {
                                 // A parse failure is not a link state (ruled 2026-08-15): it files
                                 // under parse_status, never under broken links.
                                 link_state: None,
+                                origin: None,
+                                origin_blocked: None,
                             });
                             if let (Some(store), Some(r_id)) = (&store_opt, project_root_id) {
                                 let _ = store.upsert_asset(
@@ -1858,6 +1872,8 @@ impl DirectoryScanner {
                                 parse_status: Some("ok".to_string()),
                                 parse_error: None,
                                 link_state,
+                                origin: None,
+                                origin_blocked: None,
                             });
                             if let (Some(store), Some(r_id)) = (&store_opt, project_root_id) {
                                 let sub_path_canon = canonicalize_asset_path(path, &mut parse_warnings);
@@ -1888,6 +1904,8 @@ impl DirectoryScanner {
                                 // A parse failure is not a link state (ruled 2026-08-15): it files
                                 // under parse_status, never under broken links.
                                 link_state: None,
+                                origin: None,
+                                origin_blocked: None,
                             });
                             if let (Some(store), Some(r_id)) = (&store_opt, project_root_id) {
                                 let _ = store.upsert_asset(
@@ -1980,6 +1998,8 @@ impl DirectoryScanner {
                         // A parse failure is not a link state (ruled 2026-08-15): it files
                                 // under parse_status, never under broken links.
                                 link_state: None,
+                        origin: None,
+                        origin_blocked: None,
                     });
                     if let (Some(store), Some(r_id)) = (&store_opt, project_root_id) {
                         let _ = store.upsert_asset(
@@ -2042,6 +2062,8 @@ impl DirectoryScanner {
                             parse_status: Some("ok".to_string()),
                             parse_error: None,
                             link_state,
+                            origin: None,
+                            origin_blocked: None,
                         });
                         if let (Some(store), Some(r_id)) = (&store_opt, project_root_id) {
                             let rule_canon = canonicalize_asset_path(Path::new(p_str), &mut parse_warnings);

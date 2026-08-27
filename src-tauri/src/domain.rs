@@ -30,6 +30,10 @@ pub struct Skill {
     pub parse_error: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub link_state: Option<LinkState>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub origin: Option<crate::provenance::Origin>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub origin_blocked: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -91,6 +95,10 @@ pub struct Tool {
     pub parse_error: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub link_state: Option<LinkState>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub origin: Option<crate::provenance::Origin>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub origin_blocked: Option<bool>,
 }
 
 impl Tool {
@@ -166,6 +174,10 @@ pub struct Rule {
     pub parse_error: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub link_state: Option<LinkState>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub origin: Option<crate::provenance::Origin>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub origin_blocked: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -197,6 +209,10 @@ pub struct Subagent {
     pub parse_error: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub link_state: Option<LinkState>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub origin: Option<crate::provenance::Origin>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub origin_blocked: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -400,6 +416,8 @@ mod tests {
             parse_status: None,
             parse_error: None,
             link_state: Some(LinkState::Linked),
+            origin: None,
+            origin_blocked: None,
         };
         let tool = Tool {
             id: "t1".into(),
@@ -418,6 +436,8 @@ mod tests {
             parse_status: None,
             parse_error: None,
             link_state: Some(LinkState::Foreign),
+            origin: None,
+            origin_blocked: None,
         };
         let rule = Rule {
             id: "r1".into(),
@@ -431,6 +451,8 @@ mod tests {
             parse_status: None,
             parse_error: None,
             link_state: Some(LinkState::Broken),
+            origin: None,
+            origin_blocked: None,
         };
         let subagent = Subagent {
             id: "sa1".into(),
@@ -443,6 +465,8 @@ mod tests {
             parse_status: None,
             parse_error: None,
             link_state: None,
+            origin: None,
+            origin_blocked: None,
         };
 
         assert_eq!(skill.link_state, Some(LinkState::Linked));

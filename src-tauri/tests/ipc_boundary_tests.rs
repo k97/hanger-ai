@@ -40,6 +40,8 @@ fn tool_with_a_credential() -> Tool {
         parse_status: Some("ok".to_string()),
         parse_error: None,
         link_state: None,
+        origin: None,
+        origin_blocked: None,
     }
 }
 
