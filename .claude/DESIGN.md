@@ -428,22 +428,52 @@ already opens the inspector, which answers for every engine
 glyph sits on the baseline and renders low in a 16px slot however its line box
 is centred, and correcting it would mean an offset tuned to one font's
 metrics.
-The inspector's Reach card groups by verdict rather than listing sentences.
-`REACH_GROUPS` (`AssetDetail.tsx:108-112`) is the reading order — "Reaches it",
-then "Root not linked", then "Another engine's format" — and a group with no
-members is dropped (`:154-157`), so the card never heads an empty list.
-`annotations.rs` emits only those two reasons, so three groups is the ceiling.
+The inspector's Reach card groups by **route** rather than by engine
+(`ReachCard.tsx`). `ROUTES` (`:17-22`) is the reading order — "Through their
+own link", "Where it lies", "Root not linked", "Another engine's format" —
+each derived from fields `annotations.rs` already returns: reached with a
+`via_root`, reached without one, a miss for any reason but `format`, a
+`format` miss. A route nobody takes is dropped (`:64-66`), so the card never
+heads an empty run, and four is the ceiling because the backend emits exactly
+those shapes.
 
-The point of grouping is that a reason is stated once, on its heading, leaving
-the rows to carry identity and a root. "Another engine's format" names a cause
-rather than a failure: that reason fires when the asset belongs to a different
-engine, so nothing is missing. The store is named once in the cap
-(`:284`) and is safe by construction — `via_store` is keyed off the asset's
-own root, so every reached engine reports the same value. Roots are folded to
-`~` by `abbreviateHome` (`prose.ts`), because an absolute home is 29
-characters against roughly 24 the column holds at 11px mono. An engine that
-reaches the store with no link reads "in place"; a miss carries a dash, since
-its heading has already said why. Labels signed off 2026-08-17.
+A route's reason is stated once, on its row, leaving the engines that take it
+to carry identity alone. "Another engine's format" names a cause rather than a
+failure: that reason fires when the asset belongs to a different engine, so
+nothing is missing. The engines are 22px plates wrapping past `max-w-[236px]`
+(`:123`), so nine sit on one line at a `gap-1` and the tenth wraps rather than
+clipping — which leaves the label column 88px, where the longest label runs to
+three lines. A reached plate is the mark on `bg-plane`; an unreached one is a
+`border-line` ring at `opacity-40`, the same absence rule the Reach column's
+tiles follow; the selected plate is `bg-tint`, and an unreached one comes up to
+full strength with a `border-line-2` ring when selected so the tint reads
+through the dimming (`plateClass`, `:42-47`). Hover never borrows the selected
+colour, so pointing at a plate cannot impersonate pressing it.
+
+One footer inside the card, on `bg-plane`, answers for the selected plate
+(`reach-answer`, `:156-170`): the engine's own root folded to `~` by
+`abbreviateHome` (`prose.ts`), "in place" for a store engine with no link, or
+"root not linked" / "cannot read this format" for a miss (`answerFor`,
+`:27-30`). At rest it answers for the first plate in reading order and that
+plate is genuinely selected — never empty, never an instruction. Selection is
+per asset: `AssetDetail` keys the card by `asset.path` (`:698`), which is the
+only thing that resets it, since `Flyout` renders the panel unkeyed. The store
+is still named once, in the cap (`AssetDetail.tsx:692`), safe by construction —
+`via_store` is keyed off the asset's own root, so every reached engine reports
+the same value. "Through their own link" and "Where it lies" are Karthik's
+ruling of 2026-08-28; the other two labels were signed off 2026-08-17.
+
+The plates are one composite widget, not one control each: the card is a
+`role="radiogroup"` (`:111`), each plate a `role="radio"` with `aria-checked`
+and a roving `tabIndex` (`:133-140`), so Tab reaches the group once and lands
+on the selected plate while arrows move and select, Home and End jumping to the
+ends. That is the model `SegmentedTrack.tsx:82-101` already uses, with the role
+changed because these plates are interleaved with the route labels that give
+them meaning and a tablist should own only tabs. Deliberately not
+`aria-pressed`, which is for a binary toggle — both of its uses in `src/` are
+(`FavouriteHeart.tsx:39`, `AssetDetail.tsx`, the source-view switch) — and
+which on thirteen exclusive plates would announce one "pressed" and twelve
+"not pressed" without ever saying they are one choice.
 
 A reached engine can sit behind the chip when more than three reach one asset;
 `docs/findings.md` F50 records that and F49 the two marks that do not read as
@@ -827,11 +857,12 @@ eyebrows.
 - **Capabilities** lists the skill's declared `allowed-tools`, one row each;
   a tool beginning `Bash` carries the value `Shell access`, every other tool
   carries none (`:500-516`, the rule `:512`).
-- **Reach** groups every engine the backend holds a verdict for by why:
-  reaches it, root not linked, another engine's format (`REACH_GROUPS`,
-  `:108-112`; rendered `:526-585`). One `→ store` figure sits beside the
-  eyebrow, keyed off the asset's own root so it cannot disagree with the rows
-  beneath it (`:534-538`).
+- **Reach** groups every engine the backend holds a verdict for by the route
+  it takes: through their own link, where it lies, root not linked, another
+  engine's format (`ReachCard.tsx`, `ROUTES`; rendered from
+  `AssetDetail.tsx:698`). One `→ store` figure sits beside the eyebrow, keyed
+  off the asset's own root so it cannot disagree with the rows beneath it
+  (`:690-694`), and a footer inside the card answers for the selected plate.
 
 **`McpServerDetail` (`McpServerDetail.tsx`), Tools tab.**
 - **Context per request** appears only once a probe has
@@ -940,6 +971,12 @@ the asset through its linked root. Each tile carries the engine's own mark
 (`BrandIcon`), the generic mark for one the map cannot draw. Capped at four,
 or three plus an ellipsis chip above that, reached-first; every engine is
 answered for in the inspector's `reach-detail` section (`AssetDetail.tsx`).
+
+**`ReachCard`** (`ReachCard.tsx`) — the inspector's Reach section: route rows
+of pressable engine plates over one footer that answers for the selected one.
+A `radiogroup` of `radio` plates with a roving `tabIndex`, so the whole set is
+a single tab stop. Owns the selected engine; keyed by asset path by its one
+caller, `AssetDetail`.
 
 **`BrandSprite`** (`BrandSprite.tsx:25-35`) — the hidden `<svg>` of
 `<symbol>`s, mounted once in `main.tsx:19` (import `:7`); `SPRITE` is built
