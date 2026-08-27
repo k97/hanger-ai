@@ -81,7 +81,7 @@ import { SortField, SortDirection } from "./components/AssetHeaderRow";
 import type { ServerGrouping, ServerSort } from "./components/ViewControl";
 import { StateFilter } from "./utils/linkStateCounts";
 import { registrationKey } from "./utils/mcpRegistration";
-import { provenanceOf } from "./utils/assetProvenance";
+import { provenanceOf, type OriginWire } from "./utils/assetProvenance";
 import { unaccountedProcesses, type ProcessMatch } from "./utils/mcpServerView";
 import type { McpServerRow } from "./utils/serverRows";
 import type { McpEngineSummaryData } from "./components/McpEngineSummary";
@@ -107,6 +107,8 @@ export interface Skill {
   version: string;
   path: string;
   source_origin?: string;
+  origin?: OriginWire;
+  origin_blocked?: boolean;
   scope?: Scope;
   drifted?: boolean;
   is_symlink?: boolean;
@@ -991,6 +993,8 @@ export default function App() {
         path: asset.path,
         source_path: fullAsset.source_path || fullAsset.source_origin,
         source_origin: fullAsset.source_origin,
+        origin: fullAsset.origin,
+        origin_blocked: fullAsset.origin_blocked,
         isSymlink: !!fullAsset.is_symlink,
         is_symlink: !!fullAsset.is_symlink,
         // The scope object itself, not just its display string below —
@@ -1000,8 +1004,8 @@ export default function App() {
         scope: fullAsset.scope,
         scopeBadge: fullAsset.scope?.Global ? "Global" : "Project",
         version: fullAsset.version,
-        details: asset.category === "Skills" 
-          ? (fullAsset.source_origin ? `Origin: ${fullAsset.source_origin}` : undefined)
+        details: asset.category === "Skills"
+          ? undefined
           : asset.category === "Tools"
             ? `Command: ${fullAsset.command} (Transport: ${fullAsset.transport})`
             : asset.category === "Subagents"

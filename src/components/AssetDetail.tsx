@@ -320,9 +320,12 @@ export default function AssetDetail({ asset, inventory, onDocumentPath, annotati
     // file, and one panel cannot use the same word for two things. The row
     // itself is rendered explicitly below, out of this flat array, because
     // its disclosure sub-rows must sit inside the card between it and the
-    // next row — a placeholder here (`key: "origin"`) marks where the loop
-    // splices it in.
-    { key: "origin", label: "Origin", icon: null, wide: undefined },
+    // next row. This entry only marks where the loop splices that row in —
+    // the render loop reads nothing off it but `key`. `label` and `icon`
+    // are left empty/null on purpose, not "Origin" and the real icon, so
+    // editing them here cannot look like it changes what renders; the row's
+    // real label and icon are hardcoded in the explicit block below.
+    { key: "origin", label: "", icon: null, wide: undefined },
     ...(asset.version
       ? [
           {

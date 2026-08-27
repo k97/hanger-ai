@@ -256,6 +256,8 @@ export default function RepoPane({
       sourcePath: s.source_path,
       parseStatus: s.parse_status,
       parseError: s.parse_error,
+      origin: s.origin,
+      origin_blocked: s.origin_blocked,
     })),
     sortField,
     sortDirection

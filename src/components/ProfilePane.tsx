@@ -716,6 +716,8 @@ export default function ProfilePane({
       isSymlink: s.is_symlink,
       parseStatus: s.parse_status,
       parseError: s.parse_error,
+      origin: s.origin,
+      origin_blocked: s.origin_blocked,
     })),
     sortField,
     sortDirection

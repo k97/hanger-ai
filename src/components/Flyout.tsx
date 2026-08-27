@@ -20,6 +20,7 @@ import LinkPanel from "./LinkPanel";
 import DiffChooser, { AlignedSection } from "./DiffChooser";
 import { categoryNoun } from "../utils/prose";
 import { documentKindFor } from "../utils/skillDocument";
+import type { OriginWire } from "../utils/assetProvenance";
 
 export interface FlatAssetItem {
   type: "header" | "asset";
@@ -31,6 +32,8 @@ export interface FlatAssetItem {
   drifted: boolean;
   version?: string;
   details?: string;
+  origin?: OriginWire;
+  origin_blocked?: boolean;
 }
 
 /** The merge chooser's working state, alive only while a rule is being merged. */
@@ -250,7 +253,9 @@ export default function Flyout({
             scopeBadge: "Project",
             details: s.source_origin ? `Origin: ${s.source_origin}` : "",
             drifted: s.drifted || false,
-            isSymlink: s.is_symlink || false
+            isSymlink: s.is_symlink || false,
+            origin: s.origin,
+            origin_blocked: s.origin_blocked
           })
         );
       }
@@ -338,7 +343,9 @@ export default function Flyout({
             scopeBadge: "Global",
             details: s.source_origin ? `Origin: ${s.source_origin}` : "",
             drifted: s.drifted || false,
-            isSymlink: s.is_symlink || false
+            isSymlink: s.is_symlink || false,
+            origin: s.origin,
+            origin_blocked: s.origin_blocked
           })
         );
       }

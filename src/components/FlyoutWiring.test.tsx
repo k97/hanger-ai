@@ -20,7 +20,18 @@ afterEach(() => {
 
 const mockInventory: Inventory = {
   agents: [],
-  skills: [],
+  skills: [
+    {
+      id: "skill-1",
+      name: "Provenance Skill",
+      description: "A skill with a known origin",
+      version: "1.0.0",
+      path: "/home/user/project/.claude/skills/prov/SKILL.md",
+      scope: { Project: { agent: "unknown", root: "/home/user/project" } },
+      drifted: false,
+      origin: { kind: "declared", label: "acme-plugin" },
+    },
+  ],
   tools: [
     {
       id: "tool-1",
@@ -54,7 +65,9 @@ function TestAppHarness() {
 
   const handleSelectAsset = (asset: { name: string; category: "Skills" | "Agents" | "Tools" | "Rules" | "Subagents"; path: string }) => {
     let fullAsset: any = null;
-    if (asset.category === "Tools") {
+    if (asset.category === "Skills") {
+      fullAsset = mockInventory.skills.find((s) => s.path === asset.path);
+    } else if (asset.category === "Tools") {
       fullAsset = mockInventory.tools.find((t) => t.config_path === asset.path);
     } else if (asset.category === "Rules") {
       fullAsset = mockInventory.rules.find((r) => r.path === asset.path);
@@ -69,6 +82,10 @@ function TestAppHarness() {
         scopeBadge: "Project",
         isSymlink: false,
         drifted: false,
+        // Task 11: the two fields App.tsx's real handleSelectAsset now
+        // threads onto the object it hands the inspector.
+        origin: fullAsset.origin,
+        origin_blocked: fullAsset.origin_blocked,
       });
     }
 
@@ -150,6 +167,27 @@ describe("Detail Flyout Wiring Integration", () => {
     // The eyebrow is the way back, and it names where back goes.
     fireEvent.click(screen.getByRole("button", { name: "Back to Global Node Tool" }));
     expect(screen.getByRole("heading", { level: 2 }).textContent).toBe("Global Node Tool");
+  });
+
+  // Task 11: the backend resolves `origin`/`origin_blocked` on every asset,
+  // but until the object handed to the inspector actually carries them, the
+  // Origin row always sees `undefined` and falls back to "Written here" for
+  // everything. Reverting the two fields added to the harness's own
+  // handleSelectAsset above (mirroring App.tsx's real one) reddens this.
+  it("threads the resolved origin through to the inspector's Origin row", async () => {
+    render(<TestAppHarness />);
+
+    const skillRow = screen.getByText("Provenance Skill");
+    fireEvent.click(skillRow);
+    expect(screen.getByRole("heading", { level: 2 }).textContent).toBe("Provenance Skill");
+
+    // The Origin row lives on the inspector's Details tab, not the Content
+    // tab it opens on.
+    fireEvent.click(screen.getByRole("tab", { name: "Details" }));
+
+    const originRow = screen.getByTestId("identity-row-origin");
+    expect(originRow.textContent).toContain("acme-plugin");
+    expect(originRow.textContent).not.toContain("Written here");
   });
 
   it("draws the agent's own mark beside the bubble heading, not a generic one", () => {
