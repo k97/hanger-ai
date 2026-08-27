@@ -580,3 +580,68 @@ fn a_zed_registration_is_read_with_its_declared_dialect_not_guessed() {
     assert_eq!(reg.server.command, "zed-command");
     assert_eq!(reg.server.args, vec!["y".to_string()]);
 }
+
+// ─── Glob sources must resolve too, not just literal ones ──────────────────
+//
+// `matching_sources` filtered out every glob row with `!s.path.contains('*')`
+// at three call sites. The pre-existing glob
+// (`.claude/plugins/marketplaces/*/.mcp.json`) was accidentally safe because
+// its dialect (McpServers) is also `dialect_for_swept`'s fallback guess for a
+// plain `.json` file, so the wrong-path fell through to `read_swept` and
+// still happened to look under the right key. The per-profile VS Code row
+// (`Code/User/profiles/*/mcp.json`) declares `VsCodeServers`, which reads
+// `servers` — a key the McpServers fallback guess never looks under — so the
+// same fallthrough here finds nothing and returns `Err`.
+
+#[test]
+fn a_vscode_default_profile_registration_resolves_as_a_non_glob_control() {
+    // Control for `a_vscode_profile_registration_resolves_through_its_glob_source`
+    // below: the existing, non-glob `Code/User/mcp.json` row must keep
+    // resolving. A green on the glob test alone would not distinguish "glob
+    // resolution works" from "VsCodeServers resolution works in general";
+    // this one isolates the non-glob half of that claim.
+    let _guard = HOME_ENV_MUTEX.get_or_init(|| std::sync::Mutex::new(())).lock().unwrap_or_else(|e| e.into_inner());
+    let home = tempfile::tempdir().unwrap();
+    let _home_guard = TestHome::set(home.path());
+
+    let config = home.path().join("Library/Application Support/Code/User/mcp.json");
+    std::fs::create_dir_all(config.parent().unwrap()).unwrap();
+    std::fs::write(
+        &config,
+        r#"{"servers":{"target":{"command":"default-profile-command","args":["a"]}}}"#,
+    )
+    .unwrap();
+
+    let key = format!("{}:target", config.to_string_lossy());
+    let reg = tauri_app_lib::mcp::discover::resolve_registration(&key)
+        .expect("must resolve the default-profile VS Code registration");
+    assert_eq!(reg.server.command, "default-profile-command");
+    assert_eq!(reg.host_id, "vscode");
+}
+
+#[test]
+fn a_vscode_profile_registration_resolves_through_its_glob_source() {
+    let _guard = HOME_ENV_MUTEX.get_or_init(|| std::sync::Mutex::new(())).lock().unwrap_or_else(|e| e.into_inner());
+    let home = tempfile::tempdir().unwrap();
+    let _home_guard = TestHome::set(home.path());
+
+    let profile_dir = home
+        .path()
+        .join("Library/Application Support/Code/User/profiles/-1abc2def");
+    std::fs::create_dir_all(&profile_dir).unwrap();
+    let config = profile_dir.join("mcp.json");
+    std::fs::write(
+        &config,
+        r#"{"servers":{"target":{"command":"profile-command","args":["z"]}}}"#,
+    )
+    .unwrap();
+
+    let key = format!("{}:target", config.to_string_lossy());
+    let reg = tauri_app_lib::mcp::discover::resolve_registration(&key).expect(
+        "must resolve a per-profile VS Code registration through the glob VsCodeServers source, \
+         not fall through to read_swept's guessed McpServers dialect",
+    );
+    assert_eq!(reg.server.command, "profile-command");
+    assert_eq!(reg.server.args, vec!["z".to_string()]);
+    assert_eq!(reg.host_id, "vscode");
+}

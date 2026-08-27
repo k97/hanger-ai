@@ -423,20 +423,41 @@ pub fn resolve_registration(registration_key: &str) -> Result<Registration, Stri
     Err(format!("No registration matches {}", registration_key))
 }
 
+/// True when `rel`, resolved against `base`, names `path` — expanding a `*`
+/// glob segment via [`resolve_paths`] rather than rejecting it outright.
+///
+/// `resolve_paths` reads the filesystem and returns an empty vec when the
+/// glob's parent directory does not exist, so a non-existent path simply
+/// finds no candidate here — the same behaviour as a literal path that does
+/// not exist.
+fn rel_matches(base: &Path, rel: &str, path: &Path) -> bool {
+    if !rel.contains('*') {
+        return base.join(rel).as_path() == path;
+    }
+    resolve_paths(base, rel).iter().any(|p| p.as_path() == path)
+}
+
 /// Every `SOURCES` row whose location resolves to `config_path`.
 ///
 /// Usually one row. `.claude.json` is the exception — three rows share its
 /// path — which is why this returns every match rather than the first: the
 /// caller tries each declared dialect in turn and keeps only the one that
 /// actually finds the server, rather than guessing which of three is right.
+///
+/// Glob rows (a `*` segment in `path`) are matched too, via `rel_matches` —
+/// they used to be filtered out here unconditionally, which was harmless only
+/// by accident for the one glob source that existed before this branch (its
+/// dialect happens to equal `read_swept`'s extension-guessed fallback). The
+/// VS Code per-profile glob does not share that accident: it declares
+/// `VsCodeServers`, which the fallback cannot recover.
 fn matching_sources(config_path: &str) -> Vec<&'static McpSource> {
     let path = Path::new(config_path);
     let home = crate::scanner::get_home_dir();
 
     let machine: Vec<&'static McpSource> = SOURCES
         .iter()
-        .filter(|s| s.location == SourceLocation::HomeRelative && !s.path.contains('*'))
-        .filter(|s| home.join(s.path).as_path() == path)
+        .filter(|s| s.location == SourceLocation::HomeRelative)
+        .filter(|s| rel_matches(&home, s.path, path))
         .collect();
     if !machine.is_empty() {
         return machine;
@@ -444,16 +465,22 @@ fn matching_sources(config_path: &str) -> Vec<&'static McpSource> {
 
     let system: Vec<&'static McpSource> = SOURCES
         .iter()
-        .filter(|s| s.location == SourceLocation::SystemAbsolute && !s.path.contains('*'))
-        .filter(|s| Path::new("/").join(s.path).as_path() == path)
+        .filter(|s| s.location == SourceLocation::SystemAbsolute)
+        .filter(|s| rel_matches(Path::new("/"), s.path, path))
         .collect();
     if !system.is_empty() {
         return system;
     }
 
+    // No `RepoRelative` row is a glob today, and this filter's `ends_with`
+    // match has no fixed base to expand one against (the repo root is
+    // unknown here) — `rel_matches` doesn't apply. Dropping the `*` guard
+    // still matches the reviewer's instruction and costs nothing: a literal
+    // `*` byte never appears in a real resolved path, so a future glob row
+    // here would simply not match via `ends_with`, same as before.
     SOURCES
         .iter()
-        .filter(|s| s.location == SourceLocation::RepoRelative && !s.path.contains('*'))
+        .filter(|s| s.location == SourceLocation::RepoRelative)
         .filter(|s| path.ends_with(s.path))
         .collect()
 }
