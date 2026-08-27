@@ -64,59 +64,35 @@ const props = {
 
 const openDetails = () => fireEvent.click(screen.getByRole("tab", { name: "Details" }));
 
-const groupTitles = (): string[] =>
-  Array.from(document.querySelectorAll('[data-testid^="reach-group-"]')).map(
-    (g) => (g.textContent ?? "").trim(),
-  );
+const plate = (key: string) => screen.getByTestId(`reach-plate-${key}`);
 
 describe("Flyout — engine reach detail", () => {
   it("answers for every engine, including the ones the row cannot draw", () => {
     render(<Flyout {...props} annotation={annotation} />);
     openDetails();
     for (const key of ["claude_code", "claude_desktop", "codex", "vscode", "opencode", "zed"]) {
-      expect(screen.getByTestId(`reach-detail-${key}`)).toBeTruthy();
+      expect(plate(key)).toBeTruthy();
     }
   });
 
-  it("groups by verdict, in the order a reader wants them", () => {
+  it("groups by route, in the order a reader wants them", () => {
     render(<Flyout {...props} annotation={annotation} />);
     openDetails();
-    expect(groupTitles()).toEqual(["Reaches it", "Root not linked", "Another engine's format"]);
+    const keys = Array.from(document.querySelectorAll('[data-testid^="reach-route-"]'))
+      .filter((el) => !(el.getAttribute("data-testid") ?? "").startsWith("reach-route-label-"))
+      .map((el) => (el.getAttribute("data-testid") ?? "").replace("reach-route-", ""));
+    expect(keys).toEqual(["linked", "inplace", "unlinked", "format"]);
   });
 
-  it("states each reason once, on its group, not on every row", () => {
+  it("the answer follows the pressed plate and folds the root to a tilde", () => {
     render(<Flyout {...props} annotation={annotation} />);
     openDetails();
-    // The rows under a reason carry identity and nothing else. Two engines
-    // miss for the same reason; the words appear once between them.
-    expect(screen.getByTestId("reach-detail-claude_desktop").textContent).not.toContain("not linked");
-    expect(screen.getByTestId("reach-detail-opencode").textContent).not.toContain("not linked");
-    expect(document.body.textContent?.match(/Root not linked/g)).toHaveLength(1);
-  });
-
-  it("a format miss is a different group from an unlinked root", () => {
-    render(<Flyout {...props} annotation={annotation} />);
-    openDetails();
-    const fmt = screen.getByTestId("reach-group-format");
-    expect(fmt.textContent).toContain("Another engine's format");
-    // VS Code sits under it; the two unlinked engines do not.
-    expect(screen.getByTestId("reach-members-format").textContent).toContain("VS Code");
-    expect(screen.getByTestId("reach-members-format").textContent).not.toContain("OpenCode");
-  });
-
-  it("shows each reached engine's own root, under a tilde", () => {
-    render(<Flyout {...props} annotation={annotation} />);
-    openDetails();
-    expect(screen.getByTestId("reach-detail-claude_code").textContent).toContain("~/.claude/agents");
-    expect(screen.getByTestId("reach-detail-codex").textContent).toContain("~/.codex/skills");
-    // No absolute home survives anywhere in the card.
+    expect(screen.getByTestId("reach-answer-value").textContent).toBe("~/.claude/agents");
+    fireEvent.click(plate("codex"));
+    expect(screen.getByTestId("reach-answer-value").textContent).toBe("~/.codex/skills");
+    fireEvent.click(plate("zed"));
+    expect(screen.getByTestId("reach-answer-value").textContent).toBe("in place");
     expect(document.body.textContent).not.toContain("/Users/test/.claude");
-  });
-
-  it("says 'in place' for an engine that reaches it with no link at all", () => {
-    render(<Flyout {...props} annotation={annotation} />);
-    openDetails();
-    expect(screen.getByTestId("reach-detail-zed").textContent).toContain("in place");
   });
 
   it("names the store once, in the cap, because every reached engine shares it", () => {
@@ -126,14 +102,19 @@ describe("Flyout — engine reach detail", () => {
     expect(document.body.textContent?.match(/~\/\.agents/g)).toHaveLength(1);
   });
 
-  it("omits a group nobody is in", () => {
-    const allReached = {
-      ...annotation,
-      reach: annotation.reach.filter((r) => r.reached),
-    } as never;
-    render(<Flyout {...props} annotation={allReached} />);
+  it("forgets the pressed plate when the asset changes", () => {
+    const { rerender } = render(<Flyout {...props} annotation={annotation} />);
     openDetails();
-    expect(groupTitles()).toEqual(["Reaches it"]);
+    fireEvent.click(plate("zed"));
+    expect(plate("zed").getAttribute("aria-checked")).toBe("true");
+    const other = {
+      ...props,
+      selectedAsset: { ...props.selectedAsset, path: "/Users/test/.agents/skills/other/SKILL.md" },
+    };
+    const otherAnnotation = { ...annotation, asset_path: other.selectedAsset.path } as never;
+    rerender(<Flyout {...other} annotation={otherAnnotation} />);
+    expect(plate("zed").getAttribute("aria-checked")).toBe("false");
+    expect(plate("claude_code").getAttribute("aria-checked")).toBe("true");
   });
 
   it("says nothing at all when the backend had no verdict for the asset", () => {
@@ -142,14 +123,14 @@ describe("Flyout — engine reach detail", () => {
     expect(screen.queryByTestId("reach-detail")).toBeNull();
   });
 
-  it("each verdict is an eyebrow above one bordered card, on the page, not a plane", () => {
+  it("is an eyebrow above one bordered card on the page, not a plane, with no list markup", () => {
     render(<Flyout {...props} annotation={annotation} />);
     openDetails();
     const section = screen.getByTestId("reach-detail");
     expect(section.className).not.toContain("bg-plane");
-    const members = screen.getByTestId("reach-members-reached");
-    expect(members.className).toContain("border-line");
-    expect(members.className).toContain("rounded-inner");
+    const card = screen.getByTestId("reach-card");
+    expect(card.className).toContain("border-line");
+    expect(card.className).toContain("rounded-inner");
     expect(section.querySelector("ul")).toBeNull();
   });
 });

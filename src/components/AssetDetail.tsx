@@ -23,13 +23,12 @@ import OriginValue from "./OriginValue";
 import MarkdownDoc from "./MarkdownDoc";
 import UnderlineTabs from "./UnderlineTabs";
 import ListCard, { ListCardRow } from "./ListCard";
+import ReachCard from "./ReachCard";
 import type { Inventory } from "../App";
 import { engineLabel, originRow, provenanceOf, type OriginWire } from "../utils/assetProvenance";
 import { scopeAgent, type Scope } from "../utils/scopeAccess";
 import EngineLabel from "./EngineLabel";
-import BrandIcon from "./BrandIcon";
 import { abbreviateHome } from "../utils/prose";
-import type { EngineReachInfo } from "./EngineReachTiles";
 import type { AssetAnnotationView } from "./AssetRow";
 import {
   documentKindFor,
@@ -133,19 +132,6 @@ interface IdentityRow {
   wide?: ReactNode;
   trailing?: ReactNode;
 }
-
-/* The Reach card's groups, in reading order: what reaches it, then why the
-   rest do not. `format` is a different fact from an unlinked root — the asset
-   belongs to another engine and sits in that engine's format, so nothing is
-   missing and nothing is broken — and giving it its own heading is what stops
-   the card stating a reason once per row. Labels signed off 2026-08-17;
-   `annotations.rs` emits only these two reasons, so three groups is the
-   ceiling rather than an open list. */
-const REACH_GROUPS: { key: string; title: string; holds: (r: EngineReachInfo) => boolean }[] = [
-  { key: "reached", title: "Reaches it", holds: (r) => r.reached },
-  { key: "unlinked", title: "Root not linked", holds: (r) => !r.reached && r.reason !== "format" },
-  { key: "format", title: "Another engine's format", holds: (r) => !r.reached && r.reason === "format" },
-];
 
 /** "3.1 kB" or "431 B" — the backend's own byte count, never re-measured. */
 function formatBytes(n: number): string {
@@ -251,13 +237,6 @@ export default function AssetDetail({ asset, inventory, onDocumentPath, annotati
   }, [asset.path, asset.category]);
 
   const reach = annotation?.reach ?? [];
-  /* Empty groups are dropped, so the card never prints a heading over nothing.
-     `members.length > 0` is a boolean, not a count — the counting contract
-     allows the comparison and forbids the tally. */
-  const reachGroups = REACH_GROUPS.map((group) => ({
-    ...group,
-    members: reach.filter(group.holds),
-  })).filter((group) => group.members.length > 0);
   /* One store for the card. `via_store` is keyed off the asset's own root in
      annotations.rs, so every reached engine reports the same value and the cap
      cannot contradict the rows. */
@@ -694,13 +673,13 @@ export default function AssetDetail({ asset, inventory, onDocumentPath, annotati
               </section>
             )}
 
-            {/* Every engine, grouped by verdict. The row can draw at most three
-                marks, so this is where the rest are answerable — and grouping is
-                what lets each reason be stated once instead of on every line. A
-                format miss is a different fact from an unlinked root: the asset
-                belongs to another engine and is in that engine's format, so
-                nothing is missing and nothing is broken. Labels signed off
-                2026-08-17. */}
+            {/* Every engine, grouped by the route it takes to this asset. The
+                row can draw at most three marks, so this is where the rest are
+                answerable. Keyed by path so the selected plate is forgotten
+                when the asset changes — the selection belongs to the asset on
+                screen, not to the user's view, and Flyout renders this panel
+                unkeyed, so nothing else would reset it. Karthik's ruling,
+                2026-08-28. */}
             {annotation && annotation.reach.length > 0 && (
               <section data-testid="reach-detail" className="mx-[12px] my-3.5">
                 <div className="flex items-baseline justify-between gap-2 mb-2">
@@ -716,49 +695,7 @@ export default function AssetDetail({ asset, inventory, onDocumentPath, annotati
                   )}
                 </div>
 
-                {reachGroups.map((group, i) => (
-                  <Fragment key={group.key}>
-                    <div
-                      data-testid={`reach-group-${group.key}`}
-                      className={`${eyebrowClass} mb-1 ${i > 0 ? "mt-3" : ""}`}
-                    >
-                      {group.title}
-                    </div>
-                    <ListCard data-testid={`reach-members-${group.key}`}>
-                      {group.members.map((r) => (
-                        <ListCardRow
-                          key={r.engine_id}
-                          data-testid={`reach-detail-${r.engine_key}`}
-                          icon={
-                            <i
-                              className={`w-3.5 h-3.5 rounded-control grid place-items-center not-italic ${
-                                r.reached ? "" : "border border-line opacity-40"
-                              }`}
-                            >
-                              <BrandIcon engineKey={r.engine_key} engineName={r.engine_name} size={12} />
-                            </i>
-                          }
-                          label={
-                            <span className={`truncate min-w-0 ${r.reached ? "text-ink-1" : "text-ink-3"}`}>
-                              {r.engine_name}
-                            </span>
-                          }
-                          value={
-                            r.reached ? (
-                              r.via_root ? (
-                                abbreviateHome(r.via_root)
-                              ) : (
-                                "in place"
-                              )
-                            ) : (
-                              <span className="opacity-50">—</span>
-                            )
-                          }
-                        />
-                      ))}
-                    </ListCard>
-                  </Fragment>
-                ))}
+                <ReachCard key={asset.path} reach={reach} />
               </section>
             )}
           </div>
