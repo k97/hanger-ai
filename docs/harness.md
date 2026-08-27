@@ -33,6 +33,15 @@ changes, with nothing on disk recording which.
   Gemini CLI, as a fallback by OpenCode, and discovered by Devin Desktop.
   Hanger names it once, as `SHARED_AGENTS_DIR`
   (`src-tauri/src/agents.rs:18`), and gives it no owner.
+- **Only `SKILL.md` is read into context.** A skill folder's other entries —
+  reference documents, scripts, lockfiles — do not load with it. They reach
+  the model only if `SKILL.md` sends the engine to them. Roughly half of a
+  populated machine's skills have such entries (68 of 133, measured
+  2026-08-27), so it is the difference between a skill's size on disk and
+  its cost in context, which is why the Context ledger splits "Always on"
+  from "When it opens" (`AssetDetail.tsx`). Stated here rather than in the
+  panel: it is a fact about the harness, true of every skill, and the
+  inspector was repeating it on every asset the user opened.
 
 ## The model
 

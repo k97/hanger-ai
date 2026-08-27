@@ -429,29 +429,30 @@ describe("Asset detail — the inspector's document screen", () => {
     expect(rows).toEqual(["SKILL.md431 B", "references/3 files", "scripts/1 file"]);
   });
 
-  // The note explains that the other entries do NOT auto-load, which the file
-  // list alone does not tell you. On a folder holding SKILL.md and nothing
-  // else it names files that do not exist and restates the single row above
-  // it — Karthik, 2026-08-27: "pretty repetitive and adds no value". Both
-  // halves are asserted so deleting the condition reddens the second.
+  // "Only SKILL.md is read into context" is a fact about the harness, not
+  // about the asset on screen — true of every skill, so the panel was
+  // restating it on every asset opened. Karthik's ruling, 2026-08-28: it
+  // belongs in docs/harness.md, not the UI. Asserted for BOTH folder shapes,
+  // because it was previously conditional on there being other entries and a
+  // partial revert would restore it for exactly the multi-entry case.
   const NOTE = /Only SKILL\.md is read into context/;
 
-  it("explains that the rest of the folder does not auto-load, when there is a rest", async () => {
+  it("carries no harness prose under Contents, whatever the folder holds", async () => {
     render(<AssetDetail asset={asset} inventory={inventory} />);
     await screen.findByRole("tab", { name: "Details" });
     openDetails();
-    const section = (await screen.findByText("Contents")).closest("section")!;
-    expect(within(section).getByText(NOTE)).toBeTruthy();
-  });
+    const many = (await screen.findByText("Contents")).closest("section")!;
+    expect(within(many).getAllByTestId("skill-dir-row").length).toBeGreaterThan(1);
+    expect(within(many).queryByText(NOTE)).toBeNull();
 
-  it("says nothing about the rest when SKILL.md is the whole skill", async () => {
+    cleanup();
     dirResult = [{ name: "SKILL.md", kind: "file", bytes: 431, file_count: null }];
     render(<AssetDetail asset={asset} inventory={inventory} />);
     await screen.findByRole("tab", { name: "Details" });
     openDetails();
-    const section = (await screen.findByText("Contents")).closest("section")!;
-    expect(within(section).getAllByTestId("skill-dir-row")).toHaveLength(1);
-    expect(within(section).queryByText(NOTE)).toBeNull();
+    const one = (await screen.findByText("Contents")).closest("section")!;
+    expect(within(one).getAllByTestId("skill-dir-row")).toHaveLength(1);
+    expect(within(one).queryByText(NOTE)).toBeNull();
   });
 
   it("a symlinked entry takes the link mark and states no size it never measured", async () => {
@@ -502,12 +503,17 @@ describe("Asset detail — the inspector's document screen", () => {
     expect(screen.queryAllByTestId("skill-dir-row")).toHaveLength(0);
   });
 
-  it("Contents says only SKILL.md is read into context, and sets its size in full ink", async () => {
+  // Was also asserting the "Only SKILL.md is read into context" prose here.
+  // Dropped 2026-08-28 with the sentence itself — it is a fact about the
+  // harness rather than the asset, and now lives in docs/harness.md. The ink
+  // treatment below is what still carries that meaning in the UI: SKILL.md's
+  // size is the one figure in full ink because it is the one that always
+  // loads. The prose's absence is pinned by its own test above.
+  it("sets SKILL.md's size in full ink, and no other entry's", async () => {
     render(<AssetDetail asset={asset} inventory={inventory} />);
     await screen.findByRole("tab", { name: "Details" });
     openDetails();
     const section = (await screen.findByText("Contents")).closest("section")!;
-    expect(section.textContent).toContain("Only SKILL.md is read into context.");
     const skillRow = within(section).getByText("SKILL.md").closest('[data-testid="skill-dir-row"]')!;
     // Class-contract only: happy-dom lays nothing out, so computed color is
     // unassertable here. This checks the emphasis class landed on the

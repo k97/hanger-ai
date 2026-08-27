@@ -652,20 +652,12 @@ export default function AssetDetail({ asset, inventory, onDocumentPath, annotati
                     />
                   ))}
                 </ListCard>
-                {/* Only when there is a rest to speak of. On a skill whose
-                    folder holds SKILL.md and nothing else — 65 of the 133 on
-                    this machine — the sentence restates the single row above
-                    it and names files that do not exist. Karthik, 2026-08-27:
-                    "pretty repetitive and adds no value". Kept for the other
-                    half, where "reference files do not auto-load" is a real
-                    fact about the harness that the file list alone does not
-                    tell you. */}
-                {dirEntries.length > 1 && (
-                  <p className="text-micro text-ink-3 mt-2 leading-[1.5]">
-                    Only SKILL.md is read into context. The rest reaches the model only if SKILL.md
-                    sends the engine there.
-                  </p>
-                )}
+                {/* No prose under this card. "Only SKILL.md is read into
+                    context" is a fact about the harness rather than about the
+                    asset on screen — true of every skill, so the panel was
+                    restating it on every asset opened. It lives in
+                    docs/harness.md, under the conventions the code encodes.
+                    Karthik's ruling, 2026-08-28. */}
               </section>
             )}
 
