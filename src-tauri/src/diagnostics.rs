@@ -146,21 +146,107 @@ fn write_log_section(app: &AppHandle, r: &mut String) {
     };
     match std::fs::read_to_string(newest.path()) {
         Ok(content) => {
-            let tail = clamp_tail(&content, MAX_LOG_BYTES);
-            if tail.len() < content.len() {
-                let _ = writeln!(
-                    r,
-                    "[log truncated to last {} bytes of {}; full history in the log dir]",
-                    tail.len(),
-                    content.len()
-                );
-            }
-            let _ = writeln!(r, "{tail}");
+            let _ = writeln!(r, "{}", render_log_tail(&content, MAX_LOG_BYTES));
         }
         Err(e) => {
             let _ = writeln!(r, "log read failed ({}): {e}", newest.path().display());
         }
     }
+}
+
+/// The log section's body: repeats collapsed, then clamped to `max` bytes.
+///
+/// The order is the point. Clamping the raw file first spends the window on
+/// whatever repeated most recently; collapsing first means the same window
+/// holds distinct events. On 2026-08-27 a 4.0 MB log collapsed to 534 KB,
+/// turning a tail of ~2,600 lines that were 81% one warning into ~3,500
+/// lines of history.
+fn render_log_tail(content: &str, max: usize) -> String {
+    let (collapsed, folded) = collapse_repeats(content);
+    let tail = clamp_tail(&collapsed, max);
+
+    let mut out = String::with_capacity(tail.len() + 128);
+    if folded > 0 {
+        let _ = writeln!(
+            out,
+            "[{folded} repeated lines collapsed; {} bytes of log became {}]",
+            content.len(),
+            collapsed.len()
+        );
+    }
+    if tail.len() < collapsed.len() {
+        let _ = writeln!(
+            out,
+            "[log truncated to last {} bytes of {}; full history in the log dir]",
+            tail.len(),
+            collapsed.len()
+        );
+    }
+    out.push_str(tail);
+    out
+}
+
+/// Fold each run of consecutive lines that say the same thing into the first
+/// of them plus a count. Returns the rendered text and how many lines went.
+///
+/// "The same thing" ignores the timestamp and every number the line carries,
+/// because a log that repeats does not repeat verbatim: the flood this was
+/// written for alternated between two callback ids across changing seconds,
+/// so matching whole lines folded 15% of it and matching this key folded 84%.
+fn collapse_repeats(s: &str) -> (String, usize) {
+    let mut out = String::with_capacity(s.len());
+    let mut folded = 0usize;
+    let mut lines = s.lines().peekable();
+
+    while let Some(line) = lines.next() {
+        out.push_str(line);
+        out.push('\n');
+
+        let key = collapse_key(line);
+        let mut run = 0usize;
+        while lines.peek().is_some_and(|next| collapse_key(next) == key) {
+            lines.next();
+            run += 1;
+        }
+        if run > 0 {
+            folded += run;
+            let _ = writeln!(out, "[... {run} more lines like this one]");
+        }
+    }
+
+    (out, folded)
+}
+
+/// What two lines have to share to count as repeats: everything except the
+/// leading `[date][time]` stamp and the digits, each run of which flattens to
+/// a single marker so ids, counts and numbered paths stop separating them.
+fn collapse_key(line: &str) -> String {
+    let body = strip_stamp(line);
+    let mut key = String::with_capacity(body.len());
+    let mut in_digits = false;
+    for c in body.chars() {
+        if c.is_ascii_digit() {
+            if !in_digits {
+                key.push('#');
+                in_digits = true;
+            }
+        } else {
+            in_digits = false;
+            key.push(c);
+        }
+    }
+    key
+}
+
+/// Drop exactly the two leading bracket groups a log line opens with. Any
+/// line not shaped that way is returned whole.
+fn strip_stamp(line: &str) -> &str {
+    fn inner(line: &str) -> Option<&str> {
+        let (_, rest) = line.strip_prefix('[')?.split_once(']')?;
+        let (_, rest) = rest.strip_prefix('[')?.split_once(']')?;
+        Some(rest)
+    }
+    inner(line).unwrap_or(line)
 }
 
 /// Last `max` bytes of `s`, advanced to the next line boundary so the tail
@@ -191,7 +277,7 @@ fn command_line(cmd: &str, args: &[&str]) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::clamp_tail;
+    use super::{clamp_tail, collapse_repeats, render_log_tail};
 
     #[test]
     fn clamp_tail_returns_short_input_unchanged() {
@@ -210,5 +296,84 @@ mod tests {
     fn clamp_tail_without_newline_in_window_returns_window() {
         let s = "x".repeat(100);
         assert_eq!(clamp_tail(&s, 10).len(), 10);
+    }
+
+    #[test]
+    fn collapse_repeats_folds_lines_that_differ_only_in_their_numbers() {
+        // The shape this exists for: one warning alternating between two
+        // callback ids, each line stamped a different second. Byte-identical
+        // matching folds none of it — measured 2026-08-27 against a 4.0 MB
+        // log where collapsing identical lines cut 20,397 lines to 17,323
+        // and left the clamped tail just as drowned.
+        let log = "\
+[2026-08-26][18:34:47][WARN][webview] Couldn't find callback id 599757555.
+[2026-08-26][18:34:47][WARN][webview] Couldn't find callback id 1455880137.
+[2026-08-26][18:34:48][WARN][webview] Couldn't find callback id 599757555.
+[2026-08-26][18:34:49][WARN][webview] Couldn't find callback id 1455880137.
+";
+        let (out, folded) = collapse_repeats(log);
+
+        assert_eq!(folded, 3);
+        assert_eq!(out.lines().count(), 2);
+        assert!(out.starts_with(
+            "[2026-08-26][18:34:47][WARN][webview] Couldn't find callback id 599757555.\n"
+        ));
+        assert!(out.contains("[... 3 more lines like this one]"));
+    }
+
+    #[test]
+    fn collapse_repeats_keeps_neighbours_that_differ_in_words() {
+        // Two paths are two findings. Only the timestamp and the numbers are
+        // treated as noise; anything else keeps the lines apart.
+        let log = "\
+[2026-08-26][18:34:47][WARN][scan] failed to parse /a/alpha.md
+[2026-08-26][18:34:47][WARN][scan] failed to parse /a/bravo.md
+";
+        let (out, folded) = collapse_repeats(log);
+
+        assert_eq!(folded, 0);
+        assert_eq!(out.lines().count(), 2);
+        assert!(out.contains("alpha.md") && out.contains("bravo.md"));
+    }
+
+    #[test]
+    fn collapse_repeats_folds_neighbours_that_differ_only_by_a_number() {
+        // The cost of the rule, pinned rather than left to be discovered:
+        // consecutive lines about differently-numbered paths fold together.
+        // The count marks it and the log dir keeps the originals, which is
+        // the right side of the trade for a clipboard summary.
+        let log = "\
+[2026-08-26][18:34:47][WARN][scan] failed to parse /a/1.md
+[2026-08-26][18:34:47][WARN][scan] failed to parse /a/2.md
+";
+        let (out, folded) = collapse_repeats(log);
+
+        assert_eq!(folded, 1);
+        assert!(out.contains("[... 1 more lines like this one]"));
+    }
+
+    #[test]
+    fn render_log_tail_collapses_before_clamping_so_the_window_keeps_history() {
+        // The repeats come last, so clamping first spends the whole window on
+        // them and loses both real events. Collapsing first keeps them.
+        let mut log = String::from(
+            "[d][t][INFO][a] scan complete\n[d][t][ERROR][b] disk full\n",
+        );
+        for i in 0..400 {
+            log.push_str(&format!("[d][t][WARN][w] callback id {i}\n"));
+        }
+
+        let out = render_log_tail(&log, 200);
+
+        assert!(out.contains("scan complete"), "lost the earliest event: {out}");
+        assert!(out.contains("disk full"), "lost the second event: {out}");
+    }
+
+    #[test]
+    fn render_log_tail_leaves_a_log_without_repeats_alone() {
+        let log = "[d][t][INFO][a] one\n[d][t][INFO][b] two\n";
+        let out = render_log_tail(log, 4096);
+
+        assert_eq!(out, log);
     }
 }
