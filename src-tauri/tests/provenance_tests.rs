@@ -159,3 +159,95 @@ fn test_plugin_installed_at_exact_epoch_ms() {
     let o = idx.unwrap().origin_for(&p.to_string_lossy()).unwrap();
     assert_eq!(o.installed_at_ms, Some(1_784_514_608_089));
 }
+
+use std::collections::HashMap;
+use std::path::PathBuf;
+use tauri_app_lib::provenance::git_remote_origin;
+
+#[test]
+fn test_git_config_origin_url_resolves() {
+    let td = tempfile::tempdir().unwrap();
+    let repo = td.path().join("dotfiles");
+    fs::create_dir_all(repo.join(".git")).unwrap();
+    fs::write(
+        repo.join(".git/config"),
+        "[core]\n\trepositoryformatversion = 0\n[remote \"origin\"]\n\turl = git@github.com:owner/dotfiles.git\n\tfetch = +refs/heads/*:refs/remotes/origin/*\n",
+    )
+    .unwrap();
+    let asset = repo.join("claude/rules/style.md");
+    let mut cache = HashMap::new();
+    let (o, blocked) = git_remote_origin(&asset, td.path(), &mut cache);
+    assert!(!blocked);
+    let o = o.unwrap();
+    assert_eq!(o.label, "owner/dotfiles");
+    assert_eq!(o.url.as_deref(), Some("https://github.com/owner/dotfiles"));
+}
+
+#[test]
+fn test_no_repo_above_is_none() {
+    let td = tempfile::tempdir().unwrap();
+    let asset = td.path().join("plain/dir/file.md");
+    let mut cache = HashMap::new();
+    let (o, blocked) = git_remote_origin(&asset, td.path(), &mut cache);
+    assert!(o.is_none());
+    assert!(!blocked);
+}
+
+#[test]
+fn test_walk_stops_at_home() {
+    // A repo ABOVE home must not be found: home is the fence.
+    let td = tempfile::tempdir().unwrap();
+    fs::create_dir_all(td.path().join(".git")).unwrap();
+    fs::write(
+        td.path().join(".git/config"),
+        "[remote \"origin\"]\n\turl = https://github.com/owner/above-home\n",
+    )
+    .unwrap();
+    let home = td.path().join("home");
+    let asset = home.join("thing/file.md");
+    fs::create_dir_all(asset.parent().unwrap()).unwrap();
+    let mut cache = HashMap::new();
+    let (o, _) = git_remote_origin(&asset, &home, &mut cache);
+    assert!(o.is_none());
+}
+
+#[test]
+fn test_memoization_reuses_directory_verdict() {
+    let td = tempfile::tempdir().unwrap();
+    let asset_a = td.path().join("x/a.md");
+    let asset_b = td.path().join("x/b.md");
+    let mut cache = HashMap::new();
+    git_remote_origin(&asset_a, td.path(), &mut cache);
+    let before = cache.len();
+    git_remote_origin(&asset_b, td.path(), &mut cache);
+    assert_eq!(cache.len(), before, "second file in same dir reads nothing new");
+}
+
+/// `home` is a fence, not a hint: a symlink that sits INSIDE home but
+/// resolves to a directory OUTSIDE it must not let the walk read that
+/// outside directory's `.git/config`. A purely lexical `starts_with(home)`
+/// check does not see this — the symlink's own path lexically starts with
+/// `home`, so the naive walk follows it and reads the outside repo's
+/// remote through the OS's own symlink resolution inside `read_to_string`.
+#[test]
+fn test_walk_does_not_follow_symlinked_ancestor_outside_home() {
+    let td = tempfile::tempdir().unwrap();
+    let home = td.path().join("home");
+    fs::create_dir_all(&home).unwrap();
+    let outside = td.path().join("outside");
+    fs::create_dir_all(outside.join(".git")).unwrap();
+    fs::write(
+        outside.join(".git/config"),
+        "[remote \"origin\"]\n\turl = https://github.com/owner/outside-home\n",
+    )
+    .unwrap();
+    let link = home.join("link");
+    std::os::unix::fs::symlink(&outside, &link).unwrap();
+    let asset = link.join("thing/file.md");
+    let mut cache = HashMap::new();
+    let (o, _) = git_remote_origin(&asset, &home, &mut cache);
+    assert!(
+        o.is_none(),
+        "must not resolve a remote through a symlinked ancestor that escapes home"
+    );
+}

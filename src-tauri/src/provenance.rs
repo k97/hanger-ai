@@ -268,6 +268,123 @@ mod tests {
     }
 }
 
+use std::path::PathBuf;
+
+/// The `[remote "origin"] url` of the nearest enclosing checkout, walking
+/// ancestors from the asset's directory up to and including `home` — never
+/// past it: above home sits the whole disk, and a hit there says nothing
+/// about the asset. Parsed as text; no git dependency. Memoized per
+/// directory: a scan asks about many files in few directories.
+///
+/// `home` is a fence, not a hint, so containment is checked in canonical
+/// (symlink- and `..`-resolved) space, not lexically. A lexical
+/// `starts_with(home)` alone is insufficient two ways: a `..` component
+/// embedded in `path` survives repeated `.parent()` calls and can make an
+/// ancestor's string prefix match `home` while it does not actually resolve
+/// under it; and a directory that is itself a symlink can sit lexically
+/// inside `home` while resolving to a location outside it, which the OS
+/// would then transparently follow when `.git/config` beneath it is opened.
+/// Canonicalizing both sides before the containment check closes both, and
+/// as a side effect also makes a relative `home` behave the same as an
+/// absolute one, since canonicalize resolves against the process cwd.
+///
+/// A directory that does not exist cannot be canonicalized; that is not an
+/// escape (there is nothing there to read) so it is treated as within the
+/// fence and the subsequent read simply fails with "not found".
+pub fn git_remote_origin(
+    path: &Path,
+    home: &Path,
+    cache: &mut HashMap<PathBuf, Option<Origin>>,
+) -> (Option<Origin>, bool) {
+    let home_canon = match std::fs::canonicalize(home) {
+        Ok(h) => h,
+        // No resolvable fence: refuse to search rather than search unfenced.
+        Err(_) => return (None, false),
+    };
+
+    let start: PathBuf = if path.is_dir() {
+        path.to_path_buf()
+    } else {
+        path.parent().map(Path::to_path_buf).unwrap_or_else(|| path.to_path_buf())
+    };
+
+    let mut blocked = false;
+    let mut dir: Option<PathBuf> = Some(start);
+    let mut visited: Vec<PathBuf> = Vec::new();
+    let mut found: Option<Origin> = None;
+
+    while let Some(d) = dir {
+        if let Some(hit) = cache.get(&d) {
+            found = hit.clone();
+            break;
+        }
+        visited.push(d.clone());
+
+        let within_fence = match std::fs::canonicalize(&d) {
+            Ok(real) => real == home_canon || real.starts_with(&home_canon),
+            // Doesn't exist (yet, or ever): nothing to read either way.
+            Err(_) => true,
+        };
+
+        if within_fence {
+            let cfg = d.join(".git/config");
+            match std::fs::read_to_string(&cfg) {
+                Ok(text) => {
+                    found = parse_origin_url(&text).and_then(|raw| {
+                        normalize_source_url(&raw).map(|(label, url)| Origin {
+                            label,
+                            url: Some(url),
+                            kind: OriginKind::CheckedOut,
+                            commit: None,
+                            delivered_by: None,
+                            installed_at_ms: None,
+                        })
+                    });
+                    break;
+                }
+                Err(e) if e.kind() == std::io::ErrorKind::PermissionDenied => {
+                    blocked = true;
+                }
+                Err(_) => {}
+            }
+        } else {
+            // A `..`-escaped or symlinked ancestor resolves outside home:
+            // stop rather than follow it off the fence.
+            break;
+        }
+
+        if d == home {
+            break;
+        }
+        dir = d
+            .parent()
+            .map(Path::to_path_buf)
+            .filter(|p| *p == home || p.starts_with(home));
+    }
+
+    for v in visited {
+        cache.insert(v, found.clone());
+    }
+    (found, blocked)
+}
+
+/// First `url =` under `[remote "origin"]`. Text parse, quotes as written
+/// by git itself; anything odd simply yields None.
+fn parse_origin_url(config: &str) -> Option<String> {
+    let mut in_origin = false;
+    for line in config.lines() {
+        let line = line.trim();
+        if line.starts_with('[') {
+            in_origin = line == "[remote \"origin\"]";
+        } else if in_origin {
+            if let Some(v) = line.strip_prefix("url") {
+                return Some(v.trim_start().strip_prefix('=')?.trim().to_string());
+            }
+        }
+    }
+    None
+}
+
 pub fn origin_from_declared(raw: &str) -> Origin {
     match normalize_source_url(raw) {
         Some((label, url)) => Origin {
