@@ -15,14 +15,25 @@ export interface ListCardProps {
   children: ReactNode;
   className?: string;
   "data-testid"?: string;
+  /** When the card is itself a composite widget rather than a plain
+   *  container — `ReachCard` is a `radiogroup` whose rows hold its radios —
+   *  the role has to sit on the bordered element, not on a wrapper, or the
+   *  group and its members are separated by a div with no semantics. */
+  role?: string;
+  "aria-label"?: string;
 }
 
 const cardClass =
   "border border-line rounded-inner bg-page overflow-hidden [&>*+*]:border-t [&>*+*]:border-line";
 
-export default function ListCard({ children, className, ...rest }: ListCardProps) {
+export default function ListCard({ children, className, role, ...rest }: ListCardProps) {
   return (
-    <div data-testid={rest["data-testid"]} className={`${cardClass} ${className ?? ""}`}>
+    <div
+      data-testid={rest["data-testid"]}
+      role={role}
+      aria-label={rest["aria-label"]}
+      className={`${cardClass} ${className ?? ""}`}
+    >
       {children}
     </div>
   );
