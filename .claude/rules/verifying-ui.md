@@ -26,7 +26,31 @@ that tells the truth from the `tauri dev` app:
   window instead of yours.
 - Window ids change on every relaunch, and a peer's rebuild relaunches the dev
   app: re-read the pid and window id each run (CGWindowList; the process is
-  `target/debug/tauri-app`, owner name "Hanger AI").
+  `target/debug/tauri-app`, **owner name `tauri-app`**). The window also moves
+  between reads — it was at `@244,79` and `@267,92` twenty minutes apart on
+  2026-08-27 — so re-read bounds before every capture and every click.
+- **Filter CGWindowList by pid, never by owner name — `"Hanger AI"` is the
+  installed release app.** This bullet said owner name "Hanger AI" until
+  2026-08-27, and following it exactly returns a window belonging to
+  `/Applications/Hanger AI.app`, not to `tauri dev`. That evening both were
+  running at *byte-identical* bounds:
+
+  ```
+  num=14970 pid=26080 owner=tauri-app   title="Hanger AI"  1024x700 @244,79   <- tauri dev
+  num=14721 pid=86869 owner="Hanger AI" title="Hanger AI"  1024x700 @244,79   <- /Applications
+  ```
+
+  Nothing distinguishes them by geometry, title, or the frame's general look.
+  This session captured 14721, found it blank, and reported the dev webview
+  as HMR-dead to three other sessions; the dev build was rendering fine the
+  whole time. The release binary is an *older* build, so its DOM and
+  stylesheet do not come from the working tree at all — a capture of it shows
+  layout no reading of current source can explain, which is indistinguishable
+  from a real defect. Resolve the pid first
+  (`pgrep -f "target/debug/tauri-app"`), then match `kCGWindowOwnerPID`.
+  `ps -eo pid,lstart,command | grep -i hanger` shows whether a second copy is
+  running at all; if one is, say so rather than quitting it — it may be
+  Karthik's.
 - **`screencapture -o -x out.png` captures the MAIN display only.** This
   machine has two. A window on the other one is simply absent from the frame,
   which reads exactly like "the window is gone" — twice on 2026-08-25 that
@@ -41,8 +65,9 @@ that tells the truth from the `tauri dev` app:
   ```swift
   import CoreGraphics
   let l = CGWindowListCopyWindowInfo(.optionAll, kCGNullWindowID) as? [[String: Any]]
-  // filter kCGWindowOwnerName == "Hanger AI"; read kCGWindowNumber,
-  // kCGWindowBounds, kCGWindowIsOnscreen
+  // filter kCGWindowOwnerPID == the tauri dev pid -- NOT kCGWindowOwnerName,
+  // which matches the installed release app instead (see the bullet above);
+  // read kCGWindowNumber, kCGWindowBounds, kCGWindowIsOnscreen
   ```
 
   `python3` has no `Quartz` module on this machine, so the Python route in
