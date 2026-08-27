@@ -171,6 +171,53 @@ fn discover_machine_at_reads_both_system_sources() {
 }
 
 #[test]
+fn a_managed_mcp_json_does_not_suppress_other_sources_yet() {
+    // PINS A KNOWN GAP, not desirable behaviour. registry.rs and
+    // docs/roadmap.md both say a deployed managed-mcp.json is supposed to
+    // take EXCLUSIVE control upstream, suppressing every other MCP source —
+    // but Hanger does not model that suppression, a deliberate, owner-ruled
+    // gap shipped 2026-08-27. Nothing else in this suite would go red if that
+    // silently changed, per verification.md's "a ruling recorded is not a
+    // ruling executed" — so this test pins today's actual behaviour: with
+    // both a managed-mcp.json AND a home-level .claude/mcp.json present, BOTH
+    // servers are returned. If suppression is ever implemented, this
+    // assertion must flip to "only the managed server is returned", and this
+    // comment (plus the roadmap entry) should be updated in the same change.
+    let system = tempfile::tempdir().unwrap();
+    let cc = system.path().join("Library/Application Support/ClaudeCode");
+    std::fs::create_dir_all(&cc).unwrap();
+    std::fs::write(
+        cc.join("managed-mcp.json"),
+        r#"{"mcpServers": {"managed-probe": {"command": "/bin/true", "args": []}}}"#,
+    )
+    .unwrap();
+
+    let home = tempfile::tempdir().unwrap();
+    let claude_dir = home.path().join(".claude");
+    std::fs::create_dir_all(&claude_dir).unwrap();
+    std::fs::write(
+        claude_dir.join("mcp.json"),
+        r#"{"mcpServers": {"suppressed-probe": {"command": "/bin/true", "args": []}}}"#,
+    )
+    .unwrap();
+
+    let result = discover::discover_machine_at(home.path(), system.path());
+
+    assert!(
+        result.registrations.iter().any(|r| r.server.name == "managed-probe"),
+        "managed-mcp.json registration not discovered: {:?}",
+        result.registrations.iter().map(|r| &r.server.name).collect::<Vec<_>>()
+    );
+    assert!(
+        result.registrations.iter().any(|r| r.server.name == "suppressed-probe"),
+        "known gap regressed: a source that upstream would suppress under a \
+         managed-mcp.json is no longer discovered at all — that is a \
+         different, worse bug than the documented gap, not a fix for it: {:?}",
+        result.registrations.iter().map(|r| &r.server.name).collect::<Vec<_>>()
+    );
+}
+
+#[test]
 fn discover_machine_at_ignores_system_sources_under_an_empty_root() {
     // The hermeticity guarantee the fixture tests depend on. Without the
     // system parameter this test cannot exist, and its absence is what let a
