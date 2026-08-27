@@ -105,6 +105,14 @@ interface AssetDetailProps {
    *  Null means the backend had no verdict — the section is omitted rather
    *  than asserting an absence of engines. */
   annotation?: AssetAnnotationView | null;
+  /** Which tab to open on, remembered by the owner (`Flyout`) across the
+   *  point where this panel is unmounted for `McpServerDetail` or back.
+   *  "primary" is this panel's first tab, Content. Read once, at mount:
+   *  while mounted the tab below is the only copy that decides anything,
+   *  and `onTabChange` keeps the owner's in step with it. */
+  initialTab?: "primary" | "details";
+  /** The user moved to another tab. */
+  onTabChange?: (tab: "primary" | "details") => void;
 }
 
 const eyebrowClass = "font-flex text-micro font-medium tracking-[.06em] uppercase text-ink-3";
@@ -158,8 +166,18 @@ function basenameOf(path: string): string {
  * line, the meta grid — exists to answer the questions the document itself
  * cannot: where the file sits and what else on the machine depends on it.
  */
-export default function AssetDetail({ asset, inventory, onDocumentPath, annotation }: AssetDetailProps) {
-  const [tab, setTab] = useState<"content" | "details">("content");
+export default function AssetDetail({ asset, inventory, onDocumentPath, annotation, initialTab, onTabChange }: AssetDetailProps) {
+  // Opens where the user last was, then stays there: the tab is the user's
+  // question, not the asset's, so moving down a table with Details open keeps
+  // answering it. Deliberately NOT reset by the body-load effect below, where
+  // it used to sit; `Flyout` carries it across the panel swap.
+  const [tab, setTab] = useState<"content" | "details">(
+    initialTab === "details" ? "details" : "content",
+  );
+  const changeTab = (next: "content" | "details") => {
+    setTab(next);
+    onTabChange?.(next === "details" ? "details" : "primary");
+  };
   const [view, setView] = useState<"preview" | "source">("preview");
   // Whether the Origin row's delivery-facts disclosure is open. Reset with
   // the rest of the asset's own state below, not carried across assets the
@@ -183,7 +201,6 @@ export default function AssetDetail({ asset, inventory, onDocumentPath, annotati
     setBody(null);
     setDocumentPath(null);
     setDocError(null);
-    setTab("content");
     setView("preview");
     setOriginOpen(false);
 
@@ -403,7 +420,7 @@ export default function AssetDetail({ asset, inventory, onDocumentPath, annotati
         <UnderlineTabs
           tabs={[{ id: "content", label: "Content" }, { id: "details", label: "Details" }]}
           active={tab}
-          onChange={(id) => setTab(id as "content" | "details")}
+          onChange={(id) => changeTab(id as "content" | "details")}
           ariaLabel="Inspector view"
         />
       )}

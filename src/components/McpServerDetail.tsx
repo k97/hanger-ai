@@ -147,6 +147,14 @@ interface Props {
   /** Registration keys with a request in flight. More than one launch spec
    *  can be in flight at once now that the panel asks on open. */
   verifying?: readonly string[];
+  /** Which tab to open on, remembered by the owner (`Flyout`) across the
+   *  point where this panel is unmounted for `AssetDetail` or back.
+   *  "primary" is this panel's first tab, Tools. Read once, at mount: while
+   *  mounted the tab below is the only copy that decides anything, and
+   *  `onTabChange` keeps the owner's in step with it. */
+  initialTab?: "primary" | "details";
+  /** The user moved to another tab. */
+  onTabChange?: (tab: "primary" | "details") => void;
 }
 
 /** Stable empty default, so the effect below does not see a new array every
@@ -467,16 +475,22 @@ export default function McpServerDetail({
   onAutoProbe,
   declined = NONE_DECLINED,
   verifying = NONE_IN_FLIGHT,
+  initialTab,
+  onTabChange,
 }: Props) {
   // Tools first, Details second: the tool list is what "is this server
   // healthy" reduces to, and it is the only content most opens need. A new
-  // server resets to Tools rather than keeping whatever the last one was
-  // showing -- otherwise opening a server right after reading another's
-  // Environment tab would land there for a server that never showed it.
-  const [tab, setTab] = useState<"tools" | "details">("tools");
-  useEffect(() => {
-    setTab("tools");
-  }, [server.name]);
+  // server then keeps whatever tab the last one was showing -- both tabs
+  // exist for every server, so the tab is the user's question and survives
+  // the walk down a table. It used to reset on `server.name`; `Flyout`
+  // carries it further, across the swap with `AssetDetail`.
+  const [tab, setTab] = useState<"tools" | "details">(
+    initialTab === "details" ? "details" : "tools",
+  );
+  const changeTab = (next: "tools" | "details") => {
+    setTab(next);
+    onTabChange?.(next === "details" ? "details" : "primary");
+  };
 
   // Counts the rows below, not unique hosts. spades-audio is 3 registrations
   // across 2 hosts -- a count that disagreed with the visible row count would
@@ -761,7 +775,7 @@ export default function McpServerDetail({
           { id: "details", label: "Details" },
         ]}
         active={tab}
-        onChange={(id) => setTab(id === "details" ? "details" : "tools")}
+        onChange={(id) => changeTab(id === "details" ? "details" : "tools")}
         ariaLabel="Inspector view"
       />
 

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, lazy, Suspense } from "react";
+import { useState, useEffect, useLayoutEffect, useCallback, useRef, lazy, Suspense } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -83,6 +83,12 @@ import { StateFilter } from "./utils/linkStateCounts";
 import { registrationKey } from "./utils/mcpRegistration";
 import { provenanceOf, type OriginWire } from "./utils/assetProvenance";
 import { buildDetailAsset } from "./utils/detailAsset";
+import {
+  INSPECTOR_MIN_WIDTH,
+  MAIN_MIN_WIDTH,
+  resolveInspectorDrag,
+  refitInspectorWidth,
+} from "./utils/inspectorLayout";
 import { unaccountedProcesses, type ProcessMatch } from "./utils/mcpServerView";
 import type { McpServerRow } from "./utils/serverRows";
 import type { McpEngineSummaryData } from "./components/McpEngineSummary";
@@ -340,15 +346,68 @@ export default function App() {
   const [selectedIssue, setSelectedIssue] = useState<ReviewIssue | null>(null);
 
   const [inspectorOpen, setInspectorOpen] = useState<boolean>(false);
-  // 384 is the prototype's --inspector and the floor: narrower truncates the
-  // link-flow preview paths, the one thing that panel exists to show.
-  const [inspectorWidth, setInspectorWidth] = useState<number>(384);
+  // The floor, and the starting width. INSPECTOR_MIN_WIDTH in
+  // utils/inspectorLayout.ts says why it is where it is.
+  const [inspectorWidth, setInspectorWidth] = useState<number>(INSPECTOR_MIN_WIDTH);
   // A per-session "zoom", not a saved layout choice — deliberately not
   // persisted to preferences, and always reset when the inspector closes.
   const [inspectorExpanded, setInspectorExpanded] = useState<boolean>(false);
+  // The screens the inspector column has a subject on. Named because it is
+  // read twice: the <aside> renders behind it, and expanded state is released
+  // when it goes false — the column owns the only Collapse control there is.
+  const inspectorRenders =
+    inspectorOpen &&
+    selectedSidebarItem !== "discovery" &&
+    selectedSidebarItem !== "linkmap" &&
+    selectedSidebarItem !== "design" &&
+    (selectedSidebarItem === "review" || inventory !== null);
+  // Expanded puts <main> at display:none, and the Collapse control lives in
+  // the inspector's own cap. Navigating to a screen the column does not
+  // render would therefore leave the window blank but for the rail, with no
+  // way back. Pre-existing — the Expand button could reach it too — but a
+  // drag that snaps past the ceiling now finds it by accident, so the state
+  // is released here instead. useLayoutEffect, not useEffect: after paint
+  // would show the blank frame this exists to prevent.
+  useLayoutEffect(() => {
+    if (!inspectorRenders) setInspectorExpanded(false);
+  }, [inspectorRenders]);
   // The inspector column itself — the cap's finding chip clamps its popover
   // against this so it never spills past the column's own edge.
   const asideRef = useRef<HTMLElement>(null);
+  // The content column, measured for `room` below.
+  const mainRef = useRef<HTMLElement>(null);
+  // `room` is how wide the inspector may grow while main-content still keeps
+  // its floor: the window, less the main column's left edge, less
+  // MAIN_MIN_WIDTH. Both terms move — with the window, and with the rail
+  // column, which swings 216px when the source list opens or Link map takes
+  // it away — so it is measured rather than derived, and the effect below
+  // owns it from the first commit. inspectorLayout.ts owns what it means.
+  const [room, setRoom] = useState<number>(0);
+  // <main> is display:none while the inspector is expanded, so its rect reads
+  // all zeros there; the aside starts at exactly the main column's left edge
+  // in that state, so it is the measurable one.
+  const measureRoom = useCallback(() => {
+    const column = inspectorExpanded ? asideRef.current : mainRef.current;
+    const left = column?.getBoundingClientRect().left ?? 0;
+    return window.innerWidth - left - MAIN_MIN_WIDTH;
+  }, [inspectorExpanded]);
+  // A ResizeObserver rather than a window `resize` listener: the column's own
+  // box is what `room` is a function of, and it moves for reasons the window
+  // never hears about — the rail's width transition when the source list is
+  // toggled or Link map is entered, and anything ever inserted between the
+  // rail and this column. Observing the box catches all of them, including
+  // mid-transition, where a state-dep effect would read the pre-transition
+  // width. happy-dom's `observe()` is a no-op that never fires, so nothing
+  // here is testable in this repo; it is screenshot territory.
+  useEffect(() => {
+    const column = inspectorExpanded ? asideRef.current : mainRef.current;
+    const remeasure = () => setRoom(measureRoom());
+    remeasure();
+    if (!column) return;
+    const observer = new ResizeObserver(remeasure);
+    observer.observe(column);
+    return () => observer.disconnect();
+  }, [inspectorExpanded, measureRoom]);
   // Toolbar filter — narrows the visible rows of the active pane by name.
   const [filterText, setFilterText] = useState<string>("");
   // So the clear control can hand focus back once it empties the field.
@@ -823,9 +882,14 @@ export default function App() {
       const inspectorWidthPref = await invoke<string | null>("get_preference", { key: "inspector_width" });
       if (inspectorWidthPref) {
         const w = parseInt(inspectorWidthPref, 10);
-        // Persisted widths from before the 384 floor are clamped up, not honoured.
+        // The floor is enforced on the way in — persisted widths from before
+        // it are clamped up, not honoured. There is no ceiling here any more:
+        // a stored width is the user's intent, which may be wider than this
+        // window can currently hold, and refitInspectorWidth decides at
+        // render time what fits. Clipping it here would lose the intent for
+        // good the first time the app opened on a narrow window.
         if (!isNaN(w)) {
-          setInspectorWidth(Math.max(384, Math.min(480, w)));
+          setInspectorWidth(Math.max(INSPECTOR_MIN_WIDTH, w));
         }
       }
 
@@ -1162,22 +1226,44 @@ export default function App() {
   );
 
   // The inspector column resizes as one surface regardless of which body it
-  // is showing. 384 is the floor: below it the link-flow preview paths — the
-  // one thing the panel exists to show — truncate.
+  // is showing. There is no ceiling: the drag resists at main-content's own
+  // floor and snaps past it into the expanded state, and back out again.
+  // inspectorLayout.ts owns every rule; this only wires the pointer to it.
   const handleInspectorResizeStart = (e: React.MouseEvent) => {
     e.preventDefault();
-    const startX = e.clientX;
-    const startWidth = inspectorWidth;
-    const clamp = (w: number) => Math.max(384, Math.min(480, w));
+    // The room a drag has is fixed for its duration — the window is not being
+    // resized while the mouse is down — so it is measured once, here, rather
+    // than read from state that the drag itself is about to invalidate.
+    const dragRoom = measureRoom();
+    // The width the pointer is asking for is its distance from the window's
+    // right edge: the aside is the last flow child of a `w-screen` row, so
+    // the panel's right edge IS the window's. `inspectorWidth` is now an
+    // intent that may exceed what is rendered, and while expanded it is not
+    // the rendered width at all, so a delta from it would start the drag
+    // from the wrong place.
+    const askedFor = (ev: MouseEvent) => window.innerWidth - ev.clientX;
+    // A click on the handle that never moved is not a resize, and must not
+    // be treated as one: `inspectorWidth` is an intent that may be wider
+    // than what currently fits, so recomputing from the pointer would
+    // overwrite it with the resist width and persist that — the remembered
+    // width would never come back when the window widened again.
+    let moved = false;
     const onMove = (ev: MouseEvent) => {
-      setInspectorWidth(clamp(startWidth - (ev.clientX - startX)));
+      moved = true;
+      const fit = resolveInspectorDrag(askedFor(ev), dragRoom);
+      setInspectorWidth(fit.width);
+      setInspectorExpanded(fit.expanded);
     };
     const onUp = (ev: MouseEvent) => {
       window.removeEventListener("mousemove", onMove);
       window.removeEventListener("mouseup", onUp);
-      const finalWidth = clamp(startWidth - (ev.clientX - startX));
-      setInspectorWidth(finalWidth);
-      invoke("set_preference", { key: "inspector_width", value: String(finalWidth) }).catch(() => {});
+      if (!moved) return;
+      const fit = resolveInspectorDrag(askedFor(ev), dragRoom);
+      setInspectorWidth(fit.width);
+      setInspectorExpanded(fit.expanded);
+      // The width only. The expanded state is a per-session zoom and stays
+      // unpersisted, exactly as the cap's Expand button leaves it.
+      invoke("set_preference", { key: "inspector_width", value: String(fit.width) }).catch(() => {});
     };
     window.addEventListener("mousemove", onMove);
     window.addEventListener("mouseup", onUp);
@@ -1437,7 +1523,7 @@ export default function App() {
         </div>
       </div>
 
-      <main className={`${inspectorExpanded ? "hidden" : "flex-1 flex flex-col min-w-0 h-full relative overflow-hidden bg-page"}`}>
+      <main ref={mainRef} className={`${inspectorExpanded ? "hidden" : "flex-1 flex flex-col min-w-0 h-full relative overflow-hidden bg-page"}`}>
         {/* Content cap: breadcrumb left; filter and inspector toggle right.
             A <header> on purpose — it is the content column's banner, and the
             toolbar guards assert against that landmark. */}
@@ -1596,6 +1682,14 @@ export default function App() {
             </div>
           )}
 
+          {/* main-content stops shrinking at MAIN_MIN_WIDTH and scrolls
+              sideways instead. Only the panes go inside it: the header above
+              stays pinned and keeps the window drag region, and the error
+              banner keeps its absolute positioning against <main>. The inner
+              column carries the floor as an inline width so the constant in
+              inspectorLayout.ts stays the only copy of it. */}
+          <div className="flex-1 min-h-0 overflow-x-auto">
+            <div className="h-full flex flex-col min-h-0" style={{ minWidth: MAIN_MIN_WIDTH }}>
           {/* Render Active Main Pane */}
           {(selectedSidebarItem === "profile" || selectedSidebarItem.startsWith("global")) && (
             <ProfilePane
@@ -1631,10 +1725,6 @@ export default function App() {
               serverSort={serverSort}
               onServerGroupingChange={handleServerGroupingChange}
               onServerSortChange={handleServerSortChange}
-              onClearSelection={() => {
-                setSelectedAsset(null);
-                setSelectedBubble(null);
-              }}
             />
           )}
 
@@ -1753,12 +1843,10 @@ export default function App() {
               onLinkFromProfile={handleLinkFromProfile}
               linkedRepos={linkedDirectories}
               onPromoteCandidates={(candidates) => setPromoteCandidates(candidates)}
-              onClearSelection={() => {
-                setSelectedAsset(null);
-                setSelectedBubble(null);
-              }}
             />
           )}
+            </div>
+          </div>
 
           {/* Scan for Repositories Checklist Modal Overlay */}
           {promoteCandidates && (
@@ -1788,22 +1876,22 @@ export default function App() {
       {/* ══ Inspector column: one surface with its own cap regardless of
           which body it is showing. The resize handle spans the whole column
           so every variant sizes the same way. ══ */}
-      {inspectorOpen &&
-        selectedSidebarItem !== "discovery" &&
-        selectedSidebarItem !== "linkmap" &&
-        selectedSidebarItem !== "design" &&
-        (selectedSidebarItem === "review" || inventory) && (
+      {inspectorRenders && (
         <aside
           ref={asideRef}
-          style={inspectorExpanded ? undefined : { width: inspectorWidth }}
+          style={
+            inspectorExpanded ? undefined : { width: refitInspectorWidth(inspectorWidth, room) }
+          }
           className={`shrink-0 h-full min-h-0 border-l border-line bg-page flex flex-col relative ${inspectorExpanded ? "flex-1" : ""}`}
         >
-          {!inspectorExpanded && (
-            <div
-              onMouseDown={handleInspectorResizeStart}
-              className="absolute top-0 bottom-0 left-0 w-1.5 cursor-col-resize hover:bg-line-2 active:bg-line-2 z-10 transition-colors duration-hover"
-            />
-          )}
+          {/* Rendered in both states on purpose: expanded, the panel already
+              starts at the main column's left edge, so the handle sits where
+              it always did and is the way back out of the expanded state. */}
+          <div
+            data-testid="inspector-resize-handle"
+            onMouseDown={handleInspectorResizeStart}
+            className="absolute top-0 bottom-0 left-0 w-1.5 cursor-col-resize hover:bg-line-2 active:bg-line-2 z-10 transition-colors duration-hover"
+          />
           {/* The window drag region for this column, and its height keeps
               the panel aligned with the toolbar beside it — kept exactly as
               it was. What used to sit in it (only the two panel-level
@@ -1819,6 +1907,11 @@ export default function App() {
               place={capPlace}
               findings={assetFindings ?? { issues: [], count: 0, severity: "warning" }}
               inspectorExpanded={inspectorExpanded}
+              /* Expanded, <main> is `hidden` and this column occupies
+                 exactly the space <main> had — so with the source list
+                 collapsed, the cap inherits the problem <main>'s header
+                 solves above, and the same measured 51px answers it. */
+              leadingColumn={inspectorExpanded && sidebarCollapsed}
               clampTo={asideRef}
               onLink={onLinkForCap}
               onOpenInEditor={onOpenInEditorForCap}
@@ -1866,6 +1959,9 @@ export default function App() {
                 paneScope={inspectorScope}
                 isRepoScope={inspectorIsRepoScope}
                 onAssetDocumentPath={setInspectorDocumentPath}
+                /* The inspector's tab is remembered between assets and
+                   forgotten between screens; this is the screen. */
+                screen={selectedSidebarItem}
               />
             )}
           </div>

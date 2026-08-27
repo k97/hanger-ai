@@ -95,7 +95,6 @@ interface ProfilePaneProps {
   onSortChange?: (field: SortField) => void;
   onSelectAsset: (asset: { id?: string; name: string; category: "Skills" | "Agents" | "Tools" | "Rules" | "Subagents"; path: string }) => void;
   onLinkAsset: (asset: any) => void;
-  onClearSelection?: () => void;
   /** The facet chip owns category selection internally, so the owner is told
    *  when it changes. Without this the shell cannot know the user is looking
    *  at Tools, and anything it fetches lazily for that view never fires. */
@@ -362,7 +361,6 @@ export default function ProfilePane({
   onSortChange,
   onSelectAsset,
   onLinkAsset,
-  onClearSelection,
   onCategoryChange,
   unaccountedProcesses,
   mcpServers,
@@ -411,11 +409,17 @@ export default function ProfilePane({
   const serverGrouping = propServerGrouping ?? internalServerGrouping;
   const serverSort = propServerSort ?? internalServerSort;
 
+  /* Filtering the table is not choosing a new subject. This used to clear
+     the selection through `onClearSelection`, so moving from Skills to MCP
+     servers emptied the inspector of the skill the user was reading -- the
+     panel went blank on a click that was about the list, not about it. The
+     inspector now holds what it has until another row is chosen (Karthik,
+     2026-08-27). The prop is gone rather than left uncalled: it existed for
+     this one call and nothing else. */
   const setSelectedCategory = (cat: CategoryType | null) => {
     setInternalCategory(cat);
     setMcpReviewOnly(false);
     onCategoryChange?.(cat);
-    if (onClearSelection) onClearSelection();
   };
 
   const handleSort = (field: SortField) => {

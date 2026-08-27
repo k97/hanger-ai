@@ -52,7 +52,6 @@ interface RepoPaneProps {
   onRefresh: () => void;
   onSelectAsset: (asset: { id?: string; name: string; category: "Skills" | "Agents" | "Tools" | "Rules" | "Subagents"; path: string }) => void;
   onLinkFromProfile: (repoPath: string) => void;
-  onClearSelection?: () => void;
   /** Every linked root, used to subtract candidates that are already linked. */
   linkedRepos?: string[];
   onPromoteCandidates?: (candidates: string[]) => void;
@@ -76,7 +75,6 @@ export default function RepoPane({
   onRefresh,
   onSelectAsset,
   onLinkFromProfile,
-  onClearSelection,
   linkedRepos = [],
   onPromoteCandidates,
 }: RepoPaneProps) {
@@ -88,10 +86,12 @@ export default function RepoPane({
   const sortField = propSortField ?? internalSortField;
   const sortDirection = propSortDirection ?? internalSortDirection;
 
+  /* Same as ProfilePane: the category chip filters the table and says
+     nothing about what is being inspected, so it no longer clears the
+     selection. See the comment there. */
   const setSelectedCategory = (cat: CategoryType | null) => {
     setInternalCategory(cat);
     onCategoryChange?.(cat);
-    if (onClearSelection) onClearSelection();
   };
 
   const handleSort = (field: SortField) => {

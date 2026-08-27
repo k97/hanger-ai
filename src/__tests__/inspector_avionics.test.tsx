@@ -307,7 +307,20 @@ describe("Avionics A5 — Docked Right Inspector Integration", () => {
     });
   });
 
-  it("9. Changing category filter with the inspector open clears the selection", async () => {
+  /* Reversed on Karthik's ruling, 2026-08-27: this item used to require the
+     opposite — that changing the category filter CLEARED the selection — and
+     he hit the result in the running app, a panel that went blank on a click
+     that was about the list and not about what he was reading. Filtering the
+     table is not choosing a new subject; the inspector holds what it has
+     until another row is chosen. Item 8 above is untouched: a change of
+     SCOPE is a change of subject and still clears.
+
+     What the old assertion documented about the empty body (Task 15 f6d108f,
+     fix round 1 item 5 94f6cb3 — a repo pane keeps "Nothing selected" rather
+     than the machine-wide McpEngineSummary) is not lost, only unreachable
+     from here now that nothing empties: `FlyoutEmptyHeader.test.tsx` covers
+     that body directly. */
+  it("9. Changing category filter with the inspector open holds the selection", async () => {
     setupMockInvoke("true");
     render(<App />);
 
@@ -322,20 +335,12 @@ describe("Avionics A5 — Docked Right Inspector Integration", () => {
     const toolsFilter = screen.getByText("MCP servers");
     fireEvent.click(toolsFilter);
 
-    // Inspector MUST clear selection. `selected_sidebar_item` here is
-    // "~/Work/demo" (set in `beforeEach`) — a REPOSITORY pane, not the
-    // global store. Task 15 (f6d108f) first made the Tools-filtered empty
-    // body always McpEngineSummary; fix round 1's item 5 (94f6cb3, then
-    // this file's own commit) scoped that replacement to the global pane
-    // only, because McpEngineSummary is a machine-wide read and a repo
-    // pane showing it was the reviewer's own live finding. So a repo pane
-    // keeps the ORIGINAL "Nothing selected" body once again — this
-    // assertion is back to what it was before Task 15 touched this test,
-    // not a new claim.
+    // The skill is still the subject: its path row is still on screen, and
+    // the panel has not fallen back to its empty state.
     await waitFor(() => {
-      expect(screen.queryByTitle("~/Work/demo/skills/inspector-skill-1")).toBeNull();
-      expect(screen.getByText("Nothing selected")).toBeDefined();
+      expect(screen.getByTitle("~/Work/demo/skills/inspector-skill-1")).toBeDefined();
     });
+    expect(screen.queryByText("Nothing selected")).toBeNull();
   });
 
   it("10. Row highlight and inspector content always reference the same asset", async () => {

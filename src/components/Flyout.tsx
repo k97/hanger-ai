@@ -87,6 +87,12 @@ interface FlyoutProps {
    *  own path is the folder holding it). App.tsx owns the cap, so this
    *  callback just carries AssetDetail's own `onDocumentPath` one level up. */
   onAssetDocumentPath?: (path: string) => void;
+  /** The screen this inspector belongs to — App.tsx's `selectedSidebarItem`,
+   *  the one string every view switches on (CLAUDE.md). Read for one thing:
+   *  the inspector's tab is remembered between assets and forgotten between
+   *  screens (Karthik, 2026-08-27). Absent means one screen for as long as
+   *  this is mounted, which is what a test that never navigates is. */
+  screen?: string;
 }
 
 interface RuleSection {
@@ -109,9 +115,26 @@ export default function Flyout({
   activeCategory,
   paneScope,
   isRepoScope,
-  onAssetDocumentPath
+  onAssetDocumentPath,
+  screen
 }: FlyoutProps) {
   const [linking, setLinking] = useState<FlatAssetItem | null>(null);
+
+  /* Which tab the inspector was last left on. The panels each hold their own
+     tab while mounted and seed it from this; this exists because they are two
+     components, not one -- an MCP server renders `McpServerDetail` and
+     everything else `AssetDetail`, so moving between them unmounts whichever
+     was showing and a tab kept inside it dies there. "primary" is whichever
+     tab a panel names first (Content, Tools); "details" is the one they
+     share, and the only one worth carrying.
+
+     Cleared on a screen change, and only there. App clears `selectedAsset`
+     at the same moment (App.tsx, `handleSelectSidebarItem`), so the panel
+     unmounts and the next one seeds from a memory this has already reset. */
+  const [inspectorTab, setInspectorTab] = useState<"primary" | "details">("primary");
+  useEffect(() => {
+    setInspectorTab("primary");
+  }, [screen]);
 
   useEffect(() => {
     setLinking(initialDeployingAsset ?? null);
@@ -765,6 +788,8 @@ export default function Flyout({
           onVerify={runMcpVerify}
           onAutoProbe={runMcpAutoProbe}
           declined={mcpDeclined}
+          initialTab={inspectorTab}
+          onTabChange={setInspectorTab}
         />
       ) : targetAsset ? (
         // Link to… lives in the cap now (App.tsx), not this panel's own
@@ -774,6 +799,8 @@ export default function Flyout({
           inventory={inventory}
           annotation={annotation}
           onDocumentPath={onAssetDocumentPath}
+          initialTab={inspectorTab}
+          onTabChange={setInspectorTab}
         />
       ) : selectedBubble ? (
         /* Regular flyout content list for bubble scope */

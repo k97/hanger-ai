@@ -59,6 +59,24 @@ export interface InspectorCapProps {
   place: string;
   findings: AssetFindings;
   inspectorExpanded: boolean;
+  /** True when this cap is the window's leading column: the source list is
+   *  collapsed and the inspector is expanded, so the cap sits directly to the
+   *  right of the 56px icon rail with nothing between it and the edge of the
+   *  window. It then leads with 51px instead of 18px, because the collapsed
+   *  rail's toggle overflows into whichever column comes next and macOS's
+   *  traffic lights sit in that same band.
+   *
+   *  51 is measured against a live window, not derived — the traffic lights
+   *  are drawn by the window server and are not in the DOM, so no layout in
+   *  here can produce this number. `src/App.tsx` uses the identical 51px for
+   *  the content cap's breadcrumb in the identical position, under a comment
+   *  recording the same measurement; the two are one measurement and move
+   *  together. Do not "simplify" it to the 56px rail width: the gap is
+   *  measured from the toggle icon's ink, not from the rail's edge.
+   *
+   *  The cap does not work this out for itself — it knows only whether it
+   *  leads. App decides, at its single `<InspectorCap …>` call site. */
+  leadingColumn?: boolean;
   /** The surface `FindingChip`'s popover clamps its position against. */
   clampTo: RefObject<HTMLElement | null>;
   /** Absent for an asset with nowhere to be linked (an MCP server, an
@@ -102,6 +120,7 @@ export default function InspectorCap({
   place,
   findings,
   inspectorExpanded,
+  leadingColumn = false,
   clampTo,
   onLink,
   onOpenInEditor,
@@ -166,7 +185,10 @@ export default function InspectorCap({
   );
 
   return (
-    <div ref={rowRef} className="h-10 flex items-center gap-2 pl-[18px] pr-3 select-none">
+    <div
+      ref={rowRef}
+      className={`h-10 flex items-center gap-2 ${leadingColumn ? "pl-[51px]" : "pl-[18px]"} pr-3 select-none`}
+    >
       {asset && Icon && (
         <div className="shrink-0 relative inline-flex">
           {place === "Global" ? (

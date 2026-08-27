@@ -39,6 +39,17 @@ const openDetails = () => fireEvent.click(screen.getByRole("tab", { name: "Detai
 const toolsHeading = () => screen.getByRole("heading", { name: "Tools" });
 
 describe("McpServerDetail", () => {
+  // The tab follows the user, not the server: navigating a table of servers
+  // with Details open used to snap back to Tools on every row.
+  it("keeps the open tab when the inspector moves to another server", () => {
+    const { rerender } = render(<McpServerDetail server={base} />);
+    openDetails();
+    expect(screen.getByRole("tab", { name: "Details" }).getAttribute("aria-selected")).toBe("true");
+
+    rerender(<McpServerDetail server={{ ...base, name: "mei-recipes" }} />);
+    expect(screen.getByRole("tab", { name: "Details" }).getAttribute("aria-selected")).toBe("true");
+  });
+
   it("lists every registration, including two from the same host", () => {
     render(<McpServerDetail server={base} />);
     openDetails();

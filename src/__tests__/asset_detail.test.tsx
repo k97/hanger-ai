@@ -315,6 +315,24 @@ describe("Asset detail — the inspector's document screen", () => {
     expect(screen.getByText("License")).toBeTruthy();
   });
 
+  // Clicking down a table with Details open should keep answering the same
+  // question. The tab used to reset with the body-load effect, so every row
+  // snapped back to the document.
+  it("keeps the open tab when the inspector moves to another asset", async () => {
+    const { rerender } = render(<AssetDetail asset={asset} inventory={inventory} />);
+    await screen.findByRole("tab", { name: "Details" });
+    openDetails();
+    expect(screen.getByRole("tabpanel").id).toBe("panel-details");
+
+    const other = { ...asset, name: "other-skill", path: "/home/me/.agents/skills/other-skill/SKILL.md" };
+    bodyPath = other.path;
+    rerender(<AssetDetail asset={other} inventory={inventory} />);
+    await waitFor(() =>
+      expect(screen.getByRole("tab", { name: "Details" }).getAttribute("aria-selected")).toBe("true"),
+    );
+    expect(screen.getByRole("tabpanel").id).toBe("panel-details");
+  });
+
   it("Identity is one list card in the ruled order, with Modified from the file's mtime", async () => {
     render(<AssetDetail asset={asset} inventory={inventory} />);
     await screen.findByRole("tab", { name: "Details" });
