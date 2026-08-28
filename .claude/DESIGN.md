@@ -876,17 +876,51 @@ once, on open; a server's is paid on every request, hence the different
 eyebrows.
 
 **`AssetDetail` (`AssetDetail.tsx`), Details tab.**
-- **Identity** carries Size and Modified once the body has loaded, both read
-  from `AssetBody` and never re-derived: Size is `formatBytes(bytes) · N
-  lines` (`:301-308`); Modified is a formatted date from `modified_ms`, and
-  the row is dropped outright when `modified_ms` is `null` rather than
-  rendering a fabricated date — the platform reported no mtime (`:309-325`;
-  the field is `number | null` on the frontend, `:61`, and `Option<i64>` on
-  the backend, `lib.rs:1447`). Last in the row order (since this phase) is
-  Path: `documentPath ?? asset.path`, wrapped in a `<bdi>` (`:329-343`, above).
-  Rows built `:246-344`, rendered `:447-463`.
-- **Contents** lists a skill's folder, one row per top-level entry
-  (`:465-497`). A directory states how many files sit beneath it; a file
+- **Identity** is conditional throughout: **every row except Path appears only
+  when the fact it reports exists**, so the card never pads itself with a
+  constant (Karthik's audit and rulings, 2026-08-28).
+  - **Engine** only when an engine owns the asset (`scopeAgent`, `:288`).
+    `scanner.rs` empties the scope's agent for anything in the shared store,
+    which is what made this row read "Any agent" for every skill on a
+    store-convention machine. It stays for the assets an engine does own —
+    both global rules on a real machine name one — because ownership is
+    exclusive and no other row states it. Reach answers who can *read* the
+    asset, a different question (`docs/harness.md`).
+  - **Scope** only for a repo scope, carrying `Project` or `Local` rather than
+    the repo's name (`scopeKind`, `scopeAccess.ts`; row `:311`). `AssetDetail`
+    is reachable only from the Global pane and a repo pane, both scope-filtered,
+    so the old `placeOf` value was constant wherever it appeared — and it folded
+    away the one distinction the data holds: committed and shared with the team
+    versus declared in a machine-level file and private to this user
+    (`domain.rs`). Derived from the scope, not the viewing context, so it stays
+    true if a surface ever lists mixed scopes.
+  - **Version** only when the file declares one (`:354`). `scanner.rs` used to
+    fill an absent version with the literal `v0.0.0-draft`, putting a value on
+    screen that no file had written — 304 of 350 skills on a real machine. It
+    now emits an empty string, which this row and the Flyout list's chip both
+    already treat as absent.
+  - **Modified** from `modified_ms`, dropped outright when the platform
+    reported no mtime rather than rendering a fabricated date (`number | null`
+    on the frontend, `Option<i64>` on the backend, `lib.rs:1447`).
+  - **License** is the only spec field the card shows (`:262`). `SPEC_FIELDS`
+    holds six keys; name and description are the title block, allowed-tools is
+    Capabilities, and compatibility and metadata were dropped 2026-08-27 — so
+    the filter chain that used to stand here resolved to one conditional row.
+  - **Path** is last and unconditional — every other row says something about
+    the asset, this one says where it is: `documentPath ?? asset.path` in a
+    `<bdi>`.
+  - A Size row was removed 2026-08-27; Contents and the Context ledger already
+    carry the bytes. `asset_detail.test.tsx`'s "Identity is one list card in
+    the ruled order" pins the order against a fixture owned *and* repo-scoped,
+    which is the only shape where every conditional row renders at once.
+- **Contents** lists a skill's folder, one row per top-level entry — but only
+  from the second entry onward (`:627`). A folder holding nothing but
+  `SKILL.md` draws no card: that entry is the document the Content tab is
+  already showing, and the Path row above has already said where it is. On a
+  real machine that is 66 of 128 store skills; the other 62 carry
+  `references/` or `scripts/`, where this card is the only place the structure
+  is visible (Karthik's ruling, 2026-08-28).
+  A directory states how many files sit beneath it; a file
   states its size; a symlink states neither — `LinkIcon` and an em dash —
   because `list_asset_dir` classifies every entry with `symlink_metadata` and
   never follows the link, so nothing on the far side of it was ever read
