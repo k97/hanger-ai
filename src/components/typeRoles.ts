@@ -14,6 +14,10 @@ export const rowLabelClass = "text-base-app text-ink-3 leading-body";
 export const rowValueClass = "font-sans text-base-app text-ink-1 leading-body";
 export const rowMonoClass = "font-mono text-small text-ink-1 tabular";
 export const captionClass = "font-sans text-small text-ink-3 leading-caption";
+/** A row's prose — a tool's description under its mono name: body size and
+ *  leading, one ink down from the name it explains. A description is what
+ *  the model reads, so it is prose, not a caption (Karthik, 2026-08-29). */
+export const rowProseClass = "font-sans text-base-app text-ink-2 leading-body";
 /** Pane-list column headers (AssetHeaderRow): caption-size, medium, --ink-3 —
  *  sentence case, no shouting. Its only callers are the header row's four
  *  cells; not hoisted further until a second caller exists. */

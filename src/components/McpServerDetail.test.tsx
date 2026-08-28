@@ -1140,6 +1140,44 @@ describe("McpServerDetail", () => {
 });
 
 describe("McpServerDetail — the tool table and Context (M5)", () => {
+  it("sets a tool's description as prose — body role in the secondary ink — with its own line structure kept", () => {
+    // Karthik's ruling, 2026-08-29: a description is what the model reads,
+    // so it takes the body role (13 on 20) in --ink-2 under the mono name,
+    // and goes through the document parser so a server's bullets and
+    // backticks render instead of collapsing into one grey run.
+    render(
+      <McpServerDetail
+        server={{ ...base, registrations: [base.registrations[0]] }}
+        verified={{ "cc-user": probeAnswered({
+          capabilities: ["tools"],
+          tools: [
+            {
+              name: "sequentialthinking",
+              description:
+                "A detailed tool for problem-solving.\n\nWhen to use this tool:\n- Breaking down complex problems\n- Planning with room for revision\n\nParameters explained:\n- thought: the current step, set `total_thoughts` first",
+            },
+          ],
+        }) }}
+      />
+    );
+    const block = screen.getByTestId("tools-block");
+    // The bullets are list items, not dashes inside one run of text.
+    expect(within(block).getAllByRole("listitem").map((li) => li.textContent)).toEqual([
+      "Breaking down complex problems",
+      "Planning with room for revision",
+      "thought: the current step, set total_thoughts first",
+    ]);
+    expect(within(block).getByText("total_thoughts").tagName).toBe("CODE");
+    const prose = within(block).getByText("A detailed tool for problem-solving.").closest("[data-testid='tool-description']")!;
+    expect(prose.className).toContain("text-base-app");
+    expect(prose.className).toContain("text-ink-2");
+    expect(prose.className).toContain("leading-body");
+    expect(prose.className).not.toContain("text-ink-3");
+    expect(prose.className).not.toContain("text-small");
+    // The name keeps its mono role above the prose.
+    expect(within(block).getByText("sequentialthinking").className).toContain("font-mono");
+  });
+
   it("the tools list is name and description only — no header, no schema column, no per-tool bytes", () => {
     render(
       <McpServerDetail
@@ -1652,7 +1690,7 @@ describe("McpServerDetail — inspector type roles (Task 4)", () => {
     expect(root.className.split(" ")).not.toContain("text-base");
   });
 
-  it("tool rows: name in --ink-1 mono at 12, description in caption", () => {
+  it("tool rows: name in --ink-1 mono at 12, description as prose in --ink-2 at 13", () => {
     render(
       <McpServerDetail
         server={{ ...base, registrations: [base.registrations[0]] }}
@@ -1673,10 +1711,17 @@ describe("McpServerDetail — inspector type roles (Task 4)", () => {
     // it (together with the description assertions below) is what
     // actually pins this case to rowMonoClass rather than the old string.
     expect(name.className).toContain("tabular");
-    const desc = screen.getByText(/reads a file/i);
-    expect(desc.className).toContain("text-small");
-    expect(desc.className).toContain("text-ink-3");
-    expect(desc.className).toContain("leading-caption");
+    // The description was the caption role (12 --ink-3) until 2026-08-29;
+    // Karthik's ruling that day moved it to rowProseClass -- body size and
+    // leading, --ink-2 -- because a description is what the model reads.
+    // It is a block now (the parser's output), so the role sits on the
+    // container, not on the text node.
+    const desc = screen.getByText(/reads a file/i).closest("[data-testid='tool-description']")!;
+    expect(desc.className).toContain("text-base-app");
+    expect(desc.className).toContain("text-ink-2");
+    expect(desc.className).toContain("leading-body");
+    expect(desc.className).not.toContain("text-small");
+    expect(desc.className).not.toContain("text-ink-3");
   });
 });
 

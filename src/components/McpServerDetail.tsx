@@ -10,12 +10,15 @@ import Tooltip from "./Tooltip";
 import OriginValue from "./OriginValue";
 import UnderlineTabs from "./UnderlineTabs";
 import ListCard, { ListCardRow } from "./ListCard";
+import { Blocks } from "./MarkdownDoc";
+import { toBlocks } from "../utils/skillDocument";
 import { miniBtnClass, miniSetClass } from "./miniButton";
 import {
   sectionHeadClass,
   rowLabelClass,
   rowValueClass,
   rowMonoClass,
+  rowProseClass,
   captionClass,
   monoLabelClass,
 } from "./typeRoles";
@@ -402,8 +405,14 @@ function ProbedToolList({ result }: { result: VerifiedIdentity }) {
           <span className={`${rowMonoClass} min-w-0 truncate`}>
             {tool.name}
           </span>
+          {/* A description is a small document of its own -- paragraphs,
+              a server's bullet lists, backticked parameter names -- and
+              collapsing it into one span erased all of that at caption
+              size (Karthik, 2026-08-29). Same parser as the Content tab. */}
           {tool.description && (
-            <span className={captionClass}>{tool.description}</span>
+            <div data-testid="tool-description" className={`${rowProseClass} [&>:last-child]:mb-0`}>
+              <Blocks blocks={toBlocks(tool.description)} />
+            </div>
           )}
         </div>
       ))}

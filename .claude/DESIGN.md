@@ -142,7 +142,7 @@ rulings recorded in `src/__tests__/type-roles.test.ts:9`, 2026-08-27):
 
 | Size | Role | Ink | Utility | Source |
 |---|---|---|---|---|
-| 13 | body — labels, values, prose, list names, tabs | `--ink-1` for values and prose, `--ink-3` for labels | `text-base-app` | `rowLabelClass`, `rowValueClass`, `sectionHeadClass`, `groupLabelClass` (`typeRoles.ts:7,9-10,14`) |
+| 13 | body — labels, values, prose, list names, tabs | `--ink-1` for values and prose, `--ink-3` for labels, `--ink-2` for a row's prose under its mono name | `text-base-app` | `rowLabelClass`, `rowValueClass`, `sectionHeadClass`, `groupLabelClass`, `rowProseClass` (`typeRoles.ts:7,9-10,14,20`) |
 | 12 | secondary — captions, mono values, paths, chips, counts, foot and stamp lines | `--ink-1` for `rowMonoClass` values, `--ink-2` / `--ink-3` for captions and grey mono labels | `text-small` | `captionClass`, `rowMonoClass`, `monoLabelClass`, `columnHeadClass` (`typeRoles.ts:15-16,20,24`) |
 | 11 | filled badges and chips | `--ink-3` | `text-micro` | e.g. the inspector list's scope pill (`Flyout.tsx:919`) |
 | 16 | titles and top content headings | `--ink-1` | `text-lg-app` | the inspector's title `h2` (`Flyout.tsx:705`), a document's `#` and `##` (`MarkdownDoc.tsx:89`); `###` and deeper step down to `sectionHeadClass` (`:93`) |
@@ -1040,12 +1040,18 @@ eyebrows.
   (`ToolCost`, `probe.rs:112-121`, no schema field at all). The eyebrow reads
   `Context per request`, not the skill's plain `Context`, because this cost
   recurs on every request rather than once on open.
-- **The tool table** — `Tool` / `Description` / `Schema` header row
-  (`:341-345`), then one row per tool: its name, a description-bytes figure
-  or an em dash when `cost` did not travel with this probe, a `Schema` column
-  that is always an em dash because schema bytes are never measured, and the
-  description text itself beneath when the server sent one (`ProbedToolList`,
-  `:322-368`).
+- **The tool list** — no header, no schema column, no per-tool figure:
+  one `ListCard` row per tool holding its name in `rowMonoClass` and, when
+  the server sent one, its description as prose beneath (`ProbedToolList`,
+  `:387-420`). The description is `rowProseClass` — body size and leading
+  in `--ink-2`, one ink down from the name it explains — and goes through
+  the Content tab's parser (`toBlocks` → `Blocks`, `MarkdownDoc.tsx:81`), so a
+  server's paragraphs, bullet lists and backticked parameter names render
+  rather than collapsing into one run. Until 2026-08-29 it was the caption
+  role in a single `span`, which set a 2.7 kB description as thirty grey
+  lines at 12px; Karthik's ruling that day, from a three-option study on
+  descriptions in the store. The section's accounting lives in the
+  Context-per-request ledger above, not in the rows.
 
 **`McpServerDetail` (`McpServerDetail.tsx`), Details tab.**
 - **Identity & capabilities** is a `ListCard` of up to six rows: Server and
