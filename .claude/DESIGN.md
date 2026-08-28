@@ -1281,12 +1281,13 @@ utility is layered under `@layer utilities` and cannot outrank the unlayered
 global ring (CSS Cascade 5), so the input's `className` carries no focus
 utility at all (`:145`); a comment at the input row explains why
 (`:134-138`; see §3 "Focus" for the same exception).
-It opens from the rail's Search button, placed beneath Needs review because
-the palette searches the whole machine rather than one screen
-(`IconRail.tsx:117-124`) — the button takes `railBtnClass` like every other
-rail control but never `aria-current`, since it is an action, not a place
-(`:14`, `:121`) — or from ⌘K, the second branch of the shell's keydown effect
-(`App.tsx:562-565`). Each row leads with a glyph rather than sitting under a
+It opens from the rail's Search button, placed beneath the mark and above the
+places because the palette is an action over the whole machine rather than
+one screen (Karthik's ruling, 2026-08-28, superseding the earlier placement
+beneath Needs review) (`IconRail.tsx:66-74`) — the button takes
+`railBtnClass` like every other rail control but never `aria-current`, since
+it is an action, not a place (`:14`, `:71`) — or from ⌘K, the second branch
+of the shell's keydown effect (`App.tsx:562-565`). Each row leads with a glyph rather than sitting under a
 group heading: `KindGlyph` maps the five `SearchKind`s to their icons and
 rows stay in the backend's rank order throughout (`SearchPalette.tsx:131`,
 `shouldFilter={false}`). Each row grew from `px-2.5 py-1.5` to `px-3.5 py-2.5`

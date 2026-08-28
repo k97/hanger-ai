@@ -280,13 +280,11 @@ describe("Icon rail", () => {
     unmount();
   });
 
-  it("carries a Search button directly beneath Needs review that opens the palette", async () => {
+  it("carries a Search button beneath the mark, above the places, that opens the palette", async () => {
     const { unmount } = render(<App />);
     const rail = await screen.findByTestId("icon-rail");
     const buttons = Array.from(rail.querySelectorAll("button")).map((b) => b.getAttribute("aria-label"));
-    const review = buttons.findIndex((l) => l?.startsWith("Needs review"));
-    expect(review).toBeGreaterThan(-1);
-    expect(buttons[review + 1]).toBe("Search");
+    expect(buttons.slice(0, 3)).toEqual(["Hanger", "Search", "My machine"]);
     // Scoped to the rail: the cap's own field (Task 9 removes it) carries
     // the same aria-label until then, so an unscoped query is ambiguous.
     const search = within(rail).getByLabelText("Search");

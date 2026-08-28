@@ -63,6 +63,18 @@ export default function IconRail({
 
       <div className="w-6 h-px bg-line-2 opacity-45 my-[9px]" />
 
+      {/* Beneath the mark and above the places (Karthik's ruling,
+          2026-08-28, superseding 2026-08-27): the palette is an action over
+          the whole machine, so it sits above the places rather than among
+          them — never aria-current. */}
+      <Tooltip label="Search  ⌘K">
+        <button aria-label="Search" onClick={onOpenSearch} className={railBtnClass}>
+          <MagnifyingGlassIcon size={16} aria-hidden="true" />
+        </button>
+      </Tooltip>
+
+      <div className="w-6 h-px bg-line-2 opacity-45 my-[9px]" />
+
       <Tooltip label="My machine">
         <button
           aria-label="My machine"
@@ -111,15 +123,6 @@ export default function IconRail({
             </span>
           )}
           <ExclamationTriangleIcon size={16} aria-hidden="true" />
-        </button>
-      </Tooltip>
-
-      {/* Beneath Needs review (Karthik's ruling, 2026-08-27): the palette
-          searches the whole machine, so it sits with the machine-wide
-          entries rather than in any one screen's cap. */}
-      <Tooltip label="Search  ⌘K">
-        <button aria-label="Search" onClick={onOpenSearch} className={railBtnClass}>
-          <MagnifyingGlassIcon size={16} aria-hidden="true" />
         </button>
       </Tooltip>
 
