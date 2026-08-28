@@ -182,3 +182,24 @@ fn a_relocated_claude_dir_moves_its_mcp_sources() {
          measured 2026-08-28, Claude Code substitutes rather than adding a search root"
     );
 }
+
+// ─── Task 4: the no-op guarantee, end to end ───────────────────────────────
+
+#[test]
+fn with_no_vars_set_discovery_is_byte_identical_to_the_fixture_baseline() {
+    // The no-op guarantee, end to end rather than at engine_base alone.
+    // The fixture home is the same one mcp_discovery_tests asserts 16
+    // registrations against; if this plan changed resolution for an
+    // unrelocated machine, this count moves.
+    let (_l, _g) = guard();
+    let r = tauri_app_lib::mcp::discover::discover_machine_at(
+        Path::new("tests/fixtures/mcp_home"),
+        Path::new("tests/fixtures/no_such_system_root"),
+    );
+    assert_eq!(
+        r.registrations.len(),
+        16,
+        "with no env var set, discovery must be unchanged — got {:?}",
+        r.registrations.iter().map(|x| &x.server.name).collect::<Vec<_>>()
+    );
+}
