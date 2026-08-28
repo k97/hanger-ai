@@ -417,3 +417,49 @@ fn an_agreeing_machine_has_no_conflicting_servers() {
     ]);
     assert_eq!(engine_summary(&discovered, |_| None).conflicting_server_count, 0);
 }
+
+#[test]
+fn host_count_is_the_number_of_rows() {
+    let d = discovery(vec![
+        stdio_reg("a", "claude-code", "npx", &["a"]),
+        stdio_reg("b", "codex", "npx", &["b"]),
+        stdio_reg("c", "codex", "npx", &["c"]),
+    ]);
+    let s = engine_summary(&d, |_| None);
+    assert_eq!(s.rows.len(), 2);
+    assert_eq!(s.host_count, 2);
+}
+
+#[test]
+fn tools_known_total_sums_the_rows_that_have_an_answer() {
+    // Claude Code: two probed launches, 3 + 4. Codex: one unprobed launch.
+    // The total is 7, not 0-for-Codex folded in and not None.
+    let d = discovery(vec![
+        stdio_reg("a", "claude-code", "npx", &["a"]),
+        stdio_reg("b", "claude-code", "npx", &["b"]),
+        stdio_reg("c", "codex", "npx", &["c"]),
+    ]);
+    let cache = probes(&[(("npx", &["a"]), 3), (("npx", &["b"]), 4)]);
+    let s = engine_summary(&d, |k| cache.get(k).copied());
+    assert_eq!(s.tools_known_total, Some(7));
+}
+
+#[test]
+fn tools_known_total_is_none_when_nothing_has_been_asked() {
+    let d = discovery(vec![stdio_reg("a", "claude-code", "npx", &["a"])]);
+    let s = engine_summary(&d, |_| None);
+    assert_eq!(s.tools_known_total, None);
+}
+
+#[test]
+fn a_launch_two_hosts_share_counts_once_per_host_in_the_total() {
+    // The per-row rule (`a_launch_shared_by_several_engines_counts_once_per_engine`)
+    // summed: 5 for Claude Code plus 5 for Codex is 10.
+    let d = discovery(vec![
+        stdio_reg("shared", "claude-code", "npx", &["s"]),
+        stdio_reg("shared", "codex", "npx", &["s"]),
+    ]);
+    let cache = probes(&[(("npx", &["s"]), 5)]);
+    let s = engine_summary(&d, |k| cache.get(k).copied());
+    assert_eq!(s.tools_known_total, Some(10));
+}

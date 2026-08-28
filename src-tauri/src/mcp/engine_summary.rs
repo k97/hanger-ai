@@ -94,6 +94,15 @@ pub struct McpEngineSummaryRow {
 #[derive(Debug, Clone, Default, PartialEq, serde::Serialize)]
 pub struct McpEngineSummary {
     pub rows: Vec<McpEngineSummaryRow>,
+    /// `rows.len()`, as a field: the strip's subtitle prints it, and a
+    /// figure on screen is a backend field, never a `.length`
+    /// (`invariants.md`).
+    pub host_count: usize,
+    /// Sum of `tools_known` over the rows that have one; `None` when no
+    /// row has one. A launch two hosts share counts once per host — the
+    /// per-row rule above, summed, because each host really does describe
+    /// it to the model on its own requests.
+    pub tools_known_total: Option<usize>,
     /// `answered_server_count + unasked_server_count + unaskable_server_count`,
     /// computed here rather than left for a caller to add up. Three backend
     /// fields summed on the frontend would dodge `no-frontend-counting`'s
@@ -158,7 +167,7 @@ where
     let mut unasked_server_count = 0usize;
     let mut unaskable_server_count = 0usize;
 
-    let rows = order
+    let rows: Vec<McpEngineSummaryRow> = order
         .into_iter()
         .map(|host_id| {
             let regs = &by_engine[host_id];
@@ -235,8 +244,16 @@ where
         })
         .collect();
 
+    let host_count = rows.len();
+    let tools_known_total = rows
+        .iter()
+        .filter_map(|r| r.tools_known)
+        .fold(None, |acc, n| Some(acc.unwrap_or(0) + n));
+
     McpEngineSummary {
         rows,
+        host_count,
+        tools_known_total,
         total_server_count,
         answered_server_count,
         unasked_server_count,
