@@ -759,14 +759,13 @@ identity lives in the cap and restating it a second time would be "the
 `Flyout.tsx:662-668`). For a plain asset selection the eyebrow row now has
 nothing left to say at all: `eyebrowShown` is `false` whenever nothing but a
 bare `targetAsset` would have earned it (`Flyout.tsx:607-609`), so the row
-simply does not render — and the step it would have opened up above the
+simply does not render — and the step it would have opened up beneath the
 title goes with it, because that step is the header column's own `gap-1`
-(`:684`) rather than a margin the title row carries and has to switch off.
-The eyebrow still renders
-for what is not a plain asset selection — the link flow's own "Back to
-‹name›" nav (`:679-687`), a bubble scope with no asset drilled into, or the
-empty-MCP category label — plus, independently, a layered-rules flag that can
-sit beside any of them.
+(`:696`) rather than a margin either row carries and has to switch off. The
+eyebrow still renders for what is not a plain asset selection — the link
+flow's own "Back to ‹name›" nav (`:679-687`), a bubble scope with no asset
+drilled into, or the empty-MCP category label — plus, independently, a
+layered-rules flag that can sit beside any of them.
 
 Below that, the header is exactly: the cap's identity row — kind glyph, a
 `KIND · PLACE` eyebrow, a finding chip (`InspectorCap.tsx:169-212`;
@@ -783,14 +782,15 @@ falls between the title and the tabs, not between the cap and the title,
 where nothing separates them at all.
 
 **Every band in that stack pads symmetrically, on one step.** The header is
-`py-2` and the tab labels are `py-2` (`Flyout.tsx:684`,
-`UnderlineTabs.tsx:60`), so no band reaches across into another to set its
+`py-2` and the tab labels are `py-2` (`Flyout.tsx:696`,
+`UnderlineTabs.tsx:62`), so no band reaches across into another to set its
 neighbour's gap: the space under the title is that header's 8 plus the tab
 row's own 8, and the space above it is the cap's centring slack (a 16px
 glyph in an `h-10` row) plus the same 8. Measured on the running build at
-1173×808, that lands 28px of ink-to-ink air above the title and 24px below
-— even enough to read as one rhythm, and closer below so the title belongs
-to the tabs beneath it rather than floating between two bands. It read
+1173×808 — and re-measured there unchanged after `bcc98a8` moved the
+eyebrow below the title — that lands 28px of ink-to-ink air above the title
+and 24px below: even enough to read as one rhythm, and closer below so the
+title belongs to the tabs beneath it rather than floating between two bands. It read
 `pt-2 pb-4` with the labels at `pt-2 pb-2.5` until 2026-08-28, when Karthik
 called the stack inconsistent; the values are a rule now rather than four
 independently chosen numbers. The content card below still insets 12px
