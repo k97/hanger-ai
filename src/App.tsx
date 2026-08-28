@@ -48,6 +48,7 @@ import {
   PanelRightIcon
 } from "./components/icons";
 import IconRail from "./components/IconRail";
+import SearchPalette, { type SearchHit } from "./components/SearchPalette";
 import Tooltip from "./components/Tooltip";
 import Sidebar from "./components/Sidebar";
 import ProfilePane, { ConfigProblemRow } from "./components/ProfilePane";
@@ -416,6 +417,7 @@ export default function App() {
   }, [inspectorExpanded, measureRoom]);
   // Toolbar filter — narrows the visible rows of the active pane by name.
   const [filterText, setFilterText] = useState<string>("");
+  const [searchOpen, setSearchOpen] = useState(false);
   // So the clear control can hand focus back once it empties the field.
   const filterInputRef = useRef<HTMLInputElement>(null);
   // Discovery's category facet — owned here because DiscoverySidebar sets it
@@ -561,6 +563,10 @@ export default function App() {
       if ((e.metaKey || e.ctrlKey) && e.altKey && e.key.toLowerCase() === "s") {
         e.preventDefault();
         toggleSidebar();
+      }
+      if ((e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setSearchOpen(true);
       }
     };
     window.addEventListener("keydown", handleKeyDown);
@@ -1028,7 +1034,13 @@ export default function App() {
   }, [openMcpAssetKey]);
 
   // Maps individual asset row clicks to detail Flyout opening
-  const handleSelectAsset = (asset: { id?: string; name: string; category: "Skills" | "Agents" | "Tools" | "Rules" | "Subagents"; path: string }) => {
+  const handleSelectAsset = (
+    asset: { id?: string; name: string; category: "Skills" | "Agents" | "Tools" | "Rules" | "Subagents"; path: string },
+    // The screen the selection belongs to. A pick from the search palette
+    // switches screens in the same tick, so the state read here would still
+    // be the old one; the palette passes the target explicitly.
+    screen: string = selectedSidebarItem
+  ) => {
     // Tapping a row means "inspect this" — open the panel straight away
     // rather than requiring the toolbar toggle first.
     if (!inspectorOpen) {
@@ -1057,13 +1069,13 @@ export default function App() {
       setSelectedAsset(asset);
     }
 
-    if (selectedSidebarItem.startsWith("/")) {
+    if (screen.startsWith("/")) {
       setSelectedBubble({
         type: "project",
-        id: selectedSidebarItem,
-        name: selectedSidebarItem.split("/").pop() || selectedSidebarItem,
+        id: screen,
+        name: screen.split("/").pop() || screen,
       });
-    } else if (selectedSidebarItem === "profile") {
+    } else if (screen === "profile") {
       const agentId = fullAsset?.scope?.Global?.agent || fullAsset?.scope?.Project?.agent || (fullAsset as any)?.owning_agent;
       
       if (asset.category === "Agents") {
@@ -1092,6 +1104,23 @@ export default function App() {
       setSelectedBubble(null);
     }
     setSelectedSidebarItem(item);
+  };
+
+  /** A palette hit: go where it lives, then open it, exactly as a row
+   *  click would. A tool hit opens its server; the detail lists the tools. */
+  const openSearchHit = (hit: SearchHit) => {
+    setSearchOpen(false);
+    const target = hit.place === "global" ? "profile" : hit.place;
+    if (target !== selectedSidebarItem) {
+      handleSelectSidebarItem(target);
+      invoke("set_preference", { key: "selected_sidebar_item", value: target }).catch(() => {});
+    }
+    if (hit.kind === "server" || hit.kind === "mcp_tool") {
+      handleSelectAsset({ id: hit.id, name: hit.server ?? hit.name, category: "Tools", path: hit.path }, target);
+      return;
+    }
+    const category = hit.kind === "skill" ? "Skills" : hit.kind === "rule" ? "Rules" : "Subagents";
+    handleSelectAsset({ name: hit.name, category, path: hit.path }, target);
   };
 
   /** Home, by ruling (Karthik, 2026-08-15): the hanger mark, the rail's
@@ -1466,6 +1495,7 @@ export default function App() {
             handleSelectSidebarItem("review");
             invoke("set_preference", { key: "selected_sidebar_item", value: "review" }).catch(() => {});
           }}
+          onOpenSearch={() => setSearchOpen(true)}
           onSelectDesign={
             designSystemAvailable
               ? () => {
@@ -1983,6 +2013,13 @@ export default function App() {
           </div>
         </aside>
       )}
+
+      <SearchPalette
+        open={searchOpen}
+        scannedAt={lastScanAt}
+        onClose={() => setSearchOpen(false)}
+        onPick={openSearchHit}
+      />
 
       {/* Settings Modal Overlay */}
       {showSettingsModal && (
