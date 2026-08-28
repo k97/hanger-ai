@@ -275,7 +275,7 @@ describe("Asset detail — the inspector's document screen", () => {
       />
     );
 
-    const formatted = await screen.findByTestId("skill-body");
+    const formatted = await screen.findByTestId("asset-formatted");
     expect(formatted.textContent).toContain('"mcpServers"');
     // Re-indented, not the single line it arrived as.
     expect(formatted.textContent!.split("\n").length).toBeGreaterThan(3);
@@ -646,13 +646,10 @@ describe("Asset detail — the inspector's document screen", () => {
     expect(head.className).not.toContain("tracking-[.06em]");
   });
 
-  // The "first" pre in source order (the pretty/formatted branch) is the one
-  // this task's brief names, but that branch is unreachable through a Skills
-  // fixture: `documentKindFor` gives Skills/Rules/Subagents kind "markdown",
-  // and `pretty` is only ever computed for kind "json" (AssetDetail.tsx's
-  // `text !== null && kind === "json"` guard) — so a skill's own body always
-  // reaches `MarkdownDoc`, never this `<pre>`. A Tools/JSON asset with text
-  // that parses is the only fixture that renders it, matching the sibling
+  // `documentKindFor` gives Skills/Rules/Subagents kind "markdown", and
+  // `pretty` (this test's target) is only ever computed for kind "json"
+  // (AssetDetail.tsx's `text !== null && kind === "json"` guard) — so this
+  // branch is a Tools asset's own body, never a skill's. Matches the sibling
   // test "formats a tool's config instead of reading braces as prose".
   it("renders the formatted body at 12px mono in --ink-1 with code leading", async () => {
     bodyResult = { ok: true, text: '{"mcpServers":{"node":{"command":"node run"}}}' };
@@ -662,10 +659,28 @@ describe("Asset detail — the inspector's document screen", () => {
         inventory={{ ...inventory, skills: [] }}
       />
     );
-    const pre = await screen.findByTestId("skill-body");
+    const pre = await screen.findByTestId("asset-formatted");
     expect(pre.className).toContain("text-small");
     expect(pre.className).toContain("text-ink-1");
     expect(pre.className).toContain("leading-code");
     expect(pre.className).not.toContain("leading-[1.6]");
+  });
+
+  // The complement of the test above: a skill's body always reaches
+  // `MarkdownDoc` in preview (`document` is never null for markdown kind —
+  // `parseSkillDocument` hands back the whole text as an empty-frontmatter
+  // document rather than failing), so the only `<pre>` a Skills asset ever
+  // renders is this one, reached by "View source" — the same click the
+  // neighbouring "shows the raw file when asked for Source" test drives.
+  it("renders the Skills body at 12px mono in --ink-1 with code leading, in Source view", async () => {
+    render(<AssetDetail asset={asset} inventory={inventory} />);
+    fireEvent.click(await screen.findByRole("button", { name: "View source" }));
+    const pre = await screen.findByTestId("asset-source");
+    expect(pre.className).toContain("font-mono");
+    expect(pre.className).toContain("text-small");
+    expect(pre.className).toContain("text-ink-1");
+    expect(pre.className).toContain("leading-code");
+    expect(pre.className).not.toContain("leading-[1.6]");
+    expect(pre.className).not.toContain("text-micro");
   });
 });

@@ -495,7 +495,7 @@ export default function AssetDetail({ asset, inventory, onDocumentPath, annotati
                     <MarkdownDoc blocks={toBlocks(document.body)} />
                   ) : view === "preview" && pretty ? (
                     <pre
-                      data-testid="skill-body"
+                      data-testid="asset-formatted"
                       className="m-0 px-[18px] pt-3 pb-[18px] overflow-x-auto overflow-y-hidden font-mono text-small text-ink-1 leading-code whitespace-pre"
                     >
                       <code>{pretty}</code>
