@@ -12,8 +12,6 @@ import { Inventory } from "../App";
 import AssetDetail from "./AssetDetail";
 import type { AssetAnnotationView } from "./AssetRow";
 import McpServerDetail from "./McpServerDetail";
-import McpEngineSummary from "./McpEngineSummary";
-import type { McpEngineSummaryData } from "../types/mcpEngineSummary";
 import BrandIcon from "./BrandIcon";
 import { buildMcpServerView, type ProcessMatch } from "../utils/mcpServerView";
 import { parseProbe, type ProbeView, type ProbeWire } from "../utils/probeView";
@@ -74,16 +72,6 @@ interface FlyoutProps {
    *  breadcrumb; the empty state reuses it rather than recomputing or
    *  hardcoding "Global". Only read when activeCategory is "Tools". */
   paneScope?: string;
-  /** Whether the pane showing this inspector is a repository, not the
-   *  global store — App.tsx's own `selectedSidebarItem.startsWith("/") ||
-   *  .startsWith("~")` check, the same one that already picks
-   *  `repoCategory` vs `profileCategory` for `activeCategory`. Fix round 1,
-   *  item 5: `McpEngineSummary` is a machine-wide read
-   *  (`discover_machine`, not scoped to any one repo's `.mcp.json`), so it
-   *  renders only when this is `false` — a repo pane keeps the prior empty
-   *  body instead of a machine-wide table sitting under that repo's own
-   *  heading. */
-  isRepoScope?: boolean;
   /** The cap's Open in editor / Copy path / Reveal act on the document
    *  AssetDetail actually read, not the folder its asset names (a skill's
    *  own path is the folder holding it). App.tsx owns the cap, so this
@@ -116,7 +104,6 @@ export default function Flyout({
   annotation,
   activeCategory,
   paneScope,
-  isRepoScope,
   onAssetDocumentPath,
   screen
 }: FlyoutProps) {
@@ -600,17 +587,6 @@ export default function Flyout({
     linking || (!targetAsset && (selectedBubble || showEmptyMcpEyebrow)) || selectedProjectScan?.layered
   );
 
-  /* The chrome (eyebrow) is the same for a repo pane and the global one --
-     it already names whichever scope it is via `paneScope`. The BODY is
-     not: `McpEngineSummary` is a machine-wide read (`discover_machine`
-     walks every host's config, not one repo's `.mcp.json`), so a repo pane
-     showing it would sit a machine-wide table under that repo's own
-     heading, naming servers the repo doesn't declare and omitting the ones
-     it does. Fix round 1, item 5 -- the reviewer found this live. The repo
-     case keeps the prior generic empty body instead; a repo-scoped
-     equivalent is future work, not this round. */
-  const showEngineSummary = showEmptyMcpEyebrow && !isRepoScope;
-
   /* Whether a tab row (`UnderlineTabs`, via `AssetDetail` or
      `McpServerDetail`) renders beneath the header wrapper below. The
      wrapper's own bottom --line border exists only to separate the header
@@ -626,34 +602,6 @@ export default function Flyout({
      one). */
   const tabsFollow =
     !linking && !!targetAsset && documentKindFor(targetAsset.category) !== "none";
-
-  /* McpEngineSummary's own data, fetched here rather than threaded down
-     from App -- the same division of labour as `mcp_cached_probe` above:
-     this panel's own local questions get their own local fetch. `null`
-     until the answer arrives, which McpEngineSummary's caller (below) reads
-     as "say nothing yet" rather than an empty table -- pending is not a
-     finding (ui-copy.md). Re-asked every time the empty MCP state comes
-     into view, the same "the panel opened" trigger `onAutoProbe` already
-     uses, rather than once per mount: this state does not unmount between
-     selections, so a fetch gated on mount alone would go stale the moment
-     a scan or a probe changed what the backend would now answer. Gated on
-     `showEngineSummary`, not just `showEmptyMcpEyebrow`: a repo pane never
-     shows this body, so it has no reason to ask the backend for it either. */
-  const [mcpEngineSummary, setMcpEngineSummary] = useState<McpEngineSummaryData | null>(null);
-  useEffect(() => {
-    if (!showEngineSummary) return;
-    let cancelled = false;
-    invoke<McpEngineSummaryData>("get_mcp_engine_summary")
-      .then((r) => {
-        if (!cancelled) setMcpEngineSummary(r);
-      })
-      .catch(() => {
-        if (!cancelled) setMcpEngineSummary(null);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [showEngineSummary]);
 
   return (
     // Column chrome (width, resize, the cap and its close) lives in App.tsx:
@@ -929,15 +877,6 @@ export default function Flyout({
             </div>
           )}
         </div>
-      ) : showEngineSummary ? (
-        /* The Tools filter is active, nothing is selected, and this is the
-           global pane -- a repo pane falls through to the generic empty
-           body below instead (item 5). `null` while the fetch is in flight
-           (or found genuinely nothing to group) -- McpEngineSummary itself
-           is the only thing that decides whether it has something to show;
-           a table this component built around a still-loading answer would
-           be the pending-as-finding mistake ui-copy.md rules out. */
-        mcpEngineSummary && <McpEngineSummary summary={mcpEngineSummary} />
       ) : (
         /* Empty Inspector State when no asset or bubble is selected */
         <div className="flex-1 p-6 flex flex-col items-center justify-center text-center text-ink-3 font-sans">

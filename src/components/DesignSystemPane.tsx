@@ -18,12 +18,13 @@ import ViewControl, { type ServerGrouping, type ServerSort } from "./ViewControl
 import OverflowMenu, { menuItemClass, MenuSeparator } from "./OverflowMenu";
 import InfoPopover from "./InfoPopover";
 import FindingChip from "./FindingChip";
+import FindingPopover from "./FindingPopover";
 import InspectorCap from "./InspectorCap";
 import ListCard, { ListCardRow } from "./ListCard";
 import ReachCard from "./ReachCard";
 import OriginValue from "./OriginValue";
 import ScanStamp from "./ScanStamp";
-import McpEngineSummary from "./McpEngineSummary";
+import HeroBand from "./HeroBand";
 import { SearchPalettePanel } from "./SearchPalette";
 import { sectionHeadClass } from "./typeRoles";
 import { miniBtnClass, miniBtnFillClass, miniBtnTonalClass, miniSetClass } from "./miniButton";
@@ -61,7 +62,7 @@ import {
   SAMPLE_COUNTS,
   SAMPLE_FINDINGS,
   SAMPLE_FINDING_LINES,
-  SAMPLE_MCP_ENGINE_SUMMARY,
+  SAMPLE_MCP_ENGINE_SUMMARY_ROWS,
   SAMPLE_ORIGIN,
   SAMPLE_ORIGIN_BLOCKED,
   SAMPLE_REACH,
@@ -317,10 +318,12 @@ export default function DesignSystemPane({ section }: DesignSystemPaneProps) {
   const [tab, setTab] = useState(SAMPLE_TABS[0].id);
   const [grouping, setGrouping] = useState<ServerGrouping>("server");
   const [sort, setSort] = useState<ServerSort>("attention");
+  const [heroOpen, setHeroOpen] = useState(true);
   // The surfaces a finding popover clamps against, standing in for the
   // inspector column and a placecard.
   const capHostRef = useRef<HTMLDivElement>(null);
   const chipHostRef = useRef<HTMLDivElement>(null);
+  const popoverHostRef = useRef<HTMLDivElement>(null);
 
   const handleSort = (field: SortField) => {
     if (field === sortField) setSortDirection((d) => (d === "asc" ? "desc" : "asc"));
@@ -739,6 +742,31 @@ export default function DesignSystemPane({ section }: DesignSystemPaneProps) {
               />
             </div>
           </Specimen>
+
+          <Specimen name="FindingPopover" file="FindingPopover.tsx" note="the panel FindingChip and the strip's review pill both open; a warning line with a detail, a danger line without" unclipped>
+            <div ref={popoverHostRef} className="relative w-[300px] h-[190px]">
+              <FindingPopover
+                open
+                onClose={() => {}}
+                lines={[
+                  { severity: "warning", text: SAMPLE_REVIEW_ISSUE.problem, detail: SAMPLE_REVIEW_ISSUE.name },
+                  { severity: "danger", text: SAMPLE_FINDING_LINES[1] },
+                ]}
+                align="left"
+                elevated
+                clampTo={popoverHostRef}
+                anchorRef={popoverHostRef}
+                ariaLabel="Sample findings"
+                actions={
+                  <div className={miniSetClass}>
+                    <button type="button" onClick={() => {}} className={miniBtnClass}>
+                      Needs review →
+                    </button>
+                  </div>
+                }
+              />
+            </div>
+          </Specimen>
         </Section>
 
         <Section
@@ -746,7 +774,7 @@ export default function DesignSystemPane({ section }: DesignSystemPaneProps) {
           label="Composites"
           lede="Imported, not imitated. Each specimen is the component the panes render, fed sample props; captions name the file."
         >
-          <Specimen name="SummaryStrip" file="SummaryStrip.tsx" note="the strip with its GelMeter; legend toggles filter">
+          <Specimen name="SummaryStrip" file="SummaryStrip.tsx" note="the strip with its GelMeter; legend toggles filter; Needs review opens the popover">
             <SummaryStrip
               total={SAMPLE_COUNTS.total}
               subtitle="assets in the global store · 6 engines"
@@ -756,6 +784,20 @@ export default function DesignSystemPane({ section }: DesignSystemPaneProps) {
               activeStateFilter={stateFilter}
               onFilterState={setStateFilter}
               onRescan={() => {}}
+              review={{
+                count: 2,
+                lines: [
+                  { severity: "warning", text: SAMPLE_REVIEW_ISSUE.problem, detail: SAMPLE_REVIEW_ISSUE.name },
+                  { severity: "danger", text: SAMPLE_FINDING_LINES[1] },
+                ],
+                actions: (
+                  <div className={miniSetClass}>
+                    <button type="button" onClick={() => {}} className={miniBtnClass}>
+                      Show in list →
+                    </button>
+                  </div>
+                ),
+              }}
             />
           </Specimen>
 
@@ -954,9 +996,22 @@ export default function DesignSystemPane({ section }: DesignSystemPaneProps) {
             </div>
           </Specimen>
 
-          <Specimen name="McpEngineSummary" file="McpEngineSummary.tsx" note="the Tools filter's empty-selection body; the note says how much is known">
-            <div className="max-w-[384px] border border-line rounded-inner">
-              <McpEngineSummary summary={SAMPLE_MCP_ENGINE_SUMMARY} />
+          <Specimen name="HeroBand" file="HeroBand.tsx" note="the hero's foldable band, by host on the Global MCP hero; press the row to fold it">
+            <div className="max-w-[384px] p-3 border border-line rounded-inner">
+              <HeroBand
+                label="By host"
+                open={heroOpen}
+                onToggle={() => setHeroOpen((v) => !v)}
+                note="A tool counts once per host that carries it."
+                rows={SAMPLE_MCP_ENGINE_SUMMARY_ROWS.map((r) => ({
+                  key: r.engine_id,
+                  engineKey: r.engine_id,
+                  engineName: r.engine_name,
+                  secondary: r.server_count === 1 ? "1 server" : `${r.server_count} servers`,
+                  value: r.tools_known,
+                  word: r.tools_known === null ? "can't be asked" : r.tools_known === 1 ? "tool" : "tools",
+                }))}
+              />
             </div>
           </Specimen>
 

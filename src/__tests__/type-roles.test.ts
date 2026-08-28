@@ -48,7 +48,6 @@ const ALLOW: { file: string; lineText: string; reason: string }[] = [
   { file: "src/components/LinkPanel.tsx", lineText: 'const helpClass = "text-micro text-ink-3 mt-2.5 leading-[1.6]"', reason: "pre-dates the roles; LinkPanel.tsx pass pending" },
   { file: "src/components/LinkPanel.tsx", lineText: '<p className="text-small text-ink-3 leading-[1.6]">', reason: "pre-dates the roles; LinkPanel.tsx pass pending" },
   { file: "src/components/LinkPanel.tsx", lineText: "mx-[12px] mt-3 flex items-start gap-2 text-state-warning text-small leading-[1.6]", reason: "pre-dates the roles; LinkPanel.tsx pass pending" },
-  { file: "src/components/McpEngineSummary.tsx", lineText: "text-micro text-ink-3 leading-[1.45] mt-3", reason: "pre-dates the roles; McpEngineSummary.tsx pass pending" },
   { file: "src/components/RepoPane.tsx", lineText: '<p className="text-small text-ink-2 leading-[1.65]">', reason: "pre-dates the roles; RepoPane.tsx pass pending" },
   { file: "src/components/RepoPane.tsx", lineText: '<p className="text-micro text-ink-3 leading-[1.6]">', reason: "pre-dates the roles; RepoPane.tsx pass pending" },
   // The 22 surviving `uppercase` sites the case check now reaches outside

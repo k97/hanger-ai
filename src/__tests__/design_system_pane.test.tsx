@@ -35,12 +35,13 @@ const INVENTORY = [
   "InfoPopover",
   "Mini button",
   "FindingChip",
+  "FindingPopover",
   "InspectorCap",
   "ListCard · ListCardRow",
   "ReachCard",
   "OriginValue",
   "ScanStamp",
-  "McpEngineSummary",
+  "HeroBand",
   "SearchPalette",
 ];
 

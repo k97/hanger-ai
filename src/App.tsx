@@ -1448,11 +1448,9 @@ export default function App() {
      ProfilePane and RepoPane are never shown together, so there is no case
      where the wrong one's stale state could leak through. */
   const inspectorScope = crumbSegments[crumbSegments.length - 1];
-  /* The same test that already picks `repoCategory` vs `profileCategory`
-     below, named and reused rather than inlined a third time: Flyout's
-     McpEngineSummary is a machine-wide read (fix round 1, item 5) and must
-     not render under a repository's own heading, so it needs to know which
-     pane it is in on top of the category filter it already gets. */
+  /* Whether the pane showing the inspector is a repository, not the global
+     store — picks `repoCategory` vs `profileCategory` for the inspector's
+     own active-category filter below. */
   const inspectorIsRepoScope = selectedSidebarItem.startsWith("/") || selectedSidebarItem.startsWith("~");
   const inspectorActiveCategory = inspectorIsRepoScope ? repoCategory : profileCategory;
 
@@ -1988,7 +1986,6 @@ export default function App() {
                 onRefresh={triggerScan}
                 activeCategory={inspectorActiveCategory}
                 paneScope={inspectorScope}
-                isRepoScope={inspectorIsRepoScope}
                 onAssetDocumentPath={setInspectorDocumentPath}
                 /* The inspector's tab is remembered between assets and
                    forgotten between screens; this is the screen. */
