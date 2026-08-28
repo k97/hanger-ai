@@ -250,16 +250,26 @@ describe("Review inspector — provenance", () => {
       <ReviewInspector issue={broken} position={1} outOf={4} onSkip={vi.fn()} />
     );
 
+    const dl = container.querySelector("dl")!;
     const dts = container.querySelectorAll("dt");
     const dds = container.querySelectorAll("dd");
     expect(dts.length).toBe(3);
     expect(dds.length).toBe(3);
+    // The dl's own size moved off text-small onto text-base-app — asserted
+    // directly, since the dt/dd checks below pin their own classes, not
+    // the container's.
+    expect(dl.className).toContain("text-base-app");
+    expect(dl.className).not.toContain("text-small");
     dts.forEach((dt) => {
       expect(dt.className).toContain("text-base-app");
       expect(dt.className).toContain("text-ink-3");
     });
     dds.forEach((dd) => {
+      // text-ink-1 alone survives a revert (it was the pre-migration class
+      // verbatim); text-base-app is what actually moved.
+      expect(dd.className).toContain("text-base-app");
       expect(dd.className).toContain("text-ink-1");
+      expect(dd.className).toContain("leading-body");
     });
 
     // No heading in the rendered inspector is still shouted in caps — R1/R2.
