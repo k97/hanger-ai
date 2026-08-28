@@ -24,6 +24,7 @@ import ReachCard from "./ReachCard";
 import OriginValue from "./OriginValue";
 import ScanStamp from "./ScanStamp";
 import McpEngineSummary from "./McpEngineSummary";
+import { SearchPalettePanel } from "./SearchPalette";
 import { sectionHeadClass } from "./typeRoles";
 import { miniBtnClass, miniBtnFillClass, miniBtnTonalClass, miniSetClass } from "./miniButton";
 import * as Icons from "./icons";
@@ -40,7 +41,6 @@ import {
   FolderSymlinkIcon,
   GlobeAltIcon,
   LinkIcon,
-  MagnifyingGlassIcon,
   PanelRightIcon,
   RotateCcwIcon,
   SearchIcon,
@@ -68,6 +68,7 @@ import {
   SAMPLE_REVIEW,
   SAMPLE_REVIEW_ISSUE,
   SAMPLE_SCAN_STATUS,
+  SAMPLE_SEARCH_HITS,
   SAMPLE_SEGMENTS,
   SAMPLE_TABS,
 } from "../data/designSystemFixtures";
@@ -193,6 +194,26 @@ function Group({ label, children }: { label: string; children: ReactNode }) {
 }
 
 const swatchGridClass = "grid grid-cols-[repeat(auto-fill,minmax(230px,1fr))] gap-x-6 gap-y-3";
+
+/** Holds the palette panel's own query state so typing in the specimen never
+ *  touches the page's. Fixture hits never filter — the backend already
+ *  ranked them — so the panel's row order and marks stay fixed regardless
+ *  of what's typed. */
+function SearchPaletteSpecimen() {
+  const [query, setQuery] = useState("screenshot");
+  return (
+    <SearchPalettePanel
+      query={query}
+      onQueryChange={setQuery}
+      hits={SAMPLE_SEARCH_HITS}
+      hasScanned
+      onPick={() => {}}
+      dialogLabel="Sample search palette"
+      inputLabel="Sample search field"
+      autoFocus={false}
+    />
+  );
+}
 
 /* ── The page ───────────────────────────────────────────────────────────── */
 
@@ -574,19 +595,8 @@ export default function DesignSystemPane({ section }: DesignSystemPaneProps) {
             </div>
           </Specimen>
 
-          <Specimen name="Cap button and field" file="App.tsx" note="the content cap's toolbar controls">
+          <Specimen name="Cap button" file="App.tsx" note="the content cap's toolbar control; the search field moved to the palette">
             <div className="flex items-center gap-2.5">
-              <div className="relative w-[214px] h-[27px]">
-                <MagnifyingGlassIcon
-                  size={12}
-                  className="absolute left-2.5 top-2 text-ink-3 pointer-events-none"
-                />
-                <input
-                  aria-label="Sample search field"
-                  placeholder="Search 142 assets"
-                  className="w-full h-full rounded-pill border border-transparent bg-plane pl-[30px] pr-3.5 text-small text-ink-1 placeholder:text-ink-3 focus:outline-none focus:border-ink-1 focus:bg-page transition-colors duration-hover ease-spring"
-                />
-              </div>
               {/* Sample controls never borrow a real control's accessible
                   name — a reader would hear a toggle that toggles nothing. */}
               <Tooltip label="Sample cap button" placement="bottom">
@@ -948,6 +958,10 @@ export default function DesignSystemPane({ section }: DesignSystemPaneProps) {
             <div className="max-w-[384px] border border-line rounded-inner">
               <McpEngineSummary summary={SAMPLE_MCP_ENGINE_SUMMARY} />
             </div>
+          </Specimen>
+
+          <Specimen name="SearchPalette" file="SearchPalette.tsx" note="⌘K's panel without its wash; the rows are fixtures in the backend's order and the mark is the matched run — type, and nothing filters, because the backend ranks" unclipped>
+            <SearchPaletteSpecimen />
           </Specimen>
         </Section>
       </div>

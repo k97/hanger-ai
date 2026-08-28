@@ -87,6 +87,96 @@ interface SearchPaletteProps {
 
 const DEBOUNCE_MS = 80;
 
+export interface SearchPalettePanelProps {
+  query: string;
+  onQueryChange: (q: string) => void;
+  /** null: nothing asked yet; []: asked, nothing found. */
+  hits: SearchHit[] | null;
+  /** False before the first scan completes: the pending line shows and nothing is queried. */
+  hasScanned: boolean;
+  onPick: (hit: SearchHit) => void;
+  /** The panel's accessible name and the input's. The app passes the real ones;
+   *  the Design system page passes sample names so a reader never hears a control that does nothing. */
+  dialogLabel: string;
+  inputLabel: string;
+  autoFocus?: boolean;
+}
+
+/**
+ * The palette's dialog panel: the `Command` root, the input row and the
+ * ranked list, with its three copy states. No `invoke`, no timers, no
+ * window listeners — those stay with `SearchPalette`, which owns the wash
+ * and the debounced fetch. Kept presentational so the Design system page
+ * can render it from fixtures.
+ */
+export function SearchPalettePanel({
+  query,
+  onQueryChange,
+  hits,
+  hasScanned,
+  onPick,
+  dialogLabel,
+  inputLabel,
+  autoFocus,
+}: SearchPalettePanelProps) {
+  const q = query.trim();
+  const answeredEmpty = hits !== null && hits.length === 0;
+
+  return (
+    <div
+      role="dialog"
+      aria-label={dialogLabel}
+      className="w-[560px] max-w-[calc(100vw-32px)] max-h-[60vh] flex flex-col bg-page border border-line rounded-plane shadow-overlay animate-drop overflow-hidden"
+    >
+      <Command shouldFilter={false} label={dialogLabel} className="flex flex-col min-h-0">
+        <div className="flex items-center gap-2.5 px-3.5 h-11 shrink-0 border-b border-line">
+          <MagnifyingGlassIcon size={14} className="text-ink-3 shrink-0" aria-hidden="true" />
+          <Command.Input
+            autoFocus={autoFocus}
+            value={query}
+            onValueChange={onQueryChange}
+            aria-label={inputLabel}
+            placeholder="Search skills, rules, subagents and MCP servers"
+            className="flex-1 min-w-0 bg-page text-base-app text-ink-1 placeholder:text-ink-3 focus:outline-none"
+          />
+        </div>
+        <Command.List className="flex-1 min-h-0 overflow-y-auto p-1.5 scroll-thin">
+          {!hasScanned ? (
+            <p className="py-6 px-3 text-center text-small text-ink-3">Results show up here once the first scan finishes.</p>
+          ) : hits === null ? (
+            // Covers an empty query and a rejected search alike: neither has an
+            // answer to show, so both get the hint rather than an asserted absence.
+            <p className="py-6 px-3 text-center text-small text-ink-3">Type to search names and what's inside.</p>
+          ) : answeredEmpty ? (
+            <p className="py-6 px-3 text-center text-small text-ink-3">Nothing matches “{q}”.</p>
+          ) : null}
+          {(hits ?? []).map((hit) => (
+            <Command.Item
+              key={`${hit.kind}:${hit.id}:${hit.name}`}
+              value={`${hit.kind}:${hit.id}:${hit.name}`}
+              data-kind={hit.kind}
+              onSelect={() => onPick(hit)}
+              className="px-2.5 py-1.5 rounded-soft flex flex-col gap-0.5 cursor-pointer data-[selected=true]:bg-plane-2 transition-colors duration-hover"
+            >
+              <div className="flex items-center gap-2 min-w-0">
+                <KindGlyph kind={hit.kind} />
+                <span className="text-small text-ink-1 truncate">{hit.name}</span>
+                {hit.server && (
+                  <span className="text-small text-ink-3 truncate">
+                    · <span>{hit.server}</span>
+                  </span>
+                )}
+                <span className="ml-auto shrink-0 font-flex text-micro text-ink-3">{placeLabel(hit.place)}</span>
+              </div>
+              <div className="text-micro text-ink-2 truncate">{renderSnippet(hit.snippet)}</div>
+            </Command.Item>
+          ))}
+        </Command.List>
+      </Command>
+    </div>
+  );
+}
+
 /**
  * The search palette: ⌘K or the rail's Search button. A wash over the app,
  * a top-aligned panel, and a cmdk list the backend has already ranked
@@ -140,10 +230,6 @@ export default function SearchPalette({ open, scannedAt, onClose, onPick }: Sear
 
   if (!open) return null;
 
-  const hasScanned = scannedAt !== null;
-  const q = query.trim();
-  const answeredEmpty = hits !== null && hits.length === 0;
-
   return (
     <div
       data-testid="search-wash"
@@ -152,57 +238,16 @@ export default function SearchPalette({ open, scannedAt, onClose, onPick }: Sear
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div
-        role="dialog"
-        aria-label="Search"
-        className="w-[560px] max-w-[calc(100vw-32px)] max-h-[60vh] flex flex-col bg-page border border-line rounded-plane shadow-overlay animate-drop overflow-hidden"
-      >
-        <Command shouldFilter={false} label="Search" className="flex flex-col min-h-0">
-          <div className="flex items-center gap-2.5 px-3.5 h-11 shrink-0 border-b border-line">
-            <MagnifyingGlassIcon size={14} className="text-ink-3 shrink-0" aria-hidden="true" />
-            <Command.Input
-              autoFocus
-              value={query}
-              onValueChange={setQuery}
-              aria-label="Search assets"
-              placeholder="Search skills, rules, subagents and MCP servers"
-              className="flex-1 min-w-0 bg-page text-base-app text-ink-1 placeholder:text-ink-3 focus:outline-none"
-            />
-          </div>
-          <Command.List className="flex-1 min-h-0 overflow-y-auto p-1.5 scroll-thin">
-            {!hasScanned ? (
-              <p className="py-6 px-3 text-center text-small text-ink-3">Results show up here once the first scan finishes.</p>
-            ) : hits === null ? (
-              // Covers an empty query and a rejected search alike: neither has an
-              // answer to show, so both get the hint rather than an asserted absence.
-              <p className="py-6 px-3 text-center text-small text-ink-3">Type to search names and what's inside.</p>
-            ) : answeredEmpty ? (
-              <p className="py-6 px-3 text-center text-small text-ink-3">Nothing matches “{q}”.</p>
-            ) : null}
-            {(hits ?? []).map((hit) => (
-              <Command.Item
-                key={`${hit.kind}:${hit.id}:${hit.name}`}
-                value={`${hit.kind}:${hit.id}:${hit.name}`}
-                data-kind={hit.kind}
-                onSelect={() => onPick(hit)}
-                className="px-2.5 py-1.5 rounded-soft flex flex-col gap-0.5 cursor-pointer data-[selected=true]:bg-plane-2 transition-colors duration-hover"
-              >
-                <div className="flex items-center gap-2 min-w-0">
-                  <KindGlyph kind={hit.kind} />
-                  <span className="text-small text-ink-1 truncate">{hit.name}</span>
-                  {hit.server && (
-                    <span className="text-small text-ink-3 truncate">
-                      · <span>{hit.server}</span>
-                    </span>
-                  )}
-                  <span className="ml-auto shrink-0 font-flex text-micro text-ink-3">{placeLabel(hit.place)}</span>
-                </div>
-                <div className="text-micro text-ink-2 truncate">{renderSnippet(hit.snippet)}</div>
-              </Command.Item>
-            ))}
-          </Command.List>
-        </Command>
-      </div>
+      <SearchPalettePanel
+        query={query}
+        onQueryChange={setQuery}
+        hits={hits}
+        hasScanned={scannedAt !== null}
+        onPick={onPick}
+        dialogLabel="Search"
+        inputLabel="Search assets"
+        autoFocus
+      />
     </div>
   );
 }

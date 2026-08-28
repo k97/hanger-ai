@@ -15,6 +15,7 @@ import { originRow, type OriginRowView } from "../utils/assetProvenance";
 import type { McpEngineSummaryData } from "../components/McpEngineSummary";
 import type { TrackSegment } from "../components/SegmentedTrack";
 import type { UnderlineTab } from "../components/UnderlineTabs";
+import type { SearchHit } from "../components/SearchPalette";
 
 /** The TOC's layers, in reading order (Karthik's ruling, 2026-08-28, after
  *  the atomic-design read). Material's three words: Foundations are the
@@ -171,3 +172,64 @@ export const SAMPLE_MCP_ENGINE_SUMMARY: McpEngineSummaryData = {
   unaskable_server_count: 1,
   conflicting_server_count: 1,
 };
+
+// The backend's match markers (private-use U+E000/U+E001), written as escapes
+// rather than the literal characters so they read here as what they are.
+const MARK_OPEN = "\uE000";
+const MARK_CLOSE = "\uE001";
+
+/** One hit per kind, in the backend's rank order (most negative first) —
+ *  the panel never re-sorts or re-groups them. Places mix "global" and a
+ *  repo root, the way a real answer set would. */
+export const SAMPLE_SEARCH_HITS: SearchHit[] = [
+  {
+    kind: "server",
+    id: "/Users/sam/.claude.json:chrome-devtools",
+    path: "/Users/sam/.claude.json",
+    name: "chrome-devtools",
+    server: null,
+    place: "/Users/sam/Work/storefront",
+    snippet: `Drives a real Chrome for ${MARK_OPEN}screenshots${MARK_CLOSE} and traces.`,
+    rank: -5,
+  },
+  {
+    kind: "mcp_tool",
+    id: "/Users/sam/.claude.json:chrome-devtools:take_screenshot",
+    path: "/Users/sam/.claude.json",
+    name: "take_screenshot",
+    server: "chrome-devtools",
+    place: "/Users/sam/Work/storefront",
+    snippet: `Captures a ${MARK_OPEN}screenshot${MARK_CLOSE} of the current page or one element.`,
+    rank: -4,
+  },
+  {
+    kind: "skill",
+    id: "/Users/sam/.claude/skills/release-notes/SKILL.md",
+    path: "/Users/sam/.claude/skills/release-notes/SKILL.md",
+    name: "release-notes",
+    server: null,
+    place: "global",
+    snippet: `Pair each entry with a ${MARK_OPEN}screenshot${MARK_CLOSE} of the change.`,
+    rank: -3,
+  },
+  {
+    kind: "rule",
+    id: "/Users/sam/Work/storefront/CLAUDE.md",
+    path: "/Users/sam/Work/storefront/CLAUDE.md",
+    name: "CLAUDE.md",
+    server: null,
+    place: "/Users/sam/Work/storefront",
+    snippet: `UI changes ship with a ${MARK_OPEN}screenshot${MARK_CLOSE} from a running build.`,
+    rank: -2,
+  },
+  {
+    kind: "subagent",
+    id: "/Users/sam/.claude/agents/e2e-runner.md",
+    path: "/Users/sam/.claude/agents/e2e-runner.md",
+    name: "e2e-runner",
+    server: null,
+    place: "global",
+    snippet: `Runs the suite headless and attaches a ${MARK_OPEN}screenshot${MARK_CLOSE} on failure.`,
+    rank: -1,
+  },
+];

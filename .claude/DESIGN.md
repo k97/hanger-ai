@@ -1233,7 +1233,7 @@ keeps `menuItemClass`/`menuLabelClass` as its own row styles (`:3-7`), the
 cap's menu items use `menuActionClass` instead (`:9-10`), and `MenuSeparator`
 (`:13-15`) is shared by both.
 
-**`SearchPalette`** (`SearchPalette.tsx:96-202`) — the ⌘K search palette: a
+**`SearchPalette`** (`SearchPalette.tsx:186-253`) — the ⌘K search palette: a
 full-screen wash (`:144-150`) behind a top-aligned, 560px panel (`:151-154`)
 built on `cmdk`'s `Command` with `shouldFilter={false}` (`:156`), so the row
 order on screen is always the backend's own rank, never a client-side
@@ -1246,7 +1246,7 @@ rail control but never `aria-current`, since it is an action, not a place
 (`:14`, `:121`) — or from ⌘K, the second branch of the shell's keydown effect
 (`App.tsx:562-565`). Each row leads with a glyph rather than sitting under a
 group heading: `KindGlyph` maps the five `SearchKind`s to their icons and
-rows stay in the backend's rank order throughout (`SearchPalette.tsx:156`,
+rows stay in the backend's rank order throughout (`SearchPalette.tsx:131`,
 `shouldFilter={false}`).
 A hit's snippet arrives with matched runs wrapped in private-use markers
 (`search.rs:29-30`) that `renderSnippet` turns into `<mark>` (`SearchPalette.tsx:59-72`,
@@ -1266,10 +1266,16 @@ tick a stale read would miss (`App.tsx:1032-1038`, `:1106-1119`). As
 committed, the list carries three copy states: "Results show up here once
 the first scan finishes." before the first scan, "Type to search names and
 what's inside." for an empty query, and "Nothing matches “{q}”." for a query
-that answered empty (`SearchPalette.tsx:169-175`). The shell's cap no
+that answered empty (`SearchPalette.tsx:144-152`). The shell's cap no
 longer carries a search field: its trailing-controls block runs straight
 from the breadcrumb to Rescan or the view control, with no input between
-them (`App.tsx:1619-1621`).
+them (`App.tsx:1619-1621`). The dialog panel itself is `SearchPalettePanel`
+(`SearchPalette.tsx:112-178`), a presentational split with no `invoke`,
+timers or window listeners of its own: the app renders it inside the wash
+with live state, and the Design system page renders the same component with
+`SAMPLE_SEARCH_HITS` (`designSystemFixtures.ts:184`) and a fixed query,
+never the app's own "Search"/"Search assets" names
+(`DesignSystemPane.tsx:202-215`, `:963-965`).
 
 **`InspectorCap`** (`InspectorCap.tsx`, props `:44-70`) — the inspector
 column's 40px cap, and since this phase the selected asset's identity as
@@ -1735,7 +1741,7 @@ the twelve that had landed after the page without a specimen —
 `InfoPopover`, `FindingChip` under Controls, with the mini button tier
 (`miniButton.ts`: fill, tonal, outlined — the fill is the cap's `Link to…`)
 beside them; `InspectorCap`, `ListCard`, `ReachCard`, `OriginValue`,
-`ScanStamp`, `McpEngineSummary` under Components. Nothing on it is a picture, so nothing on it can drift from the
+`ScanStamp`, `McpEngineSummary`, `SearchPalette` under Components. Nothing on it is a picture, so nothing on it can drift from the
 app; after a pull, one page shows every component in the current theme.
 
 **Every component is on the page, or says why not — enforced.** From
@@ -1771,10 +1777,11 @@ bundle. Only `IconRail`'s own label string survives, because the rail
 cannot know at build time whether it will be handed the handler; it never
 is.
 
-**Known gaps, recorded rather than fixed here.** The pill pair, the cap
-button and the cap field are hoisted class strings in `DiscoveryPane.tsx`
-and `App.tsx`, not shared exports; the page repeats them with a caption
-saying so. Panes, modals, the map canvas and the inspector *panels*
+**Known gaps, recorded rather than fixed here.** The pill pair and the cap
+button are hoisted class strings in `DiscoveryPane.tsx` and `App.tsx`, not
+shared exports; the page repeats them with a caption saying so. The cap no
+longer carries a search field — it moved to `SearchPalette`, which now has
+its own specimen. Panes, modals, the map canvas and the inspector *panels*
 (`AssetDetail`, `McpServerDetail`, `ReviewInspector`) are not on the page —
 they need real inventory or graph data; the inspector *cap* is, because it
 takes a category, a place string and callbacks and nothing else. `IconRail`
