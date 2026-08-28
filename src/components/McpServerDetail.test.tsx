@@ -1640,6 +1640,40 @@ describe("McpServerDetail — Tools first, Details second", () => {
   });
 });
 
+describe("McpServerDetail — inspector type roles (Task 4)", () => {
+  it("the panel root inherits the app body size, not Tailwind's 16px", () => {
+    render(<McpServerDetail server={base} />);
+    const root = screen.getByTestId("mcp-detail-root");
+    expect(root.className).toContain("text-base-app");
+    // Not `/\btext-base\b/`: JS treats `-` as a non-word boundary, so that
+    // regex matches inside "text-base-app" too and could never pass once the
+    // correct class lands -- an exact-token check is what "not Tailwind's
+    // bare text-base" actually means.
+    expect(root.className.split(" ")).not.toContain("text-base");
+  });
+
+  it("tool rows: name in --ink-1 mono at 12, description in caption", () => {
+    render(
+      <McpServerDetail
+        server={{ ...base, registrations: [base.registrations[0]] }}
+        verified={{
+          "cc-user": probeAnswered({
+            tools: [{ name: "read_file", description: "Reads a file from disk." }],
+          }),
+        }}
+      />
+    );
+    const name = screen.getByText("read_file");
+    expect(name.className).toContain("font-mono");
+    expect(name.className).toContain("text-small");
+    expect(name.className).toContain("text-ink-1");
+    const desc = screen.getByText(/reads a file/i);
+    expect(desc.className).toContain("text-small");
+    expect(desc.className).toContain("text-ink-3");
+    expect(desc.className).toContain("leading-caption");
+  });
+});
+
 describe("McpServerDetail — Identity & capabilities card", () => {
   it("Identity & capabilities is one card: server, protocol, transport, then the three capabilities in words", () => {
     const { container } = render(
