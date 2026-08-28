@@ -1,15 +1,14 @@
 //! The content index behind the search palette.
 //!
 //! One FTS5 table, `asset_search` (migration v8), one writer per source of
-//! truth and one reader. `index_inventory` is meant to rebuild the four
-//! asset kinds from the combined inventory at the end of every scan;
-//! `index_probe_tools` is meant to rewrite one registration's MCP tool rows
-//! after every probe. The reader ranks by bm25 with name weighted over
-//! description over body, and returns a snippet with private-use markers
-//! around each match so the frontend can emphasise them without parsing
-//! HTML. Stated as intent, not present behaviour: no code outside this
-//! module and its own test calls either writer yet — the scan and probe
-//! hooks land in a later commit.
+//! truth and one reader. `index_inventory` rebuilds the four asset kinds
+//! from the combined inventory at the end of every scan; `index_probe_tools`
+//! rewrites one registration's MCP tool rows after every probe. The reader
+//! ranks by bm25 with name weighted over description over body, and returns
+//! a snippet with private-use markers around each match so the frontend can
+//! emphasise them without parsing HTML. The scan hooks are `run_scan` and
+//! `start_scan` in `lib.rs`; the probe hook is `mcp_cached_probe`, also in
+//! `lib.rs`.
 //!
 //! Bodies are re-read here rather than threaded out of the scanner's many
 //! `upsert_asset` sites: one site instead of many, and a miss is uniform
