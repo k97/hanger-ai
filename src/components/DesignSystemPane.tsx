@@ -193,8 +193,11 @@ const TYPE_ROWS: { utility: string; px: string; sample: ReactNode }[] = [
   { utility: "text-lg-app", px: "16px", sample: <span className="text-lg-app text-ink-2">assets in the global store · 6 engines</span> },
   { utility: "text-base-app", px: "13px", sample: <span className="text-base-app font-medium text-ink-1">writing-great-skills</span> },
   { utility: "text-small", px: "12px", sample: <span className="text-small text-ink-2">Symlink — edits to the source reach every destination</span> },
-  { utility: "text-micro · font-flex", px: "11px", sample: <span className={eyebrowClass}>Scanned 4 min ago</span> },
+  { utility: "text-micro · badges and chips only", px: "11px", sample: <span className="text-micro font-medium text-ink-3 bg-plane-2 px-2 py-0.5 rounded-pill font-flex">Global</span> },
   { utility: "font-mono text-micro", px: "11px", sample: <span className="font-mono text-micro text-ink-3">~/.agents/skills/writing-great-skills/SKILL.md</span> },
+  { utility: "leading-body", px: "20px", sample: <span className="block whitespace-normal max-w-[230px] text-base-app text-ink-1 leading-body">Scans the directories those engines read from and shows whether it still matches its source.</span> },
+  { utility: "leading-caption", px: "16px", sample: <span className="block whitespace-normal max-w-[230px] text-small text-ink-3 leading-caption">Installed 2026-08-14 · tracked by a harness convention, not an interface of its own.</span> },
+  { utility: "leading-code", px: "18px", sample: <span className="block whitespace-normal max-w-[230px] font-mono text-small text-ink-1 leading-code">~/.claude/skills/writing-great-skills/SKILL.md — twenty-two lines.</span> },
 ];
 
 const RADII: { utility: string; token: string }[] = [

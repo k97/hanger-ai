@@ -128,6 +128,35 @@ The scale is closed at five steps — 11 / 12 / 13 / 16 / 32
 `text-lg-app`, `text-display` at `index.css:82-87`). Two weights only:
 `--fw-regular: 400`, `--fw-medium: 500` (`tokens.css:67-68`).
 
+The five sizes carry roles, not free choice — the inspector, the pane list,
+the sidebar family and Discovery were audited against the scale and each size
+given one job (`docs/v7-todo-content-typography/typography-audit.md`;
+rulings recorded in `src/__tests__/type-roles.test.ts:9`, 2026-08-27):
+
+| Size | Role | Ink | Utility | Source |
+|---|---|---|---|---|
+| 13 | body — labels, values, prose, list names, tabs | `--ink-1` for values and prose, `--ink-3` for labels | `text-base-app` | `rowLabelClass`, `rowValueClass`, `sectionHeadClass`, `groupLabelClass` (`typeRoles.ts:7,9-10,14`) |
+| 12 | secondary — captions, mono values, paths, chips, counts, foot and stamp lines | `--ink-2` / `--ink-3` | `text-small` | `captionClass`, `rowMonoClass`, `columnHeadClass` (`typeRoles.ts:15-16,20`) |
+| 11 | filled badges only | `--ink-3` | `text-micro` | e.g. the inspector list's scope pill (`Flyout.tsx:918`) |
+| 16 | titles and content headings | `--ink-1` | `text-lg-app` | the inspector's title `h2` (`Flyout.tsx:705`), Markdown headings (`MarkdownDoc.tsx:78`) |
+| 32 | display — the big stat numeral | `--ink-1` | `text-display` | `SummaryStrip.tsx:98` |
+
+Three leadings sit beside the scale as tokens, not arbitrary per-call values —
+`--lh-body: 20px`, `--lh-caption: 16px`, `--lh-code: 18px` (`tokens.css:79-81`),
+registered as `--leading-body`, `--leading-caption`, `--leading-code`
+(`index.css:109-111`) and consumed as the utilities `leading-body`,
+`leading-caption`, `leading-code`. `src/__tests__/leading-tokens.test.ts`
+pins both the token values and their `@theme` registration.
+
+Section heads inside the inspector, Discovery's tiers, and the pane list's
+column and group headers are sentence case, not the former 11px uppercase
+eyebrow — `text-base-app font-medium text-ink-1` (`sectionHeadClass`,
+`typeRoles.ts:7`; used at `DiscoveryPane.tsx:256` and `AssetHeaderRow.tsx:31`;
+Karthik's ruling R1, 2026-08-27). `src/__tests__/type-roles.test.ts` enforces
+this going forward: it bans Tailwind's default size names, arbitrary or
+default leading utilities, and `uppercase` across the migrated files named in
+its `ROLE_FILES` list.
+
 Body text is set in `--font-sans` at the document root with
 `-webkit-font-smoothing: antialiased` (`index.css:376`).
 
@@ -768,8 +797,10 @@ drilled into, or the empty-MCP category label — plus, independently, a
 layered-rules flag that can sit beside any of them.
 
 Below that, the header is exactly: the cap's identity row — kind glyph, a
-`KIND · PLACE` eyebrow, a finding chip (`InspectorCap.tsx:169-212`;
-the cap itself, Surfaces and controls below) — then Flyout's title block
+sentence-case `kind · place` caption line, a finding chip
+(`InspectorCap.tsx:169-212`; the caption itself is `captionClass`,
+`typeRoles.ts:16`, rendered at `InspectorCap.tsx:220-228`; the cap itself,
+Surfaces and controls below) — then Flyout's title block
 (the `<h2>`, `Flyout.tsx:720`), then `AssetDetail`'s own `UnderlineTabs`
 switch. Nothing else: `AssetDetail` used to open with a state line, a path
 chip and a Link/Open action row, each behind its own `border-b border-line`,
@@ -1392,8 +1423,13 @@ border-line rounded-tl-plane rounded-tr-plane` (`:229`), then a foot at
 `:279` — `h-8` (32px), not the other three panes' `h-[30px]`, an
 unremarked 2px difference from the pattern above.
 
-Section eyebrows are `font-flex text-micro font-medium tracking-[.06em] uppercase text-ink-3`
-(`ProfilePane.tsx:801-802`).
+The uppercase eyebrow is gone from the migrated surfaces — `ProfilePane`'s
+group headers now render `groupLabelClass`, sentence case, body size
+(`typeRoles.ts:9`, imported at `ProfilePane.tsx:26`, used at `:1129`). It
+survives only in panes still pending their pass, e.g. `font-flex text-micro
+font-medium uppercase tracking-[.06em] text-ink-3` (`LinkPanel.tsx:34`);
+`src/__tests__/type-roles.test.ts`'s `ROLE_FILES` list is the migrated set
+and its `ALLOW` entries are the authoritative to-do for the rest.
 
 ### Repeated variants are hoisted, not computed
 
