@@ -1,15 +1,18 @@
 //! The content index behind the search palette.
 //!
 //! One FTS5 table, `asset_search` (migration v8), one writer per source of
-//! truth and one reader. Rows for the four asset kinds are rebuilt from the
-//! combined inventory at the end of every scan; rows for probed MCP tools
-//! are rewritten per registration after every probe. The reader ranks by
-//! bm25 with name weighted over description over body, and returns a
-//! snippet with private-use markers around each match so the frontend can
-//! emphasise them without parsing HTML.
+//! truth and one reader. `index_inventory` is meant to rebuild the four
+//! asset kinds from the combined inventory at the end of every scan;
+//! `index_probe_tools` is meant to rewrite one registration's MCP tool rows
+//! after every probe. The reader ranks by bm25 with name weighted over
+//! description over body, and returns a snippet with private-use markers
+//! around each match so the frontend can emphasise them without parsing
+//! HTML. Stated as intent, not present behaviour: no code outside this
+//! module and its own test calls either writer yet — the scan and probe
+//! hooks land in a later commit.
 //!
-//! Bodies are re-read here rather than threaded out of the scanner's ten
-//! `upsert_asset` sites: one site instead of ten, and a miss is uniform
+//! Bodies are re-read here rather than threaded out of the scanner's many
+//! `upsert_asset` sites: one site instead of many, and a miss is uniform
 //! across kinds instead of a partial fix that indexes three and drops one.
 use std::collections::HashSet;
 use std::fs;
