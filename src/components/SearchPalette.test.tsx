@@ -110,6 +110,14 @@ describe("SearchPalette", () => {
     expect(css).toMatch(/\[cmdk-input\]:focus-visible\s*\{[^}]*outline:\s*none/);
   });
 
+  it("the global focus ring follows the element's own radius: the `:focus-visible` rule sets no `border-radius` (CSS-text contract — the ring is an outline, which takes the element's corners; a radius on the rule would reshape every focused control, and did: the pill field snapped to 4px corners on focus, 2026-08-29)", () => {
+    const css = fs.readFileSync(path.join(__dirname, "../styles/index.css"), "utf-8");
+    const ring = css.match(/^:focus-visible\s*\{([^}]*)\}/m);
+    expect(ring, "global :focus-visible rule present").toBeTruthy();
+    expect(ring![1]).toMatch(/outline:\s*2px solid var\(--ink-1\)/);
+    expect(ring![1]).not.toMatch(/border-radius/);
+  });
+
   it("says nothing is a finding before the first scan, and does not query", async () => {
     render(<SearchPalette open={true} scannedAt={null} onClose={() => {}} onPick={() => {}} />);
     expect(screen.getByText("Results show up here once the first scan finishes.")).toBeTruthy();

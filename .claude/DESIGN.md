@@ -342,16 +342,21 @@ of every other file (§4's family rule).
 
 ### Focus
 
-One global focus ring: a 2px `--ink-1` outline at 2px offset with a 4px radius
-(`index.css:518-522`). `touch-action: manipulation` is set on buttons and
+One global focus ring: a 2px `--ink-1` outline at 2px offset
+(`index.css:518-521`). It sets no radius of its own: an outline takes the
+element's corners, so the ring is a pill around a pill field and a 16px
+plane around a plane. Until 2026-08-29 the rule also forced
+`border-radius: 4px` on the element, and being unlayered it beat every
+`rounded-*` utility — the palette's pill field snapped to 4px corners the
+moment it took focus; `SearchPalette.test.tsx` pins the rule's text. `touch-action: manipulation` is set on buttons and
 `[role="button"]` to drop the 300ms double-tap delay without disabling pinch
-zoom (`index.css:537-540`). The app's one stated exception is the search
+zoom (`index.css:536-539`). The app's one stated exception is the search
 palette's input: it already sits inside a framed, single-purpose dialog, so it
 opts out of the global rule; the pill field's own focus treatment — an ink
 border, a page ground (`focus:border-ink-1 focus:bg-page`) — is what signals
 focus instead of a second ring drawn inside the panel's frame. The opt-out is
 an **unlayered** CSS rule, `[cmdk-input]:focus-visible { outline: none; }`
-(`index.css:531-533`), not a Tailwind utility: the global ring above is itself
+(`index.css:530-532`), not a Tailwind utility: the global ring above is itself
 unlayered, Tailwind's utilities live in `@layer utilities`, and an unlayered
 declaration always outranks a layered one regardless of specificity (CSS
 Cascade 5) — a `focus-visible:outline-none` class on the input cannot win
@@ -1305,7 +1310,7 @@ same tonal field the shell's cap carried before 2026-08-28. The input opts
 out of the app's one global focus ring, because the pill's own focus
 treatment (an ink border, a page ground) is the affordance now, not a second
 ring. The opt-out is an unlayered rule, `[cmdk-input]:focus-visible`
-(`index.css:531-533`), not a Tailwind class — a `focus-visible:outline-none`
+(`index.css:530-532`), not a Tailwind class — a `focus-visible:outline-none`
 utility is layered under `@layer utilities` and cannot outrank the unlayered
 global ring (CSS Cascade 5), so the input's `className` carries no focus
 utility at all (`:144`); a comment at the input row explains why
