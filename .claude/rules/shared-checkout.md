@@ -165,3 +165,14 @@ time, and they commit to the same branch. `ListAgents` shows the others.
   instead, or `git -C <worktree> diff -- <file> | git apply`. Either way,
   read the diff before you stage: the working tree is the only thing that
   tells you what you actually changed.
+
+- **Stage a shared file as an exact blob, and make the marker check a hard
+  stop.** On 2026-08-28 a patch split's assertion failed inside a heredoc'd
+  python, the `set -e` chain did not stop, the unedited patch was applied,
+  the foreign-marker grep printed 2 — and the commit was made anyway, with a
+  peer's `DESIGN.md` §7 entries inside it. Two local commits were rewritten to
+  fix it. Instead: build the file you mean to commit (working tree minus the
+  peer's block) and stage it with `git hash-object -w <file>` +
+  `git update-index --cacheinfo 100644,<blob>,<path>`; then
+  `git diff --cached | grep -c <marker>` must print 0 and the chain must
+  `|| exit` on anything else before `git commit` is reached.
