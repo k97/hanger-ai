@@ -44,13 +44,6 @@ const ALLOWLIST: AllowlistEntry[] = [
       "Counts engine KEYS of the backend counts record for the strip subtitle — engine kinds, not assets; the asset total stays backend-owned",
   },
   {
-    file: "src/components/RepoPane.tsx",
-    linePattern: /const engineCount = Object\.keys\(assetCounts\?\.engines/,
-    category: "ui",
-    reason:
-      "Counts engine KEYS of the backend counts record for the strip subtitle — engine kinds, not assets; the asset total stays backend-owned",
-  },
-  {
     file: "src/components/Sidebar.tsx",
     linePattern: /linkedDescendants\(repoPath,\s*linkedRepos\)\.length/,
     category: "ui",
@@ -59,23 +52,31 @@ const ALLOWLIST: AllowlistEntry[] = [
   },
   {
     file: "src/components/RepoPane.tsx",
-    linePattern: /count=\{nonTccWarnings\.length\}/,
+    linePattern: /const reviewLineCount = reviewLines\.length/,
     category: "ui",
-    reason: "Counts non-TCC scan warning messages for DisclosureBanner",
+    reason:
+      "Counts the LINES the review pill's popover itself renders — this repository's issues and its scan warnings, neither an asset. Replaces the DisclosureBanner count of the same warnings.",
   },
   {
     file: "src/components/ProfilePane.tsx",
-    linePattern: /count=\{unaccounted\.length\}/,
+    linePattern: /const reviewLineCount = reviewLines\.length/,
     category: "ui",
     reason:
-      "Counts running PROCESSES for DisclosureBanner, not assets — the same shape as the two RepoPane banner counts. These are not in the inventory and no count command owns them: they are the processes nothing on disk accounts for, so a backend asset count could not describe them by definition.",
+      "Counts the LINES the review pill's popover itself renders — disagreeing servers and running processes nothing on disk accounts for, neither of which is an asset or owned by any count command. Replaces the DisclosureBanner count of the same processes.",
+  },
+  {
+    file: "src/components/ProfilePane.tsx",
+    linePattern: /const assetReviewLineCount = assetReviewLines\.length/,
+    category: "ui",
+    reason:
+      "Counts the LINES the review pill's popover itself renders — review issues in the global store, a derived grouping of flagged assets rather than an asset total, which stays backend-owned.",
   },
   {
     file: "src/components/RepoPane.tsx",
-    linePattern: /count=\{unlinkedCandidates\.length\}/,
+    linePattern: /const nestedCount = unlinkedCandidates\.length/,
     category: "ui",
     reason:
-      "Counts nested repository PATHS for DisclosureBanner, not assets — same shape as the warnings count directly above",
+      "Counts nested repository PATHS for the hero band's foot row, not assets — same shape as the review-pill line counts above",
   },
   {
     file: "src/components/Flyout.tsx",

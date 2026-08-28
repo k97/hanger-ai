@@ -3,9 +3,17 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, cleanup } from "@testing-library/react";
 import SummaryStrip from "../components/SummaryStrip";
 import type { StateCounts } from "../utils/linkStateCounts";
+import type { FindingLine } from "../components/FindingPopover";
 
 const counts: StateCounts = { linked: 9, drifted: 2, broken: 1, local: 109, total: 121 };
 const cleanCounts: StateCounts = { linked: 0, drifted: 0, broken: 0, local: 5, total: 5 };
+
+/** Three issue lines, the shape a pane hands the pill in asset mode. */
+const reviewLines: FindingLine[] = [
+  { severity: "danger", text: "Target is gone", detail: "CLAUDE.md" },
+  { severity: "warning", text: "Diverged from its source", detail: "math" },
+  { severity: "warning", text: "Diverged from its source", detail: "prose" },
+];
 
 function renderStrip(overrides: Partial<Parameters<typeof SummaryStrip>[0]> = {}) {
   const onFilterState = vi.fn();
@@ -18,6 +26,7 @@ function renderStrip(overrides: Partial<Parameters<typeof SummaryStrip>[0]> = {}
       counts={counts}
       activeStateFilter={null}
       onFilterState={onFilterState}
+      review={{ count: 3, lines: reviewLines }}
       {...overrides}
     />
   );
@@ -43,8 +52,8 @@ describe("SummaryStrip", () => {
     expect(bar.children).toHaveLength(1);
   });
 
-  it("shows the review pill only when something needs review", () => {
-    renderStrip({ counts: cleanCounts });
+  it("shows the review pill only when the caller has lines for it", () => {
+    renderStrip({ counts: cleanCounts, review: { count: 0, lines: [] } });
     expect(screen.queryByText(/Needs review \d/)).toBeNull();
     cleanup();
     renderStrip();
@@ -63,10 +72,26 @@ describe("SummaryStrip", () => {
     expect(onFilterState).toHaveBeenCalledWith(null);
   });
 
-  it("the review pill applies the needs-review preset", () => {
-    const { onFilterState } = renderStrip();
+  it("in asset mode the pill opens the popover and the preset is an action inside it", () => {
+    const showInList = vi.fn();
+    const { onFilterState } = renderStrip({
+      review: {
+        count: 3,
+        lines: reviewLines,
+        actions: (
+          <button type="button" onClick={() => showInList("needs-review")}>
+            Show in list
+          </button>
+        ),
+      },
+    });
+    // The pill alone must not filter: that behaviour moved into the popover,
+    // and a pill that still filtered would pass a test that only clicked it.
     fireEvent.click(screen.getByText("Needs review 3"));
-    expect(onFilterState).toHaveBeenCalledWith("needs-review");
+    expect(onFilterState).not.toHaveBeenCalled();
+    expect(screen.getByTestId("finding-popover")).toBeTruthy();
+    fireEvent.click(screen.getByText("Show in list"));
+    expect(showInList).toHaveBeenCalledWith("needs-review");
   });
 
   it("says a scan is running exactly once, in the button", () => {
@@ -99,29 +124,57 @@ describe("SummaryStrip", () => {
     expect(btn.querySelector("g.aim-loop")).toBeNull();
   });
 
-  it("in MCP mode the meter is probe coverage, the legend is labels, the pill counts disagreeing servers", () => {
-    const onToggleReview = vi.fn();
+  it("in MCP mode the strip is two lines: no meter, no legend, the caption, Rescan and the pill", () => {
     renderStrip({
-      total: 19,
-      subtitle: "MCP servers registered · 16 host configs read",
-      mcp: { answered: 9, unasked: 7, unaskable: 7, checkedFileCount: 16, conflicting: 2, reviewActive: false, onToggleReview },
+      total: 20,
+      subtitle: "MCP servers · 223 tool descriptions across 8 hosts",
+      mcp: { caption: "Described to the model on every request, used or not." },
+      review: {
+        count: 2,
+        lines: [
+          { severity: "warning", text: "Running with no config behind it." },
+          { severity: "warning", text: "Running with no config behind it." },
+        ],
+      },
     });
-    expect(screen.getByText("19")).toBeTruthy();
-    expect(screen.getByText("MCP servers registered · 16 host configs read")).toBeTruthy();
-    expect(screen.getByRole("img", { name: "9 answered, 7 not yet asked, 7 can't be asked" })).toBeTruthy();
-    expect(screen.getByText("answered").closest("button")).toBeNull();
-    expect(screen.getByText("can't be asked")).toBeTruthy();
-    expect(screen.getByText("Every tool a registered server can reach is described to the model on every request.")).toBeTruthy();
-    const pill = screen.getByText("Needs review 2");
-    expect(pill.getAttribute("aria-pressed")).toBe("false");
-    fireEvent.click(pill);
-    expect(onToggleReview).toHaveBeenCalledTimes(1);
-    // The link legend is not drawn in this mode.
+    expect(screen.getByText("20")).toBeTruthy();
+    expect(screen.getByText("MCP servers · 223 tool descriptions across 8 hosts")).toBeTruthy();
+    expect(screen.queryByRole("img")).toBeNull();                     // no GelMeter
+    expect(screen.queryByText(/answered|not yet asked|can't be asked/)).toBeNull();
+    expect(screen.getByText("Described to the model on every request, used or not.")).toBeTruthy();
+    expect(screen.getByText("Needs review 2")).toBeTruthy();
     expect(screen.queryByText("local only")).toBeNull();
   });
 
-  it("in MCP mode no pill when nothing disagrees", () => {
-    renderStrip({ mcp: { answered: 1, unasked: 0, unaskable: 0, checkedFileCount: 2, conflicting: 0, reviewActive: false, onToggleReview: vi.fn() } });
+  it("the pill opens the finding popover with the caller's lines and actions", () => {
+    const onShow = vi.fn();
+    renderStrip({
+      mcp: { caption: "c" },
+      review: {
+        count: 1,
+        lines: [{ severity: "danger", text: "context7: 2 different launch specs" }],
+        actions: <button type="button" onClick={onShow}>Show disagreeing servers</button>,
+      },
+    });
+    expect(screen.queryByTestId("finding-popover")).toBeNull();
+    fireEvent.click(screen.getByText("Needs review 1"));
+    expect(screen.getByTestId("finding-popover")).toBeTruthy();
+    expect(screen.getByText("context7: 2 different launch specs")).toBeTruthy();
+    fireEvent.click(screen.getByText("Show disagreeing servers"));
+    expect(onShow).toHaveBeenCalledTimes(1);
+  });
+
+  it("no pill at zero, in either mode", () => {
+    renderStrip({ mcp: { caption: "c" }, review: { count: 0, lines: [] } });
     expect(screen.queryByText(/Needs review \d/)).toBeNull();
+    cleanup();
+    renderStrip({ review: { count: 0, lines: [] } });
+    expect(screen.queryByText(/Needs review \d/)).toBeNull();
+  });
+
+  it("renders its children as the band, inside the section", () => {
+    renderStrip({ mcp: { caption: "c" }, children: <div data-testid="band">band</div> });
+    const section = screen.getByRole("region", { name: "Inventory summary" });
+    expect(section.contains(screen.getByTestId("band"))).toBe(true);
   });
 });

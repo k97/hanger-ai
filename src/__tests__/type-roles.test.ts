@@ -33,11 +33,8 @@ const ALLOW: { file: string; lineText: string; reason: string }[] = [
   { file: "src/components/DiffChooser.tsx", lineText: "px-6 py-2 rounded-inner bg-fill text-on-fill text-xs", reason: "pre-dates the roles; DiffChooser.tsx pass pending" },
   { file: "src/components/IconRail.tsx", lineText: "text-[9px] leading-4", reason: "count badge, see no-off-token-styles allowlist" },
   { file: "src/components/InfoPopover.tsx", lineText: "relative inline-block shrink-0 leading-none", reason: "pre-dates the roles; InfoPopover.tsx pass pending" },
-  { file: "src/components/ProfilePane.tsx", lineText: 'text-small text-ink-2 leading-relaxed', reason: "pre-dates the roles; ProfilePane.tsx pass pending" },
   { file: "src/components/RepoPane.tsx", lineText: "rounded-inner leading-relaxed animate-fade-in", reason: "pre-dates the roles; RepoPane.tsx pass pending" },
   { file: "src/components/RepoPane.tsx", lineText: '<p className="text-small text-ink-2 leading-relaxed">', reason: "pre-dates the roles; RepoPane.tsx pass pending (3 identical sites: lines 493/545/550)" },
-  { file: "src/components/RepoPane.tsx", lineText: '<li key={idx} className="font-mono break-all leading-relaxed">', reason: "pre-dates the roles; RepoPane.tsx pass pending" },
-  { file: "src/components/RepoPane.tsx", lineText: "text-small text-ink-2 font-mono break-all leading-relaxed", reason: "pre-dates the roles; RepoPane.tsx pass pending" },
   { file: "src/components/SidebarScanModal.tsx", lineText: "text-small text-ink-3 leading-relaxed", reason: "pre-dates the roles; SidebarScanModal.tsx pass pending" },
   { file: "src/App.tsx", lineText: '<p className="text-small text-ink-2 leading-[1.65]">', reason: "pre-dates the roles; App.tsx pass pending (2 identical sites: lines 1141/1159)" },
   { file: "src/App.tsx", lineText: "text-small text-ink-3 leading-[1.65]", reason: "pre-dates the roles; App.tsx pass pending" },
@@ -74,7 +71,6 @@ const ALLOW: { file: string; lineText: string; reason: string }[] = [
   { file: "src/components/LinkPanel.tsx", lineText: "py-2.5 font-flex text-micro uppercase tracking-[.06em] text-ink-3", reason: "pre-dates the roles; LinkPanel.tsx pass pending" },
   { file: "src/components/NeedsReviewPane.tsx", lineText: "font-flex text-micro tracking-[.06em] uppercase text-ink-3", reason: "pre-dates the roles; NeedsReviewPane.tsx pass pending" },
   { file: "src/components/OverflowMenu.tsx", lineText: "font-flex text-micro tracking-[.06em] uppercase text-ink-3 px-1.5 pt-1 pb-1", reason: "pre-dates the roles; OverflowMenu.tsx pass pending" },
-  { file: "src/components/RepoPane.tsx", lineText: '<h3 className="font-medium tracking-[.06em] uppercase">Engines</h3>', reason: "pre-dates the roles; RepoPane.tsx pass pending — the one eyebrow left in a file whose group headers migrated" },
 ];
 // (?!-app) excludes the app's own text-base-app/text-lg-app role classes:
 // \b alone treats the hyphen before "app" as a boundary, so the bare regex

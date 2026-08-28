@@ -1,25 +1,36 @@
+import { useRef, useState, type ReactNode } from "react";
 import { RotateCcwIcon } from "./icons";
 import GelMeter from "./GelMeter";
 import ScanStamp from "./ScanStamp";
-import { REQUEST_CARRIES } from "./McpEngineSummary";
+import FindingPopover, { type FindingLine } from "./FindingPopover";
 import { captionClass } from "./typeRoles";
 import type { StateCounts, StateFilter, LinkState } from "../utils/linkStateCounts";
 
-/** The strip's second mode: MCP probe coverage instead of link state. When
- *  given, it replaces the entire link-state branch — meter, legend and the
- *  Needs review pill — with these figures; `total`/`subtitle` still render
- *  as passed by the caller. */
+/** The strip's second mode: MCP. It replaces the entire link-state branch —
+ *  meter and legend — with one caption line; `total`/`subtitle` still render
+ *  as passed by the caller.
+ *
+ *  The probe-coverage meter it used to draw is gone (Karthik's ruling,
+ *  2026-08-28): "answered / not yet asked / can't be asked" measured whether
+ *  Hanger had ASKED each server, not whether anything was up, and it
+ *  converges to a constant as the probes complete. */
 export interface McpStripFigures {
-  /** McpEngineSummaryData's three buckets. */
-  answered: number;
-  unasked: number;
-  unaskable: number;
-  /** mcpCoverage.checked_file_count. */
-  checkedFileCount: number;
-  /** conflicting_server_count — servers whose hosts disagree. */
-  conflicting: number;
-  reviewActive: boolean;
-  onToggleReview: () => void;
+  /** The caption under the headline, passed so the string lives with its
+   *  caller's other strings. */
+  caption: string;
+}
+
+/** What the Needs review pill says, and what its popover shows. One shape
+ *  for both modes: the pill only opens the popover, and every action —
+ *  filtering the list, routing to Needs review — is a button the caller
+ *  puts inside it. */
+export interface StripReview {
+  /** The number of `lines` — counted where the lines are built, and
+   *  allowlisted there, never derived here. */
+  count: number;
+  lines: FindingLine[];
+  /** Mini buttons for the popover's action row; the caller decides. */
+  actions?: ReactNode;
 }
 
 interface SummaryStripProps {
@@ -37,6 +48,10 @@ interface SummaryStripProps {
   onRescan?: () => void;
   /** MCP mode when given — see McpStripFigures. */
   mcp?: McpStripFigures;
+  /** The Needs review pill, in either mode. Absent, or zero, draws nothing. */
+  review?: StripReview;
+  /** The hero band, rendered inside the section below the second row. */
+  children?: ReactNode;
 }
 
 /* The meter is the design system's GelMeter. The aqua gel is the PROGRESS
@@ -67,8 +82,12 @@ export default function SummaryStrip({
   onFilterState,
   onRescan,
   mcp,
+  review,
+  children,
 }: SummaryStripProps) {
-  const reviewCount = counts.drifted + counts.broken;
+  const [reviewOpen, setReviewOpen] = useState(false);
+  const pillRef = useRef<HTMLSpanElement>(null);
+  const sectionRef = useRef<HTMLElement>(null);
   const barLabel = `${counts.linked} linked, ${counts.drifted} drifted, ${counts.broken} broken, ${counts.local} local only`;
 
   const toggle = (state: LinkState) =>
@@ -87,8 +106,41 @@ export default function SummaryStrip({
     </button>
   );
 
+  // One pill for both modes. It opens the popover and does nothing else —
+  // the needs-review preset that used to be its click is now an action the
+  // caller puts inside, so the two modes' pills behave identically.
+  const reviewPill = review && review.count > 0 && (
+    <span ref={pillRef} className="relative inline-flex">
+      <button
+        type="button"
+        aria-haspopup="dialog"
+        aria-expanded={reviewOpen}
+        onClick={() => setReviewOpen((v) => !v)}
+        className="h-[30px] px-[15px] inline-flex items-center text-small font-medium tabular bg-fill text-on-fill rounded-pill cursor-pointer transition-[transform] duration-press ease-spring hover:-translate-y-px active:scale-[0.96]"
+      >
+        Needs review {review.count}
+      </button>
+      {/* 34, not the default 30: the chip this popover was drawn for is 26px
+          tall and rests at 30 for a 4px gap; the pill is 30px and wants the
+          same gap. */}
+      <FindingPopover
+        open={reviewOpen}
+        onClose={() => setReviewOpen(false)}
+        lines={review.lines}
+        actions={review.actions}
+        align="right"
+        top={34}
+        elevated
+        clampTo={sectionRef}
+        anchorRef={pillRef}
+        ariaLabel={`Needs review ${review.count}`}
+      />
+    </span>
+  );
+
   return (
     <section
+      ref={sectionRef}
       aria-label="Inventory summary"
       // Background dropped by Karthik's ruling (2026-08-15): the hero sits
       // flat on the page; the --line border and radius still draw its edge.
@@ -103,56 +155,13 @@ export default function SummaryStrip({
       </div>
 
       {mcp ? (
-        <>
-          {mcp.answered + mcp.unasked + mcp.unaskable > 0 && (
-            <GelMeter
-              label={`${mcp.answered} answered, ${mcp.unasked} not yet asked, ${mcp.unaskable} can't be asked`}
-              segments={[
-                { key: "answered", value: mcp.answered, aqua: true },
-                { key: "unasked", value: mcp.unasked },
-                {
-                  key: "unaskable",
-                  value: mcp.unaskable,
-                  barClass: "border border-dashed border-line-2",
-                },
-              ]}
-            />
-          )}
-
-          <div className="flex items-center gap-4 mt-2.5 flex-wrap">
-            <span className="flex items-center gap-2 text-small font-flex text-ink-2">
-              <i
-                className="w-2 h-2 rounded-pill shrink-0"
-                style={{ backgroundImage: "var(--gel-aqua)" }}
-              />
-              <b className="font-medium tabular text-ink-1">{mcp.answered}</b> answered
-            </span>
-            <span className="flex items-center gap-2 text-small font-flex text-ink-2">
-              <i className="w-2 h-2 rounded-pill shrink-0 bg-transparent border-2 border-line-2" />
-              <b className="font-medium tabular text-ink-1">{mcp.unasked}</b> not yet asked
-            </span>
-            <span className="flex items-center gap-2 text-small font-flex text-ink-2">
-              <i className="w-2 h-2 rounded-pill shrink-0 bg-transparent border-2 border-dashed border-line-2" />
-              <b className="font-medium tabular text-ink-1">{mcp.unaskable}</b> can't be asked
-            </span>
-
-            <div className="ml-auto flex items-center gap-2">
-              {rescanButton}
-
-              {mcp.conflicting > 0 && (
-                <button
-                  onClick={mcp.onToggleReview}
-                  aria-pressed={mcp.reviewActive}
-                  className="h-[30px] px-[15px] inline-flex items-center text-small font-medium tabular bg-fill text-on-fill rounded-pill cursor-pointer transition-[transform] duration-press ease-spring hover:-translate-y-px active:scale-[0.96]"
-                >
-                  Needs review {mcp.conflicting}
-                </button>
-              )}
-            </div>
+        <div className="flex items-center gap-3 min-h-[30px]">
+          <p className={`${captionClass} font-flex flex-1`}>{mcp.caption}</p>
+          <div className="ml-auto flex items-center gap-2">
+            {rescanButton}
+            {reviewPill}
           </div>
-
-          <p className={`${captionClass} mt-2.5`}>{REQUEST_CARRIES}</p>
-        </>
+        </div>
       ) : (
         <>
           {counts.total > 0 && (
@@ -188,21 +197,13 @@ export default function SummaryStrip({
             <div className="ml-auto flex items-center gap-2">
               {rescanButton}
 
-              {reviewCount > 0 && (
-                <button
-                  onClick={() =>
-                    onFilterState(activeStateFilter === "needs-review" ? null : "needs-review")
-                  }
-                  aria-pressed={activeStateFilter === "needs-review"}
-                  className="h-[30px] px-[15px] inline-flex items-center text-small font-medium tabular bg-fill text-on-fill rounded-pill cursor-pointer transition-[transform] duration-press ease-spring hover:-translate-y-px active:scale-[0.96]"
-                >
-                  Needs review {reviewCount}
-                </button>
-              )}
+              {reviewPill}
             </div>
           </div>
         </>
       )}
+
+      {children}
     </section>
   );
 }

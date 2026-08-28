@@ -21,15 +21,18 @@ import { sortAssetItems } from "../utils/sortUtils";
 import { registrationKey } from "../utils/mcpRegistration";
 import { groupProcesses, type ProcessMatch } from "../utils/mcpServerView";
 import { cardSecondLine, mergeReach, sortServerRows, type McpServerRow } from "../utils/serverRows";
-import DisclosureBanner from "./DisclosureBanner";
 import { sumGlobalAssets, categoryCountKey } from "../utils/globalAssetCount";
 import { groupLabelClass } from "./typeRoles";
-import SummaryStrip from "./SummaryStrip";
+import SummaryStrip, { type StripReview } from "./SummaryStrip";
+import HeroBand from "./HeroBand";
+import type { FindingLine } from "./FindingPopover";
+import { miniBtnClass, miniSetClass } from "./miniButton";
 import { ScanStatusIndicator } from "./ScanStatusIndicator";
 import EmptyState from "./EmptyState";
 import { annotationStateCounts, linkStateCounts, matchesStateFilter, StateFilter } from "../utils/linkStateCounts";
 import { categoryNoun, joinNames, joinNamesTruncated } from "../utils/prose";
 import type { McpEngineSummaryData } from "../types/mcpEngineSummary";
+import type { ReviewIssue } from "../utils/reviewIssues";
 
 /** The frontend's mirror of Rust's `ConfigProblem`
  *  (`src-tauri/src/mcp/discover.rs`), carried on `mcpCoverage.problems`.
@@ -112,6 +115,15 @@ interface ProfilePaneProps {
    *  together switch the strip to MCP mode — probe coverage instead of link
    *  state, with a Review pill that filters to conflicting servers. */
   mcpEngineSummary?: McpEngineSummaryData | null;
+  /** The band under the hero, folded or open, and the toggle that persists
+   *  it. Owned by App so the choice survives a rebuild of this pane. */
+  hostsBandOpen?: boolean;
+  onToggleHostsBand?: () => void;
+  /** The global store's own review issues — what the Needs review pill lists
+   *  on every tab but MCP servers. Already narrowed to the selected category
+   *  by App, so the pill's count follows the tab. */
+  issues?: ReviewIssue[];
+  onReview?: (issue: ReviewIssue | null) => void;
   serverGrouping?: ServerGrouping;
   serverSort?: ServerSort;
   onServerGroupingChange?: (grouping: ServerGrouping) => void;
@@ -363,6 +375,10 @@ export default function ProfilePane({
   unaccountedProcesses,
   mcpServers,
   mcpEngineSummary = null,
+  hostsBandOpen = false,
+  onToggleHostsBand,
+  issues = [],
+  onReview,
   serverGrouping: propServerGrouping,
   serverSort: propServerSort,
   onServerGroupingChange,
@@ -398,8 +414,7 @@ export default function ProfilePane({
 
   /* Already filtered to the unaccounted by the caller; grouped here so one
      leaked launch reads as one row with a multiplier rather than as eighty. */
-  const unaccounted = unaccountedProcesses ?? [];
-  const unaccountedGroups = groupProcesses(unaccounted);
+  const unaccountedGroups = groupProcesses(unaccountedProcesses ?? []);
 
   const selectedCategory = propSelectedCategory ?? internalCategory;
   const sortField = propSortField ?? internalSortField;
@@ -610,28 +625,91 @@ export default function ProfilePane({
   const stripSubtitle =
     selectedCategory === null
       ? `assets in the global store · ${engineCount} ${engineCount === 1 ? "engine" : "engines"}`
-      : mcpMode
-        ? `MCP servers registered · ${mcpCoverage?.checked_file_count ?? 0} host configs read`
+      : mcpMode && mcpEngineSummary
+        ? mcpEngineSummary.tools_known_total === null
+          ? `MCP servers across ${mcpEngineSummary.host_count} ${mcpEngineSummary.host_count === 1 ? "host" : "hosts"}`
+          : `MCP servers · ${mcpEngineSummary.tools_known_total} tool ${
+              mcpEngineSummary.tools_known_total === 1 ? "description" : "descriptions"
+            } across ${mcpEngineSummary.host_count} ${mcpEngineSummary.host_count === 1 ? "host" : "hosts"}`
         : `${categoryNoun(selectedCategory)} in the global store · ${engineCount} ${
             engineCount === 1 ? "engine" : "engines"
           }`;
 
-  // The strip's MCP-mode figures, or undefined to keep it in the ordinary
+  // The strip's MCP-mode caption, or undefined to keep it in the ordinary
   // link-state mode — `mcpEngineSummary &&` (not just `mcpMode`, which TS
   // cannot narrow through) is what lets this read `mcpEngineSummary`'s
   // fields without a non-null assertion.
-  const mcpFigures =
-    mcpMode && mcpEngineSummary
-      ? {
-          answered: mcpEngineSummary.answered_server_count,
-          unasked: mcpEngineSummary.unasked_server_count,
-          unaskable: mcpEngineSummary.unaskable_server_count,
-          checkedFileCount: mcpCoverage?.checked_file_count ?? 0,
-          conflicting: mcpEngineSummary.conflicting_server_count,
-          reviewActive: mcpReviewOnly,
-          onToggleReview: () => setMcpReviewOnly((v) => !v),
-        }
-      : undefined;
+  //
+  // The probe-coverage meter that used to live here is gone (Karthik's
+  // ruling, 2026-08-28): it measured whether Hanger had asked, not whether
+  // anything was up, and converged to a constant.
+  const MCP_CAPTION = "Described to the model on every request, used or not.";
+  const mcpFigures = mcpMode && mcpEngineSummary ? { caption: MCP_CAPTION } : undefined;
+
+  // The pill's lines on MCP servers: disagreeing servers first, then the
+  // processes nothing on disk accounts for. The popover IS the latter's
+  // disclosure — there is no registration to open, so there is nothing to
+  // route to (the banner this replaces said the same, 2026-08-20).
+  const conflictingRows = mcpMode && mcpServers ? mcpServers.filter((row) => row.agreement === "Conflicting") : [];
+  const reviewLines: FindingLine[] = [
+    ...conflictingRows.map((row) => ({ severity: "danger" as const, text: `${row.name}: ${cardSecondLine(row)}` })),
+    ...unaccountedGroups.map((g) => ({
+      severity: "warning" as const,
+      text: "Running with no config behind it.",
+      detail: `${g.pids.length > 1 ? `${g.pids.length} processes · e.g. pid ${g.pids[0]}` : `pid ${g.pids[0]}`} · ${g.commandLine}${g.spawningHost ? ` · started by ${g.spawningHost}` : ""}`,
+    })),
+  ];
+  const reviewLineCount = reviewLines.length; // allowlisted: the lines this popover itself renders
+  const mcpReview: StripReview | undefined = mcpMode
+    ? {
+        count: reviewLineCount,
+        lines: reviewLines,
+        actions:
+          conflictingRows.length > 0 ? (
+            <div className={miniSetClass}>
+              <button
+                type="button"
+                aria-pressed={mcpReviewOnly}
+                onClick={() => setMcpReviewOnly((v) => !v)}
+                className={miniBtnClass}
+              >
+                Show disagreeing servers
+              </button>
+            </div>
+          ) : undefined,
+      }
+    : undefined;
+
+  // Every other tab: this store's own review issues, one line each. The
+  // pill's figure used to be `counts.drifted + counts.broken` computed
+  // inside the strip; it is now the lines it actually shows.
+  const assetReviewLines: FindingLine[] = issues.map((i) => ({
+    severity: i.kind === "broken" ? ("danger" as const) : ("warning" as const),
+    text: i.problem,
+    detail: i.name,
+  }));
+  const assetReviewLineCount = assetReviewLines.length; // allowlisted: the lines this popover itself renders
+  const assetReview: StripReview | undefined = !mcpMode
+    ? {
+        count: assetReviewLineCount,
+        lines: assetReviewLines,
+        actions: (
+          <div className={miniSetClass}>
+            <button
+              type="button"
+              aria-pressed={stateFilter === "needs-review"}
+              onClick={() => onStateFilterChange?.(stateFilter === "needs-review" ? null : "needs-review")}
+              className={miniBtnClass}
+            >
+              Show in list
+            </button>
+            <button type="button" onClick={() => onReview?.(issues[0] ?? null)} className={miniBtnClass}>
+              Needs review →
+            </button>
+          </div>
+        ),
+      }
+    : undefined;
 
   // configProblemRows (Appendix A.3/A.4's rows) is computed earlier, near
   // `nothingToShow`, which needs it before this point — see that comment.
@@ -904,51 +982,26 @@ export default function ProfilePane({
           onFilterState={(f) => onStateFilterChange?.(f)}
           onRescan={onRescan}
           mcp={mcpFigures}
-        />
+          review={mcpMode ? mcpReview : assetReview}
+        >
+          {mcpMode && mcpEngineSummary && (
+            <HeroBand
+              label="By host"
+              open={hostsBandOpen}
+              onToggle={() => onToggleHostsBand?.()}
+              note="A tool counts once per host that carries it."
+              rows={mcpEngineSummary.rows.map((r) => ({
+                key: r.engine_id,
+                engineKey: r.engine_id,
+                engineName: r.engine_name,
+                secondary: r.server_count === 1 ? "1 server" : `${r.server_count} servers`,
+                value: r.tools_known,
+                word: r.tools_known === null ? "can't be asked" : r.tools_known === 1 ? "tool" : "tools",
+              }))}
+            />
+          )}
+        </SummaryStrip>
       </div>
-
-      {/* A server running with no config behind it is disclosed rather than
-          listed: it has no registration, so a row would imply something to
-          open that does not exist. DESIGN.md fixes DisclosureBanner for
-          exactly this — non-blocking diagnostics, never a modal.
-
-          This is the cross-host view no single host can produce. Claude Code
-          knows its own children and nothing else's, and none of them know
-          about the servers that outlived whatever started them. */}
-      {unaccounted.length > 0 && (
-        <div className="px-[18px] pb-3.5">
-          {/* `summary` is a bare singular noun: the banner prepends the count
-              and pluralises by appending "s", as with "scan warning" and
-              "nested repo". A sentence here renders as "…accounts fors". */}
-          <DisclosureBanner
-            variant="warning"
-            summary="undeclared MCP server"
-            count={unaccounted.length}
-          >
-            <div className="flex flex-col gap-1.5">
-              <p className="text-small text-ink-2 leading-relaxed">
-                Running now, with no entry in any config Hanger reads. Every host sees
-                only the servers it started itself, so nothing else on this machine
-                accounts for these.
-              </p>
-              {unaccountedGroups.map((g) => (
-                <div key={g.commandLine} className="flex flex-col gap-px">
-                  <span className="text-micro font-mono text-ink-1">
-                    {/* The count once appeared twice — "79 processes · pid
-                        24149 ×79". One number, then a pid you can actually
-                        look up. */}
-                    {g.pids.length > 1
-                      ? `${g.pids.length} processes · e.g. pid ${g.pids[0]}`
-                      : `pid ${g.pids[0]}`}
-                    {g.spawningHost ? ` · ${g.spawningHost}` : ""}
-                  </span>
-                  <span className="text-micro font-mono text-ink-3 truncate">{g.commandLine}</span>
-                </div>
-              ))}
-            </div>
-          </DisclosureBanner>
-        </div>
-      )}
 
       {pendingState ? (
         /* Pending: no claim either way. Live root-by-root progress already

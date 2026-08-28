@@ -29,12 +29,6 @@ const ALLOWLIST: AllowlistEntry[] = [
     reason: "Same showcase Specimen as the Claude Code row above.",
   },
   {
-    file: "src/components/ProfilePane.tsx",
-    linePattern: /This is the cross-host view no single host can produce\. Claude Code/,
-    reason:
-      "Explanatory code comment above the undeclared-servers disclosure, not rendered copy — describes why the feature exists, using Claude Code as the concrete example.",
-  },
-  {
     file: "src/components/McpServerDetail.tsx",
     linePattern: /Nothing to spawn: a Claude\.ai connector lives on Anthropic's servers, a/,
     reason: "Code comment explaining the Claude.ai connector's no-process shape, not rendered copy.",

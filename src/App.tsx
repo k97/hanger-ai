@@ -346,6 +346,10 @@ export default function App() {
   const [selectedIssue, setSelectedIssue] = useState<ReviewIssue | null>(null);
 
   const [inspectorOpen, setInspectorOpen] = useState<boolean>(false);
+  // The hero bands, one per pane. Folded by default: the hero's job is the
+  // headline, and the per-host / per-engine breakdown is the second question.
+  const [hostsBandOpen, setHostsBandOpen] = useState(false);
+  const [enginesBandOpen, setEnginesBandOpen] = useState(false);
   // The floor, and the starting width. INSPECTOR_MIN_WIDTH in
   // utils/inspectorLayout.ts says why it is where it is.
   const [inspectorWidth, setInspectorWidth] = useState<number>(INSPECTOR_MIN_WIDTH);
@@ -552,6 +556,19 @@ export default function App() {
   };
 
   const toggleInspectorExpanded = () => setInspectorExpanded((prev) => !prev);
+
+  const toggleHostsBand = () =>
+    setHostsBandOpen((prev) => {
+      const next = !prev;
+      invoke("set_preference", { key: "hosts_band_open", value: String(next) }).catch(() => {});
+      return next;
+    });
+  const toggleEnginesBand = () =>
+    setEnginesBandOpen((prev) => {
+      const next = !prev;
+      invoke("set_preference", { key: "engines_band_open", value: String(next) }).catch(() => {});
+      return next;
+    });
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -886,6 +903,10 @@ export default function App() {
       if (inspectorPref === "true") {
         setInspectorOpen(true);
       }
+      const hostsPref = await invoke<string | null>("get_preference", { key: "hosts_band_open" });
+      if (hostsPref === "true") setHostsBandOpen(true);
+      const enginesPref = await invoke<string | null>("get_preference", { key: "engines_band_open" });
+      if (enginesPref === "true") setEnginesBandOpen(true);
       const inspectorWidthPref = await invoke<string | null>("get_preference", { key: "inspector_width" });
       if (inspectorWidthPref) {
         const w = parseInt(inspectorWidthPref, 10);
@@ -1312,6 +1333,16 @@ export default function App() {
   // One derivation feeds the rail badge, the review filter list and the pane,
   // so the three can never disagree about what needs a decision.
   const review = deriveReviewIssues(inventory);
+  /* The category ProfilePane is actually showing. It comes from the sidebar
+     item when the rail carries one and from the facet chip otherwise — the
+     same either/or `lookingAtTools` above already reconciles — so the review
+     pill's lines follow the tab the way its old count did. */
+  const profileActiveCategory = selectedSidebarItem.includes(":")
+    ? selectedSidebarItem.split(":")[1]
+    : profileCategory;
+  /* The repository RepoPane is showing, bound once: it keys both the pane's
+     own root and the issues filtered to it (`placeKey`, reviewIssues.ts). */
+  const repoPaneRoot = selectedSidebarItem.split(":")[0];
   const reviewShown = review.issues.filter((issue) =>
     matchesIssueFilter(issue, reviewKind, reviewPlace)
   );
@@ -1373,7 +1404,10 @@ export default function App() {
         revealItemInDir(parentDirOf(inspectorShownPath)).catch(() => {});
       }
     : undefined;
-  const onReviewForCap = (issue: ReviewIssue) => {
+  /* The route to Needs review, from the inspector cap's chip and from either
+     pane's review pill. Nullable because a pill can open on findings that are
+     not issues at all — a scan warning has no row to select. */
+  const routeToReview = (issue: ReviewIssue | null) => {
     handleSelectSidebarItem("review");
     invoke("set_preference", { key: "selected_sidebar_item", value: "review" }).catch(() => {});
     // Decision 7: the route clears any standing kind/place filter, not just
@@ -1381,7 +1415,7 @@ export default function App() {
     // can filter the routed-to issue straight back out of the list.
     setReviewKind(null);
     setReviewPlace(null);
-    setSelectedIssue(issue);
+    if (issue) setSelectedIssue(issue);
   };
 
   // Crumb never shows a filesystem path — folder names only.
@@ -1708,6 +1742,12 @@ export default function App() {
               onSelectAsset={handleSelectAsset}
               onLinkAsset={handleLinkAsset}
               onCategoryChange={(c) => setProfileCategory(c)}
+              hostsBandOpen={hostsBandOpen}
+              onToggleHostsBand={toggleHostsBand}
+              issues={review.issues.filter(
+                (i) => i.whereKeys.includes("global") && (profileActiveCategory === null || i.category === profileActiveCategory)
+              )}
+              onReview={routeToReview}
               unaccountedProcesses={unaccountedProcesses(mcpProcesses ?? undefined)}
               mcpServers={mcpServers}
               mcpEngineSummary={mcpEngineSummary}
@@ -1808,7 +1848,7 @@ export default function App() {
 
           {(selectedSidebarItem.startsWith("/") || selectedSidebarItem.startsWith("~")) && (
             <RepoPane
-              repoPath={selectedSidebarItem.split(":")[0]}
+              repoPath={repoPaneRoot}
               selectedCategory={
                 selectedSidebarItem.includes(":")
                   ? (selectedSidebarItem.split(":")[1] as any)
@@ -1830,6 +1870,10 @@ export default function App() {
               onLinkFromProfile={handleLinkFromProfile}
               linkedRepos={linkedDirectories}
               onPromoteCandidates={(candidates) => setPromoteCandidates(candidates)}
+              enginesBandOpen={enginesBandOpen}
+              onToggleEnginesBand={toggleEnginesBand}
+              issues={review.issues.filter((i) => i.whereKeys.includes(repoPaneRoot))}
+              onReview={routeToReview}
             />
           )}
             </div>
@@ -1904,7 +1948,7 @@ export default function App() {
               onOpenInEditor={onOpenInEditorForCap}
               onCopyPath={onCopyPathForCap}
               onReveal={onRevealForCap}
-              onReview={onReviewForCap}
+              onReview={routeToReview}
               onToggleExpanded={toggleInspectorExpanded}
               onToggleInspector={toggleInspector}
             />

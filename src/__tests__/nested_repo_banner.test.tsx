@@ -5,6 +5,11 @@
 // A blocking prompt would have to open before the walk finishes, so the common
 // case — one ordinary project, zero nested repos — would pay a modal flash for
 // a question that never comes.
+//
+// Since 2026-08-28 the notice is the hero band's foot row rather than a
+// DisclosureBanner of its own — the thing it qualifies is the per-engine
+// tally directly above it. The band is what folds now, so "collapsed by
+// default" is asserted against `enginesBandOpen`.
 
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { render, screen, cleanup, fireEvent } from "@testing-library/react";
@@ -41,7 +46,11 @@ function inventoryWith(
   } as unknown as Inventory;
 }
 
-function renderPane(inventory: Inventory, linkedRepos: string[] = ["/Users/k/Work"]) {
+function renderPane(
+  inventory: Inventory,
+  linkedRepos: string[] = ["/Users/k/Work"],
+  enginesBandOpen = true
+) {
   return render(
     <RepoPane
       repoPath="/Users/k/Work"
@@ -53,13 +62,15 @@ function renderPane(inventory: Inventory, linkedRepos: string[] = ["/Users/k/Wor
       onSelectAsset={() => {}}
       onLinkFromProfile={() => {}}
       onPromoteCandidates={() => {}}
+      enginesBandOpen={enginesBandOpen}
+      onToggleEnginesBand={() => {}}
     />
   );
 }
 
 afterEach(() => cleanup());
 
-describe("nested repository banner", () => {
+describe("nested repository notice", () => {
   it("announces unlinked candidates found inside the root", () => {
     renderPane(
       inventoryWith([
@@ -68,14 +79,12 @@ describe("nested repository banner", () => {
         "/Users/k/Work/repo3",
       ])
     );
-    // DisclosureBanner pluralises by appending a literal "s", so the summary
-    // noun must end in something s-pluralisable — "repo", never "repository".
-    expect(screen.getByText("3 nested repos")).toBeDefined();
+    expect(screen.getByText("3 nested repos count towards this row")).toBeDefined();
   });
 
   it("uses the singular form for one candidate", () => {
     renderPane(inventoryWith(["/Users/k/Work/repo1"]));
-    expect(screen.getByText("1 nested repo")).toBeDefined();
+    expect(screen.getByText("1 nested repo counts towards this row")).toBeDefined();
   });
 
   it("subtracts candidates that are already linked", () => {
@@ -83,7 +92,7 @@ describe("nested repository banner", () => {
       inventoryWith(["/Users/k/Work/repo1", "/Users/k/Work/repo2"]),
       ["/Users/k/Work", "/Users/k/Work/repo1"]
     );
-    expect(screen.getByText("1 nested repo")).toBeDefined();
+    expect(screen.getByText("1 nested repo counts towards this row")).toBeDefined();
   });
 
   it("shows nothing when every candidate is already linked", () => {
@@ -101,8 +110,6 @@ describe("nested repository banner", () => {
 
   it("discloses that the search was depth-capped on a broad root", () => {
     renderPane(inventoryWith(["/Users/k/Work/repo1"], [DEPTH_CAP_WARNING]));
-    // The banner ships collapsed, so the disclosure lives in the body.
-    fireEvent.click(screen.getByText("1 nested repo"));
     // "1 nested repo" would otherwise read as a complete answer when the walk
     // stopped at 6 levels and deeper repositories were never examined.
     expect(screen.getByText(/stopped at 6 levels/i)).toBeDefined();
@@ -110,16 +117,16 @@ describe("nested repository banner", () => {
 
   it("does not claim truncation on an ordinary root", () => {
     renderPane(inventoryWith(["/Users/k/Work/repo1"]));
-    fireEvent.click(screen.getByText("1 nested repo"));
     expect(screen.queryByText(/stopped at 6 levels/i)).toBeNull();
   });
 
-  it("ships collapsed so the notice stays non-intrusive", () => {
-    renderPane(inventoryWith(["/Users/k/Work/repo1"]));
-    // Candidate paths are body content; none of them should be in the DOM
-    // until the user opens the banner.
+  it("ships folded so the notice stays non-intrusive", () => {
+    const { unmount } = renderPane(inventoryWith(["/Users/k/Work/repo1"]), undefined, false);
+    // The foot row lives inside the band; folded, none of it is in the DOM.
+    expect(screen.queryByTestId("hero-band-foot")).toBeNull();
     expect(screen.queryByText("/Users/k/Work/repo1")).toBeNull();
-    fireEvent.click(screen.getByText("1 nested repo"));
+    unmount();
+    renderPane(inventoryWith(["/Users/k/Work/repo1"]));
     expect(screen.getByText("/Users/k/Work/repo1")).toBeDefined();
   });
 
@@ -136,9 +143,10 @@ describe("nested repository banner", () => {
         onSelectAsset={() => {}}
         onLinkFromProfile={() => {}}
         onPromoteCandidates={onPromote}
+        enginesBandOpen
+        onToggleEnginesBand={() => {}}
       />
     );
-    fireEvent.click(screen.getByText("1 nested repo"));
     fireEvent.click(screen.getByText("Promote…"));
     expect(onPromote).toHaveBeenCalledWith(["/Users/k/Work/repo2"]);
   });

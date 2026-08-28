@@ -8,26 +8,30 @@ import {
   InboxIcon,
   RotateCcwIcon,
   LoaderCircleIcon,
+  InformationCircleIcon,
 } from "./icons";
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import CategoryFilterCards, { CategoryType } from "./CategoryFilterCards";
 import AssetRow, { AssetItem } from "./AssetRow";
-import EngineLabel from "./EngineLabel";
 import AssetHeaderRow, { SortField, SortDirection } from "./AssetHeaderRow";
 import { Inventory, CategoryCounts } from "../App";
 import { filterRepoAssets } from "../utils/filterPredicate";
-import DisclosureBanner from "./DisclosureBanner";
 import { sortAssetItems } from "../utils/sortUtils";
 import { registrationKey } from "../utils/mcpRegistration";
 import { formatEngineLabel } from "../utils/engineUtils";
 import { groupLabelClass } from "./typeRoles";
-import SummaryStrip from "./SummaryStrip";
+import SummaryStrip, { type StripReview } from "./SummaryStrip";
+import HeroBand, { type HeroBandRow } from "./HeroBand";
+import type { FindingLine } from "./FindingPopover";
+import { miniBtnClass, miniSetClass } from "./miniButton";
 import { ScanStatusIndicator } from "./ScanStatusIndicator";
 import EmptyState from "./EmptyState";
 import { categoryNoun } from "../utils/prose";
 import { linkStateCounts, matchesStateFilter, StateFilter } from "../utils/linkStateCounts";
 import { categoryCountKey } from "../utils/globalAssetCount";
+import { captionClass } from "./typeRoles";
+import type { ReviewIssue } from "../utils/reviewIssues";
 
 interface RepoPaneProps {
   repoPath: string;
@@ -54,6 +58,14 @@ interface RepoPaneProps {
   /** Every linked root, used to subtract candidates that are already linked. */
   linkedRepos?: string[];
   onPromoteCandidates?: (candidates: string[]) => void;
+  /** This repository's own review issues — the Needs review pill's lines,
+   *  alongside the scan warnings that used to have a banner of their own. */
+  issues?: ReviewIssue[];
+  onReview?: (issue: ReviewIssue | null) => void;
+  /** The band under the hero, folded or open, and the toggle that persists
+   *  it. Owned by App so the choice survives a rebuild of this pane. */
+  enginesBandOpen?: boolean;
+  onToggleEnginesBand?: () => void;
 }
 
 export default function RepoPane({
@@ -75,6 +87,10 @@ export default function RepoPane({
   onLinkFromProfile,
   linkedRepos = [],
   onPromoteCandidates,
+  issues = [],
+  onReview,
+  enginesBandOpen = false,
+  onToggleEnginesBand,
 }: RepoPaneProps) {
   const [internalCategory, setInternalCategory] = useState<CategoryType | null>(null);
   const [internalSortField, setInternalSortField] = useState<SortField>("name");
@@ -217,13 +233,99 @@ export default function RepoPane({
       ? assetCounts?.total ?? 0
       : assetCounts?.byCategory[kindKey]?.total ?? 0;
   const stripCounts = linkStateCounts(inventory, { kind: "repo", root: repoPath }, selectedCategory);
-  const engineCount = Object.keys(assetCounts?.engines ?? {}).filter((k) => k !== "none").length;
+  // No engine tail: the per-engine breakdown is the hero's band now, and a
+  // count of engine kinds beside a count of assets read as one figure.
   const stripSubtitle =
     selectedCategory === null
-      ? `assets in ${repoFolderName} · ${engineCount} ${engineCount === 1 ? "engine" : "engines"}`
-      : `${categoryNoun(selectedCategory)} in ${repoFolderName} · ${engineCount} ${
-          engineCount === 1 ? "engine" : "engines"
-        }`;
+      ? `assets in ${repoFolderName}`
+      : `${categoryNoun(selectedCategory)} in ${repoFolderName}`;
+
+  // The band's rows — the sort the Engines line used: `none` last, then
+  // count descending.
+  const engineRows: HeroBandRow[] = Object.entries(assetCounts?.engines ?? {})
+    .sort(([ak, ac], [bk, bc]) => (ak === "none" ? 1 : bk === "none" ? -1 : bc - ac))
+    .map(([key, count]) => ({
+      key,
+      engineKey: key,
+      engineName: formatEngineLabel(key),
+      value: count,
+      word: count === 1 ? "asset" : "assets",
+    }));
+
+  // The pill's lines: this repository's issues, then the warnings the scan
+  // itself raised. Neither is an asset, and the popover is the disclosure
+  // the two banners used to be.
+  const reviewLines: FindingLine[] = [
+    ...issues.map((i) => ({
+      severity: i.kind === "broken" ? ("danger" as const) : ("warning" as const),
+      text: i.problem,
+      detail: i.name,
+    })),
+    ...nonTccWarnings.map((w) => ({
+      severity: "warning" as const,
+      text: "The scan skipped something it could not read.",
+      detail: w,
+    })),
+  ];
+  const reviewLineCount = reviewLines.length; // allowlisted: the lines this popover itself renders
+  const review: StripReview = {
+    count: reviewLineCount,
+    lines: reviewLines,
+    actions: (
+      <div className={miniSetClass}>
+        {issues.length > 0 && (
+          <button
+            type="button"
+            aria-pressed={stateFilter === "needs-review"}
+            onClick={() => onStateFilterChange?.(stateFilter === "needs-review" ? null : "needs-review")}
+            className={miniBtnClass}
+          >
+            Show in list
+          </button>
+        )}
+        <button type="button" onClick={() => onReview?.(issues[0] ?? null)} className={miniBtnClass}>
+          Needs review →
+        </button>
+      </div>
+    ),
+  };
+
+  // Nested repositories are the band's last row rather than a banner: the
+  // thing they qualify is the per-engine tally directly above them.
+  // Hoisted rather than inlined so the figure that reaches the screen stays
+  // visible to `no-frontend-counting`'s detector, which reads a line for a
+  // count-named assignment: as a bare `unlinkedCandidates.length` inside the
+  // plural fork it matched nothing, and an allowlist entry for it would have
+  // gone stale on the spot.
+  const nestedCount = unlinkedCandidates.length; // allowlisted: nested repository paths, not assets
+  const nestedFoot = nestedCount > 0 && (
+    <>
+      <InformationCircleIcon size={14} className="shrink-0 text-ink-3" />
+      <span className="flex flex-col min-w-0">
+        <span className="text-small text-ink-2">
+          {nestedCount === 1
+            ? "1 nested repo counts towards this row"
+            : `${nestedCount} nested repos count towards this row`}
+        </span>
+        <span className="text-micro font-mono text-ink-3 truncate">{unlinkedCandidates.join(" · ")}</span>
+        {depthCapped && (
+          <span className={captionClass}>
+            This is a broad folder, so the search stopped at 6 levels — repositories deeper than
+            that are not listed.
+          </span>
+        )}
+      </span>
+      {onPromoteCandidates && (
+        <button
+          type="button"
+          onClick={() => onPromoteCandidates(unlinkedCandidates)}
+          className={`${miniBtnClass} ml-auto`}
+        >
+          Promote…
+        </button>
+      )}
+    </>
+  );
 
   const showSkills = selectedCategory === null || selectedCategory === "Skills";
   const showTools = selectedCategory === null || selectedCategory === "Tools";
@@ -443,37 +545,28 @@ export default function RepoPane({
           activeStateFilter={stateFilter}
           onFilterState={(f) => onStateFilterChange?.(f)}
           onRescan={onRefresh}
-        />
+          review={review}
+        >
+          {/* `|| nestedFoot`: on a root whose assets carry no engine at all
+              the rows are empty, and the nested-repo notice would otherwise
+              have nowhere left to render. */}
+          {(engineRows.length > 0 || nestedFoot) && (
+            <HeroBand
+              label="By engine"
+              open={enginesBandOpen}
+              onToggle={() => onToggleEnginesBand?.()}
+              rows={engineRows}
+              foot={nestedFoot || undefined}
+            />
+          )}
+        </SummaryStrip>
       </div>
 
-      {/* Engines line + anything needing attention, above the list plane */}
+      {/* Anything needing attention, above the list plane. The Engines line,
+          the scan warnings and the nested repositories have all moved into
+          the hero — the band's rows, the review pill's popover, and the
+          band's foot row. */}
       <div className="px-[18px] pb-3.5 flex flex-col gap-2.5 empty:hidden shrink-0 max-h-[45%] overflow-y-auto">
-        {/* Engines Group */}
-        {assetCounts?.engines && (
-          <div className="flex items-baseline gap-2 font-flex text-micro text-ink-3">
-            <h3 className="font-medium tracking-[.06em] uppercase">Engines</h3>
-            <div className="flex flex-wrap items-center gap-1.5 text-small text-ink-2">
-              {Object.entries(assetCounts.engines)
-                .map(([key, count]) => ({
-                  key,
-                  label: formatEngineLabel(key),
-                  count,
-                }))
-                .sort((a, b) => {
-                  if (a.key === "none") return 1;
-                  if (b.key === "none") return -1;
-                  return b.count - a.count;
-                })
-                .map((entry, idx) => (
-                  <span key={`engine-${entry.key}`} className="flex items-center gap-1.5">
-                    {idx > 0 && <span className="text-ink-3 select-none">·</span>}
-                    <EngineLabel engineKey={entry.key}>{entry.label} {entry.count}</EngineLabel>
-                  </span>
-                ))}
-            </div>
-          </div>
-        )}
-
         {/* macOS Permission denied TCC Fix Panel */}
         {tccWarnings.length > 0 && (
           <div className="flex flex-col gap-3 p-3.5 border border-line rounded-inner leading-relaxed animate-fade-in">
@@ -510,63 +603,6 @@ export default function RepoPane({
           </div>
         )}
 
-        {/* Non-TCC warnings section */}
-        {nonTccWarnings.length > 0 && (
-          <DisclosureBanner
-            variant="warning"
-            summary="scan warning"
-            count={nonTccWarnings.length}
-          >
-            <ul className="list-disc list-inside space-y-1 text-small text-ink-2 font-mono">
-              {nonTccWarnings.map((warning, idx) => (
-                <li key={idx} className="font-mono break-all leading-relaxed">
-                  {warning}
-                </li>
-              ))}
-            </ul>
-          </DisclosureBanner>
-        )}
-
-        {/* Nested repositories found inside this root. Info variant, collapsed,
-            and placed below the warnings so anything needing attention outranks it. */}
-        {unlinkedCandidates.length > 0 && (
-          <DisclosureBanner
-            variant="info"
-            summary="nested repo"
-            count={unlinkedCandidates.length}
-          >
-            <div className="flex flex-col gap-3">
-              <p className="text-small text-ink-2 leading-relaxed">
-                These folders are repositories in their own right. Their assets currently
-                count towards this row. Promote them to track and deploy each separately.
-              </p>
-              {depthCapped && (
-                <p className="text-small text-ink-2 leading-relaxed">
-                  This is a broad folder, so the search stopped at 6 levels — repositories
-                  deeper than that are not listed.
-                </p>
-              )}
-              <ul className="flex flex-col gap-1">
-                {unlinkedCandidates.map((candidate) => (
-                  <li
-                    key={candidate}
-                    className="text-small text-ink-2 font-mono break-all leading-relaxed"
-                  >
-                    {candidate}
-                  </li>
-                ))}
-              </ul>
-              {onPromoteCandidates && (
-                <button
-                  onClick={() => onPromoteCandidates(unlinkedCandidates)}
-                  className="self-start px-4 h-[30px] rounded-pill border border-line-2 hover:bg-plane-2 text-small font-medium text-ink-2 hover:text-ink-1 transition-colors duration-hover ease-spring cursor-pointer"
-                >
-                  Promote…
-                </button>
-              )}
-            </div>
-          </DisclosureBanner>
-        )}
       </div>
 
       {isRepoPending ? (

@@ -80,13 +80,12 @@ describe("RepoPane TCC Warnings Relocation", () => {
     // be mid-loop.
     expect(retrySvg.querySelector("g.aim-loop")).toBeNull();
 
-    // …and the other three warnings stay in the plain list: a Unix
-    // "Permission denied" is a chmod problem, and the machine-scope Cline
-    // denial (despite containing "macOS blocked access to" mid-string) does
-    // not start with it, so it cannot hijack a panel that renders this
-    // project's own path.
-    const warningBanner = screen.getByRole("button", { name: /3 scan warnings/i });
-    fireEvent.click(warningBanner);
+    // …and the other three warnings stay in the review pill's popover, which
+    // is where the scan-warning banner's rows moved: a Unix "Permission
+    // denied" is a chmod problem, and the machine-scope Cline denial (despite
+    // containing "macOS blocked access to" mid-string) does not start with
+    // it, so it cannot hijack a panel that renders this project's own path.
+    fireEvent.click(screen.getByText("Needs review 3"));
     expect(screen.getByText("Permission denied: /home/user/project/vendored")).toBeDefined();
     expect(screen.getByText("Malformed frontmatter in skill at /home/user/project/SKILL.md")).toBeDefined();
     expect(

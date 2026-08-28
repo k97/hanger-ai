@@ -156,7 +156,7 @@ describe("RepoPane Linking Gestures Integration", () => {
     fireEvent.click(screen.getAllByText("Skills").find((el) => el.closest("[tabindex]"))!.closest("[tabindex]")!);
     const strip = screen.getByLabelText("Inventory summary");
     expect(within(strip).getByText("7")).toBeTruthy();
-    expect(within(strip).getByText("skills in project · 0 engines")).toBeTruthy();
+    expect(within(strip).getByText("skills in project")).toBeTruthy();
   });
 });
 
