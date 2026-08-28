@@ -453,7 +453,8 @@ colour, so pointing at a plate cannot impersonate pressing it.
 One footer inside the card, on `bg-plane`, answers for the selected plate
 (`reach-answer`, `:156-170`): the engine's own root folded to `~` by
 `abbreviateHome` (`prose.ts`), "in place" for a store engine with no link, or
-"not linked" / "cannot read this format" for a miss (`answerFor`). At rest it answers for the first plate in reading order and that
+"not linked" / "cannot read this format" for a miss (`answerFor`). At rest
+it answers for the first plate in reading order and that
 plate is genuinely selected — never empty, never an instruction. Selection is
 per asset: `AssetDetail` keys the card by `asset.path` (`:698`), which is the
 only thing that resets it, since `Flyout` renders the panel unkeyed. The store
@@ -758,8 +759,10 @@ identity lives in the cap and restating it a second time would be "the
 `Flyout.tsx:662-668`). For a plain asset selection the eyebrow row now has
 nothing left to say at all: `eyebrowShown` is `false` whenever nothing but a
 bare `targetAsset` would have earned it (`Flyout.tsx:607-609`), so the row
-does not render and the title block below drops the top margin it used when
-resting on a row that is actually there (`:716`). The eyebrow still renders
+simply does not render — and the step it would have opened up above the
+title goes with it, because that step is the header column's own `gap-1`
+(`:684`) rather than a margin the title row carries and has to switch off.
+The eyebrow still renders
 for what is not a plain asset selection — the link flow's own "Back to
 ‹name›" nav (`:679-687`), a bubble scope with no asset drilled into, or the
 empty-MCP category label — plus, independently, a layered-rules flag that can
@@ -769,7 +772,22 @@ Below that, the header is exactly: the cap's identity row — kind glyph, a
 `KIND · PLACE` eyebrow, a finding chip (`InspectorCap.tsx:169-212`;
 the cap itself, Surfaces and controls below) — then Flyout's title block
 (the `<h2>`, `Flyout.tsx:720`), then `AssetDetail`'s own `UnderlineTabs`
-switch. Nothing else: `AssetDetail` used to open with a state line, a path
+switch.
+
+**Every band in that stack pads symmetrically, on one step.** The header is
+`py-2` and the tab labels are `py-2` (`Flyout.tsx:684`,
+`UnderlineTabs.tsx:60`), so no band reaches across into another to set its
+neighbour's gap: the space under the title is that header's 8 plus the tab
+row's own 8, and the space above it is the cap's centring slack (a 16px
+glyph in an `h-10` row) plus the same 8. Measured on the running build at
+1173×808, that lands 28px of ink-to-ink air above the title and 24px below
+— even enough to read as one rhythm, and closer below so the title belongs
+to the tabs beneath it rather than floating between two bands. It read
+`pt-2 pb-4` with the labels at `pt-2 pb-2.5` until 2026-08-28, when Karthik
+called the stack inconsistent; the values are a rule now rather than four
+independently chosen numbers. The content card below still insets 12px
+against this stack's 18px gutter (`AssetDetail.tsx:471`) — untouched, and
+the next thing to reconcile. Nothing else: `AssetDetail` used to open with a state line, a path
 chip and a Link/Open action row, each behind its own `border-b border-line`,
 all now gone — the render goes straight from the panel's outer div to a
 comment recording the move and then the tab switch, with no hairline of its
