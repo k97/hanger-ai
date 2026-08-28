@@ -167,7 +167,7 @@ export default function SearchPalette({ open, scannedAt, onClose, onPick }: Sear
           </div>
           <Command.List className="flex-1 min-h-0 overflow-y-auto p-1.5 scroll-thin">
             {!hasScanned ? (
-              <p className="py-6 px-3 text-center text-small text-ink-3">Search opens once the first scan finishes.</p>
+              <p className="py-6 px-3 text-center text-small text-ink-3">Results show up here once the first scan finishes.</p>
             ) : q === "" ? (
               <p className="py-6 px-3 text-center text-small text-ink-3">Type to search names and what's inside.</p>
             ) : answeredEmpty ? (

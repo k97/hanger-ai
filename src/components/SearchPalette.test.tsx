@@ -95,7 +95,7 @@ describe("SearchPalette", () => {
 
   it("says nothing is a finding before the first scan, and does not query", async () => {
     render(<SearchPalette open={true} scannedAt={null} onClose={() => {}} onPick={() => {}} />);
-    expect(screen.getByText("Search opens once the first scan finishes.")).toBeTruthy();
+    expect(screen.getByText("Results show up here once the first scan finishes.")).toBeTruthy();
     fireEvent.change(screen.getByLabelText("Search assets"), { target: { value: "deploy" } });
     await new Promise((r) => setTimeout(r, 150));
     expect(invoke).not.toHaveBeenCalled();

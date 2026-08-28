@@ -1246,7 +1246,8 @@ rail control but never `aria-current`, since it is an action, not a place
 (`:14`, `:121`) — or from ⌘K, the second branch of the shell's keydown effect
 (`App.tsx:562-565`). Each row leads with a glyph rather than sitting under a
 group heading: `KindGlyph` maps the five `SearchKind`s to their icons and
-rows stay in the backend's rank order throughout (`SearchPalette.tsx:43-56`).
+rows stay in the backend's rank order throughout (`SearchPalette.tsx:156`,
+`shouldFilter={false}`).
 A hit's snippet arrives with matched runs wrapped in private-use markers
 (`search.rs:29-30`) that `renderSnippet` turns into `<mark>` (`SearchPalette.tsx:59-72`,
 the tag at `:65`); the base stylesheet zeroes the browser's default yellow
@@ -1262,14 +1263,13 @@ answers, cached or fresh (`:643-649`). Picking a hit calls `onPick`, wired to
 `handleSelectAsset(asset, screen)` with the target screen passed explicitly
 rather than read from state, because a pick can change screens in the same
 tick a stale read would miss (`App.tsx:1032-1038`, `:1106-1119`). As
-committed, the list carries three copy states, none yet through this phase's
-pending copy pass: "Search opens once the first scan finishes." before the
-first scan, "Type to search names and what's inside." for an empty query, and
-"Nothing matches “{q}”." for a query that answered empty
-(`SearchPalette.tsx:169-175`). The shell's cap no longer carries a search
-field: its trailing-controls block runs straight from the breadcrumb to
-Rescan or the view control, with no input between them
-(`App.tsx:1619-1621`).
+committed, the list carries three copy states: "Results show up here once
+the first scan finishes." before the first scan, "Type to search names and
+what's inside." for an empty query, and "Nothing matches “{q}”." for a query
+that answered empty (`SearchPalette.tsx:169-175`). The shell's cap no
+longer carries a search field: its trailing-controls block runs straight
+from the breadcrumb to Rescan or the view control, with no input between
+them (`App.tsx:1619-1621`).
 
 **`InspectorCap`** (`InspectorCap.tsx`, props `:44-70`) — the inspector
 column's 40px cap, and since this phase the selected asset's identity as
