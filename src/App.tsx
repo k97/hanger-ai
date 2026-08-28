@@ -1626,6 +1626,7 @@ export default function App() {
           loadLinkedRepos={loadLinkedDirectories}
           onRefreshGlobalCounts={refreshGlobalCounts}
           setError={setError}
+          onOpenSearch={() => setSearchOpen(true)}
         />
         )}
         </div>

@@ -103,6 +103,7 @@ describe("sidebar group labels — the three DiscoverySidebar's guard cannot rea
         linkedRepos={[]}
         loadLinkedRepos={async () => {}}
         setError={() => {}}
+        onOpenSearch={() => {}}
       />
     );
     assertGroupLabel(screen.getByText("Scope"));

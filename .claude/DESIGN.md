@@ -1287,7 +1287,11 @@ one screen (Karthik's ruling, 2026-08-28, superseding the earlier placement
 beneath Needs review) (`IconRail.tsx:66-74`) — the button takes
 `railBtnClass` like every other rail control but never `aria-current`, since
 it is an action, not a place (`:14`, `:71`) — or from ⌘K, the second branch
-of the shell's keydown effect (`App.tsx:562-565`). Each row leads with a glyph rather than sitting under a
+of the shell's keydown effect (`App.tsx:562-565`). The expanded sidebar
+carries the same action as its own row, above the Scope group label: the
+row idiom's 46px height and `rounded-pill`, but with no selected state — a
+`role="button"` action never reads as current (`Sidebar.tsx:121-140`).
+Each row leads with a glyph rather than sitting under a
 group heading: `KindGlyph` maps the five `SearchKind`s to their icons and
 rows stay in the backend's rank order throughout (`SearchPalette.tsx:131`,
 `shouldFilter={false}`). Each row grew from `px-2.5 py-1.5` to `px-3.5 py-2.5`
