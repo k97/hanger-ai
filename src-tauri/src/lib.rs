@@ -647,7 +647,7 @@ async fn mcp_cached_probe(
             &registration.config_path,
             &result.tools,
         ) {
-            eprintln!("search index not updated for {}: {}", registration_key, e);
+            log::warn!("search index not updated for {}: {}", registration_key, e);
         }
     }
     Ok(response)
@@ -839,7 +839,7 @@ fn run_scan(app: AppHandle) -> Result<Inventory, String> {
 
     // Search is a convenience: an index failure never fails the scan.
     if let Err(e) = search::index_inventory(&get_db_path(&app), &combined_inventory) {
-        eprintln!("search index not rebuilt: {}", e);
+        log::warn!("search index not rebuilt: {}", e);
     }
 
     Ok(combined_inventory)
@@ -1369,7 +1369,7 @@ fn start_scan(
         combined_inventory.project_scans.retain(|p| scan_paths.insert(p.path.clone()));
 
         if let Err(e) = search::index_inventory(&get_db_path(&app_clone), &combined_inventory) {
-            eprintln!("search index not rebuilt: {}", e);
+            log::warn!("search index not rebuilt: {}", e);
         }
 
         {
