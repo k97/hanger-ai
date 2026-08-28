@@ -175,4 +175,7 @@ time, and they commit to the same branch. `ListAgents` shows the others.
   peer's block) and stage it with `git hash-object -w <file>` +
   `git update-index --cacheinfo 100644,<blob>,<path>`; then
   `git diff --cached | grep -c <marker>` must print 0 and the chain must
-  `|| exit` on anything else before `git commit` is reached.
+  `|| exit` on anything else before `git commit` is reached. And read
+  `git diff -U0 <file>` first: a block the peer has since committed is not
+  theirs to subtract — subtracting it stages a deletion of their work. The
+  same day, minutes later, that check caught exactly that.
