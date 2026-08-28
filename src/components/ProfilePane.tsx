@@ -23,6 +23,7 @@ import { groupProcesses, type ProcessMatch } from "../utils/mcpServerView";
 import { cardSecondLine, mergeReach, sortServerRows, type McpServerRow } from "../utils/serverRows";
 import DisclosureBanner from "./DisclosureBanner";
 import { sumGlobalAssets, categoryCountKey } from "../utils/globalAssetCount";
+import { groupLabelClass } from "./typeRoles";
 import SummaryStrip from "./SummaryStrip";
 import { ScanStatusIndicator } from "./ScanStatusIndicator";
 import EmptyState from "./EmptyState";
@@ -55,8 +56,6 @@ interface ProfilePaneProps {
   selectedCategory?: CategoryType | null;
   selectedAsset?: { path: string } | null;
   loading: boolean;
-  /** Toolbar filter text — rows whose name does not contain it are hidden. */
-  filterText?: string;
   /** Link-state filter from the rail badge or the strip legend. */
   stateFilter?: StateFilter;
   onStateFilterChange?: (filter: StateFilter) => void;
@@ -347,7 +346,6 @@ export default function ProfilePane({
   selectedCategory: propSelectedCategory,
   selectedAsset,
   loading,
-  filterText,
   stateFilter = null,
   onStateFilterChange,
   scannedAt = null,
@@ -547,25 +545,22 @@ export default function ProfilePane({
     subagents: scopedSubagents,
   } = filterProfileAssets(inventory, selectedCategory);
 
-  // Toolbar filter narrows by name only; empty text passes everything.
-  const filterQuery = (filterText ?? "").trim().toLowerCase();
-  const nameMatches = (name: string) =>
-    filterQuery === "" || name.toLowerCase().includes(filterQuery);
   // Whether anything is narrowing the rows — the category-empty copy says
-  // "matches that filter" only when a filter is what emptied it.
-  const filterActive = filterQuery !== "" || stateFilter !== null;
+  // "matches that filter" only when a filter is what emptied it. Text search
+  // lives in the palette now (⌘K), not in the pane.
+  const filterActive = stateFilter !== null;
 
   const filteredSkills = scopedSkills.filter(
-    (s) => nameMatches(s.name) && matchesStateFilter(s, stateFilter)
+    (s) => matchesStateFilter(s, stateFilter)
   );
   const filteredTools = scopedTools.filter(
-    (t) => nameMatches(t.name) && matchesStateFilter(t, stateFilter)
+    (t) => matchesStateFilter(t, stateFilter)
   );
   const filteredRules = scopedRules.filter(
-    (r) => nameMatches(r.name) && matchesStateFilter(r, stateFilter)
+    (r) => matchesStateFilter(r, stateFilter)
   );
   const filteredSubagents = scopedSubagents.filter(
-    (sa) => nameMatches(sa.name) && matchesStateFilter(sa, stateFilter)
+    (sa) => matchesStateFilter(sa, stateFilter)
   );
 
   // One row per server (the View control's default) — moved up from its
@@ -772,7 +767,7 @@ export default function ProfilePane({
         // servers when active — one gate, so the card rows and the strip's
         // own "tauri"/"spades" count never disagree on what "filtered" means.
         mcpServers!.filter(
-          (row) => nameMatches(row.name) && (!mcpReviewOnly || row.agreement === "Conflicting")
+          (row) => !mcpReviewOnly || row.agreement === "Conflicting"
         ),
         serverSort
       ).map((row) => {
@@ -876,10 +871,6 @@ export default function ProfilePane({
   // servers still has a Tools section worth rendering (A.3/A.4).
   const hasToolsContent = sortedTools.length > 0 || configProblemRows.length > 0;
   const toolsOnlyView = showTools && hasToolsContent && !nonToolsSectionVisible;
-
-  // Uppercase micro voice for section labels inside the list plane.
-  const secClass =
-    "px-3.5 pt-[11px] pb-[5px] font-flex text-micro font-medium tracking-[.06em] uppercase text-ink-3";
 
   // Visible rows post-filter for the foot line — a display subset, never the
   // asset total (which stays backend-owned).
@@ -1129,7 +1120,7 @@ export default function ProfilePane({
             {/* Agents Group */}
             {selectedCategory === "Agents" && (
               <>
-                <h3 className={secClass}>Agents · {sortedAgents.length}</h3>
+                <h3 className={`px-3.5 pt-[11px] pb-[5px] ${groupLabelClass}`}>Agents · {sortedAgents.length}</h3>
                 <div className="flex flex-col">
                   {sortedAgents.map((item) => (
                     <AssetRow
@@ -1148,7 +1139,7 @@ export default function ProfilePane({
             {/* Skills Group */}
             {showSkills && sortedSkills.length > 0 && (
               <>
-                <h3 className={secClass}>
+                <h3 className={`px-3.5 pt-[11px] pb-[5px] ${groupLabelClass}`}>
                   Skills · {assetCounts ? (assetCounts.byCategory.skill?.global ?? 0) : sortedSkills.length}
                 </h3>
                 <div className="flex flex-col">
@@ -1190,7 +1181,7 @@ export default function ProfilePane({
               <>
                 <div
                   data-testid="section-header-tools"
-                  className={`sticky top-0 z-[2] bg-page flex items-center gap-3 select-none ${secClass}`}
+                  className={`sticky top-0 z-[2] bg-page flex items-center gap-3 select-none px-3.5 pt-[11px] pb-[5px] ${groupLabelClass}`}
                 >
                   {/* The Display control (§5.6) lives here, not in the facet
                       row above: grouping and sort only ever affect these
@@ -1239,7 +1230,7 @@ export default function ProfilePane({
             {/* Rules Group */}
             {showRules && sortedRules.length > 0 && (
               <>
-                <h3 className={secClass}>
+                <h3 className={`px-3.5 pt-[11px] pb-[5px] ${groupLabelClass}`}>
                   Rules · {assetCounts ? (assetCounts.byCategory.rule?.global ?? 0) : sortedRules.length}
                 </h3>
                 <div className="flex flex-col">
@@ -1261,7 +1252,7 @@ export default function ProfilePane({
             {/* Subagents Group */}
             {showSubagents && sortedSubagents.length > 0 && (
               <>
-                <h3 className={secClass}>
+                <h3 className={`px-3.5 pt-[11px] pb-[5px] ${groupLabelClass}`}>
                   Subagents · {assetCounts ? (assetCounts.byCategory.subagent?.global ?? 0) : sortedSubagents.length}
                 </h3>
                 <div className="flex flex-col">
@@ -1286,7 +1277,7 @@ export default function ProfilePane({
 
       {/* Foot line. Unconditional: scan progress needs a home in the empty
           state too, which is precisely when a scan is running. */}
-      <div className="h-[30px] shrink-0 px-[18px] flex items-center gap-4 font-flex text-micro text-ink-3">
+      <div className="h-[30px] shrink-0 px-[18px] flex items-center gap-4 font-flex text-small text-ink-3">
         {sumGlobalAssets(assetCounts) > 0 && (
           <span>
             Showing {visibleCount} of {sumGlobalAssets(assetCounts)}

@@ -1321,7 +1321,15 @@ impl DirectoryScanner {
                                             id: skill_identity.clone(),
                                             name: fm.name.clone(),
                                             description: fm.description,
-                                            version: fm.version.clone().unwrap_or_else(|| "v0.0.0-draft".to_string()),
+                                            // Absent means absent. Filling a missing
+                                            // frontmatter version with a sentinel put a
+                                            // value on screen that no file ever declared
+                                            // — the inspector's Version row and the
+                                            // Flyout list's chip are both truthy
+                                            // conditionals, so an empty string removes
+                                            // them and a sentinel renders as data.
+                                            // Karthik's ruling, 2026-08-28.
+                                            version: fm.version.clone().unwrap_or_default(),
                                             path: skill_identity.clone(),
                                             source_origin: declared_owned(&fm.source_origin),
                                             scope: Some(Scope::Global {
@@ -1873,7 +1881,9 @@ impl DirectoryScanner {
                                 id: parent_dir_str.clone(),
                                 name: fm.name.clone(),
                                 description: fm.description,
-                                version: fm.version.clone().unwrap_or_else(|| "v0.0.0-draft".to_string()),
+                                // Absent means absent — see the note on the global
+                                // skills branch above. Karthik's ruling, 2026-08-28.
+                                version: fm.version.clone().unwrap_or_default(),
                                 path: parent_dir_str.clone(),
                                 source_origin: declared_owned(&fm.source_origin),
                                 scope: Some(Scope::Project {
@@ -1914,7 +1924,9 @@ impl DirectoryScanner {
                                 id: parent_dir_str.clone(),
                                 name: filename.to_string(),
                                 description: String::new(),
-                                version: "v0.0.0-draft".to_string(),
+                                // No frontmatter at all, so nothing declared a
+                                // version. Karthik's ruling, 2026-08-28.
+                                version: String::new(),
                                 path: parent_dir_str.clone(),
                                 source_origin: None,
                                 scope: Some(Scope::Project {

@@ -1,4 +1,4 @@
-import { ComputerDesktopIcon, GlobeAltIcon, ExclamationTriangleIcon, Cog6ToothIcon, FolderSymlinkIcon, SwatchIcon } from "./icons";
+import { ComputerDesktopIcon, GlobeAltIcon, ExclamationTriangleIcon, Cog6ToothIcon, FolderSymlinkIcon, SwatchIcon, MagnifyingGlassIcon } from "./icons";
 import HangerMark from "./HangerMark";
 import Tooltip from "./Tooltip";
 
@@ -9,6 +9,9 @@ interface IconRailProps {
   onSelectLinkMap: () => void;
   onSelectDiscovery: () => void;
   onSelectReview: () => void;
+  /** Opens the search palette; ⌘K does the same. An action, not a place —
+   *  it never reads as current. */
+  onOpenSearch: () => void;
   /** The design-system page. Present in dev builds only — the shell passes
    *  it under import.meta.env.DEV and the entry does not otherwise exist
    *  (Karthik's ruling, 2026-08-16). */
@@ -35,6 +38,7 @@ export default function IconRail({
   onSelectLinkMap,
   onSelectDiscovery,
   onSelectReview,
+  onOpenSearch,
   onSelectDesign,
   onOpenSettings,
 }: IconRailProps) {
@@ -107,6 +111,15 @@ export default function IconRail({
             </span>
           )}
           <ExclamationTriangleIcon size={17} aria-hidden="true" />
+        </button>
+      </Tooltip>
+
+      {/* Beneath Needs review (Karthik's ruling, 2026-08-27): the palette
+          searches the whole machine, so it sits with the machine-wide
+          entries rather than in any one screen's cap. */}
+      <Tooltip label="Search  ⌘K">
+        <button aria-label="Search" onClick={onOpenSearch} className={railBtnClass}>
+          <MagnifyingGlassIcon size={17} aria-hidden="true" />
         </button>
       </Tooltip>
 

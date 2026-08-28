@@ -140,7 +140,7 @@ describe("Asset detail — the inspector's document screen", () => {
   // "states the file's relationships in one line" removed: the state line
   // (the dot + "The source for N copies" statement) moved to the cap's kind
   // glyph. Successor: InspectorCap.test.tsx, "marks the kind glyph with a
-  // state dot only when the asset has findings".
+  // state dot only when the chip has shed off the surface".
 
   it("reads the file through the backend, by path", async () => {
     render(<AssetDetail asset={asset} inventory={inventory} />);
@@ -348,6 +348,55 @@ describe("Asset detail — the inspector's document screen", () => {
     expect(engineDd.querySelector("svg")?.getAttribute("data-brand")).toBe("claude_code");
   });
 
+  it("omits the Engine row when nothing owns the asset", () => {
+    // `asset` declares no scope, so no engine owns it. The row used to read
+    // "Any agent" — a fact about Hanger's model, not about this file — and on
+    // a machine using the shared store it read that way for every skill,
+    // because scanner.rs empties the scope's agent there.
+    render(<AssetDetail asset={asset} inventory={inventory} />);
+    openDetails();
+    expect(screen.queryByText("Engine")).toBeNull();
+    expect(screen.queryByText("Any agent")).toBeNull();
+  });
+
+  it("omits the Scope row for a global asset, where it only ever said 'Global'", () => {
+    // AssetDetail is reachable only from the Global pane (filtered to global
+    // scopes) and a repo pane (filtered to that repo), so the row was constant
+    // in every context it could appear in.
+    const global = { ...asset, scope: { Global: { agent: "codex" } } };
+    render(<AssetDetail asset={global} inventory={inventory} />);
+    openDetails();
+    expect(screen.queryByText("Scope")).toBeNull();
+  });
+
+  it("tells Project from Local in a repo, which the repo name could not", () => {
+    const project = { ...asset, scope: { Project: { agent: "", root: "/r/hanger-ai" } } };
+    const { unmount } = render(<AssetDetail asset={project} inventory={inventory} />);
+    openDetails();
+    const section = screen.getByText("Identity").closest("section")!;
+    expect(within(section).getByText("Scope")).toBeTruthy();
+    expect(within(section).getByText("Project")).toBeTruthy();
+    // The repo name is what the row used to say, and the breadcrumb says it.
+    expect(within(section).queryByText("hanger-ai")).toBeNull();
+    unmount();
+
+    const local = { ...asset, scope: { Local: { agent: "", root: "/r/hanger-ai" } } };
+    render(<AssetDetail asset={local} inventory={inventory} />);
+    openDetails();
+    const localSection = screen.getByText("Identity").closest("section")!;
+    expect(within(localSection).getByText("Local")).toBeTruthy();
+  });
+
+  it("keeps the Engine row when an engine does own the asset", () => {
+    // Ownership is exclusive and Reach does not answer it: a rule under
+    // ~/.codex names Codex here and nowhere else in the panel.
+    const owned = { ...asset, scope: { Global: { agent: "codex" } } };
+    render(<AssetDetail asset={owned} inventory={inventory} />);
+    openDetails();
+    expect(screen.getByText("Engine")).toBeTruthy();
+    expect(screen.getByText("Codex")).toBeTruthy();
+  });
+
   it("opens on Content: the document in a card with its file row, Details a tab away", async () => {
     render(<AssetDetail asset={asset} inventory={inventory} />);
     expect((await screen.findByRole("tab", { name: "Content" })).getAttribute("aria-selected")).toBe("true");
@@ -384,7 +433,12 @@ describe("Asset detail — the inspector's document screen", () => {
   });
 
   it("Identity is one list card in the ruled order, with Modified from the file's mtime", async () => {
-    render(<AssetDetail asset={asset} inventory={inventory} />);
+    // Owned and repo-scoped on purpose: Engine is conditional on an owning
+    // engine and Scope on a repo scope (2026-08-28), and the order this pins
+    // is only fully exercised when every conditional row is present. The
+    // unowned and global cases have their own tests.
+    const owned = { ...asset, scope: { Project: { agent: "claude", root: "/r/hanger-ai" } } };
+    render(<AssetDetail asset={owned} inventory={inventory} />);
     await screen.findByRole("tab", { name: "Details" });
     openDetails();
     const section = screen.getByText("Identity").closest("section")!;
@@ -490,13 +544,52 @@ describe("Asset detail — the inspector's document screen", () => {
     expect(within(many).queryByText(NOTE)).toBeNull();
 
     cleanup();
+    // The smallest folder that still draws the card. This was a lone
+    // SKILL.md until 2026-08-28, when that shape stopped rendering Contents
+    // at all — so the two-entry folder is now the second shape, and the
+    // single-entry one is covered by "hides Contents when the folder holds
+    // only SKILL.md" below.
+    dirResult = [
+      { name: "SKILL.md", kind: "file", bytes: 431, file_count: null },
+      { name: "notes.md", kind: "file", bytes: 96, file_count: null },
+    ];
+    render(<AssetDetail asset={asset} inventory={inventory} />);
+    await screen.findByRole("tab", { name: "Details" });
+    openDetails();
+    const few = (await screen.findByText("Contents")).closest("section")!;
+    expect(within(few).getAllByTestId("skill-dir-row")).toHaveLength(2);
+    expect(within(few).queryByText(NOTE)).toBeNull();
+  });
+
+  it("hides Contents when the folder holds only SKILL.md", async () => {
+    // A lone SKILL.md is not contents — it is the document the Content tab is
+    // already showing, and its path is in Identity above. 66 of 128 store
+    // skills on a real machine are exactly this.
     dirResult = [{ name: "SKILL.md", kind: "file", bytes: 431, file_count: null }];
     render(<AssetDetail asset={asset} inventory={inventory} />);
     await screen.findByRole("tab", { name: "Details" });
     openDetails();
-    const one = (await screen.findByText("Contents")).closest("section")!;
-    expect(within(one).getAllByTestId("skill-dir-row")).toHaveLength(1);
-    expect(within(one).queryByText(NOTE)).toBeNull();
+    expect(screen.queryByText("Contents")).toBeNull();
+  });
+
+  it("shows Contents as soon as the folder holds anything else", async () => {
+    dirResult = [
+      { name: "SKILL.md", kind: "file", bytes: 431, file_count: null },
+      { name: "references/", kind: "dir", bytes: null, file_count: 4 },
+    ];
+    render(<AssetDetail asset={asset} inventory={inventory} />);
+    await screen.findByRole("tab", { name: "Details" });
+    openDetails();
+    expect(await screen.findByText("Contents")).toBeTruthy();
+  });
+
+  it("still hides Contents for a lone SKILL.md even when it is a symlink", async () => {
+    // The rule is about the entry being the document, not about its kind.
+    dirResult = [{ name: "SKILL.md", kind: "symlink", bytes: null, file_count: null }];
+    render(<AssetDetail asset={asset} inventory={inventory} />);
+    await screen.findByRole("tab", { name: "Details" });
+    openDetails();
+    expect(screen.queryByText("Contents")).toBeNull();
   });
 
   it("a symlinked entry takes the link mark and states no size it never measured", async () => {
@@ -550,22 +643,33 @@ describe("Asset detail — the inspector's document screen", () => {
   // Was also asserting the "Only SKILL.md is read into context" prose here.
   // Dropped 2026-08-28 with the sentence itself — it is a fact about the
   // harness rather than the asset, and now lives in docs/harness.md. The ink
-  // treatment below is what still carries that meaning in the UI: SKILL.md's
-  // size is the one figure in full ink because it is the one that always
-  // loads. The prose's absence is pinned by its own test above.
-  it("sets SKILL.md's size in full ink, and no other entry's", async () => {
+  // treatment below is what still carries that meaning in the UI: every
+  // entry BUT SKILL.md's recedes to secondary ink, because SKILL.md is the
+  // one that always loads. The prose's absence is pinned by its own test
+  // above.
+  it("sets every entry's size except SKILL.md's in secondary ink", async () => {
+    // `references/` and `scripts/` (the default fixture's other two entries)
+    // are directories: their value is a file count, not a size, so they
+    // never reach the size ternary this test pins and would make the "every
+    // other entry" half vacuous. A second FILE is what actually exercises
+    // the non-SKILL.md branch.
+    dirResult = [
+      { name: "SKILL.md", kind: "file", bytes: 431, file_count: null },
+      { name: "reference.md", kind: "file", bytes: 128, file_count: null },
+    ];
     render(<AssetDetail asset={asset} inventory={inventory} />);
     await screen.findByRole("tab", { name: "Details" });
     openDetails();
     const section = (await screen.findByText("Contents")).closest("section")!;
-    const skillRow = within(section).getByText("SKILL.md").closest('[data-testid="skill-dir-row"]')!;
     // Class-contract only: happy-dom lays nothing out, so computed color is
-    // unassertable here. This checks the emphasis class landed on the
-    // SKILL.md row and nowhere else, not that it renders visibly lighter —
-    // that needs a real-build screenshot.
-    expect(skillRow.querySelector(".text-ink-1")).toBeTruthy();
-    const referencesRow = within(section).getByText("references/").closest('[data-testid="skill-dir-row"]')!;
-    expect(referencesRow.querySelector(".text-ink-1")).toBeNull();
+    // unassertable here. This checks the secondary-ink class landed on the
+    // size figure of every entry but SKILL.md's, not that it renders
+    // visibly lighter — that needs a real-build screenshot. Scoped to the
+    // size text itself (not the row) because the row's own folder/file icon
+    // is always --ink-3, which would make a row-wide search true regardless
+    // of which entry it is.
+    expect(within(section).getByText("431 B").className).not.toContain("text-ink-3");
+    expect(within(section).getByText("128 B").className).toContain("text-ink-3");
   });
 
   it("Context is a two-tier ledger: always-on and on-open, tokens leading, bytes beneath", async () => {
@@ -624,5 +728,52 @@ describe("Asset detail — the inspector's document screen", () => {
     render(<AssetDetail asset={{ ...asset, category: "Rules" }} inventory={inventory} />);
     await screen.findByRole("tab", { name: "Content" });
     expect(screen.queryByText("Context")).toBeNull();
+  });
+
+  it("section heads are sentence-case body medium, not uppercase eyebrows", async () => {
+    render(<AssetDetail asset={asset} inventory={inventory} />);
+    const head = await screen.findByText("Context");
+    expect(head.className).toContain("text-base-app");
+    expect(head.className).toContain("font-medium");
+    expect(head.className).not.toContain("uppercase");
+    expect(head.className).not.toContain("tracking-[.06em]");
+  });
+
+  // `documentKindFor` gives Skills/Rules/Subagents kind "markdown", and
+  // `pretty` (this test's target) is only ever computed for kind "json"
+  // (AssetDetail.tsx's `text !== null && kind === "json"` guard) — so this
+  // branch is a Tools asset's own body, never a skill's. Matches the sibling
+  // test "formats a tool's config instead of reading braces as prose".
+  it("renders the formatted body at 12px mono in --ink-1 with code leading", async () => {
+    bodyResult = { ok: true, text: '{"mcpServers":{"node":{"command":"node run"}}}' };
+    render(
+      <AssetDetail
+        asset={{ ...asset, category: "Tools", name: "node", path: "/home/me/.mcp.json" }}
+        inventory={{ ...inventory, skills: [] }}
+      />
+    );
+    const pre = await screen.findByTestId("asset-formatted");
+    expect(pre.className).toContain("text-small");
+    expect(pre.className).toContain("text-ink-1");
+    expect(pre.className).toContain("leading-code");
+    expect(pre.className).not.toContain("leading-[1.6]");
+  });
+
+  // The complement of the test above: a skill's body always reaches
+  // `MarkdownDoc` in preview (`document` is never null for markdown kind —
+  // `parseSkillDocument` hands back the whole text as an empty-frontmatter
+  // document rather than failing), so the only `<pre>` a Skills asset ever
+  // renders is this one, reached by "View source" — the same click the
+  // neighbouring "shows the raw file when asked for Source" test drives.
+  it("renders the Skills body at 12px mono in --ink-1 with code leading, in Source view", async () => {
+    render(<AssetDetail asset={asset} inventory={inventory} />);
+    fireEvent.click(await screen.findByRole("button", { name: "View source" }));
+    const pre = await screen.findByTestId("asset-source");
+    expect(pre.className).toContain("font-mono");
+    expect(pre.className).toContain("text-small");
+    expect(pre.className).toContain("text-ink-1");
+    expect(pre.className).toContain("leading-code");
+    expect(pre.className).not.toContain("leading-[1.6]");
+    expect(pre.className).not.toContain("text-micro");
   });
 });

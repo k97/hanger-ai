@@ -21,6 +21,7 @@ import DisclosureBanner from "./DisclosureBanner";
 import { sortAssetItems } from "../utils/sortUtils";
 import { registrationKey } from "../utils/mcpRegistration";
 import { formatEngineLabel } from "../utils/engineUtils";
+import { groupLabelClass } from "./typeRoles";
 import SummaryStrip from "./SummaryStrip";
 import { ScanStatusIndicator } from "./ScanStatusIndicator";
 import EmptyState from "./EmptyState";
@@ -39,8 +40,6 @@ interface RepoPaneProps {
   onCategoryChange?: (category: CategoryType | null) => void;
   selectedAsset?: { path: string } | null;
   loading: boolean;
-  /** Toolbar filter text — rows whose name does not contain it are hidden. */
-  filterText?: string;
   /** Link-state filter from the rail badge or the strip legend. */
   stateFilter?: StateFilter;
   onStateFilterChange?: (filter: StateFilter) => void;
@@ -65,7 +64,6 @@ export default function RepoPane({
   onCategoryChange,
   selectedAsset,
   loading,
-  filterText,
   stateFilter = null,
   onStateFilterChange,
   scannedAt = null,
@@ -190,25 +188,22 @@ export default function RepoPane({
     subagents: scopedSubagents,
   } = filterRepoAssets(inventory, repoPath, selectedCategory);
 
-  // Toolbar filter narrows by name only; empty text passes everything.
-  const filterQuery = (filterText ?? "").trim().toLowerCase();
-  const nameMatches = (name: string) =>
-    filterQuery === "" || name.toLowerCase().includes(filterQuery);
   // Whether anything is narrowing the rows — the category-empty copy says
-  // "matches that filter" only when a filter is what emptied it.
-  const filterActive = filterQuery !== "" || stateFilter !== null;
+  // "matches that filter" only when a filter is what emptied it. Text search
+  // lives in the palette now (⌘K), not in the pane.
+  const filterActive = stateFilter !== null;
 
   const filteredSkills = scopedSkills.filter(
-    (s) => nameMatches(s.name) && matchesStateFilter(s, stateFilter)
+    (s) => matchesStateFilter(s, stateFilter)
   );
   const filteredTools = scopedTools.filter(
-    (t) => nameMatches(t.name) && matchesStateFilter(t, stateFilter)
+    (t) => matchesStateFilter(t, stateFilter)
   );
   const filteredRules = scopedRules.filter(
-    (r) => nameMatches(r.name) && matchesStateFilter(r, stateFilter)
+    (r) => matchesStateFilter(r, stateFilter)
   );
   const filteredSubagents = scopedSubagents.filter(
-    (sa) => nameMatches(sa.name) && matchesStateFilter(sa, stateFilter)
+    (sa) => matchesStateFilter(sa, stateFilter)
   );
 
   // Strip data: backend-owned total, frontend-derived state split. A
@@ -404,10 +399,6 @@ export default function RepoPane({
   // "no assets match" reading below even when the filtered rows are
   // currently zero.
   const isAllPending = isAllEmpty && loading;
-
-  // Uppercase micro voice for section labels inside the list plane.
-  const secClass =
-    "px-3.5 pt-[11px] pb-[5px] font-flex text-micro font-medium tracking-[.06em] uppercase text-ink-3";
 
   // Visible rows post-filter for the foot line — a display subset, never the
   // asset total (which stays backend-owned).
@@ -700,7 +691,7 @@ export default function RepoPane({
             {/* Skills Group */}
             {showSkills && sortedSkills.length > 0 && (
               <>
-                <h3 className={secClass}>
+                <h3 className={`px-3.5 pt-[11px] pb-[5px] ${groupLabelClass}`}>
                   Skills · {assetCounts ? (assetCounts.byCategory.skill?.total ?? 0) : sortedSkills.length}
                 </h3>
                 <div className="flex flex-col">
@@ -724,7 +715,7 @@ export default function RepoPane({
               <>
                 <div
                   data-testid="section-header-tools"
-                  className={`flex items-center gap-3 select-none ${secClass}`}
+                  className={`flex items-center gap-3 select-none px-3.5 pt-[11px] pb-[5px] ${groupLabelClass}`}
                 >
                   <h3 className="flex-1 truncate">
                     MCP servers · {assetCounts ? (assetCounts.byCategory.tool?.total ?? 0) : sortedTools.length}
@@ -754,7 +745,7 @@ export default function RepoPane({
             {/* Rules Group */}
             {showRules && sortedRules.length > 0 && (
               <>
-                <h3 className={secClass}>
+                <h3 className={`px-3.5 pt-[11px] pb-[5px] ${groupLabelClass}`}>
                   Rules · {assetCounts ? (assetCounts.byCategory.rule?.total ?? 0) : sortedRules.length}
                 </h3>
                 <div className="flex flex-col">
@@ -775,7 +766,7 @@ export default function RepoPane({
             {/* Subagents Group */}
             {showSubagents && sortedSubagents.length > 0 && (
               <>
-                <h3 className={secClass}>
+                <h3 className={`px-3.5 pt-[11px] pb-[5px] ${groupLabelClass}`}>
                   Subagents · {assetCounts ? (assetCounts.byCategory.subagent?.total ?? 0) : sortedSubagents.length}
                 </h3>
                 <div className="flex flex-col">
@@ -853,7 +844,7 @@ export default function RepoPane({
 
       {/* Foot line. Unconditional: scan progress needs a home in the empty
           state too, which is precisely when a scan is running. */}
-      <div className="h-[30px] shrink-0 px-[18px] flex items-center gap-4 font-flex text-micro text-ink-3">
+      <div className="h-[30px] shrink-0 px-[18px] flex items-center gap-4 font-flex text-small text-ink-3">
         {(assetCounts?.total ?? 0) > 0 && (
           <span>
             Showing {visibleCount} of {assetCounts?.total ?? visibleCount}

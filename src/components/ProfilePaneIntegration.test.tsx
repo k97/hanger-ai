@@ -392,16 +392,17 @@ describe("ProfilePane — the empty state is a finding, not a default", () => {
   });
 
   it("a category emptied by a filter says so; a category with nothing says that", () => {
-    // mockInventory has one global skill and one global tool. A search that
-    // hides the skill is not "no skills"; and the chip says MCP servers, so
-    // an empty Tools view must never say "tools".
+    // mockInventory has one global skill and one global tool. A state
+    // filter that excludes the skill (it classifies as "local") is not
+    // "no skills"; and the chip says MCP servers, so an empty Tools view
+    // must never say "tools".
     const { unmount } = render(
       <ProfilePane
         inventory={mockInventory}
         loading={false}
         scannedAt={new Date()}
         selectedCategory="Skills"
-        filterText="zzz-nothing"
+        stateFilter="broken"
         onSelectAsset={vi.fn()}
         onLinkAsset={vi.fn()}
       />
@@ -1261,7 +1262,7 @@ describe("ProfilePane — the All tab's own filter-empty state", () => {
         inventory={mockInventory}
         loading={false}
         scannedAt={new Date()}
-        filterText="zzzz"
+        stateFilter="broken"
         onSelectAsset={vi.fn()}
         onLinkAsset={vi.fn()}
       />
@@ -1304,7 +1305,7 @@ describe("ProfilePane — the All tab's own filter-empty state", () => {
         inventory={mockInventory}
         loading={true}
         scannedAt={new Date()}
-        filterText="zzzz"
+        stateFilter="broken"
         onSelectAsset={vi.fn()}
         onLinkAsset={vi.fn()}
       />
@@ -1320,7 +1321,7 @@ describe("ProfilePane — the All tab's own filter-empty state", () => {
         inventory={null}
         loading={false}
         scannedAt={null}
-        filterText="zzzz"
+        stateFilter="broken"
         onSelectAsset={vi.fn()}
         onLinkAsset={vi.fn()}
       />

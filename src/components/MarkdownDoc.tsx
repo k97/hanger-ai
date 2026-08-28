@@ -1,5 +1,6 @@
 import { openUrl } from "@tauri-apps/plugin-opener";
 import type { Block, Span } from "../utils/skillDocument";
+import { captionClass } from "./typeRoles";
 
 /**
  * Renders the parsed document.
@@ -17,7 +18,7 @@ function Spans({ spans }: { spans: Span[] }) {
           return (
             <code
               key={i}
-              className="font-mono text-micro bg-plane px-1.5 py-0.5 rounded-[6px] text-ink-1"
+              className="font-mono text-small bg-plane px-1.5 py-0.5 rounded-[6px] text-ink-1"
             >
               {span.text}
             </code>
@@ -59,14 +60,14 @@ function Spans({ spans }: { spans: Span[] }) {
 export default function MarkdownDoc({ blocks }: { blocks: Block[] }) {
   if (blocks.length === 0) {
     return (
-      <p className="px-[18px] py-3 text-small text-ink-3">
+      <p className={`px-[18px] py-3 ${captionClass}`}>
         This file has no body beyond its front matter.
       </p>
     );
   }
 
   return (
-    <div className="px-[18px] pt-3 pb-[18px] text-small text-ink-2 leading-[1.55]">
+    <div className="px-[18px] pt-3 pb-[18px] text-base-app text-ink-1 leading-body">
       {blocks.map((block, i) => {
         if (block.kind === "heading") {
           // The panel has one title already, so every heading in the document
@@ -74,7 +75,7 @@ export default function MarkdownDoc({ blocks }: { blocks: Block[] }) {
           return (
             <h3
               key={i}
-              className={`text-base-app font-medium text-ink-1 mb-1.5 ${i === 0 ? "" : "mt-4"}`}
+              className={`text-lg-app font-medium text-ink-1 mb-1.5 ${i === 0 ? "" : "mt-4"}`}
             >
               <Spans spans={block.spans} />
             </h3>
@@ -106,7 +107,7 @@ export default function MarkdownDoc({ blocks }: { blocks: Block[] }) {
         return (
           <pre
             key={i}
-            className="my-2 px-3 py-2.5 bg-plane rounded-inner overflow-x-auto overflow-y-hidden font-mono text-micro text-ink-2 leading-[1.6] whitespace-pre"
+            className="my-2 px-3 py-2.5 bg-plane rounded-inner overflow-x-auto overflow-y-hidden font-mono text-small text-ink-1 leading-code whitespace-pre"
           >
             <code>{block.text}</code>
           </pre>

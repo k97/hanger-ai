@@ -11,10 +11,9 @@ import {
 import { DISCOVERY_ICONS } from "../data/discoveryIcons";
 import { matchesDirectory } from "../utils/directoryFacets";
 import FavouriteHeart from "./FavouriteHeart";
+import { captionClass, sectionHeadClass, monoLabelClass } from "./typeRoles";
 
 interface DiscoveryPaneProps {
-  /** The toolbar filter field, shared with the asset panes. */
-  filterText?: string;
   /** The category facet, owned by DiscoverySidebar since the chips moved
    *  into the second column (Karthik's ruling, 2026-08-15). "Favourites" is
    *  one more facet value alongside the kinds — selecting it behaves like
@@ -68,7 +67,7 @@ function Row({ dir, favourited, onToggleFavourite, onOpen, onCopyFetch }: RowPro
             className="w-full h-full object-cover"
           />
         ) : (
-          <span className="font-flex text-micro font-medium text-ink-2">
+          <span className={captionClass}>
             {dir.mark}
           </span>
         )}
@@ -81,17 +80,17 @@ function Row({ dir, favourited, onToggleFavourite, onOpen, onCopyFetch }: RowPro
               Printing it twice is noise, so the url only shows
               when it says something the name does not. */}
           {bare(dir.url).toLowerCase() !== dir.name.toLowerCase() && (
-            <span className="font-mono text-micro text-ink-3">{bare(dir.url)}</span>
+            <span className={monoLabelClass}>{bare(dir.url)}</span>
           )}
         </span>
-        <span className="block text-small text-ink-2 leading-[1.5] mb-[7px] max-w-[78ch]">
+        <span className="block text-base-app text-ink-2 leading-body mb-[7px] max-w-[70ch]">
           {dir.desc}
         </span>
         <span className="flex items-center gap-[7px] flex-wrap">
           {dir.kinds.map((k) => (
             <span
               key={k}
-              className="font-flex text-micro px-2 py-0.5 rounded-pill bg-plane-2 text-ink-2 group-hover:bg-page transition-colors duration-hover"
+              className="font-flex text-small px-2 py-0.5 rounded-pill bg-plane-2 text-ink-2 group-hover:bg-page transition-colors duration-hover"
             >
               {k}
             </span>
@@ -102,7 +101,7 @@ function Row({ dir, favourited, onToggleFavourite, onOpen, onCopyFetch }: RowPro
               e.stopPropagation();
               onCopyFetch(dir.fetch);
             }}
-            className="font-mono text-micro text-ink-3 px-[7px] py-[3px] rounded-[6px] inline-flex items-center gap-[5px] cursor-pointer transition-colors duration-hover ease-spring hover:bg-page hover:text-ink-2"
+            className={`${monoLabelClass} px-[7px] py-[3px] rounded-[6px] inline-flex items-center gap-[5px] cursor-pointer transition-colors duration-hover ease-spring hover:bg-page hover:text-ink-2`}
           >
             {dir.fetch}
             <Square2StackIcon
@@ -136,7 +135,6 @@ function Row({ dir, favourited, onToggleFavourite, onOpen, onCopyFetch }: RowPro
  * therefore a real decision, and gets a confirmation the user can switch off.
  */
 export default function DiscoveryPane({
-  filterText = "",
   kind = "All",
   favourites = [],
   onToggleFavourite = () => {},
@@ -168,8 +166,8 @@ export default function DiscoveryPane({
   const shown = isFavouritesView
     ? favourites
         .map((mark) => DIRECTORIES.find((dir) => dir.mark === mark))
-        .filter((dir): dir is Directory => !!dir && matchesDirectory(dir, "All", filterText))
-    : DIRECTORIES.filter((dir) => matchesDirectory(dir, kind, filterText));
+        .filter((dir): dir is Directory => !!dir && matchesDirectory(dir, "All"))
+    : DIRECTORIES.filter((dir) => matchesDirectory(dir, kind));
 
   const setConfirmPreference = (next: boolean) => {
     setConfirmBeforeOpening(next);
@@ -216,24 +214,18 @@ export default function DiscoveryPane({
           <h1 className="text-lg-app font-medium tracking-[-0.2px] text-ink-1">
             Where the ecosystem publishes agent assets
           </h1>
-          <span className="ml-auto font-flex text-micro text-ink-3 shrink-0">
+          <span className={`ml-auto ${captionClass} shrink-0`}>
             Checked {CATALOGUE_CHECKED}
           </span>
         </div>
-        <p className="text-small text-ink-2 leading-[1.55] max-w-[74ch]">
+        <p className="text-base-app text-ink-2 leading-body max-w-[70ch]">
           {DIRECTORIES.length} directories worth knowing about. Hanger doesn't fetch from them, so
           open one, run its command, then rescan and the new assets appear under My machine.
         </p>
       </header>
 
       <div className="flex-1 min-h-0 overflow-y-auto mx-[18px] mt-3.5 p-1.5 border border-line rounded-tl-plane rounded-tr-plane">
-        {shown.length === 0 ? (
-          <p className="py-9 px-3 text-center text-small text-ink-3">
-            {isFavouritesView
-              ? "No favourite matches that filter."
-              : "No directory matches that filter."}
-          </p>
-        ) : isFavouritesView ? (
+        {isFavouritesView ? (
           <section>
             {shown.map((dir) => (
               <Row
@@ -252,12 +244,10 @@ export default function DiscoveryPane({
             if (rows.length === 0) return null;
             return (
               <section key={tier.tier}>
-                <div className="flex items-center gap-2.5 px-3 pt-[15px] pb-[7px] font-flex text-micro font-medium tracking-[.06em] uppercase text-ink-3">
+                <div className={`flex items-center gap-2.5 px-3 pt-[15px] pb-[7px] ${sectionHeadClass}`}>
                   <span>{tier.tier}</span>
                   <i className="flex-1 h-px bg-line" />
-                  <span className="font-normal tracking-normal normal-case text-small text-ink-3 opacity-75">
-                    {tier.note}
-                  </span>
+                  <span className={`${captionClass} font-normal`}>{tier.note}</span>
                 </div>
 
                 {rows.map((dir) => (
@@ -276,11 +266,11 @@ export default function DiscoveryPane({
         )}
       </div>
 
-      <div className="h-8 shrink-0 flex items-center px-[18px] gap-3.5 font-flex text-micro text-ink-3">
+      <div className="h-8 shrink-0 flex items-center px-[18px] gap-3.5 font-flex text-small text-ink-3">
         <span>{footCount}</span>
         <button
           onClick={() => setConfirmPreference(!confirmBeforeOpening)}
-          className="ml-auto font-flex text-micro text-ink-3 px-2.5 py-1 rounded-pill inline-flex items-center gap-1.5 cursor-pointer transition-colors duration-hover ease-spring hover:bg-plane-2 hover:text-ink-1"
+          className="ml-auto font-flex text-small text-ink-3 px-2.5 py-1 rounded-pill inline-flex items-center gap-1.5 cursor-pointer transition-colors duration-hover ease-spring hover:bg-plane-2 hover:text-ink-1"
         >
           {confirmBeforeOpening ? (
             <>
@@ -311,14 +301,14 @@ export default function DiscoveryPane({
             <h2 className="text-base-app font-medium text-ink-1 mb-1.5">
               Open {pending.name} in your browser?
             </h2>
-            <p className="text-small text-ink-2 leading-[1.55] mb-3">
+            <p className="text-base-app text-ink-2 leading-body mb-3">
               Hanger doesn't fetch from directories. This leaves the app and opens your default
               browser.
             </p>
-            <code className="block font-mono text-micro text-ink-2 bg-plane rounded-inner px-2.5 py-2 mb-3.5 break-all">
+            <code className="block font-mono text-small text-ink-1 bg-plane rounded-inner px-2.5 py-2 mb-3.5 break-all">
               {pending.url}
             </code>
-            <label className="flex items-center gap-2 text-small text-ink-2 cursor-pointer mb-4 select-none">
+            <label className="flex items-center gap-2 text-base-app text-ink-2 cursor-pointer mb-4 select-none">
               <input
                 type="checkbox"
                 aria-label="Don't ask me again"

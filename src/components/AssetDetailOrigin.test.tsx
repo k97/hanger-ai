@@ -109,6 +109,18 @@ describe("the Origin row", () => {
     ]);
   });
 
+  it("origin sub-rows share the card's label and value inks", () => {
+    render(<AssetDetail asset={delivered} inventory={null} />);
+    openDetails();
+    fireEvent.click(screen.getByTestId("origin-disclosure"));
+    const sub = screen.getAllByTestId("origin-sub-row")[0];
+    const [label, value] = sub.querySelectorAll("span");
+    expect(label.className).toContain("text-base-app");
+    expect(label.className).toContain("text-ink-3");
+    expect(value.className).toContain("text-ink-1");
+    expect(value.className).not.toContain("text-micro");
+  });
+
   // Changed 2026-08-27: the ordinary no-origin case no longer renders a row
   // at all — the Path row two lines below the Identity card already says
   // where the asset lives, and restating "nothing named a source" on it was

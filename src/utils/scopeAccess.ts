@@ -35,6 +35,22 @@ export function scopeAgent(scope: Scope): string | null {
   return null;
 }
 
+/**
+ * Which of the three scopes this is, or null when there is none.
+ *
+ * `scopeRoot` and `assetProvenance`'s `placeOf` both fold Project and Local to
+ * the same repo name, which discards exactly what the inspector's Scope row
+ * wants to say: Project is committed and shared with the team, Local is
+ * declared in a machine-level file and private to this user (`domain.rs`).
+ */
+export function scopeKind(scope: Scope): "Global" | "Project" | "Local" | null {
+  if (!scope) return null;
+  if ("Global" in scope) return "Global";
+  if ("Project" in scope) return "Project";
+  if ("Local" in scope) return "Local";
+  return null;
+}
+
 /** True only for machine-wide scopes — the profile pane's filter. */
 export function isGlobalScope(scope: Scope): boolean {
   return Boolean(scope && "Global" in scope);

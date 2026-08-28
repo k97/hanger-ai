@@ -118,21 +118,60 @@ namespace — `--color-page`, `--color-plane`, `--color-state-danger` and so on
 One system stack, five sizes, two weights.
 
 ```
---font-sans: -apple-system, BlinkMacSystemFont, system-ui, sans-serif;   tokens.css:27
---font-flex: -apple-system, BlinkMacSystemFont, system-ui, sans-serif;   tokens.css:28
---font-mono: ui-monospace, "SF Mono", Menlo, monospace;                  tokens.css:29
+--font-sans: -apple-system, BlinkMacSystemFont, system-ui, sans-serif;   tokens.css:65
+--font-flex: -apple-system, BlinkMacSystemFont, system-ui, sans-serif;   tokens.css:66
+--font-mono: ui-monospace, "SF Mono", Menlo, monospace;                  tokens.css:67
 ```
 
+Two of those three names carry one stack: `--font-flex` is declared with
+the same string as `--font-sans` (`tokens.css:65-66`), so it names a role —
+the utility voice of eyebrows, stamps and chips — not a second face. No
+webfont is loaded; on macOS the stack resolves to the system UI face, and
+the page's Typography section (§9) shows all three stacks read from the
+running theme rather than restating them.
+
 The scale is closed at five steps — 11 / 12 / 13 / 16 / 32
-(`tokens.css:30-34`, registered as `text-micro`, `text-small`, `text-base-app`,
-`text-lg-app`, `text-display` at `index.css:82-87`). Two weights only:
-`--fw-regular: 400`, `--fw-medium: 500` (`tokens.css:67-68`).
+(`tokens.css:68-72`, registered as `text-micro`, `text-small`, `text-base-app`,
+`text-lg-app`, `text-display` at `index.css:97-102`). Two weights only:
+`--fw-regular: 400`, `--fw-medium: 500` (`tokens.css:73-74`).
+
+The five sizes carry roles, not free choice — the inspector, the pane list,
+the sidebar family and Discovery were audited against the scale and each size
+given one job (`docs/v7-todo-content-typography/typography-audit.md`;
+rulings recorded in `src/__tests__/type-roles.test.ts:9`, 2026-08-27):
+
+| Size | Role | Ink | Utility | Source |
+|---|---|---|---|---|
+| 13 | body — labels, values, prose, list names, tabs | `--ink-1` for values and prose, `--ink-3` for labels | `text-base-app` | `rowLabelClass`, `rowValueClass`, `sectionHeadClass`, `groupLabelClass` (`typeRoles.ts:7,9-10,14`) |
+| 12 | secondary — captions, mono values, paths, chips, counts, foot and stamp lines | `--ink-1` for `rowMonoClass` values, `--ink-2` / `--ink-3` for captions and grey mono labels | `text-small` | `captionClass`, `rowMonoClass`, `monoLabelClass`, `columnHeadClass` (`typeRoles.ts:15-16,20,24`) |
+| 11 | filled badges and chips | `--ink-3` | `text-micro` | e.g. the inspector list's scope pill (`Flyout.tsx:919`) |
+| 16 | titles and content headings | `--ink-1` | `text-lg-app` | the inspector's title `h2` (`Flyout.tsx:705`), Markdown headings (`MarkdownDoc.tsx:78`) |
+| 32 | display — the big stat numeral | `--ink-1` | `text-display` | `SummaryStrip.tsx:98` |
+
+Four leadings sit beside the scale as tokens, not arbitrary per-call values —
+`--lh-body: 20px`, `--lh-caption: 16px`, `--lh-code: 18px`, `--lh-display: 35px`
+(`tokens.css:80-83`), registered as `--leading-body`, `--leading-caption`,
+`--leading-code`, `--leading-display` (`index.css:109-112`) and consumed as
+the utilities `leading-body`, `leading-caption`, `leading-code`,
+`leading-display` — the last for the 32px strip figure
+(`SummaryStrip.tsx:98`, `NeedsReviewPane.tsx:102`, `DesignSystemPane.tsx:192`).
+`src/__tests__/leading-tokens.test.ts` pins both the token values and their
+`@theme` registration.
+
+Section heads inside the inspector, Discovery's tiers, and the pane list's
+column and group headers are sentence case, not the former 11px uppercase
+eyebrow — `text-base-app font-medium text-ink-1` (`sectionHeadClass`,
+`typeRoles.ts:7`; used at `DiscoveryPane.tsx:256` and `AssetHeaderRow.tsx:31`;
+Karthik's ruling R1, 2026-08-27). `src/__tests__/type-roles.test.ts` enforces
+this going forward: it bans Tailwind's default size names, arbitrary or
+default leading utilities, and `uppercase` across the migrated files named in
+its `ROLE_FILES` list.
 
 Body text is set in `--font-sans` at the document root with
-`-webkit-font-smoothing: antialiased` (`index.css:376`).
+`-webkit-font-smoothing: antialiased` (`index.css:510`).
 
 A `tabular` utility exists for figures that must not jitter as they change
-(`index.css:126-128`) and is applied wherever counts render.
+(`index.css:157-159`) and is applied wherever counts render.
 
 ---
 
@@ -159,11 +198,14 @@ the panes as `px-[18px]` / `mx-[18px]`.
 
 Four radii: `--radius-plane: 16px` for planes (`tokens.css:65`),
 `--radius-inner: 12px` for inner surfaces (`:66`), `--radius-pill: 9999px`
-for controls (`:68`), and `--radius-control: 6px` (`:139`) — no longer
+for controls (`:68`), and `--radius-control: 8px` (`:161`) — no longer
 legacy. Karthik ruled 2026-08-23 that buttons take two radii chosen by
 size, not by role: a normal button (30px) stays `rounded-pill`, unchanged;
 a mini button (26px) takes `rounded-control`, so the mini tier reads as
-its own control rather than a shrunken pill. All four are registered as
+its own control rather than a shrunken pill. The value was 6px until
+2026-08-28, when Karthik raised it by two — rounder, the way Codex's
+small buttons are, and still short of a pill; the finding chip moves with
+it, since `FindingChip.tsx:83` builds the chip from `miniBtnClass`. All four are registered as
 utilities in the same `@theme` block (`index.css:113-117`). The mini tier
 is `src/components/miniButton.ts`'s three exported class strings, each
 `rounded-control` on the shared 26px `base` (`:12-13`): `miniBtnClass`
@@ -330,6 +372,9 @@ The family is Heroicons 24/outline (`icons.tsx:30-79`), with seven static
 marks on lucide because Heroicons has no equivalent: `FolderSymlink`,
 `FolderTree`, `GitMerge`, `PanelLeft`, `PanelRight`, `Maximize2`, `Minimize2`
 (`icons.tsx:81-89`, exported `:185-194`). Default size is 16 (`icons.tsx:95`).
+The Design system page's Iconography section (§9) rosters every export of
+this module by name and shows the stroke bands by calling `strokeFor`,
+which is exported for that one reader (`bc1c3c8`, 2026-08-28).
 
 Twenty more marks are animated, and every one of them is lucide too — not
 because Heroicons lacks their geometry, but because it has no motion story,
@@ -429,8 +474,8 @@ glyph sits on the baseline and renders low in a 16px slot however its line box
 is centred, and correcting it would mean an offset tuned to one font's
 metrics.
 The inspector's Reach card groups by **route** rather than by engine
-(`ReachCard.tsx`). `ROUTES` (`:17-22`) is the reading order — "Through their
-own link", "Where it lies", "Root not linked", "Another engine's format" —
+(`ReachCard.tsx`). `ROUTES` is the reading order — "Through a symlink",
+"Read directly", "Not linked", "Another engine's format" —
 each derived from fields `annotations.rs` already returns: reached with a
 `via_root`, reached without one, a miss for any reason but `format`, a
 `format` miss. A route nobody takes is dropped (`:64-66`), so the card never
@@ -453,15 +498,26 @@ colour, so pointing at a plate cannot impersonate pressing it.
 One footer inside the card, on `bg-plane`, answers for the selected plate
 (`reach-answer`, `:156-170`): the engine's own root folded to `~` by
 `abbreviateHome` (`prose.ts`), "in place" for a store engine with no link, or
-"root not linked" / "cannot read this format" for a miss (`answerFor`,
-`:27-30`). At rest it answers for the first plate in reading order and that
+"not linked" / "cannot read this format" for a miss (`answerFor`). At rest
+it answers for the first plate in reading order and that
 plate is genuinely selected — never empty, never an instruction. Selection is
 per asset: `AssetDetail` keys the card by `asset.path` (`:698`), which is the
 only thing that resets it, since `Flyout` renders the panel unkeyed. The store
 is still named once, in the cap (`AssetDetail.tsx:692`), safe by construction —
 `via_store` is keyed off the asset's own root, so every reached engine reports
-the same value. "Through their own link" and "Where it lies" are Karthik's
-ruling of 2026-08-28; the other two labels were signed off 2026-08-17.
+the same value.
+
+The first three route labels are Karthik's ruling of 2026-08-28, re-taken
+after he read them in the running app: "symlink" is the mechanism's true
+name and the reader knows it, while "root" was Hanger's own noun asking to
+be learned before a row could be read. The middle row is worded positively
+— "No symlink involved" was accurate but states an absence, directly above
+another absence that means failure, so the words would have fought the
+plates. "Another engine's format" keeps its August wording and its length:
+it names a cause rather than a fault, and "Wrong format" would make a
+non-problem read like an error. The `root_not_linked` footer value moved
+with its label, to "not linked", so a row and its own answer cannot
+disagree.
 
 The plates are one composite widget, not one control each: the card is a
 `role="radiogroup"` (`:111`), each plate a `role="radio"` with `aria-checked`
@@ -537,7 +593,7 @@ rather than swapping views.
 ### Panes
 
 **`ProfilePane`** (`ProfilePane.tsx:18-55`) — `inventory`, `assetCounts?`,
-`selectedCategory?`, `selectedAsset?`, `loading`, `filterText?`, `stateFilter?`,
+`selectedCategory?`, `selectedAsset?`, `loading`, `stateFilter?`,
 `onStateFilterChange?`, `scannedAt?`, `detectedEngines?`, `onRescan?`,
 `sortField?`, `sortDirection?`, `onSortChange?`, `onSelectAsset`,
 `onLinkAsset`, `onClearSelection?`.
@@ -546,7 +602,7 @@ rather than swapping views.
 `onRefresh`, `onLinkFromProfile`, `linkedRepos?`, `onPromoteCandidates?`.
 
 **`NeedsReviewPane`** (`NeedsReviewPane.tsx:11-29`) — `issues`, `counts`,
-`kind`, `place`, `filterText`, `selectedId`, `onSelectKind`, `onSelectPlace`,
+`kind`, `place`, `selectedId`, `onSelectKind`, `onSelectPlace`,
 `onSelectIssue`, `onRescan?`, `scanning?`, `scannedAt?`.
 
 **Empty is a finding, pending is not.** All three panes gate their negative
@@ -604,7 +660,7 @@ The empty copy itself, reviewed 2026-08-16 (Karthik: "review with
 Pinned by `ProfilePaneIntegration.test.tsx`, `RepoPaneIntegration.test.tsx`,
 `needs_review_pane.test.tsx`, `inspector_avionics.test.tsx`, `prose.test.ts`.
 
-**`DiscoveryPane`** (`DiscoveryPane.tsx`) — `filterText?`, `kind?`. Renders
+**`DiscoveryPane`** (`DiscoveryPane.tsx`) — `kind?`. Renders
 from static data in `src/data/directories.ts`; the kind facet is owned by
 `DiscoverySidebar`.
 
@@ -736,45 +792,74 @@ resetting to it on every new server so a stale Environment tab never survives
 a selection change (`McpServerDetail.tsx:403-406`, tabs `:666-688`). Both
 switches are the same `UnderlineTabs` (Surfaces and controls, below). Every
 section beneath either tab strip takes the section format: an eyebrow label
-(`eyebrowClass`, `AssetDetail.tsx:91`; a plain `<h3>` on the MCP side,
-`HEADING`, `McpServerDetail.tsx:198`) above a `ListCard`/`ListCardRow` stack.
+(`sectionHeadClass`, `AssetDetail.tsx:435`; a plain `<h3>` on the MCP side,
+`sectionHeadClass`, `McpServerDetail.tsx:891`) above a `ListCard`/`ListCardRow`
+stack.
 
 **The identity row moved out of the panel and into the cap; what survives
 above the tabs is three pieces with nothing between them.** Selecting an
 asset used to earn Flyout's eyebrow row a `kind · place` pair; `targetAsset`
-now renders `null` there instead (`Flyout.tsx:690-696`), because that
+now renders `null` there instead (`Flyout.tsx:740-748`), because that
 identity lives in the cap and restating it a second time would be "the
 'moved, never copied' rule's exact failure mode" (the panel's own comment,
-`Flyout.tsx:662-668`). For a plain asset selection the eyebrow row now has
+`Flyout.tsx:669-675`). For a plain asset selection the eyebrow row now has
 nothing left to say at all: `eyebrowShown` is `false` whenever nothing but a
-bare `targetAsset` would have earned it (`Flyout.tsx:607-609`), so the row
-does not render and the title block below drops the top margin it used when
-resting on a row that is actually there (`:716`). The eyebrow still renders
-for what is not a plain asset selection — the link flow's own "Back to
-‹name›" nav (`:679-687`), a bubble scope with no asset drilled into, or the
-empty-MCP category label — plus, independently, a layered-rules flag that can
-sit beside any of them.
+bare `targetAsset` would have earned it (`Flyout.tsx:598-600`), so the row
+simply does not render — and the step it would have opened up beneath the
+title goes with it, because that step is the header column's own `gap-1`
+(`:696`) rather than a margin either row carries and has to switch off. The
+eyebrow still renders for what is not a plain asset selection — the link
+flow's own "Back to ‹name›" nav (`:728-736`), a bubble scope with no asset
+drilled into, or the empty-MCP category label — plus, independently, a
+layered-rules flag that can sit beside any of them.
 
-Below that, the header is exactly: the cap's identity row — kind glyph with a
-state dot, a `KIND · PLACE` eyebrow, a finding chip (`InspectorCap.tsx:169-212`;
-the cap itself, Surfaces and controls below) — then Flyout's title block
-(the `<h2>`, `Flyout.tsx:720`), then `AssetDetail`'s own `UnderlineTabs`
+Below that, the header is exactly: the cap's identity row — kind glyph, a
+sentence-case `kind · place` caption line, a finding chip
+(`InspectorCap.tsx:169-212`; the caption itself is `captionClass`,
+`typeRoles.ts:16`, rendered at `InspectorCap.tsx:220-228`; the cap itself,
+Surfaces and controls below) — then Flyout's title block
+(the `<h2>`, `Flyout.tsx:705`), then `AssetDetail`'s own `UnderlineTabs`
 switch. Nothing else: `AssetDetail` used to open with a state line, a path
 chip and a Link/Open action row, each behind its own `border-b border-line`,
 all now gone — the render goes straight from the panel's outer div to a
 comment recording the move and then the tab switch, with no hairline of its
 own left in that gap (`AssetDetail.tsx:346-358`). One hairline still stands
 in the assembled header: Flyout's own `border-b border-line`, beneath the
-title and above the tabs (`Flyout.tsx:676`) — untouched by this phase, and it
+title and above the tabs (`Flyout.tsx:697`) — untouched by this phase, and it
 falls between the title and the tabs, not between the cap and the title,
 where nothing separates them at all.
+
+**Every band in that stack pads symmetrically, on one step.** The header is
+`py-2` and the tab labels are `py-2` (`Flyout.tsx:696`,
+`UnderlineTabs.tsx:62`), so no band reaches across into another to set its
+neighbour's gap: the space under the title is that header's 8 plus the tab
+row's own 8, and the space above it is the cap's centring slack (a 16px
+glyph in an `h-10` row) plus the same 8. Measured on the running build at
+1173×808 — and re-measured there unchanged after `bcc98a8` moved the
+eyebrow below the title — that lands 28px of ink-to-ink air above the title
+and 24px below: even enough to read as one rhythm, and closer below so the
+title belongs to the tabs beneath it rather than floating between two
+bands. It read `pt-2 pb-4` with the labels at `pt-2 pb-2.5` until 2026-08-28, when Karthik
+called the stack inconsistent; the values are a rule now rather than four
+independently chosen numbers. The body's own sections keep the same gutter
+by a different route, and the raw class misreads: they carry `mx-[12px]`
+(`AssetDetail.tsx:420` and its siblings), but they sit inside the scroller
+that pairs `scroll-gutter-stable` with `scroll-thin`, which reserves the
+custom scrollbar's 6px on each edge (`index.css`, both utilities' notes) —
+12 plus 6 is the header's 18. Measured on the same window: the card's border
+lands 19px from the panel's edge against the title's and the tab's ink at
+20px, the 1px being the border sitting outside the ink. Anything that
+changes the scrollbar width has to move that 12 with it.
 
 **The cap sheds two things, in order, when it does not fit, and none of it
 runs under test.** After every render, one effect compares the row's own
 `scrollWidth` against its `clientWidth` and climbs one rung — sheds `Link
 to…` first, the finding chip second — when the row overflows
-(`InspectorCap.tsx:149-156`); a second, separate effect holds a
-`ResizeObserver` on the same row purely to catch it growing back, resetting
+(`InspectorCap.tsx:149-156`); at the second rung, where the chip has gone,
+the kind glyph's state dot takes over as the only mark on the surface saying
+a finding exists, and it draws at no other width (`:184`). A second,
+separate effect holds a `ResizeObserver` on the same row purely to catch it
+growing back, resetting
 the climb to `0` the same width it left (`:115-134`). Both are inert under
 `happy-dom`, the environment every component test runs in, for two different
 reasons: the render-time comparison never overflows because `scrollWidth`
@@ -839,17 +924,51 @@ once, on open; a server's is paid on every request, hence the different
 eyebrows.
 
 **`AssetDetail` (`AssetDetail.tsx`), Details tab.**
-- **Identity** carries Size and Modified once the body has loaded, both read
-  from `AssetBody` and never re-derived: Size is `formatBytes(bytes) · N
-  lines` (`:301-308`); Modified is a formatted date from `modified_ms`, and
-  the row is dropped outright when `modified_ms` is `null` rather than
-  rendering a fabricated date — the platform reported no mtime (`:309-325`;
-  the field is `number | null` on the frontend, `:61`, and `Option<i64>` on
-  the backend, `lib.rs:1447`). Last in the row order (since this phase) is
-  Path: `documentPath ?? asset.path`, wrapped in a `<bdi>` (`:329-343`, above).
-  Rows built `:246-344`, rendered `:447-463`.
-- **Contents** lists a skill's folder, one row per top-level entry
-  (`:465-497`). A directory states how many files sit beneath it; a file
+- **Identity** is conditional throughout: **every row except Path appears only
+  when the fact it reports exists**, so the card never pads itself with a
+  constant (Karthik's audit and rulings, 2026-08-28).
+  - **Engine** only when an engine owns the asset (`scopeAgent`, `:288`).
+    `scanner.rs` empties the scope's agent for anything in the shared store,
+    which is what made this row read "Any agent" for every skill on a
+    store-convention machine. It stays for the assets an engine does own —
+    both global rules on a real machine name one — because ownership is
+    exclusive and no other row states it. Reach answers who can *read* the
+    asset, a different question (`docs/harness.md`).
+  - **Scope** only for a repo scope, carrying `Project` or `Local` rather than
+    the repo's name (`scopeKind`, `scopeAccess.ts`; row `:311`). `AssetDetail`
+    is reachable only from the Global pane and a repo pane, both scope-filtered,
+    so the old `placeOf` value was constant wherever it appeared — and it folded
+    away the one distinction the data holds: committed and shared with the team
+    versus declared in a machine-level file and private to this user
+    (`domain.rs`). Derived from the scope, not the viewing context, so it stays
+    true if a surface ever lists mixed scopes.
+  - **Version** only when the file declares one (`:354`). `scanner.rs` used to
+    fill an absent version with the literal `v0.0.0-draft`, putting a value on
+    screen that no file had written — 304 of 350 skills on a real machine. It
+    now emits an empty string, which this row and the Flyout list's chip both
+    already treat as absent.
+  - **Modified** from `modified_ms`, dropped outright when the platform
+    reported no mtime rather than rendering a fabricated date (`number | null`
+    on the frontend, `Option<i64>` on the backend, `lib.rs:1447`).
+  - **License** is the only spec field the card shows (`:262`). `SPEC_FIELDS`
+    holds six keys; name and description are the title block, allowed-tools is
+    Capabilities, and compatibility and metadata were dropped 2026-08-27 — so
+    the filter chain that used to stand here resolved to one conditional row.
+  - **Path** is last and unconditional — every other row says something about
+    the asset, this one says where it is: `documentPath ?? asset.path` in a
+    `<bdi>`.
+  - A Size row was removed 2026-08-27; Contents and the Context ledger already
+    carry the bytes. `asset_detail.test.tsx`'s "Identity is one list card in
+    the ruled order" pins the order against a fixture owned *and* repo-scoped,
+    which is the only shape where every conditional row renders at once.
+- **Contents** lists a skill's folder, one row per top-level entry — but only
+  from the second entry onward (`:627`). A folder holding nothing but
+  `SKILL.md` draws no card: that entry is the document the Content tab is
+  already showing, and the Path row above has already said where it is. On a
+  real machine that is 66 of 128 store skills; the other 62 carry
+  `references/` or `scripts/`, where this card is the only place the structure
+  is visible (Karthik's ruling, 2026-08-28).
+  A directory states how many files sit beneath it; a file
   states its size; a symlink states neither — `LinkIcon` and an em dash —
   because `list_asset_dir` classifies every entry with `symlink_metadata` and
   never follows the link, so nothing on the far side of it was ever read
@@ -858,8 +977,8 @@ eyebrows.
   a tool beginning `Bash` carries the value `Shell access`, every other tool
   carries none (`:500-516`, the rule `:512`).
 - **Reach** groups every engine the backend holds a verdict for by the route
-  it takes: through their own link, where it lies, root not linked, another
-  engine's format (`ReachCard.tsx`, `ROUTES`; rendered from
+  it takes: through a symlink, read directly, not linked, another engine's
+  format (`ReachCard.tsx`, `ROUTES`; rendered from
   `AssetDetail.tsx:698`). One `→ store` figure sits beside the eyebrow, keyed
   off the asset's own root so it cannot disagree with the rows beneath it
   (`:690-694`), and a footer inside the card answers for the selected plate.
@@ -1114,11 +1233,58 @@ keeps `menuItemClass`/`menuLabelClass` as its own row styles (`:3-7`), the
 cap's menu items use `menuActionClass` instead (`:9-10`), and `MenuSeparator`
 (`:13-15`) is shared by both.
 
+**`SearchPalette`** (`SearchPalette.tsx:186-253`) — the ⌘K search palette: a
+full-screen wash (`:144-150`) behind a top-aligned, 560px panel (`:151-154`)
+built on `cmdk`'s `Command` with `shouldFilter={false}` (`:156`), so the row
+order on screen is always the backend's own rank, never a client-side
+refilter. The input's accessible name is "Search assets" (`:163`); queries
+are debounced 80ms (`DEBOUNCE_MS`, `:88`) before they reach `search_assets`.
+It opens from the rail's Search button, placed beneath Needs review because
+the palette searches the whole machine rather than one screen
+(`IconRail.tsx:117-124`) — the button takes `railBtnClass` like every other
+rail control but never `aria-current`, since it is an action, not a place
+(`:14`, `:121`) — or from ⌘K, the second branch of the shell's keydown effect
+(`App.tsx:562-565`). Each row leads with a glyph rather than sitting under a
+group heading: `KindGlyph` maps the five `SearchKind`s to their icons and
+rows stay in the backend's rank order throughout (`SearchPalette.tsx:131`,
+`shouldFilter={false}`).
+A hit's snippet arrives with matched runs wrapped in private-use markers
+(`search.rs:29-30`) that `renderSnippet` turns into `<mark>` (`SearchPalette.tsx:59-72`,
+the tag at `:65`); the base stylesheet zeroes the browser's default yellow
+highlight so only the palette's own styling shows through (`index.css:142`).
+Ranking and counts are entirely backend-owned: `search::search` runs FTS5
+with bm25 weighted 8/3/1 across name, description and body (`search.rs:241-250`)
+and returns both the ranked `hits` and a separate `total` from a plain
+`count(*)` (`:233-239`, `:275`), exposed as the `search_assets` command
+(`lib.rs:1872-1875`) and kept current by two call sites: after a scan
+completes (`lib.rs:1366`), and after an MCP probe answers, cached or fresh
+(`:643-649`). Picking a hit calls `onPick`, wired to
+`openSearchHit`, which switches screens and then calls
+`handleSelectAsset(asset, screen)` with the target screen passed explicitly
+rather than read from state, because a pick can change screens in the same
+tick a stale read would miss (`App.tsx:1032-1038`, `:1106-1119`). As
+committed, the list carries three copy states: "Results show up here once
+the first scan finishes." before the first scan, "Type to search names and
+what's inside." for an empty query, and "Nothing matches “{q}”." for a query
+that answered empty (`SearchPalette.tsx:144-152`). The shell's cap no
+longer carries a search field: its trailing-controls block runs straight
+from the breadcrumb to Rescan or the view control, with no input between
+them (`App.tsx:1619-1621`). The dialog panel itself is `SearchPalettePanel`
+(`SearchPalette.tsx:112-178`), a presentational split with no `invoke`,
+timers or window listeners of its own: the app renders it inside the wash
+with live state, and the Design system page renders the same component with
+`SAMPLE_SEARCH_HITS` (`designSystemFixtures.ts:184`) and a fixed query,
+never the app's own "Search"/"Search assets" names
+(`DesignSystemPane.tsx:202-216`, `:963-965`).
+
 **`InspectorCap`** (`InspectorCap.tsx`, props `:44-70`) — the inspector
 column's 40px cap, and since this phase the selected asset's identity as
-well as the two panel-level controls it used to hold alone: a kind glyph
-with a state dot when the asset has findings, a `KIND · PLACE` eyebrow, a
-finding chip, then `Link to…`, a ⋮ overflow (`OverflowMenu`, above), and
+well as the two panel-level controls it used to hold alone: a kind glyph —
+dotted only at the width where the finding chip has shed into the menu, so
+the two never state the same finding at once (`:184`) — a sentence-case
+`kind · place` eyebrow (`captionClass`, `InspectorCap.tsx:223`), a finding
+chip, then `Link to…`, a ⋮ overflow (`OverflowMenu`,
+above), and
 Expand/Collapse plus Toggle inspector (`:159-335`; the shed order, its
 measurement, and the MCP exception are under Inspectors, above). Renders
 only the two trailing controls when nothing is selected (`asset: null`,
@@ -1294,8 +1460,8 @@ mx-[18px] border border-line rounded-tl-plane rounded-tr-plane pb-1.5`
 (`ProfilePane.tsx:1101`, `RepoPane.tsx:645`) — identical in both panes now.
 Then the
 foot, `h-[30px] shrink-0 px-[18px] flex items-center gap-4 font-flex
-text-micro text-ink-3` with the scan status pushed right by `ml-auto`
-(`ProfilePane.tsx:1174`, `RepoPane.tsx:728`).
+text-small text-ink-3` with the scan status pushed right by `ml-auto`
+(`ProfilePane.tsx:1286`, `RepoPane.tsx:853`).
 
 **`NeedsReviewPane` keeps the pre-track order: strip, chip row, list plane,
 foot.** It was not touched by the reorder — it has no category to put on a
@@ -1319,8 +1485,16 @@ border-line rounded-tl-plane rounded-tr-plane` (`:229`), then a foot at
 `:279` — `h-8` (32px), not the other three panes' `h-[30px]`, an
 unremarked 2px difference from the pattern above.
 
-Section eyebrows are `font-flex text-micro font-medium tracking-[.06em] uppercase text-ink-3`
-(`ProfilePane.tsx:801-802`).
+The uppercase eyebrow is gone from the migrated surfaces — `ProfilePane`'s
+group headers now render `groupLabelClass`, sentence case, body size
+(`typeRoles.ts:9`, imported at `ProfilePane.tsx:26`, used at `:1129`). It
+survives only in panes still pending their pass, e.g. `font-flex text-micro
+font-medium uppercase tracking-[.06em] text-ink-3` (`LinkPanel.tsx:34`);
+`src/__tests__/type-roles.test.ts`'s `ROLE_FILES` list is the migrated set,
+its case check now reaches every file rather than only those, and its
+`ALLOW` entries are the authoritative to-do for all three checks it
+enforces — size, leading and case, not case alone (the guard's own header
+comment, `type-roles.test.ts:5-18`) — across the rest.
 
 ### Repeated variants are hoisted, not computed
 
@@ -1495,6 +1669,24 @@ the frontend (`domain.rs:44-62`, the attribute `:61`). No row of that shape
 exists in `McpServerDetail.tsx`'s Identity & capabilities card (`:906-947`)
 or anywhere else in the panel.
 
+**A tool pick from the palette opens the server but not the tool.** `openSearchHit`
+resolves an `mcp_tool` hit to its server and calls `handleSelectAsset` with
+that server's identity (`App.tsx:1113-1116`); nothing in that path or in
+`McpServerDetail.tsx` scrolls the Tools tab to, or highlights, the row the
+query actually matched.
+
+**The palette searches asset content and stops there.** `index_inventory`
+writes only `skill`/`rule`/`subagent`/`server` rows (`search.rs:89-117`) and
+`index_probe_tools` only `mcp_tool` rows (`:149-198`) into `asset_search`;
+Needs review's issues and Discovery's directories have no writer into that
+table and no `SearchKind` of their own, so neither surfaces in a palette
+query.
+
+**Matching is prefix and stem, not fuzzy.** `fts_query` quotes each term and
+appends FTS5's prefix operator (`search.rs:200-215`) against a `porter
+unicode61` tokenizer (`preferences.rs:664`); a misspelled term simply misses,
+the way `"depl"*` finds "deploy" but a transposed "deploly" would not.
+
 ---
 
 ## 9. The Design system page (dev builds)
@@ -1507,15 +1699,64 @@ table of contents. Karthik's rulings, 2026-08-16: name "Design system"
 the Settings cog; a palette would read as appearance, which Settings owns),
 **dev builds only**, TOC in the source-list column.
 
-**What it is.** The system, rendered by the app that uses it. Six sections
-mirror §§1–5 — Colour, Type, Geometry, Motion, Controls, Components. Every
+**What it is.** The system, rendered by the app that uses it. Seven sections
+cover §§1–5, layered in the TOC under three eyebrows (`DESIGN_GROUPS` and
+the `group` field of `DESIGN_SECTIONS`, `designSystemFixtures.ts`;
+`DesignSystemSidebar` draws one eyebrow per group on the machine sidebar's
+`groupLabelClass`): **Foundations** — Colour, Geometry, Motion;
+**Styles** — Typography, Iconography; **Components** — Controls,
+Composites. The layering is Karthik's ruling of 2026-08-28 after reading
+atomic design: Frost calls tokens subatomic and fonts, icons and buttons
+the first atoms; Material's navigation says Foundations, Styles,
+Components for the same three tiers, and those are the words chosen —
+tokens the theme returns, then the first things you can see, then what is
+built from them. The page's sections run in the same order, so the TOC and
+the scroll agree. The last section is "Composites" rather than
+"Components" because a group cannot name one of its own members; the
+alternatives were Frost's "Organisms" (accurate, but a word nobody says
+in this app) and "Patterns" (Polaris's word for UX solutions, which these
+are not). Two more of the names are Karthik's ruling of the same day:
+"Type" became "Typography",
+the label every system uses (Apple HIG, Material, Carbon, Polaris, Primer)
+and this file's own §2 title; the icon system gained a section, and
+"Iconography" over "Icons" follows Carbon, Primer and Atlassian and
+parallels "Typography" — HIG, Material and Polaris say "Icons", and either
+would have done. Typography opens with a Families block: the three stacks
+of `tokens.css:65-67`, each read from the running theme, a specimen line
+in each, and a stated fact that `--font-sans` and `--font-flex` are one
+stack today, so the two names mark two roles rather than two faces; the
+scale rows carry the role §2's table gives each size. Iconography renders
+`icons.tsx` from the module — every export ending in `Icon`, by name — so
+a new mark appears without anyone listing it; shows `strokeFor`'s four
+bands by calling it (exported for this, `bc1c3c8`); lines up the rail's
+marks to show the optical factors at work; and draws every `BrandId` from
+the sprite, Codex's dark twin included. Every
 component on the page is the real one, imported and rendered with sample
 props from `src/data/designSystemFixtures.ts`: `GelMeter`, `MechanismGlyph`,
 `EngineReachTiles`, `EngineLabel`/`BrandIcon`, `CategoryFilterCards`,
 `DisclosureBanner`, `Tooltip`, `AssetHeaderRow`/`AssetRow`, `SummaryStrip`,
-`ScanStatusIndicator`, `HangerMark`. Nothing on it is a picture, so nothing
-on it can drift from the app; after a pull, one page shows every component
-in the current theme.
+`ScanStatusIndicator`, `HangerMark`, `EmptyState`; and, since 2026-08-28,
+the twelve that had landed after the page without a specimen —
+`SegmentedTrack`, `UnderlineTabs`, `ViewControl`, `OverflowMenu`,
+`InfoPopover`, `FindingChip` under Controls, with the mini button tier
+(`miniButton.ts`: fill, tonal, outlined — the fill is the cap's `Link to…`)
+beside them; `InspectorCap`, `ListCard`, `ReachCard`, `OriginValue`,
+`ScanStamp`, `McpEngineSummary`, `SearchPalette` under Components. Nothing on it is a picture, so nothing on it can drift from the
+app; after a pull, one page shows every component in the current theme.
+
+**Every component is on the page, or says why not — enforced.** From
+2026-08-16 to 2026-08-28 the inventory was a hand-picked list and the
+sentence above was false: twelve components shipped without a specimen,
+`InspectorCap`'s `Link to…` and `FindingChip`'s `1 flagged` among them, and
+nothing went red. `design_system_pane.test.tsx` pins that the page renders
+its own list, which cannot see a component the list never named.
+`src/__tests__/design-system-coverage.test.ts` reads the other side: every
+`src/components/*.tsx` must be imported by `DesignSystemPane.tsx` by its own
+module, or sit on the test's allowlist with a reason — and an allowlisted
+component the page now imports, or whose file is gone, fails too. Rendering
+inside another specimen does not count (`ScanStamp` inside `SummaryStrip`,
+`SegmentedTrack` inside `CategoryFilterCards`): the caption names the file,
+so a reader looking for a file finds it under its name.
 
 **Values are read, not written.** Token swatches read the running theme via
 `getComputedStyle` on the root, re-read through a `MutationObserver` on the
@@ -1536,10 +1777,16 @@ bundle. Only `IconRail`'s own label string survives, because the rail
 cannot know at build time whether it will be handed the handler; it never
 is.
 
-**Known gaps, recorded rather than fixed here.** The pill pair, the cap
-button and the cap field are hoisted class strings in `DiscoveryPane.tsx`
-and `App.tsx`, not shared exports; the page repeats them with a caption
-saying so. Panes, modals, the map canvas and the inspectors are not on the
-page — they need real inventory or graph data. `IconRail` itself is not
-rendered as a specimen: it would put a second navigation landmark, with
-duplicate control names, on the page.
+**Known gaps, recorded rather than fixed here.** The pill pair and the cap
+button are hoisted class strings in `DiscoveryPane.tsx` and `App.tsx`, not
+shared exports; the page repeats them with a caption saying so. The cap no
+longer carries a search field — it moved to `SearchPalette`, which now has
+its own specimen. Panes, modals, the map canvas and the inspector *panels*
+(`AssetDetail`, `McpServerDetail`, `ReviewInspector`) are not on the page —
+they need real inventory or graph data; the inspector *cap* is, because it
+takes a category, a place string and callbacks and nothing else. `IconRail`
+itself is not rendered as a specimen: it would put a second navigation
+landmark, with duplicate control names, on the page. `FavouriteHeart` and
+`MarkdownDoc` predate the page, take only props, and are still owed a
+specimen; the coverage test's allowlist says so rather than hiding it. The
+allowlist in that test is the full, reasoned list.

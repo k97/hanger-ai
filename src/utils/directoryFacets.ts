@@ -33,15 +33,6 @@ export function kindCounts(dirs: Directory[]): KindFacet[] {
   return [{ kind: "All", count: all }, ...facets];
 }
 
-/** True when a directory survives both the kind chip and the filter field. */
-export function matchesDirectory(dir: Directory, kind: string, query: string): boolean {
-  if (kind !== "All" && !dir.kinds.includes(kind)) return false;
-
-  const needle = query.trim().toLowerCase();
-  if (!needle) return true;
-
-  const haystack = [dir.name, dir.url, dir.desc, dir.tier, dir.fetch, ...dir.kinds]
-    .join(" ")
-    .toLowerCase();
-  return haystack.includes(needle);
+export function matchesDirectory(dir: Directory, kind: string): boolean {
+  return kind === "All" || dir.kinds.includes(kind);
 }

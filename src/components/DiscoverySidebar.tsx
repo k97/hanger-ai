@@ -1,6 +1,7 @@
 import SourceListShell from "./SourceListShell";
 import { DIRECTORIES } from "../data/directories";
 import { kindCounts } from "../utils/directoryFacets";
+import { groupLabelClass } from "./typeRoles";
 
 interface DiscoverySidebarProps {
   width: number;
@@ -14,8 +15,7 @@ interface DiscoverySidebarProps {
   favouritesCount?: number;
 }
 
-const grpClass =
-  "flex items-center justify-between px-2.5 pt-[11px] pb-[5px] font-flex text-micro font-medium tracking-[.06em] uppercase text-ink-3";
+const grpClass = `flex items-center justify-between px-2.5 pt-[11px] pb-[5px] ${groupLabelClass}`;
 
 /**
  * Under Discovery the second column lists what the catalogue's directories
@@ -45,7 +45,7 @@ export default function DiscoverySidebar({
     }`;
 
   const tally = (active: boolean) =>
-    `text-micro tabular font-flex shrink-0 ${active ? "text-sidebar-sel-ink opacity-70" : "text-ink-3"}`;
+    `text-small tabular font-flex shrink-0 ${active ? "text-sidebar-sel-ink opacity-70" : "text-ink-3"}`;
 
   return (
     <SourceListShell

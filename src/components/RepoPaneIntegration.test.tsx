@@ -238,8 +238,8 @@ describe("RepoPane — the empty state is a finding, not a default", () => {
 
   it("a category emptied by a filter says so; a category with nothing says that", () => {
     // Skills exist in this repo, so "no skills here" would be false when a
-    // search is what hid them. The chip says MCP servers, so the copy must
-    // never say "tools".
+    // state filter is what hid them (both skills here classify "linked" or
+    // "local"). The chip says MCP servers, so the copy must never say "tools".
     const { unmount } = render(
       <RepoPane
         repoPath="/home/user/project"
@@ -247,7 +247,7 @@ describe("RepoPane — the empty state is a finding, not a default", () => {
         loading={false}
         scannedAt={new Date()}
         selectedCategory="Skills"
-        filterText="zzz-nothing"
+        stateFilter="broken"
         onRefresh={vi.fn()}
         onSelectAsset={vi.fn()}
         onLinkFromProfile={vi.fn()}
@@ -473,7 +473,7 @@ describe("RepoPane — the All tab's own filter-empty state", () => {
         inventory={mockInventory}
         loading={false}
         scannedAt={new Date()}
-        filterText="zzzz"
+        stateFilter="broken"
         onRefresh={vi.fn()}
         onSelectAsset={vi.fn()}
         onLinkFromProfile={vi.fn()}
@@ -517,7 +517,7 @@ describe("RepoPane — the All tab's own filter-empty state", () => {
         inventory={mockInventory}
         loading={true}
         scannedAt={new Date()}
-        filterText="zzzz"
+        stateFilter="broken"
         onRefresh={vi.fn()}
         onSelectAsset={vi.fn()}
         onLinkFromProfile={vi.fn()}
@@ -535,7 +535,7 @@ describe("RepoPane — the All tab's own filter-empty state", () => {
         inventory={{ agents: [], skills: [], tools: [], rules: [], subagents: [], project_scans: [] }}
         loading={false}
         scannedAt={null}
-        filterText="zzzz"
+        stateFilter="broken"
         onRefresh={vi.fn()}
         onSelectAsset={vi.fn()}
         onLinkFromProfile={vi.fn()}

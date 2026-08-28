@@ -2,6 +2,7 @@ import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import { RevealInFileManagerIcon, Square2StackIcon, MousePointerClickIcon } from "./icons";
 import type { IssueKind, ReviewIssue } from "../utils/reviewIssues";
 import Tooltip from "./Tooltip";
+import { sectionHeadClass, rowLabelClass, rowValueClass, captionClass } from "./typeRoles";
 
 interface ReviewInspectorProps {
   issue: ReviewIssue | null;
@@ -60,7 +61,7 @@ export default function ReviewInspector({
       <div className="h-full flex flex-col items-center justify-center gap-2 px-6 text-center bg-page">
         <MousePointerClickIcon size={36} className="mb-2 text-ink-3" />
         <span className="text-base-app font-medium text-ink-1">Nothing selected</span>
-        <span className="text-small text-ink-3 leading-[1.6]">
+        <span className={captionClass}>
           Pick an issue to see where it lives and what else it affects.
         </span>
       </div>
@@ -91,13 +92,17 @@ export default function ReviewInspector({
   return (
     <div className="h-full flex flex-col bg-page min-h-0">
       <div className="px-[18px] pt-4 pb-3 border-b border-line shrink-0">
-        <div className="flex items-center gap-2 font-flex text-micro tracking-[.06em] uppercase text-ink-3 mb-2">
+        <h2 className="text-lg-app font-medium tracking-[-0.3px] text-ink-1 mb-2">{issue.name}</h2>
+
+        {/* R2: the kind line reads below the title it describes, not above
+            it in caps. The h2's own mb-2 (unchanged) supplies the gap that
+            used to sit above it; this line inherits the eyebrow's old mb-2
+            so the block's outer spacing to the state row is unchanged. */}
+        <div className={`flex items-center gap-2 ${captionClass} mb-2`}>
           <span>{EYEBROW[issue.kind]}</span>
           <span>·</span>
           <span>{issue.category}</span>
         </div>
-
-        <h2 className="text-lg-app font-medium tracking-[-0.3px] text-ink-1 mb-2">{issue.name}</h2>
 
         <div className="flex items-center gap-[7px] mb-3">
           <i
@@ -114,7 +119,7 @@ export default function ReviewInspector({
           </span>
         </div>
 
-        <div className="flex items-center gap-2 bg-plane rounded-inner pl-2.5 pr-1.5 py-2 font-mono text-micro text-ink-2">
+        <div className="flex items-center gap-2 bg-plane rounded-inner pl-2.5 pr-1.5 py-2 font-mono text-small text-ink-1">
           <span className="flex-1 min-w-0 truncate">{issue.path}</span>
           <Tooltip label="Copy path" placement="bottom">
             <button
@@ -141,40 +146,40 @@ export default function ReviewInspector({
         <div className="mx-[12px] mt-3.5 grid gap-px bg-line rounded-plane overflow-hidden">
           {pairs.map((pair, idx) => (
             <section key={`${pair.key}-${idx}`} className="bg-plane px-3.5 py-2.5">
-              <div className="font-flex text-micro tracking-[.06em] uppercase text-ink-3 mb-1">
+              <div className={`${sectionHeadClass} mb-1`}>
                 {pair.key}
               </div>
-              <div className="font-mono text-micro text-ink-2 break-all">{pair.value}</div>
+              <div className="font-mono text-small text-ink-1 break-all">{pair.value}</div>
             </section>
           ))}
         </div>
 
         {issue.siblings && (
           <div className="mx-[12px] mt-3.5 px-3.5 py-2.5 bg-plane rounded-plane">
-            <div className="font-flex text-micro tracking-[.06em] uppercase text-ink-3 mb-1.5">
+            <div className={`${sectionHeadClass} mb-1.5`}>
               The same source also feeds
             </div>
             {issue.siblings.map((sibling) => (
-              <div key={sibling} className="font-mono text-micro text-ink-2 break-all py-0.5">
+              <div key={sibling} className="font-mono text-small text-ink-1 break-all py-0.5">
                 {sibling}
               </div>
             ))}
-            <p className="text-small text-ink-2 leading-[1.6] mt-2">
+            <p className={`${captionClass} mt-2`}>
               Repointing the source fixes all of them at once. Repointing this link alone leaves the
               others where they are.
             </p>
           </div>
         )}
 
-        <dl className="mx-[12px] my-3.5 px-3.5 py-3 bg-plane rounded-plane grid grid-cols-[92px_1fr] gap-y-2 gap-x-3 text-small">
-          <dt className="font-flex text-ink-3">Where</dt>
-          <dd className="text-ink-1">{issue.whereLabel}</dd>
-          <dt className="font-flex text-ink-3">Reaches</dt>
-          <dd className="text-ink-1">
+        <dl className="mx-[12px] my-3.5 px-3.5 py-3 bg-plane rounded-plane grid grid-cols-[92px_1fr] gap-y-2 gap-x-3 text-base-app">
+          <dt className={rowLabelClass}>Where</dt>
+          <dd className={rowValueClass}>{issue.whereLabel}</dd>
+          <dt className={rowLabelClass}>Reaches</dt>
+          <dd className={rowValueClass}>
             {issue.crossRepo ? "More than one repository" : "This place only"}
           </dd>
-          <dt className="font-flex text-ink-3">Reversible</dt>
-          <dd className="text-ink-1">
+          <dt className={rowLabelClass}>Reversible</dt>
+          <dd className={rowValueClass}>
             {issue.kind === "duplicate" || issue.kind === "parse"
               ? "Depends on what you choose"
               : "Yes — no file is written"}
@@ -183,7 +188,7 @@ export default function ReviewInspector({
       </div>
 
       <div className="px-[18px] py-3.5 border-t border-line flex gap-2 items-center shrink-0">
-        <span className="font-flex text-micro text-ink-3 tabular">
+        <span className="font-flex text-small text-ink-3 tabular">
           {position} of {outOf}
         </span>
         <span className="flex-1" />

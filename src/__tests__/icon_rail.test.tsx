@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent, waitFor, cleanup } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, cleanup, within } from "@testing-library/react";
 import App from "../App";
 import { invoke } from "@tauri-apps/api/core";
 
@@ -162,14 +162,20 @@ describe("Icon rail", () => {
       });
     });
     expect(entry.getAttribute("aria-current")).toBe("true");
-    // The TOC replaces the machine sidebar; the page has no search and no
-    // inspector — nothing on it is an asset to filter or inspect.
+    // The TOC replaces the machine sidebar; the page has no search field and
+    // no inspector — nothing on it is an asset to filter or inspect.
     // Both arrive through lazy imports (dev-only chunks), so await them.
     expect(await screen.findByTestId("design-sidebar")).toBeTruthy();
     expect(screen.queryByTestId("sidebar")).toBeNull();
     expect(await screen.findByText("The system, rendered by the app that uses it")).toBeTruthy();
-    expect(screen.queryByLabelText("Search")).toBeNull();
-    expect(screen.queryByLabelText("Toggle inspector")).toBeNull();
+    // The rail's Search button is on every screen; what the design page
+    // lacks is a search *field* of its own and an inspector.
+    expect(screen.queryByLabelText("Search assets")).toBeNull();
+    // "No inspector" is the column, not the button: the page renders the
+    // real InspectorCap as a specimen (2026-08-28), so a "Toggle inspector"
+    // button legitimately exists inside a figure. The <aside> is the
+    // inspector column (App.tsx) and nothing else in the app is an aside.
+    expect(document.querySelector("aside")).toBeNull();
     unmount();
   });
 
@@ -271,5 +277,44 @@ describe("Icon rail", () => {
     expect(screen.queryByText("Nothing selected")).toBeNull();
     expect(screen.queryByLabelText("Toggle inspector")).toBeNull();
     unmount();
+  });
+
+  it("carries a Search button directly beneath Needs review that opens the palette", async () => {
+    const { unmount } = render(<App />);
+    const rail = await screen.findByTestId("icon-rail");
+    const buttons = Array.from(rail.querySelectorAll("button")).map((b) => b.getAttribute("aria-label"));
+    const review = buttons.findIndex((l) => l?.startsWith("Needs review"));
+    expect(review).toBeGreaterThan(-1);
+    expect(buttons[review + 1]).toBe("Search");
+    // Scoped to the rail: the cap's own field (Task 9 removes it) carries
+    // the same aria-label until then, so an unscoped query is ambiguous.
+    const search = within(rail).getByLabelText("Search");
+    // An action, not a place: never current.
+    expect(search.getAttribute("aria-current")).toBeNull();
+    fireEvent.click(search);
+    expect(await screen.findByRole("dialog", { name: "Search" })).toBeTruthy();
+    unmount();
+  });
+
+  it("⌘K opens the palette and Escape closes it", async () => {
+    const { unmount } = render(<App />);
+    await screen.findByTestId("icon-rail");
+    fireEvent.keyDown(window, { key: "k", metaKey: true });
+    expect(await screen.findByRole("dialog", { name: "Search" })).toBeTruthy();
+    fireEvent.keyDown(window, { key: "Escape" });
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Search" })).toBeNull());
+    unmount();
+  });
+
+  it("the cap carries no search field on any screen — the palette replaced it", async () => {
+    for (const item of ["profile", "discovery", "review"]) {
+      mockPreferences.selected_sidebar_item = item;
+      const { unmount } = render(<App />);
+      await screen.findByTestId("icon-rail");
+      expect(screen.queryByLabelText("Search assets")).toBeNull();
+      expect(screen.queryByLabelText("Clear search")).toBeNull();
+      expect(screen.queryByPlaceholderText(/^Search /)).toBeNull();
+      unmount();
+    }
   });
 });

@@ -94,8 +94,10 @@ export interface IconProps extends Omit<SVGProps<SVGSVGElement>, "ref"> {
 
 const DEFAULT_SIZE = 16;
 
-/** Stroke weight per size band — keeps the rendered stroke near 1px. */
-function strokeFor(size: number): number {
+/** Stroke weight per size band — keeps the rendered stroke near 1px.
+ *  Exported for the Design system page, which shows the bands live rather
+ *  than as literals that could drift (2026-08-28). */
+export function strokeFor(size: number): number {
   if (size <= 12) return 2.2;
   if (size <= 16) return 1.9;
   if (size <= 20) return 1.7;

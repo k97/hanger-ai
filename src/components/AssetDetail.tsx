@@ -24,9 +24,17 @@ import MarkdownDoc from "./MarkdownDoc";
 import UnderlineTabs from "./UnderlineTabs";
 import ListCard, { ListCardRow } from "./ListCard";
 import ReachCard from "./ReachCard";
+import {
+  sectionHeadClass,
+  rowLabelClass,
+  rowValueClass,
+  rowMonoClass,
+  captionClass,
+  monoLabelClass,
+} from "./typeRoles";
 import type { Inventory } from "../App";
 import { engineLabel, originRow, provenanceOf, type OriginWire } from "../utils/assetProvenance";
-import { scopeAgent, type Scope } from "../utils/scopeAccess";
+import { scopeAgent, scopeKind, type Scope } from "../utils/scopeAccess";
 import EngineLabel from "./EngineLabel";
 import { abbreviateHome } from "../utils/prose";
 import type { AssetAnnotationView } from "./AssetRow";
@@ -34,7 +42,6 @@ import {
   documentKindFor,
   formatJson,
   parseSkillDocument,
-  SPEC_FIELDS,
   toBlocks,
 } from "../utils/skillDocument";
 
@@ -112,8 +119,6 @@ interface AssetDetailProps {
   /** The user moved to another tab. */
   onTabChange?: (tab: "primary" | "details") => void;
 }
-
-const eyebrowClass = "font-flex text-micro font-medium tracking-[.06em] uppercase text-ink-3";
 
 /**
  * The caveat on every token figure in the Context ledger. Behind the
@@ -252,59 +257,71 @@ export default function AssetDetail({ asset, inventory, onDocumentPath, annotati
   const pretty = text !== null && kind === "json" ? formatJson(text) : null;
   const showsTabs = document !== null || pretty !== null;
 
-  const specRows: IdentityRow[] = document
-    ? (SPEC_FIELDS as readonly string[])
-        .filter((key) => key !== "name" && key !== "description" && key !== "allowed-tools")
-        // Karthik's ruling, 2026-08-27: `compatibility` and `metadata` are
-        // dropped from this panel's own summary — not from SPEC_FIELDS,
-        // which documents the skill spec's six keys and is used elsewhere.
-        // `metadata` is a YAML map; `parseSkillDocument` is line-based and
-        // reads a key with no inline value as opening a LIST, so
-        // `metadata:` followed by indented sub-keys always stores an empty
-        // array and the row rendered blank on every skill that used it (15
-        // of 133 on this machine). `compatibility` is free prose with no
-        // length contract (24-141 chars observed here) and reads as an
-        // essay in a table row even when it parses correctly. Neither
-        // becomes unreachable: the Content tab's Source view still shows
-        // the raw frontmatter, so a skill's compatibility and metadata stay
-        // readable there — this only drops them from the Identity card.
-        .filter((key) => key !== "compatibility" && key !== "metadata")
-        .filter((key) => document.frontmatter[key] !== undefined)
-        .map((key) => {
-          const label = key[0].toUpperCase() + key.slice(1);
-          return {
-            key: label.replace(/\s+/g, "-").toLowerCase(),
-            label,
-            icon: <DocumentTextIcon size={14} aria-hidden="true" />,
-            wide: String(
-              Array.isArray(document.frontmatter[key])
-                ? (document.frontmatter[key] as string[]).join(", ")
-                : document.frontmatter[key]
-            ),
-          };
-        })
+  /* The only spec field this card shows. SPEC_FIELDS holds six keys: name and
+     description are the title block, allowed-tools is the Capabilities
+     section, and compatibility and metadata were dropped 2026-08-27 — free
+     prose with no length contract, and a YAML map the line-based parser reads
+     as an empty list, so the row rendered blank on every skill that used it.
+     That leaves `license`, which ~8% of skills declare, so the filter chain
+     that used to stand here was machinery for one conditional row. Both stay
+     readable in the Content tab's Source view either way.
+     Karthik's ruling, 2026-08-28. */
+  const licence = document?.frontmatter["license"];
+  const specRows: IdentityRow[] = licence
+    ? [
+        {
+          key: "license",
+          label: "License",
+          icon: <DocumentTextIcon size={14} aria-hidden="true" />,
+          wide: String(Array.isArray(licence) ? licence.join(", ") : licence),
+        },
+      ]
     : [];
 
   const raw = document?.frontmatter["allowed-tools"];
   const allowedTools: string[] = raw === undefined ? [] : Array.isArray(raw) ? raw : [raw];
 
   const identityRows: IdentityRow[] = [
-    {
-      key: "engine",
-      label: "Engine",
-      icon: <CpuChipIcon size={14} aria-hidden="true" />,
-      wide: (
-        <EngineLabel engineKey={scopeAgent(asset.scope as Scope)} size={14}>
-          {engineLabel(asset as never)}
-        </EngineLabel>
-      ),
-    },
-    {
-      key: "scope",
-      label: "Scope",
-      icon: <GlobeAltIcon size={14} aria-hidden="true" />,
-      wide: provenance.place,
-    },
+    // Only when an engine actually owns this asset. `scanner.rs` empties the
+    // scope's agent for anything in the shared store — that is what used to
+    // render "Any agent", on every skill on a store-convention machine. An
+    // absent owner is not a fact about the file, and the Reach card states it
+    // better by listing who reaches it. Rules keep the row: both global rules
+    // on a real machine name an engine, and ownership is exclusive, so this is
+    // the only place it is said. Karthik's ruling, 2026-08-28.
+    ...(scopeAgent(asset.scope as Scope)
+      ? [
+          {
+            key: "engine",
+            label: "Engine",
+            icon: <CpuChipIcon size={14} aria-hidden="true" />,
+            wide: (
+              <EngineLabel engineKey={scopeAgent(asset.scope as Scope)} size={14}>
+                {engineLabel(asset as never)}
+              </EngineLabel>
+            ),
+          },
+        ]
+      : []),
+    // "Global" is the only thing this row could say in the Global pane, and a
+    // repo pane already names the repo in its breadcrumb — this panel is
+    // reachable from nowhere else, so the row was constant wherever it
+    // appeared. It earns its place only by carrying what the repo name
+    // cannot: whether the asset is committed and shared with the team
+    // (Project) or declared in a machine-level file and private to this user
+    // (Local), `domain.rs`. Derived from the scope rather than the viewing
+    // context, so it stays true if a surface ever lists mixed scopes.
+    // Karthik's ruling, 2026-08-28.
+    ...(scopeKind(asset.scope as Scope) === "Project" || scopeKind(asset.scope as Scope) === "Local"
+      ? [
+          {
+            key: "scope",
+            label: "Scope",
+            icon: <GlobeAltIcon size={14} aria-hidden="true" />,
+            wide: scopeKind(asset.scope as Scope),
+          },
+        ]
+      : []),
     ...(provenance.linkedInto.length > 0
       ? [
           {
@@ -420,9 +437,9 @@ export default function AssetDetail({ asset, inventory, onDocumentPath, annotati
             {asset.category === "Skills" && body && (
               <section className="mx-[12px] my-3.5">
                 {/* items-center, not items-baseline: the trigger is a glyph,
-                    and a glyph has no baseline to share with the eyebrow. */}
+                    and a glyph has no baseline to share with the section head. */}
                 <div className="flex items-center justify-between gap-2 mb-2">
-                  <span className={eyebrowClass}>Context</span>
+                  <span className={sectionHeadClass}>Context</span>
                   {/* Names this panel's section, where the MCP panel says
                       "About the request figures" -- see the ContextNote
                       comment in McpServerDetail.tsx for why the two are
@@ -434,18 +451,18 @@ export default function AssetDetail({ asset, inventory, onDocumentPath, annotati
                     <ListCardRow
                       label={
                         <span className="flex flex-col gap-0.5 min-w-0">
-                          <span className="text-small leading-[1.5]">Always on</span>
-                          <span className="text-micro text-ink-3 leading-[1.5]">
+                          <span className={rowValueClass}>Always on</span>
+                          <span className={captionClass}>
                             Name and description, in every engine&rsquo;s startup list
                           </span>
                         </span>
                       }
                       value={
                         <span className="flex flex-col gap-0.5 items-end">
-                          <span className="text-base-app text-ink-1">
+                          <span className={rowValueClass}>
                             ≈ {body.always_on_estimated_tokens.toLocaleString("en-US")} tokens
                           </span>
-                          <span>{formatBytes(body.always_on_bytes)}</span>
+                          <span className={captionClass}>{formatBytes(body.always_on_bytes)}</span>
                         </span>
                       }
                     />
@@ -453,16 +470,16 @@ export default function AssetDetail({ asset, inventory, onDocumentPath, annotati
                   <ListCardRow
                     label={
                       <span className="flex flex-col gap-0.5 min-w-0">
-                        <span className="text-small leading-[1.5]">When it opens</span>
-                        <span className="text-micro text-ink-3 leading-[1.5]">SKILL.md in full, frontmatter included</span>
+                        <span className={rowValueClass}>When it opens</span>
+                        <span className={captionClass}>SKILL.md in full, frontmatter included</span>
                       </span>
                     }
                     value={
                       <span className="flex flex-col gap-0.5 items-end">
-                        <span className="text-base-app text-ink-1">
+                        <span className={rowValueClass}>
                           ≈ {body.estimated_tokens.toLocaleString("en-US")} tokens
                         </span>
-                        <span>{formatBytes(body.bytes)}</span>
+                        <span className={captionClass}>{formatBytes(body.bytes)}</span>
                       </span>
                     }
                   />
@@ -497,14 +514,14 @@ export default function AssetDetail({ asset, inventory, onDocumentPath, annotati
                   ) : view === "preview" && pretty ? (
                     <pre
                       data-testid="asset-formatted"
-                      className="m-0 px-[18px] pt-3 pb-[18px] overflow-x-auto overflow-y-hidden font-mono text-micro text-ink-2 leading-[1.6] whitespace-pre"
+                      className="m-0 px-[18px] pt-3 pb-[18px] overflow-x-auto overflow-y-hidden font-mono text-small text-ink-1 leading-code whitespace-pre"
                     >
                       <code>{pretty}</code>
                     </pre>
                   ) : (
                     <pre
                       data-testid="asset-source"
-                      className="m-0 px-[18px] pt-3 pb-[18px] overflow-x-auto overflow-y-hidden font-mono text-micro text-ink-2 leading-[1.6] whitespace-pre"
+                      className="m-0 px-[18px] pt-3 pb-[18px] overflow-x-auto overflow-y-hidden font-mono text-small text-ink-1 leading-code whitespace-pre"
                     >
                       <code>{text}</code>
                     </pre>
@@ -514,14 +531,14 @@ export default function AssetDetail({ asset, inventory, onDocumentPath, annotati
             )}
 
             {loading && (
-              <p className="px-[12px] py-3 text-small text-ink-3 flex items-center gap-2">
+              <p className={`px-[12px] py-3 ${captionClass} flex items-center gap-2`}>
                 <FileTextIcon size={12} active />
                 Reading the file…
               </p>
             )}
 
             {docError && (
-              <p className="mx-[12px] my-3 px-3.5 py-2.5 bg-plane rounded-inner text-small text-ink-3 leading-[1.6]">
+              <p className={`mx-[12px] my-3 px-3.5 py-2.5 bg-plane rounded-inner ${captionClass}`}>
                 {docError}
               </p>
             )}
@@ -536,7 +553,7 @@ export default function AssetDetail({ asset, inventory, onDocumentPath, annotati
           >
             <section className="mx-[12px] my-3.5">
               <div className="flex items-baseline justify-between gap-2 mb-2">
-                <span className={eyebrowClass}>Identity</span>
+                <span className={sectionHeadClass}>Identity</span>
               </div>
               <ListCard>
                 {identityRows.map((row) =>
@@ -582,12 +599,8 @@ export default function AssetDetail({ asset, inventory, onDocumentPath, annotati
                             data-testid="origin-sub-row"
                             className="flex items-center gap-2.5 pl-9 pr-3 py-[9px] min-h-9 bg-plane"
                           >
-                            <span className="min-w-0 flex-1 text-small text-ink-3">{r.label}</span>
-                            <span
-                              className={`ml-auto shrink-0 ${
-                                r.mono ? "font-mono text-micro text-ink-3 tabular" : "text-small text-ink-2"
-                              }`}
-                            >
+                            <span className={`min-w-0 flex-1 ${rowLabelClass}`}>{r.label}</span>
+                            <span className={`ml-auto shrink-0 ${r.mono ? rowMonoClass : rowValueClass}`}>
                               {r.value}
                             </span>
                           </div>
@@ -609,10 +622,19 @@ export default function AssetDetail({ asset, inventory, onDocumentPath, annotati
               </ListCard>
             </section>
 
-            {dirEntries && dirEntries.length > 0 && (
+            {/* A lone SKILL.md is not contents — it is the document the
+                Content tab is already showing, and the Path row above already
+                says where it is. The card earns its place from the second
+                entry onward, which is where references/ and scripts/ become
+                visible; on a real machine that is 62 of 128 store skills, and
+                the other 66 were getting a one-row card that restated two
+                things. A `.length` in a comparison is not a tally
+                (invariants.md). Karthik's ruling, 2026-08-28. */}
+            {dirEntries && dirEntries.length > 0 &&
+              !(dirEntries.length === 1 && dirEntries[0].name === "SKILL.md") && (
               <section className="mx-[12px] my-3.5">
                 <div className="flex items-baseline justify-between gap-2 mb-2">
-                  <span className={eyebrowClass}>Contents</span>
+                  <span className={sectionHeadClass}>Contents</span>
                 </div>
                 <ListCard>
                   {dirEntries.map((e) => (
@@ -637,10 +659,11 @@ export default function AssetDetail({ asset, inventory, onDocumentPath, annotati
                           : e.kind === "symlink"
                             ? "—"
                             // SKILL.md is the only entry a model ever loads;
-                            // its size carries the weight the rest do not.
+                            // every other entry's size recedes to secondary
+                            // ink so SKILL.md is the one that reads as full weight.
                             : e.name === "SKILL.md"
-                              ? <span className="text-ink-1">{formatBytes(e.bytes ?? 0)}</span>
-                              : formatBytes(e.bytes ?? 0)
+                              ? formatBytes(e.bytes ?? 0)
+                              : <span className="text-ink-3">{formatBytes(e.bytes ?? 0)}</span>
                       }
                     />
                   ))}
@@ -657,7 +680,7 @@ export default function AssetDetail({ asset, inventory, onDocumentPath, annotati
             {allowedTools.length > 0 && (
               <section className="mx-[12px] my-3.5">
                 <div className="flex items-baseline justify-between gap-2 mb-2">
-                  <span className={eyebrowClass}>Capabilities</span>
+                  <span className={sectionHeadClass}>Capabilities</span>
                 </div>
                 <ListCard>
                   {allowedTools.map((tool) => (
@@ -683,13 +706,13 @@ export default function AssetDetail({ asset, inventory, onDocumentPath, annotati
             {annotation && annotation.reach.length > 0 && (
               <section data-testid="reach-detail" className="mx-[12px] my-3.5">
                 <div className="flex items-baseline justify-between gap-2 mb-2">
-                  <span className={eyebrowClass}>Reach</span>
+                  <span className={sectionHeadClass}>Reach</span>
                   {/* One store for the whole card, not one per row. `via_store` is
                       keyed off the asset's own root in annotations.rs, so every
                       reached engine reports the same one by construction — this
                       cannot disagree with the rows beneath it. */}
                   {reachStore && (
-                    <span data-testid="reach-store" className="font-mono text-micro text-ink-3">
+                    <span data-testid="reach-store" className={monoLabelClass}>
                       → {reachStore}
                     </span>
                   )}

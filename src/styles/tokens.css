@@ -73,12 +73,14 @@
   --fw-regular: 400;
   --fw-medium: 500;
 
-  /* Leading — three, as tokens (audit 2026-08-27: 55 arbitrary values
-     before this). body for 13px prose and rows, caption for 12px
-     secondary lines, code for 11–12px mono blocks. */
+  /* Leading — four, as tokens (audit 2026-08-27: 55 arbitrary or default
+     leading values before this). body for 13px prose and rows, caption for
+     12px secondary lines, code for 11–12px mono blocks, display for the
+     32px strip figure. */
   --lh-body: 20px;
   --lh-caption: 16px;
   --lh-code: 18px;
+  --lh-display: 35px;
 
   /* Geometry — pill for controls, 12px inner surfaces, 16px planes,
      10px for the rail's square-ish buttons */
@@ -156,7 +158,7 @@
   --fs-row: var(--fs-micro);
   --fs-ui: var(--fs-small);
   --fs-title: var(--fs-base);
-  --radius-control: 6px;
+  --radius-control: 8px;
   --duration-fast: 120ms;
   --duration-panel: 180ms;
   --duration-rail: 240ms;

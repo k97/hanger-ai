@@ -74,12 +74,14 @@ describe("the map cap", () => {
     render(<App />);
     const header = await screen.findByRole("banner");
     // A positive anchor first: without it the absences below could pass on a
-    // header that had not finished rendering anything at all.
-    expect(within(header).getByPlaceholderText(/Search .* assets/)).toBeTruthy();
+    // header that had not finished rendering anything at all. The cap's own
+    // search field is gone (Task 9); the breadcrumb's "Global" label is the
+    // stable landmark now.
+    expect(within(header).getByText("Global")).toBeTruthy();
 
     eventListeners["scan://complete"]({ payload: { inventory: emptyInventory } });
     await waitFor(() => {
-      expect(within(header).getByPlaceholderText(/Search .* assets/)).toBeTruthy();
+      expect(within(header).getByText("Global")).toBeTruthy();
     });
 
     expect(within(header).queryByText("Scanned moments ago")).toBeNull();

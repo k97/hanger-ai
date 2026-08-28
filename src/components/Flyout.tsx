@@ -21,6 +21,7 @@ import DiffChooser, { AlignedSection } from "./DiffChooser";
 import { categoryNoun } from "../utils/prose";
 import { documentKindFor } from "../utils/skillDocument";
 import type { OriginWire } from "../utils/assetProvenance";
+import { sectionHeadClass, captionClass, monoLabelClass } from "./typeRoles";
 
 export interface FlatAssetItem {
   type: "header" | "asset";
@@ -677,26 +678,66 @@ export default function Flyout({
           so this header needed its own top padding to read as a separate
           block; with the cap now bearing only the close control, that padding
           was a gap between two empty things. The heading is what the panel
-          opens with, and every pixel taken here comes off the content. */}
+          opens with, and every pixel taken here comes off the content.
+
+          The spacing is a rule, not four numbers (Karthik, 2026-08-28: the
+          steps between the cap, the title and the tabs "feel inconsistent").
+          Every band in the header stack pads symmetrically on the 8px step —
+          this one `py-2`, the tab row's labels `py-2` (`UnderlineTabs.tsx`)
+          — so no band reaches across into another to set its neighbour's
+          gap, and the eyebrow-to-title step is this column's own `gap-1`
+          rather than a margin the title row switches on and off. What is
+          left above the title is the cap's centring slack (a 16px glyph in
+          an `h-10` row), which belongs to the cap and is not ours to pad
+          against. */}
       {(linking || targetAsset || selectedBubble || showEmptyMcpEyebrow) && (
       <div
         data-testid="inspector-header"
-        className={`px-[18px] pt-2 pb-4 shrink-0${tabsFollow ? "" : " border-b border-line"}`}
+        className={`px-[18px] py-2 flex flex-col gap-1 shrink-0${
+          tabsFollow ? "" : " border-b border-line"
+        }`}
       >
+        {!showEmptyMcpEyebrow && (
+        <div className="flex items-center gap-2 min-w-0">
+          {!linking && !targetAsset && selectedBubble?.type === "agent" && (
+            <BrandIcon engineKey={selectedBubble.id} engineName={selectedBubble.name} size={16} />
+          )}
+          <h2 className="text-lg-app font-medium tracking-[-0.3px] text-ink-1 truncate max-w-[280px] font-sans">
+            {linking
+              ? "Link to projects"
+              : targetAsset
+              ? targetAsset.name
+              : selectedBubble
+              ? selectedBubble.name
+              : "Asset Inspector"}
+          </h2>
+          {/* Transport rides the heading rather than owning a row of its own —
+              one short token does not earn 18px of vertical padding. */}
+          {!linking && mcpView && (
+            <span className="shrink-0 text-small font-mono px-2 py-px rounded-pill bg-tint text-ink-1 whitespace-nowrap">
+              {mcpView.transport}
+            </span>
+          )}
+        </div>
+        )}
+        {/* R2 (Karthik, 2026-08-28): the scope line reads below the title it
+            describes, not above it in caps — the column's own `gap-1`
+            supplies the step, so this carries no margin of its own. */}
         {eyebrowShown && (
-        <div className="flex items-center gap-2 font-flex text-micro font-medium tracking-[.06em] uppercase text-ink-3">
+        <div className={`flex items-center gap-2 ${captionClass}`}>
           {linking ? (
             <button
               onClick={closeLinkFlow}
               aria-label={`Back to ${linking.name}`}
-              className="flex items-center gap-1.5 tracking-[.06em] uppercase text-ink-3 hover:text-ink-1 cursor-pointer transition-colors duration-hover ease-spring min-w-0"
+              className="flex items-center gap-1.5 text-ink-3 hover:text-ink-1 cursor-pointer transition-colors duration-hover ease-spring min-w-0"
             >
               <ChevronLeftIcon size={12} aria-hidden="true" className="shrink-0" />
               <span className="truncate">{linking.name}</span>
             </button>
           ) : (
             <>
-              <span>
+              {/* The class repeats the parent's on purpose: getByText resolves this leaf, and a classless leaf pins nothing. */}
+              <span className={captionClass}>
                 {targetAsset
                   ? null
                   : selectedBubble
@@ -714,32 +755,9 @@ export default function Flyout({
             </>
           )}
           {selectedProjectScan?.layered && (
-            <span className="flex items-center gap-1 text-state-danger normal-case tracking-normal">
+            <span className="flex items-center gap-1 text-state-danger">
               <ExclamationTriangleIcon size={10} />
               Layered rules
-            </span>
-          )}
-        </div>
-        )}
-        {!showEmptyMcpEyebrow && (
-        <div className={`flex items-center gap-2 min-w-0 ${eyebrowShown ? "mt-1" : ""}`}>
-          {!linking && !targetAsset && selectedBubble?.type === "agent" && (
-            <BrandIcon engineKey={selectedBubble.id} engineName={selectedBubble.name} size={16} />
-          )}
-          <h2 className="text-lg-app font-medium tracking-[-0.3px] text-ink-1 truncate max-w-[280px] font-sans">
-            {linking
-              ? "Link to projects"
-              : targetAsset
-              ? targetAsset.name
-              : selectedBubble
-              ? selectedBubble.name
-              : "Asset Inspector"}
-          </h2>
-          {/* Transport rides the heading rather than owning a row of its own —
-              one short token does not earn 18px of vertical padding. */}
-          {!linking && mcpView && (
-            <span className="shrink-0 text-micro font-mono px-2 py-px rounded-pill bg-tint text-ink-1 whitespace-nowrap">
-              {mcpView.transport}
             </span>
           )}
         </div>
@@ -808,13 +826,13 @@ export default function Flyout({
           {/* Display project-wide warnings/drift logs */}
           {selectedProjectScan && selectedProjectScan.parse_warnings.length > 0 && (
             <div className="p-3.5 rounded-inner border border-line bg-plane flex flex-col gap-2">
-              <span className="text-micro font-medium uppercase tracking-[.06em] text-state-warning flex items-center gap-1.5 font-flex">
+              <span className="text-small font-medium text-state-warning flex items-center gap-1.5">
                 <ExclamationTriangleIcon size={12} />
                 Warnings Captured during Scan ({selectedProjectScan.parse_warnings.length})
               </span>
               <ul className="text-small text-ink-2 list-disc pl-4 flex flex-col gap-1">
                 {selectedProjectScan.parse_warnings.map((warning, idx) => (
-                  <li key={idx} className="font-mono break-all leading-relaxed">
+                  <li key={idx} className="font-mono break-all leading-caption">
                     {warning}
                   </li>
                 ))}
@@ -851,7 +869,7 @@ export default function Flyout({
                     className="flex flex-col justify-center border-b border-transparent"
                   >
                     {item.type === "header" ? (
-                      <div className="text-micro font-medium text-ink-3 uppercase tracking-[.06em] py-2 mt-3 first:mt-0 mb-1 font-flex">
+                      <div className={`${sectionHeadClass} py-2 mt-3 first:mt-0 mb-1`}>
                         {item.category}
                       </div>
                     ) : (
@@ -867,22 +885,22 @@ export default function Flyout({
                               {item.name}
                             </span>
                             {item.version && (
-                              <span className="text-micro font-mono text-ink-3 px-1.5 py-0.5 rounded-pill bg-plane-2">
+                              <span className={`${monoLabelClass} px-1.5 py-0.5 rounded-pill bg-plane-2`}>
                                 {item.version}
                               </span>
                             )}
                             {item.drifted && (
-                              <span className="text-micro font-medium text-state-warning flex items-center gap-0.5 shrink-0 font-flex">
+                              <span className="text-small font-medium text-state-warning flex items-center gap-0.5 shrink-0 font-flex">
                                 <ExclamationTriangleIcon size={10} />
                                 drifted
                               </span>
                             )}
                           </div>
-                          <span className="text-micro text-ink-3 block truncate max-w-[300px] font-mono mt-0.5">
+                          <span className="text-small text-ink-3 block truncate max-w-[300px] font-mono mt-0.5">
                             {item.path}
                           </span>
                           {item.details && (
-                            <span className="text-micro text-ink-3 block truncate mt-0.5">
+                            <span className="text-small text-ink-3 block truncate mt-0.5">
                               {item.details}
                             </span>
                           )}
@@ -893,7 +911,7 @@ export default function Flyout({
                           {item.category !== "Agents" && item.category !== "Subagents" && (
                             <button
                               onClick={() => setLinking(item)}
-                              className="opacity-0 group-hover:opacity-100 px-3 h-[22px] rounded-pill bg-fill text-on-fill text-micro font-medium transition-opacity duration-hover cursor-pointer"
+                              className="opacity-0 group-hover:opacity-100 px-3 h-[22px] rounded-pill bg-fill text-on-fill text-small font-medium transition-opacity duration-hover cursor-pointer"
                             >
                               Link
                             </button>
@@ -925,8 +943,8 @@ export default function Flyout({
           <MousePointerClickIcon size={36} className="mb-2" />
           {/* Same words as ReviewInspector's empty state, so the two
               inspectors read as one. */}
-          <span className="text-small font-medium text-ink-1 font-sans">Nothing selected</span>
-          <span className="text-small text-ink-3 mt-1">Pick an asset or a repository to see its details.</span>
+          <span className="text-base-app font-medium text-ink-1 font-sans">Nothing selected</span>
+          <span className={`${captionClass} mt-1`}>Pick an asset or a repository to see its details.</span>
         </div>
       )}
     </div>

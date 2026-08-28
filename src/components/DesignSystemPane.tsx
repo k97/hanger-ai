@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ComponentType, type ReactNode } from "react";
 import GelMeter from "./GelMeter";
 import MechanismGlyph, { type MechanismWord } from "./MechanismGlyph";
 import EngineReachTiles from "./EngineReachTiles";
@@ -12,14 +12,43 @@ import AssetRow from "./AssetRow";
 import SummaryStrip from "./SummaryStrip";
 import { ScanStatusIndicator } from "./ScanStatusIndicator";
 import HangerMark from "./HangerMark";
+import SegmentedTrack from "./SegmentedTrack";
+import UnderlineTabs from "./UnderlineTabs";
+import ViewControl, { type ServerGrouping, type ServerSort } from "./ViewControl";
+import OverflowMenu, { menuItemClass, MenuSeparator } from "./OverflowMenu";
+import InfoPopover from "./InfoPopover";
+import FindingChip from "./FindingChip";
+import InspectorCap from "./InspectorCap";
+import ListCard, { ListCardRow } from "./ListCard";
+import ReachCard from "./ReachCard";
+import OriginValue from "./OriginValue";
+import ScanStamp from "./ScanStamp";
+import McpEngineSummary from "./McpEngineSummary";
+import { SearchPalettePanel } from "./SearchPalette";
+import { sectionHeadClass } from "./typeRoles";
+import { miniBtnClass, miniBtnFillClass, miniBtnTonalClass, miniSetClass } from "./miniButton";
+import * as Icons from "./icons";
 import {
+  CodeBracketIcon,
+  Cog6ToothIcon,
+  ComputerDesktopIcon,
   Disc3Icon,
+  DocumentIcon,
+  EllipsisVerticalIcon,
+  ExclamationTriangleIcon,
   FolderClockIcon,
-  MagnifyingGlassIcon,
+  FolderIcon,
+  FolderSymlinkIcon,
+  GlobeAltIcon,
+  LinkIcon,
   PanelRightIcon,
   RotateCcwIcon,
   SearchIcon,
+  Square2StackIcon,
+  SwatchIcon,
+  strokeFor,
 } from "./icons";
+import { BRAND_IDS } from "../data/brands";
 import EmptyState from "./EmptyState";
 import type { StateFilter } from "../utils/linkStateCounts";
 import {
@@ -30,9 +59,18 @@ import {
   SAMPLE_ASSET_DRIFTED,
   SAMPLE_CATEGORY_COUNTS,
   SAMPLE_COUNTS,
+  SAMPLE_FINDINGS,
+  SAMPLE_FINDING_LINES,
+  SAMPLE_MCP_ENGINE_SUMMARY,
+  SAMPLE_ORIGIN,
+  SAMPLE_ORIGIN_BLOCKED,
   SAMPLE_REACH,
   SAMPLE_REVIEW,
+  SAMPLE_REVIEW_ISSUE,
   SAMPLE_SCAN_STATUS,
+  SAMPLE_SEARCH_HITS,
+  SAMPLE_SEGMENTS,
+  SAMPLE_TABS,
 } from "../data/designSystemFixtures";
 
 interface DesignSystemPaneProps {
@@ -113,23 +151,29 @@ function Section({
 }
 
 /** One rendered thing with its provenance. `sample` marks fixture-fed
- *  renderings so a figure on this page is never read as the machine. */
+ *  renderings so a figure on this page is never read as the machine.
+ *  `unclipped` is for a specimen whose menu or popover opens below its
+ *  trigger: the box's scroll container would otherwise swallow it. */
 function Specimen({
   name,
   file,
   note,
   sample = true,
+  unclipped = false,
   children,
 }: {
   name: string;
   file: string;
   note?: string;
   sample?: boolean;
+  unclipped?: boolean;
   children: ReactNode;
 }) {
   return (
     <figure>
-      <div className="border border-line rounded-plane p-4 overflow-x-auto">{children}</div>
+      <div className={`border border-line rounded-plane p-4 ${unclipped ? "" : "overflow-x-auto"}`}>
+        {children}
+      </div>
       <figcaption className="flex items-baseline gap-2 flex-wrap px-1 pt-1.5 font-flex text-micro text-ink-3">
         <span className="font-medium text-ink-2">{name}</span>
         <span className="font-mono">{file}</span>
@@ -151,17 +195,49 @@ function Group({ label, children }: { label: string; children: ReactNode }) {
 
 const swatchGridClass = "grid grid-cols-[repeat(auto-fill,minmax(230px,1fr))] gap-x-6 gap-y-3";
 
+/** Holds the palette panel's own query state so typing in the specimen never
+ *  touches the page's. Fixture hits never filter — the backend already
+ *  ranked them — so the panel's row order and marks stay fixed regardless
+ *  of what's typed. */
+function SearchPaletteSpecimen() {
+  const [query, setQuery] = useState("screenshot");
+  return (
+    <SearchPalettePanel
+      query={query}
+      onQueryChange={setQuery}
+      hits={SAMPLE_SEARCH_HITS}
+      hasScanned
+      onPick={() => {}}
+      dialogLabel="Sample search palette"
+      inputLabel="Sample search field"
+      autoFocus={false}
+    />
+  );
+}
+
 /* ── The page ───────────────────────────────────────────────────────────── */
 
 const MECHANISMS: MechanismWord[] = ["symlink", "copy", "drift", "broken", "none"];
 
-const TYPE_ROWS: { utility: string; px: string; sample: ReactNode }[] = [
-  { utility: "text-display", px: "32px", sample: <span className="text-display font-medium tabular tracking-[-0.5px] leading-[1.1] text-ink-1">142</span> },
-  { utility: "text-lg-app", px: "16px", sample: <span className="text-lg-app text-ink-2">assets in the global store · 6 engines</span> },
-  { utility: "text-base-app", px: "13px", sample: <span className="text-base-app font-medium text-ink-1">writing-great-skills</span> },
-  { utility: "text-small", px: "12px", sample: <span className="text-small text-ink-2">Symlink — edits to the source reach every destination</span> },
-  { utility: "text-micro · font-flex", px: "11px", sample: <span className={eyebrowClass}>Scanned 4 min ago</span> },
-  { utility: "font-mono text-micro", px: "11px", sample: <span className="font-mono text-micro text-ink-3">~/.agents/skills/writing-great-skills/SKILL.md</span> },
+/** The three stacks, in the order the root and the utilities meet them. The
+ *  stack string is read from the theme by TokenValue, never typed here. */
+const FAMILIES: { token: string; family: string; role: string }[] = [
+  { token: "--font-sans", family: "font-sans", role: "body — the document root" },
+  { token: "--font-flex", family: "font-flex", role: "the utility voice — eyebrows, stamps, chips" },
+  { token: "--font-mono", family: "font-mono", role: "paths, values, code" },
+];
+
+/** `role` mirrors the Role column of DESIGN.md §2's table. */
+const TYPE_ROWS: { utility: string; px: string; role: string; sample: ReactNode }[] = [
+  { utility: "text-display", px: "32px", role: "display", sample: <span className="text-display font-medium tabular tracking-[-0.5px] leading-display text-ink-1">142</span> },
+  { utility: "text-lg-app", px: "16px", role: "titles", sample: <span className="text-lg-app text-ink-2">assets in the global store · 6 engines</span> },
+  { utility: "text-base-app", px: "13px", role: "body", sample: <span className="text-base-app font-medium text-ink-1">writing-great-skills</span> },
+  { utility: "text-small", px: "12px", role: "secondary", sample: <span className="text-small text-ink-2">Symlink — edits to the source reach every destination</span> },
+  { utility: "text-micro · badges and chips only", px: "11px", role: "badges and chips", sample: <span className="text-micro font-medium text-ink-3 bg-plane-2 px-2 py-0.5 rounded-pill font-flex">Global</span> },
+  { utility: "font-mono text-micro", px: "11px", role: "paths and values", sample: <span className="font-mono text-micro text-ink-3">~/.agents/skills/writing-great-skills/SKILL.md</span> },
+  { utility: "leading-body", px: "20px", role: "leading", sample: <span className="block whitespace-normal max-w-[230px] text-base-app text-ink-1 leading-body">Scans the directories those engines read from and shows whether it still matches its source.</span> },
+  { utility: "leading-caption", px: "16px", role: "leading", sample: <span className="block whitespace-normal max-w-[230px] text-small text-ink-3 leading-caption">Installed 2026-08-14 · tracked by a harness convention, not an interface of its own.</span> },
+  { utility: "leading-code", px: "18px", role: "leading", sample: <span className="block whitespace-normal max-w-[230px] font-mono text-small text-ink-1 leading-code">~/.claude/skills/writing-great-skills/SKILL.md — twenty-two lines.</span> },
 ];
 
 const RADII: { utility: string; token: string }[] = [
@@ -176,6 +252,28 @@ const BEATS: { utility: string; token: string; where: string }[] = [
   { utility: "duration-nav", token: "--dur-nav", where: "selection and navigation" },
   { utility: "duration-press", token: "--dur-press", where: "press, enter and exit" },
 ];
+
+/** One size per band of `strokeFor`; the stroke shown is the function's own
+ *  answer, so the page cannot disagree with icons.tsx. */
+const ICON_SIZE_BANDS = [12, 16, 20, 24];
+
+/** The rail's marks in the rail's order (IconRail.tsx), where four stack at
+ *  one size and any optical mismatch reads as a wobble. */
+const RAIL_MARKS: { name: string; Icon: ComponentType<{ size?: number }> }[] = [
+  { name: "ComputerDesktopIcon", Icon: ComputerDesktopIcon },
+  { name: "FolderSymlinkIcon", Icon: FolderSymlinkIcon },
+  { name: "GlobeAltIcon", Icon: GlobeAltIcon },
+  { name: "ExclamationTriangleIcon", Icon: ExclamationTriangleIcon },
+  { name: "SwatchIcon", Icon: SwatchIcon },
+  { name: "Cog6ToothIcon", Icon: Cog6ToothIcon },
+];
+
+/** Every mark icons.tsx exports, read off the module rather than listed, so
+ *  a new export appears here without anyone remembering to add it. */
+const ICON_ROSTER = Object.entries(Icons)
+  .filter(([name, value]) => name.endsWith("Icon") && typeof value === "function")
+  .sort(([a], [b]) => a.localeCompare(b))
+  .map(([name, value]) => ({ name, Icon: value as ComponentType<{ size?: number }> }));
 
 // The pill pair as hoisted in DiscoveryPane.tsx; the cap button and field as
 // hoisted in App.tsx. Repeated here rather than exported — one place should
@@ -215,6 +313,14 @@ export default function DesignSystemPane({ section }: DesignSystemPaneProps) {
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
   const [replay, setReplay] = useState(0);
   const [selectedRow, setSelectedRow] = useState<string | null>(SAMPLE_ASSET.id ?? null);
+  const [segment, setSegment] = useState(SAMPLE_SEGMENTS[0].id);
+  const [tab, setTab] = useState(SAMPLE_TABS[0].id);
+  const [grouping, setGrouping] = useState<ServerGrouping>("server");
+  const [sort, setSort] = useState<ServerSort>("attention");
+  // The surfaces a finding popover clamps against, standing in for the
+  // inspector column and a placecard.
+  const capHostRef = useRef<HTMLDivElement>(null);
+  const chipHostRef = useRef<HTMLDivElement>(null);
 
   const handleSort = (field: SortField) => {
     if (field === sortField) setSortDirection((d) => (d === "asc" ? "desc" : "asc"));
@@ -295,34 +401,6 @@ export default function DesignSystemPane({ section }: DesignSystemPaneProps) {
         </Section>
 
         <Section
-          id="type"
-          label="Type"
-          lede="One system stack, five sizes, two weights. Figures that change wear the tabular utility so they never jitter; the utility voice is font-flex, micro, uppercase and tracked."
-        >
-          <div className="border border-line rounded-plane px-4">
-            {TYPE_ROWS.map((row) => (
-              <div
-                key={row.utility}
-                className="grid grid-cols-[190px_1fr] items-baseline gap-4 py-3 border-b border-line last:border-b-0"
-              >
-                <span className="font-mono text-micro text-ink-3">
-                  {row.utility} <span className="font-sans">· {row.px}</span>
-                </span>
-                <span className="min-w-0 truncate">{row.sample}</span>
-              </div>
-            ))}
-            <div className="grid grid-cols-[190px_1fr] items-baseline gap-4 py-3">
-              <span className="font-mono text-micro text-ink-3">
-                font-medium <span className="font-sans">· the only other weight</span>
-              </span>
-              <span className="text-base-app text-ink-1">
-                Regular 400 beside <b className="font-medium">medium 500</b> — nothing heavier exists.
-              </span>
-            </div>
-          </div>
-        </Section>
-
-        <Section
           id="geometry"
           label="Geometry"
           lede="Three radii for surfaces, one soft radius for the rail's buttons, pills for every control. Spacing rides Tailwind's 4px grid; anything off it is stated at the call site as an arbitrary value, and the 18px gutter is a token."
@@ -391,6 +469,114 @@ export default function DesignSystemPane({ section }: DesignSystemPaneProps) {
         </Section>
 
         <Section
+          id="type"
+          label="Typography"
+          lede="Three font tokens, one system stack, five sizes, two weights. Each size carries one role rather than a free choice. Figures that change wear the tabular utility so they never jitter; the utility voice is font-flex, micro, uppercase and tracked."
+        >
+          <Group label="Families">
+            <div className="border border-line rounded-plane px-4">
+              {FAMILIES.map((f) => (
+                <div
+                  key={f.token}
+                  className="grid grid-cols-[190px_1fr] items-baseline gap-4 py-3 border-b border-line last:border-b-0"
+                >
+                  <span className="min-w-0">
+                    <span className="block font-mono text-micro text-ink-3">{f.token}</span>
+                    <span className="block font-flex text-micro text-ink-3">{f.role}</span>
+                  </span>
+                  <span className={`min-w-0 flex flex-col gap-1 ${f.family}`}>
+                    <span className="text-base-app text-ink-1 truncate">Sphinx of black quartz, judge my vow.</span>
+                    <span className="text-small text-ink-2 tabular">142 · 1.2.0 · 2026-08-28</span>
+                    <span className="truncate">
+                      <TokenValue token={f.token} />
+                    </span>
+                  </span>
+                </div>
+              ))}
+            </div>
+            <p className="pt-2 text-small text-ink-2 leading-caption max-w-[74ch]">
+              --font-sans and --font-flex are declared with the same stack today (tokens.css:65-66): the two
+              names mark two roles, not two faces. On macOS the stack resolves to the system UI face — it
+              begins -apple-system — and the page shows what the theme returns rather than naming one.
+            </p>
+          </Group>
+          <Group label="Scale">
+            <div className="border border-line rounded-plane px-4">
+              {TYPE_ROWS.map((row) => (
+                <div
+                  key={row.utility}
+                  className="grid grid-cols-[190px_110px_1fr] items-baseline gap-4 py-3 border-b border-line last:border-b-0"
+                >
+                  <span className="font-mono text-micro text-ink-3">
+                    {row.utility} <span className="font-sans">· {row.px}</span>
+                  </span>
+                  <span className="font-flex text-micro text-ink-3 truncate">{row.role}</span>
+                  <span className="min-w-0 truncate">{row.sample}</span>
+                </div>
+              ))}
+              <div className="grid grid-cols-[190px_110px_1fr] items-baseline gap-4 py-3">
+                <span className="font-mono text-micro text-ink-3">
+                  font-medium <span className="font-sans">· the only other weight</span>
+                </span>
+                <span className="font-flex text-micro text-ink-3">weight</span>
+                <span className="text-base-app text-ink-1">
+                  Regular 400 beside <b className="font-medium">medium 500</b> — nothing heavier exists.
+                </span>
+              </div>
+            </div>
+          </Group>
+        </Section>
+
+        <Section
+          id="iconography"
+          label="Iconography"
+          lede="Heroicons outline, never used raw: sized() applies two corrections — the stroke scales up as the box shrinks so it lands near 1px on screen, and a per-mark optical factor evens out how much of the grid each mark inks. Brand marks come from one sprite, referenced by id."
+        >
+          <Specimen name="Size bands" file="icons.tsx" note="the stroke scales up as the box shrinks so it lands near 1px on screen">
+            <div className="flex items-end gap-8">
+              {ICON_SIZE_BANDS.map((size) => (
+                <div key={size} className="flex flex-col items-center gap-2 text-ink-1">
+                  <FolderIcon size={size} />
+                  <span className="font-mono text-micro text-ink-3 tabular">
+                    {size} · {String(strokeFor(size))}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </Specimen>
+
+          <Specimen name="Optical alignment" file="icons.tsx" note="the rail's marks at 17; per-mark optical factors are measured ink-extent ratios, and anything within 4% is left at 1">
+            <div className="flex items-center gap-5 text-ink-2">
+              {RAIL_MARKS.map(({ name, Icon }) => (
+                <Icon key={name} size={17} />
+              ))}
+            </div>
+          </Specimen>
+
+          <Specimen name="Roster" file="icons.tsx" note="Heroicons outline, seven static lucide, twenty animated lucide, three hand-drawn — DESIGN.md §4">
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(176px,1fr))] gap-x-4 gap-y-4">
+              {ICON_ROSTER.map(({ name, Icon }) => (
+                <div key={name} className="flex flex-col items-center gap-1.5 min-w-0 text-ink-1">
+                  <Icon size={16} />
+                  <span className="font-mono text-micro text-ink-3 whitespace-nowrap">{name}</span>
+                </div>
+              ))}
+            </div>
+          </Specimen>
+
+          <Specimen name="Brand marks" file="BrandIcon.tsx · brands.ts" note="colour where the brand has colour, currentColor where monochrome; a brand that ships a dark twin swaps marks with the theme. The generic fallback draws for any unmapped id and reports the id once per session, so it is not drawn here">
+            <div className="flex items-end gap-5 flex-wrap text-ink-1">
+              {BRAND_IDS.map((id) => (
+                <div key={id} className="flex flex-col items-center gap-1.5">
+                  <BrandIcon engineKey={id} size={16} />
+                  <span className="font-mono text-micro text-ink-3">{id}</span>
+                </div>
+              ))}
+            </div>
+          </Specimen>
+        </Section>
+
+        <Section
           id="controls"
           label="Controls"
           lede="Pills everywhere. The single strong action per region is fill; everything else outlines. Chips press into tint, list rows press into tint on the plane."
@@ -409,19 +595,8 @@ export default function DesignSystemPane({ section }: DesignSystemPaneProps) {
             </div>
           </Specimen>
 
-          <Specimen name="Cap button and field" file="App.tsx" note="the content cap's toolbar controls">
+          <Specimen name="Cap button" file="App.tsx" note="the content cap's toolbar control; the search field moved to the palette">
             <div className="flex items-center gap-2.5">
-              <div className="relative w-[214px] h-[27px]">
-                <MagnifyingGlassIcon
-                  size={12}
-                  className="absolute left-2.5 top-2 text-ink-3 pointer-events-none"
-                />
-                <input
-                  aria-label="Sample search field"
-                  placeholder="Search 142 assets"
-                  className="w-full h-full rounded-pill border border-transparent bg-plane pl-[30px] pr-3.5 text-small text-ink-1 placeholder:text-ink-3 focus:outline-none focus:border-ink-1 focus:bg-page transition-colors duration-hover ease-spring"
-                />
-              </div>
               {/* Sample controls never borrow a real control's accessible
                   name — a reader would hear a toggle that toggles nothing. */}
               <Tooltip label="Sample cap button" placement="bottom">
@@ -470,11 +645,105 @@ export default function DesignSystemPane({ section }: DesignSystemPaneProps) {
               </button>
             </Tooltip>
           </Specimen>
+
+          <Specimen name="SegmentedTrack" file="SegmentedTrack.tsx" note="the track under CategoryFilterCards; the capsule slides on the nav beat">
+            <SegmentedTrack
+              segments={SAMPLE_SEGMENTS}
+              selectedId={segment}
+              onSelect={setSegment}
+              ariaLabel="Sample segments"
+            />
+          </Specimen>
+
+          <Specimen name="UnderlineTabs" file="UnderlineTabs.tsx" note="switches views inside one surface; weight and the rule are all that change">
+            <UnderlineTabs tabs={SAMPLE_TABS} active={tab} onChange={setTab} ariaLabel="Sample tabs" />
+          </Specimen>
+
+          <Specimen name="ViewControl" file="ViewControl.tsx" note="press it; grouping and sort are kept, so the check mark moves" unclipped>
+            <ViewControl
+              grouping={grouping}
+              sort={sort}
+              onGroupingChange={setGrouping}
+              onSortChange={setSort}
+            />
+          </Specimen>
+
+          <Specimen name="OverflowMenu" file="OverflowMenu.tsx" note="the trigger is the caller's; an item closes the menu itself" unclipped>
+            <OverflowMenu
+              trigger={(triggerProps) => (
+                <button type="button" aria-label="Sample overflow menu" className={capButtonClass} {...triggerProps}>
+                  <EllipsisVerticalIcon size={15} aria-hidden="true" />
+                </button>
+              )}
+              ariaLabel="Sample overflow menu"
+              align="left"
+              className="min-w-[184px] p-1"
+            >
+              {(close) => (
+                <>
+                  <button type="button" role="menuitem" onClick={close} className={menuItemClass}>
+                    Sample item one
+                  </button>
+                  <button type="button" role="menuitem" onClick={close} className={menuItemClass}>
+                    Sample item two
+                  </button>
+                  <MenuSeparator />
+                  <button type="button" role="menuitem" onClick={close} className={menuItemClass}>
+                    Sample item three
+                  </button>
+                </>
+              )}
+            </OverflowMenu>
+          </Specimen>
+
+          <Specimen name="InfoPopover" file="InfoPopover.tsx" note="a footnote that opens on click and stays put; not a Tooltip" unclipped>
+            <div className="flex items-center justify-between w-[320px]">
+              <span className={sectionHeadClass}>Context</span>
+              <InfoPopover label="About the sample figures">
+                Every figure on this page is a literal chosen to show a component's shape. None of
+                it was read from this machine.
+              </InfoPopover>
+            </div>
+          </Specimen>
+
+          <Specimen name="Mini button" file="miniButton.ts" note="the 26px tier; fill is the cap's Link to…, tonal is the header's second action, outlined is the in-section set">
+            <div className={miniSetClass}>
+              <button type="button" className={miniBtnFillClass}>
+                <LinkIcon size={13} aria-hidden="true" />
+                Link to…
+              </button>
+              <button type="button" className={miniBtnTonalClass}>
+                Sample tonal
+              </button>
+              <button type="button" className={miniBtnClass}>
+                Sample outlined
+              </button>
+            </div>
+          </Specimen>
+
+          <Specimen name="FindingChip" file="FindingChip.tsx" note="the count is the line count, one per finding; the popover clamps inside the 300px box around it" unclipped>
+            <div ref={chipHostRef} className="relative w-[300px] flex items-center gap-2">
+              <FindingChip
+                severity="warning"
+                lines={[SAMPLE_REVIEW_ISSUE.problem]}
+                onReview={() => {}}
+                elevated
+                clampTo={chipHostRef}
+              />
+              <FindingChip
+                severity="danger"
+                lines={SAMPLE_FINDING_LINES}
+                onReview={() => {}}
+                elevated
+                clampTo={chipHostRef}
+              />
+            </div>
+          </Specimen>
         </Section>
 
         <Section
           id="components"
-          label="Components"
+          label="Composites"
           lede="Imported, not imitated. Each specimen is the component the panes render, fed sample props; captions name the file."
         >
           <Specimen name="SummaryStrip" file="SummaryStrip.tsx" note="the strip with its GelMeter; legend toggles filter">
@@ -601,6 +870,98 @@ export default function DesignSystemPane({ section }: DesignSystemPaneProps) {
               <HangerMark size={32} />
               <HangerMark size={48} />
             </div>
+          </Specimen>
+
+          <Specimen name="InspectorCap" file="InspectorCap.tsx" note="the inspector column's cap; when the row overflows, Link to… sheds into ⋮ first, then the chip" unclipped>
+            {/* Wider than the inspector's 384px floor so nothing sheds here
+                and both Link to… and the chip are on the surface. */}
+            <div ref={capHostRef} className="relative w-[448px] border border-line rounded-inner bg-page">
+              <InspectorCap
+                asset={{ category: "Skills" }}
+                place="Global"
+                findings={SAMPLE_FINDINGS}
+                inspectorExpanded={false}
+                clampTo={capHostRef}
+                onLink={() => {}}
+                onOpenInEditor={() => {}}
+                onCopyPath={() => {}}
+                onReveal={() => {}}
+                onReview={() => {}}
+                onToggleExpanded={() => {}}
+                onToggleInspector={() => {}}
+              />
+            </div>
+          </Specimen>
+
+          <Specimen name="ListCard · ListCardRow" file="ListCard.tsx" note="icon · label · right-aligned value; the divider lives on row after row">
+            <div className="max-w-[384px]">
+              <ListCard>
+                {/* A long value is capped by the caller, the way the Identity
+                    card's Path row does it: the row lets the value shrink
+                    and ellipsize, but the label's box grows from zero, so
+                    an uncapped path starves the label first. */}
+                <ListCardRow
+                  icon={<DocumentIcon size={14} aria-hidden="true" />}
+                  label={<span className="font-mono">SKILL.md</span>}
+                  value={
+                    <span className="block max-w-55 truncate" title="~/.agents/skills/writing-great-skills">
+                      ~/.agents/skills/writing-great-skills
+                    </span>
+                  }
+                />
+                <ListCardRow icon={<LinkIcon size={14} aria-hidden="true" />} label="Mechanism" wide="Symlink" />
+                <ListCardRow
+                  icon={<Square2StackIcon size={14} aria-hidden="true" />}
+                  label="Copies"
+                  value="3"
+                  trailing={
+                    <Tooltip label="Sample row action" placement="bottom">
+                      <button
+                        type="button"
+                        aria-label="Sample row action"
+                        className="ml-auto w-[21px] h-[21px] rounded-pill grid place-items-center text-ink-3 hover:bg-plane-2 hover:text-ink-1 transition-colors duration-hover cursor-pointer"
+                      >
+                        <CodeBracketIcon size={13} aria-hidden="true" />
+                      </button>
+                    </Tooltip>
+                  }
+                />
+              </ListCard>
+            </div>
+          </Specimen>
+
+          <Specimen name="ReachCard" file="ReachCard.tsx" note="the inspector's Reach section; press a plate, or arrow across them">
+            <div className="max-w-[384px]">
+              <ReachCard reach={SAMPLE_REACH} />
+            </div>
+          </Specimen>
+
+          <Specimen name="OriginValue" file="OriginValue.tsx" note="in a row's wide slot, as the Identity card feeds it; a link out when the origin carries a URL, muted when Hanger could not check">
+            {/* The muted form carries no size of its own; the row's slot
+                sets it, so the value is shown where it lives. */}
+            <div className="max-w-[384px]">
+              <ListCard>
+                <ListCardRow label="Origin" wide={<OriginValue origin={SAMPLE_ORIGIN} variant="identity" />} />
+                <ListCardRow label="Origin" wide={<OriginValue origin={SAMPLE_ORIGIN_BLOCKED} variant="identity" />} />
+              </ListCard>
+            </div>
+          </Specimen>
+
+          <Specimen name="ScanStamp" file="ScanStamp.tsx" note="an age that re-reads every 30 s; null reads as not scanned">
+            <div className="flex items-center gap-6">
+              <ScanStamp scannedAt={scannedAt} className="font-flex text-micro text-ink-3" />
+              <ScanStamp scannedAt={null} className="font-flex text-micro text-ink-3" />
+            </div>
+          </Specimen>
+
+          <Specimen name="McpEngineSummary" file="McpEngineSummary.tsx" note="the Tools filter's empty-selection body; the note says how much is known">
+            <div className="max-w-[384px] border border-line rounded-inner">
+              <McpEngineSummary summary={SAMPLE_MCP_ENGINE_SUMMARY} />
+            </div>
+          </Specimen>
+
+          <Specimen name="SearchPalette" file="SearchPalette.tsx" note="⌘K's panel without its wash; the rows are fixtures in the backend's order and the mark is the matched run — type, and nothing filters, because the backend ranks" unclipped>
+            <SearchPaletteSpecimen />
           </Specimen>
         </Section>
       </div>

@@ -2,6 +2,7 @@ import { RotateCcwIcon } from "./icons";
 import GelMeter from "./GelMeter";
 import ScanStamp from "./ScanStamp";
 import { REQUEST_CARRIES } from "./McpEngineSummary";
+import { captionClass } from "./typeRoles";
 import type { StateCounts, StateFilter, LinkState } from "../utils/linkStateCounts";
 
 /** The strip's second mode: MCP probe coverage instead of link state. When
@@ -94,11 +95,11 @@ export default function SummaryStrip({
       className="px-4 py-3.5 border border-line rounded-plane shrink-0"
     >
       <div className="flex items-baseline gap-3 mb-3">
-        <span className="text-display font-medium tabular tracking-[-0.5px] leading-[1.1] text-ink-1">
+        <span className="text-display font-medium tabular tracking-[-0.5px] leading-display text-ink-1">
           {total}
         </span>
         <span className="text-lg-app text-ink-2">{subtitle}</span>
-        <ScanStamp scannedAt={scannedAt} className="ml-auto text-micro text-ink-3 font-flex" />
+        <ScanStamp scannedAt={scannedAt} className="ml-auto text-small text-ink-3 font-flex" />
       </div>
 
       {mcp ? (
@@ -150,7 +151,7 @@ export default function SummaryStrip({
             </div>
           </div>
 
-          <p className="text-micro text-ink-3 font-flex mt-2.5">{REQUEST_CARRIES}</p>
+          <p className={`${captionClass} mt-2.5`}>{REQUEST_CARRIES}</p>
         </>
       ) : (
         <>

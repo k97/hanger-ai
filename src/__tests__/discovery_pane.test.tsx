@@ -37,7 +37,7 @@ describe("Discovery — the row is the interaction", () => {
   });
 
   it("renders every catalogue entry under a tier heading", async () => {
-    render(<DiscoveryPane filterText="" />);
+    render(<DiscoveryPane />);
     await screen.findByText("skills.sh");
 
     for (const dir of DIRECTORIES) {
@@ -49,44 +49,26 @@ describe("Discovery — the row is the interaction", () => {
   });
 
   it("counts the catalogue in the foot without inventing a number", async () => {
-    render(<DiscoveryPane filterText="" />);
+    render(<DiscoveryPane />);
     expect(await screen.findByText(`${DIRECTORIES.length} directories`)).toBeTruthy();
   });
 
   it("narrows to one kind through the sidebar's facet", async () => {
     // The facet rows live in DiscoverySidebar since the chips moved into
     // the second column; the pane is a controlled consumer of `kind`.
-    const { rerender } = render(<DiscoveryPane filterText="" />);
+    const { rerender } = render(<DiscoveryPane />);
     await screen.findByText("skills.sh");
 
-    rerender(<DiscoveryPane filterText="" kind="Rules" />);
+    rerender(<DiscoveryPane kind="Rules" />);
 
     await waitFor(() => {
       expect(screen.queryByText("Smithery")).toBeNull();
     });
     expect(screen.getByText("cursor.directory")).toBeTruthy();
-  });
-
-  it("narrows through the toolbar filter text", async () => {
-    const { rerender } = render(<DiscoveryPane filterText="" />);
-    await screen.findByText("Smithery");
-
-    rerender(<DiscoveryPane filterText="cursor" />);
-
-    await waitFor(() => {
-      expect(screen.queryByText("Smithery")).toBeNull();
-    });
-    expect(screen.getByText("cursor.directory")).toBeTruthy();
-    expect(screen.getByText(/^\d+ of \d+ directories$/)).toBeTruthy();
-  });
-
-  it("says so plainly when nothing matches", async () => {
-    render(<DiscoveryPane filterText="zzzzz-no-such-directory" />);
-    expect(await screen.findByText("No directory matches that filter.")).toBeTruthy();
   });
 
   it("asks before leaving the app, and opens only on confirmation", async () => {
-    render(<DiscoveryPane filterText="" />);
+    render(<DiscoveryPane />);
     const row = await screen.findByText("Smithery");
 
     fireEvent.click(row);
@@ -102,7 +84,7 @@ describe("Discovery — the row is the interaction", () => {
   });
 
   it("cancelling the sheet leaves the app where it was", async () => {
-    render(<DiscoveryPane filterText="" />);
+    render(<DiscoveryPane />);
     fireEvent.click(await screen.findByText("Smithery"));
     await screen.findByText(/Open Smithery in your browser\?/);
 
@@ -115,7 +97,7 @@ describe("Discovery — the row is the interaction", () => {
   });
 
   it("remembers 'don't ask me again' as a preference", async () => {
-    render(<DiscoveryPane filterText="" />);
+    render(<DiscoveryPane />);
     fireEvent.click(await screen.findByText("Smithery"));
     await screen.findByText(/Open Smithery in your browser\?/);
 
@@ -132,7 +114,7 @@ describe("Discovery — the row is the interaction", () => {
 
   it("skips the sheet entirely once the user has turned confirmation off", async () => {
     mockPreferences.discovery_confirm_open = "false";
-    render(<DiscoveryPane filterText="" />);
+    render(<DiscoveryPane />);
     const row = await screen.findByText("Smithery");
 
     await waitFor(() => {
@@ -148,7 +130,7 @@ describe("Discovery — the row is the interaction", () => {
   });
 
   it("copies the fetch command instead of navigating", async () => {
-    render(<DiscoveryPane filterText="" />);
+    render(<DiscoveryPane />);
     await screen.findByText("Smithery");
 
     fireEvent.click(screen.getByText("npx @smithery/cli install <server>"));
@@ -162,12 +144,12 @@ describe("Discovery — the row is the interaction", () => {
   });
 
   it("is honest that Hanger does not fetch from these directories", async () => {
-    render(<DiscoveryPane filterText="" />);
+    render(<DiscoveryPane />);
     expect(await screen.findByText(/doesn't fetch from them/)).toBeTruthy();
   });
 
   it("shows a heart on every row, filled only for favourited marks", async () => {
-    render(<DiscoveryPane filterText="" favourites={["sy"]} />);
+    render(<DiscoveryPane favourites={["sy"]} />);
     await screen.findByText("Smithery");
 
     expect(
@@ -180,7 +162,7 @@ describe("Discovery — the row is the interaction", () => {
 
   it("toggling the heart reports the mark without navigating", async () => {
     const onToggleFavourite = vi.fn();
-    render(<DiscoveryPane filterText="" onToggleFavourite={onToggleFavourite} />);
+    render(<DiscoveryPane onToggleFavourite={onToggleFavourite} />);
     await screen.findByText("Smithery");
 
     fireEvent.click(screen.getByRole("button", { name: "Add Smithery to favourites" }));
@@ -191,7 +173,7 @@ describe("Discovery — the row is the interaction", () => {
   });
 
   it("the Favourites facet shows only favourited listings, newest first, without tier headings", async () => {
-    render(<DiscoveryPane filterText="" kind="Favourites" favourites={["gl", "sy"]} />);
+    render(<DiscoveryPane kind="Favourites" favourites={["gl", "sy"]} />);
 
     const names = (
       await screen.findAllByRole("button", { name: /^Remove .+ from favourites$/ })
@@ -202,17 +184,32 @@ describe("Discovery — the row is the interaction", () => {
     expect(screen.queryByText("Community")).toBeNull();
   });
 
-  it("the Favourites facet still narrows by the filter text", async () => {
-    render(
-      <DiscoveryPane filterText="cursor" kind="Favourites" favourites={["sy", "cd"]} />
-    );
-
-    await screen.findByText("cursor.directory");
-    expect(screen.queryByText("Smithery")).toBeNull();
+  it("the footer counts favourites honestly, not against the whole catalogue", async () => {
+    render(<DiscoveryPane kind="Favourites" favourites={["sy", "gl"]} />);
+    expect(await screen.findByText("2 favourites")).toBeTruthy();
   });
 
-  it("the footer counts favourites honestly, not against the whole catalogue", async () => {
-    render(<DiscoveryPane filterText="" kind="Favourites" favourites={["sy", "gl"]} />);
-    expect(await screen.findByText("2 favourites")).toBeTruthy();
+  // Class-contract guard (typography migration, Task 7c). happy-dom lays
+  // out nothing, so this asserts className membership only, never geometry.
+  it("section heads sentence-case body medium; descriptions at body in --ink-2; hosts mono caption", async () => {
+    render(<DiscoveryPane />);
+    await screen.findByText("skills.sh");
+
+    // "Standard" renders as a leaf <span> with no classes of its own; the
+    // section-head role lives on the wrapping row div.
+    const head = screen.getByText("Standard");
+    const headRow = head.closest("div");
+    expect(headRow?.className).toContain("text-base-app");
+    expect(headRow?.className).toContain("font-medium");
+    expect(headRow?.className).not.toContain("uppercase");
+
+    const desc = screen.getByText(/Not a listing/);
+    expect(desc.className).toContain("text-base-app");
+    expect(desc.className).toContain("leading-body");
+    expect(desc.className).not.toContain("leading-[1.5]");
+
+    const host = screen.getByText("agentskills.io");
+    expect(host.className).toContain("font-mono");
+    expect(host.className).toContain("text-small");
   });
 });

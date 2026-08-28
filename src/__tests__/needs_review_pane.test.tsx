@@ -61,7 +61,6 @@ function renderPane(over: Partial<React.ComponentProps<typeof NeedsReviewPane>> 
     counts,
     kind: null,
     place: null,
-    filterText: "",
     selectedId: null,
     onSelectKind: vi.fn(),
     onSelectPlace: vi.fn(),
@@ -124,12 +123,6 @@ describe("Needs review — repo-level and cross-repo in one list", () => {
     expect(screen.queryByText("agent-browser")).toBeNull();
   });
 
-  it("filters through the toolbar field", () => {
-    renderPane({ filterText: "brand" });
-    expect(screen.getByText("brand-voice")).toBeTruthy();
-    expect(screen.queryByText("agent-browser")).toBeNull();
-  });
-
   const clean = { broken: 0, drifted: 0, duplicate: 0, parse: 0, crossRepo: 0, total: 0 };
 
   it("says plainly when the machine is clean — after a scan has actually looked", () => {
@@ -170,7 +163,9 @@ describe("Needs review — repo-level and cross-repo in one list", () => {
   });
 
   it("a filter that matches nothing is still 'no match', scanned or not", () => {
-    renderPane({ filterText: "zzz-no-such-asset", scannedAt: null });
+    // Text search moved to the palette (⌘K); the place row is the only
+    // narrowing left in the pane, so an unmatched place is what empties it.
+    renderPane({ place: "/zzz-no-such-place", scannedAt: null });
     expect(screen.getByText("No issue matches that filter.")).toBeTruthy();
     expect(screen.queryByTestId("scan-pending")).toBeNull();
     // Deferred by ruling: a filtered-empty list stays text-only, no mark.
@@ -240,5 +235,50 @@ describe("Review inspector — provenance", () => {
       <ReviewInspector issue={null} position={0} outOf={0} onSkip={vi.fn()} />
     );
     expect(screen.getByText("Nothing selected")).toBeTruthy();
+  });
+
+  // Class-contract only (Task 7, docs/v7-todo-content-typography): asserts
+  // Tailwind classes on rendered nodes, not layout or geometry — happy-dom
+  // lays nothing out (see verification.md).
+  it("Where/Reaches dt-dd pairs use the row roles; no shouting headers; kind line follows the title", () => {
+    const { container } = render(
+      <ReviewInspector issue={broken} position={1} outOf={4} onSkip={vi.fn()} />
+    );
+
+    const dl = container.querySelector("dl")!;
+    const dts = container.querySelectorAll("dt");
+    const dds = container.querySelectorAll("dd");
+    expect(dts.length).toBe(3);
+    expect(dds.length).toBe(3);
+    // The dl's own size moved off text-small onto text-base-app — asserted
+    // directly, since the dt/dd checks below pin their own classes, not
+    // the container's.
+    expect(dl.className).toContain("text-base-app");
+    expect(dl.className).not.toContain("text-small");
+    dts.forEach((dt) => {
+      expect(dt.className).toContain("text-base-app");
+      expect(dt.className).toContain("text-ink-3");
+    });
+    dds.forEach((dd) => {
+      // text-ink-1 alone survives a revert (it was the pre-migration class
+      // verbatim); text-base-app is what actually moved.
+      expect(dd.className).toContain("text-base-app");
+      expect(dd.className).toContain("text-ink-1");
+      expect(dd.className).toContain("leading-body");
+    });
+
+    // No heading in the rendered inspector is still shouted in caps — R1/R2.
+    container.querySelectorAll("*").forEach((el) => {
+      const cls = el.getAttribute("class") ?? "";
+      expect(cls).not.toMatch(/\buppercase\b/);
+    });
+
+    // R2: the kind line ("Broken link · …") reads below the h2 title, not
+    // above it.
+    const h2 = container.querySelector("h2")!;
+    const kindLine = screen.getByText("Broken link").closest("div")!;
+    expect(
+      h2.compareDocumentPosition(kindLine) & Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
   });
 });

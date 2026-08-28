@@ -11,11 +11,12 @@ describe("leading tokens", () => {
     ["--lh-body", "20px"],
     ["--lh-caption", "16px"],
     ["--lh-code", "18px"],
+    ["--lh-display", "35px"],
   ])("declares %s as %s", (name, px) => {
     expect(tokens).toMatch(new RegExp(`${name}:\\s*${px};`));
   });
 
-  it.each(["body", "caption", "code"])("registers leading-%s in @theme", (role) => {
+  it.each(["body", "caption", "code", "display"])("registers leading-%s in @theme", (role) => {
     expect(theme).toMatch(new RegExp(`--leading-${role}:\\s*var\\(--lh-${role}\\);`));
   });
 });

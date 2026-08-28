@@ -8,6 +8,7 @@ import { containerSubtitle, linkedDescendants, hasLinkedAncestor } from "../util
 import SourceListShell from "./SourceListShell";
 import Tooltip from "./Tooltip";
 import BrandIcon from "./BrandIcon";
+import { groupLabelClass } from "./typeRoles";
 
 interface SidebarProps {
   width: number;
@@ -102,9 +103,8 @@ export default function Sidebar({
     }
   };
 
-  // Source-list row voice: 30px tonal pills, tint when current, micro counts.
-  const grpClass =
-    "flex items-center justify-between px-2.5 pt-[11px] pb-[5px] font-flex text-micro font-medium tracking-[.06em] uppercase text-ink-3";
+  // Source-list row voice: 30px tonal pills, tint when current.
+  const grpClass = `flex items-center justify-between px-2.5 pt-[11px] pb-[5px] ${groupLabelClass}`;
 
   return (
     <SourceListShell
@@ -139,7 +139,7 @@ export default function Sidebar({
               Global
             </span>
             <span
-              className={`text-micro flex items-center gap-1 min-w-0 ${
+              className={`text-small flex items-center gap-1 min-w-0 ${
                 selectedItem === "profile" ? "text-sidebar-sel-ink opacity-70" : "text-ink-3"
               }`}
               data-testid="global-engines-subtitle"
@@ -153,7 +153,7 @@ export default function Sidebar({
             </span>
           </div>
           <span
-            className={`text-micro tabular font-flex shrink-0 ${
+            className={`text-small tabular font-flex shrink-0 ${
               selectedItem === "profile" ? "text-sidebar-sel-ink opacity-70" : "text-ink-3"
             }`}
           >
@@ -176,7 +176,7 @@ export default function Sidebar({
         </div>
 
         {linkedRepos.length === 0 ? (
-          <div className="px-2 py-4 text-center text-small text-ink-3 flex flex-col gap-2 leading-relaxed">
+          <div className="px-2 py-4 text-center text-small text-ink-3 flex flex-col gap-2 leading-caption">
             <span>No repositories linked. Link a project folder to manage and deploy assets.</span>
             <button
               onClick={handleAddRepo}
@@ -231,7 +231,7 @@ export default function Sidebar({
                     </span>
                     {container && (
                       <span
-                        className={`text-micro truncate block ${
+                        className={`text-small truncate block ${
                           isActive ? "text-sidebar-sel-ink opacity-70" : "text-ink-3"
                         }`}
                       >
@@ -240,7 +240,7 @@ export default function Sidebar({
                     )}
                   </div>
                   <span
-                    className={`text-micro tabular font-flex shrink-0 ${
+                    className={`text-small tabular font-flex shrink-0 ${
                       isActive ? "text-sidebar-sel-ink opacity-70" : "text-ink-3"
                     }`}
                   >

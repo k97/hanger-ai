@@ -65,18 +65,31 @@ function accessibleName(el: Element): string {
 }
 
 describe("InspectorCap", () => {
-  it("renders the eyebrow as kind · place, uppercased by class", () => {
+  it("renders the eyebrow as kind · place, sentence case in caption ink", () => {
     renderCap({ place: "Global" });
     const eyebrow = screen.getByTestId("inspector-cap-eyebrow");
     expect(eyebrow.textContent).toBe("Skill · Global");
-    expect(eyebrow.className).toContain("uppercase");
+    expect(eyebrow.className).toContain("text-small");
+    expect(eyebrow.className).toContain("text-ink-3");
+    expect(eyebrow.className).not.toContain("uppercase");
   });
 
-  it("marks the kind glyph with a state dot only when the asset has findings", () => {
+  // The dot is the chip's understudy, not its echo: while `1 flagged` is on
+  // the surface the dot said the same thing twice, which read as noise
+  // (Karthik, 2026-08-28). It appears only at the shed width, where the chip
+  // has gone into the menu and nothing else on the surface says a finding
+  // exists.
+  it("marks the kind glyph with a state dot only when the chip has shed off the surface", () => {
     renderCap({ findings: NO_FINDINGS });
     expect(screen.queryByTestId("inspector-cap-glyph-dot")).toBeNull();
     cleanup();
     renderCap({ findings: ONE_FINDING });
+    expect(screen.queryByTestId("inspector-cap-glyph-dot")).toBeNull();
+    cleanup();
+    renderCap({ findings: NO_FINDINGS, forceShed: 2 });
+    expect(screen.queryByTestId("inspector-cap-glyph-dot")).toBeNull();
+    cleanup();
+    renderCap({ findings: ONE_FINDING, forceShed: 2 });
     expect(screen.getByTestId("inspector-cap-glyph-dot").className).toContain("bg-state-warning");
   });
 

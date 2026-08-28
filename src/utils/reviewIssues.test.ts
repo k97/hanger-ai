@@ -298,31 +298,24 @@ describe("matchesIssueFilter", () => {
   };
 
   it("passes everything with no filters", () => {
-    expect(matchesIssueFilter(issue, null, null, "")).toBe(true);
+    expect(matchesIssueFilter(issue, null, null)).toBe(true);
   });
 
   it("narrows by problem kind", () => {
-    expect(matchesIssueFilter(issue, "broken", null, "")).toBe(true);
-    expect(matchesIssueFilter(issue, "drifted", null, "")).toBe(false);
+    expect(matchesIssueFilter(issue, "broken", null)).toBe(true);
+    expect(matchesIssueFilter(issue, "drifted", null)).toBe(false);
   });
 
   it("narrows by place, and 'cross' selects only issues that span repositories", () => {
-    expect(matchesIssueFilter(issue, null, "/one", "")).toBe(true);
-    expect(matchesIssueFilter(issue, null, "/two", "")).toBe(false);
-    expect(matchesIssueFilter(issue, null, "cross", "")).toBe(false);
-    expect(matchesIssueFilter({ ...issue, crossRepo: true }, null, "cross", "")).toBe(true);
+    expect(matchesIssueFilter(issue, null, "/one")).toBe(true);
+    expect(matchesIssueFilter(issue, null, "/two")).toBe(false);
+    expect(matchesIssueFilter(issue, null, "cross")).toBe(false);
+    expect(matchesIssueFilter({ ...issue, crossRepo: true }, null, "cross")).toBe(true);
   });
 
   it("'repo' selects everything a single repository can resolve on its own", () => {
-    expect(matchesIssueFilter(issue, null, "repo", "")).toBe(true);
-    expect(matchesIssueFilter({ ...issue, crossRepo: true }, null, "repo", "")).toBe(false);
-  });
-
-  it("searches the name, the problem and the paths", () => {
-    expect(matchesIssueFilter(issue, null, null, "chrome")).toBe(true);
-    expect(matchesIssueFilter(issue, null, null, "missing")).toBe(true);
-    expect(matchesIssueFilter(issue, null, null, ".agents")).toBe(true);
-    expect(matchesIssueFilter(issue, null, null, "postgres")).toBe(false);
+    expect(matchesIssueFilter(issue, null, "repo")).toBe(true);
+    expect(matchesIssueFilter({ ...issue, crossRepo: true }, null, "repo")).toBe(false);
   });
 });
 

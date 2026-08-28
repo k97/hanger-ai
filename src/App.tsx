@@ -40,7 +40,6 @@ import {
   ExclamationTriangleIcon,
   XMarkIcon,
   GlobeAltIcon,
-  MagnifyingGlassIcon,
   ShieldCheckIcon,
   Disc3Icon,
   RotateCcwIcon,
@@ -48,6 +47,7 @@ import {
   PanelRightIcon
 } from "./components/icons";
 import IconRail from "./components/IconRail";
+import SearchPalette, { type SearchHit } from "./components/SearchPalette";
 import Tooltip from "./components/Tooltip";
 import Sidebar from "./components/Sidebar";
 import ProfilePane, { ConfigProblemRow } from "./components/ProfilePane";
@@ -414,10 +414,7 @@ export default function App() {
     observer.observe(column);
     return () => observer.disconnect();
   }, [inspectorExpanded, measureRoom]);
-  // Toolbar filter — narrows the visible rows of the active pane by name.
-  const [filterText, setFilterText] = useState<string>("");
-  // So the clear control can hand focus back once it empties the field.
-  const filterInputRef = useRef<HTMLInputElement>(null);
+  const [searchOpen, setSearchOpen] = useState(false);
   // Discovery's category facet — owned here because DiscoverySidebar sets it
   // and DiscoveryPane filters by it (the chips moved into the second column).
   const [discoveryKind, setDiscoveryKind] = useState<string>("All");
@@ -561,6 +558,10 @@ export default function App() {
       if ((e.metaKey || e.ctrlKey) && e.altKey && e.key.toLowerCase() === "s") {
         e.preventDefault();
         toggleSidebar();
+      }
+      if ((e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setSearchOpen(true);
       }
     };
     window.addEventListener("keydown", handleKeyDown);
@@ -1028,7 +1029,13 @@ export default function App() {
   }, [openMcpAssetKey]);
 
   // Maps individual asset row clicks to detail Flyout opening
-  const handleSelectAsset = (asset: { id?: string; name: string; category: "Skills" | "Agents" | "Tools" | "Rules" | "Subagents"; path: string }) => {
+  const handleSelectAsset = (
+    asset: { id?: string; name: string; category: "Skills" | "Agents" | "Tools" | "Rules" | "Subagents"; path: string },
+    // The screen the selection belongs to. A pick from the search palette
+    // switches screens in the same tick, so the state read here would still
+    // be the old one; the palette passes the target explicitly.
+    screen: string = selectedSidebarItem
+  ) => {
     // Tapping a row means "inspect this" — open the panel straight away
     // rather than requiring the toolbar toggle first.
     if (!inspectorOpen) {
@@ -1057,13 +1064,13 @@ export default function App() {
       setSelectedAsset(asset);
     }
 
-    if (selectedSidebarItem.startsWith("/")) {
+    if (screen.startsWith("/")) {
       setSelectedBubble({
         type: "project",
-        id: selectedSidebarItem,
-        name: selectedSidebarItem.split("/").pop() || selectedSidebarItem,
+        id: screen,
+        name: screen.split("/").pop() || screen,
       });
-    } else if (selectedSidebarItem === "profile") {
+    } else if (screen === "profile") {
       const agentId = fullAsset?.scope?.Global?.agent || fullAsset?.scope?.Project?.agent || (fullAsset as any)?.owning_agent;
       
       if (asset.category === "Agents") {
@@ -1092,6 +1099,23 @@ export default function App() {
       setSelectedBubble(null);
     }
     setSelectedSidebarItem(item);
+  };
+
+  /** A palette hit: go where it lives, then open it, exactly as a row
+   *  click would. A tool hit opens its server; the detail lists the tools. */
+  const openSearchHit = (hit: SearchHit) => {
+    setSearchOpen(false);
+    const target = hit.place === "global" ? "profile" : hit.place;
+    if (target !== selectedSidebarItem) {
+      handleSelectSidebarItem(target);
+      invoke("set_preference", { key: "selected_sidebar_item", value: target }).catch(() => {});
+    }
+    if (hit.kind === "server" || hit.kind === "mcp_tool") {
+      handleSelectAsset({ id: hit.id, name: hit.server ?? hit.name, category: "Tools", path: hit.path }, target);
+      return;
+    }
+    const category = hit.kind === "skill" ? "Skills" : hit.kind === "rule" ? "Rules" : "Subagents";
+    handleSelectAsset({ name: hit.name, category, path: hit.path }, target);
   };
 
   /** Home, by ruling (Karthik, 2026-08-15): the hanger mark, the rail's
@@ -1289,7 +1313,7 @@ export default function App() {
   // so the three can never disagree about what needs a decision.
   const review = deriveReviewIssues(inventory);
   const reviewShown = review.issues.filter((issue) =>
-    matchesIssueFilter(issue, reviewKind, reviewPlace, filterText)
+    matchesIssueFilter(issue, reviewKind, reviewPlace)
   );
 
   /* The selected asset's own findings, for the cap's chip. A server's `path`
@@ -1398,11 +1422,6 @@ export default function App() {
   const inspectorIsRepoScope = selectedSidebarItem.startsWith("/") || selectedSidebarItem.startsWith("~");
   const inspectorActiveCategory = inspectorIsRepoScope ? repoCategory : profileCategory;
 
-  const activeTotal =
-    selectedSidebarItem.startsWith("/") || selectedSidebarItem.startsWith("~")
-      ? repoAssetCountsMap[selectedSidebarItem.split(":")[0]]?.total ?? 0
-      : assetCounts?.total ?? 0;
-
   return (
     <div className="h-screen w-screen text-ink-1 flex font-sans transition-colors duration-press overflow-hidden">
       {/* ══ Left column: rail + source list share one plane and carry their
@@ -1466,6 +1485,7 @@ export default function App() {
             handleSelectSidebarItem("review");
             invoke("set_preference", { key: "selected_sidebar_item", value: "review" }).catch(() => {});
           }}
+          onOpenSearch={() => setSearchOpen(true)}
           onSelectDesign={
             designSystemAvailable
               ? () => {
@@ -1599,51 +1619,6 @@ export default function App() {
           </div>
 
           <div className="ml-auto flex items-center gap-1 pr-3">
-            {/* The map has no text filter yet, and the design-system page
-                none at all; an inert input would lie. */}
-            {selectedSidebarItem !== "linkmap" && selectedSidebarItem !== "design" && (
-            <div className="relative w-[214px] min-w-[120px] shrink h-[27px] mr-1.5">
-              <MagnifyingGlassIcon
-                size={12}
-                className="absolute left-2.5 top-2 text-ink-3 pointer-events-none"
-              />
-              {/* "Search", not "Filter": the field sits in the shell's cap,
-                  not inside any one screen, and a cap-mounted field is a
-                  search field by macOS convention (Finder, Mail, System
-                  Settings). The object keeps the placeholder honest about
-                  what the field actually reaches. Karthik's call, 2026-08-15. */}
-              <input
-                ref={filterInputRef}
-                value={filterText}
-                onChange={(e) => setFilterText(e.target.value)}
-                aria-label="Search"
-                placeholder={
-                  selectedSidebarItem === "discovery"
-                    ? "Search directories"
-                    : selectedSidebarItem === "review"
-                    ? `Search ${review.counts.total} issues`
-                    : `Search ${activeTotal} assets`
-                }
-                className={`w-full h-full rounded-pill border border-transparent bg-plane pl-[30px] ${
-                  filterText ? "pr-[30px]" : "pr-3.5"
-                } text-small text-ink-1 placeholder:text-ink-3 focus:outline-none focus:border-ink-1 focus:bg-page transition-colors duration-hover ease-spring`}
-              />
-              {filterText && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setFilterText("");
-                    filterInputRef.current?.focus();
-                  }}
-                  aria-label="Clear search"
-                  className="absolute right-2.5 top-2 text-ink-3 hover:text-ink-1 transition-colors duration-hover cursor-pointer"
-                >
-                  <XMarkIcon size={12} />
-                </button>
-              )}
-            </div>
-            )}
-
             {/* The map view has no inspector column — its detail card lives
                 on the canvas — so its toolbar slot holds Rescan instead. */}
             {selectedSidebarItem === "linkmap" ? (
@@ -1719,7 +1694,6 @@ export default function App() {
               }
               selectedAsset={selectedAsset}
               loading={loading || scanning}
-              filterText={filterText}
               stateFilter={stateFilter}
               onStateFilterChange={setStateFilter}
               scannedAt={lastScanAt}
@@ -1746,7 +1720,6 @@ export default function App() {
 
           {selectedSidebarItem === "discovery" && (
             <DiscoveryPane
-              filterText={filterText}
               kind={discoveryKind}
               favourites={favourites.favourites}
               onToggleFavourite={favourites.toggleFavourite}
@@ -1811,7 +1784,6 @@ export default function App() {
               counts={review.counts}
               kind={reviewKind}
               place={reviewPlace}
-              filterText={filterText}
               selectedId={selectedIssue?.id ?? null}
               onRescan={triggerScan}
               scanning={loading || scanning}
@@ -1847,7 +1819,6 @@ export default function App() {
               inventory={inventory}
               assetCounts={repoAssetCountsMap[selectedSidebarItem.split(":")[0]] || null}
               loading={loading || scanning}
-              filterText={filterText}
               stateFilter={stateFilter}
               onStateFilterChange={setStateFilter}
               scannedAt={lastScanAt}
@@ -1912,7 +1883,7 @@ export default function App() {
               the panel aligned with the toolbar beside it — kept exactly as
               it was. What used to sit in it (only the two panel-level
               controls) now carries the selected asset's identity too: a
-              kind glyph with a state dot, an eyebrow, a finding chip, then
+              kind glyph, an eyebrow, a finding chip, then
               Link to… and the overflow menu, ahead of the same Expand/Hide
               pair. `capDragOverlay` stays first so the row is still
               draggable everywhere the cap itself has nothing painted. */}
@@ -1983,6 +1954,13 @@ export default function App() {
           </div>
         </aside>
       )}
+
+      <SearchPalette
+        open={searchOpen}
+        scannedAt={lastScanAt}
+        onClose={() => setSearchOpen(false)}
+        onPick={openSearchHit}
+      />
 
       {/* Settings Modal Overlay */}
       {showSettingsModal && (

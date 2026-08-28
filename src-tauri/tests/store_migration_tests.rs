@@ -23,15 +23,15 @@ fn test_v1_5_0_migration_clean_and_no_data_loss() {
 
     let conn = store.connect().expect("Failed to connect via store");
 
-    // 1. Verify PRAGMA user_version == 7 (v1 schema + v2 engine-root purge +
+    // 1. Verify PRAGMA user_version == 8 (v1 schema + v2 engine-root purge +
     //    v3 root-path canonicalisation + v4 links constraints and backfill +
     //    v5 .agents/ misattribution clear and re-attribution unstick + v6
     //    persisted verification's probe_results table + v7 freshness
-    //    columns on probe_results)
+    //    columns on probe_results + v8 search index)
     let version: i32 = conn
         .query_row("PRAGMA user_version", [], |row| row.get(0))
         .expect("PRAGMA user_version query should succeed");
-    assert_eq!(version, 7, "PRAGMA user_version must be 7 after migration");
+    assert_eq!(version, 8, "PRAGMA user_version must be 8 after migration");
 
     // 2. Verify 'engines' table exists and has correct columns
     let mut stmt = conn.prepare("PRAGMA table_info(engines)").unwrap();
@@ -218,7 +218,7 @@ fn test_v1_5_0_migration_idempotency() {
     let version: i32 = conn
         .query_row("PRAGMA user_version", [], |row| row.get(0))
         .unwrap();
-    assert_eq!(version, 7, "User version must remain 7 after second migration");
+    assert_eq!(version, 8, "User version must remain 8 after second migration");
 
     let root_count: i64 = conn
         .query_row("SELECT COUNT(*) FROM roots", [], |row| row.get(0))
@@ -408,7 +408,7 @@ fn test_v2_migration_purges_engine_root_project_rows() {
     let conn = store.connect().unwrap();
 
     let version: i32 = conn.query_row("PRAGMA user_version", [], |r| r.get(0)).unwrap();
-    assert_eq!(version, 7, "user_version must be 7 after v2 replay, v3, v4, v5, v6, and v7");
+    assert_eq!(version, 8, "user_version must be 8 after v2 replay, v3, v4, v5, v6, v7 and v8");
 
     let stale: i64 = conn
         .query_row(
@@ -484,7 +484,7 @@ fn v5_clears_agents_dir_misattribution_and_unsticks_reattribution() {
     let conn = store.connect().unwrap();
 
     let version: i32 = conn.query_row("PRAGMA user_version", [], |r| r.get(0)).unwrap();
-    assert_eq!(version, 7, "user_version must be 7 after the agent-detection migration");
+    assert_eq!(version, 8, "user_version must be 8 after the agent-detection migration");
 
     let engine_id: Option<i64> = conn
         .query_row("SELECT engine_id FROM assets WHERE abs_path = ?1", [abs_path], |r| r.get(0))
@@ -589,7 +589,7 @@ fn v6_adds_probe_results_table_keyed_by_launch_hash_without_data_loss() {
     let conn = store.connect().unwrap();
 
     let version: i32 = conn.query_row("PRAGMA user_version", [], |r| r.get(0)).unwrap();
-    assert_eq!(version, 7, "user_version must be 7 after the persisted-verification migration and v7 close behind it");
+    assert_eq!(version, 8, "user_version must be 8 after the persisted-verification migration and v7/v8 behind it");
 
     // 'probe_results' exists, keyed by launch_hash, with the columns a probe
     // result needs to reproduce what Flyout.tsx's session-lived mcpVerified
@@ -686,7 +686,7 @@ fn v7_adds_probe_results_freshness_columns_without_data_loss() {
     let conn = store.connect().unwrap();
 
     let version: i32 = conn.query_row("PRAGMA user_version", [], |r| r.get(0)).unwrap();
-    assert_eq!(version, 7, "user_version must be 7 after the freshness-columns migration");
+    assert_eq!(version, 8, "user_version must be 8 after the freshness-columns migration");
 
     // The three new columns exist, all additive, and launch_hash is still
     // present.
@@ -779,4 +779,61 @@ fn reattribution_from_unknown_to_known_takes_the_new_value() {
         .query_row("SELECT engine_id FROM assets WHERE abs_path = ?1", [path], |r| r.get(0))
         .unwrap();
     assert_eq!(engine_id, Some(claude), "None -> Some must take the new value, not stay NULL");
+}
+
+#[test]
+fn v8_creates_the_asset_search_index_on_a_v7_store() {
+    let dir = tempfile::tempdir().unwrap();
+    let db_path = dir.path().join("prefs.db");
+
+    // A v7 database: probe_results with its freshness columns and nothing
+    // else this test needs. Built by hand for the same reason the v7 test
+    // above is — PreferencesStore::new on a fresh path migrates straight to
+    // the latest version, which would skip the block under test.
+    {
+        let conn = Connection::open(&db_path).unwrap();
+        conn.execute_batch(
+            "CREATE TABLE probe_results (
+                launch_hash TEXT PRIMARY KEY,
+                server_version TEXT,
+                protocol_version TEXT,
+                capabilities TEXT NOT NULL,
+                tools TEXT NOT NULL,
+                error TEXT,
+                verified_at INTEGER NOT NULL,
+                ttl_ms INTEGER,
+                cache_scope TEXT,
+                launch_mtime INTEGER
+            );
+            PRAGMA user_version = 7;",
+        )
+        .unwrap();
+    }
+
+    let store = PreferencesStore::new(&db_path).unwrap();
+    let conn = store.connect().unwrap();
+
+    let version: i32 = conn.query_row("PRAGMA user_version", [], |r| r.get(0)).unwrap();
+    assert_eq!(version, 8, "user_version must be 8 after the search-index migration");
+
+    // The virtual table exists and accepts an FTS5 MATCH — a plain table of
+    // the same name would fail the MATCH, so this pins the module too.
+    conn.execute(
+        "INSERT INTO asset_search (kind, ref, path, place, server, name, description, body)
+         VALUES ('skill', '/tmp/x', '/tmp/x', 'global', '', 'deploy-helper', '', 'body text')",
+        [],
+    )
+    .unwrap();
+    let hits: i64 = conn
+        .query_row(
+            "SELECT count(*) FROM asset_search WHERE asset_search MATCH '\"deploy\"*'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(hits, 1, "asset_search must be an FTS5 table that answers MATCH");
+
+    // Replaying init_db against a v8 store must be a no-op.
+    drop(conn);
+    let _again = PreferencesStore::new(&db_path).unwrap();
 }

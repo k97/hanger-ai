@@ -8,6 +8,7 @@ pub mod mcp;
 pub mod menu;
 pub mod provenance;
 pub mod scanner;
+pub mod search;
 pub mod updates;
 mod transactional;
 pub mod preferences;
@@ -636,7 +637,20 @@ async fn mcp_cached_probe(
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap_or_default()
         .as_millis() as i64;
-    Ok(cached_probe(&db_path, &registration.server, force, running, now_ms).await)
+    let response = cached_probe(&db_path, &registration.server, force, running, now_ms).await;
+    // Cached or fresh, the answer is the tool list the palette should see.
+    if let Some(result) = &response.result {
+        if let Err(e) = search::index_probe_tools(
+            &db_path,
+            &registration_key,
+            &registration.server.name,
+            &registration.config_path,
+            &result.tools,
+        ) {
+            log::warn!("search index not updated for {}: {}", registration_key, e);
+        }
+    }
+    Ok(response)
 }
 
 /// Which MCP servers are running right now, and which are running unaccounted.
@@ -1349,6 +1363,10 @@ fn start_scan(
         let mut scan_paths = std::collections::HashSet::new();
         combined_inventory.project_scans.retain(|p| scan_paths.insert(p.path.clone()));
 
+        if let Err(e) = search::index_inventory(&get_db_path(&app_clone), &combined_inventory) {
+            log::warn!("search index not rebuilt: {}", e);
+        }
+
         {
             if let Some(state_scans) = app_clone.try_state::<ScanManager>() {
                 let mut scans = state_scans.lock_active_scans();
@@ -1850,6 +1868,13 @@ fn get_inventory(app: AppHandle) -> Result<Inventory, String> {
     run_scan(app)
 }
 
+/// The search palette's query. Ranked by the index, snippets marked with
+/// `search::MARK_OPEN`/`MARK_CLOSE`; `total` is the backend's count.
+#[tauri::command]
+fn search_assets(app: AppHandle, query: String, limit: Option<usize>) -> Result<search::SearchResponse, String> {
+    search::search(&get_db_path(&app), &query, limit.unwrap_or(50)).map_err(|e| e.to_string())
+}
+
 #[tauri::command]
 fn get_asset_counts(
     app: AppHandle,
@@ -1972,6 +1997,7 @@ pub fn run() {
             get_linked_directories,
             run_scan,
             get_inventory,
+            search_assets,
             get_asset_counts,
             read_asset_body,
             list_asset_dir,

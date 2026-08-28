@@ -11,6 +11,14 @@ import OriginValue from "./OriginValue";
 import UnderlineTabs from "./UnderlineTabs";
 import ListCard, { ListCardRow } from "./ListCard";
 import { miniBtnClass, miniSetClass } from "./miniButton";
+import {
+  sectionHeadClass,
+  rowLabelClass,
+  rowValueClass,
+  rowMonoClass,
+  captionClass,
+  monoLabelClass,
+} from "./typeRoles";
 import type { ProbeView, ToolCost } from "../utils/probeView";
 import {
   RevealInFileManagerIcon,
@@ -197,7 +205,7 @@ function ProbePending() {
   }, []);
   if (!longEnough) return null;
   return (
-    <div className="border border-dashed border-line-2 rounded-inner px-[14px] py-[18px] flex items-center gap-2 text-micro text-ink-3">
+    <div className="border border-dashed border-line-2 rounded-inner px-[14px] py-[18px] flex items-center gap-2 text-small text-ink-3">
       <ServerRelayIcon size={12} active aria-hidden="true" />
       {PROBE_PENDING}
     </div>
@@ -220,8 +228,8 @@ function ProbePending() {
    `src/__tests__/spacingContract.ts` holds the one value both rhythm guards
    read, so the inspector and the panes cannot drift apart. */
 const SECTION = "mx-[12px] my-3.5";
-const HEADING = "text-micro font-medium text-ink-3 uppercase tracking-[.06em]";
-const COUNT = "text-micro font-mono text-ink-2 tabular";
+/** Counts beside a heading stay grey — secondary next to the heading they qualify. */
+const COUNT = "font-mono text-small text-ink-3 tabular";
 
 /** The filename a config path ends in -- what the verdict card's labels need
  *  to tell two same-host registrations apart, without a whole path's worth
@@ -292,10 +300,10 @@ function relativeTime(then: number): string {
 function RegistrationVerifyStatus({ result }: { result?: VerifiedIdentity }) {
   if (!result) return null;
   if (result.kind === "failed") {
-    return <span className="text-micro font-mono text-state-danger">verify failed</span>;
+    return <span className="font-mono text-small text-state-danger">verify failed</span>;
   }
   return (
-    <span className="text-micro font-mono text-ink-3">
+    <span className={monoLabelClass}>
       {result.tools.length === 1 ? "1 tool" : `${result.tools.length} tools`}
     </span>
   );
@@ -320,7 +328,7 @@ function VerifyButton({
     <button
       type="button"
       onClick={() => onVerify?.(registrationKey)}
-      className="self-start shrink-0 text-micro text-ink-2 border border-line-2 px-2.5 py-px rounded-pill cursor-pointer hover:bg-plane-2 hover:text-ink-1 transition-colors duration-hover"
+      className="self-start shrink-0 text-small text-ink-2 border border-line-2 px-2.5 py-px rounded-pill cursor-pointer hover:bg-plane-2 hover:text-ink-1 transition-colors duration-hover"
     >
       Verify
     </button>
@@ -375,7 +383,7 @@ function CheckAgainButton({
  *  and multi-probed (labelled) layouts, so the two never drift apart. */
 function ProbedToolList({ result }: { result: VerifiedIdentity }) {
   if (result.kind === "failed") {
-    return <p className="text-micro text-state-danger leading-[1.5]">{result.error}</p>;
+    return <p className="text-small text-state-danger leading-caption">{result.error}</p>;
   }
   return (
     // Not height-capped. DESIGN.md's 240px rule covers DisclosureBanner
@@ -391,11 +399,11 @@ function ProbedToolList({ result }: { result: VerifiedIdentity }) {
         <div key={tool.name} className="flex flex-col gap-[3px] px-3 py-[9px]">
           {/* Tool names are code identifiers, so the mono face is semantic
               here rather than decorative. */}
-          <span className="font-mono text-small text-ink-1 min-w-0 truncate">
+          <span className={`${rowMonoClass} min-w-0 truncate`}>
             {tool.name}
           </span>
           {tool.description && (
-            <span className="text-small text-ink-2 leading-[1.45]">{tool.description}</span>
+            <span className={captionClass}>{tool.description}</span>
           )}
         </div>
       ))}
@@ -416,31 +424,31 @@ function ContextPerRequest({ cost }: { cost: ToolCost }) {
         <ListCardRow
           label={
             <span className="flex flex-col gap-0.5 min-w-0">
-              <span className="text-small leading-[1.5]">Descriptions</span>
-              <span className="text-micro text-ink-3 leading-[1.5]">
+              <span className={rowValueClass}>Descriptions</span>
+              <span className={captionClass}>
                 {cost.describedToolCount} of {cost.toolCount} tools carry one
               </span>
             </span>
           }
           value={
             <span className="flex flex-col gap-0.5 items-end">
-              <span className="text-base-app text-ink-1">
+              <span className={rowValueClass}>
                 ≈ {cost.estimatedTokens.toLocaleString("en-US")} tokens
               </span>
-              <span>{formatBytes(cost.descriptionBytesTotal)}</span>
+              <span className={captionClass}>{formatBytes(cost.descriptionBytesTotal)}</span>
             </span>
           }
         />
         <ListCardRow
           label={
             <span className="flex flex-col gap-0.5 min-w-0">
-              <span className="text-small leading-[1.5]">Input schemas</span>
-              <span className="text-micro text-ink-3 leading-[1.5]">
+              <span className={rowValueClass}>Input schemas</span>
+              <span className={captionClass}>
                 Usually the larger part of a definition
               </span>
             </span>
           }
-        wide={<span className="text-ink-3">Not measured</span>}
+        wide={<span className={captionClass}>Not measured</span>}
       />
     </ListCard>
   );
@@ -487,10 +495,10 @@ function ContextNote() {
 function LaunchDiffLine({ label, tokens }: { label: string; tokens: LaunchDiffToken[] }) {
   return (
     <div className="flex flex-col gap-px min-w-0">
-      <span className="text-micro font-mono text-ink-3 truncate">{label}</span>
-      <div className="flex flex-wrap gap-x-1.5 gap-y-px font-mono text-micro">
+      <span className={`${monoLabelClass} truncate`}>{label}</span>
+      <div className="flex flex-wrap gap-x-1.5 gap-y-px font-mono text-small">
         {tokens.map((token, i) => (
-          <span key={i} className={token.differs ? "text-state-warning font-medium" : "text-ink-2"}>
+          <span key={i} className={token.differs ? "text-state-warning font-medium" : "text-ink-1"}>
             {token.text}
           </span>
         ))}
@@ -822,7 +830,7 @@ export default function McpServerDetail({
   }, [requests, nothingToAsk, onAutoProbe, somethingInFlight]);
 
   return (
-    <div className="flex-1 min-h-0 flex flex-col font-sans text-base text-ink-1">
+    <div data-testid="mcp-detail-root" className="flex-1 min-h-0 flex flex-col font-sans text-base-app text-ink-1">
       {/* No header of its own. The Flyout's chrome carries both the server
           name and the transport chip; this panel rendering either one again
           produced a visible duplicate. Twice now — the <h2> first, then the
@@ -872,7 +880,7 @@ export default function McpServerDetail({
             {/* items-center, not items-baseline: the trigger is a glyph, and
                 a glyph has no baseline to share with the eyebrow beside it. */}
             <div className="flex items-center justify-between gap-2 mb-2">
-              <h3 className={HEADING}>Context per request</h3>
+              <h3 className={sectionHeadClass}>Context per request</h3>
               <ContextNote />
             </div>
             <ContextPerRequest cost={soloResult.cost} />
@@ -880,7 +888,7 @@ export default function McpServerDetail({
         )}
         <section className={SECTION}>
           <div className="flex items-baseline justify-between gap-2 mb-2">
-            <h3 className={HEADING}>Tools</h3>
+            <h3 className={sectionHeadClass}>Tools</h3>
             {/* A tool count is honest in this slot only when the server has a
                 single launch spec -- one launch means one tool surface, so
                 the number can only ever mean one thing. With more than one
@@ -939,7 +947,7 @@ export default function McpServerDetail({
             // process to spawn and nothing Hanger can dial, so this is the
             // whole Tools section regardless of anything else about it.
             <div className="border border-dashed border-line-2 rounded-inner px-[14px] py-[18px] flex flex-col gap-2 items-start">
-              <p className="text-small text-ink-2 leading-[1.5]">
+              <p className={captionClass}>
                 Runs on Anthropic&rsquo;s servers, not on this machine.
               </p>
               {/* A dead end should still point somewhere. There is no file to
@@ -950,7 +958,7 @@ export default function McpServerDetail({
                 <button
                   type="button"
                   onClick={() => openUrl(MANAGE_URL["claude-ai"].url).catch(() => {})}
-                  className="text-micro border border-line-2 text-ink-2 px-2.5 py-px rounded-pill cursor-pointer hover:bg-plane-2 hover:text-ink-1 transition-colors duration-hover"
+                  className="text-small border border-line-2 text-ink-2 px-2.5 py-px rounded-pill cursor-pointer hover:bg-plane-2 hover:text-ink-1 transition-colors duration-hover"
                 >
                   {MANAGE_URL["claude-ai"].label} ↗
                 </button>
@@ -973,7 +981,7 @@ export default function McpServerDetail({
               <ProbePending />
             ) : (
               <div className="border border-dashed border-line-2 rounded-inner px-[14px] py-[18px] flex flex-col gap-2 items-start">
-                <p className="text-micro text-ink-3 leading-[1.45]">
+                <p className={captionClass}>
                   {declined.includes(specGroups[0].regs[0].key)
                     ? DECLINED_RUNNING
                     : isRemote
@@ -996,7 +1004,7 @@ export default function McpServerDetail({
                         `launchDisplay`: a direct remote registration has no
                         launch, and an empty label beside a count is the same
                         unattributed number under a different name. */}
-                    <span className="text-micro font-mono text-ink-3 truncate">
+                    <span className={`${monoLabelClass} truncate`}>
                       {group.key}
                     </span>
                     {group.result && (
@@ -1024,7 +1032,7 @@ export default function McpServerDetail({
                       the path, same convention the old per-registration label
                       used. Plural when more than one host launches it
                       identically. */}
-                  <span className="text-micro font-mono text-ink-3 truncate">
+                  <span className={`${monoLabelClass} truncate`}>
                     {group.regs.map((r) => `${r.host} · ${r.tier}`).join(", ")}
                   </span>
                   {/* Same `kind` check as the single-spec ledger above: the
@@ -1045,7 +1053,7 @@ export default function McpServerDetail({
                           launch: one spec of a server can be running while
                           another sits idle. */}
                       {declined.includes(group.regs[0].key) && (
-                        <p className="text-micro text-ink-3 leading-[1.45]">{DECLINED_RUNNING}</p>
+                        <p className={captionClass}>{DECLINED_RUNNING}</p>
                       )}
                       <VerifyButton
                         registrationKey={group.regs[0].key}
@@ -1063,7 +1071,7 @@ export default function McpServerDetail({
         <div role="tabpanel" id="panel-details" aria-labelledby="tab-details">
         <section className={SECTION}>
           <div className="flex items-baseline justify-between gap-2 mb-2">
-            <h3 className={HEADING}>Identity & capabilities</h3>
+            <h3 className={sectionHeadClass}>Identity & capabilities</h3>
             <span className={COUNT}>
               {anyVerified
                 ? `verified ${relativeTime(anyVerified.verifiedAt)}${
@@ -1126,12 +1134,8 @@ export default function McpServerDetail({
                         data-testid="origin-sub-row"
                         className="flex items-center gap-2.5 pl-9 pr-3 py-[9px] min-h-9 bg-plane"
                       >
-                        <span className="min-w-0 flex-1 text-small text-ink-3">{r.label}</span>
-                        <span
-                          className={`ml-auto shrink-0 ${
-                            r.mono ? "font-mono text-micro text-ink-3 tabular" : "text-small text-ink-2"
-                          }`}
-                        >
+                        <span className={`min-w-0 flex-1 ${rowLabelClass}`}>{r.label}</span>
+                        <span className={`ml-auto shrink-0 ${r.mono ? rowMonoClass : rowValueClass}`}>
                           {r.value}
                         </span>
                       </div>
@@ -1185,7 +1189,7 @@ export default function McpServerDetail({
             </ListCard>
           )}
           {!anyVerified && (
-            <p className="text-micro text-ink-3 leading-[1.5]">
+            <p className={captionClass}>
               Version, protocol revision and capabilities are only knowable by handshake. Nothing on
               disk records them.
             </p>
@@ -1214,7 +1218,7 @@ export default function McpServerDetail({
                   <span className="font-medium">{headline}</span>
                 </span>
                 {detail && (
-                  <span className="text-micro text-ink-3 leading-[1.5]">{detail}</span>
+                  <span className={captionClass}>{detail}</span>
                 )}
               </div>
             </ListCard>
@@ -1243,7 +1247,7 @@ export default function McpServerDetail({
 
         <section className={SECTION}>
           <div className="flex items-baseline justify-between gap-2 mb-2">
-            <h3 className={HEADING}>Registered in</h3>
+            <h3 className={sectionHeadClass}>Registered in</h3>
             <span className={COUNT}>
               {`${regCount} ${regCount === 1 ? "registration" : "registrations"}`}
             </span>
@@ -1281,12 +1285,12 @@ export default function McpServerDetail({
                   <EngineLabel engineKey={reg.host} className="text-small font-medium">
                     {reg.host}
                   </EngineLabel>
-                  <span className="ml-auto font-flex text-micro font-medium tracking-[.06em] uppercase text-ink-3">
+                  <span className="ml-auto text-small text-ink-3">
                     {reg.tier}
                   </span>
                 </span>
                 <div className="flex items-center gap-1.5 min-w-0">
-                  <span className="text-micro font-mono text-ink-3 truncate flex-1">
+                  <span className={`${monoLabelClass} truncate flex-1`}>
                     {reg.configPath}
                   </span>
                   {/* Naming a file without letting you reach it is the same dead
@@ -1308,7 +1312,7 @@ export default function McpServerDetail({
                   </div>
                 )}
                 {deliveryFacts.length > 0 && (
-                  <span className="text-micro text-ink-3" data-testid="registration-origin-detail">
+                  <span className={captionClass} data-testid="registration-origin-detail">
                     {deliveryFacts.map((r) => `${r.label} ${r.value}`).join(" · ")}
                   </span>
                 )}
@@ -1318,7 +1322,7 @@ export default function McpServerDetail({
                     noise this task removes; said once (2026-08-22), it comes
                     back the moment there is something to compare it against. */}
                 {diverges && launchOf(reg) && (
-                  <span className="text-micro font-mono truncate text-state-warning">
+                  <span className="font-mono text-small truncate text-state-warning">
                     {launchOf(reg)}
                   </span>
                 )}
@@ -1332,7 +1336,7 @@ export default function McpServerDetail({
                     "not running" is the normal state and badging every row with
                     it would read as an error rather than as information. */}
                 {reg.running && (
-                  <span className="text-micro font-mono text-state-success">
+                  <span className="font-mono text-small text-state-success">
                     {`running · pid ${reg.running.pid}`}
                     {reg.running.spawningHost ? ` · ${reg.running.spawningHost}` : ""}
                   </span>
@@ -1342,14 +1346,14 @@ export default function McpServerDetail({
             })}
           </ListCard>
           {endpointsDiverge && (
-            <p className="text-micro text-state-warning leading-[1.45] mt-2">
+            <p className="text-small text-state-warning leading-caption mt-2">
               These hosts reach {server.name} at different endpoints. Whichever you are using
               decides which server answers.
             </p>
           )}
           {launchesDiverge && (
             <>
-              <p className="text-micro text-state-warning leading-[1.45] mt-2">
+              <p className="text-small text-state-warning leading-caption mt-2">
                 These hosts launch {server.name} differently. Whichever you are using decides
                 which version you get.
               </p>
@@ -1380,7 +1384,7 @@ export default function McpServerDetail({
             </>
           )}
           {showsBridgeNote && (
-            <p data-testid="bridge-note" className="text-micro text-ink-3 leading-[1.45] mt-2">
+            <p data-testid="bridge-note" className={`${captionClass} mt-2`}>
               One of these registrations reaches {server.name} through mcp-remote, a local bridge
               process, not a separate MCP server. It forwards to whatever endpoint it is configured
               with. Whether that matches another registration here is what the server list&rsquo;s
@@ -1392,7 +1396,7 @@ export default function McpServerDetail({
         {server.envKeys.length > 0 && (
           <section className={SECTION}>
             <div className="flex items-baseline justify-between gap-2 mb-2">
-              <h3 className={HEADING}>Environment</h3>
+              <h3 className={sectionHeadClass}>Environment</h3>
               <span className={COUNT}>{server.envKeys.length}</span>
             </div>
             <ListCard>
@@ -1404,7 +1408,7 @@ export default function McpServerDetail({
                 />
               ))}
             </ListCard>
-            <p className="text-micro text-ink-3 leading-[1.5] mt-2">
+            <p className={`${captionClass} mt-2`}>
               Names only. Hanger never reads a variable&rsquo;s value.
             </p>
           </section>
