@@ -544,13 +544,52 @@ describe("Asset detail — the inspector's document screen", () => {
     expect(within(many).queryByText(NOTE)).toBeNull();
 
     cleanup();
+    // The smallest folder that still draws the card. This was a lone
+    // SKILL.md until 2026-08-28, when that shape stopped rendering Contents
+    // at all — so the two-entry folder is now the second shape, and the
+    // single-entry one is covered by "hides Contents when the folder holds
+    // only SKILL.md" below.
+    dirResult = [
+      { name: "SKILL.md", kind: "file", bytes: 431, file_count: null },
+      { name: "notes.md", kind: "file", bytes: 96, file_count: null },
+    ];
+    render(<AssetDetail asset={asset} inventory={inventory} />);
+    await screen.findByRole("tab", { name: "Details" });
+    openDetails();
+    const few = (await screen.findByText("Contents")).closest("section")!;
+    expect(within(few).getAllByTestId("skill-dir-row")).toHaveLength(2);
+    expect(within(few).queryByText(NOTE)).toBeNull();
+  });
+
+  it("hides Contents when the folder holds only SKILL.md", async () => {
+    // A lone SKILL.md is not contents — it is the document the Content tab is
+    // already showing, and its path is in Identity above. 66 of 128 store
+    // skills on a real machine are exactly this.
     dirResult = [{ name: "SKILL.md", kind: "file", bytes: 431, file_count: null }];
     render(<AssetDetail asset={asset} inventory={inventory} />);
     await screen.findByRole("tab", { name: "Details" });
     openDetails();
-    const one = (await screen.findByText("Contents")).closest("section")!;
-    expect(within(one).getAllByTestId("skill-dir-row")).toHaveLength(1);
-    expect(within(one).queryByText(NOTE)).toBeNull();
+    expect(screen.queryByText("Contents")).toBeNull();
+  });
+
+  it("shows Contents as soon as the folder holds anything else", async () => {
+    dirResult = [
+      { name: "SKILL.md", kind: "file", bytes: 431, file_count: null },
+      { name: "references/", kind: "dir", bytes: null, file_count: 4 },
+    ];
+    render(<AssetDetail asset={asset} inventory={inventory} />);
+    await screen.findByRole("tab", { name: "Details" });
+    openDetails();
+    expect(await screen.findByText("Contents")).toBeTruthy();
+  });
+
+  it("still hides Contents for a lone SKILL.md even when it is a symlink", async () => {
+    // The rule is about the entry being the document, not about its kind.
+    dirResult = [{ name: "SKILL.md", kind: "symlink", bytes: null, file_count: null }];
+    render(<AssetDetail asset={asset} inventory={inventory} />);
+    await screen.findByRole("tab", { name: "Details" });
+    openDetails();
+    expect(screen.queryByText("Contents")).toBeNull();
   });
 
   it("a symlinked entry takes the link mark and states no size it never measured", async () => {

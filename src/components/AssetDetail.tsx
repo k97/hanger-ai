@@ -628,7 +628,16 @@ export default function AssetDetail({ asset, inventory, onDocumentPath, annotati
               </ListCard>
             </section>
 
-            {dirEntries && dirEntries.length > 0 && (
+            {/* A lone SKILL.md is not contents — it is the document the
+                Content tab is already showing, and the Path row above already
+                says where it is. The card earns its place from the second
+                entry onward, which is where references/ and scripts/ become
+                visible; on a real machine that is 62 of 128 store skills, and
+                the other 66 were getting a one-row card that restated two
+                things. A `.length` in a comparison is not a tally
+                (invariants.md). Karthik's ruling, 2026-08-28. */}
+            {dirEntries && dirEntries.length > 0 &&
+              !(dirEntries.length === 1 && dirEntries[0].name === "SKILL.md") && (
               <section className="mx-[12px] my-3.5">
                 <div className="flex items-baseline justify-between gap-2 mb-2">
                   <span className={sectionHeadClass}>Contents</span>
