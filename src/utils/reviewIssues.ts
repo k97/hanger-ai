@@ -443,12 +443,11 @@ export function issuesForAsset(
   return { issues, count, severity };
 }
 
-/** True when an issue survives the kind chip, the place row and the filter field. */
+/** True when an issue survives the kind chip and the place row. */
 export function matchesIssueFilter(
   issue: ReviewIssue,
   kind: IssueKind | null,
-  place: string | null,
-  query: string
+  place: string | null
 ): boolean {
   if (kind !== null && issue.kind !== kind) return false;
 
@@ -462,19 +461,5 @@ export function matchesIssueFilter(
     return false;
   }
 
-  const needle = query.trim().toLowerCase();
-  if (!needle) return true;
-
-  const haystack = [
-    issue.name,
-    issue.problem,
-    issue.path,
-    issue.sourcePath ?? "",
-    issue.whereLabel,
-    issue.detail ?? "",
-    ...(issue.copies ?? []),
-  ]
-    .join(" ")
-    .toLowerCase();
-  return haystack.includes(needle);
+  return true;
 }

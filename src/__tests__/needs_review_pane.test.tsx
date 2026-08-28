@@ -61,7 +61,6 @@ function renderPane(over: Partial<React.ComponentProps<typeof NeedsReviewPane>> 
     counts,
     kind: null,
     place: null,
-    filterText: "",
     selectedId: null,
     onSelectKind: vi.fn(),
     onSelectPlace: vi.fn(),
@@ -124,12 +123,6 @@ describe("Needs review — repo-level and cross-repo in one list", () => {
     expect(screen.queryByText("agent-browser")).toBeNull();
   });
 
-  it("filters through the toolbar field", () => {
-    renderPane({ filterText: "brand" });
-    expect(screen.getByText("brand-voice")).toBeTruthy();
-    expect(screen.queryByText("agent-browser")).toBeNull();
-  });
-
   const clean = { broken: 0, drifted: 0, duplicate: 0, parse: 0, crossRepo: 0, total: 0 };
 
   it("says plainly when the machine is clean — after a scan has actually looked", () => {
@@ -170,7 +163,9 @@ describe("Needs review — repo-level and cross-repo in one list", () => {
   });
 
   it("a filter that matches nothing is still 'no match', scanned or not", () => {
-    renderPane({ filterText: "zzz-no-such-asset", scannedAt: null });
+    // Text search moved to the palette (⌘K); the place row is the only
+    // narrowing left in the pane, so an unmatched place is what empties it.
+    renderPane({ place: "/zzz-no-such-place", scannedAt: null });
     expect(screen.getByText("No issue matches that filter.")).toBeTruthy();
     expect(screen.queryByTestId("scan-pending")).toBeNull();
     // Deferred by ruling: a filtered-empty list stays text-only, no mark.

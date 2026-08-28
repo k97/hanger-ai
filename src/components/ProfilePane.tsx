@@ -56,8 +56,6 @@ interface ProfilePaneProps {
   selectedCategory?: CategoryType | null;
   selectedAsset?: { path: string } | null;
   loading: boolean;
-  /** Toolbar filter text — rows whose name does not contain it are hidden. */
-  filterText?: string;
   /** Link-state filter from the rail badge or the strip legend. */
   stateFilter?: StateFilter;
   onStateFilterChange?: (filter: StateFilter) => void;
@@ -348,7 +346,6 @@ export default function ProfilePane({
   selectedCategory: propSelectedCategory,
   selectedAsset,
   loading,
-  filterText,
   stateFilter = null,
   onStateFilterChange,
   scannedAt = null,
@@ -548,25 +545,22 @@ export default function ProfilePane({
     subagents: scopedSubagents,
   } = filterProfileAssets(inventory, selectedCategory);
 
-  // Toolbar filter narrows by name only; empty text passes everything.
-  const filterQuery = (filterText ?? "").trim().toLowerCase();
-  const nameMatches = (name: string) =>
-    filterQuery === "" || name.toLowerCase().includes(filterQuery);
   // Whether anything is narrowing the rows — the category-empty copy says
-  // "matches that filter" only when a filter is what emptied it.
-  const filterActive = filterQuery !== "" || stateFilter !== null;
+  // "matches that filter" only when a filter is what emptied it. Text search
+  // lives in the palette now (⌘K), not in the pane.
+  const filterActive = stateFilter !== null;
 
   const filteredSkills = scopedSkills.filter(
-    (s) => nameMatches(s.name) && matchesStateFilter(s, stateFilter)
+    (s) => matchesStateFilter(s, stateFilter)
   );
   const filteredTools = scopedTools.filter(
-    (t) => nameMatches(t.name) && matchesStateFilter(t, stateFilter)
+    (t) => matchesStateFilter(t, stateFilter)
   );
   const filteredRules = scopedRules.filter(
-    (r) => nameMatches(r.name) && matchesStateFilter(r, stateFilter)
+    (r) => matchesStateFilter(r, stateFilter)
   );
   const filteredSubagents = scopedSubagents.filter(
-    (sa) => nameMatches(sa.name) && matchesStateFilter(sa, stateFilter)
+    (sa) => matchesStateFilter(sa, stateFilter)
   );
 
   // One row per server (the View control's default) — moved up from its
@@ -773,7 +767,7 @@ export default function ProfilePane({
         // servers when active — one gate, so the card rows and the strip's
         // own "tauri"/"spades" count never disagree on what "filtered" means.
         mcpServers!.filter(
-          (row) => nameMatches(row.name) && (!mcpReviewOnly || row.agreement === "Conflicting")
+          (row) => !mcpReviewOnly || row.agreement === "Conflicting"
         ),
         serverSort
       ).map((row) => {

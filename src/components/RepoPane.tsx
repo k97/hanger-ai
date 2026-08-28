@@ -40,8 +40,6 @@ interface RepoPaneProps {
   onCategoryChange?: (category: CategoryType | null) => void;
   selectedAsset?: { path: string } | null;
   loading: boolean;
-  /** Toolbar filter text — rows whose name does not contain it are hidden. */
-  filterText?: string;
   /** Link-state filter from the rail badge or the strip legend. */
   stateFilter?: StateFilter;
   onStateFilterChange?: (filter: StateFilter) => void;
@@ -66,7 +64,6 @@ export default function RepoPane({
   onCategoryChange,
   selectedAsset,
   loading,
-  filterText,
   stateFilter = null,
   onStateFilterChange,
   scannedAt = null,
@@ -191,25 +188,22 @@ export default function RepoPane({
     subagents: scopedSubagents,
   } = filterRepoAssets(inventory, repoPath, selectedCategory);
 
-  // Toolbar filter narrows by name only; empty text passes everything.
-  const filterQuery = (filterText ?? "").trim().toLowerCase();
-  const nameMatches = (name: string) =>
-    filterQuery === "" || name.toLowerCase().includes(filterQuery);
   // Whether anything is narrowing the rows — the category-empty copy says
-  // "matches that filter" only when a filter is what emptied it.
-  const filterActive = filterQuery !== "" || stateFilter !== null;
+  // "matches that filter" only when a filter is what emptied it. Text search
+  // lives in the palette now (⌘K), not in the pane.
+  const filterActive = stateFilter !== null;
 
   const filteredSkills = scopedSkills.filter(
-    (s) => nameMatches(s.name) && matchesStateFilter(s, stateFilter)
+    (s) => matchesStateFilter(s, stateFilter)
   );
   const filteredTools = scopedTools.filter(
-    (t) => nameMatches(t.name) && matchesStateFilter(t, stateFilter)
+    (t) => matchesStateFilter(t, stateFilter)
   );
   const filteredRules = scopedRules.filter(
-    (r) => nameMatches(r.name) && matchesStateFilter(r, stateFilter)
+    (r) => matchesStateFilter(r, stateFilter)
   );
   const filteredSubagents = scopedSubagents.filter(
-    (sa) => nameMatches(sa.name) && matchesStateFilter(sa, stateFilter)
+    (sa) => matchesStateFilter(sa, stateFilter)
   );
 
   // Strip data: backend-owned total, frontend-derived state split. A

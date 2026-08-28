@@ -305,4 +305,16 @@ describe("Icon rail", () => {
     await waitFor(() => expect(screen.queryByRole("dialog", { name: "Search" })).toBeNull());
     unmount();
   });
+
+  it("the cap carries no search field on any screen — the palette replaced it", async () => {
+    for (const item of ["profile", "discovery", "review"]) {
+      mockPreferences.selected_sidebar_item = item;
+      const { unmount } = render(<App />);
+      await screen.findByTestId("icon-rail");
+      expect(screen.queryByLabelText("Search assets")).toBeNull();
+      expect(screen.queryByLabelText("Clear search")).toBeNull();
+      expect(screen.queryByPlaceholderText(/^Search /)).toBeNull();
+      unmount();
+    }
+  });
 });

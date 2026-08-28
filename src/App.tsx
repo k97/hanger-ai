@@ -40,7 +40,6 @@ import {
   ExclamationTriangleIcon,
   XMarkIcon,
   GlobeAltIcon,
-  MagnifyingGlassIcon,
   ShieldCheckIcon,
   Disc3Icon,
   RotateCcwIcon,
@@ -415,11 +414,7 @@ export default function App() {
     observer.observe(column);
     return () => observer.disconnect();
   }, [inspectorExpanded, measureRoom]);
-  // Toolbar filter — narrows the visible rows of the active pane by name.
-  const [filterText, setFilterText] = useState<string>("");
   const [searchOpen, setSearchOpen] = useState(false);
-  // So the clear control can hand focus back once it empties the field.
-  const filterInputRef = useRef<HTMLInputElement>(null);
   // Discovery's category facet — owned here because DiscoverySidebar sets it
   // and DiscoveryPane filters by it (the chips moved into the second column).
   const [discoveryKind, setDiscoveryKind] = useState<string>("All");
@@ -1318,7 +1313,7 @@ export default function App() {
   // so the three can never disagree about what needs a decision.
   const review = deriveReviewIssues(inventory);
   const reviewShown = review.issues.filter((issue) =>
-    matchesIssueFilter(issue, reviewKind, reviewPlace, filterText)
+    matchesIssueFilter(issue, reviewKind, reviewPlace)
   );
 
   /* The selected asset's own findings, for the cap's chip. A server's `path`
@@ -1426,11 +1421,6 @@ export default function App() {
      pane it is in on top of the category filter it already gets. */
   const inspectorIsRepoScope = selectedSidebarItem.startsWith("/") || selectedSidebarItem.startsWith("~");
   const inspectorActiveCategory = inspectorIsRepoScope ? repoCategory : profileCategory;
-
-  const activeTotal =
-    selectedSidebarItem.startsWith("/") || selectedSidebarItem.startsWith("~")
-      ? repoAssetCountsMap[selectedSidebarItem.split(":")[0]]?.total ?? 0
-      : assetCounts?.total ?? 0;
 
   return (
     <div className="h-screen w-screen text-ink-1 flex font-sans transition-colors duration-press overflow-hidden">
@@ -1629,51 +1619,6 @@ export default function App() {
           </div>
 
           <div className="ml-auto flex items-center gap-1 pr-3">
-            {/* The map has no text filter yet, and the design-system page
-                none at all; an inert input would lie. */}
-            {selectedSidebarItem !== "linkmap" && selectedSidebarItem !== "design" && (
-            <div className="relative w-[214px] min-w-[120px] shrink h-[27px] mr-1.5">
-              <MagnifyingGlassIcon
-                size={12}
-                className="absolute left-2.5 top-2 text-ink-3 pointer-events-none"
-              />
-              {/* "Search", not "Filter": the field sits in the shell's cap,
-                  not inside any one screen, and a cap-mounted field is a
-                  search field by macOS convention (Finder, Mail, System
-                  Settings). The object keeps the placeholder honest about
-                  what the field actually reaches. Karthik's call, 2026-08-15. */}
-              <input
-                ref={filterInputRef}
-                value={filterText}
-                onChange={(e) => setFilterText(e.target.value)}
-                aria-label="Search"
-                placeholder={
-                  selectedSidebarItem === "discovery"
-                    ? "Search directories"
-                    : selectedSidebarItem === "review"
-                    ? `Search ${review.counts.total} issues`
-                    : `Search ${activeTotal} assets`
-                }
-                className={`w-full h-full rounded-pill border border-transparent bg-plane pl-[30px] ${
-                  filterText ? "pr-[30px]" : "pr-3.5"
-                } text-small text-ink-1 placeholder:text-ink-3 focus:outline-none focus:border-ink-1 focus:bg-page transition-colors duration-hover ease-spring`}
-              />
-              {filterText && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setFilterText("");
-                    filterInputRef.current?.focus();
-                  }}
-                  aria-label="Clear search"
-                  className="absolute right-2.5 top-2 text-ink-3 hover:text-ink-1 transition-colors duration-hover cursor-pointer"
-                >
-                  <XMarkIcon size={12} />
-                </button>
-              )}
-            </div>
-            )}
-
             {/* The map view has no inspector column — its detail card lives
                 on the canvas — so its toolbar slot holds Rescan instead. */}
             {selectedSidebarItem === "linkmap" ? (
@@ -1749,7 +1694,6 @@ export default function App() {
               }
               selectedAsset={selectedAsset}
               loading={loading || scanning}
-              filterText={filterText}
               stateFilter={stateFilter}
               onStateFilterChange={setStateFilter}
               scannedAt={lastScanAt}
@@ -1776,7 +1720,6 @@ export default function App() {
 
           {selectedSidebarItem === "discovery" && (
             <DiscoveryPane
-              filterText={filterText}
               kind={discoveryKind}
               favourites={favourites.favourites}
               onToggleFavourite={favourites.toggleFavourite}
@@ -1841,7 +1784,6 @@ export default function App() {
               counts={review.counts}
               kind={reviewKind}
               place={reviewPlace}
-              filterText={filterText}
               selectedId={selectedIssue?.id ?? null}
               onRescan={triggerScan}
               scanning={loading || scanning}
@@ -1877,7 +1819,6 @@ export default function App() {
               inventory={inventory}
               assetCounts={repoAssetCountsMap[selectedSidebarItem.split(":")[0]] || null}
               loading={loading || scanning}
-              filterText={filterText}
               stateFilter={stateFilter}
               onStateFilterChange={setStateFilter}
               scannedAt={lastScanAt}

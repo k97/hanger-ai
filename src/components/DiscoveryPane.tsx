@@ -14,8 +14,6 @@ import FavouriteHeart from "./FavouriteHeart";
 import { captionClass, sectionHeadClass, monoLabelClass } from "./typeRoles";
 
 interface DiscoveryPaneProps {
-  /** The toolbar filter field, shared with the asset panes. */
-  filterText?: string;
   /** The category facet, owned by DiscoverySidebar since the chips moved
    *  into the second column (Karthik's ruling, 2026-08-15). "Favourites" is
    *  one more facet value alongside the kinds — selecting it behaves like
@@ -137,7 +135,6 @@ function Row({ dir, favourited, onToggleFavourite, onOpen, onCopyFetch }: RowPro
  * therefore a real decision, and gets a confirmation the user can switch off.
  */
 export default function DiscoveryPane({
-  filterText = "",
   kind = "All",
   favourites = [],
   onToggleFavourite = () => {},
@@ -169,8 +166,8 @@ export default function DiscoveryPane({
   const shown = isFavouritesView
     ? favourites
         .map((mark) => DIRECTORIES.find((dir) => dir.mark === mark))
-        .filter((dir): dir is Directory => !!dir && matchesDirectory(dir, "All", filterText))
-    : DIRECTORIES.filter((dir) => matchesDirectory(dir, kind, filterText));
+        .filter((dir): dir is Directory => !!dir && matchesDirectory(dir, "All"))
+    : DIRECTORIES.filter((dir) => matchesDirectory(dir, kind));
 
   const setConfirmPreference = (next: boolean) => {
     setConfirmBeforeOpening(next);

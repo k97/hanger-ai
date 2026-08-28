@@ -20,7 +20,6 @@ interface NeedsReviewPaneProps {
   counts: ReviewCounts;
   kind: IssueKind | null;
   place: string | null;
-  filterText: string;
   selectedId: string | null;
   onSelectKind: (kind: IssueKind | null) => void;
   onSelectPlace: (place: string | null) => void;
@@ -72,7 +71,6 @@ export default function NeedsReviewPane({
   counts,
   kind,
   place,
-  filterText,
   selectedId,
   onSelectKind,
   onSelectPlace,
@@ -81,7 +79,7 @@ export default function NeedsReviewPane({
   scanning = false,
   scannedAt = null,
 }: NeedsReviewPaneProps) {
-  const shown = issues.filter((issue) => matchesIssueFilter(issue, kind, place, filterText));
+  const shown = issues.filter((issue) => matchesIssueFilter(issue, kind, place));
   const hasScanned = scannedAt !== null;
 
   // Places touched by what is on screen — the foot's second figure.

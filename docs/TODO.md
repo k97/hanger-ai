@@ -717,7 +717,8 @@ exactly where it found them:
 - `DiscoveryPane.tsx:230-235`, a filter hiding every directory — proposed
   `telescope`.
 - `Sidebar.tsx:180`, no repositories linked — proposed `folder-plus`.
-- `NeedsReviewPane.tsx:242`, a filter hiding every issue — proposed `search`.
+- `NeedsReviewPane.tsx:240`, a filter hiding every issue — proposed `search`
+  (kind/place chips only since 2026-08-27; text search moved to the palette).
 - `LinkMapPane.tsx`'s notices control (`ExclamationTriangleIcon` /
   `InformationCircleIcon`, `:613`/`:615`) — proposed `badge-alert` /
   `circle-help`.
