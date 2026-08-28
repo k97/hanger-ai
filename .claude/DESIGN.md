@@ -1586,9 +1586,28 @@ component on the page is the real one, imported and rendered with sample
 props from `src/data/designSystemFixtures.ts`: `GelMeter`, `MechanismGlyph`,
 `EngineReachTiles`, `EngineLabel`/`BrandIcon`, `CategoryFilterCards`,
 `DisclosureBanner`, `Tooltip`, `AssetHeaderRow`/`AssetRow`, `SummaryStrip`,
-`ScanStatusIndicator`, `HangerMark`. Nothing on it is a picture, so nothing
-on it can drift from the app; after a pull, one page shows every component
-in the current theme.
+`ScanStatusIndicator`, `HangerMark`, `EmptyState`; and, since 2026-08-28,
+the twelve that had landed after the page without a specimen —
+`SegmentedTrack`, `UnderlineTabs`, `ViewControl`, `OverflowMenu`,
+`InfoPopover`, `FindingChip` under Controls, with the mini button tier
+(`miniButton.ts`: fill, tonal, outlined — the fill is the cap's `Link to…`)
+beside them; `InspectorCap`, `ListCard`, `ReachCard`, `OriginValue`,
+`ScanStamp`, `McpEngineSummary` under Components. Nothing on it is a picture, so nothing on it can drift from the
+app; after a pull, one page shows every component in the current theme.
+
+**Every component is on the page, or says why not — enforced.** From
+2026-08-16 to 2026-08-28 the inventory was a hand-picked list and the
+sentence above was false: twelve components shipped without a specimen,
+`InspectorCap`'s `Link to…` and `FindingChip`'s `1 flagged` among them, and
+nothing went red. `design_system_pane.test.tsx` pins that the page renders
+its own list, which cannot see a component the list never named.
+`src/__tests__/design-system-coverage.test.ts` reads the other side: every
+`src/components/*.tsx` must be imported by `DesignSystemPane.tsx` by its own
+module, or sit on the test's allowlist with a reason — and an allowlisted
+component the page now imports, or whose file is gone, fails too. Rendering
+inside another specimen does not count (`ScanStamp` inside `SummaryStrip`,
+`SegmentedTrack` inside `CategoryFilterCards`): the caption names the file,
+so a reader looking for a file finds it under its name.
 
 **Values are read, not written.** Token swatches read the running theme via
 `getComputedStyle` on the root, re-read through a `MutationObserver` on the
@@ -1612,7 +1631,12 @@ is.
 **Known gaps, recorded rather than fixed here.** The pill pair, the cap
 button and the cap field are hoisted class strings in `DiscoveryPane.tsx`
 and `App.tsx`, not shared exports; the page repeats them with a caption
-saying so. Panes, modals, the map canvas and the inspectors are not on the
-page — they need real inventory or graph data. `IconRail` itself is not
-rendered as a specimen: it would put a second navigation landmark, with
-duplicate control names, on the page.
+saying so. Panes, modals, the map canvas and the inspector *panels*
+(`AssetDetail`, `McpServerDetail`, `ReviewInspector`) are not on the page —
+they need real inventory or graph data; the inspector *cap* is, because it
+takes a category, a place string and callbacks and nothing else. `IconRail`
+itself is not rendered as a specimen: it would put a second navigation
+landmark, with duplicate control names, on the page. `FavouriteHeart` and
+`MarkdownDoc` predate the page, take only props, and are still owed a
+specimen; the coverage test's allowlist says so rather than hiding it. The
+allowlist in that test is the full, reasoned list.

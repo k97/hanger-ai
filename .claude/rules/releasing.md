@@ -39,6 +39,15 @@ something wrong.
   and `gh release upload --clobber` both work after publishing; the
   `releases/latest/download/` CDN lags roughly forty seconds behind, so verify
   against the asset API before concluding an edit did not take.
+- **Before tagging, read the Design system page's allowlist.**
+  `src/__tests__/design-system-coverage.test.ts` fails a push that adds a
+  component without a specimen, so drift cannot reach a release unnoticed;
+  what it cannot judge is whether an *exemption* is still honest. Open the
+  test's `ALLOWLIST`, and for each entry ask whether the reason still holds
+  — a component that has since lost its IPC dependency, or one recorded as
+  "owed a specimen", is a gap to close or carry into the notes, not a line
+  to leave. Twelve components went unshown between 2026-08-16 and
+  2026-08-28 because no step asked.
 - **zsh eats `$tag:path`.** `git show $t:src-tauri/tauri.conf.json` parses the
   colon as a history modifier and silently requests `v1.0.0i.conf.json`. It
   reads as "the file does not exist at that tag" and once produced a wrong
