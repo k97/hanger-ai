@@ -136,8 +136,8 @@ rulings recorded in `src/__tests__/type-roles.test.ts:9`, 2026-08-27):
 | Size | Role | Ink | Utility | Source |
 |---|---|---|---|---|
 | 13 | body — labels, values, prose, list names, tabs | `--ink-1` for values and prose, `--ink-3` for labels | `text-base-app` | `rowLabelClass`, `rowValueClass`, `sectionHeadClass`, `groupLabelClass` (`typeRoles.ts:7,9-10,14`) |
-| 12 | secondary — captions, mono values, paths, chips, counts, foot and stamp lines | `--ink-2` / `--ink-3` | `text-small` | `captionClass`, `rowMonoClass`, `columnHeadClass` (`typeRoles.ts:15-16,20`) |
-| 11 | filled badges only | `--ink-3` | `text-micro` | e.g. the inspector list's scope pill (`Flyout.tsx:918`) |
+| 12 | secondary — captions, mono values, paths, chips, counts, foot and stamp lines | `--ink-1` for `rowMonoClass` values, `--ink-2` / `--ink-3` for captions and grey mono labels | `text-small` | `captionClass`, `rowMonoClass`, `monoLabelClass`, `columnHeadClass` (`typeRoles.ts:15-16,20,24`) |
+| 11 | filled badges and chips | `--ink-3` | `text-micro` | e.g. the inspector list's scope pill (`Flyout.tsx:919`) |
 | 16 | titles and content headings | `--ink-1` | `text-lg-app` | the inspector's title `h2` (`Flyout.tsx:705`), Markdown headings (`MarkdownDoc.tsx:78`) |
 | 32 | display — the big stat numeral | `--ink-1` | `text-display` | `SummaryStrip.tsx:98` |
 
@@ -783,22 +783,23 @@ a selection change (`McpServerDetail.tsx:403-406`, tabs `:666-688`). Both
 switches are the same `UnderlineTabs` (Surfaces and controls, below). Every
 section beneath either tab strip takes the section format: an eyebrow label
 (`sectionHeadClass`, `AssetDetail.tsx:435`; a plain `<h3>` on the MCP side,
-`HEADING`, `McpServerDetail.tsx:198`) above a `ListCard`/`ListCardRow` stack.
+`sectionHeadClass`, `McpServerDetail.tsx:891`) above a `ListCard`/`ListCardRow`
+stack.
 
 **The identity row moved out of the panel and into the cap; what survives
 above the tabs is three pieces with nothing between them.** Selecting an
 asset used to earn Flyout's eyebrow row a `kind · place` pair; `targetAsset`
-now renders `null` there instead (`Flyout.tsx:690-696`), because that
+now renders `null` there instead (`Flyout.tsx:740-748`), because that
 identity lives in the cap and restating it a second time would be "the
 'moved, never copied' rule's exact failure mode" (the panel's own comment,
-`Flyout.tsx:662-668`). For a plain asset selection the eyebrow row now has
+`Flyout.tsx:669-675`). For a plain asset selection the eyebrow row now has
 nothing left to say at all: `eyebrowShown` is `false` whenever nothing but a
-bare `targetAsset` would have earned it (`Flyout.tsx:607-609`), so the row
+bare `targetAsset` would have earned it (`Flyout.tsx:598-600`), so the row
 simply does not render — and the step it would have opened up beneath the
 title goes with it, because that step is the header column's own `gap-1`
 (`:696`) rather than a margin either row carries and has to switch off. The
 eyebrow still renders for what is not a plain asset selection — the link
-flow's own "Back to ‹name›" nav (`:679-687`), a bubble scope with no asset
+flow's own "Back to ‹name›" nav (`:728-736`), a bubble scope with no asset
 drilled into, or the empty-MCP category label — plus, independently, a
 layered-rules flag that can sit beside any of them.
 
@@ -807,14 +808,14 @@ sentence-case `kind · place` caption line, a finding chip
 (`InspectorCap.tsx:169-212`; the caption itself is `captionClass`,
 `typeRoles.ts:16`, rendered at `InspectorCap.tsx:220-228`; the cap itself,
 Surfaces and controls below) — then Flyout's title block
-(the `<h2>`, `Flyout.tsx:720`), then `AssetDetail`'s own `UnderlineTabs`
+(the `<h2>`, `Flyout.tsx:705`), then `AssetDetail`'s own `UnderlineTabs`
 switch. Nothing else: `AssetDetail` used to open with a state line, a path
 chip and a Link/Open action row, each behind its own `border-b border-line`,
 all now gone — the render goes straight from the panel's outer div to a
 comment recording the move and then the tab switch, with no hairline of its
 own left in that gap (`AssetDetail.tsx:346-358`). One hairline still stands
 in the assembled header: Flyout's own `border-b border-line`, beneath the
-title and above the tabs (`Flyout.tsx:676`) — untouched by this phase, and it
+title and above the tabs (`Flyout.tsx:697`) — untouched by this phase, and it
 falls between the title and the tabs, not between the cap and the title,
 where nothing separates them at all.
 
@@ -1405,8 +1406,8 @@ mx-[18px] border border-line rounded-tl-plane rounded-tr-plane pb-1.5`
 (`ProfilePane.tsx:1101`, `RepoPane.tsx:645`) — identical in both panes now.
 Then the
 foot, `h-[30px] shrink-0 px-[18px] flex items-center gap-4 font-flex
-text-micro text-ink-3` with the scan status pushed right by `ml-auto`
-(`ProfilePane.tsx:1174`, `RepoPane.tsx:728`).
+text-small text-ink-3` with the scan status pushed right by `ml-auto`
+(`ProfilePane.tsx:1286`, `RepoPane.tsx:853`).
 
 **`NeedsReviewPane` keeps the pre-track order: strip, chip row, list plane,
 foot.** It was not touched by the reorder — it has no category to put on a
@@ -1435,8 +1436,11 @@ group headers now render `groupLabelClass`, sentence case, body size
 (`typeRoles.ts:9`, imported at `ProfilePane.tsx:26`, used at `:1129`). It
 survives only in panes still pending their pass, e.g. `font-flex text-micro
 font-medium uppercase tracking-[.06em] text-ink-3` (`LinkPanel.tsx:34`);
-`src/__tests__/type-roles.test.ts`'s `ROLE_FILES` list is the migrated set
-and its `ALLOW` entries are the authoritative to-do for the rest.
+`src/__tests__/type-roles.test.ts`'s `ROLE_FILES` list is the migrated set,
+its case check now reaches every file rather than only those, and its
+`ALLOW` entries are the authoritative to-do for all three checks it
+enforces — size, leading and case, not case alone (the guard's own header
+comment, `type-roles.test.ts:5-18`) — across the rest.
 
 ### Repeated variants are hoisted, not computed
 
