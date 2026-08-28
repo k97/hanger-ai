@@ -1664,6 +1664,18 @@ from the backend and are rendered as received.
 allowlist keyed by file and exact line text, each entry carrying a stated
 reason (`:18-21`). Raw hex or a non-semantic colour utility fails.
 
+**Type roles.** `src/__tests__/type-roles.test.ts` scans every non-test
+`.tsx` under `src/` for Tailwind's default size names, arbitrary or default
+leading, and `uppercase` (`:5-18`); `ALLOW` is keyed by file and exact line
+text with a reason, an entry that stops matching fails, and a hit inside a
+`ROLE_FILES` file fails even when an entry matches it (§2).
+
+**Icon stroke and box.** `src/__tests__/icon_weight.test.ts` pins
+`strokeFor`'s values (12 → 2, 13 → 1.85, 14 → 1.71, ≥16 → 1.5; `:20`) and
+the box of every shell mark changed on 2026-08-28 — each rail mark's width
+as 16 × its optical factor, Sidebar's and InspectorCap's at 16 (`:42`). It
+reads those sites only: a new call site at another size passes it (§4).
+
 **No unregistered spacing.** `src/__tests__/spacing-scale.test.ts:22-29`, above.
 
 **No blocking dialogs.** `src/__tests__/no-blocking-dialogs.test.ts` bans

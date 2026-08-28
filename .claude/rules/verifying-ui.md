@@ -29,6 +29,16 @@ that tells the truth from the `tauri dev` app:
   `target/debug/tauri-app`, **owner name `tauri-app`**). The window also moves
   between reads — it was at `@244,79` and `@267,92` twenty minutes apart on
   2026-08-27 — so re-read bounds before every capture and every click.
+- **Three windows share the dev pid.** CGWindowList lists a 500×500 helper
+  and the menu-bar strip under the same `tauri-app` pid as the main window;
+  two captures on 2026-08-28 hit those first. Take the entry with width ≥ 900
+  and height ≥ 600. `tauri dev` also relaunches the *previous* binary after a
+  `src-tauri` change and rebuilds without relaunching — before a capture,
+  `ps -o lstart= -p <pid>` must be younger than
+  `stat -f %Sm src-tauri/target/debug/tauri-app`. The `theme` preference is
+  shared state like `selected_sidebar_item`: a peer flipped it to dark
+  mid-session, so read it from the store first and name the theme in the
+  evidence file.
 - **The dev window names itself `Hanger AI (dev)`; `Hanger AI` is the
   installed release app.** Since 2026-08-27 the dev build sets its own title
   (`dev_icon::window_title`, applied in `lib.rs`'s `setup`), so a capture can
