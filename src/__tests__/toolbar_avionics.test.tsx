@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent, waitFor, cleanup, within } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, cleanup } from "@testing-library/react";
 import App from "../App";
 import { invoke } from "@tauri-apps/api/core";
 
@@ -155,56 +155,5 @@ describe("Avionics A3 Toolbar Verification", () => {
     expect(newInspectorButton).toBeTruthy();
     expect(newInspectorButton.className).toContain("bg-tint");
     second.unmount();
-  });
-
-  it("narrows visible rows through the toolbar filter field", async () => {
-    mockAssetCounts = {
-      total_assets: 2,
-      skill: { total: 2, global: 2, project: 0 },
-      engines: {},
-    };
-    const { unmount } = render(<App />);
-    await screen.findByLabelText("Refresh scan");
-
-    const inventory = {
-      agents: [],
-      tools: [],
-      rules: [],
-      subagents: [],
-      project_scans: [],
-      skills: [
-        {
-          id: "1",
-          name: "alpha-skill",
-          description: "",
-          version: "1",
-          path: "/global/alpha",
-          scope: { Global: { agent: "claude" } },
-        },
-        {
-          id: "2",
-          name: "beta-skill",
-          description: "",
-          version: "1",
-          path: "/global/beta",
-          scope: { Global: { agent: "claude" } },
-        },
-      ],
-    };
-    eventListeners["scan://complete"]({ payload: { inventory } });
-
-    await screen.findByText("alpha-skill");
-    expect(screen.getByText("beta-skill")).toBeTruthy();
-
-    // Scoped to the cap: the rail's Search button (Task 8) carries the same
-    // aria-label until Task 9 removes this field.
-    const filterInput = within(screen.getByRole("banner")).getByLabelText("Search");
-    fireEvent.change(filterInput, { target: { value: "alpha" } });
-
-    await waitFor(() => {
-      expect(screen.queryByText("beta-skill")).toBeNull();
-    });
-    expect(screen.getByText("alpha-skill")).toBeTruthy();
-    unmount();
   });
 });

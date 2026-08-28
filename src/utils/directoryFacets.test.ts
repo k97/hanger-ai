@@ -74,24 +74,12 @@ describe("matchesDirectory", () => {
     desc: "A distribution hub organised by the agent that consumes the skill.",
   };
 
-  it("passes everything when the facet is All and the query is empty", () => {
-    expect(matchesDirectory(entry, "All", "")).toBe(true);
+  it("passes everything when the facet is All", () => {
+    expect(matchesDirectory(entry, "All")).toBe(true);
   });
 
   it("narrows by kind", () => {
-    expect(matchesDirectory(entry, "Skills", "")).toBe(true);
-    expect(matchesDirectory(entry, "MCP servers", "")).toBe(false);
-  });
-
-  it("searches name, url, description, kind and tier", () => {
-    expect(matchesDirectory(entry, "All", "skills.sh")).toBe(true);
-    expect(matchesDirectory(entry, "All", "distribution")).toBe(true);
-    expect(matchesDirectory(entry, "All", "commands")).toBe(true);
-    expect(matchesDirectory(entry, "All", "community")).toBe(true);
-    expect(matchesDirectory(entry, "All", "postgres")).toBe(false);
-  });
-
-  it("ignores case and surrounding whitespace in the query", () => {
-    expect(matchesDirectory(entry, "All", "  SKILLS.SH ")).toBe(true);
+    expect(matchesDirectory(entry, "Skills")).toBe(true);
+    expect(matchesDirectory(entry, "MCP servers")).toBe(false);
   });
 });
