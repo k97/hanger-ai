@@ -358,6 +358,7 @@ export default function DesignSystemPane({ section }: DesignSystemPaneProps) {
           <Group label="Ground and ink">
             <div className={swatchGridClass}>
               <Swatch token="--page" note="window ground" />
+              <Swatch token="--sidebar" note="the shell's material: the rail column and every cap, a tint over the window's vibrancy" />
               <Swatch token="--plane" note="list and card surface" />
               <Swatch token="--plane-2" note="hover / press step" />
               <Swatch token="--tint" note="selection on the page" />
@@ -404,7 +405,7 @@ export default function DesignSystemPane({ section }: DesignSystemPaneProps) {
         <Section
           id="geometry"
           label="Geometry"
-          lede="Three radii for surfaces, one soft radius for the rail's buttons, pills for every control. Spacing rides Tailwind's 4px grid; anything off it is stated at the call site as an arbitrary value, and the 18px gutter is a token."
+          lede="Three radii for surfaces, one soft radius for the rail's buttons, pills for every control. Spacing rides Tailwind's 4px grid; anything off it is stated at the call site as an arbitrary value, and the 18px gutter is a token. The shell's cap is 36px; the content sheet under it opens 18px in from its top rule, the same as from its sides, and the first column after the rail rounds its top-left corner on every screen."
         >
           <div className="flex items-end gap-6 flex-wrap">
             {RADII.map((r) => (
