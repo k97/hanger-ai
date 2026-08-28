@@ -10,6 +10,11 @@ import type { AssetItem, AssetAnnotationView } from "../components/AssetRow";
 import type { EngineReachInfo } from "../components/EngineReachTiles";
 import type { StateCounts } from "../utils/linkStateCounts";
 import type { ScanStatus } from "../hooks/useScanStatus";
+import type { AssetFindings, ReviewIssue } from "../utils/reviewIssues";
+import { originRow, type OriginRowView } from "../utils/assetProvenance";
+import type { McpEngineSummaryData } from "../components/McpEngineSummary";
+import type { TrackSegment } from "../components/SegmentedTrack";
+import type { UnderlineTab } from "../components/UnderlineTabs";
 
 /** The page's sections, in reading order — mirrors .claude/DESIGN.md. The
  *  sidebar lists these; the pane anchors each under `ds-<id>`. */
@@ -94,4 +99,64 @@ export const SAMPLE_CATEGORY_COUNTS = {
   toolsCount: 23,
   rulesCount: 2,
   subagentsCount: 12,
+};
+
+/** One finding against the sample skill, so the inspector cap's chip reads
+ *  `1 flagged`. Shaped the way `deriveReviewIssues` builds a fault issue. */
+export const SAMPLE_REVIEW_ISSUE: ReviewIssue = {
+  id: "Skills:drifted:/sample/skills/writing-great-skills/SKILL.md",
+  name: "writing-great-skills",
+  category: "Skills",
+  kind: "drifted",
+  problem: "Copy diverged",
+  path: "/sample/skills/writing-great-skills/SKILL.md",
+  sourcePath: "/sample/store/skills/writing-great-skills/SKILL.md",
+  whereLabel: "Global",
+  whereKeys: ["global"],
+  crossRepo: false,
+};
+
+export const SAMPLE_FINDINGS: AssetFindings = {
+  issues: [SAMPLE_REVIEW_ISSUE],
+  count: 1,
+  severity: "warning",
+};
+
+/** Two lines for the standalone chip, so its popover draws a divider. */
+export const SAMPLE_FINDING_LINES = ["Copy diverged", "3 copies, no shared source"];
+
+export const SAMPLE_SEGMENTS: TrackSegment[] = [
+  { id: "all", label: "All", count: 142 },
+  { id: "skills", label: "Skills", count: 105 },
+  { id: "tools", label: "MCP servers", count: 23 },
+];
+
+export const SAMPLE_TABS: UnderlineTab[] = [
+  { id: "document", label: "Document" },
+  { id: "tools", label: "Tools", count: 7 },
+  { id: "registrations", label: "Registrations" },
+];
+
+/** Built by the producer, not typed by hand, so the ruled tooltip strings
+ *  live in one place. A sample host, so the link never opens anything real. */
+export const SAMPLE_ORIGIN: OriginRowView = originRow(
+  { kind: "checked_out", label: "example.com/sample-skills", url: "https://example.com/sample-skills" },
+  false,
+)!;
+
+export const SAMPLE_ORIGIN_BLOCKED: OriginRowView = originRow(null, true)!;
+
+/** A partial picture on purpose: one row not yet asked, and every bucket of
+ *  the note beneath the rows non-zero so each sentence renders. */
+export const SAMPLE_MCP_ENGINE_SUMMARY: McpEngineSummaryData = {
+  rows: [
+    { engine_id: "claude", engine_name: "Claude Code", server_count: 6, tools_known: 41 },
+    { engine_id: "codex", engine_name: "Codex", server_count: 2, tools_known: 9 },
+    { engine_id: "claude_desktop", engine_name: "Claude Desktop", server_count: 3, tools_known: null },
+  ],
+  total_server_count: 9,
+  answered_server_count: 5,
+  unasked_server_count: 3,
+  unaskable_server_count: 1,
+  conflicting_server_count: 1,
 };

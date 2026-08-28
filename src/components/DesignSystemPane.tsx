@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import GelMeter from "./GelMeter";
 import MechanismGlyph, { type MechanismWord } from "./MechanismGlyph";
 import EngineReachTiles from "./EngineReachTiles";
@@ -12,13 +12,32 @@ import AssetRow from "./AssetRow";
 import SummaryStrip from "./SummaryStrip";
 import { ScanStatusIndicator } from "./ScanStatusIndicator";
 import HangerMark from "./HangerMark";
+import SegmentedTrack from "./SegmentedTrack";
+import UnderlineTabs from "./UnderlineTabs";
+import ViewControl, { type ServerGrouping, type ServerSort } from "./ViewControl";
+import OverflowMenu, { menuItemClass, MenuSeparator } from "./OverflowMenu";
+import InfoPopover from "./InfoPopover";
+import FindingChip from "./FindingChip";
+import InspectorCap from "./InspectorCap";
+import ListCard, { ListCardRow } from "./ListCard";
+import ReachCard from "./ReachCard";
+import OriginValue from "./OriginValue";
+import ScanStamp from "./ScanStamp";
+import McpEngineSummary from "./McpEngineSummary";
+import { sectionHeadClass } from "./typeRoles";
+import { miniBtnClass, miniBtnFillClass, miniBtnTonalClass, miniSetClass } from "./miniButton";
 import {
+  CodeBracketIcon,
   Disc3Icon,
+  DocumentIcon,
+  EllipsisVerticalIcon,
   FolderClockIcon,
+  LinkIcon,
   MagnifyingGlassIcon,
   PanelRightIcon,
   RotateCcwIcon,
   SearchIcon,
+  Square2StackIcon,
 } from "./icons";
 import EmptyState from "./EmptyState";
 import type { StateFilter } from "../utils/linkStateCounts";
@@ -30,9 +49,17 @@ import {
   SAMPLE_ASSET_DRIFTED,
   SAMPLE_CATEGORY_COUNTS,
   SAMPLE_COUNTS,
+  SAMPLE_FINDINGS,
+  SAMPLE_FINDING_LINES,
+  SAMPLE_MCP_ENGINE_SUMMARY,
+  SAMPLE_ORIGIN,
+  SAMPLE_ORIGIN_BLOCKED,
   SAMPLE_REACH,
   SAMPLE_REVIEW,
+  SAMPLE_REVIEW_ISSUE,
   SAMPLE_SCAN_STATUS,
+  SAMPLE_SEGMENTS,
+  SAMPLE_TABS,
 } from "../data/designSystemFixtures";
 
 interface DesignSystemPaneProps {
@@ -113,23 +140,29 @@ function Section({
 }
 
 /** One rendered thing with its provenance. `sample` marks fixture-fed
- *  renderings so a figure on this page is never read as the machine. */
+ *  renderings so a figure on this page is never read as the machine.
+ *  `unclipped` is for a specimen whose menu or popover opens below its
+ *  trigger: the box's scroll container would otherwise swallow it. */
 function Specimen({
   name,
   file,
   note,
   sample = true,
+  unclipped = false,
   children,
 }: {
   name: string;
   file: string;
   note?: string;
   sample?: boolean;
+  unclipped?: boolean;
   children: ReactNode;
 }) {
   return (
     <figure>
-      <div className="border border-line rounded-plane p-4 overflow-x-auto">{children}</div>
+      <div className={`border border-line rounded-plane p-4 ${unclipped ? "" : "overflow-x-auto"}`}>
+        {children}
+      </div>
       <figcaption className="flex items-baseline gap-2 flex-wrap px-1 pt-1.5 font-flex text-micro text-ink-3">
         <span className="font-medium text-ink-2">{name}</span>
         <span className="font-mono">{file}</span>
@@ -215,6 +248,14 @@ export default function DesignSystemPane({ section }: DesignSystemPaneProps) {
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
   const [replay, setReplay] = useState(0);
   const [selectedRow, setSelectedRow] = useState<string | null>(SAMPLE_ASSET.id ?? null);
+  const [segment, setSegment] = useState(SAMPLE_SEGMENTS[0].id);
+  const [tab, setTab] = useState(SAMPLE_TABS[0].id);
+  const [grouping, setGrouping] = useState<ServerGrouping>("server");
+  const [sort, setSort] = useState<ServerSort>("attention");
+  // The surfaces a finding popover clamps against, standing in for the
+  // inspector column and a placecard.
+  const capHostRef = useRef<HTMLDivElement>(null);
+  const chipHostRef = useRef<HTMLDivElement>(null);
 
   const handleSort = (field: SortField) => {
     if (field === sortField) setSortDirection((d) => (d === "asc" ? "desc" : "asc"));
@@ -470,6 +511,100 @@ export default function DesignSystemPane({ section }: DesignSystemPaneProps) {
               </button>
             </Tooltip>
           </Specimen>
+
+          <Specimen name="SegmentedTrack" file="SegmentedTrack.tsx" note="the track under CategoryFilterCards; the capsule slides on the nav beat">
+            <SegmentedTrack
+              segments={SAMPLE_SEGMENTS}
+              selectedId={segment}
+              onSelect={setSegment}
+              ariaLabel="Sample segments"
+            />
+          </Specimen>
+
+          <Specimen name="UnderlineTabs" file="UnderlineTabs.tsx" note="switches views inside one surface; weight and the rule are all that change">
+            <UnderlineTabs tabs={SAMPLE_TABS} active={tab} onChange={setTab} ariaLabel="Sample tabs" />
+          </Specimen>
+
+          <Specimen name="ViewControl" file="ViewControl.tsx" note="press it; grouping and sort are kept, so the check mark moves" unclipped>
+            <ViewControl
+              grouping={grouping}
+              sort={sort}
+              onGroupingChange={setGrouping}
+              onSortChange={setSort}
+            />
+          </Specimen>
+
+          <Specimen name="OverflowMenu" file="OverflowMenu.tsx" note="the trigger is the caller's; an item closes the menu itself" unclipped>
+            <OverflowMenu
+              trigger={(triggerProps) => (
+                <button type="button" aria-label="Sample overflow menu" className={capButtonClass} {...triggerProps}>
+                  <EllipsisVerticalIcon size={15} aria-hidden="true" />
+                </button>
+              )}
+              ariaLabel="Sample overflow menu"
+              align="left"
+              className="min-w-[184px] p-1"
+            >
+              {(close) => (
+                <>
+                  <button type="button" role="menuitem" onClick={close} className={menuItemClass}>
+                    Sample item one
+                  </button>
+                  <button type="button" role="menuitem" onClick={close} className={menuItemClass}>
+                    Sample item two
+                  </button>
+                  <MenuSeparator />
+                  <button type="button" role="menuitem" onClick={close} className={menuItemClass}>
+                    Sample item three
+                  </button>
+                </>
+              )}
+            </OverflowMenu>
+          </Specimen>
+
+          <Specimen name="InfoPopover" file="InfoPopover.tsx" note="a footnote that opens on click and stays put; not a Tooltip" unclipped>
+            <div className="flex items-center justify-between w-[320px]">
+              <span className={sectionHeadClass}>Context</span>
+              <InfoPopover label="About the sample figures">
+                Every figure on this page is a literal chosen to show a component's shape. None of
+                it was read from this machine.
+              </InfoPopover>
+            </div>
+          </Specimen>
+
+          <Specimen name="Mini button" file="miniButton.ts" note="the 26px tier; fill is the cap's Link to…, tonal is the header's second action, outlined is the in-section set">
+            <div className={miniSetClass}>
+              <button type="button" className={miniBtnFillClass}>
+                <LinkIcon size={13} aria-hidden="true" />
+                Link to…
+              </button>
+              <button type="button" className={miniBtnTonalClass}>
+                Sample tonal
+              </button>
+              <button type="button" className={miniBtnClass}>
+                Sample outlined
+              </button>
+            </div>
+          </Specimen>
+
+          <Specimen name="FindingChip" file="FindingChip.tsx" note="the count is the line count, one per finding; the popover clamps inside the 300px box around it" unclipped>
+            <div ref={chipHostRef} className="relative w-[300px] flex items-center gap-2">
+              <FindingChip
+                severity="warning"
+                lines={[SAMPLE_REVIEW_ISSUE.problem]}
+                onReview={() => {}}
+                elevated
+                clampTo={chipHostRef}
+              />
+              <FindingChip
+                severity="danger"
+                lines={SAMPLE_FINDING_LINES}
+                onReview={() => {}}
+                elevated
+                clampTo={chipHostRef}
+              />
+            </div>
+          </Specimen>
         </Section>
 
         <Section
@@ -600,6 +735,94 @@ export default function DesignSystemPane({ section }: DesignSystemPaneProps) {
               <HangerMark size={22} />
               <HangerMark size={32} />
               <HangerMark size={48} />
+            </div>
+          </Specimen>
+
+          <Specimen name="InspectorCap" file="InspectorCap.tsx" note="the inspector column's cap; when the row overflows, Link to… sheds into ⋮ first, then the chip" unclipped>
+            {/* Wider than the inspector's 384px floor so nothing sheds here
+                and both Link to… and the chip are on the surface. */}
+            <div ref={capHostRef} className="relative w-[448px] border border-line rounded-inner bg-page">
+              <InspectorCap
+                asset={{ category: "Skills" }}
+                place="Global"
+                findings={SAMPLE_FINDINGS}
+                inspectorExpanded={false}
+                clampTo={capHostRef}
+                onLink={() => {}}
+                onOpenInEditor={() => {}}
+                onCopyPath={() => {}}
+                onReveal={() => {}}
+                onReview={() => {}}
+                onToggleExpanded={() => {}}
+                onToggleInspector={() => {}}
+              />
+            </div>
+          </Specimen>
+
+          <Specimen name="ListCard · ListCardRow" file="ListCard.tsx" note="icon · label · right-aligned value; the divider lives on row after row">
+            <div className="max-w-[384px]">
+              <ListCard>
+                {/* A long value is capped by the caller, the way the Identity
+                    card's Path row does it: the row lets the value shrink
+                    and ellipsize, but the label's box grows from zero, so
+                    an uncapped path starves the label first. */}
+                <ListCardRow
+                  icon={<DocumentIcon size={14} aria-hidden="true" />}
+                  label={<span className="font-mono">SKILL.md</span>}
+                  value={
+                    <span className="block max-w-55 truncate" title="~/.agents/skills/writing-great-skills">
+                      ~/.agents/skills/writing-great-skills
+                    </span>
+                  }
+                />
+                <ListCardRow icon={<LinkIcon size={14} aria-hidden="true" />} label="Mechanism" wide="Symlink" />
+                <ListCardRow
+                  icon={<Square2StackIcon size={14} aria-hidden="true" />}
+                  label="Copies"
+                  value="3"
+                  trailing={
+                    <Tooltip label="Sample row action" placement="bottom">
+                      <button
+                        type="button"
+                        aria-label="Sample row action"
+                        className="ml-auto w-[21px] h-[21px] rounded-pill grid place-items-center text-ink-3 hover:bg-plane-2 hover:text-ink-1 transition-colors duration-hover cursor-pointer"
+                      >
+                        <CodeBracketIcon size={13} aria-hidden="true" />
+                      </button>
+                    </Tooltip>
+                  }
+                />
+              </ListCard>
+            </div>
+          </Specimen>
+
+          <Specimen name="ReachCard" file="ReachCard.tsx" note="the inspector's Reach section; press a plate, or arrow across them">
+            <div className="max-w-[384px]">
+              <ReachCard reach={SAMPLE_REACH} />
+            </div>
+          </Specimen>
+
+          <Specimen name="OriginValue" file="OriginValue.tsx" note="in a row's wide slot, as the Identity card feeds it; a link out when the origin carries a URL, muted when Hanger could not check">
+            {/* The muted form carries no size of its own; the row's slot
+                sets it, so the value is shown where it lives. */}
+            <div className="max-w-[384px]">
+              <ListCard>
+                <ListCardRow label="Origin" wide={<OriginValue origin={SAMPLE_ORIGIN} variant="identity" />} />
+                <ListCardRow label="Origin" wide={<OriginValue origin={SAMPLE_ORIGIN_BLOCKED} variant="identity" />} />
+              </ListCard>
+            </div>
+          </Specimen>
+
+          <Specimen name="ScanStamp" file="ScanStamp.tsx" note="an age that re-reads every 30 s; null reads as not scanned">
+            <div className="flex items-center gap-6">
+              <ScanStamp scannedAt={scannedAt} className="font-flex text-micro text-ink-3" />
+              <ScanStamp scannedAt={null} className="font-flex text-micro text-ink-3" />
+            </div>
+          </Specimen>
+
+          <Specimen name="McpEngineSummary" file="McpEngineSummary.tsx" note="the Tools filter's empty-selection body; the note says how much is known">
+            <div className="max-w-[384px] border border-line rounded-inner">
+              <McpEngineSummary summary={SAMPLE_MCP_ENGINE_SUMMARY} />
             </div>
           </Specimen>
         </Section>
