@@ -118,15 +118,15 @@ namespace — `--color-page`, `--color-plane`, `--color-state-danger` and so on
 One system stack, five sizes, two weights.
 
 ```
---font-sans: -apple-system, BlinkMacSystemFont, system-ui, sans-serif;   tokens.css:27
---font-flex: -apple-system, BlinkMacSystemFont, system-ui, sans-serif;   tokens.css:28
---font-mono: ui-monospace, "SF Mono", Menlo, monospace;                  tokens.css:29
+--font-sans: -apple-system, BlinkMacSystemFont, system-ui, sans-serif;   tokens.css:65
+--font-flex: -apple-system, BlinkMacSystemFont, system-ui, sans-serif;   tokens.css:66
+--font-mono: ui-monospace, "SF Mono", Menlo, monospace;                  tokens.css:67
 ```
 
 The scale is closed at five steps — 11 / 12 / 13 / 16 / 32
-(`tokens.css:30-34`, registered as `text-micro`, `text-small`, `text-base-app`,
-`text-lg-app`, `text-display` at `index.css:82-87`). Two weights only:
-`--fw-regular: 400`, `--fw-medium: 500` (`tokens.css:67-68`).
+(`tokens.css:68-72`, registered as `text-micro`, `text-small`, `text-base-app`,
+`text-lg-app`, `text-display` at `index.css:97-102`). Two weights only:
+`--fw-regular: 400`, `--fw-medium: 500` (`tokens.css:73-74`).
 
 The five sizes carry roles, not free choice — the inspector, the pane list,
 the sidebar family and Discovery were audited against the scale and each size
@@ -141,12 +141,15 @@ rulings recorded in `src/__tests__/type-roles.test.ts:9`, 2026-08-27):
 | 16 | titles and content headings | `--ink-1` | `text-lg-app` | the inspector's title `h2` (`Flyout.tsx:705`), Markdown headings (`MarkdownDoc.tsx:78`) |
 | 32 | display — the big stat numeral | `--ink-1` | `text-display` | `SummaryStrip.tsx:98` |
 
-Three leadings sit beside the scale as tokens, not arbitrary per-call values —
-`--lh-body: 20px`, `--lh-caption: 16px`, `--lh-code: 18px` (`tokens.css:79-81`),
-registered as `--leading-body`, `--leading-caption`, `--leading-code`
-(`index.css:109-111`) and consumed as the utilities `leading-body`,
-`leading-caption`, `leading-code`. `src/__tests__/leading-tokens.test.ts`
-pins both the token values and their `@theme` registration.
+Four leadings sit beside the scale as tokens, not arbitrary per-call values —
+`--lh-body: 20px`, `--lh-caption: 16px`, `--lh-code: 18px`, `--lh-display: 35px`
+(`tokens.css:80-83`), registered as `--leading-body`, `--leading-caption`,
+`--leading-code`, `--leading-display` (`index.css:109-112`) and consumed as
+the utilities `leading-body`, `leading-caption`, `leading-code`,
+`leading-display` — the last for the 32px strip figure
+(`SummaryStrip.tsx:98`, `NeedsReviewPane.tsx:102`, `DesignSystemPane.tsx:192`).
+`src/__tests__/leading-tokens.test.ts` pins both the token values and their
+`@theme` registration.
 
 Section heads inside the inspector, Discovery's tiers, and the pane list's
 column and group headers are sentence case, not the former 11px uppercase
@@ -158,10 +161,10 @@ default leading utilities, and `uppercase` across the migrated files named in
 its `ROLE_FILES` list.
 
 Body text is set in `--font-sans` at the document root with
-`-webkit-font-smoothing: antialiased` (`index.css:376`).
+`-webkit-font-smoothing: antialiased` (`index.css:510`).
 
 A `tabular` utility exists for figures that must not jitter as they change
-(`index.css:126-128`) and is applied wherever counts render.
+(`index.css:157-159`) and is applied wherever counts render.
 
 ---
 
@@ -776,7 +779,7 @@ resetting to it on every new server so a stale Environment tab never survives
 a selection change (`McpServerDetail.tsx:403-406`, tabs `:666-688`). Both
 switches are the same `UnderlineTabs` (Surfaces and controls, below). Every
 section beneath either tab strip takes the section format: an eyebrow label
-(`eyebrowClass`, `AssetDetail.tsx:91`; a plain `<h3>` on the MCP side,
+(`sectionHeadClass`, `AssetDetail.tsx:435`; a plain `<h3>` on the MCP side,
 `HEADING`, `McpServerDetail.tsx:198`) above a `ListCard`/`ListCardRow` stack.
 
 **The identity row moved out of the panel and into the cap; what survives
@@ -1220,8 +1223,9 @@ cap's menu items use `menuActionClass` instead (`:9-10`), and `MenuSeparator`
 column's 40px cap, and since this phase the selected asset's identity as
 well as the two panel-level controls it used to hold alone: a kind glyph —
 dotted only at the width where the finding chip has shed into the menu, so
-the two never state the same finding at once (`:184`) — a `KIND · PLACE`
-eyebrow, a finding chip, then `Link to…`, a ⋮ overflow (`OverflowMenu`,
+the two never state the same finding at once (`:184`) — a sentence-case
+`kind · place` eyebrow (`captionClass`, `InspectorCap.tsx:223`), a finding
+chip, then `Link to…`, a ⋮ overflow (`OverflowMenu`,
 above), and
 Expand/Collapse plus Toggle inspector (`:159-335`; the shed order, its
 measurement, and the MCP exception are under Inspectors, above). Renders

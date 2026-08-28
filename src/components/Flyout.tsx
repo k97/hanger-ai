@@ -736,6 +736,7 @@ export default function Flyout({
             </button>
           ) : (
             <>
+              {/* The class repeats the parent's on purpose: getByText resolves this leaf, and a classless leaf pins nothing. */}
               <span className={captionClass}>
                 {targetAsset
                   ? null
