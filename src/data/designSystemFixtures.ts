@@ -20,9 +20,10 @@ import type { UnderlineTab } from "../components/UnderlineTabs";
  *  sidebar lists these; the pane anchors each under `ds-<id>`. */
 export const DESIGN_SECTIONS = [
   { id: "colour", label: "Colour" },
-  { id: "type", label: "Type" },
+  { id: "type", label: "Typography" },
   { id: "geometry", label: "Geometry" },
   { id: "motion", label: "Motion" },
+  { id: "iconography", label: "Iconography" },
   { id: "controls", label: "Controls" },
   { id: "components", label: "Components" },
 ] as const;

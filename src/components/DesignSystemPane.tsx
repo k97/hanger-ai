@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ComponentType, type ReactNode } from "react";
 import GelMeter from "./GelMeter";
 import MechanismGlyph, { type MechanismWord } from "./MechanismGlyph";
 import EngineReachTiles from "./EngineReachTiles";
@@ -26,19 +26,29 @@ import ScanStamp from "./ScanStamp";
 import McpEngineSummary from "./McpEngineSummary";
 import { sectionHeadClass } from "./typeRoles";
 import { miniBtnClass, miniBtnFillClass, miniBtnTonalClass, miniSetClass } from "./miniButton";
+import * as Icons from "./icons";
 import {
   CodeBracketIcon,
+  Cog6ToothIcon,
+  ComputerDesktopIcon,
   Disc3Icon,
   DocumentIcon,
   EllipsisVerticalIcon,
+  ExclamationTriangleIcon,
   FolderClockIcon,
+  FolderIcon,
+  FolderSymlinkIcon,
+  GlobeAltIcon,
   LinkIcon,
   MagnifyingGlassIcon,
   PanelRightIcon,
   RotateCcwIcon,
   SearchIcon,
   Square2StackIcon,
+  SwatchIcon,
+  strokeFor,
 } from "./icons";
+import { BRAND_IDS } from "../data/brands";
 import EmptyState from "./EmptyState";
 import type { StateFilter } from "../utils/linkStateCounts";
 import {
@@ -188,16 +198,25 @@ const swatchGridClass = "grid grid-cols-[repeat(auto-fill,minmax(230px,1fr))] ga
 
 const MECHANISMS: MechanismWord[] = ["symlink", "copy", "drift", "broken", "none"];
 
-const TYPE_ROWS: { utility: string; px: string; sample: ReactNode }[] = [
-  { utility: "text-display", px: "32px", sample: <span className="text-display font-medium tabular tracking-[-0.5px] leading-display text-ink-1">142</span> },
-  { utility: "text-lg-app", px: "16px", sample: <span className="text-lg-app text-ink-2">assets in the global store · 6 engines</span> },
-  { utility: "text-base-app", px: "13px", sample: <span className="text-base-app font-medium text-ink-1">writing-great-skills</span> },
-  { utility: "text-small", px: "12px", sample: <span className="text-small text-ink-2">Symlink — edits to the source reach every destination</span> },
-  { utility: "text-micro · badges and chips only", px: "11px", sample: <span className="text-micro font-medium text-ink-3 bg-plane-2 px-2 py-0.5 rounded-pill font-flex">Global</span> },
-  { utility: "font-mono text-micro", px: "11px", sample: <span className="font-mono text-micro text-ink-3">~/.agents/skills/writing-great-skills/SKILL.md</span> },
-  { utility: "leading-body", px: "20px", sample: <span className="block whitespace-normal max-w-[230px] text-base-app text-ink-1 leading-body">Scans the directories those engines read from and shows whether it still matches its source.</span> },
-  { utility: "leading-caption", px: "16px", sample: <span className="block whitespace-normal max-w-[230px] text-small text-ink-3 leading-caption">Installed 2026-08-14 · tracked by a harness convention, not an interface of its own.</span> },
-  { utility: "leading-code", px: "18px", sample: <span className="block whitespace-normal max-w-[230px] font-mono text-small text-ink-1 leading-code">~/.claude/skills/writing-great-skills/SKILL.md — twenty-two lines.</span> },
+/** The three stacks, in the order the root and the utilities meet them. The
+ *  stack string is read from the theme by TokenValue, never typed here. */
+const FAMILIES: { token: string; family: string; role: string }[] = [
+  { token: "--font-sans", family: "font-sans", role: "body — the document root" },
+  { token: "--font-flex", family: "font-flex", role: "the utility voice — eyebrows, stamps, chips" },
+  { token: "--font-mono", family: "font-mono", role: "paths, values, code" },
+];
+
+/** `role` mirrors the Role column of DESIGN.md §2's table. */
+const TYPE_ROWS: { utility: string; px: string; role: string; sample: ReactNode }[] = [
+  { utility: "text-display", px: "32px", role: "display", sample: <span className="text-display font-medium tabular tracking-[-0.5px] leading-display text-ink-1">142</span> },
+  { utility: "text-lg-app", px: "16px", role: "titles", sample: <span className="text-lg-app text-ink-2">assets in the global store · 6 engines</span> },
+  { utility: "text-base-app", px: "13px", role: "body", sample: <span className="text-base-app font-medium text-ink-1">writing-great-skills</span> },
+  { utility: "text-small", px: "12px", role: "secondary", sample: <span className="text-small text-ink-2">Symlink — edits to the source reach every destination</span> },
+  { utility: "text-micro · badges and chips only", px: "11px", role: "badges and chips", sample: <span className="text-micro font-medium text-ink-3 bg-plane-2 px-2 py-0.5 rounded-pill font-flex">Global</span> },
+  { utility: "font-mono text-micro", px: "11px", role: "paths and values", sample: <span className="font-mono text-micro text-ink-3">~/.agents/skills/writing-great-skills/SKILL.md</span> },
+  { utility: "leading-body", px: "20px", role: "leading", sample: <span className="block whitespace-normal max-w-[230px] text-base-app text-ink-1 leading-body">Scans the directories those engines read from and shows whether it still matches its source.</span> },
+  { utility: "leading-caption", px: "16px", role: "leading", sample: <span className="block whitespace-normal max-w-[230px] text-small text-ink-3 leading-caption">Installed 2026-08-14 · tracked by a harness convention, not an interface of its own.</span> },
+  { utility: "leading-code", px: "18px", role: "leading", sample: <span className="block whitespace-normal max-w-[230px] font-mono text-small text-ink-1 leading-code">~/.claude/skills/writing-great-skills/SKILL.md — twenty-two lines.</span> },
 ];
 
 const RADII: { utility: string; token: string }[] = [
@@ -212,6 +231,28 @@ const BEATS: { utility: string; token: string; where: string }[] = [
   { utility: "duration-nav", token: "--dur-nav", where: "selection and navigation" },
   { utility: "duration-press", token: "--dur-press", where: "press, enter and exit" },
 ];
+
+/** One size per band of `strokeFor`; the stroke shown is the function's own
+ *  answer, so the page cannot disagree with icons.tsx. */
+const ICON_SIZE_BANDS = [12, 16, 20, 24];
+
+/** The rail's marks in the rail's order (IconRail.tsx), where four stack at
+ *  one size and any optical mismatch reads as a wobble. */
+const RAIL_MARKS: { name: string; Icon: ComponentType<{ size?: number }> }[] = [
+  { name: "ComputerDesktopIcon", Icon: ComputerDesktopIcon },
+  { name: "FolderSymlinkIcon", Icon: FolderSymlinkIcon },
+  { name: "GlobeAltIcon", Icon: GlobeAltIcon },
+  { name: "ExclamationTriangleIcon", Icon: ExclamationTriangleIcon },
+  { name: "SwatchIcon", Icon: SwatchIcon },
+  { name: "Cog6ToothIcon", Icon: Cog6ToothIcon },
+];
+
+/** Every mark icons.tsx exports, read off the module rather than listed, so
+ *  a new export appears here without anyone remembering to add it. */
+const ICON_ROSTER = Object.entries(Icons)
+  .filter(([name, value]) => name.endsWith("Icon") && typeof value === "function")
+  .sort(([a], [b]) => a.localeCompare(b))
+  .map(([name, value]) => ({ name, Icon: value as ComponentType<{ size?: number }> }));
 
 // The pill pair as hoisted in DiscoveryPane.tsx; the cap button and field as
 // hoisted in App.tsx. Repeated here rather than exported — one place should
@@ -340,30 +381,61 @@ export default function DesignSystemPane({ section }: DesignSystemPaneProps) {
 
         <Section
           id="type"
-          label="Type"
-          lede="One system stack, five sizes, two weights. Figures that change wear the tabular utility so they never jitter; the utility voice is font-flex, micro, uppercase and tracked."
+          label="Typography"
+          lede="Three font tokens, one system stack, five sizes, two weights. Each size carries one role rather than a free choice. Figures that change wear the tabular utility so they never jitter; the utility voice is font-flex, micro, uppercase and tracked."
         >
-          <div className="border border-line rounded-plane px-4">
-            {TYPE_ROWS.map((row) => (
-              <div
-                key={row.utility}
-                className="grid grid-cols-[190px_1fr] items-baseline gap-4 py-3 border-b border-line last:border-b-0"
-              >
-                <span className="font-mono text-micro text-ink-3">
-                  {row.utility} <span className="font-sans">· {row.px}</span>
-                </span>
-                <span className="min-w-0 truncate">{row.sample}</span>
-              </div>
-            ))}
-            <div className="grid grid-cols-[190px_1fr] items-baseline gap-4 py-3">
-              <span className="font-mono text-micro text-ink-3">
-                font-medium <span className="font-sans">· the only other weight</span>
-              </span>
-              <span className="text-base-app text-ink-1">
-                Regular 400 beside <b className="font-medium">medium 500</b> — nothing heavier exists.
-              </span>
+          <Group label="Families">
+            <div className="border border-line rounded-plane px-4">
+              {FAMILIES.map((f) => (
+                <div
+                  key={f.token}
+                  className="grid grid-cols-[190px_1fr] items-baseline gap-4 py-3 border-b border-line last:border-b-0"
+                >
+                  <span className="min-w-0">
+                    <span className="block font-mono text-micro text-ink-3">{f.token}</span>
+                    <span className="block font-flex text-micro text-ink-3">{f.role}</span>
+                  </span>
+                  <span className={`min-w-0 flex flex-col gap-1 ${f.family}`}>
+                    <span className="text-base-app text-ink-1 truncate">Sphinx of black quartz, judge my vow.</span>
+                    <span className="text-small text-ink-2 tabular">142 · 1.2.0 · 2026-08-28</span>
+                    <span className="truncate">
+                      <TokenValue token={f.token} />
+                    </span>
+                  </span>
+                </div>
+              ))}
             </div>
-          </div>
+            <p className="pt-2 text-small text-ink-2 leading-caption max-w-[74ch]">
+              --font-sans and --font-flex are declared with the same stack today (tokens.css:65-66): the two
+              names mark two roles, not two faces. On macOS the stack resolves to the system UI face — it
+              begins -apple-system — and the page shows what the theme returns rather than naming one.
+            </p>
+          </Group>
+          <Group label="Scale">
+            <div className="border border-line rounded-plane px-4">
+              {TYPE_ROWS.map((row) => (
+                <div
+                  key={row.utility}
+                  className="grid grid-cols-[190px_110px_1fr] items-baseline gap-4 py-3 border-b border-line last:border-b-0"
+                >
+                  <span className="font-mono text-micro text-ink-3">
+                    {row.utility} <span className="font-sans">· {row.px}</span>
+                  </span>
+                  <span className="font-flex text-micro text-ink-3 truncate">{row.role}</span>
+                  <span className="min-w-0 truncate">{row.sample}</span>
+                </div>
+              ))}
+              <div className="grid grid-cols-[190px_110px_1fr] items-baseline gap-4 py-3">
+                <span className="font-mono text-micro text-ink-3">
+                  font-medium <span className="font-sans">· the only other weight</span>
+                </span>
+                <span className="font-flex text-micro text-ink-3">weight</span>
+                <span className="text-base-app text-ink-1">
+                  Regular 400 beside <b className="font-medium">medium 500</b> — nothing heavier exists.
+                </span>
+              </div>
+            </div>
+          </Group>
         </Section>
 
         <Section
@@ -432,6 +504,55 @@ export default function DesignSystemPane({ section }: DesignSystemPaneProps) {
               </div>
             </div>
           </div>
+        </Section>
+
+        <Section
+          id="iconography"
+          label="Iconography"
+          lede="Heroicons outline, never used raw: sized() applies two corrections — the stroke scales up as the box shrinks so it lands near 1px on screen, and a per-mark optical factor evens out how much of the grid each mark inks. Brand marks come from one sprite, referenced by id."
+        >
+          <Specimen name="Size bands" file="icons.tsx" note="the stroke scales up as the box shrinks so it lands near 1px on screen">
+            <div className="flex items-end gap-8">
+              {ICON_SIZE_BANDS.map((size) => (
+                <div key={size} className="flex flex-col items-center gap-2 text-ink-1">
+                  <FolderIcon size={size} />
+                  <span className="font-mono text-micro text-ink-3 tabular">
+                    {size} · {String(strokeFor(size))}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </Specimen>
+
+          <Specimen name="Optical alignment" file="icons.tsx" note="the rail's marks at 17; per-mark optical factors are measured ink-extent ratios, and anything within 4% is left at 1">
+            <div className="flex items-center gap-5 text-ink-2">
+              {RAIL_MARKS.map(({ name, Icon }) => (
+                <Icon key={name} size={17} />
+              ))}
+            </div>
+          </Specimen>
+
+          <Specimen name="Roster" file="icons.tsx" note="Heroicons outline, seven static lucide, twenty animated lucide, three hand-drawn — DESIGN.md §4">
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(176px,1fr))] gap-x-4 gap-y-4">
+              {ICON_ROSTER.map(({ name, Icon }) => (
+                <div key={name} className="flex flex-col items-center gap-1.5 min-w-0 text-ink-1">
+                  <Icon size={16} />
+                  <span className="font-mono text-micro text-ink-3 whitespace-nowrap">{name}</span>
+                </div>
+              ))}
+            </div>
+          </Specimen>
+
+          <Specimen name="Brand marks" file="BrandIcon.tsx · brands.ts" note="colour where the brand has colour, currentColor where monochrome; a brand that ships a dark twin swaps marks with the theme. The generic fallback draws for any unmapped id and reports the id once per session, so it is not drawn here">
+            <div className="flex items-end gap-5 flex-wrap text-ink-1">
+              {BRAND_IDS.map((id) => (
+                <div key={id} className="flex flex-col items-center gap-1.5">
+                  <BrandIcon engineKey={id} size={16} />
+                  <span className="font-mono text-micro text-ink-3">{id}</span>
+                </div>
+              ))}
+            </div>
+          </Specimen>
         </Section>
 
         <Section
