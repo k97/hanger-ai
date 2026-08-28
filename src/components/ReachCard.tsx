@@ -10,24 +10,35 @@ import { rowLabelClass, rowMonoClass } from "./typeRoles";
    how (or whether) an engine reads this asset, and stating it once on the
    row is what lets thirteen engines fit in three lines. Derived from the
    fields annotations.rs already returns — a reached engine either has a
-   root link to name or reads the store where it lies; a miss is either an
-   unlinked root or a format the engine cannot read. Four is the ceiling:
-   the backend emits exactly those shapes. Labels: "Root not linked" and
-   "Another engine's format" signed off 2026-08-17; the two route labels,
-   Karthik's ruling 2026-08-28. */
+   symlink to name or reads the file where it already sits; a miss is either
+   an unlinked root or a format the engine cannot read. Four is the ceiling:
+   the backend emits exactly those shapes.
+
+   Labels, Karthik's ruling 2026-08-28: the first three name the mechanism
+   in the reader's words rather than Hanger's — "root" is our noun, not
+   theirs, and the middle row has to read as a success, since an absence
+   phrased as an absence sits directly above another absence that is a
+   failure. "Another engine's format" keeps its August wording and its
+   length on purpose: it names a cause rather than a fault — that reason
+   fires when the asset belongs to a different engine, so nothing is
+   missing and nothing is broken — and "Wrong format" would make a
+   non-problem read like an error. */
 const ROUTES: { key: string; title: string; holds: (r: EngineReachInfo) => boolean }[] = [
-  { key: "linked", title: "Through their own link", holds: (r) => r.reached && !!r.via_root },
-  { key: "inplace", title: "Where it lies", holds: (r) => r.reached && !r.via_root },
-  { key: "unlinked", title: "Root not linked", holds: (r) => !r.reached && r.reason !== "format" },
+  { key: "linked", title: "Through a symlink", holds: (r) => r.reached && !!r.via_root },
+  { key: "inplace", title: "Read directly", holds: (r) => r.reached && !r.via_root },
+  { key: "unlinked", title: "Not linked", holds: (r) => !r.reached && r.reason !== "format" },
   { key: "format", title: "Another engine's format", holds: (r) => !r.reached && r.reason === "format" },
 ];
 
-/* What the footer says for one engine. The two miss phrases are the Reach
-   column's own tip words (EngineReachTiles.tsx, tileTip), in a value slot
-   and so lower-cased; "in place" is the value the old per-engine row used. */
+/* What the footer says for one engine, and what its plate is labelled. A
+   reached engine's answer is its own path, or "in place" when there is no
+   link to name. A miss carries its reason, lower-cased for the value slot
+   and worded to match its row: the row says "Not linked", so the value
+   cannot say "root not linked" and put Hanger's own noun back in front of
+   the reader through the footer and every tooltip. */
 function answerFor(r: EngineReachInfo): string {
   if (r.reached) return r.via_root ? abbreviateHome(r.via_root) : "in place";
-  return r.reason === "format" ? "cannot read this format" : "root not linked";
+  return r.reason === "format" ? "cannot read this format" : "not linked";
 }
 
 /* 22px plate, 14px mark, the ruled 6px radius. A reached engine is the mark

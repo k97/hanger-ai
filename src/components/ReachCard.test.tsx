@@ -34,9 +34,9 @@ describe("ReachCard", () => {
   it("is one row per route, in reading order, whatever order the backend sent", () => {
     render(<ReachCard reach={reach} />);
     expect(routeKeys()).toEqual(["linked", "inplace", "unlinked", "format"]);
-    expect(screen.getByTestId("reach-route-label-linked").textContent).toBe("Through their own link");
-    expect(screen.getByTestId("reach-route-label-inplace").textContent).toBe("Where it lies");
-    expect(screen.getByTestId("reach-route-label-unlinked").textContent).toBe("Root not linked");
+    expect(screen.getByTestId("reach-route-label-linked").textContent).toBe("Through a symlink");
+    expect(screen.getByTestId("reach-route-label-inplace").textContent).toBe("Read directly");
+    expect(screen.getByTestId("reach-route-label-unlinked").textContent).toBe("Not linked");
     expect(screen.getByTestId("reach-route-label-format").textContent).toBe("Another engine's format");
   });
 
@@ -60,7 +60,7 @@ describe("ReachCard", () => {
     render(<ReachCard reach={reach} />);
     expect(plate("claude_code").getAttribute("aria-label")).toBe("Claude Code — ~/.claude/skills");
     expect(plate("zed").getAttribute("aria-label")).toBe("Zed — in place");
-    expect(plate("opencode").getAttribute("aria-label")).toBe("OpenCode — root not linked");
+    expect(plate("opencode").getAttribute("aria-label")).toBe("OpenCode — not linked");
     expect(plate("vscode").getAttribute("aria-label")).toBe("VS Code — cannot read this format");
   });
 
@@ -82,7 +82,7 @@ describe("ReachCard", () => {
 
     fireEvent.click(plate("opencode"));
     expect(answer().textContent).toContain("OpenCode");
-    expect(screen.getByTestId("reach-answer-value").textContent).toBe("root not linked");
+    expect(screen.getByTestId("reach-answer-value").textContent).toBe("not linked");
 
     fireEvent.click(plate("vscode"));
     expect(screen.getByTestId("reach-answer-value").textContent).toBe("cannot read this format");
@@ -141,7 +141,7 @@ describe("ReachCard", () => {
   it("states a route's reason once, on its label, never on a plate", () => {
     render(<ReachCard reach={reach} />);
     expect(plate("claude_desktop").textContent).toBe("");
-    expect(document.body.textContent?.match(/Root not linked/g)).toHaveLength(1);
+    expect(document.body.textContent?.match(/Not linked/g)).toHaveLength(1);
   });
 
   it("folds every root to a tilde; no absolute home survives", () => {
