@@ -108,6 +108,17 @@ describe("Design system — the system, rendered by the app that uses it", () =>
     );
     const rows = screen.getAllByRole("button").map((r) => r.textContent);
     expect(rows).toEqual(DESIGN_SECTIONS.map((s) => s.label));
+    // The TOC is layered: one eyebrow per group, in reading order, each
+    // directly above its own rows — Typography and Iconography under Styles.
+    const list = screen.getByTestId("design-sidebar");
+    const texts = Array.from(list.querySelectorAll("[data-testid='design-toc-group'], [role='button']")).map(
+      (el) => el.textContent
+    );
+    expect(texts).toEqual([
+      "Foundations", "Colour", "Geometry", "Motion",
+      "Styles", "Typography", "Iconography",
+      "Components", "Controls", "Composites",
+    ]);
     fireEvent.click(screen.getByRole("button", { name: "Motion" }));
     expect(onSelectSection).toHaveBeenCalledWith("motion");
   });
@@ -120,9 +131,17 @@ describe("Design system — the system, rendered by the app that uses it", () =>
 describe("Design system — Typography and Iconography", () => {
   beforeEach(() => cleanup());
 
-  it("the sections read Typography and Iconography, in DESIGN.md's order", () => {
+  /* Grouped, Karthik's ruling 2026-08-28 after the atomic-design read:
+   * Material's three words. Tokens read from the theme are Foundations;
+   * fonts and marks — the first things you can see — are Styles; what is
+   * built from them is Components, and the section that used to carry the
+   * group's own name is Composites so the group does not name one member. */
+  it("the sections read Typography and Iconography, grouped Foundations · Styles · Components", () => {
     const labels = DESIGN_SECTIONS.map((s) => s.label);
-    expect(labels).toEqual(["Colour", "Typography", "Geometry", "Motion", "Iconography", "Controls", "Components"]);
+    expect(labels).toEqual(["Colour", "Geometry", "Motion", "Typography", "Iconography", "Controls", "Composites"]);
+    expect(DESIGN_SECTIONS.map((s) => s.group)).toEqual([
+      "Foundations", "Foundations", "Foundations", "Styles", "Styles", "Components", "Components",
+    ]);
     render(<DesignSystemPane section="colour" />);
     expect(screen.getByRole("heading", { level: 2, name: "Typography" })).toBeTruthy();
     expect(screen.getByRole("heading", { level: 2, name: "Iconography" })).toBeTruthy();
