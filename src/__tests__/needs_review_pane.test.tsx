@@ -241,4 +241,39 @@ describe("Review inspector — provenance", () => {
     );
     expect(screen.getByText("Nothing selected")).toBeTruthy();
   });
+
+  // Class-contract only (Task 7, docs/v7-todo-content-typography): asserts
+  // Tailwind classes on rendered nodes, not layout or geometry — happy-dom
+  // lays nothing out (see verification.md).
+  it("Where/Reaches dt-dd pairs use the row roles; no shouting headers; kind line follows the title", () => {
+    const { container } = render(
+      <ReviewInspector issue={broken} position={1} outOf={4} onSkip={vi.fn()} />
+    );
+
+    const dts = container.querySelectorAll("dt");
+    const dds = container.querySelectorAll("dd");
+    expect(dts.length).toBe(3);
+    expect(dds.length).toBe(3);
+    dts.forEach((dt) => {
+      expect(dt.className).toContain("text-base-app");
+      expect(dt.className).toContain("text-ink-3");
+    });
+    dds.forEach((dd) => {
+      expect(dd.className).toContain("text-ink-1");
+    });
+
+    // No heading in the rendered inspector is still shouted in caps — R1/R2.
+    container.querySelectorAll("*").forEach((el) => {
+      const cls = el.getAttribute("class") ?? "";
+      expect(cls).not.toMatch(/\buppercase\b/);
+    });
+
+    // R2: the kind line ("Broken link · …") reads below the h2 title, not
+    // above it.
+    const h2 = container.querySelector("h2")!;
+    const kindLine = screen.getByText("Broken link").closest("div")!;
+    expect(
+      h2.compareDocumentPosition(kindLine) & Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
+  });
 });
