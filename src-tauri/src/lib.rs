@@ -8,6 +8,7 @@ pub mod mcp;
 pub mod menu;
 pub mod provenance;
 pub mod scanner;
+pub mod search;
 pub mod updates;
 mod transactional;
 pub mod preferences;
