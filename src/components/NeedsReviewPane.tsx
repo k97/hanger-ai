@@ -99,7 +99,7 @@ export default function NeedsReviewPane({
         <div className="flex items-baseline gap-3 mb-3">
           <span
             data-testid="review-total"
-            className="text-display font-medium tabular tracking-[-0.5px] leading-[1.1] text-ink-1"
+            className="text-display font-medium tabular tracking-[-0.5px] leading-display text-ink-1"
           >
             {counts.total}
           </span>

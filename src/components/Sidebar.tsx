@@ -176,7 +176,7 @@ export default function Sidebar({
         </div>
 
         {linkedRepos.length === 0 ? (
-          <div className="px-2 py-4 text-center text-small text-ink-3 flex flex-col gap-2 leading-relaxed">
+          <div className="px-2 py-4 text-center text-small text-ink-3 flex flex-col gap-2 leading-caption">
             <span>No repositories linked. Link a project folder to manage and deploy assets.</span>
             <button
               onClick={handleAddRepo}

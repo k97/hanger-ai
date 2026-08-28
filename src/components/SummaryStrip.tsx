@@ -95,7 +95,7 @@ export default function SummaryStrip({
       className="px-4 py-3.5 border border-line rounded-plane shrink-0"
     >
       <div className="flex items-baseline gap-3 mb-3">
-        <span className="text-display font-medium tabular tracking-[-0.5px] leading-[1.1] text-ink-1">
+        <span className="text-display font-medium tabular tracking-[-0.5px] leading-display text-ink-1">
           {total}
         </span>
         <span className="text-lg-app text-ink-2">{subtitle}</span>

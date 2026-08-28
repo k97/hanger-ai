@@ -189,7 +189,7 @@ const swatchGridClass = "grid grid-cols-[repeat(auto-fill,minmax(230px,1fr))] ga
 const MECHANISMS: MechanismWord[] = ["symlink", "copy", "drift", "broken", "none"];
 
 const TYPE_ROWS: { utility: string; px: string; sample: ReactNode }[] = [
-  { utility: "text-display", px: "32px", sample: <span className="text-display font-medium tabular tracking-[-0.5px] leading-[1.1] text-ink-1">142</span> },
+  { utility: "text-display", px: "32px", sample: <span className="text-display font-medium tabular tracking-[-0.5px] leading-display text-ink-1">142</span> },
   { utility: "text-lg-app", px: "16px", sample: <span className="text-lg-app text-ink-2">assets in the global store · 6 engines</span> },
   { utility: "text-base-app", px: "13px", sample: <span className="text-base-app font-medium text-ink-1">writing-great-skills</span> },
   { utility: "text-small", px: "12px", sample: <span className="text-small text-ink-2">Symlink — edits to the source reach every destination</span> },
