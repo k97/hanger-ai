@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { formatEngineLabel } from "../utils/engineUtils";
 import MechanismGlyph, { MechanismWord } from "./MechanismGlyph";
 import EngineReachTiles, { EngineReachInfo } from "./EngineReachTiles";
@@ -154,6 +155,17 @@ export function getRowState(item: AssetItem) {
 }
 
 export default function AssetRow({ item, isSelected, showKindColumn = true, annotation, variant = "table", onClick }: AssetRowProps) {
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  // A selection made elsewhere — the search palette's pick, a restored
+  // selection on mount — must bring its row into view. `nearest` is a no-op
+  // for a row already on screen, so a plain click never scrolls.
+  useEffect(() => {
+    if (isSelected && typeof rootRef.current?.scrollIntoView === "function") {
+      rootRef.current.scrollIntoView({ block: "nearest" });
+    }
+  }, [isSelected]);
+
   const { rowClass } = getRowState(item);
   const activeClass = isSelected ? "bg-tint" : rowClass;
   const nameColor = item.parseStatus === "failed"
@@ -173,6 +185,7 @@ export default function AssetRow({ item, isSelected, showKindColumn = true, anno
   if (variant === "card") {
     return (
       <div
+        ref={rootRef}
         onClick={onClick}
         tabIndex={0}
         data-selected={isSelected ? "true" : "false"}
@@ -224,6 +237,7 @@ export default function AssetRow({ item, isSelected, showKindColumn = true, anno
 
   return (
     <div
+      ref={rootRef}
       onClick={onClick}
       tabIndex={0}
       data-selected={isSelected ? "true" : "false"}
