@@ -5,8 +5,9 @@
 use std::fs;
 use std::path::Path;
 use tauri_app_lib::domain::{Inventory, Rule, Scope, Skill, Subagent, Tool};
+use tauri_app_lib::mcp::probe::ProbedTool;
 use tauri_app_lib::preferences::PreferencesStore;
-use tauri_app_lib::search::{fts_query, index_inventory, search, MARK_CLOSE, MARK_OPEN};
+use tauri_app_lib::search::{fts_query, index_inventory, index_probe_tools, search, MARK_CLOSE, MARK_OPEN};
 
 fn skill(dir: &Path, name: &str, description: &str, body: &str, scope: Scope) -> Skill {
     fs::create_dir_all(dir).unwrap();
@@ -99,6 +100,10 @@ fn fresh() -> (tempfile::TempDir, std::path::PathBuf) {
     let db = dir.path().join("hanger.db");
     PreferencesStore::new(&db).unwrap();
     (dir, db)
+}
+
+fn tool(name: &str, description: Option<&str>) -> ProbedTool {
+    ProbedTool { name: name.to_string(), description: description.map(String::from) }
 }
 
 #[test]
@@ -218,4 +223,87 @@ fn limit_caps_hits_but_not_total() {
     let res = search(&db, "quokka", 2).unwrap();
     assert_eq!(res.hits.len(), 2);
     assert_eq!(res.total, 5);
+}
+
+#[test]
+fn a_probed_tool_hits_on_its_description_and_names_its_server() {
+    let (_dir, db) = fresh();
+    let mut inv = Inventory::default();
+    inv.tools.push(server("/home/u/.claude.json", "spades", vec![], "npx spades"));
+    index_inventory(&db, &inv).unwrap();
+
+    index_probe_tools(
+        &db,
+        "/home/u/.claude.json:spades",
+        "spades",
+        "/home/u/.claude.json",
+        &[tool("set_volume", Some("Adjust the loudness of one app")), tool("mute", None)],
+    )
+    .unwrap();
+
+    let res = search(&db, "loudness", 10).unwrap();
+    assert_eq!(res.total, 1);
+    let hit = &res.hits[0];
+    assert_eq!(hit.kind, "mcp_tool");
+    assert_eq!(hit.name, "set_volume");
+    assert_eq!(hit.server.as_deref(), Some("spades"));
+    assert_eq!(hit.id, "/home/u/.claude.json:spades");
+    assert_eq!(hit.path, "/home/u/.claude.json", "path and place come from the server row");
+    assert_eq!(hit.place, "global");
+
+    // A tool with no description still hits on its name.
+    assert_eq!(search(&db, "mute", 10).unwrap().total, 1);
+}
+
+#[test]
+fn reprobing_replaces_the_registrations_tool_rows() {
+    let (_dir, db) = fresh();
+    let key = "/home/u/.claude.json:spades";
+    index_probe_tools(&db, key, "spades", "/home/u/.claude.json", &[tool("old_tool", None)]).unwrap();
+    index_probe_tools(&db, key, "spades", "/home/u/.claude.json", &[tool("new_tool", None)]).unwrap();
+    assert_eq!(search(&db, "old_tool", 10).unwrap().total, 0);
+    assert_eq!(search(&db, "new_tool", 10).unwrap().total, 1);
+}
+
+#[test]
+fn a_rescan_prunes_tools_of_registrations_it_no_longer_finds_and_keeps_the_rest() {
+    let (_dir, db) = fresh();
+    index_probe_tools(&db, "/a.json:gone", "gone", "/a.json", &[tool("ghost", None)]).unwrap();
+    index_probe_tools(&db, "/b.json:kept", "kept", "/b.json", &[tool("survivor", None)]).unwrap();
+
+    let mut inv = Inventory::default();
+    inv.tools.push(server("/b.json", "kept", vec![], "npx kept"));
+    index_inventory(&db, &inv).unwrap();
+
+    assert_eq!(search(&db, "ghost", 10).unwrap().total, 0, "a vanished registration's tools go with it");
+    assert_eq!(search(&db, "survivor", 10).unwrap().total, 1, "a live registration's tools survive the scan");
+}
+
+#[test]
+fn indexing_the_same_inventory_twice_leaves_one_row_per_asset() {
+    let (dir, db) = fresh();
+    let mut inv = Inventory::default();
+    inv.rules.push(rule(&dir.path().join("CLAUDE.md"), "quokka"));
+    inv.tools.push(server("/home/u/.claude.json", "quokka-server", vec![], "npx quokka"));
+    index_inventory(&db, &inv).unwrap();
+    index_inventory(&db, &inv).unwrap();
+    assert_eq!(search(&db, "quokka", 10).unwrap().total, 2);
+}
+
+#[test]
+fn a_credential_in_launch_args_is_not_searchable() {
+    // The property ipc_boundary_tests.rs pins for serialisation, pinned here
+    // for the index: `args` never reaches the table, `launch_display` does.
+    let (_dir, db) = fresh();
+    let mut inv = Inventory::default();
+    inv.tools.push(server(
+        "/home/u/.claude.json",
+        "remote",
+        vec!["mcp-remote", "https://example.com/sse", "--header", "Authorization: Bearer sk-live-quokka-9f8e7d"],
+        "npx mcp-remote https://example.com/sse --header Authorization: <redacted>",
+    ));
+    index_inventory(&db, &inv).unwrap();
+    assert_eq!(search(&db, "sk-live-quokka-9f8e7d", 10).unwrap().total, 0, "the token must not be indexed");
+    assert_eq!(search(&db, "quokka", 10).unwrap().total, 0, "nor any fragment of it");
+    assert_eq!(search(&db, "mcp-remote", 10).unwrap().total, 1, "the redacted launch is");
 }
