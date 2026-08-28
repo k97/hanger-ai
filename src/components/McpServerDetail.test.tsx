@@ -1667,6 +1667,12 @@ describe("McpServerDetail — inspector type roles (Task 4)", () => {
     expect(name.className).toContain("font-mono");
     expect(name.className).toContain("text-small");
     expect(name.className).toContain("text-ink-1");
+    // font-mono/text-small/text-ink-1 were all true of the pre-migration
+    // literal ("font-mono text-small text-ink-1 min-w-0 truncate") too --
+    // tabular is the one token rowMonoClass adds that string lacked, so
+    // it (together with the description assertions below) is what
+    // actually pins this case to rowMonoClass rather than the old string.
+    expect(name.className).toContain("tabular");
     const desc = screen.getByText(/reads a file/i);
     expect(desc.className).toContain("text-small");
     expect(desc.className).toContain("text-ink-3");

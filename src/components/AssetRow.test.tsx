@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { describe, it, expect } from "vitest";
 import AssetRow, { AssetItem, AssetAnnotationView } from "./AssetRow";
 
@@ -115,6 +115,31 @@ describe("AssetRow Shell Spec Compliance", () => {
       />
     );
     const dash = screen.getByText("—");
+    expect(dash.className).toContain("text-ink-3");
+    expect(dash.className).not.toContain("opacity-45");
+  });
+
+  // Class-contract guard only (happy-dom lays nothing out — verification.md).
+  // The card variant's own dash -- the Tools column has no per-server tool
+  // count field yet, so the cell is this component's existing "nothing to
+  // show" convention, not a fabricated zero, and it takes the same
+  // --ink-3-no-opacity treatment as the table variant's empty cell above.
+  it("the card variant's Tools dash is --ink-3 with no opacity", () => {
+    // Scoped to this render's own container: this file has no
+    // afterEach(cleanup), so the table variant's dash above and this one
+    // both sit in `document.body` at once and an unscoped screen.getByText
+    // would find two.
+    const { container } = render(
+      <AssetRow
+        item={{
+          name: "some-mcp-server",
+          category: "Tools",
+          path: "mcp:some-mcp-server",
+        }}
+        variant="card"
+      />
+    );
+    const dash = within(container).getByText("—");
     expect(dash.className).toContain("text-ink-3");
     expect(dash.className).not.toContain("opacity-45");
   });
