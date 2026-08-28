@@ -12,7 +12,7 @@
 //! replaces: `.agents/` was Gemini's `footprint_dir`, so Zed and Amp assets
 //! filed under "Gemini / Antigravity".
 
-use std::path::{Component, Path};
+use std::path::{Component, Path, PathBuf};
 
 /// The vendor-neutral shared directory. Owned by no agent, read by several.
 pub const SHARED_AGENTS_DIR: &str = ".agents";
@@ -246,6 +246,66 @@ pub const AGENT_CONFIGS: &[AgentConfig] = &[
         detect_files: &[],
     },
 ];
+
+/// Engine config directories a user can relocate with an environment
+/// variable, as (home-relative root, variable name).
+///
+/// Each prefix must also be an `AGENT_CONFIGS` global_root — a prefix nothing
+/// declares would never fire, and `every_env_table_entry_names_a_real_agent_root`
+/// pins that.
+///
+/// `.claude.json` is NOT listed here: it is not a directory and not a
+/// global_root, so `engine_base` special-cases it below against the same
+/// variable. Measured 2026-08-28: with CLAUDE_CONFIG_DIR set, Claude Code
+/// reads $DIR/.claude.json and stops reading ~/.claude.json.
+pub const CONFIG_DIR_ENVS: &[(&str, &str)] = &[
+    (".claude", "CLAUDE_CONFIG_DIR"),
+    (".codex", "CODEX_HOME"),
+];
+
+/// Where a home-relative engine path actually resolves.
+///
+/// With no variable set this is exactly `home.join(rel_path)`, which is the
+/// property `unset_vars_resolve_against_home_exactly_as_before` pins — this
+/// function must be a no-op on a machine that has relocated nothing.
+///
+/// KNOWN CEILING: Hanger reads only its own process environment. Launched
+/// from Finder it inherits launchd's, not the user's shell, so a variable
+/// exported in ~/.zshrc is invisible here. Stated in docs/roadmap.md rather
+/// than worked around; reading shell init files is guesswork with its own
+/// failure modes.
+pub fn engine_base(home: &Path, rel_path: &str) -> PathBuf {
+    for (prefix, var) in CONFIG_DIR_ENVS {
+        // `.claude.json` rides the same variable as `.claude` but is a
+        // sibling file, not a child of that directory.
+        let dotted = format!("{prefix}.json");
+        if rel_path == dotted {
+            if let Some(base) = relocated(var) {
+                return base.join(&dotted);
+            }
+            continue;
+        }
+        // Boundary match: `.claude` must not swallow `.claudia`.
+        let is_root = rel_path == *prefix;
+        let child = rel_path.strip_prefix(prefix).and_then(|r| r.strip_prefix('/'));
+        if !is_root && child.is_none() {
+            continue;
+        }
+        if let Some(base) = relocated(var) {
+            return match child {
+                Some(rest) => base.join(rest),
+                None => base,
+            };
+        }
+    }
+    home.join(rel_path)
+}
+
+/// An env var's value, ignoring empty strings — an exported-but-empty
+/// variable means "unset" far more often than it means "resolve to /".
+fn relocated(var: &str) -> Option<PathBuf> {
+    std::env::var(var).ok().filter(|v| !v.is_empty()).map(PathBuf::from)
+}
 
 /// Split a path into its string components, skipping the root and any
 /// prefix. Whole-component matching is the point: `contains("/.data")`
