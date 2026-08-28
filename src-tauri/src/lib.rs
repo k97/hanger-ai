@@ -837,11 +837,6 @@ fn run_scan(app: AppHandle) -> Result<Inventory, String> {
     let mut scan_paths = std::collections::HashSet::new();
     combined_inventory.project_scans.retain(|p| scan_paths.insert(p.path.clone()));
 
-    // Search is a convenience: an index failure never fails the scan.
-    if let Err(e) = search::index_inventory(&get_db_path(&app), &combined_inventory) {
-        log::warn!("search index not rebuilt: {}", e);
-    }
-
     Ok(combined_inventory)
 }
 

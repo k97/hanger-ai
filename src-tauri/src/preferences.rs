@@ -639,7 +639,7 @@ impl PreferencesStore {
         // v8: the search palette's content index. An FTS5 virtual table,
         // rebuilt from the combined inventory at the end of every scan and
         // per registration after every probe (`search.rs`, called from
-        // `run_scan`, `start_scan` and `mcp_cached_probe` in `lib.rs`), so
+        // `start_scan` and `mcp_cached_probe` in `lib.rs`), so
         // it never needs to survive a schema change — dropping and
         // recreating it is always safe. `porter unicode61` stems, so
         // "deploying" matches "deploy"; UNINDEXED columns are identity the

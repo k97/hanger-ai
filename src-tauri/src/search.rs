@@ -6,9 +6,8 @@
 //! rewrites one registration's MCP tool rows after every probe. The reader
 //! ranks by bm25 with name weighted over description over body, and returns
 //! a snippet with private-use markers around each match so the frontend can
-//! emphasise them without parsing HTML. The scan hooks are `run_scan` and
-//! `start_scan` in `lib.rs`; the probe hook is `mcp_cached_probe`, also in
-//! `lib.rs`.
+//! emphasise them without parsing HTML. The scan hook is `start_scan` in
+//! `lib.rs`; the probe hook is `mcp_cached_probe`, also in `lib.rs`.
 //!
 //! Bodies are re-read here rather than threaded out of the scanner's many
 //! `upsert_asset` sites: one site instead of many, and a miss is uniform

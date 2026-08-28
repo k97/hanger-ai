@@ -1256,9 +1256,9 @@ Ranking and counts are entirely backend-owned: `search::search` runs FTS5
 with bm25 weighted 8/3/1 across name, description and body (`search.rs:241-250`)
 and returns both the ranked `hits` and a separate `total` from a plain
 `count(*)` (`:233-239`, `:275`), exposed as the `search_assets` command
-(`lib.rs:1877-1880`) and kept current by three call sites: after a scan
-completes (`lib.rs:841`), after a rescan (`:1371`), and after an MCP probe
-answers, cached or fresh (`:643-649`). Picking a hit calls `onPick`, wired to
+(`lib.rs:1872-1875`) and kept current by two call sites: after a scan
+completes (`lib.rs:1366`), and after an MCP probe answers, cached or fresh
+(`:643-649`). Picking a hit calls `onPick`, wired to
 `openSearchHit`, which switches screens and then calls
 `handleSelectAsset(asset, screen)` with the target screen passed explicitly
 rather than read from state, because a pick can change screens in the same
