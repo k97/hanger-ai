@@ -145,7 +145,7 @@ rulings recorded in `src/__tests__/type-roles.test.ts:9`, 2026-08-27):
 | 13 | body — labels, values, prose, list names, tabs | `--ink-1` for values and prose, `--ink-3` for labels | `text-base-app` | `rowLabelClass`, `rowValueClass`, `sectionHeadClass`, `groupLabelClass` (`typeRoles.ts:7,9-10,14`) |
 | 12 | secondary — captions, mono values, paths, chips, counts, foot and stamp lines | `--ink-1` for `rowMonoClass` values, `--ink-2` / `--ink-3` for captions and grey mono labels | `text-small` | `captionClass`, `rowMonoClass`, `monoLabelClass`, `columnHeadClass` (`typeRoles.ts:15-16,20,24`) |
 | 11 | filled badges and chips | `--ink-3` | `text-micro` | e.g. the inspector list's scope pill (`Flyout.tsx:919`) |
-| 16 | titles and content headings | `--ink-1` | `text-lg-app` | the inspector's title `h2` (`Flyout.tsx:705`), Markdown headings (`MarkdownDoc.tsx:78`) |
+| 16 | titles and top content headings | `--ink-1` | `text-lg-app` | the inspector's title `h2` (`Flyout.tsx:705`), a document's `#` and `##` (`MarkdownDoc.tsx:89`); `###` and deeper step down to `sectionHeadClass` (`:93`) |
 | 32 | display — the big stat numeral | `--ink-1` | `text-display` | `SummaryStrip.tsx:98` |
 
 Four leadings sit beside the scale as tokens, not arbitrary per-call values —
@@ -949,6 +949,16 @@ the same card shape as everything else: a filename row with a `View source`
 toggle when there is a formatted view to fall back from, then the rendered
 body — `MarkdownDoc` for a skill's markdown, formatted JSON for a config that
 parses, or the raw source either way (`:388-429`, the toggle's gate `:222`).
+The markdown parser (`skillDocument.ts:410`, `toBlocks` `:514`) covers what a
+census of the 384 skill, rule and subagent files in the store found in use
+(2026-08-29): nested and task lists, pipe tables, blockquotes, rules, hard
+breaks, and inline code, `*`/`_` emphasis, strikethrough, escapes and links —
+still plain data into React elements, never an HTML string, and only http(s)
+survives as a destination (`:190-216`). A table is a `<table>` on `--line`
+row rules with a `--line-2` head rule (`MarkdownDoc.tsx:121-148`); a quote is a
+2px `--line-2` left rule in `--ink-2` (`:154`); a rule is a `--line` hairline
+(`:160`); a task item's box is 14px, `--radius 6px`, reporting state with
+`role="checkbox"` and taking no input — the file is the truth (`:54-66`).
 For a skill specifically, a `Context` section sits above the document and
 states what the skill costs to have around: name and description always
 loaded, the whole file's size when it is opened, and an estimated token
@@ -1375,7 +1385,7 @@ colour, not the ground" (`:21-32`). It pluralises its own summary from `count`
 
 **`LinkPanel`** (`LinkPanel.tsx:18-29`), **`DiffChooser`** (`DiffChooser.tsx:9`),
 **`SidebarScanModal`** (`SidebarScanModal.tsx:5`), **`MarkdownDoc`**
-(`MarkdownDoc.tsx:52`, takes `blocks: Block[]`), **`ScanStatusIndicator`**,
+(`MarkdownDoc.tsx:175`, takes `blocks: Block[]`), **`ScanStatusIndicator`**,
 **`AssetDetail`**, **`HangerMark`**.
 
 ---

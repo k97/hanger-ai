@@ -3,8 +3,10 @@
  *
  * This is not a Markdown implementation and does not try to be. A SKILL.md is
  * YAML frontmatter plus prose, and the inspector renders one document format,
- * so the parser covers exactly what that format uses: headings, paragraphs,
- * lists, fenced code, and inline code / emphasis / links.
+ * so the parser covers exactly what that format uses. A census of the 384
+ * skill, rule and subagent files in the store (2026-08-29) set the list:
+ * headings, paragraphs, nested and task lists, fenced code, pipe tables,
+ * blockquotes, rules, and inline code / emphasis / strikethrough / links.
  *
  * The important consequence is safety. Everything here produces plain data
  * that the renderer turns into React elements — no HTML string is ever built,
@@ -70,14 +72,30 @@ export interface Span {
   code?: boolean;
   strong?: boolean;
   em?: boolean;
+  strike?: boolean;
   href?: string;
+  /** A hard line break — two trailing spaces, a trailing backslash or `<br>`. */
+  break?: boolean;
 }
+
+export interface ListItem {
+  spans: Span[];
+  /** Only a task item carries this: `- [ ]` is false, `- [x]` true. */
+  checked?: boolean;
+  /** Whatever sits indented under the item — a sub-list, a fence, another paragraph. Absent when nothing does. */
+  children?: Block[];
+}
+
+export type Align = "left" | "center" | "right" | null;
 
 export type Block =
   | { kind: "heading"; level: number; spans: Span[] }
   | { kind: "paragraph"; spans: Span[] }
-  | { kind: "list"; ordered: boolean; items: Span[][] }
-  | { kind: "code"; language: string; text: string };
+  | { kind: "list"; ordered: boolean; items: ListItem[] }
+  | { kind: "code"; language: string; text: string }
+  | { kind: "table"; align: Align[]; header: Span[][]; rows: Span[][][] }
+  | { kind: "quote"; blocks: Block[] }
+  | { kind: "rule" };
 
 function unquote(value: string): string {
   const trimmed = value.trim();
@@ -164,78 +182,257 @@ export function parseSkillDocument(text: string): SkillDocument {
   return { frontmatter, body: lines.slice(close + 1).join("\n") };
 }
 
-const INLINE = /(`[^`]+`|\*\*[^*]+\*\*|\*[^*\s][^*]*\*|\[[^\]]+\]\([^)\s]+\))/;
+// One alternation, tried left to right at each position: an escape beats
+// everything, a code span beats emphasis, and `**` beats `*` where they
+// share a start. Underscore emphasis wants a non-word character on both
+// sides, so a snake_case_name never opens one; single-star emphasis wants a
+// non-space after the opening star, so `2 * 3` never does either.
+const INLINE =
+  /(?<esc>\\[!-\/:-@\[-`{-~])|(?<tick>`+)(?<code>[\s\S]+?)\k<tick>(?!`)|!\[(?<alt>[^\]]*)\]\((?<src>[^)\s]+)\)|\[(?<label>[^\]]+)\]\((?<url>[^)\s]+)\)|\*\*(?<strong>[^*]+)\*\*|(?<![A-Za-z0-9_])__(?<ustrong>[^_]+)__(?![A-Za-z0-9_])|\*(?<em>[^*\s][^*]*)\*|(?<![A-Za-z0-9_])_(?<uem>[^_\s](?:[^_]*[^_\s])?)_(?![A-Za-z0-9_])|~~(?<strike>[^~]+)~~|(?<br><br\s*\/?>)/i;
 
-/** Splits a line into text, inline code, bold, emphasis and links. */
+function hardBreak(): Span {
+  return { text: "\n", break: true };
+}
+
+function isPlain(span: Span): boolean {
+  return !span.code && !span.strong && !span.em && !span.strike && !span.href && !span.break;
+}
+
+/** Appends a span, folding plain text into a plain neighbour so an escape or a `<br>` never leaves a seam. */
+function push(spans: Span[], span: Span) {
+  if (span.text === "") return;
+  const last = spans[spans.length - 1];
+  if (last && isPlain(last) && isPlain(span)) {
+    last.text += span.text;
+    return;
+  }
+  spans.push(span);
+}
+
+function linkSpan(text: string, destination: string): Span {
+  // Only http(s) travels as a link. Any other scheme — javascript:, file:,
+  // data: — keeps its label and loses its destination. An image is shown the
+  // same way, as its alt text: the panel does not fetch pictures.
+  return /^https?:\/\//i.test(destination) ? { text, href: destination } : { text };
+}
+
+/** Splits a line into text, inline code, bold, emphasis, strikethrough, links and breaks. */
 function toSpans(line: string): Span[] {
   const spans: Span[] = [];
   let rest = line;
 
   while (rest) {
     const match = INLINE.exec(rest);
-    if (!match || match.index === undefined) {
-      spans.push({ text: rest });
+    if (!match) {
+      push(spans, { text: rest });
       break;
     }
+    if (match.index > 0) push(spans, { text: rest.slice(0, match.index) });
 
-    if (match.index > 0) {
-      spans.push({ text: rest.slice(0, match.index) });
-    }
-
-    const token = match[0];
-    if (token.startsWith("`")) {
-      spans.push({ text: token.slice(1, -1), code: true });
-    } else if (token.startsWith("**")) {
-      spans.push({ text: token.slice(2, -2), strong: true });
-    } else if (token.startsWith("*")) {
-      // Single-asterisk emphasis. Ordered after `**` so bold wins at a shared
-      // position; the regex requires a non-space after the opening star, so a
-      // bare `2 * 3` never opens one.
-      spans.push({ text: token.slice(1, -1), em: true });
+    const g = match.groups!;
+    if (g.esc !== undefined) {
+      push(spans, { text: g.esc.slice(1) });
+    } else if (g.code !== undefined) {
+      // A code span may pad itself with one space each side to hold a backtick.
+      push(spans, { text: g.code.replace(/^ (.+) $/, "$1"), code: true });
+    } else if (g.alt !== undefined) {
+      push(spans, linkSpan(g.alt, g.src));
+    } else if (g.label !== undefined) {
+      push(spans, linkSpan(g.label, g.url));
+    } else if (g.strong !== undefined || g.ustrong !== undefined) {
+      // Emphasis nests: the inside is read again so `**a \`b\` c**` keeps its code.
+      for (const inner of toSpans(g.strong ?? g.ustrong)) push(spans, { ...inner, strong: true });
+    } else if (g.em !== undefined || g.uem !== undefined) {
+      for (const inner of toSpans(g.em ?? g.uem)) push(spans, { ...inner, em: true });
+    } else if (g.strike !== undefined) {
+      for (const inner of toSpans(g.strike)) push(spans, { ...inner, strike: true });
     } else {
-      const link = /^\[([^\]]+)\]\(([^)\s]+)\)$/.exec(token)!;
-      // Only http(s) travels as a link. Any other scheme — javascript:, file:,
-      // data: — keeps its label and loses its destination.
-      const href = /^https?:\/\//i.test(link[2]) ? link[2] : undefined;
-      spans.push(href ? { text: link[1], href } : { text: link[1] });
+      push(spans, hardBreak());
     }
 
-    const tail = rest.slice(match.index);
-    rest = tail.slice(token.length);
+    rest = rest.slice(match.index + match[0].length);
   }
 
-  return spans.filter((span) => span.text !== "");
+  return spans;
 }
 
-/** Reads the document body into the block list the renderer walks. */
-export function toBlocks(body: string): Block[] {
-  const lines = body.replace(/\r\n/g, "\n").split("\n");
-  const blocks: Block[] = [];
+/** Joins a paragraph's lines with a space, or a hard break where a line asked for one. */
+function linesToSpans(lines: string[]): Span[] {
+  const spans: Span[] = [];
+  let pendingBreak = false;
+  lines.forEach((raw, index) => {
+    const body = raw.trimStart();
+    let text = body.trimEnd();
+    let hard = false;
+    if (/  $/.test(body)) {
+      hard = true;
+    } else if (/(?<!\\)\\$/.test(body)) {
+      hard = true;
+      text = body.slice(0, -1).trimEnd();
+    }
+    if (index > 0) push(spans, pendingBreak ? hardBreak() : { text: " " });
+    for (const span of toSpans(text)) push(spans, span);
+    pendingBreak = hard;
+  });
+  return spans;
+}
 
+const FENCE = /^\s*```(.*)$/;
+const HEADING = /^(#{1,6})\s+(.*)$/;
+const RULE = /^ {0,3}([-*_])(?: *\1){2,} *$/;
+const QUOTE = /^ {0,3}> ?(.*)$/;
+// Indent, marker, the gap after it, the text. The item's content column is
+// the width of the first three, and every line indented that far is its.
+const MARKER = /^( *)([-*+]|\d+[.)])( +)(.*)$/;
+const TASK = /^\[( |x|X)\](?:\s+(.*))?$/;
+const COMMENT_OPEN = /^\s*<!--/;
+const TABLE_DIVIDER = /^\|?(?:\s*:?-+:?\s*\|)*\s*:?-+:?\s*\|?$/;
+
+function leading(line: string): number {
+  return /^ */.exec(line)![0].length;
+}
+
+/** The lines that end a paragraph, a lazily wrapped item or a quote. */
+function startsBlock(line: string): boolean {
+  return HEADING.test(line) || FENCE.test(line) || RULE.test(line) || QUOTE.test(line) || COMMENT_OPEN.test(line);
+}
+
+function isDivider(line: string): boolean {
+  return line.includes("|") && TABLE_DIVIDER.test(line.trim());
+}
+
+/** Splits a table row on unescaped pipes; the outer pipes are decoration, not empty cells. */
+function splitCells(line: string): string[] {
+  const trimmed = line.trim();
+  const cells: string[] = [];
+  let cell = "";
+  for (let i = 0; i < trimmed.length; i++) {
+    const ch = trimmed[i];
+    if (ch === "\\" && trimmed[i + 1] === "|") {
+      cell += "\\|";
+      i++;
+    } else if (ch === "|") {
+      cells.push(cell);
+      cell = "";
+    } else {
+      cell += ch;
+    }
+  }
+  cells.push(cell);
+  if (trimmed.startsWith("|")) cells.shift();
+  if (trimmed.endsWith("|") && !trimmed.endsWith("\\|")) cells.pop();
+  return cells.map((c) => c.trim());
+}
+
+function alignOf(divider: string): Align {
+  const left = divider.startsWith(":");
+  const right = divider.endsWith(":");
+  return left && right ? "center" : right ? "right" : left ? "left" : null;
+}
+
+function readTable(lines: string[], start: number): { block: Block; next: number } | null {
+  const header = splitCells(lines[start]);
+  const dividers = splitCells(lines[start + 1]);
+  if (header.length !== dividers.length) return null;
+
+  const rows: Span[][][] = [];
+  let i = start + 2;
+  while (i < lines.length && lines[i].trim() && !startsBlock(lines[i]) && !MARKER.test(lines[i])) {
+    // GFM's rule: a long row loses its extra cells and a short one is padded.
+    const cells = splitCells(lines[i]).slice(0, header.length);
+    while (cells.length < header.length) cells.push("");
+    rows.push(cells.map(toSpans));
+    i++;
+  }
+  return {
+    block: { kind: "table", align: dividers.map(alignOf), header: header.map(toSpans), rows },
+    next: i,
+  };
+}
+
+function toItem(content: string[]): ListItem {
+  const task = TASK.exec(content[0]);
+  const first = task ? (task[2] ?? "") : content[0];
+  // The item's body is a document of its own: its first paragraph is the
+  // item's text and anything after — a sub-list, a fence — its children.
+  const blocks = parseBlocks([first, ...content.slice(1)]);
+  const [head, ...rest] = blocks;
+  const item: ListItem = head?.kind === "paragraph" ? { spans: head.spans } : { spans: [] };
+  const children = head?.kind === "paragraph" ? rest : blocks;
+  if (task) item.checked = task[1] !== " ";
+  if (children.length > 0) item.children = children;
+  return item;
+}
+
+function readList(lines: string[], start: number): { block: Block; next: number } {
+  const ordered = /^\d/.test(MARKER.exec(lines[start])![2]);
+  const items: ListItem[] = [];
+  let i = start;
+
+  while (i < lines.length) {
+    const marker = MARKER.exec(lines[i]);
+    if (!marker || /^\d/.test(marker[2]) !== ordered) break;
+    const contentColumn = marker[0].length - marker[4].length;
+    const content: string[] = [marker[4]];
+    i++;
+
+    while (i < lines.length) {
+      const line = lines[i];
+      if (!line.trim()) {
+        // Blank lines belong to the item only when something indented follows them.
+        let j = i;
+        while (j < lines.length && !lines[j].trim()) j++;
+        if (j < lines.length && leading(lines[j]) >= contentColumn) {
+          for (; i < j; i++) content.push("");
+          continue;
+        }
+        i = j;
+        break;
+      }
+      if (leading(line) >= contentColumn) {
+        content.push(line.slice(contentColumn));
+        i++;
+        continue;
+      }
+      // Less indented than the item's text: a sibling marker or a new block
+      // ends the item; anything else is a lazily wrapped line of it, unless
+      // a blank line already closed the paragraph.
+      if (MARKER.test(line) || startsBlock(line) || content[content.length - 1].trim() === "") break;
+      content.push(line.trimStart());
+      i++;
+    }
+    items.push(toItem(content));
+  }
+
+  return { block: { kind: "list", ordered, items }, next: i };
+}
+
+function parseBlocks(lines: string[]): Block[] {
+  const blocks: Block[] = [];
   let paragraph: string[] = [];
-  let list: { ordered: boolean; items: Span[][] } | null = null;
 
   const flushParagraph = () => {
     if (paragraph.length === 0) return;
-    blocks.push({ kind: "paragraph", spans: toSpans(paragraph.join(" ")) });
+    blocks.push({ kind: "paragraph", spans: linesToSpans(paragraph) });
     paragraph = [];
   };
-  const flushList = () => {
-    if (!list) return;
-    blocks.push({ kind: "list", ordered: list.ordered, items: list.items });
-    list = null;
-  };
-  const flush = () => {
-    flushParagraph();
-    flushList();
-  };
 
-  for (let i = 0; i < lines.length; i++) {
+  let i = 0;
+  while (i < lines.length) {
     const line = lines[i];
 
-    const fence = /^\s*```(.*)$/.exec(line);
+    if (COMMENT_OPEN.test(line)) {
+      // A comment that opens its line is for the file's editor, not its
+      // reader; one inside a sentence or a code span stays text.
+      flushParagraph();
+      while (i < lines.length && !lines[i].includes("-->")) i++;
+      i++;
+      continue;
+    }
+
+    const fence = FENCE.exec(line);
     if (fence) {
-      flush();
+      flushParagraph();
       const language = fence[1].trim();
       const content: string[] = [];
       i++;
@@ -245,39 +442,80 @@ export function toBlocks(body: string): Block[] {
         content.push(lines[i]);
         i++;
       }
+      i++;
       blocks.push({ kind: "code", language, text: content.join("\n") });
       continue;
     }
 
     if (!line.trim()) {
-      flush();
-      continue;
-    }
-
-    const heading = /^(#{1,6})\s+(.*)$/.exec(line);
-    if (heading) {
-      flush();
-      blocks.push({ kind: "heading", level: heading[1].length, spans: toSpans(heading[2].trim()) });
-      continue;
-    }
-
-    const bullet = /^\s*[-*]\s+(.*)$/.exec(line);
-    const numbered = /^\s*\d+[.)]\s+(.*)$/.exec(line);
-    if (bullet || numbered) {
       flushParagraph();
-      const ordered = Boolean(numbered);
-      if (!list || list.ordered !== ordered) {
-        flushList();
-        list = { ordered, items: [] };
-      }
-      list.items.push(toSpans((bullet ?? numbered)![1].trim()));
+      i++;
       continue;
     }
 
-    flushList();
-    paragraph.push(line.trim());
+    const heading = HEADING.exec(line);
+    if (heading) {
+      flushParagraph();
+      blocks.push({ kind: "heading", level: heading[1].length, spans: toSpans(heading[2].trim()) });
+      i++;
+      continue;
+    }
+
+    if (RULE.test(line)) {
+      flushParagraph();
+      blocks.push({ kind: "rule" });
+      i++;
+      continue;
+    }
+
+    if (QUOTE.test(line)) {
+      flushParagraph();
+      const inner: string[] = [];
+      while (i < lines.length && QUOTE.test(lines[i])) {
+        inner.push(QUOTE.exec(lines[i])![1]);
+        i++;
+      }
+      // A plain line straight after a quote is still the quote — GFM's lazy continuation.
+      while (i < lines.length && lines[i].trim() && !startsBlock(lines[i]) && !MARKER.test(lines[i])) {
+        inner.push(lines[i]);
+        i++;
+      }
+      blocks.push({ kind: "quote", blocks: parseBlocks(inner) });
+      continue;
+    }
+
+    if (line.includes("|") && i + 1 < lines.length && isDivider(lines[i + 1])) {
+      const table = readTable(lines, i);
+      if (table) {
+        flushParagraph();
+        blocks.push(table.block);
+        i = table.next;
+        continue;
+      }
+    }
+
+    if (MARKER.test(line)) {
+      flushParagraph();
+      const list = readList(lines, i);
+      blocks.push(list.block);
+      i = list.next;
+      continue;
+    }
+
+    paragraph.push(line);
+    i++;
   }
 
-  flush();
+  flushParagraph();
   return blocks;
+}
+
+/** Reads the document body into the block list the renderer walks. */
+export function toBlocks(body: string): Block[] {
+  // A leading tab indents like four spaces so nesting reads the same either way.
+  const lines = body
+    .replace(/\r\n/g, "\n")
+    .replace(/^\t+/gm, (tabs) => "    ".repeat(tabs.length))
+    .split("\n");
+  return parseBlocks(lines);
 }
