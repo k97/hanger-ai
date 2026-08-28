@@ -112,3 +112,53 @@ describe("Design system — the system, rendered by the app that uses it", () =>
     expect(onSelectSection).toHaveBeenCalledWith("motion");
   });
 });
+
+/* Typography and Iconography — Karthik's ask, 2026-08-28: the Type section
+ * takes its full name and covers the font families; the icon system (§4 of
+ * DESIGN.md) gets a section of its own, between Motion and Controls where
+ * §4 sits between §3 and §5. */
+describe("Design system — Typography and Iconography", () => {
+  beforeEach(() => cleanup());
+
+  it("the sections read Typography and Iconography, in DESIGN.md's order", () => {
+    const labels = DESIGN_SECTIONS.map((s) => s.label);
+    expect(labels).toEqual(["Colour", "Typography", "Geometry", "Motion", "Iconography", "Controls", "Components"]);
+    render(<DesignSystemPane section="colour" />);
+    expect(screen.getByRole("heading", { level: 2, name: "Typography" })).toBeTruthy();
+    expect(screen.getByRole("heading", { level: 2, name: "Iconography" })).toBeTruthy();
+    expect(screen.queryByRole("heading", { level: 2, name: "Type" })).toBeNull();
+    expect(document.getElementById("ds-iconography")).toBeTruthy();
+  });
+
+  it("Typography names the three font stacks and says the two sans stacks are one", () => {
+    render(<DesignSystemPane section="type" />);
+    const section = document.getElementById("ds-type")!;
+    for (const token of ["--font-sans", "--font-flex", "--font-mono"]) {
+      expect(within(section).getByText(token), token).toBeTruthy();
+    }
+    // tokens.css:65-66 declare --font-flex with the same stack as --font-sans;
+    // the page states it rather than implying a second face exists.
+    expect(within(section).getByText(/same stack/i)).toBeTruthy();
+    // The scale rows carry the role §2's table gives each size.
+    expect(within(section).getByText("display")).toBeTruthy();
+    expect(within(section).getByText("body")).toBeTruthy();
+  });
+
+  it("Iconography rosters the marks by export name, shows the stroke per size band, and the brand sprite", () => {
+    render(<DesignSystemPane section="iconography" />);
+    const section = document.getElementById("ds-iconography")!;
+    // Rendered from the module, so a mark added to icons.tsx appears here
+    // without anyone listing it: one Heroicons mark, one lucide static mark,
+    // one animated mark, the hand-drawn one.
+    for (const name of ["FolderIcon", "GitMergeIcon", "GitPullRequestClosedIcon", "RevealInFileManagerIcon"]) {
+      expect(within(section).getByText(name), name).toBeTruthy();
+    }
+    // strokeFor's four bands (icons.tsx): ≤12 → 2.2, ≤16 → 1.9, ≤20 → 1.7, above → 1.5.
+    for (const stroke of ["2.2", "1.9", "1.7", "1.5"]) {
+      expect(within(section).getByText(stroke, { exact: false }), stroke).toBeTruthy();
+    }
+    // Every BrandId draws from the sprite; Codex carries its dark twin.
+    expect(section.querySelector('use[href="#brand-devin"]')).toBeTruthy();
+    expect(section.querySelector('use[href="#brand-codex-dark"]')).toBeTruthy();
+  });
+});
