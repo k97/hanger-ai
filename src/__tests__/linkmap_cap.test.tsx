@@ -74,14 +74,17 @@ describe("the map cap", () => {
     render(<App />);
     const header = await screen.findByRole("banner");
     // A positive anchor first: without it the absences below could pass on a
-    // header that had not finished rendering anything at all. The cap's own
+    // shell that had not finished rendering anything at all. The cap's own
     // search field is gone (Task 9); the breadcrumb's "Global" label is the
-    // stable landmark now.
-    expect(within(header).getByText("Global")).toBeTruthy();
+    // stable landmark — and since 2026-08-28 it lives in the sidebar cap,
+    // not the banner (crumb_in_band.test.tsx), so the anchor is read there
+    // while the absences below stay on the header.
+    const sidebarCap = document.querySelector("[data-rail-column] > div") as HTMLElement;
+    expect(within(sidebarCap).getByText("Global")).toBeTruthy();
 
     eventListeners["scan://complete"]({ payload: { inventory: emptyInventory } });
     await waitFor(() => {
-      expect(within(header).getByText("Global")).toBeTruthy();
+      expect(within(sidebarCap).getByText("Global")).toBeTruthy();
     });
 
     expect(within(header).queryByText("Scanned moments ago")).toBeNull();
@@ -105,16 +108,17 @@ describe("the map cap", () => {
     // native traffic lights occupy and the crumb steps aside for it; here
     // nothing does, so the crumb has to clear the dots on its own.
     //
-    // It did not: `pl-[18px]` put the breadcrumb 1.5pt after the green dot's
-    // ink, measured at 2x on the live window (green ends x=147, crumb ink
-    // starts x=150). The other two gaps in this cluster are ~11.5pt and
-    // ~10.5pt, so this one read as an overlap.
+    // It did not, once: `pl-[18px]` from <main>'s edge put the breadcrumb
+    // 1.5pt after the green dot's ink (2x: green ends x=147, crumb ink at
+    // x=150), and `pl-[28px]` fixed it. Since 2026-08-28 the crumb lives in
+    // the sidebar cap after its 76px spacer (crumb_in_band.test.tsx), so the
+    // same 84px ink position is `pl-2` from there — and the other views
+    // need no inset at all, because the toggle sits between.
     //
     // A CLASS CONTRACT, not a spacing measurement: happy-dom lays nothing
     // out, so nothing here can see a gap. What it can do is fail if the
-    // link-map branch goes back to sharing the narrow inset with the views
-    // that have a toggle to hide behind. The pt figures live in DESIGN.md
-    // and are retuned by measuring a live window.
+    // link-map branch loses its inset. The pt figures live in DESIGN.md and
+    // are retuned by measuring a live window.
     render(<App />);
     await screen.findByTestId("map-node-2");
 
@@ -122,7 +126,8 @@ describe("the map cap", () => {
     expect(screen.queryByLabelText("Toggle sidebar")).toBeNull();
 
     const crumb = screen.getByText("Link map").parentElement!;
-    expect(crumb.className).toContain("pl-[28px]");
+    expect(crumb.className).toContain("pl-2");
+    expect(crumb.className).not.toContain("pl-[28px]");
     expect(crumb.className).not.toContain("pl-[18px]");
     expect(crumb.className).not.toContain("pl-[51px]");
   });

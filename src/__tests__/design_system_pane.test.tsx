@@ -173,9 +173,16 @@ describe("Design system — Typography and Iconography", () => {
     for (const name of ["FolderIcon", "GitMergeIcon", "GitPullRequestClosedIcon", "RevealInFileManagerIcon"]) {
       expect(within(section).getByText(name), name).toBeTruthy();
     }
-    // strokeFor's four bands (icons.tsx): ≤12 → 2.2, ≤16 → 1.9, ≤20 → 1.7, above → 1.5.
-    for (const stroke of ["2.2", "1.9", "1.7", "1.5"]) {
-      expect(within(section).getByText(stroke, { exact: false }), stroke).toBeTruthy();
+    // strokeFor (icons.tsx) is one continuous rule; the ladder's six bands
+    // (12/13/14/16/20/24) render four distinct values, 2, 1.85, 1.71 and
+    // 1.5 — 1.5 repeats across three bands (16, 20, 24). A bare stroke
+    // value cannot fail here: the size label sits beside it in the same
+    // string ("12 · 2"), so a query for "2" with exact:false matches the
+    // "12" alone regardless of what the stroke renders. Assert the whole
+    // label instead. getAllByText, not getByText, because "16 · 1.5"
+    // repeats at 20 and 24.
+    for (const label of ["12 · 2", "13 · 1.85", "14 · 1.71", "16 · 1.5"]) {
+      expect(within(section).getAllByText(label).length, label).toBeGreaterThan(0);
     }
     // Every BrandId draws from the sprite; Codex carries its dark twin.
     expect(section.querySelector('use[href="#brand-devin"]')).toBeTruthy();

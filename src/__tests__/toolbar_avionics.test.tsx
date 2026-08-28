@@ -105,9 +105,14 @@ describe("Avionics A3 Toolbar Verification", () => {
     mockPreferences.selected_sidebar_item = "/Users/test/project-alpha";
     const { unmount } = render(<App />);
     await screen.findByLabelText("Refresh scan");
+    // The breadcrumb names the repo by its basename, never its path. Since
+    // 2026-08-28 the crumb lives in the sidebar cap (crumb_in_band.test.tsx),
+    // so the name is asserted there; the banner must carry neither.
     const header = screen.getByRole("banner");
+    const sidebarCap = document.querySelector("[data-rail-column] > div") as HTMLElement;
     expect(header.textContent).not.toContain("/Users/test/project-alpha");
-    expect(header.textContent).toContain("project-alpha");
+    expect(sidebarCap.textContent).not.toContain("/Users/test/project-alpha");
+    expect(sidebarCap.textContent).toContain("project-alpha");
     unmount();
   });
 

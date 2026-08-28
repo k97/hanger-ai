@@ -53,7 +53,7 @@ const emptyInventory = {
 } as any;
 
 describe("the shell's first gap under the cap", () => {
-  it("opens ProfilePane at pt-1.5, so the cap's 6.5px of unpainted band is spent, not added", () => {
+  it("opens ProfilePane at pt-[18px]: the same inset from the sheet's rule as from its left edge", () => {
     render(
       <ProfilePane
         inventory={emptyInventory}
@@ -65,11 +65,12 @@ describe("the shell's first gap under the cap", () => {
       />
     );
     const wrapper = paneWrapper(screen.getByRole("tablist"));
-    expect(classes(wrapper)).toContain("pt-1.5");
+    expect(classes(wrapper)).toContain("pt-[18px]");
     expect(classes(wrapper)).not.toContain("pt-3.5");
+    expect(classes(wrapper)).not.toContain("pt-1.5");
   });
 
-  it("opens RepoPane at the same pt-1.5 -- the two panes share this track", () => {
+  it("opens RepoPane at the same pt-[18px] -- the two panes share this track", () => {
     render(
       <RepoPane
         repoPath="/Users/test/Work"
@@ -81,8 +82,9 @@ describe("the shell's first gap under the cap", () => {
       />
     );
     const wrapper = paneWrapper(screen.getByRole("tablist"));
-    expect(classes(wrapper)).toContain("pt-1.5");
+    expect(classes(wrapper)).toContain("pt-[18px]");
     expect(classes(wrapper)).not.toContain("pt-3.5");
+    expect(classes(wrapper)).not.toContain("pt-1.5");
   });
 
   it("drops the rail's mark to mt-[6px], onto the rail's own 12px rhythm", () => {

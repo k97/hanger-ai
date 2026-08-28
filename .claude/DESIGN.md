@@ -27,7 +27,7 @@ light palette declares eleven neutral roles (`tokens.css:5-16`):
 | Token | Light | Dark | Role |
 |---|---|---|---|
 | `--page` | `#ffffff` | `#000000` | window ground |
-| `--sidebar` | `rgba(252,252,252,.65)` | `rgba(19,19,19,.55)` | the shell's left column: a tint over the window's vibrancy material (`tokens.css:6`) |
+| `--sidebar` | `rgba(252,252,252,.65)` | `rgba(19,19,19,.75)` | the shell's material: the left column and, since 2026-08-28, every column's cap band — a tint over the window's vibrancy (`tokens.css:6`, `:173`); dark went from .55 to .75 that day because over a bright desktop the thinner tint read as a light grey strip against the black sheet (Karthik's ruling) |
 | `--sidebar-sel` | `#e6e6e6` | `#3a3a3c` | selection on the sidebar, neutral (`tokens.css:9`) |
 | `--sidebar-sel-ink` | `#1f1f1f` | `#ececec` | text on `--sidebar-sel` |
 | `--sidebar-ink` | `#3e4144` | `#cfd1d3` | sidebar rows and icons, one shade up from `--ink-2` |
@@ -343,38 +343,67 @@ of every other file (§4's family rule).
 ### Focus
 
 One global focus ring: a 2px `--ink-1` outline at 2px offset with a 4px radius
-(`index.css:195-199`). `touch-action: manipulation` is set on buttons and
+(`index.css:518-522`). `touch-action: manipulation` is set on buttons and
 `[role="button"]` to drop the 300ms double-tap delay without disabling pinch
-zoom (`index.css:201-206`).
+zoom (`index.css:537-540`). The app's one stated exception is the search
+palette's input: it already sits inside a framed, single-purpose dialog, so it
+opts out of the global rule rather than drawing a second ring inside the
+panel's own frame. The opt-out is an **unlayered** CSS rule,
+`[cmdk-input]:focus-visible { outline: none; }` (`index.css:531-533`), not a
+Tailwind utility: the global ring above is itself unlayered, Tailwind's
+utilities live in `@layer utilities`, and an unlayered declaration always
+outranks a layered one regardless of specificity (CSS Cascade 5) — a
+`focus-visible:outline-none` class on the input cannot win against it
+(`SearchPalette.tsx:134-138`).
 
 ---
 
 ## 4. Icon system
 
 Icons are not used raw. Every export in `src/components/icons.tsx` is wrapped
-in `sized()` (`icons.tsx:119`), which does two things a plain import cannot.
+in `sized()` (`icons.tsx:122`), which does two things a plain import cannot.
 
 **Stroke compensation.** Heroicons' outline set is drawn on a 24px grid at 1.5
-stroke; at this shell's working sizes of 10–17px that thins to ~0.7px and goes
-soft. `strokeFor()` scales the stroke back up per size band so it lands near
-1px on screen (`icons.tsx:98-103`): ≤12px → 2.2, ≤16px → 1.9, ≤20px → 1.7,
-above → 1.5.
+stroke; at this shell's working sizes (12–16px in the shell, 20+ in empty
+states) the smallest of them thins to ~0.75px and goes soft. `strokeFor()`
+is one continuous rule, not size bands: `Math.max(1.5, 24 / box)` rounded to
+two decimal places (`icons.tsx:104-106`). That lands the stroke at 1.0px for
+a 16px box — the reference marks measure exactly 2 device px at 2×
+(`docs/v7-todo-content-typography/icon-weight-review.md`) — and floors it at
+the family's own 1.5 weight above 16px, where a mark's optical factor can
+push its box past 16 and the stroke settles a little heavier: the rail's
+1.12 marks land at 1.12px, measured 2.21 device px at 2×
+(`docs/evidence/2026-08-28-icons/icon-stroke-measurements-after.txt`).
 
 **Optical correction.** A per-mark `optical` ratio corrects for how much of the
 24 grid each mark actually inks, because a 1:1 family swap inherits the
 difference — most visibly in the icon rail, where four marks stack at one size
 and any mismatch reads as a wobble (`icons.tsx:107-118`). The factors are stated
 as measured ink-extent ratios, not estimates, and anything within 4% is left at
-1. Examples: `ChevronDownIcon` 0.81 (`icons.tsx:143`), `Square2StackIcon` 1.2
-(`:174`), `Cog6ToothIcon` 1.12 (`:149`).
+1. Examples: `ChevronDownIcon` 0.81 (`icons.tsx:146`), `Square2StackIcon` 1.2
+(`:188`), `Cog6ToothIcon` 1.12 (`:152`).
 
 The family is Heroicons 24/outline (`icons.tsx:30-79`), with seven static
 marks on lucide because Heroicons has no equivalent: `FolderSymlink`,
 `FolderTree`, `GitMerge`, `PanelLeft`, `PanelRight`, `Maximize2`, `Minimize2`
 (`icons.tsx:81-89`, exported `:185-194`). Default size is 16 (`icons.tsx:95`).
 The Design system page's Iconography section (§9) rosters every export of
-this module by name and shows the stroke bands by calling `strokeFor`,
+this module by name and shows the stroke ladder by calling `strokeFor`,
 which is exported for that one reader (`bc1c3c8`, 2026-08-28).
+
+**Size and ink by role.** Three sizes cover the shell: 16 for shell marks —
+the rail (`IconRail.tsx:73`), sidebar rows (`Sidebar.tsx:130`), the
+inspector cap's kind icon (`InspectorCap.tsx:202`) and the titlebar panel
+toggles (`InspectorCap.tsx:373`) — 14 for row marks (`AssetDetail.tsx:275`'s
+identity rows, `MechanismGlyph.tsx:85`), and 12–13 for chevrons and inline
+marks (`AssetHeaderRow.tsx:36-38`, `Flyout.tsx:734`; `InspectorCap.tsx:259`
+carries a 13) (Karthik's ruling I2, 2026-08-28). A mark also takes the ink of
+the text beside it rather than a fixed shade of its own: the cap's kind icon
+sits in `--ink-3` (`InspectorCap.tsx:202,205`; ruling I3), and the row's
+mechanism glyph does too in its unflagged states — symlink, copy, none
+(`MechanismGlyph.tsx:21,22,25`) — while drift and broken keep their state
+colour instead of following the ink ladder, `--state-warning` and
+`--state-danger` (`:23-24`), ruling I4's stated exception.
 
 Twenty more marks are animated, and every one of them is lucide too — not
 because Heroicons lacks their geometry, but because it has no motion story,
@@ -829,12 +858,16 @@ title and above the tabs (`Flyout.tsx:697`) — untouched by this phase, and it
 falls between the title and the tabs, not between the cap and the title,
 where nothing separates them at all.
 
-**Every band in that stack pads symmetrically, on one step.** The header is
-`py-2` and the tab labels are `py-2` (`Flyout.tsx:696`,
-`UnderlineTabs.tsx:62`), so no band reaches across into another to set its
-neighbour's gap: the space under the title is that header's 8 plus the tab
-row's own 8, and the space above it is the cap's centring slack (a 16px
-glyph in an `h-10` row) plus the same 8. Measured on the running build at
+**The inspector opens like every other screen, and its title sits on the
+rhythm.** The header is `pt-[18px] pb-1.5` and the tab labels are `py-2`
+(`Flyout.tsx:697`, `UnderlineTabs.tsx:62`): 18 from the sheet's rule to the
+title block, the same 18 the block keeps from its sides, and 6 + 8 = 14 from
+the title block to the tab labels — the gap every pane uses under its
+opener. Ruled 2026-08-28 ("make it consistent") after a day at `py-2`, which
+had put the title 8 under the rule while every pane had just moved to 18.
+`ReviewInspector`'s title block opens at the same `pt-[18px]`
+(`ReviewInspector.tsx:95`). The rest of that measurement stands as recorded —
+measured on the running build at
 1173×808 — and re-measured there unchanged after `bcc98a8` moved the
 eyebrow below the title — that lands 28px of ink-to-ink air above the title
 and 24px below: even enough to read as one rhythm, and closer below so the
@@ -1233,12 +1266,21 @@ keeps `menuItemClass`/`menuLabelClass` as its own row styles (`:3-7`), the
 cap's menu items use `menuActionClass` instead (`:9-10`), and `MenuSeparator`
 (`:13-15`) is shared by both.
 
-**`SearchPalette`** (`SearchPalette.tsx:186-253`) — the ⌘K search palette: a
-full-screen wash (`:144-150`) behind a top-aligned, 560px panel (`:151-154`)
-built on `cmdk`'s `Command` with `shouldFilter={false}` (`:156`), so the row
+**`SearchPalette`** (`SearchPalette.tsx:191-258`) — the ⌘K search palette: a
+full-screen wash (`:239-245`) behind a top-aligned, 560px panel (`:126-130`)
+built on `cmdk`'s `Command` with `shouldFilter={false}` (`:131`), so the row
 order on screen is always the backend's own rank, never a client-side
-refilter. The input's accessible name is "Search assets" (`:163`); queries
+refilter. The input's accessible name is "Search assets" (`:253`); queries
 are debounced 80ms (`DEBOUNCE_MS`, `:88`) before they reach `search_assets`.
+The input row (`:132`) dropped its `border-b` and grew from `h-11` to
+`h-[52px]` with more inset (`px-5`); the input itself opts out of the app's
+one global focus ring, because the panel that frames it is the only ring this
+field needs. The opt-out is an unlayered rule, `[cmdk-input]:focus-visible`
+(`index.css:531-533`), not a Tailwind class — a `focus-visible:outline-none`
+utility is layered under `@layer utilities` and cannot outrank the unlayered
+global ring (CSS Cascade 5), so the input's `className` carries no focus
+utility at all (`:145`); a comment at the input row explains why
+(`:134-138`; see §3 "Focus" for the same exception).
 It opens from the rail's Search button, placed beneath Needs review because
 the palette searches the whole machine rather than one screen
 (`IconRail.tsx:117-124`) — the button takes `railBtnClass` like every other
@@ -1247,11 +1289,22 @@ rail control but never `aria-current`, since it is an action, not a place
 (`App.tsx:562-565`). Each row leads with a glyph rather than sitting under a
 group heading: `KindGlyph` maps the five `SearchKind`s to their icons and
 rows stay in the backend's rank order throughout (`SearchPalette.tsx:131`,
-`shouldFilter={false}`).
+`shouldFilter={false}`). Each row grew from `px-2.5 py-1.5` to `px-3.5 py-2.5`
+with `rounded-inner` in place of `rounded-soft` and `bg-plane` in place of
+`bg-plane-2` for the selected row (`:164`); the name and the "· server" span
+moved from `text-small` to `text-base-app`, the snippet line from `text-micro`
+to `text-small`, and the place chip took a `pl-4` so it never crowds a long
+name (`:166-176`). The list container itself dropped `flex flex-col gap-0.5`
+(inert there: cmdk renders `<div cmdk-list><div cmdk-list-sizer>{children}</div></div>`,
+so a gap on `cmdk-list` separates nothing, and `flex flex-col` on the scroll
+container itself risks shrink over scroll) in favour of arbitrary variants
+that reach the sizer cmdk actually flexes:
+`[&_[cmdk-list-sizer]]:flex [&_[cmdk-list-sizer]]:flex-col [&_[cmdk-list-sizer]]:gap-0.5`
+(`:148`).
 A hit's snippet arrives with matched runs wrapped in private-use markers
 (`search.rs:29-30`) that `renderSnippet` turns into `<mark>` (`SearchPalette.tsx:59-72`,
 the tag at `:65`); the base stylesheet zeroes the browser's default yellow
-highlight so only the palette's own styling shows through (`index.css:142`).
+highlight so only the palette's own styling shows through (`index.css:148`).
 Ranking and counts are entirely backend-owned: `search::search` runs FTS5
 with bm25 weighted 8/3/1 across name, description and body (`search.rs:241-250`)
 and returns both the ranked `hits` and a separate `total` from a plain
@@ -1266,11 +1319,11 @@ tick a stale read would miss (`App.tsx:1032-1038`, `:1106-1119`). As
 committed, the list carries three copy states: "Results show up here once
 the first scan finishes." before the first scan, "Type to search names and
 what's inside." for an empty query, and "Nothing matches “{q}”." for a query
-that answered empty (`SearchPalette.tsx:144-152`). The shell's cap no
+that answered empty (`SearchPalette.tsx:149-157`). The shell's cap no
 longer carries a search field: its trailing-controls block runs straight
 from the breadcrumb to Rescan or the view control, with no input between
 them (`App.tsx:1619-1621`). The dialog panel itself is `SearchPalettePanel`
-(`SearchPalette.tsx:112-178`), a presentational split with no `invoke`,
+(`SearchPalette.tsx:112-183`), a presentational split with no `invoke`,
 timers or window listeners of its own: the app renders it inside the wash
 with live state, and the Design system page renders the same component with
 `SAMPLE_SEARCH_HITS` (`designSystemFixtures.ts:184`) and a fixed query,
@@ -1333,70 +1386,130 @@ holds `selectedSidebarItem`, defaulting to `"profile"`, persisted under
 `selected_sidebar_item` (read at `App.tsx:758`, written at `:1040`, `:1126`
 and each rail handler).
 
+**The band and the sheet (2026-08-28).** The three caps sit on one
+material, and it is painted exactly once under each: the rail column keeps
+its `bg-sidebar` (`App.tsx:1456`), and `<main>` and the inspector `<aside>`
+now carry `bg-sidebar` too — with a *sheet* on top of it,
+`absolute inset-x-0 top-9 bottom-0 -z-10 bg-page border-t border-line`
+(`sheetClass`, `App.tsx:1442-1443`; `data-testid` `content-sheet` at
+`:1635`, `inspector-sheet` at `:1898`), so the page ground starts under the
+36px cap rather than behind it, with the `--line` rule along its top. Each
+column is `isolate`, so `-z-10` puts the sheet above the column's own tint and
+below its content. Nothing paints the band across columns: a first version
+had the shell root paint a full-width gradient under the columns, and the
+rail column's own tint stacked on it — the cap over the sidebar came out a
+step darker than the cap over the content, with a hard edge at the rail and
+the corner sitting on the darker patch, worst in dark. One token, one paint
+per column, no gradient (Karthik's rulings, 2026-08-28: flat, not option B).
+
+Exactly one column after the icon rail draws the sheet's left edge and its
+16px top-left corner (`border-l rounded-tl-plane`), the treatment
+`SourceListShell` has always given the source list (`SourceListShell.tsx:107`):
+the source list when it is open; otherwise `<main>` (`mainLeads`,
+`App.tsx:1431` — collapsed, or the link map, which has no source list); and
+when `<main>` is `hidden` behind an expanded inspector, the inspector
+(`asideLeads`, `:1432`). The inspector's full-height `border-l` divider
+exists only beside `<main>` — expanded, its left edge is the source list's
+or the rail's, and a line there would run up through the band
+(`App.tsx:1896`). `src/__tests__/window_chrome_sheet.test.tsx` pins the
+class contract for all four states and that no column tints twice; that the
+corner meets the rail is a screenshot claim, `happy-dom` lays nothing out.
+
+**Every screen carries the corner.** My machine, the link map, Discovery,
+Needs review and the Design system page all open on the same sheet, and the
+corner is part of the shell, not of any pane: a pane must not paint its own
+full-bleed `--page` ground, because that squares the curve off from inside
+(`NeedsReviewPane`, `DiscoveryPane`, `LinkMapPane` and `DesignSystemPane`
+did until 2026-08-28; the sheet is the ground now). The same holds for the
+inspector column when it leads — expanded over a collapsed source list —
+so `Flyout` and `ReviewInspector` paint no ground either (they did, and the
+corner Karthik asked for was square there until the same day). Karthik's standing
+instruction, 2026-08-28: **a new screen gets the corner by default, and it
+comes off only when explicitly asked** — `window_chrome_sheet.test.tsx`
+walks all five screens and fails a pane root that carries `bg-page`.
+
 ### Window chrome — one vertical baseline
 
 Every cap — the sidebar cap (`App.tsx:1325`), the content header (`App.tsx:1440`),
-the inspector cap (`App.tsx:1781`) — is `h-10 flex items-center`: a 40px band
-with its contents optically centered on the same line, 20px from the cap's
-top. The native traffic lights are tuned to sit on that identical line:
-`trafficLightPosition.y: 22` in `tauri.conf.json:26` was set by measuring the
+the inspector cap (`App.tsx:1781`) — is `h-9 flex items-center`: a 36px band
+with its contents optically centered on the same line, 18px from the cap's
+top (40px and 20 until 2026-08-28, when Karthik read the band as "too
+thick" and ruled 36 — the native compact-toolbar class). The native traffic lights are tuned to sit on that identical line:
+`trafficLightPosition.y` in `tauri.conf.json:26` — 22 for the 40px band,
+20.25 for the 36px one (measured 2026-08-28: disc centre 18.0pt, the band's
+exact middle), the disc centre moving 1:1 with `y` (tao sizes the titlebar
+container to `button height + y`) — was set by measuring the
 rendered dot centre against the sidebar toggle button's centre in a live
-screenshot (dot centre landed ~8.5pt above the toggle before the fix) and is
+screenshot (dot centre landed ~8.5pt above the toggle before the first fix) and is
 not derived from any documented Apple/Tauri formula — the OS does not expose
 one, so this value is empirical and window-height-dependent. If the cap
-height (`h-10`) ever changes, `trafficLightPosition.y` must be re-measured
+height (`h-9`) ever changes, `trafficLightPosition.y` must be re-measured
 against it, not recomputed by formula.
 
 **The inspector cap's content changed this phase; its height did not.** The
 identity row, the finding chip and the overflow menu were added ahead of the
 same Expand/Collapse and Toggle inspector pair the cap always carried
 (`InspectorCap`, §5); the wrapping `<div data-tauri-drag-region
-className="relative h-10 shrink-0">` around it kept `h-10` exactly as it was
+className="relative h-9 shrink-0">` around it kept the cap's height exactly as it was
 before the cap grew a component of its own (`App.tsx:1781`, and the removed
-cap it replaced carried the same `h-10` — Both inspectors open on their
+cap it replaced carried the same height — Both inspectors open on their
 breakdown, §5, above). Because the baseline this section states is keyed off
 that class, not off what fills the row, `trafficLightPosition.y` needed no
 re-measurement for this phase and none was done.
 
-Any future cap, toolbar, or menubar row must keep this same `h-10
+Any future cap, toolbar, or menubar row must keep this same `h-9
 flex items-center` shape so its contents land on this baseline by
 construction, rather than each screen re-deriving its own vertical rhythm.
 
-**6.5px of that band is unpainted, and the first row below it has to spend
-that slack rather than add to it.** The cap is 40px around `h-[27px]`
-controls, so its tallest control's ink ends at 33.5 while its box ends at 40.
-Everything below the cap is spaced between painted edges, so a `pt` measured
-from the *band* prints a gap 6.5px larger than the number says. Until
-2026-08-27 `ProfilePane` and `RepoPane` opened at `pt-3.5`, which put the
-category track's pill 20.5px below the toolbar's ink against a 14px rhythm
-for every gap under it — Karthik read it as "slightly large" and it was.
-`pt-1.5` (6px) spends it: 6 + 6.5 = 12.5. Measured on the live window over
-the dev bridge, before and after:
+**The dev window did not sit on that line, and the config was not why
+(2026-08-28).** Measured at 2×: the dev build's discs centred 15.75pt from
+the window's top — the OS default — against the toggle's 20.25, while the
+installed release v0.5.0, built from the same `y: 22`, measured 19.75
+against 20.1. The setup hook renames the window to `Hanger AI (dev)`
+(`dev_icon::window_title`), and a title change makes AppKit re-lay out the
+titlebar, dropping tao's inset back to the default (tauri-apps/tauri#13044;
+tao re-applies it only from its view's `drawRect`, which nothing triggers
+until a resize). The release build renames itself to the string the config
+already set and is untouched. `lib.rs`'s setup now sets the title
+synchronously through AppKit and marks tao's view dirty so the re-apply
+follows the re-layout (`lib.rs:1961-1997`); a redraw requested after Tauri's
+own `set_title` ran first, because that call dispatches asynchronously, and
+re-applied nothing. After the fix the dev window measures 19.75 — the
+release figure. **So `y: 22` stays, and a `y` retuned from a dev screenshot
+is wrong for release:** 26.5 aligned nothing in dev and would have put the
+release lights 4.5pt low. No automated test reaches any of this — it is a
+window-server layout — so the number and the fix are pinned by the
+measurements above and by nothing else.
 
-| | before | after |
-|---|---|---|
-| toolbar ink → track pill | 20.5 | **12.5** |
-| track pill → summary strip | 14 | 14 |
-| summary strip → list plane | 14 | 14 |
+One tooling fact behind the measurements: `tauri dev` relaunches the
+*previous* binary on a file change and rebuilds without relaunching (four
+times that day the process's start time preceded the binary's mtime by
+4–30s). A dev process is evidence for a build only if `ps -o lstart=` is
+younger than `stat -f %Sm target/debug/tauri-app`.
 
-**12.5 is not the value that matches the rhythm below it, and that is the
-point.** `pt-2` would give 14.5 and match; `pt-1` gives 10.5. All three were
-rendered in the running app and Karthik picked 12.5 (2026-08-27). What it
-buys is the *other* alignment: it lands the track pill's top on the rail
-mark's, both at 46, so the two columns open on one line. Under 14.5 they sat
-2px apart and under 10.5 they sat 2px apart the other way. The content column
-now keeps the rail's 12px rhythm at its top edge rather than the pane's 14px
-one — a deliberate trade of the vertical match for the horizontal one, not an
-oversight to be tidied later.
+**The sheet's inset is uniform: 18px from its top rule, the same 18px the
+content keeps from its left edge.** The cap is 36px around `h-[27px]`
+controls, so 4.5px of the band is unpainted — but since 2026-08-28 the
+band's lower edge is painted (the sheet's `border-t`), so the gap the eye
+measures is rule → first painted edge, and it is read against the left
+inset beside it. Needs review always opened at `mx-[18px] mt-[18px]`
+(`NeedsReviewPane.tsx:95`) and read as consistent; Global at 14 top / 18
+left and the map at ~8 / 18 did not (Karthik, 2026-08-28, annotated
+frames). So every screen now opens at 18: `ProfilePane` and `RepoPane` at
+`pt-[18px]` (`ProfilePane.tsx:882`, `RepoPane.tsx:415`), Discovery and the
+Design system page's prose headers at `pt-[18px]` (were `pt-5`), and the
+link map's canvas at `px-[18px] pt-[18px]` (was `pt-2.5`, `LinkMapPane.tsx:423`). `src/__tests__/shell_first_gap.test.tsx`
+and the `trackBox.className` strings in both pane integration tests pin the
+two panes.
 
-**The rail leans the other way off the same band, and was retuned with it.**
-`IconRail`'s mark carried `mt-0.5`, putting it 8.5px below the same ink where
-the rail's own rhythm is 12px (`my-[9px]` + `gap-[3px]` — mark → rule and
-rule → first button both measure 12). `mt-[6px]` makes it 12.5 — the same
-number the content column arrives at from the other side, which is why the
-two now line up. The other three panes were left alone: Discovery and Design
-system open on a prose `<header pt-5>` and Needs review on `mt-[18px]`, none
-of which is a pill sitting against a rhythm.
+This supersedes two earlier values the same class carried: 12.5
+(`pt-1.5`, 2026-08-27, chosen to level the track pill with the rail mark
+against a cap that sat on white) and 14 (`pt-3.5`, earlier on 2026-08-28,
+the rhythm below, chosen before it was seen beside the left inset). The
+mark keeps `mt-[6px]` (its own 12px rhythm, `IconRail.tsx:58`), so the two
+columns do not open on one line: the pill's top sits at 36 + 18 = 54 and the
+mark's at 36 + 6 = 42 — a follow-up ruling if it reads wrong, not an
+oversight.
 
 **Toolbar buttons must carry `shrink-0`, or a squeezed cap silently shrinks
 the icon inside them.** `tbBtnClass` / `tbBtnPlaneClass` (`App.tsx:1148-1153`)
@@ -1417,30 +1530,36 @@ shrinks instead of the button just overflowing as intended.
 
 **The leading gap after the traffic lights is tuned to match the gap between
 the lights themselves — not derived, measured.** The three native dots keep
-~9.5pt between each other. `App.tsx:1327`'s spacer (`w-[76px]`) lands the
-toggle icon's own ink ~11.5pt after the dot cluster ends, and the collapsed
-crumb's `pl-[51px]` (`App.tsx:1470-1476`, when `sidebarCollapsed` and the
-view is not the link map) lands the breadcrumb text ~10.5pt after the icon's
-ink — three gaps within ~2pt of each other, read as one uniform rhythm rather
-than three independently-guessed numbers.
+~9.5pt between each other, and the sidebar cap's spacer (`w-[76px]`) lands
+the toggle icon's own ink ~11.5pt after the dot cluster ends.
 
-The link map is the fourth gap, and it was wrong until 2026-08-26. That view
-hides the source list AND gates out the toggle (`App.tsx:1337`), so nothing
-occupies the band the dots sit in and the crumb must clear them itself. It
-was falling through to `pl-[18px]`, which put the breadcrumb ink 1.5pt after
-the green dot — measured at 2x on the live window, green ink ending at x=147
-and crumb ink starting at x=150. `pl-[28px]` restores it to ~11.5pt, the same
-clearance the toggle icon gets elsewhere in the cluster.
-`src/__tests__/linkmap_cap.test.tsx` pins the branch as a class contract; it
-cannot see the gap, only which inset the link map takes. None of these three values can be
-derived from the others by formula (native traffic lights aren't in the DOM,
-and glyph ink extent isn't the same as box width), so every one of them was
-set by measuring a live, running window pixel-by-pixel, not by eyeballing a
-screenshot or computing from CSS box models alone. If the spacer, the button
-padding, the icon size, or `trafficLightPosition.x` ever change, re-measure
-the live window and retune both the spacer and the crumb's collapsed padding
-together — they drifted out of sync once already from being changed one at a
-time.
+**The breadcrumb lives in the band, after the toggle (2026-08-28).** It used
+to render inside `<main>`'s header, so it started wherever `<main>` started
+— beside the toggle only while the source list was collapsed (`pl-[51px]`),
+18px in from the source list's edge otherwise, and it moved every time the
+list opened. Karthik: "the menubar is a separate entity. I don't want it to
+move." It now renders in the sidebar cap directly after the toggle
+(`App.tsx`, the sidebar cap; `src/__tests__/crumb_in_band.test.tsx`), with no
+inset of its own: the toggle's 32px box ends at 108 and the crumb's ink
+starts at 109.5 (measured 2026-08-28 at 2×: x=219), ~9.5pt after the icon's
+ink — within 2pt of the ~11.5 the icon gets after the lights and the ~10.5
+the old collapsed inset gave, so the cluster still reads as one rhythm. Open or
+closed, it does not move. While the inspector is expanded it is not
+rendered at all: `<main>` is hidden and the inspector's cap carries the
+selected asset's identity at that same spot (`leadingColumn`, `InspectorCap`).
+
+The link map is the one view with no toggle (it hides the source list and
+gates the toggle out), so the crumb must clear the dots itself: `pl-2`
+after the 76px spacer puts its ink at 84 — ~11.5pt past the green dot,
+exactly where `pl-[28px]` from `<main>`'s edge landed it before the move
+(that fix dates from 2026-08-26, when `pl-[18px]` had left 1.5pt and read
+as an overlap). `src/__tests__/linkmap_cap.test.tsx` pins the inset as a
+class contract; it cannot see the gap. None of these values can be derived
+from the others by formula (native traffic lights aren't in the DOM, and
+glyph ink extent isn't box width), so every one was set by measuring a live
+window pixel-by-pixel. If the spacer, the button padding, the icon size, or
+`trafficLightPosition.x` ever change, re-measure the live window and retune
+the spacer and the link-map inset together.
 
 ### Pane composition
 
@@ -1544,6 +1663,18 @@ from the backend and are rendered as received.
 **No off-token styles.** `src/__tests__/no-off-token-styles.test.ts` holds an
 allowlist keyed by file and exact line text, each entry carrying a stated
 reason (`:18-21`). Raw hex or a non-semantic colour utility fails.
+
+**Type roles.** `src/__tests__/type-roles.test.ts` scans every non-test
+`.tsx` under `src/` for Tailwind's default size names, arbitrary or default
+leading, and `uppercase` (`:5-18`); `ALLOW` is keyed by file and exact line
+text with a reason, an entry that stops matching fails, and a hit inside a
+`ROLE_FILES` file fails even when an entry matches it (§2).
+
+**Icon stroke and box.** `src/__tests__/icon_weight.test.ts` pins
+`strokeFor`'s values (12 → 2, 13 → 1.85, 14 → 1.71, ≥16 → 1.5; `:20`) and
+the box of every shell mark changed on 2026-08-28 — each rail mark's width
+as 16 × its optical factor, Sidebar's and InspectorCap's at 16 (`:42`). It
+reads those sites only: a new call site at another size passes it (§4).
 
 **No unregistered spacing.** `src/__tests__/spacing-scale.test.ts:22-29`, above.
 
@@ -1727,8 +1858,8 @@ in each, and a stated fact that `--font-sans` and `--font-flex` are one
 stack today, so the two names mark two roles rather than two faces; the
 scale rows carry the role §2's table gives each size. Iconography renders
 `icons.tsx` from the module — every export ending in `Icon`, by name — so
-a new mark appears without anyone listing it; shows `strokeFor`'s four
-bands by calling it (exported for this, `bc1c3c8`); lines up the rail's
+a new mark appears without anyone listing it; shows the stroke ladder by
+calling `strokeFor` (exported for this, `bc1c3c8`); lines up the rail's
 marks to show the optical factors at work; and draws every `BrandId` from
 the sprite, Codex's dark twin included. Every
 component on the page is the real one, imported and rendered with sample

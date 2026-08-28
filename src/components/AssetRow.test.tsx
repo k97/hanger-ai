@@ -1,7 +1,9 @@
 // @vitest-environment happy-dom
 import { render, screen, within } from "@testing-library/react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { describe, it, expect } from "vitest";
 import AssetRow, { AssetItem, AssetAnnotationView } from "./AssetRow";
+import MechanismGlyph from "./MechanismGlyph";
 
 describe("AssetRow Shell Spec Compliance", () => {
   const sampleItem: AssetItem = {
@@ -142,5 +144,67 @@ describe("AssetRow Shell Spec Compliance", () => {
     const dash = within(container).getByText("—");
     expect(dash.className).toContain("text-ink-3");
     expect(dash.className).not.toContain("opacity-45");
+  });
+
+  // Class-contract guard only (happy-dom lays nothing out — verification.md).
+  // A mark takes the ink of the text it sits beside: the mechanism glyph is
+  // a row mark like every other, so its geometry carries the mechanism and
+  // its ink no longer does (Karthik, 2026-08-28, I4). This file has no
+  // afterEach(cleanup), so each case renders into its own container.
+  it.each(["symlink", "copy", "none"] as const)(
+    "the %s mechanism glyph is a row mark in --ink-3",
+    (mechanism) => {
+      const annotation: AssetAnnotationView = {
+        asset_path: "/path/to/tool",
+        mechanism,
+        reach: [],
+        beyond: null,
+      };
+      const { container } = render(
+        <AssetRow
+          item={{
+            name: "some-skill",
+            category: "Skills",
+            path: "/path/to/some/SKILL.md",
+          }}
+          annotation={annotation}
+        />
+      );
+      const glyph = within(container).getByTestId("mechanism-glyph");
+      expect(glyph.getAttribute("class")).toContain("text-ink-3");
+      expect(glyph.getAttribute("class")).not.toMatch(/text-ink-[12]|opacity-\[/);
+    }
+  );
+
+  it.each([
+    ["drift", "text-state-warning"],
+    ["broken", "text-state-danger"],
+  ] as const)("the %s glyph keeps its state colour", (mechanism, cls) => {
+    const annotation: AssetAnnotationView = {
+      asset_path: "/path/to/tool",
+      mechanism,
+      reach: [],
+      beyond: null,
+    };
+    const { container } = render(
+      <AssetRow
+        item={{
+          name: "some-skill",
+          category: "Skills",
+          path: "/path/to/some/SKILL.md",
+        }}
+        annotation={annotation}
+      />
+    );
+    expect(within(container).getByTestId("mechanism-glyph").getAttribute("class")).toContain(cls);
+  });
+
+  // The mechanism glyph is a 14px row mark like every other (icons.tsx's
+  // strokeFor), not the retired 1.9 band value it shipped with (Karthik,
+  // 2026-08-28, I2). strokeFor(14) is 1.71, not 1.9.
+  it("the mechanism glyph's stroke follows strokeFor(14), not the retired 1.9 band", () => {
+    const html = renderToStaticMarkup(<MechanismGlyph mechanism="symlink" />);
+    expect(html).toContain('stroke-width="1.71"');
+    expect(html).not.toContain('stroke-width="1.9"');
   });
 });

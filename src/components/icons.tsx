@@ -2,11 +2,12 @@
  * Icon vocabulary — Heroicons 24/outline, sized and stroke-compensated.
  *
  * Heroicons' outline set is drawn on a 24px grid at a 1.5 stroke. Rendered at
- * this shell's working sizes (10–17px) that stroke thins to ~0.7px and the
- * marks go soft against the ink ladder. Every export below is wrapped in
+ * this shell's working sizes (12–16px in the shell, 20+ in empty states)
+ * that stroke thins to ~0.7px and the marks go soft against the ink ladder.
+ * Every export below is wrapped in
  * `sized()`, which scales strokeWidth back up as the box shrinks so the stroke
- * lands on screen at roughly 1px whatever the size — the weight the mono-tight
- * prototype was drawn against.
+ * lands on screen at 1.0px up to the 16px box and at the family's own weight
+ * above it — the weight the mono-tight prototype was drawn against.
  *
  * Seven marks have no Heroicons equivalent and stay on lucide: the two
  * titlebar panel toggles, the nested-repo folder pair (symlink and tree), the
@@ -94,14 +95,14 @@ export interface IconProps extends Omit<SVGProps<SVGSVGElement>, "ref"> {
 
 const DEFAULT_SIZE = 16;
 
-/** Stroke weight per size band — keeps the rendered stroke near 1px.
- *  Exported for the Design system page, which shows the bands live rather
- *  than as literals that could drift (2026-08-28). */
-export function strokeFor(size: number): number {
-  if (size <= 12) return 2.2;
-  if (size <= 16) return 1.9;
-  if (size <= 20) return 1.7;
-  return 1.5; // Heroicons' native weight, correct once the box is 24px+
+/** One rule, not four bands: the stroke that lands at 1.0px on screen for
+ *  this box (the reference marks measured exactly 2 device px at 2×,
+ *  docs/v7-todo-content-typography/icon-weight-review.md, 2026-08-28),
+ *  floored at the family's native 1.5 so marks at 20px and
+ *  above keep the weight they were drawn at. Exported for the Design
+ *  system page, which shows the ladder by calling this. */
+export function strokeFor(box: number): number {
+  return Math.max(1.5, Math.round((24 / box) * 100) / 100);
 }
 
 type SvgIcon = ComponentType<SVGProps<SVGSVGElement>>;

@@ -17,6 +17,33 @@ time, and they commit to the same branch. `ListAgents` shows the others.
   is not evidence — a session inferred a neighbouring commit was a peer's,
   thanked the wrong party, and cancelled a planned task on that basis. If you
   need to know who wrote something, ask on `SendMessage`.
+
+- **The "Previous session summary" is not yours either, and it is the more
+  convincing lie.** `~/.claude/session-data/<date>-<project>-session.tmp` is
+  keyed by **date and project, not by session**: one file per day that every
+  session here writes to and the SessionStart hook injects into the next one.
+  So a session that starts fresh inherits whatever another *live* session has
+  been writing all day — its user dialogue, its peer messages, its Files
+  Modified list. The log at least invites a guess; this arrives looking like
+  memory.
+
+  It ran both ways on 2026-08-28. `hanger-ai-06` started at ~11:00, was handed
+  the 10:38 snapshot, and told a peer that eight Reach-card commits were its
+  own — they were `hanger-ai-11`'s. `hanger-ai-11` had itself opened holding a
+  predecessor's Origin/provenance dialogue ("i dont think we need the underline
+  for the link"), a conversation it never had. By 10:48 the file held a third
+  session's turn.
+
+  **The quickest tell needs no shell**: the injected block carries a
+  `**Started:**` line inherited from whoever created the file that day, not
+  from you — it read `Started: 00:02` for sessions that began at 11:00. If that
+  timestamp predates this session, the summary is not yours. Corroborate with
+  `stat` and the `from-name=` values in the file: an mtime after you started,
+  or peer messages you never received, settles it.
+
+  Treat the summary as *a* session's history, never as *this* session's. Own
+  only what is in your own transcript, and ask on `SendMessage` rather than
+  inferring.
 - **Stage by hunk in shared files, then commit with no paths at all.**
   `git commit -- <file>` scopes by file, not hunk, and commits the *working
   tree* version — it once swept a peer's `DESIGN.md` edits into another
@@ -138,3 +165,17 @@ time, and they commit to the same branch. `ListAgents` shows the others.
   instead, or `git -C <worktree> diff -- <file> | git apply`. Either way,
   read the diff before you stage: the working tree is the only thing that
   tells you what you actually changed.
+
+- **Stage a shared file as an exact blob, and make the marker check a hard
+  stop.** On 2026-08-28 a patch split's assertion failed inside a heredoc'd
+  python, the `set -e` chain did not stop, the unedited patch was applied,
+  the foreign-marker grep printed 2 — and the commit was made anyway, with a
+  peer's `DESIGN.md` §7 entries inside it. Two local commits were rewritten to
+  fix it. Instead: build the file you mean to commit (working tree minus the
+  peer's block) and stage it with `git hash-object -w <file>` +
+  `git update-index --cacheinfo 100644,<blob>,<path>`; then
+  `git diff --cached | grep -c <marker>` must print 0 and the chain must
+  `|| exit` on anything else before `git commit` is reached. And read
+  `git diff -U0 <file>` first: a block the peer has since committed is not
+  theirs to subtract — subtracting it stages a deletion of their work. The
+  same day, minutes later, that check caught exactly that.

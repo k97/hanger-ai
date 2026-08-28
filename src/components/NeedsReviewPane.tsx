@@ -89,7 +89,8 @@ export default function NeedsReviewPane({
   }
 
   return (
-    <div className="flex-1 flex flex-col h-full min-h-0 overflow-hidden bg-page font-sans">
+    // The pane paints no ground of its own: <main>'s sheet is the ground, and a full-bleed bg-page here would square off the sheet's corner from inside (every screen carries the corner — Karthik, 2026-08-28).
+    <div className="flex-1 flex flex-col h-full min-h-0 overflow-hidden font-sans">
       <section
         aria-label="Review summary"
         className="mx-[18px] mt-[18px] px-4 py-3.5 border border-line rounded-plane shrink-0"

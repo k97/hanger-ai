@@ -12,11 +12,19 @@
 //! Bodies are re-read here rather than threaded out of the scanner's many
 //! `upsert_asset` sites: one site instead of many, and a miss is uniform
 //! across kinds instead of a partial fix that indexes three and drops one.
+//!
+//! Both writers open their connection with a 30 s busy timeout
+//! (`index_connection`): the rescan a server-detail open triggers can hold
+//! the store's write lock past rusqlite's 5 s default, and a dropped index
+//! write is silent to the user, so the writer waits instead of giving up.
+//! The `SanitisedError` a caller sees is still a fixed string; the
+//! underlying SQLite error reaches only the log, via `err`.
 use std::collections::HashSet;
 use std::fs;
 use std::path::Path;
+use std::time::Duration;
 
-use rusqlite::params;
+use rusqlite::{params, Connection};
 use serde::{Deserialize, Serialize};
 
 use crate::domain::{Inventory, Scope};
@@ -53,8 +61,24 @@ pub struct SearchResponse {
     pub total: usize,
 }
 
+/// The `SanitisedError` returned to callers stays a fixed string; the cause
+/// goes to the log only, so a caller can never render SQLite's own message.
 fn err(msg: &'static str) -> impl Fn(rusqlite::Error) -> SanitisedError {
-    move |_| SanitisedError(msg.to_string())
+    move |e| {
+        log::warn!("{msg}: {e}");
+        SanitisedError(msg.to_string())
+    }
+}
+
+/// A connection for the two index writers, with a 30 s busy timeout: the
+/// rescan a server-detail open triggers can hold the store's write lock past
+/// rusqlite's 5 s default, and a dropped index write is silent, so wait
+/// instead of giving up.
+fn index_connection(store: &PreferencesStore) -> Result<Connection, SanitisedError> {
+    let conn = store.connect()?;
+    conn.busy_timeout(Duration::from_secs(30))
+        .map_err(err("Failed to configure search index connection"))?;
+    Ok(conn)
 }
 
 fn place_of(scope: Option<&Scope>) -> String {
@@ -69,9 +93,20 @@ fn place_of(scope: Option<&Scope>) -> String {
 /// sees a half-built index.
 pub fn index_inventory(db_path: &Path, inventory: &Inventory) -> Result<(), SanitisedError> {
     let store = PreferencesStore::new(db_path)?;
-    let mut conn = store.connect()?;
+    let mut conn = index_connection(&store)?;
+    // `Immediate`, not the default `Deferred`: `asset_search` is an FTS5
+    // virtual table, and preparing the DELETE below runs its xConnect, which
+    // reads the shadow config table before the DELETE itself executes. That
+    // read leaves a `Deferred` transaction holding only SHARED, and SQLite's
+    // deadlock avoidance refuses the SHARED-to-RESERVED upgrade a write needs
+    // without invoking the busy handler when another connection already
+    // holds RESERVED — so the DELETE fails immediately with "database is
+    // locked" rather than waiting out `busy_timeout` (app log, 2026-08-28:
+    // "Failed to clear search index"). Starting `Immediate` takes the write
+    // lock up front, where the busy handler does apply, same as
+    // `index_probe_tools` below.
     let tx = conn
-        .transaction()
+        .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
         .map_err(err("Failed to start search index transaction"))?;
 
     tx.execute("DELETE FROM asset_search WHERE kind != 'mcp_tool'", [])
@@ -153,9 +188,16 @@ pub fn index_probe_tools(
     tools: &[ProbedTool],
 ) -> Result<(), SanitisedError> {
     let store = PreferencesStore::new(db_path)?;
-    let mut conn = store.connect()?;
+    let mut conn = index_connection(&store)?;
+    // `Immediate`, not the default `Deferred`: this transaction reads (the
+    // SELECT below) before it writes, and SQLite does not run the busy
+    // handler for a lock upgrade from a SHARED lock already held within the
+    // same transaction — it returns SQLITE_BUSY immediately regardless of
+    // `busy_timeout`, only for that in-transaction upgrade. Starting
+    // `Immediate` takes the write lock up front, where the busy handler
+    // does apply, so the 30 s timeout above actually has effect.
     let tx = conn
-        .transaction()
+        .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
         .map_err(err("Failed to start search index transaction"))?;
 
     let (path, place): (String, String) = tx

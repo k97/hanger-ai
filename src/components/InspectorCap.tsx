@@ -194,15 +194,15 @@ export default function InspectorCap({
   return (
     <div
       ref={rowRef}
-      className={`h-10 flex items-center gap-2 ${leadingColumn ? "pl-[51px]" : "pl-[18px]"} pr-3 select-none`}
+      className={`h-9 flex items-center gap-2 ${leadingColumn ? "pl-[51px]" : "pl-[18px]"} pr-3 select-none`}
     >
       {asset && Icon && (
         <div className="shrink-0 relative inline-flex">
           {place === "Global" ? (
-            <Icon size={16} className="text-ink-2" aria-hidden="true" />
+            <Icon size={16} className="text-ink-3" aria-hidden="true" />
           ) : (
             <Tooltip label={`${kind} · ${place}`} placement="bottom">
-              <Icon size={16} className="text-ink-2" role="img" aria-label={`${kind} · ${place}`} />
+              <Icon size={16} className="text-ink-3" role="img" aria-label={`${kind} · ${place}`} />
             </Tooltip>
           )}
           {showGlyphDot && (
@@ -265,7 +265,7 @@ export default function InspectorCap({
           <OverflowMenu
             trigger={(triggerProps) => (
               <button type="button" aria-label="More actions" className={tbBtnClass} {...triggerProps}>
-                <EllipsisVerticalIcon size={15} aria-hidden="true" />
+                <EllipsisVerticalIcon size={16} aria-hidden="true" />
               </button>
             )}
             ariaLabel="More actions"
@@ -362,15 +362,15 @@ export default function InspectorCap({
             className={tbBtnClass}
           >
             {inspectorExpanded ? (
-              <CollapseIcon size={15} aria-hidden="true" />
+              <CollapseIcon size={16} aria-hidden="true" />
             ) : (
-              <ExpandIcon size={15} aria-hidden="true" />
+              <ExpandIcon size={16} aria-hidden="true" />
             )}
           </button>
         </Tooltip>
         <Tooltip label="Toggle inspector" placement="bottom">
           <button onClick={onToggleInspector} aria-label="Toggle inspector" className={tbBtnActiveClass}>
-            <PanelRightIcon size={15} aria-hidden="true" />
+            <PanelRightIcon size={16} aria-hidden="true" />
           </button>
         </Tooltip>
       </div>

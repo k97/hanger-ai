@@ -657,7 +657,8 @@ export default function Flyout({
   return (
     // Column chrome (width, resize, the cap and its close) lives in App.tsx:
     // this component is only the inspector's body for the machine views.
-    <div className="h-full bg-page flex flex-col relative overflow-hidden">
+    // No ground of its own: the inspector column's sheet is the ground, and a full-bleed bg-page here squares off the sheet's corner from inside when the column leads (every screen carries the corner — Karthik, 2026-08-28).
+    <div className="h-full flex flex-col relative overflow-hidden">
       {/* Header — the eyebrow says where you are, the title says what you are
           looking at. In the link flow the eyebrow becomes the way back, so the
           panel never grows a second header for its second screen. With nothing
@@ -680,20 +681,19 @@ export default function Flyout({
           was a gap between two empty things. The heading is what the panel
           opens with, and every pixel taken here comes off the content.
 
-          The spacing is a rule, not four numbers (Karthik, 2026-08-28: the
-          steps between the cap, the title and the tabs "feel inconsistent").
-          Every band in the header stack pads symmetrically on the 8px step —
-          this one `py-2`, the tab row's labels `py-2` (`UnderlineTabs.tsx`)
-          — so no band reaches across into another to set its neighbour's
-          gap, and the eyebrow-to-title step is this column's own `gap-1`
-          rather than a margin the title row switches on and off. What is
-          left above the title is the cap's centring slack (a 16px glyph in
-          an `h-10` row), which belongs to the cap and is not ours to pad
-          against. */}
+          The spacing is a rule, not four numbers (Karthik, 2026-08-28, twice:
+          the steps "feel inconsistent", then "make it consistent"). The
+          inspector opens like every other screen — `pt-[18px]` under the
+          sheet's rule, the same 18 as its sides — and the title sits 14
+          above the tabs, the rhythm every pane uses under its opener: this
+          block's `pb-1.5` (6) plus the tab row's own `py-2` (8,
+          `UnderlineTabs.tsx`). The eyebrow-to-title step is this column's
+          own `gap-1` rather than a margin the title row switches on and
+          off. */}
       {(linking || targetAsset || selectedBubble || showEmptyMcpEyebrow) && (
       <div
         data-testid="inspector-header"
-        className={`px-[18px] py-2 flex flex-col gap-1 shrink-0${
+        className={`px-[18px] pt-[18px] pb-1.5 flex flex-col gap-1 shrink-0${
           tabsFollow ? "" : " border-b border-line"
         }`}
       >

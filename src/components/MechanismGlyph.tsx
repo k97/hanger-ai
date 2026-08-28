@@ -1,4 +1,5 @@
 import Tooltip from "./Tooltip";
+import { strokeFor } from "./icons";
 
 /** The five ways an asset can be attached, as the backend words them.
  *  Rendered verbatim: the frontend never derives a mechanism from paths or
@@ -17,11 +18,11 @@ const MECH_TIP: Record<MechanismWord, string> = {
 };
 
 const MECH_CLASS: Record<MechanismWord, string> = {
-  symlink: "text-ink-1",
-  copy: "text-ink-2",
+  symlink: "text-ink-3",
+  copy: "text-ink-3",
   drift: "text-state-warning",
   broken: "text-state-danger",
-  none: "text-ink-3 opacity-[0.28]",
+  none: "text-ink-3",
 };
 
 function glyphPath(mechanism: MechanismWord) {
@@ -45,6 +46,9 @@ function glyphPath(mechanism: MechanismWord) {
         <>
           <rect x="9" y="9" width="12" height="12" rx="2.5" />
           <path d="M5 15V5.5A2.5 2.5 0 0 1 7.5 3H17" />
+          {/* Deliberate emphasis on the 24 grid, not a band value: the
+              drift exclamation is drawn a touch heavier than the glyph's
+              own stroke so it reads as the state that needs attention. */}
           <path d="M15 13v3m0 2.5h.01" strokeWidth="2.2" />
         </>
       );
@@ -57,6 +61,9 @@ function glyphPath(mechanism: MechanismWord) {
         </>
       );
     case "none":
+      // Deliberate emphasis on the 24 grid, not a band value: the empty-
+      // state ring is drawn a touch heavier than the glyph's own stroke so
+      // it reads as a mark rather than a stray circle.
       return <circle cx="12" cy="12" r="6.5" strokeWidth="2" />;
   }
 }
@@ -80,7 +87,7 @@ export default function MechanismGlyph({ mechanism, places }: MechanismGlyphProp
         viewBox="0 0 24 24"
         fill="none"
         stroke="currentColor"
-        strokeWidth="1.9"
+        strokeWidth={strokeFor(14)}
         strokeLinecap="round"
         strokeLinejoin="round"
         aria-label={`Mechanism: ${mechanism}`}

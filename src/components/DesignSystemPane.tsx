@@ -253,9 +253,9 @@ const BEATS: { utility: string; token: string; where: string }[] = [
   { utility: "duration-press", token: "--dur-press", where: "press, enter and exit" },
 ];
 
-/** One size per band of `strokeFor`; the stroke shown is the function's own
- *  answer, so the page cannot disagree with icons.tsx. */
-const ICON_SIZE_BANDS = [12, 16, 20, 24];
+/** The stroke ladder, read live from `strokeFor` rather than listed here, so
+ *  the specimen cannot drift from icons.tsx's own answer. */
+const ICON_SIZE_BANDS = [12, 13, 14, 16, 20, 24];
 
 /** The rail's marks in the rail's order (IconRail.tsx), where four stack at
  *  one size and any optical mismatch reads as a wobble. */
@@ -333,8 +333,9 @@ export default function DesignSystemPane({ section }: DesignSystemPaneProps) {
   const scannedAt = new Date(Date.now() - 4 * 60_000);
 
   return (
-    <div className="flex-1 flex flex-col h-full min-h-0 overflow-hidden bg-page font-sans">
-      <header className="px-[18px] pt-5 pb-1 shrink-0">
+    // The pane paints no ground of its own: <main>'s sheet is the ground, and a full-bleed bg-page here would square off the sheet's corner from inside (every screen carries the corner — Karthik, 2026-08-28).
+    <div className="flex-1 flex flex-col h-full min-h-0 overflow-hidden font-sans">
+      <header className="px-[18px] pt-[18px] pb-1 shrink-0">
         <div className="flex items-baseline gap-3.5 mb-[7px]">
           <h1 className="text-lg-app font-medium tracking-[-0.2px] text-ink-1">
             The system, rendered by the app that uses it
@@ -357,6 +358,7 @@ export default function DesignSystemPane({ section }: DesignSystemPaneProps) {
           <Group label="Ground and ink">
             <div className={swatchGridClass}>
               <Swatch token="--page" note="window ground" />
+              <Swatch token="--sidebar" note="the shell's material: the rail column and every cap, a tint over the window's vibrancy" />
               <Swatch token="--plane" note="list and card surface" />
               <Swatch token="--plane-2" note="hover / press step" />
               <Swatch token="--tint" note="selection on the page" />
@@ -403,7 +405,7 @@ export default function DesignSystemPane({ section }: DesignSystemPaneProps) {
         <Section
           id="geometry"
           label="Geometry"
-          lede="Three radii for surfaces, one soft radius for the rail's buttons, pills for every control. Spacing rides Tailwind's 4px grid; anything off it is stated at the call site as an arbitrary value, and the 18px gutter is a token."
+          lede="Three radii for surfaces, one soft radius for the rail's buttons, pills for every control. Spacing rides Tailwind's 4px grid; anything off it is stated at the call site as an arbitrary value, and the 18px gutter is a token. The shell's cap is 36px; the content sheet under it opens 18px in from its top rule, the same as from its sides, and the first column after the rail rounds its top-left corner on every screen."
         >
           <div className="flex items-end gap-6 flex-wrap">
             {RADII.map((r) => (
@@ -530,9 +532,9 @@ export default function DesignSystemPane({ section }: DesignSystemPaneProps) {
         <Section
           id="iconography"
           label="Iconography"
-          lede="Heroicons outline, never used raw: sized() applies two corrections — the stroke scales up as the box shrinks so it lands near 1px on screen, and a per-mark optical factor evens out how much of the grid each mark inks. Brand marks come from one sprite, referenced by id."
+          lede="Heroicons outline, never used raw: sized() applies two corrections — the stroke is 24 over the box, landing at 1.0px on screen at 16px and floored at the family's 1.5 above it, and a per-mark optical factor evens out how much of the grid each mark inks. Brand marks come from one sprite, referenced by id."
         >
-          <Specimen name="Size bands" file="icons.tsx" note="the stroke scales up as the box shrinks so it lands near 1px on screen">
+          <Specimen name="Stroke ladder" file="icons.tsx" note="the stroke is 24 over the box, so it lands at 1.0px at 16 and floors at the family's 1.5 above it, where 20 and 24 keep their drawn weight — a mark's own optical factor can push its box past 16 the same way, so the rail's 1.12 marks settle at 1.12px">
             <div className="flex items-end gap-8">
               {ICON_SIZE_BANDS.map((size) => (
                 <div key={size} className="flex flex-col items-center gap-2 text-ink-1">
@@ -545,10 +547,10 @@ export default function DesignSystemPane({ section }: DesignSystemPaneProps) {
             </div>
           </Specimen>
 
-          <Specimen name="Optical alignment" file="icons.tsx" note="the rail's marks at 17; per-mark optical factors are measured ink-extent ratios, and anything within 4% is left at 1">
+          <Specimen name="Optical alignment" file="icons.tsx" note="the rail's marks at 16; per-mark optical factors are measured ink-extent ratios, and anything within 4% is left at 1">
             <div className="flex items-center gap-5 text-ink-2">
               {RAIL_MARKS.map(({ name, Icon }) => (
-                <Icon key={name} size={17} />
+                <Icon key={name} size={16} />
               ))}
             </div>
           </Specimen>
@@ -601,7 +603,7 @@ export default function DesignSystemPane({ section }: DesignSystemPaneProps) {
                   name — a reader would hear a toggle that toggles nothing. */}
               <Tooltip label="Sample cap button" placement="bottom">
                 <button aria-label="Sample cap button" className={capButtonClass}>
-                  <PanelRightIcon size={15} aria-hidden="true" />
+                  <PanelRightIcon size={16} aria-hidden="true" />
                 </button>
               </Tooltip>
             </div>
@@ -672,7 +674,7 @@ export default function DesignSystemPane({ section }: DesignSystemPaneProps) {
             <OverflowMenu
               trigger={(triggerProps) => (
                 <button type="button" aria-label="Sample overflow menu" className={capButtonClass} {...triggerProps}>
-                  <EllipsisVerticalIcon size={15} aria-hidden="true" />
+                  <EllipsisVerticalIcon size={16} aria-hidden="true" />
                 </button>
               )}
               ariaLabel="Sample overflow menu"
