@@ -6,8 +6,8 @@ import HeroBand, { type HeroBandRow } from "./HeroBand";
 afterEach(cleanup);
 
 const rows: HeroBandRow[] = [
-  { key: "claude_code", engineKey: "claude_code", engineName: "Claude Code", secondary: "10 servers", value: 131, word: "tools" },
-  { key: "claude_ai", engineKey: "claude_ai", engineName: "Claude.ai", secondary: "7 servers", value: null, word: "can't be asked" },
+  { key: "claude-code", engineKey: "claude-code", engineName: "Claude Code", secondary: "10 servers", value: 131, word: "tools" },
+  { key: "claude-ai", engineKey: "claude-ai", engineName: "Claude.ai", secondary: "7 servers", value: null, word: "can't be asked" },
   { key: "vscode", engineKey: "vscode", engineName: "VS Code", secondary: "1 server", value: 0, word: "tools" },
 ];
 
@@ -23,7 +23,7 @@ describe("HeroBand", () => {
     expect(collapsed.textContent).toContain("0");
     expect(collapsed.textContent).not.toContain("Claude Code");
     expect(collapsed.textContent).not.toMatch(/more/);
-    expect(screen.queryByTestId("hero-band-row-claude_code")).toBeNull();
+    expect(screen.queryByTestId("hero-band-row-claude-code")).toBeNull();
   });
 
   it("open: one row per entry with name, secondary, value and word; null is a dash with its own word", () => {
@@ -31,12 +31,12 @@ describe("HeroBand", () => {
     expect(screen.getByTestId("hero-band-toggle").getAttribute("aria-expanded")).toBe("true");
     expect(screen.queryByTestId("hero-band-collapsed")).toBeNull();
     expect(screen.getByText("A tool counts once per host that carries it.")).toBeTruthy();
-    const cc = screen.getByTestId("hero-band-row-claude_code");
+    const cc = screen.getByTestId("hero-band-row-claude-code");
     expect(cc.textContent).toContain("Claude Code");
     expect(cc.textContent).toContain("10 servers");
     expect(cc.textContent).toContain("131");
     expect(cc.textContent).toContain("tools");
-    const ai = screen.getByTestId("hero-band-row-claude_ai");
+    const ai = screen.getByTestId("hero-band-row-claude-ai");
     expect(ai.textContent).toContain("—");
     expect(ai.textContent).toContain("can't be asked");
     const vs = screen.getByTestId("hero-band-row-vscode");
@@ -45,9 +45,18 @@ describe("HeroBand", () => {
 
   it("open rows are the key-value contract without the card: no rounded, no bg, hairlines between", () => {
     render(<HeroBand label="By host" open onToggle={vi.fn()} rows={rows} />);
-    const cc = screen.getByTestId("hero-band-row-claude_code");
-    expect(cc.className).toContain("border-t");
-    expect(cc.className).not.toMatch(/rounded|bg-/);
+    // rows[0] and rows[1] are the grid's FIRST row and carry `border-t-0`;
+    // rows[2] is the one that must draw a real hairline. Asserting
+    // `toContain("border-t")` on rows[0] proves nothing — "border-t-0"
+    // contains "border-t" as a substring, so a component that suppressed
+    // every hairline would pass it (found in review, 2026-08-28).
+    const first = screen.getByTestId("hero-band-row-claude-code");
+    expect(first.className).toContain("border-t-0");
+    expect(first.className).not.toMatch(/rounded|bg-/);
+    const third = screen.getByTestId("hero-band-row-vscode");
+    expect(third.className).toContain("border-t");
+    expect(third.className).not.toContain("border-t-0");
+    expect(third.className).not.toMatch(/rounded|bg-/);
   });
 
   it("the toggle calls onToggle", () => {
@@ -62,5 +71,9 @@ describe("HeroBand", () => {
     expect(screen.queryByTestId("hero-band-foot")).toBeNull();
     rerender(<HeroBand label="By engine" open onToggle={vi.fn()} rows={rows} foot={<span>1 nested repo counts towards this row</span>} />);
     expect(screen.getByTestId("hero-band-foot").textContent).toContain("nested repo");
+    // Open with no foot given — otherwise a regression that drops the
+    // `foot &&` guard renders an empty foot row on every open band.
+    rerender(<HeroBand label="By engine" open onToggle={vi.fn()} rows={rows} />);
+    expect(screen.queryByTestId("hero-band-foot")).toBeNull();
   });
 });
