@@ -173,11 +173,11 @@ describe("Design system — Typography and Iconography", () => {
     for (const name of ["FolderIcon", "GitMergeIcon", "GitPullRequestClosedIcon", "RevealInFileManagerIcon"]) {
       expect(within(section).getByText(name), name).toBeTruthy();
     }
-    // strokeFor (icons.tsx) is one continuous rule now; the specimen's four
-    // bands (12/16/20/24) render only two distinct values, 2 and 1.5 — 1.5
-    // now repeats across three bands, so the query must tolerate more than
-    // one match (getByText, singular, would throw on that).
-    for (const stroke of ["2", "1.5"]) {
+    // strokeFor (icons.tsx) is one continuous rule; the ladder's six bands
+    // (12/13/14/16/20/24) render four distinct values, 2, 1.85, 1.71 and
+    // 1.5 — 1.5 repeats across three bands (16, 20, 24), so the query must
+    // tolerate more than one match (getByText, singular, would throw on that).
+    for (const stroke of ["2", "1.85", "1.71", "1.5"]) {
       expect(within(section).getAllByText(stroke, { exact: false }).length, stroke).toBeGreaterThan(0);
     }
     // Every BrandId draws from the sprite; Codex carries its dark twin.

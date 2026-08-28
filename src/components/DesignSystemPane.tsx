@@ -253,9 +253,9 @@ const BEATS: { utility: string; token: string; where: string }[] = [
   { utility: "duration-press", token: "--dur-press", where: "press, enter and exit" },
 ];
 
-/** One size per band of `strokeFor`; the stroke shown is the function's own
- *  answer, so the page cannot disagree with icons.tsx. */
-const ICON_SIZE_BANDS = [12, 16, 20, 24];
+/** The stroke ladder, read live from `strokeFor` rather than listed here, so
+ *  the specimen cannot drift from icons.tsx's own answer. */
+const ICON_SIZE_BANDS = [12, 13, 14, 16, 20, 24];
 
 /** The rail's marks in the rail's order (IconRail.tsx), where four stack at
  *  one size and any optical mismatch reads as a wobble. */
@@ -532,7 +532,7 @@ export default function DesignSystemPane({ section }: DesignSystemPaneProps) {
           label="Iconography"
           lede="Heroicons outline, never used raw: sized() applies two corrections — the stroke scales up as the box shrinks so it lands near 1px on screen, and a per-mark optical factor evens out how much of the grid each mark inks. Brand marks come from one sprite, referenced by id."
         >
-          <Specimen name="Size bands" file="icons.tsx" note="the stroke scales up as the box shrinks so it lands near 1px on screen">
+          <Specimen name="Stroke ladder" file="icons.tsx" note="the stroke that lands at 1.0px on screen, floored at the family's 1.5 above 16">
             <div className="flex items-end gap-8">
               {ICON_SIZE_BANDS.map((size) => (
                 <div key={size} className="flex flex-col items-center gap-2 text-ink-1">

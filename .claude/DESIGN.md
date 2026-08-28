@@ -356,9 +356,12 @@ in `sized()` (`icons.tsx:119`), which does two things a plain import cannot.
 
 **Stroke compensation.** Heroicons' outline set is drawn on a 24px grid at 1.5
 stroke; at this shell's working sizes of 10–17px that thins to ~0.7px and goes
-soft. `strokeFor()` scales the stroke back up per size band so it lands near
-1px on screen (`icons.tsx:98-103`): ≤12px → 2.2, ≤16px → 1.9, ≤20px → 1.7,
-above → 1.5.
+soft. `strokeFor()` is one continuous rule, not size bands:
+`Math.max(1.5, 24 / box)` rounded to two decimal places (`icons.tsx:102-104`).
+That lands the stroke at 1.0px on screen at 16px and below — the reference
+marks measure exactly 2 device px at 2×
+(`docs/v7-todo-content-typography/icon-weight-review.md`) — and floors it at
+the family's own 1.5 weight above 16px.
 
 **Optical correction.** A per-mark `optical` ratio corrects for how much of the
 24 grid each mark actually inks, because a 1:1 family swap inherits the
@@ -373,8 +376,19 @@ marks on lucide because Heroicons has no equivalent: `FolderSymlink`,
 `FolderTree`, `GitMerge`, `PanelLeft`, `PanelRight`, `Maximize2`, `Minimize2`
 (`icons.tsx:81-89`, exported `:185-194`). Default size is 16 (`icons.tsx:95`).
 The Design system page's Iconography section (§9) rosters every export of
-this module by name and shows the stroke bands by calling `strokeFor`,
+this module by name and shows the stroke ladder by calling `strokeFor`,
 which is exported for that one reader (`bc1c3c8`, 2026-08-28).
+
+**Size and ink by role.** Three sizes cover the shell: 16 for shell marks —
+the rail (`IconRail.tsx:73`), sidebar rows (`Sidebar.tsx:130`), the
+inspector cap's kind icon (`InspectorCap.tsx:202`) and the titlebar panel
+toggles (`InspectorCap.tsx:373`) — 14 for row marks (`AssetDetail.tsx:275`'s
+identity rows, `MechanismGlyph.tsx:78`), and 12 for chevrons
+(`AssetHeaderRow.tsx:36-38`, `Flyout.tsx:734`) (Karthik's ruling I2,
+2026-08-28). A mark also takes the ink of the text beside it rather than a
+fixed shade of its own: the cap's kind icon and the row's mechanism glyph
+both sit in `--ink-3` (`InspectorCap.tsx:202,205`, `MechanismGlyph.tsx:20-24`;
+rulings I3/I4).
 
 Twenty more marks are animated, and every one of them is lucide too — not
 because Heroicons lacks their geometry, but because it has no motion story,
@@ -1727,8 +1741,8 @@ in each, and a stated fact that `--font-sans` and `--font-flex` are one
 stack today, so the two names mark two roles rather than two faces; the
 scale rows carry the role §2's table gives each size. Iconography renders
 `icons.tsx` from the module — every export ending in `Icon`, by name — so
-a new mark appears without anyone listing it; shows `strokeFor`'s four
-bands by calling it (exported for this, `bc1c3c8`); lines up the rail's
+a new mark appears without anyone listing it; shows the stroke ladder by
+calling `strokeFor` (exported for this, `bc1c3c8`); lines up the rail's
 marks to show the optical factors at work; and draws every `BrandId` from
 the sprite, Codex's dark twin included. Every
 component on the page is the real one, imported and rendered with sample
