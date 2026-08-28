@@ -531,7 +531,13 @@ pub fn get_global_agents_with_denials() -> (Vec<Agent>, Vec<String>) {
         // store or name a folder that is not there (spec §4.4).
         if resolved_path.is_none() {
             for rel_path in config.detect_files {
-                let path = home.join(rel_path);
+                // engine_base, not home.join, for the same reason as the
+                // global_roots loop above: a detect-file-only engine (Zed)
+                // must be found at its relocated config directory too, the
+                // moment a second CONFIG_DIR_ENVS entry names its prefix
+                // (review finding, Minor 7 — safe today only because zed's
+                // one detect_file matches no relocatable prefix).
+                let path = crate::agents::engine_base(&home, rel_path);
                 match probe_path(&path) {
                     RootPresence::Present => {
                         resolved_path = Some(path.to_string_lossy().to_string());
