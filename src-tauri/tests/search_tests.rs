@@ -299,20 +299,25 @@ fn an_index_write_waits_out_a_lock_held_longer_than_rusqlites_default() {
     let holder = rusqlite::Connection::open(&db).unwrap();
     holder.execute_batch("BEGIN IMMEDIATE;").unwrap();
 
-    let started = std::time::Instant::now();
+    // `elapsed` is timed on the writer thread, right up against the call it
+    // measures: timing it on the main thread instead (its own 7 s sleep
+    // already elapsed by the time it reads the clock) could never fail
+    // regardless of whether the writer actually waited.
     let writer = {
         let db = db.clone();
         std::thread::spawn(move || {
-            index_probe_tools(&db, "/home/u/.claude.json:spades", "spades", "/home/u/.claude.json", &[tool("waits", None)])
+            let started = std::time::Instant::now();
+            let result = index_probe_tools(&db, "/home/u/.claude.json:spades", "spades", "/home/u/.claude.json", &[tool("waits", None)]);
+            (result, started.elapsed())
         })
     };
     std::thread::sleep(std::time::Duration::from_secs(7));
     holder.execute_batch("COMMIT;").unwrap();
     drop(holder);
 
-    let result = writer.join().unwrap();
+    let (result, elapsed) = writer.join().unwrap();
     assert!(result.is_ok(), "the index write must outwait a 7 s lock: {:?}", result.err());
-    assert!(started.elapsed() >= std::time::Duration::from_secs(6), "the writer waited for the lock, it did not skip it");
+    assert!(elapsed >= std::time::Duration::from_secs(6), "the writer waited for the lock, it did not skip it: {:?}", elapsed);
 }
 
 #[test]
