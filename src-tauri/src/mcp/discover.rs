@@ -437,6 +437,19 @@ fn rel_matches(base: &Path, rel: &str, path: &Path) -> bool {
     resolve_paths(base, rel).iter().any(|p| p.as_path() == path)
 }
 
+/// Like [`rel_matches`], but for a `HomeRelative` row, honouring a relocated
+/// config directory via `home_base_for` — the same split `discover_machine_at`
+/// uses. Without this, a probe against a relocated `.claude.json` finds no
+/// candidate here, falls back to an extension guess, resolves the wrong
+/// dialect, and the server renders as failed (the defect `4846cec` fixed).
+fn home_rel_matches(home: &Path, rel: &str, path: &Path) -> bool {
+    let (base, rest) = home_base_for(home, rel);
+    if rest.is_empty() {
+        return base.as_path() == path;
+    }
+    rel_matches(&base, &rest, path)
+}
+
 /// Every `SOURCES` row whose location resolves to `config_path`.
 ///
 /// Usually one row. `.claude.json` is the exception — three rows share its
@@ -457,7 +470,7 @@ fn matching_sources(config_path: &str) -> Vec<&'static McpSource> {
     let machine: Vec<&'static McpSource> = SOURCES
         .iter()
         .filter(|s| s.location == SourceLocation::HomeRelative)
-        .filter(|s| rel_matches(&home, s.path, path))
+        .filter(|s| home_rel_matches(&home, s.path, path))
         .collect();
     if !machine.is_empty() {
         return machine;
@@ -565,13 +578,50 @@ pub fn discover_machine_at(home: &Path, system: &Path) -> DiscoveryResult {
             SourceLocation::HomeRelative | SourceLocation::SystemAbsolute
         )
     }) {
-        let base = match source.location {
-            SourceLocation::SystemAbsolute => system,
-            _ => home,
-        };
-        read_source(base, source, &mut out);
+        match source.location {
+            SourceLocation::SystemAbsolute => read_source(system, source, &mut out),
+            _ => {
+                let (base, rest) = home_base_for(home, source.path);
+                // engine_base already returns the FULL path for a
+                // single-segment row (rest == ""); resolve_paths cannot be
+                // used for that case (see home_base_for's doc comment), so
+                // the empty remainder is handled here at the call site
+                // rather than by changing resolve_paths, which globs
+                // correctly for every other caller.
+                let paths = if rest.is_empty() {
+                    if base.is_file() { vec![base.clone()] } else { Vec::new() }
+                } else {
+                    resolve_paths(&base, &rest)
+                };
+                for path in paths {
+                    read_one(&path, source.dialect, source.host_id, source.tier, &mut out);
+                }
+            }
+        }
     }
     out
+}
+
+/// Base for a HomeRelative row, honouring a relocated config directory.
+///
+/// Globs must keep working, so this resolves the row's first path segment
+/// through `engine_base` and returns the remainder for `resolve_paths` to
+/// expand. `.claude/plugins/marketplaces/*/.mcp.json` under a relocated
+/// CLAUDE_CONFIG_DIR must still glob.
+///
+/// **MEASURED 2026-08-28: `resolve_paths(base, "")` returns NOTHING.**
+/// `Path::join("")` appends a trailing separator, so
+/// `Path::new("/Users/k/.mcp.json").join("")` is `"/Users/k/.mcp.json/"` and
+/// `is_file()` on that is `false`. A single-segment row (`.mcp.json`,
+/// `.claude.json`) has an empty remainder here — `engine_base` already
+/// returned its complete path — so the caller must special-case the empty
+/// remainder rather than handing it to `resolve_paths`.
+fn home_base_for(home: &Path, rel: &str) -> (PathBuf, String) {
+    let (first, rest) = match rel.split_once('/') {
+        Some((f, r)) => (f, r.to_string()),
+        None => (rel, String::new()),
+    };
+    (crate::agents::engine_base(home, first), rest)
 }
 
 /// Registrations reaching `repo_root` from `.mcp.json` files in ancestor

@@ -147,3 +147,38 @@ fn a_relocated_claude_dir_is_detected_as_the_agent_root() {
         cc.global_config_path
     );
 }
+
+// ─── Task 3: MCP HomeRelative source resolution ────────────────────────────
+
+#[test]
+fn a_relocated_claude_dir_moves_its_mcp_sources() {
+    let (_l, _g) = guard();
+    let home = tempfile::tempdir().unwrap();
+    let relocated = tempfile::tempdir().unwrap();
+    // .claude.json is a SIBLING file inside the relocated dir (finding 2).
+    std::fs::write(
+        relocated.path().join(".claude.json"),
+        r#"{"mcpServers": {"relocated-probe": {"command": "/bin/true", "args": []}}}"#,
+    )
+    .unwrap();
+    // A decoy at the old location must NOT be read once the var is set.
+    std::fs::write(
+        home.path().join(".claude.json"),
+        r#"{"mcpServers": {"stale-probe": {"command": "/bin/true", "args": []}}}"#,
+    )
+    .unwrap();
+
+    std::env::set_var("CLAUDE_CONFIG_DIR", relocated.path());
+    let r = tauri_app_lib::mcp::discover::discover_machine_at(
+        home.path(),
+        Path::new("tests/fixtures/no_such_system_root"),
+    );
+    let names: Vec<&str> = r.registrations.iter().map(|x| x.server.name.as_str()).collect();
+
+    assert!(names.contains(&"relocated-probe"), "relocated .claude.json not read: {names:?}");
+    assert!(
+        !names.contains(&"stale-probe"),
+        "the old ~/.claude.json must stop being read once CLAUDE_CONFIG_DIR is set — \
+         measured 2026-08-28, Claude Code substitutes rather than adding a search root"
+    );
+}
