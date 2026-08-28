@@ -199,10 +199,10 @@ export default function InspectorCap({
       {asset && Icon && (
         <div className="shrink-0 relative inline-flex">
           {place === "Global" ? (
-            <Icon size={16} className="text-ink-2" aria-hidden="true" />
+            <Icon size={16} className="text-ink-3" aria-hidden="true" />
           ) : (
             <Tooltip label={`${kind} · ${place}`} placement="bottom">
-              <Icon size={16} className="text-ink-2" role="img" aria-label={`${kind} · ${place}`} />
+              <Icon size={16} className="text-ink-3" role="img" aria-label={`${kind} · ${place}`} />
             </Tooltip>
           )}
           {showGlyphDot && (

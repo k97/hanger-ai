@@ -17,11 +17,11 @@ const MECH_TIP: Record<MechanismWord, string> = {
 };
 
 const MECH_CLASS: Record<MechanismWord, string> = {
-  symlink: "text-ink-1",
-  copy: "text-ink-2",
+  symlink: "text-ink-3",
+  copy: "text-ink-3",
   drift: "text-state-warning",
   broken: "text-state-danger",
-  none: "text-ink-3 opacity-[0.28]",
+  none: "text-ink-3",
 };
 
 function glyphPath(mechanism: MechanismWord) {

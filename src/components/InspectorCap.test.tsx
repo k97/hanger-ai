@@ -240,6 +240,15 @@ describe("InspectorCap", () => {
     expect(screen.getByRole("img", { name: "Skill · hanger-ai" })).toBeTruthy();
   });
 
+  // A mark takes the ink of the text it sits beside: the kind icon matches
+  // the caption ink of the eyebrow next to it (Karthik, 2026-08-28, I3).
+  it("the kind icon takes the caption's ink", () => {
+    renderCap({ place: "hanger-ai" });
+    const icon = screen.getByRole("img", { name: "Skill · hanger-ai" });
+    expect(icon.getAttribute("class")).toContain("text-ink-3");
+    expect(icon.getAttribute("class")).not.toContain("text-ink-2");
+  });
+
   it("never sheds an MCP server's cap: findings do not open a dangling ⋮ menu (forceShed=2)", () => {
     renderCap({
       asset: { category: "Tools" },
