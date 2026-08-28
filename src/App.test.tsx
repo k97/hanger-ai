@@ -274,11 +274,6 @@ describe("App shell v5 marks", () => {
   });
 });
 
-// The toolbar search field (App.tsx:1484-1509) had no way to empty itself
-// short of selecting the text and deleting it by hand. The clear control
-// must only exist while there is something to clear, must not submit
-// anything, and must hand focus back to the input it just emptied — a user
-// clearing a search is about to type again.
 /*
  * Scan event listeners must not outlive the component that registered them.
  *

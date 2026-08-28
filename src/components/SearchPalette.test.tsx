@@ -109,6 +109,15 @@ describe("SearchPalette", () => {
     expect(await screen.findByText("Nothing matches “zzz”.")).toBeTruthy();
   });
 
+  it("shows the hint, not a finding, when the backend rejects", async () => {
+    vi.mocked(invoke).mockRejectedValueOnce(new Error("Search failed"));
+    render(<SearchPalette open={true} scannedAt={scanned} onClose={() => {}} onPick={() => {}} />);
+    fireEvent.change(screen.getByLabelText("Search assets"), { target: { value: "deploy" } });
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("search_assets", { query: "deploy", limit: 50 }));
+    await waitFor(() => expect(screen.queryByText("Nothing matches “deploy”.")).toBeNull());
+    expect(screen.getByText("Type to search names and what's inside.")).toBeTruthy();
+  });
+
   it("drops a stale answer that lands after a newer query", async () => {
     let resolveFirst: (v: unknown) => void = () => {};
     vi.mocked(invoke)

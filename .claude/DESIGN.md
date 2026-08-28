@@ -593,7 +593,7 @@ rather than swapping views.
 ### Panes
 
 **`ProfilePane`** (`ProfilePane.tsx:18-55`) — `inventory`, `assetCounts?`,
-`selectedCategory?`, `selectedAsset?`, `loading`, `filterText?`, `stateFilter?`,
+`selectedCategory?`, `selectedAsset?`, `loading`, `stateFilter?`,
 `onStateFilterChange?`, `scannedAt?`, `detectedEngines?`, `onRescan?`,
 `sortField?`, `sortDirection?`, `onSortChange?`, `onSelectAsset`,
 `onLinkAsset`, `onClearSelection?`.
@@ -602,7 +602,7 @@ rather than swapping views.
 `onRefresh`, `onLinkFromProfile`, `linkedRepos?`, `onPromoteCandidates?`.
 
 **`NeedsReviewPane`** (`NeedsReviewPane.tsx:11-29`) — `issues`, `counts`,
-`kind`, `place`, `filterText`, `selectedId`, `onSelectKind`, `onSelectPlace`,
+`kind`, `place`, `selectedId`, `onSelectKind`, `onSelectPlace`,
 `onSelectIssue`, `onRescan?`, `scanning?`, `scannedAt?`.
 
 **Empty is a finding, pending is not.** All three panes gate their negative
@@ -660,7 +660,7 @@ The empty copy itself, reviewed 2026-08-16 (Karthik: "review with
 Pinned by `ProfilePaneIntegration.test.tsx`, `RepoPaneIntegration.test.tsx`,
 `needs_review_pane.test.tsx`, `inspector_avionics.test.tsx`, `prose.test.ts`.
 
-**`DiscoveryPane`** (`DiscoveryPane.tsx`) — `filterText?`, `kind?`. Renders
+**`DiscoveryPane`** (`DiscoveryPane.tsx`) — `kind?`. Renders
 from static data in `src/data/directories.ts`; the kind facet is owned by
 `DiscoverySidebar`.
 

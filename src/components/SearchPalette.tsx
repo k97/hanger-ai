@@ -109,6 +109,8 @@ export default function SearchPalette({ open, scannedAt, onClose, onPick }: Sear
     if (!open || scannedAt === null) return;
     const q = query.trim();
     if (q === "") {
+      // Bump seq so a response for the just-cleared query can't land under the hint.
+      seq.current += 1;
       setHits(null);
       return;
     }
@@ -119,7 +121,9 @@ export default function SearchPalette({ open, scannedAt, onClose, onPick }: Sear
           if (seq.current === mine) setHits(res.hits);
         })
         .catch(() => {
-          if (seq.current === mine) setHits([]);
+          // A rejected search is not a "nothing found" answer: back to null
+          // so the hint shows instead of asserting an empty result.
+          if (seq.current === mine) setHits(null);
         });
     }, DEBOUNCE_MS);
     return () => clearTimeout(timer);
@@ -168,7 +172,9 @@ export default function SearchPalette({ open, scannedAt, onClose, onPick }: Sear
           <Command.List className="flex-1 min-h-0 overflow-y-auto p-1.5 scroll-thin">
             {!hasScanned ? (
               <p className="py-6 px-3 text-center text-small text-ink-3">Results show up here once the first scan finishes.</p>
-            ) : q === "" ? (
+            ) : hits === null ? (
+              // Covers an empty query and a rejected search alike: neither has an
+              // answer to show, so both get the hint rather than an asserted absence.
               <p className="py-6 px-3 text-center text-small text-ink-3">Type to search names and what's inside.</p>
             ) : answeredEmpty ? (
               <p className="py-6 px-3 text-center text-small text-ink-3">Nothing matches “{q}”.</p>
