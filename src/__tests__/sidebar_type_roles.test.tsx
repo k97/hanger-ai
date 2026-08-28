@@ -147,6 +147,10 @@ describe("sidebar group labels — the three DiscoverySidebar's guard cannot rea
         onSelectSection={() => {}}
       />
     );
-    assertGroupLabel(screen.getByText("Sections"));
+    // The TOC grouped on 2026-08-28 (Foundations · Styles · Components);
+    // every eyebrow wears the same group-label role the machine sidebar's do.
+    assertGroupLabel(screen.getByText("Foundations"));
+    assertGroupLabel(screen.getByText("Styles"));
+    assertGroupLabel(screen.getByText("Components"));
   });
 });
