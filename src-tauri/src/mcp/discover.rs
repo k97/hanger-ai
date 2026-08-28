@@ -9,7 +9,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use crate::mcp::dialect::{self, McpServer};
-use crate::mcp::registry::{McpSource, ScopeTier, SourceLocation, SOURCES};
+use crate::mcp::registry::{Dialect, McpSource, ScopeTier, SourceLocation, SOURCES};
 
 /// One server as declared by one host in one file.
 ///
@@ -487,30 +487,24 @@ fn matching_sources(config_path: &str) -> Vec<&'static McpSource> {
 
     // No `RepoRelative` row is a glob today, and this filter's `ends_with`
     // match has no fixed base to expand one against (the repo root is
-    // unknown here) — `rel_matches` doesn't apply. Dropping the `*` guard
-    // still matches the reviewer's instruction and costs nothing: a literal
-    // `*` byte never appears in a real resolved path, so a future glob row
-    // here would simply not match via `ends_with`, same as before.
-    let mut repo: Vec<&'static McpSource> = SOURCES
+    // unknown here) — `rel_matches` doesn't apply. No `*` guard is needed
+    // either: a literal `*` byte never appears in a real resolved path, so a
+    // future glob row here would simply not match via `ends_with`, same as a
+    // literal row that isn't present.
+    let repo: Vec<&'static McpSource> = SOURCES
         .iter()
-        .filter(|s| {
-            matches!(
-                s.location,
-                SourceLocation::RepoRelative | SourceLocation::RepoAncestors
-            ) && !s.path.contains('*')
-        })
+        .filter(|s| matches!(s.location, SourceLocation::RepoRelative | SourceLocation::RepoAncestors))
         .filter(|s| path.ends_with(s.path))
         .collect();
     // RepoRelative and RepoAncestors both name `.mcp.json`. They differ only
     // in where the file is looked for, and the caller has already settled
-    // that by handing us a concrete path — so identical
-    // (host, dialect, tier) triples are one candidate, not two.
-    //
-    // dedup_by_key removes only CONSECUTIVE duplicates: this depends on the
-    // two `.mcp.json` rows sitting adjacent in SOURCES. If they are ever
-    // separated, switch to a HashSet on the triple instead.
-    repo.dedup_by_key(|s| (s.host_id, s.dialect, s.tier));
-    repo
+    // that by handing us a concrete path — so identical (host, dialect,
+    // tier) triples are one candidate, not two. A HashSet catches the
+    // duplicate regardless of where the two rows sit in SOURCES, unlike
+    // `dedup_by_key`, which only removes CONSECUTIVE duplicates.
+    let mut seen: std::collections::HashSet<(&'static str, Dialect, ScopeTier)> =
+        std::collections::HashSet::new();
+    repo.into_iter().filter(|s| seen.insert((s.host_id, s.dialect, s.tier))).collect()
 }
 
 /// Like [`read_swept`], but surfaces a parse failure as `Err` instead of a

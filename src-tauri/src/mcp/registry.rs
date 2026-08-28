@@ -19,7 +19,7 @@ pub enum HostKind {
 /// `Global` is Hanger's machine-wide tier. `User` and `Local` are Claude
 /// Code's own terms: user-tier loads everywhere, local-tier loads only in the
 /// project it is keyed to, and both live in `~/.claude.json`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ScopeTier {
     Global,
     User,
@@ -28,7 +28,7 @@ pub enum ScopeTier {
 }
 
 /// The shape of a config file's server declarations.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Dialect {
     /// `{"mcpServers": {name: {...}}}` — the common case.
     McpServers,
