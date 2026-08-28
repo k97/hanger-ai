@@ -194,7 +194,7 @@ export default function InspectorCap({
   return (
     <div
       ref={rowRef}
-      className={`h-10 flex items-center gap-2 ${leadingColumn ? "pl-[51px]" : "pl-[18px]"} pr-3 select-none`}
+      className={`h-9 flex items-center gap-2 ${leadingColumn ? "pl-[51px]" : "pl-[18px]"} pr-3 select-none`}
     >
       {asset && Icon && (
         <div className="shrink-0 relative inline-flex">

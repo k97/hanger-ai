@@ -58,7 +58,7 @@ export default function ReviewInspector({
 }: ReviewInspectorProps) {
   if (!issue) {
     return (
-      <div className="h-full flex flex-col items-center justify-center gap-2 px-6 text-center bg-page">
+      <div className="h-full flex flex-col items-center justify-center gap-2 px-6 text-center">
         <MousePointerClickIcon size={36} className="mb-2 text-ink-3" />
         <span className="text-base-app font-medium text-ink-1">Nothing selected</span>
         <span className={captionClass}>
@@ -90,7 +90,8 @@ export default function ReviewInspector({
   }
 
   return (
-    <div className="h-full flex flex-col bg-page min-h-0">
+    // No ground of its own: the inspector column's sheet is the ground, and a full-bleed bg-page here squares off the sheet's corner from inside when the column leads (every screen carries the corner — Karthik, 2026-08-28).
+    <div className="h-full flex flex-col min-h-0">
       <div className="px-[18px] pt-4 pb-3 border-b border-line shrink-0">
         <h2 className="text-lg-app font-medium tracking-[-0.3px] text-ink-1 mb-2">{issue.name}</h2>
 

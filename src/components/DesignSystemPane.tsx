@@ -333,8 +333,9 @@ export default function DesignSystemPane({ section }: DesignSystemPaneProps) {
   const scannedAt = new Date(Date.now() - 4 * 60_000);
 
   return (
-    <div className="flex-1 flex flex-col h-full min-h-0 overflow-hidden bg-page font-sans">
-      <header className="px-[18px] pt-5 pb-1 shrink-0">
+    // The pane paints no ground of its own: <main>'s sheet is the ground, and a full-bleed bg-page here would square off the sheet's corner from inside (every screen carries the corner — Karthik, 2026-08-28).
+    <div className="flex-1 flex flex-col h-full min-h-0 overflow-hidden font-sans">
+      <header className="px-[18px] pt-[18px] pb-1 shrink-0">
         <div className="flex items-baseline gap-3.5 mb-[7px]">
           <h1 className="text-lg-app font-medium tracking-[-0.2px] text-ink-1">
             The system, rendered by the app that uses it

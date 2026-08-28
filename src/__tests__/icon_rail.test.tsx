@@ -135,8 +135,9 @@ describe("Icon rail", () => {
     const { unmount } = render(<App />);
     await screen.findByText(/needs? a decision from you/);
 
-    // Scoped to the content cap: the rail's machine button shares the name.
-    const cap = screen.getByRole("banner");
+    // Scoped to the sidebar cap, where the crumb lives since 2026-08-28
+    // (crumb_in_band.test.tsx): the rail's machine button shares the name.
+    const cap = document.querySelector("[data-rail-column] > div") as HTMLElement;
     fireEvent.click(within(cap).getByRole("button", { name: "My machine" }));
 
     await waitFor(() => {

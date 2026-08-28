@@ -3,9 +3,10 @@
      never a hue. Semantic colour survives in exactly one place: system
      state. Spec: docs/v3/hanger-mono-tight.html ══ */
   --page: #ffffff;
-  --sidebar: rgba(252, 252, 252, 0.65);  /* the shell's left column only: a tint over the
-                                            window's vibrancy material, so the column reads
-                                            what is behind the window. Karthik, 2026-08-27. */
+  --sidebar: rgba(252, 252, 252, 0.65);  /* the shell's material — the left column and, since
+                                            2026-08-28, every column's cap: a tint over the
+                                            window's vibrancy, so the chrome reads what is
+                                            behind the window. Karthik, 2026-08-27. */
   --sidebar-sel: #e6e6e6;    /* selection on the sidebar — quiet neutral, no brand hue */
   --sidebar-sel-ink: #1f1f1f;
   --sidebar-ink: #3e4144;    /* sidebar rows and icons — one shade up from --ink-2 */
@@ -169,9 +170,10 @@
 
 .dark {
   --page: #000000;
-  --sidebar: rgba(19, 19, 19, 0.55);  /* thinner than the light tint: the dark material is
-                                         already close to the ink, and on #000 a heavier
-                                         tint would go flat. */
+  --sidebar: rgba(19, 19, 19, 0.75);  /* heavier than it was (.55 until 2026-08-28): over a
+                                         bright desktop the thinner tint read as a light grey
+                                         strip and column against the black sheet, once the
+                                         cap band took this material too. Karthik's ruling. */
   --sidebar-sel: #3a3a3c;
   --sidebar-sel-ink: #ececec;
   --sidebar-ink: #cfd1d3;

@@ -657,7 +657,8 @@ export default function Flyout({
   return (
     // Column chrome (width, resize, the cap and its close) lives in App.tsx:
     // this component is only the inspector's body for the machine views.
-    <div className="h-full bg-page flex flex-col relative overflow-hidden">
+    // No ground of its own: the inspector column's sheet is the ground, and a full-bleed bg-page here squares off the sheet's corner from inside when the column leads (every screen carries the corner — Karthik, 2026-08-28).
+    <div className="h-full flex flex-col relative overflow-hidden">
       {/* Header — the eyebrow says where you are, the title says what you are
           looking at. In the link flow the eyebrow becomes the way back, so the
           panel never grows a second header for its second screen. With nothing
@@ -688,7 +689,7 @@ export default function Flyout({
           gap, and the eyebrow-to-title step is this column's own `gap-1`
           rather than a margin the title row switches on and off. What is
           left above the title is the cap's centring slack (a 16px glyph in
-          an `h-10` row), which belongs to the cap and is not ours to pad
+          an `h-9` row), which belongs to the cap and is not ours to pad
           against. */}
       {(linking || targetAsset || selectedBubble || showEmptyMcpEyebrow) && (
       <div
