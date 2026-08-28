@@ -30,12 +30,6 @@ const ALLOW: { file: string; lineText: string; reason: string }[] = [
   { file: "src/components/RepoPane.tsx", lineText: '<p className="text-small text-ink-2 leading-relaxed">', reason: "pre-dates the roles; RepoPane.tsx pass pending (3 identical sites: lines 493/545/550)" },
   { file: "src/components/RepoPane.tsx", lineText: '<li key={idx} className="font-mono break-all leading-relaxed">', reason: "pre-dates the roles; RepoPane.tsx pass pending" },
   { file: "src/components/RepoPane.tsx", lineText: "text-small text-ink-2 font-mono break-all leading-relaxed", reason: "pre-dates the roles; RepoPane.tsx pass pending" },
-  // Sidebar.tsx is a ROLE_FILE (Task 8 brief, migrated set) — this is not
-  // pre-existing debt outside the migration's scope, it is one empty-state
-  // line the migration missed. Allowlisted so the guard can land green;
-  // flagged in the task-8 report for the controller, same as an unexpected
-  // case hit would be.
-  { file: "src/components/Sidebar.tsx", lineText: "text-center text-small text-ink-3 flex flex-col gap-2 leading-relaxed", reason: "migrated file; this empty-state leading-relaxed was missed by the roles pass, flagged not pre-dating" },
   { file: "src/components/SidebarScanModal.tsx", lineText: "text-small text-ink-3 leading-relaxed", reason: "pre-dates the roles; SidebarScanModal.tsx pass pending" },
   { file: "src/App.tsx", lineText: '<p className="text-small text-ink-2 leading-[1.65]">', reason: "pre-dates the roles; App.tsx pass pending (2 identical sites: lines 1141/1159)" },
   { file: "src/App.tsx", lineText: "text-small text-ink-3 leading-[1.65]", reason: "pre-dates the roles; App.tsx pass pending" },
@@ -52,15 +46,6 @@ const ALLOW: { file: string; lineText: string; reason: string }[] = [
   { file: "src/components/McpEngineSummary.tsx", lineText: "text-micro text-ink-3 leading-[1.45] mt-3", reason: "pre-dates the roles; McpEngineSummary.tsx pass pending" },
   { file: "src/components/RepoPane.tsx", lineText: '<p className="text-small text-ink-2 leading-[1.65]">', reason: "pre-dates the roles; RepoPane.tsx pass pending" },
   { file: "src/components/RepoPane.tsx", lineText: '<p className="text-micro text-ink-3 leading-[1.6]">', reason: "pre-dates the roles; RepoPane.tsx pass pending" },
-  // The "big stat number" treatment (text-display + a tight custom
-  // leading-[1.1]) is the same literal string in all three sites below,
-  // including one ROLE_FILE (SummaryStrip.tsx). It is not per-file debt —
-  // leading-body/caption/code cover paragraph text, and nothing in the
-  // roles migration gave display-size numerals a named leading role. Real
-  // finding, flagged for the controller in the task-8 report.
-  { file: "src/components/DesignSystemPane.tsx", lineText: 'utility: "text-display", px: "32px"', reason: "display-numeral leading-[1.1] has no role yet; systemic, flagged not per-file debt" },
-  { file: "src/components/NeedsReviewPane.tsx", lineText: "text-display font-medium tabular tracking-[-0.5px] leading-[1.1] text-ink-1", reason: "display-numeral leading-[1.1] has no role yet; systemic, flagged not per-file debt" },
-  { file: "src/components/SummaryStrip.tsx", lineText: "text-display font-medium tabular tracking-[-0.5px] leading-[1.1] text-ink-1", reason: "migrated file; display-numeral leading-[1.1] has no role yet, flagged not pre-dating" },
 ];
 // (?!-app) excludes the app's own text-base-app/text-lg-app role classes:
 // \b alone treats the hyphen before "app" as a boundary, so the bare regex
