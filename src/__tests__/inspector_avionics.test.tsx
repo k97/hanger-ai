@@ -416,11 +416,16 @@ describe("Avionics A5 — Docked Right Inspector Integration", () => {
       expect(eyebrow.textContent).not.toContain("Global");
     });
 
-    // Identity's own Scope row states the same place.
+    // Identity's own Scope row agrees it is not global. Since 2026-08-28 it
+    // carries the distinction the repo name could not — Project (committed,
+    // shared with the team) versus Local (private to this user) — rather than
+    // repeating the basename the cap's eyebrow above has just stated. The
+    // "never Global" half is the regression this case exists for and is
+    // unchanged.
     fireEvent.click(await screen.findByRole("tab", { name: "Details" }));
     await waitFor(() => {
       const scopeRow = screen.getByTestId("identity-row-scope");
-      expect(scopeRow.textContent).toContain("demo");
+      expect(scopeRow.textContent).toContain("Project");
       expect(scopeRow.textContent).not.toContain("Global");
     });
   });
