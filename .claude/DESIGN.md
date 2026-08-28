@@ -1275,7 +1275,7 @@ timers or window listeners of its own: the app renders it inside the wash
 with live state, and the Design system page renders the same component with
 `SAMPLE_SEARCH_HITS` (`designSystemFixtures.ts:184`) and a fixed query,
 never the app's own "Search"/"Search assets" names
-(`DesignSystemPane.tsx:202-215`, `:963-965`).
+(`DesignSystemPane.tsx:202-216`, `:963-965`).
 
 **`InspectorCap`** (`InspectorCap.tsx`, props `:44-70`) — the inspector
 column's 40px cap, and since this phase the selected asset's identity as
