@@ -4,6 +4,7 @@ import ListCard from "./ListCard";
 import Tooltip from "./Tooltip";
 import type { EngineReachInfo } from "./EngineReachTiles";
 import { abbreviateHome } from "../utils/prose";
+import { rowLabelClass, rowMonoClass } from "./typeRoles";
 
 /* The rows are routes, not engines. Each route is a different fact about
    how (or whether) an engine reads this asset, and stating it once on the
@@ -113,9 +114,9 @@ export default function ReachCard({ reach }: { reach: EngineReachInfo[] }) {
         <div
           key={route.key}
           data-testid={`reach-route-${route.key}`}
-          className="flex items-center gap-3 px-3 py-2 min-h-9 text-small text-ink-1"
+          className="flex items-center gap-3 px-3 py-2 min-h-9"
         >
-          <span data-testid={`reach-route-label-${route.key}`} className="flex-1 min-w-0">
+          <span data-testid={`reach-route-label-${route.key}`} className={`flex-1 min-w-0 ${rowLabelClass}`}>
             {route.title}
           </span>
           {/* Nine plates on a 4px gap measure 230px; the cap lets nine sit on
@@ -156,7 +157,7 @@ export default function ReachCard({ reach }: { reach: EngineReachInfo[] }) {
       ))}
       <div
         data-testid="reach-answer"
-        className="flex items-center gap-2.5 px-3 py-2 min-h-8 text-small bg-plane"
+        className="flex items-center gap-2.5 px-3 py-2 min-h-8 text-base-app bg-plane"
       >
         <span className="w-3.5 h-3.5 shrink-0 grid place-items-center" aria-hidden="true">
           <BrandIcon engineKey={selected.engine_key} engineName={selected.engine_name} size={12} />
@@ -164,7 +165,11 @@ export default function ReachCard({ reach }: { reach: EngineReachInfo[] }) {
         <span className={`truncate min-w-0 ${selected.reached ? "text-ink-1" : "text-ink-3"}`}>
           {selected.engine_name}
         </span>
-        <span data-testid="reach-answer-value" className="ml-auto font-mono text-micro text-ink-3 shrink-0">
+        {/* The row's own answer, not a caption on it — unlike the Reach
+            head's store path (AssetDetail.tsx's `reach-store`, which merely
+            annotates the heading), this is what the footer exists to state,
+            so it takes the value ink rather than receding. */}
+        <span data-testid="reach-answer-value" className={`ml-auto shrink-0 ${rowMonoClass}`}>
           {answerFor(selected)}
         </span>
       </div>

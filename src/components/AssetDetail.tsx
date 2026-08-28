@@ -24,6 +24,7 @@ import MarkdownDoc from "./MarkdownDoc";
 import UnderlineTabs from "./UnderlineTabs";
 import ListCard, { ListCardRow } from "./ListCard";
 import ReachCard from "./ReachCard";
+import { sectionHeadClass, rowLabelClass, rowValueClass, rowMonoClass, captionClass } from "./typeRoles";
 import type { Inventory } from "../App";
 import { engineLabel, originRow, provenanceOf, type OriginWire } from "../utils/assetProvenance";
 import { scopeAgent, type Scope } from "../utils/scopeAccess";
@@ -112,8 +113,6 @@ interface AssetDetailProps {
   /** The user moved to another tab. */
   onTabChange?: (tab: "primary" | "details") => void;
 }
-
-const eyebrowClass = "font-flex text-micro font-medium tracking-[.06em] uppercase text-ink-3";
 
 /**
  * The caveat on every token figure in the Context ledger. Behind the
@@ -420,9 +419,9 @@ export default function AssetDetail({ asset, inventory, onDocumentPath, annotati
             {asset.category === "Skills" && body && (
               <section className="mx-[12px] my-3.5">
                 {/* items-center, not items-baseline: the trigger is a glyph,
-                    and a glyph has no baseline to share with the eyebrow. */}
+                    and a glyph has no baseline to share with the section head. */}
                 <div className="flex items-center justify-between gap-2 mb-2">
-                  <span className={eyebrowClass}>Context</span>
+                  <span className={sectionHeadClass}>Context</span>
                   {/* Names this panel's section, where the MCP panel says
                       "About the request figures" -- see the ContextNote
                       comment in McpServerDetail.tsx for why the two are
@@ -434,18 +433,18 @@ export default function AssetDetail({ asset, inventory, onDocumentPath, annotati
                     <ListCardRow
                       label={
                         <span className="flex flex-col gap-0.5 min-w-0">
-                          <span className="text-small leading-[1.5]">Always on</span>
-                          <span className="text-micro text-ink-3 leading-[1.5]">
+                          <span className={rowValueClass}>Always on</span>
+                          <span className={captionClass}>
                             Name and description, in every engine&rsquo;s startup list
                           </span>
                         </span>
                       }
                       value={
                         <span className="flex flex-col gap-0.5 items-end">
-                          <span className="text-base-app text-ink-1">
+                          <span className={rowValueClass}>
                             ≈ {body.always_on_estimated_tokens.toLocaleString("en-US")} tokens
                           </span>
-                          <span>{formatBytes(body.always_on_bytes)}</span>
+                          <span className={captionClass}>{formatBytes(body.always_on_bytes)}</span>
                         </span>
                       }
                     />
@@ -453,16 +452,16 @@ export default function AssetDetail({ asset, inventory, onDocumentPath, annotati
                   <ListCardRow
                     label={
                       <span className="flex flex-col gap-0.5 min-w-0">
-                        <span className="text-small leading-[1.5]">When it opens</span>
-                        <span className="text-micro text-ink-3 leading-[1.5]">SKILL.md in full, frontmatter included</span>
+                        <span className={rowValueClass}>When it opens</span>
+                        <span className={captionClass}>SKILL.md in full, frontmatter included</span>
                       </span>
                     }
                     value={
                       <span className="flex flex-col gap-0.5 items-end">
-                        <span className="text-base-app text-ink-1">
+                        <span className={rowValueClass}>
                           ≈ {body.estimated_tokens.toLocaleString("en-US")} tokens
                         </span>
-                        <span>{formatBytes(body.bytes)}</span>
+                        <span className={captionClass}>{formatBytes(body.bytes)}</span>
                       </span>
                     }
                   />
@@ -496,15 +495,15 @@ export default function AssetDetail({ asset, inventory, onDocumentPath, annotati
                     <MarkdownDoc blocks={toBlocks(document.body)} />
                   ) : view === "preview" && pretty ? (
                     <pre
-                      data-testid="asset-formatted"
-                      className="m-0 px-[18px] pt-3 pb-[18px] overflow-x-auto overflow-y-hidden font-mono text-micro text-ink-2 leading-[1.6] whitespace-pre"
+                      data-testid="skill-body"
+                      className="m-0 px-[18px] pt-3 pb-[18px] overflow-x-auto overflow-y-hidden font-mono text-small text-ink-1 leading-code whitespace-pre"
                     >
                       <code>{pretty}</code>
                     </pre>
                   ) : (
                     <pre
                       data-testid="asset-source"
-                      className="m-0 px-[18px] pt-3 pb-[18px] overflow-x-auto overflow-y-hidden font-mono text-micro text-ink-2 leading-[1.6] whitespace-pre"
+                      className="m-0 px-[18px] pt-3 pb-[18px] overflow-x-auto overflow-y-hidden font-mono text-small text-ink-1 leading-code whitespace-pre"
                     >
                       <code>{text}</code>
                     </pre>
@@ -514,14 +513,14 @@ export default function AssetDetail({ asset, inventory, onDocumentPath, annotati
             )}
 
             {loading && (
-              <p className="px-[12px] py-3 text-small text-ink-3 flex items-center gap-2">
+              <p className={`px-[12px] py-3 ${captionClass} flex items-center gap-2`}>
                 <FileTextIcon size={12} active />
                 Reading the file…
               </p>
             )}
 
             {docError && (
-              <p className="mx-[12px] my-3 px-3.5 py-2.5 bg-plane rounded-inner text-small text-ink-3 leading-[1.6]">
+              <p className={`mx-[12px] my-3 px-3.5 py-2.5 bg-plane rounded-inner ${captionClass}`}>
                 {docError}
               </p>
             )}
@@ -536,7 +535,7 @@ export default function AssetDetail({ asset, inventory, onDocumentPath, annotati
           >
             <section className="mx-[12px] my-3.5">
               <div className="flex items-baseline justify-between gap-2 mb-2">
-                <span className={eyebrowClass}>Identity</span>
+                <span className={sectionHeadClass}>Identity</span>
               </div>
               <ListCard>
                 {identityRows.map((row) =>
@@ -582,12 +581,8 @@ export default function AssetDetail({ asset, inventory, onDocumentPath, annotati
                             data-testid="origin-sub-row"
                             className="flex items-center gap-2.5 pl-9 pr-3 py-[9px] min-h-9 bg-plane"
                           >
-                            <span className="min-w-0 flex-1 text-small text-ink-3">{r.label}</span>
-                            <span
-                              className={`ml-auto shrink-0 ${
-                                r.mono ? "font-mono text-micro text-ink-3 tabular" : "text-small text-ink-2"
-                              }`}
-                            >
+                            <span className={`min-w-0 flex-1 ${rowLabelClass}`}>{r.label}</span>
+                            <span className={`ml-auto shrink-0 ${r.mono ? rowMonoClass : rowValueClass}`}>
                               {r.value}
                             </span>
                           </div>
@@ -612,7 +607,7 @@ export default function AssetDetail({ asset, inventory, onDocumentPath, annotati
             {dirEntries && dirEntries.length > 0 && (
               <section className="mx-[12px] my-3.5">
                 <div className="flex items-baseline justify-between gap-2 mb-2">
-                  <span className={eyebrowClass}>Contents</span>
+                  <span className={sectionHeadClass}>Contents</span>
                 </div>
                 <ListCard>
                   {dirEntries.map((e) => (
@@ -658,7 +653,7 @@ export default function AssetDetail({ asset, inventory, onDocumentPath, annotati
             {allowedTools.length > 0 && (
               <section className="mx-[12px] my-3.5">
                 <div className="flex items-baseline justify-between gap-2 mb-2">
-                  <span className={eyebrowClass}>Capabilities</span>
+                  <span className={sectionHeadClass}>Capabilities</span>
                 </div>
                 <ListCard>
                   {allowedTools.map((tool) => (
@@ -684,13 +679,13 @@ export default function AssetDetail({ asset, inventory, onDocumentPath, annotati
             {annotation && annotation.reach.length > 0 && (
               <section data-testid="reach-detail" className="mx-[12px] my-3.5">
                 <div className="flex items-baseline justify-between gap-2 mb-2">
-                  <span className={eyebrowClass}>Reach</span>
+                  <span className={sectionHeadClass}>Reach</span>
                   {/* One store for the whole card, not one per row. `via_store` is
                       keyed off the asset's own root in annotations.rs, so every
                       reached engine reports the same one by construction — this
                       cannot disagree with the rows beneath it. */}
                   {reachStore && (
-                    <span data-testid="reach-store" className="font-mono text-micro text-ink-3">
+                    <span data-testid="reach-store" className="font-mono text-small text-ink-3">
                       → {reachStore}
                     </span>
                   )}

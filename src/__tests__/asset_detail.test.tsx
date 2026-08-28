@@ -275,7 +275,7 @@ describe("Asset detail — the inspector's document screen", () => {
       />
     );
 
-    const formatted = await screen.findByTestId("asset-formatted");
+    const formatted = await screen.findByTestId("skill-body");
     expect(formatted.textContent).toContain('"mcpServers"');
     // Re-indented, not the single line it arrived as.
     expect(formatted.textContent!.split("\n").length).toBeGreaterThan(3);
@@ -635,5 +635,37 @@ describe("Asset detail — the inspector's document screen", () => {
     render(<AssetDetail asset={{ ...asset, category: "Rules" }} inventory={inventory} />);
     await screen.findByRole("tab", { name: "Content" });
     expect(screen.queryByText("Context")).toBeNull();
+  });
+
+  it("section heads are sentence-case body medium, not uppercase eyebrows", async () => {
+    render(<AssetDetail asset={asset} inventory={inventory} />);
+    const head = await screen.findByText("Context");
+    expect(head.className).toContain("text-base-app");
+    expect(head.className).toContain("font-medium");
+    expect(head.className).not.toContain("uppercase");
+    expect(head.className).not.toContain("tracking-[.06em]");
+  });
+
+  // The "first" pre in source order (the pretty/formatted branch) is the one
+  // this task's brief names, but that branch is unreachable through a Skills
+  // fixture: `documentKindFor` gives Skills/Rules/Subagents kind "markdown",
+  // and `pretty` is only ever computed for kind "json" (AssetDetail.tsx's
+  // `text !== null && kind === "json"` guard) — so a skill's own body always
+  // reaches `MarkdownDoc`, never this `<pre>`. A Tools/JSON asset with text
+  // that parses is the only fixture that renders it, matching the sibling
+  // test "formats a tool's config instead of reading braces as prose".
+  it("renders the formatted body at 12px mono in --ink-1 with code leading", async () => {
+    bodyResult = { ok: true, text: '{"mcpServers":{"node":{"command":"node run"}}}' };
+    render(
+      <AssetDetail
+        asset={{ ...asset, category: "Tools", name: "node", path: "/home/me/.mcp.json" }}
+        inventory={{ ...inventory, skills: [] }}
+      />
+    );
+    const pre = await screen.findByTestId("skill-body");
+    expect(pre.className).toContain("text-small");
+    expect(pre.className).toContain("text-ink-1");
+    expect(pre.className).toContain("leading-code");
+    expect(pre.className).not.toContain("leading-[1.6]");
   });
 });
