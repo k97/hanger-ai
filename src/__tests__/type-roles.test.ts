@@ -43,7 +43,7 @@ const ALLOW: { file: string; lineText: string; reason: string }[] = [
   { file: "src/App.tsx", lineText: "text-small text-ink-3 leading-[1.65]", reason: "pre-dates the roles; App.tsx pass pending" },
   { file: "src/components/DesignSystemPane.tsx", lineText: "px-3 pb-4 text-small text-ink-2 leading-[1.55] max-w-[74ch]", reason: "pre-dates the roles; DesignSystemPane.tsx pass pending" },
   { file: "src/components/DesignSystemPane.tsx", lineText: '<p className="text-small text-ink-2 leading-[1.55] max-w-[74ch]">', reason: "pre-dates the roles; DesignSystemPane.tsx pass pending" },
-  { file: "src/components/FindingChip.tsx", lineText: "text-small leading-[1.5]", reason: "pre-dates the roles; FindingChip.tsx pass pending" },
+  { file: "src/components/FindingPopover.tsx", lineText: "text-small leading-[1.5]", reason: "pre-dates the roles; moved out of FindingChip.tsx by the Task 3 popover-extraction refactor (2026-08-28), pass still pending" },
   { file: "src/components/InfoPopover.tsx", lineText: "font-flex text-micro font-normal text-ink-2 leading-[1.5]", reason: "pre-dates the roles; InfoPopover.tsx pass pending" },
   { file: "src/components/LinkMapPane.tsx", lineText: '<p className="text-small text-ink-2 leading-[1.6]">', reason: "pre-dates the roles; LinkMapPane.tsx pass pending" },
   { file: "src/components/LinkMapPane.tsx", lineText: '<p className="text-small text-ink-3 leading-[1.6]">', reason: "pre-dates the roles; LinkMapPane.tsx pass pending" },

@@ -75,6 +75,11 @@ const ALLOWLIST: Exemption[] = [
   // left off the first inventory and are recorded here rather than hidden.
   { component: "FavouriteHeart", reason: "owed a specimen: three props, no IPC" },
   { component: "MarkdownDoc", reason: "owed a specimen: takes parsed blocks, no IPC" },
+  {
+    component: "FindingPopover",
+    reason:
+      "owed a specimen: takes only props, no IPC; extracted from FindingChip by the Task 3 refactor (2026-08-28) and the page's FindingChip specimen renders it, but rendering inside another specimen does not count per this guard's own rule",
+  },
 ];
 
 function componentNames(): string[] {
