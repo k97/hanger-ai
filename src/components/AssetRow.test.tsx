@@ -4,6 +4,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import AssetRow, { AssetItem, AssetAnnotationView } from "./AssetRow";
 import MechanismGlyph from "./MechanismGlyph";
+import { SelectionOriginContext } from "./selectionOrigin";
 
 describe("AssetRow Shell Spec Compliance", () => {
   const sampleItem: AssetItem = {
@@ -255,5 +256,25 @@ describe("scrolls a selected row into view", () => {
   it("never scrolls a row that is not selected", () => {
     render(<AssetRow item={baseItem} isSelected={false} />);
     expect(scrollIntoViewSpy).not.toHaveBeenCalled();
+  });
+
+  // A search-palette pick centres its row instead of the click default of
+  // "nearest" (Karthik's ruling, 2026-08-29) — read from SelectionOriginContext,
+  // which App provides "search" into only for the selection a palette pick
+  // just made.
+  it("calls scrollIntoView({ block: 'center' }) when the selection's origin is search", () => {
+    render(
+      <SelectionOriginContext.Provider value="search">
+        <AssetRow item={baseItem} isSelected />
+      </SelectionOriginContext.Provider>
+    );
+    expect(scrollIntoViewSpy).toHaveBeenCalledTimes(1);
+    expect(scrollIntoViewSpy).toHaveBeenCalledWith({ block: "center" });
+  });
+
+  it("still calls scrollIntoView({ block: 'nearest' }) with no provider (a plain click)", () => {
+    render(<AssetRow item={baseItem} isSelected />);
+    expect(scrollIntoViewSpy).toHaveBeenCalledTimes(1);
+    expect(scrollIntoViewSpy).toHaveBeenCalledWith({ block: "nearest" });
   });
 });

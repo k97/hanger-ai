@@ -1,9 +1,22 @@
 // @vitest-environment happy-dom
+import { useState, type ComponentProps } from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor, cleanup, within } from "@testing-library/react";
 import AssetDetail from "../components/AssetDetail";
 import type { Inventory } from "../App";
 import { invoke } from "@tauri-apps/api/core";
+
+/** `tab` is a Flyout-controlled prop now, not AssetDetail's own state
+ *  (Karthik's ruling, 2026-08-29 fix round: lift the tab into Flyout so a
+ *  search-palette pick can move it without a remount). This file's
+ *  `openDetails()` helper needs something to hold that state across a
+ *  click the way the real owner does, so every render/rerender call below
+ *  goes through this thin stand-in for Flyout instead of the panel
+ *  directly — same props, its own `tab` state fed back from `onTabChange`. */
+function Harness(props: ComponentProps<typeof AssetDetail>) {
+  const [tab, setTab] = useState<"primary" | "details">("primary");
+  return <AssetDetail {...props} tab={props.tab ?? tab} onTabChange={props.onTabChange ?? setTab} />;
+}
 
 const SOURCE = "/home/me/.agents/skills/agent-browser/SKILL.md";
 
@@ -143,14 +156,14 @@ describe("Asset detail — the inspector's document screen", () => {
   // state dot only when the chip has shed off the surface".
 
   it("reads the file through the backend, by path", async () => {
-    render(<AssetDetail asset={asset} inventory={inventory} />);
+    render(<Harness asset={asset} inventory={inventory} />);
     await waitFor(() => {
       expect(invoke).toHaveBeenCalledWith("read_asset_body", { path: SOURCE });
     });
   });
 
   it("renders the document, not the raw markup", async () => {
-    render(<AssetDetail asset={asset} inventory={inventory} />);
+    render(<Harness asset={asset} inventory={inventory} />);
 
     expect(await screen.findByText("When to use")).toBeTruthy();
     expect(screen.getByText("A page needs JavaScript before its content exists.")).toBeTruthy();
@@ -161,7 +174,7 @@ describe("Asset detail — the inspector's document screen", () => {
   });
 
   it("shows the raw file when asked for Source", async () => {
-    render(<AssetDetail asset={asset} inventory={inventory} />);
+    render(<Harness asset={asset} inventory={inventory} />);
     fireEvent.click(await screen.findByRole("button", { name: "View source" }));
 
     const raw = await screen.findByTestId("asset-source");
@@ -171,7 +184,7 @@ describe("Asset detail — the inspector's document screen", () => {
   });
 
   it("surfaces the fields the Agent Skills standard defines", async () => {
-    render(<AssetDetail asset={asset} inventory={inventory} />);
+    render(<Harness asset={asset} inventory={inventory} />);
     await screen.findByRole("tab", { name: "Details" });
     openDetails();
     expect(await screen.findByText("License")).toBeTruthy();
@@ -218,7 +231,7 @@ describe("Asset detail — the inspector's document screen", () => {
         "# agent-browser",
       ].join("\n"),
     };
-    render(<AssetDetail asset={asset} inventory={inventory} />);
+    render(<Harness asset={asset} inventory={inventory} />);
     await screen.findByRole("tab", { name: "Details" });
     openDetails();
     const section = screen.getByText("Identity").closest("section")!;
@@ -236,7 +249,7 @@ describe("Asset detail — the inspector's document screen", () => {
   });
 
   it("names the projects the source reaches", async () => {
-    render(<AssetDetail asset={asset} inventory={inventory} />);
+    render(<Harness asset={asset} inventory={inventory} />);
     await screen.findByRole("tab", { name: "Details" });
     openDetails();
     expect(await screen.findByText("Linked into")).toBeTruthy();
@@ -259,7 +272,7 @@ describe("Asset detail — the inspector's document screen", () => {
     // now renders in Details › Identity, not in an always-visible chip.
     const folder = "/home/me/.agents/skills/agent-browser";
     bodyPath = `${folder}/SKILL.md`;
-    render(<AssetDetail asset={{ ...asset, path: folder }} inventory={inventory} />);
+    render(<Harness asset={{ ...asset, path: folder }} inventory={inventory} />);
 
     await screen.findByRole("tab", { name: "Details" });
     openDetails();
@@ -269,7 +282,7 @@ describe("Asset detail — the inspector's document screen", () => {
   it("formats a tool's config instead of reading braces as prose", async () => {
     bodyResult = { ok: true, text: '{"mcpServers":{"node":{"command":"node run"}}}' };
     render(
-      <AssetDetail
+      <Harness
         asset={{ ...asset, category: "Tools", name: "node", path: "/home/me/.mcp.json" }}
         inventory={{ ...inventory, skills: [] }}
       />
@@ -284,7 +297,7 @@ describe("Asset detail — the inspector's document screen", () => {
   it("still shows a config it cannot format, rather than nothing", async () => {
     bodyResult = { ok: true, text: "{ not json, mid-edit" };
     render(
-      <AssetDetail
+      <Harness
         asset={{ ...asset, category: "Tools", name: "node", path: "/home/me/.mcp.json" }}
         inventory={{ ...inventory, skills: [] }}
       />
@@ -297,7 +310,7 @@ describe("Asset detail — the inspector's document screen", () => {
 
   it("does not invent a document for an agent, which has no file of its own", async () => {
     render(
-      <AssetDetail
+      <Harness
         asset={{ ...asset, category: "Agents", name: "claude", path: "/home/me/.claude" }}
         inventory={{ ...inventory, skills: [] }}
       />
@@ -314,7 +327,7 @@ describe("Asset detail — the inspector's document screen", () => {
 
   it("says why when the file cannot be read, and still shows what it knows", async () => {
     bodyResult = { ok: false, error: "Refusing to read a file outside the folders Hanger scans" };
-    render(<AssetDetail asset={asset} inventory={inventory} />);
+    render(<Harness asset={asset} inventory={inventory} />);
 
     // Reading: the file-text mark scans (looping) while read_asset_body is
     // still in flight, before its promise has settled either way.
@@ -339,7 +352,7 @@ describe("Asset detail — the inspector's document screen", () => {
     // agent" and draws no mark at all — not a useful case for this check.
     // This scoped variant pins the row to a real, unambiguous agent.
     const scopedAsset = { ...asset, scope: { Global: { agent: "claude" } } };
-    render(<AssetDetail asset={scopedAsset} inventory={inventory} />);
+    render(<Harness asset={scopedAsset} inventory={inventory} />);
     openDetails();
 
     const engineDt = screen.getByText("Engine");
@@ -353,7 +366,7 @@ describe("Asset detail — the inspector's document screen", () => {
     // "Any agent" — a fact about Hanger's model, not about this file — and on
     // a machine using the shared store it read that way for every skill,
     // because scanner.rs empties the scope's agent there.
-    render(<AssetDetail asset={asset} inventory={inventory} />);
+    render(<Harness asset={asset} inventory={inventory} />);
     openDetails();
     expect(screen.queryByText("Engine")).toBeNull();
     expect(screen.queryByText("Any agent")).toBeNull();
@@ -364,14 +377,14 @@ describe("Asset detail — the inspector's document screen", () => {
     // scopes) and a repo pane (filtered to that repo), so the row was constant
     // in every context it could appear in.
     const global = { ...asset, scope: { Global: { agent: "codex" } } };
-    render(<AssetDetail asset={global} inventory={inventory} />);
+    render(<Harness asset={global} inventory={inventory} />);
     openDetails();
     expect(screen.queryByText("Scope")).toBeNull();
   });
 
   it("tells Project from Local in a repo, which the repo name could not", () => {
     const project = { ...asset, scope: { Project: { agent: "", root: "/r/hanger-ai" } } };
-    const { unmount } = render(<AssetDetail asset={project} inventory={inventory} />);
+    const { unmount } = render(<Harness asset={project} inventory={inventory} />);
     openDetails();
     const section = screen.getByText("Identity").closest("section")!;
     expect(within(section).getByText("Scope")).toBeTruthy();
@@ -381,7 +394,7 @@ describe("Asset detail — the inspector's document screen", () => {
     unmount();
 
     const local = { ...asset, scope: { Local: { agent: "", root: "/r/hanger-ai" } } };
-    render(<AssetDetail asset={local} inventory={inventory} />);
+    render(<Harness asset={local} inventory={inventory} />);
     openDetails();
     const localSection = screen.getByText("Identity").closest("section")!;
     expect(within(localSection).getByText("Local")).toBeTruthy();
@@ -391,14 +404,14 @@ describe("Asset detail — the inspector's document screen", () => {
     // Ownership is exclusive and Reach does not answer it: a rule under
     // ~/.codex names Codex here and nowhere else in the panel.
     const owned = { ...asset, scope: { Global: { agent: "codex" } } };
-    render(<AssetDetail asset={owned} inventory={inventory} />);
+    render(<Harness asset={owned} inventory={inventory} />);
     openDetails();
     expect(screen.getByText("Engine")).toBeTruthy();
     expect(screen.getByText("Codex")).toBeTruthy();
   });
 
   it("opens on Content: the document in a card with its file row, Details a tab away", async () => {
-    render(<AssetDetail asset={asset} inventory={inventory} />);
+    render(<Harness asset={asset} inventory={inventory} />);
     expect((await screen.findByRole("tab", { name: "Content" })).getAttribute("aria-selected")).toBe("true");
     expect(screen.getByRole("tablist", { name: "Inspector view" })).toBeTruthy();
     const panel = screen.getByRole("tabpanel");
@@ -418,14 +431,14 @@ describe("Asset detail — the inspector's document screen", () => {
   // question. The tab used to reset with the body-load effect, so every row
   // snapped back to the document.
   it("keeps the open tab when the inspector moves to another asset", async () => {
-    const { rerender } = render(<AssetDetail asset={asset} inventory={inventory} />);
+    const { rerender } = render(<Harness asset={asset} inventory={inventory} />);
     await screen.findByRole("tab", { name: "Details" });
     openDetails();
     expect(screen.getByRole("tabpanel").id).toBe("panel-details");
 
     const other = { ...asset, name: "other-skill", path: "/home/me/.agents/skills/other-skill/SKILL.md" };
     bodyPath = other.path;
-    rerender(<AssetDetail asset={other} inventory={inventory} />);
+    rerender(<Harness asset={other} inventory={inventory} />);
     await waitFor(() =>
       expect(screen.getByRole("tab", { name: "Details" }).getAttribute("aria-selected")).toBe("true"),
     );
@@ -438,7 +451,7 @@ describe("Asset detail — the inspector's document screen", () => {
     // is only fully exercised when every conditional row is present. The
     // unowned and global cases have their own tests.
     const owned = { ...asset, scope: { Project: { agent: "claude", root: "/r/hanger-ai" } } };
-    render(<AssetDetail asset={owned} inventory={inventory} />);
+    render(<Harness asset={owned} inventory={inventory} />);
     await screen.findByRole("tab", { name: "Details" });
     openDetails();
     const section = screen.getByText("Identity").closest("section")!;
@@ -466,7 +479,7 @@ describe("Asset detail — the inspector's document screen", () => {
   // "Details › Identity, new row") — left that test and inspector_avionics
   // fully green.
   it("labels the last Identity row exactly \"Path\" — the word Karthik signed off, not a paraphrase", async () => {
-    render(<AssetDetail asset={asset} inventory={inventory} />);
+    render(<Harness asset={asset} inventory={inventory} />);
     await screen.findByRole("tab", { name: "Details" });
     openDetails();
     const section = screen.getByText("Identity").closest("section")!;
@@ -475,7 +488,7 @@ describe("Asset detail — the inspector's document screen", () => {
   });
 
   it("the Path row carries a Copy path control", async () => {
-    render(<AssetDetail asset={asset} inventory={inventory} />);
+    render(<Harness asset={asset} inventory={inventory} />);
     await screen.findByRole("tab", { name: "Details" });
     openDetails();
     const pathRow = screen.getByTestId("identity-row-path");
@@ -489,7 +502,7 @@ describe("Asset detail — the inspector's document screen", () => {
     const folder = "/home/me/.agents/skills/agent-browser";
     const file = `${folder}/SKILL.md`;
     bodyPath = file;
-    render(<AssetDetail asset={{ ...asset, path: folder }} inventory={inventory} />);
+    render(<Harness asset={{ ...asset, path: folder }} inventory={inventory} />);
 
     await screen.findByRole("tab", { name: "Details" });
     openDetails();
@@ -504,7 +517,7 @@ describe("Asset detail — the inspector's document screen", () => {
 
   it("omits the Modified row when the file has no mtime, rather than inventing an epoch date", async () => {
     bodyModifiedMs = null;
-    render(<AssetDetail asset={asset} inventory={inventory} />);
+    render(<Harness asset={asset} inventory={inventory} />);
     await screen.findByRole("tab", { name: "Details" });
     openDetails();
     const section = screen.getByText("Identity").closest("section")!;
@@ -519,7 +532,7 @@ describe("Asset detail — the inspector's document screen", () => {
   });
 
   it("lists what else is in the skill's folder, folders with their file counts", async () => {
-    render(<AssetDetail asset={asset} inventory={inventory} />);
+    render(<Harness asset={asset} inventory={inventory} />);
     await screen.findByRole("tab", { name: "Details" });
     openDetails();
     const section = (await screen.findByText("Contents")).closest("section")!;
@@ -536,7 +549,7 @@ describe("Asset detail — the inspector's document screen", () => {
   const NOTE = /Only SKILL\.md is read into context/;
 
   it("carries no harness prose under Contents, whatever the folder holds", async () => {
-    render(<AssetDetail asset={asset} inventory={inventory} />);
+    render(<Harness asset={asset} inventory={inventory} />);
     await screen.findByRole("tab", { name: "Details" });
     openDetails();
     const many = (await screen.findByText("Contents")).closest("section")!;
@@ -553,7 +566,7 @@ describe("Asset detail — the inspector's document screen", () => {
       { name: "SKILL.md", kind: "file", bytes: 431, file_count: null },
       { name: "notes.md", kind: "file", bytes: 96, file_count: null },
     ];
-    render(<AssetDetail asset={asset} inventory={inventory} />);
+    render(<Harness asset={asset} inventory={inventory} />);
     await screen.findByRole("tab", { name: "Details" });
     openDetails();
     const few = (await screen.findByText("Contents")).closest("section")!;
@@ -566,7 +579,7 @@ describe("Asset detail — the inspector's document screen", () => {
     // already showing, and its path is in Identity above. 66 of 128 store
     // skills on a real machine are exactly this.
     dirResult = [{ name: "SKILL.md", kind: "file", bytes: 431, file_count: null }];
-    render(<AssetDetail asset={asset} inventory={inventory} />);
+    render(<Harness asset={asset} inventory={inventory} />);
     await screen.findByRole("tab", { name: "Details" });
     openDetails();
     expect(screen.queryByText("Contents")).toBeNull();
@@ -577,7 +590,7 @@ describe("Asset detail — the inspector's document screen", () => {
       { name: "SKILL.md", kind: "file", bytes: 431, file_count: null },
       { name: "references/", kind: "dir", bytes: null, file_count: 4 },
     ];
-    render(<AssetDetail asset={asset} inventory={inventory} />);
+    render(<Harness asset={asset} inventory={inventory} />);
     await screen.findByRole("tab", { name: "Details" });
     openDetails();
     expect(await screen.findByText("Contents")).toBeTruthy();
@@ -586,7 +599,7 @@ describe("Asset detail — the inspector's document screen", () => {
   it("still hides Contents for a lone SKILL.md even when it is a symlink", async () => {
     // The rule is about the entry being the document, not about its kind.
     dirResult = [{ name: "SKILL.md", kind: "symlink", bytes: null, file_count: null }];
-    render(<AssetDetail asset={asset} inventory={inventory} />);
+    render(<Harness asset={asset} inventory={inventory} />);
     await screen.findByRole("tab", { name: "Details" });
     openDetails();
     expect(screen.queryByText("Contents")).toBeNull();
@@ -599,7 +612,7 @@ describe("Asset detail — the inspector's document screen", () => {
       { name: "SKILL.md", kind: "file", bytes: 431, file_count: null },
       { name: "escape", kind: "symlink", bytes: null, file_count: null },
     ];
-    render(<AssetDetail asset={asset} inventory={inventory} />);
+    render(<Harness asset={asset} inventory={inventory} />);
     await screen.findByRole("tab", { name: "Details" });
     openDetails();
     const section = (await screen.findByText("Contents")).closest("section")!;
@@ -621,7 +634,7 @@ describe("Asset detail — the inspector's document screen", () => {
   // passed whatever `dirResult` held and the empty-list branch for a genuine
   // Skills asset was never reached.
   it("draws no folder section for a rule, and does not even ask for a listing", async () => {
-    render(<AssetDetail asset={{ ...asset, category: "Rules", path: "/home/me/.agents/rules/x.md" }} inventory={inventory} />);
+    render(<Harness asset={{ ...asset, category: "Rules", path: "/home/me/.agents/rules/x.md" }} inventory={inventory} />);
     await screen.findByRole("tab", { name: "Details" });
     openDetails();
     expect(screen.queryByText("Contents")).toBeNull();
@@ -630,7 +643,7 @@ describe("Asset detail — the inspector's document screen", () => {
 
   it("asks for the listing of a skill whose folder is empty, and draws no Contents over nothing", async () => {
     dirResult = [];
-    render(<AssetDetail asset={asset} inventory={inventory} />);
+    render(<Harness asset={asset} inventory={inventory} />);
     await screen.findByRole("tab", { name: "Details" });
     openDetails();
     // The command HAVING been called is the half the old case could not
@@ -657,7 +670,7 @@ describe("Asset detail — the inspector's document screen", () => {
       { name: "SKILL.md", kind: "file", bytes: 431, file_count: null },
       { name: "reference.md", kind: "file", bytes: 128, file_count: null },
     ];
-    render(<AssetDetail asset={asset} inventory={inventory} />);
+    render(<Harness asset={asset} inventory={inventory} />);
     await screen.findByRole("tab", { name: "Details" });
     openDetails();
     const section = (await screen.findByText("Contents")).closest("section")!;
@@ -687,7 +700,7 @@ describe("Asset detail — the inspector's document screen", () => {
       // Same reasoning: not always_on_bytes / 4 (57).
       always_on_estimated_tokens: 91,
     };
-    render(<AssetDetail asset={asset} inventory={inventory} />);
+    render(<Harness asset={asset} inventory={inventory} />);
     const section = (await screen.findByText("Context")).closest("section")!;
     expect(section.textContent).toContain("Always on");
     expect(section.textContent).toContain("Name and description, in every engine’s startup list");
@@ -719,19 +732,19 @@ describe("Asset detail — the inspector's document screen", () => {
       always_on_bytes: null,
       always_on_estimated_tokens: null,
     };
-    render(<AssetDetail asset={asset} inventory={inventory} />);
+    render(<Harness asset={asset} inventory={inventory} />);
     const section = (await screen.findByText("Context")).closest("section")!;
     expect(section.textContent).not.toContain("Always on");
     expect(section.textContent).toContain("When it opens");
   });
   it("a rule has no Context section — the tiers are a skill's", async () => {
-    render(<AssetDetail asset={{ ...asset, category: "Rules" }} inventory={inventory} />);
+    render(<Harness asset={{ ...asset, category: "Rules" }} inventory={inventory} />);
     await screen.findByRole("tab", { name: "Content" });
     expect(screen.queryByText("Context")).toBeNull();
   });
 
   it("section heads are sentence-case body medium, not uppercase eyebrows", async () => {
-    render(<AssetDetail asset={asset} inventory={inventory} />);
+    render(<Harness asset={asset} inventory={inventory} />);
     const head = await screen.findByText("Context");
     expect(head.className).toContain("text-base-app");
     expect(head.className).toContain("font-medium");
@@ -747,7 +760,7 @@ describe("Asset detail — the inspector's document screen", () => {
   it("renders the formatted body at 12px mono in --ink-1 with code leading", async () => {
     bodyResult = { ok: true, text: '{"mcpServers":{"node":{"command":"node run"}}}' };
     render(
-      <AssetDetail
+      <Harness
         asset={{ ...asset, category: "Tools", name: "node", path: "/home/me/.mcp.json" }}
         inventory={{ ...inventory, skills: [] }}
       />
@@ -766,7 +779,7 @@ describe("Asset detail — the inspector's document screen", () => {
   // renders is this one, reached by "View source" — the same click the
   // neighbouring "shows the raw file when asked for Source" test drives.
   it("renders the Skills body at 12px mono in --ink-1 with code leading, in Source view", async () => {
-    render(<AssetDetail asset={asset} inventory={inventory} />);
+    render(<Harness asset={asset} inventory={inventory} />);
     fireEvent.click(await screen.findByRole("button", { name: "View source" }));
     const pre = await screen.findByTestId("asset-source");
     expect(pre.className).toContain("font-mono");

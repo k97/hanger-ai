@@ -1,8 +1,9 @@
-import { useEffect, useRef } from "react";
+import { useContext, useEffect, useRef } from "react";
 import { formatEngineLabel } from "../utils/engineUtils";
 import MechanismGlyph, { MechanismWord } from "./MechanismGlyph";
 import EngineReachTiles, { EngineReachInfo } from "./EngineReachTiles";
 import EngineLabel from "./EngineLabel";
+import { SelectionOriginContext } from "./selectionOrigin";
 
 /** One asset's backend-derived annotation: the glyph word, the reach list,
  *  and the beyond-the-store note whose count is backend-owned. Arrives from
@@ -156,13 +157,19 @@ export function getRowState(item: AssetItem) {
 
 export default function AssetRow({ item, isSelected, showKindColumn = true, annotation, variant = "table", onClick }: AssetRowProps) {
   const rootRef = useRef<HTMLDivElement>(null);
+  // Read at fire time, not tracked as a dependency: it is the origin of
+  // whichever selection just happened, and the effect below only needs its
+  // current value at the moment isSelected flips.
+  const origin = useContext(SelectionOriginContext);
 
   // A selection made elsewhere — the search palette's pick, a restored
   // selection on mount — must bring its row into view. `nearest` is a no-op
-  // for a row already on screen, so a plain click never scrolls.
+  // for a row already on screen, so a plain click never scrolls. A palette
+  // pick centres the row instead, so the landing spot reads as deliberate
+  // rather than merely on-screen (Karthik's ruling, 2026-08-29).
   useEffect(() => {
     if (isSelected && typeof rootRef.current?.scrollIntoView === "function") {
-      rootRef.current.scrollIntoView({ block: "nearest" });
+      rootRef.current.scrollIntoView({ block: origin === "search" ? "center" : "nearest" });
     }
   }, [isSelected]);
 

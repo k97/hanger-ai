@@ -110,12 +110,15 @@ interface AssetDetailProps {
    *  Null means the backend had no verdict — the section is omitted rather
    *  than asserting an absence of engines. */
   annotation?: AssetAnnotationView | null;
-  /** Which tab to open on, remembered by the owner (`Flyout`) across the
-   *  point where this panel is unmounted for `McpServerDetail` or back.
-   *  "primary" is this panel's first tab, Content. Read once, at mount:
-   *  while mounted the tab below is the only copy that decides anything,
-   *  and `onTabChange` keeps the owner's in step with it. */
-  initialTab?: "primary" | "details";
+  /** Which tab is open. Owned by `Flyout`, not this panel: `Flyout` carries
+   *  the tab across the point where this panel is unmounted for
+   *  `McpServerDetail` or back, and now also across a search-palette pick
+   *  that must land on "primary" even while this same panel stays mounted
+   *  for a different asset (Karthik's ruling, 2026-08-29) — a change only
+   *  Flyout can make by re-rendering this prop, since nothing here re-reads
+   *  it once mounted. "primary" is this panel's first tab, Content. This
+   *  panel only reports a user-driven switch back up, through `onTabChange`. */
+  tab?: "primary" | "details";
   /** The user moved to another tab. */
   onTabChange?: (tab: "primary" | "details") => void;
 }
@@ -156,16 +159,13 @@ function basenameOf(path: string): string {
  * line, the meta grid — exists to answer the questions the document itself
  * cannot: where the file sits and what else on the machine depends on it.
  */
-export default function AssetDetail({ asset, inventory, onDocumentPath, annotation, initialTab, onTabChange }: AssetDetailProps) {
-  // Opens where the user last was, then stays there: the tab is the user's
-  // question, not the asset's, so moving down a table with Details open keeps
-  // answering it. Deliberately NOT reset by the body-load effect below, where
-  // it used to sit; `Flyout` carries it across the panel swap.
-  const [tab, setTab] = useState<"content" | "details">(
-    initialTab === "details" ? "details" : "content",
-  );
+export default function AssetDetail({ asset, inventory, onDocumentPath, annotation, tab: tabProp, onTabChange }: AssetDetailProps) {
+  // Flyout's own value, not a local copy: stays where the user last was
+  // across a plain asset switch (moving down a table with Details open keeps
+  // answering it), and lands back on Content for a search-palette pick,
+  // because both of those are Flyout's calls to make, not this panel's.
+  const tab: "content" | "details" = tabProp === "details" ? "details" : "content";
   const changeTab = (next: "content" | "details") => {
-    setTab(next);
     onTabChange?.(next === "details" ? "details" : "primary");
   };
   const [view, setView] = useState<"preview" | "source">("preview");

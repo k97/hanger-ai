@@ -160,12 +160,15 @@ interface Props {
   /** Registration keys with a request in flight. More than one launch spec
    *  can be in flight at once now that the panel asks on open. */
   verifying?: readonly string[];
-  /** Which tab to open on, remembered by the owner (`Flyout`) across the
-   *  point where this panel is unmounted for `AssetDetail` or back.
-   *  "primary" is this panel's first tab, Tools. Read once, at mount: while
-   *  mounted the tab below is the only copy that decides anything, and
-   *  `onTabChange` keeps the owner's in step with it. */
-  initialTab?: "primary" | "details";
+  /** Which tab is open. Owned by `Flyout`, not this panel: `Flyout` carries
+   *  the tab across the point where this panel is unmounted for
+   *  `AssetDetail` or back, and now also across a search-palette pick that
+   *  must land on "primary" even while this same panel stays mounted for a
+   *  different server (Karthik's ruling, 2026-08-29) — a change only Flyout
+   *  can make by re-rendering this prop, since nothing here re-reads it once
+   *  mounted. "primary" is this panel's first tab, Tools. This panel only
+   *  reports a user-driven switch back up, through `onTabChange`. */
+  tab?: "primary" | "details";
   /** The user moved to another tab. */
   onTabChange?: (tab: "primary" | "details") => void;
 }
@@ -525,29 +528,29 @@ export default function McpServerDetail({
   onAutoProbe,
   declined = NONE_DECLINED,
   verifying = NONE_IN_FLIGHT,
-  initialTab,
+  tab: tabProp,
   onTabChange,
 }: Props) {
   // Tools first, Details second: the tool list is what "is this server
-  // healthy" reduces to, and it is the only content most opens need. A new
-  // server then keeps whatever tab the last one was showing -- both tabs
-  // exist for every server, so the tab is the user's question and survives
-  // the walk down a table. It used to reset on `server.name`; `Flyout`
-  // carries it further, across the swap with `AssetDetail`.
-  const [tab, setTab] = useState<"tools" | "details">(
-    initialTab === "details" ? "details" : "tools",
-  );
+  // healthy" reduces to, and it is the only content most opens need. Flyout's
+  // own value, not a local copy: a new server keeps whatever tab the last one
+  // was showing -- both tabs exist for every server, so the tab is the
+  // user's question and survives the walk down a table -- and lands back on
+  // Tools for a search-palette pick, because both of those are Flyout's
+  // calls to make, not this panel's.
+  const tab: "tools" | "details" = tabProp === "details" ? "details" : "tools";
   const changeTab = (next: "tools" | "details") => {
-    setTab(next);
     onTabChange?.(next === "details" ? "details" : "primary");
   };
 
   // Whether the Identity Origin row's delivery-facts disclosure is open --
   // the same state `AssetDetail`'s own Origin row keeps, reset the same way:
-  // belongs to the server on screen, not carried to the next one. Unlike
-  // `tab` above, this panel is not remounted or keyed by `server.name` in
-  // `Flyout`, so without the effect below an open disclosure on one server
-  // would still read open on the next.
+  // belongs to the server on screen, not carried to the next one. This panel
+  // is never remounted or keyed by `server.name` in `Flyout` (`tab` above is
+  // Flyout's own prop for exactly this reason: switching servers must not
+  // remount the panel, or `asked` below would forget which launches it has
+  // already probed), so without the effect below an open disclosure on one
+  // server would still read open on the next.
   const [originOpen, setOriginOpen] = useState(false);
   useEffect(() => {
     setOriginOpen(false);

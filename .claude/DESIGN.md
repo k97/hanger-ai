@@ -1368,7 +1368,20 @@ completes (`lib.rs:1366`), and after an MCP probe answers, cached or fresh
 `openSearchHit`, which switches screens and then calls
 `handleSelectAsset(asset, screen)` with the target screen passed explicitly
 rather than read from state, because a pick can change screens in the same
-tick a stale read would miss (`App.tsx:1032-1038`, `:1106-1119`). As
+tick a stale read would miss (`App.tsx:1044-1052`, `:1122-1140`). A pick
+always lands the inspector on the asset's primary tab — Content, or Tools
+for an MCP server — and centres its row, overriding whatever tab the
+inspector remembers and the plain `nearest` scroll a row click keeps
+(Karthik's ruling, 2026-08-29): `openSearchHit` bumps a `landingNonce` before
+calling `handleSelectAsset(asset, screen, "search")` (`App.tsx:1133, 1135,
+1139`); `Flyout` owns the tab itself, as `inspectorTab` state passed to each
+panel through a controlled `tab` prop that neither panel copies into local
+state or reads only at mount, so an effect resetting `inspectorTab` to
+"primary" whenever `landingNonce` changes is enough to move an
+already-mounted panel, with no remount (`Flyout.tsx:143-157, 828, 839`); and
+`AssetRow` reads the selection's origin
+from `SelectionOriginContext` to choose `scrollIntoView`'s `block`, `"center"`
+for `"search"` and `"nearest"` otherwise (`AssetRow.tsx:163, 172`). As
 committed, the list carries three copy states: "Results show up here once
 the first scan finishes." before the first scan, "Type to search names and
 what's inside." for an empty query, and "Nothing matches “{q}”." for a query
