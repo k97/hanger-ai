@@ -192,7 +192,7 @@ describe("Discovery — the row is the interaction", () => {
   // Class-contract guard (typography migration, Task 7c). happy-dom lays
   // out nothing, so this asserts className membership only, never geometry.
   it("section heads sentence-case body medium; descriptions at body in --ink-2; hosts mono caption", async () => {
-    render(<DiscoveryPane filterText="" />);
+    render(<DiscoveryPane />);
     await screen.findByText("skills.sh");
 
     // "Standard" renders as a leaf <span> with no classes of its own; the
