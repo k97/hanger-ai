@@ -1233,6 +1233,44 @@ keeps `menuItemClass`/`menuLabelClass` as its own row styles (`:3-7`), the
 cap's menu items use `menuActionClass` instead (`:9-10`), and `MenuSeparator`
 (`:13-15`) is shared by both.
 
+**`SearchPalette`** (`SearchPalette.tsx:96-202`) — the ⌘K search palette: a
+full-screen wash (`:144-150`) behind a top-aligned, 560px panel (`:151-154`)
+built on `cmdk`'s `Command` with `shouldFilter={false}` (`:156`), so the row
+order on screen is always the backend's own rank, never a client-side
+refilter. The input's accessible name is "Search assets" (`:163`); queries
+are debounced 80ms (`DEBOUNCE_MS`, `:88`) before they reach `search_assets`.
+It opens from the rail's Search button, placed beneath Needs review because
+the palette searches the whole machine rather than one screen
+(`IconRail.tsx:117-124`) — the button takes `railBtnClass` like every other
+rail control but never `aria-current`, since it is an action, not a place
+(`:14`, `:121`) — or from ⌘K, the second branch of the shell's keydown effect
+(`App.tsx:562-565`). Each row leads with a glyph rather than sitting under a
+group heading: `KindGlyph` maps the five `SearchKind`s to their icons and
+rows stay in the backend's rank order throughout (`SearchPalette.tsx:43-56`).
+A hit's snippet arrives with matched runs wrapped in private-use markers
+(`search.rs:29-30`) that `renderSnippet` turns into `<mark>` (`SearchPalette.tsx:59-72`,
+the tag at `:65`); the base stylesheet zeroes the browser's default yellow
+highlight so only the palette's own styling shows through (`index.css:142`).
+Ranking and counts are entirely backend-owned: `search::search` runs FTS5
+with bm25 weighted 8/3/1 across name, description and body (`search.rs:241-250`)
+and returns both the ranked `hits` and a separate `total` from a plain
+`count(*)` (`:233-239`, `:275`), exposed as the `search_assets` command
+(`lib.rs:1877-1880`) and kept current by three call sites: after a scan
+completes (`lib.rs:841`), after a rescan (`:1371`), and after an MCP probe
+answers, cached or fresh (`:643-649`). Picking a hit calls `onPick`, wired to
+`openSearchHit`, which switches screens and then calls
+`handleSelectAsset(asset, screen)` with the target screen passed explicitly
+rather than read from state, because a pick can change screens in the same
+tick a stale read would miss (`App.tsx:1032-1038`, `:1106-1119`). As
+committed, the list carries three copy states, none yet through this phase's
+pending copy pass: "Search opens once the first scan finishes." before the
+first scan, "Type to search names and what's inside." for an empty query, and
+"Nothing matches “{q}”." for a query that answered empty
+(`SearchPalette.tsx:169-175`). The shell's cap no longer carries a search
+field: its trailing-controls block runs straight from the breadcrumb to
+Rescan or the view control, with no input between them
+(`App.tsx:1619-1621`).
+
 **`InspectorCap`** (`InspectorCap.tsx`, props `:44-70`) — the inspector
 column's 40px cap, and since this phase the selected asset's identity as
 well as the two panel-level controls it used to hold alone: a kind glyph —
@@ -1624,6 +1662,24 @@ config can put a bearer token in `--header` or `--api-key`, and only
 the frontend (`domain.rs:44-62`, the attribute `:61`). No row of that shape
 exists in `McpServerDetail.tsx`'s Identity & capabilities card (`:906-947`)
 or anywhere else in the panel.
+
+**A tool pick from the palette opens the server but not the tool.** `openSearchHit`
+resolves an `mcp_tool` hit to its server and calls `handleSelectAsset` with
+that server's identity (`App.tsx:1113-1116`); nothing in that path or in
+`McpServerDetail.tsx` scrolls the Tools tab to, or highlights, the row the
+query actually matched.
+
+**The palette searches asset content and stops there.** `index_inventory`
+writes only `skill`/`rule`/`subagent`/`server` rows (`search.rs:89-117`) and
+`index_probe_tools` only `mcp_tool` rows (`:149-198`) into `asset_search`;
+Needs review's issues and Discovery's directories have no writer into that
+table and no `SearchKind` of their own, so neither surfaces in a palette
+query.
+
+**Matching is prefix and stem, not fuzzy.** `fts_query` quotes each term and
+appends FTS5's prefix operator (`search.rs:200-215`) against a `porter
+unicode61` tokenizer (`preferences.rs:664`); a misspelled term simply misses,
+the way `"depl"*` finds "deploy" but a transposed "deploly" would not.
 
 ---
 
