@@ -4,6 +4,7 @@ import FindingChip from "./FindingChip";
 import OverflowMenu, { menuActionClass, MenuSeparator } from "./OverflowMenu";
 import { miniBtnFillClass } from "./miniButton";
 import { kindLabel } from "../utils/assetProvenance";
+import { captionClass } from "./typeRoles";
 import type { AssetFindings, IssueCategory, ReviewIssue } from "../utils/reviewIssues";
 import {
   CollapseIcon,
@@ -219,7 +220,7 @@ export default function InspectorCap({
       {asset && (
         <span
           data-testid="inspector-cap-eyebrow"
-          className="shrink-0 relative font-flex text-micro font-medium tracking-[.06em] uppercase text-ink-3 truncate min-w-0"
+          className={`shrink-0 relative ${captionClass} truncate min-w-0`}
         >
           {kind}
           <span aria-hidden="true"> · </span>

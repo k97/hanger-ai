@@ -65,11 +65,13 @@ function accessibleName(el: Element): string {
 }
 
 describe("InspectorCap", () => {
-  it("renders the eyebrow as kind · place, uppercased by class", () => {
+  it("renders the eyebrow as kind · place, sentence case in caption ink", () => {
     renderCap({ place: "Global" });
     const eyebrow = screen.getByTestId("inspector-cap-eyebrow");
     expect(eyebrow.textContent).toBe("Skill · Global");
-    expect(eyebrow.className).toContain("uppercase");
+    expect(eyebrow.className).toContain("text-small");
+    expect(eyebrow.className).toContain("text-ink-3");
+    expect(eyebrow.className).not.toContain("uppercase");
   });
 
   // The dot is the chip's understudy, not its echo: while `1 flagged` is on

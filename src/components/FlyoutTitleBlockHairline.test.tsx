@@ -124,6 +124,30 @@ describe("Flyout title block — the hairline follows the tab row, not the wrapp
     expect(titleRow.className).not.toContain("mt-1");
   });
 
+  // R2: the eyebrow (the scope line) moves below the title, restyled into
+  // the caption role — no caps, no tracking, no font-flex. The column's own
+  // `gap-1` supplies the step, so the eyebrow carries no margin of its own.
+  it("the scope line sits below the title in caption ink, not above it in caps", () => {
+    render(
+      <Flyout
+        selectedBubble={{ type: "agent", id: "claude-code", name: "Claude Code" }}
+        inventory={emptyInventory}
+        linkedProjects={[]}
+        onRefresh={() => {}}
+      />
+    );
+
+    const header = screen.getByTestId("inspector-header");
+    const title = header.querySelector("h2")!;
+    const scope = screen.getByText(/scope$/);
+    expect(
+      title.compareDocumentPosition(scope) & Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
+    expect(scope.className).toContain("text-small");
+    expect(scope.className).toContain("text-ink-3");
+    expect(scope.className).not.toContain("uppercase");
+  });
+
   it("a tabless view (the empty MCP eyebrow): same padding, keeps its own hairline", () => {
     render(
       <Flyout
