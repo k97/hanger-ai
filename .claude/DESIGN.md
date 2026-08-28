@@ -790,12 +790,18 @@ glyph in an `h-10` row) plus the same 8. Measured on the running build at
 1173×808 — and re-measured there unchanged after `bcc98a8` moved the
 eyebrow below the title — that lands 28px of ink-to-ink air above the title
 and 24px below: even enough to read as one rhythm, and closer below so the
-title belongs to the tabs beneath it rather than floating between two bands. It read
-`pt-2 pb-4` with the labels at `pt-2 pb-2.5` until 2026-08-28, when Karthik
+title belongs to the tabs beneath it rather than floating between two
+bands. It read `pt-2 pb-4` with the labels at `pt-2 pb-2.5` until 2026-08-28, when Karthik
 called the stack inconsistent; the values are a rule now rather than four
-independently chosen numbers. The content card below still insets 12px
-against this stack's 18px gutter (`AssetDetail.tsx:471`) — untouched, and
-the next thing to reconcile.
+independently chosen numbers. The body's own sections keep the same gutter
+by a different route, and the raw class misreads: they carry `mx-[12px]`
+(`AssetDetail.tsx:420` and its siblings), but they sit inside the scroller
+that pairs `scroll-gutter-stable` with `scroll-thin`, which reserves the
+custom scrollbar's 6px on each edge (`index.css`, both utilities' notes) —
+12 plus 6 is the header's 18. Measured on the same window: the card's border
+lands 19px from the panel's edge against the title's and the tab's ink at
+20px, the 1px being the border sitting outside the ink. Anything that
+changes the scrollbar width has to move that 12 with it.
 
 **The cap sheds two things, in order, when it does not fit, and none of it
 runs under test.** After every render, one effect compares the row's own
