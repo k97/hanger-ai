@@ -92,7 +92,7 @@ export default function ReviewInspector({
   return (
     // No ground of its own: the inspector column's sheet is the ground, and a full-bleed bg-page here squares off the sheet's corner from inside when the column leads (every screen carries the corner — Karthik, 2026-08-28).
     <div className="h-full flex flex-col min-h-0">
-      <div className="px-[18px] pt-4 pb-3 border-b border-line shrink-0">
+      <div className="px-[18px] pt-[18px] pb-3 border-b border-line shrink-0">
         <h2 className="text-lg-app font-medium tracking-[-0.3px] text-ink-1 mb-2">{issue.name}</h2>
 
         {/* R2: the kind line reads below the title it describes, not above

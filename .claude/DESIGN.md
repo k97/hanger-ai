@@ -858,12 +858,16 @@ title and above the tabs (`Flyout.tsx:697`) — untouched by this phase, and it
 falls between the title and the tabs, not between the cap and the title,
 where nothing separates them at all.
 
-**Every band in that stack pads symmetrically, on one step.** The header is
-`py-2` and the tab labels are `py-2` (`Flyout.tsx:696`,
-`UnderlineTabs.tsx:62`), so no band reaches across into another to set its
-neighbour's gap: the space under the title is that header's 8 plus the tab
-row's own 8, and the space above it is the cap's centring slack (a 16px
-glyph in an `h-9` row) plus the same 8. Measured on the running build at
+**The inspector opens like every other screen, and its title sits on the
+rhythm.** The header is `pt-[18px] pb-1.5` and the tab labels are `py-2`
+(`Flyout.tsx:697`, `UnderlineTabs.tsx:62`): 18 from the sheet's rule to the
+title block, the same 18 the block keeps from its sides, and 6 + 8 = 14 from
+the title block to the tab labels — the gap every pane uses under its
+opener. Ruled 2026-08-28 ("make it consistent") after a day at `py-2`, which
+had put the title 8 under the rule while every pane had just moved to 18.
+`ReviewInspector`'s title block opens at the same `pt-[18px]`
+(`ReviewInspector.tsx:95`). The rest of that measurement stands as recorded —
+measured on the running build at
 1173×808 — and re-measured there unchanged after `bcc98a8` moved the
 eyebrow below the title — that lands 28px of ink-to-ink air above the title
 and 24px below: even enough to read as one rhythm, and closer below so the
