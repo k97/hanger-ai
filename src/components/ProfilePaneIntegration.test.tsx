@@ -283,6 +283,59 @@ describe("ProfilePane Component-Level Filtering Integration", () => {
     fireEvent.click(screen.getByText("Needs review →"));
     expect(onReview).toHaveBeenCalledWith(issue);
   });
+
+  it("a won't-parse issue is a danger dot here, the same colour the inspector cap gives it", () => {
+    // `reviewIssues.ts:440` — broken OR parse is danger. `kind === "broken"`
+    // alone paints this dot bg-state-warning, and the same asset then wears
+    // two colours in two surfaces.
+    const issue = { id: "i1", name: "reviewer.md", category: "Subagents", kind: "parse", problem: "Won't parse", path: "/x/reviewer.md", whereLabel: "Global", whereKeys: ["global"], crossRepo: false };
+    render(<ProfilePane inventory={mockInventory} loading={false} onSelectAsset={vi.fn()} onLinkAsset={vi.fn()} issues={[issue] as never} />);
+    fireEvent.click(screen.getByText("Needs review 1"));
+    const dot = screen.getByTestId("finding-popover-line").querySelector("i")!;
+    expect(dot.className).toContain("bg-state-danger");
+    expect(dot.className).not.toContain("bg-state-warning");
+  });
+
+  it("a duplicate in the list withholds 'Show in list', because the filter cannot reach it", () => {
+    // `needsReview` (linkStateCounts.ts:45-48) is broken-or-drifted, so
+    // "needs-review" filters a duplicate out of the very list the button
+    // offers to show it in. Rendering it anyway is the bug.
+    const duplicate = { id: "i1", name: "math", category: "Skills", kind: "duplicate", problem: "Duplicated in 3 places", path: "/x/math", whereLabel: "Global", whereKeys: ["global"], crossRepo: true };
+    render(<ProfilePane inventory={mockInventory} loading={false} onSelectAsset={vi.fn()} onLinkAsset={vi.fn()} issues={[duplicate] as never} />);
+    fireEvent.click(screen.getByText("Needs review 1"));
+    expect(screen.getByText("Needs review →")).toBeTruthy();
+    expect(screen.queryByText("Show in list")).toBeNull();
+  });
+
+  it("without a duplicate, both actions render", () => {
+    const broken = { id: "i1", name: "CLAUDE.md", category: "Rules", kind: "broken", problem: "Target is gone", path: "/x/CLAUDE.md", whereLabel: "Global", whereKeys: ["global"], crossRepo: false };
+    render(<ProfilePane inventory={mockInventory} loading={false} onSelectAsset={vi.fn()} onLinkAsset={vi.fn()} issues={[broken] as never} />);
+    fireEvent.click(screen.getByText("Needs review 1"));
+    expect(screen.getByText("Show in list")).toBeTruthy();
+    expect(screen.getByText("Needs review →")).toBeTruthy();
+  });
+
+  it("undeclared processes reach the pill on a Global tab that is not MCP servers", () => {
+    // The banner they replace was gated on `unaccounted.length > 0` alone.
+    // `mcpMode` is four conditions, so gating the lines on it hid them on
+    // every other tab AND on Tools whenever `mcpEngineSummary` was null.
+    render(
+      <ProfilePane
+        inventory={mockInventory}
+        loading={false}
+        selectedCategory="Rules"
+        onSelectAsset={vi.fn()}
+        onLinkAsset={vi.fn()}
+        unaccountedProcesses={[
+          { registration_key: "", pid: 24149, command_line: "node dist/index.js --port 3002", spawning_host: "Claude Code" },
+        ] as never}
+      />
+    );
+    fireEvent.click(screen.getByText("Needs review 1"));
+    const line = screen.getByTestId("finding-popover-line");
+    expect(line.textContent).toContain("Running with no config behind it.");
+    expect(line.textContent).toContain("pid 24149 · node dist/index.js --port 3002 · started by Claude Code");
+  });
 });
 
 describe("ProfilePane — the empty state is a finding, not a default", () => {

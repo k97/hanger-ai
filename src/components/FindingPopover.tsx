@@ -98,7 +98,12 @@ export default function FindingPopover({ open, onClose, lines, actions, align, e
         elevated ? "shadow-overlay" : ""
       }`}
     >
-      <ul className="flex flex-col">
+      {/* 240px with its own scroll, the cap `DisclosureBanner.tsx:83` gave
+          the bodies that moved in here (`.claude/DESIGN.md:1548` records it
+          as stated behaviour). These lists are unbounded in principle — one
+          root can raise dozens of scan warnings. The cap is on the list, not
+          the panel, so the action row below stays visible while it scrolls. */}
+      <ul className="flex flex-col max-h-[240px] overflow-y-auto">
         {lines.map((line, i) => (
           <li key={i} data-testid="finding-popover-line" className={`flex items-start gap-2 text-small leading-[1.5] ${i > 0 ? "mt-2.5 pt-2.5 border-t border-line" : ""}`}>
             <i aria-hidden="true" className={`mt-[5px] w-2 h-2 rounded-pill shrink-0 not-italic ${line.severity === "danger" ? "bg-state-danger" : "bg-state-warning"}`} />

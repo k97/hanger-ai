@@ -255,9 +255,13 @@ export default function RepoPane({
   // The pill's lines: this repository's issues, then the warnings the scan
   // itself raised. Neither is an asset, and the popover is the disclosure
   // the two banners used to be.
+  /* The severity rule is `reviewIssues.ts:440`'s, not a second one: a
+     won't-parse asset is a danger in the inspector cap's chip, so it is a
+     danger dot here too. Two surfaces reading the same issue must not paint
+     it two colours (coordinator review, 2026-08-28, finding 2). */
   const reviewLines: FindingLine[] = [
     ...issues.map((i) => ({
-      severity: i.kind === "broken" ? ("danger" as const) : ("warning" as const),
+      severity: i.kind === "broken" || i.kind === "parse" ? ("danger" as const) : ("warning" as const),
       text: i.problem,
       detail: i.name,
     })),
@@ -268,12 +272,20 @@ export default function RepoPane({
     })),
   ];
   const reviewLineCount = reviewLines.length; // allowlisted: the lines this popover itself renders
+  /* `Show in list` applies `stateFilter = "needs-review"`, and `needsReview`
+     (`linkStateCounts.ts:45-48`) is broken-or-drifted only — it cannot reach
+     a duplicate, which is a relationship between assets rather than a state
+     one asset is in. Withheld rather than widening the filter, because
+     `linkStateCounts.ts:56-59` holds that `reviewIssues.ts` is the sole
+     authority for how many need review (coordinator review, 2026-08-28,
+     finding 1). `Needs review →` always renders, and always works. */
+  const everyIssueFilterable = issues.length > 0 && !issues.some((i) => i.kind === "duplicate");
   const review: StripReview = {
     count: reviewLineCount,
     lines: reviewLines,
     actions: (
       <div className={miniSetClass}>
-        {issues.length > 0 && (
+        {everyIssueFilterable && (
           <button
             type="button"
             aria-pressed={stateFilter === "needs-review"}

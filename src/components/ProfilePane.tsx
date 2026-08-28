@@ -646,18 +646,37 @@ export default function ProfilePane({
   const MCP_CAPTION = "Described to the model on every request, used or not.";
   const mcpFigures = mcpMode && mcpEngineSummary ? { caption: MCP_CAPTION } : undefined;
 
-  // The pill's lines on MCP servers: disagreeing servers first, then the
-  // processes nothing on disk accounts for. The popover IS the latter's
-  // disclosure — there is no registration to open, so there is nothing to
-  // route to (the banner this replaces said the same, 2026-08-20).
+  /* The processes nothing on disk accounts for. They belong to every Global
+     tab, not just MCP servers: the banner they replace was gated on
+     `unaccounted.length > 0` alone, while `mcpMode` is four conditions — a
+     null `mcpEngineSummary` would have hidden them on the correct tab. Built
+     once and appended to whichever pill is showing (coordinator review,
+     2026-08-28, finding 5).
+
+     The popover IS their disclosure — there is no registration to open, so
+     there is nothing to route to (the banner said the same, 2026-08-20). */
+  const processLines: FindingLine[] = unaccountedGroups.map((g) => ({
+    severity: "warning" as const,
+    text: "Running with no config behind it.",
+    detail: `${g.pids.length > 1 ? `${g.pids.length} processes · e.g. pid ${g.pids[0]}` : `pid ${g.pids[0]}`} · ${g.commandLine}${g.spawningHost ? ` · started by ${g.spawningHost}` : ""}`,
+  }));
+
+  /* The severity rule is `reviewIssues.ts:440`'s, not a second one: a
+     won't-parse asset is a danger in the inspector cap's chip, so it is a
+     danger dot here too. Two surfaces reading the same issue must not paint
+     it two colours (coordinator review, 2026-08-28, finding 2). */
+  const issueLine = (i: ReviewIssue): FindingLine => ({
+    severity: i.kind === "broken" || i.kind === "parse" ? ("danger" as const) : ("warning" as const),
+    text: i.problem,
+    detail: i.name,
+  });
+
+  // The pill's lines on MCP servers: disagreeing servers first, then those
+  // processes.
   const conflictingRows = mcpMode && mcpServers ? mcpServers.filter((row) => row.agreement === "Conflicting") : [];
   const reviewLines: FindingLine[] = [
     ...conflictingRows.map((row) => ({ severity: "danger" as const, text: `${row.name}: ${cardSecondLine(row)}` })),
-    ...unaccountedGroups.map((g) => ({
-      severity: "warning" as const,
-      text: "Running with no config behind it.",
-      detail: `${g.pids.length > 1 ? `${g.pids.length} processes · e.g. pid ${g.pids[0]}` : `pid ${g.pids[0]}`} · ${g.commandLine}${g.spawningHost ? ` · started by ${g.spawningHost}` : ""}`,
-    })),
+    ...processLines,
   ];
   const reviewLineCount = reviewLines.length; // allowlisted: the lines this popover itself renders
   const mcpReview: StripReview | undefined = mcpMode
@@ -680,29 +699,37 @@ export default function ProfilePane({
       }
     : undefined;
 
-  // Every other tab: this store's own review issues, one line each. The
-  // pill's figure used to be `counts.drifted + counts.broken` computed
+  // Every other tab: this store's own review issues, then the same processes.
+  // The pill's figure used to be `counts.drifted + counts.broken` computed
   // inside the strip; it is now the lines it actually shows.
-  const assetReviewLines: FindingLine[] = issues.map((i) => ({
-    severity: i.kind === "broken" ? ("danger" as const) : ("warning" as const),
-    text: i.problem,
-    detail: i.name,
-  }));
+  const assetReviewLines: FindingLine[] = [...issues.map(issueLine), ...processLines];
   const assetReviewLineCount = assetReviewLines.length; // allowlisted: the lines this popover itself renders
+  /* `Show in list` applies `stateFilter = "needs-review"`, and `needsReview`
+     (`linkStateCounts.ts:45-48`) is broken-or-drifted only. A duplicate is a
+     relationship between assets, not a state one asset is in, so the filter
+     cannot reach it — the button would offer to show a line it then filters
+     out. It is withheld rather than the filter widened: `linkStateCounts.ts`
+     states the position that `reviewIssues.ts` is the sole authority for how
+     many need review, and two functions answering that would diverge
+     (coordinator review, 2026-08-28, finding 1). `Needs review →` always
+     renders, and always works. */
+  const everyIssueFilterable = issues.length > 0 && !issues.some((i) => i.kind === "duplicate");
   const assetReview: StripReview | undefined = !mcpMode
     ? {
         count: assetReviewLineCount,
         lines: assetReviewLines,
         actions: (
           <div className={miniSetClass}>
-            <button
-              type="button"
-              aria-pressed={stateFilter === "needs-review"}
-              onClick={() => onStateFilterChange?.(stateFilter === "needs-review" ? null : "needs-review")}
-              className={miniBtnClass}
-            >
-              Show in list
-            </button>
+            {everyIssueFilterable && (
+              <button
+                type="button"
+                aria-pressed={stateFilter === "needs-review"}
+                onClick={() => onStateFilterChange?.(stateFilter === "needs-review" ? null : "needs-review")}
+                className={miniBtnClass}
+              >
+                Show in list
+              </button>
+            )}
             <button type="button" onClick={() => onReview?.(issues[0] ?? null)} className={miniBtnClass}>
               Needs review →
             </button>

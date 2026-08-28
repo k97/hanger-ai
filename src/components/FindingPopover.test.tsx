@@ -70,4 +70,41 @@ describe("FindingPopover", () => {
     render(<div ref={host}><FindingPopover open onClose={vi.fn()} lines={lines} align="right" top={34} elevated clampTo={host} anchorRef={host} ariaLabel="x" /></div>);
     expect(screen.getByTestId("finding-popover").style.top).toBe("34px");
   });
+
+  it("caps the line list at 240px with its own scroll, leaving the action row below it", () => {
+    // A class contract, not a measurement: happy-dom lays nothing out, so
+    // whether 30 lines actually scroll is unassertable here. What this pins
+    // is that the cap sits on the LIST — putting it on the outer panel
+    // instead would scroll the action row out of reach, and that mistake
+    // leaves the ul with neither class.
+    const host = createRef<HTMLDivElement>();
+    const many = Array.from({ length: 30 }, (_, i) => ({
+      severity: "warning" as const,
+      text: `warning ${i}`,
+      detail: `/Users/k/Work/root/dir-${i}: Permission denied`,
+    }));
+    render(
+      <div ref={host}>
+        <FindingPopover
+          open
+          onClose={vi.fn()}
+          lines={many}
+          actions={<button type="button">Needs review →</button>}
+          align="right"
+          elevated
+          clampTo={host}
+          anchorRef={host}
+          ariaLabel="x"
+        />
+      </div>
+    );
+    const pop = screen.getByTestId("finding-popover");
+    const ul = pop.querySelector("ul")!;
+    expect(ul.className).toContain("max-h-[240px]");
+    expect(ul.className).toContain("overflow-y-auto");
+    // The panel itself must not scroll, or the action row goes with the list.
+    expect(pop.className).not.toContain("overflow-y-auto");
+    expect(screen.getAllByTestId("finding-popover-line")).toHaveLength(30);
+    expect(pop.contains(screen.getByText("Needs review →"))).toBe(true);
+  });
 });

@@ -76,6 +76,33 @@ describe("RepoPane hero band and pill", () => {
     expect(lines[0].textContent).toContain("security-reviewer.md");
     expect(lines[1].textContent).toContain("The scan skipped something it could not read.");
     expect(lines[1].textContent).toContain("Permission denied");
+
+    // A won't-parse asset is a danger in the inspector cap's chip
+    // (`reviewIssues.ts:440` — broken OR parse). The hero must not paint the
+    // same issue a warning; `kind === "broken"` alone gives this dot
+    // bg-state-warning, which is what this catches.
+    const dot = lines[0].querySelector("i")!;
+    expect(dot.className).toContain("bg-state-danger");
+    expect(dot.className).not.toContain("bg-state-warning");
+  });
+
+  it("a duplicate in the list withholds 'Show in list', because the filter cannot reach it", () => {
+    // `needsReview` (linkStateCounts.ts:45-48) is broken-or-drifted, so
+    // "needs-review" filters a duplicate straight out of the list the button
+    // offers to show it in. Rendering the button anyway is the bug.
+    const duplicate = { id: "i1", name: "math", category: "Skills", kind: "duplicate", problem: "Duplicated in 3 places", path: "/Users/test/proj/math", whereLabel: "proj", whereKeys: ["/Users/test/proj"], crossRepo: true };
+    render(<RepoPane {...base} issues={[duplicate] as never} />);
+    fireEvent.click(screen.getByText("Needs review 2"));
+    expect(screen.getByText("Needs review →")).toBeTruthy();
+    expect(screen.queryByText("Show in list")).toBeNull();
+  });
+
+  it("without a duplicate, both actions render", () => {
+    const broken = { id: "i1", name: "a", category: "Rules", kind: "broken", problem: "Target is gone", path: "/Users/test/proj/a", whereLabel: "proj", whereKeys: ["/Users/test/proj"], crossRepo: false };
+    render(<RepoPane {...base} issues={[broken] as never} />);
+    fireEvent.click(screen.getByText("Needs review 2"));
+    expect(screen.getByText("Show in list")).toBeTruthy();
+    expect(screen.getByText("Needs review →")).toBeTruthy();
   });
 
   it("'Needs review →' routes with the first issue", () => {
