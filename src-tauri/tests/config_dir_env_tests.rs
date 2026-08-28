@@ -11,13 +11,20 @@ use tauri_app_lib::agents;
 
 static ENV_MUTEX: OnceLock<Mutex<()>> = OnceLock::new();
 
-/// Clears both variables on drop, including on panic, so one test cannot
+/// Clears all three variables on drop, including on panic, so one test cannot
 /// leak a relocated base into the next.
+///
+/// HANGER_TEST_HOME added alongside CLAUDE_CONFIG_DIR/CODEX_HOME (task 2):
+/// `a_relocated_claude_dir_is_detected_as_the_agent_root` sets it to point
+/// `get_home_dir()` at a temp dir distinct from the relocated config dir, and
+/// a leaked value would silently point later tests' home resolution at a
+/// directory that no longer exists.
 struct EnvGuard;
 impl Drop for EnvGuard {
     fn drop(&mut self) {
         std::env::remove_var("CLAUDE_CONFIG_DIR");
         std::env::remove_var("CODEX_HOME");
+        std::env::remove_var("HANGER_TEST_HOME");
     }
 }
 
@@ -25,6 +32,7 @@ fn guard() -> (std::sync::MutexGuard<'static, ()>, EnvGuard) {
     let l = ENV_MUTEX.get_or_init(|| Mutex::new(())).lock().unwrap_or_else(|e| e.into_inner());
     std::env::remove_var("CLAUDE_CONFIG_DIR");
     std::env::remove_var("CODEX_HOME");
+    std::env::remove_var("HANGER_TEST_HOME");
     (l, EnvGuard)
 }
 
@@ -105,4 +113,37 @@ fn every_env_table_entry_names_a_real_agent_root() {
             "CONFIG_DIR_ENVS entry ({prefix}, {var}) names no AGENT_CONFIGS global_root"
         );
     }
+}
+
+// ─── Task 2: agent-root detection ──────────────────────────────────────────
+
+#[test]
+fn a_relocated_claude_dir_is_detected_as_the_agent_root() {
+    let (_l, _g) = guard();
+    let home = tempfile::tempdir().unwrap();
+    let relocated = tempfile::tempdir().unwrap();
+    // The engine's assets live in the relocated directory, NOT under home.
+    std::fs::create_dir_all(relocated.path().join("skills/probe-skill")).unwrap();
+    std::fs::write(
+        relocated.path().join("skills/probe-skill/SKILL.md"),
+        "---\nname: probe-skill\ndescription: d\n---\nbody\n",
+    )
+    .unwrap();
+
+    std::env::set_var("HANGER_TEST_HOME", home.path());
+    std::env::set_var("CLAUDE_CONFIG_DIR", relocated.path());
+
+    let agents = tauri_app_lib::scanner::get_global_agents();
+    let cc = agents.iter().find(|a| a.id == "claude-code");
+
+    std::env::remove_var("HANGER_TEST_HOME");
+
+    let cc = cc.expect("claude-code must be detected at its relocated root");
+    assert!(
+        cc.global_config_path.as_deref().unwrap_or("").starts_with(
+            relocated.path().to_str().unwrap()
+        ),
+        "expected the relocated path, got {:?}",
+        cc.global_config_path
+    );
 }
