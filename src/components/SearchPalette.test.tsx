@@ -39,19 +39,20 @@ describe("SearchPalette", () => {
     expect(document.activeElement).toBe(screen.getByLabelText("Search assets"));
   });
 
-  it("queries the backend with the typed text and renders hits in rank order, each with its kind's glyph", async () => {
+  it("groups hits by kind under headings, in rank order within a group, with no glyph", async () => {
     render(<SearchPalette open={true} scannedAt={scanned} onClose={() => {}} onPick={() => {}} />);
     fireEvent.change(screen.getByLabelText("Search assets"), { target: { value: "deploy" } });
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("search_assets", { query: "deploy", limit: 50 }));
     expect(await screen.findByText("deploy-helper")).toBeTruthy();
-    // Backend order, no headings (Karthik's ruling, 2026-08-28).
+    // A heading per kind that has hits; a kind with none renders nothing.
+    expect(screen.getByText("Skills")).toBeTruthy();
+    expect(screen.getByText("Tools")).toBeTruthy();
+    expect(screen.queryByText("Rules")).toBeNull();
+    // Rank order within a group, backend order untouched.
     const items = screen.getAllByRole("option");
     expect(items.map((el) => el.getAttribute("data-kind"))).toEqual(["skill", "mcp_tool"]);
-    expect(screen.queryByText("Skills")).toBeNull();
-    expect(screen.queryByText("Tools")).toBeNull();
-    // Each row leads with its kind's glyph, named for the reader.
-    expect(items[0].querySelector('[data-glyph="skill"]')).toBeTruthy();
-    expect(items[1].querySelector('[data-glyph="mcp_tool"]')).toBeTruthy();
+    // The glyph is gone.
+    expect(document.querySelector("[data-glyph]")).toBeNull();
     // The tool row names its server and its place.
     expect(screen.getByText("spades")).toBeTruthy();
     expect(screen.getByText("proj")).toBeTruthy();

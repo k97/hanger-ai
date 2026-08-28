@@ -354,7 +354,7 @@ Tailwind utility: the global ring above is itself unlayered, Tailwind's
 utilities live in `@layer utilities`, and an unlayered declaration always
 outranks a layered one regardless of specificity (CSS Cascade 5) — a
 `focus-visible:outline-none` class on the input cannot win against it
-(`SearchPalette.tsx:134-138`).
+(`SearchPalette.tsx:126-130`).
 
 ---
 
@@ -1266,21 +1266,21 @@ keeps `menuItemClass`/`menuLabelClass` as its own row styles (`:3-7`), the
 cap's menu items use `menuActionClass` instead (`:9-10`), and `MenuSeparator`
 (`:13-15`) is shared by both.
 
-**`SearchPalette`** (`SearchPalette.tsx:191-258`) — the ⌘K search palette: a
-full-screen wash (`:239-245`) behind a top-aligned, 560px panel (`:126-130`)
-built on `cmdk`'s `Command` with `shouldFilter={false}` (`:131`), so the row
+**`SearchPalette`** (`SearchPalette.tsx:196-263`) — the ⌘K search palette: a
+full-screen wash (`:244-250`) behind a top-aligned, 560px panel (`:118-122`)
+built on `cmdk`'s `Command` with `shouldFilter={false}` (`:123`), so the row
 order on screen is always the backend's own rank, never a client-side
-refilter. The input's accessible name is "Search assets" (`:253`); queries
-are debounced 80ms (`DEBOUNCE_MS`, `:88`) before they reach `search_assets`.
-The input row (`:132`) dropped its `border-b` and grew from `h-11` to
+refilter. The input's accessible name is "Search assets" (`:258`); queries
+are debounced 80ms (`DEBOUNCE_MS`, `:75`) before they reach `search_assets`.
+The input row (`:124`) dropped its `border-b` and grew from `h-11` to
 `h-[52px]` with more inset (`px-5`); the input itself opts out of the app's
 one global focus ring, because the panel that frames it is the only ring this
 field needs. The opt-out is an unlayered rule, `[cmdk-input]:focus-visible`
 (`index.css:531-533`), not a Tailwind class — a `focus-visible:outline-none`
 utility is layered under `@layer utilities` and cannot outrank the unlayered
 global ring (CSS Cascade 5), so the input's `className` carries no focus
-utility at all (`:145`); a comment at the input row explains why
-(`:134-138`; see §3 "Focus" for the same exception).
+utility at all (`:137`); a comment at the input row explains why
+(`:126-130`; see §3 "Focus" for the same exception).
 It opens from the rail's Search button, placed beneath the mark and above the
 places because the palette is an action over the whole machine rather than
 one screen (Karthik's ruling, 2026-08-28, superseding the earlier placement
@@ -1291,24 +1291,33 @@ of the shell's keydown effect (`App.tsx:562-565`). The expanded sidebar
 carries the same action as its own row, above the Scope group label: the
 row idiom's 46px height and `rounded-pill`, but with no selected state — a
 `role="button"` action never reads as current (`Sidebar.tsx:121-140`).
-Each row leads with a glyph rather than sitting under a
-group heading: `KindGlyph` maps the five `SearchKind`s to their icons and
-rows stay in the backend's rank order throughout (`SearchPalette.tsx:131`,
-`shouldFilter={false}`). Each row grew from `px-2.5 py-1.5` to `px-3.5 py-2.5`
-with `rounded-inner` in place of `rounded-soft` and `bg-plane` in place of
-`bg-plane-2` for the selected row (`:164`); the name and the "· server" span
-moved from `text-small` to `text-base-app`, the snippet line from `text-micro`
-to `text-small`, and the place chip took a `pl-4` so it never crowds a long
-name (`:166-176`). The list container itself dropped `flex flex-col gap-0.5`
-(inert there: cmdk renders `<div cmdk-list><div cmdk-list-sizer>{children}</div></div>`,
-so a gap on `cmdk-list` separates nothing, and `flex flex-col` on the scroll
-container itself risks shrink over scroll) in favour of arbitrary variants
-that reach the sizer cmdk actually flexes:
-`[&_[cmdk-list-sizer]]:flex [&_[cmdk-list-sizer]]:flex-col [&_[cmdk-list-sizer]]:gap-0.5`
-(`:148`).
+Rows sit under a heading per kind rather than leading with a glyph
+(Karthik's ruling, 2026-08-28, superseding "glyph rows, no headings"):
+`GROUP_ORDER` fixes both the five headings' text and their order — Skills,
+MCP servers, Tools, Rules, Subagents — and each hit is placed into its
+kind's group with the backend's rank order untouched within it, so a kind
+with no hits contributes no group at all (`:33-43`, `:111-115`). Each group
+is a `Command.Group`, given `aria-label` directly rather than cmdk's own
+`heading` prop, so the heading is a plain `<div>` — `text-small text-ink-3`,
+`px-3.5 pb-1`, `pt-1` for the first group and `pt-3` for the rest, in
+Codex's sentence-case style — and Tailwind tokens apply to it directly
+instead of through cmdk's `aria-hidden` heading slot (`:150-160`). Each row
+grew from `px-2.5 py-1.5` to `px-3.5 py-2.5` with `rounded-inner` in place of
+`rounded-soft` and `bg-plane` in place of `bg-plane-2` for the selected row
+(`:167`); the name and the "· server" span moved from `text-small` to
+`text-base-app`, the snippet line from `text-micro` to `text-small`, and the
+place chip took a `pl-4` so it never crowds a long name (`:169-178`). The
+list container itself carries no `flex flex-col gap-0.5` of its own (inert
+there: cmdk renders `<div cmdk-list>…</div>`, so a gap on `cmdk-list`
+separates nothing) but reaches into each group's own items wrapper —
+cmdk renders a `Command.Group`'s children inside a `[cmdk-group-items]` div,
+one per group, so the gap that used to sit on the list's single sizer now
+has to repeat itself once per group instead:
+`[&_[cmdk-group-items]]:flex [&_[cmdk-group-items]]:flex-col [&_[cmdk-group-items]]:gap-0.5`
+(`:140`).
 A hit's snippet arrives with matched runs wrapped in private-use markers
-(`search.rs:29-30`) that `renderSnippet` turns into `<mark>` (`SearchPalette.tsx:59-72`,
-the tag at `:65`); the base stylesheet zeroes the browser's default yellow
+(`search.rs:29-30`) that `renderSnippet` turns into `<mark>` (`SearchPalette.tsx:46-59`,
+the tag at `:52`); the base stylesheet zeroes the browser's default yellow
 highlight so only the palette's own styling shows through (`index.css:148`).
 Ranking and counts are entirely backend-owned: `search::search` runs FTS5
 with bm25 weighted 8/3/1 across name, description and body (`search.rs:241-250`)
@@ -1324,11 +1333,11 @@ tick a stale read would miss (`App.tsx:1032-1038`, `:1106-1119`). As
 committed, the list carries three copy states: "Results show up here once
 the first scan finishes." before the first scan, "Type to search names and
 what's inside." for an empty query, and "Nothing matches “{q}”." for a query
-that answered empty (`SearchPalette.tsx:149-157`). The shell's cap no
+that answered empty (`SearchPalette.tsx:141-149`). The shell's cap no
 longer carries a search field: its trailing-controls block runs straight
 from the breadcrumb to Rescan or the view control, with no input between
 them (`App.tsx:1619-1621`). The dialog panel itself is `SearchPalettePanel`
-(`SearchPalette.tsx:112-183`), a presentational split with no `invoke`,
+(`SearchPalette.tsx:99-187`), a presentational split with no `invoke`,
 timers or window listeners of its own: the app renders it inside the wash
 with live state, and the Design system page renders the same component with
 `SAMPLE_SEARCH_HITS` (`designSystemFixtures.ts:184`) and a fixed query,

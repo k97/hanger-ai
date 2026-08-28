@@ -1,14 +1,7 @@
 import { Command } from "cmdk";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import {
-  DocumentTextIcon,
-  MagnifyingGlassIcon,
-  ServerIcon,
-  SkillIcon,
-  UserIcon,
-  WrenchScrewdriverIcon,
-} from "./icons";
+import { MagnifyingGlassIcon } from "./icons";
 
 export type SearchKind = "skill" | "rule" | "subagent" | "server" | "mcp_tool";
 
@@ -37,23 +30,17 @@ export interface SearchResponse {
 const MARK_OPEN = "";
 const MARK_CLOSE = "";
 
-/** The glyph does the grouping's job (Karthik's ruling, 2026-08-28): rows
- *  stay in the backend's rank order and each leads with its kind's mark —
- *  the same marks the link map's placecard and the server detail use. */
-function KindGlyph({ kind }: { kind: SearchKind }) {
-  const props = { size: 14, "aria-hidden": true as const };
-  const glyph =
-    kind === "skill" ? <SkillIcon {...props} /> :
-    kind === "rule" ? <DocumentTextIcon {...props} /> :
-    kind === "subagent" ? <UserIcon {...props} /> :
-    kind === "server" ? <ServerIcon {...props} /> :
-    <WrenchScrewdriverIcon {...props} />;
-  return (
-    <span data-glyph={kind} className="shrink-0 inline-flex text-ink-3">
-      {glyph}
-    </span>
-  );
-}
+/** Fixed group order (Karthik's ruling, 2026-08-28, superseding "glyph rows,
+ *  no headings"): a heading does the grouping's job now, so the glyph is
+ *  gone. Rows stay in the backend's rank order within their group; a kind
+ *  with no hits renders nothing. */
+const GROUP_ORDER: { kind: SearchKind; heading: string }[] = [
+  { kind: "skill", heading: "Skills" },
+  { kind: "server", heading: "MCP servers" },
+  { kind: "mcp_tool", heading: "Tools" },
+  { kind: "rule", heading: "Rules" },
+  { kind: "subagent", heading: "Subagents" },
+];
 
 /** The snippet's private-use markers become <mark>; nothing else is parsed. */
 export function renderSnippet(snippet: string): ReactNode {
@@ -121,6 +108,11 @@ export function SearchPalettePanel({
 }: SearchPalettePanelProps) {
   const q = query.trim();
   const answeredEmpty = hits !== null && hits.length === 0;
+  const groups = GROUP_ORDER.map(({ kind, heading }) => ({
+    kind,
+    heading,
+    rows: (hits ?? []).filter((hit) => hit.kind === kind),
+  })).filter((group) => group.rows.length > 0);
 
   return (
     <div
@@ -145,7 +137,7 @@ export function SearchPalettePanel({
             className="flex-1 min-w-0 bg-page text-lg-app text-ink-1 placeholder:text-ink-3"
           />
         </div>
-        <Command.List className="flex-1 min-h-0 overflow-y-auto p-2 scroll-thin [&_[cmdk-list-sizer]]:flex [&_[cmdk-list-sizer]]:flex-col [&_[cmdk-list-sizer]]:gap-0.5">
+        <Command.List className="flex-1 min-h-0 overflow-y-auto p-2 scroll-thin [&_[cmdk-group-items]]:flex [&_[cmdk-group-items]]:flex-col [&_[cmdk-group-items]]:gap-0.5">
           {!hasScanned ? (
             <p className="py-8 px-4 text-center text-base-app text-ink-3">Results show up here once the first scan finishes.</p>
           ) : hits === null ? (
@@ -155,26 +147,38 @@ export function SearchPalettePanel({
           ) : answeredEmpty ? (
             <p className="py-8 px-4 text-center text-base-app text-ink-3">Nothing matches “{q}”.</p>
           ) : null}
-          {(hits ?? []).map((hit) => (
-            <Command.Item
-              key={`${hit.kind}:${hit.id}:${hit.name}`}
-              value={`${hit.kind}:${hit.id}:${hit.name}`}
-              data-kind={hit.kind}
-              onSelect={() => onPick(hit)}
-              className="px-3.5 py-2.5 rounded-inner flex flex-col gap-0.5 cursor-pointer data-[selected=true]:bg-plane transition-colors duration-hover"
-            >
-              <div className="flex items-center gap-2 min-w-0">
-                <KindGlyph kind={hit.kind} />
-                <span className="text-base-app text-ink-1 truncate">{hit.name}</span>
-                {hit.server && (
-                  <span className="text-base-app text-ink-3 truncate">
-                    · <span>{hit.server}</span>
-                  </span>
-                )}
-                <span className="ml-auto shrink-0 pl-4 font-flex text-micro text-ink-3">{placeLabel(hit.place)}</span>
+          {groups.map((group, i) => (
+            <Command.Group key={group.kind} aria-label={group.heading}>
+              {/* cmdk's own `heading` prop marks the string aria-hidden and
+                  wires aria-labelledby itself; rendered as our own div
+                  instead so the app's own tokens apply directly. */}
+              <div
+                className={`text-small text-ink-3 px-3.5 ${i === 0 ? "pt-1" : "pt-3"} pb-1`}
+                aria-hidden="true"
+              >
+                {group.heading}
               </div>
-              <div className="text-small text-ink-2 truncate">{renderSnippet(hit.snippet)}</div>
-            </Command.Item>
+              {group.rows.map((hit) => (
+                <Command.Item
+                  key={`${hit.kind}:${hit.id}:${hit.name}`}
+                  value={`${hit.kind}:${hit.id}:${hit.name}`}
+                  data-kind={hit.kind}
+                  onSelect={() => onPick(hit)}
+                  className="px-3.5 py-2.5 rounded-inner flex flex-col gap-0.5 cursor-pointer data-[selected=true]:bg-plane transition-colors duration-hover"
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-base-app text-ink-1 truncate">{hit.name}</span>
+                    {hit.server && (
+                      <span className="text-base-app text-ink-3 truncate">
+                        · <span>{hit.server}</span>
+                      </span>
+                    )}
+                    <span className="ml-auto shrink-0 pl-4 font-flex text-micro text-ink-3">{placeLabel(hit.place)}</span>
+                  </div>
+                  <div className="text-small text-ink-2 truncate">{renderSnippet(hit.snippet)}</div>
+                </Command.Item>
+              ))}
+            </Command.Group>
           ))}
         </Command.List>
       </Command>
@@ -186,7 +190,8 @@ export function SearchPalettePanel({
  * The search palette: ⌘K or the rail's Search button. A wash over the app,
  * a top-aligned panel, and a cmdk list the backend has already ranked
  * (`shouldFilter={false}`). Hits come back as one ranked list from the
- * backend and are shown flat, each row leading with its kind's glyph.
+ * backend and are grouped by kind under headings, in fixed group order,
+ * each group keeping the backend's own rank order within it.
  */
 export default function SearchPalette({ open, scannedAt, onClose, onPick }: SearchPaletteProps) {
   const [query, setQuery] = useState("");
