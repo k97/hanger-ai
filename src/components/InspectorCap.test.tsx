@@ -249,6 +249,19 @@ describe("InspectorCap", () => {
     expect(icon.getAttribute("class")).not.toContain("text-ink-2");
   });
 
+  // The Global-scope branch (place: "Global") has no Tooltip and no
+  // role="img" — the icon is plain aria-hidden — so it is reached through
+  // the row's own structure, not getByRole, which has nothing to find here.
+  it("the kind icon takes the caption's ink in the aria-hidden Global branch too", () => {
+    renderCap({ place: "Global" });
+    const eyebrow = screen.getByTestId("inspector-cap-eyebrow");
+    const iconWrapper = eyebrow.previousElementSibling as HTMLElement;
+    const icon = iconWrapper?.querySelector("svg");
+    expect(icon).toBeTruthy();
+    expect(icon!.getAttribute("class")).toContain("text-ink-3");
+    expect(icon!.getAttribute("class")).not.toContain("text-ink-2");
+  });
+
   it("never sheds an MCP server's cap: findings do not open a dangling ⋮ menu (forceShed=2)", () => {
     renderCap({
       asset: { category: "Tools" },

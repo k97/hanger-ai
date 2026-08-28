@@ -76,7 +76,7 @@ describe("shell marks are 16px boxes (I2)", () => {
     }
   });
 
-  it("Sidebar's folder mark is a plain 16px box", () => {
+  it("Sidebar's folder mark is a plain 16px box, the Global globe is 16 × its 1.09 factor, and a watched repo's tree mark is a plain 16px box", () => {
     const assetCounts: CategoryCounts = {
       total: 3,
       byCategory: {
@@ -98,7 +98,11 @@ describe("shell marks are 16px boxes (I2)", () => {
         inventory: null,
         assetCounts,
         detectedEngines: [],
-        linkedRepos: ["/repo/one"],
+        // "/repo/two" holds "/repo/two/child", so it renders as a container
+        // (FolderTreeIcon) while "/repo/one" stays a plain, childless row
+        // (FolderIcon) — both a 16px box at factor 1, same width by
+        // coincidence, but different marks and different render branches.
+        linkedRepos: ["/repo/one", "/repo/two", "/repo/two/child"],
         loadLinkedRepos: async () => {},
         setError: () => {},
       })
@@ -107,6 +111,18 @@ describe("shell marks are 16px boxes (I2)", () => {
     expect(row).toBeTruthy();
     const svg = row!.querySelector("svg");
     expect(svg?.getAttribute("width")).toBe("16");
+
+    // GlobeAltIcon, factor 1.09: 16 * 1.09 = 17.44.
+    const globalRow = screen.getByText("Global").closest('[tabindex="0"]');
+    expect(globalRow).toBeTruthy();
+    const globe = globalRow!.querySelector("svg");
+    expect(globe?.getAttribute("width")).toBe("17.44");
+
+    // FolderTreeIcon, factor 1, on the container row for the watched folder.
+    const containerRow = screen.getByText("two").closest('[tabindex="0"]');
+    expect(containerRow).toBeTruthy();
+    const tree = containerRow!.querySelector("svg");
+    expect(tree?.getAttribute("width")).toBe("16");
   });
 
   it("InspectorCap's panel toggle is a plain 16px box", () => {
@@ -135,5 +151,18 @@ describe("shell marks are 16px boxes (I2)", () => {
     const button = screen.getByLabelText("Toggle inspector");
     const svg = button.querySelector("svg");
     expect(svg?.getAttribute("width")).toBe("16");
+
+    // EllipsisVerticalIcon, factor 1.2: 16 * 1.2 = 19.2.
+    const moreActions = screen.getByLabelText("More actions");
+    const ellipsis = moreActions.querySelector("svg");
+    expect(ellipsis?.getAttribute("width")).toBe("19.2");
+
+    // ExpandIcon (inspectorExpanded: false above), factor 1: a plain 16px box.
+    const expandButton = screen.getByLabelText("Expand inspector");
+    const expand = expandButton.querySelector("svg");
+    expect(expand?.getAttribute("width")).toBe("16");
   });
+
+  // App.tsx's three panel toggles (left rail, right rail, MCP details) have
+  // no render fixture in this file, so their box is not pinned here.
 });
