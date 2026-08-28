@@ -164,3 +164,58 @@ fn a_body_that_cannot_be_read_still_indexes_name_and_description() {
     assert_eq!(search(&db, "quokka", 10).unwrap().total, 1);
     assert_eq!(search(&db, "body", 10).unwrap().total, 0, "nothing is invented for an unreadable body");
 }
+
+#[test]
+fn a_name_hit_outranks_a_body_hit_and_a_prefix_finds_the_word() {
+    let (dir, db) = fresh();
+    let mut inv = Inventory::default();
+    inv.skills.push(skill(&dir.path().join("skills/deploy-helper"), "deploy-helper", "ships things", "nothing relevant here", Scope::Global { agent: "claude".to_string() }));
+    inv.skills.push(skill(&dir.path().join("skills/notes"), "notes", "keeps notes", "you may also deploy from here", Scope::Global { agent: "claude".to_string() }));
+    index_inventory(&db, &inv).unwrap();
+
+    let res = search(&db, "deploy", 10).unwrap();
+    assert_eq!(res.total, 2);
+    assert_eq!(res.hits[0].name, "deploy-helper", "name weighs more than body");
+
+    let res = search(&db, "depl", 10).unwrap();
+    assert_eq!(res.total, 2, "a prefix matches both");
+}
+
+#[test]
+fn fts_syntax_from_the_keyboard_never_reaches_the_parser() {
+    assert_eq!(fts_query("deploy"), Some("\"deploy\"*".to_string()));
+    assert_eq!(fts_query("  two   words "), Some("\"two\"* \"words\"*".to_string()));
+    assert_eq!(fts_query("a\"b (c OR NOT d) *"), Some("\"ab\"* \"c\"* \"OR\"* \"NOT\"* \"d\"*".to_string()));
+    assert_eq!(fts_query("\"\"\" ((( ***"), None);
+    assert_eq!(fts_query("   "), None);
+    assert_eq!(fts_query("@acme/spades-mcp_v2.1"), Some("\"@acme/spades-mcp_v2.1\"*".to_string()));
+}
+
+#[test]
+fn hostile_and_blank_queries_return_ok() {
+    let (dir, db) = fresh();
+    let mut inv = Inventory::default();
+    inv.rules.push(rule(&dir.path().join("CLAUDE.md"), "deploy carefully"));
+    index_inventory(&db, &inv).unwrap();
+
+    for q in ["", "   ", "\"", "(", "NOT", "*", "a\"b (c OR", "deploy NOT careful"] {
+        let res = search(&db, q, 10);
+        assert!(res.is_ok(), "query {q:?} must not error: {:?}", res.err());
+    }
+    let blank = search(&db, "   ", 10).unwrap();
+    assert!(blank.hits.is_empty());
+    assert_eq!(blank.total, 0);
+}
+
+#[test]
+fn limit_caps_hits_but_not_total() {
+    let (dir, db) = fresh();
+    let mut inv = Inventory::default();
+    for i in 0..5 {
+        inv.rules.push(rule(&dir.path().join(format!("r{i}.md")), "the same word: quokka"));
+    }
+    index_inventory(&db, &inv).unwrap();
+    let res = search(&db, "quokka", 2).unwrap();
+    assert_eq!(res.hits.len(), 2);
+    assert_eq!(res.total, 5);
+}
