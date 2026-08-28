@@ -380,65 +380,6 @@ export default function DesignSystemPane({ section }: DesignSystemPaneProps) {
         </Section>
 
         <Section
-          id="type"
-          label="Typography"
-          lede="Three font tokens, one system stack, five sizes, two weights. Each size carries one role rather than a free choice. Figures that change wear the tabular utility so they never jitter; the utility voice is font-flex, micro, uppercase and tracked."
-        >
-          <Group label="Families">
-            <div className="border border-line rounded-plane px-4">
-              {FAMILIES.map((f) => (
-                <div
-                  key={f.token}
-                  className="grid grid-cols-[190px_1fr] items-baseline gap-4 py-3 border-b border-line last:border-b-0"
-                >
-                  <span className="min-w-0">
-                    <span className="block font-mono text-micro text-ink-3">{f.token}</span>
-                    <span className="block font-flex text-micro text-ink-3">{f.role}</span>
-                  </span>
-                  <span className={`min-w-0 flex flex-col gap-1 ${f.family}`}>
-                    <span className="text-base-app text-ink-1 truncate">Sphinx of black quartz, judge my vow.</span>
-                    <span className="text-small text-ink-2 tabular">142 · 1.2.0 · 2026-08-28</span>
-                    <span className="truncate">
-                      <TokenValue token={f.token} />
-                    </span>
-                  </span>
-                </div>
-              ))}
-            </div>
-            <p className="pt-2 text-small text-ink-2 leading-caption max-w-[74ch]">
-              --font-sans and --font-flex are declared with the same stack today (tokens.css:65-66): the two
-              names mark two roles, not two faces. On macOS the stack resolves to the system UI face — it
-              begins -apple-system — and the page shows what the theme returns rather than naming one.
-            </p>
-          </Group>
-          <Group label="Scale">
-            <div className="border border-line rounded-plane px-4">
-              {TYPE_ROWS.map((row) => (
-                <div
-                  key={row.utility}
-                  className="grid grid-cols-[190px_110px_1fr] items-baseline gap-4 py-3 border-b border-line last:border-b-0"
-                >
-                  <span className="font-mono text-micro text-ink-3">
-                    {row.utility} <span className="font-sans">· {row.px}</span>
-                  </span>
-                  <span className="font-flex text-micro text-ink-3 truncate">{row.role}</span>
-                  <span className="min-w-0 truncate">{row.sample}</span>
-                </div>
-              ))}
-              <div className="grid grid-cols-[190px_110px_1fr] items-baseline gap-4 py-3">
-                <span className="font-mono text-micro text-ink-3">
-                  font-medium <span className="font-sans">· the only other weight</span>
-                </span>
-                <span className="font-flex text-micro text-ink-3">weight</span>
-                <span className="text-base-app text-ink-1">
-                  Regular 400 beside <b className="font-medium">medium 500</b> — nothing heavier exists.
-                </span>
-              </div>
-            </div>
-          </Group>
-        </Section>
-
-        <Section
           id="geometry"
           label="Geometry"
           lede="Three radii for surfaces, one soft radius for the rail's buttons, pills for every control. Spacing rides Tailwind's 4px grid; anything off it is stated at the call site as an arbitrary value, and the 18px gutter is a token."
@@ -504,6 +445,65 @@ export default function DesignSystemPane({ section }: DesignSystemPaneProps) {
               </div>
             </div>
           </div>
+        </Section>
+
+        <Section
+          id="type"
+          label="Typography"
+          lede="Three font tokens, one system stack, five sizes, two weights. Each size carries one role rather than a free choice. Figures that change wear the tabular utility so they never jitter; the utility voice is font-flex, micro, uppercase and tracked."
+        >
+          <Group label="Families">
+            <div className="border border-line rounded-plane px-4">
+              {FAMILIES.map((f) => (
+                <div
+                  key={f.token}
+                  className="grid grid-cols-[190px_1fr] items-baseline gap-4 py-3 border-b border-line last:border-b-0"
+                >
+                  <span className="min-w-0">
+                    <span className="block font-mono text-micro text-ink-3">{f.token}</span>
+                    <span className="block font-flex text-micro text-ink-3">{f.role}</span>
+                  </span>
+                  <span className={`min-w-0 flex flex-col gap-1 ${f.family}`}>
+                    <span className="text-base-app text-ink-1 truncate">Sphinx of black quartz, judge my vow.</span>
+                    <span className="text-small text-ink-2 tabular">142 · 1.2.0 · 2026-08-28</span>
+                    <span className="truncate">
+                      <TokenValue token={f.token} />
+                    </span>
+                  </span>
+                </div>
+              ))}
+            </div>
+            <p className="pt-2 text-small text-ink-2 leading-caption max-w-[74ch]">
+              --font-sans and --font-flex are declared with the same stack today (tokens.css:65-66): the two
+              names mark two roles, not two faces. On macOS the stack resolves to the system UI face — it
+              begins -apple-system — and the page shows what the theme returns rather than naming one.
+            </p>
+          </Group>
+          <Group label="Scale">
+            <div className="border border-line rounded-plane px-4">
+              {TYPE_ROWS.map((row) => (
+                <div
+                  key={row.utility}
+                  className="grid grid-cols-[190px_110px_1fr] items-baseline gap-4 py-3 border-b border-line last:border-b-0"
+                >
+                  <span className="font-mono text-micro text-ink-3">
+                    {row.utility} <span className="font-sans">· {row.px}</span>
+                  </span>
+                  <span className="font-flex text-micro text-ink-3 truncate">{row.role}</span>
+                  <span className="min-w-0 truncate">{row.sample}</span>
+                </div>
+              ))}
+              <div className="grid grid-cols-[190px_110px_1fr] items-baseline gap-4 py-3">
+                <span className="font-mono text-micro text-ink-3">
+                  font-medium <span className="font-sans">· the only other weight</span>
+                </span>
+                <span className="font-flex text-micro text-ink-3">weight</span>
+                <span className="text-base-app text-ink-1">
+                  Regular 400 beside <b className="font-medium">medium 500</b> — nothing heavier exists.
+                </span>
+              </div>
+            </div>
+          </Group>
         </Section>
 
         <Section
@@ -733,7 +733,7 @@ export default function DesignSystemPane({ section }: DesignSystemPaneProps) {
 
         <Section
           id="components"
-          label="Components"
+          label="Composites"
           lede="Imported, not imitated. Each specimen is the component the panes render, fed sample props; captions name the file."
         >
           <Specimen name="SummaryStrip" file="SummaryStrip.tsx" note="the strip with its GelMeter; legend toggles filter">

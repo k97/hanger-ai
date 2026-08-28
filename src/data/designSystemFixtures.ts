@@ -16,17 +16,27 @@ import type { McpEngineSummaryData } from "../components/McpEngineSummary";
 import type { TrackSegment } from "../components/SegmentedTrack";
 import type { UnderlineTab } from "../components/UnderlineTabs";
 
-/** The page's sections, in reading order — mirrors .claude/DESIGN.md. The
- *  sidebar lists these; the pane anchors each under `ds-<id>`. */
+/** The TOC's layers, in reading order (Karthik's ruling, 2026-08-28, after
+ *  the atomic-design read). Material's three words: Foundations are the
+ *  tokens the theme returns; Styles are the first things you can see —
+ *  fonts and marks; Components are what is built from them. */
+export const DESIGN_GROUPS = ["Foundations", "Styles", "Components"] as const;
+
+export type DesignGroup = (typeof DESIGN_GROUPS)[number];
+
+/** The page's sections, in reading order, each under its group. The sidebar
+ *  lists these by group; the pane anchors each under `ds-<id>`. The last
+ *  section is "Composites" rather than "Components" so the group does not
+ *  name one of its own members. */
 export const DESIGN_SECTIONS = [
-  { id: "colour", label: "Colour" },
-  { id: "type", label: "Typography" },
-  { id: "geometry", label: "Geometry" },
-  { id: "motion", label: "Motion" },
-  { id: "iconography", label: "Iconography" },
-  { id: "controls", label: "Controls" },
-  { id: "components", label: "Components" },
-] as const;
+  { id: "colour", label: "Colour", group: "Foundations" },
+  { id: "geometry", label: "Geometry", group: "Foundations" },
+  { id: "motion", label: "Motion", group: "Foundations" },
+  { id: "type", label: "Typography", group: "Styles" },
+  { id: "iconography", label: "Iconography", group: "Styles" },
+  { id: "controls", label: "Controls", group: "Components" },
+  { id: "components", label: "Composites", group: "Components" },
+] as const satisfies readonly { id: string; label: string; group: DesignGroup }[];
 
 export type DesignSectionId = (typeof DESIGN_SECTIONS)[number]["id"];
 
