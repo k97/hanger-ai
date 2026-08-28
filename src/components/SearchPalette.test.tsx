@@ -96,10 +96,14 @@ describe("SearchPalette", () => {
     expect(onClose).toHaveBeenCalledTimes(2);
   });
 
-  it("opts the input out of the global focus ring via an unlayered CSS rule, and drops the rule beneath the input row (class contract only — happy-dom paints nothing and cannot judge the cascade, so this pins the CSS text and the row's classes, not the pixels; a `focus-visible:outline-none` utility was proven inert against the unlayered global ring and cannot be what does this)", () => {
+  it("opts the input out of the global focus ring via an unlayered CSS rule, and gives it the sidebar's own pill field instead (class contract only — happy-dom paints nothing and cannot judge the cascade, so this pins the CSS text and the field's classes, not the pixels; a `focus-visible:outline-none` utility was proven inert against the unlayered global ring and cannot be what does this)", () => {
     render(<SearchPalette open={true} scannedAt={scanned} onClose={() => {}} onPick={() => {}} />);
     const input = screen.getByLabelText("Search assets");
+    // No borderless full-width command-menu row above it.
     expect(input.parentElement?.className).not.toContain("border-b");
+    // The tonal pill field: rounded, on the plane ground.
+    expect(input.className).toContain("rounded-pill");
+    expect(input.className).toContain("bg-plane");
     const css = fs.readFileSync(path.join(__dirname, "../styles/index.css"), "utf-8");
     // Unlayered so it can outrank the unlayered global `:focus-visible` ring
     // (an `@layer utilities` class cannot, per CSS Cascade 5).
