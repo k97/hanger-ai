@@ -12,7 +12,7 @@ import type { StateCounts } from "../utils/linkStateCounts";
 import type { ScanStatus } from "../hooks/useScanStatus";
 import type { AssetFindings, ReviewIssue } from "../utils/reviewIssues";
 import { originRow, type OriginRowView } from "../utils/assetProvenance";
-import type { McpEngineSummaryData } from "../components/McpEngineSummary";
+import type { McpEngineSummaryData } from "../types/mcpEngineSummary";
 import type { TrackSegment } from "../components/SegmentedTrack";
 import type { UnderlineTab } from "../components/UnderlineTabs";
 import type { SearchHit } from "../components/SearchPalette";
@@ -166,6 +166,8 @@ export const SAMPLE_MCP_ENGINE_SUMMARY: McpEngineSummaryData = {
     { engine_id: "codex", engine_name: "Codex", server_count: 2, tools_known: 9 },
     { engine_id: "claude_desktop", engine_name: "Claude Desktop", server_count: 3, tools_known: null },
   ],
+  host_count: 3,
+  tools_known_total: 50,
   total_server_count: 9,
   answered_server_count: 5,
   unasked_server_count: 3,

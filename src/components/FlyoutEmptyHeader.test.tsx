@@ -23,7 +23,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, cleanup, waitFor } from "@testing-library/react";
 import Flyout from "./Flyout";
 import { Inventory } from "../App";
-import type { McpEngineSummaryData } from "./McpEngineSummary";
+import type { McpEngineSummaryData } from "../types/mcpEngineSummary";
 
 const invoke = vi.fn();
 vi.mock("@tauri-apps/api/core", () => ({
@@ -32,6 +32,8 @@ vi.mock("@tauri-apps/api/core", () => ({
 
 const realSummary: McpEngineSummaryData = {
   rows: [{ engine_id: "claude-code", engine_name: "Claude Code", server_count: 1, tools_known: 4 }],
+  host_count: 1,
+  tools_known_total: 4,
   total_server_count: 1,
   answered_server_count: 1,
   unasked_server_count: 0,

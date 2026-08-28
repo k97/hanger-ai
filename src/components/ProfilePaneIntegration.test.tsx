@@ -182,7 +182,7 @@ describe("ProfilePane Component-Level Filtering Integration", () => {
       { name: "tauri", transport: "stdio", registration_count: 2, distinct_spec_count: 2, agreement: "Conflicting", aliased_with: [], plugin: null, registrations: ["/a:tauri", "/b:tauri"] },
       { name: "spades", transport: "stdio", registration_count: 1, distinct_spec_count: 1, agreement: "Consistent", aliased_with: [], plugin: null, registrations: ["/a:spades"] },
     ];
-    const summary = { rows: [{ engine_id: "claude-code", engine_name: "Claude Code", server_count: 2, tools_known: 4 }], total_server_count: 3, answered_server_count: 1, unasked_server_count: 2, unaskable_server_count: 0, conflicting_server_count: 1 };
+    const summary = { rows: [{ engine_id: "claude-code", engine_name: "Claude Code", server_count: 2, tools_known: 4 }], host_count: 1, tools_known_total: 4, total_server_count: 3, answered_server_count: 1, unasked_server_count: 2, unaskable_server_count: 0, conflicting_server_count: 1 };
     render(<ProfilePane inventory={mockInventory} assetCounts={counts} mcpServers={mcpServers as never} serverGrouping="server" serverSort="name" mcpEngineSummary={summary} mcpCoverage={{ checked_file_count: 16, checked_engine_count: 2, checked_files: [], problems: [] }} loading={false} onSelectAsset={vi.fn()} onLinkAsset={vi.fn()} />);
     fireEvent.click(screen.getAllByText("MCP servers").find((el) => el.closest("[tabindex]"))!.closest("[tabindex]")!);
     const strip = screen.getByLabelText("Inventory summary");
@@ -209,7 +209,7 @@ describe("ProfilePane Component-Level Filtering Integration", () => {
       { name: "tauri", transport: "stdio", registration_count: 2, distinct_spec_count: 2, agreement: "Conflicting", aliased_with: [], plugin: null, registrations: ["/a:tauri", "/b:tauri"] },
       { name: "spades", transport: "stdio", registration_count: 1, distinct_spec_count: 1, agreement: "Consistent", aliased_with: [], plugin: null, registrations: ["/a:spades"] },
     ];
-    const summary = { rows: [{ engine_id: "claude-code", engine_name: "Claude Code", server_count: 2, tools_known: 4 }], total_server_count: 3, answered_server_count: 1, unasked_server_count: 2, unaskable_server_count: 0, conflicting_server_count: 1 };
+    const summary = { rows: [{ engine_id: "claude-code", engine_name: "Claude Code", server_count: 2, tools_known: 4 }], host_count: 1, tools_known_total: 4, total_server_count: 3, answered_server_count: 1, unasked_server_count: 2, unaskable_server_count: 0, conflicting_server_count: 1 };
     render(<ProfilePane inventory={mockInventory} assetCounts={counts} mcpServers={mcpServers as never} serverGrouping="server" serverSort="name" mcpEngineSummary={summary} mcpCoverage={{ checked_file_count: 16, checked_engine_count: 2, checked_files: [], problems: [] }} loading={false} onSelectAsset={vi.fn()} onLinkAsset={vi.fn()} />);
     const card = (label: string) =>
       screen.getAllByText(label).find((el) => el.closest("[tabindex]"))!.closest("[tabindex]")!;

@@ -91,7 +91,7 @@ import {
 } from "./utils/inspectorLayout";
 import { unaccountedProcesses, type ProcessMatch } from "./utils/mcpServerView";
 import type { McpServerRow } from "./utils/serverRows";
-import type { McpEngineSummaryData } from "./components/McpEngineSummary";
+import type { McpEngineSummaryData } from "./types/mcpEngineSummary";
 import { openPath, revealItemInDir } from "@tauri-apps/plugin-opener";
 import {
   deriveReviewIssues,

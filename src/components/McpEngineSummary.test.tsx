@@ -1,7 +1,8 @@
 // @vitest-environment happy-dom
 import { render, screen, cleanup, within } from "@testing-library/react";
 import { describe, it, expect, afterEach } from "vitest";
-import McpEngineSummary, { type McpEngineSummaryData } from "./McpEngineSummary";
+import McpEngineSummary from "./McpEngineSummary";
+import type { McpEngineSummaryData } from "../types/mcpEngineSummary";
 
 // This repo configures no global cleanup, so rendered DOM accumulates
 // within a file and role queries match across tests.
@@ -10,6 +11,8 @@ afterEach(cleanup);
 function summary(overrides: Partial<McpEngineSummaryData>): McpEngineSummaryData {
   return {
     rows: [],
+    host_count: 0,
+    tools_known_total: null,
     total_server_count: 0,
     answered_server_count: 0,
     unasked_server_count: 0,
@@ -25,6 +28,8 @@ describe("McpEngineSummary", () => {
       <McpEngineSummary
         summary={summary({
           rows: [{ engine_id: "claude-code", engine_name: "Claude Code", server_count: 2, tools_known: 9 }],
+          host_count: 1,
+          tools_known_total: 9,
           total_server_count: 2,
           answered_server_count: 2,
         })}
@@ -53,6 +58,8 @@ describe("McpEngineSummary", () => {
             // population is every host that registers a server.
             { engine_id: "cursor", engine_name: "Cursor", server_count: 2, tools_known: 11 },
           ],
+          host_count: 3,
+          tools_known_total: 58,
           total_server_count: 6,
           answered_server_count: 6,
         })}
@@ -69,6 +76,8 @@ describe("McpEngineSummary", () => {
       <McpEngineSummary
         summary={summary({
           rows: [{ engine_id: "codex", engine_name: "Codex", server_count: 3, tools_known: null }],
+          host_count: 1,
+          tools_known_total: null,
           total_server_count: 3,
           unasked_server_count: 3,
         })}
@@ -101,6 +110,8 @@ describe("McpEngineSummary", () => {
             { engine_id: "claude-code", engine_name: "Claude Code", server_count: 1, tools_known: 0 },
             { engine_id: "codex", engine_name: "Codex", server_count: 1, tools_known: null },
           ],
+          host_count: 2,
+          tools_known_total: 0,
           total_server_count: 2,
           answered_server_count: 1,
           unasked_server_count: 1,
@@ -125,6 +136,8 @@ describe("McpEngineSummary", () => {
       <McpEngineSummary
         summary={summary({
           rows: [{ engine_id: "claude-code", engine_name: "Claude Code", server_count: 2, tools_known: 9 }],
+          host_count: 1,
+          tools_known_total: 9,
           total_server_count: 2,
           answered_server_count: 1,
           unasked_server_count: 1,
@@ -150,6 +163,8 @@ describe("McpEngineSummary", () => {
       <McpEngineSummary
         summary={summary({
           rows: [{ engine_id: "claude-ai", engine_name: "Claude.ai", server_count: 2, tools_known: null }],
+          host_count: 1,
+          tools_known_total: null,
           total_server_count: 2,
           unaskable_server_count: 2,
         })}
@@ -170,6 +185,8 @@ describe("McpEngineSummary", () => {
             { engine_id: "claude-code", engine_name: "Claude Code", server_count: 2, tools_known: 5 },
             { engine_id: "claude-ai", engine_name: "Claude.ai", server_count: 1, tools_known: null },
           ],
+          host_count: 2,
+          tools_known_total: 5,
           total_server_count: 4,
           answered_server_count: 2,
           unasked_server_count: 1,
@@ -196,6 +213,8 @@ describe("McpEngineSummary", () => {
       <McpEngineSummary
         summary={summary({
           rows: [{ engine_id: "claude-code", engine_name: "Claude Code", server_count: 1, tools_known: 4 }],
+          host_count: 1,
+          tools_known_total: 4,
           total_server_count: 9,
           answered_server_count: 2,
           unasked_server_count: 1,
@@ -213,6 +232,8 @@ describe("McpEngineSummary", () => {
       <McpEngineSummary
         summary={summary({
           rows: [{ engine_id: "claude-code", engine_name: "Claude Code", server_count: 1, tools_known: 4 }],
+          host_count: 1,
+          tools_known_total: 4,
           total_server_count: 1,
           answered_server_count: 1,
         })}
@@ -236,6 +257,8 @@ describe("McpEngineSummary", () => {
       <McpEngineSummary
         summary={summary({
           rows: [{ engine_id: "claude-code", engine_name: "Claude Code", server_count: 1, tools_known: 4 }],
+          host_count: 1,
+          tools_known_total: 4,
           total_server_count: 1,
           answered_server_count: 1,
         })}

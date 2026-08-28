@@ -29,7 +29,7 @@ import { ScanStatusIndicator } from "./ScanStatusIndicator";
 import EmptyState from "./EmptyState";
 import { annotationStateCounts, linkStateCounts, matchesStateFilter, StateFilter } from "../utils/linkStateCounts";
 import { categoryNoun, joinNames, joinNamesTruncated } from "../utils/prose";
-import type { McpEngineSummaryData } from "./McpEngineSummary";
+import type { McpEngineSummaryData } from "../types/mcpEngineSummary";
 
 /** The frontend's mirror of Rust's `ConfigProblem`
  *  (`src-tauri/src/mcp/discover.rs`), carried on `mcpCoverage.problems`.
