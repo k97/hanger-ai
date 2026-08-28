@@ -41,7 +41,7 @@ const MARK_CLOSE = "";
  *  stay in the backend's rank order and each leads with its kind's mark —
  *  the same marks the link map's placecard and the server detail use. */
 function KindGlyph({ kind }: { kind: SearchKind }) {
-  const props = { size: 13, "aria-hidden": true as const };
+  const props = { size: 14, "aria-hidden": true as const };
   const glyph =
     kind === "skill" ? <SkillIcon {...props} /> :
     kind === "rule" ? <DocumentTextIcon {...props} /> :
@@ -132,19 +132,20 @@ export function SearchPalettePanel({
         <div className="flex items-center gap-3 px-5 h-[52px] shrink-0">
           <MagnifyingGlassIcon size={15} className="text-ink-3 shrink-0" aria-hidden="true" />
           {/* The panel already frames this field, and it's the only focusable
-              control inside it, so it opts out of the global focus ring
-              (index.css's `:focus-visible` rule) rather than drawing a second
-              outline inside the one the panel already provides. */}
+              control inside it, so it opts out of the global focus ring — via
+              the unlayered `[cmdk-input]:focus-visible` rule in index.css, not
+              a utility class, because a layered utility cannot outrank an
+              unlayered one (CSS Cascade 5). */}
           <Command.Input
             autoFocus={autoFocus}
             value={query}
             onValueChange={onQueryChange}
             aria-label={inputLabel}
             placeholder="Search skills, rules, subagents and MCP servers"
-            className="flex-1 min-w-0 bg-page text-lg-app text-ink-1 placeholder:text-ink-3 focus:outline-none focus-visible:outline-none"
+            className="flex-1 min-w-0 bg-page text-lg-app text-ink-1 placeholder:text-ink-3"
           />
         </div>
-        <Command.List className="flex-1 min-h-0 overflow-y-auto p-2 scroll-thin flex flex-col gap-0.5">
+        <Command.List className="flex-1 min-h-0 overflow-y-auto p-2 scroll-thin [&_[cmdk-list-sizer]]:flex [&_[cmdk-list-sizer]]:flex-col [&_[cmdk-list-sizer]]:gap-0.5">
           {!hasScanned ? (
             <p className="py-8 px-4 text-center text-base-app text-ink-3">Results show up here once the first scan finishes.</p>
           ) : hits === null ? (

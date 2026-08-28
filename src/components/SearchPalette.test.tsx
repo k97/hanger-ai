@@ -3,6 +3,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, waitFor, cleanup } from "@testing-library/react";
 import SearchPalette, { renderSnippet, placeLabel, type SearchHit } from "./SearchPalette";
 import { invoke } from "@tauri-apps/api/core";
+import * as fs from "fs";
+import * as path from "path";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn(async () => ({ hits: [], total: 0 })) }));
 
@@ -93,11 +95,14 @@ describe("SearchPalette", () => {
     expect(onClose).toHaveBeenCalledTimes(2);
   });
 
-  it("opts the input out of the global focus ring, and drops the rule beneath the input row (class contract only — happy-dom paints nothing, so this pins the classes, not the pixels)", () => {
+  it("opts the input out of the global focus ring via an unlayered CSS rule, and drops the rule beneath the input row (class contract only — happy-dom paints nothing and cannot judge the cascade, so this pins the CSS text and the row's classes, not the pixels; a `focus-visible:outline-none` utility was proven inert against the unlayered global ring and cannot be what does this)", () => {
     render(<SearchPalette open={true} scannedAt={scanned} onClose={() => {}} onPick={() => {}} />);
     const input = screen.getByLabelText("Search assets");
-    expect(input.className).toContain("focus-visible:outline-none");
     expect(input.parentElement?.className).not.toContain("border-b");
+    const css = fs.readFileSync(path.join(__dirname, "../styles/index.css"), "utf-8");
+    // Unlayered so it can outrank the unlayered global `:focus-visible` ring
+    // (an `@layer utilities` class cannot, per CSS Cascade 5).
+    expect(css).toMatch(/\[cmdk-input\]:focus-visible\s*\{[^}]*outline:\s*none/);
   });
 
   it("says nothing is a finding before the first scan, and does not query", async () => {
