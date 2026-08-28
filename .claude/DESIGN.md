@@ -386,9 +386,12 @@ toggles (`InspectorCap.tsx:373`) — 14 for row marks (`AssetDetail.tsx:275`'s
 identity rows, `MechanismGlyph.tsx:78`), and 12 for chevrons
 (`AssetHeaderRow.tsx:36-38`, `Flyout.tsx:734`) (Karthik's ruling I2,
 2026-08-28). A mark also takes the ink of the text beside it rather than a
-fixed shade of its own: the cap's kind icon and the row's mechanism glyph
-both sit in `--ink-3` (`InspectorCap.tsx:202,205`, `MechanismGlyph.tsx:20-24`;
-rulings I3/I4).
+fixed shade of its own: the cap's kind icon sits in `--ink-3`
+(`InspectorCap.tsx:202,205`; ruling I3), and the row's mechanism glyph does
+too in its unflagged states — symlink, copy, none
+(`MechanismGlyph.tsx:20,21,24`) — while drift and broken keep their state
+colour instead of following the ink ladder, `--state-warning` and
+`--state-danger` (`:22-23`), ruling I4's stated exception.
 
 Twenty more marks are animated, and every one of them is lucide too — not
 because Heroicons lacks their geometry, but because it has no motion story,
