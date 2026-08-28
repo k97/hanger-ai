@@ -129,26 +129,30 @@ export function SearchPalettePanel({
       className="w-[560px] max-w-[calc(100vw-32px)] max-h-[60vh] flex flex-col bg-page border border-line rounded-plane shadow-overlay animate-drop overflow-hidden"
     >
       <Command shouldFilter={false} label={dialogLabel} className="flex flex-col min-h-0">
-        <div className="flex items-center gap-2.5 px-3.5 h-11 shrink-0 border-b border-line">
-          <MagnifyingGlassIcon size={14} className="text-ink-3 shrink-0" aria-hidden="true" />
+        <div className="flex items-center gap-3 px-5 h-[52px] shrink-0">
+          <MagnifyingGlassIcon size={15} className="text-ink-3 shrink-0" aria-hidden="true" />
+          {/* The panel already frames this field, and it's the only focusable
+              control inside it, so it opts out of the global focus ring
+              (index.css's `:focus-visible` rule) rather than drawing a second
+              outline inside the one the panel already provides. */}
           <Command.Input
             autoFocus={autoFocus}
             value={query}
             onValueChange={onQueryChange}
             aria-label={inputLabel}
             placeholder="Search skills, rules, subagents and MCP servers"
-            className="flex-1 min-w-0 bg-page text-base-app text-ink-1 placeholder:text-ink-3 focus:outline-none"
+            className="flex-1 min-w-0 bg-page text-lg-app text-ink-1 placeholder:text-ink-3 focus:outline-none focus-visible:outline-none"
           />
         </div>
-        <Command.List className="flex-1 min-h-0 overflow-y-auto p-1.5 scroll-thin">
+        <Command.List className="flex-1 min-h-0 overflow-y-auto p-2 scroll-thin flex flex-col gap-0.5">
           {!hasScanned ? (
-            <p className="py-6 px-3 text-center text-small text-ink-3">Results show up here once the first scan finishes.</p>
+            <p className="py-8 px-4 text-center text-base-app text-ink-3">Results show up here once the first scan finishes.</p>
           ) : hits === null ? (
             // Covers an empty query and a rejected search alike: neither has an
             // answer to show, so both get the hint rather than an asserted absence.
-            <p className="py-6 px-3 text-center text-small text-ink-3">Type to search names and what's inside.</p>
+            <p className="py-8 px-4 text-center text-base-app text-ink-3">Type to search names and what's inside.</p>
           ) : answeredEmpty ? (
-            <p className="py-6 px-3 text-center text-small text-ink-3">Nothing matches “{q}”.</p>
+            <p className="py-8 px-4 text-center text-base-app text-ink-3">Nothing matches “{q}”.</p>
           ) : null}
           {(hits ?? []).map((hit) => (
             <Command.Item
@@ -156,19 +160,19 @@ export function SearchPalettePanel({
               value={`${hit.kind}:${hit.id}:${hit.name}`}
               data-kind={hit.kind}
               onSelect={() => onPick(hit)}
-              className="px-2.5 py-1.5 rounded-soft flex flex-col gap-0.5 cursor-pointer data-[selected=true]:bg-plane-2 transition-colors duration-hover"
+              className="px-3.5 py-2.5 rounded-inner flex flex-col gap-0.5 cursor-pointer data-[selected=true]:bg-plane transition-colors duration-hover"
             >
               <div className="flex items-center gap-2 min-w-0">
                 <KindGlyph kind={hit.kind} />
-                <span className="text-small text-ink-1 truncate">{hit.name}</span>
+                <span className="text-base-app text-ink-1 truncate">{hit.name}</span>
                 {hit.server && (
-                  <span className="text-small text-ink-3 truncate">
+                  <span className="text-base-app text-ink-3 truncate">
                     · <span>{hit.server}</span>
                   </span>
                 )}
-                <span className="ml-auto shrink-0 font-flex text-micro text-ink-3">{placeLabel(hit.place)}</span>
+                <span className="ml-auto shrink-0 pl-4 font-flex text-micro text-ink-3">{placeLabel(hit.place)}</span>
               </div>
-              <div className="text-micro text-ink-2 truncate">{renderSnippet(hit.snippet)}</div>
+              <div className="text-small text-ink-2 truncate">{renderSnippet(hit.snippet)}</div>
             </Command.Item>
           ))}
         </Command.List>

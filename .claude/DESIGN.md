@@ -345,7 +345,11 @@ of every other file (§4's family rule).
 One global focus ring: a 2px `--ink-1` outline at 2px offset with a 4px radius
 (`index.css:195-199`). `touch-action: manipulation` is set on buttons and
 `[role="button"]` to drop the 300ms double-tap delay without disabling pinch
-zoom (`index.css:201-206`).
+zoom (`index.css:201-206`). The app's one stated exception is the search
+palette's input: it already sits inside a framed, single-purpose dialog, so it
+carries `focus-visible:outline-none` and opts out of the global rule rather
+than drawing a second ring inside the panel's own frame
+(`SearchPalette.tsx:144`, `index.css:518-522`).
 
 ---
 
@@ -1253,12 +1257,17 @@ keeps `menuItemClass`/`menuLabelClass` as its own row styles (`:3-7`), the
 cap's menu items use `menuActionClass` instead (`:9-10`), and `MenuSeparator`
 (`:13-15`) is shared by both.
 
-**`SearchPalette`** (`SearchPalette.tsx:186-253`) — the ⌘K search palette: a
-full-screen wash (`:144-150`) behind a top-aligned, 560px panel (`:151-154`)
-built on `cmdk`'s `Command` with `shouldFilter={false}` (`:156`), so the row
+**`SearchPalette`** (`SearchPalette.tsx:190-257`) — the ⌘K search palette: a
+full-screen wash (`:238-244`) behind a top-aligned, 560px panel (`:126-130`)
+built on `cmdk`'s `Command` with `shouldFilter={false}` (`:131`), so the row
 order on screen is always the backend's own rank, never a client-side
-refilter. The input's accessible name is "Search assets" (`:163`); queries
+refilter. The input's accessible name is "Search assets" (`:252`); queries
 are debounced 80ms (`DEBOUNCE_MS`, `:88`) before they reach `search_assets`.
+The input row (`:132`) dropped its `border-b` and grew from `h-11` to
+`h-[52px]` with more inset (`px-5`); the input itself opts out of the app's
+one global focus ring — `focus-visible:outline-none` alongside `focus:outline-none`
+(`:144`) — because the panel that frames it is the only ring this field
+needs (see §3 "Focus" for the same exception).
 It opens from the rail's Search button, placed beneath Needs review because
 the palette searches the whole machine rather than one screen
 (`IconRail.tsx:117-124`) — the button takes `railBtnClass` like every other
@@ -1267,7 +1276,12 @@ rail control but never `aria-current`, since it is an action, not a place
 (`App.tsx:562-565`). Each row leads with a glyph rather than sitting under a
 group heading: `KindGlyph` maps the five `SearchKind`s to their icons and
 rows stay in the backend's rank order throughout (`SearchPalette.tsx:131`,
-`shouldFilter={false}`).
+`shouldFilter={false}`). Each row grew from `px-2.5 py-1.5` to `px-3.5 py-2.5`
+with `rounded-inner` in place of `rounded-soft` and `bg-plane` in place of
+`bg-plane-2` for the selected row (`:163`); the name and the "· server" span
+moved from `text-small` to `text-base-app`, the snippet line from `text-micro`
+to `text-small`, and the place chip took a `pl-4` so it never crowds a long
+name (`:165-175`).
 A hit's snippet arrives with matched runs wrapped in private-use markers
 (`search.rs:29-30`) that `renderSnippet` turns into `<mark>` (`SearchPalette.tsx:59-72`,
 the tag at `:65`); the base stylesheet zeroes the browser's default yellow
@@ -1286,11 +1300,11 @@ tick a stale read would miss (`App.tsx:1032-1038`, `:1106-1119`). As
 committed, the list carries three copy states: "Results show up here once
 the first scan finishes." before the first scan, "Type to search names and
 what's inside." for an empty query, and "Nothing matches “{q}”." for a query
-that answered empty (`SearchPalette.tsx:144-152`). The shell's cap no
+that answered empty (`SearchPalette.tsx:148-156`). The shell's cap no
 longer carries a search field: its trailing-controls block runs straight
 from the breadcrumb to Rescan or the view control, with no input between
 them (`App.tsx:1619-1621`). The dialog panel itself is `SearchPalettePanel`
-(`SearchPalette.tsx:112-178`), a presentational split with no `invoke`,
+(`SearchPalette.tsx:112-182`), a presentational split with no `invoke`,
 timers or window listeners of its own: the app renders it inside the wash
 with live state, and the Design system page renders the same component with
 `SAMPLE_SEARCH_HITS` (`designSystemFixtures.ts:184`) and a fixed query,

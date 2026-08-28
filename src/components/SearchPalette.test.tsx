@@ -93,6 +93,13 @@ describe("SearchPalette", () => {
     expect(onClose).toHaveBeenCalledTimes(2);
   });
 
+  it("opts the input out of the global focus ring, and drops the rule beneath the input row (class contract only — happy-dom paints nothing, so this pins the classes, not the pixels)", () => {
+    render(<SearchPalette open={true} scannedAt={scanned} onClose={() => {}} onPick={() => {}} />);
+    const input = screen.getByLabelText("Search assets");
+    expect(input.className).toContain("focus-visible:outline-none");
+    expect(input.parentElement?.className).not.toContain("border-b");
+  });
+
   it("says nothing is a finding before the first scan, and does not query", async () => {
     render(<SearchPalette open={true} scannedAt={null} onClose={() => {}} onPick={() => {}} />);
     expect(screen.getByText("Results show up here once the first scan finishes.")).toBeTruthy();
