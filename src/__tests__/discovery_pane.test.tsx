@@ -215,4 +215,28 @@ describe("Discovery — the row is the interaction", () => {
     render(<DiscoveryPane filterText="" kind="Favourites" favourites={["sy", "gl"]} />);
     expect(await screen.findByText("2 favourites")).toBeTruthy();
   });
+
+  // Class-contract guard (typography migration, Task 7c). happy-dom lays
+  // out nothing, so this asserts className membership only, never geometry.
+  it("section heads sentence-case body medium; descriptions at body in --ink-2; hosts mono caption", async () => {
+    render(<DiscoveryPane filterText="" />);
+    await screen.findByText("skills.sh");
+
+    // "Standard" renders as a leaf <span> with no classes of its own; the
+    // section-head role lives on the wrapping row div.
+    const head = screen.getByText("Standard");
+    const headRow = head.closest("div");
+    expect(headRow?.className).toContain("text-base-app");
+    expect(headRow?.className).toContain("font-medium");
+    expect(headRow?.className).not.toContain("uppercase");
+
+    const desc = screen.getByText(/Not a listing/);
+    expect(desc.className).toContain("text-base-app");
+    expect(desc.className).toContain("leading-body");
+    expect(desc.className).not.toContain("leading-[1.5]");
+
+    const host = screen.getByText("agentskills.io");
+    expect(host.className).toContain("font-mono");
+    expect(host.className).toContain("text-small");
+  });
 });
