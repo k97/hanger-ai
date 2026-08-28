@@ -288,16 +288,27 @@ export default function AssetDetail({ asset, inventory, onDocumentPath, annotati
   const allowedTools: string[] = raw === undefined ? [] : Array.isArray(raw) ? raw : [raw];
 
   const identityRows: IdentityRow[] = [
-    {
-      key: "engine",
-      label: "Engine",
-      icon: <CpuChipIcon size={14} aria-hidden="true" />,
-      wide: (
-        <EngineLabel engineKey={scopeAgent(asset.scope as Scope)} size={14}>
-          {engineLabel(asset as never)}
-        </EngineLabel>
-      ),
-    },
+    // Only when an engine actually owns this asset. `scanner.rs` empties the
+    // scope's agent for anything in the shared store — that is what used to
+    // render "Any agent", on every skill on a store-convention machine. An
+    // absent owner is not a fact about the file, and the Reach card states it
+    // better by listing who reaches it. Rules keep the row: both global rules
+    // on a real machine name an engine, and ownership is exclusive, so this is
+    // the only place it is said. Karthik's ruling, 2026-08-28.
+    ...(scopeAgent(asset.scope as Scope)
+      ? [
+          {
+            key: "engine",
+            label: "Engine",
+            icon: <CpuChipIcon size={14} aria-hidden="true" />,
+            wide: (
+              <EngineLabel engineKey={scopeAgent(asset.scope as Scope)} size={14}>
+                {engineLabel(asset as never)}
+              </EngineLabel>
+            ),
+          },
+        ]
+      : []),
     {
       key: "scope",
       label: "Scope",

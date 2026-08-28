@@ -348,6 +348,27 @@ describe("Asset detail — the inspector's document screen", () => {
     expect(engineDd.querySelector("svg")?.getAttribute("data-brand")).toBe("claude_code");
   });
 
+  it("omits the Engine row when nothing owns the asset", () => {
+    // `asset` declares no scope, so no engine owns it. The row used to read
+    // "Any agent" — a fact about Hanger's model, not about this file — and on
+    // a machine using the shared store it read that way for every skill,
+    // because scanner.rs empties the scope's agent there.
+    render(<AssetDetail asset={asset} inventory={inventory} />);
+    openDetails();
+    expect(screen.queryByText("Engine")).toBeNull();
+    expect(screen.queryByText("Any agent")).toBeNull();
+  });
+
+  it("keeps the Engine row when an engine does own the asset", () => {
+    // Ownership is exclusive and Reach does not answer it: a rule under
+    // ~/.codex names Codex here and nowhere else in the panel.
+    const owned = { ...asset, scope: { Global: { agent: "codex" } } };
+    render(<AssetDetail asset={owned} inventory={inventory} />);
+    openDetails();
+    expect(screen.getByText("Engine")).toBeTruthy();
+    expect(screen.getByText("Codex")).toBeTruthy();
+  });
+
   it("opens on Content: the document in a card with its file row, Details a tab away", async () => {
     render(<AssetDetail asset={asset} inventory={inventory} />);
     expect((await screen.findByRole("tab", { name: "Content" })).getAttribute("aria-selected")).toBe("true");
@@ -384,7 +405,11 @@ describe("Asset detail — the inspector's document screen", () => {
   });
 
   it("Identity is one list card in the ruled order, with Modified from the file's mtime", async () => {
-    render(<AssetDetail asset={asset} inventory={inventory} />);
+    // Owned on purpose: the Engine row is conditional on an owning engine
+    // (2026-08-28), and the order this pins is only fully exercised when
+    // every conditional row is present. The unowned case has its own test.
+    const owned = { ...asset, scope: { Global: { agent: "claude" } } };
+    render(<AssetDetail asset={owned} inventory={inventory} />);
     await screen.findByRole("tab", { name: "Details" });
     openDetails();
     const section = screen.getByText("Identity").closest("section")!;
