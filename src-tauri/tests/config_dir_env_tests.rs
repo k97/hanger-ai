@@ -115,6 +115,21 @@ fn every_env_table_entry_names_a_real_agent_root() {
     }
 }
 
+#[test]
+fn an_exported_but_empty_var_is_treated_as_unset() {
+    // Review finding, Minor 4: `relocated()` filters empty values on the
+    // reasoning that an exported-but-empty variable means "unset" far more
+    // often than "resolve to /". Nothing pinned that choice — deleting the
+    // filter left every other test in this suite green, because none of them
+    // ever exports the variable empty.
+    let (_l, _g) = guard();
+    let home = Path::new("/Users/probe");
+    std::env::set_var("CLAUDE_CONFIG_DIR", "");
+    assert_eq!(agents::engine_base(home, ".claude"), home.join(".claude"));
+    std::env::set_var("CODEX_HOME", "");
+    assert_eq!(agents::engine_base(home, ".codex"), home.join(".codex"));
+}
+
 // ─── Task 2: agent-root detection ──────────────────────────────────────────
 
 #[test]
