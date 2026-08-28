@@ -262,6 +262,12 @@ pub const AGENT_CONFIGS: &[AgentConfig] = &[
 /// global_root, so `engine_base` special-cases it below against the same
 /// variable. Measured 2026-08-28: with CLAUDE_CONFIG_DIR set, Claude Code
 /// reads $DIR/.claude.json and stops reading ~/.claude.json.
+///
+/// That special case is written table-wide — `engine_base` builds
+/// `{prefix}.json` for every row here, so `.codex.json` is equally "handled"
+/// in the sense that a rel_path spelled that way would relocate with
+/// `CODEX_HOME`. It is inert today only because `.codex.json` names no real
+/// file Hanger reads; nothing currently asks `engine_base` for it.
 pub const CONFIG_DIR_ENVS: &[(&str, &str)] = &[
     (".claude", "CLAUDE_CONFIG_DIR"),
     (".codex", "CODEX_HOME"),

@@ -19,8 +19,10 @@ Each of these has already produced, or nearly produced, a cross-kind defect.
   `AGENT_CONFIGS` gives `~/.claude` `skills`, `rules` AND `subagents`
   (`agents.rs:111-116`); `~/.codex` owns `skills` and `subagents`
   (`agents.rs:122-127`). A path change that looks like "where MCP servers
-  live" is usually also "where skills live". Agent roots resolve as
-  `home.join(rel_path)` (`scanner.rs:510`) — one join, every kind.
+  live" is usually also "where skills live". Agent roots resolve through
+  `agents::engine_base(home, rel_path)` — one chokepoint, every kind, honouring
+  `CLAUDE_CONFIG_DIR`/`CODEX_HOME` where set and falling back to
+  `home.join(rel_path)` where not (`agents.rs:287-311`).
 - **One dedup set spans every registration path.** `seen_registrations`
   (`scanner.rs:959`) is a single `HashSet<(config_path, server_name)>` used by
   the agent sweep, the machine pass and the project pass. Widening its key for

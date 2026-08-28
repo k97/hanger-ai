@@ -145,6 +145,17 @@ system-absolute path rather than a home-relative one and needs a different
 mechanism; and `XDG_CONFIG_HOME`, which affects the Linux layout this
 macOS-only app does not ship.
 
+**A relocation made after an asset was persisted leaves a stale row.** Once a
+variable is set, a persisted asset row still keyed to its pre-relocation
+config path no longer matches anything in `matching_sources`, and resolution
+falls back to `read_swept`'s extension guess. A `User`-tier `.claude.json`
+server survives that fallback by accident — the guess and `ClaudeJson`'s
+`User`-tier both read the top-level `mcpServers` key — while a `Local`-tier
+one does not, and renders as failed until the next scan re-persists it at the
+new path (self-heals; not a lasting defect). Separately, `relocated()` takes
+the environment value verbatim: a trailing slash or a relative path reaches
+the UI unnormalised.
+
 ## No help surface, and one homeless sentence waiting for it
 
 Recorded 2026-08-28. Hanger has no help, about or terms screen. The rail's
