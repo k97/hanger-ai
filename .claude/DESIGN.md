@@ -123,6 +123,13 @@ One system stack, five sizes, two weights.
 --font-mono: ui-monospace, "SF Mono", Menlo, monospace;                  tokens.css:67
 ```
 
+Two of those three names carry one stack: `--font-flex` is declared with
+the same string as `--font-sans` (`tokens.css:65-66`), so it names a role —
+the utility voice of eyebrows, stamps and chips — not a second face. No
+webfont is loaded; on macOS the stack resolves to the system UI face, and
+the page's Typography section (§9) shows all three stacks read from the
+running theme rather than restating them.
+
 The scale is closed at five steps — 11 / 12 / 13 / 16 / 32
 (`tokens.css:68-72`, registered as `text-micro`, `text-small`, `text-base-app`,
 `text-lg-app`, `text-display` at `index.css:97-102`). Two weights only:
@@ -365,6 +372,9 @@ The family is Heroicons 24/outline (`icons.tsx:30-79`), with seven static
 marks on lucide because Heroicons has no equivalent: `FolderSymlink`,
 `FolderTree`, `GitMerge`, `PanelLeft`, `PanelRight`, `Maximize2`, `Minimize2`
 (`icons.tsx:81-89`, exported `:185-194`). Default size is 16 (`icons.tsx:95`).
+The Design system page's Iconography section (§9) rosters every export of
+this module by name and shows the stroke bands by calling `strokeFor`,
+which is exported for that one reader (`bc1c3c8`, 2026-08-28).
 
 Twenty more marks are animated, and every one of them is lucide too — not
 because Heroicons lacks their geometry, but because it has no motion story,
@@ -1627,8 +1637,25 @@ table of contents. Karthik's rulings, 2026-08-16: name "Design system"
 the Settings cog; a palette would read as appearance, which Settings owns),
 **dev builds only**, TOC in the source-list column.
 
-**What it is.** The system, rendered by the app that uses it. Six sections
-mirror §§1–5 — Colour, Type, Geometry, Motion, Controls, Components. Every
+**What it is.** The system, rendered by the app that uses it. Seven sections
+mirror §§1–5 in order — Colour, Typography, Geometry, Motion,
+Iconography, Controls, Components (`DESIGN_SECTIONS`,
+`designSystemFixtures.ts`). Two of the names are Karthik's ruling of
+2026-08-28: "Type" became "Typography",
+the label every system uses (Apple HIG, Material, Carbon, Polaris, Primer)
+and this file's own §2 title; the icon system gained a section, and
+"Iconography" over "Icons" follows Carbon, Primer and Atlassian and
+parallels "Typography" — HIG, Material and Polaris say "Icons", and either
+would have done. Typography opens with a Families block: the three stacks
+of `tokens.css:65-67`, each read from the running theme, a specimen line
+in each, and a stated fact that `--font-sans` and `--font-flex` are one
+stack today, so the two names mark two roles rather than two faces; the
+scale rows carry the role §2's table gives each size. Iconography renders
+`icons.tsx` from the module — every export ending in `Icon`, by name — so
+a new mark appears without anyone listing it; shows `strokeFor`'s four
+bands by calling it (exported for this, `bc1c3c8`); lines up the rail's
+marks to show the optical factors at work; and draws every `BrandId` from
+the sprite, Codex's dark twin included. Every
 component on the page is the real one, imported and rendered with sample
 props from `src/data/designSystemFixtures.ts`: `GelMeter`, `MechanismGlyph`,
 `EngineReachTiles`, `EngineLabel`/`BrandIcon`, `CategoryFilterCards`,
