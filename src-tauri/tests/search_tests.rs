@@ -291,6 +291,31 @@ fn indexing_the_same_inventory_twice_leaves_one_row_per_asset() {
 }
 
 #[test]
+fn an_index_write_waits_out_a_lock_held_longer_than_rusqlites_default() {
+    // The rescan a server-detail open triggers holds the store's write lock
+    // for seconds; with rusqlite's 5 s default the index write gave up and
+    // the tools half of the palette stayed empty (app log, 2026-08-28).
+    let (_dir, db) = fresh();
+    let holder = rusqlite::Connection::open(&db).unwrap();
+    holder.execute_batch("BEGIN IMMEDIATE;").unwrap();
+
+    let started = std::time::Instant::now();
+    let writer = {
+        let db = db.clone();
+        std::thread::spawn(move || {
+            index_probe_tools(&db, "/home/u/.claude.json:spades", "spades", "/home/u/.claude.json", &[tool("waits", None)])
+        })
+    };
+    std::thread::sleep(std::time::Duration::from_secs(7));
+    holder.execute_batch("COMMIT;").unwrap();
+    drop(holder);
+
+    let result = writer.join().unwrap();
+    assert!(result.is_ok(), "the index write must outwait a 7 s lock: {:?}", result.err());
+    assert!(started.elapsed() >= std::time::Duration::from_secs(6), "the writer waited for the lock, it did not skip it");
+}
+
+#[test]
 fn a_credential_in_launch_args_is_not_searchable() {
     // The property ipc_boundary_tests.rs pins for serialisation, pinned here
     // for the index: `args` never reaches the table, `launch_display` does.
