@@ -545,10 +545,10 @@ export default function DesignSystemPane({ section }: DesignSystemPaneProps) {
             </div>
           </Specimen>
 
-          <Specimen name="Optical alignment" file="icons.tsx" note="the rail's marks at 17; per-mark optical factors are measured ink-extent ratios, and anything within 4% is left at 1">
+          <Specimen name="Optical alignment" file="icons.tsx" note="the rail's marks at 16; per-mark optical factors are measured ink-extent ratios, and anything within 4% is left at 1">
             <div className="flex items-center gap-5 text-ink-2">
               {RAIL_MARKS.map(({ name, Icon }) => (
-                <Icon key={name} size={17} />
+                <Icon key={name} size={16} />
               ))}
             </div>
           </Specimen>
@@ -601,7 +601,7 @@ export default function DesignSystemPane({ section }: DesignSystemPaneProps) {
                   name — a reader would hear a toggle that toggles nothing. */}
               <Tooltip label="Sample cap button" placement="bottom">
                 <button aria-label="Sample cap button" className={capButtonClass}>
-                  <PanelRightIcon size={15} aria-hidden="true" />
+                  <PanelRightIcon size={16} aria-hidden="true" />
                 </button>
               </Tooltip>
             </div>
@@ -672,7 +672,7 @@ export default function DesignSystemPane({ section }: DesignSystemPaneProps) {
             <OverflowMenu
               trigger={(triggerProps) => (
                 <button type="button" aria-label="Sample overflow menu" className={capButtonClass} {...triggerProps}>
-                  <EllipsisVerticalIcon size={15} aria-hidden="true" />
+                  <EllipsisVerticalIcon size={16} aria-hidden="true" />
                 </button>
               )}
               ariaLabel="Sample overflow menu"

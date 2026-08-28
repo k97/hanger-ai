@@ -265,7 +265,7 @@ export default function InspectorCap({
           <OverflowMenu
             trigger={(triggerProps) => (
               <button type="button" aria-label="More actions" className={tbBtnClass} {...triggerProps}>
-                <EllipsisVerticalIcon size={15} aria-hidden="true" />
+                <EllipsisVerticalIcon size={16} aria-hidden="true" />
               </button>
             )}
             ariaLabel="More actions"
@@ -362,15 +362,15 @@ export default function InspectorCap({
             className={tbBtnClass}
           >
             {inspectorExpanded ? (
-              <CollapseIcon size={15} aria-hidden="true" />
+              <CollapseIcon size={16} aria-hidden="true" />
             ) : (
-              <ExpandIcon size={15} aria-hidden="true" />
+              <ExpandIcon size={16} aria-hidden="true" />
             )}
           </button>
         </Tooltip>
         <Tooltip label="Toggle inspector" placement="bottom">
           <button onClick={onToggleInspector} aria-label="Toggle inspector" className={tbBtnActiveClass}>
-            <PanelRightIcon size={15} aria-hidden="true" />
+            <PanelRightIcon size={16} aria-hidden="true" />
           </button>
         </Tooltip>
       </div>

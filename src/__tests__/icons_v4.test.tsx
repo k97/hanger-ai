@@ -111,12 +111,12 @@ describe("v4 marks", () => {
   it("EllipsisVerticalIcon carries an optical factor — its painted box outgrows its nominal size", () => {
     // Heroicons draws ⋮ as three r=0.75 dots (56% ink extent of the 24 grid)
     // against the 75% of the lucide panel-toggle marks it sits beside in the
-    // inspector cap; without a correction it renders a plain 15px box like
+    // inspector cap; without a correction it renders a plain 16px box like
     // any unfactored mark and reads visibly smaller next to them.
-    const html = renderToStaticMarkup(<EllipsisVerticalIcon size={15} />);
-    expect(html).toContain('width="18"');
-    expect(html).toContain('height="18"');
-    // strokeFor(18) is 1.5 (icons.tsx:99-103) — the box crossed the 16px
+    const html = renderToStaticMarkup(<EllipsisVerticalIcon size={16} />);
+    expect(html).toContain('width="19.2"');
+    expect(html).toContain('height="19.2"');
+    // strokeFor(19.2) is 1.5 (icons.tsx:99-103) — the box crossed the 16px
     // box where the floor takes over, so the stroke settles at the family's
     // native weight even as the box grows.
     expect(html).toContain('stroke-width="1.5"');

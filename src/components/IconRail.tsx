@@ -70,7 +70,7 @@ export default function IconRail({
           onClick={onSelectMachine}
           className={active === "machine" ? railBtnActiveClass : railBtnClass}
         >
-          <ComputerDesktopIcon size={17} aria-hidden="true" />
+          <ComputerDesktopIcon size={16} aria-hidden="true" />
         </button>
       </Tooltip>
 
@@ -81,7 +81,7 @@ export default function IconRail({
           onClick={onSelectLinkMap}
           className={active === "linkmap" ? railBtnActiveClass : railBtnClass}
         >
-          <FolderSymlinkIcon size={17} aria-hidden="true" />
+          <FolderSymlinkIcon size={16} aria-hidden="true" />
         </button>
       </Tooltip>
 
@@ -92,7 +92,7 @@ export default function IconRail({
           onClick={onSelectDiscovery}
           className={active === "discovery" ? railBtnActiveClass : railBtnClass}
         >
-          <GlobeAltIcon size={17} aria-hidden="true" />
+          <GlobeAltIcon size={16} aria-hidden="true" />
         </button>
       </Tooltip>
 
@@ -110,7 +110,7 @@ export default function IconRail({
               {needsReviewCount}
             </span>
           )}
-          <ExclamationTriangleIcon size={17} aria-hidden="true" />
+          <ExclamationTriangleIcon size={16} aria-hidden="true" />
         </button>
       </Tooltip>
 
@@ -119,7 +119,7 @@ export default function IconRail({
           entries rather than in any one screen's cap. */}
       <Tooltip label="Search  ⌘K">
         <button aria-label="Search" onClick={onOpenSearch} className={railBtnClass}>
-          <MagnifyingGlassIcon size={17} aria-hidden="true" />
+          <MagnifyingGlassIcon size={16} aria-hidden="true" />
         </button>
       </Tooltip>
 
@@ -135,14 +135,14 @@ export default function IconRail({
             onClick={onSelectDesign}
             className={active === "design" ? railBtnActiveClass : railBtnClass}
           >
-            <SwatchIcon size={17} aria-hidden="true" />
+            <SwatchIcon size={16} aria-hidden="true" />
           </button>
         </Tooltip>
       )}
 
       <Tooltip label="Settings">
         <button aria-label="Settings" onClick={onOpenSettings} className={railBtnClass}>
-          <Cog6ToothIcon size={17} aria-hidden="true" />
+          <Cog6ToothIcon size={16} aria-hidden="true" />
         </button>
       </Tooltip>
     </nav>

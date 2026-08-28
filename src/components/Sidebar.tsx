@@ -127,7 +127,7 @@ export default function Sidebar({
           }`}
         >
           <GlobeAltIcon
-            size={15}
+            size={16}
             className={`shrink-0 ${selectedItem === "profile" ? "text-sidebar-sel-ink" : "text-sidebar-ink"}`}
           />
           <div className="flex-1 min-w-0">
@@ -213,12 +213,12 @@ export default function Sidebar({
                   {!child &&
                     (container ? (
                       <FolderTreeIcon
-                        size={15}
+                        size={16}
                         className={`shrink-0 ${isActive ? "text-sidebar-sel-ink" : "text-sidebar-ink"}`}
                       />
                     ) : (
                       <FolderIcon
-                        size={15}
+                        size={16}
                         className={`shrink-0 ${isActive ? "text-sidebar-sel-ink" : "text-sidebar-ink"}`}
                       />
                     ))}

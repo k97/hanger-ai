@@ -1453,7 +1453,7 @@ export default function App() {
           {selectedSidebarItem !== "linkmap" && (
             <Tooltip label="Toggle sidebar  ⌘⌥S" placement="bottom">
               <button onClick={toggleSidebar} aria-label="Toggle sidebar" className={tbBtnPlaneClass}>
-                <PanelLeftIcon size={15} aria-hidden="true" />
+                <PanelLeftIcon size={16} aria-hidden="true" />
               </button>
             </Tooltip>
           )}
@@ -1634,7 +1634,7 @@ export default function App() {
                     className={tbBtnClass}
                   >
                     <RotateCcwIcon
-                      size={15}
+                      size={16}
                       active={loading || scanning}
                       aria-hidden="true"
                     />
@@ -1651,7 +1651,7 @@ export default function App() {
                   aria-label="Toggle inspector"
                   className={tbBtnClass}
                 >
-                  <PanelRightIcon size={15} aria-hidden="true" />
+                  <PanelRightIcon size={16} aria-hidden="true" />
                 </button>
               </Tooltip>
             )}
