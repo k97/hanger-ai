@@ -82,8 +82,8 @@ pub fn known_engine_locations() -> Vec<&'static str> {
         .collect()
 }
 
-/// Home-join, deduplicate on the resolved path, and sanitise a list of
-/// home-relative locations for display.
+/// Resolve each location through `engine_base`, deduplicate on the resolved
+/// path, and sanitise the list for display.
 ///
 /// Split out from `known_engine_locations()` so the dedup can be proven
 /// directly: no two `AGENT_CONFIGS` rows share a root today, so a test
@@ -94,10 +94,14 @@ pub fn known_engine_locations() -> Vec<&'static str> {
 /// to the same place (a symlinked home, say) also collapse correctly, and
 /// sanitising first would risk the same basename-collision problem
 /// `CheckedFile::path`'s doc comment already records for `mcp::discover`.
+/// `engine_base`, not `home.join`: this list backs the "[Show locations]"
+/// disclosure, and with a variable set, detection itself resolves each root
+/// through `engine_base` — a plain home-join here would name a location
+/// Hanger never actually checked (review finding, Important 2).
 pub fn dedupe_and_sanitise_locations(home: &Path, rels: &[&str]) -> Vec<String> {
     let mut seen: std::collections::BTreeSet<std::path::PathBuf> = std::collections::BTreeSet::new();
     for rel in rels {
-        seen.insert(home.join(rel));
+        seen.insert(engine_base(home, rel));
     }
     seen.into_iter()
         .map(|p| crate::preferences::sanitise_path(&p.to_string_lossy()))

@@ -267,3 +267,28 @@ fn a_relocated_claude_dir_moves_the_plugin_index() {
         "resolved the stale ~/.claude/plugins manifest instead of the relocated one"
     );
 }
+
+#[test]
+fn dedupe_and_sanitise_locations_follows_a_relocated_root() {
+    // Important 2: with CLAUDE_CONFIG_DIR set, agent detection resolves
+    // ".claude" at the relocated directory (`engine_base`), but the
+    // "[Show locations]" disclosure home-joined the same relative root, so it
+    // named a location Hanger never actually checked — false under
+    // ui-copy.md's "copy must be literally true of the code".
+    let (_l, _g) = guard();
+    std::env::set_var("CLAUDE_CONFIG_DIR", "/relocated/cc");
+    let home = Path::new("/Users/probe");
+    let locations = agents::dedupe_and_sanitise_locations(home, &[".claude"]);
+    let expected = tauri_app_lib::preferences::sanitise_path(
+        &agents::engine_base(home, ".claude").to_string_lossy(),
+    );
+    assert_eq!(
+        locations,
+        vec![expected],
+        "disclosure must list the relocated root, not home.join(\".claude\")"
+    );
+    assert!(
+        !locations.iter().any(|l| l.ends_with("/.claude") && l.contains("probe")),
+        "disclosure still names the unrelocated ~/.claude: {locations:?}"
+    );
+}
