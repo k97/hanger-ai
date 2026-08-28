@@ -23,9 +23,9 @@ import {
 
 /**
  * The inspector column's 40px cap: the selected asset's identity — a kind
- * glyph with a state dot, an eyebrow (`SKILL · GLOBAL`), a finding chip —
- * then `Link to…`, a ⋮ overflow menu, and the two panel-level controls that
- * used to be the cap's only occupants.
+ * glyph (dotted only once the chip has shed), an eyebrow (`SKILL · GLOBAL`),
+ * a finding chip — then `Link to…`, a ⋮ overflow menu, and the two
+ * panel-level controls that used to be the cap's only occupants.
  *
  * Standalone and prop-driven: every value it shows and every side effect it
  * triggers arrives as a prop. `App.tsx:1783` renders it — the "later task"
@@ -180,6 +180,12 @@ export default function InspectorCap({
   const showLinkInMenu = Boolean(asset && onLink && shed >= 1);
   const showReviewInMenu = Boolean(asset && findings.count > 0 && shed >= 2);
   const showChip = Boolean(asset && findings.count > 0 && shed < 2);
+  // The dot understudies the chip rather than echoing it: beside `1 flagged`
+  // it stated the same fact twice and read as noise (Karthik, 2026-08-28).
+  // It appears only at the rung where the chip has gone into the menu, which
+  // is the case the prototype built it for — nothing else on the surface
+  // says a finding exists there.
+  const showGlyphDot = Boolean(asset && findings.count > 0 && !showChip);
   const menuHasContent = Boolean(
     asset && (onCopyPath || onReveal || onOpenInEditor || showLinkInMenu || showReviewInMenu)
   );
@@ -198,7 +204,7 @@ export default function InspectorCap({
               <Icon size={16} className="text-ink-2" role="img" aria-label={`${kind} · ${place}`} />
             </Tooltip>
           )}
-          {findings.count > 0 && (
+          {showGlyphDot && (
             <i
               aria-hidden="true"
               data-testid="inspector-cap-glyph-dot"

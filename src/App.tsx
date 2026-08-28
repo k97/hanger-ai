@@ -1912,7 +1912,7 @@ export default function App() {
               the panel aligned with the toolbar beside it — kept exactly as
               it was. What used to sit in it (only the two panel-level
               controls) now carries the selected asset's identity too: a
-              kind glyph with a state dot, an eyebrow, a finding chip, then
+              kind glyph, an eyebrow, a finding chip, then
               Link to… and the overflow menu, ahead of the same Expand/Hide
               pair. `capDragOverlay` stays first so the row is still
               draggable everywhere the cap itself has nothing painted. */}

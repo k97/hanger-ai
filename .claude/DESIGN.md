@@ -755,8 +755,8 @@ for what is not a plain asset selection — the link flow's own "Back to
 empty-MCP category label — plus, independently, a layered-rules flag that can
 sit beside any of them.
 
-Below that, the header is exactly: the cap's identity row — kind glyph with a
-state dot, a `KIND · PLACE` eyebrow, a finding chip (`InspectorCap.tsx:169-212`;
+Below that, the header is exactly: the cap's identity row — kind glyph, a
+`KIND · PLACE` eyebrow, a finding chip (`InspectorCap.tsx:169-212`;
 the cap itself, Surfaces and controls below) — then Flyout's title block
 (the `<h2>`, `Flyout.tsx:720`), then `AssetDetail`'s own `UnderlineTabs`
 switch. Nothing else: `AssetDetail` used to open with a state line, a path
@@ -773,8 +773,11 @@ where nothing separates them at all.
 runs under test.** After every render, one effect compares the row's own
 `scrollWidth` against its `clientWidth` and climbs one rung — sheds `Link
 to…` first, the finding chip second — when the row overflows
-(`InspectorCap.tsx:149-156`); a second, separate effect holds a
-`ResizeObserver` on the same row purely to catch it growing back, resetting
+(`InspectorCap.tsx:149-156`); at the second rung, where the chip has gone,
+the kind glyph's state dot takes over as the only mark on the surface saying
+a finding exists, and it draws at no other width (`:184`). A second,
+separate effect holds a `ResizeObserver` on the same row purely to catch it
+growing back, resetting
 the climb to `0` the same width it left (`:115-134`). Both are inert under
 `happy-dom`, the environment every component test runs in, for two different
 reasons: the render-time comparison never overflows because `scrollWidth`
@@ -1116,9 +1119,11 @@ cap's menu items use `menuActionClass` instead (`:9-10`), and `MenuSeparator`
 
 **`InspectorCap`** (`InspectorCap.tsx`, props `:44-70`) — the inspector
 column's 40px cap, and since this phase the selected asset's identity as
-well as the two panel-level controls it used to hold alone: a kind glyph
-with a state dot when the asset has findings, a `KIND · PLACE` eyebrow, a
-finding chip, then `Link to…`, a ⋮ overflow (`OverflowMenu`, above), and
+well as the two panel-level controls it used to hold alone: a kind glyph —
+dotted only at the width where the finding chip has shed into the menu, so
+the two never state the same finding at once (`:184`) — a `KIND · PLACE`
+eyebrow, a finding chip, then `Link to…`, a ⋮ overflow (`OverflowMenu`,
+above), and
 Expand/Collapse plus Toggle inspector (`:159-335`; the shed order, its
 measurement, and the MCP exception are under Inspectors, above). Renders
 only the two trailing controls when nothing is selected (`asset: null`,

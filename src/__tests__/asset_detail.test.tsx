@@ -140,7 +140,7 @@ describe("Asset detail — the inspector's document screen", () => {
   // "states the file's relationships in one line" removed: the state line
   // (the dot + "The source for N copies" statement) moved to the cap's kind
   // glyph. Successor: InspectorCap.test.tsx, "marks the kind glyph with a
-  // state dot only when the asset has findings".
+  // state dot only when the chip has shed off the surface".
 
   it("reads the file through the backend, by path", async () => {
     render(<AssetDetail asset={asset} inventory={inventory} />);
