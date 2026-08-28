@@ -637,13 +637,18 @@ impl PreferencesStore {
         }
 
         // v8: the search palette's content index. An FTS5 virtual table,
-        // rebuilt from the combined inventory at the end of every scan and
-        // per registration after every probe (`search.rs`), so it never
-        // needs to survive a schema change — dropping and recreating it is
-        // always safe. `porter unicode61` stems, so "deploying" matches
-        // "deploy"; UNINDEXED columns are identity the read returns, not
-        // text the query can hit. `body` is re-read from disk at index
-        // time rather than stored anywhere else in this database.
+        // intended to be rebuilt from the combined inventory at the end of
+        // every scan and per registration after every probe (`search.rs`),
+        // so it is meant to never need to survive a schema change —
+        // dropping and recreating it is meant to always be safe. `porter
+        // unicode61` stems, so "deploying" matches "deploy"; UNINDEXED
+        // columns are identity the read returns, not text the query can
+        // hit. `body` is meant to be re-read from disk at index time rather
+        // than stored anywhere else in this database. Stated as intent, not
+        // present behaviour: `search.rs` does not exist yet — nothing
+        // inserts into or reads from this table outside this migration and
+        // its own test, so no code serves any row, stale or fresh, until it
+        // lands.
         if current_version < 8 {
             let tx = conn.transaction().map_err(|_| {
                 SanitisedError("Failed to start database migration transaction".to_string())
