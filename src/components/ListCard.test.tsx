@@ -2,6 +2,7 @@
 import { describe, it, expect, afterEach } from "vitest";
 import { render, screen, cleanup } from "@testing-library/react";
 import ListCard, { ListCardRow } from "./ListCard";
+import { rowValueClass } from "./typeRoles";
 
 afterEach(cleanup);
 
@@ -57,7 +58,7 @@ describe("ListCard — the section format", () => {
     ]);
   });
 
-  it("a row is icon · label · right-aligned value, value in mono micro ink-3", () => {
+  it("a row is icon · label · right-aligned value, value in mono small ink-1", () => {
     render(
       <ListCard>
         <ListCardRow data-testid="row" icon={<svg data-testid="mark" />} label="Rules" value="2" />
@@ -66,16 +67,16 @@ describe("ListCard — the section format", () => {
     const row = screen.getByTestId("row");
     expect(row.className).toContain("min-h-9");
     expect(row.className).toContain("px-3");
-    expect(row.className).toContain("text-small");
+    expect(row.className).toContain("text-base-app");
     expect(screen.getByTestId("mark").parentElement?.className).toContain("text-ink-3");
     const value = screen.getByText("2");
     expect(value.className).toContain("ml-auto");
     expect(value.className).toContain("font-mono");
-    expect(value.className).toContain("text-micro");
-    expect(value.className).toContain("text-ink-3");
+    expect(value.className).toContain("text-small");
+    expect(value.className).toContain("text-ink-1");
   });
 
-  it("a wide value is sans small ink-2, still right-aligned", () => {
+  it("a wide value is sans body ink-1, still right-aligned", () => {
     render(
       <ListCard>
         <ListCardRow label="Linked from" wide="3 engine roots" />
@@ -83,9 +84,50 @@ describe("ListCard — the section format", () => {
     );
     const wide = screen.getByText("3 engine roots");
     expect(wide.className).toContain("ml-auto");
-    expect(wide.className).toContain("text-small");
-    expect(wide.className).toContain("text-ink-2");
+    expect(wide.className).toContain("text-base-app");
+    expect(wide.className).toContain("text-ink-1");
     expect(wide.className).not.toContain("font-mono");
+  });
+
+  // Class-contract guards: happy-dom cannot measure, so these pin the class
+  // strings the roles are made of. A screenshot proves the rendering.
+  it("sets the label in --ink-3 and the value in --ink-1, both at body size", () => {
+    render(
+      <ListCard>
+        <ListCardRow label="Kind" value="skill" data-testid="row" />
+      </ListCard>,
+    );
+    const row = screen.getByTestId("row");
+    expect(row.className).toContain("text-base-app");
+    expect(row.className).toContain("text-ink-3");
+    expect(row.className).not.toContain("text-small");
+    const value = screen.getByText("skill");
+    expect(value.className).toContain("text-ink-1");
+    expect(value.className).toContain("font-mono");
+    expect(value.className).toContain("text-small");
+    expect(value.className).not.toContain("text-micro");
+    expect(value.className).not.toContain("text-ink-3");
+  });
+
+  it("a sans figure passed as value states its own family", () => {
+    render(
+      <ListCard>
+        <ListCardRow label="Always on" value={<span className={rowValueClass}>≈ 67 tokens</span>} />
+      </ListCard>,
+    );
+    expect(screen.getByText("≈ 67 tokens").className).toContain("font-sans");
+  });
+
+  it("sets a wide value in --ink-1 at body size", () => {
+    render(
+      <ListCard>
+        <ListCardRow label="Installed" wide="4 min ago" />
+      </ListCard>,
+    );
+    const wide = screen.getByText("4 min ago");
+    expect(wide.className).toContain("text-base-app");
+    expect(wide.className).toContain("text-ink-1");
+    expect(wide.className).not.toContain("text-ink-2");
   });
 
   /**

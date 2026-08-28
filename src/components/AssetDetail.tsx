@@ -637,10 +637,11 @@ export default function AssetDetail({ asset, inventory, onDocumentPath, annotati
                           : e.kind === "symlink"
                             ? "—"
                             // SKILL.md is the only entry a model ever loads;
-                            // its size carries the weight the rest do not.
+                            // every other entry's size recedes to secondary
+                            // ink so SKILL.md is the one that reads as full weight.
                             : e.name === "SKILL.md"
-                              ? <span className="text-ink-1">{formatBytes(e.bytes ?? 0)}</span>
-                              : formatBytes(e.bytes ?? 0)
+                              ? formatBytes(e.bytes ?? 0)
+                              : <span className="text-ink-3">{formatBytes(e.bytes ?? 0)}</span>
                       }
                     />
                   ))}

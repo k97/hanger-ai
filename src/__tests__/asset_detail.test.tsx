@@ -550,22 +550,33 @@ describe("Asset detail — the inspector's document screen", () => {
   // Was also asserting the "Only SKILL.md is read into context" prose here.
   // Dropped 2026-08-28 with the sentence itself — it is a fact about the
   // harness rather than the asset, and now lives in docs/harness.md. The ink
-  // treatment below is what still carries that meaning in the UI: SKILL.md's
-  // size is the one figure in full ink because it is the one that always
-  // loads. The prose's absence is pinned by its own test above.
-  it("sets SKILL.md's size in full ink, and no other entry's", async () => {
+  // treatment below is what still carries that meaning in the UI: every
+  // entry BUT SKILL.md's recedes to secondary ink, because SKILL.md is the
+  // one that always loads. The prose's absence is pinned by its own test
+  // above.
+  it("sets every entry's size except SKILL.md's in secondary ink", async () => {
+    // `references/` and `scripts/` (the default fixture's other two entries)
+    // are directories: their value is a file count, not a size, so they
+    // never reach the size ternary this test pins and would make the "every
+    // other entry" half vacuous. A second FILE is what actually exercises
+    // the non-SKILL.md branch.
+    dirResult = [
+      { name: "SKILL.md", kind: "file", bytes: 431, file_count: null },
+      { name: "reference.md", kind: "file", bytes: 128, file_count: null },
+    ];
     render(<AssetDetail asset={asset} inventory={inventory} />);
     await screen.findByRole("tab", { name: "Details" });
     openDetails();
     const section = (await screen.findByText("Contents")).closest("section")!;
-    const skillRow = within(section).getByText("SKILL.md").closest('[data-testid="skill-dir-row"]')!;
     // Class-contract only: happy-dom lays nothing out, so computed color is
-    // unassertable here. This checks the emphasis class landed on the
-    // SKILL.md row and nowhere else, not that it renders visibly lighter —
-    // that needs a real-build screenshot.
-    expect(skillRow.querySelector(".text-ink-1")).toBeTruthy();
-    const referencesRow = within(section).getByText("references/").closest('[data-testid="skill-dir-row"]')!;
-    expect(referencesRow.querySelector(".text-ink-1")).toBeNull();
+    // unassertable here. This checks the secondary-ink class landed on the
+    // size figure of every entry but SKILL.md's, not that it renders
+    // visibly lighter — that needs a real-build screenshot. Scoped to the
+    // size text itself (not the row) because the row's own folder/file icon
+    // is always --ink-3, which would make a row-wide search true regardless
+    // of which entry it is.
+    expect(within(section).getByText("431 B").className).not.toContain("text-ink-3");
+    expect(within(section).getByText("128 B").className).toContain("text-ink-3");
   });
 
   it("Context is a two-tier ledger: always-on and on-open, tokens leading, bytes beneath", async () => {

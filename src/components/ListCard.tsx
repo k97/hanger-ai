@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { rowLabelClass, rowMonoClass, rowValueClass } from "./typeRoles";
 
 /**
  * The section format (Karthik, 2026-08-22): an eyebrow above ONE bordered
@@ -43,16 +44,16 @@ export interface ListCardRowProps {
   /** A 14px mark in --ink-3; decorative, the label carries the meaning. */
   icon?: ReactNode;
   label: ReactNode;
-  /** A figure or a path: mono, --fs-micro, --ink-3, pushed to the right edge. */
+  /** A figure or a path: mono, --fs-small, --ink-1, pushed to the right edge. */
   value?: ReactNode;
-  /** A word or short phrase: sans, --fs-small, --ink-2, pushed to the right edge. */
+  /** A word or short phrase: sans, body, --ink-1, pushed to the right edge. */
   wide?: ReactNode;
   /** A trailing control after the value — an icon button. */
   trailing?: ReactNode;
   "data-testid"?: string;
 }
 
-const rowClass = "flex items-center gap-2.5 px-3 py-[9px] min-h-9 text-small text-ink-1";
+const rowClass = `flex items-center gap-2.5 px-3 py-[9px] min-h-9 ${rowLabelClass}`;
 
 export function ListCardRow({ icon, label, value, wide, trailing, ...rest }: ListCardRowProps) {
   return (
@@ -76,10 +77,10 @@ export function ListCardRow({ icon, label, value, wide, trailing, ...rest }: Lis
           and ellipsize there; a short value never hits that limit, so it
           renders exactly as before. */}
       {value !== undefined && (
-        <span className="ml-auto font-mono text-micro text-ink-3 tabular min-w-0 truncate">{value}</span>
+        <span className={`ml-auto min-w-0 truncate ${rowMonoClass}`}>{value}</span>
       )}
       {wide !== undefined && (
-        <span className="ml-auto text-small text-ink-2 min-w-0 truncate">{wide}</span>
+        <span className={`ml-auto min-w-0 truncate ${rowValueClass}`}>{wide}</span>
       )}
       {trailing}
     </div>
