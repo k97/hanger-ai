@@ -28,6 +28,19 @@ const INVENTORY = [
   "HangerMark",
   "CategoryFilterCards",
   "Tooltip",
+  "SegmentedTrack",
+  "UnderlineTabs",
+  "ViewControl",
+  "OverflowMenu",
+  "InfoPopover",
+  "Mini button",
+  "FindingChip",
+  "InspectorCap",
+  "ListCard · ListCardRow",
+  "ReachCard",
+  "OriginValue",
+  "ScanStamp",
+  "McpEngineSummary",
 ];
 
 describe("Design system — the system, rendered by the app that uses it", () => {
