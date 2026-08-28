@@ -530,9 +530,9 @@ export default function DesignSystemPane({ section }: DesignSystemPaneProps) {
         <Section
           id="iconography"
           label="Iconography"
-          lede="Heroicons outline, never used raw: sized() applies two corrections — the stroke scales up as the box shrinks so it lands near 1px on screen, and a per-mark optical factor evens out how much of the grid each mark inks. Brand marks come from one sprite, referenced by id."
+          lede="Heroicons outline, never used raw: sized() applies two corrections — the stroke is 24 over the box, landing at 1.0px on screen at 16px and floored at the family's 1.5 above it, and a per-mark optical factor evens out how much of the grid each mark inks. Brand marks come from one sprite, referenced by id."
         >
-          <Specimen name="Stroke ladder" file="icons.tsx" note="the stroke that lands at 1.0px on screen, floored at the family's 1.5 above 16">
+          <Specimen name="Stroke ladder" file="icons.tsx" note="the stroke is 24 over the box, so it lands at 1.0px at 16 and floors at the family's 1.5 above it, where 20 and 24 keep their drawn weight — a mark's own optical factor can push its box past 16 the same way, so the rail's 1.12 marks settle at 1.12px">
             <div className="flex items-end gap-8">
               {ICON_SIZE_BANDS.map((size) => (
                 <div key={size} className="flex flex-col items-center gap-2 text-ink-1">
