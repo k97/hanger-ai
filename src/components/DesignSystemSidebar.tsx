@@ -1,5 +1,6 @@
 import SourceListShell from "./SourceListShell";
 import { DESIGN_SECTIONS, type DesignSectionId } from "../data/designSystemFixtures";
+import { groupLabelClass } from "./typeRoles";
 
 interface DesignSystemSidebarProps {
   width: number;
@@ -10,8 +11,7 @@ interface DesignSystemSidebarProps {
   onSelectSection: (id: DesignSectionId) => void;
 }
 
-const grpClass =
-  "flex items-center justify-between px-2.5 pt-[11px] pb-[5px] font-flex text-micro font-medium tracking-[.06em] uppercase text-ink-3";
+const grpClass = `flex items-center justify-between px-2.5 pt-[11px] pb-[5px] ${groupLabelClass}`;
 
 /**
  * Under Design system the second column is a table of contents: one row per

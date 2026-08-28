@@ -1,5 +1,6 @@
 import SourceListShell from "./SourceListShell";
 import type { IssueKind, ReviewCounts, ReviewPlace } from "../utils/reviewIssues";
+import { groupLabelClass } from "./typeRoles";
 
 interface ReviewSidebarProps {
   width: number;
@@ -14,8 +15,7 @@ interface ReviewSidebarProps {
   onSelectPlace: (place: string | null) => void;
 }
 
-const grpClass =
-  "flex items-center justify-between px-2.5 pt-[11px] pb-[5px] font-flex text-micro font-medium tracking-[.06em] uppercase text-ink-3";
+const grpClass = `flex items-center justify-between px-2.5 pt-[11px] pb-[5px] ${groupLabelClass}`;
 
 const ISSUE_ROWS: { kind: IssueKind | null; label: string; of: keyof ReviewCounts }[] = [
   { kind: null, label: "Everything", of: "total" },
@@ -48,7 +48,7 @@ export default function ReviewSidebar({
     }`;
 
   const tally = (active: boolean) =>
-    `text-micro tabular font-flex shrink-0 ${active ? "text-sidebar-sel-ink opacity-70" : "text-ink-3"}`;
+    `text-small tabular font-flex shrink-0 ${active ? "text-sidebar-sel-ink opacity-70" : "text-ink-3"}`;
 
   return (
     <SourceListShell
