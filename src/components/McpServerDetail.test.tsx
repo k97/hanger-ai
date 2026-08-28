@@ -1711,6 +1711,10 @@ describe("McpServerDetail — inspector type roles (Task 4)", () => {
     // it (together with the description assertions below) is what
     // actually pins this case to rowMonoClass rather than the old string.
     expect(name.className).toContain("tabular");
+    // Medium, not regular: the name is the row's identity above a block of
+    // prose in the same size, and needs the weight to stay the anchor
+    // (Karthik, 2026-08-29, on seeing the prose land).
+    expect(name.className).toContain("font-medium");
     // The description was the caption role (12 --ink-3) until 2026-08-29;
     // Karthik's ruling that day moved it to rowProseClass -- body size and
     // leading, --ink-2 -- because a description is what the model reads.

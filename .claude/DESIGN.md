@@ -1041,9 +1041,9 @@ eyebrows.
   `Context per request`, not the skill's plain `Context`, because this cost
   recurs on every request rather than once on open.
 - **The tool list** — no header, no schema column, no per-tool figure:
-  one `ListCard` row per tool holding its name in `rowMonoClass` and, when
-  the server sent one, its description as prose beneath (`ProbedToolList`,
-  `:387-420`). The description is `rowProseClass` — body size and leading
+  one `ListCard` row per tool holding its name in `rowMonoClass` at medium
+  weight — the anchor above prose of the same size — and, when the server
+  sent one, its description as prose beneath (`ProbedToolList`, `:387-422`). The description is `rowProseClass` — body size and leading
   in `--ink-2`, one ink down from the name it explains — and goes through
   the Content tab's parser (`toBlocks` → `Blocks`, `MarkdownDoc.tsx:81`), so a
   server's paragraphs, bullet lists and backticked parameter names render

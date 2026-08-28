@@ -401,8 +401,10 @@ function ProbedToolList({ result }: { result: VerifiedIdentity }) {
       {result.tools.map((tool) => (
         <div key={tool.name} className="flex flex-col gap-[3px] px-3 py-[9px]">
           {/* Tool names are code identifiers, so the mono face is semantic
-              here rather than decorative. */}
-          <span className={`${rowMonoClass} min-w-0 truncate`}>
+              here rather than decorative. Medium, not the role's regular:
+              the name anchors a block of prose set in the same size beneath
+              it (Karthik, 2026-08-29, on seeing the prose land). */}
+          <span className={`${rowMonoClass} font-medium min-w-0 truncate`}>
             {tool.name}
           </span>
           {/* A description is a small document of its own -- paragraphs,
