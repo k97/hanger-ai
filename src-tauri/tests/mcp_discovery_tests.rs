@@ -898,8 +898,22 @@ fn fixture_home() -> &'static Path {
     Path::new("tests/fixtures/mcp_home")
 }
 
+/// `discover_machine_at`'s `HomeRelative` resolution now goes through
+/// `agents::engine_base`, which reads `CLAUDE_CONFIG_DIR`/`CODEX_HOME` from
+/// the process environment directly — not from the `home` argument these
+/// fixture tests pass in. Neither variable is ever set by this file, but
+/// nothing stopped one being exported in the launching shell or CI runner;
+/// left alone, that would silently change what these frozen counts mean
+/// (review finding, Minor 9). Clear both before the assertion so the count is
+/// about the fixture, never about the environment that launched the binary.
+fn clear_config_dir_envs() {
+    std::env::remove_var("CLAUDE_CONFIG_DIR");
+    std::env::remove_var("CODEX_HOME");
+}
+
 #[test]
 fn discovery_finds_every_registration_in_the_fixture_home() {
+    clear_config_dir_envs();
     let result = discover::discover_machine_at(fixture_home(), no_system_root());
     assert_eq!(
         result.registrations.len(),
@@ -1047,6 +1061,7 @@ fn checked_records_every_file_the_sweep_actually_opened() {
 fn coverage_deduplicates_files_but_not_the_engines_reading_them() {
     // The same physical file must not be counted, or shown, three times just
     // because three registry rows happen to name it.
+    clear_config_dir_envs();
     let result = discover::discover_machine_at(fixture_home(), no_system_root());
     // Fix round 2: `{m}` is the intersection of checked host ids with the
     // DETECTED engine population (the same one the headline's engine list
