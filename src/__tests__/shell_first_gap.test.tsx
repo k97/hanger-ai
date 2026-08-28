@@ -94,6 +94,7 @@ describe("the shell's first gap under the cap", () => {
         onSelectLinkMap={vi.fn()}
         onSelectDiscovery={vi.fn()}
         onSelectReview={vi.fn()}
+        onOpenSearch={vi.fn()}
         onOpenSettings={vi.fn()}
       />
     );

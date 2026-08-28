@@ -302,7 +302,11 @@ describe("Toolbar search — the clear control", () => {
     render(<App />);
     await screen.findByText("Smithery");
 
-    const input = screen.getByLabelText("Search") as HTMLInputElement;
+    // The rail's Search button (Task 8) carries the same aria-label until
+    // Task 9 removes this field, and Discovery's own <header> also answers
+    // to the banner landmark — narrow to the element this test actually
+    // means: the field, not any button.
+    const input = screen.getAllByLabelText("Search").find((el) => el.tagName === "INPUT") as HTMLInputElement;
     // Empty field: no clear control to click.
     expect(screen.queryByLabelText("Clear search")).toBeNull();
 

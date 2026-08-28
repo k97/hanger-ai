@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent, waitFor, cleanup } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, cleanup, within } from "@testing-library/react";
 import App from "../App";
 import { invoke } from "@tauri-apps/api/core";
 
@@ -196,7 +196,9 @@ describe("Avionics A3 Toolbar Verification", () => {
     await screen.findByText("alpha-skill");
     expect(screen.getByText("beta-skill")).toBeTruthy();
 
-    const filterInput = screen.getByLabelText("Search");
+    // Scoped to the cap: the rail's Search button (Task 8) carries the same
+    // aria-label until Task 9 removes this field.
+    const filterInput = within(screen.getByRole("banner")).getByLabelText("Search");
     fireEvent.change(filterInput, { target: { value: "alpha" } });
 
     await waitFor(() => {
