@@ -80,6 +80,11 @@ const ALLOWLIST: Exemption[] = [
     reason:
       "owed a specimen: takes only props, no IPC; extracted from FindingChip by the Task 3 refactor (2026-08-28) and the page's FindingChip specimen renders it, but rendering inside another specimen does not count per this guard's own rule",
   },
+  {
+    component: "HeroBand",
+    reason:
+      "owed a specimen: takes only props, no IPC; built standalone by Task 4 (2026-08-28) ahead of its two real callers, the Global MCP hero and a project pane hero, landing in later tasks",
+  },
 ];
 
 function componentNames(): string[] {

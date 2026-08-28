@@ -17,7 +17,7 @@ import { describe, expect, it } from "vitest";
 // fails its own check below rather than being silently forgiven. Allowlist
 // entries name a file, the exact line text, and a reason; an entry that
 // stops matching fails the run so the list cannot go stale.
-const ROLE_FILES = ["AssetDetail.tsx", "ReachCard.tsx", "McpServerDetail.tsx", "MarkdownDoc.tsx", "Flyout.tsx", "ReviewInspector.tsx", "ListCard.tsx", "InspectorCap.tsx", "Sidebar.tsx", "DiscoverySidebar.tsx", "ReviewSidebar.tsx", "DesignSystemSidebar.tsx", "DiscoveryPane.tsx", "AssetHeaderRow.tsx", "AssetRow.tsx", "SummaryStrip.tsx"];
+const ROLE_FILES = ["AssetDetail.tsx", "ReachCard.tsx", "McpServerDetail.tsx", "MarkdownDoc.tsx", "Flyout.tsx", "ReviewInspector.tsx", "ListCard.tsx", "InspectorCap.tsx", "Sidebar.tsx", "DiscoverySidebar.tsx", "ReviewSidebar.tsx", "DesignSystemSidebar.tsx", "DiscoveryPane.tsx", "AssetHeaderRow.tsx", "AssetRow.tsx", "SummaryStrip.tsx", "HeroBand.tsx"];
 const ALLOW: { file: string; lineText: string; reason: string }[] = [
   { file: "src/App.tsx", lineText: 'bg-plane text-state-danger border border-line text-small leading-normal font-mono break-all animate-fade-in', reason: "pre-dates the roles; App.tsx pass pending" },
   { file: "src/App.tsx", lineText: 'bg-plane text-state-success border border-line text-small leading-normal animate-fade-in', reason: "pre-dates the roles; App.tsx pass pending" },
