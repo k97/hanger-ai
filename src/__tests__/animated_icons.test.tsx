@@ -105,7 +105,7 @@ describe("Disc3Icon", () => {
 
   it("is stroke-compensated by the same table as every other mark", () => {
     const html = renderToStaticMarkup(<Disc3Icon size={12} />);
-    expect(html).toMatch(/stroke-width="2.2"/); // strokeFor(12), icons.tsx
+    expect(html).toMatch(/stroke-width="2"/); // strokeFor(12), icons.tsx
   });
 
   it("loops only while active, and only the arcs move", () => {

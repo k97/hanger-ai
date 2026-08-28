@@ -103,8 +103,8 @@ describe("v4 marks", () => {
       const html = renderToStaticMarkup(<Ours size={14} />);
       expect(html, name).toContain('viewBox="0 0 24 24"');
       expect(html, name).toContain('width="14"');
-      // strokeFor(14) is 1.9 (icons.tsx:76-81)
-      expect(html, name).toContain('stroke-width="1.9"');
+      // strokeFor(14) is 1.71 (icons.tsx:76-81)
+      expect(html, name).toContain('stroke-width="1.71"');
     }
   });
 
@@ -116,9 +116,10 @@ describe("v4 marks", () => {
     const html = renderToStaticMarkup(<EllipsisVerticalIcon size={15} />);
     expect(html).toContain('width="18"');
     expect(html).toContain('height="18"');
-    // strokeFor(18) is 1.7 (icons.tsx:99-103) — the box crossed the 16px
-    // band, so the stroke thins a step even as the box grows.
-    expect(html).toContain('stroke-width="1.7"');
+    // strokeFor(18) is 1.5 (icons.tsx:99-103) — the box crossed the 16px
+    // box where the floor takes over, so the stroke settles at the family's
+    // native weight even as the box grows.
+    expect(html).toContain('stroke-width="1.5"');
     // Still the Heroicons ellipsis mark itself, not a substitute.
     expect(pathData(html)).toEqual(pathData(renderToStaticMarkup(<HeroEllipsisVertical />)));
   });
@@ -128,7 +129,7 @@ describe("v4 marks", () => {
     const html = renderToStaticMarkup(<SkillIcon size={14} />);
     expect(html).toContain('viewBox="0 0 24 24"');
     expect(html).toContain('stroke="currentColor"');
-    expect(html).toContain('stroke-width="1.9"');
+    expect(html).toContain('stroke-width="1.71"');
     // The document body and its two rules were unasserted: only the sparkle
     // was checked, so a SkillIcon that lost its page still passed.
     expect(paths[0]).toContain("M14.5 4.25H7A2.25 2.25 0 004.75 6.5v12.25");
@@ -143,6 +144,6 @@ describe("v4 marks", () => {
     const html = renderToStaticMarkup(<GaugeIcon size={14} />);
     expect(html).toContain("M4.9 17.2a7.5 7.5 0 1 1 14.2 0");
     expect(html).toContain("M12 14.8l4.2-4.2");
-    expect(html).toContain('stroke-width="1.9"');
+    expect(html).toContain('stroke-width="1.71"');
   });
 });

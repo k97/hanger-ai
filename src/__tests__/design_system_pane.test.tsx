@@ -173,9 +173,12 @@ describe("Design system — Typography and Iconography", () => {
     for (const name of ["FolderIcon", "GitMergeIcon", "GitPullRequestClosedIcon", "RevealInFileManagerIcon"]) {
       expect(within(section).getByText(name), name).toBeTruthy();
     }
-    // strokeFor's four bands (icons.tsx): ≤12 → 2.2, ≤16 → 1.9, ≤20 → 1.7, above → 1.5.
-    for (const stroke of ["2.2", "1.9", "1.7", "1.5"]) {
-      expect(within(section).getByText(stroke, { exact: false }), stroke).toBeTruthy();
+    // strokeFor (icons.tsx) is one continuous rule now; the specimen's four
+    // bands (12/16/20/24) render only two distinct values, 2 and 1.5 — 1.5
+    // now repeats across three bands, so the query must tolerate more than
+    // one match (getByText, singular, would throw on that).
+    for (const stroke of ["2", "1.5"]) {
+      expect(within(section).getAllByText(stroke, { exact: false }).length, stroke).toBeGreaterThan(0);
     }
     // Every BrandId draws from the sprite; Codex carries its dark twin.
     expect(section.querySelector('use[href="#brand-devin"]')).toBeTruthy();
