@@ -67,13 +67,6 @@ describe("Discovery — the row is the interaction", () => {
     expect(screen.getByText("cursor.directory")).toBeTruthy();
   });
 
-  it("says so plainly when nothing matches", async () => {
-    // Text search moved to the palette (⌘K); the kind chip is the only
-    // narrowing left in the pane, so an unmatched kind is what empties it.
-    render(<DiscoveryPane kind="zzzzz-no-such-kind" />);
-    expect(await screen.findByText("No directory matches that filter.")).toBeTruthy();
-  });
-
   it("asks before leaving the app, and opens only on confirmation", async () => {
     render(<DiscoveryPane />);
     const row = await screen.findByText("Smithery");

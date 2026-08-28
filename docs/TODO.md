@@ -714,8 +714,6 @@ the commit bodies — the reasoning travels with the commits that made each call
 pass that closed out every other family in that document left these four
 exactly where it found them:
 
-- `DiscoveryPane.tsx:230-235`, a filter hiding every directory — proposed
-  `telescope`.
 - `Sidebar.tsx:180`, no repositories linked — proposed `folder-plus`.
 - `NeedsReviewPane.tsx:240`, a filter hiding every issue — proposed `search`
   (kind/place chips only since 2026-08-27; text search moved to the palette).

@@ -225,13 +225,7 @@ export default function DiscoveryPane({
       </header>
 
       <div className="flex-1 min-h-0 overflow-y-auto mx-[18px] mt-3.5 p-1.5 border border-line rounded-tl-plane rounded-tr-plane">
-        {shown.length === 0 ? (
-          <p className={`py-9 px-3 text-center ${captionClass}`}>
-            {isFavouritesView
-              ? "No favourite matches that filter."
-              : "No directory matches that filter."}
-          </p>
-        ) : isFavouritesView ? (
+        {isFavouritesView ? (
           <section>
             {shown.map((dir) => (
               <Row
