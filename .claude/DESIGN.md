@@ -1638,10 +1638,23 @@ the Settings cog; a palette would read as appearance, which Settings owns),
 **dev builds only**, TOC in the source-list column.
 
 **What it is.** The system, rendered by the app that uses it. Seven sections
-mirror §§1–5 in order — Colour, Typography, Geometry, Motion,
-Iconography, Controls, Components (`DESIGN_SECTIONS`,
-`designSystemFixtures.ts`). Two of the names are Karthik's ruling of
-2026-08-28: "Type" became "Typography",
+cover §§1–5, layered in the TOC under three eyebrows (`DESIGN_GROUPS` and
+the `group` field of `DESIGN_SECTIONS`, `designSystemFixtures.ts`;
+`DesignSystemSidebar` draws one eyebrow per group on the machine sidebar's
+`groupLabelClass`): **Foundations** — Colour, Geometry, Motion;
+**Styles** — Typography, Iconography; **Components** — Controls,
+Composites. The layering is Karthik's ruling of 2026-08-28 after reading
+atomic design: Frost calls tokens subatomic and fonts, icons and buttons
+the first atoms; Material's navigation says Foundations, Styles,
+Components for the same three tiers, and those are the words chosen —
+tokens the theme returns, then the first things you can see, then what is
+built from them. The page's sections run in the same order, so the TOC and
+the scroll agree. The last section is "Composites" rather than
+"Components" because a group cannot name one of its own members; the
+alternatives were Frost's "Organisms" (accurate, but a word nobody says
+in this app) and "Patterns" (Polaris's word for UX solutions, which these
+are not). Two more of the names are Karthik's ruling of the same day:
+"Type" became "Typography",
 the label every system uses (Apple HIG, Material, Carbon, Polaris, Primer)
 and this file's own §2 title; the icon system gained a section, and
 "Iconography" over "Icons" follows Carbon, Primer and Atlassian and
