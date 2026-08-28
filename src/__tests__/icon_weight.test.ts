@@ -40,8 +40,15 @@ describe("strokeFor", () => {
 // contract only — happy-dom lays out nothing, so these read `width`
 // attributes, never geometry.
 describe("shell marks are 16px boxes (I2)", () => {
-  it("the rail's marks are 16 × their optical factor, none a lingering 17", () => {
-    const { container } = render(
+  it("every rail mark pins its own width — 16 × its optical factor", () => {
+    // Attribute contract, per mark, not a band: a band wide enough to hold
+    // every factor (1 to 1.2) also holds a reverted 17px box for any mark
+    // whose factor exceeds 16/17 ≈ 0.94 — ComputerDesktop, GlobeAlt,
+    // ExclamationTriangle and Cog6Tooth (1.12/1.09/1.04/1.12) all render
+    // inside [16, 19.2] at size 17 too. Pinning each mark's exact width by
+    // its button's aria-label means a revert of any one mark fails its own
+    // row, not a shared range every factor happens to fit.
+    render(
       React.createElement(IconRail, {
         active: "machine",
         needsReviewCount: 0,
@@ -50,19 +57,22 @@ describe("shell marks are 16px boxes (I2)", () => {
         onSelectDiscovery: () => {},
         onSelectReview: () => {},
         onOpenSearch: () => {},
+        onSelectDesign: () => {},
         onOpenSettings: () => {},
       })
     );
-    // HangerMark (the brand mark, width 22) is not a sized() box — excluded
-    // by width, per the brief.
-    const widths = Array.from(container.querySelectorAll("nav svg"))
-      .map((s) => Number(s.getAttribute("width")))
-      .filter((w) => w !== 22);
-    expect(widths.length).toBeGreaterThan(3);
-    for (const w of widths) {
-      expect(w).toBeGreaterThanOrEqual(16);
-      expect(w).toBeLessThanOrEqual(16 * 1.2 + 0.01);
-      expect(w).not.toBeCloseTo(17, 1);
+    const expected: [string, string][] = [
+      ["My machine", "17.92"], // ComputerDesktopIcon, factor 1.12
+      ["Link map", "16"], // FolderSymlinkIcon, factor 1
+      ["Discovery", "17.44"], // GlobeAltIcon, factor 1.09
+      ["Needs review — 0 flagged", "16.64"], // ExclamationTriangleIcon, factor 1.04
+      ["Search", "16"], // MagnifyingGlassIcon, factor 1
+      ["Design system", "16"], // SwatchIcon, factor 1
+      ["Settings", "17.92"], // Cog6ToothIcon, factor 1.12
+    ];
+    for (const [label, width] of expected) {
+      const svg = screen.getByLabelText(label).querySelector("svg");
+      expect(svg?.getAttribute("width"), label).toBe(width);
     }
   });
 
