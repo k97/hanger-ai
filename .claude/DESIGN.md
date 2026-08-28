@@ -191,11 +191,14 @@ the panes as `px-[18px]` / `mx-[18px]`.
 
 Four radii: `--radius-plane: 16px` for planes (`tokens.css:65`),
 `--radius-inner: 12px` for inner surfaces (`:66`), `--radius-pill: 9999px`
-for controls (`:68`), and `--radius-control: 6px` (`:139`) — no longer
+for controls (`:68`), and `--radius-control: 8px` (`:161`) — no longer
 legacy. Karthik ruled 2026-08-23 that buttons take two radii chosen by
 size, not by role: a normal button (30px) stays `rounded-pill`, unchanged;
 a mini button (26px) takes `rounded-control`, so the mini tier reads as
-its own control rather than a shrunken pill. All four are registered as
+its own control rather than a shrunken pill. The value was 6px until
+2026-08-28, when Karthik raised it by two — rounder, the way Codex's
+small buttons are, and still short of a pill; the finding chip moves with
+it, since `FindingChip.tsx:83` builds the chip from `miniBtnClass`. All four are registered as
 utilities in the same `@theme` block (`index.css:113-117`). The mini tier
 is `src/components/miniButton.ts`'s three exported class strings, each
 `rounded-control` on the shared 26px `base` (`:12-13`): `miniBtnClass`

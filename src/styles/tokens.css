@@ -158,7 +158,7 @@
   --fs-row: var(--fs-micro);
   --fs-ui: var(--fs-small);
   --fs-title: var(--fs-base);
-  --radius-control: 6px;
+  --radius-control: 8px;
   --duration-fast: 120ms;
   --duration-panel: 180ms;
   --duration-rail: 240ms;

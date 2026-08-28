@@ -1,7 +1,8 @@
 /**
  * The mini button tier (Karthik's ruling, 2026-08-23): two button sizes, and
  * the radius follows the size, not the role. A 30px button stays a full
- * pill; a 26px button takes --radius-control (6px) so the two tiers never
+ * pill; a 26px button takes --radius-control (8px since 2026-08-28, up from
+ * 6 — rounder, the way Codex's are, but never a pill) so the two tiers never
  * read as one control at two scales. Hoisted class strings, the house idiom
  * for variants — never clsx, never cva.
  *
