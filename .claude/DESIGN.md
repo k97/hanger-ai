@@ -352,24 +352,27 @@ zoom (`index.css:201-206`).
 ## 4. Icon system
 
 Icons are not used raw. Every export in `src/components/icons.tsx` is wrapped
-in `sized()` (`icons.tsx:119`), which does two things a plain import cannot.
+in `sized()` (`icons.tsx:122`), which does two things a plain import cannot.
 
 **Stroke compensation.** Heroicons' outline set is drawn on a 24px grid at 1.5
-stroke; at this shell's working sizes of 10–17px that thins to ~0.7px and goes
-soft. `strokeFor()` is one continuous rule, not size bands:
-`Math.max(1.5, 24 / box)` rounded to two decimal places (`icons.tsx:102-104`).
-That lands the stroke at 1.0px on screen at 16px and below — the reference
-marks measure exactly 2 device px at 2×
+stroke; at this shell's working sizes (12–16px in the shell, 20+ in empty
+states) the smallest of them thins to ~0.75px and goes soft. `strokeFor()`
+is one continuous rule, not size bands: `Math.max(1.5, 24 / box)` rounded to
+two decimal places (`icons.tsx:104-106`). That lands the stroke at 1.0px for
+a 16px box — the reference marks measure exactly 2 device px at 2×
 (`docs/v7-todo-content-typography/icon-weight-review.md`) — and floors it at
-the family's own 1.5 weight above 16px.
+the family's own 1.5 weight above 16px, where a mark's optical factor can
+push its box past 16 and the stroke settles a little heavier: the rail's
+1.12 marks land at 1.12px, measured 2.21 device px at 2×
+(`docs/evidence/2026-08-28-icons/icon-stroke-measurements-after.txt`).
 
 **Optical correction.** A per-mark `optical` ratio corrects for how much of the
 24 grid each mark actually inks, because a 1:1 family swap inherits the
 difference — most visibly in the icon rail, where four marks stack at one size
 and any mismatch reads as a wobble (`icons.tsx:107-118`). The factors are stated
 as measured ink-extent ratios, not estimates, and anything within 4% is left at
-1. Examples: `ChevronDownIcon` 0.81 (`icons.tsx:143`), `Square2StackIcon` 1.2
-(`:174`), `Cog6ToothIcon` 1.12 (`:149`).
+1. Examples: `ChevronDownIcon` 0.81 (`icons.tsx:146`), `Square2StackIcon` 1.2
+(`:188`), `Cog6ToothIcon` 1.12 (`:152`).
 
 The family is Heroicons 24/outline (`icons.tsx:30-79`), with seven static
 marks on lucide because Heroicons has no equivalent: `FolderSymlink`,
@@ -383,15 +386,15 @@ which is exported for that one reader (`bc1c3c8`, 2026-08-28).
 the rail (`IconRail.tsx:73`), sidebar rows (`Sidebar.tsx:130`), the
 inspector cap's kind icon (`InspectorCap.tsx:202`) and the titlebar panel
 toggles (`InspectorCap.tsx:373`) — 14 for row marks (`AssetDetail.tsx:275`'s
-identity rows, `MechanismGlyph.tsx:78`), and 12 for chevrons
-(`AssetHeaderRow.tsx:36-38`, `Flyout.tsx:734`) (Karthik's ruling I2,
-2026-08-28). A mark also takes the ink of the text beside it rather than a
-fixed shade of its own: the cap's kind icon sits in `--ink-3`
-(`InspectorCap.tsx:202,205`; ruling I3), and the row's mechanism glyph does
-too in its unflagged states — symlink, copy, none
-(`MechanismGlyph.tsx:20,21,24`) — while drift and broken keep their state
+identity rows, `MechanismGlyph.tsx:85`), and 12–13 for chevrons and inline
+marks (`AssetHeaderRow.tsx:36-38`, `Flyout.tsx:734`; `InspectorCap.tsx:259`
+carries a 13) (Karthik's ruling I2, 2026-08-28). A mark also takes the ink of
+the text beside it rather than a fixed shade of its own: the cap's kind icon
+sits in `--ink-3` (`InspectorCap.tsx:202,205`; ruling I3), and the row's
+mechanism glyph does too in its unflagged states — symlink, copy, none
+(`MechanismGlyph.tsx:21,22,25`) — while drift and broken keep their state
 colour instead of following the ink ladder, `--state-warning` and
-`--state-danger` (`:22-23`), ruling I4's stated exception.
+`--state-danger` (`:23-24`), ruling I4's stated exception.
 
 Twenty more marks are animated, and every one of them is lucide too — not
 because Heroicons lacks their geometry, but because it has no motion story,
