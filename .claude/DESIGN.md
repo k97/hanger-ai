@@ -392,7 +392,7 @@ this module by name and shows the stroke ladder by calling `strokeFor`,
 which is exported for that one reader (`bc1c3c8`, 2026-08-28).
 
 **Size and ink by role.** Three sizes cover the shell: 16 for shell marks —
-the rail (`IconRail.tsx:73`), sidebar rows (`Sidebar.tsx:130`), the
+the rail (`IconRail.tsx:73`), sidebar rows (`Sidebar.tsx:154`), the
 inspector cap's kind icon (`InspectorCap.tsx:202`) and the titlebar panel
 toggles (`InspectorCap.tsx:373`) — 14 for row marks (`AssetDetail.tsx:275`'s
 identity rows, `MechanismGlyph.tsx:85`), and 12–13 for chevrons and inline
@@ -602,10 +602,11 @@ width, drag handle, and Finder-style snap-shut below 160px
 (`SourceListShell.tsx:51`, `:63`). One shell so two different lists cannot
 drift apart on sizing (`:18-21`).
 
-**`Sidebar`** (`Sidebar.tsx:11-25`) — `width`, `setWidth`, `collapsed`,
+**`Sidebar`** (`Sidebar.tsx:13-30`) — `width`, `setWidth`, `collapsed`,
 `setCollapsed`, `selectedItem`, `setSelectedItem`, `inventory`, `assetCounts`,
 `detectedEngines`, `linkedRepos`, `loadLinkedRepos`, `onRefreshGlobalCounts?`,
-`setError`.
+`setError`, `onOpenSearch` — opens the search palette, wired to the sidebar's
+own Search row above Scope.
 
 **`ReviewSidebar`** (`ReviewSidebar.tsx:4`) — the review view's second column.
 
@@ -1299,8 +1300,8 @@ kind's group with the backend's rank order untouched within it, so a kind
 with no hits contributes no group at all (`:33-43`, `:111-115`). Each group
 is a `Command.Group`, given `aria-label` directly rather than cmdk's own
 `heading` prop, so the heading is a plain `<div>` — `text-small text-ink-3`,
-`px-3.5 pb-1`, `pt-1` for the first group and `pt-3` for the rest, in
-Codex's sentence-case style — and Tailwind tokens apply to it directly
+`px-3.5 pb-1`, `pt-1` for the first group and `pt-3` for the rest, sentence
+case and muted, at body-small — and Tailwind tokens apply to it directly
 instead of through cmdk's `aria-hidden` heading slot (`:150-160`). Each row
 grew from `px-2.5 py-1.5` to `px-3.5 py-2.5` with `rounded-inner` in place of
 `rounded-soft` and `bg-plane` in place of `bg-plane-2` for the selected row
