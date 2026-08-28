@@ -155,13 +155,12 @@ describe("ProfilePane Component-Level Filtering Integration", () => {
     // an `order` utility would apply at all.
     expect(trackBox.parentElement).toBe(stripBox.parentElement);
     // Cited verbatim by DESIGN.md -> Pane composition; change them together.
-    // `pt-1.5`, not the `pt-3.5` this carried until 2026-08-27: the cap is a
-    // 40px band around 27px controls, so 6.5px of it is unpainted and
-    // `pt-3.5` printed the first gap at 20.5px. 6 + 6.5 = 12.5, which is
-    // Karthik's pick over 14.5 and 10.5 -- it lands the tab pill's top on
-    // the rail mark's, both at 46. Measured on the live window, see
-    // src/__tests__/shell_first_gap.test.tsx.
-    expect(trackBox.className).toBe("px-[18px] pt-1.5 pb-3.5");
+    // `pt-[18px]` since 2026-08-28 (same day, one ruling after `pt-3.5`):
+    // the sheet's inset is uniform -- 18 from its top rule, the same 18 the
+    // content keeps from its left edge -- because Karthik read the 14/18
+    // pair as inconsistent next to Needs review, whose strip sits at 18 on
+    // both sides. See src/__tests__/shell_first_gap.test.tsx.
+    expect(trackBox.className).toBe("px-[18px] pt-[18px] pb-3.5");
     expect(stripBox.className).toBe("mx-[18px] mb-3.5");
   });
 

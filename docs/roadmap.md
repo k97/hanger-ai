@@ -122,26 +122,39 @@ doc to confirm the file exists or that it can carry `mcpServers`; if it can,
 it would be a sibling gap to the one above. Flagged here as something to
 check, not a confirmed finding.
 
-## Config-directory env vars are not honoured, and cannot be fixed per-kind
+## Config-directory env vars: honoured, with one ceiling
 
-Recorded 2026-08-27, cut from the MCP source-locations plan as pre-flight P1.
-`CODEX_HOME` relocates `~/.codex` and `CLAUDE_CONFIG_DIR` relocates
-`~/.claude`; Hanger resolves both against `$HOME` unconditionally
-(`scanner.rs:510` for agent roots, `discover.rs` for MCP sources) and reads
-neither variable anywhere.
+Updated 2026-08-28. `CLAUDE_CONFIG_DIR` and `CODEX_HOME` are now honoured for
+all four asset kinds through one chokepoint, `agents::engine_base` — agent
+detection and MCP source resolution both call it, so a relocated directory
+cannot be followed for tools and missed for skills.
 
-Fixing it for MCP alone would be worse than the current uniform miss: those
-directories also own skills, rules and subagents (`agents.rs:111-116`,
-`:122-127`), so Hanger would report tools from the relocated directory and
-zero skills from the old one — rendering an absence as a finding about the
-user's machine under `ui-copy.md`'s "empty is a finding". Any fix must span
-all four asset kinds together — skills, rules, subagents and MCP config —
-rather than land as an MCP-only patch, so it belongs in its own plan, not as
-a follow-on to this one.
+`CLAUDE_CONFIG_DIR` relocating `.claude.json` is measured, not inferred: with
+the variable set, `claude mcp list` returned a server declared in
+`$DIR/.claude.json` and stopped returning those in `~/.claude.json`, so the
+variable substitutes rather than adding a search root.
 
-Known ceiling for that plan: Hanger sees only its own process environment.
+**Ceiling, unfixed by design.** Hanger reads only its own process environment.
 Launched from Finder it inherits launchd's, not the user's shell, so a
-variable exported in `~/.zshrc` is invisible either way.
+variable exported in `~/.zshrc` is invisible and the un-relocated path is
+scanned. Reading shell init files to reconstruct the environment is guesswork
+with its own failure modes and was not attempted.
+
+**Not covered:** `GEMINI_CLI_SYSTEM_SETTINGS_PATH`, which relocates a
+system-absolute path rather than a home-relative one and needs a different
+mechanism; and `XDG_CONFIG_HOME`, which affects the Linux layout this
+macOS-only app does not ship.
+
+**A relocation made after an asset was persisted leaves a stale row.** Once a
+variable is set, a persisted asset row still keyed to its pre-relocation
+config path no longer matches anything in `matching_sources`, and resolution
+falls back to `read_swept`'s extension guess. A `User`-tier `.claude.json`
+server survives that fallback by accident — the guess and `ClaudeJson`'s
+`User`-tier both read the top-level `mcpServers` key — while a `Local`-tier
+one does not, and renders as failed until the next scan re-persists it at the
+new path (self-heals; not a lasting defect). Separately, `relocated()` takes
+the environment value verbatim: a trailing slash or a relative path reaches
+the UI unnormalised.
 
 ## No help surface, and one homeless sentence waiting for it
 

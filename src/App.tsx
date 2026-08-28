@@ -1454,6 +1454,26 @@ export default function App() {
   const inspectorIsRepoScope = selectedSidebarItem.startsWith("/") || selectedSidebarItem.startsWith("~");
   const inspectorActiveCategory = inspectorIsRepoScope ? repoCategory : profileCategory;
 
+  /* Which column comes first after the icon rail. The source list already
+     draws the sheet's top-left corner and left edge when it is open
+     (SourceListShell); when it is not — collapsed, or the link map, which
+     has none — <main> leads and draws them, and when <main> is `hidden`
+     behind an expanded inspector, the inspector does. One column, never
+     two, and never none. */
+  const mainLeads = selectedSidebarItem === "linkmap" || sidebarCollapsed;
+  const asideLeads = inspectorExpanded && sidebarCollapsed;
+  /* The sheet: a column's --page ground, starting under the 36px cap (every
+     cap's h-9) rather than behind it, with the --line border along its top.
+     The column itself paints --sidebar, once; the sheet sits above that
+     tint and below the column's content (-z-10 inside the column's own
+     `isolate`), so the cap keeps the sidebar's material and nothing paints
+     it twice — a full-width band under the columns did, and the double
+     tint read as a seam at the rail (2026-08-28). The leading column adds
+     the left edge and the 16px corner — the same treatment SourceListShell
+     gives the source list. */
+  const sheetClass = (leads: boolean) =>
+    `absolute inset-x-0 top-9 bottom-0 -z-10 bg-page border-t border-line ${leads ? "border-l rounded-tl-plane" : ""}`;
+
   return (
     <div className="h-screen w-screen text-ink-1 flex font-sans transition-colors duration-press overflow-hidden">
       {/* ══ Left column: rail + source list share one plane and carry their
@@ -1479,7 +1499,7 @@ export default function App() {
             window drag instead of reopening the sidebar. The cap stretches to
             the column so the whole 40px band drags; its contents overflow the
             56px rail when collapsed. */}
-        <div data-tauri-drag-region className="relative z-40 h-10 shrink-0 flex items-center select-none">
+        <div data-tauri-drag-region className="relative z-40 h-9 shrink-0 flex items-center select-none">
           {capDragOverlay}
           <div className="w-[76px] shrink-0" aria-hidden="true" />
           {selectedSidebarItem !== "linkmap" && (
@@ -1488,6 +1508,58 @@ export default function App() {
                 <PanelLeftIcon size={16} aria-hidden="true" />
               </button>
             </Tooltip>
+          )}
+          {/* The breadcrumb lives here, in the band, after the toggle — not in
+              <main>'s header — so it has one position whether the source
+              list is open or closed (Karthik, 2026-08-28: "the menubar is a
+              separate entity"; crumb_in_band.test.tsx). Two gaps, both
+              measured on a live window rather than derived (native traffic
+              lights are not in the DOM):
+
+              Every view but the link map: nothing between the toggle and the
+              crumb — the toggle's 32px box ends at 108 and the crumb's ink
+              starts at 109.5 (measured at 2x: x=219), ~9.5pt after the
+              icon's ink, within 2pt of the clearance the icon gets after
+              the lights.
+
+              Link map: the toggle is gated out, so the crumb clears the
+              lights itself. 8px after the 76px spacer puts its ink at 84 —
+              ~11.5pt past the green dot, exactly where `pl-[28px]` from
+              <main>'s edge landed it before the move.
+
+              Not rendered while the inspector is expanded: <main> is hidden
+              and the inspector's cap carries the selected asset's identity
+              at this same spot (`leadingColumn`, InspectorCap). */}
+          {!inspectorExpanded && (
+            <div
+              className={`flex items-center gap-[7px] font-flex text-small text-ink-3 whitespace-nowrap shrink-0 ${
+                selectedSidebarItem === "linkmap" ? "pl-2" : ""
+              }`}
+            >
+              {crumbSegments.map((segment, idx) =>
+                idx === crumbSegments.length - 1 ? (
+                  <b key={segment} className="font-medium text-ink-1">
+                    {segment}
+                  </b>
+                ) : (
+                  <span key={segment} className="flex items-center gap-[7px]">
+                    {segment === "My machine" ? (
+                      /* relative: lifts the button above the cap's drag
+                         overlay; the rest of the crumb stays draggable. */
+                      <button
+                        onClick={goToGlobal}
+                        className="relative cursor-pointer hover:text-ink-1 transition-colors duration-hover ease-spring"
+                      >
+                        {segment}
+                      </button>
+                    ) : (
+                      <span>{segment}</span>
+                    )}
+                    <span>›</span>
+                  </span>
+                )
+              )}
+            </div>
           )}
         </div>
         <div className="flex-1 flex min-h-0">
@@ -1586,70 +1658,20 @@ export default function App() {
           loadLinkedRepos={loadLinkedDirectories}
           onRefreshGlobalCounts={refreshGlobalCounts}
           setError={setError}
+          onOpenSearch={() => setSearchOpen(true)}
         />
         )}
         </div>
       </div>
 
-      <main ref={mainRef} className={`${inspectorExpanded ? "hidden" : "flex-1 flex flex-col min-w-0 h-full relative overflow-hidden bg-page"}`}>
-        {/* Content cap: breadcrumb left; filter and inspector toggle right.
-            A <header> on purpose — it is the content column's banner, and the
-            toolbar guards assert against that landmark. */}
-        <header data-tauri-drag-region className="relative h-10 shrink-0 flex items-center gap-2.5 select-none z-30 font-flex">
+      <main ref={mainRef} className={`${inspectorExpanded ? "hidden" : "flex-1 flex flex-col min-w-0 h-full relative overflow-hidden bg-sidebar isolate"}`}>
+        <div data-testid="content-sheet" aria-hidden="true" className={sheetClass(mainLeads)} />
+        {/* Content cap: the trailing controls only — the breadcrumb sits in
+            the sidebar cap since 2026-08-28, so it does not move with this
+            column. A <header> on purpose — it is the content column's banner,
+            and the toolbar guards assert against that landmark. */}
+        <header data-tauri-drag-region className="relative h-9 shrink-0 flex items-center gap-2.5 select-none z-30 font-flex">
           {capDragOverlay}
-          {/* Three cases, because what sits between the rail and this crumb
-              differs in each, and all three gaps are measured against a live
-              window rather than derived (native traffic lights are not in the
-              DOM). Re-measure all of them if the spacer, button padding, icon
-              size, or trafficLightPosition changes.
-
-              Link map: no source list AND no sidebar toggle (the toggle is
-              gated out below), so nothing occupies the band the traffic
-              lights sit in and the crumb has to clear them itself. 28px puts
-              its ink ~11.5pt past the green dot — the same clearance the
-              toggle icon gets on every other view. It was 18px, which left
-              1.5pt and read as an overlap.
-
-              Collapsed, not the link map: the toggle overflows the 56px rail
-              into this cap and the crumb steps aside for it. 51px, not the
-              56px rail width, so the gap after the icon's ink matches.
-
-              Otherwise: the source list sits between the rail and this
-              column, so the lights are nowhere near the crumb. */}
-          <div
-            className={`flex items-center gap-[7px] text-small text-ink-3 whitespace-nowrap shrink-0 ${
-              selectedSidebarItem === "linkmap"
-                ? "pl-[28px]"
-                : sidebarCollapsed
-                ? "pl-[51px]"
-                : "pl-[18px]"
-            }`}
-          >
-            {crumbSegments.map((segment, idx) =>
-              idx === crumbSegments.length - 1 ? (
-                <b key={segment} className="font-medium text-ink-1">
-                  {segment}
-                </b>
-              ) : (
-                <span key={segment} className="flex items-center gap-[7px]">
-                  {segment === "My machine" ? (
-                    /* relative: lifts the button above the cap's drag
-                       overlay; the rest of the crumb stays draggable. */
-                    <button
-                      onClick={goToGlobal}
-                      className="relative cursor-pointer hover:text-ink-1 transition-colors duration-hover ease-spring"
-                    >
-                      {segment}
-                    </button>
-                  ) : (
-                    <span>{segment}</span>
-                  )}
-                  <span>›</span>
-                </span>
-              )
-            )}
-          </div>
-
           <div className="ml-auto flex items-center gap-1 pr-3">
             {/* The map view has no inspector column — its detail card lives
                 on the canvas — so its toolbar slot holds Rescan instead. */}
@@ -1911,8 +1933,12 @@ export default function App() {
           style={
             inspectorExpanded ? undefined : { width: refitInspectorWidth(inspectorWidth, room) }
           }
-          className={`shrink-0 h-full min-h-0 border-l border-line bg-page flex flex-col relative ${inspectorExpanded ? "flex-1" : ""}`}
+          /* The full-height divider belongs beside <main> only: expanded, the
+             column's left edge is the source list's or the rail's, and a line
+             there would run up through the cap band. */
+          className={`shrink-0 h-full min-h-0 bg-sidebar isolate flex flex-col relative ${inspectorExpanded ? "flex-1" : "border-l border-line"}`}
         >
+          <div data-testid="inspector-sheet" aria-hidden="true" className={sheetClass(asideLeads)} />
           {/* Rendered in both states on purpose: expanded, the panel already
               starts at the main column's left edge, so the handle sits where
               it always did and is the way back out of the expanded state. */}
@@ -1929,7 +1955,7 @@ export default function App() {
               Link to… and the overflow menu, ahead of the same Expand/Hide
               pair. `capDragOverlay` stays first so the row is still
               draggable everywhere the cap itself has nothing painted. */}
-          <div data-tauri-drag-region className="relative h-10 shrink-0">
+          <div data-tauri-drag-region className="relative h-9 shrink-0">
             {capDragOverlay}
             <InspectorCap
               asset={capAsset}

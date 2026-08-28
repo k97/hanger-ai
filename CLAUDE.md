@@ -65,7 +65,6 @@ in `src/App.tsx`, persisted as the `selected_sidebar_item` preference.
   rule.
 
 Queued work with a defined finish line lives in [docs/TODO.md](docs/TODO.md).
-T1 was blocked on the concurrent sessions, which have now ended.
 
 ## Verification
 
@@ -98,6 +97,4 @@ deliberately left unfixed, with evidence; `docs/roadmap.md`, deferred work.
 
 Not established, left out rather than guessed: whether Windows or Linux builds
 are intended (`tauri.conf.json` sets `"targets": "all"`, the README says macOS
-only). Resolved 2026-08-26: `ci.yml` runs all four gates on every push and PR;
-the release process is verified and lives in
-[Releasing](.claude/rules/releasing.md).
+only).

@@ -29,6 +29,26 @@ that tells the truth from the `tauri dev` app:
   `target/debug/tauri-app`, **owner name `tauri-app`**). The window also moves
   between reads — it was at `@244,79` and `@267,92` twenty minutes apart on
   2026-08-27 — so re-read bounds before every capture and every click.
+- **Three windows share the dev pid.** CGWindowList lists a 500×500 helper
+  and the menu-bar strip under the same `tauri-app` pid as the main window;
+  two captures on 2026-08-28 hit those first. Take the entry with width ≥ 900
+  and height ≥ 600. `tauri dev` also relaunches the *previous* binary after a
+  `src-tauri` change and rebuilds without relaunching — before a capture,
+  `ps -o lstart= -p <pid>` must be younger than
+  `stat -f %Sm src-tauri/target/debug/tauri-app`. The `theme` preference is
+  shared state like `selected_sidebar_item`: a peer flipped it to dark
+  mid-session, so read it from the store first and name the theme in the
+  evidence file.
+- **To run the build you just made, touch `tauri.conf.json` after the binary
+  lands** — wait for its mtime to move and `rustc` to be gone, then touch; the
+  relaunch picks up the current binary (2026-08-28). Nothing measured from a
+  stale process is evidence for a config: `trafficLightPosition` was retuned
+  4.5pt from one, and it would have put the release lights 4.5pt low. The
+  installed release app is the reference for window-server geometry.
+- **A third session may be driving the app.** Relaunches, a moved pointer and
+  swallowed clicks mid-sequence all happened on 2026-08-28. Verify every step
+  by the store and the frame, not by the click having been sent; capture
+  passively while Karthik is in it.
 - **The dev window names itself `Hanger AI (dev)`; `Hanger AI` is the
   installed release app.** Since 2026-08-27 the dev build sets its own title
   (`dev_icon::window_title`, applied in `lib.rs`'s `setup`), so a capture can

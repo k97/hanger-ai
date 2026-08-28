@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { render, screen, within } from "@testing-library/react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import AssetRow, { AssetItem, AssetAnnotationView } from "./AssetRow";
 import MechanismGlyph from "./MechanismGlyph";
 
@@ -206,5 +206,54 @@ describe("AssetRow Shell Spec Compliance", () => {
     const html = renderToStaticMarkup(<MechanismGlyph mechanism="symlink" />);
     expect(html).toContain('stroke-width="1.71"');
     expect(html).not.toContain('stroke-width="1.9"');
+  });
+});
+
+// A selection made elsewhere (the search palette's pick, a restored
+// selection on mount) must scroll its row into view — a plain click never
+// needs to, because the row is already on screen when it's clicked.
+describe("scrolls a selected row into view", () => {
+  const baseItem: AssetItem = {
+    name: "deploy-helper",
+    category: "Skills",
+    path: "~/.agents/skills/deploy-helper/SKILL.md",
+  };
+
+  let scrollIntoViewSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    scrollIntoViewSpy = vi.spyOn(Element.prototype, "scrollIntoView").mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    scrollIntoViewSpy.mockRestore();
+  });
+
+  it.each(["table", "card"] as const)(
+    "calls scrollIntoView({ block: 'nearest' }) on the selected row (%s variant)",
+    (variant) => {
+      const { container } = render(<AssetRow item={baseItem} isSelected variant={variant} />);
+      const row = within(container).getByText("deploy-helper").closest('[data-selected="true"]') as HTMLElement;
+      expect(row).not.toBeNull();
+
+      expect(scrollIntoViewSpy).toHaveBeenCalledTimes(1);
+      expect(scrollIntoViewSpy).toHaveBeenCalledWith({ block: "nearest" });
+      expect(scrollIntoViewSpy.mock.instances[0]).toBe(row);
+    }
+  );
+
+  it("scrolls exactly once when a row becomes selected after mounting unselected", () => {
+    const { rerender } = render(<AssetRow item={baseItem} isSelected={false} />);
+    expect(scrollIntoViewSpy).not.toHaveBeenCalled();
+
+    rerender(<AssetRow item={baseItem} isSelected />);
+
+    expect(scrollIntoViewSpy).toHaveBeenCalledTimes(1);
+    expect(scrollIntoViewSpy).toHaveBeenCalledWith({ block: "nearest" });
+  });
+
+  it("never scrolls a row that is not selected", () => {
+    render(<AssetRow item={baseItem} isSelected={false} />);
+    expect(scrollIntoViewSpy).not.toHaveBeenCalled();
   });
 });

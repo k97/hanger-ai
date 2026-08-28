@@ -46,6 +46,17 @@ line of every non-test `.tsx` file — prose and comments included — for bare
 the retired tokens `hairline`/`ink-mute`/`surface-elevated`, and `text-[Npx]`.
 In comments write "radius", "elevation", "the --line border".
 
+**Type takes a role, an icon takes a box.** Text roles live in
+`src/components/typeRoles.ts` (13 body, 12 secondary, 11 badges; leadings
+`leading-body/caption/code/display`; sentence-case heads, no `uppercase`);
+new UI imports them, never re-declares the strings.
+`src/__tests__/type-roles.test.ts` scans every non-test `.tsx` under `src/`,
+and its `ALLOW` list is the migration to-do, not an exemption pool. Icons:
+`strokeFor(box)` in `icons.tsx` is the one stroke rule (`max(1.5, 24/box)`);
+shell marks are 16, rows 14, chevrons 12–13. `icon_weight.test.ts` pins the
+values and the sites changed on 2026-08-28 only — a new `size={15}` or a
+literal `strokeWidth` in a component passes it. `.claude/DESIGN.md` §2, §4.
+
 **No blocking webview dialogs.** `window.confirm/alert/prompt` and bare
 `confirm(` are banned across `src/`, enforced by
 `src/__tests__/no-blocking-dialogs.test.ts`. Native

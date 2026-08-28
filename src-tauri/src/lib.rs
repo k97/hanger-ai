@@ -1959,7 +1959,41 @@ pub fn run() {
             // See src/dev_icon.rs for why the window, not just the Dock tile,
             // has to carry this.
             if let Some(window) = app.get_webview_window("main") {
-                let _ = window.set_title(dev_icon::window_title(cfg!(debug_assertions)));
+                let title = dev_icon::window_title(cfg!(debug_assertions));
+                // A title change makes AppKit re-lay out the titlebar, which
+                // drops `trafficLightPosition` back to the OS default
+                // (tauri-apps/tauri#13044). tao re-applies the inset from its
+                // view's drawRect, and nothing redraws that view until the
+                // window is resized — so in the dev build, whose title differs
+                // from the config's, the lights sat 4.5pt above every cap's
+                // baseline (measured 2026-08-28: 15.75pt vs 20.25pt; the
+                // release build, renaming itself to the string the config
+                // already set, was untouched at 19.75pt). Tauri's `set_title`
+                // dispatches the change to the main queue asynchronously, so a
+                // redraw requested after it runs first and re-applies nothing;
+                // set the title synchronously through AppKit instead, then ask
+                // for the redraw, so the re-apply follows the re-layout.
+                #[cfg(target_os = "macos")]
+                match (window.ns_window(), window.ns_view()) {
+                    (Ok(ns_window), Ok(ns_view)) => {
+                        // SAFETY: both pointers are tao's objects for this
+                        // window, alive as long as it is, and setup runs on
+                        // the main thread, which AppKit requires here.
+                        unsafe {
+                            let ns_window = &*(ns_window as *const objc2_app_kit::NSWindow);
+                            ns_window.setTitle(&objc2_foundation::NSString::from_str(title));
+                            let ns_view = &*(ns_view as *const objc2_app_kit::NSView);
+                            ns_view.setNeedsDisplay(true);
+                        }
+                    }
+                    _ => {
+                        let _ = window.set_title(title);
+                    }
+                }
+                #[cfg(not(target_os = "macos"))]
+                {
+                    let _ = window.set_title(title);
+                }
             }
 
             // Native menu (update check + diagnostics), then the updater's

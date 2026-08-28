@@ -984,7 +984,7 @@ export default function ProfilePane({
   return (
     <div className="flex-1 flex flex-col min-h-0 overflow-hidden font-sans">
       {/* Facet chips */}
-      <div className="px-[18px] pt-1.5 pb-3.5">
+      <div className="px-[18px] pt-[18px] pb-3.5">
         <CategoryFilterCards
           selectedCategory={selectedCategory}
           onSelectCategory={setSelectedCategory}

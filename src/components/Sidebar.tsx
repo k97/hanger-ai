@@ -1,5 +1,5 @@
 import React from "react";
-import { GlobeAltIcon, FolderIcon, FolderTreeIcon, PlusIcon, TrashIcon } from "./icons";
+import { GlobeAltIcon, FolderIcon, FolderTreeIcon, PlusIcon, TrashIcon, MagnifyingGlassIcon } from "./icons";
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import { Inventory, CategoryCounts } from "../App";
@@ -24,6 +24,9 @@ interface SidebarProps {
   loadLinkedRepos: () => Promise<void>;
   onRefreshGlobalCounts?: () => Promise<void>;
   setError: (err: string) => void;
+  /** Opens the search palette; the sidebar's own surface for the same
+   *  action the rail's Search button offers beneath the mark. */
+  onOpenSearch: () => void;
 }
 
 export default function Sidebar({
@@ -40,6 +43,7 @@ export default function Sidebar({
   loadLinkedRepos,
   onRefreshGlobalCounts,
   setError,
+  onOpenSearch,
 }: SidebarProps) {
   // Profile row: detected engines as the subtitle, global asset total as the
   // badge — same count path as the profile pane (sumGlobalAssets), so the two
@@ -114,6 +118,27 @@ export default function Sidebar({
       collapsed={collapsed}
       setCollapsed={setCollapsed}
     >
+        {/* The palette's second surface (Karthik's ruling, 2026-08-28): the same
+            row voice as the places below, but an action — it never reads as
+            current — mirroring the rail's Search beneath the mark. */}
+        <div
+          role="button"
+          tabIndex={0}
+          aria-label="Search"
+          onClick={onOpenSearch}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              onOpenSearch();
+            }
+          }}
+          className="flex items-center gap-2 h-[46px] px-3 rounded-pill cursor-pointer text-sidebar-ink hover:bg-sidebar-sel transition-colors duration-nav ease-spring"
+        >
+          <MagnifyingGlassIcon size={16} className="shrink-0 text-sidebar-ink" aria-hidden="true" />
+          <span className="flex-1 min-w-0 text-base-app truncate">Search</span>
+          <span className="text-small tabular font-flex shrink-0 text-ink-3" aria-hidden="true">⌘K</span>
+        </div>
+
         {/* Scope group */}
         <div className={grpClass}>Scope</div>
         <div

@@ -321,7 +321,7 @@ export default function LinkMapPane({
 
   if (!graph || !layout) {
     return (
-      <div className="h-full grid place-items-center bg-page">
+      <div className="h-full grid place-items-center">
         <div className="flex flex-col items-center">
           {loading ? (
             <FrameIcon size={40} active className="text-ink-3 mb-2" />
@@ -417,8 +417,10 @@ export default function LinkMapPane({
     layout.edges.filter((e) => e.dest === id && e.state !== "linked").map(edgeSummary);
 
   return (
-    <div className="h-full flex flex-col bg-page min-h-0">
-      <div className="flex-1 min-h-0 px-[18px] pb-2 pt-2.5 flex flex-col">
+    // The pane paints no ground of its own: <main>'s sheet is the ground, and a full-bleed bg-page here would square off the sheet's corner from inside (every screen carries the corner — Karthik, 2026-08-28).
+    <div className="h-full flex flex-col min-h-0">
+      {/* 18 on top to match the 18 at the sides: the sheet's inset is uniform on every screen (Karthik, 2026-08-28). */}
+      <div className="flex-1 min-h-0 px-[18px] pb-2 pt-[18px] flex flex-col">
         <div
           ref={viewportRef}
           className="relative flex-1 min-h-0 border border-line rounded-plane overflow-hidden bg-page"

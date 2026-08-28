@@ -507,7 +507,11 @@ pub fn get_global_agents_with_denials() -> (Vec<Agent>, Vec<String>) {
         // still worth reporting even when a sibling root covers detection.
         let mut config_denial_texts: Vec<String> = Vec::new();
         for rel_path in config.global_roots {
-            let path = home.join(rel_path);
+            // engine_base, not home.join: a user who relocates ~/.claude with
+            // CLAUDE_CONFIG_DIR keeps skills, rules and subagents there too,
+            // and detecting the engine at its old path would report every one
+            // of them missing.
+            let path = crate::agents::engine_base(&home, rel_path);
             match probe_path(&path) {
                 RootPresence::Present => {
                     resolved_path = Some(path.to_string_lossy().to_string());
@@ -527,7 +531,13 @@ pub fn get_global_agents_with_denials() -> (Vec<Agent>, Vec<String>) {
         // store or name a folder that is not there (spec §4.4).
         if resolved_path.is_none() {
             for rel_path in config.detect_files {
-                let path = home.join(rel_path);
+                // engine_base, not home.join, for the same reason as the
+                // global_roots loop above: a detect-file-only engine (Zed)
+                // must be found at its relocated config directory too, the
+                // moment a second CONFIG_DIR_ENVS entry names its prefix
+                // (review finding, Minor 7 — safe today only because zed's
+                // one detect_file matches no relocatable prefix).
+                let path = crate::agents::engine_base(&home, rel_path);
                 match probe_path(&path) {
                     RootPresence::Present => {
                         resolved_path = Some(path.to_string_lossy().to_string());

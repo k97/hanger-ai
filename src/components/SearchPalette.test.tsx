@@ -3,6 +3,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, waitFor, cleanup } from "@testing-library/react";
 import SearchPalette, { renderSnippet, placeLabel, type SearchHit } from "./SearchPalette";
 import { invoke } from "@tauri-apps/api/core";
+import * as fs from "fs";
+import * as path from "path";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn(async () => ({ hits: [], total: 0 })) }));
 
@@ -37,19 +39,20 @@ describe("SearchPalette", () => {
     expect(document.activeElement).toBe(screen.getByLabelText("Search assets"));
   });
 
-  it("queries the backend with the typed text and renders hits in rank order, each with its kind's glyph", async () => {
+  it("groups hits by kind under headings, in rank order within a group, with no glyph", async () => {
     render(<SearchPalette open={true} scannedAt={scanned} onClose={() => {}} onPick={() => {}} />);
     fireEvent.change(screen.getByLabelText("Search assets"), { target: { value: "deploy" } });
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("search_assets", { query: "deploy", limit: 50 }));
     expect(await screen.findByText("deploy-helper")).toBeTruthy();
-    // Backend order, no headings (Karthik's ruling, 2026-08-28).
+    // A heading per kind that has hits; a kind with none renders nothing.
+    expect(screen.getByText("Skills")).toBeTruthy();
+    expect(screen.getByText("Tools")).toBeTruthy();
+    expect(screen.queryByText("Rules")).toBeNull();
+    // Rank order within a group, backend order untouched.
     const items = screen.getAllByRole("option");
     expect(items.map((el) => el.getAttribute("data-kind"))).toEqual(["skill", "mcp_tool"]);
-    expect(screen.queryByText("Skills")).toBeNull();
-    expect(screen.queryByText("Tools")).toBeNull();
-    // Each row leads with its kind's glyph, named for the reader.
-    expect(items[0].querySelector('[data-glyph="skill"]')).toBeTruthy();
-    expect(items[1].querySelector('[data-glyph="mcp_tool"]')).toBeTruthy();
+    // The glyph is gone.
+    expect(document.querySelector("[data-glyph]")).toBeNull();
     // The tool row names its server and its place.
     expect(screen.getByText("spades")).toBeTruthy();
     expect(screen.getByText("proj")).toBeTruthy();
@@ -91,6 +94,20 @@ describe("SearchPalette", () => {
     expect(onClose).toHaveBeenCalledTimes(1);
     fireEvent.keyDown(window, { key: "Escape" });
     expect(onClose).toHaveBeenCalledTimes(2);
+  });
+
+  it("opts the input out of the global focus ring via an unlayered CSS rule, and gives it the sidebar's own pill field instead (class contract only — happy-dom paints nothing and cannot judge the cascade, so this pins the CSS text and the field's classes, not the pixels; a `focus-visible:outline-none` utility was proven inert against the unlayered global ring and cannot be what does this)", () => {
+    render(<SearchPalette open={true} scannedAt={scanned} onClose={() => {}} onPick={() => {}} />);
+    const input = screen.getByLabelText("Search assets");
+    // No borderless full-width command-menu row above it.
+    expect(input.parentElement?.className).not.toContain("border-b");
+    // The tonal pill field: rounded, on the plane ground.
+    expect(input.className).toContain("rounded-pill");
+    expect(input.className).toContain("bg-plane");
+    const css = fs.readFileSync(path.join(__dirname, "../styles/index.css"), "utf-8");
+    // Unlayered so it can outrank the unlayered global `:focus-visible` ring
+    // (an `@layer utilities` class cannot, per CSS Cascade 5).
+    expect(css).toMatch(/\[cmdk-input\]:focus-visible\s*\{[^}]*outline:\s*none/);
   });
 
   it("says nothing is a finding before the first scan, and does not query", async () => {

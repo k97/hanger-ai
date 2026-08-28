@@ -23,4 +23,22 @@ describe("MarkdownDoc type roles", () => {
     expect(screen.getByText("code").className).toContain("text-small");
     expect(screen.getByText("block").closest("pre")!.className).toContain("leading-code");
   });
+
+  it("renders the census constructs: stepped heading, table, quote, rule, task box, nested list, hard break", () => {
+    const { container } = render(
+      <MarkdownDoc
+        blocks={toBlocks(
+          ["### Sub", "", "| A | B |", "|---|---|", "| 1 | 2 |", "", "> quoted", "", "---", "", "- [x] done", "  - nested", "", "line  ", "next"].join("\n")
+        )}
+      />
+    );
+    // ### and deeper step down to the section-head role; # and ## keep the 16.
+    expect(screen.getByText("Sub").closest("h4")!.className).toContain("text-base-app");
+    expect(screen.getByText("A").closest("th")!.className).toContain("font-medium");
+    expect(screen.getByText("quoted").closest("blockquote")!.className).toContain("border-l-2");
+    expect(screen.getByRole("separator")).toBeTruthy();
+    expect(screen.getByRole("checkbox").getAttribute("aria-checked")).toBe("true");
+    expect(screen.getByText("nested").closest("ul")!.parentElement!.tagName).toBe("LI");
+    expect(container.querySelector("br")).toBeTruthy();
+  });
 });

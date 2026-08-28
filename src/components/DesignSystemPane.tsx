@@ -336,8 +336,9 @@ export default function DesignSystemPane({ section }: DesignSystemPaneProps) {
   const scannedAt = new Date(Date.now() - 4 * 60_000);
 
   return (
-    <div className="flex-1 flex flex-col h-full min-h-0 overflow-hidden bg-page font-sans">
-      <header className="px-[18px] pt-5 pb-1 shrink-0">
+    // The pane paints no ground of its own: <main>'s sheet is the ground, and a full-bleed bg-page here would square off the sheet's corner from inside (every screen carries the corner — Karthik, 2026-08-28).
+    <div className="flex-1 flex flex-col h-full min-h-0 overflow-hidden font-sans">
+      <header className="px-[18px] pt-[18px] pb-1 shrink-0">
         <div className="flex items-baseline gap-3.5 mb-[7px]">
           <h1 className="text-lg-app font-medium tracking-[-0.2px] text-ink-1">
             The system, rendered by the app that uses it
@@ -360,6 +361,7 @@ export default function DesignSystemPane({ section }: DesignSystemPaneProps) {
           <Group label="Ground and ink">
             <div className={swatchGridClass}>
               <Swatch token="--page" note="window ground" />
+              <Swatch token="--sidebar" note="the shell's material: the rail column and every cap, a tint over the window's vibrancy" />
               <Swatch token="--plane" note="list and card surface" />
               <Swatch token="--plane-2" note="hover / press step" />
               <Swatch token="--tint" note="selection on the page" />
@@ -406,7 +408,7 @@ export default function DesignSystemPane({ section }: DesignSystemPaneProps) {
         <Section
           id="geometry"
           label="Geometry"
-          lede="Three radii for surfaces, one soft radius for the rail's buttons, pills for every control. Spacing rides Tailwind's 4px grid; anything off it is stated at the call site as an arbitrary value, and the 18px gutter is a token."
+          lede="Three radii for surfaces, one soft radius for the rail's buttons, pills for every control. Spacing rides Tailwind's 4px grid; anything off it is stated at the call site as an arbitrary value, and the 18px gutter is a token. The shell's cap is 36px; the content sheet under it opens 18px in from its top rule, the same as from its sides, and the first column after the rail rounds its top-left corner on every screen."
         >
           <div className="flex items-end gap-6 flex-wrap">
             {RADII.map((r) => (

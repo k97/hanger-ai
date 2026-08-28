@@ -521,6 +521,17 @@ body,
   border-radius: 4px;
 }
 
+/* The search palette's field is the one focusable thing inside a panel that
+   already frames it, so it opts out of the ring above. Unlayered like that
+   rule: Tailwind's utilities live in `@layer utilities`, and an unlayered
+   declaration always outranks a layered one regardless of specificity (CSS
+   Cascade 5) — a `focus-visible:outline-none` utility on the input cannot
+   beat this, only another unlayered rule can. cmdk stamps `cmdk-input` on
+   its input, which is the hook. */
+[cmdk-input]:focus-visible {
+  outline: none;
+}
+
 /* Removes the ~300ms double-tap-zoom wait on touch input without disabling
    pinch zoom anywhere else. */
 button,

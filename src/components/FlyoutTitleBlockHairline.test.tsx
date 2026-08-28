@@ -7,12 +7,14 @@
 //
 // The padding half of that decision is superseded (Karthik, 2026-08-28: the
 // spacing between the cap, the title and the tabs "feels inconsistent", and
-// is to be set by a rule rather than eyeballed). It now reads `py-2` — the
-// band states one value for both edges instead of 8 above and 16 below —
-// and the eyebrow-to-title step is a `gap-1` on the column rather than a
-// conditional `mt-1` on the title row. Every band in the header stack now
-// pads symmetrically on the 8px step; `UnderlineTabs.test.tsx`'s "sits
-// symmetrically in its band" pins the other one. The hairline half of
+// is to be set by a rule rather than eyeballed). It read `py-2` for a day;
+// since later on 2026-08-28 it reads `pt-[18px] pb-1.5`: the inspector
+// opens 18px under the sheet's rule like every other screen, and the 6
+// below plus the tab row's own `py-2` puts the title 14 above the tabs —
+// the rhythm every pane uses under its opener ("make it consistent"). The
+// eyebrow-to-title step is a `gap-1` on the column rather than a
+// conditional `mt-1` on the title row; `UnderlineTabs.test.tsx`'s "sits
+// symmetrically in its band" pins the tab row's 8. The hairline half of
 // Decision 13 stands exactly as ruled below. A prior task checked that reasoning against the
 // code and found it holds for only one of the four views sharing this
 // wrapper (the condition at `Flyout.tsx`'s header block, `linking ||
@@ -95,7 +97,9 @@ describe("Flyout title block — the hairline follows the tab row, not the wrapp
 
     const header = screen.getByTestId("inspector-header");
     expect(header.className).toContain("px-[18px]");
-    expect(header.className).toContain("py-2");
+    expect(header.className).toContain("pt-[18px]");
+    expect(header.className).toContain("pb-1.5");
+    expect(header.className).not.toContain("py-2");
     expect(header.className).not.toContain("pb-4");
     expect(header.className).not.toContain("border-b");
     expect(header.className).not.toContain("border-line");
@@ -165,7 +169,9 @@ describe("Flyout title block — the hairline follows the tab row, not the wrapp
 
     const header = screen.getByTestId("inspector-header");
     expect(header.className).toContain("px-[18px]");
-    expect(header.className).toContain("py-2");
+    expect(header.className).toContain("pt-[18px]");
+    expect(header.className).toContain("pb-1.5");
+    expect(header.className).not.toContain("py-2");
     expect(header.className).not.toContain("pb-4");
     expect(header.className).toContain("border-b");
     expect(header.className).toContain("border-line");

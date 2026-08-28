@@ -115,7 +115,7 @@ describe("toBlocks — the document subset a SKILL.md actually uses", () => {
     expect(blocks[0]).toEqual({
       kind: "list",
       ordered: false,
-      items: [[{ text: "one" }], [{ text: "two" }], [{ text: "three" }]],
+      items: [{ spans: [{ text: "one" }] }, { spans: [{ text: "two" }] }, { spans: [{ text: "three" }] }],
     });
   });
 
@@ -124,7 +124,7 @@ describe("toBlocks — the document subset a SKILL.md actually uses", () => {
     expect(blocks[0]).toEqual({
       kind: "list",
       ordered: true,
-      items: [[{ text: "first" }], [{ text: "second" }]],
+      items: [{ spans: [{ text: "first" }] }, { spans: [{ text: "second" }] }],
     });
   });
 
@@ -183,5 +183,217 @@ describe("toBlocks — the document subset a SKILL.md actually uses", () => {
   it("returns nothing for an empty document", () => {
     expect(toBlocks("")).toEqual([]);
     expect(toBlocks("   \n\n  ")).toEqual([]);
+  });
+});
+
+// A census over the 384 skill, rule and subagent files in the store
+// (2026-08-29) found these constructs in real documents; before this, each
+// fell through to a paragraph and rendered as its own markup.
+describe("toBlocks — the constructs the census found", () => {
+  it("reads a pipe table: header, alignment row, body rows, cells as spans", () => {
+    const [block] = toBlocks(
+      ["| Rule | Do |", "|:-----|---:|", "| **No emoji** | Use `svg` |", "| Two | Three | extra |", "| One |"].join("\n")
+    );
+    expect(block).toEqual({
+      kind: "table",
+      align: ["left", "right"],
+      header: [[{ text: "Rule" }], [{ text: "Do" }]],
+      rows: [
+        [[{ text: "No emoji", strong: true }], [{ text: "Use " }, { text: "svg", code: true }]],
+        // A long row loses its extra cell; a short row is padded — GFM's rule.
+        [[{ text: "Two" }], [{ text: "Three" }]],
+        [[{ text: "One" }], []],
+      ],
+    });
+  });
+
+  it("a pipe row with no alignment row beneath it is a paragraph, not a table", () => {
+    const [block] = toBlocks("| a | b |\n| c | d |");
+    expect(block.kind).toBe("paragraph");
+  });
+
+  it("an escaped pipe stays inside its cell", () => {
+    const [block] = toBlocks("| a | b |\n|---|---|\n| x \\| y | z |");
+    expect(block.kind).toBe("table");
+    if (block.kind === "table") expect(block.rows[0][0]).toEqual([{ text: "x | y" }]);
+  });
+
+  it("reads a task item's box as checked state and drops it from the text", () => {
+    const [block] = toBlocks("- [ ] open\n- [x] done\n- plain");
+    expect(block).toEqual({
+      kind: "list",
+      ordered: false,
+      items: [
+        { spans: [{ text: "open" }], checked: false },
+        { spans: [{ text: "done" }], checked: true },
+        { spans: [{ text: "plain" }] },
+      ],
+    });
+  });
+
+  it("reads ---, *** and ___ on a line of their own as a rule, not a paragraph", () => {
+    expect(toBlocks("a\n\n---\n\nb\n\n***\n\n___")).toEqual([
+      { kind: "paragraph", spans: [{ text: "a" }] },
+      { kind: "rule" },
+      { kind: "paragraph", spans: [{ text: "b" }] },
+      { kind: "rule" },
+      { kind: "rule" },
+    ]);
+  });
+
+  it("reads a blockquote as blocks of its own, parsed like the document", () => {
+    expect(toBlocks("> A quote with **weight**\n> and a second line\n>\n> - inside")).toEqual([
+      {
+        kind: "quote",
+        blocks: [
+          {
+            kind: "paragraph",
+            spans: [{ text: "A quote with " }, { text: "weight", strong: true }, { text: " and a second line" }],
+          },
+          { kind: "list", ordered: false, items: [{ spans: [{ text: "inside" }] }] },
+        ],
+      },
+    ]);
+  });
+
+  it("nests an indented bullet under the item above it", () => {
+    expect(toBlocks("- parent\n  - child\n    - grandchild\n- sibling")).toEqual([
+      {
+        kind: "list",
+        ordered: false,
+        items: [
+          {
+            spans: [{ text: "parent" }],
+            children: [
+              {
+                kind: "list",
+                ordered: false,
+                items: [
+                  {
+                    spans: [{ text: "child" }],
+                    children: [{ kind: "list", ordered: false, items: [{ spans: [{ text: "grandchild" }] }] }],
+                  },
+                ],
+              },
+            ],
+          },
+          { spans: [{ text: "sibling" }] },
+        ],
+      },
+    ]);
+  });
+
+  it("nests bullets under a numbered step", () => {
+    const [block] = toBlocks("1. step\n   - detail\n   - more");
+    expect(block).toEqual({
+      kind: "list",
+      ordered: true,
+      items: [
+        {
+          spans: [{ text: "step" }],
+          children: [
+            { kind: "list", ordered: false, items: [{ spans: [{ text: "detail" }] }, { spans: [{ text: "more" }] }] },
+          ],
+        },
+      ],
+    });
+  });
+
+  it("a wrapped line under a bullet continues the item rather than starting a paragraph", () => {
+    expect(toBlocks("- first line\n  wrapped here\n- second\nlazy wrap")).toEqual([
+      {
+        kind: "list",
+        ordered: false,
+        items: [{ spans: [{ text: "first line wrapped here" }] }, { spans: [{ text: "second lazy wrap" }] }],
+      },
+    ]);
+  });
+
+  it("a fenced block indented under an item belongs to the item", () => {
+    const [block] = toBlocks("- run\n\n  ```sh\n  bun test\n  ```\n- next");
+    expect(block).toEqual({
+      kind: "list",
+      ordered: false,
+      items: [
+        { spans: [{ text: "run" }], children: [{ kind: "code", language: "sh", text: "bun test" }] },
+        { spans: [{ text: "next" }] },
+      ],
+    });
+  });
+
+  it("drops an HTML comment on a line of its own and keeps one inside a code span", () => {
+    expect(toBlocks("<!-- context7 -->\nvisible `<!-- mock -->` text")).toEqual([
+      { kind: "paragraph", spans: [{ text: "visible " }, { text: "<!-- mock -->", code: true }, { text: " text" }] },
+    ]);
+  });
+
+  it("reads two trailing spaces, a trailing backslash and <br> as a hard break", () => {
+    const [block] = toBlocks("one  \ntwo\\\nthree<br>four");
+    expect(block).toEqual({
+      kind: "paragraph",
+      spans: [
+        { text: "one" },
+        { text: "\n", break: true },
+        { text: "two" },
+        { text: "\n", break: true },
+        { text: "three" },
+        { text: "\n", break: true },
+        { text: "four" },
+      ],
+    });
+  });
+
+  it("reads _underscore_ emphasis and __underscore__ strength, and leaves a snake_case_name alone", () => {
+    const [block] = toBlocks("it _feels_ __faster__ in snake_case_name");
+    expect(block).toEqual({
+      kind: "paragraph",
+      spans: [
+        { text: "it " },
+        { text: "feels", em: true },
+        { text: " " },
+        { text: "faster", strong: true },
+        { text: " in snake_case_name" },
+      ],
+    });
+  });
+
+  it("reads ~~strikethrough~~", () => {
+    const [block] = toBlocks("~~Keyword stuffing~~ is out");
+    expect(block).toEqual({
+      kind: "paragraph",
+      spans: [{ text: "Keyword stuffing", strike: true }, { text: " is out" }],
+    });
+  });
+
+  it("shows an image as its alt text, linked when the source is http(s)", () => {
+    const [remote] = toBlocks("![demo](https://example.com/demo.gif)");
+    expect(remote).toEqual({ kind: "paragraph", spans: [{ text: "demo", href: "https://example.com/demo.gif" }] });
+    const [local] = toBlocks("![local](./demo.gif)");
+    expect(local).toEqual({ kind: "paragraph", spans: [{ text: "local" }] });
+  });
+
+  it("a backslash escapes the punctuation after it", () => {
+    const [block] = toBlocks("\\*not emphasis\\* and a\\_b");
+    expect(block).toEqual({ kind: "paragraph", spans: [{ text: "*not emphasis* and a_b" }] });
+  });
+
+  it("a double-backtick code span may hold a backtick", () => {
+    const [block] = toBlocks("use `` !`cmd` `` blocks");
+    expect(block).toEqual({
+      kind: "paragraph",
+      spans: [{ text: "use " }, { text: "!`cmd`", code: true }, { text: " blocks" }],
+    });
+  });
+
+  it("code inside bold keeps both roles", () => {
+    const [block] = toBlocks("**Insert a `x` line**");
+    expect(block).toEqual({
+      kind: "paragraph",
+      spans: [
+        { text: "Insert a ", strong: true },
+        { text: "x", code: true, strong: true },
+        { text: " line", strong: true },
+      ],
+    });
   });
 });

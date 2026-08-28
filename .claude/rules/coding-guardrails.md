@@ -14,7 +14,11 @@ Always on. This is the preventive half of the stage-gate reviews;
    decisions a task depends on: twice in one cycle a worker called a
    plan-mandated value "my interpretation" or made "a reasoned choice" for a
    decision whose literal text sat in the same worktree. Before treating
-   anything as unspecified, grep the plan for it.
+   anything as unspecified, grep the plan for it. **A round of design
+   feedback is a brief too: ask the clarifying questions before the first
+   fix** (Karthik, 2026-08-28), and render a ruled value in the running app
+   beside its neighbours before asking for the next ruling — 14px chosen
+   from a list became 18 once seen next to the 18 beside it.
 2. **Simplest thing that works.** No speculative abstractions, no
    configurability nobody asked for. A shared component earns its existence
    with a second real caller, not a hunch that one is coming.

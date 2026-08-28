@@ -105,6 +105,7 @@ describe("shell marks are 16px boxes (I2)", () => {
         linkedRepos: ["/repo/one", "/repo/two", "/repo/two/child"],
         loadLinkedRepos: async () => {},
         setError: () => {},
+        onOpenSearch: () => {},
       })
     );
     const row = screen.getByText("one").closest('[tabindex="0"]');

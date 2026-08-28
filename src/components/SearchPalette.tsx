@@ -1,14 +1,8 @@
 import { Command } from "cmdk";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import {
-  DocumentTextIcon,
-  MagnifyingGlassIcon,
-  ServerIcon,
-  SkillIcon,
-  UserIcon,
-  WrenchScrewdriverIcon,
-} from "./icons";
+import { MagnifyingGlassIcon } from "./icons";
+import { groupLabelClass, captionClass } from "./typeRoles";
 
 export type SearchKind = "skill" | "rule" | "subagent" | "server" | "mcp_tool";
 
@@ -37,23 +31,17 @@ export interface SearchResponse {
 const MARK_OPEN = "";
 const MARK_CLOSE = "";
 
-/** The glyph does the grouping's job (Karthik's ruling, 2026-08-28): rows
- *  stay in the backend's rank order and each leads with its kind's mark —
- *  the same marks the link map's placecard and the server detail use. */
-function KindGlyph({ kind }: { kind: SearchKind }) {
-  const props = { size: 13, "aria-hidden": true as const };
-  const glyph =
-    kind === "skill" ? <SkillIcon {...props} /> :
-    kind === "rule" ? <DocumentTextIcon {...props} /> :
-    kind === "subagent" ? <UserIcon {...props} /> :
-    kind === "server" ? <ServerIcon {...props} /> :
-    <WrenchScrewdriverIcon {...props} />;
-  return (
-    <span data-glyph={kind} className="shrink-0 inline-flex text-ink-3">
-      {glyph}
-    </span>
-  );
-}
+/** Fixed group order (Karthik's ruling, 2026-08-28, superseding "glyph rows,
+ *  no headings"): a heading does the grouping's job now, so the glyph is
+ *  gone. Rows stay in the backend's rank order within their group; a kind
+ *  with no hits renders nothing. */
+const GROUP_ORDER: { kind: SearchKind; heading: string }[] = [
+  { kind: "skill", heading: "Skills" },
+  { kind: "server", heading: "MCP servers" },
+  { kind: "mcp_tool", heading: "Tools" },
+  { kind: "rule", heading: "Rules" },
+  { kind: "subagent", heading: "Subagents" },
+];
 
 /** The snippet's private-use markers become <mark>; nothing else is parsed. */
 export function renderSnippet(snippet: string): ReactNode {
@@ -121,6 +109,11 @@ export function SearchPalettePanel({
 }: SearchPalettePanelProps) {
   const q = query.trim();
   const answeredEmpty = hits !== null && hits.length === 0;
+  const groups = GROUP_ORDER.map(({ kind, heading }) => ({
+    kind,
+    heading,
+    rows: (hits ?? []).filter((hit) => hit.kind === kind),
+  })).filter((group) => group.rows.length > 0);
 
   return (
     <div
@@ -129,47 +122,72 @@ export function SearchPalettePanel({
       className="w-[560px] max-w-[calc(100vw-32px)] max-h-[60vh] flex flex-col bg-page border border-line rounded-plane shadow-overlay animate-drop overflow-hidden"
     >
       <Command shouldFilter={false} label={dialogLabel} className="flex flex-col min-h-0">
-        <div className="flex items-center gap-2.5 px-3.5 h-11 shrink-0 border-b border-line">
-          <MagnifyingGlassIcon size={14} className="text-ink-3 shrink-0" aria-hidden="true" />
-          <Command.Input
-            autoFocus={autoFocus}
-            value={query}
-            onValueChange={onQueryChange}
-            aria-label={inputLabel}
-            placeholder="Search skills, rules, subagents and MCP servers"
-            className="flex-1 min-w-0 bg-page text-base-app text-ink-1 placeholder:text-ink-3 focus:outline-none"
-          />
+        <div className="p-3 shrink-0">
+          <div className="relative h-[30px]">
+            <MagnifyingGlassIcon
+              size={12}
+              className="absolute left-2.5 top-1/2 -translate-y-1/2 text-ink-3 pointer-events-none"
+              aria-hidden="true"
+            />
+            {/* The panel already frames this field, and it's the only focusable
+                control inside it, so it opts out of the global focus ring — via
+                the unlayered `[cmdk-input]:focus-visible` rule in index.css, not
+                a utility class, because a layered utility cannot outrank an
+                unlayered one (CSS Cascade 5). The pill's own focus treatment —
+                an ink border, a page ground — is the affordance instead. */}
+            <Command.Input
+              autoFocus={autoFocus}
+              value={query}
+              onValueChange={onQueryChange}
+              aria-label={inputLabel}
+              placeholder="Search skills, rules, subagents and MCP servers"
+              className="w-full h-full rounded-pill border border-transparent bg-plane pl-[30px] pr-3.5 text-small text-ink-1 placeholder:text-ink-3 focus:border-ink-1 focus:bg-page transition-colors duration-hover ease-spring"
+            />
+          </div>
         </div>
-        <Command.List className="flex-1 min-h-0 overflow-y-auto p-1.5 scroll-thin">
+        <Command.List className="flex-1 min-h-0 overflow-y-auto px-3 pb-3 scroll-thin [&_[cmdk-group-items]]:flex [&_[cmdk-group-items]]:flex-col [&_[cmdk-group-items]]:gap-px">
           {!hasScanned ? (
-            <p className="py-6 px-3 text-center text-small text-ink-3">Results show up here once the first scan finishes.</p>
+            <p className={`py-8 px-4 text-center ${captionClass}`}>Results show up here once the first scan finishes.</p>
           ) : hits === null ? (
             // Covers an empty query and a rejected search alike: neither has an
             // answer to show, so both get the hint rather than an asserted absence.
-            <p className="py-6 px-3 text-center text-small text-ink-3">Type to search names and what's inside.</p>
+            <p className={`py-8 px-4 text-center ${captionClass}`}>Type to search names and what's inside.</p>
           ) : answeredEmpty ? (
-            <p className="py-6 px-3 text-center text-small text-ink-3">Nothing matches “{q}”.</p>
+            <p className={`py-8 px-4 text-center ${captionClass}`}>Nothing matches “{q}”.</p>
           ) : null}
-          {(hits ?? []).map((hit) => (
-            <Command.Item
-              key={`${hit.kind}:${hit.id}:${hit.name}`}
-              value={`${hit.kind}:${hit.id}:${hit.name}`}
-              data-kind={hit.kind}
-              onSelect={() => onPick(hit)}
-              className="px-2.5 py-1.5 rounded-soft flex flex-col gap-0.5 cursor-pointer data-[selected=true]:bg-plane-2 transition-colors duration-hover"
-            >
-              <div className="flex items-center gap-2 min-w-0">
-                <KindGlyph kind={hit.kind} />
-                <span className="text-small text-ink-1 truncate">{hit.name}</span>
-                {hit.server && (
-                  <span className="text-small text-ink-3 truncate">
-                    · <span>{hit.server}</span>
-                  </span>
-                )}
-                <span className="ml-auto shrink-0 font-flex text-micro text-ink-3">{placeLabel(hit.place)}</span>
+          {groups.map((group, i) => (
+            <Command.Group key={group.kind} aria-label={group.heading}>
+              {/* cmdk's own `heading` prop marks the string aria-hidden and
+                  wires aria-labelledby itself; rendered as our own div
+                  instead so the app's own tokens apply directly — the
+                  sidebar's own group-label shape (`Sidebar.tsx`'s `grpClass`). */}
+              <div
+                className={`flex items-center px-3 pb-[5px] ${groupLabelClass} ${i === 0 ? "pt-1" : "pt-[11px]"}`}
+                aria-hidden="true"
+              >
+                {group.heading}
               </div>
-              <div className="text-micro text-ink-2 truncate">{renderSnippet(hit.snippet)}</div>
-            </Command.Item>
+              {group.rows.map((hit) => (
+                <Command.Item
+                  key={`${hit.kind}:${hit.id}:${hit.name}`}
+                  value={`${hit.kind}:${hit.id}:${hit.name}`}
+                  data-kind={hit.kind}
+                  onSelect={() => onPick(hit)}
+                  className="h-[46px] px-3 rounded-pill flex flex-col justify-center gap-0.5 cursor-pointer hover:bg-plane data-[selected=true]:bg-tint transition-colors duration-nav ease-spring"
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-base-app text-ink-1 truncate">{hit.name}</span>
+                    {hit.server && (
+                      <span className="text-base-app text-ink-3 truncate">
+                        · <span>{hit.server}</span>
+                      </span>
+                    )}
+                    <span className={`ml-auto pl-4 ${captionClass} tabular shrink-0`}>{placeLabel(hit.place)}</span>
+                  </div>
+                  <div className={`${captionClass} truncate`}>{renderSnippet(hit.snippet)}</div>
+                </Command.Item>
+              ))}
+            </Command.Group>
           ))}
         </Command.List>
       </Command>
@@ -181,7 +199,8 @@ export function SearchPalettePanel({
  * The search palette: ⌘K or the rail's Search button. A wash over the app,
  * a top-aligned panel, and a cmdk list the backend has already ranked
  * (`shouldFilter={false}`). Hits come back as one ranked list from the
- * backend and are shown flat, each row leading with its kind's glyph.
+ * backend and are grouped by kind under headings, in fixed group order,
+ * each group keeping the backend's own rank order within it.
  */
 export default function SearchPalette({ open, scannedAt, onClose, onPick }: SearchPaletteProps) {
   const [query, setQuery] = useState("");

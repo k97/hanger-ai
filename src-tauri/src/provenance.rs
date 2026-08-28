@@ -90,7 +90,12 @@ pub struct PluginIndex {
 
 impl PluginIndex {
     pub fn load(home: &Path) -> (Option<Self>, bool) {
-        let dir = home.join(".claude/plugins");
+        // engine_base, not home.join: with CLAUDE_CONFIG_DIR set, discover.rs
+        // reads plugin-declared MCP servers from the relocated directory, and
+        // this index has to look for their marketplace/commit manifests in
+        // the same place or every Delivered origin beneath it reports absent
+        // (review finding, Important 1).
+        let dir = crate::agents::engine_base(home, ".claude").join("plugins");
         // `origin_for` compares `cache_prefix`/`marketplaces_prefix` against
         // a CANONICAL asset path (`canonicalize_asset_path` in scanner.rs
         // resolves every path component), so the prefix built here has to be
