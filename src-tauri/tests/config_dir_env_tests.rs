@@ -218,3 +218,52 @@ fn with_no_vars_set_discovery_is_byte_identical_to_the_fixture_baseline() {
         r.registrations.iter().map(|x| &x.server.name).collect::<Vec<_>>()
     );
 }
+
+// ─── Review findings: two sites that still home-joined ─────────────────────
+
+#[test]
+fn a_relocated_claude_dir_moves_the_plugin_index() {
+    // Important 1: `PluginIndex::load` home-joined `.claude/plugins` while
+    // discover.rs now reads a relocated `.claude.json`'s plugin-declared MCP
+    // servers from $CLAUDE_CONFIG_DIR. With the variable set, the two used to
+    // disagree on where the plugin store is, so every Delivered origin for a
+    // plugin-installed asset reported absent.
+    let (_l, _g) = guard();
+    let relocated = tempfile::tempdir().unwrap();
+    let plugins = relocated.path().join("plugins");
+    std::fs::create_dir_all(&plugins).unwrap();
+    std::fs::write(
+        plugins.join("known_marketplaces.json"),
+        r#"{"mkt-a":{"source":{"source":"github","repo":"owner/market-repo"},
+             "installLocation":"/ignored"}}"#,
+    )
+    .unwrap();
+    std::fs::write(plugins.join("installed_plugins.json"), r#"{"version":2,"plugins":{}}"#).unwrap();
+
+    // A decoy plugin store at the OLD, unrelocated home must not be what
+    // resolves.
+    let home = tempfile::tempdir().unwrap();
+    let stale_plugins = home.path().join(".claude/plugins");
+    std::fs::create_dir_all(&stale_plugins).unwrap();
+    std::fs::write(
+        stale_plugins.join("known_marketplaces.json"),
+        r#"{"mkt-a":{"source":{"source":"github","repo":"stale/decoy-repo"},
+             "installLocation":"/ignored"}}"#,
+    )
+    .unwrap();
+
+    std::env::set_var("CLAUDE_CONFIG_DIR", relocated.path());
+
+    let (idx, blocked) = tauri_app_lib::provenance::PluginIndex::load(home.path());
+    assert!(!blocked);
+    let idx = idx.expect("relocated plugin store must be found via CLAUDE_CONFIG_DIR");
+    let plugins_canon = std::fs::canonicalize(&plugins).unwrap();
+    let p = plugins_canon.join("marketplaces/mkt-a/skills/y/SKILL.md");
+    let o = idx
+        .origin_for(&p.to_string_lossy())
+        .expect("origin for a path under the relocated marketplace store");
+    assert_eq!(
+        o.label, "owner/market-repo",
+        "resolved the stale ~/.claude/plugins manifest instead of the relocated one"
+    );
+}
