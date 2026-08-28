@@ -321,6 +321,42 @@ fn an_index_write_waits_out_a_lock_held_longer_than_rusqlites_default() {
 }
 
 #[test]
+fn an_inventory_rebuild_waits_out_a_lock_held_longer_than_rusqlites_default() {
+    // `index_inventory`'s first statement is a DELETE on `asset_search`, an
+    // FTS5 virtual table: preparing it runs the table's xConnect, which
+    // reads the shadow config table first. A `Deferred` transaction holds
+    // only SHARED for that read, and SQLite refuses the SHARED-to-RESERVED
+    // upgrade a write needs without invoking the busy handler when another
+    // connection already holds RESERVED — so the DELETE fails immediately
+    // with "database is locked" instead of waiting out the 30 s timeout
+    // (app log, 2026-08-28: "Failed to clear search index").
+    let (dir, db) = fresh();
+    let holder = rusqlite::Connection::open(&db).unwrap();
+    holder.execute_batch("BEGIN IMMEDIATE;").unwrap();
+
+    let mut inv = Inventory::default();
+    inv.rules.push(rule(&dir.path().join("CLAUDE.md"), "deploy carefully"));
+
+    // `elapsed` is timed on the writer thread, right up against the call it
+    // measures, for the same reason as the sibling test above.
+    let writer = {
+        let db = db.clone();
+        std::thread::spawn(move || {
+            let started = std::time::Instant::now();
+            let result = index_inventory(&db, &inv);
+            (result, started.elapsed())
+        })
+    };
+    std::thread::sleep(std::time::Duration::from_secs(7));
+    holder.execute_batch("COMMIT;").unwrap();
+    drop(holder);
+
+    let (result, elapsed) = writer.join().unwrap();
+    assert!(result.is_ok(), "the inventory rebuild must outwait a 7 s lock: {:?}", result.err());
+    assert!(elapsed >= std::time::Duration::from_secs(6), "the writer waited for the lock, it did not skip it: {:?}", elapsed);
+}
+
+#[test]
 fn a_credential_in_launch_args_is_not_searchable() {
     // The property ipc_boundary_tests.rs pins for serialisation, pinned here
     // for the index: `args` never reaches the table, `launch_display` does.

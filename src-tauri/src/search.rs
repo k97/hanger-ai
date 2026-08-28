@@ -94,8 +94,19 @@ fn place_of(scope: Option<&Scope>) -> String {
 pub fn index_inventory(db_path: &Path, inventory: &Inventory) -> Result<(), SanitisedError> {
     let store = PreferencesStore::new(db_path)?;
     let mut conn = index_connection(&store)?;
+    // `Immediate`, not the default `Deferred`: `asset_search` is an FTS5
+    // virtual table, and preparing the DELETE below runs its xConnect, which
+    // reads the shadow config table before the DELETE itself executes. That
+    // read leaves a `Deferred` transaction holding only SHARED, and SQLite's
+    // deadlock avoidance refuses the SHARED-to-RESERVED upgrade a write needs
+    // without invoking the busy handler when another connection already
+    // holds RESERVED — so the DELETE fails immediately with "database is
+    // locked" rather than waiting out `busy_timeout` (app log, 2026-08-28:
+    // "Failed to clear search index"). Starting `Immediate` takes the write
+    // lock up front, where the busy handler does apply, same as
+    // `index_probe_tools` below.
     let tx = conn
-        .transaction()
+        .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
         .map_err(err("Failed to start search index transaction"))?;
 
     tx.execute("DELETE FROM asset_search WHERE kind != 'mcp_tool'", [])
