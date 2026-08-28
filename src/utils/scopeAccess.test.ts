@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { scopeRoot, scopeAgent, isGlobalScope, isRepoScope, type Scope } from "./scopeAccess";
+import { scopeRoot, scopeAgent, scopeKind, isGlobalScope, isRepoScope, type Scope } from "./scopeAccess";
 
 const global: Scope = { Global: { agent: "claude-code" } };
 const project: Scope = { Project: { agent: "claude-code", root: "/repo/a" } };
@@ -30,9 +30,20 @@ describe("scopeAccess", () => {
     expect(isRepoScope(local, "/repo/other")).toBe(false);
   });
 
+  it("names which of the three a scope is", () => {
+    // `scopeRoot` and `placeOf` both fold Project and Local to the same repo
+    // name, which loses the distinction the inspector's Scope row wants:
+    // committed and shared with the team, versus private to this user.
+    expect(scopeKind(global)).toBe("Global");
+    expect(scopeKind(project)).toBe("Project");
+    expect(scopeKind(local)).toBe("Local");
+  });
+
   it("survives undefined and malformed scopes", () => {
     expect(scopeRoot(undefined)).toBeNull();
     expect(scopeAgent(undefined)).toBeNull();
+    expect(scopeKind(undefined)).toBeNull();
+    expect(scopeKind({} as Scope)).toBeNull();
     expect(isGlobalScope(undefined)).toBe(false);
     expect(isRepoScope(undefined, "/repo/a")).toBe(false);
     expect(scopeRoot(null)).toBeNull();

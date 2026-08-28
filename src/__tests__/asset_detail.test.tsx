@@ -359,6 +359,34 @@ describe("Asset detail — the inspector's document screen", () => {
     expect(screen.queryByText("Any agent")).toBeNull();
   });
 
+  it("omits the Scope row for a global asset, where it only ever said 'Global'", () => {
+    // AssetDetail is reachable only from the Global pane (filtered to global
+    // scopes) and a repo pane (filtered to that repo), so the row was constant
+    // in every context it could appear in.
+    const global = { ...asset, scope: { Global: { agent: "codex" } } };
+    render(<AssetDetail asset={global} inventory={inventory} />);
+    openDetails();
+    expect(screen.queryByText("Scope")).toBeNull();
+  });
+
+  it("tells Project from Local in a repo, which the repo name could not", () => {
+    const project = { ...asset, scope: { Project: { agent: "", root: "/r/hanger-ai" } } };
+    const { unmount } = render(<AssetDetail asset={project} inventory={inventory} />);
+    openDetails();
+    const section = screen.getByText("Identity").closest("section")!;
+    expect(within(section).getByText("Scope")).toBeTruthy();
+    expect(within(section).getByText("Project")).toBeTruthy();
+    // The repo name is what the row used to say, and the breadcrumb says it.
+    expect(within(section).queryByText("hanger-ai")).toBeNull();
+    unmount();
+
+    const local = { ...asset, scope: { Local: { agent: "", root: "/r/hanger-ai" } } };
+    render(<AssetDetail asset={local} inventory={inventory} />);
+    openDetails();
+    const localSection = screen.getByText("Identity").closest("section")!;
+    expect(within(localSection).getByText("Local")).toBeTruthy();
+  });
+
   it("keeps the Engine row when an engine does own the asset", () => {
     // Ownership is exclusive and Reach does not answer it: a rule under
     // ~/.codex names Codex here and nowhere else in the panel.
@@ -405,10 +433,11 @@ describe("Asset detail — the inspector's document screen", () => {
   });
 
   it("Identity is one list card in the ruled order, with Modified from the file's mtime", async () => {
-    // Owned on purpose: the Engine row is conditional on an owning engine
-    // (2026-08-28), and the order this pins is only fully exercised when
-    // every conditional row is present. The unowned case has its own test.
-    const owned = { ...asset, scope: { Global: { agent: "claude" } } };
+    // Owned and repo-scoped on purpose: Engine is conditional on an owning
+    // engine and Scope on a repo scope (2026-08-28), and the order this pins
+    // is only fully exercised when every conditional row is present. The
+    // unowned and global cases have their own tests.
+    const owned = { ...asset, scope: { Project: { agent: "claude", root: "/r/hanger-ai" } } };
     render(<AssetDetail asset={owned} inventory={inventory} />);
     await screen.findByRole("tab", { name: "Details" });
     openDetails();

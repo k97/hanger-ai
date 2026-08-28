@@ -27,7 +27,7 @@ import ReachCard from "./ReachCard";
 import { sectionHeadClass, rowLabelClass, rowValueClass, rowMonoClass, captionClass } from "./typeRoles";
 import type { Inventory } from "../App";
 import { engineLabel, originRow, provenanceOf, type OriginWire } from "../utils/assetProvenance";
-import { scopeAgent, type Scope } from "../utils/scopeAccess";
+import { scopeAgent, scopeKind, type Scope } from "../utils/scopeAccess";
 import EngineLabel from "./EngineLabel";
 import { abbreviateHome } from "../utils/prose";
 import type { AssetAnnotationView } from "./AssetRow";
@@ -309,12 +309,25 @@ export default function AssetDetail({ asset, inventory, onDocumentPath, annotati
           },
         ]
       : []),
-    {
-      key: "scope",
-      label: "Scope",
-      icon: <GlobeAltIcon size={14} aria-hidden="true" />,
-      wide: provenance.place,
-    },
+    // "Global" is the only thing this row could say in the Global pane, and a
+    // repo pane already names the repo in its breadcrumb — this panel is
+    // reachable from nowhere else, so the row was constant wherever it
+    // appeared. It earns its place only by carrying what the repo name
+    // cannot: whether the asset is committed and shared with the team
+    // (Project) or declared in a machine-level file and private to this user
+    // (Local), `domain.rs`. Derived from the scope rather than the viewing
+    // context, so it stays true if a surface ever lists mixed scopes.
+    // Karthik's ruling, 2026-08-28.
+    ...(scopeKind(asset.scope as Scope) === "Project" || scopeKind(asset.scope as Scope) === "Local"
+      ? [
+          {
+            key: "scope",
+            label: "Scope",
+            icon: <GlobeAltIcon size={14} aria-hidden="true" />,
+            wide: scopeKind(asset.scope as Scope),
+          },
+        ]
+      : []),
     ...(provenance.linkedInto.length > 0
       ? [
           {
