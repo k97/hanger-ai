@@ -24,7 +24,14 @@ import MarkdownDoc from "./MarkdownDoc";
 import UnderlineTabs from "./UnderlineTabs";
 import ListCard, { ListCardRow } from "./ListCard";
 import ReachCard from "./ReachCard";
-import { sectionHeadClass, rowLabelClass, rowValueClass, rowMonoClass, captionClass } from "./typeRoles";
+import {
+  sectionHeadClass,
+  rowLabelClass,
+  rowValueClass,
+  rowMonoClass,
+  captionClass,
+  monoLabelClass,
+} from "./typeRoles";
 import type { Inventory } from "../App";
 import { engineLabel, originRow, provenanceOf, type OriginWire } from "../utils/assetProvenance";
 import { scopeAgent, scopeKind, type Scope } from "../utils/scopeAccess";
@@ -705,7 +712,7 @@ export default function AssetDetail({ asset, inventory, onDocumentPath, annotati
                       reached engine reports the same one by construction — this
                       cannot disagree with the rows beneath it. */}
                   {reachStore && (
-                    <span data-testid="reach-store" className="font-mono text-small text-ink-3">
+                    <span data-testid="reach-store" className={monoLabelClass}>
                       → {reachStore}
                     </span>
                   )}

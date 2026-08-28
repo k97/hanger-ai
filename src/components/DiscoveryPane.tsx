@@ -11,7 +11,7 @@ import {
 import { DISCOVERY_ICONS } from "../data/discoveryIcons";
 import { matchesDirectory } from "../utils/directoryFacets";
 import FavouriteHeart from "./FavouriteHeart";
-import { captionClass, sectionHeadClass } from "./typeRoles";
+import { captionClass, sectionHeadClass, monoLabelClass } from "./typeRoles";
 
 interface DiscoveryPaneProps {
   /** The toolbar filter field, shared with the asset panes. */
@@ -82,10 +82,10 @@ function Row({ dir, favourited, onToggleFavourite, onOpen, onCopyFetch }: RowPro
               Printing it twice is noise, so the url only shows
               when it says something the name does not. */}
           {bare(dir.url).toLowerCase() !== dir.name.toLowerCase() && (
-            <span className="font-mono text-small text-ink-3">{bare(dir.url)}</span>
+            <span className={monoLabelClass}>{bare(dir.url)}</span>
           )}
         </span>
-        <span className="block text-base-app text-ink-2 leading-body mb-[7px] max-w-[78ch]">
+        <span className="block text-base-app text-ink-2 leading-body mb-[7px] max-w-[70ch]">
           {dir.desc}
         </span>
         <span className="flex items-center gap-[7px] flex-wrap">
@@ -103,7 +103,7 @@ function Row({ dir, favourited, onToggleFavourite, onOpen, onCopyFetch }: RowPro
               e.stopPropagation();
               onCopyFetch(dir.fetch);
             }}
-            className="font-mono text-small text-ink-3 px-[7px] py-[3px] rounded-[6px] inline-flex items-center gap-[5px] cursor-pointer transition-colors duration-hover ease-spring hover:bg-page hover:text-ink-2"
+            className={`${monoLabelClass} px-[7px] py-[3px] rounded-[6px] inline-flex items-center gap-[5px] cursor-pointer transition-colors duration-hover ease-spring hover:bg-page hover:text-ink-2`}
           >
             {dir.fetch}
             <Square2StackIcon
@@ -221,7 +221,7 @@ export default function DiscoveryPane({
             Checked {CATALOGUE_CHECKED}
           </span>
         </div>
-        <p className="text-base-app text-ink-2 leading-body max-w-[74ch]">
+        <p className="text-base-app text-ink-2 leading-body max-w-[70ch]">
           {DIRECTORIES.length} directories worth knowing about. Hanger doesn't fetch from them, so
           open one, run its command, then rescan and the new assets appear under My machine.
         </p>

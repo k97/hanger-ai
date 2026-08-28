@@ -21,7 +21,7 @@ import DiffChooser, { AlignedSection } from "./DiffChooser";
 import { categoryNoun } from "../utils/prose";
 import { documentKindFor } from "../utils/skillDocument";
 import type { OriginWire } from "../utils/assetProvenance";
-import { sectionHeadClass, captionClass } from "./typeRoles";
+import { sectionHeadClass, captionClass, monoLabelClass } from "./typeRoles";
 
 export interface FlatAssetItem {
   type: "header" | "asset";
@@ -885,12 +885,12 @@ export default function Flyout({
                               {item.name}
                             </span>
                             {item.version && (
-                              <span className="text-small font-mono text-ink-3 px-1.5 py-0.5 rounded-pill bg-plane-2">
+                              <span className={`${monoLabelClass} px-1.5 py-0.5 rounded-pill bg-plane-2`}>
                                 {item.version}
                               </span>
                             )}
                             {item.drifted && (
-                              <span className="text-micro font-medium text-state-warning flex items-center gap-0.5 shrink-0 font-flex">
+                              <span className="text-small font-medium text-state-warning flex items-center gap-0.5 shrink-0 font-flex">
                                 <ExclamationTriangleIcon size={10} />
                                 drifted
                               </span>

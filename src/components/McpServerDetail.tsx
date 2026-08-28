@@ -11,7 +11,14 @@ import OriginValue from "./OriginValue";
 import UnderlineTabs from "./UnderlineTabs";
 import ListCard, { ListCardRow } from "./ListCard";
 import { miniBtnClass, miniSetClass } from "./miniButton";
-import { sectionHeadClass, rowLabelClass, rowValueClass, rowMonoClass, captionClass } from "./typeRoles";
+import {
+  sectionHeadClass,
+  rowLabelClass,
+  rowValueClass,
+  rowMonoClass,
+  captionClass,
+  monoLabelClass,
+} from "./typeRoles";
 import type { ProbeView, ToolCost } from "../utils/probeView";
 import {
   RevealInFileManagerIcon,
@@ -296,7 +303,7 @@ function RegistrationVerifyStatus({ result }: { result?: VerifiedIdentity }) {
     return <span className="font-mono text-small text-state-danger">verify failed</span>;
   }
   return (
-    <span className="font-mono text-small text-ink-3">
+    <span className={monoLabelClass}>
       {result.tools.length === 1 ? "1 tool" : `${result.tools.length} tools`}
     </span>
   );
@@ -488,7 +495,7 @@ function ContextNote() {
 function LaunchDiffLine({ label, tokens }: { label: string; tokens: LaunchDiffToken[] }) {
   return (
     <div className="flex flex-col gap-px min-w-0">
-      <span className="font-mono text-small text-ink-3 truncate">{label}</span>
+      <span className={`${monoLabelClass} truncate`}>{label}</span>
       <div className="flex flex-wrap gap-x-1.5 gap-y-px font-mono text-small">
         {tokens.map((token, i) => (
           <span key={i} className={token.differs ? "text-state-warning font-medium" : "text-ink-1"}>
@@ -997,7 +1004,7 @@ export default function McpServerDetail({
                         `launchDisplay`: a direct remote registration has no
                         launch, and an empty label beside a count is the same
                         unattributed number under a different name. */}
-                    <span className="font-mono text-small text-ink-3 truncate">
+                    <span className={`${monoLabelClass} truncate`}>
                       {group.key}
                     </span>
                     {group.result && (
@@ -1025,7 +1032,7 @@ export default function McpServerDetail({
                       the path, same convention the old per-registration label
                       used. Plural when more than one host launches it
                       identically. */}
-                  <span className="font-mono text-small text-ink-3 truncate">
+                  <span className={`${monoLabelClass} truncate`}>
                     {group.regs.map((r) => `${r.host} · ${r.tier}`).join(", ")}
                   </span>
                   {/* Same `kind` check as the single-spec ledger above: the
@@ -1283,7 +1290,7 @@ export default function McpServerDetail({
                   </span>
                 </span>
                 <div className="flex items-center gap-1.5 min-w-0">
-                  <span className="font-mono text-small text-ink-3 truncate flex-1">
+                  <span className={`${monoLabelClass} truncate flex-1`}>
                     {reg.configPath}
                   </span>
                   {/* Naming a file without letting you reach it is the same dead

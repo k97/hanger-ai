@@ -18,3 +18,7 @@ export const captionClass = "font-sans text-small text-ink-3 leading-caption";
  *  sentence case, no shouting. Its only callers are the header row's four
  *  cells; not hoisted further until a second caller exists. */
 export const columnHeadClass = "text-small font-medium text-ink-3";
+/** A path or key in a *label* position -- grey, one step down, no
+ *  `tabular` (a path is not a figure). Distinct from `rowMonoClass`,
+ *  which is for values the user reads as numbers. */
+export const monoLabelClass = "font-mono text-small text-ink-3";

@@ -151,7 +151,7 @@ export default function SummaryStrip({
             </div>
           </div>
 
-          <p className={`${captionClass} font-flex mt-2.5`}>{REQUEST_CARRIES}</p>
+          <p className={`${captionClass} mt-2.5`}>{REQUEST_CARRIES}</p>
         </>
       ) : (
         <>
