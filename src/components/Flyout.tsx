@@ -677,11 +677,24 @@ export default function Flyout({
           so this header needed its own top padding to read as a separate
           block; with the cap now bearing only the close control, that padding
           was a gap between two empty things. The heading is what the panel
-          opens with, and every pixel taken here comes off the content. */}
+          opens with, and every pixel taken here comes off the content.
+
+          The spacing is a rule, not four numbers (Karthik, 2026-08-28: the
+          steps between the cap, the title and the tabs "feel inconsistent").
+          Every band in the header stack pads symmetrically on the 8px step —
+          this one `py-2`, the tab row's labels `py-2` (`UnderlineTabs.tsx`)
+          — so no band reaches across into another to set its neighbour's
+          gap, and the eyebrow-to-title step is this column's own `gap-1`
+          rather than a margin the title row switches on and off. What is
+          left above the title is the cap's centring slack (a 16px glyph in
+          an `h-10` row), which belongs to the cap and is not ours to pad
+          against. */}
       {(linking || targetAsset || selectedBubble || showEmptyMcpEyebrow) && (
       <div
         data-testid="inspector-header"
-        className={`px-[18px] pt-2 pb-4 shrink-0${tabsFollow ? "" : " border-b border-line"}`}
+        className={`px-[18px] py-2 flex flex-col gap-1 shrink-0${
+          tabsFollow ? "" : " border-b border-line"
+        }`}
       >
         {eyebrowShown && (
         <div className="flex items-center gap-2 font-flex text-micro font-medium tracking-[.06em] uppercase text-ink-3">
@@ -722,7 +735,7 @@ export default function Flyout({
         </div>
         )}
         {!showEmptyMcpEyebrow && (
-        <div className={`flex items-center gap-2 min-w-0 ${eyebrowShown ? "mt-1" : ""}`}>
+        <div className="flex items-center gap-2 min-w-0">
           {!linking && !targetAsset && selectedBubble?.type === "agent" && (
             <BrandIcon engineKey={selectedBubble.id} engineName={selectedBubble.name} size={16} />
           )}

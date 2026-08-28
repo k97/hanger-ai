@@ -1,9 +1,19 @@
 // @vitest-environment happy-dom
 //
 // Decision 13 (docs/superpowers/plans/2026-08-23-v4-phase-2b-inspector-header.md)
-// gives the inspector's title block `px-[18px] pt-2 pb-4` and drops its
+// gave the inspector's title block `px-[18px] pt-2 pb-4` and dropped its
 // hairline outright, reasoning "the tab row's own bottom border is the only
-// line above the body." A prior task checked that reasoning against the
+// line above the body."
+//
+// The padding half of that decision is superseded (Karthik, 2026-08-28: the
+// spacing between the cap, the title and the tabs "feels inconsistent", and
+// is to be set by a rule rather than eyeballed). It now reads `py-2` — the
+// band states one value for both edges instead of 8 above and 16 below —
+// and the eyebrow-to-title step is a `gap-1` on the column rather than a
+// conditional `mt-1` on the title row. Every band in the header stack now
+// pads symmetrically on the 8px step; `UnderlineTabs.test.tsx`'s "sits
+// symmetrically in its band" pins the other one. The hairline half of
+// Decision 13 stands exactly as ruled below. A prior task checked that reasoning against the
 // code and found it holds for only one of the four views sharing this
 // wrapper (the condition at `Flyout.tsx`'s header block, `linking ||
 // targetAsset || selectedBubble || showEmptyMcpEyebrow`):
@@ -85,10 +95,33 @@ describe("Flyout title block — the hairline follows the tab row, not the wrapp
 
     const header = screen.getByTestId("inspector-header");
     expect(header.className).toContain("px-[18px]");
-    expect(header.className).toContain("pt-2");
-    expect(header.className).toContain("pb-4");
+    expect(header.className).toContain("py-2");
+    expect(header.className).not.toContain("pb-4");
     expect(header.className).not.toContain("border-b");
     expect(header.className).not.toContain("border-line");
+  });
+
+  // The step between the eyebrow and the title is the column's own `gap-1`,
+  // not a margin the title row carries conditionally: with the eyebrow gone
+  // for a plain asset selection there is no rule to switch off, because the
+  // gap only exists where two children do.
+  it("spaces the eyebrow from the title with the column's gap, not a margin on the title", () => {
+    render(
+      <Flyout
+        selectedBubble={{ type: "project", id: "/home/user/project", name: "project" }}
+        inventory={emptyInventory}
+        linkedProjects={[]}
+        onRefresh={() => {}}
+      />
+    );
+
+    const header = screen.getByTestId("inspector-header");
+    expect(header.className).toContain("flex");
+    expect(header.className).toContain("flex-col");
+    expect(header.className).toContain("gap-1");
+
+    const titleRow = screen.getByRole("heading", { level: 2 }).parentElement!;
+    expect(titleRow.className).not.toContain("mt-1");
   });
 
   it("a tabless view (the empty MCP eyebrow): same padding, keeps its own hairline", () => {
@@ -108,8 +141,8 @@ describe("Flyout title block — the hairline follows the tab row, not the wrapp
 
     const header = screen.getByTestId("inspector-header");
     expect(header.className).toContain("px-[18px]");
-    expect(header.className).toContain("pt-2");
-    expect(header.className).toContain("pb-4");
+    expect(header.className).toContain("py-2");
+    expect(header.className).not.toContain("pb-4");
     expect(header.className).toContain("border-b");
     expect(header.className).toContain("border-line");
   });

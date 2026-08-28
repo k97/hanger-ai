@@ -36,6 +36,20 @@ describe("UnderlineTabs", () => {
     expect(screen.getByRole("tab", { name: "Details" }).querySelector("span")).toBeNull();
   });
 
+  // The label sits symmetrically in its band — 8px above and 8px below, on
+  // the same step the header above it pads with (Karthik, 2026-08-28). It
+  // was `pb-2.5` before: the only value in that stack off the 4px grid, and
+  // 2px of it was the reason the tab row read heavier at the bottom than
+  // the top. `happy-dom` lays nothing out, so this pins the class that
+  // produces the spacing, not the spacing (`verification.md`).
+  it("sits symmetrically in its band: one padding value for both edges", () => {
+    render(<UnderlineTabs tabs={tabs} active="tools" onChange={vi.fn()} ariaLabel="Inspector view" />);
+    for (const tab of screen.getAllByRole("tab")) {
+      expect(tab.className).toContain("py-2");
+      expect(tab.className).not.toContain("pb-2.5");
+    }
+  });
+
   it("reports a click and carries one sliding indicator on the nav beat", () => {
     const onChange = vi.fn();
     render(<UnderlineTabs tabs={tabs} active="tools" onChange={onChange} ariaLabel="Inspector view" />);

@@ -772,7 +772,15 @@ Below that, the header is exactly: the cap's identity row — kind glyph, a
 `KIND · PLACE` eyebrow, a finding chip (`InspectorCap.tsx:169-212`;
 the cap itself, Surfaces and controls below) — then Flyout's title block
 (the `<h2>`, `Flyout.tsx:720`), then `AssetDetail`'s own `UnderlineTabs`
-switch.
+switch. Nothing else: `AssetDetail` used to open with a state line, a path
+chip and a Link/Open action row, each behind its own `border-b border-line`,
+all now gone — the render goes straight from the panel's outer div to a
+comment recording the move and then the tab switch, with no hairline of its
+own left in that gap (`AssetDetail.tsx:346-358`). One hairline still stands
+in the assembled header: Flyout's own `border-b border-line`, beneath the
+title and above the tabs (`Flyout.tsx:676`) — untouched by this phase, and it
+falls between the title and the tabs, not between the cap and the title,
+where nothing separates them at all.
 
 **Every band in that stack pads symmetrically, on one step.** The header is
 `py-2` and the tab labels are `py-2` (`Flyout.tsx:684`,
@@ -787,15 +795,7 @@ to the tabs beneath it rather than floating between two bands. It read
 called the stack inconsistent; the values are a rule now rather than four
 independently chosen numbers. The content card below still insets 12px
 against this stack's 18px gutter (`AssetDetail.tsx:471`) — untouched, and
-the next thing to reconcile. Nothing else: `AssetDetail` used to open with a state line, a path
-chip and a Link/Open action row, each behind its own `border-b border-line`,
-all now gone — the render goes straight from the panel's outer div to a
-comment recording the move and then the tab switch, with no hairline of its
-own left in that gap (`AssetDetail.tsx:346-358`). One hairline still stands
-in the assembled header: Flyout's own `border-b border-line`, beneath the
-title and above the tabs (`Flyout.tsx:676`) — untouched by this phase, and it
-falls between the title and the tabs, not between the cap and the title,
-where nothing separates them at all.
+the next thing to reconcile.
 
 **The cap sheds two things, in order, when it does not fit, and none of it
 runs under test.** After every render, one effect compares the row's own
