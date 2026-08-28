@@ -429,8 +429,8 @@ glyph sits on the baseline and renders low in a 16px slot however its line box
 is centred, and correcting it would mean an offset tuned to one font's
 metrics.
 The inspector's Reach card groups by **route** rather than by engine
-(`ReachCard.tsx`). `ROUTES` (`:17-22`) is the reading order — "Through their
-own link", "Where it lies", "Root not linked", "Another engine's format" —
+(`ReachCard.tsx`). `ROUTES` is the reading order — "Through a symlink",
+"Read directly", "Not linked", "Another engine's format" —
 each derived from fields `annotations.rs` already returns: reached with a
 `via_root`, reached without one, a miss for any reason but `format`, a
 `format` miss. A route nobody takes is dropped (`:64-66`), so the card never
@@ -453,15 +453,25 @@ colour, so pointing at a plate cannot impersonate pressing it.
 One footer inside the card, on `bg-plane`, answers for the selected plate
 (`reach-answer`, `:156-170`): the engine's own root folded to `~` by
 `abbreviateHome` (`prose.ts`), "in place" for a store engine with no link, or
-"root not linked" / "cannot read this format" for a miss (`answerFor`,
-`:27-30`). At rest it answers for the first plate in reading order and that
+"not linked" / "cannot read this format" for a miss (`answerFor`). At rest it answers for the first plate in reading order and that
 plate is genuinely selected — never empty, never an instruction. Selection is
 per asset: `AssetDetail` keys the card by `asset.path` (`:698`), which is the
 only thing that resets it, since `Flyout` renders the panel unkeyed. The store
 is still named once, in the cap (`AssetDetail.tsx:692`), safe by construction —
 `via_store` is keyed off the asset's own root, so every reached engine reports
-the same value. "Through their own link" and "Where it lies" are Karthik's
-ruling of 2026-08-28; the other two labels were signed off 2026-08-17.
+the same value.
+
+The first three route labels are Karthik's ruling of 2026-08-28, re-taken
+after he read them in the running app: "symlink" is the mechanism's true
+name and the reader knows it, while "root" was Hanger's own noun asking to
+be learned before a row could be read. The middle row is worded positively
+— "No symlink involved" was accurate but states an absence, directly above
+another absence that means failure, so the words would have fought the
+plates. "Another engine's format" keeps its August wording and its length:
+it names a cause rather than a fault, and "Wrong format" would make a
+non-problem read like an error. The `root_not_linked` footer value moved
+with its label, to "not linked", so a row and its own answer cannot
+disagree.
 
 The plates are one composite widget, not one control each: the card is a
 `role="radiogroup"` (`:111`), each plate a `role="radio"` with `aria-checked`
@@ -861,8 +871,8 @@ eyebrows.
   a tool beginning `Bash` carries the value `Shell access`, every other tool
   carries none (`:500-516`, the rule `:512`).
 - **Reach** groups every engine the backend holds a verdict for by the route
-  it takes: through their own link, where it lies, root not linked, another
-  engine's format (`ReachCard.tsx`, `ROUTES`; rendered from
+  it takes: through a symlink, read directly, not linked, another engine's
+  format (`ReachCard.tsx`, `ROUTES`; rendered from
   `AssetDetail.tsx:698`). One `→ store` figure sits beside the eyebrow, keyed
   off the asset's own root so it cannot disagree with the rows beneath it
   (`:690-694`), and a footer inside the card answers for the selected plate.
