@@ -169,7 +169,11 @@ describe("Icon rail", () => {
     expect(screen.queryByTestId("sidebar")).toBeNull();
     expect(await screen.findByText("The system, rendered by the app that uses it")).toBeTruthy();
     expect(screen.queryByLabelText("Search")).toBeNull();
-    expect(screen.queryByLabelText("Toggle inspector")).toBeNull();
+    // "No inspector" is the column, not the button: the page renders the
+    // real InspectorCap as a specimen (2026-08-28), so a "Toggle inspector"
+    // button legitimately exists inside a figure. The <aside> is the
+    // inspector column (App.tsx) and nothing else in the app is an aside.
+    expect(document.querySelector("aside")).toBeNull();
     unmount();
   });
 
