@@ -143,6 +143,10 @@
 .dark .brand-light-only { display: none; }
 .dark .brand-dark-only { display: inline; }
 
+/* <mark> in this app is emphasis (the search palette's matched run), not a
+   highlighter, so it takes its row's ground rather than painting its own. */
+mark { background: transparent; }
+
 /* Motion beats as first-class utilities (Tailwind v4 durations are not
    themeable, so the three beats are declared directly). */
 @utility duration-hover {

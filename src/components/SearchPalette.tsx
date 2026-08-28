@@ -62,7 +62,7 @@ export function renderSnippet(snippet: string): ReactNode {
     const end = chunk.indexOf(MARK_CLOSE);
     if (end === -1) return [chunk];
     return [
-      <mark key={i} className="bg-page text-ink-1 font-medium">
+      <mark key={i} className="text-ink-1 font-medium">
         {chunk.slice(0, end)}
       </mark>,
       // MARK_CLOSE is one UTF-16 code unit, so this offsets past it exactly.
