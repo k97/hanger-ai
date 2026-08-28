@@ -95,7 +95,7 @@ function beyondCell(annotation: AssetAnnotationView): { text: string; cls: strin
       return { text: `${readers.join(", ")} only`, cls: "text-ink-2" };
     }
   }
-  return { text: "—", cls: "text-ink-3 opacity-45" };
+  return { text: "—", cls: "text-ink-3" };
 }
 
 export function getSingularType(category: string): string {
@@ -210,7 +210,7 @@ export default function AssetRow({ item, isSelected, showKindColumn = true, anno
             per-registration `Tool`); the dash is this component's existing
             convention for a cell with nothing to show (`beyondCell`'s
             default case, above), not a fabricated zero. */}
-        <span className="shrink-0 w-[150px] text-left text-small text-ink-3 opacity-45">
+        <span className="shrink-0 w-[150px] text-left text-small text-ink-3">
           —
         </span>
       </div>

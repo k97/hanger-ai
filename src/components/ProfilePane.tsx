@@ -23,6 +23,7 @@ import { groupProcesses, type ProcessMatch } from "../utils/mcpServerView";
 import { cardSecondLine, mergeReach, sortServerRows, type McpServerRow } from "../utils/serverRows";
 import DisclosureBanner from "./DisclosureBanner";
 import { sumGlobalAssets, categoryCountKey } from "../utils/globalAssetCount";
+import { groupLabelClass } from "./typeRoles";
 import SummaryStrip from "./SummaryStrip";
 import { ScanStatusIndicator } from "./ScanStatusIndicator";
 import EmptyState from "./EmptyState";
@@ -877,10 +878,6 @@ export default function ProfilePane({
   const hasToolsContent = sortedTools.length > 0 || configProblemRows.length > 0;
   const toolsOnlyView = showTools && hasToolsContent && !nonToolsSectionVisible;
 
-  // Uppercase micro voice for section labels inside the list plane.
-  const secClass =
-    "px-3.5 pt-[11px] pb-[5px] font-flex text-micro font-medium tracking-[.06em] uppercase text-ink-3";
-
   // Visible rows post-filter for the foot line — a display subset, never the
   // asset total (which stays backend-owned).
   const visibleCount = sortedSkills.length + sortedTools.length + sortedRules.length + sortedSubagents.length + (selectedCategory === "Agents" ? sortedAgents.length : 0);
@@ -1129,7 +1126,7 @@ export default function ProfilePane({
             {/* Agents Group */}
             {selectedCategory === "Agents" && (
               <>
-                <h3 className={secClass}>Agents · {sortedAgents.length}</h3>
+                <h3 className={`px-3.5 pt-[11px] pb-[5px] ${groupLabelClass}`}>Agents · {sortedAgents.length}</h3>
                 <div className="flex flex-col">
                   {sortedAgents.map((item) => (
                     <AssetRow
@@ -1148,7 +1145,7 @@ export default function ProfilePane({
             {/* Skills Group */}
             {showSkills && sortedSkills.length > 0 && (
               <>
-                <h3 className={secClass}>
+                <h3 className={`px-3.5 pt-[11px] pb-[5px] ${groupLabelClass}`}>
                   Skills · {assetCounts ? (assetCounts.byCategory.skill?.global ?? 0) : sortedSkills.length}
                 </h3>
                 <div className="flex flex-col">
@@ -1190,7 +1187,7 @@ export default function ProfilePane({
               <>
                 <div
                   data-testid="section-header-tools"
-                  className={`sticky top-0 z-[2] bg-page flex items-center gap-3 select-none ${secClass}`}
+                  className={`sticky top-0 z-[2] bg-page flex items-center gap-3 select-none px-3.5 pt-[11px] pb-[5px] ${groupLabelClass}`}
                 >
                   {/* The Display control (§5.6) lives here, not in the facet
                       row above: grouping and sort only ever affect these
@@ -1239,7 +1236,7 @@ export default function ProfilePane({
             {/* Rules Group */}
             {showRules && sortedRules.length > 0 && (
               <>
-                <h3 className={secClass}>
+                <h3 className={`px-3.5 pt-[11px] pb-[5px] ${groupLabelClass}`}>
                   Rules · {assetCounts ? (assetCounts.byCategory.rule?.global ?? 0) : sortedRules.length}
                 </h3>
                 <div className="flex flex-col">
@@ -1261,7 +1258,7 @@ export default function ProfilePane({
             {/* Subagents Group */}
             {showSubagents && sortedSubagents.length > 0 && (
               <>
-                <h3 className={secClass}>
+                <h3 className={`px-3.5 pt-[11px] pb-[5px] ${groupLabelClass}`}>
                   Subagents · {assetCounts ? (assetCounts.byCategory.subagent?.global ?? 0) : sortedSubagents.length}
                 </h3>
                 <div className="flex flex-col">
@@ -1286,7 +1283,7 @@ export default function ProfilePane({
 
       {/* Foot line. Unconditional: scan progress needs a home in the empty
           state too, which is precisely when a scan is running. */}
-      <div className="h-[30px] shrink-0 px-[18px] flex items-center gap-4 font-flex text-micro text-ink-3">
+      <div className="h-[30px] shrink-0 px-[18px] flex items-center gap-4 font-flex text-small text-ink-3">
         {sumGlobalAssets(assetCounts) > 0 && (
           <span>
             Showing {visibleCount} of {sumGlobalAssets(assetCounts)}

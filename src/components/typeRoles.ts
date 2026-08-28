@@ -14,3 +14,7 @@ export const rowLabelClass = "text-base-app text-ink-3 leading-body";
 export const rowValueClass = "font-sans text-base-app text-ink-1 leading-body";
 export const rowMonoClass = "font-mono text-small text-ink-1 tabular";
 export const captionClass = "font-sans text-small text-ink-3 leading-caption";
+/** Pane-list column headers (AssetHeaderRow): caption-size, medium, --ink-3 —
+ *  sentence case, no shouting. Its only callers are the header row's four
+ *  cells; not hoisted further until a second caller exists. */
+export const columnHeadClass = "text-small font-medium text-ink-3";

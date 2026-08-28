@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { render, screen } from "@testing-library/react";
 import { describe, it, expect } from "vitest";
-import AssetRow, { AssetItem } from "./AssetRow";
+import AssetRow, { AssetItem, AssetAnnotationView } from "./AssetRow";
 
 describe("AssetRow Shell Spec Compliance", () => {
   const sampleItem: AssetItem = {
@@ -94,5 +94,28 @@ describe("AssetRow Shell Spec Compliance", () => {
 
     // Raw parse_error string must NOT be rendered in the visible text
     expect(screen.queryByText("YAML parsing failed: invalid character")).toBeNull();
+  });
+
+  // Class-contract guard only (happy-dom lays nothing out — verification.md).
+  it("an empty beyond-the-store cell is --ink-3 with no opacity", () => {
+    const annotation: AssetAnnotationView = {
+      asset_path: "/path/to/tool",
+      mechanism: "none",
+      reach: [],
+      beyond: null,
+    };
+    render(
+      <AssetRow
+        item={{
+          name: "unreached-skill",
+          category: "Skills",
+          path: "/path/to/unreached/SKILL.md",
+        }}
+        annotation={annotation}
+      />
+    );
+    const dash = screen.getByText("—");
+    expect(dash.className).toContain("text-ink-3");
+    expect(dash.className).not.toContain("opacity-45");
   });
 });
