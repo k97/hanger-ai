@@ -53,6 +53,7 @@ import {
 import { BRAND_IDS } from "../data/brands";
 import EmptyState from "./EmptyState";
 import EditorPicker from "./EditorPicker";
+import EditorSetting from "./EditorSetting";
 import type { StateFilter } from "../utils/linkStateCounts";
 import {
   type DesignSectionId,
@@ -798,6 +799,17 @@ export default function DesignSystemPane({ section }: DesignSystemPaneProps) {
                   onCancel={() => {}}
                 />
               </div>
+            </div>
+          </Specimen>
+
+          <Specimen
+            name="EditorSetting"
+            file="EditorSetting.tsx"
+            note="the Settings row that changes the remembered editor after the first pick; an ordinary root, so no contain-paint trap is needed — both states shown live"
+          >
+            <div className="flex flex-col gap-4 max-w-[420px]">
+              <EditorSetting editors={SAMPLE_EDITORS} chosen={SAMPLE_EDITORS[2].name} onChoose={() => {}} />
+              <EditorSetting editors={[]} chosen={null} onChoose={() => {}} />
             </div>
           </Specimen>
         </Section>

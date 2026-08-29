@@ -96,6 +96,9 @@ import type { McpEngineSummaryData } from "./types/mcpEngineSummary";
 import { assetOpenTarget } from "./openTarget";
 import { openInEditor } from "./openInEditor";
 import EditorPicker, { type DetectedEditor } from "./components/EditorPicker";
+import EditorSetting from "./components/EditorSetting";
+import DisclosureBanner from "./components/DisclosureBanner";
+import { captionClass } from "./components/typeRoles";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import {
   deriveReviewIssues,
@@ -1014,9 +1017,7 @@ export default function App() {
   const [chosenEditor, setChosenEditor] = useState<string | null>(null);
   const [detectedEditors, setDetectedEditors] = useState<DetectedEditor[]>([]);
   const [pickerFor, setPickerFor] = useState<{ name: string; path: string } | null>(null);
-  // Read by Task 6's DisclosureBanner wiring; this task only sets it
-  // (precedent: ScanStamp.tsx's `const [, setTick]`).
-  const [, setEditorNotice] = useState<string | null>(null);
+  const [editorNotice, setEditorNotice] = useState<string | null>(null);
   // Every editor the capability permits, installed or not. `detect_editors`
   // returns only the installed ones, so this second command is what makes
   // "Choose an app…" able to accept an editor the user installed after
@@ -1034,6 +1035,17 @@ export default function App() {
       .then((names) => setKnownEditorNames(new Set(names)))
       .catch(() => {});
   }, []);
+
+  // Settings' own Editor row needs the detected list too, refreshed on open
+  // so it reflects an app installed since launch. `?? []` guards a command
+  // that resolves rather than rejects with nothing (a test double, or a
+  // backend hiccup) from handing EditorSetting a null `editors.length`.
+  useEffect(() => {
+    if (!showSettingsModal) return;
+    invoke<DetectedEditor[]>("detect_editors")
+      .then((found) => setDetectedEditors(found ?? []))
+      .catch(() => {});
+  }, [showSettingsModal]);
 
   const applyEditorChoice = (name: string, remember: boolean, target: string) => {
     setPickerFor(null);
@@ -2192,6 +2204,14 @@ export default function App() {
               </div>
             )}
 
+            {editorNotice && (
+              <DisclosureBanner variant="info" summary={editorNotice}>
+                <span className={captionClass}>
+                  Pick a different editor below, or open the folder in Finder.
+                </span>
+              </DisclosureBanner>
+            )}
+
             <div className="flex flex-col gap-3 mt-2">
               <button
                 onClick={async () => {
@@ -2297,6 +2317,15 @@ export default function App() {
                   ))}
                 </div>
               </div>
+
+              <EditorSetting
+                editors={detectedEditors}
+                chosen={chosenEditor}
+                onChoose={(name) => {
+                  setChosenEditor(name);
+                  invoke("set_preference", { key: "editor_app", value: name }).catch(() => {});
+                }}
+              />
 
               <div className="border-t border-line pt-4 mt-2 flex flex-col gap-3">
                 <span className="text-micro font-medium uppercase tracking-[.06em] text-ink-3 font-flex">
