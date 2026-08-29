@@ -103,7 +103,7 @@ describe("InspectorCap", () => {
 
   /* Important 1 (final review, 2026-08-28): the chip took ONE severity for
      every line. `AssetFindings.severity` is the asset's AGGREGATE — danger
-     if ANY issue is broken-or-parse (`reviewIssues.ts:440`) — so an asset
+     if ANY issue is broken-or-parse — so an asset
      holding a broken link and a drifted copy painted both dots danger,
      while the hero pill, which severities each issue on its own, painted
      the drifted one warning. Two surfaces, one issue, two colours.

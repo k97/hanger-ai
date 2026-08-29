@@ -161,9 +161,9 @@ export const SAMPLE_ORIGIN_BLOCKED: OriginRowView = originRow(null, true)!;
 /** A partial picture on purpose: one row not yet asked. The HeroBand
  *  specimen maps these the way ProfilePane maps `mcpEngineSummary.rows`. */
 export const SAMPLE_MCP_ENGINE_SUMMARY_ROWS: McpEngineSummaryRow[] = [
-  { engine_id: "claude", engine_name: "Claude Code", server_count: 6, tools_known: 41 },
+  { engine_id: "claude-code", engine_name: "Claude Code", server_count: 6, tools_known: 41 },
   { engine_id: "codex", engine_name: "Codex", server_count: 2, tools_known: 9 },
-  { engine_id: "claude_desktop", engine_name: "Claude Desktop", server_count: 3, tools_known: null },
+  { engine_id: "claude-desktop", engine_name: "Claude Desktop", server_count: 3, tools_known: null },
 ];
 
 // The backend's match markers (private-use U+E000/U+E001), written as escapes

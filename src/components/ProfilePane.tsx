@@ -597,9 +597,19 @@ export default function ProfilePane({
       ? sumGlobalAssets(assetCounts)
       : assetCounts?.byCategory[kindKey]?.global ?? 0;
 
-  // MCP mode: probe coverage instead of link state. Gated on a grouped row
-  // existing to point the Review pill's filter at — a per-registration view
-  // has no `agreement` verdict to filter on.
+  /* MCP mode: what the hero says about MCP servers rather than about assets
+     with link state. It swaps four things — the subtitle counts servers,
+     tools and hosts; the meter gives way to one caption; the review pill
+     lists disagreeing servers instead of this store's issues; and the band
+     under it breaks the tool figure down by host.
+
+     Probe coverage is NOT what it shows any more: the "answered / not yet
+     asked / can't be asked" meter came out on Karthik's ruling, 2026-08-28,
+     because it measured whether Hanger had asked rather than whether
+     anything was wrong, and converged to a constant as the probes finished.
+
+     Gated on a grouped row existing to point the Review pill's filter at —
+     a per-registration view has no `agreement` verdict to filter on. */
   const mcpMode = selectedCategory === "Tools" && mcpEngineSummary !== null && useGroupedTools;
 
   // Identity set for the selected category's own rows — the same keys

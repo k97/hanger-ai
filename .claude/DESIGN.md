@@ -751,29 +751,38 @@ popover; the nested-repo notice became the engine band's foot row.
 - Undeclared processes, on every Global tab rather than only MCP servers:
   one line per group, "Running with no config behind it.", with the pid or
   pid count, the command line and the spawning host as its detail
-  (`ProfilePane.tsx:658-662`). The popover is the whole disclosure — there
+  (`ProfilePane.tsx:669-673`). The popover is the whole disclosure — there
   is no registration to open, so there is nowhere to route, which is what
-  the banner said too (`:649-657`).
+  the banner said too (`:660-668`); since the fix wave the action row is
+  withheld outright when nothing behind the pill is a `ReviewIssue`.
 - Scan warnings, on a project pane: one line per non-TCC warning, "The scan
   skipped something it could not read.", the warning itself as the detail
-  (`RepoPane.tsx:268-272`). The macOS TCC panel is untouched and still
-  stands above the list plane (`RepoPane.tsx:581`).
+  (`RepoPane.tsx:287-291`). The macOS TCC panel is untouched and still
+  stands above the list plane (`RepoPane.tsx:583`).
 - Nested repositories: the band's full-width foot row, because the thing
   they qualify is the per-engine tally directly above them — the count, the
-  paths, the depth-cap note and `Promote…` (`RepoPane.tsx:305-340`).
+  paths, the depth-cap note and `Promote…` (`RepoPane.tsx:314-349`). The rows
+above it are withheld on a category tab, where the per-engine figures are
+root-wide and the hero's numeral is not (`:259-262`); the foot stays.
 
 **The pill's figure is the lines it shows.** `StripReview.count` is counted
 where the lines are built and allowlisted there — `reviewLineCount` and
-`assetReviewLineCount` (`ProfilePane.tsx:681`, `:706`; `RepoPane.tsx:274`) —
+`assetReviewLineCount` (`ProfilePane.tsx:693`, `:718`; `RepoPane.tsx:293`) —
 never derived inside the strip, where it used to be `counts.drifted +
-counts.broken` (`ProfilePane.tsx:703-704`). Severity follows
-`reviewIssues.ts:440` rather than a second rule, so a won't-parse asset is a
-danger dot here exactly as it is in the inspector cap's chip
-(`ProfilePane.tsx:664-672`, `RepoPane.tsx:263-267`). `Show in list` is
-withheld whenever any line is a duplicate, because the `needs-review` filter
-is broken-or-drifted only and would filter that line straight back out
-(`ProfilePane.tsx:707-716`, `RepoPane.tsx:275-282`); `Needs review →` always
-renders.
+counts.broken`. Severity follows `issueSeverity` (`reviewIssues.ts:413-415`)
+rather than a second rule, so a won't-parse asset is a danger dot here
+exactly as it is in the inspector cap's chip, whose popover lines carry their
+own severity one by one rather than the asset's aggregate
+(`ProfilePane.tsx:680-684`, `RepoPane.tsx:282-286`, `InspectorCap.tsx:241`).
+
+**The action row is `ReviewPillActions`** (`ReviewPillActions.tsx`) — one
+component for both heroes, given the pill's `issues`. With none it renders
+nothing at all (`:30`), because a pill can be showing lines no `ReviewIssue`
+produced — undeclared processes, scan warnings — and those have no asset to
+open; `Needs review →` used to route to a Needs review pane that answered
+"Nothing needs a decision". `Show in list` is withheld whenever any issue is
+a duplicate, because the `needs-review` filter is broken-or-drifted only and
+would filter that line straight back out (`:40`).
 
 **`DiscoveryPane`** (`DiscoveryPane.tsx`) — `kind?`. Renders
 from static data in `src/data/directories.ts`; the kind facet is owned by
@@ -1032,7 +1041,7 @@ registrationKeys, serverName }` each satisfy exactly one arm, and the two
 together satisfy neither (`reviewIssues.ts:405-407`). `issuesForAsset` itself
 matches on the asset's own path or a duplicate's `copies` for everything
 else, and on a registration key or (for a server's own duplicate issue) its
-name for a Tool (`:409-434`). Karthik's ruling, 2026-08-24.
+name for a Tool (`:426-444`). Karthik's ruling, 2026-08-24.
 
 **The path itself moved with the rest.** `AssetDetail`'s Details tab Identity
 card gained a `Path` row, last in the ruled order, holding `documentPath ??
@@ -1587,7 +1596,7 @@ below).
 `summary`, `count`, `children`, `defaultOpen?`. Every variant sits on the same
 neutral plane; only the text colour changes, because "the state carries the
 colour, not the ground" (`:21-32`). It pluralises its own summary from `count`
-(`:46-60`) and caps its open body at 240px of scroll (`:83`).
+(`:46-60`) and caps its open body at 240px of scroll (`:88-89`).
 
 **`LinkPanel`** (`LinkPanel.tsx:18-29`), **`DiffChooser`** (`DiffChooser.tsx:9`),
 **`SidebarScanModal`** (`SidebarScanModal.tsx:5`), **`MarkdownDoc`**

@@ -794,11 +794,12 @@ export default function DesignSystemPane({ section }: DesignSystemPaneProps) {
                   { severity: "danger", text: SAMPLE_FINDING_LINES[1] },
                 ],
                 actions: (
-                  <div className={miniSetClass}>
-                    <button type="button" onClick={() => {}} className={miniBtnClass}>
-                      Show in list →
-                    </button>
-                  </div>
+                  <ReviewPillActions
+                    issues={[SAMPLE_REVIEW_ISSUE]}
+                    stateFilter={stateFilter}
+                    onStateFilterChange={setStateFilter}
+                    onReview={() => {}}
+                  />
                 ),
               }}
             />

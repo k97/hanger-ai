@@ -284,7 +284,7 @@ describe("ProfilePane Component-Level Filtering Integration", () => {
   });
 
   it("a won't-parse issue is a danger dot here, the same colour the inspector cap gives it", () => {
-    // `reviewIssues.ts:440` — broken OR parse is danger. `kind === "broken"`
+    // `issueSeverity` — broken OR parse is danger. `kind === "broken"`
     // alone paints this dot bg-state-warning, and the same asset then wears
     // two colours in two surfaces.
     const issue = { id: "i1", name: "reviewer.md", category: "Subagents", kind: "parse", problem: "Won't parse", path: "/x/reviewer.md", whereLabel: "Global", whereKeys: ["global"], crossRepo: false };

@@ -102,7 +102,7 @@ describe("RepoPane hero band and pill", () => {
     expect(lines[1].textContent).toContain("Permission denied");
 
     // A won't-parse asset is a danger in the inspector cap's chip
-    // (`reviewIssues.ts:440` — broken OR parse). The hero must not paint the
+    // (`issueSeverity` — broken OR parse). The hero must not paint the
     // same issue a warning; `kind === "broken"` alone gives this dot
     // bg-state-warning, which is what this catches.
     const dot = lines[0].querySelector("i")!;
