@@ -1364,7 +1364,7 @@ export default function ProfilePane({
           </span>
         )}
         <span className="ml-auto">
-          <ScanStatusIndicator />
+          <ScanStatusIndicator scannedAt={scannedAt} />
         </span>
       </div>
     </div>
