@@ -189,3 +189,30 @@ fn the_opener_scope_reaches_dot_directories() {
         );
     }
 }
+
+/// `open -a <name>` resolves by the app's `.app` filename, and the opener
+/// capability compares that same string byte-for-byte (`scope.rs:67`). So a
+/// table `name` that does not match the bundle is a menu item that silently
+/// does nothing — the failure mode this whole feature exists to remove.
+///
+/// This can only check what the developer actually has installed, which is
+/// the honest limit: it cannot prove the other entries right, but it catches
+/// a wrong one the moment someone with that editor runs the suite. GitHub
+/// Desktop's own list carries at least one such mismatch (`IntelliJ` against
+/// `IntelliJ IDEA.app`), which is why the entries above are not copied from
+/// it verbatim.
+#[test]
+fn every_table_name_matches_the_installed_app() {
+    for found in tauri_app_lib::editors::detect() {
+        let stem = std::path::Path::new(&found.path)
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or_default();
+        assert_eq!(
+            stem, found.name,
+            "table calls {} \"{}\" but the installed app is \"{}.app\" — `open -a \"{}\"` \
+             would not resolve, and the capability would refuse it",
+            found.bundle_id, found.name, stem, found.name
+        );
+    }
+}

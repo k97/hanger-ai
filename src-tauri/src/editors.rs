@@ -24,22 +24,69 @@ pub struct KnownEditor {
     pub bundle_ids: &'static [&'static str],
 }
 
-/// Seeded with the five identifiers read from each app's own
-/// `Bundle.bundleIdentifier` on this machine, 2026-08-29. **Every further
-/// entry must come from a source you read** — a vendor `Info.plist`, a
-/// vendor `product.json`, or GitHub Desktop's `app/src/lib/editors/darwin.ts`
-/// (50 macOS editors, MIT). Never write a bundle id from memory: a wrong one
-/// is indistinguishable from "not installed" (`tree-facts.md` §9), so it
-/// fails silently and no test goes red.
+/// **`name` must be the app's `.app` filename**, because `open -a <name>`
+/// resolves by it and the opener capability compares it byte-for-byte
+/// (`scope.rs:67`). A name that reads well but does not match the bundle is a
+/// menu item that silently does nothing —
+/// `every_table_name_matches_the_installed_app` catches that for whatever the
+/// developer has installed.
 ///
-/// Terminal editors are deliberately absent — see
-/// `table_excludes_terminal_only_editors`.
+/// Bundle identifiers below are read from two sources, never from memory: the
+/// five originally verified against each app's own `Bundle.bundleIdentifier`
+/// on this machine, and the rest from GitHub Desktop's
+/// `app/src/lib/editors/darwin.ts` (MIT), fetched 2026-08-29. A wrong id is
+/// indistinguishable from "not installed", so it fails silently and no test
+/// goes red — which is exactly why guessing one is forbidden.
+///
+/// Deliberately absent:
+/// - **Eclipse (11 variants) and Aptana** — every variant ships as
+///   `Eclipse.app`, so no single `name` can both identify the variant and
+///   satisfy `open -a`.
+/// - **Fleet** — GitHub Desktop lists its identifier as `Fleet.app`, which is
+///   a filename, not a bundle id; JetBrains also withdrew it 2025-12-22.
+/// - **Emacs** — `table_excludes_terminal_only_editors` bans the name. Adding
+///   it needs a deliberate ruling on that denylist, not a quiet exception.
+///   Terminal editors generally stay out: launched by a GUI app they get no
+///   tty and start invisibly.
 pub const KNOWN_EDITORS: &[KnownEditor] = &[
+    // Verified on this machine from each app's own bundle, 2026-08-29.
     KnownEditor { name: "Visual Studio Code", bundle_ids: &["com.microsoft.VSCode"] },
     KnownEditor { name: "Cursor",             bundle_ids: &["com.todesktop.230313mzl4w4u92"] },
     KnownEditor { name: "Zed",                bundle_ids: &["dev.zed.Zed"] },
     KnownEditor { name: "Antigravity IDE",    bundle_ids: &["com.google.antigravity-ide"] },
     KnownEditor { name: "Xcode",              bundle_ids: &["com.apple.dt.Xcode"] },
+    // From GitHub Desktop's darwin.ts.
+    KnownEditor { name: "Visual Studio Code - Insiders", bundle_ids: &["com.microsoft.VSCodeInsiders"] },
+    KnownEditor { name: "VSCodium",           bundle_ids: &["com.vscodium", "com.visualstudio.code.oss"] },
+    KnownEditor { name: "Zed Preview",        bundle_ids: &["dev.zed.Zed-Preview"] },
+    KnownEditor { name: "Windsurf",           bundle_ids: &["com.exafunction.windsurf"] },
+    KnownEditor { name: "Sublime Text",       bundle_ids: &["com.sublimetext.4", "com.sublimetext.3", "com.sublimetext.2"] },
+    KnownEditor { name: "BBEdit",             bundle_ids: &["com.barebones.bbedit"] },
+    KnownEditor { name: "Nova",               bundle_ids: &["com.panic.Nova"] },
+    KnownEditor { name: "TextMate",           bundle_ids: &["com.macromates.TextMate"] },
+    KnownEditor { name: "Typora",             bundle_ids: &["abnerworks.Typora"] },
+    KnownEditor { name: "CodeRunner",         bundle_ids: &["com.krill.CodeRunner"] },
+    KnownEditor { name: "Pulsar",             bundle_ids: &["dev.pulsar-edit.pulsar"] },
+    KnownEditor { name: "Atom",               bundle_ids: &["com.github.atom"] },
+    KnownEditor { name: "Brackets",           bundle_ids: &["io.brackets.appshell"] },
+    KnownEditor { name: "Lite XL",            bundle_ids: &["com.lite-xl"] },
+    KnownEditor { name: "MacVim",             bundle_ids: &["org.vim.MacVim"] },
+    KnownEditor { name: "Neovide",            bundle_ids: &["com.neovide.neovide"] },
+    KnownEditor { name: "VimR",               bundle_ids: &["com.qvacua.VimR"] },
+    KnownEditor { name: "RStudio",            bundle_ids: &["org.rstudio.RStudio", "com.rstudio.desktop"] },
+    KnownEditor { name: "Android Studio",     bundle_ids: &["com.google.android.studio"] },
+    KnownEditor { name: "IntelliJ IDEA",      bundle_ids: &["com.jetbrains.intellij"] },
+    KnownEditor { name: "IntelliJ IDEA CE",   bundle_ids: &["com.jetbrains.intellij.ce"] },
+    KnownEditor { name: "PyCharm",            bundle_ids: &["com.jetbrains.PyCharm"] },
+    KnownEditor { name: "PyCharm CE",         bundle_ids: &["com.jetbrains.pycharm.ce"] },
+    KnownEditor { name: "WebStorm",           bundle_ids: &["com.jetbrains.WebStorm"] },
+    KnownEditor { name: "PhpStorm",           bundle_ids: &["com.jetbrains.PhpStorm"] },
+    KnownEditor { name: "RubyMine",           bundle_ids: &["com.jetbrains.RubyMine"] },
+    KnownEditor { name: "RustRover",          bundle_ids: &["com.jetbrains.RustRover"] },
+    KnownEditor { name: "CLion",              bundle_ids: &["com.jetbrains.CLion"] },
+    KnownEditor { name: "GoLand",             bundle_ids: &["com.jetbrains.goland"] },
+    KnownEditor { name: "Rider",              bundle_ids: &["com.jetbrains.rider"] },
+    KnownEditor { name: "DataSpell",          bundle_ids: &["com.jetbrains.DataSpell"] },
 ];
 
 pub fn editor_name_for_bundle_id(bundle_id: &str) -> Option<&'static str> {
