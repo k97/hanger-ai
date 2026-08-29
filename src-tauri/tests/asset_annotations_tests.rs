@@ -10,6 +10,7 @@
 use std::fs;
 use std::os::unix::fs as unix_fs;
 use std::path::PathBuf;
+use std::sync::{Mutex, OnceLock};
 use tauri_app_lib::annotations::{asset_annotations, AssetAnnotation};
 use tauri_app_lib::preferences::PreferencesStore;
 
@@ -351,4 +352,131 @@ fn a_format_restricted_asset_reaches_only_its_own_engine() {
         Some("format"),
         "an engine-specific format outranks the root question"
     );
+}
+
+// Task 3, fix round 1 (2026-08-29, overruling the task-3 brief): the two
+// tests in ancestor_reach_tests.rs construct a BeyondNote by hand and assert
+// it back to itself. Neither calls asset_annotations() or beyond_note(), so
+// none of the ancestor-reach wiring added to asset_annotations() -- the
+// `category == "tool"` gate, the `split_once(':')` recovery of the config
+// path, the `ancestor_reach(...)` call, the `reached > 0` gate -- was
+// exercised by any test. These two go through the real function.
+//
+// HANGER_TEST_HOME is process-global and every test in this binary shares
+// one process (cargo's default threaded harness runs them concurrently), so
+// a mutex serialises the two tests below and a Drop guard clears the
+// variable afterwards -- the same hazard and the same fix as
+// tests/ancestor_reach_tests.rs and tests/mcp_scanner_tests.rs.
+static ANCESTOR_ENV_MUTEX: OnceLock<Mutex<()>> = OnceLock::new();
+
+struct AncestorTestHome;
+impl Drop for AncestorTestHome {
+    fn drop(&mut self) {
+        std::env::remove_var("HANGER_TEST_HOME");
+    }
+}
+
+/// Writes an ancestor `.mcp.json` declaring one server under `dir`, and
+/// returns its canonical path.
+fn write_ancestor_cfg(dir: &std::path::Path, server: &str) -> PathBuf {
+    fs::create_dir_all(dir).unwrap();
+    let p = dir.join(".mcp.json");
+    fs::write(&p, format!(r#"{{"mcpServers": {{"{server}": {{"command": "/bin/true", "args": []}}}}}}"#)).unwrap();
+    fs::canonicalize(&p).unwrap()
+}
+
+/// Registers one ancestor-config tool asset under `root_id`, in the shape
+/// the scanner writes one in (`scanner.rs`, the `ancestors.registrations`
+/// loop): `category = "tool"`, `scope = "global"`, `engine_id = None`
+/// (rooted at the engine's global root, not the project), and `abs_path`
+/// keyed as "config_path:server_name" -- `upsert_asset` splits that apart
+/// and canonicalises the config half itself when `scope == "global"`.
+fn register_ancestor_tool(store: &PreferencesStore, root_id: i64, config_path: &PathBuf, server: &str, t: i64) {
+    let abs_path = format!("{}:{}", config_path.to_str().unwrap(), server);
+    store
+        .upsert_asset(root_id, None, "tool", "global", server, &abs_path, None, None, "ok", None, t, t)
+        .unwrap();
+}
+
+/// A minimal engine_global root to attach ancestor tool assets to.
+/// `asset_annotations` only annotates rows under `roots.kind =
+/// 'engine_global'`, matching the comment at the ancestor registration site
+/// in `scanner.rs`.
+fn ancestor_engine_root(store: &PreferencesStore, base: &std::path::Path, t: i64) -> i64 {
+    let claude_dir = base.join("claude-root");
+    fs::create_dir_all(&claude_dir).unwrap();
+    let claude_abs = fs::canonicalize(&claude_dir).unwrap();
+    let claude_engine_id = store
+        .upsert_engine("claude", "Claude Code", claude_abs.to_str().unwrap(), t)
+        .unwrap();
+    store
+        .upsert_root("engine_global", claude_abs.to_str().unwrap(), Some(claude_engine_id), ".claude", t)
+        .unwrap()
+}
+
+#[test]
+fn an_ancestor_tool_asset_gets_a_note_with_the_shadowed_project_excluded() {
+    let _lock = ANCESTOR_ENV_MUTEX.get_or_init(|| Mutex::new(())).lock().unwrap_or_else(|e| e.into_inner());
+    let _restore = AncestorTestHome;
+    // Canonicalised, not the raw tempdir path: on macOS a tempdir sits under
+    // `/var/folders/...`, a symlink to `/private/var/folders/...`, and
+    // ancestor_reach checks `starts_with(home)` against canonical paths.
+    let home_dir = tempfile::tempdir().unwrap();
+    let home = fs::canonicalize(home_dir.path()).unwrap();
+    std::env::set_var("HANGER_TEST_HOME", &home);
+
+    let base = fresh_dir("hanger_test_ann_ancestor_reach");
+    let db_path = base.join("store.db");
+    let store = PreferencesStore::new(&db_path).unwrap();
+    let t = now();
+    let claude_root_id = ancestor_engine_root(&store, &base, t);
+
+    let cfg = write_ancestor_cfg(&home.join("Work"), "shared-tools");
+    let alpha = home.join("Work/alpha");
+    let beta = home.join("Work/beta");
+    let gamma = home.join("Work/gamma");
+    for p in [&alpha, &beta, &gamma] {
+        fs::create_dir_all(p).unwrap();
+    }
+    // beta declares its own server of the same name -- Claude Code connects
+    // once, using the repo's definition, so beta is reached but shadowed.
+    write_ancestor_cfg(&beta, "shared-tools");
+    for (i, p) in [&alpha, &beta, &gamma].iter().enumerate() {
+        store
+            .upsert_root("project", p.to_str().unwrap(), None, &format!("project-{i}"), t)
+            .unwrap();
+    }
+
+    register_ancestor_tool(&store, claude_root_id, &cfg, "shared-tools", t);
+
+    let all = asset_annotations(&db_path).unwrap();
+    let tool = annotation_for(&all, "shared-tools");
+    let note = tool.beyond.as_ref().expect("an ancestor config reaching >0 projects carries a note");
+    assert_eq!(note.kind, "ancestor_reach");
+    assert_eq!(note.count, 3, "all three projects sit below the ancestor");
+    assert_eq!(note.using_count, Some(2), "beta shadows it, so 2 of 3 actually use this definition");
+}
+
+#[test]
+fn a_tool_asset_reaching_no_project_gets_no_note() {
+    let _lock = ANCESTOR_ENV_MUTEX.get_or_init(|| Mutex::new(())).lock().unwrap_or_else(|e| e.into_inner());
+    let _restore = AncestorTestHome;
+    let home_dir = tempfile::tempdir().unwrap();
+    let home = fs::canonicalize(home_dir.path()).unwrap();
+    std::env::set_var("HANGER_TEST_HOME", &home);
+
+    let base = fresh_dir("hanger_test_ann_ancestor_reach_none");
+    let db_path = base.join("store.db");
+    let store = PreferencesStore::new(&db_path).unwrap();
+    let t = now();
+    let claude_root_id = ancestor_engine_root(&store, &base, t);
+
+    // A config under home with no project roots anywhere beneath it -- the
+    // `reached > 0` gate has nothing else holding it.
+    let cfg = write_ancestor_cfg(&home.join("Solo"), "lonely-tool");
+    register_ancestor_tool(&store, claude_root_id, &cfg, "lonely-tool", t);
+
+    let all = asset_annotations(&db_path).unwrap();
+    let tool = annotation_for(&all, "lonely-tool");
+    assert!(tool.beyond.is_none(), "reached == 0 gets no note, the same as any other asset with no destinations");
 }

@@ -251,9 +251,13 @@ fn an_ancestor_config_gets_an_ancestor_reach_note() {
 
 #[test]
 fn existing_note_kinds_carry_no_using_count() {
-    // Pins that the new field is additive. If a future change starts setting
-    // it for "projects" or "copies", this reddens and the author has to say
-    // why.
+    // A weaker claim than it first reads: this pins only that a hand-built
+    // BeyondNote literal defaults `using_count` to whatever it is given
+    // (`None`, here) -- the struct does not compute it. It does NOT exercise
+    // beyond_note() and cannot catch a future beyond_note() change that
+    // starts setting the field for "projects" or "copies"; that is covered
+    // by the asset_annotations() integration tests in
+    // asset_annotations_tests.rs, which call the real function.
     let n = tauri_app_lib::annotations::BeyondNote {
         kind: "projects".into(),
         count: 2,
