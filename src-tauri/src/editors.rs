@@ -4,8 +4,9 @@
 //! and what is its display name" — no OS metadata can answer that: QuickTime
 //! Player declares `public.folder` with `CFBundleTypeRole = Editor`,
 //! byte-identical to Visual Studio Code's declaration (measured 2026-08-29).
-//! LAUNCHSERVICES answers "is it installed, and where" — 8 lookups in 6.12 ms,
-//! no Spotlight dependency, `None` for a miss.
+//! LAUNCHSERVICES answers "is it installed, and where" — a bundle-id lookup
+//! measured 6.12 ms for eight ids on the author's machine, 2026-08-29, no
+//! Spotlight dependency, `None` for a miss.
 //!
 //! `name` is what gets passed to `open -a` and what must appear verbatim in
 //! `capabilities/default.json` (`editor_capability_tests` pins the two
@@ -23,7 +24,7 @@ pub struct KnownEditor {
     pub bundle_ids: &'static [&'static str],
 }
 
-/// Seeded with the six identifiers read from each app's own
+/// Seeded with the five identifiers read from each app's own
 /// `Bundle.bundleIdentifier` on this machine, 2026-08-29. **Every further
 /// entry must come from a source you read** — a vendor `Info.plist`, a
 /// vendor `product.json`, or GitHub Desktop's `app/src/lib/editors/darwin.ts`
@@ -73,18 +74,30 @@ fn application_path(_bundle_id: &str) -> Option<String> {
     None
 }
 
+/// Picks the first bundle id in `bundle_ids` for which `resolve` returns a
+/// path, mirroring `detect()`'s precedence when an editor lists several
+/// bundle ids for different channels or major versions: only the first one
+/// installed is reported. `resolve` is `application_path` in production and
+/// a fake in `tests::first_installed_short_circuits_at_the_first_match`,
+/// which is what lets that precedence be tested without hitting LaunchServices
+/// or adding a multi-id entry to `KNOWN_EDITORS`.
+fn first_installed(
+    bundle_ids: &'static [&'static str],
+    mut resolve: impl FnMut(&str) -> Option<String>,
+) -> Option<(&'static str, String)> {
+    bundle_ids.iter().find_map(|id| resolve(id).map(|path| (*id, path)))
+}
+
 /// The table intersected with what is installed. First bundle id that
 /// resolves wins, so an editor listing several channels reports once.
 pub fn detect() -> Vec<DetectedEditor> {
     KNOWN_EDITORS
         .iter()
         .filter_map(|editor| {
-            editor.bundle_ids.iter().find_map(|id| {
-                application_path(id).map(|path| DetectedEditor {
-                    name: editor.name.to_string(),
-                    bundle_id: (*id).to_string(),
-                    path,
-                })
+            first_installed(editor.bundle_ids, application_path).map(|(id, path)| DetectedEditor {
+                name: editor.name.to_string(),
+                bundle_id: id.to_string(),
+                path,
             })
         })
         .collect()
@@ -98,4 +111,57 @@ pub fn detect_editors() -> Vec<DetectedEditor> {
 #[tauri::command]
 pub fn known_editor_names() -> Vec<String> {
     KNOWN_EDITORS.iter().map(|e| e.name.to_string()).collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::first_installed;
+
+    /// `KNOWN_EDITORS` currently has no multi-bundle-id entry to exercise
+    /// this against, and one must not be added just to cover it — a fake
+    /// entry would be exactly the kind of bundle id `editors.rs`'s own
+    /// module doc warns against: not read from a real source, indistinguishable
+    /// from a real one, and it would ship in the table `detect_editors`
+    /// serves to the frontend. `first_installed` isolates the "first id that
+    /// resolves wins" precedence from both `KNOWN_EDITORS` and LaunchServices,
+    /// so it can be exercised with a fake resolver instead.
+    #[test]
+    fn first_installed_short_circuits_at_the_first_match() {
+        let ids: &[&str] = &["com.example.first", "com.example.second"];
+        let mut calls = Vec::new();
+        let found = first_installed(ids, |id| {
+            calls.push(id.to_string());
+            Some(format!("/Applications/{id}.app"))
+        });
+        assert_eq!(
+            found,
+            Some(("com.example.first", "/Applications/com.example.first.app".to_string()))
+        );
+        assert_eq!(
+            calls,
+            vec!["com.example.first"],
+            "resolve was called for an id after the first match; it should have short-circuited"
+        );
+    }
+
+    /// The complementary case: the first id does not resolve, so the second
+    /// one is used and reported under its own bundle id, not the first's.
+    #[test]
+    fn first_installed_falls_through_to_a_later_id_when_the_first_does_not_resolve() {
+        let ids: &[&str] = &["com.example.beta", "com.example.stable"];
+        let found = first_installed(ids, |id| {
+            if id == "com.example.stable" {
+                Some("/Applications/Example.app".to_string())
+            } else {
+                None
+            }
+        });
+        assert_eq!(found, Some(("com.example.stable", "/Applications/Example.app".to_string())));
+    }
+
+    #[test]
+    fn first_installed_returns_none_when_nothing_resolves() {
+        let ids: &[&str] = &["com.example.beta", "com.example.stable"];
+        assert_eq!(first_installed(ids, |_| None), None);
+    }
 }

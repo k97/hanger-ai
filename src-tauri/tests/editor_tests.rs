@@ -53,13 +53,29 @@ fn lookup_returns_none_for_an_unknown_bundle_id() {
 /// the shape: whatever comes back is well-formed and consistent with the table.
 #[test]
 fn detection_returns_well_formed_rows() {
-    for found in tauri_app_lib::editors::detect() {
-        assert!(!found.path.is_empty(), "{} resolved to an empty path", found.name);
-        assert!(std::path::Path::new(&found.path).exists(), "{} does not exist", found.path);
+    let found = tauri_app_lib::editors::detect();
+    for editor in &found {
+        assert!(!editor.path.is_empty(), "{} resolved to an empty path", editor.name);
+        assert!(std::path::Path::new(&editor.path).exists(), "{} does not exist", editor.path);
         assert_eq!(
-            tauri_app_lib::editors::editor_name_for_bundle_id(&found.bundle_id),
-            Some(found.name.as_str()),
+            tauri_app_lib::editors::editor_name_for_bundle_id(&editor.bundle_id),
+            Some(editor.name.as_str()),
             "detection returned a name the table does not agree with"
         );
     }
+}
+
+/// The guard above is a loop; on a machine with none of the table's editors
+/// installed it would pass having asserted nothing. This names that state
+/// instead of hiding it: detection must at least RUN and return a vector
+/// whose length never exceeds the table it is drawn from.
+#[test]
+fn detection_never_returns_more_rows_than_the_table_has() {
+    let found = tauri_app_lib::editors::detect();
+    assert!(
+        found.len() <= KNOWN_EDITORS.len(),
+        "detect() returned {} rows from a {}-entry table",
+        found.len(),
+        KNOWN_EDITORS.len()
+    );
 }
