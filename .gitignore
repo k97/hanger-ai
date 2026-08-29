@@ -49,6 +49,8 @@ scratch/
 
 # Local-only: pre-publication material, never committed
 docs/to-be-reviewed/
+docs/v7-todo-content-typography/ref/
+
 
 # Local-only: harness artefacts and machine noise under docs/
 docs/.DS_Store
