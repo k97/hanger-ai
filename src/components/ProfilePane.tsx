@@ -1261,7 +1261,7 @@ export default function ProfilePane({
               <>
                 <div
                   data-testid="section-header-tools"
-                  className={`sticky top-0 z-[2] bg-page flex items-center gap-3 select-none px-3.5 pt-[11px] pb-[5px] ${groupLabelClass}`}
+                  className={`sticky top-0 z-[2] bg-page flex items-center gap-3 select-none px-3.5 pt-[11px] pb-[7px] border-b border-line ${groupLabelClass}`}
                 >
                   {/* The Display control (§5.6) lives here, not in the facet
                       row above: grouping and sort only ever affect these
@@ -1364,7 +1364,7 @@ export default function ProfilePane({
           </span>
         )}
         <span className="ml-auto">
-          <ScanStatusIndicator />
+          <ScanStatusIndicator scannedAt={scannedAt} />
         </span>
       </div>
     </div>

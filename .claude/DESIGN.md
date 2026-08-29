@@ -97,8 +97,8 @@ hanger mark in the rail and nothing else; the token's own comment forbids it
 as a UI state. `--gel-aqua` (`tokens.css:38`, `:179`) is a brand-family
 gradient painted by `GelMeter` and by the legend dots beside it that mirror
 its segments, and marks only a share that is actually true: the linked
-share in the asset strip's meter, and nothing else — `SummaryStrip.tsx:63`
-is the one segment carrying `aqua`, `:191` the legend dot that mirrors it —
+share in the asset strip's meter, and nothing else — `SummaryStrip.tsx:64`
+is the one segment carrying `aqua`, `:233` the legend dot that mirrors it —
 never an all-quiet or empty state (Karthik's ruling, 2026-08-15).
 
 **That ruling's MCP extension is withdrawn, 2026-08-28.** From `a066c9e`
@@ -198,7 +198,7 @@ rulings recorded in `src/__tests__/type-roles.test.ts:9`, 2026-08-27):
 | 12 | secondary — captions, mono values, paths, chips, counts, foot and stamp lines | `--ink-1` for `rowMonoClass` values, `--ink-2` / `--ink-3` for captions and grey mono labels | `text-small` | `captionClass`, `rowMonoClass`, `monoLabelClass`, `columnHeadClass` (`typeRoles.ts:15-16,20,24`) |
 | 11 | filled badges and chips | `--ink-3` | `text-micro` | e.g. the inspector list's scope pill (`Flyout.tsx:868`) |
 | 16 | titles and top content headings | `--ink-1` | `text-lg-app` | the inspector's title `h2` (`Flyout.tsx:654`), a document's `#` and `##` (`MarkdownDoc.tsx:89`); `###` and deeper step down to `sectionHeadClass` (`:93`) |
-| 32 | display — the big stat numeral | `--ink-1` | `text-display` | `SummaryStrip.tsx:150` |
+| 32 | display — the big stat numeral | `--ink-1` | `text-display` | `SummaryStrip.tsx:191` |
 
 Four leadings sit beside the scale as tokens, not arbitrary per-call values —
 `--lh-body: 20px`, `--lh-caption: 16px`, `--lh-code: 18px`, `--lh-display: 35px`
@@ -206,7 +206,7 @@ Four leadings sit beside the scale as tokens, not arbitrary per-call values —
 `--leading-code`, `--leading-display` (`index.css:109-112`) and consumed as
 the utilities `leading-body`, `leading-caption`, `leading-code`,
 `leading-display` — the last for the 32px strip figure
-(`SummaryStrip.tsx:150`, `NeedsReviewPane.tsx:101`, `DesignSystemPane.tsx:233`).
+(`SummaryStrip.tsx:191`, `NeedsReviewPane.tsx:101`, `DesignSystemPane.tsx:233`).
 `src/__tests__/leading-tokens.test.ts` pins both the token values and their
 `@theme` registration.
 
@@ -767,7 +767,7 @@ fields are `tools_known_total` and `host_count`,
 `src/types/mcpEngineSummary.ts:17`, `:22`, from
 `src-tauri/src/mcp/engine_summary.rs:94-105`); one caption, "Described to
 the model on every request, used or not." (`ProfilePane.tsx:646`); then
-Rescan and the Needs review pill (`SummaryStrip.tsx:157-164`). Nothing in
+Rescan and the Needs review pill (`SummaryStrip.tsx:200-206`). Nothing in
 that row is arithmetic done here — `host_count` exists as a backend field
 precisely so the subtitle prints one rather than measuring `rows`
 (`engine_summary.rs:95-98`).
@@ -1263,7 +1263,7 @@ map view's toolbar slot holds Rescan instead of the inspector toggle
 
 ### Surfaces and controls
 
-**`SummaryStrip`** (`SummaryStrip.tsx:36-55`) — `total`, `subtitle`,
+**`SummaryStrip`** (`SummaryStrip.tsx:36-56`) — `total`, `subtitle`,
 `scannedAt`, `scanning`, `counts`, `activeStateFilter`, `onFilterState`,
 `onRescan?`, `mcp?: McpStripFigures`, `review?: StripReview` and
 `children?: ReactNode`. `mcp` is the second mode, which "replaces the entire
@@ -1271,8 +1271,8 @@ link-state branch — meter and legend — with one caption line;
 `total`/`subtitle` still render as passed by the caller" (`:9-11`, interface
 `:17-21`, now a single `caption` field). The Needs review pill left that
 sentence on 2026-08-28 because it renders in *both* modes from one
-definition (`:112-139`, placed at `:162` and `:200`); `children` is the slot
-the hero band renders into (`:53-54`, `:206`). `review` is `StripReview` —
+definition (`:129-171`, placed at `:204` and `:242`); `children` is the slot
+the hero band renders into (`:54-55`, `:248`). `review` is `StripReview` —
 `count`, `lines`, `actions?` (`:27-34`) — where `count` is "counted where
 the lines are built, and allowlisted there, never derived here" (`:28-29`)
 and every action is a button the caller puts inside the popover, so the two
@@ -1280,7 +1280,37 @@ modes' pills behave identically (`:23-26`). Two contracts are stated in the
 link-state props themselves: `total` is "Backend-owned asset total for the
 scope — never derived on the frontend" (`:37`), and Rescan lives here rather
 than in the toolbar because it is the control that changes the figure
-directly above it (`:45-47`).
+directly above it (`:45-48`).
+
+*The headline is one line, and `scannedAt` no longer prints in it.* The
+subtitle carries `min-w-0 truncate` and its own text as a `title` (`:194`)
+— a flex item's `min-width` is `auto`, so without `min-w-0` it refuses to
+shrink below its text and the row wraps, which made the whole banner a line
+taller as the pane narrowed. The `ScanStamp` that used to close that row
+went to the foot line on 2026-08-29 (Karthik's ruling); the strip keeps the
+age as Rescan's `title` instead, through `useScanStampText` (`:93`, `:116`),
+so the control that changes the figure is also where its age is reachable.
+Rescan and the pill were tried in this row the same day and sent back down
+to the legend row, where they were — the position is pinned by
+`summary_strip.test.tsx` now rather than assumed.
+
+*Below 640px both controls shrink.* The `<section>` carries `@container`
+(`:182`); Rescan's label sits in a `hidden @[640px]:inline` span
+(`:120-122`) and the button widens from a 30px circle to `min-w-[108px]` at
+the same threshold (`:117`), while the pill carries both spellings and
+shows one — "Needs review ‹n›" wide, "Review ‹n›" narrow (`:148-153`,
+Karthik's ruling, 2026-08-29). 640 is where the legend, Rescan and the pill
+stop fitting on one row: measured off the running app at 1024×700, legend
+362px + Rescan 108 + pill 127, plus the gaps and the strip's `px-4`.
+Shrunk, the same row fits down to about 533px, which covers the default
+window with the inspector open. The pill takes no `aria-label`: its
+accessible name is whichever spelling is displayed, which is the property
+to keep (WCAG 2.5.3), and one would also make it a second
+`getByLabelText(/^Needs review/)` match beside the rail's nav item.
+`happy-dom` lays nothing out and applies no CSS, so
+`summary_strip.test.tsx` pins all of this as a class contract — the widths,
+and which spelling is read, are settled by screenshot
+(`verification.md`).
 
 **`HeroBand`** (`HeroBand.tsx:29-38`) — `label`, `open`, `onToggle`, `rows`,
 `note?`, `foot?`. The hero's foldable band, drawn inside `SummaryStrip`'s
@@ -1499,7 +1529,7 @@ window narrow enough to force it, not by the suite.
 
 *`top` is the gap under the trigger.* 30 by default, for the 26px chip; the
 strip's 30px pill passes 34 for the same 4px gap (`:29-31`,
-`SummaryStrip.tsx:123-132`).
+`SummaryStrip.tsx:154-164`).
 
 *The 240px cap is on the list, not the panel* (`:101-106`), so the caller's
 action row stays visible while a long list scrolls — one root can raise
@@ -1509,11 +1539,16 @@ from a pane's review pill.
 
 **`ScanStamp`** (`ScanStamp.tsx`) — how old the figure beside it is;
 stays an age during a scan rather than restating that one is running
-(`:9-14`). Two callers: `SummaryStrip.tsx` (`:154`) and the map cap, beside
-Rescan, since the map view's toolbar slot holds Rescan in place of an
-inspector toggle (`App.tsx:1517`). Re-renders on a 30s interval so the
-age keeps pace with no scan event (`:17-20`); the wording — "moments ago"
-under a minute, then minutes, hours, days — is `timeAgo.ts` (`:2-11`).
+(`:28-38`). Two callers: the foot line's scan slot, where it fills in while
+nothing is running (`ScanStatusIndicator.tsx:30-33`), and the map cap,
+beside Rescan, since the map view's toolbar slot holds Rescan in place of an
+inspector toggle (`App.tsx:1517`). It left the summary strip's headline on
+2026-08-29 (Karthik's ruling). The wording and the 30s tick that keeps the
+age current with no scan event are `useScanStampText` (`:12-26`), split out
+that day so the strip can put the same string in Rescan's tooltip without
+rendering a second stamp — a `title` read off a component that ticks is how
+a tooltip goes stale unseen. The words themselves — "moments ago" under a
+minute, then minutes, hours, days — are `timeAgo.ts` (`:2-11`).
 
 **`OverflowMenu`** (`OverflowMenu.tsx:39-87`, props `:17-30`) — the popover
 behind two different triggers: `ViewControl`'s "View" control and the
@@ -1926,7 +1961,29 @@ mx-[18px] border border-line rounded-tl-plane rounded-tr-plane pb-1.5`
 Then the
 foot, `h-[30px] shrink-0 px-[18px] flex items-center gap-4 font-flex
 text-small text-ink-3` with the scan status pushed right by `ml-auto`
-(`ProfilePane.tsx:1360`, `RepoPane.tsx:895`).
+(`ProfilePane.tsx:1360`, `RepoPane.tsx:895`). That right-hand slot holds one
+fact at a time: `ScanStatusIndicator` draws live progress while a scan runs,
+and since 2026-08-29 falls back to the `ScanStamp` both panes now pass it —
+how old the figure in the hero above is, which is where that stamp moved
+from (`ScanStatusIndicator.tsx:7-12`, `:27-33`). `NeedsReviewPane` passes no
+`scannedAt` and its slot stays empty while idle, the shape it already had:
+`undefined` is "this caller keeps no stamp", distinct from `null`, "nothing
+has been scanned yet", which has its own wording to print.
+
+*Two headers can sit inside that plane, and both are ruled off now.*
+`AssetHeaderRow` carries `border-b border-line` under Name / Kind /
+Beyond the store (`AssetHeaderRow.tsx:50`). The MCP section writes its own
+header inline rather than sharing that one — "Reach" is meaningless for a
+server, so its columns read "Registered in" / "Tools" — and on the MCP tab
+`toolsOnlyView` suppresses the shared header entirely, which left that tab
+the only one whose column names had no rule under them (Karthik,
+2026-08-29). It takes the same `border-b border-line` now, its `pb`
+going 5px to 7px so the rule is not tight against the labels
+(`ProfilePane.tsx:1264`, `RepoPane.tsx:777`; pinned by
+`mcp_card_row.test.tsx`). In a mixed view both rules render, which is
+what a second set of column names deserves; the plain group labels —
+Agents, Skills, Rules, Subagents — still carry none, because the columns
+above them were already announced.
 
 **`NeedsReviewPane` keeps the pre-track order: strip, chip row, list plane,
 foot.** It was not touched by the reorder — it has no category to put on a
@@ -2250,8 +2307,8 @@ its own list, which cannot see a component the list never named.
 `src/components/*.tsx` must be imported by `DesignSystemPane.tsx` by its own
 module, or sit on the test's allowlist with a reason — and an allowlisted
 component the page now imports, or whose file is gone, fails too. Rendering
-inside another specimen does not count (`ScanStamp` inside `SummaryStrip`,
-`SegmentedTrack` inside `CategoryFilterCards`): the caption names the file,
+inside another specimen does not count (`ScanStamp` inside
+`ScanStatusIndicator`, `SegmentedTrack` inside `CategoryFilterCards`): the caption names the file,
 so a reader looking for a file finds it under its name.
 
 **Values are read, not written.** Token swatches read the running theme via
