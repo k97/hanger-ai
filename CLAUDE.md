@@ -96,6 +96,11 @@ there assert behaviour the code does not implement; check the code first.
 `docs/harness.md` is the conceptual model; `docs/findings.md` records defects
 deliberately left unfixed, with evidence; `docs/roadmap.md`, deferred work.
 
+`docs/design-ref-prototypes/` holds design-reference HTML: canvas
+artboards (`*.dc.html` and their `canvas.json`) and published canvas
+pages. A canvas drafted here lands at the repo root; move it there before
+it is committed.
+
 ## Gaps
 
 Not established, left out rather than guessed: whether Windows or Linux builds

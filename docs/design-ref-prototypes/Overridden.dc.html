@@ -1,0 +1,97 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    body { margin: 0; background: #ffffff; font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif; }
+    a { color: #4d4d4d; } a:hover { color: #000000; }
+    .row { display: flex; align-items: center; gap: 12px; height: 32px; margin: 0 6px; padding: 0 10px; border-radius: 9999px; font-size: 12px; }
+    .c0 { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 180px; overflow: hidden; }
+    .glyph { width: 14px; height: 14px; flex-shrink: 0; }
+    .nm { font-size: 13px; color: #000000; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .c1 { font-size: 12px; color: #636363; flex-shrink: 0; width: 90px; }
+    .c2 { flex-shrink: 0; width: 100px; display: flex; gap: 3px; align-items: center; }
+    .c3 { font-size: 12px; flex-shrink: 0; width: 150px; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .tile { width: 14px; height: 14px; border-radius: 3px; background: #efefef; border: 1px solid rgba(0,0,0,0.09); }
+    .head { display: flex; align-items: center; gap: 12px; height: 26px; margin: 0 6px; padding: 0 10px; font-size: 12px; font-weight: 500; color: #636363; }
+    .ink2 { color: #4d4d4d; }
+    .note { font-size: 12px; line-height: 16px; color: #4d4d4d; }
+    .lab { font-size: 11px; font-family: ui-monospace, "SF Mono", Menlo, monospace; color: #636363; }
+    .bad { color: #b3261e; font-weight: 500; }
+    .good { color: #0f7a52; font-weight: 500; }
+  </style>
+</helmet>
+
+<div style="padding: 28px 24px 32px">
+
+  <div style="font-size: 13px; font-weight: 500; color: #000000; margin-bottom: 2px">State B — three projects reached, one overrides it</div>
+  <div class="note" style="margin-bottom: 18px">Same 150px cell, real truncation. This is the finding that changes the recommendation.</div>
+
+  <div class="head">
+    <span style="flex:1; min-width:180px">Name</span>
+    <span style="width:90px; flex-shrink:0">Kind</span>
+    <span style="width:100px; flex-shrink:0">Reach</span>
+    <span style="width:150px; flex-shrink:0">Beyond the store</span>
+  </div>
+
+  <div class="row" style="background: #f7f7f7">
+    <span class="c0"><span class="glyph"></span><span class="nm">shared-tools</span></span>
+    <span class="c1">MCP server</span>
+    <span class="c2"><span class="tile"></span><span class="tile"></span></span>
+    <span class="c3 ink2">Reaches 3 projects · overridden in 1</span>
+  </div>
+  <div style="display:flex; gap:12px; margin: 2px 6px 14px 10px">
+    <span style="flex:1; min-width:180px"></span><span style="width:90px"></span><span style="width:100px"></span>
+    <span style="width:150px" class="lab"><span class="bad">B1 · 36 chars · cuts</span></span>
+  </div>
+
+  <div class="row">
+    <span class="c0"><span class="glyph"></span><span class="nm">shared-tools</span></span>
+    <span class="c1">MCP server</span>
+    <span class="c2"><span class="tile"></span><span class="tile"></span></span>
+    <span class="c3 ink2">Reaches 3 projects · 1 overrides</span>
+  </div>
+  <div style="display:flex; gap:12px; margin: 2px 6px 14px 10px">
+    <span style="flex:1; min-width:180px"></span><span style="width:90px"></span><span style="width:100px"></span>
+    <span style="width:150px" class="lab"><span class="bad">B3 · 32 chars · cuts</span></span>
+  </div>
+
+  <div class="row" style="background: #f7f7f7">
+    <span class="c0"><span class="glyph"></span><span class="nm">shared-tools</span></span>
+    <span class="c1">MCP server</span>
+    <span class="c2"><span class="tile"></span><span class="tile"></span></span>
+    <span class="c3 ink2">Reaches 2 of 3 projects</span>
+  </div>
+  <div style="display:flex; gap:12px; margin: 2px 6px 14px 10px">
+    <span style="flex:1; min-width:180px"></span><span style="width:90px"></span><span style="width:100px"></span>
+    <span style="width:150px" class="lab"><span class="good">B2 · 23 chars · fits</span></span>
+  </div>
+
+  <div class="row">
+    <span class="c0"><span class="glyph"></span><span class="nm">shared-tools</span></span>
+    <span class="c1">MCP server</span>
+    <span class="c2"><span class="tile"></span><span class="tile"></span></span>
+    <span class="c3 ink2">Reaches 3 · 1 overrides</span>
+  </div>
+  <div style="display:flex; gap:12px; margin: 2px 6px 20px 10px">
+    <span style="flex:1; min-width:180px"></span><span style="width:90px"></span><span style="width:100px"></span>
+    <span style="width:150px" class="lab"><span class="good">B4 new · 23 chars · fits</span></span>
+  </div>
+
+  <div style="height: 1px; background: rgba(0,0,0,0.09); margin: 6px 6px 22px"></div>
+
+  <div class="note" style="margin: 0 16px">
+    <p style="margin: 0 0 10px"><span style="font-weight: 500; color: #000000">What the width does to the choice.</span> B1 was my recommendation on paper. In the real cell it cuts at “…overridden in” and the count — the thing worth reading — is the part that disappears. A truncated number is worse than no number.</p>
+    <p style="margin: 0 0 10px"><span style="font-weight: 500; color: #000000">B2 says less but survives.</span> “Reaches 2 of 3 projects” is literally true and fits with room to spare. Its cost: it never says <em>why</em> the third differs, so a reader may read it as a failure rather than a local choice.</p>
+    <p style="margin: 0"><span style="font-weight: 500; color: #000000">B4 is new, from seeing this.</span> Dropping the noun after the first count buys nine characters and keeps both numbers. It leans on the column header “Beyond the store” to supply the context. Terser than anything else in the cell, which may be a step too far.</p>
+  </div>
+
+</div>
+</x-dc>
+</body>
+</html>

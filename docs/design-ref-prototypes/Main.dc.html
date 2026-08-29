@@ -1,0 +1,81 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    body { margin: 0; background: #ffffff; font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif; }
+    a { color: #4d4d4d; } a:hover { color: #000000; }
+    .card { display: flex; align-items: center; gap: 12px; margin: 0 6px; padding: 8px 10px; border-radius: 12px; font-size: 12px; }
+    .c0 { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; overflow: hidden; }
+    .l1 { display: flex; align-items: center; gap: 6px; min-width: 0; }
+    .nm { font-size: 13px; color: #000000; white-space: nowrap; }
+    .badge { flex-shrink: 0; font-size: 11px; font-family: ui-monospace, "SF Mono", Menlo, monospace; background: #f7f7f7; border: 1px solid rgba(0,0,0,0.09); padding: 1px 8px; border-radius: 9999px; color: #4d4d4d; }
+    .l2 { font-size: 12px; color: #636363; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .reg { flex-shrink: 0; width: 100px; display: flex; gap: 3px; }
+    .tools { flex-shrink: 0; width: 150px; font-size: 12px; color: #636363; }
+    .tile { width: 14px; height: 14px; border-radius: 3px; background: #efefef; border: 1px solid rgba(0,0,0,0.09); }
+    .note { font-size: 12px; line-height: 16px; color: #4d4d4d; }
+    .h { font-size: 13px; font-weight: 500; color: #000000; }
+    .sub { font-size: 12px; color: #636363; margin-bottom: 12px; }
+    .tag { font-size: 11px; font-family: ui-monospace, "SF Mono", Menlo, monospace; color: #636363; }
+    .sep { height: 1px; background: rgba(0,0,0,0.09); margin: 20px 6px; }
+    .warn { color: #b3261e; font-weight: 500; }
+    .lbl { font-size: 11px; font-family: ui-monospace, "SF Mono", Menlo, monospace; color: #636363; margin: 3px 0 12px 16px; }
+  </style>
+</helmet>
+
+<div style="padding: 26px 24px 30px">
+
+  <div class="h" style="margin-bottom: 3px">The second line — what a server's registrations say about each other</div>
+  <div class="sub">One name can be declared in several config files. This line says whether those declarations match. It is suppressed entirely below two registrations, since one declaration has nothing to agree with.</div>
+
+  <div class="note" style="margin: 0 6px 20px; padding: 10px 12px; background: #f7f7f7; border-radius: 12px">
+    <span class="warn">A bug to fix whichever copy you pick:</span> the Duplicate string hardcodes “declared <strong>twice</strong>”, but the count can be three or more. A server declared three times by one engine currently reads “3 registrations · declared twice by the same engine”.
+  </div>
+
+  <div class="h" style="font-size: 12px; margin: 0 6px 10px">Option 1 — as it ships today</div>
+  <div class="card" style="background: #f7f7f7"><span class="c0"><span class="l1"><span class="nm">github</span><span class="badge">http</span></span><span class="l2">3 registrations · agree</span></span><span class="reg"><span class="tile"></span><span class="tile"></span></span><span class="tools">—</span></div>
+  <div class="card"><span class="c0"><span class="l1"><span class="nm">tauri</span><span class="badge">stdio</span></span><span class="l2">2 registrations · 2 different launch specs</span></span><span class="reg"><span class="tile"></span></span><span class="tools">—</span></div>
+  <div class="card" style="background: #f7f7f7"><span class="c0"><span class="l1"><span class="nm">context7</span><span class="badge">http</span></span><span class="l2">3 registrations · declared twice by the same engine</span></span><span class="reg"><span class="tile"></span></span><span class="tools">—</span></div>
+  <div class="lbl">“registrations” is internal vocabulary · the middle dot splits one thought in two · “agree” about what?</div>
+
+  <div class="sep"></div>
+
+  <div class="h" style="font-size: 12px; margin: 0 6px 10px">Option 2 — plain nouns, one sentence</div>
+  <div class="card" style="background: #f7f7f7"><span class="c0"><span class="l1"><span class="nm">github</span><span class="badge">http</span></span><span class="l2">Declared in 3 files, all identical</span></span><span class="reg"><span class="tile"></span><span class="tile"></span></span><span class="tools">—</span></div>
+  <div class="card"><span class="c0"><span class="l1"><span class="nm">tauri</span><span class="badge">stdio</span></span><span class="l2">Declared in 2 files that disagree</span></span><span class="reg"><span class="tile"></span></span><span class="tools">—</span></div>
+  <div class="card" style="background: #f7f7f7"><span class="c0"><span class="l1"><span class="nm">context7</span><span class="badge">http</span></span><span class="l2">Declared in 3 files, all by Claude Code</span></span><span class="reg"><span class="tile"></span></span><span class="tools">—</span></div>
+  <div class="lbl">A config file is a thing the user can open · fixes the “twice” bug by not counting · loses “launch specs” precision</div>
+
+  <div class="sep"></div>
+
+  <div class="h" style="font-size: 12px; margin: 0 6px 10px">Option 3 — lead with the verdict, not the count</div>
+  <div class="card" style="background: #f7f7f7"><span class="c0"><span class="l1"><span class="nm">github</span><span class="badge">http</span></span><span class="l2">Same in all 3 places it is declared</span></span><span class="reg"><span class="tile"></span><span class="tile"></span></span><span class="tools">—</span></div>
+  <div class="card"><span class="c0"><span class="l1"><span class="nm">tauri</span><span class="badge">stdio</span></span><span class="l2">2 versions differ — which one runs depends on the engine</span></span><span class="reg"><span class="tile"></span></span><span class="tools">—</span></div>
+  <div class="card" style="background: #f7f7f7"><span class="c0"><span class="l1"><span class="nm">context7</span><span class="badge">http</span></span><span class="l2">Declared 3 times by Claude Code — redundant, not conflicting</span></span><span class="reg"><span class="tile"></span></span><span class="tools">—</span></div>
+  <div class="lbl">Says what it means for the user · longest, truncates first on a narrow pane · “redundant” is a judgement the code can defend</div>
+
+  <div class="sep"></div>
+
+  <div class="h" style="font-size: 12px; margin: 0 6px 10px">Option 4 — silence when nothing is wrong</div>
+  <div class="card" style="background: #f7f7f7"><span class="c0"><span class="l1"><span class="nm">github</span><span class="badge">http</span></span></span><span class="reg"><span class="tile"></span><span class="tile"></span></span><span class="tools">—</span></div>
+  <div class="card"><span class="c0"><span class="l1"><span class="nm">tauri</span><span class="badge">stdio</span></span><span class="l2" style="color: #8a5a00">2 versions differ — which one runs depends on the engine</span></span><span class="reg"><span class="tile"></span></span><span class="tools">—</span></div>
+  <div class="card" style="background: #f7f7f7"><span class="c0"><span class="l1"><span class="nm">context7</span><span class="badge">http</span></span><span class="l2">Declared 3 times by Claude Code — redundant, not conflicting</span></span><span class="reg"><span class="tile"></span></span><span class="tools">—</span></div>
+  <div class="lbl">Consistent is the common case and says nothing actionable · the list becomes findings-only · a one-line card beside two-line ones</div>
+
+  <div class="sep"></div>
+
+  <div class="note" style="margin: 0 16px">
+    <p style="margin: 0 0 8px"><strong>Room:</strong> this line gets whatever is left after the 100px and 150px columns — roughly 55-65 characters at a typical pane width. Option 3's Conflicting string is 56, so it fits but has little slack; Option 1's longest is 50.</p>
+    <p style="margin: 0"><strong>The reach note joins this line</strong> (your Option A), so whatever you pick has to leave room for “· Reaches 2 of 3 projects” — another 25 characters on the few rows that carry it. Option 4 has the most headroom, because the rows that would carry reach are usually the quiet ones.</p>
+  </div>
+
+</div>
+</x-dc>
+</body>
+</html>

@@ -1,0 +1,23 @@
+{
+  "artboards": [
+    { "file": "Main.dc.html",  "x": 0,   "y": 0, "w": 780, "h": 1180 },
+    { "file": "Scope.dc.html", "x": 880, "y": 0, "w": 760, "h": 900 }
+  ],
+  "annotations": [
+    {
+      "id": "agreement-bug",
+      "x": 0,
+      "y": -150,
+      "w": 780,
+      "text": "Second-line copy — four options.\nThe Duplicate string hardcodes \"twice\" but the count can be 3+, so that is a bug to fix whichever you pick."
+    },
+    {
+      "id": "scope-still-open",
+      "x": 880,
+      "y": -150,
+      "w": 760,
+      "text": "Still open from before: which configs get the reach note, and whether \"3 projects\" is true when it counts linked roots rather than repos on disk."
+    }
+  ],
+  "launch": { "view": "canvas" }
+}

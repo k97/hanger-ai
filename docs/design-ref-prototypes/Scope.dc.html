@@ -1,0 +1,115 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    body { margin: 0; background: #ffffff; font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif; }
+    a { color: #4d4d4d; } a:hover { color: #000000; }
+    .card { display: flex; align-items: center; gap: 12px; margin: 0 6px; padding: 8px 10px; border-radius: 12px; font-size: 12px; }
+    .c0 { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; overflow: hidden; }
+    .l1 { display: flex; align-items: center; gap: 6px; min-width: 0; }
+    .nm { font-size: 13px; color: #000000; white-space: nowrap; }
+    .badge { flex-shrink: 0; font-size: 11px; font-family: ui-monospace, "SF Mono", Menlo, monospace; background: #f7f7f7; border: 1px solid rgba(0,0,0,0.09); padding: 1px 8px; border-radius: 9999px; color: #4d4d4d; }
+    .l2 { font-size: 12px; color: #636363; }
+    .reg { flex-shrink: 0; width: 100px; display: flex; gap: 3px; }
+    .tools { flex-shrink: 0; width: 150px; font-size: 12px; color: #636363; }
+    .tile { width: 14px; height: 14px; border-radius: 3px; background: #efefef; border: 1px solid rgba(0,0,0,0.09); }
+    .note { font-size: 12px; line-height: 16px; color: #4d4d4d; }
+    .h { font-size: 13px; font-weight: 500; color: #000000; }
+    .path { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 11px; color: #636363; }
+    .ok { color: #0f7a52; } .bad { color: #b3261e; }
+    .sep { height: 1px; background: rgba(0,0,0,0.09); margin: 22px 6px; }
+    table { border-collapse: collapse; font-size: 12px; margin: 0 16px; }
+    td, th { text-align: left; padding: 5px 16px 5px 0; vertical-align: top; }
+    th { font-weight: 500; color: #636363; font-size: 11px; }
+  </style>
+</helmet>
+
+<div style="padding: 26px 24px 30px">
+
+  <div class="h" style="margin-bottom: 3px">Which configs get the note</div>
+  <div class="note" style="margin-bottom: 18px">The backend gate is <span class="path">category == "tool"</span> and nothing else. Every global tool row whose config sits directly in <span class="path">$HOME</span> also qualifies, because its parent directory is an ancestor of every project.</div>
+
+  <div class="h" style="font-size: 12px; margin: 0 6px 8px">What fires on this machine today, unfiltered</div>
+
+  <div class="card" style="background: #f7f7f7">
+    <span class="c0">
+      <span class="l1"><span class="nm">shared-tools</span><span class="badge">stdio</span></span>
+      <span class="l2"><span class="path">~/Work/.mcp.json</span> — a genuine ancestor config</span>
+    </span>
+    <span class="reg"><span class="tile"></span></span>
+    <span class="tools ok">Reaches 2 of 3</span>
+  </div>
+
+  <div class="card">
+    <span class="c0">
+      <span class="l1"><span class="nm">skill-retrieval</span><span class="badge">stdio</span></span>
+      <span class="l2"><span class="path">~/.mcp.json</span> — home level, reaches everything under $HOME</span>
+    </span>
+    <span class="reg"><span class="tile"></span></span>
+    <span class="tools">Reaches 9 projects</span>
+  </div>
+
+  <div class="card" style="background: #f7f7f7">
+    <span class="c0">
+      <span class="l1"><span class="nm">spades-audio</span><span class="badge">stdio</span></span>
+      <span class="l2"><span class="path">~/.claude.json</span> — Claude Code user tier</span>
+    </span>
+    <span class="reg"><span class="tile"></span></span>
+    <span class="tools">Reaches 9 projects</span>
+  </div>
+
+  <div class="card">
+    <span class="c0">
+      <span class="l1"><span class="nm">claude.ai Notion</span><span class="badge">http</span></span>
+      <span class="l2"><span class="path">~/.claude.json</span> — a claude.ai <em>account connector</em></span>
+    </span>
+    <span class="reg"><span class="tile"></span></span>
+    <span class="tools bad">Reaches 9 projects</span>
+  </div>
+
+  <div class="note" style="margin: 12px 16px 0">
+    The last row is wrong. A claude.ai connector runs on Anthropic's servers; <span class="path">registry.rs:166</span> registers it as “account-level, not machine configuration”. It has no relationship to local repositories, and the shadow check — does <span class="path">&lt;project&gt;/.mcp.json</span> redeclare the name — is meaningless for it.
+  </div>
+
+  <div class="sep"></div>
+
+  <div class="h" style="margin-bottom: 12px">Three gates that would stop it</div>
+
+  <table>
+    <tr><th style="width: 120px">Gate</th><th style="width: 200px">What still gets the note</th><th>Cost</th></tr>
+    <tr>
+      <td><strong>1. Ancestors only</strong><br><span class="path">anchor != home</span></td>
+      <td><span class="path">~/Work/.mcp.json</span></td>
+      <td>Cleanest, and matches what the feature was specified to do. <span class="path">~/.mcp.json</span> loses a note that would have been true — it does reach every project.</td>
+    </tr>
+    <tr>
+      <td><strong>2. By host</strong><br>claude-code only</td>
+      <td><span class="path">~/Work/.mcp.json</span><br><span class="path">~/.mcp.json</span><br><span class="path">~/.claude.json</span> user tier</td>
+      <td>Keeps the true home-level claims, drops the connectors. Needs host on the annotation, which it does not carry today — a plumbing change.</td>
+    </tr>
+    <tr>
+      <td><strong>3. Ancestors + home,<br>minus claude-ai</strong></td>
+      <td>as gate 2</td>
+      <td>Same outcome as 2 by a different route: exclude the one host that is wrong rather than allow-listing the right ones. Same plumbing.</td>
+    </tr>
+  </table>
+
+  <div class="sep"></div>
+
+  <div class="h" style="margin-bottom: 8px">Separate question: is “3 projects” true?</div>
+  <div class="note" style="margin: 0 16px">
+    <p style="margin: 0 0 10px">The count is <strong>linked project roots</strong> — the directories added to Hanger — not repositories on disk. Thirty repos under <span class="path">~/Work</span> with three linked reads “Reaches 3 projects”.</p>
+    <p style="margin: 0 0 10px">The existing “In 3 projects” note has the same scoping and nobody has minded, because “in” describes where Hanger found something. <strong>“Reaches” makes a claim about the engine's behaviour</strong>, and the engine reaches all thirty.</p>
+    <p style="margin: 0">Either the copy narrows to what is counted, or the note accepts that it describes Hanger's view rather than the engine's. This is the string you approved on the 29th, believing it meant the latter.</p>
+  </div>
+
+</div>
+</x-dc>
+</body>
+</html>
