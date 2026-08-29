@@ -122,7 +122,7 @@ describe("Per-repository count synchronization", () => {
       },
     };
 
-    const { container } = render(
+    render(
       <RepoPane
         repoPath="/project"
         inventory={fixtureInventory}
@@ -150,7 +150,6 @@ describe("Per-repository count synchronization", () => {
     // Paired with the label: the mark in the Claude Code row must resolve to
     // that engine specifically, not just be present.
     expect(claude.querySelector("svg")?.getAttribute("data-brand")).toBe("claude_code");
-    expect(container).toBeTruthy();
   });
 
   it("the band sorts named engines descending and places Any agent last regardless of count size", () => {

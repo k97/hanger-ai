@@ -687,7 +687,14 @@ export default function ProfilePane({
   // processes.
   const conflictingRows = mcpMode && mcpServers ? mcpServers.filter((row) => row.agreement === "Conflicting") : [];
   const reviewLines: FindingLine[] = [
-    ...conflictingRows.map((row) => ({ severity: "danger" as const, text: `${row.name}: ${cardSecondLine(row)}` })),
+    /* `?? ""` for the template, not for the case: `cardSecondLine` is
+       `string | undefined`, and interpolating the undefined prints the word.
+       It cannot arrive here — Conflicting means `distinct_specs > 1`
+       (`agreement.rs:133`), which means two or more registrations, which is
+       what `agreementLine` requires to return a sentence
+       (`serverRows.ts:43`) — so this is the template hole closed, not a
+       state being handled. */
+    ...conflictingRows.map((row) => ({ severity: "danger" as const, text: `${row.name}: ${cardSecondLine(row) ?? ""}` })),
     ...processLines,
   ];
   const reviewLineCount = reviewLines.length; // allowlisted: the lines this popover itself renders

@@ -463,3 +463,34 @@ fn a_launch_two_hosts_share_counts_once_per_host_in_the_total() {
     let s = engine_summary(&d, |k| cache.get(k).copied());
     assert_eq!(s.tools_known_total, Some(10));
 }
+
+/// Task 1's deferred minor, triaged into the final review's fix wave: a known
+/// zero at the aggregate level. Claude Code's one launch was asked and
+/// answered nothing; Codex's was never asked at all. The total is `Some(0)` —
+/// "we asked, and the answer is none" — and not `None`, which is what the
+/// hero prints when it has nothing to report.
+///
+/// The wrong implementation this catches is `if total == 0 { None } else
+/// { Some(total) }` over a plain `sum()`. It passes every other test in this
+/// file: `_sums_the_rows_that_have_an_answer` totals 7,
+/// `_counts_once_per_host_in_the_total` totals 10, and
+/// `_is_none_when_nothing_has_been_asked` wants `None` and gets it for the
+/// wrong reason. Only a `Some(0)` row standing beside a `None` row tells the
+/// two folds apart. Proven by planting that fold and watching this fail.
+#[test]
+fn tools_known_total_is_some_zero_when_one_row_answered_zero_and_another_never_asked() {
+    let d = discovery(vec![
+        stdio_reg("a", "claude-code", "npx", &["a"]),
+        stdio_reg("b", "codex", "npx", &["b"]),
+    ]);
+    let cache = probes(&[(("npx", &["a"]), 0)]);
+    let s = engine_summary(&d, |k| cache.get(k).copied());
+
+    assert_eq!(row_for(&s.rows, "claude-code").tools_known, Some(0), "asked, answered nothing");
+    assert_eq!(row_for(&s.rows, "codex").tools_known, None, "never asked");
+    assert_eq!(
+        s.tools_known_total,
+        Some(0),
+        "a known zero is an answer -- None would say the machine has told us nothing"
+    );
+}
