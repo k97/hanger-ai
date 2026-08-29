@@ -2158,10 +2158,29 @@ impl DirectoryScanner {
 
         // Ancestor .mcp.json files sit inside no project root and no agent
         // root, so neither the walk sweep nor the machine pass reaches them.
-        // ONE row per config file: seen_registrations is keyed on
-        // (config_path, server_name), so the same file reached from a second
-        // project is skipped here. Which projects it reaches is derived at
-        // read time (annotations.rs), never stored — docs/harness.md.
+        // Which projects a file reaches is derived at read time
+        // (annotations.rs), never stored — docs/harness.md.
+        //
+        // `seen_registrations` guards only a same-scan duplicate: a second
+        // discovery pass, within THIS ONE `scan()` call, reaching the exact
+        // same (config_path, server_name) again. Currently moot for
+        // RepoAncestors -- `registry::SOURCES` has exactly one such row, so
+        // one project's ancestor walk cannot produce a duplicate pair on its
+        // own -- but it would matter the day a second source or pass reaches
+        // the same ancestor file, so it stays, matching the sweep/machine/
+        // project passes that already share this set.
+        //
+        // It does NOT provide the one-row-per-file guarantee across separate
+        // projects/scans: each `scan()` call gets its own fresh HashSet here
+        // (declared at the top of `scan_with_progress`, not a struct field),
+        // so `insert()` returns true in every call that reaches this file.
+        // What actually collapses N projects' calls to one row is
+        // `PreferencesStore::upsert_asset`'s `SELECT ... WHERE abs_path = ?1`
+        // branch (preferences.rs) taking UPDATE on a hit instead of INSERT.
+        // Confirmed by commenting out the guard below: every assertion in
+        // `ancestor_reach_tests.rs` still passed, because that test scans
+        // three separate projects (three separate `scan()` calls, three
+        // fresh HashSets) and relies on the upsert, not this set.
         let ancestors = crate::mcp::discover::discover_repo_ancestors(
             Path::new(&project_path_abs),
             &get_home_dir(),
