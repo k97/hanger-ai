@@ -401,4 +401,41 @@ describe("InspectorCap", () => {
       .map((b) => b.textContent);
     expect(items).toEqual(["Link to…", "Needs review · 1", "Copy path", "Reveal in Finder", "Open in editor"]);
   });
+
+  it("names the chosen editor in the menu row", () => {
+    renderCap({ chosenEditor: "Cursor" });
+    fireEvent.click(screen.getByRole("button", { name: "More actions" }));
+    expect(screen.getByRole("menuitem", { name: "Open in Cursor" })).toBeTruthy();
+  });
+
+  it("falls back to a generic label when no editor is chosen", () => {
+    renderCap({ chosenEditor: null });
+    fireEvent.click(screen.getByRole("button", { name: "More actions" }));
+    expect(screen.getByRole("menuitem", { name: "Open in editor" })).toBeTruthy();
+  });
+
+  it("swaps to Open in… while Option is held", () => {
+    renderCap({ chosenEditor: "Cursor", onPickEditor: vi.fn() });
+    fireEvent.click(screen.getByRole("button", { name: "More actions" }));
+    fireEvent.keyDown(window, { key: "Alt", altKey: true });
+    expect(screen.getByRole("menuitem", { name: "Open in…" })).toBeTruthy();
+  });
+
+  it("routes an Option-held click to the picker, not the direct open", () => {
+    const onPickEditor = vi.fn();
+    const cb = renderCap({ chosenEditor: "Cursor", onPickEditor });
+    fireEvent.click(screen.getByRole("button", { name: "More actions" }));
+    fireEvent.keyDown(window, { key: "Alt", altKey: true });
+    fireEvent.click(screen.getByRole("menuitem", { name: "Open in…" }));
+    expect(onPickEditor).toHaveBeenCalledTimes(1);
+    expect(cb.onOpenInEditor).not.toHaveBeenCalled();
+  });
+
+  it("clears the Option state when the window loses focus mid-hold", () => {
+    renderCap({ chosenEditor: "Cursor", onPickEditor: vi.fn() });
+    fireEvent.click(screen.getByRole("button", { name: "More actions" }));
+    fireEvent.keyDown(window, { key: "Alt", altKey: true });
+    fireEvent.blur(window);
+    expect(screen.getByRole("menuitem", { name: "Open in Cursor" })).toBeTruthy();
+  });
 });

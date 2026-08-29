@@ -2100,6 +2100,16 @@ export default function App() {
               clampTo={asideRef}
               onLink={onLinkForCap}
               onOpenInEditor={onOpenInEditorForCap}
+              chosenEditor={chosenEditor}
+              onPickEditor={
+                selectedAsset
+                  ? async () => {
+                      const found = await invoke<DetectedEditor[]>("detect_editors").catch(() => []);
+                      setDetectedEditors(found ?? []);
+                      setPickerFor({ name: selectedAsset.name, path: openTargetForCap });
+                    }
+                  : undefined
+              }
               onCopyPath={onCopyPathForCap}
               onReveal={onRevealForCap}
               onReview={routeToReview}
