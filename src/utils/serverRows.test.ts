@@ -14,6 +14,7 @@ function row(overrides: Partial<McpServerRow> & Pick<McpServerRow, "name">): Mcp
     transport: "stdio",
     registration_count: 1,
     distinct_spec_count: 1,
+    file_count: 1,
     agreement: "Consistent",
     aliased_with: [],
     plugin: null,
@@ -29,30 +30,43 @@ describe("agreementLine", () => {
 
   it("states plain agreement for a consistent group", () => {
     expect(
-      agreementLine(row({ name: "tauri", registration_count: 3, distinct_spec_count: 1, agreement: "Consistent" }))
-    ).toBe("3 registrations · agree");
+      agreementLine(
+        row({ name: "tauri", registration_count: 3, distinct_spec_count: 1, file_count: 3, agreement: "Consistent" })
+      )
+    ).toBe("Declared in 3 files, all identical");
   });
 
   it("names the split for a conflicting group", () => {
     expect(
-      agreementLine(row({ name: "tauri", registration_count: 3, distinct_spec_count: 2, agreement: "Conflicting" }))
-    ).toBe("3 registrations · 2 different launch specs");
+      agreementLine(
+        row({ name: "tauri", registration_count: 3, distinct_spec_count: 2, file_count: 2, agreement: "Conflicting" })
+      )
+    ).toBe("Declared in 2 files that disagree");
   });
 
-  it("names a duplicate declaration distinctly from a conflict", () => {
+  it("names a duplicate declaration, carrying the real count — not the old copy's hardcoded 'twice'", () => {
+    // The regression the old copy shipped: it hardcoded "twice" regardless of
+    // the count, so a server declared THREE times by one engine read
+    // "declared twice". A count of 3 on a Duplicate row is exactly what that
+    // bug got wrong.
     expect(
-      agreementLine(row({ name: "tauri", registration_count: 2, distinct_spec_count: 1, agreement: "Duplicate" }))
-    ).toBe("2 registrations · declared twice by the same engine");
+      agreementLine(
+        row({ name: "tauri", registration_count: 3, distinct_spec_count: 1, file_count: 3, agreement: "Duplicate" })
+      )
+    ).toBe("Declared in 3 files by one engine");
   });
 
-  it("has no singular form — the noun stays plural at every count agreementLine ever renders", () => {
-    // Renamed: the previous name promised a singular-noun branch reachable
-    // "once distinct_spec_count disagrees with registration_count", but no
-    // such branch exists. `regPhrase` in `agreementLine` is unconditionally
-    // `${row.registration_count} registrations` — there is no singular
-    // alternative anywhere in the function to reach. This pins that
-    // non-branching fact instead of a distinction the code never draws.
-    expect(agreementLine(row({ name: "tauri", registration_count: 2 }))).toContain("registrations");
+  it("uses the singular 'file' when file_count is 1, even while registration_count stays plural", () => {
+    // The defect the field exists to prevent: one physical file can carry
+    // several declarations (Claude Code's `~/.claude.json` via three
+    // `SOURCES` rows), so `registration_count` and `file_count` can and do
+    // disagree. Two registrations, ONE file — the sentence must say "1 file",
+    // never "2 files" borrowed from the registration count.
+    const line = agreementLine(
+      row({ name: "tauri", registration_count: 2, distinct_spec_count: 1, file_count: 1, agreement: "Duplicate" })
+    );
+    expect(line).toBe("Declared in 1 file by one engine");
+    expect(line).not.toContain("2 file");
   });
 
   // §6.3 state 3 ("one engine only"): the cross-engine reading is meaningless
@@ -70,9 +84,9 @@ describe("agreementLine", () => {
     // function has no engine data to back — `agreementLine` only ever sees
     // registration counts, never a distinct-engine count.
     const everyShape = [
-      row({ name: "a", registration_count: 3, distinct_spec_count: 1, agreement: "Consistent" }),
-      row({ name: "b", registration_count: 3, distinct_spec_count: 2, agreement: "Conflicting" }),
-      row({ name: "c", registration_count: 2, distinct_spec_count: 1, agreement: "Duplicate" }),
+      row({ name: "a", registration_count: 3, distinct_spec_count: 1, file_count: 3, agreement: "Consistent" }),
+      row({ name: "b", registration_count: 3, distinct_spec_count: 2, file_count: 2, agreement: "Conflicting" }),
+      row({ name: "c", registration_count: 2, distinct_spec_count: 1, file_count: 2, agreement: "Duplicate" }),
     ];
     for (const r of everyShape) {
       const line = agreementLine(r);
@@ -81,16 +95,16 @@ describe("agreementLine", () => {
     }
   });
 
-  it("a lone engine's own repeated declaration reads 'declared twice', never 'agree'", () => {
+  it("a lone engine's own repeated declaration reads 'by one engine', never 'agree'", () => {
     // The one shape a single-host machine can actually produce for
     // registration_count >= 2: `agreement_for`'s per-host duplicate check
     // forces `Duplicate` whenever every registration traces to one host_id.
     // `Consistent` never fires for that group, so this is the honest pin for
     // the one-engine case, not a hypothetical.
     const line = agreementLine(
-      row({ name: "tauri", registration_count: 2, distinct_spec_count: 1, agreement: "Duplicate" })
+      row({ name: "tauri", registration_count: 2, distinct_spec_count: 1, file_count: 2, agreement: "Duplicate" })
     );
-    expect(line).toBe("2 registrations · declared twice by the same engine");
+    expect(line).toBe("Declared in 2 files by one engine");
     expect(line).not.toContain("agree");
   });
 });
@@ -119,29 +133,31 @@ describe("projectOverrideNote / cardSecondLine", () => {
   it("cardSecondLine appends the override note to the agreement sentence — the load-bearing case, not a silent merge", () => {
     // The exact shape the backend produces for a same-engine User+Local
     // pair with matching specs: `agreement_for` verdicts `Duplicate`
-    // (registration_count 2, one host) — the override note is what stops
-    // that reading from standing alone as "just a redundant duplicate."
+    // (registration_count 2, one host, one file — Local and User tiers of
+    // Claude Code both live in `~/.claude.json`) — the override note is what
+    // stops that reading from standing alone as "just a redundant duplicate."
     const line = cardSecondLine(
       row({
         name: "tauri",
         registration_count: 2,
         distinct_spec_count: 1,
+        file_count: 1,
         agreement: "Duplicate",
         project_override: "/Users/karthik/Work/hanger-ai",
       })
     );
     expect(line).toBe(
-      "2 registrations · declared twice by the same engine · also declared for /Users/karthik/Work/hanger-ai — the version used there"
+      "Declared in 1 file by one engine · also declared for /Users/karthik/Work/hanger-ai — the version used there"
     );
-    // Nothing is lost — the registration count from `agreementLine` is
-    // still the whole sentence's prefix, not replaced or collapsed away.
-    expect(line).toContain("2 registrations");
+    // Nothing is lost — the agreement sentence from `agreementLine` is
+    // still the whole line's prefix, not replaced or collapsed away.
+    expect(line).toContain("Declared in 1 file");
   });
 
   it("cardSecondLine falls back to the plain agreement line when there is no override", () => {
     expect(
-      cardSecondLine(row({ name: "tauri", registration_count: 3, agreement: "Consistent" }))
-    ).toBe("3 registrations · agree");
+      cardSecondLine(row({ name: "tauri", registration_count: 3, file_count: 3, agreement: "Consistent" }))
+    ).toBe("Declared in 3 files, all identical");
   });
 
   it("cardSecondLine renders nothing when neither an agreement line nor an override applies", () => {

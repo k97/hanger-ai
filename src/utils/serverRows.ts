@@ -11,6 +11,15 @@ export interface McpServerRow {
   transport: string;
   registration_count: number;
   distinct_spec_count: number;
+  /** Backend-owned: the number of DISTINCT config files declaring this
+   *  server (`mcp::servers::group_servers`), never the same as
+   *  `registration_count`. One physical file can hold several registrations
+   *  of one name — Claude Code's own `~/.claude.json` is named by three
+   *  separate `SOURCES` rows — so this may not equal `registration_count`
+   *  even though every fixture on this machine happens to have them agree.
+   *  `agreementLine` renders this number; nothing here may recompute it by
+   *  counting `registrations`. */
+  file_count: number;
   agreement: "Consistent" | "Conflicting" | "Duplicate";
   aliased_with: string[];
   /** Always `null` today — no fixture carries a plugin marketplace path yet
@@ -47,20 +56,28 @@ import type { EngineReachInfo } from "../components/EngineReachTiles";
  * The card row's second line — one sentence built entirely from fields the
  * backend already computed, never recounted here. Absent below two
  * registrations: a lone registration has nothing to agree or conflict with,
- * so stating "1 registration · agree" would assert a comparison that never
- * happened.
+ * so stating "Declared in 1 file, all identical" would assert a comparison
+ * that never happened. The suppression guard reads `registration_count`, not
+ * `file_count` — even a single file cannot yield a lone *registration*
+ * agreeing with itself.
+ *
+ * The count in the sentence is `file_count`, never `registration_count`:
+ * "declared in N files" must stay true even where a config format lets one
+ * file carry several registrations of the same name (`file_count`'s own doc
+ * comment on `McpServerRow`).
  */
 export function agreementLine(row: McpServerRow): string | undefined {
   if (row.registration_count <= 1) return undefined;
-  const regPhrase = `${row.registration_count} registrations`;
+  const noun = row.file_count === 1 ? "file" : "files";
+  const filePhrase = `Declared in ${row.file_count} ${noun}`;
   switch (row.agreement) {
     case "Conflicting":
-      return `${regPhrase} · ${row.distinct_spec_count} different launch specs`;
+      return `${filePhrase} that disagree`;
     case "Duplicate":
-      return `${regPhrase} · declared twice by the same engine`;
+      return `${filePhrase} by one engine`;
     case "Consistent":
     default:
-      return `${regPhrase} · agree`;
+      return `${filePhrase}, all identical`;
   }
 }
 

@@ -39,6 +39,7 @@ const oneServerRow = {
   transport: "stdio",
   registration_count: 3,
   distinct_spec_count: 2,
+  file_count: 3,
   agreement: "Conflicting",
   aliased_with: [],
   plugin: null,
@@ -104,7 +105,7 @@ describe("get_mcp_servers reaches the screen", () => {
   it("renders the grouped server row's agreement sentence, built from the row's own fields", async () => {
     render(<App />);
     await screen.findByText("tauri");
-    expect(screen.getByText("3 registrations · 2 different launch specs")).toBeTruthy();
+    expect(screen.getByText("Declared in 3 files that disagree")).toBeTruthy();
     expect(screen.getByText("stdio")).toBeTruthy();
   });
 

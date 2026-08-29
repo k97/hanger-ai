@@ -53,14 +53,14 @@ describe("the MCP card row", () => {
           category: "Tools",
           path: "/home/.claude.json",
           transport: "stdio",
-          agreementLine: "3 registrations · 2 different launch specs",
+          agreementLine: "Declared in 2 files that disagree",
         } as any}
         isSelected={false}
       />
     );
     expect(screen.getByText("tauri")).toBeTruthy();
     expect(screen.getByText("stdio")).toBeTruthy();
-    expect(screen.getByText("3 registrations · 2 different launch specs")).toBeTruthy();
+    expect(screen.getByText("Declared in 2 files that disagree")).toBeTruthy();
   });
 
   it("puts the column labels on the section header, not on a row above every section", () => {
@@ -147,6 +147,7 @@ describe("the MCP card row", () => {
             transport: "stdio",
             registration_count: 2,
             distinct_spec_count: 1,
+            file_count: 1,
             agreement: "Duplicate",
             aliased_with: [],
             plugin: null,
@@ -155,7 +156,7 @@ describe("the MCP card row", () => {
         ]}
       />
     );
-    expect(screen.getByText("2 registrations · declared twice by the same engine")).toBeTruthy();
+    expect(screen.getByText("Declared in 1 file by one engine")).toBeTruthy();
     expect(screen.queryByText(/agree/)).toBeNull();
   });
 
@@ -230,6 +231,7 @@ describe("the MCP card row", () => {
         transport: "stdio",
         registration_count: 1,
         distinct_spec_count: 1,
+        file_count: 1,
         agreement: "Consistent" as const,
         aliased_with: [],
         plugin: null,
@@ -315,6 +317,7 @@ describe("the MCP card row", () => {
             transport: "stdio",
             registration_count: 2,
             distinct_spec_count: 1,
+            file_count: 1,
             agreement: "Duplicate",
             aliased_with: [],
             plugin: null,
@@ -324,13 +327,13 @@ describe("the MCP card row", () => {
         ]}
       />
     );
-    // Nothing lost: the registration count is still on screen.
-    expect(screen.getByText(/2 registrations/)).toBeTruthy();
+    // Nothing lost: the agreement sentence is still on screen.
+    expect(screen.getByText(/Declared in 1 file/)).toBeTruthy();
     // The override is visible, named by project — not collapsed into a bare
-    // "declared twice" with no explanation of why there are two.
+    // "by one engine" with no explanation of why there are two.
     expect(
       screen.getByText(
-        "2 registrations · declared twice by the same engine · also declared for /Users/karthik/Work/hanger-ai — the version used there"
+        "Declared in 1 file by one engine · also declared for /Users/karthik/Work/hanger-ai — the version used there"
       )
     ).toBeTruthy();
   });
@@ -349,6 +352,7 @@ describe("the MCP card row", () => {
             transport: "stdio",
             registration_count: 2,
             distinct_spec_count: 1,
+            file_count: 1,
             agreement: "Duplicate",
             aliased_with: [],
             plugin: null,
@@ -357,7 +361,7 @@ describe("the MCP card row", () => {
         ]}
       />
     );
-    expect(screen.getByText("2 registrations · declared twice by the same engine")).toBeTruthy();
+    expect(screen.getByText("Declared in 1 file by one engine")).toBeTruthy();
     expect(screen.queryByText(/also declared for/)).toBeNull();
   });
 
