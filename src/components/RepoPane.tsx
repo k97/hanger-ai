@@ -241,17 +241,34 @@ export default function RepoPane({
       ? `assets in ${repoFolderName}`
       : `${categoryNoun(selectedCategory)} in ${repoFolderName}`;
 
-  // The band's rows — the sort the Engines line used: `none` last, then
-  // count descending.
-  const engineRows: HeroBandRow[] = Object.entries(assetCounts?.engines ?? {})
-    .sort(([ak, ac], [bk, bc]) => (ak === "none" ? 1 : bk === "none" ? -1 : bc - ac))
-    .map(([key, count]) => ({
-      key,
-      engineKey: key,
-      engineName: formatEngineLabel(key),
-      value: count,
-      word: count === 1 ? "asset" : "assets",
-    }));
+  /* The band's rows — the sort the Engines line used: `none` last, then
+     count descending.
+
+     Empty on a category tab (Karthik's reviewer's ruling, final review
+     2026-08-28). `assetCounts.engines` is flattened across every category:
+     `count_assets` groups by (category, scope, engine) and then accumulates
+     the engine map with no category key (`scanner.rs:63-64`), and there is
+     no per-category engine figure to ask for. Left in place, the Skills tab
+     read "12 skills in proj" directly over a band crediting one engine with
+     every asset in the root — two populations, a few pixels apart, and
+     proximity is what made it a claim. The subtitle's `· N engines` tail
+     came off for the same reason.
+
+     The band itself stays for the nested-repo foot, which is about the root
+     and true on every tab. Narrowing the rows properly needs a new backend
+     field; hiding them is the honest, reversible half. */
+  const engineRows: HeroBandRow[] =
+    selectedCategory !== null
+      ? []
+      : Object.entries(assetCounts?.engines ?? {})
+          .sort(([ak, ac], [bk, bc]) => (ak === "none" ? 1 : bk === "none" ? -1 : bc - ac))
+          .map(([key, count]) => ({
+            key,
+            engineKey: key,
+            engineName: formatEngineLabel(key),
+            value: count,
+            word: count === 1 ? "asset" : "assets",
+          }));
 
   // The pill's lines: this repository's issues, then the warnings the scan
   // itself raised. Neither is an asset, and the popover is the disclosure

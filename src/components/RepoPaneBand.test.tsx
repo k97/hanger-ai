@@ -60,6 +60,30 @@ describe("RepoPane hero band and pill", () => {
     expect(rows[1].textContent).toContain("3");
   });
 
+  /* Important 3 (final review, 2026-08-28), ruled: hide the engine rows on a
+     category tab, keep the nested-repo foot.
+
+     `assetCounts.engines` is flattened across every category — `count_assets`
+     groups by (category, scope, engine) and then accumulates the engine map
+     with no category key at all (`scanner.rs:63-64`), and App passes it
+     straight through. So on the Skills tab the hero reads "12 skills in proj"
+     directly above a band saying "Claude Code 200 assets", two figures about
+     different populations a few pixels apart. Narrowing the band needs a new
+     backend field; hiding it is honest and reversible.
+
+     Wrong implementation this catches: rendering the root-wide rows on every
+     tab, which is what shipped. */
+  it("a category tab shows no engine rows — that numeral is root-wide, the hero's is not", () => {
+    render(<RepoPane {...base} selectedCategory="Skills" />);
+    expect(screen.queryAllByTestId(/^hero-band-row-/)).toEqual([]);
+    expect(screen.getByTestId("hero-band-foot")).toBeTruthy();
+  });
+
+  it("the All tab is unchanged: the rows are back", () => {
+    render(<RepoPane {...base} selectedCategory={null} />);
+    expect(screen.getAllByTestId(/^hero-band-row-/).length).toBeGreaterThan(0);
+  });
+
   it("the subtitle no longer counts engines", () => {
     render(<RepoPane {...base} />);
     expect(screen.queryByText(/· 1 engine/)).toBeNull();
