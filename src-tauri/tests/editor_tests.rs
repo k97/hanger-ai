@@ -139,3 +139,53 @@ fn the_capability_allows_no_editor_the_table_does_not_know() {
         }
     }
 }
+
+/// Every Hanger asset lives under a dot-directory — `~/.agents/skills`,
+/// `~/.claude`, `~/.codex`, `~/.mcp.json`, and a project's own `.claude/`.
+///
+/// `tauri/src/scope/fs.rs:215-225` defaults `require_literal_leading_dot` to
+/// **true on unix** when the opener plugin carries no config, and with that
+/// flag `$HOME/**` matches no path containing a dot component. So the
+/// capability silently refused every open — the original "Open in editor does
+/// nothing", and then "Hanger couldn't open …" once failures were surfaced
+/// (2026-08-29, reported against the running app).
+///
+/// This pins the config that turns it off. Delete the `plugins.opener` block
+/// from `tauri.conf.json` and this test reddens.
+#[test]
+fn the_opener_scope_reaches_dot_directories() {
+    let raw = std::fs::read_to_string(
+        concat!(env!("CARGO_MANIFEST_DIR"), "/tauri.conf.json"),
+    )
+    .expect("tauri.conf.json must be readable");
+    let conf: serde_json::Value = serde_json::from_str(&raw).expect("valid JSON");
+
+    let literal_dot = conf["plugins"]["opener"]["requireLiteralLeadingDot"].as_bool();
+    assert_eq!(
+        literal_dot,
+        Some(false),
+        "plugins.opener.requireLiteralLeadingDot must be false — Tauri defaults it to true on \
+         unix, and every Hanger asset path contains a dot component, so the opener scope \
+         refuses all of them"
+    );
+
+    // The property that setting actually buys, asserted positively against the
+    // same glob options Tauri builds (`fs.rs:235-241`).
+    let pattern = glob::Pattern::new("/Users/someone/**").expect("valid glob");
+    let options = glob::MatchOptions {
+        require_literal_separator: true,
+        require_literal_leading_dot: literal_dot.unwrap_or(true),
+        ..Default::default()
+    };
+    for path in [
+        "/Users/someone/.agents/skills/animation-vocabulary",
+        "/Users/someone/.claude/skills/some-skill",
+        "/Users/someone/.mcp.json",
+        "/Users/someone/Work/project/.claude/rules/a-rule.md",
+    ] {
+        assert!(
+            pattern.matches_with(path, options),
+            "the opener scope would refuse {path}"
+        );
+    }
+}
