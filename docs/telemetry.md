@@ -45,9 +45,30 @@ Every caught exception, panic, or log is routed through `before_send_sanitised` 
 - **Generation:** On granting consent, a random UUID v4 is minted and saved as `telemetry_client_id` in the local SQLite preferences store.
 - **Scrubbing:** The client ID is entirely local and decoupled from system identifiers. Upon revoking consent, the `telemetry_client_id` key is permanently deleted from the store.
 
+### Session Parameters (every event)
+
+GA4 shows a person in Realtime and the engagement reports only when the event carries
+`session_id` and `engagement_time_msec` (Measurement Protocol reference: "Common event
+parameters like session_id and engagement_time_msec are important for user activity to
+display in reports like Realtime"). `telemetry::build_payload` adds both to every event
+after the consent, secret and client-id gates in `track_event_async`:
+
+- **`session_id`** — unix seconds at the session's first event, sent as a string. A new
+  session starts after thirty minutes without an event, GA4's own boundary
+  (`telemetry::SESSION_TIMEOUT_MS`); exactly thirty minutes is still the same session.
+- **`engagement_time_msec`** — milliseconds since the previous event in the session, `1`
+  for the first (a zero would not count the user as active). This is the gap between
+  events, not measured focus time; an idle app inflates it up to the session boundary.
+
+The session is a pure state machine fed a clock (`telemetry::Session::touch`), pinned in
+`src-tauri/tests/telemetry_session_tests.rs`. `first_visit` and `session_start` cannot be
+sent over the Measurement Protocol, so "New users" never populates; sessions are derived
+from `session_id` alone.
+
 ### Tracked Event Call-Sites & Payload Schema
 
-All payloads carry counts, categories, and durations only — **NEVER paths, names, or file content.**
+All payloads carry counts, categories, durations and fixed screen names only — **NEVER
+paths, names, or file content.**
 
 #### A. `scan_completed`
 - **Call-Site:** Background thread scan walk task completion in `src-tauri/src/lib.rs`.
@@ -102,6 +123,30 @@ All payloads carry counts, categories, and durations only — **NEVER paths, nam
     "state": "on" | "off" | "crash_on" | "crash_off"
   }
   ```
+
+#### H. `engine_icon_unmapped`
+- **Call-Site:** `report_unmapped_engine` command in `src-tauri/src/lib.rs`, invoked once
+  per session by the webview when `BrandIcon` draws the generic mark for an engine it
+  has no mark for (`src/utils/reportUnmappedEngine.ts`).
+- **Parameters:** `engine_key` (a backend-minted product identifier, sanitised by
+  `sanitise_engine_key`: lowercase, ≤48 chars, `[a-z0-9_.-]` only) and, when one was
+  given, `engine_name` (≤64 chars, no path separators). Anything outside that shape is
+  dropped before dispatch.
+
+#### I. `page_view`
+- **Call-Site:** `track_screen_view` command in `src-tauri/src/lib.rs`, invoked by the
+  effect on `selectedSidebarItem` in `src/App.tsx` — once for the screen restored at
+  startup (after onboarding, once the stored selection has been read) and once per
+  change. Every route — rail, palette, flyout, "show engine assets" — converges there.
+- **Parameters:** `page_title` and `page_location` (`hanger://<title>`), where the title
+  is one of six fixed names: `my_machine`, `needs_review`, `link_map`, `discovery`,
+  `design_system`, `repo`. The webview maps its sidebar ids onto these
+  (`src/utils/screenName.ts`); a repository screen reports as `repo`, never its path, and
+  `telemetry::screen_page` drops any other string, so a path cannot become a title even
+  if the map falls behind.
+- **Why `page_view` and not `screen_view`:** the property is a `G-` web stream, and
+  `screen_view` "is available only for App streams". `page_view` populates the
+  Pages and screens report and `screenPageViews` with nothing to register.
 
 ---
 

@@ -4,6 +4,7 @@ import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { save, open } from "@tauri-apps/plugin-dialog";
 import { info, warn, error } from "@tauri-apps/plugin-log";
+import { screenNameFor } from "./utils/screenName";
 
 function forwardConsole() {
   if (typeof window === "undefined") return;
@@ -322,6 +323,10 @@ export default function App() {
 
   // Sidebar and Panel Navigation State
   const [selectedSidebarItem, setSelectedSidebarItem] = useState<string>("profile");
+  // True once the stored selection has been read, so the first page_view
+  // names the screen the user actually lands on, not the "profile" default
+  // that exists only until then.
+  const [sidebarRestored, setSidebarRestored] = useState(false);
   // Which kind of action made the current selection — a plain row click, or
   // a search-palette pick — so AssetRow can land the two differently
   // (Karthik's ruling, 2026-08-29). landingNonce ticks on every palette pick,
@@ -779,6 +784,18 @@ export default function App() {
     name: string;
   } | null>(null);
 
+  // One page_view per screen change, once the stored selection has been read.
+  // Every route converges on selectedSidebarItem — rail, palette, flyout,
+  // "show engine assets" — so this is the single place GA4 learns which
+  // screen is showing. The backend maps the name onto page_view and drops
+  // anything outside its six-name allowlist (`track_screen_view`, lib.rs).
+  // Nothing fires while onboarding covers the shell: the user is not on that
+  // screen yet, and consent is still being asked for.
+  useEffect(() => {
+    if (!sidebarRestored || onboardingComplete !== true) return;
+    invoke("track_screen_view", { screen: screenNameFor(selectedSidebarItem) }).catch(() => {});
+  }, [sidebarRestored, onboardingComplete, selectedSidebarItem]);
+
   // Track the OS appearance for as long as the app runs, not just at startup, so
   // flipping macOS between light and dark repaints Auto without a relaunch.
   useEffect(() => {
@@ -883,6 +900,7 @@ export default function App() {
       } else if (activeItem) {
         setSelectedSidebarItem(activeItem);
       }
+      setSidebarRestored(true);
       const showProjectsPref = await invoke<string | null>("get_preference", { key: "linkmap_show_projects" });
       if (showProjectsPref === "true") {
         setLinkMapShowProjects(true);

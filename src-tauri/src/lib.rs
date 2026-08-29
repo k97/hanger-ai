@@ -10,6 +10,7 @@ pub mod menu;
 pub mod provenance;
 pub mod scanner;
 pub mod search;
+pub mod telemetry;
 pub mod updates;
 mod transactional;
 pub mod preferences;
@@ -290,13 +291,10 @@ pub async fn track_event_async(app: AppHandle, name: &str, params: serde_json::V
         )
     };
 
-    let body = serde_json::json!({
-        "client_id": client_id,
-        "events": [{
-            "name": name,
-            "params": params
-        }]
-    });
+    // The session is touched only for an event that will actually be sent —
+    // after the consent, secret and client-id gates above — so a refused
+    // install never advances a session it does not report.
+    let body = telemetry::build_payload(&client_id, name, params, telemetry::session_params_now());
 
     let client = reqwest::Client::new();
     match client.post(&url).json(&body).send().await {
@@ -368,6 +366,24 @@ fn report_unmapped_engine(app: AppHandle, engine_key: String, engine_name: Optio
         app,
         "engine_icon_unmapped",
         unmapped_engine_payload(&key, engine_name.as_deref()),
+    );
+}
+
+/// The webview reports the screen it is showing, once per change
+/// (`src/App.tsx`, the effect on `selectedSidebarItem`). Only one of the six
+/// names in `telemetry::SCREENS` becomes a `page_view` — a repository screen
+/// arrives as `repo`, and anything else is dropped here, so a path can never
+/// leave the machine as a title. Consent, client id and the debug endpoint
+/// are all `track_event`'s concern.
+#[tauri::command]
+fn track_screen_view(app: AppHandle, screen: String) {
+    let Some((title, location)) = telemetry::screen_page(&screen) else {
+        return;
+    };
+    track_event(
+        app,
+        "page_view",
+        serde_json::json!({ "page_title": title, "page_location": location }),
     );
 }
 
@@ -2040,6 +2056,7 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            track_screen_view,
             link_directory,
             unlink_directory,
             mcp_cached_probe,
