@@ -1053,6 +1053,10 @@ export default function App() {
       setChosenEditor(name);
       invoke("set_preference", { key: "editor_app", value: name }).catch(() => {});
     }
+    // Settings has no asset in hand -- choosing there sets the default and
+    // opens nothing. Only the picker, which is opened against a specific
+    // asset, has a target to launch.
+    if (!target) return;
     openInEditor(target, name).then((result) => {
       if (!result.ok) {
         setEditorNotice(
