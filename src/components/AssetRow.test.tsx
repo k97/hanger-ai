@@ -5,6 +5,21 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import AssetRow, { AssetItem, AssetAnnotationView } from "./AssetRow";
 import MechanismGlyph from "./MechanismGlyph";
 import { SelectionOriginContext } from "./selectionOrigin";
+import { cardSecondLine, type McpServerRow } from "../utils/serverRows";
+
+function serverRow(overrides: Partial<McpServerRow> & Pick<McpServerRow, "name">): McpServerRow {
+  return {
+    transport: "stdio",
+    registration_count: 1,
+    distinct_spec_count: 1,
+    file_count: 1,
+    agreement: "Consistent",
+    aliased_with: [],
+    plugin: null,
+    registrations: [`/test/config.json:${overrides.name}`],
+    ...overrides,
+  };
+}
 
 describe("AssetRow Shell Spec Compliance", () => {
   const sampleItem: AssetItem = {
@@ -169,6 +184,53 @@ describe("AssetRow Shell Spec Compliance", () => {
     // the plain total, not "2 of 2".
     expect(within(container).getByText("Reaches 2 projects")).toBeTruthy();
     expect(within(container).queryByText(/overrid|shadow/i)).toBeNull();
+  });
+
+  // Task 1 (2026-08-29): the two tests above prove `beyondCell`'s
+  // ancestor_reach branch renders — but `beyondCell` is only called by the
+  // TABLE variant, and every real tool asset (the only category the backend
+  // emits this note for) renders as `variant="card"`, which early-returns
+  // before `beyondCell` ever runs. These two exercise the card's actual
+  // second line, built from `cardSecondLine` (`serverRows.ts`) the way
+  // `ProfilePane.tsx` builds `item.agreementLine`, and assert the whole
+  // rendered string.
+  it("the card variant renders the reach note as the third clause, after agreement and override", () => {
+    const agreementLine = cardSecondLine(
+      serverRow({
+        name: "tauri",
+        registration_count: 2,
+        distinct_spec_count: 1,
+        file_count: 1,
+        agreement: "Duplicate",
+        project_override: "/Users/karthik/Work/hanger-ai",
+      }),
+      { kind: "ancestor_reach", count: 3, using_count: 2 }
+    );
+    const { container } = render(
+      <AssetRow
+        item={{ name: "tauri", category: "Tools", path: "/test/config.json:tauri", agreementLine }}
+        variant="card"
+      />
+    );
+    expect(
+      within(container).getByText(
+        "Declared in 1 file by one engine · also declared for /Users/karthik/Work/hanger-ai — the version used there · Reaches 2 of 3 projects"
+      )
+    ).toBeTruthy();
+  });
+
+  it("the card variant renders the reach note alone when there is no agreement line and no override", () => {
+    const agreementLine = cardSecondLine(
+      serverRow({ name: "lonely-tool", registration_count: 1 }),
+      { kind: "ancestor_reach", count: 3, using_count: 3 }
+    );
+    const { container } = render(
+      <AssetRow
+        item={{ name: "lonely-tool", category: "Tools", path: "/test/config.json:lonely-tool", agreementLine }}
+        variant="card"
+      />
+    );
+    expect(within(container).getByText("Reaches 3 projects")).toBeTruthy();
   });
 
   // Class-contract guard only (happy-dom lays nothing out — verification.md).

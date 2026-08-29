@@ -4,6 +4,7 @@ import MechanismGlyph, { MechanismWord } from "./MechanismGlyph";
 import EngineReachTiles, { EngineReachInfo } from "./EngineReachTiles";
 import EngineLabel from "./EngineLabel";
 import { SelectionOriginContext } from "./selectionOrigin";
+import { ancestorReachNote } from "../utils/serverRows";
 
 /** One asset's backend-derived annotation: the glyph word, the reach list,
  *  and the beyond-the-store note whose count is backend-owned. Arrives from
@@ -94,18 +95,11 @@ function beyondCell(annotation: AssetAnnotationView): { text: string; cls: strin
         return { text: `Drifted in ${note.places.join(", ")}`, cls: "text-state-warning font-medium" };
       case "copies":
         return { text: `Tracked copy in ${note.count === 1 ? "1 project" : `${note.count} projects`}`, cls: "text-ink-2" };
-      case "ancestor_reach": {
-        // Approved copy, Karthik 2026-08-29. Both figures come from the
-        // backend; this only COMPARES them to pick a branch, and never
-        // subtracts — a subtraction here would derive a count in the
-        // frontend (invariants.md).
-        const noun = note.count === 1 ? "project" : "projects";
-        const using = note.using_count ?? note.count;
-        const text = using === note.count
-          ? `Reaches ${note.count} ${noun}`
-          : `Reaches ${using} of ${note.count} ${noun}`;
-        return { text, cls: "text-ink-2" };
-      }
+      case "ancestor_reach":
+        // Wording lives once, in `serverRows.ts`'s `ancestorReachNote` —
+        // this variant's own cell and the card variant's second line
+        // (`cardSecondLine`) both call it, so they cannot drift apart.
+        return { text: ancestorReachNote(note) ?? "—", cls: "text-ink-2" };
       default:
         return { text: note.count === 1 ? "In 1 project" : `In ${note.count} projects`, cls: "text-ink-2" };
     }

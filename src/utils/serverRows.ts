@@ -99,16 +99,59 @@ export function projectOverrideNote(row: McpServerRow): string | undefined {
 }
 
 /**
- * The card row's whole second line: the agreement sentence, plus the
- * project-override note when one applies, joined the way a single sentence
- * with two clauses would be. Composing here (rather than folding the note
+ * The subset of `BeyondNote` (`src-tauri/src/annotations.rs`) the
+ * ancestor-reach clause reads. Kept narrow — no `places` — so a fixture only
+ * has to supply what this clause actually looks at, matching the shape
+ * `AssetAnnotationView.beyond` already carries on the frontend
+ * (`AssetRow.tsx`).
+ */
+export interface AncestorReachBeyond {
+  kind: string;
+  count: number;
+  using_count?: number;
+}
+
+/**
+ * The ancestor-reach clause: "Reaches N projects" when every reached project
+ * uses this definition, "Reaches M of N projects" when some override it —
+ * approved copy, Karthik 2026-08-29. Both figures are backend-owned
+ * (`BeyondNote.count` / `.using_count`); this only compares them to pick a
+ * branch, never subtracts — a subtraction here would derive a count in the
+ * frontend (`.claude/rules/invariants.md`). The one place this wording is
+ * written: `AssetRow.tsx`'s `beyondCell` (the table variant's own cell) calls
+ * this too, so the two surfaces that can both show it never drift apart.
+ */
+export function ancestorReachNote(
+  beyond: AncestorReachBeyond | null | undefined
+): string | undefined {
+  if (!beyond || beyond.kind !== "ancestor_reach") return undefined;
+  const noun = beyond.count === 1 ? "project" : "projects";
+  const using = beyond.using_count ?? beyond.count;
+  return using === beyond.count
+    ? `Reaches ${beyond.count} ${noun}`
+    : `Reaches ${using} of ${beyond.count} ${noun}`;
+}
+
+/**
+ * The card row's whole second line: the agreement sentence, the
+ * project-override note when one applies, and the ancestor-reach note when
+ * one applies (Task 1, 2026-08-29) — joined the way a single sentence with
+ * several clauses would be. Composing here (rather than folding each note
  * into `agreementLine` itself) keeps each function single-purpose —
  * `agreementLine` is purely the verdict, `projectOverrideNote` is purely the
- * scope finding — while the row still gets one combined line, matching
- * §5.6's "card rows, two lines" constraint.
+ * scope finding, `ancestorReachNote` is purely the reach figure — while the
+ * row still gets one combined line, matching §5.6's "card rows, two lines"
+ * constraint. `beyond` is the row's own `BeyondNote`, not read from `row`
+ * itself: `McpServerRow` carries no such field, so the caller passes
+ * whatever it already has in scope (the per-registration annotation's
+ * `.beyond`, or the grouped view's — `null` there today, per the known
+ * grouped-view limitation).
  */
-export function cardSecondLine(row: McpServerRow): string | undefined {
-  const parts = [agreementLine(row), projectOverrideNote(row)].filter(
+export function cardSecondLine(
+  row: McpServerRow,
+  beyond?: AncestorReachBeyond | null
+): string | undefined {
+  const parts = [agreementLine(row), projectOverrideNote(row), ancestorReachNote(beyond)].filter(
     (s): s is string => !!s
   );
   return parts.length > 0 ? parts.join(" · ") : undefined;

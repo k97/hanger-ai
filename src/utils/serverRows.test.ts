@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   agreementLine,
+  ancestorReachNote,
   cardSecondLine,
   projectOverrideNote,
   sortServerRows,
@@ -162,6 +163,81 @@ describe("projectOverrideNote / cardSecondLine", () => {
 
   it("cardSecondLine renders nothing when neither an agreement line nor an override applies", () => {
     expect(cardSecondLine(row({ name: "tauri", registration_count: 1 }))).toBeUndefined();
+  });
+});
+
+// The `BeyondNote{kind: "ancestor_reach"}` clause -- Karthik's approved copy,
+// 2026-08-29: "Reaches N projects" when every reached project uses this
+// definition, "Reaches M of N projects" when some override it. Both figures
+// are backend-owned (`count` / `using_count`); this only compares them to
+// pick a branch and never subtracts (`invariants.md`).
+describe("ancestorReachNote", () => {
+  it("renders nothing for a null or absent note", () => {
+    expect(ancestorReachNote(null)).toBeUndefined();
+    expect(ancestorReachNote(undefined)).toBeUndefined();
+  });
+
+  it("renders nothing for a note of a different kind — this clause is ancestor_reach only", () => {
+    expect(ancestorReachNote({ kind: "projects", count: 3 })).toBeUndefined();
+  });
+
+  it("states plain reach when every reached project uses this definition", () => {
+    expect(ancestorReachNote({ kind: "ancestor_reach", count: 3, using_count: 3 })).toBe(
+      "Reaches 3 projects"
+    );
+  });
+
+  it("defaults using_count to count when the backend omits it — every project uses it", () => {
+    expect(ancestorReachNote({ kind: "ancestor_reach", count: 3 })).toBe("Reaches 3 projects");
+  });
+
+  it("names the split when some reached projects override it", () => {
+    expect(ancestorReachNote({ kind: "ancestor_reach", count: 3, using_count: 2 })).toBe(
+      "Reaches 2 of 3 projects"
+    );
+  });
+
+  it("uses the singular 'project' when count is 1", () => {
+    expect(ancestorReachNote({ kind: "ancestor_reach", count: 1, using_count: 1 })).toBe(
+      "Reaches 1 project"
+    );
+  });
+});
+
+// Task 1 (2026-08-29): the reach note is the card's third clause, after the
+// agreement sentence and the project-override note -- `cardSecondLine`'s own
+// seam, so a card whose only fact worth stating is reach still gets a second
+// line (the "alone" case a lone registration with no override produces).
+describe("cardSecondLine with an ancestor-reach note", () => {
+  it("appends the reach note as a third clause after agreement and override", () => {
+    const line = cardSecondLine(
+      row({
+        name: "tauri",
+        registration_count: 2,
+        distinct_spec_count: 1,
+        file_count: 1,
+        agreement: "Duplicate",
+        project_override: "/Users/karthik/Work/hanger-ai",
+      }),
+      { kind: "ancestor_reach", count: 3, using_count: 2 }
+    );
+    expect(line).toBe(
+      "Declared in 1 file by one engine · also declared for /Users/karthik/Work/hanger-ai — the version used there · Reaches 2 of 3 projects"
+    );
+  });
+
+  it("shows the reach note alone when neither an agreement line nor an override applies", () => {
+    const line = cardSecondLine(
+      row({ name: "tauri", registration_count: 1 }),
+      { kind: "ancestor_reach", count: 3, using_count: 3 }
+    );
+    expect(line).toBe("Reaches 3 projects");
+  });
+
+  it("stays exactly as it was for a row with no reach note at all", () => {
+    expect(
+      cardSecondLine(row({ name: "tauri", registration_count: 3, file_count: 3, agreement: "Consistent" }))
+    ).toBe("Declared in 3 files, all identical");
   });
 });
 

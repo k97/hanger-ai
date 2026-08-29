@@ -20,7 +20,7 @@ import { dedupeRegistrations } from "../utils/mcpRegistration";
 import { sortAssetItems } from "../utils/sortUtils";
 import { registrationKey } from "../utils/mcpRegistration";
 import { groupProcesses, type ProcessMatch } from "../utils/mcpServerView";
-import { cardSecondLine, mergeReach, sortServerRows, type McpServerRow } from "../utils/serverRows";
+import { ancestorReachNote, cardSecondLine, mergeReach, sortServerRows, type McpServerRow } from "../utils/serverRows";
 import DisclosureBanner from "./DisclosureBanner";
 import { sumGlobalAssets, categoryCountKey } from "../utils/globalAssetCount";
 import { groupLabelClass } from "./typeRoles";
@@ -745,6 +745,13 @@ export default function ProfilePane({
       drifted: t.drifted,
       parseStatus: t.parse_status,
       parseError: t.parse_error,
+      // A single registration has no `McpServerRow` to build an agreement
+      // sentence or an override note from, so this row's second line — if
+      // it has one at all — is purely the ancestor-reach clause, read
+      // straight off this registration's own backend annotation (Task 1,
+      // 2026-08-29). `annotationByAssetPath` is keyed by the same
+      // `registrationKey(t)` this row's `id` above already uses.
+      agreementLine: ancestorReachNote(annotationByAssetPath.get(registrationKey(t))?.beyond),
     })),
     sortField,
     sortDirection
@@ -785,10 +792,18 @@ export default function ProfilePane({
           transport: row.transport,
           plugin: row.plugin ?? undefined,
           // The whole second line, not just the verdict — §6.3 state 9's
-          // project-override note (when one applies) rides on the same line
-          // as the agreement sentence, per `cardSecondLine`'s own doc
-          // comment.
-          agreementLine: cardSecondLine(row),
+          // project-override note (when one applies) and the ancestor-reach
+          // note (Task 1, 2026-08-29) both ride on the same line as the
+          // agreement sentence, per `cardSecondLine`'s own doc comment. The
+          // `beyond` passed here is `groupedAnnotationById`'s own entry, set
+          // two lines up — always `null` today, because the grouped view's
+          // merged annotation is built with `beyond: null` (this section's
+          // rows come from `get_mcp_servers`/`discover_machine`, which does
+          // not yet carry `SourceLocation::RepoAncestors`). Wiring it through
+          // regardless means a grouped row starts showing the note the day
+          // that gap closes, with no second edit here — known gap, not
+          // fixed by this task.
+          agreementLine: cardSecondLine(row, groupedAnnotationById.get(id)?.beyond),
           // Backend-owned, cache-only (`McpServerRow.tool_count`) — passed
           // straight through, never recomputed. `?? null` only normalises
           // `undefined` (a fixture built before this field existed) to the
