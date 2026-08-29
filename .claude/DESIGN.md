@@ -453,13 +453,13 @@ which is exported for that one reader (`bc1c3c8`, 2026-08-28).
 
 **Size and ink by role.** Three sizes cover the shell: 16 for shell marks —
 the rail (`IconRail.tsx:73`), sidebar rows (`Sidebar.tsx:154`), the
-inspector cap's kind icon (`InspectorCap.tsx:202`) and the titlebar panel
-toggles (`InspectorCap.tsx:373`) — 14 for row marks (`AssetDetail.tsx:275`'s
+inspector cap's kind icon (`InspectorCap.tsx:232`) and the titlebar panel
+toggles (`InspectorCap.tsx:410`) — 14 for row marks (`AssetDetail.tsx:275`'s
 identity rows, `MechanismGlyph.tsx:85`), and 12–13 for chevrons and inline
-marks (`AssetHeaderRow.tsx:36-38`, `Flyout.tsx:683`; `InspectorCap.tsx:259`
+marks (`AssetHeaderRow.tsx:36-38`, `Flyout.tsx:683`; `InspectorCap.tsx:289`
 carries a 13) (Karthik's ruling I2, 2026-08-28). A mark also takes the ink of
 the text beside it rather than a fixed shade of its own: the cap's kind icon
-sits in `--ink-3` (`InspectorCap.tsx:202,205`; ruling I3), and the row's
+sits in `--ink-3` (`InspectorCap.tsx:232,235`; ruling I3), and the row's
 mechanism glyph does too in its unflagged states — symlink, copy, none
 (`MechanismGlyph.tsx:21,22,25`) — while drift and broken keep their state
 colour instead of following the ink ladder, `--state-warning` and
@@ -827,7 +827,7 @@ counts.broken`. Severity follows `issueSeverity` (`reviewIssues.ts:413-415`)
 rather than a second rule, so a won't-parse asset is a danger dot here
 exactly as it is in the inspector cap's chip, whose popover lines carry their
 own severity one by one rather than the asset's aggregate
-(`ProfilePane.tsx:680-684`, `RepoPane.tsx:282-286`, `InspectorCap.tsx:241`).
+(`ProfilePane.tsx:680-684`, `RepoPane.tsx:282-286`, `InspectorCap.tsx:271`).
 
 **The action row is `ReviewPillActions`** (`ReviewPillActions.tsx`) — one
 component for both heroes, given the pill's `issues`. With none it renders
@@ -1005,8 +1005,8 @@ instead of in a panel that appears only while nothing is selected.
 
 Below that, the header is exactly: the cap's identity row — kind glyph, a
 sentence-case `kind · place` caption line, a finding chip
-(`InspectorCap.tsx:169-212`; the caption itself is `captionClass`,
-`typeRoles.ts:16`, rendered at `InspectorCap.tsx:220-228`; the cap itself,
+(`InspectorCap.tsx:199-242`; the caption itself is `captionClass`,
+`typeRoles.ts:16`, rendered at `InspectorCap.tsx:250-258`; the cap itself,
 Surfaces and controls below) — then Flyout's title block
 (the `<h2>`, `Flyout.tsx:654`), then `AssetDetail`'s own `UnderlineTabs`
 switch. Nothing else: `AssetDetail` used to open with a state line, a path
@@ -1049,34 +1049,34 @@ changes the scrollbar width has to move that 12 with it.
 runs under test.** After every render, one effect compares the row's own
 `scrollWidth` against its `clientWidth` and climbs one rung — sheds `Link
 to…` first, the finding chip second — when the row overflows
-(`InspectorCap.tsx:149-156`); at the second rung, where the chip has gone,
+(`InspectorCap.tsx:199-206`); at the second rung, where the chip has gone,
 the kind glyph's state dot takes over as the only mark on the surface saying
-a finding exists, and it draws at no other width (`:184`). A second,
+a finding exists, and it draws at no other width (`:214`). A second,
 separate effect holds a `ResizeObserver` on the same row purely to catch it
 growing back, resetting
-the climb to `0` the same width it left (`:115-134`). Both are inert under
+the climb to `0` the same width it left (`:179-193`). Both are inert under
 `happy-dom`, the environment every component test runs in, for two different
 reasons: the render-time comparison never overflows because `scrollWidth`
 and `clientWidth` both read `0` there — the same limitation `SegmentedTrack`'s
 and `UnderlineTabs`' own geometry already carry (Surfaces and controls,
 below) — while the `ResizeObserver` effect's own guard, `typeof
-ResizeObserver === "undefined"` (`:122`), does not even trip: `happy-dom`
+ResizeObserver === "undefined"` (`:181`), does not even trip: `happy-dom`
 does define a `ResizeObserver` class, so `typeof` reads `"function"` and the
 code proceeds to call `observe()` — which is a documented no-op there that
 never invokes its callback
 (`node_modules/happy-dom/lib/resize-observer/ResizeObserver.js:12-14`). A
 test-only `forceShed` prop drives the collapsed states directly instead
-(`InspectorCap.tsx:74-78`; every case in `InspectorCap.test.tsx`), so a
+(`InspectorCap.tsx:97-101`; every case in `InspectorCap.test.tsx`), so a
 broken threshold, a flipped comparison, or a disconnected ref in either
 effect would still pass every test in the suite.
 
 **An MCP server's cap never sheds and never draws a ⋮**, derived from the
 absence of its callbacks rather than a category check: `canShed` is
 `Boolean(onLink || onCopyPath || onReveal || onOpenInEditor)`
-(`InspectorCap.tsx:121`), and a server has none of the four — no path to
+(`InspectorCap.tsx:171`), and a server has none of the four — no path to
 copy, nowhere to reveal, nothing to open, nothing to link — so `canShed` is
 `false` and the effective shed is pinned to `0` regardless of `forceShed` or
-the measured `autoShed` (`:113`). Its finding chip therefore stays on the
+the measured `autoShed` (`:172`). Its finding chip therefore stays on the
 surface at every width, and `menuHasContent` never turns true for it, so no
 ⋮ renders at all (`:151-157`; `InspectorCap.test.tsx`'s two "never sheds an
 MCP server's cap" cases, at `forceShed=1` and `forceShed=2`). Karthik's
@@ -1647,8 +1647,8 @@ never the app's own "Search"/"Search assets" names
 column's 40px cap, and since this phase the selected asset's identity as
 well as the two panel-level controls it used to hold alone: a kind glyph —
 dotted only at the width where the finding chip has shed into the menu, so
-the two never state the same finding at once (`:184`) — a sentence-case
-`kind · place` eyebrow (`captionClass`, `InspectorCap.tsx:223`), a finding
+the two never state the same finding at once (`:214`) — a sentence-case
+`kind · place` eyebrow (`captionClass`, `InspectorCap.tsx:253`), a finding
 chip, then `Link to…`, a ⋮ overflow (`OverflowMenu`,
 above), and
 Expand/Collapse plus Toggle inspector (`:159-335`; the shed order, its
@@ -1860,7 +1860,7 @@ oversight.
 **Toolbar buttons must carry `shrink-0`, or a squeezed cap silently shrinks
 the icon inside them.** `tbBtnClass` / `tbBtnPlaneClass` (`App.tsx:1148-1153`)
 both declare it, and so does `tbBtnActiveClass` — which, since this phase,
-lives only in `InspectorCap.tsx:93-94` (Repeated variants are hoisted, not
+lives only in `InspectorCap.tsx:116-117` (Repeated variants are hoisted, not
 computed, below). This was found the hard way: the sidebar cap leads with a
 spacer (`w-[76px] shrink-0`, `App.tsx:1327`) so the toggle button stays
 reachable when the source list is collapsed and the cap's content overflows
@@ -1974,17 +1974,17 @@ non-tablist chip row (Pane composition, above).
 
 **`tbBtnClass` is a real, deliberate exception to "declared once": it exists
 verbatim in two files.** `App.tsx:1148-1149` still declares it for the
-toolbar's own buttons; `InspectorCap.tsx:91-92` declares the identical
+toolbar's own buttons; `InspectorCap.tsx:114-115` declares the identical
 string again (checked byte-for-byte) for the cap's Expand/Collapse button,
 with a comment recording the ruling: `App`'s copy is local to the component
 body and not exported, and `App` keeps needing its own regardless, so
 extracting a shared module would have staled the citations already written
 against both files' bodies rather than removed a duplicate
-(`InspectorCap.tsx:88-90`). `tbBtnActiveClass` is not the same story: it used
+(`InspectorCap.tsx:111-113`). `tbBtnActiveClass` is not the same story: it used
 to live in `App.tsx` too, painting the same "Toggle inspector" button this
 cap now paints, but when that button moved into `InspectorCap` (`af1c305`)
 `App`'s own copy was deleted rather than left unused — so today
-`tbBtnActiveClass` exists in exactly one file, `InspectorCap.tsx:93-94`, and
+`tbBtnActiveClass` exists in exactly one file, `InspectorCap.tsx:116-117`, and
 only `tbBtnClass` is the actual two-file duplicate.
 
 ### Scroll caps

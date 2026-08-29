@@ -438,4 +438,13 @@ describe("InspectorCap", () => {
     fireEvent.blur(window);
     expect(screen.getByRole("menuitem", { name: "Open in Cursor" })).toBeTruthy();
   });
+
+  it("returns to the chosen editor when Option is released", () => {
+    renderCap({ chosenEditor: "Cursor", onPickEditor: vi.fn() });
+    fireEvent.click(screen.getByRole("button", { name: "More actions" }));
+    fireEvent.keyDown(window, { key: "Alt", altKey: true });
+    expect(screen.getByRole("menuitem", { name: "Open in…" })).toBeTruthy();
+    fireEvent.keyUp(window, { key: "Alt", altKey: false });
+    expect(screen.getByRole("menuitem", { name: "Open in Cursor" })).toBeTruthy();
+  });
 });

@@ -47,4 +47,41 @@ describe("EditorPicker", () => {
     expect(screen.queryByText(/didn't find/i)).toBeNull();
     expect(screen.queryByText(/none/i)).toBeNull();
   });
+
+  // Karthik's ruling 2026-08-29: the checkbox's default is not a constant,
+  // it follows the route. The Option route reaches the picker to override an
+  // editor that is already remembered, so it starts unticked — ticking it
+  // is an explicit choice to change the default, not the assumed outcome.
+  it("does not remember by default when defaultRemember is false (the Option route)", () => {
+    const onPick = vi.fn();
+    render(
+      <EditorPicker
+        assetName="x"
+        editors={EDITORS}
+        onPick={onPick}
+        onChooseOther={vi.fn()}
+        onCancel={vi.fn()}
+        defaultRemember={false}
+      />
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Cursor" }));
+    expect(onPick).toHaveBeenCalledWith("Cursor", false);
+  });
+
+  it("still remembers when the box is ticked after defaultRemember is false", () => {
+    const onPick = vi.fn();
+    render(
+      <EditorPicker
+        assetName="x"
+        editors={EDITORS}
+        onPick={onPick}
+        onChooseOther={vi.fn()}
+        onCancel={vi.fn()}
+        defaultRemember={false}
+      />
+    );
+    fireEvent.click(screen.getByRole("checkbox", { name: "Always open assets here" }));
+    fireEvent.click(screen.getByRole("button", { name: "Cursor" }));
+    expect(onPick).toHaveBeenCalledWith("Cursor", true);
+  });
 });

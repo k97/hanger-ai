@@ -2177,6 +2177,12 @@ export default function App() {
           onPick={(name, remember) => applyEditorChoice(name, remember, pickerFor.path)}
           onChooseOther={chooseOtherApp}
           onCancel={() => setPickerFor(null)}
+          /* First use (no editor chosen yet): ticked, remembering is the
+             expected outcome. The Option route (an editor already chosen,
+             opened for a one-off elsewhere): unticked, so ticking it is an
+             explicit choice to change the default rather than the assumed
+             one. Karthik's ruling, 2026-08-29. */
+          defaultRemember={!chosenEditor}
         />
       )}
 

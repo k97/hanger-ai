@@ -13,6 +13,11 @@ export interface EditorPickerProps {
   onPick: (name: string, remember: boolean) => void;
   onChooseOther: () => void;
   onCancel: () => void;
+  /** Whether "Always open assets here" starts ticked. The first-use route
+   *  wants it ticked — remembering is the expected outcome, and an unticked
+   *  default would re-ask on every asset. The Option route wants it clear:
+   *  the user reached for the exception, not a new default. */
+  defaultRemember?: boolean;
 }
 
 const rowClass =
@@ -24,8 +29,9 @@ export default function EditorPicker({
   onPick,
   onChooseOther,
   onCancel,
+  defaultRemember,
 }: EditorPickerProps) {
-  const [remember, setRemember] = useState(true);
+  const [remember, setRemember] = useState(defaultRemember ?? true);
   const hasEditors = editors.length > 0;
 
   return (
