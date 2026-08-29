@@ -202,6 +202,21 @@ describe("ProfilePane Component-Level Filtering Integration", () => {
     expect(screen.getByText("spades")).toBeTruthy();
   });
 
+  it("threads the backend's probed tool count onto the card, and withholds it for a Conflicting row", () => {
+    const counts = { total: 3, byCategory: { tool: { total: 2, global: 2, project: 0 } }, engines: {} };
+    const mcpServers = [
+      { name: "tauri", transport: "stdio", registration_count: 2, distinct_spec_count: 2, agreement: "Conflicting", aliased_with: [], plugin: null, registrations: ["/a:tauri", "/b:tauri"], tool_count: null },
+      { name: "spades", transport: "stdio", registration_count: 1, distinct_spec_count: 1, agreement: "Consistent", aliased_with: [], plugin: null, registrations: ["/a:spades"], tool_count: 7 },
+    ];
+    const summary = { rows: [{ engine_id: "claude-code", engine_name: "Claude Code", server_count: 2, tools_known: 4 }], total_server_count: 3, answered_server_count: 1, unasked_server_count: 2, unaskable_server_count: 0, conflicting_server_count: 1 };
+    render(<ProfilePane inventory={mockInventory} assetCounts={counts} mcpServers={mcpServers as never} serverGrouping="server" serverSort="name" mcpEngineSummary={summary} mcpCoverage={{ checked_file_count: 16, checked_engine_count: 2, checked_files: [], problems: [] }} loading={false} onSelectAsset={vi.fn()} onLinkAsset={vi.fn()} />);
+    fireEvent.click(screen.getAllByText("MCP servers").find((el) => el.closest("[tabindex]"))!.closest("[tabindex]")!);
+    const spadesRow = screen.getByText("spades").closest("[data-selected]") as HTMLElement;
+    expect(within(spadesRow).getByText("7 tools")).toBeTruthy();
+    const tauriRow = screen.getByText("tauri").closest("[data-selected]") as HTMLElement;
+    expect(within(tauriRow).getByText("—")).toBeTruthy();
+  });
+
   it("clears the Review filter when the category changes, so it never carries back to Tools", () => {
     const counts = { total: 3, byCategory: { tool: { total: 2, global: 2, project: 0 } }, engines: {} };
     const mcpServers = [

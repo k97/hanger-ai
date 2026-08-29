@@ -196,6 +196,42 @@ describe("AssetRow Shell Spec Compliance", () => {
     expect(dash.className).not.toContain("opacity-45");
   });
 
+  // The Tools cell renders `item.toolCount` when the backend's probe cache
+  // (`McpServerRow.tool_count`) actually answered — `null`/`undefined` (a
+  // cache miss, or a Conflicting row that never gets one per the backend
+  // ruling) keeps the existing dash, asserted above. This is a class-contract
+  // guard only, same caveat as the dash test (happy-dom lays nothing out).
+  it("renders the probed tool count when the row carries one", () => {
+    const { container } = render(
+      <AssetRow
+        item={{
+          name: "some-mcp-server",
+          category: "Tools",
+          path: "mcp:some-mcp-server",
+          toolCount: 7,
+        }}
+        variant="card"
+      />
+    );
+    expect(within(container).getByText("7 tools")).toBeTruthy();
+    expect(within(container).queryByText("—")).toBeNull();
+  });
+
+  it("renders the singular form for exactly one tool", () => {
+    const { container } = render(
+      <AssetRow
+        item={{
+          name: "some-mcp-server",
+          category: "Tools",
+          path: "mcp:some-mcp-server",
+          toolCount: 1,
+        }}
+        variant="card"
+      />
+    );
+    expect(within(container).getByText("1 tool")).toBeTruthy();
+  });
+
   // Class-contract guard only (happy-dom lays nothing out — verification.md).
   // A mark takes the ink of the text it sits beside: the mechanism glyph is
   // a row mark like every other, so its geometry carries the mechanism and

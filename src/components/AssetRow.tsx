@@ -53,6 +53,14 @@ export interface AssetItem {
    *  with, when known. Renders a chip only when present — `McpServerRow.plugin`
    *  is `None` for every row today, so no real data populates this yet. */
   plugin?: string;
+  /** Card variant only: the Tools column stat, sourced straight from
+   *  `McpServerRow.tool_count` — backend-owned and cache-only, never counted
+   *  here. `null`/`undefined` means the backend has no answer (no probe has
+   *  cached this launch yet, or the row is Conflicting and the backend
+   *  deliberately withholds a count rather than summing or guessing between
+   *  two distinct launches) and renders the existing dash convention, not a
+   *  fabricated zero. */
+  toolCount?: number | null;
 }
 
 interface AssetRowProps {
@@ -237,13 +245,22 @@ export default function AssetRow({ item, isSelected, showKindColumn = true, anno
           {annotation ? <EngineReachTiles reach={annotation.reach} /> : null}
         </span>
 
-        {/* Tools — no field carries a per-server tool count yet
-            (`McpServerRow` has none as of this task, and neither does a
-            per-registration `Tool`); the dash is this component's existing
-            convention for a cell with nothing to show (`beyondCell`'s
-            default case, above), not a fabricated zero. */}
-        <span className="shrink-0 w-[150px] text-left text-small text-ink-3">
-          —
+        {/* Tools — `McpServerRow.tool_count`, filled from the probe cache.
+            `null`/`undefined` (no probe cached yet, or a Conflicting row,
+            which the backend always withholds a count for rather than
+            summing or guessing between two distinct launches) keeps this
+            component's existing convention for a cell with nothing to show
+            (`beyondCell`'s default case, above), not a fabricated zero. */}
+        <span
+          className={`shrink-0 w-[150px] text-left text-small ${
+            item.toolCount != null ? "text-ink-2" : "text-ink-3"
+          }`}
+        >
+          {item.toolCount != null
+            ? item.toolCount === 1
+              ? "1 tool"
+              : `${item.toolCount} tools`
+            : "—"}
         </span>
       </div>
     );

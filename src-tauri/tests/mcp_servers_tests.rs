@@ -1,8 +1,9 @@
 use tauri_app_lib::mcp::agreement::Agreement;
 use tauri_app_lib::mcp::dialect::{self, McpServer};
 use tauri_app_lib::mcp::discover::Registration;
+use tauri_app_lib::mcp::probe::cache_key;
 use tauri_app_lib::mcp::registry::ScopeTier;
-use tauri_app_lib::mcp::servers::group_servers;
+use tauri_app_lib::mcp::servers::{apply_tool_counts, group_servers};
 
 fn v(xs: &[&str]) -> Vec<String> {
     xs.iter().map(|s| s.to_string()).collect()
@@ -213,5 +214,67 @@ fn the_project_override_is_sanitised_like_every_other_display_path() {
         Some("~/Work/hanger-ai".to_string()),
         "project_override leaked the raw HOME-relative path instead of sanitising it: {:?}",
         rows[0].project_override
+    );
+}
+
+// `apply_tool_counts` fills the Tools column from the probe cache
+// (`preferences::get_probe_result`, wired up for real in
+// `lib.rs::get_mcp_servers`). The cache is keyed per LAUNCH
+// (`mcp::probe::cache_key`); `group_servers` groups by NAME. A `Consistent`
+// or `Duplicate` row's registrations all resolve to the one launch, so the
+// group's key stands for the whole row. A `Conflicting` row is two or more
+// DISTINCT launches under one name — summing or picking one would assert a
+// fact no single running server can back up, so that row always reads
+// `None`, cache hit or not.
+
+#[test]
+fn a_consistent_row_with_a_cache_hit_gets_the_count() {
+    let regs = [
+        stdio_reg_in("tauri", "claude-code", "npx", &["-y", "@tauri/mcp@2.9.1"]),
+        stdio_reg_in("tauri", "codex", "npx", &["-y", "@tauri/mcp@2.9.1"]),
+    ];
+    let mut rows = group_servers(&regs);
+    assert_eq!(rows[0].agreement, Agreement::Consistent, "fixture sanity");
+
+    let key = cache_key("npx", &v(&["-y", "@tauri/mcp@2.9.1"]), &[], None, "stdio");
+    apply_tool_counts(&mut rows, &regs, |k| if k == key { Some(7) } else { None });
+
+    assert_eq!(rows[0].tool_count, Some(7));
+}
+
+#[test]
+fn a_consistent_row_with_a_cache_miss_gets_no_count() {
+    let regs = [
+        stdio_reg_in("tauri", "claude-code", "npx", &["-y", "@tauri/mcp@2.9.1"]),
+        stdio_reg_in("tauri", "codex", "npx", &["-y", "@tauri/mcp@2.9.1"]),
+    ];
+    let mut rows = group_servers(&regs);
+    assert_eq!(rows[0].agreement, Agreement::Consistent, "fixture sanity");
+
+    apply_tool_counts(&mut rows, &regs, |_| None);
+
+    assert_eq!(rows[0].tool_count, None);
+}
+
+#[test]
+fn a_conflicting_row_gets_no_count_even_with_a_cache_hit_on_one_of_its_launches() {
+    // Two distinct launch specs for one name — exactly what makes this row
+    // Conflicting, per this file's own `grouping_is_by_name_and_never_by_launch_spec`.
+    let regs = [
+        stdio_reg_in("tauri", "claude-code", "npx", &["-y", "@tauri/mcp@latest"]),
+        stdio_reg_in("tauri", "codex", "npx", &["-y", "@tauri/mcp@2.9.1"]),
+    ];
+    let mut rows = group_servers(&regs);
+    assert_eq!(rows[0].agreement, Agreement::Conflicting, "fixture sanity");
+
+    // The cache DOES hold an answer for one of the two launches — the
+    // ruling is that a Conflicting row must ignore it, not that no answer
+    // exists to ignore.
+    let key = cache_key("npx", &v(&["-y", "@tauri/mcp@2.9.1"]), &[], None, "stdio");
+    apply_tool_counts(&mut rows, &regs, |k| if k == key { Some(3) } else { None });
+
+    assert_eq!(
+        rows[0].tool_count, None,
+        "a Conflicting row must never report a count from just one of its distinct launches"
     );
 }

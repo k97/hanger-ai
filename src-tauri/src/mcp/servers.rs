@@ -62,6 +62,12 @@ pub struct McpServerRow {
     /// from only what was handed over stays right for every direct caller;
     /// the combination of the two is what made the note unreachable live.
     pub project_override: Option<String>,
+    /// Backend-owned and cache-only. `None` until the group's launch has
+    /// actually been probed (`mcp_probe` is the only thing that launches a
+    /// server and learns its tool count; `group_servers` starts nothing).
+    /// Never populated here — `group_servers` sees only registrations, not
+    /// the probe cache — filled in afterwards by [`apply_tool_counts`].
+    pub tool_count: Option<usize>,
 }
 
 /// Case- and separator-folded form of a name, used only to find alias
@@ -149,6 +155,7 @@ pub fn group_servers(regs: &[Registration]) -> Vec<McpServerRow> {
                 plugin: None,
                 registrations,
                 project_override,
+                tool_count: None,
             }
         })
         .collect()
@@ -202,4 +209,59 @@ pub fn project_overrides(regs: &[Registration]) -> HashMap<String, String> {
         .into_iter()
         .filter_map(|(name, group)| override_for(group.iter().copied()).map(|p| (name, p)))
         .collect()
+}
+
+/// Fills `tool_count` on each row from the probe cache — one lookup per
+/// group's launch, keyed by [`crate::mcp::probe::cache_key`], never one per
+/// registration and never summed across them.
+///
+/// **Why `Consistent`/`Duplicate` collapse to one lookup.** Both verdicts
+/// mean every registration in the group resolves to the same one launch
+/// (`agreement_for`'s own definition), so the group's first registration's
+/// key stands in for the whole row.
+///
+/// **Why `Conflicting` always gets `None`, cache hit or not.** A
+/// `Conflicting` row is, by definition, two or more DISTINCT launches
+/// declared under one name — the cache is keyed per launch, so at most one
+/// of those launches is the one that would actually run. Summing the
+/// group's launches would claim the server exposes the union of two
+/// alternative definitions' tools, which is false; reporting either launch's
+/// count alone would be a coin flip presented as fact. So a `Conflicting`
+/// row is skipped outright, before any lookup — an available cache entry for
+/// one of its launches must still not surface.
+///
+/// `regs` must be the same registrations `rows` was built from
+/// (`group_servers`'s own input) — this re-groups by name because
+/// `group_servers`'s internal grouping is not retained once it returns.
+pub fn apply_tool_counts<F>(rows: &mut [McpServerRow], regs: &[Registration], mut probe_of: F)
+where
+    F: FnMut(&str) -> Option<usize>,
+{
+    let mut by_name: HashMap<String, Vec<&Registration>> = HashMap::new();
+    for reg in regs {
+        by_name
+            .entry(reg.server.name.trim().to_string())
+            .or_default()
+            .push(reg);
+    }
+
+    for row in rows.iter_mut() {
+        if row.agreement == Agreement::Conflicting {
+            row.tool_count = None;
+            continue;
+        }
+        row.tool_count = by_name
+            .get(&row.name)
+            .and_then(|group| group.first())
+            .and_then(|reg| {
+                let key = crate::mcp::probe::cache_key(
+                    &reg.server.command,
+                    &reg.server.args,
+                    &reg.server.env_keys,
+                    reg.server.project_root.as_deref(),
+                    &reg.server.transport,
+                );
+                probe_of(&key)
+            });
+    }
 }

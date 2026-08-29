@@ -789,6 +789,11 @@ export default function ProfilePane({
           // as the agreement sentence, per `cardSecondLine`'s own doc
           // comment.
           agreementLine: cardSecondLine(row),
+          // Backend-owned, cache-only (`McpServerRow.tool_count`) — passed
+          // straight through, never recomputed. `?? null` only normalises
+          // `undefined` (a fixture built before this field existed) to the
+          // same "nothing to show" the card already treats `null` as.
+          toolCount: row.tool_count ?? null,
         };
       })
     : [];

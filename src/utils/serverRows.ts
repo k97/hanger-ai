@@ -27,6 +27,17 @@ export interface McpServerRow {
    *  Optional so fixtures written before this field existed keep
    *  typechecking; absent reads the same as `null` (no override). */
   project_override?: string | null;
+  /** Backend-owned and cache-only: `mcp::probe`'s cache, keyed per launch,
+   *  read once per group by `mcp::servers::apply_tool_counts` — never
+   *  counted or derived here (`.claude/rules/invariants.md`, "Counts come
+   *  from the backend"). `null`/absent means no probe has cached that
+   *  launch yet, OR the row is `Conflicting`: two or more DISTINCT launches
+   *  share this name, and the backend deliberately withholds a count rather
+   *  than summing two alternative definitions' tools (false) or picking one
+   *  arbitrarily (a coin flip presented as fact). Optional for the same
+   *  reason `project_override` is: fixtures written before this field
+   *  existed keep typechecking. */
+  tool_count?: number | null;
 }
 
 import type { ServerSort } from "../components/ViewControl";

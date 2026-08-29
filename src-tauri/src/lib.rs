@@ -695,8 +695,14 @@ fn get_mcp_processes(app: AppHandle) -> Result<Vec<crate::mcp::observe::ProcessM
 /// sync command runs on the main thread, freezing the window for the
 /// duration.
 #[tauri::command(async)]
-fn get_mcp_servers() -> Result<Vec<crate::mcp::servers::McpServerRow>, String> {
-    Ok(mcp_server_rows_for(&scanner::get_home_dir()))
+fn get_mcp_servers(app: AppHandle) -> Result<Vec<crate::mcp::servers::McpServerRow>, String> {
+    let db_path = get_db_path(&app);
+    Ok(mcp_server_rows_for(&scanner::get_home_dir(), |key| {
+        preferences::get_probe_result(&db_path, key)
+            .ok()
+            .flatten()
+            .map(|cached| cached.result.tools.len())
+    }))
 }
 
 /// `get_mcp_servers`'s testable core: `home` is a parameter here, not read
@@ -705,9 +711,21 @@ fn get_mcp_servers() -> Result<Vec<crate::mcp::servers::McpServerRow>, String> {
 /// `cargo test --lib` shares across every unit test's thread — a fixture
 /// swap here cannot race a concurrent test that reads `get_home_dir()`
 /// through some other path, which an earlier version of this test did.
-fn mcp_server_rows_for(home: &std::path::Path) -> Vec<crate::mcp::servers::McpServerRow> {
+///
+/// `probe_of` is the same division of labour `mcp_engine_summary_for` uses
+/// for the empty inspector's per-engine summary: the probe cache lookup is a
+/// parameter, so a test can hand it a fixture `HashMap` instead of a
+/// database. `apply_tool_counts` (`mcp::servers`) does the actual grouping
+/// and the Conflicting-row exclusion — this only wires the two populations
+/// (the rows, and the registrations they were built from) together.
+fn mcp_server_rows_for<F>(home: &std::path::Path, probe_of: F) -> Vec<crate::mcp::servers::McpServerRow>
+where
+    F: FnMut(&str) -> Option<usize>,
+{
     let discovered = crate::mcp::discover::discover_machine(home);
-    let mut rows = crate::mcp::servers::group_servers(&machine_wide(&discovered.registrations));
+    let machine_regs = machine_wide(&discovered.registrations);
+    let mut rows = crate::mcp::servers::group_servers(&machine_regs);
+    crate::mcp::servers::apply_tool_counts(&mut rows, &machine_regs, probe_of);
     // The rows are the machine-wide population; the override note is not.
     // A Local registration gets no row and joins no count, but it IS what
     // makes a wider row an override, and `group_servers` derives that note
@@ -2389,7 +2407,7 @@ mod get_mcp_servers_tests {
         )
         .expect("write");
 
-        let rows = mcp_server_rows_for(home.path());
+        let rows = mcp_server_rows_for(home.path(), |_| None);
         let tauri = rows
             .iter()
             .find(|r| r.name == "tauri")
@@ -2442,7 +2460,7 @@ mod get_mcp_servers_tests {
         let fixture = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("tests/fixtures/mcp_home");
 
-        let rows = mcp_server_rows_for(&fixture);
+        let rows = mcp_server_rows_for(&fixture, |_| None);
         let names: Vec<&str> = rows.iter().map(|r| r.name.as_str()).collect();
 
         assert!(names.contains(&"chrome-devtools"), "user-scope server missing: {:?}", names);
