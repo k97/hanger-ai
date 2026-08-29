@@ -472,29 +472,29 @@ In the queue:
 - **Added by the hero band, 2026-08-28.** Karthik signed three strings on
   the canvas that day and they need nothing further — **"By host"**,
   **"By engine"**, and the hero's caption **"Described to the model on every
-  request, used or not."** The eight below he has not ruled on. Each had a
-  `/humanizer` pass as it landed and the pass found nothing to change; that
-  is not his sign-off, and his word is still owed on every one:
+  request, used or not."** The eight below he signed on 2026-08-29, in one
+  word ("strings all good"), after each had a `/humanizer` pass as it landed
+  that found nothing to change:
   - **"MCP servers · {n} tool descriptions across {m} hosts"**, with the
     unprobed form **"MCP servers across {m} hosts"** — the Global MCP hero's
-    subtitle (`ProfilePane.tsx`). UNSIGNED.
+    subtitle (`ProfilePane.tsx`). Signed 2026-08-29.
   - **"A tool counts once per host that carries it."** — the band's note
-    when it is open (`ProfilePane.tsx`). UNSIGNED.
+    when it is open (`ProfilePane.tsx`). Signed 2026-08-29.
   - **"Running with no config behind it."** — the review popover's line for
     an MCP process nothing on disk accounts for (`ProfilePane.tsx`).
-    UNSIGNED.
+    Signed 2026-08-29.
   - **"Show disagreeing servers"** — the popover's action on the MCP tab
-    (`ProfilePane.tsx`). UNSIGNED.
+    (`ProfilePane.tsx`). Signed 2026-08-29.
   - **"The scan skipped something it could not read."** — the popover's line
-    for a scan warning (`RepoPane.tsx`). UNSIGNED.
+    for a scan warning (`RepoPane.tsx`). Signed 2026-08-29.
   - **"Show in list"** — the popover's filter action, in both panes
-    (`ProfilePane.tsx`, `RepoPane.tsx`). UNSIGNED.
+    (`ProfilePane.tsx`, `RepoPane.tsx`). Signed 2026-08-29.
   - **"{n} nested repo counts towards this row"** / **"{n} nested repos
     count towards this row"** — the engine band's foot row (`RepoPane.tsx`).
-    UNSIGNED.
+    Signed 2026-08-29.
   - **"assets in {repo}"** — the project hero's subtitle, with the
     **"· {n} engines"** tail dropped now that the band carries the
-    per-engine breakdown (`RepoPane.tsx`). UNSIGNED.
+    per-engine breakdown (`RepoPane.tsx`). Signed 2026-08-29.
 
 - The final fix wave (2026-08-20) — one new string and two surfaces whose
   content changed. All **UNSIGNED**; a `/humanizer` pass ran on the new

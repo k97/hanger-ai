@@ -763,16 +763,24 @@ popover; the nested-repo notice became the engine band's foot row.
 - Scan warnings, on a project pane: one line per non-TCC warning, "The scan
   skipped something it could not read.", the warning itself as the detail
   (`RepoPane.tsx:287-291`). The macOS TCC panel is untouched and still
-  stands above the list plane (`RepoPane.tsx:583`).
+  stands above the list plane (`RepoPane.tsx:594`).
 - Nested repositories: the band's full-width foot row, because the thing
   they qualify is the per-engine tally directly above them — the count, the
   paths, the depth-cap note and `Promote…` (`RepoPane.tsx:314-349`). The rows
 above it are withheld on a category tab, where the per-engine figures are
-root-wide and the hero's numeral is not (`:259-262`); the foot stays.
+root-wide and the hero's numeral is not (`:259-262`); the foot stays. What
+that leaves on a category tab is a band whose collapsed line is the bare
+label "By engine" with no marks after it, and a foot whose copy still says
+"towards this row" of rows that are not drawn — `HeroBand` cannot tell rows
+withheld from counts not yet arrived (`HeroBand.tsx`, the `rows.length`
+gate), and the fix that resolves it is a per-category `engines` field on
+`get_asset_counts`, which does not exist. Karthik's ruling, 2026-08-29,
+taken as the honest shape until that field lands; he may reverse it from the
+running app.
 
 **The pill's figure is the lines it shows.** `StripReview.count` is counted
 where the lines are built and allowlisted there — `reviewLineCount` and
-`assetReviewLineCount` (`ProfilePane.tsx:693`, `:718`; `RepoPane.tsx:293`) —
+`assetReviewLineCount` (`ProfilePane.tsx:700`, `:725`; `RepoPane.tsx:293`) —
 never derived inside the strip, where it used to be `counts.drifted +
 counts.broken`. Severity follows `issueSeverity` (`reviewIssues.ts:413-415`)
 rather than a second rule, so a won't-parse asset is a danger dot here
