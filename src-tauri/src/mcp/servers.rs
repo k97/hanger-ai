@@ -13,7 +13,7 @@
 //! the exact defect this stage exists to fix; the spec's job is to detect
 //! divergence *inside* a group, never to decide what forms one.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use crate::domain::RegistrationKey;
 use crate::mcp::agreement::{agreement_for, Agreement};
@@ -29,6 +29,14 @@ pub struct McpServerRow {
     /// Backend-owned. The frontend renders this; it may never compute one.
     pub registration_count: usize,
     pub distinct_spec_count: usize,
+    /// Backend-owned. The number of DISTINCT config files declaring this
+    /// server — never the same as `registration_count`, which counts
+    /// declarations. One physical file can hold several: Claude Code's own
+    /// `~/.claude.json` is named by three separate `SOURCES` rows
+    /// (`registry.rs:142`, `:143`, `:166`). The card copy renders this
+    /// number, not `registration_count`, so "declared in N files" stays true
+    /// even where a config format lets one file carry several declarations.
+    pub file_count: usize,
     pub agreement: Agreement,
     pub aliased_with: Vec<String>,
     /// Not populated by this task: no fixture here carries a plugin
@@ -145,11 +153,17 @@ pub fn group_servers(regs: &[Registration]) -> Vec<McpServerRow> {
                 .map(|r| RegistrationKey::new(&r.config_path, &r.server.name).to_string())
                 .collect();
             let project_override = override_for(group.iter());
+            let file_count = group
+                .iter()
+                .map(|r| r.config_path.as_str())
+                .collect::<HashSet<_>>()
+                .len();
             McpServerRow {
                 name,
                 transport,
                 registration_count: group.len(),
                 distinct_spec_count: sa.distinct_specs,
+                file_count,
                 agreement: sa.verdict,
                 aliased_with: aliased_with[i].clone(),
                 plugin: None,

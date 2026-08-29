@@ -256,6 +256,58 @@ fn a_consistent_row_with_a_cache_miss_gets_no_count() {
     assert_eq!(rows[0].tool_count, None);
 }
 
+// `file_count` — the number of DISTINCT config paths declaring this server,
+// as opposed to `registration_count` (the number of declarations). One
+// physical file can hold several registrations of the same name (Claude
+// Code's `~/.claude.json` is named by three separate `SOURCES` rows,
+// `registry.rs:142`, `:143`, `:166`), so reusing `registration_count` for the
+// card copy would be true only by coincidence on a machine where every
+// multi-registration server happens to sit in one file each.
+
+#[test]
+fn file_count_counts_distinct_config_paths_not_registrations() {
+    // Three registrations, one engine (so `agreement_for` forces `Duplicate`),
+    // but only two DISTINCT config paths: two registrations share one file,
+    // the third sits in a different file. `registration_count` (3) and
+    // `file_count` (2) must disagree here — the exact defect a naive
+    // `registrations.len()` stand-in would miss.
+    let mut a = stdio_reg_in("tauri", "claude-code", "npx", &["-y", "@tauri/mcp@2.9.1"]);
+    a.config_path = "/home/.claude.json".to_string();
+    let mut b = stdio_reg_in("tauri", "claude-code", "npx", &["-y", "@tauri/mcp@2.9.1"]);
+    b.config_path = "/home/.claude.json".to_string();
+    let mut c = stdio_reg_in("tauri", "claude-code", "npx", &["-y", "@tauri/mcp@2.9.1"]);
+    c.config_path = "/home/.claude/other-scope.json".to_string();
+
+    let rows = group_servers(&[a, b, c]);
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0].registration_count, 3, "three declarations");
+    assert_eq!(rows[0].agreement, Agreement::Duplicate, "fixture sanity");
+    assert_eq!(
+        rows[0].file_count, 2,
+        "two distinct config paths, not three registrations"
+    );
+}
+
+#[test]
+fn a_duplicate_row_declared_three_times_across_three_files_reports_three() {
+    // The regression the old copy shipped: it hardcoded "twice" regardless of
+    // `registration_count`, so a server declared three times by one engine
+    // read "declared twice". Pinning `file_count == 3` here, with three
+    // DISTINCT files, is what lets the new copy carry the real number.
+    let mut a = stdio_reg_in("tauri", "claude-code", "npx", &["-y", "@tauri/mcp@2.9.1"]);
+    a.config_path = "/home/.claude.json".to_string();
+    let mut b = stdio_reg_in("tauri", "claude-code", "npx", &["-y", "@tauri/mcp@2.9.1"]);
+    b.config_path = "/home/.claude/scope-b.json".to_string();
+    let mut c = stdio_reg_in("tauri", "claude-code", "npx", &["-y", "@tauri/mcp@2.9.1"]);
+    c.config_path = "/home/.claude/scope-c.json".to_string();
+
+    let rows = group_servers(&[a, b, c]);
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0].registration_count, 3);
+    assert_eq!(rows[0].agreement, Agreement::Duplicate, "fixture sanity");
+    assert_eq!(rows[0].file_count, 3);
+}
+
 #[test]
 fn a_conflicting_row_gets_no_count_even_with_a_cache_hit_on_one_of_its_launches() {
     // Two distinct launch specs for one name — exactly what makes this row
