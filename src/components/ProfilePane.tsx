@@ -25,6 +25,7 @@ import { sumGlobalAssets, categoryCountKey } from "../utils/globalAssetCount";
 import { groupLabelClass } from "./typeRoles";
 import SummaryStrip, { type StripReview } from "./SummaryStrip";
 import HeroBand from "./HeroBand";
+import ReviewPillActions from "./ReviewPillActions";
 import type { FindingLine } from "./FindingPopover";
 import { miniBtnClass, miniSetClass } from "./miniButton";
 import { ScanStatusIndicator } from "./ScanStatusIndicator";
@@ -705,36 +706,17 @@ export default function ProfilePane({
   // inside the strip; it is now the lines it actually shows.
   const assetReviewLines: FindingLine[] = [...issues.map(issueLine), ...processLines];
   const assetReviewLineCount = assetReviewLines.length; // allowlisted: the lines this popover itself renders
-  /* `Show in list` applies `stateFilter = "needs-review"`, and `needsReview`
-     (`linkStateCounts.ts:45-48`) is broken-or-drifted only. A duplicate is a
-     relationship between assets, not a state one asset is in, so the filter
-     cannot reach it — the button would offer to show a line it then filters
-     out. It is withheld rather than the filter widened: `linkStateCounts.ts`
-     states the position that `reviewIssues.ts` is the sole authority for how
-     many need review, and two functions answering that would diverge
-     (coordinator review, 2026-08-28, finding 1). `Needs review →` always
-     renders, and always works. */
-  const everyIssueFilterable = issues.length > 0 && !issues.some((i) => i.kind === "duplicate");
   const assetReview: StripReview | undefined = !mcpMode
     ? {
         count: assetReviewLineCount,
         lines: assetReviewLines,
         actions: (
-          <div className={miniSetClass}>
-            {everyIssueFilterable && (
-              <button
-                type="button"
-                aria-pressed={stateFilter === "needs-review"}
-                onClick={() => onStateFilterChange?.(stateFilter === "needs-review" ? null : "needs-review")}
-                className={miniBtnClass}
-              >
-                Show in list
-              </button>
-            )}
-            <button type="button" onClick={() => onReview?.(issues[0] ?? null)} className={miniBtnClass}>
-              Needs review →
-            </button>
-          </div>
+          <ReviewPillActions
+            issues={issues}
+            stateFilter={stateFilter}
+            onStateFilterChange={onStateFilterChange}
+            onReview={onReview}
+          />
         ),
       }
     : undefined;

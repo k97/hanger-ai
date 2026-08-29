@@ -105,6 +105,23 @@ describe("RepoPane hero band and pill", () => {
     expect(screen.getByText("Needs review →")).toBeTruthy();
   });
 
+  /* Important 2 (final review, 2026-08-28): with only a scan warning behind
+     it — no ReviewIssue anywhere — `Needs review →` routed to a Needs review
+     pane that then said "Nothing needs a decision". A warning is not an
+     asset and has no row to open; the popover is its whole disclosure.
+
+     Wrong implementation this catches: an action row gated on the pill's own
+     line count, or on nothing at all, rather than on `issues`. */
+  it("a scan warning with no issues behind it: the popover discloses, and offers nowhere to go", () => {
+    render(<RepoPane {...base} issues={[]} />);
+    fireEvent.click(screen.getByText("Needs review 1"));
+    expect(screen.getByTestId("finding-popover-line").textContent).toContain(
+      "The scan skipped something it could not read."
+    );
+    expect(screen.queryByText("Needs review →")).toBeNull();
+    expect(screen.queryByText("Show in list")).toBeNull();
+  });
+
   it("'Needs review →' routes with the first issue", () => {
     const onReview = vi.fn();
     const issue = { id: "i1", name: "a", category: "Rules", kind: "broken", problem: "Target is gone", path: "/Users/test/proj/a", whereLabel: "proj", whereKeys: ["/Users/test/proj"], crossRepo: false };

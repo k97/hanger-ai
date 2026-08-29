@@ -23,8 +23,9 @@ import { formatEngineLabel } from "../utils/engineUtils";
 import { groupLabelClass } from "./typeRoles";
 import SummaryStrip, { type StripReview } from "./SummaryStrip";
 import HeroBand, { type HeroBandRow } from "./HeroBand";
+import ReviewPillActions from "./ReviewPillActions";
 import type { FindingLine } from "./FindingPopover";
-import { miniBtnClass, miniSetClass } from "./miniButton";
+import { miniBtnClass } from "./miniButton";
 import { ScanStatusIndicator } from "./ScanStatusIndicator";
 import EmptyState from "./EmptyState";
 import { categoryNoun } from "../utils/prose";
@@ -273,33 +274,16 @@ export default function RepoPane({
     })),
   ];
   const reviewLineCount = reviewLines.length; // allowlisted: the lines this popover itself renders
-  /* `Show in list` applies `stateFilter = "needs-review"`, and `needsReview`
-     (`linkStateCounts.ts:45-48`) is broken-or-drifted only — it cannot reach
-     a duplicate, which is a relationship between assets rather than a state
-     one asset is in. Withheld rather than widening the filter, because
-     `linkStateCounts.ts:56-59` holds that `reviewIssues.ts` is the sole
-     authority for how many need review (coordinator review, 2026-08-28,
-     finding 1). `Needs review →` always renders, and always works. */
-  const everyIssueFilterable = issues.length > 0 && !issues.some((i) => i.kind === "duplicate");
   const review: StripReview = {
     count: reviewLineCount,
     lines: reviewLines,
     actions: (
-      <div className={miniSetClass}>
-        {everyIssueFilterable && (
-          <button
-            type="button"
-            aria-pressed={stateFilter === "needs-review"}
-            onClick={() => onStateFilterChange?.(stateFilter === "needs-review" ? null : "needs-review")}
-            className={miniBtnClass}
-          >
-            Show in list
-          </button>
-        )}
-        <button type="button" onClick={() => onReview?.(issues[0] ?? null)} className={miniBtnClass}>
-          Needs review →
-        </button>
-      </div>
+      <ReviewPillActions
+        issues={issues}
+        stateFilter={stateFilter}
+        onStateFilterChange={onStateFilterChange}
+        onReview={onReview}
+      />
     ),
   };
 

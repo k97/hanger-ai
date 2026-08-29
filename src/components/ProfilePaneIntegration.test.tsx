@@ -314,6 +314,34 @@ describe("ProfilePane Component-Level Filtering Integration", () => {
     expect(screen.getByText("Needs review →")).toBeTruthy();
   });
 
+  /* Important 2 (final review, 2026-08-28): the action row rendered whenever
+     the pill did. With only undeclared processes behind it — no ReviewIssue
+     anywhere — `Needs review →` routed to a Needs review pane that then said
+     "Nothing needs a decision". The spec is explicit that a process line
+     carries no action: the popover IS its disclosure.
+
+     Wrong implementation this catches: an action row gated on the pill's own
+     line count, or on nothing at all, rather than on `issues`. */
+  it("processes with no issues behind them: the popover discloses, and offers nowhere to go", () => {
+    render(
+      <ProfilePane
+        inventory={mockInventory}
+        loading={false}
+        selectedCategory="Rules"
+        onSelectAsset={vi.fn()}
+        onLinkAsset={vi.fn()}
+        issues={[]}
+        unaccountedProcesses={[
+          { registration_key: "", pid: 24149, command_line: "node dist/index.js --port 3002", spawning_host: "Claude Code" },
+        ] as never}
+      />
+    );
+    fireEvent.click(screen.getByText("Needs review 1"));
+    expect(screen.getByTestId("finding-popover-line").textContent).toContain("Running with no config behind it.");
+    expect(screen.queryByText("Needs review →")).toBeNull();
+    expect(screen.queryByText("Show in list")).toBeNull();
+  });
+
   it("undeclared processes reach the pill on a Global tab that is not MCP servers", () => {
     // The banner they replace was gated on `unaccounted.length > 0` alone.
     // `mcpMode` is four conditions, so gating the lines on it hid them on

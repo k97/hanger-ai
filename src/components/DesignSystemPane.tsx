@@ -22,6 +22,7 @@ import FindingPopover from "./FindingPopover";
 import InspectorCap from "./InspectorCap";
 import ListCard, { ListCardRow } from "./ListCard";
 import ReachCard from "./ReachCard";
+import ReviewPillActions from "./ReviewPillActions";
 import OriginValue from "./OriginValue";
 import ScanStamp from "./ScanStamp";
 import HeroBand from "./HeroBand";
@@ -800,6 +801,14 @@ export default function DesignSystemPane({ section }: DesignSystemPaneProps) {
                   </div>
                 ),
               }}
+            />
+          </Specimen>
+
+          <Specimen name="ReviewPillActions" file="ReviewPillActions.tsx" note="the review pill's action row; a duplicate among the issues withholds Show in list, and no issue at all renders nothing">
+            <ReviewPillActions
+              issues={[SAMPLE_REVIEW_ISSUE, { ...SAMPLE_REVIEW_ISSUE, id: "Skills:duplicate:/sample", kind: "duplicate" }]}
+              onStateFilterChange={() => {}}
+              onReview={() => {}}
             />
           </Specimen>
 
