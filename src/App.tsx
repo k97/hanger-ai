@@ -1610,9 +1610,19 @@ export default function App() {
      and its corner the same way (Karthik, 2026-08-29: "follow the same
      aspect of how we did it before"). That right edge sits on the window's
      last pixel column, where index.html's #win-border already paints the
-     1px window line, so along the straight run the two coincide. */
-  const sheetClass = (leads: boolean, trails: boolean) =>
-    `absolute inset-x-0 top-9 bottom-0 -z-10 bg-page border-t border-line ${leads ? "border-l rounded-tl-plane" : ""} ${trails ? "border-r rounded-tr-plane" : ""}`;
+     1px window line, so along the straight run the two coincide.
+
+     `seam`: the sheet starts one pixel in instead of at the column's edge,
+     so that pixel column shows the column's own --sidebar — the band's
+     material continuing down from the cap, which is what divides <main>
+     from the inspector beside it. It is the same value as the band in
+     either theme by construction, and nothing distinct crosses the band:
+     a `border-l border-line` on the column ran the full height, through
+     the band, in a different colour (Karthik, 2026-08-29: match the
+     menubar, and no line apparent on it). Only the inspector beside <main>
+     asks for it; a leading or expanded column starts at its own edge. */
+  const sheetClass = (leads: boolean, trails: boolean, seam = false) =>
+    `absolute ${seam ? "left-px" : "left-0"} right-0 top-9 bottom-0 -z-10 bg-page border-t border-line ${leads ? "border-l rounded-tl-plane" : ""} ${trails ? "border-r rounded-tr-plane" : ""}`;
 
   return (
     // Provides the origin of the current selection — a row click vs. a
@@ -2084,19 +2094,25 @@ export default function App() {
           style={
             inspectorExpanded ? undefined : { width: refitInspectorWidth(inspectorWidth, room) }
           }
-          /* The full-height divider belongs beside <main> only: expanded, the
-             column's left edge is the source list's or the rail's, and a line
-             there would run up through the cap band. */
-          className={`shrink-0 h-full min-h-0 bg-sidebar isolate flex flex-col relative ${inspectorExpanded ? "flex-1" : "border-l border-line"}`}
+          /* No border of its own: the divider beside <main> is the sheet's
+             seam (`sheetClass`), and expanded the column's left edge is the
+             source list's or the rail's, where nothing divides. */
+          className={`shrink-0 h-full min-h-0 bg-sidebar isolate flex flex-col relative ${inspectorExpanded ? "flex-1" : ""}`}
         >
-          <div data-testid="inspector-sheet" aria-hidden="true" className={sheetClass(asideLeads, /* the inspector always ends the window */ true)} />
+          <div
+            data-testid="inspector-sheet"
+            aria-hidden="true"
+            className={sheetClass(asideLeads, /* the inspector always ends the window */ true, /* seam */ !inspectorExpanded)}
+          />
           {/* Rendered in both states on purpose: expanded, the panel already
               starts at the main column's left edge, so the handle sits where
-              it always did and is the way back out of the expanded state. */}
+              it always did and is the way back out of the expanded state.
+              It starts under the band (top-9), as the source list's does, so
+              its hover and press paint never cross the cap. */}
           <div
             data-testid="inspector-resize-handle"
             onMouseDown={handleInspectorResizeStart}
-            className="absolute top-0 bottom-0 left-0 w-1.5 cursor-col-resize hover:bg-line-2 active:bg-ink-3 z-10 transition-colors duration-hover"
+            className="absolute top-9 bottom-0 left-0 w-1.5 cursor-col-resize hover:bg-line-2 active:bg-ink-3 z-10 transition-colors duration-hover"
           />
           {/* The window drag region for this column, and its height keeps
               the panel aligned with the toolbar beside it — kept exactly as

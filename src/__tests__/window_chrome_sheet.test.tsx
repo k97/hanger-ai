@@ -129,17 +129,21 @@ describe("The content sheet", () => {
     expect(classes(aside())).not.toContain("bg-page");
     expect(classes(aside())).toContain("bg-sidebar");
     expect(classes(aside())).toContain("isolate");
-    // Beside <main>, the inspector keeps its full-height divider and a square
-    // sheet corner.
-    expect(classes(aside())).toContain("border-l");
+    // Beside <main>, the inspector's sheet starts one pixel in and keeps a
+    // square corner; the column draws no border of its own (see "The
+    // inspector's divider" below).
+    expect(classes(aside())).not.toContain("border-l");
+    expect(classes(sheetOf(aside()))).toContain("left-px");
     expect(classes(sheetOf(aside()))).not.toContain("rounded-tl-plane");
 
     fireEvent.click(await screen.findByRole("button", { name: "Expand inspector" }));
     expect(classes(main())).toContain("hidden");
-    // Leading now: the corner and the left edge move to the sheet, and the
-    // divider that would run up through the band goes.
+    // Leading now: the corner and the left edge move to the sheet, which
+    // starts at the column's own edge — no divider beside a rail.
     expect(classes(sheetOf(aside()))).toContain("rounded-tl-plane");
     expect(classes(sheetOf(aside()))).toContain("border-l");
+    expect(classes(sheetOf(aside()))).toContain("left-0");
+    expect(classes(sheetOf(aside()))).not.toContain("left-px");
     expect(classes(aside())).not.toContain("border-l");
     // And the body paints no ground over it: a full-bleed bg-page on the
     // inspector's root squared the corner off from inside on 2026-08-28,
@@ -222,5 +226,44 @@ describe("The content sheet", () => {
     expect(classes(sheetOf(aside()))).not.toContain("rounded-tl-plane");
     expect(classes(sheetOf(aside()))).not.toContain("border-l");
     expect(classes(aside())).not.toContain("border-l");
+    // ...and no divider either: the column's left edge is the source list's.
+    expect(classes(sheetOf(aside()))).toContain("left-0");
+  });
+});
+
+// The divider between <main> and the inspector is the band's own material,
+// not a --line rule (Karthik, 2026-08-29: "match it to the menubar colour
+// for both dark & light themes", and "I dont want that line to be apparent
+// on the menubar"). The column paints --sidebar once; beside <main> its
+// sheet starts one pixel in, so that pixel column shows the shell material
+// continuing down from the cap band — the same value in either theme by
+// construction, and nothing distinct where it crosses the band. A border on
+// the column ran the full height through the band in --line.
+describe("The inspector's divider", () => {
+  it("beside <main>, the column draws no border; its sheet leaves the first pixel to the shell material", async () => {
+    // The column renders on the review screen without waiting for a scan.
+    mockPreferences.selected_sidebar_item = "review";
+    render(<App />);
+    await screen.findByRole("button", { name: /toggle sidebar/i });
+    expect(document.querySelector("aside"), "no inspector column rendered").not.toBeNull();
+    expect(classes(aside())).not.toContain("border-l");
+    expect(classes(aside())).not.toContain("border-line");
+    const sheet = sheetOf(aside());
+    expect(classes(sheet)).toContain("left-px");
+    expect(classes(sheet)).toContain("right-0");
+    expect(classes(sheet)).not.toContain("inset-x-0");
+    expect(classes(sheet)).not.toContain("left-0");
+    // <main>'s sheet is unchanged: flush to its column, no gap on its side.
+    expect(classes(sheetOf(main()))).toContain("left-0");
+    expect(classes(sheetOf(main()))).not.toContain("left-px");
+  });
+
+  it("the resize handle starts under the band, so its hover paint never crosses it", async () => {
+    mockPreferences.selected_sidebar_item = "review";
+    render(<App />);
+    await screen.findByRole("button", { name: /toggle sidebar/i });
+    const handle = screen.getByTestId("inspector-resize-handle");
+    expect(classes(handle)).toContain("top-9");
+    expect(classes(handle)).not.toContain("top-0");
   });
 });

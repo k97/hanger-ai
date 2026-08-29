@@ -1738,9 +1738,9 @@ and each rail handler).
 material, and it is painted exactly once under each: the rail column keeps
 its `bg-sidebar` (`App.tsx:1456`), and `<main>` and the inspector `<aside>`
 now carry `bg-sidebar` too — with a *sheet* on top of it,
-`absolute inset-x-0 top-9 bottom-0 -z-10 bg-page border-t border-line`
-(`sheetClass`, `App.tsx:1471-1472`; `data-testid` `content-sheet` at
-`:1670`, `inspector-sheet` at `:1933`), so the page ground starts under the
+`absolute left-0 right-0 top-9 bottom-0 -z-10 bg-page border-t border-line`
+(`sheetClass`, `App.tsx:1624-1625`; `data-testid` `content-sheet` at
+`:1829`, `inspector-sheet` at `:2103`), so the page ground starts under the
 36px cap rather than behind it, with the `--line` rule along its top. Each
 column is `isolate`, so `-z-10` puts the sheet above the column's own tint and
 below its content. Nothing paints the band across columns: a first version
@@ -1768,12 +1768,29 @@ Exactly one column after the icon rail draws the sheet's left edge and its
 the source list when it is open; otherwise `<main>` (`mainLeads`,
 `App.tsx:1452` — collapsed, or the link map, which has no source list); and
 when `<main>` is `hidden` behind an expanded inspector, the inspector
-(`asideLeads`, `:1453`). The inspector's full-height `border-l` divider
-exists only beside `<main>` — expanded, its left edge is the source list's
-or the rail's, and a line there would run up through the band
-(`App.tsx:1931`). `src/__tests__/window_chrome_sheet.test.tsx` pins the
-class contract for all four states and that no column tints twice; that the
-corner meets the rail is a screenshot claim, `happy-dom` lays nothing out.
+(`asideLeads`, `:1596`). `src/__tests__/window_chrome_sheet.test.tsx` pins
+the class contract for all four states and that no column tints twice; that
+the corner meets the rail is a screenshot claim, `happy-dom` lays nothing
+out.
+
+**The divider is the band's material (2026-08-29).** What separates `<main>`
+from the inspector beside it is not a rule but a one-pixel gap: the
+inspector's sheet starts at `left-px` rather than `left-0` (the third flag
+of `sheetClass`, `App.tsx:1624-1625`, passed as `!inspectorExpanded` at
+`:2105`), so that pixel column shows the column's own `--sidebar` — the cap
+band continuing straight down, the same value as the band in either theme
+because it is the same token over the same backdrop, and nothing distinct
+where it crosses the band. Until that day the column carried
+`border-l border-line` the full height, so a `--line` rule ran up through
+the band in a colour of its own; Karthik: "match it to the menubar colour
+for both dark & light themes", and "I dont want that line to be apparent on
+the menubar". Expanded, or leading, the sheet starts at the column's edge —
+its left edge is then the source list's or the rail's, where nothing
+divides. The resize handle starts under the band too (`top-9`,
+`App.tsx:2115`), as the source list's already does by sitting inside its
+card, so its hover and press paint never cross the cap. The guard's
+"The inspector's divider" cases pin the classes; that the gap reads as one
+continuous material with the band is a screenshot claim.
 
 **The right corner, the same way (2026-08-29).** Whichever column ends the
 window draws the sheet's right edge and its 16px top-right corner
