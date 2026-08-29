@@ -86,3 +86,29 @@ untestably: `happy-dom` has no paint order, so no test can catch it. Phase 2b
 broke every inspector drag this way by putting `relative` on a full-width row
 above the overlay. Keep drag-region children individually positioned and their
 container unpositioned, or use `data-tauri-drag-region="deep"`.
+
+**The global focus ring is unlayered, and so must any opt-out be.**
+`index.css` draws the one focus ring with a bare `:focus-visible` rule
+outside every `@layer`; Tailwind utilities live in `@layer utilities`, and
+an unlayered declaration outranks a layered one regardless of specificity.
+So `focus:outline-none` / `focus-visible:outline-none` on an element do
+nothing here — six pre-existing sites carry them inertly, and the search
+palette shipped a black box around its field until the review read the
+built CSS. The palette's exception is an unlayered rule beside the global
+one (`[cmdk-input]:focus-visible { outline: none; }`), documented in
+`DESIGN.md` §3. Do not move the global rule into a layer: that would
+silently disarm those six sites at once.
+
+**Write transactions on `asset_search` open `BEGIN IMMEDIATE`, and the
+index writers set their own busy timeout.** The store runs a rollback
+journal; rusqlite's default busy timeout is 5 s; the rescan a server-detail
+open triggers holds the write lock longer than that. Two facts make the
+default shape fail *without waiting*: `index_probe_tools` reads before it
+writes, and even a first-statement `DELETE` on the FTS5 table performs a
+read first, because FTS5's vtable constructor reads its shadow config
+table when the statement is prepared — so a `Deferred` transaction already
+holds SHARED when it needs RESERVED and SQLite returns `SQLITE_BUSY`
+instead of invoking the busy handler. `search.rs` opens both writers
+`Immediate` with a 30 s timeout and logs the SQLite error text (log only).
+Two live defects, 2026-08-28; the contention tests in `search_tests.rs`
+pin both.

@@ -141,3 +141,8 @@ that tells the truth from the `tauri dev` app:
   the console is the signal — and the page reaches its loading state, the
   frontend is fine and the fault is the webview's. In Chrome the Tauri IPC
   calls reject, so `Uncaught (in promise)` there is expected, not a finding.
+
+- **The dev app's window owner is `tauri-app` in CGWindowList now, not
+  "Hanger AI".** Filtering on the old name returns nothing, which reads as
+  "no window" (2026-08-28). Match `kCGWindowOwnerName == "tauri-app"` and
+  `kCGWindowIsOnscreen == 1`; the process is still `target/debug/tauri-app`.

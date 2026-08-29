@@ -179,3 +179,13 @@ time, and they commit to the same branch. `ListAgents` shows the others.
   `git diff -U0 <file>` first: a block the peer has since committed is not
   theirs to subtract — subtracting it stages a deletion of their work. The
   same day, minutes later, that check caught exactly that.
+
+- **Integrate from the main checkout, by name, and expect a dirty tracked
+  file to refuse it.** `git merge --ff-only <branch>` run inside a worktree
+  merges into *that worktree's* branch and prints "Already up to date" when
+  it is the same branch — `main` has not moved and nothing says so. Run it
+  as `git -C <main checkout> merge --ff-only <branch>` and read `git log -1
+  main` afterwards. A fast-forward is also refused outright when a peer
+  holds uncommitted edits in a tracked file the merge must update; it cannot
+  sweep them (unlike `git commit -- <path>`), so the only move is to wait
+  for the holder, never to stash their work.

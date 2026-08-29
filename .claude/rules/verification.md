@@ -152,6 +152,21 @@ Backend-only work: when a task changes no meaningful UI, no screenshot is
 acceptable evidence for its exit criteria; a checkpoint that contains one is
 rejected without review.
 
+- **A count you did not grep is a claim, not a citation.** One plan cycle
+  (2026-08-28) wrote "five version pins" (there were nine), "two cases
+  deleted" (three), "the scanner's ten `upsert_asset` sites" (sixteen) and
+  "the two places an inventory becomes final" (one — `run_scan`'s only live
+  caller was `get_mcp_processes`, so the hook it placed there ran a full
+  index rebuild on every server-detail open). Each cost a fix round or a
+  live defect. Every number and call-site a brief or comment states comes
+  from a `grep -c` or `grep -n` run against the tree it describes.
+- **A comment that describes a later commit's wiring in the present tense is
+  false at the commit that carries it.** Two doc comments said the index "is
+  rebuilt after every scan" three commits before anything called the
+  writer; each cost a fix round. State intent as intent ("nothing calls this
+  yet; the hooks land with …") and make it present tense in the commit that
+  wires it.
+
 ## Human-gated steps
 
 - A step gated on Karthik's action — verification, confirmation, approval —
