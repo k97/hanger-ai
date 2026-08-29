@@ -10,7 +10,7 @@
 
 use std::collections::BTreeMap;
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use rusqlite::Connection;
 use serde::Serialize;
@@ -388,6 +388,64 @@ fn mechanism_word(links: &[LinkRow], dir_linked: bool) -> &'static str {
         return "symlink";
     }
     "copy"
+}
+
+/// How far an ancestor `.mcp.json` reaches, and where it is overridden.
+///
+/// Derived on every read, never stored: `docs/harness.md` — "Nothing about
+/// reach is cached… a stored verdict would be wrong more often than right."
+/// A repo cloned under the ancestor tomorrow joins the count with no rescan.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+pub struct AncestorReach {
+    pub reached: i64,
+    pub shadowed: i64,
+}
+
+/// Projects below `config_path`'s directory, and how many override it.
+///
+/// Shadowing is per SERVER NAME: a project whose own `.mcp.json` declares a
+/// different server still inherits this one. Claude Code connects once using
+/// the higher-precedence (repo) definition when the names collide.
+pub fn ancestor_reach(
+    config_path: &Path,
+    server_name: &str,
+    project_roots: &[PathBuf],
+    home: &Path,
+) -> AncestorReach {
+    let Some(anchor) = config_path.parent() else {
+        return AncestorReach { reached: 0, shadowed: 0 };
+    };
+    let mut reached = 0i64;
+    let mut shadowed = 0i64;
+    for root in project_roots {
+        // Strict ancestor: a config does not reach the directory it sits in.
+        if root == anchor || !root.starts_with(anchor) || !root.starts_with(home) {
+            continue;
+        }
+        reached += 1;
+        if declares(&root.join(".mcp.json"), server_name) {
+            shadowed += 1;
+        }
+    }
+    AncestorReach { reached, shadowed }
+}
+
+/// Whether a `.mcp.json` declares `server_name`.
+///
+/// Parsed through the same dialect the registry declares for `.mcp.json`
+/// (`McpServers`) rather than by hand — a bespoke JSON walk here would drift
+/// from the parser the scan uses.
+fn declares(path: &Path, server_name: &str) -> bool {
+    let Ok(body) = std::fs::read_to_string(path) else {
+        return false;
+    };
+    crate::mcp::dialect::parse(
+        &body,
+        crate::mcp::registry::Dialect::McpServers,
+        crate::mcp::registry::ScopeTier::Project,
+    )
+    .map(|servers| servers.iter().any(|s| s.name == server_name))
+    .unwrap_or(false)
 }
 
 fn beyond_note(links: &[LinkRow], dir_places: &[String]) -> Option<BeyondNote> {

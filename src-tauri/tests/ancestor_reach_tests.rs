@@ -6,7 +6,9 @@
 //! runs integration tests in different files in parallel. Copied verbatim
 //! from that file's header rather than re-derived.
 
+use std::path::{Path, PathBuf};
 use std::sync::{Mutex, OnceLock};
+use tauri_app_lib::annotations::{ancestor_reach, AncestorReach};
 use tauri_app_lib::scanner::{DirectoryScanner, Scanner};
 
 static ENV_MUTEX: OnceLock<Mutex<()>> = OnceLock::new();
@@ -95,4 +97,108 @@ fn an_ancestor_config_yields_one_row_however_many_projects_it_reaches() {
         "one ancestor config is ONE row regardless of how many projects it reaches — got {:?}",
         rows
     );
+}
+
+// Task 2: the pure reach computation. No scanner, no store involved.
+
+/// Writes a .mcp.json declaring one server. Returns the file path.
+fn write_cfg(dir: &Path, server: &str) -> PathBuf {
+    std::fs::create_dir_all(dir).unwrap();
+    let p = dir.join(".mcp.json");
+    std::fs::write(
+        &p,
+        format!(r#"{{"mcpServers": {{"{server}": {{"command": "/bin/true", "args": []}}}}}}"#),
+    )
+    .unwrap();
+    p
+}
+
+#[test]
+fn counts_every_project_below_the_ancestor() {
+    let home = tempfile::tempdir().unwrap();
+    let cfg = write_cfg(&home.path().join("Work"), "shared-tools");
+    let roots: Vec<PathBuf> = ["Work/alpha", "Work/beta", "Work/gamma"]
+        .iter()
+        .map(|p| {
+            let r = home.path().join(p);
+            std::fs::create_dir_all(&r).unwrap();
+            r
+        })
+        .collect();
+
+    let r = ancestor_reach(&cfg, "shared-tools", &roots, home.path());
+    assert_eq!(r.reached, 3, "all three projects sit below ~/Work");
+    assert_eq!(r.shadowed, 0, "none of them declares its own .mcp.json");
+}
+
+#[test]
+fn a_project_outside_the_ancestor_tree_is_not_reached() {
+    let home = tempfile::tempdir().unwrap();
+    let cfg = write_cfg(&home.path().join("Work"), "shared-tools");
+    let inside = home.path().join("Work/alpha");
+    let outside = home.path().join("Personal/beta");
+    std::fs::create_dir_all(&inside).unwrap();
+    std::fs::create_dir_all(&outside).unwrap();
+
+    let r = ancestor_reach(&cfg, "shared-tools", &[inside, outside], home.path());
+    assert_eq!(r.reached, 1, "~/Personal/beta is not below ~/Work");
+}
+
+#[test]
+fn a_project_declaring_the_same_name_is_shadowed() {
+    // Claude Code connects once, using the repo's definition. Both files are
+    // real; the ancestor is overridden in that project.
+    let home = tempfile::tempdir().unwrap();
+    let cfg = write_cfg(&home.path().join("Work"), "shared-tools");
+    let alpha = home.path().join("Work/alpha");
+    let beta = home.path().join("Work/beta");
+    write_cfg(&alpha, "shared-tools");   // same name -> shadows
+    std::fs::create_dir_all(&beta).unwrap();
+
+    let r = ancestor_reach(&cfg, "shared-tools", &[alpha, beta], home.path());
+    assert_eq!(r.reached, 2);
+    assert_eq!(r.shadowed, 1, "only alpha overrides it");
+}
+
+#[test]
+fn a_project_declaring_a_different_name_is_not_shadowed() {
+    // The discriminating case. Shadowing is per SERVER NAME, not per file:
+    // a project with its own .mcp.json declaring something else still
+    // inherits the ancestor's server.
+    let home = tempfile::tempdir().unwrap();
+    let cfg = write_cfg(&home.path().join("Work"), "shared-tools");
+    let alpha = home.path().join("Work/alpha");
+    write_cfg(&alpha, "something-else");
+
+    let r = ancestor_reach(&cfg, "shared-tools", &[alpha], home.path());
+    assert_eq!(r.reached, 1);
+    assert_eq!(r.shadowed, 0, "a different server name does not shadow");
+}
+
+#[test]
+fn a_directory_created_after_the_first_call_is_counted() {
+    // Criterion 4: reach is derived, so a repo that appears later joins the
+    // count with no rescan. If this ever needs a scan to pass, the value is
+    // being cached somewhere and harness.md's rule has been broken.
+    let home = tempfile::tempdir().unwrap();
+    let cfg = write_cfg(&home.path().join("Work"), "shared-tools");
+    let alpha = home.path().join("Work/alpha");
+    std::fs::create_dir_all(&alpha).unwrap();
+    let before = ancestor_reach(&cfg, "shared-tools", &[alpha.clone()], home.path());
+    assert_eq!(before.reached, 1);
+
+    let beta = home.path().join("Work/beta");
+    std::fs::create_dir_all(&beta).unwrap();
+    let after = ancestor_reach(&cfg, "shared-tools", &[alpha, beta], home.path());
+    assert_eq!(after.reached, 2, "a project created since the last call must count");
+}
+
+#[test]
+fn the_ancestors_own_directory_is_not_counted_as_a_project() {
+    // ~/Work is not a project root; only the roots passed in are.
+    let home = tempfile::tempdir().unwrap();
+    let work = home.path().join("Work");
+    let cfg = write_cfg(&work, "shared-tools");
+    let r = ancestor_reach(&cfg, "shared-tools", &[work], home.path());
+    assert_eq!(r.reached, 0, "a config does not reach the directory it sits in");
 }
