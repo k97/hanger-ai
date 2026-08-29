@@ -253,6 +253,14 @@ pub fn dispatch_error_line(e: reqwest::Error) -> String {
     format!("[Telemetry] GA4 dispatch failed: {:?}", e.without_url())
 }
 
+/// The line for a validation-endpoint answer, naming the event it was for.
+/// Without the name, a run that printed three lines could not say which three
+/// events they were; attributing them on 2026-08-29 meant counting lines
+/// around a Rescan click.
+pub fn debug_validation_line(name: &str, status: u16, text: &str) -> String {
+    format!("[Telemetry Debug Validation] {name}: HTTP {status} — {text}")
+}
+
 pub async fn track_event_async(app: AppHandle, name: &str, params: serde_json::Value) {
     if !USAGE_CONSENT_ENABLED.load(Ordering::SeqCst) {
         return;
@@ -304,7 +312,7 @@ pub async fn track_event_async(app: AppHandle, name: &str, params: serde_json::V
                 // The debug endpoint validates the payload and describes what
                 // it disliked, which the status alone does not.
                 if let Ok(text) = resp.text().await {
-                    println!("[Telemetry Debug Validation] HTTP {} — {}", status, text);
+                    println!("{}", debug_validation_line(name, status, &text));
                 }
             } else if let Some(line) = dispatch_status_line(status) {
                 eprintln!("{}", line);
