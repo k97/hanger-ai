@@ -18,12 +18,14 @@ import ViewControl, { type ServerGrouping, type ServerSort } from "./ViewControl
 import OverflowMenu, { menuItemClass, MenuSeparator } from "./OverflowMenu";
 import InfoPopover from "./InfoPopover";
 import FindingChip from "./FindingChip";
+import FindingPopover from "./FindingPopover";
 import InspectorCap from "./InspectorCap";
 import ListCard, { ListCardRow } from "./ListCard";
 import ReachCard from "./ReachCard";
+import ReviewPillActions from "./ReviewPillActions";
 import OriginValue from "./OriginValue";
 import ScanStamp from "./ScanStamp";
-import McpEngineSummary from "./McpEngineSummary";
+import HeroBand from "./HeroBand";
 import { SearchPalettePanel } from "./SearchPalette";
 import { sectionHeadClass } from "./typeRoles";
 import { miniBtnClass, miniBtnFillClass, miniBtnTonalClass, miniSetClass } from "./miniButton";
@@ -50,6 +52,8 @@ import {
 } from "./icons";
 import { BRAND_IDS } from "../data/brands";
 import EmptyState from "./EmptyState";
+import EditorPicker from "./EditorPicker";
+import EditorSetting from "./EditorSetting";
 import type { StateFilter } from "../utils/linkStateCounts";
 import {
   type DesignSectionId,
@@ -59,9 +63,10 @@ import {
   SAMPLE_ASSET_DRIFTED,
   SAMPLE_CATEGORY_COUNTS,
   SAMPLE_COUNTS,
+  SAMPLE_EDITORS,
   SAMPLE_FINDINGS,
   SAMPLE_FINDING_LINES,
-  SAMPLE_MCP_ENGINE_SUMMARY,
+  SAMPLE_MCP_ENGINE_SUMMARY_ROWS,
   SAMPLE_ORIGIN,
   SAMPLE_ORIGIN_BLOCKED,
   SAMPLE_REACH,
@@ -317,10 +322,12 @@ export default function DesignSystemPane({ section }: DesignSystemPaneProps) {
   const [tab, setTab] = useState(SAMPLE_TABS[0].id);
   const [grouping, setGrouping] = useState<ServerGrouping>("server");
   const [sort, setSort] = useState<ServerSort>("attention");
+  const [heroOpen, setHeroOpen] = useState(true);
   // The surfaces a finding popover clamps against, standing in for the
   // inspector column and a placecard.
   const capHostRef = useRef<HTMLDivElement>(null);
   const chipHostRef = useRef<HTMLDivElement>(null);
+  const popoverHostRef = useRef<HTMLDivElement>(null);
 
   const handleSort = (field: SortField) => {
     if (field === sortField) setSortDirection((d) => (d === "asc" ? "desc" : "asc"));
@@ -358,7 +365,7 @@ export default function DesignSystemPane({ section }: DesignSystemPaneProps) {
           <Group label="Ground and ink">
             <div className={swatchGridClass}>
               <Swatch token="--page" note="window ground" />
-              <Swatch token="--sidebar" note="the shell's material: the rail column and every cap, a tint over the window's vibrancy" />
+              <Swatch token="--sidebar" note="the shell's material: the rail column and every cap. A tint over the window's vibrancy, so the swatch is the tint, not what you see on screen — that moves with whatever sits behind the window" />
               <Swatch token="--plane" note="list and card surface" />
               <Swatch token="--plane-2" note="hover / press step" />
               <Swatch token="--tint" note="selection on the page" />
@@ -727,18 +734,82 @@ export default function DesignSystemPane({ section }: DesignSystemPaneProps) {
             <div ref={chipHostRef} className="relative w-[300px] flex items-center gap-2">
               <FindingChip
                 severity="warning"
-                lines={[SAMPLE_REVIEW_ISSUE.problem]}
+                lines={[{ severity: "warning", text: SAMPLE_REVIEW_ISSUE.problem }]}
                 onReview={() => {}}
                 elevated
                 clampTo={chipHostRef}
               />
               <FindingChip
                 severity="danger"
-                lines={SAMPLE_FINDING_LINES}
+                lines={SAMPLE_FINDING_LINES.map((text) => ({ severity: "danger" as const, text }))}
                 onReview={() => {}}
                 elevated
                 clampTo={chipHostRef}
               />
+            </div>
+          </Specimen>
+
+          <Specimen name="FindingPopover" file="FindingPopover.tsx" note="the panel FindingChip and the strip's review pill both open; a warning line with a detail, a danger line without" unclipped>
+            <div ref={popoverHostRef} className="relative w-[300px] h-[190px]">
+              <FindingPopover
+                open
+                onClose={() => {}}
+                lines={[
+                  { severity: "warning", text: SAMPLE_REVIEW_ISSUE.problem, detail: SAMPLE_REVIEW_ISSUE.name },
+                  { severity: "danger", text: SAMPLE_FINDING_LINES[1] },
+                ]}
+                align="left"
+                elevated
+                clampTo={popoverHostRef}
+                anchorRef={popoverHostRef}
+                ariaLabel="Sample findings"
+                actions={
+                  <div className={miniSetClass}>
+                    <button type="button" onClick={() => {}} className={miniBtnClass}>
+                      Needs review →
+                    </button>
+                  </div>
+                }
+              />
+            </div>
+          </Specimen>
+
+          <Specimen
+            name="EditorPicker"
+            file="EditorPicker.tsx"
+            note="the first-use picker (Open in editor, no editor remembered yet); props in, callbacks out, no IPC — both states shown live. The real component is a fixed, viewport-covering overlay, so each frame below traps it with `contain-paint`, which makes the overlay's own inset-0 relative to the frame instead of the page"
+            unclipped
+          >
+            <div className="flex flex-wrap gap-4">
+              <div className="relative w-[420px] h-[360px] contain-paint border border-line rounded-inner">
+                <EditorPicker
+                  assetName="ui-typography"
+                  editors={SAMPLE_EDITORS}
+                  onPick={() => {}}
+                  onChooseOther={() => {}}
+                  onCancel={() => {}}
+                />
+              </div>
+              <div className="relative w-[420px] h-[220px] contain-paint border border-line rounded-inner">
+                <EditorPicker
+                  assetName="ui-typography"
+                  editors={[]}
+                  onPick={() => {}}
+                  onChooseOther={() => {}}
+                  onCancel={() => {}}
+                />
+              </div>
+            </div>
+          </Specimen>
+
+          <Specimen
+            name="EditorSetting"
+            file="EditorSetting.tsx"
+            note="the Settings row that changes the remembered editor after the first pick; an ordinary root, so no contain-paint trap is needed — both states shown live"
+          >
+            <div className="flex flex-col gap-4 max-w-[420px]">
+              <EditorSetting editors={SAMPLE_EDITORS} chosen={SAMPLE_EDITORS[2].name} onChoose={() => {}} onChooseOther={() => {}} />
+              <EditorSetting editors={[]} chosen={null} onChoose={() => {}} onChooseOther={() => {}} />
             </div>
           </Specimen>
         </Section>
@@ -748,7 +819,7 @@ export default function DesignSystemPane({ section }: DesignSystemPaneProps) {
           label="Composites"
           lede="Imported, not imitated. Each specimen is the component the panes render, fed sample props; captions name the file."
         >
-          <Specimen name="SummaryStrip" file="SummaryStrip.tsx" note="the strip with its GelMeter; legend toggles filter">
+          <Specimen name="SummaryStrip" file="SummaryStrip.tsx" note="the strip with its GelMeter; legend toggles filter; Needs review opens the popover">
             <SummaryStrip
               total={SAMPLE_COUNTS.total}
               subtitle="assets in the global store · 6 engines"
@@ -758,6 +829,29 @@ export default function DesignSystemPane({ section }: DesignSystemPaneProps) {
               activeStateFilter={stateFilter}
               onFilterState={setStateFilter}
               onRescan={() => {}}
+              review={{
+                count: 2,
+                lines: [
+                  { severity: "warning", text: SAMPLE_REVIEW_ISSUE.problem, detail: SAMPLE_REVIEW_ISSUE.name },
+                  { severity: "danger", text: SAMPLE_FINDING_LINES[1] },
+                ],
+                actions: (
+                  <ReviewPillActions
+                    issues={[SAMPLE_REVIEW_ISSUE]}
+                    stateFilter={stateFilter}
+                    onStateFilterChange={setStateFilter}
+                    onReview={() => {}}
+                  />
+                ),
+              }}
+            />
+          </Specimen>
+
+          <Specimen name="ReviewPillActions" file="ReviewPillActions.tsx" note="the review pill's action row; a duplicate among the issues withholds Show in list, and no issue at all renders nothing">
+            <ReviewPillActions
+              issues={[SAMPLE_REVIEW_ISSUE, { ...SAMPLE_REVIEW_ISSUE, id: "Skills:duplicate:/sample", kind: "duplicate" }]}
+              onStateFilterChange={() => {}}
+              onReview={() => {}}
             />
           </Specimen>
 
@@ -956,9 +1050,22 @@ export default function DesignSystemPane({ section }: DesignSystemPaneProps) {
             </div>
           </Specimen>
 
-          <Specimen name="McpEngineSummary" file="McpEngineSummary.tsx" note="the Tools filter's empty-selection body; the note says how much is known">
-            <div className="max-w-[384px] border border-line rounded-inner">
-              <McpEngineSummary summary={SAMPLE_MCP_ENGINE_SUMMARY} />
+          <Specimen name="HeroBand" file="HeroBand.tsx" note="the hero's foldable band, by host on the Global MCP hero; press the row to fold it">
+            <div className="max-w-[384px] p-3 border border-line rounded-inner">
+              <HeroBand
+                label="By host"
+                open={heroOpen}
+                onToggle={() => setHeroOpen((v) => !v)}
+                note="A tool counts once per host that carries it."
+                rows={SAMPLE_MCP_ENGINE_SUMMARY_ROWS.map((r) => ({
+                  key: r.engine_id,
+                  engineKey: r.engine_id,
+                  engineName: r.engine_name,
+                  secondary: r.server_count === 1 ? "1 server" : `${r.server_count} servers`,
+                  value: r.tools_known,
+                  word: r.tools_known === null ? "can't be asked" : r.tools_known === 1 ? "tool" : "tools",
+                }))}
+              />
             </div>
           </Specimen>
 

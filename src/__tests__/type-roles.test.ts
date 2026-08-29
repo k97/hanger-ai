@@ -17,7 +17,7 @@ import { describe, expect, it } from "vitest";
 // fails its own check below rather than being silently forgiven. Allowlist
 // entries name a file, the exact line text, and a reason; an entry that
 // stops matching fails the run so the list cannot go stale.
-const ROLE_FILES = ["AssetDetail.tsx", "ReachCard.tsx", "McpServerDetail.tsx", "MarkdownDoc.tsx", "Flyout.tsx", "ReviewInspector.tsx", "ListCard.tsx", "InspectorCap.tsx", "Sidebar.tsx", "DiscoverySidebar.tsx", "ReviewSidebar.tsx", "DesignSystemSidebar.tsx", "DiscoveryPane.tsx", "AssetHeaderRow.tsx", "AssetRow.tsx", "SummaryStrip.tsx"];
+const ROLE_FILES = ["AssetDetail.tsx", "ReachCard.tsx", "McpServerDetail.tsx", "MarkdownDoc.tsx", "Flyout.tsx", "ReviewInspector.tsx", "ListCard.tsx", "InspectorCap.tsx", "Sidebar.tsx", "DiscoverySidebar.tsx", "ReviewSidebar.tsx", "DesignSystemSidebar.tsx", "DiscoveryPane.tsx", "AssetHeaderRow.tsx", "AssetRow.tsx", "SummaryStrip.tsx", "HeroBand.tsx"];
 const ALLOW: { file: string; lineText: string; reason: string }[] = [
   { file: "src/App.tsx", lineText: 'bg-plane text-state-danger border border-line text-small leading-normal font-mono break-all animate-fade-in', reason: "pre-dates the roles; App.tsx pass pending" },
   { file: "src/App.tsx", lineText: 'bg-plane text-state-success border border-line text-small leading-normal animate-fade-in', reason: "pre-dates the roles; App.tsx pass pending" },
@@ -33,17 +33,14 @@ const ALLOW: { file: string; lineText: string; reason: string }[] = [
   { file: "src/components/DiffChooser.tsx", lineText: "px-6 py-2 rounded-inner bg-fill text-on-fill text-xs", reason: "pre-dates the roles; DiffChooser.tsx pass pending" },
   { file: "src/components/IconRail.tsx", lineText: "text-[9px] leading-4", reason: "count badge, see no-off-token-styles allowlist" },
   { file: "src/components/InfoPopover.tsx", lineText: "relative inline-block shrink-0 leading-none", reason: "pre-dates the roles; InfoPopover.tsx pass pending" },
-  { file: "src/components/ProfilePane.tsx", lineText: 'text-small text-ink-2 leading-relaxed', reason: "pre-dates the roles; ProfilePane.tsx pass pending" },
   { file: "src/components/RepoPane.tsx", lineText: "rounded-inner leading-relaxed animate-fade-in", reason: "pre-dates the roles; RepoPane.tsx pass pending" },
   { file: "src/components/RepoPane.tsx", lineText: '<p className="text-small text-ink-2 leading-relaxed">', reason: "pre-dates the roles; RepoPane.tsx pass pending (3 identical sites: lines 493/545/550)" },
-  { file: "src/components/RepoPane.tsx", lineText: '<li key={idx} className="font-mono break-all leading-relaxed">', reason: "pre-dates the roles; RepoPane.tsx pass pending" },
-  { file: "src/components/RepoPane.tsx", lineText: "text-small text-ink-2 font-mono break-all leading-relaxed", reason: "pre-dates the roles; RepoPane.tsx pass pending" },
   { file: "src/components/SidebarScanModal.tsx", lineText: "text-small text-ink-3 leading-relaxed", reason: "pre-dates the roles; SidebarScanModal.tsx pass pending" },
   { file: "src/App.tsx", lineText: '<p className="text-small text-ink-2 leading-[1.65]">', reason: "pre-dates the roles; App.tsx pass pending (2 identical sites: lines 1141/1159)" },
   { file: "src/App.tsx", lineText: "text-small text-ink-3 leading-[1.65]", reason: "pre-dates the roles; App.tsx pass pending" },
   { file: "src/components/DesignSystemPane.tsx", lineText: "px-3 pb-4 text-small text-ink-2 leading-[1.55] max-w-[74ch]", reason: "pre-dates the roles; DesignSystemPane.tsx pass pending" },
   { file: "src/components/DesignSystemPane.tsx", lineText: '<p className="text-small text-ink-2 leading-[1.55] max-w-[74ch]">', reason: "pre-dates the roles; DesignSystemPane.tsx pass pending" },
-  { file: "src/components/FindingChip.tsx", lineText: "text-small leading-[1.5]", reason: "pre-dates the roles; FindingChip.tsx pass pending" },
+  { file: "src/components/FindingPopover.tsx", lineText: "text-small leading-[1.5]", reason: "pre-dates the roles; moved out of FindingChip.tsx by the Task 3 popover-extraction refactor (2026-08-28), pass still pending" },
   { file: "src/components/InfoPopover.tsx", lineText: "font-flex text-micro font-normal text-ink-2 leading-[1.5]", reason: "pre-dates the roles; InfoPopover.tsx pass pending" },
   { file: "src/components/LinkMapPane.tsx", lineText: '<p className="text-small text-ink-2 leading-[1.6]">', reason: "pre-dates the roles; LinkMapPane.tsx pass pending" },
   { file: "src/components/LinkMapPane.tsx", lineText: '<p className="text-small text-ink-3 leading-[1.6]">', reason: "pre-dates the roles; LinkMapPane.tsx pass pending" },
@@ -51,7 +48,6 @@ const ALLOW: { file: string; lineText: string; reason: string }[] = [
   { file: "src/components/LinkPanel.tsx", lineText: 'const helpClass = "text-micro text-ink-3 mt-2.5 leading-[1.6]"', reason: "pre-dates the roles; LinkPanel.tsx pass pending" },
   { file: "src/components/LinkPanel.tsx", lineText: '<p className="text-small text-ink-3 leading-[1.6]">', reason: "pre-dates the roles; LinkPanel.tsx pass pending" },
   { file: "src/components/LinkPanel.tsx", lineText: "mx-[12px] mt-3 flex items-start gap-2 text-state-warning text-small leading-[1.6]", reason: "pre-dates the roles; LinkPanel.tsx pass pending" },
-  { file: "src/components/McpEngineSummary.tsx", lineText: "text-micro text-ink-3 leading-[1.45] mt-3", reason: "pre-dates the roles; McpEngineSummary.tsx pass pending" },
   { file: "src/components/RepoPane.tsx", lineText: '<p className="text-small text-ink-2 leading-[1.65]">', reason: "pre-dates the roles; RepoPane.tsx pass pending" },
   { file: "src/components/RepoPane.tsx", lineText: '<p className="text-micro text-ink-3 leading-[1.6]">', reason: "pre-dates the roles; RepoPane.tsx pass pending" },
   // The 22 surviving `uppercase` sites the case check now reaches outside
@@ -74,7 +70,6 @@ const ALLOW: { file: string; lineText: string; reason: string }[] = [
   { file: "src/components/LinkPanel.tsx", lineText: "py-2.5 font-flex text-micro uppercase tracking-[.06em] text-ink-3", reason: "pre-dates the roles; LinkPanel.tsx pass pending" },
   { file: "src/components/NeedsReviewPane.tsx", lineText: "font-flex text-micro tracking-[.06em] uppercase text-ink-3", reason: "pre-dates the roles; NeedsReviewPane.tsx pass pending" },
   { file: "src/components/OverflowMenu.tsx", lineText: "font-flex text-micro tracking-[.06em] uppercase text-ink-3 px-1.5 pt-1 pb-1", reason: "pre-dates the roles; OverflowMenu.tsx pass pending" },
-  { file: "src/components/RepoPane.tsx", lineText: '<h3 className="font-medium tracking-[.06em] uppercase">Engines</h3>', reason: "pre-dates the roles; RepoPane.tsx pass pending — the one eyebrow left in a file whose group headers migrated" },
 ];
 // (?!-app) excludes the app's own text-base-app/text-lg-app role classes:
 // \b alone treats the hyphen before "app" as a boundary, so the bare regex

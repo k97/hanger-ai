@@ -12,10 +12,11 @@ import type { StateCounts } from "../utils/linkStateCounts";
 import type { ScanStatus } from "../hooks/useScanStatus";
 import type { AssetFindings, ReviewIssue } from "../utils/reviewIssues";
 import { originRow, type OriginRowView } from "../utils/assetProvenance";
-import type { McpEngineSummaryData } from "../components/McpEngineSummary";
+import type { McpEngineSummaryRow } from "../types/mcpEngineSummary";
 import type { TrackSegment } from "../components/SegmentedTrack";
 import type { UnderlineTab } from "../components/UnderlineTabs";
 import type { SearchHit } from "../components/SearchPalette";
+import type { DetectedEditor } from "../components/EditorPicker";
 
 /** The TOC's layers, in reading order (Karthik's ruling, 2026-08-28, after
  *  the atomic-design read). Material's three words: Foundations are the
@@ -137,6 +138,14 @@ export const SAMPLE_FINDINGS: AssetFindings = {
 /** Two lines for the standalone chip, so its popover draws a divider. */
 export const SAMPLE_FINDING_LINES = ["Copy diverged", "3 copies, no shared source"];
 
+/** Matches `KNOWN_EDITORS` (`src-tauri/src/editors.rs`) in name and bundle
+ *  id shape, but is not read from it — a fixture, not a mirror. */
+export const SAMPLE_EDITORS: DetectedEditor[] = [
+  { name: "Visual Studio Code", bundleId: "com.microsoft.VSCode", path: "/Applications/Visual Studio Code.app" },
+  { name: "Cursor", bundleId: "com.todesktop.230313mzl4w4u92", path: "/Applications/Cursor.app" },
+  { name: "Zed", bundleId: "dev.zed.Zed", path: "/Applications/Zed.app" },
+];
+
 export const SAMPLE_SEGMENTS: TrackSegment[] = [
   { id: "all", label: "All", count: 142 },
   { id: "skills", label: "Skills", count: 105 },
@@ -158,20 +167,13 @@ export const SAMPLE_ORIGIN: OriginRowView = originRow(
 
 export const SAMPLE_ORIGIN_BLOCKED: OriginRowView = originRow(null, true)!;
 
-/** A partial picture on purpose: one row not yet asked, and every bucket of
- *  the note beneath the rows non-zero so each sentence renders. */
-export const SAMPLE_MCP_ENGINE_SUMMARY: McpEngineSummaryData = {
-  rows: [
-    { engine_id: "claude", engine_name: "Claude Code", server_count: 6, tools_known: 41 },
-    { engine_id: "codex", engine_name: "Codex", server_count: 2, tools_known: 9 },
-    { engine_id: "claude_desktop", engine_name: "Claude Desktop", server_count: 3, tools_known: null },
-  ],
-  total_server_count: 9,
-  answered_server_count: 5,
-  unasked_server_count: 3,
-  unaskable_server_count: 1,
-  conflicting_server_count: 1,
-};
+/** A partial picture on purpose: one row not yet asked. The HeroBand
+ *  specimen maps these the way ProfilePane maps `mcpEngineSummary.rows`. */
+export const SAMPLE_MCP_ENGINE_SUMMARY_ROWS: McpEngineSummaryRow[] = [
+  { engine_id: "claude-code", engine_name: "Claude Code", server_count: 6, tools_known: 41 },
+  { engine_id: "codex", engine_name: "Codex", server_count: 2, tools_known: 9 },
+  { engine_id: "claude-desktop", engine_name: "Claude Desktop", server_count: 3, tools_known: null },
+];
 
 // The backend's match markers (private-use U+E000/U+E001), written as escapes
 // rather than the literal characters so they read here as what they are.

@@ -169,18 +169,30 @@
 }
 
 .dark {
-  --page: #000000;
-  --sidebar: rgba(19, 19, 19, 0.75);  /* heavier than it was (.55 until 2026-08-28): over a
-                                         bright desktop the thinner tint read as a light grey
-                                         strip and column against the black sheet, once the
-                                         cap band took this material too. Karthik's ruling. */
-  --sidebar-sel: #3a3a3c;
+  --page: #141414;           /* off the display floor. #000000 left nothing below it, so every
+                                surface had to climb away from the ground and the step up to the
+                                shell measured 2.26:1 — Codex's reads 1.58:1. At #141414 the step
+                                is 1.60:1 and --ink-3 still clears 5.5:1. Karthik, 2026-08-29. */
+  --sidebar: rgba(42, 42, 42, 0.92);  /* the shell's material. The alpha is the tint's authority
+                                         over the window's vibrancy, and that is the whole point:
+                                         at .75 (2026-08-28) the backdrop supplied 52 of the
+                                         shell's 71 rendered units, so this one token measured
+                                         #474747 and then #424343 minutes apart as a window moved
+                                         behind Hanger — a ±64-unit excursion with the desktop.
+                                         At .92 the excursion is ±20 and the shell has a value of
+                                         its own: #373838 measured. The chrome still reads what is
+                                         behind the window (Karthik, 2026-08-27); it no longer
+                                         takes its value from it. Karthik's ruling, 2026-08-29. */
+  --sidebar-sel: #4a4a4a;    /* selection LIFTS off the shell, +17. At #3a3a3c it sat 13 units
+                                BELOW the shell's rendered value — a selected row rendered darker
+                                than its own column, because an opaque token had been calibrated
+                                against a shell value that then moved. */
   --sidebar-sel-ink: #ececec;
   --sidebar-ink: #cfd1d3;
-  --plane: #0e0e0e;
-  --plane-2: #171717;
-  --tint: #232323;
-  --tint-plane: #262626;
+  --plane: #1c1c1c;
+  --plane-2: #232323;
+  --tint: #2c2c2c;
+  --tint-plane: #303030;
   --tint-ink: #ffffff;
   --line: rgba(255, 255, 255, 0.12);
   --line-2: rgba(255, 255, 255, 0.22);

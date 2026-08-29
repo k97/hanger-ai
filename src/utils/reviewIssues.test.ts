@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import type { Inventory } from "../App";
-import type { ReviewDerivation } from "./reviewIssues";
-import { deriveReviewIssues, matchesIssueFilter, issuesForAsset } from "./reviewIssues";
+import type { IssueKind, ReviewDerivation, ReviewIssue } from "./reviewIssues";
+import { deriveReviewIssues, issueSeverity, matchesIssueFilter, issuesForAsset } from "./reviewIssues";
 
 const EMPTY: Inventory = {
   skills: [],
@@ -685,5 +685,37 @@ describe("issuesForAsset — a registration key matches whole, never as a suffix
 
     expect(issues.map((i) => i.id)).toEqual(["Tools:broken:/b/a/.claude.json:x"]);
     expect(count).toBe(1);
+  });
+});
+
+/**
+ * The one severity rule, over all four kinds. Every surface that paints a dot
+ * for a single issue reads this function; before it existed the rule was
+ * written out three times (`issuesForAsset`, ProfilePane's `issueLine`,
+ * RepoPane's line map) and the inspector cap's chip had a fourth answer of
+ * its own — the asset's aggregate (final review, 2026-08-28, Important 1).
+ *
+ * Wrong implementations this catches: `kind === "broken"` alone, which makes
+ * `parse` a warning; and anything that severities `drifted` or `duplicate`
+ * as a danger.
+ */
+describe("issueSeverity — one rule, all four kinds", () => {
+  const of = (kind: IssueKind): ReviewIssue => ({
+    id: `Skills:${kind}:/a`,
+    name: "a",
+    category: "Skills",
+    kind,
+    problem: "…",
+    path: "/a",
+    whereLabel: "Global",
+    whereKeys: ["global"],
+    crossRepo: false,
+  });
+
+  it("calls broken and won't-parse dangers, drifted and duplicated warnings", () => {
+    expect(issueSeverity(of("broken"))).toBe("danger");
+    expect(issueSeverity(of("parse"))).toBe("danger");
+    expect(issueSeverity(of("drifted"))).toBe("warning");
+    expect(issueSeverity(of("duplicate"))).toBe("warning");
   });
 });

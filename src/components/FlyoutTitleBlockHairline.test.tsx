@@ -26,8 +26,8 @@
 //   - linking's common path (LinkPanel, not the DiffChooser overlay) — no
 //     tab row, no top border of its own.
 //   - selectedBubble's asset list — no tab row.
-//   - showEmptyMcpEyebrow, both sub-cases (McpEngineSummary and "Nothing
-//     selected") — no tab row.
+//   - showEmptyMcpEyebrow — "Nothing selected" in every pane now that
+//     McpEngineSummary is retired (Task 8, 2026-08-28) — no tab row.
 // Karthik's ruling, 2026-08-24: the hairline goes only where a tab row
 // follows — it honours Decision 13's stated *reason* (something else already
 // draws a line) rather than its literal instruction (drop it always), and

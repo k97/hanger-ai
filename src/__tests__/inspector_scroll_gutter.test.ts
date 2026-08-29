@@ -12,10 +12,10 @@ import * as path from "path";
 // `overflow-y-auto` container in the inspector, the shape that put the inset
 // on a child instead of the scroller itself.
 //
-// This file scans the five inspector components that share that shape,
-// rather than pinning today's five call sites as a fixed list: a future
+// This file scans the four inspector components that share that shape,
+// rather than pinning today's four call sites as a fixed list: a future
 // bare `overflow-y-auto` added to one of these files without the utility
-// fails this test, the way a snapshot of "five known lines" would not. The
+// fails this test, the way a snapshot of "four known lines" would not. The
 // scan is intentionally NOT run over the whole of src/components — a
 // scroller that carries its own inset (ProfilePane.tsx's bordered list,
 // Flyout.tsx's `p-[18px]` container) legitimately does not need the gutter
@@ -31,7 +31,6 @@ const INSPECTOR_FILES = [
   "ReviewInspector.tsx",
   "LinkPanel.tsx",
   "McpServerDetail.tsx",
-  "McpEngineSummary.tsx",
 ];
 
 const COMPONENTS_DIR = path.resolve(__dirname, "../components");

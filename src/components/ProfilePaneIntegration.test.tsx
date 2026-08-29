@@ -175,31 +175,64 @@ describe("ProfilePane Component-Level Filtering Integration", () => {
     expect(within(strip).getByRole("img", { name: "0 linked, 0 drifted, 0 broken, 1 local only" })).toBeTruthy();
   });
 
-  it("with MCP servers selected and the summary in hand, the strip is probe coverage and the pill filters disagreeing servers", () => {
-    const counts = { total: 3, byCategory: { tool: { total: 2, global: 2, project: 0 } }, engines: {} };
-    const mcpServers = [
-      { name: "tauri", transport: "stdio", registration_count: 2, distinct_spec_count: 2, agreement: "Conflicting", aliased_with: [], plugin: null, registrations: ["/a:tauri", "/b:tauri"] },
-      { name: "spades", transport: "stdio", registration_count: 1, distinct_spec_count: 1, agreement: "Consistent", aliased_with: [], plugin: null, registrations: ["/a:spades"] },
-    ];
-    const summary = { rows: [{ engine_id: "claude-code", engine_name: "Claude Code", server_count: 2, tools_known: 4 }], total_server_count: 3, answered_server_count: 1, unasked_server_count: 2, unaskable_server_count: 0, conflicting_server_count: 1 };
-    render(<ProfilePane inventory={mockInventory} assetCounts={counts} mcpServers={mcpServers as never} serverGrouping="server" serverSort="name" mcpEngineSummary={summary} mcpCoverage={{ checked_file_count: 16, checked_engine_count: 2, checked_files: [], problems: [] }} loading={false} onSelectAsset={vi.fn()} onLinkAsset={vi.fn()} />);
-    fireEvent.click(screen.getAllByText("MCP servers").find((el) => el.closest("[tabindex]"))!.closest("[tabindex]")!);
+  // MCP mode's own fixture: a grouped server list is what `mcpMode` is gated
+  // on, and the summary is what the subtitle and the band print.
+  const mcpServers = [
+    { name: "tauri", transport: "stdio", registration_count: 2, distinct_spec_count: 2, agreement: "Conflicting", aliased_with: [], plugin: null, registrations: ["/a:tauri", "/b:tauri"] },
+    { name: "spades", transport: "stdio", registration_count: 1, distinct_spec_count: 1, agreement: "Consistent", aliased_with: [], plugin: null, registrations: ["/a:spades"] },
+  ];
+  const renderMcp = (over: Partial<React.ComponentProps<typeof ProfilePane>>) =>
+    render(
+      <ProfilePane
+        inventory={mockInventory}
+        assetCounts={{ total: 3, byCategory: { tool: { total: 2, global: 2, project: 0 } }, engines: {} }}
+        selectedCategory="Tools"
+        mcpServers={mcpServers as never}
+        serverGrouping="server"
+        serverSort="name"
+        mcpCoverage={{ checked_file_count: 16, checked_engine_count: 2, checked_files: [], problems: [] }}
+        loading={false}
+        onSelectAsset={vi.fn()}
+        onLinkAsset={vi.fn()}
+        {...over}
+      />
+    );
+
+  it("MCP mode: the subtitle carries the backend's totals and the band lists each host", () => {
+    // Hyphenated ids throughout: these come from `engine_id` on the MCP
+    // summary, not from `assetCounts.engines`, whose keys are underscored.
+    const summary = { rows: [
+      { engine_id: "claude-code", engine_name: "Claude Code", server_count: 10, tools_known: 131 },
+      { engine_id: "claude-ai", engine_name: "Claude.ai", server_count: 7, tools_known: null },
+    ], host_count: 2, tools_known_total: 131, total_server_count: 17, answered_server_count: 10, unasked_server_count: 0, unaskable_server_count: 7, conflicting_server_count: 0 };
+    renderMcp({ mcpEngineSummary: summary, hostsBandOpen: true });
+    expect(screen.getByText("MCP servers · 131 tool descriptions across 2 hosts")).toBeTruthy();
+    // The probe-coverage meter is gone, not merely relabelled.
+    expect(screen.queryByRole("img", { name: /answered/ })).toBeNull();
+    const ai = screen.getByTestId("hero-band-row-claude-ai");
+    expect(ai.textContent).toContain("7 servers");
+    expect(ai.textContent).toContain("can't be asked");
+    expect(screen.getByTestId("hero-band-row-claude-code").textContent).toContain("131");
+  });
+
+  it("MCP mode with nothing ever probed: the subtitle states no total", () => {
+    const summary = { rows: [{ engine_id: "codex", engine_name: "Codex", server_count: 1, tools_known: null }], host_count: 1, tools_known_total: null, total_server_count: 1, answered_server_count: 0, unasked_server_count: 1, unaskable_server_count: 0, conflicting_server_count: 0 };
+    renderMcp({ mcpEngineSummary: summary, hostsBandOpen: false });
+    expect(screen.getByText("MCP servers across 1 host")).toBeTruthy();
+  });
+
+  it("the pill's popover names the disagreeing server and its action filters the list", () => {
+    const summary = { rows: [{ engine_id: "claude-code", engine_name: "Claude Code", server_count: 2, tools_known: 4 }], host_count: 1, tools_known_total: 4, total_server_count: 3, answered_server_count: 1, unasked_server_count: 2, unaskable_server_count: 0, conflicting_server_count: 1 };
+    renderMcp({ mcpEngineSummary: summary, hostsBandOpen: false });
     const strip = screen.getByLabelText("Inventory summary");
-    // Not `getByText("2")`: this fixture's "not yet asked" figure is also 2,
-    // and SummaryStrip (S5) renders each legend bucket's number in its own
-    // element — a plain text query for "2" matches both and throws. Scoped
-    // to the headline's own class disambiguates without changing either
-    // figure.
     expect(strip.querySelector(".text-display")?.textContent).toBe("2");
-    expect(within(strip).getByText("MCP servers registered · 16 host configs read")).toBeTruthy();
-    expect(within(strip).getByRole("img", { name: "1 answered, 2 not yet asked, 0 can't be asked" })).toBeTruthy();
-    expect(screen.getByText("tauri")).toBeTruthy();
-    expect(screen.getByText("spades")).toBeTruthy();
     fireEvent.click(within(strip).getByText("Needs review 1"));
+    expect(within(strip).getByTestId("finding-popover-line").textContent).toContain("tauri");
+    // The pill alone must not filter — that behaviour is the popover's action.
+    expect(screen.getByText("spades")).toBeTruthy();
+    fireEvent.click(screen.getByText("Show disagreeing servers"));
     expect(screen.getByText("tauri")).toBeTruthy();
     expect(screen.queryByText("spades")).toBeNull();
-    fireEvent.click(within(strip).getByText("Needs review 1"));
-    expect(screen.getByText("spades")).toBeTruthy();
   });
 
   it("threads the backend's probed tool count onto the card, and withholds it for a Conflicting row", () => {
@@ -218,32 +251,132 @@ describe("ProfilePane Component-Level Filtering Integration", () => {
   });
 
   it("clears the Review filter when the category changes, so it never carries back to Tools", () => {
-    const counts = { total: 3, byCategory: { tool: { total: 2, global: 2, project: 0 } }, engines: {} };
-    const mcpServers = [
-      { name: "tauri", transport: "stdio", registration_count: 2, distinct_spec_count: 2, agreement: "Conflicting", aliased_with: [], plugin: null, registrations: ["/a:tauri", "/b:tauri"] },
-      { name: "spades", transport: "stdio", registration_count: 1, distinct_spec_count: 1, agreement: "Consistent", aliased_with: [], plugin: null, registrations: ["/a:spades"] },
-    ];
-    const summary = { rows: [{ engine_id: "claude-code", engine_name: "Claude Code", server_count: 2, tools_known: 4 }], total_server_count: 3, answered_server_count: 1, unasked_server_count: 2, unaskable_server_count: 0, conflicting_server_count: 1 };
-    render(<ProfilePane inventory={mockInventory} assetCounts={counts} mcpServers={mcpServers as never} serverGrouping="server" serverSort="name" mcpEngineSummary={summary} mcpCoverage={{ checked_file_count: 16, checked_engine_count: 2, checked_files: [], problems: [] }} loading={false} onSelectAsset={vi.fn()} onLinkAsset={vi.fn()} />);
+    const summary = { rows: [{ engine_id: "claude-code", engine_name: "Claude Code", server_count: 2, tools_known: 4 }], host_count: 1, tools_known_total: 4, total_server_count: 3, answered_server_count: 1, unasked_server_count: 2, unaskable_server_count: 0, conflicting_server_count: 1 };
+    renderMcp({ mcpEngineSummary: summary, hostsBandOpen: false, selectedCategory: undefined });
     const card = (label: string) =>
       screen.getAllByText(label).find((el) => el.closest("[tabindex]"))!.closest("[tabindex]")!;
-    const pill = () => within(screen.getByLabelText("Inventory summary")).getByText("Needs review 1");
+    const strip = () => screen.getByLabelText("Inventory summary");
 
     fireEvent.click(card("MCP servers"));
-    fireEvent.click(pill());
+    fireEvent.click(within(strip()).getByText("Needs review 1"));
+    fireEvent.click(screen.getByText("Show disagreeing servers"));
     // The filter is genuinely on before the category moves — without this the
-    // rest could pass vacuously against a pill that never applied.
+    // rest could pass vacuously against an action that never applied.
     expect(screen.queryByText("spades")).toBeNull();
-    expect(pill().getAttribute("aria-pressed")).toBe("true");
 
     fireEvent.click(card("Skills"));
     fireEvent.click(card("MCP servers"));
 
-    // Both halves: the pill is unpressed AND the list it gates is unfiltered.
-    // Asserting only the row would pass a reset that left the pill lit.
-    expect(pill().getAttribute("aria-pressed")).toBe("false");
+    // Both halves: the action reads unpressed AND the list it gates is
+    // unfiltered. Asserting only the row would pass a reset that left the
+    // control lit. The popover is still open — the pill is not clicked again
+    // here, because clicking it would close it.
+    expect(within(strip()).getByText("Needs review 1")).toBeTruthy();
+    expect(screen.getByText("Show disagreeing servers").getAttribute("aria-pressed")).toBe("false");
     expect(screen.getByText("spades")).toBeTruthy();
     expect(screen.getByText("tauri")).toBeTruthy();
+  });
+
+  it("Global asset tabs: the pill lists this store's issues by name and problem, and routes", () => {
+    const onReview = vi.fn();
+    const issue = { id: "i1", name: "CLAUDE.md", category: "Rules", kind: "broken", problem: "Target is gone", path: "/Users/test/.agents/CLAUDE.md", whereLabel: "Global", whereKeys: ["global"], crossRepo: false };
+    render(
+      <ProfilePane
+        inventory={mockInventory}
+        loading={false}
+        onSelectAsset={vi.fn()}
+        onLinkAsset={vi.fn()}
+        issues={[issue] as never}
+        onReview={onReview}
+      />
+    );
+    fireEvent.click(screen.getByText("Needs review 1"));
+    const line = screen.getByTestId("finding-popover-line");
+    expect(line.textContent).toContain("Target is gone");
+    expect(line.textContent).toContain("CLAUDE.md");
+    fireEvent.click(screen.getByText("Needs review →"));
+    expect(onReview).toHaveBeenCalledWith(issue);
+  });
+
+  it("a won't-parse issue is a danger dot here, the same colour the inspector cap gives it", () => {
+    // `issueSeverity` — broken OR parse is danger. `kind === "broken"`
+    // alone paints this dot bg-state-warning, and the same asset then wears
+    // two colours in two surfaces.
+    const issue = { id: "i1", name: "reviewer.md", category: "Subagents", kind: "parse", problem: "Won't parse", path: "/x/reviewer.md", whereLabel: "Global", whereKeys: ["global"], crossRepo: false };
+    render(<ProfilePane inventory={mockInventory} loading={false} onSelectAsset={vi.fn()} onLinkAsset={vi.fn()} issues={[issue] as never} />);
+    fireEvent.click(screen.getByText("Needs review 1"));
+    const dot = screen.getByTestId("finding-popover-line").querySelector("i")!;
+    expect(dot.className).toContain("bg-state-danger");
+    expect(dot.className).not.toContain("bg-state-warning");
+  });
+
+  it("a duplicate in the list withholds 'Show in list', because the filter cannot reach it", () => {
+    // `needsReview` (linkStateCounts.ts:45-48) is broken-or-drifted, so
+    // "needs-review" filters a duplicate out of the very list the button
+    // offers to show it in. Rendering it anyway is the bug.
+    const duplicate = { id: "i1", name: "math", category: "Skills", kind: "duplicate", problem: "Duplicated in 3 places", path: "/x/math", whereLabel: "Global", whereKeys: ["global"], crossRepo: true };
+    render(<ProfilePane inventory={mockInventory} loading={false} onSelectAsset={vi.fn()} onLinkAsset={vi.fn()} issues={[duplicate] as never} />);
+    fireEvent.click(screen.getByText("Needs review 1"));
+    expect(screen.getByText("Needs review →")).toBeTruthy();
+    expect(screen.queryByText("Show in list")).toBeNull();
+  });
+
+  it("without a duplicate, both actions render", () => {
+    const broken = { id: "i1", name: "CLAUDE.md", category: "Rules", kind: "broken", problem: "Target is gone", path: "/x/CLAUDE.md", whereLabel: "Global", whereKeys: ["global"], crossRepo: false };
+    render(<ProfilePane inventory={mockInventory} loading={false} onSelectAsset={vi.fn()} onLinkAsset={vi.fn()} issues={[broken] as never} />);
+    fireEvent.click(screen.getByText("Needs review 1"));
+    expect(screen.getByText("Show in list")).toBeTruthy();
+    expect(screen.getByText("Needs review →")).toBeTruthy();
+  });
+
+  /* Important 2 (final review, 2026-08-28): the action row rendered whenever
+     the pill did. With only undeclared processes behind it — no ReviewIssue
+     anywhere — `Needs review →` routed to a Needs review pane that then said
+     "Nothing needs a decision". The spec is explicit that a process line
+     carries no action: the popover IS its disclosure.
+
+     Wrong implementation this catches: an action row gated on the pill's own
+     line count, or on nothing at all, rather than on `issues`. */
+  it("processes with no issues behind them: the popover discloses, and offers nowhere to go", () => {
+    render(
+      <ProfilePane
+        inventory={mockInventory}
+        loading={false}
+        selectedCategory="Rules"
+        onSelectAsset={vi.fn()}
+        onLinkAsset={vi.fn()}
+        issues={[]}
+        unaccountedProcesses={[
+          { registration_key: "", pid: 24149, command_line: "node dist/index.js --port 3002", spawning_host: "Claude Code" },
+        ] as never}
+      />
+    );
+    fireEvent.click(screen.getByText("Needs review 1"));
+    expect(screen.getByTestId("finding-popover-line").textContent).toContain("Running with no config behind it.");
+    expect(screen.queryByText("Needs review →")).toBeNull();
+    expect(screen.queryByText("Show in list")).toBeNull();
+  });
+
+  it("undeclared processes reach the pill on a Global tab that is not MCP servers", () => {
+    // The banner they replace was gated on `unaccounted.length > 0` alone.
+    // `mcpMode` is four conditions, so gating the lines on it hid them on
+    // every other tab AND on Tools whenever `mcpEngineSummary` was null.
+    render(
+      <ProfilePane
+        inventory={mockInventory}
+        loading={false}
+        selectedCategory="Rules"
+        onSelectAsset={vi.fn()}
+        onLinkAsset={vi.fn()}
+        unaccountedProcesses={[
+          { registration_key: "", pid: 24149, command_line: "node dist/index.js --port 3002", spawning_host: "Claude Code" },
+        ] as never}
+      />
+    );
+    fireEvent.click(screen.getByText("Needs review 1"));
+    const line = screen.getByTestId("finding-popover-line");
+    expect(line.textContent).toContain("Running with no config behind it.");
+    expect(line.textContent).toContain("pid 24149 · node dist/index.js --port 3002 · started by Claude Code");
   });
 });
 

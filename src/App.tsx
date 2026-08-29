@@ -92,8 +92,14 @@ import {
 } from "./utils/inspectorLayout";
 import { unaccountedProcesses, type ProcessMatch } from "./utils/mcpServerView";
 import type { McpServerRow } from "./utils/serverRows";
-import type { McpEngineSummaryData } from "./components/McpEngineSummary";
-import { openPath, revealItemInDir } from "@tauri-apps/plugin-opener";
+import type { McpEngineSummaryData } from "./types/mcpEngineSummary";
+import { assetOpenTarget } from "./openTarget";
+import { openInEditor } from "./openInEditor";
+import EditorPicker, { type DetectedEditor } from "./components/EditorPicker";
+import EditorSetting from "./components/EditorSetting";
+import DisclosureBanner from "./components/DisclosureBanner";
+import { captionClass } from "./components/typeRoles";
+import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import {
   deriveReviewIssues,
   issuesForAsset,
@@ -354,6 +360,10 @@ export default function App() {
   const [selectedIssue, setSelectedIssue] = useState<ReviewIssue | null>(null);
 
   const [inspectorOpen, setInspectorOpen] = useState<boolean>(false);
+  // The hero bands, one per pane. Folded by default: the hero's job is the
+  // headline, and the per-host / per-engine breakdown is the second question.
+  const [hostsBandOpen, setHostsBandOpen] = useState(false);
+  const [enginesBandOpen, setEnginesBandOpen] = useState(false);
   // The floor, and the starting width. INSPECTOR_MIN_WIDTH in
   // utils/inspectorLayout.ts says why it is where it is.
   const [inspectorWidth, setInspectorWidth] = useState<number>(INSPECTOR_MIN_WIDTH);
@@ -560,6 +570,19 @@ export default function App() {
   };
 
   const toggleInspectorExpanded = () => setInspectorExpanded((prev) => !prev);
+
+  const toggleHostsBand = () =>
+    setHostsBandOpen((prev) => {
+      const next = !prev;
+      invoke("set_preference", { key: "hosts_band_open", value: String(next) }).catch(() => {});
+      return next;
+    });
+  const toggleEnginesBand = () =>
+    setEnginesBandOpen((prev) => {
+      const next = !prev;
+      invoke("set_preference", { key: "engines_band_open", value: String(next) }).catch(() => {});
+      return next;
+    });
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -898,6 +921,10 @@ export default function App() {
       if (inspectorPref === "true") {
         setInspectorOpen(true);
       }
+      const hostsPref = await invoke<string | null>("get_preference", { key: "hosts_band_open" });
+      if (hostsPref === "true") setHostsBandOpen(true);
+      const enginesPref = await invoke<string | null>("get_preference", { key: "engines_band_open" });
+      if (enginesPref === "true") setEnginesBandOpen(true);
       const inspectorWidthPref = await invoke<string | null>("get_preference", { key: "inspector_width" });
       if (inspectorWidthPref) {
         const w = parseInt(inspectorWidthPref, 10);
@@ -983,6 +1010,101 @@ export default function App() {
   useEffect(() => {
     setInspectorDocumentPath(null);
   }, [selectedAsset?.path]);
+
+  // `editor_app` absence is what triggers the first-use picker; no second
+  // "have we asked" flag is needed — that is one fewer thing to keep
+  // consistent with the preference itself.
+  const [chosenEditor, setChosenEditor] = useState<string | null>(null);
+  const [detectedEditors, setDetectedEditors] = useState<DetectedEditor[]>([]);
+  const [pickerFor, setPickerFor] = useState<{ name: string; path: string } | null>(null);
+  const [editorNotice, setEditorNotice] = useState<string | null>(null);
+  // Every editor the capability permits, installed or not. `detect_editors`
+  // returns only the installed ones, so this second command is what makes
+  // "Choose an app…" able to accept an editor the user installed after
+  // launch, without duplicating the backend's table in TypeScript.
+  const [knownEditorNames, setKnownEditorNames] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    invoke<string | null>("get_preference", { key: "editor_app" })
+      .then((v) => setChosenEditor(v ?? null))
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    invoke<string[]>("known_editor_names")
+      .then((names) => setKnownEditorNames(new Set(names)))
+      .catch(() => {});
+  }, []);
+
+  // Settings' own Editor row needs the detected list too, refreshed on open
+  // so it reflects an app installed since launch. `?? []` guards a command
+  // that resolves rather than rejects with nothing (a test double, or a
+  // backend hiccup) from handing EditorSetting a null `editors.length`.
+  useEffect(() => {
+    if (!showSettingsModal) return;
+    invoke<DetectedEditor[]>("detect_editors")
+      .then((found) => setDetectedEditors(found ?? []))
+      .catch(() => {});
+  }, [showSettingsModal]);
+
+  // Shared by the steady-state open (the cap's plain click, every open after
+  // the first) and applyEditorChoice's first-use/Option-picker open — a
+  // whole-branch review found three duplicated lines of this between them
+  // (Tasks 5 and 7), and the steady-state copy had also dropped the
+  // `.then` entirely, discarding a genuine `{ok:false}` on the most common
+  // path through this code. Clears any stale notice at the start of every
+  // attempt: a fresh attempt is "the user acting again", one of the two
+  // points a notice stops being true (the other is `onCancel`/dismissal on
+  // the toast itself, and success below).
+  const attemptOpen = async (target: string, name: string) => {
+    setEditorNotice(null);
+    const result = await openInEditor(target, name);
+    if (!result.ok) {
+      setEditorNotice(
+        result.reason === "missing"
+          ? `Hanger couldn't find ${target}.`
+          : `Hanger couldn't open ${target} in ${name}.`
+      );
+    }
+  };
+
+  const applyEditorChoice = (name: string, remember: boolean, target: string) => {
+    setPickerFor(null);
+    if (remember) {
+      setChosenEditor(name);
+      invoke("set_preference", { key: "editor_app", value: name }).catch(() => {});
+    }
+    // Settings has no asset in hand -- choosing there sets the default and
+    // opens nothing. Only the picker, which is opened against a specific
+    // asset, has a target to launch.
+    if (!target) return;
+    attemptOpen(target, name);
+  };
+
+  const chooseOtherApp = async () => {
+    const target = pickerFor?.path ?? "";
+    // Mirrors the checkbox default just below (`defaultRemember={!chosenEditor}`
+    // on the EditorPicker): when this fires from the picker's editors-empty
+    // branch, where no checkbox is even rendered to ask, it still has to obey
+    // the same first-use-remembers / Option-route-doesn't split — hard-coding
+    // true here silently overrode a deliberately unticked Option route. Settings'
+    // own "Choose an app…" (pickerFor null, no target) has no route to follow;
+    // it is always setting the default, so it always remembers.
+    const remember = pickerFor ? !chosenEditor : true;
+    const picked = await open({
+      title: "Choose an app",
+      directory: false,
+      filters: [{ name: "Applications", extensions: ["app"] }],
+    });
+    if (typeof picked !== "string") return;
+    const name = picked.split("/").pop()?.replace(/\.app$/, "") ?? "";
+    if (!knownEditorNames.has(name)) {
+      setPickerFor(null);
+      setEditorNotice(`Hanger can't open assets in ${name} yet.`);
+      return;
+    }
+    applyEditorChoice(name, remember, target);
+  };
 
   /* Ask what is running the first time the user looks at Tools, and never
      before. Failure is silent on purpose: running state enriches the view,
@@ -1289,7 +1411,7 @@ export default function App() {
     // drag is running has to live somewhere the whole document can see: the
     // cursor must stay `col-resize` and text must stop selecting until the
     // mouse comes up. Same mechanism the source list already uses
-    // (`body[data-resizing-sidebar]`, `src/styles/index.css`).
+    // (the source list did the same until its width transition went, 2026-08-29).
     document.body.setAttribute("data-resizing-inspector", "");
     const dragRoom = measureRoom();
     // The width the pointer is asking for is its distance from the window's
@@ -1333,6 +1455,16 @@ export default function App() {
   // One derivation feeds the rail badge, the review filter list and the pane,
   // so the three can never disagree about what needs a decision.
   const review = deriveReviewIssues(inventory);
+  /* The category ProfilePane is actually showing. It comes from the sidebar
+     item when the rail carries one and from the facet chip otherwise — the
+     same either/or `lookingAtTools` above already reconciles — so the review
+     pill's lines follow the tab the way its old count did. */
+  const profileActiveCategory = selectedSidebarItem.includes(":")
+    ? selectedSidebarItem.split(":")[1]
+    : profileCategory;
+  /* The repository RepoPane is showing, bound once: it keys both the pane's
+     own root and the issues filtered to it (`placeKey`, reviewIssues.ts). */
+  const repoPaneRoot = selectedSidebarItem.split(":")[0];
   const reviewShown = review.issues.filter((issue) =>
     matchesIssueFilter(issue, reviewKind, reviewPlace)
   );
@@ -1379,9 +1511,19 @@ export default function App() {
     selectedAsset && selectedAsset.category !== "Agents" && selectedAsset.category !== "Subagents"
       ? () => handleLinkAsset(selectedAsset)
       : undefined;
+  // The asset's own path, not the document the inspector happens to be
+  // showing: for a skill those differ (folder vs SKILL.md), and for a tool
+  // the stored path is a registration key, not a path at all.
+  const openTargetForCap = selectedAsset ? assetOpenTarget(selectedAsset) : "";
   const onOpenInEditorForCap = selectedAsset
-    ? () => {
-        openPath(inspectorShownPath).catch(() => {});
+    ? async () => {
+        if (chosenEditor) {
+          await attemptOpen(openTargetForCap, chosenEditor);
+          return;
+        }
+        const found = await invoke<DetectedEditor[]>("detect_editors").catch(() => []);
+        setDetectedEditors(found ?? []);
+        setPickerFor({ name: selectedAsset.name, path: openTargetForCap });
       }
     : undefined;
   const onCopyPathForCap = selectedAsset
@@ -1394,7 +1536,10 @@ export default function App() {
         revealItemInDir(parentDirOf(inspectorShownPath)).catch(() => {});
       }
     : undefined;
-  const onReviewForCap = (issue: ReviewIssue) => {
+  /* The route to Needs review, from the inspector cap's chip and from either
+     pane's review pill. Nullable because a pill can open on findings that are
+     not issues at all — a scan warning has no row to select. */
+  const routeToReview = (issue: ReviewIssue | null) => {
     handleSelectSidebarItem("review");
     invoke("set_preference", { key: "selected_sidebar_item", value: "review" }).catch(() => {});
     // Decision 7: the route clears any standing kind/place filter, not just
@@ -1402,7 +1547,7 @@ export default function App() {
     // can filter the routed-to issue straight back out of the list.
     setReviewKind(null);
     setReviewPlace(null);
-    setSelectedIssue(issue);
+    if (issue) setSelectedIssue(issue);
   };
 
   // Crumb never shows a filesystem path — folder names only.
@@ -1435,11 +1580,9 @@ export default function App() {
      ProfilePane and RepoPane are never shown together, so there is no case
      where the wrong one's stale state could leak through. */
   const inspectorScope = crumbSegments[crumbSegments.length - 1];
-  /* The same test that already picks `repoCategory` vs `profileCategory`
-     below, named and reused rather than inlined a third time: Flyout's
-     McpEngineSummary is a machine-wide read (fix round 1, item 5) and must
-     not render under a repository's own heading, so it needs to know which
-     pane it is in on top of the category filter it already gets. */
+  /* Whether the pane showing the inspector is a repository, not the global
+     store — picks `repoCategory` vs `profileCategory` for the inspector's
+     own active-category filter below. */
   const inspectorIsRepoScope = selectedSidebarItem.startsWith("/") || selectedSidebarItem.startsWith("~");
   const inspectorActiveCategory = inspectorIsRepoScope ? repoCategory : profileCategory;
 
@@ -1451,6 +1594,10 @@ export default function App() {
      two, and never none. */
   const mainLeads = selectedSidebarItem === "linkmap" || sidebarCollapsed;
   const asideLeads = inspectorExpanded && sidebarCollapsed;
+  /* Which column ends the window — the lead, mirrored: the inspector
+     whenever it renders (beside <main> or expanded over it), otherwise
+     <main>. Never the source list; a content column always follows it. */
+  const mainTrails = !inspectorRenders;
   /* The sheet: a column's --page ground, starting under the 36px cap (every
      cap's h-9) rather than behind it, with the --line border along its top.
      The column itself paints --sidebar, once; the sheet sits above that
@@ -1459,9 +1606,13 @@ export default function App() {
      it twice — a full-width band under the columns did, and the double
      tint read as a seam at the rail (2026-08-28). The leading column adds
      the left edge and the 16px corner — the same treatment SourceListShell
-     gives the source list. */
-  const sheetClass = (leads: boolean) =>
-    `absolute inset-x-0 top-9 bottom-0 -z-10 bg-page border-t border-line ${leads ? "border-l rounded-tl-plane" : ""}`;
+     gives the source list — and the trailing column adds the right edge
+     and its corner the same way (Karthik, 2026-08-29: "follow the same
+     aspect of how we did it before"). That right edge sits on the window's
+     last pixel column, where index.html's #win-border already paints the
+     1px window line, so along the straight run the two coincide. */
+  const sheetClass = (leads: boolean, trails: boolean) =>
+    `absolute inset-x-0 top-9 bottom-0 -z-10 bg-page border-t border-line ${leads ? "border-l rounded-tl-plane" : ""} ${trails ? "border-r rounded-tr-plane" : ""}`;
 
   return (
     // Provides the origin of the current selection — a row click vs. a
@@ -1479,7 +1630,13 @@ export default function App() {
           56px rail on purpose — the toggle must stay reachable to reopen. */}
       <div
         data-rail-column
-        className="shrink-0 h-full bg-sidebar flex flex-col min-h-0 transition-[width] duration-nav"
+        /* No width transition. It animated the collapse over 240ms while the
+           sheet's corner changed owner at t=0, so the corner popped off the
+           rail, travelled with <main>'s edge and popped back — and every frame
+           re-laid out the content column (~230ms of renderer CPU per toggle,
+           measured 2026-08-29). Instant: one state change, one layout, the
+           corner never leaves the rail. Karthik's ruling, 2026-08-29. */
+        className="shrink-0 h-full bg-sidebar flex flex-col min-h-0"
         style={{
           width:
             56 +
@@ -1659,7 +1816,7 @@ export default function App() {
       </div>
 
       <main ref={mainRef} className={`${inspectorExpanded ? "hidden" : "flex-1 flex flex-col min-w-0 h-full relative overflow-hidden bg-sidebar isolate"}`}>
-        <div data-testid="content-sheet" aria-hidden="true" className={sheetClass(mainLeads)} />
+        <div data-testid="content-sheet" aria-hidden="true" className={sheetClass(mainLeads, mainTrails)} />
         {/* Content cap: the trailing controls only — the breadcrumb sits in
             the sidebar cap since 2026-08-28, so it does not move with this
             column. A <header> on purpose — it is the content column's banner,
@@ -1756,6 +1913,12 @@ export default function App() {
               onSelectAsset={handleSelectAsset}
               onLinkAsset={handleLinkAsset}
               onCategoryChange={(c) => setProfileCategory(c)}
+              hostsBandOpen={hostsBandOpen}
+              onToggleHostsBand={toggleHostsBand}
+              issues={review.issues.filter(
+                (i) => i.whereKeys.includes("global") && (profileActiveCategory === null || i.category === profileActiveCategory)
+              )}
+              onReview={routeToReview}
               unaccountedProcesses={unaccountedProcesses(mcpProcesses ?? undefined)}
               mcpServers={mcpServers}
               mcpEngineSummary={mcpEngineSummary}
@@ -1856,7 +2019,7 @@ export default function App() {
 
           {(selectedSidebarItem.startsWith("/") || selectedSidebarItem.startsWith("~")) && (
             <RepoPane
-              repoPath={selectedSidebarItem.split(":")[0]}
+              repoPath={repoPaneRoot}
               selectedCategory={
                 selectedSidebarItem.includes(":")
                   ? (selectedSidebarItem.split(":")[1] as any)
@@ -1878,6 +2041,10 @@ export default function App() {
               onLinkFromProfile={handleLinkFromProfile}
               linkedRepos={linkedDirectories}
               onPromoteCandidates={(candidates) => setPromoteCandidates(candidates)}
+              enginesBandOpen={enginesBandOpen}
+              onToggleEnginesBand={toggleEnginesBand}
+              issues={review.issues.filter((i) => i.whereKeys.includes(repoPaneRoot))}
+              onReview={routeToReview}
             />
           )}
             </div>
@@ -1922,7 +2089,7 @@ export default function App() {
              there would run up through the cap band. */
           className={`shrink-0 h-full min-h-0 bg-sidebar isolate flex flex-col relative ${inspectorExpanded ? "flex-1" : "border-l border-line"}`}
         >
-          <div data-testid="inspector-sheet" aria-hidden="true" className={sheetClass(asideLeads)} />
+          <div data-testid="inspector-sheet" aria-hidden="true" className={sheetClass(asideLeads, /* the inspector always ends the window */ true)} />
           {/* Rendered in both states on purpose: expanded, the panel already
               starts at the main column's left edge, so the handle sits where
               it always did and is the way back out of the expanded state. */}
@@ -1954,9 +2121,19 @@ export default function App() {
               clampTo={asideRef}
               onLink={onLinkForCap}
               onOpenInEditor={onOpenInEditorForCap}
+              chosenEditor={chosenEditor}
+              onPickEditor={
+                selectedAsset
+                  ? async () => {
+                      const found = await invoke<DetectedEditor[]>("detect_editors").catch(() => []);
+                      setDetectedEditors(found ?? []);
+                      setPickerFor({ name: selectedAsset.name, path: openTargetForCap });
+                    }
+                  : undefined
+              }
               onCopyPath={onCopyPathForCap}
               onReveal={onRevealForCap}
-              onReview={onReviewForCap}
+              onReview={routeToReview}
               onToggleExpanded={toggleInspectorExpanded}
               onToggleInspector={toggleInspector}
             />
@@ -1996,7 +2173,6 @@ export default function App() {
                 onRefresh={triggerScan}
                 activeCategory={inspectorActiveCategory}
                 paneScope={inspectorScope}
-                isRepoScope={inspectorIsRepoScope}
                 onAssetDocumentPath={setInspectorDocumentPath}
                 /* The inspector's tab is remembered between assets and
                    forgotten between screens; this is the screen. */
@@ -2014,6 +2190,51 @@ export default function App() {
         onClose={() => setSearchOpen(false)}
         onPick={openSearchHit}
       />
+
+      {pickerFor && (
+        <EditorPicker
+          assetName={pickerFor.name}
+          editors={detectedEditors}
+          onPick={(name, remember) => applyEditorChoice(name, remember, pickerFor.path)}
+          onChooseOther={chooseOtherApp}
+          onCancel={() => setPickerFor(null)}
+          /* First use (no editor chosen yet): ticked, remembering is the
+             expected outcome. The Option route (an editor already chosen,
+             opened for a one-off elsewhere): unticked, so ticking it is an
+             explicit choice to change the default rather than the assumed
+             one. Karthik's ruling, 2026-08-29. */
+          defaultRemember={!chosenEditor}
+        />
+      )}
+
+      {/* A launch failure can originate from the cap on any screen, with
+          Settings closed -- the common case, since the plain click is the
+          steady-state open. The plan had this banner rendered only inside
+          the Settings modal's own conditional, so a failure there was never
+          seen at all outside Settings. A fixed toast, z above the modal's
+          z-[100], is reachable from wherever the app is and stays visible if
+          Settings is opened afterward too. */}
+      {editorNotice && (
+        <div className="fixed inset-x-0 bottom-4 z-[110] flex justify-center px-4 pointer-events-none font-sans">
+          <div className="w-full max-w-md flex items-start gap-2 pointer-events-auto animate-rise">
+            <div className="flex-1 min-w-0">
+              <DisclosureBanner variant="info" summary={editorNotice}>
+                <span className={captionClass}>
+                  Choose a different editor in Settings, or reveal it in Finder instead.
+                </span>
+              </DisclosureBanner>
+            </div>
+            <button
+              type="button"
+              aria-label="Dismiss"
+              onClick={() => setEditorNotice(null)}
+              className="w-[27px] h-[27px] shrink-0 rounded-pill grid place-items-center text-ink-3 hover:text-ink-1 hover:bg-plane-2 transition-colors duration-hover ease-spring cursor-pointer"
+            >
+              <XMarkIcon size={14} />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Settings Modal Overlay */}
       {showSettingsModal && (
@@ -2158,6 +2379,16 @@ export default function App() {
                   ))}
                 </div>
               </div>
+
+              <EditorSetting
+                editors={detectedEditors}
+                chosen={chosenEditor}
+                onChoose={(name) => {
+                  setChosenEditor(name);
+                  invoke("set_preference", { key: "editor_app", value: name }).catch(() => {});
+                }}
+                onChooseOther={chooseOtherApp}
+              />
 
               <div className="border-t border-line pt-4 mt-2 flex flex-col gap-3">
                 <span className="text-micro font-medium uppercase tracking-[.06em] text-ink-3 font-flex">

@@ -304,7 +304,7 @@ export default function LinkMapPlacecard({
           {findings.length > 0 && (
             <FindingChip
               severity={findingSeverity}
-              lines={findings}
+              lines={findings.map((text) => ({ severity: findingSeverity, text }))}
               onReview={onReview}
               elevated={false}
               clampTo={cardRef}

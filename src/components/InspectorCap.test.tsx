@@ -101,6 +101,28 @@ describe("InspectorCap", () => {
     expect(pop.querySelector("li")?.textContent).toBe("Target missing");
   });
 
+  /* Important 1 (final review, 2026-08-28): the chip took ONE severity for
+     every line. `AssetFindings.severity` is the asset's AGGREGATE — danger
+     if ANY issue is broken-or-parse — so an asset
+     holding a broken link and a drifted copy painted both dots danger,
+     while the hero pill, which severities each issue on its own, painted
+     the drifted one warning. Two surfaces, one issue, two colours.
+
+     Wrong implementation this catches: passing the aggregate down to every
+     line (`lines.map((text) => ({ severity, text }))`), which makes the
+     second dot danger. */
+  it("severities each popover line on its own issue, not on the asset's aggregate", () => {
+    const broken = makeIssue({ id: "Skills:broken:/a", kind: "broken", problem: "Target missing" });
+    const drifted = makeIssue({ id: "Skills:drifted:/b", kind: "drifted", problem: "Copy has diverged" });
+    renderCap({ findings: { issues: [broken, drifted], count: 2, severity: "danger" } });
+    fireEvent.click(screen.getByRole("button", { name: "2 flagged" }));
+    const lines = screen.getAllByTestId("finding-popover-line");
+    expect(lines[0].textContent).toBe("Target missing");
+    expect(lines[0].querySelector("i")!.className).toContain("bg-state-danger");
+    expect(lines[1].textContent).toBe("Copy has diverged");
+    expect(lines[1].querySelector("i")!.className).toContain("bg-state-warning");
+  });
+
   it("routes the chip's Needs review action to onReview with the first issue", () => {
     const { onReview } = renderCap({ findings: ONE_FINDING });
     fireEvent.click(screen.getByRole("button", { name: "1 flagged" }));
@@ -378,5 +400,51 @@ describe("InspectorCap", () => {
       .getAllByRole("menuitem")
       .map((b) => b.textContent);
     expect(items).toEqual(["Link to…", "Needs review · 1", "Copy path", "Reveal in Finder", "Open in editor"]);
+  });
+
+  it("names the chosen editor in the menu row", () => {
+    renderCap({ chosenEditor: "Cursor" });
+    fireEvent.click(screen.getByRole("button", { name: "More actions" }));
+    expect(screen.getByRole("menuitem", { name: "Open in Cursor" })).toBeTruthy();
+  });
+
+  it("falls back to a generic label when no editor is chosen", () => {
+    renderCap({ chosenEditor: null });
+    fireEvent.click(screen.getByRole("button", { name: "More actions" }));
+    expect(screen.getByRole("menuitem", { name: "Open in editor" })).toBeTruthy();
+  });
+
+  it("swaps to Open in… while Option is held", () => {
+    renderCap({ chosenEditor: "Cursor", onPickEditor: vi.fn() });
+    fireEvent.click(screen.getByRole("button", { name: "More actions" }));
+    fireEvent.keyDown(window, { key: "Alt", altKey: true });
+    expect(screen.getByRole("menuitem", { name: "Open in…" })).toBeTruthy();
+  });
+
+  it("routes an Option-held click to the picker, not the direct open", () => {
+    const onPickEditor = vi.fn();
+    const cb = renderCap({ chosenEditor: "Cursor", onPickEditor });
+    fireEvent.click(screen.getByRole("button", { name: "More actions" }));
+    fireEvent.keyDown(window, { key: "Alt", altKey: true });
+    fireEvent.click(screen.getByRole("menuitem", { name: "Open in…" }));
+    expect(onPickEditor).toHaveBeenCalledTimes(1);
+    expect(cb.onOpenInEditor).not.toHaveBeenCalled();
+  });
+
+  it("clears the Option state when the window loses focus mid-hold", () => {
+    renderCap({ chosenEditor: "Cursor", onPickEditor: vi.fn() });
+    fireEvent.click(screen.getByRole("button", { name: "More actions" }));
+    fireEvent.keyDown(window, { key: "Alt", altKey: true });
+    fireEvent.blur(window);
+    expect(screen.getByRole("menuitem", { name: "Open in Cursor" })).toBeTruthy();
+  });
+
+  it("returns to the chosen editor when Option is released", () => {
+    renderCap({ chosenEditor: "Cursor", onPickEditor: vi.fn() });
+    fireEvent.click(screen.getByRole("button", { name: "More actions" }));
+    fireEvent.keyDown(window, { key: "Alt", altKey: true });
+    expect(screen.getByRole("menuitem", { name: "Open in…" })).toBeTruthy();
+    fireEvent.keyUp(window, { key: "Alt", altKey: false });
+    expect(screen.getByRole("menuitem", { name: "Open in Cursor" })).toBeTruthy();
   });
 });

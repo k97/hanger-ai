@@ -63,6 +63,9 @@ in `src/App.tsx`, persisted as the `selected_sidebar_item` preference.
 - [Known debt](.claude/rules/known-debt.md) — open items to know before
   touching counting, scan warnings, or diagnostics UI; the DisclosureBanner
   rule.
+- [Tauri opener](.claude/rules/tauri-opener.md) — `openPath`'s two silent
+  failures: the capability refuses a named app unless it is allowlisted, and
+  the existence check is skipped once one is.
 
 Queued work with a defined finish line lives in [docs/TODO.md](docs/TODO.md).
 

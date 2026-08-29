@@ -1,0 +1,218 @@
+use tauri_app_lib::editors::{KNOWN_EDITORS, editor_name_for_bundle_id};
+
+#[test]
+fn table_has_no_duplicate_bundle_ids() {
+    let mut seen = std::collections::HashSet::new();
+    for editor in KNOWN_EDITORS {
+        for id in editor.bundle_ids {
+            assert!(seen.insert(*id), "bundle id {id} appears twice in KNOWN_EDITORS");
+        }
+    }
+}
+
+#[test]
+fn table_has_no_duplicate_names() {
+    let mut seen = std::collections::HashSet::new();
+    for editor in KNOWN_EDITORS {
+        assert!(seen.insert(editor.name), "name {} appears twice", editor.name);
+    }
+}
+
+#[test]
+fn every_entry_has_at_least_one_bundle_id() {
+    for editor in KNOWN_EDITORS {
+        assert!(!editor.bundle_ids.is_empty(), "{} has no bundle id", editor.name);
+    }
+}
+
+/// Terminal editors cannot be launched by a GUI app: they need a tty, and
+/// `open -a` gives them none, so they start invisibly and never show a
+/// window. An entry for one is a menu item that silently does nothing.
+#[test]
+fn table_excludes_terminal_only_editors() {
+    for banned in ["Neovim", "Vim", "Helix", "Emacs"] {
+        assert!(
+            !KNOWN_EDITORS.iter().any(|e| e.name == banned),
+            "{banned} is a terminal editor and cannot be launched with `open -a`"
+        );
+    }
+}
+
+#[test]
+fn lookup_maps_a_known_bundle_id_to_its_display_name() {
+    assert_eq!(editor_name_for_bundle_id("com.microsoft.VSCode"), Some("Visual Studio Code"));
+}
+
+#[test]
+fn lookup_returns_none_for_an_unknown_bundle_id() {
+    assert_eq!(editor_name_for_bundle_id("com.example.NotAnEditor"), None);
+}
+
+/// Not an assertion about THIS machine's editors — that would be a fact about
+/// one Mac, which `design-for-any-machine` forbids designing from. It asserts
+/// the shape: whatever comes back is well-formed and consistent with the table.
+#[test]
+fn detection_returns_well_formed_rows() {
+    let found = tauri_app_lib::editors::detect();
+    for editor in &found {
+        assert!(!editor.path.is_empty(), "{} resolved to an empty path", editor.name);
+        assert!(std::path::Path::new(&editor.path).exists(), "{} does not exist", editor.path);
+        assert_eq!(
+            tauri_app_lib::editors::editor_name_for_bundle_id(&editor.bundle_id),
+            Some(editor.name.as_str()),
+            "detection returned a name the table does not agree with"
+        );
+    }
+}
+
+/// The guard above is a loop; on a machine with none of the table's editors
+/// installed it would pass having asserted nothing. This names that state
+/// instead of hiding it: detection must at least RUN and return a vector
+/// whose length never exceeds the table it is drawn from.
+#[test]
+fn detection_never_returns_more_rows_than_the_table_has() {
+    let found = tauri_app_lib::editors::detect();
+    assert!(
+        found.len() <= KNOWN_EDITORS.len(),
+        "detect() returned {} rows from a {}-entry table",
+        found.len(),
+        KNOWN_EDITORS.len()
+    );
+}
+
+use std::collections::HashSet;
+
+/// The capability file is static config; the table is code. Nothing links
+/// them, so they drift — and drift here is SILENT: an editor missing from the
+/// capability is offered in the picker, chosen, and then refused by the scope
+/// with the rejection swallowed frontend-side. This guard is the link.
+///
+/// It must be able to fail. Delete any entry from the capability's `allow`
+/// list and this test goes red; that is the check to run before trusting it.
+#[test]
+fn every_known_editor_is_allowed_by_the_capability() {
+    let raw = std::fs::read_to_string(
+        concat!(env!("CARGO_MANIFEST_DIR"), "/capabilities/default.json"),
+    )
+    .expect("capabilities/default.json must be readable");
+    let parsed: serde_json::Value = serde_json::from_str(&raw).expect("valid JSON");
+
+    let mut allowed: HashSet<String> = HashSet::new();
+    for permission in parsed["permissions"].as_array().expect("permissions array") {
+        if permission["identifier"] == "opener:allow-open-path" {
+            for entry in permission["allow"].as_array().expect("allow array") {
+                if let Some(app) = entry["app"].as_str() {
+                    allowed.insert(app.to_string());
+                }
+            }
+        }
+    }
+
+    for editor in KNOWN_EDITORS {
+        assert!(
+            allowed.contains(editor.name),
+            "{} is in KNOWN_EDITORS but not allowed by capabilities/default.json — \
+             it would be offered in the picker and then silently refused",
+            editor.name
+        );
+    }
+}
+
+/// The mirror: an allowlist entry with no table row is a permission granted
+/// for nothing, and usually means an editor was renamed on one side only.
+#[test]
+fn the_capability_allows_no_editor_the_table_does_not_know() {
+    let raw = std::fs::read_to_string(
+        concat!(env!("CARGO_MANIFEST_DIR"), "/capabilities/default.json"),
+    )
+    .expect("capabilities/default.json must be readable");
+    let parsed: serde_json::Value = serde_json::from_str(&raw).expect("valid JSON");
+
+    let known: HashSet<&str> = KNOWN_EDITORS.iter().map(|e| e.name).collect();
+    for permission in parsed["permissions"].as_array().expect("permissions array") {
+        if permission["identifier"] == "opener:allow-open-path" {
+            for entry in permission["allow"].as_array().expect("allow array") {
+                if let Some(app) = entry["app"].as_str() {
+                    assert!(known.contains(app), "capability allows {app}, which is not in KNOWN_EDITORS");
+                }
+            }
+        }
+    }
+}
+
+/// Every Hanger asset lives under a dot-directory — `~/.agents/skills`,
+/// `~/.claude`, `~/.codex`, `~/.mcp.json`, and a project's own `.claude/`.
+///
+/// `tauri/src/scope/fs.rs:215-225` defaults `require_literal_leading_dot` to
+/// **true on unix** when the opener plugin carries no config, and with that
+/// flag `$HOME/**` matches no path containing a dot component. So the
+/// capability silently refused every open — the original "Open in editor does
+/// nothing", and then "Hanger couldn't open …" once failures were surfaced
+/// (2026-08-29, reported against the running app).
+///
+/// This pins the config that turns it off. Delete the `plugins.opener` block
+/// from `tauri.conf.json` and this test reddens.
+#[test]
+fn the_opener_scope_reaches_dot_directories() {
+    let raw = std::fs::read_to_string(
+        concat!(env!("CARGO_MANIFEST_DIR"), "/tauri.conf.json"),
+    )
+    .expect("tauri.conf.json must be readable");
+    let conf: serde_json::Value = serde_json::from_str(&raw).expect("valid JSON");
+
+    let literal_dot = conf["plugins"]["opener"]["requireLiteralLeadingDot"].as_bool();
+    assert_eq!(
+        literal_dot,
+        Some(false),
+        "plugins.opener.requireLiteralLeadingDot must be false — Tauri defaults it to true on \
+         unix, and every Hanger asset path contains a dot component, so the opener scope \
+         refuses all of them"
+    );
+
+    // The property that setting actually buys, asserted positively against the
+    // same glob options Tauri builds (`fs.rs:235-241`).
+    let pattern = glob::Pattern::new("/Users/someone/**").expect("valid glob");
+    let options = glob::MatchOptions {
+        require_literal_separator: true,
+        require_literal_leading_dot: literal_dot.unwrap_or(true),
+        ..Default::default()
+    };
+    for path in [
+        "/Users/someone/.agents/skills/animation-vocabulary",
+        "/Users/someone/.claude/skills/some-skill",
+        "/Users/someone/.mcp.json",
+        "/Users/someone/Work/project/.claude/rules/a-rule.md",
+    ] {
+        assert!(
+            pattern.matches_with(path, options),
+            "the opener scope would refuse {path}"
+        );
+    }
+}
+
+/// `open -a <name>` resolves by the app's `.app` filename, and the opener
+/// capability compares that same string byte-for-byte (`scope.rs:67`). So a
+/// table `name` that does not match the bundle is a menu item that silently
+/// does nothing — the failure mode this whole feature exists to remove.
+///
+/// This can only check what the developer actually has installed, which is
+/// the honest limit: it cannot prove the other entries right, but it catches
+/// a wrong one the moment someone with that editor runs the suite. GitHub
+/// Desktop's own list carries at least one such mismatch (`IntelliJ` against
+/// `IntelliJ IDEA.app`), which is why the entries above are not copied from
+/// it verbatim.
+#[test]
+fn every_table_name_matches_the_installed_app() {
+    for found in tauri_app_lib::editors::detect() {
+        let stem = std::path::Path::new(&found.path)
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or_default();
+        assert_eq!(
+            stem, found.name,
+            "table calls {} \"{}\" but the installed app is \"{}.app\" — `open -a \"{}\"` \
+             would not resolve, and the capability would refuse it",
+            found.bundle_id, found.name, stem, found.name
+        );
+    }
+}

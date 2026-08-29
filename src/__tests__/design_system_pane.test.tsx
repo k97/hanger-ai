@@ -17,6 +17,7 @@ vi.mock("@tauri-apps/api/event", () => ({
  *  that is the omission this pins, and the reason the list is explicit. */
 const INVENTORY = [
   "SummaryStrip",
+  "ReviewPillActions",
   "GelMeter",
   "MechanismGlyph",
   "EngineReachTiles",
@@ -35,12 +36,13 @@ const INVENTORY = [
   "InfoPopover",
   "Mini button",
   "FindingChip",
+  "FindingPopover",
   "InspectorCap",
   "ListCard · ListCardRow",
   "ReachCard",
   "OriginValue",
   "ScanStamp",
-  "McpEngineSummary",
+  "HeroBand",
   "SearchPalette",
 ];
 

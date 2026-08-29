@@ -5,7 +5,7 @@ import OverflowMenu, { menuActionClass, MenuSeparator } from "./OverflowMenu";
 import { miniBtnFillClass } from "./miniButton";
 import { kindLabel } from "../utils/assetProvenance";
 import { captionClass } from "./typeRoles";
-import type { AssetFindings, IssueCategory, ReviewIssue } from "../utils/reviewIssues";
+import { issueSeverity, type AssetFindings, type IssueCategory, type ReviewIssue } from "../utils/reviewIssues";
 import {
   CollapseIcon,
   DocumentTextIcon,
@@ -85,6 +85,10 @@ export interface InspectorCapProps {
    *  both disappear, the same way `Flyout.tsx` decides today. */
   onLink?: () => void;
   onOpenInEditor?: () => void;
+  /** The remembered editor's name, or null before one is chosen. */
+  chosenEditor?: string | null;
+  /** Opens the picker for one asset without changing the default. */
+  onPickEditor?: () => void;
   onCopyPath?: () => void;
   onReveal?: () => void;
   onReview: (issue: ReviewIssue) => void;
@@ -125,6 +129,8 @@ export default function InspectorCap({
   clampTo,
   onLink,
   onOpenInEditor,
+  chosenEditor,
+  onPickEditor,
   onCopyPath,
   onReveal,
   onReview,
@@ -134,6 +140,30 @@ export default function InspectorCap({
 }: InspectorCapProps) {
   const rowRef = useRef<HTMLDivElement>(null);
   const [autoShed, setAutoShed] = useState<0 | 1 | 2>(0);
+  // Finder's own string table swaps `Open With` and `Always Open With` on
+  // Option (N152/N161) so Option makes the choice permanent. Hanger inverts
+  // it: the remembered editor is already the default action, so Option
+  // reaches the picker for a one-off instead. `keydown`/`keyup` alone miss a
+  // window that loses focus mid-hold (a Cmd+Tab away and back), so blur
+  // clears it too.
+  const [optionHeld, setOptionHeld] = useState(false);
+  useEffect(() => {
+    const down = (e: KeyboardEvent) => {
+      if (e.altKey) setOptionHeld(true);
+    };
+    const up = (e: KeyboardEvent) => {
+      if (!e.altKey) setOptionHeld(false);
+    };
+    const clear = () => setOptionHeld(false);
+    window.addEventListener("keydown", down);
+    window.addEventListener("keyup", up);
+    window.addEventListener("blur", clear);
+    return () => {
+      window.removeEventListener("keydown", down);
+      window.removeEventListener("keyup", up);
+      window.removeEventListener("blur", clear);
+    };
+  }, []);
   // An asset with no overflow destination cannot shed (Decision 4): a server
   // has no path to copy, nowhere to reveal, nothing to open, nothing to
   // link, so pinning it to 0 overrides both the measured and forced shed
@@ -238,7 +268,7 @@ export default function InspectorCap({
         <div className="shrink-0 relative inline-flex">
           <FindingChip
             severity={findings.severity}
-            lines={findings.issues.map((issue) => issue.problem)}
+            lines={findings.issues.map((issue) => ({ severity: issueSeverity(issue), text: issue.problem }))}
             onReview={() => onReview(findings.issues[0])}
             elevated
             clampTo={clampTo}
@@ -341,13 +371,20 @@ export default function InspectorCap({
                     type="button"
                     role="menuitem"
                     onClick={() => {
-                      onOpenInEditor();
+                      if (optionHeld && onPickEditor) onPickEditor();
+                      else onOpenInEditor();
                       close();
                     }}
                     className={menuActionClass}
                   >
                     <PencilSquareIcon size={14} aria-hidden="true" className="text-ink-3" />
-                    <span>Open in editor</span>
+                    <span>
+                      {optionHeld && onPickEditor
+                        ? "Open in…"
+                        : chosenEditor
+                        ? `Open in ${chosenEditor}`
+                        : "Open in editor"}
+                    </span>
                   </button>
                 )}
               </>

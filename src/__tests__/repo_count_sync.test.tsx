@@ -106,7 +106,7 @@ describe("Per-repository count synchronization", () => {
     expect(screen.getByText("Subagents · 2")).toBeTruthy();
   });
 
-  it("RepoPane renders engine breakdown section from assetCounts.engines including Any agent bucket", () => {
+  it("RepoPane renders the engine breakdown as the hero band, including the Any agent bucket", () => {
     const mockCounts: CategoryCounts = {
       total: 261,
       byCategory: {
@@ -122,7 +122,7 @@ describe("Per-repository count synchronization", () => {
       },
     };
 
-    const { container } = render(
+    render(
       <RepoPane
         repoPath="/project"
         inventory={fixtureInventory}
@@ -131,28 +131,28 @@ describe("Per-repository count synchronization", () => {
         onRefresh={() => {}}
         onSelectAsset={() => {}}
         onLinkFromProfile={() => {}}
+        enginesBandOpen
+        onToggleEnginesBand={() => {}}
       />
     );
 
-    expect(screen.getByText("Engines")).toBeTruthy();
-    expect(screen.getByText("Claude Code 200")).toBeTruthy();
-    expect(screen.getByText("Cursor 17")).toBeTruthy();
-    expect(screen.getByText("Any agent 44")).toBeTruthy();
+    // The standalone Engines line is gone; the breakdown is the hero's band.
+    expect(screen.queryByText("Engines")).toBeNull();
+    expect(screen.getByTestId("hero-band-toggle").textContent).toContain("By engine");
 
-    // Paired with the label above: the mark beside "Claude Code 200" must
-    // resolve to that engine specifically, not just be present.
-    const claudeEntry = screen.getByText("Claude Code 200");
-    expect(claudeEntry.parentElement?.querySelector("svg")?.getAttribute("data-brand")).toBe("claude_code");
+    const claude = screen.getByTestId("hero-band-row-Claude Code");
+    expect(claude.textContent).toContain("Claude Code");
+    expect(claude.textContent).toContain("200");
+    expect(screen.getByTestId("hero-band-row-Cursor").textContent).toContain("17");
+    expect(screen.getByTestId("hero-band-row-none").textContent).toContain("Any agent");
+    expect(screen.getByTestId("hero-band-row-none").textContent).toContain("44");
 
-    const headings = Array.from(container.querySelectorAll("h3")).map((h) => h.textContent?.trim());
-    const enginesIndex = headings.findIndex((h) => h === "Engines");
-    const skillsIndex = headings.findIndex((h) => h?.startsWith("Skills"));
-    expect(enginesIndex).toBeGreaterThan(-1);
-    expect(skillsIndex).toBeGreaterThan(-1);
-    expect(enginesIndex).toBeLessThan(skillsIndex);
+    // Paired with the label: the mark in the Claude Code row must resolve to
+    // that engine specifically, not just be present.
+    expect(claude.querySelector("svg")?.getAttribute("data-brand")).toBe("claude_code");
   });
 
-  it("RepoPane sorts named engines descending and places Any agent last regardless of count size", () => {
+  it("the band sorts named engines descending and places Any agent last regardless of count size", () => {
     const mockCounts: CategoryCounts = {
       total: 280,
       byCategory: {},
@@ -172,20 +172,19 @@ describe("Per-repository count synchronization", () => {
         onRefresh={() => {}}
         onSelectAsset={() => {}}
         onLinkFromProfile={() => {}}
+        enginesBandOpen
+        onToggleEnginesBand={() => {}}
       />
     );
 
-    const spans = Array.from(container.querySelectorAll("span")).map((s) => s.textContent?.trim()).filter(Boolean);
-    const claudeIdx = spans.findIndex((t) => t === "Claude Code 113");
-    const geminiIdx = spans.findIndex((t) => t === "Gemini / Antigravity 1");
-    const anyAgentIdx = spans.findIndex((t) => t === "Any agent 166");
-
-    expect(claudeIdx).toBeGreaterThan(-1);
-    expect(geminiIdx).toBeGreaterThan(-1);
-    expect(anyAgentIdx).toBeGreaterThan(-1);
-
-    expect(claudeIdx).toBeLessThan(geminiIdx);
-    expect(geminiIdx).toBeLessThan(anyAgentIdx);
+    const ids = Array.from(container.querySelectorAll("[data-testid^='hero-band-row-']")).map(
+      (el) => el.getAttribute("data-testid")
+    );
+    expect(ids).toEqual([
+      "hero-band-row-Claude Code",
+      "hero-band-row-Gemini / Antigravity",
+      "hero-band-row-none",
+    ]);
   });
 
   it("verifies App.tsx passes assetCounts prop through to RepoPane", () => {

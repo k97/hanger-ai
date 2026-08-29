@@ -13,7 +13,7 @@ const renderChip = (over: Partial<Parameters<typeof FindingChip>[0]> = {}) => {
     <div ref={host}>
       <FindingChip
         severity="warning"
-        lines={["2 tracked copies · drifted"]}
+        lines={[{ severity: "warning", text: "2 tracked copies · drifted" }]}
         onReview={onReview}
         elevated={false}
         clampTo={host}
@@ -37,7 +37,13 @@ describe("FindingChip", () => {
   });
 
   it("opens a list of findings with one Needs review → at the foot, and routes", () => {
-    const { onReview } = renderChip({ lines: ["2 tracked copies · drifted", "1 symlink · dangling"], severity: "danger" });
+    const { onReview } = renderChip({
+      lines: [
+        { severity: "warning" as const, text: "2 tracked copies · drifted" },
+        { severity: "danger" as const, text: "1 symlink · dangling" },
+      ],
+      severity: "danger",
+    });
     fireEvent.click(screen.getByRole("button", { name: "2 flagged" }));
     const pop = screen.getByRole("dialog", { name: "2 flagged" });
     expect(Array.from(pop.querySelectorAll("li")).map((li) => li.textContent)).toEqual([
@@ -48,6 +54,25 @@ describe("FindingChip", () => {
     expect(pop.className).not.toContain("shadow-overlay");
     fireEvent.click(screen.getByRole("button", { name: "Needs review →" }));
     expect(onReview).toHaveBeenCalledTimes(1);
+  });
+
+  /* Recommendation 1 (final review, 2026-08-28): the chip's popover paints
+     each line its own severity, because a FindingLine already carries one.
+     Wrong implementation this catches: any chip that maps the aggregate
+     `severity` prop over every line — the second dot then comes back
+     bg-state-danger. */
+  it("paints each popover line the severity that line carries", () => {
+    renderChip({
+      severity: "danger",
+      lines: [
+        { severity: "danger" as const, text: "Target missing" },
+        { severity: "warning" as const, text: "Copy has diverged" },
+      ],
+    });
+    fireEvent.click(screen.getByRole("button", { name: "2 flagged" }));
+    const lines = screen.getAllByTestId("finding-popover-line");
+    expect(lines[0].querySelector("i")!.className).toContain("bg-state-danger");
+    expect(lines[1].querySelector("i")!.className).toContain("bg-state-warning");
   });
 
   it("carries the elevation when told to", () => {

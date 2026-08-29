@@ -18,6 +18,150 @@
       "allow": [
         {
           "path": "$HOME/**"
+        },
+        {
+          "path": "$HOME/**",
+          "app": "Visual Studio Code"
+        },
+        {
+          "path": "$HOME/**",
+          "app": "Cursor"
+        },
+        {
+          "path": "$HOME/**",
+          "app": "Zed"
+        },
+        {
+          "path": "$HOME/**",
+          "app": "Antigravity IDE"
+        },
+        {
+          "path": "$HOME/**",
+          "app": "Xcode"
+        },
+        {
+          "path": "$HOME/**",
+          "app": "Visual Studio Code - Insiders"
+        },
+        {
+          "path": "$HOME/**",
+          "app": "VSCodium"
+        },
+        {
+          "path": "$HOME/**",
+          "app": "Zed Preview"
+        },
+        {
+          "path": "$HOME/**",
+          "app": "Windsurf"
+        },
+        {
+          "path": "$HOME/**",
+          "app": "Sublime Text"
+        },
+        {
+          "path": "$HOME/**",
+          "app": "BBEdit"
+        },
+        {
+          "path": "$HOME/**",
+          "app": "Nova"
+        },
+        {
+          "path": "$HOME/**",
+          "app": "TextMate"
+        },
+        {
+          "path": "$HOME/**",
+          "app": "Typora"
+        },
+        {
+          "path": "$HOME/**",
+          "app": "CodeRunner"
+        },
+        {
+          "path": "$HOME/**",
+          "app": "Pulsar"
+        },
+        {
+          "path": "$HOME/**",
+          "app": "Atom"
+        },
+        {
+          "path": "$HOME/**",
+          "app": "Brackets"
+        },
+        {
+          "path": "$HOME/**",
+          "app": "Lite XL"
+        },
+        {
+          "path": "$HOME/**",
+          "app": "MacVim"
+        },
+        {
+          "path": "$HOME/**",
+          "app": "Neovide"
+        },
+        {
+          "path": "$HOME/**",
+          "app": "VimR"
+        },
+        {
+          "path": "$HOME/**",
+          "app": "RStudio"
+        },
+        {
+          "path": "$HOME/**",
+          "app": "Android Studio"
+        },
+        {
+          "path": "$HOME/**",
+          "app": "IntelliJ IDEA"
+        },
+        {
+          "path": "$HOME/**",
+          "app": "IntelliJ IDEA CE"
+        },
+        {
+          "path": "$HOME/**",
+          "app": "PyCharm"
+        },
+        {
+          "path": "$HOME/**",
+          "app": "PyCharm CE"
+        },
+        {
+          "path": "$HOME/**",
+          "app": "WebStorm"
+        },
+        {
+          "path": "$HOME/**",
+          "app": "PhpStorm"
+        },
+        {
+          "path": "$HOME/**",
+          "app": "RubyMine"
+        },
+        {
+          "path": "$HOME/**",
+          "app": "RustRover"
+        },
+        {
+          "path": "$HOME/**",
+          "app": "CLion"
+        },
+        {
+          "path": "$HOME/**",
+          "app": "GoLand"
+        },
+        {
+          "path": "$HOME/**",
+          "app": "Rider"
+        },
+        {
+          "path": "$HOME/**",
+          "app": "DataSpell"
         }
       ]
     }

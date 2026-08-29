@@ -144,7 +144,7 @@ export default function SidebarScanModal({
                     placeholder="Filter candidates..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full h-full pl-[30px] pr-3.5 rounded-pill border border-transparent bg-plane text-small text-ink-1 placeholder:text-ink-3 focus:outline-none focus:border-ink-1 focus:bg-page transition-colors duration-hover font-sans"
+                    className="w-full h-full pl-[30px] pr-3.5 rounded-pill border border-transparent bg-plane text-small text-ink-1 placeholder:text-ink-3 focus:outline-none focus:border-line-2 focus:bg-page transition-colors duration-hover font-sans"
                   />
                 </div>
                 <button

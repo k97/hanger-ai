@@ -259,7 +259,7 @@ describe("Icon rail", () => {
     const { unmount } = render(<App />);
 
     expect(await screen.findByTestId("sidebar")).toBeTruthy();
-    expect(screen.getByLabelText("Toggle inspector")).toBeTruthy();
+    expect(await screen.findByLabelText("Toggle inspector")).toBeTruthy();
 
     fireEvent.click(screen.getByLabelText("Discovery"));
 
