@@ -93,6 +93,7 @@ import {
 import { unaccountedProcesses, type ProcessMatch } from "./utils/mcpServerView";
 import type { McpServerRow } from "./utils/serverRows";
 import type { McpEngineSummaryData } from "./types/mcpEngineSummary";
+import { assetOpenTarget } from "./openTarget";
 import { openPath, revealItemInDir } from "@tauri-apps/plugin-opener";
 import {
   deriveReviewIssues,
@@ -1410,9 +1411,13 @@ export default function App() {
     selectedAsset && selectedAsset.category !== "Agents" && selectedAsset.category !== "Subagents"
       ? () => handleLinkAsset(selectedAsset)
       : undefined;
+  // The asset's own path, not the document the inspector happens to be
+  // showing: for a skill those differ (folder vs SKILL.md), and for a tool
+  // the stored path is a registration key, not a path at all.
+  const openTargetForCap = selectedAsset ? assetOpenTarget(selectedAsset) : "";
   const onOpenInEditorForCap = selectedAsset
     ? () => {
-        openPath(inspectorShownPath).catch(() => {});
+        openPath(openTargetForCap).catch(() => {});
       }
     : undefined;
   const onCopyPathForCap = selectedAsset
