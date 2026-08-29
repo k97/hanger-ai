@@ -3,6 +3,7 @@ pub mod annotations;
 pub mod dev_icon;
 pub mod diagnostics;
 pub mod domain;
+pub mod editors;
 pub mod linkmap;
 pub mod mcp;
 pub mod menu;
@@ -2050,6 +2051,8 @@ pub fn run() {
             clear_rules_target_memory,
             get_preference,
             set_preference,
+            editors::detect_editors,
+            editors::known_editor_names,
             export_preferences,
             import_preferences,
             remove_deployed_asset,
