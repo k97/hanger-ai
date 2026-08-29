@@ -101,11 +101,13 @@ export default function SummaryStrip({
   // ruling), and the control that changes the figure is where the age stays
   // reachable without a line of its own.
   //
-  // Below 640px the label goes and the mark stands alone. That is where the
-  // legend, this button and the pill stop fitting on one row — measured off
-  // the running app at 1024×700, legend 362px + Rescan 108 + pill 127 + the
-  // gaps and the strip's own padding. `aria-label` is unchanged, so the
-  // narrow button is named the same to a screen reader as the wide one.
+  // Below 640px the label goes and the mark stands alone — the pill drops
+  // "Needs" at the same threshold. 640 is where the legend, this button and
+  // the pill stop fitting on one row: measured off the running app at
+  // 1024×700, legend 362px + Rescan 108 + pill 127, plus the gaps and the
+  // strip's `px-4`. Shrunk, the same row fits down to about 533px, which
+  // covers the default window with the inspector open. `aria-label` is
+  // unchanged, so the narrow button is named the same to a screen reader.
   const rescanButton = onRescan && (
     <button
       onClick={onRescan}
@@ -133,7 +135,22 @@ export default function SummaryStrip({
         onClick={() => setReviewOpen((v) => !v)}
         className="h-[30px] px-[15px] inline-flex items-center text-small font-medium tabular bg-fill text-on-fill rounded-pill cursor-pointer transition-[transform] duration-press ease-spring hover:-translate-y-px active:scale-[0.96]"
       >
-        Needs review {review.count}
+        {/* Two spellings; the accessible name is whichever one is displayed,
+            because name-follows-visible-label is the property to keep (WCAG
+            2.5.3) and `display: none` is already excluded from the name
+            computation. No `aria-label` here on purpose: one would pin the
+            name to "Needs review ‹n›" at both widths AND make this pill a
+            second `getByLabelText(/^Needs review/)` match beside the rail's
+            own nav item, which `inspector_avionics.test.tsx:439` queries.
+            `happy-dom` applies no CSS, so it sees both spans and no test
+            here can assert the name — only that both spellings exist and
+            carry the classes that choose between them. */}
+        <span className="hidden @[640px]:inline whitespace-nowrap">
+          Needs review {review.count}
+        </span>
+        <span className="@[640px]:hidden whitespace-nowrap">
+          Review {review.count}
+        </span>
       </button>
       {/* 34, not the default 30: the chip this popover was drawn for is 26px
           tall and rests at 30 for a 4px gap; the pill is 30px and wants the
@@ -167,7 +184,9 @@ export default function SummaryStrip({
       {/* One line, always. `min-w-0` is what lets the subtitle shrink below
           its own text — a flex item's `min-width` is `auto` otherwise — and
           `truncate` clips it with an ellipsis rather than wrapping, which
-          used to make the whole banner a line taller as the pane narrowed. */}
+          used to make the whole banner a line taller as the pane narrowed.
+          The controls were tried here on 2026-08-29 and sent back down the
+          same day (Karthik) — they stay in the row under the meter. */}
       <div className="flex items-baseline gap-3 mb-3">
         <span className="text-display font-medium tabular tracking-[-0.5px] leading-display text-ink-1 shrink-0">
           {total}

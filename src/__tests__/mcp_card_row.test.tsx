@@ -70,6 +70,17 @@ describe("the MCP card row", () => {
     expect(within(header).getByText("Tools")).toBeTruthy();
   });
 
+  it("rules off its column labels the way the shared table header does", () => {
+    // The MCP tab has no `AssetHeaderRow` — `toolsOnlyView` suppresses it —
+    // so this inline header IS the table header there, and it was the one
+    // header on any tab with no separator under its column names (Karthik,
+    // 2026-08-29). A class contract: `happy-dom` paints no borders.
+    render(<ProfilePane {...base} inventory={inventoryWithOneServer} />);
+    const header = screen.getByTestId("section-header-tools");
+    expect(header.className).toContain("border-b");
+    expect(header.className).toContain("border-line");
+  });
+
   it("does not render Beyond the store anywhere in the default view when Tools is the only section present", () => {
     // The shared `AssetHeaderRow` is `sticky` over the WHOLE scrollable
     // list, not scoped to whichever section sits beneath it — so scoping

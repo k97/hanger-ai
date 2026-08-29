@@ -61,16 +61,41 @@ describe("SummaryStrip", () => {
     expect(subtitle.getAttribute("title")).toBe("assets in the global store · 2 engines");
   });
 
-  it("drops the Rescan label where the second row stops fitting on one line", () => {
+  it("keeps both controls in the legend row, under the meter", () => {
+    renderStrip({ onRescan: () => {} });
+    // They were tried in the headline row on 2026-08-29 and sent back the
+    // same day (Karthik), so this pins the position rather than assuming it.
+    const headline = screen.getByText("121").parentElement!;
+    expect(headline.contains(screen.getByLabelText("Refresh scan"))).toBe(false);
+    const legendRow = screen.getByText("drifted").closest("div")!;
+    expect(legendRow.contains(screen.getByLabelText("Refresh scan"))).toBe(true);
+    expect(legendRow.contains(screen.getByText("Needs review 3"))).toBe(true);
+    const meter = screen.getByRole("img");
+    expect(
+      meter.compareDocumentPosition(legendRow) & Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
+  });
+
+  it("shrinks both controls below the width the full headline needs", () => {
     renderStrip({ onRescan: () => {} });
     const btn = screen.getByLabelText("Refresh scan");
     const label = btn.querySelector("[data-rescan-label]");
-    // Class contract again — the container query is unobservable here. 640px
-    // is where legend, Rescan and the pill stop fitting side by side; below
-    // it the button is the 30px mark alone.
+    // Class contract — the container query is unobservable here. 640px is
+    // where the legend, Rescan and the pill stop fitting on one row.
     expect(label?.className).toContain("hidden");
     expect(label?.className).toContain("@[640px]:inline");
     expect(btn.className).toContain("@[640px]:min-w-[108px]");
+    // The pill drops "Needs" at the same threshold.
+    const long = screen.getByText("Needs review 3");
+    const short = screen.getByText("Review 3");
+    expect(long.className).toContain("hidden");
+    expect(long.className).toContain("@[640px]:inline");
+    expect(short.className).toContain("@[640px]:hidden");
+    // Both spellings sit in one button, so the accessible name is whichever
+    // one is displayed. `happy-dom` applies no CSS and sees both, so the
+    // name itself is not assertable here (verification.md) — only that the
+    // pill is one control and neither span is a separate button.
+    expect(long.closest("button")).toBe(short.closest("button"));
     // And the strip is the container those widths are measured against.
     expect(btn.closest("section")?.className).toContain("@container");
   });

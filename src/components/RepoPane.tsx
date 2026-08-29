@@ -774,7 +774,7 @@ export default function RepoPane({
               <>
                 <div
                   data-testid="section-header-tools"
-                  className={`flex items-center gap-3 select-none px-3.5 pt-[11px] pb-[5px] ${groupLabelClass}`}
+                  className={`flex items-center gap-3 select-none px-3.5 pt-[11px] pb-[7px] border-b border-line ${groupLabelClass}`}
                 >
                   <h3 className="flex-1 truncate">
                     MCP servers · {assetCounts ? (assetCounts.byCategory.tool?.total ?? 0) : sortedTools.length}
