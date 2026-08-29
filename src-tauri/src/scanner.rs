@@ -2156,6 +2156,52 @@ impl DirectoryScanner {
             }
         }
 
+        // Ancestor .mcp.json files sit inside no project root and no agent
+        // root, so neither the walk sweep nor the machine pass reaches them.
+        // ONE row per config file: seen_registrations is keyed on
+        // (config_path, server_name), so the same file reached from a second
+        // project is skipped here. Which projects it reaches is derived at
+        // read time (annotations.rs), never stored — docs/harness.md.
+        let ancestors = crate::mcp::discover::discover_repo_ancestors(
+            Path::new(&project_path_abs),
+            &get_home_dir(),
+        );
+        for p in &ancestors.problems {
+            let line = format!("{}: {}", p.path, p.detail);
+            if !parse_warnings.contains(&line) {
+                parse_warnings.push(line);
+            }
+        }
+        for reg in ancestors.registrations {
+            if !seen_registrations.insert((reg.config_path.clone(), reg.server.name.clone())) {
+                continue;
+            }
+            let Some(host) = crate::mcp::registry::host_by_id(reg.host_id) else {
+                continue;
+            };
+            // Root at the engine's global root (Ruling 3), not the project:
+            // asset_annotations only annotates rows under
+            // r.kind = 'engine_global', and abs_path still records the real
+            // file path either way.
+            let Some(r_id) = agent_root_ids.get(host.id).copied() else {
+                continue;
+            };
+            let scope = Scope::Global { agent: reg.host_id.to_string() };
+            let tool = tool_from_registration(&mut origin_resolver, &reg, scope);
+            if let Some(store) = &store_opt {
+                let t_canon = crate::domain::RegistrationKey::new(
+                    &tool.config_path,
+                    &tool.name,
+                )
+                .to_string();
+                let _ = store.upsert_asset(
+                    r_id, None, "tool", "global", &tool.name, &t_canon,
+                    None, None, "ok", None, now, now,
+                );
+            }
+            inventory.tools.push(tool);
+        }
+
         let mut rule_chains: std::collections::HashMap<String, Vec<String>> =
             std::collections::HashMap::new();
         let mut is_layered = false;
