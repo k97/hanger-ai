@@ -82,6 +82,28 @@ describe("nested repository notice", () => {
     expect(screen.getByText("3 nested repos count towards this row")).toBeDefined();
   });
 
+  /* Minor 8 (final review, 2026-08-28): the paths were joined with " · " into
+     one `truncate` span, so on a root with several nested repositories every
+     path after the first was clipped off the end of one line. The banner this
+     replaced gave each path its own `break-all` line.
+
+     Nothing caught it because the one assertion on a path renders a SINGLE
+     candidate, where a join of one is the path itself. Three is what tells
+     the two apart.
+
+     Wrong implementation this catches: any join into one node — `getByText`
+     matches an element's whole text, so a joined span has no element whose
+     text is `/Users/k/Work/repo2`. */
+  it("gives each nested path its own line, not one joined and truncated span", () => {
+    const paths = ["/Users/k/Work/repo1", "/Users/k/Work/repo2", "/Users/k/Work/repo3"];
+    renderPane(inventoryWith(paths));
+    for (const path of paths) {
+      const line = screen.getByText(path);
+      expect(line.className).toContain("break-all");
+      expect(line.className).not.toContain("truncate");
+    }
+  });
+
   it("uses the singular form for one candidate", () => {
     renderPane(inventoryWith(["/Users/k/Work/repo1"]));
     expect(screen.getByText("1 nested repo counts towards this row")).toBeDefined();

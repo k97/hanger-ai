@@ -321,7 +321,16 @@ export default function RepoPane({
             ? "1 nested repo counts towards this row"
             : `${nestedCount} nested repos count towards this row`}
         </span>
-        <span className="text-micro font-mono text-ink-3 truncate">{unlinkedCandidates.join(" · ")}</span>
+        {/* One line per path, as the banner had them. Joined into a single
+            `truncate` span, every path after the first was clipped off the
+            end of one line on any root with more than one nested repository
+            (final review, 2026-08-28, Minor 8). `break-all` because a path
+            has no spaces to wrap at. */}
+        {unlinkedCandidates.map((path) => (
+          <span key={path} className="text-micro font-mono text-ink-3 break-all">
+            {path}
+          </span>
+        ))}
         {depthCapped && (
           <span className={captionClass}>
             This is a broad folder, so the search stopped at 6 levels — repositories deeper than
