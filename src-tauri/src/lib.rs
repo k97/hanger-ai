@@ -2053,6 +2053,7 @@ pub fn run() {
             set_preference,
             editors::detect_editors,
             editors::known_editor_names,
+            editors::path_exists,
             export_preferences,
             import_preferences,
             remove_deployed_asset,

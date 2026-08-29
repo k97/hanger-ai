@@ -113,6 +113,14 @@ pub fn known_editor_names() -> Vec<String> {
     KNOWN_EDITORS.iter().map(|e| e.name.to_string()).collect()
 }
 
+/// `openPath` skips its own existence check once an app is named
+/// (`tauri-plugin-opener-2.5.4/src/open.rs:56`), which turns a bad path into
+/// a silent no-op. Callers stat first through this.
+#[tauri::command]
+pub fn path_exists(path: String) -> bool {
+    std::path::Path::new(&path).exists()
+}
+
 #[cfg(test)]
 mod tests {
     use super::first_installed;
