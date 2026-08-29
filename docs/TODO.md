@@ -447,26 +447,54 @@ In the queue:
     brackets mark "this is a control" rather than literal copy — no other
     button in the app uses brackets either way, so there was no precedent to
     confirm against.
-- Task 15's `McpEngineSummary` (`McpEngineSummary.tsx`), the empty inspector
-  for the global pane when the Tools filter is active and nothing is
-  selected. Karthik named the component; none of its strings below have his
-  sign-off.
-  - The title, **"What every request carries"** — explicitly UNSIGNED per
-    the task brief itself, not merely un-reviewed like the rest of this
-    list. Rendered as the panel's own heading; do not treat its presence on
-    screen as a ruling.
-  - The row line **"{n} server/servers registered"** and the tool figure's
-    own subtext, **"tool"/"tools"** when a count is known or **"not yet
-    asked"** (paired with an em-dash figure) when it is not.
-  - The note's three-bucket template, fix round 1: **"{answered} of {total}
+- **Retired 2026-08-28** — Task 15's `McpEngineSummary` and the strip's
+  probe-coverage legend. The component is deleted and the meter went with
+  it, so none of these render anywhere and nothing is owed on any of them.
+  They are struck rather than dropped, so nobody reopens the question:
+  - The panel title **"What every request carries"** — never signed, and
+    now never shown.
+  - `REQUEST_CARRIES`, **"Every tool a registered server can reach is
+    described to the model on every request."**, and its closing **"That's
+    the running cost of what's registered."**
+  - `partialityNote`'s three clauses — **"{answered} of {total}
     server/servers answered so far."**, **"{unasked} hasn't/haven't been
     asked yet."**, **"{unaskable} can't be asked at all. No local process to
-    start, nothing to dial."**, and the closing **"Every tool a registered
-    server can reach is described to the model on every request. That's the
-    running cost of what's registered."** — reuses the reference
-    prototype's one correct point (the per-request cost of a registration)
-    in different words, per the task brief's own instruction not to copy
-    its wording.
+    start, nothing to dial."**
+  - The row line **"{n} server/servers registered"** and the tool figure's
+    subtext, **"tool"/"tools"** or **"not yet asked"**.
+  - The coverage legend's three words in `SummaryStrip` — **"answered"**,
+    **"not yet asked"**, **"can't be asked"**.
+
+  Two of those ideas came back in new words that ARE owed a ruling, in the
+  entry below: the per-request cost is the hero's caption now, and "can't be
+  asked" is the band's unit word for a host with no probed launch.
+
+- **Added by the hero band, 2026-08-28.** Karthik signed three strings on
+  the canvas that day and they need nothing further — **"By host"**,
+  **"By engine"**, and the hero's caption **"Described to the model on every
+  request, used or not."** The eight below he has not ruled on. Each had a
+  `/humanizer` pass as it landed and the pass found nothing to change; that
+  is not his sign-off, and his word is still owed on every one:
+  - **"MCP servers · {n} tool descriptions across {m} hosts"**, with the
+    unprobed form **"MCP servers across {m} hosts"** — the Global MCP hero's
+    subtitle (`ProfilePane.tsx`). UNSIGNED.
+  - **"A tool counts once per host that carries it."** — the band's note
+    when it is open (`ProfilePane.tsx`). UNSIGNED.
+  - **"Running with no config behind it."** — the review popover's line for
+    an MCP process nothing on disk accounts for (`ProfilePane.tsx`).
+    UNSIGNED.
+  - **"Show disagreeing servers"** — the popover's action on the MCP tab
+    (`ProfilePane.tsx`). UNSIGNED.
+  - **"The scan skipped something it could not read."** — the popover's line
+    for a scan warning (`RepoPane.tsx`). UNSIGNED.
+  - **"Show in list"** — the popover's filter action, in both panes
+    (`ProfilePane.tsx`, `RepoPane.tsx`). UNSIGNED.
+  - **"{n} nested repo counts towards this row"** / **"{n} nested repos
+    count towards this row"** — the engine band's foot row (`RepoPane.tsx`).
+    UNSIGNED.
+  - **"assets in {repo}"** — the project hero's subtitle, with the
+    **"· {n} engines"** tail dropped now that the band carries the
+    per-engine breakdown (`RepoPane.tsx`). UNSIGNED.
 
 - The final fix wave (2026-08-20) — one new string and two surfaces whose
   content changed. All **UNSIGNED**; a `/humanizer` pass ran on the new
@@ -499,10 +527,13 @@ In the queue:
   unit, so the two read as a contradiction. This is a copy problem, not a
   counting one — the backend owns both numbers.
 
-**Audited 2026-08-25.** Every string below still exists in the code, checked
-one by one. The title said "Seven"; the body has since grown to cover Task
+**Audited 2026-08-25.** Every string below still existed in the code,
+checked one by one. The title said "Seven"; the body had grown to cover Task
 11's empty states, Task 15's `McpEngineSummary` and the 2026-08-20 fix wave,
 so the count was the only stale part and the heading now carries no number.
+Re-read that claim as "every string still in the queue exists in the code":
+the hero band retired one block of the set outright on 2026-08-28 and added
+eight more, both marked in place above.
 
 **Done when:** the set has had one deliberate pass together, Karthik has ruled
 on each, and any renames have landed.
@@ -808,3 +839,23 @@ writes to disk.
 as part of it, or someone watches the Link button in a running build and
 confirms the mark draws in from nothing rather than flashing complete first.
 
+---
+
+## T17 — Review kinds for what the pill's popover only discloses
+
+The hero's Needs review pill lists three things with no route out of it.
+Undeclared MCP processes, servers whose registering hosts disagree, and the
+warnings a scan raised are all popover lines that lead nowhere, because
+`src/utils/reviewIssues.ts` has no kind for a thing with no asset behind it:
+`IssueKind` is `broken | drifted | duplicate | parse` (`:24`), and every one
+of those names a row you can open.
+
+The follow-up is a fifth `IssueKind` — and a sixth, and a seventh — plus
+what each needs to become a destination rather than a line: a
+`ReviewSidebar` row, a `NeedsReviewPane` legend entry, and a
+`ReviewInspector` body that says what the thing is and what to do about it.
+
+**Karthik's ruling, 2026-08-28:** "popover as disclosure" for now. The lines
+are disclosed where they are found and the route is deferred.
+
+**Done when:** every line the pill's popover can show has somewhere to go.

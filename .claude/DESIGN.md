@@ -58,11 +58,24 @@ hanger mark in the rail and nothing else; the token's own comment forbids it
 as a UI state. `--gel-aqua` (`tokens.css:38`, `:179`) is a brand-family
 gradient painted by `GelMeter` and by the legend dots beside it that mirror
 its segments, and marks only a share that is actually true: the linked
-share in the asset strip's meter, and — since the strip's MCP mode
-(`SummaryStrip.tsx:104-154`) — the answered share too (`:110` sets the
-meter segment `aqua`, `:124-126` the matching legend dot), never an
-all-quiet or empty state (Karthik's ruling, 2026-08-15, extended to the MCP
-mode by `a066c9e`). State colour (`tokens.css:21-24`):
+share in the asset strip's meter, and nothing else — `SummaryStrip.tsx:63`
+is the one segment carrying `aqua`, `:191` the legend dot that mirrors it —
+never an all-quiet or empty state (Karthik's ruling, 2026-08-15).
+
+**That ruling's MCP extension is withdrawn, 2026-08-28.** From `a066c9e`
+until that date the strip's MCP mode painted an answered share aqua as well.
+Karthik withdrew it together with the probe-coverage meter that drew it, and
+the reason is that nothing in MCP mode is a share of anything: "answered /
+not yet asked / can't be asked" measured whether Hanger had ASKED each
+server, not whether anything was up, and it converges to a constant as the
+probes complete (`SummaryStrip.tsx:13-16`). The MCP branch now draws one
+caption line, Rescan and the review pill — no meter, no legend (`:157-164`).
+The 2026-08-15 ruling itself stands unchanged for the link-state meter.
+`GelMeter`'s own docstring has not caught up: it still names the answered
+share as a second permitted use (`GelMeter.tsx:10-14`), and no caller passes
+it one.
+
+State colour (`tokens.css:21-24`):
 
 - `--state-success` `#0f7a52` light / `#4ec08c` dark (`tokens.css:22`, `:171`)
 - `--state-warning` `#8a5a00` light / `#d9a441` dark (`tokens.css:23`, `:172`)
@@ -144,9 +157,9 @@ rulings recorded in `src/__tests__/type-roles.test.ts:9`, 2026-08-27):
 |---|---|---|---|---|
 | 13 | body — labels, values, prose, list names, tabs | `--ink-1` for values and prose, `--ink-3` for labels | `text-base-app` | `rowLabelClass`, `rowValueClass`, `sectionHeadClass`, `groupLabelClass` (`typeRoles.ts:7,9-10,14`) |
 | 12 | secondary — captions, mono values, paths, chips, counts, foot and stamp lines | `--ink-1` for `rowMonoClass` values, `--ink-2` / `--ink-3` for captions and grey mono labels | `text-small` | `captionClass`, `rowMonoClass`, `monoLabelClass`, `columnHeadClass` (`typeRoles.ts:15-16,20,24`) |
-| 11 | filled badges and chips | `--ink-3` | `text-micro` | e.g. the inspector list's scope pill (`Flyout.tsx:919`) |
-| 16 | titles and top content headings | `--ink-1` | `text-lg-app` | the inspector's title `h2` (`Flyout.tsx:705`), a document's `#` and `##` (`MarkdownDoc.tsx:89`); `###` and deeper step down to `sectionHeadClass` (`:93`) |
-| 32 | display — the big stat numeral | `--ink-1` | `text-display` | `SummaryStrip.tsx:98` |
+| 11 | filled badges and chips | `--ink-3` | `text-micro` | e.g. the inspector list's scope pill (`Flyout.tsx:868`) |
+| 16 | titles and top content headings | `--ink-1` | `text-lg-app` | the inspector's title `h2` (`Flyout.tsx:654`), a document's `#` and `##` (`MarkdownDoc.tsx:89`); `###` and deeper step down to `sectionHeadClass` (`:93`) |
+| 32 | display — the big stat numeral | `--ink-1` | `text-display` | `SummaryStrip.tsx:150` |
 
 Four leadings sit beside the scale as tokens, not arbitrary per-call values —
 `--lh-body: 20px`, `--lh-caption: 16px`, `--lh-code: 18px`, `--lh-display: 35px`
@@ -154,7 +167,7 @@ Four leadings sit beside the scale as tokens, not arbitrary per-call values —
 `--leading-code`, `--leading-display` (`index.css:109-112`) and consumed as
 the utilities `leading-body`, `leading-caption`, `leading-code`,
 `leading-display` — the last for the 32px strip figure
-(`SummaryStrip.tsx:98`, `NeedsReviewPane.tsx:102`, `DesignSystemPane.tsx:192`).
+(`SummaryStrip.tsx:150`, `NeedsReviewPane.tsx:101`, `DesignSystemPane.tsx:233`).
 `src/__tests__/leading-tokens.test.ts` pins both the token values and their
 `@theme` registration.
 
@@ -205,7 +218,7 @@ a mini button (26px) takes `rounded-control`, so the mini tier reads as
 its own control rather than a shrunken pill. The value was 6px until
 2026-08-28, when Karthik raised it by two — rounder, the way Codex's
 small buttons are, and still short of a pill; the finding chip moves with
-it, since `FindingChip.tsx:83` builds the chip from `miniBtnClass`. All four are registered as
+it, since `FindingChip.tsx:21` builds the chip from `miniBtnClass`. All four are registered as
 utilities in the same `@theme` block (`index.css:113-117`). The mini tier
 is `src/components/miniButton.ts`'s three exported class strings, each
 `rounded-control` on the shared 26px `base` (`:12-13`): `miniBtnClass`
@@ -397,7 +410,7 @@ the rail (`IconRail.tsx:73`), sidebar rows (`Sidebar.tsx:154`), the
 inspector cap's kind icon (`InspectorCap.tsx:202`) and the titlebar panel
 toggles (`InspectorCap.tsx:373`) — 14 for row marks (`AssetDetail.tsx:275`'s
 identity rows, `MechanismGlyph.tsx:85`), and 12–13 for chevrons and inline
-marks (`AssetHeaderRow.tsx:36-38`, `Flyout.tsx:734`; `InspectorCap.tsx:259`
+marks (`AssetHeaderRow.tsx:36-38`, `Flyout.tsx:683`; `InspectorCap.tsx:259`
 carries a 13) (Karthik's ruling I2, 2026-08-28). A mark also takes the ink of
 the text beside it rather than a fixed shade of its own: the cap's kind icon
 sits in `--ink-3` (`InspectorCap.tsx:202,205`; ruling I3), and the row's
@@ -572,7 +585,7 @@ Design record (local-only, not tracked in this repo):
 
 ## 5. Component inventory
 
-46 non-test `.tsx` files, flat in `src/components/` — no subdirectory — one
+52 non-test `.tsx` files, flat in `src/components/` — no subdirectory — one
 component per file. Views are suffixed `Pane`.
 
 The "all default-exported, with an `interface <Name>Props` declared directly
@@ -580,8 +593,10 @@ above" rule holds for most and has named exceptions, listed here so the rule
 is not read as universal: `icons.tsx` is a mark library of 82 named exports
 rather than a component, and `ScanStatusIndicator.tsx` exports a named
 `React.FC` instead of a default. Five more carry no `interface <Name>Props`
-— `BrandSprite`, `EngineReachTiles`, `MarkdownDoc`, `McpEngineSummary`,
-`McpServerDetail` — taking their props inline or from a shared type.
+— `BrandSprite`, `EngineReachTiles`, `MarkdownDoc`, `McpServerDetail`,
+`ReachCard` — taking their props inline or from a shared type.
+`McpEngineSummary` stood on this list until 2026-08-28; the file is deleted
+and the rows it drew are the hero's band now (Panes, below).
 
 ### Shell
 
@@ -623,14 +638,19 @@ rather than swapping views.
 
 ### Panes
 
-**`ProfilePane`** (`ProfilePane.tsx:18-55`) — `inventory`, `assetCounts?`,
+**`ProfilePane`** (`ProfilePane.tsx:53-131`) — `inventory`, `assetCounts?`,
 `selectedCategory?`, `selectedAsset?`, `loading`, `stateFilter?`,
 `onStateFilterChange?`, `scannedAt?`, `detectedEngines?`, `onRescan?`,
 `sortField?`, `sortDirection?`, `onSortChange?`, `onSelectAsset`,
-`onLinkAsset`, `onClearSelection?`.
+`onLinkAsset`, `onClearSelection?`; and, since 2026-08-28, the hero's own
+four — `hostsBandOpen?` / `onToggleHostsBand?` (`:120-121`) for the band's
+fold, `issues?` / `onReview?` (`:125-126`) for the review pill's lines and
+its route out.
 
-**`RepoPane`** (`RepoPane.tsx:18-42`) — the same shape plus `repoPath`,
-`onRefresh`, `onLinkFromProfile`, `linkedRepos?`, `onPromoteCandidates?`.
+**`RepoPane`** (`RepoPane.tsx:36-69`) — the same shape plus `repoPath`,
+`onRefresh`, `onLinkFromProfile`, `linkedRepos?`, `onPromoteCandidates?`,
+and the same four under its own band's names: `issues?` / `onReview?`
+(`:63-64`), `enginesBandOpen?` / `onToggleEnginesBand?` (`:67-68`).
 
 **`NeedsReviewPane`** (`NeedsReviewPane.tsx:11-29`) — `issues`, `counts`,
 `kind`, `place`, `selectedId`, `onSelectKind`, `onSelectPlace`,
@@ -649,8 +669,8 @@ up here once the scan finishes." / "Assets in ‹repo› show up here once the
 scan finishes." — App sets inventory on `scan://complete` and ignores
 `scan://progress`, so nothing lands root by root), or "Not scanned yet /
 Rescan when you're ready." when no scan is running; all under
-`data-testid="scan-pending"` (`ProfilePane.tsx:893-914`, `:965-971`;
-`RepoPane.tsx:492-514`, `:544-550`; `NeedsReviewPane.tsx:220-244`, where it is
+`data-testid="scan-pending"` (`ProfilePane.tsx:1039-1054`, `:1105-1111`;
+`RepoPane.tsx:624-640`, `:672-679`; `NeedsReviewPane.tsx:220-244`, where it is
 the list plane's centred `<span>`: "Scanning your machine. Anything that
 needs a decision shows up here once the scan finishes."). Only `empty &&
 hasScanned` shows an empty state.
@@ -665,23 +685,23 @@ The empty copy itself, reviewed 2026-08-16 (Karthik: "review with
   `joinNames`
   (`src/utils/prose.ts`), singular when there is one. Not
   `assetCounts.engines`, which is built from asset rows and is empty whenever
-  the store is (`scanner.rs:34-46,76`) (`ProfilePane.tsx:150-157`, `:419-430`).
+  the store is (`scanner.rs:34-46,76`) (`ProfilePane.tsx:548`, `:1072-1082`).
 - Global, no engine folders: "No engine folders on this machine yet" /
   "Hanger looks in your home directory for the folders Claude Code, Codex and
   Gemini keep there, and found none. Run one of them once, then rescan."
-  (`ProfilePane.tsx:431-441`). "Engine" throughout — the Engine column, the
+  (`ProfilePane.tsx:1090-1092`). "Engine" throughout — the Engine column, the
   Engines eyebrow and the strip subtitle already say it; the sidebar's
   no-engines subtitle is "No engines yet" (`Sidebar.tsx`).
 - Repository: "Nothing in ‹repo› yet" / "Hanger found no skills, rules, MCP
   servers or subagents in this repository. Link one from the global store, or
   add files here and rescan.", CTA "Link an asset from Global" — Global, not
-  Profile, per the naming ruling (`RepoPane.tsx:457-475`).
+  Profile, per the naming ruling (`RepoPane.tsx:644-663`).
 - Category-empty, both panes: a filter that hides every row is told apart
   from a category with nothing in it — "No skill matches that filter" versus
   "No skills in the global store" / "No MCP servers in ‹repo›" with "Nothing
   under this category yet. Pick another, or All." The noun comes from
   `categoryNoun` (`prose.ts`) so an empty Tools view says "MCP servers", as
-  the chip does (`ProfilePane.tsx:444-464`, `RepoPane.tsx:476-495`).
+  the chip does (`ProfilePane.tsx:1113-1135`, `RepoPane.tsx:681-696`).
 - Needs review: "Nothing needs a decision. Every link resolves and every file
   parses." and "No issue matches that filter." — unchanged, already plain.
 - Both inspectors, nothing selected: "Nothing selected" / "Pick an issue to
@@ -690,6 +710,70 @@ The empty copy itself, reviewed 2026-08-16 (Karthik: "review with
 
 Pinned by `ProfilePaneIntegration.test.tsx`, `RepoPaneIntegration.test.tsx`,
 `needs_review_pane.test.tsx`, `inspector_avionics.test.tsx`, `prose.test.ts`.
+
+**The Global pane's hero on MCP servers.** With Tools selected and the
+grouped server rows in view, `SummaryStrip` runs in its second mode
+(`ProfilePane.tsx:599-602`, passed at `:1011`). It draws the 32px numeral; a
+subtitle assembled from two backend fields — "MCP servers · ‹n› tool
+descriptions across ‹m› hosts", and the shorter "MCP servers across ‹m›
+hosts" when no launch has been probed yet (`ProfilePane.tsx:628-633`; the
+fields are `tools_known_total` and `host_count`,
+`src/types/mcpEngineSummary.ts:17`, `:22`, from
+`src-tauri/src/mcp/engine_summary.rs:94-105`); one caption, "Described to
+the model on every request, used or not." (`ProfilePane.tsx:646`); then
+Rescan and the Needs review pill (`SummaryStrip.tsx:157-164`). Nothing in
+that row is arithmetic done here — `host_count` exists as a backend field
+precisely so the subtitle prints one rather than measuring `rows`
+(`engine_summary.rs:95-98`).
+
+**The mode lost its meter on 2026-08-28.** It drew a `GelMeter` of answered
+/ not yet asked / can't be asked with a three-word legend beneath. Karthik
+removed both: the figures said whether Hanger had asked each server, not
+whether anything was up, and they converge to a constant as the probes
+complete (`SummaryStrip.tsx:13-16`; §1 records the aqua ruling that
+withdrew with it). The four coverage counts remain backend fields
+(`src/types/mcpEngineSummary.ts:23-42`); nothing on screen reads them.
+
+**The band is what the per-engine prose became, in both panes.** `HeroBand`
+(Surfaces and controls, below) renders in the strip's `children` slot: "By
+host" on the Global MCP hero, one row per host carrying its server count as
+the secondary and its tool count as the figure
+(`ProfilePane.tsx:1014-1029`); "By engine" on a project pane, one row per
+engine with its asset count, sorted `none` last then count descending
+(`RepoPane.tsx:243-253`, rendered `:565-573`). The project pane's subtitle
+lost its engine tail when the band arrived — a count of engine kinds beside
+a count of assets read as one figure (`RepoPane.tsx:236-241`).
+
+**Three `DisclosureBanner` rows were retired on 2026-08-28.** Undeclared MCP
+processes and the scan's own warnings became lines in the review pill's
+popover; the nested-repo notice became the engine band's foot row.
+
+- Undeclared processes, on every Global tab rather than only MCP servers:
+  one line per group, "Running with no config behind it.", with the pid or
+  pid count, the command line and the spawning host as its detail
+  (`ProfilePane.tsx:658-662`). The popover is the whole disclosure — there
+  is no registration to open, so there is nowhere to route, which is what
+  the banner said too (`:649-657`).
+- Scan warnings, on a project pane: one line per non-TCC warning, "The scan
+  skipped something it could not read.", the warning itself as the detail
+  (`RepoPane.tsx:268-272`). The macOS TCC panel is untouched and still
+  stands above the list plane (`RepoPane.tsx:581`).
+- Nested repositories: the band's full-width foot row, because the thing
+  they qualify is the per-engine tally directly above them — the count, the
+  paths, the depth-cap note and `Promote…` (`RepoPane.tsx:305-340`).
+
+**The pill's figure is the lines it shows.** `StripReview.count` is counted
+where the lines are built and allowlisted there — `reviewLineCount` and
+`assetReviewLineCount` (`ProfilePane.tsx:681`, `:706`; `RepoPane.tsx:274`) —
+never derived inside the strip, where it used to be `counts.drifted +
+counts.broken` (`ProfilePane.tsx:703-704`). Severity follows
+`reviewIssues.ts:440` rather than a second rule, so a won't-parse asset is a
+danger dot here exactly as it is in the inspector cap's chip
+(`ProfilePane.tsx:664-672`, `RepoPane.tsx:263-267`). `Show in list` is
+withheld whenever any line is a duplicate, because the `needs-review` filter
+is broken-or-drifted only and would filter that line straight back out
+(`ProfilePane.tsx:707-716`, `RepoPane.tsx:275-282`); `Needs review →` always
+renders.
 
 **`DiscoveryPane`** (`DiscoveryPane.tsx`) — `kind?`. Renders
 from static data in `src/data/directories.ts`; the kind facet is owned by
@@ -830,39 +914,51 @@ stack.
 **The identity row moved out of the panel and into the cap; what survives
 above the tabs is three pieces with nothing between them.** Selecting an
 asset used to earn Flyout's eyebrow row a `kind · place` pair; `targetAsset`
-now renders `null` there instead (`Flyout.tsx:740-748`), because that
+now renders `null` there instead (`Flyout.tsx:689-697`), because that
 identity lives in the cap and restating it a second time would be "the
 'moved, never copied' rule's exact failure mode" (the panel's own comment,
-`Flyout.tsx:669-675`). For a plain asset selection the eyebrow row now has
+`Flyout.tsx:619-624`). For a plain asset selection the eyebrow row now has
 nothing left to say at all: `eyebrowShown` is `false` whenever nothing but a
-bare `targetAsset` would have earned it (`Flyout.tsx:598-600`), so the row
+bare `targetAsset` would have earned it (`Flyout.tsx:586-588`), so the row
 simply does not render — and the step it would have opened up beneath the
 title goes with it, because that step is the header column's own `gap-1`
-(`:696`) rather than a margin either row carries and has to switch off. The
+(`:645`) rather than a margin either row carries and has to switch off. The
 eyebrow still renders for what is not a plain asset selection — the link
-flow's own "Back to ‹name›" nav (`:728-736`), a bubble scope with no asset
+flow's own "Back to ‹name›" nav (`:677-685`), a bubble scope with no asset
 drilled into, or the empty-MCP category label — plus, independently, a
 layered-rules flag that can sit beside any of them.
+
+**The Tools filter's empty body is the generic one, since 2026-08-28.** With
+Tools selected and nothing picked, the header still names the category and
+the scope — "MCP servers · Global" — because the pane's own filter already
+says what an empty result set would have held (`Flyout.tsx:576-577`, drawn
+at `:690-703`). The body beneath is the same "Nothing selected" / "Pick an
+asset or a repository to see its details." that every other empty selection
+gets (`Flyout.tsx:880-888`). It was `McpEngineSummary` until this date — a
+per-host table the panel fetched for itself, and only on the global pane,
+since the read was machine-wide. That component is deleted and its rows are
+the hero's band, where the figures sit beside the numeral they qualify
+instead of in a panel that appears only while nothing is selected.
 
 Below that, the header is exactly: the cap's identity row — kind glyph, a
 sentence-case `kind · place` caption line, a finding chip
 (`InspectorCap.tsx:169-212`; the caption itself is `captionClass`,
 `typeRoles.ts:16`, rendered at `InspectorCap.tsx:220-228`; the cap itself,
 Surfaces and controls below) — then Flyout's title block
-(the `<h2>`, `Flyout.tsx:705`), then `AssetDetail`'s own `UnderlineTabs`
+(the `<h2>`, `Flyout.tsx:654`), then `AssetDetail`'s own `UnderlineTabs`
 switch. Nothing else: `AssetDetail` used to open with a state line, a path
 chip and a Link/Open action row, each behind its own `border-b border-line`,
 all now gone — the render goes straight from the panel's outer div to a
 comment recording the move and then the tab switch, with no hairline of its
 own left in that gap (`AssetDetail.tsx:346-358`). One hairline still stands
 in the assembled header: Flyout's own `border-b border-line`, beneath the
-title and above the tabs (`Flyout.tsx:697`) — untouched by this phase, and it
+title and above the tabs (`Flyout.tsx:646`) — untouched by this phase, and it
 falls between the title and the tabs, not between the cap and the title,
 where nothing separates them at all.
 
 **The inspector opens like every other screen, and its title sits on the
 rhythm.** The header is `pt-[18px] pb-1.5` and the tab labels are `py-2`
-(`Flyout.tsx:697`, `UnderlineTabs.tsx:62`): 18 from the sheet's rule to the
+(`Flyout.tsx:645`, `UnderlineTabs.tsx:62`): 18 from the sheet's rule to the
 title block, the same 18 the block keeps from its sides, and 6 + 8 = 14 from
 the title block to the tab labels — the gap every pane uses under its
 opener. Ruled 2026-08-28 ("make it consistent") after a day at `py-2`, which
@@ -1098,25 +1194,78 @@ map view's toolbar slot holds Rescan instead of the inspector toggle
 
 ### Surfaces and controls
 
-**`SummaryStrip`** (`SummaryStrip.tsx:24-39`) — `total`, `subtitle`,
+**`SummaryStrip`** (`SummaryStrip.tsx:36-55`) — `total`, `subtitle`,
 `scannedAt`, `scanning`, `counts`, `activeStateFilter`, `onFilterState`,
-`onRescan?`, and `mcp?: McpStripFigures` — the MCP mode, which "replaces the
-entire link-state branch — meter, legend and the Needs review pill — with
-these figures; `total`/`subtitle` still render as passed by the caller"
-(`:7-10`, interface `:11-22`). Two contracts are stated in the link-state
-props themselves: `total` is "Backend-owned asset total for the scope —
-never derived on the frontend" (`:25`), and Rescan lives here rather than in
-the toolbar because it is the control that changes the figure directly
-above it (`:33-35`).
+`onRescan?`, `mcp?: McpStripFigures`, `review?: StripReview` and
+`children?: ReactNode`. `mcp` is the second mode, which "replaces the entire
+link-state branch — meter and legend — with one caption line;
+`total`/`subtitle` still render as passed by the caller" (`:9-11`, interface
+`:17-21`, now a single `caption` field). The Needs review pill left that
+sentence on 2026-08-28 because it renders in *both* modes from one
+definition (`:112-139`, placed at `:162` and `:200`); `children` is the slot
+the hero band renders into (`:53-54`, `:206`). `review` is `StripReview` —
+`count`, `lines`, `actions?` (`:27-34`) — where `count` is "counted where
+the lines are built, and allowlisted there, never derived here" (`:28-29`)
+and every action is a button the caller puts inside the popover, so the two
+modes' pills behave identically (`:23-26`). Two contracts are stated in the
+link-state props themselves: `total` is "Backend-owned asset total for the
+scope — never derived on the frontend" (`:37`), and Rescan lives here rather
+than in the toolbar because it is the control that changes the figure
+directly above it (`:45-47`).
+
+**`HeroBand`** (`HeroBand.tsx:29-38`) — `label`, `open`, `onToggle`, `rows`,
+`note?`, `foot?`. The hero's foldable band, drawn inside `SummaryStrip`'s
+`children` slot: "By host" on the Global MCP hero, "By engine" on a project
+pane (Karthik's ruling, 2026-08-28; the component's own docstring,
+`HeroBand.tsx:6-13`).
+
+*Anatomy.* A `mt-3 pt-3 border-t border-line` band beneath the strip's second
+row (`:42`), opened by a full-width 26px button carrying a chevron that
+rotates 90° when open, the label, and then one of two things (`:43-64`).
+Collapsed, that is one line: every row's 13px `BrandIcon` beside its figure
+in `rowMonoClass` (`:55-62`). Open, it is the `note` beside the label (`:53`)
+and, beneath, the inspector's key-value rows without the card — a
+`grid-cols-2 gap-x-6` of `min-h-8 py-[7px] border-t border-line` rows, each
+mark, name in `text-base-app`, optional `secondary` caption, and the figure
+with its unit word pushed right by `ml-auto` (`:66-82`). The first two rows
+drop the top border because they are the grid's opening line (`:72`). `foot`
+is a `col-span-2` last row for something that is not a row of figures — the
+project pane's nested-repo notice and its `Promote…` (`:83-87`).
+
+*A row is `HeroBandRow`* — `key`, `engineKey`, `engineName`, `secondary?`,
+`value: number | null`, `word` (`:14-27`). `engineKey` reaches `BrandIcon`
+untouched: hyphenated MCP host ids and underscored asset engine keys are both
+correct and neither is normalised here (`:16-18`). A `null` `value` renders
+an em dash in both states (`:59`, `:78`), with `word` carrying "can't be
+asked" — unknown, never a zero the screen would have to explain away.
+
+*States.* Two, and the fold is all of it. `open` is a prop, persisted by App
+as `hosts_band_open` and `engines_band_open` (`App.tsx:560-571` writing,
+`:906-909` reading), so the choice survives a rebuild of either pane. No row
+has a hover state and none is a destination; the button is the only control.
+
+*Tokens.* `border-line` for every rule, `text-ink-1` for the label and the
+names, `captionClass` for the note, the secondary and the unit word,
+`rowMonoClass` for the figures, `text-ink-3` for the chevron, with
+`duration-hover ease-spring` on its rotation (`:50`). No ground of its own:
+the band is a rule and rows on the hero's plane.
+
+*Deliberately absent: "+N more".* The collapsed line shows every row rather
+than the first few and a remainder, because a remainder is a count the
+frontend made and every figure on screen is a backend field
+(`invariants.md`). The docstring says so where the decision would otherwise
+look like an oversight (`:11-12`).
 
 **`GelMeter`** (`GelMeter.tsx`) — the design system's one meter: a glassy
 retro-Aqua gel on a recessed track (`--gel-gloss`, `--gel-aqua`,
 `--bar-track`, `tokens.css:37-39`, `:178-180`). Segments are
 `{key, value, barClass?, aqua?}` — `value` is a backend-owned count that
 sets the segment's flex share, zero-count segments are omitted, and `aqua`
-may mark only a share that is actually true — linked, or, since the strip's
-MCP mode, answered (`GelMeter.tsx:10-14`; Karthik's ruling, 2026-08-15,
-extended to MCP by `a066c9e`). Both strips draw through it
+may mark only a share that is actually true — the linked share, and nothing
+else since the MCP extension was withdrawn on 2026-08-28 (§1). `GelMeter`'s
+own comment has not caught up: it still names an answered share as a second
+permitted use (`GelMeter.tsx:10-14`), and nothing passes it one, because
+`SummaryStrip`'s MCP branch draws no meter at all. Both strips draw through it
 (`SummaryStrip.tsx`, `NeedsReviewPane.tsx`); a proportional bar styled by
 hand is a divergence, not a variant. The glass is painted with stacked
 gradients, not cast — `--overlay-shadow` belongs to the map's overlays and
@@ -1232,31 +1381,66 @@ the `<i data-testid="tab-indicator">` it moves, `:67-72`). First callers:
 `McpServerDetail`'s Tools/Details switch, where Tools alone carries an
 optional count (`McpServerDetail.tsx:666-688`).
 
-**`FindingChip`** (`FindingChip.tsx`) — a chip plus an edge-clamped
-popover (Karthik, 2026-08-23): the chip names the state — how many findings
-are behind it; opening it says what they are and names its own destination,
-once (`:4-16`). Props `severity`, `lines`, `onReview`, `elevated`, `clampTo`
-(`:18-24`) — `count?` was dropped when the chip stopped taking an externally
+**`FindingChip`** (`FindingChip.tsx`) — a chip plus an edge-clamped popover
+(Karthik, 2026-08-23): the chip names the state — how many findings are
+behind it; opening it says what they are and names its own destination, once
+(`:13-14`). Props `severity`, `lines`, `onReview`, `elevated`, `clampTo`
+(`:5-11`) — `count?` was dropped when the chip stopped taking an externally
 supplied count and started stating its own (`5cf0c70`). The chip itself
 reads `{n} flagged` and the popover's `aria-label` carries the same string,
-not "Needs a decision" (`:86`, `:92`). The dot's colour is `severity` —
-`bg-state-danger` or `bg-state-warning` (`:70`). The popover measures its
-own box against `clampTo.current` in a `useLayoutEffect` and, only if it
-would run past the caller's surface, shifts back inside and moves the arrow
-the same amount so it still points at the chip (`:55-68`) — `Tooltip.tsx`'s
-window correction, here against the caller's own container. `elevated`
-decides whether the popover carries `shadow-overlay` (`:95-97`). Its lines
-are not new copy: `LinkMapPlacecard` passes the popover the same strings the
-map already draws on the edge labels themselves, built by `edgeSummary`
-(`LinkMapPane.tsx:407-408`, drawn on the map `:477`). `Needs review →`
-(`:106-110`) fires `onReview`, which each caller wires to switch to the
-Needs review pane: `LinkMapPlacecard`'s at `App.tsx:1661-1663`, and — since
-this phase — the inspector cap's own chip (`InspectorCap`, below) at
-`App.tsx:1252-1256`, which also selects the issue so the pane opens on it.
+not "Needs a decision" (`:23`, `:33`). The dot's colour is `severity` —
+`bg-state-danger` or `bg-state-warning` (`:18`, `:22`). `Needs review →`
+(`:34-38`) fires `onReview`, which each caller wires to switch to the Needs
+review pane: `LinkMapPlacecard`'s at `App.tsx:1834-1837`, and the inspector
+cap's own chip (`InspectorCap`, below) at `App.tsx:1975`, which routes
+through `routeToReview` (`App.tsx:1410-1419`) and selects the issue so the
+pane opens on it. Its lines are not new copy: `LinkMapPlacecard` passes the
+popover the same strings the map already draws on the edge labels
+themselves, built by `edgeSummary` (`LinkMapPane.tsx:416-417`, drawn on the
+map `:488`).
+
+**The panel itself is `FindingPopover`, extracted 2026-08-28.** The chip is
+42 lines now and is only the 26px trigger; everything below moved out when
+the strip's 30px Needs review pill needed the same panel
+(`FindingPopover.tsx:6-10`).
+
+**`FindingPopover`** (`FindingPopover.tsx:17-32`) — `open`, `onClose`,
+`lines`, `actions?`, `align`, `elevated`, `clampTo`, `anchorRef`,
+`ariaLabel`, `top?`. A line is `FindingLine` — `severity`, `text`, `detail?`
+(`:11-15`); the detail renders under the text as `text-micro font-mono
+text-ink-3 break-all` (`:112`), which is where a pid, a command line or a
+path goes. The panel is a 264px `role="dialog"` on `bg-page` with
+`rounded-inner` and a rotated `::before` arrow, closing on Escape or an
+outside pointerdown against `anchorRef` (`:42-56`, `:90-99`). `elevated`
+decides whether it carries `shadow-overlay` (`:97-99`).
+
+*It clamps to a surface rather than being hand-placed.* A `useLayoutEffect`
+measures its own box against `clampTo.current` and, only if it would run past
+that surface, shifts back inside and moves the arrow by the same amount so it
+still points at the trigger (`:61-75`, the offsets applied at `:83-87`) —
+`Tooltip.tsx`'s window correction, here against the caller's own container.
+`align` picks which edge it hangs from and which edge it clamps against: a
+`left` panel clamps its right edge against the host's right, a `right` panel
+its left against the host's left (`:72`). **The right-aligned arithmetic is
+unverified by test.** A zero-size rect means there is nothing to correct and
+the effect returns early (`:70`) — and `happy-dom` returns a zero rect from
+every `getBoundingClientRect` (`verification.md`), so the early-out is the
+only branch a test here ever runs. The shift is settled by a screenshot at a
+window narrow enough to force it, not by the suite.
+
+*`top` is the gap under the trigger.* 30 by default, for the 26px chip; the
+strip's 30px pill passes 34 for the same 4px gap (`:29-31`,
+`SummaryStrip.tsx:123-132`).
+
+*The 240px cap is on the list, not the panel* (`:101-106`), so the caller's
+action row stays visible while a long list scrolls — one root can raise
+dozens of scan warnings. `actions` is that row, whatever the caller decides:
+`Needs review →` from the chip, `Show in list` / `Show disagreeing servers`
+from a pane's review pill.
 
 **`ScanStamp`** (`ScanStamp.tsx`) — how old the figure beside it is;
 stays an age during a scan rather than restating that one is running
-(`:9-14`). Two callers: `SummaryStrip.tsx` (`:67`) and the map cap, beside
+(`:9-14`). Two callers: `SummaryStrip.tsx` (`:154`) and the map cap, beside
 Rescan, since the map view's toolbar slot holds Rescan in place of an
 inspector toggle (`App.tsx:1517`). Re-renders on a 30s interval so the
 age keeps pace with no scan event (`:17-20`); the wording — "moments ago"
@@ -1543,7 +1727,7 @@ inset beside it. Needs review always opened at `mx-[18px] mt-[18px]`
 (`NeedsReviewPane.tsx:95`) and read as consistent; Global at 14 top / 18
 left and the map at ~8 / 18 did not (Karthik, 2026-08-28, annotated
 frames). So every screen now opens at 18: `ProfilePane` and `RepoPane` at
-`pt-[18px]` (`ProfilePane.tsx:882`, `RepoPane.tsx:415`), Discovery and the
+`pt-[18px]` (`ProfilePane.tsx:987`, `RepoPane.tsx:529`), Discovery and the
 Design system page's prose headers at `pt-[18px]` (were `pt-5`), and the
 link map's canvas at `px-[18px] pt-[18px]` (was `pt-2.5`, `LinkMapPane.tsx:423`). `src/__tests__/shell_first_gap.test.tsx`
 and the `trackBox.className` strings in both pane integration tests pin the
@@ -1615,19 +1799,19 @@ gained a track above their strip (`2de751a`) that the other two never had.
 
 **`ProfilePane` and `RepoPane`: track, strip, list plane, foot.** The
 category track (`CategoryFilterCards`, above) opens the pane in
-`px-[18px] pt-1.5 pb-3.5` (`ProfilePane.tsx:891`; `RepoPane.tsx:424`, where
+`px-[18px] pt-1.5 pb-3.5` (`ProfilePane.tsx:987`; `RepoPane.tsx:529`, where
 it is nested one level deeper in a `min-w-0 flex-1` wrapper, so the
 track can shrink beside a control that does not exist yet — the comment
 above it says none is needed here). Then the `SummaryStrip` itself, in
-`mx-[18px] mb-3.5` (`ProfilePane.tsx:899`, `RepoPane.tsx:416`). Then the
+`mx-[18px] mb-3.5` (`ProfilePane.tsx:1001`, `RepoPane.tsx:550`). Then the
 list plane, flat per §3 — no `bg-plane` — rounding only its top corners and
 running off the bottom edge: `@container flex-1 min-h-0 overflow-y-auto
 mx-[18px] border border-line rounded-tl-plane rounded-tr-plane pb-1.5`
-(`ProfilePane.tsx:1101`, `RepoPane.tsx:645`) — identical in both panes now.
+(`ProfilePane.tsx:1178`, `RepoPane.tsx:725`) — identical in both panes now.
 Then the
 foot, `h-[30px] shrink-0 px-[18px] flex items-center gap-4 font-flex
 text-small text-ink-3` with the scan status pushed right by `ml-auto`
-(`ProfilePane.tsx:1286`, `RepoPane.tsx:853`).
+(`ProfilePane.tsx:1360`, `RepoPane.tsx:895`).
 
 **`NeedsReviewPane` keeps the pre-track order: strip, chip row, list plane,
 foot.** It was not touched by the reorder — it has no category to put on a
@@ -1653,7 +1837,7 @@ unremarked 2px difference from the pattern above.
 
 The uppercase eyebrow is gone from the migrated surfaces — `ProfilePane`'s
 group headers now render `groupLabelClass`, sentence case, body size
-(`typeRoles.ts:9`, imported at `ProfilePane.tsx:26`, used at `:1129`). It
+(`typeRoles.ts:9`, imported at `ProfilePane.tsx:25`, used at `:1203`). It
 survives only in panes still pending their pass, e.g. `font-flex text-micro
 font-medium uppercase tracking-[.06em] text-ink-3` (`LinkPanel.tsx:34`);
 `src/__tests__/type-roles.test.ts`'s `ROLE_FILES` list is the migrated set,
@@ -1690,11 +1874,16 @@ only `tbBtnClass` is the actual two-file duplicate.
 
 ### Scroll caps
 
-Two independent surfaces cap a scrolling body at exactly 240px —
-`DisclosureBanner.tsx:83` and the MCP tool list (@b383a08). Modal bodies cap
-differently: `max-h-[85vh]` for the shell and `max-h-[350px]` for its inner
-list (`SidebarScanModal.tsx:94`, `:160`). The repo pane's banner stack caps at
-`max-h-[45%]` (`RepoPane.tsx:374`).
+Three independent surfaces cap a scrolling body at exactly 240px —
+`DisclosureBanner.tsx:88-89`, the MCP tool list (@b383a08), and, since
+2026-08-28, `FindingPopover`'s line list, which took the cap from the banner
+bodies that moved into it (`FindingPopover.tsx:101-106`). The popover caps
+the `<ul>` rather than the panel, so the caller's action row stays visible
+while the lines scroll. Modal bodies cap differently: `max-h-[85vh]` for the
+shell and `max-h-[350px]` for its inner list (`SidebarScanModal.tsx:94`,
+`:160`). The repo pane's notice stack — TCC only now that the scan warnings
+and the nested repos have left for the hero — caps at `max-h-[45%]`
+(`RepoPane.tsx:581`).
 
 ---
 
@@ -1798,13 +1987,24 @@ link map has no banner strip and puts the same notices behind an alert
 control in the canvas, docked in `LinkMapPlacecard` (see `LinkMapPane`
 above). Nothing detects that either.
 
+**And since 2026-08-28 the rule has no production caller to govern.**
+`ProfilePane` lost its undeclared-processes banner and `RepoPane` its
+scan-warnings and nested-repos pair; those diagnostics are the review pill's
+popover lines and the hero band's foot row now (§5, Panes). The only
+`<DisclosureBanner>` left anywhere in `src/components/` is the design-system
+page's own specimen (`DesignSystemPane.tsx:859-871`), which renders in dev
+builds only. That is the fact recorded here; what follows from it is not
+settled here. Whether the pill's popover is a second stated exception, an
+instance of the rule, or grounds for retiring a rule nothing renders is
+`docs/findings.md`'s question and Karthik's answer.
+
 **There is no panel-height rule to point at.** `McpServerDetail` carries a
 comment saying two-line rows mean 17–20 tools exceed a panel and that
 "DESIGN.md fixes" it (@b383a08). No such rule exists in any design source: the
 component caps its own list at `max-h-[240px]` locally, `DisclosureBanner`
-independently caps at 240px (`:83`), and the modal and repo pane cap at other
-values entirely (`SidebarScanModal.tsx:94`, `:160`, `RepoPane.tsx:302`). The
-240px agreement between two files is emergent, not specified. That comment is
+independently caps at 240px (`:88-89`), and the modal and repo pane cap at other
+values entirely (`SidebarScanModal.tsx:94`, `:160`, `RepoPane.tsx:581`). The
+240px agreement between three files is emergent, not specified. That comment is
 a forward reference to a document that did not define it.
 
 **The vertical rhythm is not tokenised.** `--gutter: 18px` and `--step: 8px`
@@ -1919,7 +2119,10 @@ the twelve that had landed after the page without a specimen —
 `InfoPopover`, `FindingChip` under Controls, with the mini button tier
 (`miniButton.ts`: fill, tonal, outlined — the fill is the cap's `Link to…`)
 beside them; `InspectorCap`, `ListCard`, `ReachCard`, `OriginValue`,
-`ScanStamp`, `McpEngineSummary`, `SearchPalette` under Components. Nothing on it is a picture, so nothing on it can drift from the
+`ScanStamp`, `SearchPalette` under Components; plus the two that landed the
+same day, `FindingPopover` under Controls (`DesignSystemPane.tsx:748-771`)
+and `HeroBand` under Components (`:1001-1018`). `McpEngineSummary`'s
+specimen left with the component it drew. Nothing on it is a picture, so nothing on it can drift from the
 app; after a pull, one page shows every component in the current theme.
 
 **Every component is on the page, or says why not — enforced.** From
