@@ -1,10 +1,12 @@
 import { useRef, useState, type RefObject } from "react";
 import { miniBtnClass, miniSetClass } from "./miniButton";
-import FindingPopover from "./FindingPopover";
+import FindingPopover, { type FindingLine } from "./FindingPopover";
 
 export interface FindingChipProps {
+  /** The trigger's own dot: the caller's aggregate across every line. The
+   *  lines below carry their own, and are not painted from this one. */
   severity: "warning" | "danger";
-  lines: string[];
+  lines: FindingLine[];
   onReview: () => void;
   elevated: boolean;
   clampTo: RefObject<HTMLElement | null>;
@@ -25,7 +27,7 @@ export default function FindingChip({ severity, lines, onReview, elevated, clamp
       <FindingPopover
         open={open}
         onClose={() => setOpen(false)}
-        lines={lines.map((text) => ({ severity, text }))}
+        lines={lines}
         align="left"
         elevated={elevated}
         clampTo={clampTo}

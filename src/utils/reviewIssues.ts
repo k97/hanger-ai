@@ -406,6 +406,14 @@ export type AssetIdentity =
   | { path: string; registrationKeys?: never; serverName?: never }
   | { path?: never; registrationKeys: string[]; serverName?: string };
 
+/** The one severity rule, for an issue on its own. Broken and won't-parse are
+ *  dangers; drifted and duplicated are warnings. Every surface that paints a
+ *  dot for a single issue reads it from here, so two surfaces cannot paint
+ *  the same issue two colours (final review, 2026-08-28, Important 1). */
+export function issueSeverity(issue: ReviewIssue): "warning" | "danger" {
+  return issue.kind === "broken" || issue.kind === "parse" ? "danger" : "warning";
+}
+
 export function issuesForAsset(
   derivation: ReviewDerivation,
   asset: AssetIdentity
@@ -437,7 +445,7 @@ export function issuesForAsset(
 
     issues.push(issue);
     count += 1;
-    if (issue.kind === "broken" || issue.kind === "parse") severity = "danger";
+    if (issueSeverity(issue) === "danger") severity = "danger";
   }
 
   return { issues, count, severity };

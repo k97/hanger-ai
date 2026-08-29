@@ -32,7 +32,7 @@ import EmptyState from "./EmptyState";
 import { annotationStateCounts, linkStateCounts, matchesStateFilter, StateFilter } from "../utils/linkStateCounts";
 import { categoryNoun, joinNames, joinNamesTruncated } from "../utils/prose";
 import type { McpEngineSummaryData } from "../types/mcpEngineSummary";
-import type { ReviewIssue } from "../utils/reviewIssues";
+import { issueSeverity, type ReviewIssue } from "../utils/reviewIssues";
 
 /** The frontend's mirror of Rust's `ConfigProblem`
  *  (`src-tauri/src/mcp/discover.rs`), carried on `mcpCoverage.problems`.
@@ -661,12 +661,13 @@ export default function ProfilePane({
     detail: `${g.pids.length > 1 ? `${g.pids.length} processes · e.g. pid ${g.pids[0]}` : `pid ${g.pids[0]}`} · ${g.commandLine}${g.spawningHost ? ` · started by ${g.spawningHost}` : ""}`,
   }));
 
-  /* The severity rule is `reviewIssues.ts:440`'s, not a second one: a
-     won't-parse asset is a danger in the inspector cap's chip, so it is a
-     danger dot here too. Two surfaces reading the same issue must not paint
-     it two colours (coordinator review, 2026-08-28, finding 2). */
+  /* The severity rule is `issueSeverity`'s, not a second one: a won't-parse
+     asset is a danger in the inspector cap's chip, so it is a danger dot
+     here too. Two surfaces reading the same issue must not paint it two
+     colours (coordinator review, 2026-08-28, finding 2), and the rule is
+     read rather than restated (final review, 2026-08-28, Important 1). */
   const issueLine = (i: ReviewIssue): FindingLine => ({
-    severity: i.kind === "broken" || i.kind === "parse" ? ("danger" as const) : ("warning" as const),
+    severity: issueSeverity(i),
     text: i.problem,
     detail: i.name,
   });

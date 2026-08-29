@@ -5,7 +5,7 @@ import OverflowMenu, { menuActionClass, MenuSeparator } from "./OverflowMenu";
 import { miniBtnFillClass } from "./miniButton";
 import { kindLabel } from "../utils/assetProvenance";
 import { captionClass } from "./typeRoles";
-import type { AssetFindings, IssueCategory, ReviewIssue } from "../utils/reviewIssues";
+import { issueSeverity, type AssetFindings, type IssueCategory, type ReviewIssue } from "../utils/reviewIssues";
 import {
   CollapseIcon,
   DocumentTextIcon,
@@ -238,7 +238,7 @@ export default function InspectorCap({
         <div className="shrink-0 relative inline-flex">
           <FindingChip
             severity={findings.severity}
-            lines={findings.issues.map((issue) => issue.problem)}
+            lines={findings.issues.map((issue) => ({ severity: issueSeverity(issue), text: issue.problem }))}
             onReview={() => onReview(findings.issues[0])}
             elevated
             clampTo={clampTo}

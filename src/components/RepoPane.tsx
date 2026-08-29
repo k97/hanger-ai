@@ -31,7 +31,7 @@ import { categoryNoun } from "../utils/prose";
 import { linkStateCounts, matchesStateFilter, StateFilter } from "../utils/linkStateCounts";
 import { categoryCountKey } from "../utils/globalAssetCount";
 import { captionClass } from "./typeRoles";
-import type { ReviewIssue } from "../utils/reviewIssues";
+import { issueSeverity, type ReviewIssue } from "../utils/reviewIssues";
 
 interface RepoPaneProps {
   repoPath: string;
@@ -255,13 +255,14 @@ export default function RepoPane({
   // The pill's lines: this repository's issues, then the warnings the scan
   // itself raised. Neither is an asset, and the popover is the disclosure
   // the two banners used to be.
-  /* The severity rule is `reviewIssues.ts:440`'s, not a second one: a
-     won't-parse asset is a danger in the inspector cap's chip, so it is a
-     danger dot here too. Two surfaces reading the same issue must not paint
-     it two colours (coordinator review, 2026-08-28, finding 2). */
+  /* The severity rule is `issueSeverity`'s, not a second one: a won't-parse
+     asset is a danger in the inspector cap's chip, so it is a danger dot
+     here too. Two surfaces reading the same issue must not paint it two
+     colours (coordinator review, 2026-08-28, finding 2), and the rule is
+     read rather than restated (final review, 2026-08-28, Important 1). */
   const reviewLines: FindingLine[] = [
     ...issues.map((i) => ({
-      severity: i.kind === "broken" || i.kind === "parse" ? ("danger" as const) : ("warning" as const),
+      severity: issueSeverity(i),
       text: i.problem,
       detail: i.name,
     })),

@@ -101,6 +101,28 @@ describe("InspectorCap", () => {
     expect(pop.querySelector("li")?.textContent).toBe("Target missing");
   });
 
+  /* Important 1 (final review, 2026-08-28): the chip took ONE severity for
+     every line. `AssetFindings.severity` is the asset's AGGREGATE — danger
+     if ANY issue is broken-or-parse (`reviewIssues.ts:440`) — so an asset
+     holding a broken link and a drifted copy painted both dots danger,
+     while the hero pill, which severities each issue on its own, painted
+     the drifted one warning. Two surfaces, one issue, two colours.
+
+     Wrong implementation this catches: passing the aggregate down to every
+     line (`lines.map((text) => ({ severity, text }))`), which makes the
+     second dot danger. */
+  it("severities each popover line on its own issue, not on the asset's aggregate", () => {
+    const broken = makeIssue({ id: "Skills:broken:/a", kind: "broken", problem: "Target missing" });
+    const drifted = makeIssue({ id: "Skills:drifted:/b", kind: "drifted", problem: "Copy has diverged" });
+    renderCap({ findings: { issues: [broken, drifted], count: 2, severity: "danger" } });
+    fireEvent.click(screen.getByRole("button", { name: "2 flagged" }));
+    const lines = screen.getAllByTestId("finding-popover-line");
+    expect(lines[0].textContent).toBe("Target missing");
+    expect(lines[0].querySelector("i")!.className).toContain("bg-state-danger");
+    expect(lines[1].textContent).toBe("Copy has diverged");
+    expect(lines[1].querySelector("i")!.className).toContain("bg-state-warning");
+  });
+
   it("routes the chip's Needs review action to onReview with the first issue", () => {
     const { onReview } = renderCap({ findings: ONE_FINDING });
     fireEvent.click(screen.getByRole("button", { name: "1 flagged" }));

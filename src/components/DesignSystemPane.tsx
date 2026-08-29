@@ -730,14 +730,14 @@ export default function DesignSystemPane({ section }: DesignSystemPaneProps) {
             <div ref={chipHostRef} className="relative w-[300px] flex items-center gap-2">
               <FindingChip
                 severity="warning"
-                lines={[SAMPLE_REVIEW_ISSUE.problem]}
+                lines={[{ severity: "warning", text: SAMPLE_REVIEW_ISSUE.problem }]}
                 onReview={() => {}}
                 elevated
                 clampTo={chipHostRef}
               />
               <FindingChip
                 severity="danger"
-                lines={SAMPLE_FINDING_LINES}
+                lines={SAMPLE_FINDING_LINES.map((text) => ({ severity: "danger" as const, text }))}
                 onReview={() => {}}
                 elevated
                 clampTo={chipHostRef}
