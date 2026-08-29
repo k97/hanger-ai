@@ -808,8 +808,8 @@ export default function DesignSystemPane({ section }: DesignSystemPaneProps) {
             note="the Settings row that changes the remembered editor after the first pick; an ordinary root, so no contain-paint trap is needed — both states shown live"
           >
             <div className="flex flex-col gap-4 max-w-[420px]">
-              <EditorSetting editors={SAMPLE_EDITORS} chosen={SAMPLE_EDITORS[2].name} onChoose={() => {}} />
-              <EditorSetting editors={[]} chosen={null} onChoose={() => {}} />
+              <EditorSetting editors={SAMPLE_EDITORS} chosen={SAMPLE_EDITORS[2].name} onChoose={() => {}} onChooseOther={() => {}} />
+              <EditorSetting editors={[]} chosen={null} onChoose={() => {}} onChooseOther={() => {}} />
             </div>
           </Specimen>
         </Section>

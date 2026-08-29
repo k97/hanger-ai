@@ -1497,7 +1497,7 @@ export default function App() {
           return;
         }
         const found = await invoke<DetectedEditor[]>("detect_editors").catch(() => []);
-        setDetectedEditors(found);
+        setDetectedEditors(found ?? []);
         setPickerFor({ name: selectedAsset.name, path: openTargetForCap });
       }
     : undefined;
@@ -2325,6 +2325,7 @@ export default function App() {
                   setChosenEditor(name);
                   invoke("set_preference", { key: "editor_app", value: name }).catch(() => {});
                 }}
+                onChooseOther={chooseOtherApp}
               />
 
               <div className="border-t border-line pt-4 mt-2 flex flex-col gap-3">

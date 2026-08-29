@@ -4,6 +4,7 @@ export interface EditorSettingProps {
   editors: DetectedEditor[];
   chosen: string | null;
   onChoose: (name: string) => void;
+  onChooseOther: () => void;
 }
 
 const chosenClass =
@@ -11,7 +12,7 @@ const chosenClass =
 const unchosenClass =
   "h-[30px] px-3 rounded-pill border border-line-2 text-ink-2 text-small font-flex cursor-pointer transition-colors duration-nav ease-spring hover:bg-plane-2 inline-flex items-center justify-center gap-1.5";
 
-export default function EditorSetting({ editors, chosen, onChoose }: EditorSettingProps) {
+export default function EditorSetting({ editors, chosen, onChoose, onChooseOther }: EditorSettingProps) {
   return (
     <div className="border-t border-line pt-4 mt-2 flex flex-col gap-3">
       {/* No caps transform here: type-roles.test.ts's ALLOW list is scoped
@@ -38,7 +39,7 @@ export default function EditorSetting({ editors, chosen, onChoose }: EditorSetti
           ))}
         </div>
       ) : (
-        <button type="button" className={unchosenClass}>
+        <button type="button" onClick={onChooseOther} className={unchosenClass}>
           Choose an app…
         </button>
       )}
