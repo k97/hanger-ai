@@ -352,8 +352,8 @@ moment it took focus; `SearchPalette.test.tsx` pins the rule's text. `touch-acti
 `[role="button"]` to drop the 300ms double-tap delay without disabling pinch
 zoom (`index.css:536-539`). The app's one stated exception is the search
 palette's input: it already sits inside a framed, single-purpose dialog, so it
-opts out of the global rule; the pill field's own focus treatment — an ink
-border, a page ground (`focus:border-ink-1 focus:bg-page`) — is what signals
+opts out of the global rule; the pill field's own focus treatment — a
+`--line-2` border, a page ground (`focus:border-line-2 focus:bg-page`) — is what signals
 focus instead of a second ring drawn inside the panel's frame. The opt-out is
 an **unlayered** CSS rule, `[cmdk-input]:focus-visible { outline: none; }`
 (`index.css:530-532`), not a Tailwind utility: the global ring above is itself
@@ -1305,10 +1305,10 @@ The head dropped the borderless 52px command-menu row for a `p-3` wrapper
 around a `relative h-[30px]` field (`:125-126`): the magnifier sits
 absolutely at `left-2.5`, vertically centred, at `size={12}` (`:127-131`),
 and `Command.Input` itself carries `rounded-pill border border-transparent
-bg-plane pl-[30px] … focus:border-ink-1 focus:bg-page` (`:138-145`) — the
+bg-plane pl-[30px] … focus:border-line-2 focus:bg-page` (`:139-145`) — the
 same tonal field the shell's cap carried before 2026-08-28. The input opts
 out of the app's one global focus ring, because the pill's own focus
-treatment (an ink border, a page ground) is the affordance now, not a second
+treatment (a `--line-2` border, a page ground) is the affordance now, not a second
 ring. The opt-out is an unlayered rule, `[cmdk-input]:focus-visible`
 (`index.css:530-532`), not a Tailwind class — a `focus-visible:outline-none`
 utility is layered under `@layer utilities` and cannot outrank the unlayered

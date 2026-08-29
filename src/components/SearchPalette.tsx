@@ -134,14 +134,15 @@ export function SearchPalettePanel({
                 the unlayered `[cmdk-input]:focus-visible` rule in index.css, not
                 a utility class, because a layered utility cannot outrank an
                 unlayered one (CSS Cascade 5). The pill's own focus treatment —
-                an ink border, a page ground — is the affordance instead. */}
+                a `--line-2` border, a page ground — is the affordance instead;
+                ink-1 read as harsh (Karthik, 2026-08-29). */}
             <Command.Input
               autoFocus={autoFocus}
               value={query}
               onValueChange={onQueryChange}
               aria-label={inputLabel}
               placeholder="Search skills, rules, subagents and MCP servers"
-              className="w-full h-full rounded-pill border border-transparent bg-plane pl-[30px] pr-3.5 text-small text-ink-1 placeholder:text-ink-3 focus:border-ink-1 focus:bg-page transition-colors duration-hover ease-spring"
+              className="w-full h-full rounded-pill border border-transparent bg-plane pl-[30px] pr-3.5 text-small text-ink-1 placeholder:text-ink-3 focus:border-line-2 focus:bg-page transition-colors duration-hover ease-spring"
             />
           </div>
         </div>
