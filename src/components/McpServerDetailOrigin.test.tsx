@@ -3,6 +3,7 @@
 // happy-dom lays nothing out -- these tests pin the state contract (which
 // registration shows an origin, its link wiring, its wording); indentation,
 // truncation and hover motion are geometry, unassertable here.
+import { useState, type ComponentProps } from "react";
 import { render, screen, fireEvent, cleanup } from "@testing-library/react";
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 
@@ -14,6 +15,16 @@ vi.mock("@tauri-apps/plugin-opener", () => ({
 }));
 
 import McpServerDetail, { McpServerView } from "./McpServerDetail";
+
+/** `tab` is a Flyout-controlled prop now, not McpServerDetail's own state
+ *  (Karthik's ruling, 2026-08-29 fix round). This file's `openDetails()`
+ *  helper needs something to hold that state across a click the way the
+ *  real owner does, so every render below goes through this thin stand-in
+ *  for Flyout instead of the panel directly. */
+function Harness(props: ComponentProps<typeof McpServerDetail>) {
+  const [tab, setTab] = useState<"primary" | "details">("primary");
+  return <McpServerDetail {...props} tab={props.tab ?? tab} onTabChange={props.onTabChange ?? setTab} />;
+}
 
 const openDetails = () => fireEvent.click(screen.getByRole("tab", { name: "Details" }));
 
@@ -57,7 +68,7 @@ describe("the per-registration Origin line in McpServerDetail", () => {
   afterEach(cleanup);
 
   it("links the delivered registration's origin and opens it externally on click", () => {
-    render(<McpServerDetail server={base} />);
+    render(<Harness server={base} />);
     openDetails();
     const link = screen.getByTestId("registration-origin-link");
     expect(link.textContent).toContain("owner/market-repo");
@@ -69,7 +80,7 @@ describe("the per-registration Origin line in McpServerDetail", () => {
   });
 
   it("shows the pinned commit and delivering plugin on the delivered registration, not the install date", () => {
-    render(<McpServerDetail server={base} />);
+    render(<Harness server={base} />);
     openDetails();
     const detail = screen.getByTestId("registration-origin-detail");
     expect(detail.textContent).toContain("b0b9f02");
@@ -82,7 +93,7 @@ describe("the per-registration Origin line in McpServerDetail", () => {
     // not be restated on every row. If the origin line were rendered
     // unconditionally, this row -- which carries no `origin` and no
     // `originBlocked` -- would show it.
-    render(<McpServerDetail server={base} />);
+    render(<Harness server={base} />);
     openDetails();
     const rows = screen.getAllByTestId("registration-row");
     const codexRow = rows.find((r) => r.textContent?.includes("~/.codex/config.toml"))!;
@@ -98,7 +109,7 @@ describe("the per-registration Origin line in McpServerDetail", () => {
         base.registrations[1],
       ],
     };
-    render(<McpServerDetail server={withBlocked} />);
+    render(<Harness server={withBlocked} />);
     openDetails();
     const rows = screen.getAllByTestId("registration-row");
     const blockedRow = rows.find((r) => r.textContent?.includes("~/.claude/mcp.json"))!;
@@ -108,7 +119,7 @@ describe("the per-registration Origin line in McpServerDetail", () => {
   });
 
   it("keeps origin per registration -- a sibling with no origin does not inherit the delivered one", () => {
-    render(<McpServerDetail server={base} />);
+    render(<Harness server={base} />);
     openDetails();
     const links = screen.getAllByTestId("registration-origin-link");
     expect(links).toHaveLength(1);
@@ -152,7 +163,7 @@ describe("the collapsed Origin row in Identity & capabilities when registrations
       ...base,
       registrations: [{ ...base.registrations[0], origin: delivered }],
     };
-    render(<McpServerDetail server={solo} />);
+    render(<Harness server={solo} />);
     openDetails();
     const identityLink = screen.getByTestId("origin-open-link");
     expect(identityLink.textContent).toContain("owner/market-repo");
@@ -171,7 +182,7 @@ describe("the collapsed Origin row in Identity & capabilities when registrations
       ...base,
       registrations: [{ ...base.registrations[0], origin: delivered }],
     };
-    render(<McpServerDetail server={solo} />);
+    render(<Harness server={solo} />);
     openDetails();
     fireEvent.click(screen.getByTestId("origin-disclosure"));
     const subRows = screen.getAllByTestId("origin-sub-row").map((r) => r.textContent);
@@ -188,7 +199,7 @@ describe("the collapsed Origin row in Identity & capabilities when registrations
         { ...base.registrations[1], origin: delivered },
       ],
     };
-    render(<McpServerDetail server={agreeing} />);
+    render(<Harness server={agreeing} />);
     openDetails();
     expect(screen.getByTestId("origin-open-link").textContent).toContain("owner/market-repo");
     expect(screen.queryAllByTestId("registration-origin")).toHaveLength(0);
@@ -206,7 +217,7 @@ describe("the collapsed Origin row in Identity & capabilities when registrations
         { ...base.registrations[1], origin: noUrlOrigin },
       ],
     };
-    render(<McpServerDetail server={agreeing} />);
+    render(<Harness server={agreeing} />);
     openDetails();
     expect(screen.getByTestId("identity-row-origin").textContent).toContain("npx context7");
     expect(screen.queryAllByTestId("registration-origin")).toHaveLength(0);
@@ -229,7 +240,7 @@ describe("the collapsed Origin row in Identity & capabilities when registrations
         },
       ],
     };
-    render(<McpServerDetail server={sameUrlDifferentKind} />);
+    render(<Harness server={sameUrlDifferentKind} />);
     openDetails();
     expect(screen.queryByTestId("identity-row-origin")).toBeNull();
     expect(screen.getAllByTestId("registration-origin-link")).toHaveLength(2);
@@ -238,7 +249,7 @@ describe("the collapsed Origin row in Identity & capabilities when registrations
   it("keeps the per-registration rendering, with no Identity Origin row, when one registration has an origin and its sibling has none", () => {
     // `base` (top of file) is already this divergent shape: one delivered
     // origin, one registration with neither an origin nor a blocked check.
-    render(<McpServerDetail server={base} />);
+    render(<Harness server={base} />);
     openDetails();
     expect(screen.queryByTestId("identity-row-origin")).toBeNull();
     expect(screen.getByTestId("registration-origin-link")).toBeTruthy();
@@ -252,7 +263,7 @@ describe("the collapsed Origin row in Identity & capabilities when registrations
         base.registrations[1],
       ],
     };
-    render(<McpServerDetail server={neither} />);
+    render(<Harness server={neither} />);
     openDetails();
     expect(screen.queryByTestId("identity-row-origin")).toBeNull();
     expect(screen.queryAllByTestId("registration-origin")).toHaveLength(0);
@@ -266,7 +277,7 @@ describe("the collapsed Origin row in Identity & capabilities when registrations
         { ...base.registrations[1], origin: delivered },
       ],
     };
-    render(<McpServerDetail server={blockedVsOrigin} />);
+    render(<Harness server={blockedVsOrigin} />);
     openDetails();
     expect(screen.queryByTestId("identity-row-origin")).toBeNull();
     const rows = screen.getAllByTestId("registration-row");
@@ -284,7 +295,7 @@ describe("the collapsed Origin row in Identity & capabilities when registrations
         { ...base.registrations[1], origin: undefined, originBlocked: true },
       ],
     };
-    render(<McpServerDetail server={bothBlocked} />);
+    render(<Harness server={bothBlocked} />);
     openDetails();
     expect(screen.getByTestId("identity-row-origin").textContent).toContain("Not determined");
     expect(screen.queryAllByTestId("registration-origin")).toHaveLength(0);

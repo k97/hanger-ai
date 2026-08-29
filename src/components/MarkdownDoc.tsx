@@ -76,7 +76,9 @@ function Item({ item }: { item: ListItem }) {
   );
 }
 
-function Blocks({ blocks, nested = false }: { blocks: Block[]; nested?: boolean }) {
+/** The block list without the document's own padding and ink, for prose
+ *  that sits inside another surface — a tool's description in its row. */
+export function Blocks({ blocks, nested = false }: { blocks: Block[]; nested?: boolean }) {
   return (
     <>
       {blocks.map((block, i) => {

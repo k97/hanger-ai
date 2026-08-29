@@ -83,6 +83,11 @@ interface FlyoutProps {
    *  screens (Karthik, 2026-08-27). Absent means one screen for as long as
    *  this is mounted, which is what a test that never navigates is. */
   screen?: string;
+  /** Ticks on every search-palette pick (App.tsx `openSearchHit`). A pick
+   *  lands on the asset's primary tab even on the same screen, overriding
+   *  whatever tab this remembers — a plain click never touches this prop, so
+   *  it keeps the memory (Karthik's ruling, 2026-08-29). */
+  landingNonce?: number;
 }
 
 interface RuleSection {
@@ -105,17 +110,20 @@ export default function Flyout({
   activeCategory,
   paneScope,
   onAssetDocumentPath,
-  screen
+  screen,
+  landingNonce
 }: FlyoutProps) {
   const [linking, setLinking] = useState<FlatAssetItem | null>(null);
 
-  /* Which tab the inspector was last left on. The panels each hold their own
-     tab while mounted and seed it from this; this exists because they are two
-     components, not one -- an MCP server renders `McpServerDetail` and
-     everything else `AssetDetail`, so moving between them unmounts whichever
-     was showing and a tab kept inside it dies there. "primary" is whichever
-     tab a panel names first (Content, Tools); "details" is the one they
-     share, and the only one worth carrying.
+  /* Which tab the inspector is showing. Owned entirely here, as a controlled
+     prop each panel only renders — neither panel keeps a local copy or reads
+     this once at mount, precisely so that changing it here is enough to move
+     an already-mounted panel's tab, with no remount required; this exists
+     because they are two components, not one -- an MCP server renders
+     `McpServerDetail` and everything else `AssetDetail`, so moving between
+     them unmounts whichever was showing and a tab kept inside it dies there.
+     "primary" is whichever tab a panel names first (Content, Tools);
+     "details" is the one they share, and the only one worth carrying.
 
      Cleared on a screen change, and only there. App clears `selectedAsset`
      at the same moment (App.tsx, `handleSelectSidebarItem`), so the panel
@@ -124,6 +132,17 @@ export default function Flyout({
   useEffect(() => {
     setInspectorTab("primary");
   }, [screen]);
+
+  // A palette pick lands on the primary tab even on the same screen,
+  // overriding whatever tab this remembers (Karthik's ruling, 2026-08-29);
+  // clicks keep the memory, since only a pick advances `landingNonce`. This
+  // works from a plain effect — one render after the pick lands — because
+  // the panels below read `inspectorTab` as a live prop on every render, not
+  // once at mount: no remount is needed to make an already-mounted panel
+  // move.
+  useEffect(() => {
+    if (landingNonce) setInspectorTab("primary");
+  }, [landingNonce]);
 
   useEffect(() => {
     setLinking(initialDeployingAsset ?? null);
@@ -755,7 +774,7 @@ export default function Flyout({
           onVerify={runMcpVerify}
           onAutoProbe={runMcpAutoProbe}
           declined={mcpDeclined}
-          initialTab={inspectorTab}
+          tab={inspectorTab}
           onTabChange={setInspectorTab}
         />
       ) : targetAsset ? (
@@ -766,7 +785,7 @@ export default function Flyout({
           inventory={inventory}
           annotation={annotation}
           onDocumentPath={onAssetDocumentPath}
-          initialTab={inspectorTab}
+          tab={inspectorTab}
           onTabChange={setInspectorTab}
         />
       ) : selectedBubble ? (

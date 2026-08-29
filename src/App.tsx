@@ -77,6 +77,7 @@ import SidebarScanModal from "./components/SidebarScanModal";
 import Flyout from "./components/Flyout";
 import InspectorCap, { type InspectorCapAsset } from "./components/InspectorCap";
 import type { AssetAnnotationView } from "./components/AssetRow";
+import { SelectionOriginContext, type SelectionOrigin } from "./components/selectionOrigin";
 import { SortField, SortDirection } from "./components/AssetHeaderRow";
 import type { ServerGrouping, ServerSort } from "./components/ViewControl";
 import { StateFilter } from "./utils/linkStateCounts";
@@ -315,6 +316,13 @@ export default function App() {
 
   // Sidebar and Panel Navigation State
   const [selectedSidebarItem, setSelectedSidebarItem] = useState<string>("profile");
+  // Which kind of action made the current selection — a plain row click, or
+  // a search-palette pick — so AssetRow can land the two differently
+  // (Karthik's ruling, 2026-08-29). landingNonce ticks on every palette pick,
+  // including a re-pick of the same asset, so Flyout's tab-reset effect
+  // fires even when selectionOrigin itself does not change value.
+  const [selectionOrigin, setSelectionOrigin] = useState<SelectionOrigin>("click");
+  const [landingNonce, setLandingNonce] = useState(0);
   // 216px is the prototype's --rail-src. A persisted preference still wins;
   // this is only what a machine that has never been resized starts at.
   const [sidebarWidth, setSidebarWidth] = useState<number>(216);
@@ -732,6 +740,10 @@ export default function App() {
     // stay ticked for every link after it.
     setLinkPreSelectedRepo(preSelectedRepo);
     setSelectedAsset(asset);
+    // A link selection is a click-class selection: this bypasses
+    // handleSelectAsset, so without this a row linked right after a
+    // search-palette pick would still carry "search" and centre.
+    setSelectionOrigin("click");
     setLinkingAsset(asset);
     if (!inspectorOpen) {
       setInspectorOpen(true);
@@ -1055,8 +1067,12 @@ export default function App() {
     // The screen the selection belongs to. A pick from the search palette
     // switches screens in the same tick, so the state read here would still
     // be the old one; the palette passes the target explicitly.
-    screen: string = selectedSidebarItem
+    screen: string = selectedSidebarItem,
+    // "click" for a row tap, "search" for a palette pick — read by AssetRow
+    // (via SelectionOriginContext) to decide how the picked row lands.
+    origin: SelectionOrigin = "click"
   ) => {
+    setSelectionOrigin(origin);
     // Tapping a row means "inspect this" — open the panel straight away
     // rather than requiring the toolbar toggle first.
     if (!inspectorOpen) {
@@ -1131,12 +1147,17 @@ export default function App() {
       handleSelectSidebarItem(target);
       invoke("set_preference", { key: "selected_sidebar_item", value: target }).catch(() => {});
     }
+    // A palette pick always lands on the asset's primary tab, even when the
+    // inspector already remembers a "details" tab from an earlier asset on
+    // this same screen — the nonce ticks ahead of the selection so Flyout's
+    // reset effect fires whether or not the picked asset itself changes.
+    setLandingNonce((n) => n + 1);
     if (hit.kind === "server" || hit.kind === "mcp_tool") {
-      handleSelectAsset({ id: hit.id, name: hit.server ?? hit.name, category: "Tools", path: hit.path }, target);
+      handleSelectAsset({ id: hit.id, name: hit.server ?? hit.name, category: "Tools", path: hit.path }, target, "search");
       return;
     }
     const category = hit.kind === "skill" ? "Skills" : hit.kind === "rule" ? "Rules" : "Subagents";
-    handleSelectAsset({ name: hit.name, category, path: hit.path }, target);
+    handleSelectAsset({ name: hit.name, category, path: hit.path }, target, "search");
   };
 
   /** Home, by ruling (Karthik, 2026-08-15): the hanger mark, the rail's
@@ -1462,6 +1483,10 @@ export default function App() {
      two, and never none. */
   const mainLeads = selectedSidebarItem === "linkmap" || sidebarCollapsed;
   const asideLeads = inspectorExpanded && sidebarCollapsed;
+  /* Which column ends the window — the lead, mirrored: the inspector
+     whenever it renders (beside <main> or expanded over it), otherwise
+     <main>. Never the source list; a content column always follows it. */
+  const mainTrails = !inspectorRenders;
   /* The sheet: a column's --page ground, starting under the 36px cap (every
      cap's h-9) rather than behind it, with the --line border along its top.
      The column itself paints --sidebar, once; the sheet sits above that
@@ -1470,11 +1495,20 @@ export default function App() {
      it twice — a full-width band under the columns did, and the double
      tint read as a seam at the rail (2026-08-28). The leading column adds
      the left edge and the 16px corner — the same treatment SourceListShell
-     gives the source list. */
-  const sheetClass = (leads: boolean) =>
-    `absolute inset-x-0 top-9 bottom-0 -z-10 bg-page border-t border-line ${leads ? "border-l rounded-tl-plane" : ""}`;
+     gives the source list — and the trailing column adds the right edge
+     and its corner the same way (Karthik, 2026-08-29: "follow the same
+     aspect of how we did it before"). That right edge sits on the window's
+     last pixel column, where index.html's #win-border already paints the
+     1px window line, so along the straight run the two coincide. */
+  const sheetClass = (leads: boolean, trails: boolean) =>
+    `absolute inset-x-0 top-9 bottom-0 -z-10 bg-page border-t border-line ${leads ? "border-l rounded-tl-plane" : ""} ${trails ? "border-r rounded-tr-plane" : ""}`;
 
   return (
+    // Provides the origin of the current selection — a row click vs. a
+    // search-palette pick — down to AssetRow, which lands the two
+    // differently (Karthik's ruling, 2026-08-29). Wraps the whole shell:
+    // Provider adds no DOM node of its own, so this touches no layout class.
+    <SelectionOriginContext.Provider value={selectionOrigin}>
     <div className="h-screen w-screen text-ink-1 flex font-sans transition-colors duration-press overflow-hidden">
       {/* ══ Left column: rail + source list share one plane and carry their
           own 40px cap, so the column edge runs uninterrupted top to bottom.
@@ -1665,7 +1699,7 @@ export default function App() {
       </div>
 
       <main ref={mainRef} className={`${inspectorExpanded ? "hidden" : "flex-1 flex flex-col min-w-0 h-full relative overflow-hidden bg-sidebar isolate"}`}>
-        <div data-testid="content-sheet" aria-hidden="true" className={sheetClass(mainLeads)} />
+        <div data-testid="content-sheet" aria-hidden="true" className={sheetClass(mainLeads, mainTrails)} />
         {/* Content cap: the trailing controls only — the breadcrumb sits in
             the sidebar cap since 2026-08-28, so it does not move with this
             column. A <header> on purpose — it is the content column's banner,
@@ -1938,7 +1972,7 @@ export default function App() {
              there would run up through the cap band. */
           className={`shrink-0 h-full min-h-0 bg-sidebar isolate flex flex-col relative ${inspectorExpanded ? "flex-1" : "border-l border-line"}`}
         >
-          <div data-testid="inspector-sheet" aria-hidden="true" className={sheetClass(asideLeads)} />
+          <div data-testid="inspector-sheet" aria-hidden="true" className={sheetClass(asideLeads, /* the inspector always ends the window */ true)} />
           {/* Rendered in both states on purpose: expanded, the panel already
               starts at the main column's left edge, so the handle sits where
               it always did and is the way back out of the expanded state. */}
@@ -2016,6 +2050,7 @@ export default function App() {
                 /* The inspector's tab is remembered between assets and
                    forgotten between screens; this is the screen. */
                 screen={selectedSidebarItem}
+                landingNonce={landingNonce}
               />
             )}
           </div>
@@ -2211,5 +2246,6 @@ export default function App() {
         </div>
       )}
     </div>
+    </SelectionOriginContext.Provider>
   );
 }

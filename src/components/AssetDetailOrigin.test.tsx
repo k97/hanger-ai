@@ -12,6 +12,7 @@
 // so has no tooltip to pin. What is NOT pinned here is `Tooltip`'s own hover
 // behaviour — its delay, its animation, its dismissal — that contract
 // belongs to `tooltip.test.tsx` and is out of scope for this row.
+import { useState, type ComponentProps } from "react";
 import { render, screen, fireEvent, cleanup } from "@testing-library/react";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
@@ -24,6 +25,16 @@ vi.mock("@tauri-apps/plugin-opener", () => ({
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn().mockResolvedValue(null) }));
 
 import AssetDetail from "./AssetDetail";
+
+/** `tab` is a Flyout-controlled prop now, not AssetDetail's own state
+ *  (Karthik's ruling, 2026-08-29 fix round). This file's `openDetails()`
+ *  helper needs something to hold that state across a click the way the
+ *  real owner does, so every render below goes through this thin stand-in
+ *  for Flyout instead of the panel directly. */
+function Harness(props: ComponentProps<typeof AssetDetail>) {
+  const [tab, setTab] = useState<"primary" | "details">("primary");
+  return <AssetDetail {...props} tab={props.tab ?? tab} onTabChange={props.onTabChange ?? setTab} />;
+}
 
 const delivered = {
   category: "Skills",
@@ -66,7 +77,7 @@ describe("the Origin row", () => {
   });
 
   it("links the label and opens externally on click", () => {
-    render(<AssetDetail asset={delivered} inventory={null} />);
+    render(<Harness asset={delivered} inventory={null} />);
     openDetails();
     const link = screen.getByTestId("origin-open-link");
     expect(link.textContent).toContain("owner/market-repo");
@@ -82,7 +93,7 @@ describe("the Origin row", () => {
   });
 
   it("gives a different kind of origin a different tooltip, not the same string reused", () => {
-    render(<AssetDetail asset={declared} inventory={null} />);
+    render(<Harness asset={declared} inventory={null} />);
     openDetails();
     const link = screen.getByTestId("origin-open-link");
     expect(link.getAttribute("aria-label")).toContain("The asset declares this");
@@ -94,7 +105,7 @@ describe("the Origin row", () => {
   });
 
   it("discloses the delivery facts on demand, collapsed first", () => {
-    render(<AssetDetail asset={delivered} inventory={null} />);
+    render(<Harness asset={delivered} inventory={null} />);
     openDetails();
     expect(screen.queryAllByTestId("origin-sub-row")).toHaveLength(0);
     const chevron = screen.getByTestId("origin-disclosure");
@@ -110,7 +121,7 @@ describe("the Origin row", () => {
   });
 
   it("origin sub-rows share the card's label and value inks", () => {
-    render(<AssetDetail asset={delivered} inventory={null} />);
+    render(<Harness asset={delivered} inventory={null} />);
     openDetails();
     fireEvent.click(screen.getByTestId("origin-disclosure"));
     const sub = screen.getAllByTestId("origin-sub-row")[0];
@@ -129,7 +140,7 @@ describe("the Origin row", () => {
   // asserted the row's muted content; this asserts the row's absence, which
   // is what would actually catch a regression that brought it back.
   it("renders no Origin row at all when nothing was found", () => {
-    render(<AssetDetail asset={{ category: "Skills", name: "plain", path: "/x" }} inventory={null} />);
+    render(<Harness asset={{ category: "Skills", name: "plain", path: "/x" }} inventory={null} />);
     openDetails();
     expect(screen.queryByTestId("origin-disclosure")).toBeNull();
     expect(screen.queryByTestId("origin-open-link")).toBeNull();
@@ -138,7 +149,7 @@ describe("the Origin row", () => {
 
   it("words a blocked check differently from an empty one, and still renders a row for it", () => {
     render(
-      <AssetDetail
+      <Harness
         asset={{ category: "Skills", name: "p", path: "/x", origin_blocked: true }}
         inventory={null}
       />
@@ -152,7 +163,7 @@ describe("the Origin row", () => {
   // when the inspector moves to a different asset. Written before the reset
   // line landed, so it was seen red first.
   it("closes the Origin disclosure when the inspector moves to another asset", () => {
-    const { rerender } = render(<AssetDetail asset={delivered} inventory={null} />);
+    const { rerender } = render(<Harness asset={delivered} inventory={null} />);
     openDetails();
     const chevron = screen.getByTestId("origin-disclosure");
     fireEvent.click(chevron);
@@ -163,7 +174,7 @@ describe("the Origin row", () => {
       name: "other-delivered-skill",
       path: "/home/.claude/plugins/cache/mkt-a/tool-x/1.0.0/skills/other-delivered-skill",
     };
-    rerender(<AssetDetail asset={other} inventory={null} />);
+    rerender(<Harness asset={other} inventory={null} />);
     // Whatever the Details tab's own persistence does across a rerender is a
     // fact about the peer's work, not this test's business — click it again
     // so this assertion depends only on the Origin row's own reset.

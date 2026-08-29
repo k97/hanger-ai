@@ -26,6 +26,9 @@ Always on. This is the preventive half of the stage-gate reviews;
    existing patterns. Never edit a test, detector, or allowlist to reach
    green — report the failure and let Karthik decide (`verification.md`,
    Scope). "While I'm here" edits are separate commits or not at all.
+   A change to a component's shape moves the `DESIGN.md` paragraph that
+   cites it, in the same commit — two paragraphs were found describing
+   removed markup on 2026-08-29, each citing lines that no longer said it.
 4. **Goal-driven execution.** Every change pairs with a runnable check; write
    the failing test first wherever one can exist. Deliver the whole ask —
    scaling it down is Karthik's call, not yours — and say plainly what was

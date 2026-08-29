@@ -155,7 +155,7 @@ rulings recorded in `src/__tests__/type-roles.test.ts:9`, 2026-08-27):
 
 | Size | Role | Ink | Utility | Source |
 |---|---|---|---|---|
-| 13 | body — labels, values, prose, list names, tabs | `--ink-1` for values and prose, `--ink-3` for labels | `text-base-app` | `rowLabelClass`, `rowValueClass`, `sectionHeadClass`, `groupLabelClass` (`typeRoles.ts:7,9-10,14`) |
+| 13 | body — labels, values, prose, list names, tabs | `--ink-1` for values and prose, `--ink-3` for labels, `--ink-2` for a row's prose under its mono name | `text-base-app` | `rowLabelClass`, `rowValueClass`, `sectionHeadClass`, `groupLabelClass`, `rowProseClass` (`typeRoles.ts:7,9-10,14,20`) |
 | 12 | secondary — captions, mono values, paths, chips, counts, foot and stamp lines | `--ink-1` for `rowMonoClass` values, `--ink-2` / `--ink-3` for captions and grey mono labels | `text-small` | `captionClass`, `rowMonoClass`, `monoLabelClass`, `columnHeadClass` (`typeRoles.ts:15-16,20,24`) |
 | 11 | filled badges and chips | `--ink-3` | `text-micro` | e.g. the inspector list's scope pill (`Flyout.tsx:868`) |
 | 16 | titles and top content headings | `--ink-1` | `text-lg-app` | the inspector's title `h2` (`Flyout.tsx:654`), a document's `#` and `##` (`MarkdownDoc.tsx:89`); `###` and deeper step down to `sectionHeadClass` (`:93`) |
@@ -355,16 +355,21 @@ of every other file (§4's family rule).
 
 ### Focus
 
-One global focus ring: a 2px `--ink-1` outline at 2px offset with a 4px radius
-(`index.css:518-522`). `touch-action: manipulation` is set on buttons and
+One global focus ring: a 2px `--ink-1` outline at 2px offset
+(`index.css:518-521`). It sets no radius of its own: an outline takes the
+element's corners, so the ring is a pill around a pill field and a 16px
+plane around a plane. Until 2026-08-29 the rule also forced
+`border-radius: 4px` on the element, and being unlayered it beat every
+`rounded-*` utility — the palette's pill field snapped to 4px corners the
+moment it took focus; `SearchPalette.test.tsx` pins the rule's text. `touch-action: manipulation` is set on buttons and
 `[role="button"]` to drop the 300ms double-tap delay without disabling pinch
-zoom (`index.css:537-540`). The app's one stated exception is the search
+zoom (`index.css:536-539`). The app's one stated exception is the search
 palette's input: it already sits inside a framed, single-purpose dialog, so it
-opts out of the global rule; the pill field's own focus treatment — an ink
-border, a page ground (`focus:border-ink-1 focus:bg-page`) — is what signals
+opts out of the global rule; the pill field's own focus treatment — a
+`--line-2` border, a page ground (`focus:border-line-2 focus:bg-page`) — is what signals
 focus instead of a second ring drawn inside the panel's frame. The opt-out is
 an **unlayered** CSS rule, `[cmdk-input]:focus-visible { outline: none; }`
-(`index.css:531-533`), not a Tailwind utility: the global ring above is itself
+(`index.css:530-532`), not a Tailwind utility: the global ring above is itself
 unlayered, Tailwind's utilities live in `@layer utilities`, and an unlayered
 declaration always outranks a layered one regardless of specificity (CSS
 Cascade 5) — a `focus-visible:outline-none` class on the input cannot win
@@ -1145,12 +1150,18 @@ eyebrows.
   (`ToolCost`, `probe.rs:112-121`, no schema field at all). The eyebrow reads
   `Context per request`, not the skill's plain `Context`, because this cost
   recurs on every request rather than once on open.
-- **The tool table** — `Tool` / `Description` / `Schema` header row
-  (`:341-345`), then one row per tool: its name, a description-bytes figure
-  or an em dash when `cost` did not travel with this probe, a `Schema` column
-  that is always an em dash because schema bytes are never measured, and the
-  description text itself beneath when the server sent one (`ProbedToolList`,
-  `:322-368`).
+- **The tool list** — no header, no schema column, no per-tool figure:
+  one `ListCard` row per tool holding its name in `rowMonoClass` at medium
+  weight — the anchor above prose of the same size — and, when the server
+  sent one, its description as prose beneath (`ProbedToolList`, `:387-422`). The description is `rowProseClass` — body size and leading
+  in `--ink-2`, one ink down from the name it explains — and goes through
+  the Content tab's parser (`toBlocks` → `Blocks`, `MarkdownDoc.tsx:81`), so a
+  server's paragraphs, bullet lists and backticked parameter names render
+  rather than collapsing into one run. Until 2026-08-29 it was the caption
+  role in a single `span`, which set a 2.7 kB description as thirty grey
+  lines at 12px; Karthik's ruling that day, from a three-option study on
+  descriptions in the store. The section's accounting lives in the
+  Context-per-request ledger above, not in the rows.
 
 **`McpServerDetail` (`McpServerDetail.tsx`), Details tab.**
 - **Identity & capabilities** is a `ListCard` of up to six rows: Server and
@@ -1487,12 +1498,12 @@ The head dropped the borderless 52px command-menu row for a `p-3` wrapper
 around a `relative h-[30px]` field (`:125-126`): the magnifier sits
 absolutely at `left-2.5`, vertically centred, at `size={12}` (`:127-131`),
 and `Command.Input` itself carries `rounded-pill border border-transparent
-bg-plane pl-[30px] … focus:border-ink-1 focus:bg-page` (`:138-145`) — the
+bg-plane pl-[30px] … focus:border-line-2 focus:bg-page` (`:139-145`) — the
 same tonal field the shell's cap carried before 2026-08-28. The input opts
 out of the app's one global focus ring, because the pill's own focus
-treatment (an ink border, a page ground) is the affordance now, not a second
+treatment (a `--line-2` border, a page ground) is the affordance now, not a second
 ring. The opt-out is an unlayered rule, `[cmdk-input]:focus-visible`
-(`index.css:531-533`), not a Tailwind class — a `focus-visible:outline-none`
+(`index.css:530-532`), not a Tailwind class — a `focus-visible:outline-none`
 utility is layered under `@layer utilities` and cannot outrank the unlayered
 global ring (CSS Cascade 5), so the input's `className` carries no focus
 utility at all (`:144`); a comment at the input row explains why
@@ -1555,7 +1566,20 @@ completes (`lib.rs:1366`), and after an MCP probe answers, cached or fresh
 `openSearchHit`, which switches screens and then calls
 `handleSelectAsset(asset, screen)` with the target screen passed explicitly
 rather than read from state, because a pick can change screens in the same
-tick a stale read would miss (`App.tsx:1032-1038`, `:1106-1119`). As
+tick a stale read would miss (`App.tsx:1044-1052`, `:1122-1140`). A pick
+always lands the inspector on the asset's primary tab — Content, or Tools
+for an MCP server — and centres its row, overriding whatever tab the
+inspector remembers and the plain `nearest` scroll a row click keeps
+(Karthik's ruling, 2026-08-29): `openSearchHit` bumps a `landingNonce` before
+calling `handleSelectAsset(asset, screen, "search")` (`App.tsx:1133, 1135,
+1139`); `Flyout` owns the tab itself, as `inspectorTab` state passed to each
+panel through a controlled `tab` prop that neither panel copies into local
+state or reads only at mount, so an effect resetting `inspectorTab` to
+"primary" whenever `landingNonce` changes is enough to move an
+already-mounted panel, with no remount (`Flyout.tsx:143-157, 828, 839`); and
+`AssetRow` reads the selection's origin
+from `SelectionOriginContext` to choose `scrollIntoView`'s `block`, `"center"`
+for `"search"` and `"nearest"` otherwise (`AssetRow.tsx:163, 172`). As
 committed, the list carries three copy states: "Results show up here once
 the first scan finishes." before the first scan, "Type to search names and
 what's inside." for an empty query, and "Nothing matches “{q}”." for a query
@@ -1631,8 +1655,8 @@ material, and it is painted exactly once under each: the rail column keeps
 its `bg-sidebar` (`App.tsx:1456`), and `<main>` and the inspector `<aside>`
 now carry `bg-sidebar` too — with a *sheet* on top of it,
 `absolute inset-x-0 top-9 bottom-0 -z-10 bg-page border-t border-line`
-(`sheetClass`, `App.tsx:1442-1443`; `data-testid` `content-sheet` at
-`:1635`, `inspector-sheet` at `:1898`), so the page ground starts under the
+(`sheetClass`, `App.tsx:1471-1472`; `data-testid` `content-sheet` at
+`:1670`, `inspector-sheet` at `:1933`), so the page ground starts under the
 36px cap rather than behind it, with the `--line` rule along its top. Each
 column is `isolate`, so `-z-10` puts the sheet above the column's own tint and
 below its content. Nothing paints the band across columns: a first version
@@ -1646,14 +1670,32 @@ Exactly one column after the icon rail draws the sheet's left edge and its
 16px top-left corner (`border-l rounded-tl-plane`), the treatment
 `SourceListShell` has always given the source list (`SourceListShell.tsx:107`):
 the source list when it is open; otherwise `<main>` (`mainLeads`,
-`App.tsx:1431` — collapsed, or the link map, which has no source list); and
+`App.tsx:1452` — collapsed, or the link map, which has no source list); and
 when `<main>` is `hidden` behind an expanded inspector, the inspector
-(`asideLeads`, `:1432`). The inspector's full-height `border-l` divider
+(`asideLeads`, `:1453`). The inspector's full-height `border-l` divider
 exists only beside `<main>` — expanded, its left edge is the source list's
 or the rail's, and a line there would run up through the band
-(`App.tsx:1896`). `src/__tests__/window_chrome_sheet.test.tsx` pins the
+(`App.tsx:1931`). `src/__tests__/window_chrome_sheet.test.tsx` pins the
 class contract for all four states and that no column tints twice; that the
 corner meets the rail is a screenshot claim, `happy-dom` lays nothing out.
+
+**The right corner, the same way (2026-08-29).** Whichever column ends the
+window draws the sheet's right edge and its 16px top-right corner
+(`border-r rounded-tr-plane`, the second flag of `sheetClass`): the
+inspector whenever it renders, beside `<main>` or expanded over it, and
+otherwise `<main>` (`mainTrails`, `App.tsx:1457`; the inspector's call site
+passes `true`, `:1933`) — never the source list, which a content column
+always follows. Karthik's ruling: "rather than re-engineer it, follow the
+same aspect of how we did it before" — so no gutter and no new mechanism;
+where the left curve meets the rail, the right one meets the window's own
+edge. That edge lands on the window's last pixel column, where `index.html`'s
+`#win-border` already paints the 1px window line, so along the straight run
+the two coincide and only the curve is the sheet's own. The guard's
+right-corner cases: `<main>` trails on all five screens with the inspector
+closed; the inspector's sheet takes the corner, and `<main>`'s gives it up,
+when the inspector renders; expanded over a collapsed source list its sheet
+carries both. What the curve looks like against the window edge is a
+screenshot claim.
 
 **Every screen carries the corner.** My machine, the link map, Discovery,
 Needs review and the Design system page all open on the same sheet, and the
@@ -1667,6 +1709,9 @@ corner Karthik asked for was square there until the same day). Karthik's standin
 instruction, 2026-08-28: **a new screen gets the corner by default, and it
 comes off only when explicitly asked** — `window_chrome_sheet.test.tsx`
 walks all five screens and fails a pane root that carries `bg-page`.
+Since 2026-08-29 "the corner" is both top corners: the right one is the
+shell's in the same way, drawn by whichever column ends the window, and the
+same guard asserts it on all five screens with the inspector closed.
 
 ### Window chrome — one vertical baseline
 

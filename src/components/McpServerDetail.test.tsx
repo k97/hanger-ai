@@ -1,8 +1,21 @@
 // @vitest-environment happy-dom
+import { useState, type ComponentProps } from "react";
 import { render, screen, cleanup, fireEvent, within, act } from "@testing-library/react";
 import { describe, it, expect, afterEach, vi } from "vitest";
 import McpServerDetail, { McpServerView } from "./McpServerDetail";
 import { probeAnswered, probeFailed } from "../__tests__/probeFixtures";
+
+/** `tab` is a Flyout-controlled prop now, not McpServerDetail's own state
+ *  (Karthik's ruling, 2026-08-29 fix round: lift the tab into Flyout so a
+ *  search-palette pick can move it without a remount). This file's
+ *  `openDetails()` helper needs something to hold that state across a
+ *  click the way the real owner does, so every render/rerender call below
+ *  goes through this thin stand-in for Flyout instead of the panel
+ *  directly — same props, its own `tab` state fed back from `onTabChange`. */
+function Harness(props: ComponentProps<typeof McpServerDetail>) {
+  const [tab, setTab] = useState<"primary" | "details">("primary");
+  return <McpServerDetail {...props} tab={props.tab ?? tab} onTabChange={props.onTabChange ?? setTab} />;
+}
 
 const openUrl = vi.fn().mockResolvedValue(undefined);
 vi.mock("@tauri-apps/plugin-opener", () => ({
@@ -42,16 +55,16 @@ describe("McpServerDetail", () => {
   // The tab follows the user, not the server: navigating a table of servers
   // with Details open used to snap back to Tools on every row.
   it("keeps the open tab when the inspector moves to another server", () => {
-    const { rerender } = render(<McpServerDetail server={base} />);
+    const { rerender } = render(<Harness server={base} />);
     openDetails();
     expect(screen.getByRole("tab", { name: "Details" }).getAttribute("aria-selected")).toBe("true");
 
-    rerender(<McpServerDetail server={{ ...base, name: "mei-recipes" }} />);
+    rerender(<Harness server={{ ...base, name: "mei-recipes" }} />);
     expect(screen.getByRole("tab", { name: "Details" }).getAttribute("aria-selected")).toBe("true");
   });
 
   it("lists every registration, including two from the same host", () => {
-    render(<McpServerDetail server={base} />);
+    render(<Harness server={base} />);
     openDetails();
     // Two Claude Code registrations is a real condition, not duplication to
     // collapse -- it is what the config_path dedup bug was hiding.
@@ -73,7 +86,7 @@ describe("McpServerDetail", () => {
 
   it("renders tools with their descriptions once verified", () => {
     render(
-      <McpServerDetail
+      <Harness
         server={base}
         verified={{
           "cc-user": {
@@ -111,7 +124,7 @@ describe("McpServerDetail", () => {
     // once it does.
     const onVerify = vi.fn();
     render(
-      <McpServerDetail
+      <Harness
         server={{ ...base, registrations: [base.registrations[0]] }}
         onVerify={onVerify}
         verified={{
@@ -129,7 +142,7 @@ describe("McpServerDetail", () => {
 
   it("spins and disables the check-again control while a re-probe is in flight", () => {
     render(
-      <McpServerDetail
+      <Harness
         server={{ ...base, registrations: [base.registrations[0]] }}
         verifying={["cc-user"]}
         verified={{
@@ -159,7 +172,7 @@ describe("McpServerDetail", () => {
     // Karthik's call, 2026-08-18: one launch means the header slot is
     // unambiguous, so the affordance belongs where the eye already is
     // rather than below an otherwise-empty block.
-    render(<McpServerDetail server={{ ...base, registrations: [base.registrations[0]] }} />);
+    render(<Harness server={{ ...base, registrations: [base.registrations[0]] }} />);
     const toolsHeader = toolsHeading().parentElement!;
     expect(within(toolsHeader).getByRole("button", { name: /^verify$/i })).toBeTruthy();
     // Nothing has been probed, so there is nothing to count -- the
@@ -169,7 +182,7 @@ describe("McpServerDetail", () => {
 
   it("puts the tool count and Check again in the section header when the one spec is probed", () => {
     render(
-      <McpServerDetail
+      <Harness
         server={{ ...base, registrations: [base.registrations[0]] }}
         verified={{
           "cc-user": {
@@ -203,7 +216,7 @@ describe("McpServerDetail", () => {
       ],
     };
     render(
-      <McpServerDetail
+      <Harness
         server={server}
         verified={{
           "/a:tauri": { kind: "answered", capabilities: [], tools: [{ name: "get_docs" }], verifiedAt: 1_700_000_000_000 },
@@ -227,7 +240,7 @@ describe("McpServerDetail", () => {
     // Scoped to one registration: base's three all agree, so one spec group
     // covers all of them -- a real and correct outcome, but not what this
     // test is about. One registration keeps the query singular.
-    render(<McpServerDetail server={{ ...base, registrations: [base.registrations[0]] }} />);
+    render(<Harness server={{ ...base, registrations: [base.registrations[0]] }} />);
     expect(screen.getByRole("button", { name: /verify/i })).toBeTruthy();
     // One short line is enough to explain an empty section.
     expect(screen.getByText(/only known by asking the server/i)).toBeTruthy();
@@ -251,13 +264,13 @@ describe("McpServerDetail", () => {
     // reserved for things read literally. A class assertion is the only way
     // to pin this: nothing about the rendered text or role distinguishes the
     // two font stacks.
-    render(<McpServerDetail server={{ ...base, registrations: [base.registrations[0]] }} />);
+    render(<Harness server={{ ...base, registrations: [base.registrations[0]] }} />);
     const button = screen.getByRole("button", { name: /^verify$/i });
     expect(button.className).not.toMatch(/font-mono/);
   });
 
   it("never renders an environment variable value", () => {
-    render(<McpServerDetail server={{ ...base, envKeys: ["API_KEY", "NODE_OPTIONS"] }} />);
+    render(<Harness server={{ ...base, envKeys: ["API_KEY", "NODE_OPTIONS"] }} />);
     openDetails();
     expect(screen.getByText("API_KEY")).toBeTruthy();
     expect(screen.getByText("NODE_OPTIONS")).toBeTruthy();
@@ -266,7 +279,7 @@ describe("McpServerDetail", () => {
 
   it("reports a failed verification instead of an empty tool list", () => {
     render(
-      <McpServerDetail
+      <Harness
         server={base}
         verified={{
           "cc-user": {
@@ -282,7 +295,7 @@ describe("McpServerDetail", () => {
 
   it("flags a server speaking an older protocol revision", () => {
     render(
-      <McpServerDetail
+      <Harness
         server={{ ...base, name: "tauri" }}
         verified={{
           "cc-user": {
@@ -324,7 +337,7 @@ describe("McpServerDetail", () => {
       ],
     };
     render(
-      <McpServerDetail
+      <Harness
         server={diverged}
         verified={{
           a: probeAnswered({ protocolVersion: "2025-06-18" }),
@@ -349,7 +362,7 @@ describe("McpServerDetail", () => {
     // why base's three agreeing, unverified registrations cannot share a
     // singular button query.
     const onVerify = vi.fn();
-    render(<McpServerDetail server={{ ...base, registrations: [base.registrations[0]] }} onVerify={onVerify} />);
+    render(<Harness server={{ ...base, registrations: [base.registrations[0]] }} onVerify={onVerify} />);
     fireEvent.click(screen.getByRole("button", { name: /verify/i }));
     expect(onVerify).toHaveBeenCalledTimes(1);
     expect(onVerify).toHaveBeenCalledWith(base.registrations[0].key);
@@ -364,7 +377,7 @@ describe("McpServerDetail", () => {
     // below carries the pending state instead, on a 250ms delay. A probed
     // spec still keeps its Check again control, spinning and disabled; that
     // is the test directly above this one.
-    render(<McpServerDetail server={base} verifying={["cc-user"]} />);
+    render(<Harness server={base} verifying={["cc-user"]} />);
     expect(screen.queryByRole("button", { name: /verif/i })).toBeNull();
   });
 
@@ -372,7 +385,7 @@ describe("McpServerDetail", () => {
     // Twice this panel duplicated something the Flyout header already shows:
     // first an <h2> with the server name, then the transport chip. Both were
     // visible defects. The boundary: chrome owns identity, this owns content.
-    render(<McpServerDetail server={base} />);
+    render(<Harness server={base} />);
     expect(screen.queryByText("stdio")).toBeNull();
     expect(screen.queryByRole("heading", { level: 2 })).toBeNull();
   });
@@ -383,7 +396,7 @@ describe("McpServerDetail", () => {
     // is dialled rather than spawned, so it IS verifiable -- and the copy must
     // be honest that a protected endpoint will refuse.
     // Scoped to one registration -- see the "never verified" test above.
-    render(<McpServerDetail server={{ ...base, command: "",
+    render(<Harness server={{ ...base, command: "",
       transport: "https://mei-recipes-api.example.workers.dev/mcp",
       registrations: [base.registrations[0]] }} />);
     expect(screen.getByRole("button", { name: /verify/i })).toBeTruthy();
@@ -401,7 +414,7 @@ describe("McpServerDetail", () => {
     // two surfaces disagreeing about whether the question is askable is the
     // defect, and the auto-probe's answer is the right one.
     render(
-      <McpServerDetail
+      <Harness
         server={{
           ...base,
           command: "",
@@ -417,7 +430,7 @@ describe("McpServerDetail", () => {
     // No file to open and nothing to verify — but "nothing local to inspect"
     // left the reader at a dead end when the destination is knowable.
     // Scoped to one registration -- see the "never verified" test above.
-    render(<McpServerDetail server={{ ...base, name: "Notion", command: "",
+    render(<Harness server={{ ...base, name: "Notion", command: "",
       transport: "claude.ai", registrations: [base.registrations[0]] }} />);
     expect(screen.queryByRole("button", { name: /verify/i })).toBeNull();
     expect(screen.getByText(/runs on anthropic/i)).toBeTruthy();
@@ -441,14 +454,14 @@ describe("McpServerDetail", () => {
           command: "npx", launchDisplay: "npx tauri-mcp@0.9" },
       ],
     };
-    render(<McpServerDetail server={diverged} />);
+    render(<Harness server={diverged} />);
     openDetails();
     // said once (2026-08-22) — the launch returns to a row only when launches disagree
     expect(screen.getAllByText(/tauri-mcp/).length).toBeGreaterThan(0);
   });
 
   it("a registration row is host · tier, then its config path; agreeing launches are not restated", () => {
-    render(<McpServerDetail server={{ ...base, envKeys: ["API_KEY"] }} />);
+    render(<Harness server={{ ...base, envKeys: ["API_KEY"] }} />);
     openDetails();
     // One card, three stacked rows -- base's registrations all agree.
     const rows = screen.getAllByTestId("registration-row");
@@ -465,7 +478,7 @@ describe("McpServerDetail", () => {
   });
 
   it("states the verdict once: declared N times, twice by the same engine, and that the launches agree", () => {
-    render(<McpServerDetail server={base} />);
+    render(<Harness server={base} />);
     openDetails();
     const card = screen.getByTestId("verdict-card");
     expect(card.textContent).toContain("Declared 3 times, twice by the same engine");
@@ -481,19 +494,19 @@ describe("McpServerDetail", () => {
       { key: "a", host: "Codex", tier: "global", configPath: "~/.codex/config.toml", command: "npx", launchDisplay: "npx tauri-mcp@2.9.1" },
       { key: "b", host: "Gemini", tier: "global", configPath: "~/.gemini/settings.json", command: "npx", launchDisplay: "npx tauri-mcp@latest" },
     ] };
-    render(<McpServerDetail server={diverged} />);
+    render(<Harness server={diverged} />);
     openDetails();
     expect(screen.getByTestId("verdict-card").textContent).toContain("Declared 2 times");
     expect(screen.getByTestId("verdict-card").textContent).not.toContain("same engine");
     expect(screen.getByRole("button", { name: "Compare" })).toBeTruthy();
     cleanup();
-    render(<McpServerDetail server={{ ...base, registrations: [base.registrations[0]] }} />);
+    render(<Harness server={{ ...base, registrations: [base.registrations[0]] }} />);
     openDetails();
     expect(screen.queryByTestId("verdict-card")).toBeNull();
   });
 
   it("says nothing about divergence when the registrations agree", () => {
-    render(<McpServerDetail server={base} />);
+    render(<Harness server={base} />);
     openDetails();
     expect(screen.queryByText(/differ/i)).toBeNull();
   });
@@ -508,7 +521,7 @@ describe("McpServerDetail", () => {
           command: "npx", launchDisplay: "npx tauri-mcp@0.9" },
       ],
     };
-    render(<McpServerDetail server={diverged} />);
+    render(<Harness server={diverged} />);
     openDetails();
     expect(screen.getByText(/differ/i)).toBeTruthy();
   });
@@ -552,7 +565,7 @@ describe("McpServerDetail", () => {
         },
       ],
     };
-    render(<McpServerDetail server={server} />);
+    render(<Harness server={server} />);
     openDetails();
     const note = screen.getByTestId("bridge-note");
     expect(note).toBeTruthy();
@@ -607,7 +620,7 @@ describe("McpServerDetail", () => {
       ],
     };
     render(
-      <McpServerDetail
+      <Harness
         server={server}
         verified={{
           "cc-1": { kind: "answered", capabilities: [], tools: [{ name: "create_issue" }], verifiedAt: 1 },
@@ -630,7 +643,7 @@ describe("McpServerDetail", () => {
   });
 
   it("says nothing about a bridge when no registration is bridged", () => {
-    render(<McpServerDetail server={base} />);
+    render(<Harness server={base} />);
     openDetails();
     expect(screen.queryByTestId("bridge-note")).toBeNull();
   });
@@ -660,7 +673,7 @@ describe("McpServerDetail", () => {
         },
       ],
     };
-    render(<McpServerDetail server={server} />);
+    render(<Harness server={server} />);
     openDetails();
     expect(screen.queryByTestId("bridge-note")).toBeNull();
   });
@@ -705,7 +718,7 @@ describe("McpServerDetail", () => {
         },
       ],
     };
-    render(<McpServerDetail server={server} />);
+    render(<Harness server={server} />);
     openDetails();
     expect(screen.getByText(/differ/i)).toBeTruthy();
     expect(screen.queryByTestId("bridge-note")).toBeNull();
@@ -722,7 +735,7 @@ describe("McpServerDetail", () => {
           command: "npx", launchDisplay: "npx -y @tauri/mcp@2.9.1" },
       ],
     };
-    render(<McpServerDetail server={server} />);
+    render(<Harness server={server} />);
     openDetails();
     const registeredSection = screen.getByText("Registered in").closest("section")!;
     // The warning still names the server in prose; the aligned diff sits
@@ -746,7 +759,7 @@ describe("McpServerDetail", () => {
           command: "npx", launchDisplay: "npx -y @tauri/mcp@2.9.1" },
       ],
     };
-    render(<McpServerDetail server={server} />);
+    render(<Harness server={server} />);
     openDetails();
     const registeredSection = screen.getByText("Registered in").closest("section")!;
     expect(within(registeredSection).getAllByText(/Codex · global/).length).toBeGreaterThan(0);
@@ -770,7 +783,7 @@ describe("McpServerDetail", () => {
           command: "npx", launchDisplay: "npx -y @tauri/mcp@3.0.0" },
       ],
     };
-    render(<McpServerDetail server={server} />);
+    render(<Harness server={server} />);
     openDetails();
     const registeredSection = screen.getByText("Registered in").closest("section")!;
     // The baseline (1.0.0) appears once per comparison it anchors -- twice,
@@ -805,7 +818,7 @@ describe("McpServerDetail", () => {
           command: "node", launchDisplay: "node server.js API_KEY=REDACT_ME_2" },
       ],
     };
-    render(<McpServerDetail server={server} />);
+    render(<Harness server={server} />);
     openDetails();
     const diffBlock = screen.getByTestId("launch-diff");
     expect(within(diffBlock).queryByText(/REDACT_ME/)).toBeNull();
@@ -813,7 +826,7 @@ describe("McpServerDetail", () => {
   });
 
   it("lets you open the config file a registration came from", () => {
-    render(<McpServerDetail server={base} />);
+    render(<Harness server={base} />);
     openDetails();
     const openers = screen.getAllByRole("button", { name: /^Reveal / });
     expect(openers.length).toBe(base.registrations.length);
@@ -821,7 +834,7 @@ describe("McpServerDetail", () => {
 
   it("shows which host is running a registration, with its pid", () => {
     render(
-      <McpServerDetail
+      <Harness
         server={{
           ...base,
           registrations: [
@@ -842,7 +855,7 @@ describe("McpServerDetail", () => {
   it("says nothing about running state when nothing is running", () => {
     // An absent process is not evidence of a broken server — most are started
     // on demand. A "not running" badge on every row would read as an error.
-    render(<McpServerDetail server={base} />);
+    render(<Harness server={base} />);
     expect(screen.queryByText(/not running/i)).toBeNull();
     expect(screen.queryByText(/running · pid/)).toBeNull();
   });
@@ -852,7 +865,7 @@ describe("McpServerDetail", () => {
     // --header bearer token. It now renders a string the backend already
     // redacted, so there is nothing here that could leak.
     render(
-      <McpServerDetail
+      <Harness
         server={{
           ...base,
           registrations: [
@@ -914,7 +927,7 @@ describe("McpServerDetail", () => {
       ],
     };
     render(
-      <McpServerDetail
+      <Harness
         server={diverged}
         verified={{
           a: { kind: "answered", capabilities: ["tools"], tools: [{ name: "pinned_only" }], verifiedAt: 1_700_000_000_000 },
@@ -954,7 +967,7 @@ describe("McpServerDetail", () => {
       ],
     };
     render(
-      <McpServerDetail
+      <Harness
         server={diverged}
         verified={{
           a: { kind: "answered", capabilities: ["tools"], tools: [{ name: "solo_tool" }], verifiedAt: 1_700_000_000_000 },
@@ -987,7 +1000,7 @@ describe("McpServerDetail", () => {
           command: "npx", launchDisplay: "npx -y @tauri/mcp@2.9.1" },
       ],
     };
-    render(<McpServerDetail server={server} onVerify={onVerify} />);
+    render(<Harness server={server} onVerify={onVerify} />);
     const toolsSection = toolsHeading().closest("section")!;
     const buttons = within(toolsSection).getAllByRole("button", { name: /^verify$/i });
     expect(buttons).toHaveLength(2);
@@ -1003,7 +1016,7 @@ describe("McpServerDetail", () => {
   it("asks to verify one registration, not the server", () => {
     const onVerify = vi.fn();
     render(
-      <McpServerDetail
+      <Harness
         server={{ ...base, registrations: [{ ...base.registrations[0], key: "k1" }] }}
         onVerify={onVerify}
       />
@@ -1033,7 +1046,7 @@ describe("McpServerDetail", () => {
       ],
     };
     render(
-      <McpServerDetail
+      <Harness
         server={server}
         verified={{
           "/a:tauri": { kind: "answered", capabilities: [], tools: [{ name: "get_docs" }, { name: "search_api" }], verifiedAt: 1_700_000_000_000 },
@@ -1064,7 +1077,7 @@ describe("McpServerDetail", () => {
       ],
     };
     render(
-      <McpServerDetail
+      <Harness
         server={server}
         verified={{
           "/a:tauri": { kind: "answered", capabilities: [], tools: [{ name: "get_docs" }, { name: "new_tool" }], verifiedAt: 1_700_000_000_000 },
@@ -1099,7 +1112,7 @@ describe("McpServerDetail", () => {
       ],
     };
     render(
-      <McpServerDetail
+      <Harness
         server={server}
         verified={{
           "/a:tauri": { kind: "failed", verifiedAt: 1_700_000_000_000, error: "Timed out after 20s waiting for the server to respond" },
@@ -1126,7 +1139,7 @@ describe("McpServerDetail", () => {
       ],
     };
     render(
-      <McpServerDetail
+      <Harness
         server={server}
         verified={{
           "/a:tauri": probeFailed("Timed out after 20s waiting for the server to respond"),
@@ -1140,9 +1153,47 @@ describe("McpServerDetail", () => {
 });
 
 describe("McpServerDetail — the tool table and Context (M5)", () => {
-  it("the tools list is name and description only — no header, no schema column, no per-tool bytes", () => {
+  it("sets a tool's description as prose — body role in the secondary ink — with its own line structure kept", () => {
+    // Karthik's ruling, 2026-08-29: a description is what the model reads,
+    // so it takes the body role (13 on 20) in --ink-2 under the mono name,
+    // and goes through the document parser so a server's bullets and
+    // backticks render instead of collapsing into one grey run.
     render(
       <McpServerDetail
+        server={{ ...base, registrations: [base.registrations[0]] }}
+        verified={{ "cc-user": probeAnswered({
+          capabilities: ["tools"],
+          tools: [
+            {
+              name: "sequentialthinking",
+              description:
+                "A detailed tool for problem-solving.\n\nWhen to use this tool:\n- Breaking down complex problems\n- Planning with room for revision\n\nParameters explained:\n- thought: the current step, set `total_thoughts` first",
+            },
+          ],
+        }) }}
+      />
+    );
+    const block = screen.getByTestId("tools-block");
+    // The bullets are list items, not dashes inside one run of text.
+    expect(within(block).getAllByRole("listitem").map((li) => li.textContent)).toEqual([
+      "Breaking down complex problems",
+      "Planning with room for revision",
+      "thought: the current step, set total_thoughts first",
+    ]);
+    expect(within(block).getByText("total_thoughts").tagName).toBe("CODE");
+    const prose = within(block).getByText("A detailed tool for problem-solving.").closest("[data-testid='tool-description']")!;
+    expect(prose.className).toContain("text-base-app");
+    expect(prose.className).toContain("text-ink-2");
+    expect(prose.className).toContain("leading-body");
+    expect(prose.className).not.toContain("text-ink-3");
+    expect(prose.className).not.toContain("text-small");
+    // The name keeps its mono role above the prose.
+    expect(within(block).getByText("sequentialthinking").className).toContain("font-mono");
+  });
+
+  it("the tools list is name and description only — no header, no schema column, no per-tool bytes", () => {
+    render(
+      <Harness
         server={{ ...base, registrations: [base.registrations[0]] }}
         verified={{ "cc-user": probeAnswered({
           capabilities: ["tools"],
@@ -1212,7 +1263,7 @@ describe("McpServerDetail — the tool table and Context (M5)", () => {
     expect(context.textContent).not.toContain("tool definitions in every request");
   });
   it("draws no Context section before anything has answered", () => {
-    render(<McpServerDetail server={base} />);
+    render(<Harness server={base} />);
     expect(screen.queryByRole("heading", { name: "Context per request" })).toBeNull();
     expect(screen.getByRole("tab", { name: "Tools" })).toBeTruthy();
   });
@@ -1230,7 +1281,7 @@ describe("McpServerDetail — the tool table and Context (M5)", () => {
       ],
     };
     render(
-      <McpServerDetail
+      <Harness
         server={server}
         verified={{
           "/a:tauri": probeAnswered({
@@ -1279,7 +1330,7 @@ describe("McpServerDetail — the tool table and Context (M5)", () => {
       ],
     };
     render(
-      <McpServerDetail
+      <Harness
         server={server}
         verified={{
           "/a:tauri": probeAnswered({
@@ -1305,7 +1356,7 @@ describe("McpServerDetail — the tool table and Context (M5)", () => {
       ],
     };
     render(
-      <McpServerDetail
+      <Harness
         server={server}
         verified={{
           "/a:tauri": probeAnswered({
@@ -1327,7 +1378,7 @@ describe("McpServerDetail — the tool table and Context (M5)", () => {
     // ever sees it, so the fixture below is that arm directly: no `cost`
     // field to carry, because the type no longer has one.
     render(
-      <McpServerDetail
+      <Harness
         server={{ ...base, registrations: [base.registrations[0]] }}
         verified={{
           "cc-user": {
@@ -1356,7 +1407,7 @@ describe("McpServerDetail — the tool table and Context (M5)", () => {
       ],
     };
     render(
-      <McpServerDetail
+      <Harness
         server={server}
         verified={{
           "/a:tauri": {
@@ -1402,7 +1453,7 @@ describe("McpServerDetail — lazy on open", () => {
     const onAutoProbe = vi.fn();
     // base is three registrations sharing one launch. Three requests here
     // would be three handshakes with the same server for one panel open.
-    render(<McpServerDetail server={base} onAutoProbe={onAutoProbe} />);
+    render(<Harness server={base} onAutoProbe={onAutoProbe} />);
     expect(onAutoProbe).toHaveBeenCalledTimes(1);
     expect(onAutoProbe).toHaveBeenCalledWith("cc-user", false);
   });
@@ -1422,18 +1473,18 @@ describe("McpServerDetail — lazy on open", () => {
         { ...base.registrations[1], launchDisplay: "npx -y @tauri/mcp@2.8.0" },
       ],
     };
-    const { rerender } = render(<McpServerDetail server={server} onAutoProbe={onAutoProbe} />);
+    const { rerender } = render(<Harness server={server} onAutoProbe={onAutoProbe} />);
     expect(onAutoProbe).toHaveBeenCalledTimes(1);
     expect(onAutoProbe).toHaveBeenCalledWith("cc-user", false);
 
     // While that one is in flight, nothing else is asked.
     rerender(
-      <McpServerDetail server={server} onAutoProbe={onAutoProbe} verifying={["cc-user"]} />
+      <Harness server={server} onAutoProbe={onAutoProbe} verifying={["cc-user"]} />
     );
     expect(onAutoProbe).toHaveBeenCalledTimes(1);
 
     // It lands; the next launch goes.
-    rerender(<McpServerDetail server={server} onAutoProbe={onAutoProbe} />);
+    rerender(<Harness server={server} onAutoProbe={onAutoProbe} />);
     expect(onAutoProbe).toHaveBeenCalledTimes(2);
     expect(onAutoProbe).toHaveBeenCalledWith("cc-global", false);
   });
@@ -1450,7 +1501,7 @@ describe("McpServerDetail — lazy on open", () => {
       ],
     };
     render(
-      <McpServerDetail server={server} onAutoProbe={onAutoProbe} verifying={["cc-global"]} />
+      <Harness server={server} onAutoProbe={onAutoProbe} verifying={["cc-global"]} />
     );
     expect(onAutoProbe).not.toHaveBeenCalled();
   });
@@ -1463,7 +1514,7 @@ describe("McpServerDetail — lazy on open", () => {
     // that saves a 61ms check, not the thing the rule rests on. Withholding
     // would only cost the user the 11.2s scan before a first probe.
     const onAutoProbe = vi.fn();
-    render(<McpServerDetail server={base} onAutoProbe={onAutoProbe} />);
+    render(<Harness server={base} onAutoProbe={onAutoProbe} />);
     expect(onAutoProbe).toHaveBeenCalledWith("cc-user", false);
   });
 
@@ -1476,14 +1527,14 @@ describe("McpServerDetail — lazy on open", () => {
     const up: McpServerView = { ...base, registrations: [running(base.registrations[0])] };
     const down: McpServerView = { ...base, registrations: [base.registrations[0]] };
 
-    const { rerender } = render(<McpServerDetail server={up} onAutoProbe={onAutoProbe} />);
+    const { rerender } = render(<Harness server={up} onAutoProbe={onAutoProbe} />);
     expect(onAutoProbe).toHaveBeenCalledWith("cc-user", true);
 
     // Still up: nothing new to ask.
-    rerender(<McpServerDetail server={up} onAutoProbe={onAutoProbe} />);
+    rerender(<Harness server={up} onAutoProbe={onAutoProbe} />);
     expect(onAutoProbe).toHaveBeenCalledTimes(1);
 
-    rerender(<McpServerDetail server={down} onAutoProbe={onAutoProbe} />);
+    rerender(<Harness server={down} onAutoProbe={onAutoProbe} />);
     expect(onAutoProbe).toHaveBeenCalledTimes(2);
     expect(onAutoProbe).toHaveBeenCalledWith("cc-user", false);
   });
@@ -1491,7 +1542,7 @@ describe("McpServerDetail — lazy on open", () => {
   it("does not ask again for a launch it already has an answer for", () => {
     const onAutoProbe = vi.fn();
     render(
-      <McpServerDetail
+      <Harness
         server={base}
         onAutoProbe={onAutoProbe}
         verified={{
@@ -1511,13 +1562,13 @@ describe("McpServerDetail — lazy on open", () => {
       ...base,
       registrations: [base.registrations[0], base.registrations[1], running(base.registrations[2])],
     };
-    render(<McpServerDetail server={server} onAutoProbe={onAutoProbe} />);
+    render(<Harness server={server} onAutoProbe={onAutoProbe} />);
     expect(onAutoProbe).toHaveBeenCalledWith("cc-user", true);
   });
 
   it("explains why it left a running server alone instead of showing an empty list", () => {
     const server: McpServerView = { ...base, registrations: [running(base.registrations[0])] };
-    render(<McpServerDetail server={server} onAutoProbe={vi.fn()} declined={["cc-user"]} />);
+    render(<Harness server={server} onAutoProbe={vi.fn()} declined={["cc-user"]} />);
     expect(
       screen.getByText(/already running.*second copy.*only allow one at a time.*left it alone/i)
     ).toBeTruthy();
@@ -1532,7 +1583,7 @@ describe("McpServerDetail — lazy on open", () => {
     // in which case the backend declines and this panel would otherwise
     // explain the empty block by saying nobody has asked yet, which is false.
     render(
-      <McpServerDetail server={base} onAutoProbe={vi.fn()} declined={["cc-user"]} />
+      <Harness server={base} onAutoProbe={vi.fn()} declined={["cc-user"]} />
     );
     expect(screen.getByText(/already running/i)).toBeTruthy();
     expect(screen.queryByText("Tools are only known by asking the server.")).toBeNull();
@@ -1542,12 +1593,12 @@ describe("McpServerDetail — lazy on open", () => {
     // The other direction: a running badge is not by itself a reason to say
     // Hanger declined. Only the backend knows whether it did.
     const server: McpServerView = { ...base, registrations: [running(base.registrations[0])] };
-    render(<McpServerDetail server={server} onAutoProbe={vi.fn()} />);
+    render(<Harness server={server} onAutoProbe={vi.fn()} />);
     expect(screen.queryByText(/already running/i)).toBeNull();
   });
 
   it("keeps the declined explanation off a server that is merely unprobed", () => {
-    render(<McpServerDetail server={base} onAutoProbe={vi.fn()} />);
+    render(<Harness server={base} onAutoProbe={vi.fn()} />);
     expect(screen.queryByText(/already running/i)).toBeNull();
     expect(screen.getByText("Tools are only known by asking the server.")).toBeTruthy();
   });
@@ -1558,7 +1609,7 @@ describe("McpServerDetail — lazy on open", () => {
     // every fast server, which reads as a glitch rather than as progress.
     vi.useFakeTimers();
     try {
-      render(<McpServerDetail server={base} verifying={["cc-user"]} onAutoProbe={vi.fn()} />);
+      render(<Harness server={base} verifying={["cc-user"]} onAutoProbe={vi.fn()} />);
       expect(screen.queryByText("Asking the server…")).toBeNull();
       act(() => {
         vi.advanceTimersByTime(249);
@@ -1594,7 +1645,7 @@ describe("McpServerDetail — lazy on open", () => {
     // answer arriving.
     vi.useFakeTimers();
     try {
-      render(<McpServerDetail server={base} verifying={["cc-user"]} onAutoProbe={vi.fn()} />);
+      render(<Harness server={base} verifying={["cc-user"]} onAutoProbe={vi.fn()} />);
       expect(screen.queryByText("Tools are only known by asking the server.")).toBeNull();
       act(() => {
         vi.advanceTimersByTime(300);
@@ -1608,7 +1659,7 @@ describe("McpServerDetail — lazy on open", () => {
   it("asks nothing of a Claude.ai connector, which has no local process and no endpoint", () => {
     const onAutoProbe = vi.fn();
     render(
-      <McpServerDetail
+      <Harness
         server={{ ...base, command: "", transport: "claude.ai" }}
         onAutoProbe={onAutoProbe}
       />
@@ -1619,7 +1670,7 @@ describe("McpServerDetail — lazy on open", () => {
   it("still offers the re-check on a running server — declining to ask is not refusing to", () => {
     const onVerify = vi.fn();
     const server: McpServerView = { ...base, registrations: [running(base.registrations[0])] };
-    render(<McpServerDetail server={server} onVerify={onVerify} onAutoProbe={vi.fn()} />);
+    render(<Harness server={server} onVerify={onVerify} onAutoProbe={vi.fn()} />);
     fireEvent.click(screen.getByRole("button", { name: /^verify$/i }));
     expect(onVerify).toHaveBeenCalledWith("cc-user");
   });
@@ -1627,7 +1678,7 @@ describe("McpServerDetail — lazy on open", () => {
 
 describe("McpServerDetail — Tools first, Details second", () => {
   it("opens on Tools; Identity, Registered in and Environment sit behind Details", () => {
-    render(<McpServerDetail server={{ ...base, envKeys: ["API_KEY"] }} />);
+    render(<Harness server={{ ...base, envKeys: ["API_KEY"] }} />);
     expect(screen.getByRole("tab", { name: "Tools" }).getAttribute("aria-selected")).toBe("true");
     expect(screen.getByRole("tabpanel").id).toBe("panel-tools");
     expect(toolsHeading()).toBeTruthy();
@@ -1642,7 +1693,7 @@ describe("McpServerDetail — Tools first, Details second", () => {
 
 describe("McpServerDetail — inspector type roles (Task 4)", () => {
   it("the panel root inherits the app body size, not Tailwind's 16px", () => {
-    render(<McpServerDetail server={base} />);
+    render(<Harness server={base} />);
     const root = screen.getByTestId("mcp-detail-root");
     expect(root.className).toContain("text-base-app");
     // Not `/\btext-base\b/`: JS treats `-` as a non-word boundary, so that
@@ -1652,9 +1703,9 @@ describe("McpServerDetail — inspector type roles (Task 4)", () => {
     expect(root.className.split(" ")).not.toContain("text-base");
   });
 
-  it("tool rows: name in --ink-1 mono at 12, description in caption", () => {
+  it("tool rows: name in --ink-1 mono at 12, description as prose in --ink-2 at 13", () => {
     render(
-      <McpServerDetail
+      <Harness
         server={{ ...base, registrations: [base.registrations[0]] }}
         verified={{
           "cc-user": probeAnswered({
@@ -1673,17 +1724,28 @@ describe("McpServerDetail — inspector type roles (Task 4)", () => {
     // it (together with the description assertions below) is what
     // actually pins this case to rowMonoClass rather than the old string.
     expect(name.className).toContain("tabular");
-    const desc = screen.getByText(/reads a file/i);
-    expect(desc.className).toContain("text-small");
-    expect(desc.className).toContain("text-ink-3");
-    expect(desc.className).toContain("leading-caption");
+    // Medium, not regular: the name is the row's identity above a block of
+    // prose in the same size, and needs the weight to stay the anchor
+    // (Karthik, 2026-08-29, on seeing the prose land).
+    expect(name.className).toContain("font-medium");
+    // The description was the caption role (12 --ink-3) until 2026-08-29;
+    // Karthik's ruling that day moved it to rowProseClass -- body size and
+    // leading, --ink-2 -- because a description is what the model reads.
+    // It is a block now (the parser's output), so the role sits on the
+    // container, not on the text node.
+    const desc = screen.getByText(/reads a file/i).closest("[data-testid='tool-description']")!;
+    expect(desc.className).toContain("text-base-app");
+    expect(desc.className).toContain("text-ink-2");
+    expect(desc.className).toContain("leading-body");
+    expect(desc.className).not.toContain("text-small");
+    expect(desc.className).not.toContain("text-ink-3");
   });
 });
 
 describe("McpServerDetail — Identity & capabilities card", () => {
   it("Identity & capabilities is one card: server, protocol, transport, then the three capabilities in words", () => {
     const { container } = render(
-      <McpServerDetail
+      <Harness
         server={base}
         verified={{
           "cc-user": probeAnswered({

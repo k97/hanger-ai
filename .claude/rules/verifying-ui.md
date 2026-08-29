@@ -104,6 +104,23 @@ that tells the truth from the `tauri dev` app:
   start (state resets, the startup scan reruns) without killing anyone's
   process. Someone else may be in the app — read `selected_sidebar_item` from
   the store before you change it, and put it back.
+- **Reach one asset by the palette, not the list.** Focus the window, send
+  Cmd+K, `keystroke` the name, `key code 36`: the inspector opens on that
+  asset and the frame carries its title, tabs and cards — verify by that,
+  not by the keys having been sent. Three things then move it out from
+  under you (2026-08-29, one round each): Escape drops the pick back to the
+  list's own selected row, so close a stray menu by clicking, never Escape;
+  the Content/Details tab persists across picks, so click Content and read
+  the frame; and wheel events go to the pane under the pointer, and the
+  window's centre (x≈512 of 1024) is the *left* pane — park the pointer at
+  x≈830, y≈560 to scroll the inspector's document.
+- **`cargo test` relaunches the dev app.** Twice on 2026-08-29 the pid and
+  window id changed, and the window moved, about a minute into a
+  `cargo test` run with nothing under `src-tauri/src` touched — the bin
+  rebuilds as a test dependency and `tauri dev` reacts. The frontend
+  cold-starts, so the palette pick is gone too. Run the gate before or
+  after a capture sequence, never alongside, and re-read pid and window id
+  after any cargo run.
 - Webview console: `~/Library/Logs/com.rkarthik.hanger/Hanger AI.log`.
 - **Mutation cycles kill the dev server. Run them in a detached worktree.**
   Planting a defect, running a test and reverting takes seconds, so Vite's

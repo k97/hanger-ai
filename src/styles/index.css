@@ -518,7 +518,6 @@ body,
 :focus-visible {
   outline: 2px solid var(--ink-1);
   outline-offset: 2px;
-  border-radius: 4px;
 }
 
 /* The search palette's field is the one focusable thing inside a panel that

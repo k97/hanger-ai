@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, fireEvent, waitFor, cleanup } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, cleanup, within } from "@testing-library/react";
 import App from "../App";
 
 vi.mock("@tauri-apps/plugin-log", () => ({
@@ -110,6 +110,17 @@ const inventory = {
       path: "/Users/u/Work/proj/.claude/skills/deploy-helper",
       scope: { Project: { agent: "claude", root: "/Users/u/Work/proj" } },
     },
+    // A second row in the same project — needed to exercise a plain click
+    // that moves the selection between two rows (search hits alone never
+    // give AssetRow a false->true transition to move a click's origin onto).
+    {
+      id: "/Users/u/Work/proj/.claude/skills/cleanup-helper",
+      name: "cleanup-helper",
+      description: "",
+      version: "1",
+      path: "/Users/u/Work/proj/.claude/skills/cleanup-helper",
+      scope: { Project: { agent: "claude", root: "/Users/u/Work/proj" } },
+    },
   ],
 };
 
@@ -151,8 +162,8 @@ describe("picking a search hit", () => {
     // refetched afterward for a plain sidebar switch. Without this the pane
     // would show "Nothing in proj yet" over a real row.
     mockAssetCounts = {
-      total_assets: 1,
-      skill: { total: 1, global: 0, project: 1 },
+      total_assets: 2,
+      skill: { total: 2, global: 0, project: 2 },
       tool: zeroCat(),
       rule: zeroCat(),
       subagent: zeroCat(),
@@ -171,7 +182,9 @@ describe("picking a search hit", () => {
     expect(screen.queryByRole("dialog", { name: "Search" })).toBeNull();
     // The inspector names the asset it opened on.
     expect(await screen.findByTestId("inspector-header")).toBeTruthy();
-    // The picked row is selected and scrolled into view, not left off-screen.
+    // The picked row is selected and centred, not merely scrolled to the
+    // nearest edge (Karthik's ruling, 2026-08-29: a palette pick centres its
+    // row; a plain click keeps `nearest`, see below).
     // The spy is global (`Element.prototype`) and other chrome — the
     // category segmented control — also calls `scrollIntoView` with its own
     // options, so the row's own call is found by instance, not by asserting
@@ -181,7 +194,146 @@ describe("picking a search hit", () => {
     expect(selectedRow?.textContent).toContain("deploy-helper");
     const rowCallIndex = scrollIntoViewSpy.mock.instances.indexOf(selectedRow as any);
     expect(rowCallIndex).toBeGreaterThan(-1);
+    expect(scrollIntoViewSpy.mock.calls[rowCallIndex]).toEqual([{ block: "center" }]);
+    // ...and it lands on the asset's primary tab (Content), not whatever the
+    // inspector happened to remember.
+    const aside = document.querySelector("aside") as HTMLElement;
+    expect(within(aside).getByRole("tab", { name: "Content" }).getAttribute("aria-selected")).toBe("true");
+    unmount();
+  });
+
+  it("a pick made while Details was open on another asset lands back on Content", async () => {
+    searchAnswer = {
+      hits: [{
+        kind: "skill", id: inventory.skills[0].path, path: inventory.skills[0].path, name: "deploy-helper",
+        server: null, place: "/Users/u/Work/proj", snippet: "deploy", rank: -1,
+      }],
+      total: 1,
+    };
+    mockAssetCounts = {
+      total_assets: 2,
+      skill: { total: 2, global: 0, project: 2 },
+      tool: zeroCat(),
+      rule: zeroCat(),
+      subagent: zeroCat(),
+      engines: {},
+    };
+    const { unmount } = render(<App />);
+    await screen.findByTestId("icon-rail");
+    eventListeners["scan://complete"]({ payload: { inventory } });
+
+    fireEvent.keyDown(window, { key: "k", metaKey: true });
+    fireEvent.change(await screen.findByLabelText("Search assets"), { target: { value: "deploy" } });
+    fireEvent.click(await screen.findByText("deploy-helper", { selector: "[cmdk-item] *" }));
+    await waitFor(() => expect(mockPreferences.selected_sidebar_item).toBe("/Users/u/Work/proj"));
+
+    const aside = document.querySelector("aside") as HTMLElement;
+    fireEvent.click(within(aside).getByRole("tab", { name: "Details" }));
+    expect(within(aside).getByRole("tab", { name: "Details" }).getAttribute("aria-selected")).toBe("true");
+
+    // A second, different hit — the defect this ruling fixes is the
+    // inspector staying on Details because it remembers the last tab, even
+    // though the screen never changed.
+    searchAnswer = {
+      hits: [{
+        kind: "skill", id: inventory.skills[1].path, path: inventory.skills[1].path, name: "cleanup-helper",
+        server: null, place: "/Users/u/Work/proj", snippet: "cleanup", rank: -1,
+      }],
+      total: 1,
+    };
+    fireEvent.keyDown(window, { key: "k", metaKey: true });
+    fireEvent.change(await screen.findByLabelText("Search assets"), { target: { value: "cleanup" } });
+    fireEvent.click(await screen.findByText("cleanup-helper", { selector: "[cmdk-item] *" }));
+
+    await waitFor(() =>
+      expect(within(aside).getByRole("tab", { name: "Content" }).getAttribute("aria-selected")).toBe("true")
+    );
+    unmount();
+  });
+
+  it("a plain click after a palette pick keeps the row's nearest scroll", async () => {
+    searchAnswer = {
+      hits: [{
+        kind: "skill", id: inventory.skills[0].path, path: inventory.skills[0].path, name: "deploy-helper",
+        server: null, place: "/Users/u/Work/proj", snippet: "deploy", rank: -1,
+      }],
+      total: 1,
+    };
+    mockAssetCounts = {
+      total_assets: 2,
+      skill: { total: 2, global: 0, project: 2 },
+      tool: zeroCat(),
+      rule: zeroCat(),
+      subagent: zeroCat(),
+      engines: {},
+    };
+    const { unmount } = render(<App />);
+    await screen.findByTestId("icon-rail");
+    eventListeners["scan://complete"]({ payload: { inventory } });
+
+    fireEvent.keyDown(window, { key: "k", metaKey: true });
+    fireEvent.change(await screen.findByLabelText("Search assets"), { target: { value: "deploy" } });
+    fireEvent.click(await screen.findByText("deploy-helper", { selector: "[cmdk-item] *" }));
+    await waitFor(() => expect(mockPreferences.selected_sidebar_item).toBe("/Users/u/Work/proj"));
+
+    // A plain click on the OTHER row in the same list — a real
+    // unselected->selected transition driven by a row click, not a palette
+    // pick, so it must use `nearest`.
+    scrollIntoViewSpy.mockClear();
+    fireEvent.click(screen.getByText("cleanup-helper"));
+
+    const selectedRow = document.querySelector('[data-selected="true"]');
+    expect(selectedRow).not.toBeNull();
+    expect(selectedRow?.textContent).toContain("cleanup-helper");
+    const rowCallIndex = scrollIntoViewSpy.mock.instances.indexOf(selectedRow as any);
+    expect(rowCallIndex).toBeGreaterThan(-1);
     expect(scrollIntoViewSpy.mock.calls[rowCallIndex]).toEqual([{ block: "nearest" }]);
+    unmount();
+  });
+
+  it("re-picking the same asset lands on Content both times", async () => {
+    // This is the case landingNonce exists for: re-selecting the very same
+    // asset a second time is not a selectedAsset change at all (same path,
+    // same object shape), so a reset keyed on the asset itself would miss
+    // it. The nonce ticks on every pick regardless.
+    searchAnswer = {
+      hits: [{
+        kind: "skill", id: inventory.skills[0].path, path: inventory.skills[0].path, name: "deploy-helper",
+        server: null, place: "/Users/u/Work/proj", snippet: "deploy", rank: -1,
+      }],
+      total: 1,
+    };
+    mockAssetCounts = {
+      total_assets: 2,
+      skill: { total: 2, global: 0, project: 2 },
+      tool: zeroCat(),
+      rule: zeroCat(),
+      subagent: zeroCat(),
+      engines: {},
+    };
+    const { unmount } = render(<App />);
+    await screen.findByTestId("icon-rail");
+    eventListeners["scan://complete"]({ payload: { inventory } });
+
+    fireEvent.keyDown(window, { key: "k", metaKey: true });
+    fireEvent.change(await screen.findByLabelText("Search assets"), { target: { value: "deploy" } });
+    fireEvent.click(await screen.findByText("deploy-helper", { selector: "[cmdk-item] *" }));
+    await waitFor(() => expect(mockPreferences.selected_sidebar_item).toBe("/Users/u/Work/proj"));
+
+    const aside = document.querySelector("aside") as HTMLElement;
+    expect(within(aside).getByRole("tab", { name: "Content" }).getAttribute("aria-selected")).toBe("true");
+
+    fireEvent.click(within(aside).getByRole("tab", { name: "Details" }));
+    expect(within(aside).getByRole("tab", { name: "Details" }).getAttribute("aria-selected")).toBe("true");
+
+    // Same hit, picked again.
+    fireEvent.keyDown(window, { key: "k", metaKey: true });
+    fireEvent.change(await screen.findByLabelText("Search assets"), { target: { value: "deploy" } });
+    fireEvent.click(await screen.findByText("deploy-helper", { selector: "[cmdk-item] *" }));
+
+    await waitFor(() =>
+      expect(within(aside).getByRole("tab", { name: "Content" }).getAttribute("aria-selected")).toBe("true")
+    );
     unmount();
   });
 
@@ -217,14 +369,18 @@ describe("picking a search hit", () => {
     await waitFor(() => expect(mockPreferences.selected_sidebar_item).toBe("profile"));
     expect(mockPreferences.inspector_open).toBe("true");
     // The tool hit opens its server's row — that row is selected and
-    // scrolled into view, not the individual tool. See the comment on the
-    // skill-hit case above for why the row's call is found by instance.
+    // centred, not merely scrolled to the nearest edge. See the comment on
+    // the skill-hit case above for why the row's call is found by instance.
     const selectedRow = document.querySelector('[data-selected="true"]');
     expect(selectedRow).not.toBeNull();
     expect(selectedRow?.textContent).toContain("spades");
     const rowCallIndex = scrollIntoViewSpy.mock.instances.indexOf(selectedRow as any);
     expect(rowCallIndex).toBeGreaterThan(-1);
-    expect(scrollIntoViewSpy.mock.calls[rowCallIndex]).toEqual([{ block: "nearest" }]);
+    expect(scrollIntoViewSpy.mock.calls[rowCallIndex]).toEqual([{ block: "center" }]);
+    // An MCP server's primary tab is Tools, not Content — the ruling still
+    // applies: it opens on the primary tab regardless of which one that is.
+    const aside = document.querySelector("aside") as HTMLElement;
+    expect(within(aside).getByRole("tab", { name: "Tools" }).getAttribute("aria-selected")).toBe("true");
     unmount();
   });
 });

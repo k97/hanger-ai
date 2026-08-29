@@ -110,6 +110,24 @@ describe("SearchPalette", () => {
     expect(css).toMatch(/\[cmdk-input\]:focus-visible\s*\{[^}]*outline:\s*none/);
   });
 
+  it("the global focus ring follows the element's own radius: the `:focus-visible` rule sets no `border-radius` (CSS-text contract — the ring is an outline, which takes the element's corners; a radius on the rule would reshape every focused control, and did: the pill field snapped to 4px corners on focus, 2026-08-29)", () => {
+    const css = fs.readFileSync(path.join(__dirname, "../styles/index.css"), "utf-8");
+    const ring = css.match(/^:focus-visible\s*\{([^}]*)\}/m);
+    expect(ring, "global :focus-visible rule present").toBeTruthy();
+    expect(ring![1]).toMatch(/outline:\s*2px solid var\(--ink-1\)/);
+    expect(ring![1]).not.toMatch(/border-radius/);
+  });
+
+  it("the two pill fields share one focus treatment: a `--line-2` border, never ink-1 (source-text contract over SearchPalette.tsx and SidebarScanModal.tsx — ink-1 on focus read as harsh, Karthik 2026-08-29; the modal's field has no rendered test of its own, so this reads the class strings)", () => {
+    for (const file of ["SearchPalette.tsx", "SidebarScanModal.tsx"]) {
+      const src = fs.readFileSync(path.join(__dirname, file), "utf-8");
+      const fields = src.match(/className="[^"]*rounded-pill border border-transparent bg-plane[^"]*"/g) ?? [];
+      expect(fields.length, `${file}: one pill field`).toBe(1);
+      expect(fields[0], file).toContain("focus:border-line-2");
+      expect(fields[0], file).not.toContain("focus:border-ink-1");
+    }
+  });
+
   it("says nothing is a finding before the first scan, and does not query", async () => {
     render(<SearchPalette open={true} scannedAt={null} onClose={() => {}} onPick={() => {}} />);
     expect(screen.getByText("Results show up here once the first scan finishes.")).toBeTruthy();
