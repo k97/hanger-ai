@@ -22,9 +22,9 @@ describe("assetOpenTarget", () => {
       .toBe("/Users/k/.mcp.json");
   });
 
-  it("splits a tool key on the LAST colon, so a server name may not eat the path", () => {
-    expect(assetOpenTarget({ category: "Tools", path: "/Users/k/a:b/.mcp.json:my-server" }))
-      .toBe("/Users/k/a:b/.mcp.json");
+  it("splits a tool key on the FIRST colon, matching preferences.rs:1427's split_once", () => {
+    expect(assetOpenTarget({ category: "Tools", path: "/Users/k/.mcp.json:github:remote" }))
+      .toBe("/Users/k/.mcp.json");
   });
 
   it("returns a tool path unchanged when it carries no separator", () => {

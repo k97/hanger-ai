@@ -1047,6 +1047,27 @@ export default function App() {
       .catch(() => {});
   }, [showSettingsModal]);
 
+  // Shared by the steady-state open (the cap's plain click, every open after
+  // the first) and applyEditorChoice's first-use/Option-picker open — a
+  // whole-branch review found three duplicated lines of this between them
+  // (Tasks 5 and 7), and the steady-state copy had also dropped the
+  // `.then` entirely, discarding a genuine `{ok:false}` on the most common
+  // path through this code. Clears any stale notice at the start of every
+  // attempt: a fresh attempt is "the user acting again", one of the two
+  // points a notice stops being true (the other is `onCancel`/dismissal on
+  // the toast itself, and success below).
+  const attemptOpen = async (target: string, name: string) => {
+    setEditorNotice(null);
+    const result = await openInEditor(target, name);
+    if (!result.ok) {
+      setEditorNotice(
+        result.reason === "missing"
+          ? `Hanger couldn't find ${target}.`
+          : `Hanger couldn't open ${target} in ${name}.`
+      );
+    }
+  };
+
   const applyEditorChoice = (name: string, remember: boolean, target: string) => {
     setPickerFor(null);
     if (remember) {
@@ -1057,19 +1078,19 @@ export default function App() {
     // opens nothing. Only the picker, which is opened against a specific
     // asset, has a target to launch.
     if (!target) return;
-    openInEditor(target, name).then((result) => {
-      if (!result.ok) {
-        setEditorNotice(
-          result.reason === "missing"
-            ? `Hanger couldn't find ${target}.`
-            : `Hanger couldn't open ${target} in ${name}.`
-        );
-      }
-    });
+    attemptOpen(target, name);
   };
 
   const chooseOtherApp = async () => {
     const target = pickerFor?.path ?? "";
+    // Mirrors the checkbox default just below (`defaultRemember={!chosenEditor}`
+    // on the EditorPicker): when this fires from the picker's editors-empty
+    // branch, where no checkbox is even rendered to ask, it still has to obey
+    // the same first-use-remembers / Option-route-doesn't split — hard-coding
+    // true here silently overrode a deliberately unticked Option route. Settings'
+    // own "Choose an app…" (pickerFor null, no target) has no route to follow;
+    // it is always setting the default, so it always remembers.
+    const remember = pickerFor ? !chosenEditor : true;
     const picked = await open({
       title: "Choose an app",
       directory: false,
@@ -1082,7 +1103,7 @@ export default function App() {
       setEditorNotice(`Hanger can't open assets in ${name} yet.`);
       return;
     }
-    applyEditorChoice(name, true, target);
+    applyEditorChoice(name, remember, target);
   };
 
   /* Ask what is running the first time the user looks at Tools, and never
@@ -1497,7 +1518,7 @@ export default function App() {
   const onOpenInEditorForCap = selectedAsset
     ? async () => {
         if (chosenEditor) {
-          await openInEditor(openTargetForCap, chosenEditor);
+          await attemptOpen(openTargetForCap, chosenEditor);
           return;
         }
         const found = await invoke<DetectedEditor[]>("detect_editors").catch(() => []);
@@ -2186,6 +2207,35 @@ export default function App() {
         />
       )}
 
+      {/* A launch failure can originate from the cap on any screen, with
+          Settings closed -- the common case, since the plain click is the
+          steady-state open. The plan had this banner rendered only inside
+          the Settings modal's own conditional, so a failure there was never
+          seen at all outside Settings. A fixed toast, z above the modal's
+          z-[100], is reachable from wherever the app is and stays visible if
+          Settings is opened afterward too. */}
+      {editorNotice && (
+        <div className="fixed inset-x-0 bottom-4 z-[110] flex justify-center px-4 pointer-events-none font-sans">
+          <div className="w-full max-w-md flex items-start gap-2 pointer-events-auto animate-rise">
+            <div className="flex-1 min-w-0">
+              <DisclosureBanner variant="info" summary={editorNotice}>
+                <span className={captionClass}>
+                  Choose a different editor in Settings, or reveal it in Finder instead.
+                </span>
+              </DisclosureBanner>
+            </div>
+            <button
+              type="button"
+              aria-label="Dismiss"
+              onClick={() => setEditorNotice(null)}
+              className="w-[27px] h-[27px] shrink-0 rounded-pill grid place-items-center text-ink-3 hover:text-ink-1 hover:bg-plane-2 transition-colors duration-hover ease-spring cursor-pointer"
+            >
+              <XMarkIcon size={14} />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Settings Modal Overlay */}
       {showSettingsModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-scrim p-4 animate-fade-in font-sans">
@@ -2222,14 +2272,6 @@ export default function App() {
               <div className="p-2.5 rounded-inner bg-plane text-state-success border border-line text-small leading-normal animate-fade-in">
                 {settingsNotice}
               </div>
-            )}
-
-            {editorNotice && (
-              <DisclosureBanner variant="info" summary={editorNotice}>
-                <span className={captionClass}>
-                  Pick a different editor below, or open the folder in Finder.
-                </span>
-              </DisclosureBanner>
             )}
 
             <div className="flex flex-col gap-3 mt-2">
