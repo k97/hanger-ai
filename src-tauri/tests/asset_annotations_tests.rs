@@ -457,6 +457,84 @@ fn an_ancestor_tool_asset_gets_a_note_with_the_shadowed_project_excluded() {
     assert_eq!(note.using_count, Some(2), "beta shadows it, so 2 of 3 actually use this definition");
 }
 
+/// Same shape as `ancestor_engine_root`, but keyed to `claude_ai` -- the
+/// account-level connector Task 2 excludes. Returns `(root_id, engine_id)`
+/// so a test can also stamp the asset's own `engine_id` with it: real
+/// connector rows carry the engine on both the asset and its root.
+fn claude_ai_engine_root(store: &PreferencesStore, base: &std::path::Path, t: i64) -> (i64, i64) {
+    let dir = base.join("claude-ai-root");
+    fs::create_dir_all(&dir).unwrap();
+    let abs = fs::canonicalize(&dir).unwrap();
+    let engine_id = store
+        .upsert_engine("claude_ai", "Claude.ai", abs.to_str().unwrap(), t)
+        .unwrap();
+    let root_id = store
+        .upsert_root("engine_global", abs.to_str().unwrap(), Some(engine_id), "Claude.ai", t)
+        .unwrap();
+    (root_id, engine_id)
+}
+
+/// Same shape as `register_ancestor_tool`, but lets a test stamp the asset's
+/// own `engine_id` -- needed to register a claude_ai connector row, which
+/// `register_ancestor_tool` always leaves `None`.
+fn register_ancestor_tool_engined(
+    store: &PreferencesStore,
+    root_id: i64,
+    engine_id: Option<i64>,
+    config_path: &PathBuf,
+    server: &str,
+    t: i64,
+) {
+    let abs_path = format!("{}:{}", config_path.to_str().unwrap(), server);
+    store
+        .upsert_asset(root_id, engine_id, "tool", "global", server, &abs_path, None, None, "ok", None, t, t)
+        .unwrap();
+}
+
+#[test]
+fn an_ancestor_tool_asset_for_a_claude_ai_connector_gets_no_note() {
+    // Task 2: account-level connectors run on Anthropic's servers, so
+    // "Reaches N projects" is false for them regardless of where their
+    // breadcrumb file sits. Same fixture shape as
+    // `an_ancestor_tool_asset_gets_a_note_with_the_shadowed_project_excluded`
+    // -- a config under home with real project roots beneath it -- so the
+    // only variable is the asset's engine.
+    let _lock = ANCESTOR_ENV_MUTEX.get_or_init(|| Mutex::new(())).lock().unwrap_or_else(|e| e.into_inner());
+    let _restore = AncestorTestHome;
+    let home_dir = tempfile::tempdir().unwrap();
+    let home = fs::canonicalize(home_dir.path()).unwrap();
+    std::env::set_var("HANGER_TEST_HOME", &home);
+
+    let base = fresh_dir("hanger_test_ann_ancestor_reach_claude_ai");
+    let db_path = base.join("store.db");
+    let store = PreferencesStore::new(&db_path).unwrap();
+    let t = now();
+    let (root_id, engine_id) = claude_ai_engine_root(&store, &base, t);
+
+    let cfg = write_ancestor_cfg(&home.join("Work"), "connector-tool");
+    let alpha = home.join("Work/alpha");
+    let beta = home.join("Work/beta");
+    for p in [&alpha, &beta] {
+        fs::create_dir_all(p).unwrap();
+    }
+    for (i, p) in [&alpha, &beta].iter().enumerate() {
+        store
+            .upsert_root("project", p.to_str().unwrap(), None, &format!("connector-project-{i}"), t)
+            .unwrap();
+    }
+
+    register_ancestor_tool_engined(&store, root_id, Some(engine_id), &cfg, "connector-tool", t);
+
+    let all = asset_annotations(&db_path).unwrap();
+    let tool = annotation_for(&all, "connector-tool");
+    assert!(
+        tool.beyond.is_none(),
+        "a claude_ai (account-level) connector must never get an ancestor_reach note, \
+         even though its config sits above two real project roots: {:?}",
+        tool.beyond
+    );
+}
+
 #[test]
 fn a_tool_asset_reaching_no_project_gets_no_note() {
     let _lock = ANCESTOR_ENV_MUTEX.get_or_init(|| Mutex::new(())).lock().unwrap_or_else(|e| e.into_inner());

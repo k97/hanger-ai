@@ -146,6 +146,16 @@ pub fn asset_annotations(db_path: &Path) -> Result<Vec<AssetAnnotation>, String>
         rows
     };
 
+    // Every engine's key, by id, captured before the reach-tiles filter below
+    // narrows `engines` to the ones with a directory root or the shared-dir
+    // convention. An account-level connector owns neither (its "root" is a
+    // breadcrumb file, `ClaudeAiConnectors` in `mcp/registry.rs`), so it would
+    // already be filtered out of that narrowed list -- this lookup has to
+    // come from the unfiltered rows or the Task 2 exclusion below could never
+    // find it.
+    let engine_key_by_id: BTreeMap<i64, String> =
+        engines.iter().map(|e| (e.id, e.key.clone())).collect();
+
     // Two ways an engine has a reach question worth asking. Either its global
     // root is a directory, so it can hold a root link — a registry entry with
     // no root, or a config-file root like ~/.claude.json, cannot (the same
@@ -310,8 +320,25 @@ pub fn asset_annotations(db_path: &Path) -> Result<Vec<AssetAnnotation>, String>
             places
         };
         let mechanism = mechanism_word(&links, !dir_places.is_empty());
+        // Account-level connectors (claude_ai's `claudeAiMcpEverConnected`
+        // breadcrumb, `ClaudeAiConnectors` in `mcp/registry.rs`) "run on
+        // Anthropic's servers, so no config file describes them and nothing
+        // local can be started" -- there is no repository tree under them to
+        // reach, so "Reaches N projects" would just be false. Checked by
+        // KIND (the engine), not by name, so a future account-level host
+        // inherits the same exclusion rather than needing to be added to a
+        // denylist of one. The asset's own `engine_id` is the primary
+        // signal; the root's is the fallback for a row that does not carry
+        // one itself.
+        let asset_engine_key = asset
+            .engine_id
+            .or_else(|| root_by_id.get(&asset.root_id).and_then(|r| r.engine_id))
+            .and_then(|eid| engine_key_by_id.get(&eid))
+            .map(String::as_str);
+        let is_account_level_connector = asset_engine_key == Some("claude_ai");
+
         let mut beyond = beyond_note(&links, &dir_places);
-        if beyond.is_none() && asset.category == "tool" {
+        if beyond.is_none() && asset.category == "tool" && !is_account_level_connector {
             // Tool assets are keyed as "config_path:server_name"
             // (`preferences.rs`'s `upsert_asset`, scope == "global"); split
             // off the config path the same way that canonicalisation does.
@@ -433,6 +460,16 @@ fn mechanism_word(links: &[LinkRow], dir_linked: bool) -> &'static str {
 /// Derived on every read, never stored: `docs/harness.md` — "Nothing about
 /// reach is cached… a stored verdict would be wrong more often than right."
 /// A repo cloned under the ancestor tomorrow joins the count with no rescan.
+///
+/// `reached` counts `roots WHERE kind = 'project'` — directories the user
+/// has added to Hanger — never repositories on disk. A user with thirty
+/// repos under an ancestor directory and three added to Hanger gets
+/// `reached: 3` for a config that actually reaches thirty; this function has
+/// no way to see the other twenty-seven, and does not claim to. The rendered
+/// copy ("Reaches N projects") stays as-is — Karthik's ruling, 2026-08-29 —
+/// so read this count as an audit of a config's blast radius among the
+/// projects Hanger already knows about, not a census of every repository it
+/// could reach.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 pub struct AncestorReach {
     pub reached: i64,
