@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, waitFor, cleanup, act } from "@testing-library/react";
 import App, { reconciledDiscoveryKind } from "./App";
 import { DIRECTORIES } from "./data/directories";
+import { invoke } from "@tauri-apps/api/core";
 
 interface RuleItem {
   path: string;
@@ -322,5 +323,66 @@ describe("Scan event listeners are released on unmount", () => {
     await waitFor(() => expect(eventListeners["scan://complete"]).toBeDefined());
 
     expect(eventListeners["scan://progress"]).toBeUndefined();
+  });
+});
+
+/**
+ * GA4 learns which screen the user is on through one `page_view` per screen
+ * change: the screen restored at startup, then each change — never the
+ * "profile" default that exists only until the preference has been read, and
+ * never the same screen twice in a row.
+ */
+describe("page_view — the screen the user is on reaches GA4 once per change", () => {
+  const shellPreferences = {
+    onboarding_complete: "true",
+    consent_crash: "false",
+    consent_usage: "true",
+    sidebar_collapsed: "false",
+    selected_sidebar_item: "linkmap",
+    inspector_open: "false",
+  };
+
+  beforeEach(() => {
+    mockPreferences = { ...shellPreferences };
+    eventListeners = {};
+    vi.mocked(invoke).mockClear();
+  });
+
+  afterEach(() => {
+    cleanup();
+  });
+
+  const screenViews = () =>
+    vi
+      .mocked(invoke)
+      .mock.calls.filter((c) => c[0] === "track_screen_view")
+      .map((c) => (c[1] as { screen: string }).screen);
+
+  it("reports the restored screen once, each change once, and a repeat never", async () => {
+    const { unmount } = render(<App />);
+    await waitFor(() => expect(screenViews()).toEqual(["link_map"]));
+
+    fireEvent.click(screen.getByLabelText(/^Needs review/));
+    await waitFor(() => expect(screenViews()).toEqual(["link_map", "needs_review"]));
+
+    fireEvent.click(screen.getByLabelText(/^Needs review/));
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(screenViews()).toEqual(["link_map", "needs_review"]);
+    unmount();
+  });
+
+  it("reports nothing while onboarding still covers the shell", async () => {
+    mockPreferences = { ...shellPreferences, onboarding_complete: "false" };
+    const { unmount } = render(<App />);
+    await screen.findByText("Get started");
+    for (let i = 0; i < 20; i++) {
+      await act(async () => {
+        await Promise.resolve();
+      });
+    }
+    expect(screenViews()).toEqual([]);
+    unmount();
   });
 });
