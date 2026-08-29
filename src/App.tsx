@@ -94,7 +94,9 @@ import { unaccountedProcesses, type ProcessMatch } from "./utils/mcpServerView";
 import type { McpServerRow } from "./utils/serverRows";
 import type { McpEngineSummaryData } from "./types/mcpEngineSummary";
 import { assetOpenTarget } from "./openTarget";
-import { openPath, revealItemInDir } from "@tauri-apps/plugin-opener";
+import { openInEditor } from "./openInEditor";
+import EditorPicker, { type DetectedEditor } from "./components/EditorPicker";
+import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import {
   deriveReviewIssues,
   issuesForAsset,
@@ -1006,6 +1008,67 @@ export default function App() {
     setInspectorDocumentPath(null);
   }, [selectedAsset?.path]);
 
+  // `editor_app` absence is what triggers the first-use picker; no second
+  // "have we asked" flag is needed — that is one fewer thing to keep
+  // consistent with the preference itself.
+  const [chosenEditor, setChosenEditor] = useState<string | null>(null);
+  const [detectedEditors, setDetectedEditors] = useState<DetectedEditor[]>([]);
+  const [pickerFor, setPickerFor] = useState<{ name: string; path: string } | null>(null);
+  // Read by Task 6's DisclosureBanner wiring; this task only sets it
+  // (precedent: ScanStamp.tsx's `const [, setTick]`).
+  const [, setEditorNotice] = useState<string | null>(null);
+  // Every editor the capability permits, installed or not. `detect_editors`
+  // returns only the installed ones, so this second command is what makes
+  // "Choose an app…" able to accept an editor the user installed after
+  // launch, without duplicating the backend's table in TypeScript.
+  const [knownEditorNames, setKnownEditorNames] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    invoke<string | null>("get_preference", { key: "editor_app" })
+      .then((v) => setChosenEditor(v ?? null))
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    invoke<string[]>("known_editor_names")
+      .then((names) => setKnownEditorNames(new Set(names)))
+      .catch(() => {});
+  }, []);
+
+  const applyEditorChoice = (name: string, remember: boolean, target: string) => {
+    setPickerFor(null);
+    if (remember) {
+      setChosenEditor(name);
+      invoke("set_preference", { key: "editor_app", value: name }).catch(() => {});
+    }
+    openInEditor(target, name).then((result) => {
+      if (!result.ok) {
+        setEditorNotice(
+          result.reason === "missing"
+            ? `Hanger couldn't find ${target}.`
+            : `Hanger couldn't open ${target} in ${name}.`
+        );
+      }
+    });
+  };
+
+  const chooseOtherApp = async () => {
+    const target = pickerFor?.path ?? "";
+    const picked = await open({
+      title: "Choose an app",
+      directory: false,
+      filters: [{ name: "Applications", extensions: ["app"] }],
+    });
+    if (typeof picked !== "string") return;
+    const name = picked.split("/").pop()?.replace(/\.app$/, "") ?? "";
+    if (!knownEditorNames.has(name)) {
+      setPickerFor(null);
+      setEditorNotice(`Hanger can't open assets in ${name} yet.`);
+      return;
+    }
+    applyEditorChoice(name, true, target);
+  };
+
   /* Ask what is running the first time the user looks at Tools, and never
      before. Failure is silent on purpose: running state enriches the view,
      and a profile that refused to render because the process table could not
@@ -1416,8 +1479,14 @@ export default function App() {
   // the stored path is a registration key, not a path at all.
   const openTargetForCap = selectedAsset ? assetOpenTarget(selectedAsset) : "";
   const onOpenInEditorForCap = selectedAsset
-    ? () => {
-        openPath(openTargetForCap).catch(() => {});
+    ? async () => {
+        if (chosenEditor) {
+          await openInEditor(openTargetForCap, chosenEditor);
+          return;
+        }
+        const found = await invoke<DetectedEditor[]>("detect_editors").catch(() => []);
+        setDetectedEditors(found);
+        setPickerFor({ name: selectedAsset.name, path: openTargetForCap });
       }
     : undefined;
   const onCopyPathForCap = selectedAsset
@@ -2074,6 +2143,16 @@ export default function App() {
         onClose={() => setSearchOpen(false)}
         onPick={openSearchHit}
       />
+
+      {pickerFor && (
+        <EditorPicker
+          assetName={pickerFor.name}
+          editors={detectedEditors}
+          onPick={(name, remember) => applyEditorChoice(name, remember, pickerFor.path)}
+          onChooseOther={chooseOtherApp}
+          onCancel={() => setPickerFor(null)}
+        />
+      )}
 
       {/* Settings Modal Overlay */}
       {showSettingsModal && (
