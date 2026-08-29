@@ -1451,6 +1451,10 @@ export default function App() {
      two, and never none. */
   const mainLeads = selectedSidebarItem === "linkmap" || sidebarCollapsed;
   const asideLeads = inspectorExpanded && sidebarCollapsed;
+  /* Which column ends the window — the lead, mirrored: the inspector
+     whenever it renders (beside <main> or expanded over it), otherwise
+     <main>. Never the source list; a content column always follows it. */
+  const mainTrails = !inspectorRenders;
   /* The sheet: a column's --page ground, starting under the 36px cap (every
      cap's h-9) rather than behind it, with the --line border along its top.
      The column itself paints --sidebar, once; the sheet sits above that
@@ -1459,9 +1463,13 @@ export default function App() {
      it twice — a full-width band under the columns did, and the double
      tint read as a seam at the rail (2026-08-28). The leading column adds
      the left edge and the 16px corner — the same treatment SourceListShell
-     gives the source list. */
-  const sheetClass = (leads: boolean) =>
-    `absolute inset-x-0 top-9 bottom-0 -z-10 bg-page border-t border-line ${leads ? "border-l rounded-tl-plane" : ""}`;
+     gives the source list — and the trailing column adds the right edge
+     and its corner the same way (Karthik, 2026-08-29: "follow the same
+     aspect of how we did it before"). That right edge sits on the window's
+     last pixel column, where index.html's #win-border already paints the
+     1px window line, so along the straight run the two coincide. */
+  const sheetClass = (leads: boolean, trails: boolean) =>
+    `absolute inset-x-0 top-9 bottom-0 -z-10 bg-page border-t border-line ${leads ? "border-l rounded-tl-plane" : ""} ${trails ? "border-r rounded-tr-plane" : ""}`;
 
   return (
     // Provides the origin of the current selection — a row click vs. a
@@ -1659,7 +1667,7 @@ export default function App() {
       </div>
 
       <main ref={mainRef} className={`${inspectorExpanded ? "hidden" : "flex-1 flex flex-col min-w-0 h-full relative overflow-hidden bg-sidebar isolate"}`}>
-        <div data-testid="content-sheet" aria-hidden="true" className={sheetClass(mainLeads)} />
+        <div data-testid="content-sheet" aria-hidden="true" className={sheetClass(mainLeads, mainTrails)} />
         {/* Content cap: the trailing controls only — the breadcrumb sits in
             the sidebar cap since 2026-08-28, so it does not move with this
             column. A <header> on purpose — it is the content column's banner,
@@ -1922,7 +1930,7 @@ export default function App() {
              there would run up through the cap band. */
           className={`shrink-0 h-full min-h-0 bg-sidebar isolate flex flex-col relative ${inspectorExpanded ? "flex-1" : "border-l border-line"}`}
         >
-          <div data-testid="inspector-sheet" aria-hidden="true" className={sheetClass(asideLeads)} />
+          <div data-testid="inspector-sheet" aria-hidden="true" className={sheetClass(asideLeads, /* the inspector always ends the window */ true)} />
           {/* Rendered in both states on purpose: expanded, the panel already
               starts at the main column's left edge, so the handle sits where
               it always did and is the way back out of the expanded state. */}

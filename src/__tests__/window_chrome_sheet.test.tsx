@@ -11,6 +11,12 @@
  *  this), otherwise <main>, and when <main> is `hidden` behind an expanded
  *  inspector, the inspector.
  *
+ *  Since 2026-08-29 the same treatment is mirrored at the window's right
+ *  edge: whichever column ends the window — the inspector whenever it
+ *  renders, otherwise <main>, never the source list — draws the sheet's
+ *  right edge and its top-right corner. Karthik: "follow the same aspect of
+ *  how we did it before."
+ *
  *  happy-dom lays nothing out, so this pins the class contract only; the
  *  corner actually meeting the rail, and the traffic lights sitting on the
  *  band's baseline, are screenshot claims (verifying-ui.md). */
@@ -160,6 +166,52 @@ describe("The content sheet", () => {
       expect(classes(paneRoot), `${screen}'s pane root paints bg-page over the sheet`).not.toContain("bg-page");
     });
   }
+
+  // The window's right edge, mirrored from the left (Karthik, 2026-08-29:
+  // "follow the same aspect of how we did it before"). Whichever column
+  // ends the window draws the sheet's right edge and its top-right corner:
+  // the inspector whenever it renders, otherwise <main>. Never the source
+  // list — <main> or the expanded inspector always follows it.
+  for (const screen of ["profile", "linkmap", "discovery", "review", "design"]) {
+    it(`${screen}: <main> ends the window while the inspector is closed, so its sheet takes the right corner and the right edge`, async () => {
+      mockPreferences.selected_sidebar_item = screen;
+      mockPreferences.inspector_open = "false";
+      render(<App />);
+      await screen_ready(screen);
+      expect(document.querySelector("aside"), "an inspector rendered with inspector_open false").toBeNull();
+      expect(classes(sheetOf(main()))).toContain("rounded-tr-plane");
+      expect(classes(sheetOf(main()))).toContain("border-r");
+    });
+  }
+
+  it("the inspector ends the window when it renders: its sheet takes the right corner and <main>'s sheet gives it up", async () => {
+    mockPreferences.selected_sidebar_item = "review";
+    render(<App />);
+    await screen.findByRole("button", { name: /toggle sidebar/i });
+    expect(classes(sheetOf(aside()))).toContain("rounded-tr-plane");
+    expect(classes(sheetOf(aside()))).toContain("border-r");
+    expect(classes(sheetOf(main()))).not.toContain("rounded-tr-plane");
+    expect(classes(sheetOf(main()))).not.toContain("border-r");
+    // Beside an open source list the inspector's left corner stays square,
+    // so its sheet carries the right corner alone.
+    expect(classes(sheetOf(aside()))).not.toContain("rounded-tl-plane");
+
+    fireEvent.click(await screen.findByRole("button", { name: "Expand inspector" }));
+    expect(classes(main())).toContain("hidden");
+    expect(classes(sheetOf(aside()))).toContain("rounded-tr-plane");
+    expect(classes(sheetOf(aside()))).toContain("border-r");
+  });
+
+  it("expanded over a collapsed source list, the inspector's sheet carries both corners", async () => {
+    mockPreferences.selected_sidebar_item = "review";
+    mockPreferences.sidebar_collapsed = "true";
+    render(<App />);
+    await screen.findByRole("button", { name: /toggle sidebar/i });
+    fireEvent.click(await screen.findByRole("button", { name: "Expand inspector" }));
+    for (const c of ["border-l", "rounded-tl-plane", "border-r", "rounded-tr-plane"]) {
+      expect(classes(sheetOf(aside())), `the sheet is missing ${c}`).toContain(c);
+    }
+  });
 
   it("the expanded inspector beside an open source list keeps a square corner", async () => {
     mockPreferences.selected_sidebar_item = "review";

@@ -1462,8 +1462,8 @@ material, and it is painted exactly once under each: the rail column keeps
 its `bg-sidebar` (`App.tsx:1456`), and `<main>` and the inspector `<aside>`
 now carry `bg-sidebar` too — with a *sheet* on top of it,
 `absolute inset-x-0 top-9 bottom-0 -z-10 bg-page border-t border-line`
-(`sheetClass`, `App.tsx:1442-1443`; `data-testid` `content-sheet` at
-`:1635`, `inspector-sheet` at `:1898`), so the page ground starts under the
+(`sheetClass`, `App.tsx:1471-1472`; `data-testid` `content-sheet` at
+`:1670`, `inspector-sheet` at `:1933`), so the page ground starts under the
 36px cap rather than behind it, with the `--line` rule along its top. Each
 column is `isolate`, so `-z-10` puts the sheet above the column's own tint and
 below its content. Nothing paints the band across columns: a first version
@@ -1477,14 +1477,32 @@ Exactly one column after the icon rail draws the sheet's left edge and its
 16px top-left corner (`border-l rounded-tl-plane`), the treatment
 `SourceListShell` has always given the source list (`SourceListShell.tsx:107`):
 the source list when it is open; otherwise `<main>` (`mainLeads`,
-`App.tsx:1431` — collapsed, or the link map, which has no source list); and
+`App.tsx:1452` — collapsed, or the link map, which has no source list); and
 when `<main>` is `hidden` behind an expanded inspector, the inspector
-(`asideLeads`, `:1432`). The inspector's full-height `border-l` divider
+(`asideLeads`, `:1453`). The inspector's full-height `border-l` divider
 exists only beside `<main>` — expanded, its left edge is the source list's
 or the rail's, and a line there would run up through the band
-(`App.tsx:1896`). `src/__tests__/window_chrome_sheet.test.tsx` pins the
+(`App.tsx:1931`). `src/__tests__/window_chrome_sheet.test.tsx` pins the
 class contract for all four states and that no column tints twice; that the
 corner meets the rail is a screenshot claim, `happy-dom` lays nothing out.
+
+**The right corner, the same way (2026-08-29).** Whichever column ends the
+window draws the sheet's right edge and its 16px top-right corner
+(`border-r rounded-tr-plane`, the second flag of `sheetClass`): the
+inspector whenever it renders, beside `<main>` or expanded over it, and
+otherwise `<main>` (`mainTrails`, `App.tsx:1457`; the inspector's call site
+passes `true`, `:1933`) — never the source list, which a content column
+always follows. Karthik's ruling: "rather than re-engineer it, follow the
+same aspect of how we did it before" — so no gutter and no new mechanism;
+where the left curve meets the rail, the right one meets the window's own
+edge. That edge lands on the window's last pixel column, where `index.html`'s
+`#win-border` already paints the 1px window line, so along the straight run
+the two coincide and only the curve is the sheet's own. The guard's
+right-corner cases: `<main>` trails on all five screens with the inspector
+closed; the inspector's sheet takes the corner, and `<main>`'s gives it up,
+when the inspector renders; expanded over a collapsed source list its sheet
+carries both. What the curve looks like against the window edge is a
+screenshot claim.
 
 **Every screen carries the corner.** My machine, the link map, Discovery,
 Needs review and the Design system page all open on the same sheet, and the
@@ -1498,6 +1516,9 @@ corner Karthik asked for was square there until the same day). Karthik's standin
 instruction, 2026-08-28: **a new screen gets the corner by default, and it
 comes off only when explicitly asked** — `window_chrome_sheet.test.tsx`
 walks all five screens and fails a pane root that carries `bg-page`.
+Since 2026-08-29 "the corner" is both top corners: the right one is the
+shell's in the same way, drawn by whichever column ends the window, and the
+same guard asserts it on all five screens with the inspector closed.
 
 ### Window chrome — one vertical baseline
 
