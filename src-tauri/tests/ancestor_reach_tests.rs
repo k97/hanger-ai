@@ -8,7 +8,7 @@
 
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, OnceLock};
-use tauri_app_lib::annotations::{ancestor_reach, AncestorReach};
+use tauri_app_lib::annotations::ancestor_reach;
 use tauri_app_lib::scanner::{DirectoryScanner, Scanner};
 
 static ENV_MUTEX: OnceLock<Mutex<()>> = OnceLock::new();
@@ -201,4 +201,32 @@ fn the_ancestors_own_directory_is_not_counted_as_a_project() {
     let cfg = write_cfg(&work, "shared-tools");
     let r = ancestor_reach(&cfg, "shared-tools", &[work], home.path());
     assert_eq!(r.reached, 0, "a config does not reach the directory it sits in");
+}
+
+#[test]
+fn an_anchor_outside_home_reaches_nothing() {
+    // Fix round 1: both the config's parent AND the project root must sit
+    // under home. An anchor above home (e.g. /Users when home is
+    // /Users/alice) satisfies `root.starts_with(anchor)` for every project
+    // under /Users, but the contract requires BOTH sides to sit under home.
+    //
+    // `world` is a self-contained tempdir standing in for the filesystem
+    // root, so writing the anchor's config does not touch the shared system
+    // temp directory the way `home`'s own parent would.
+    let world = tempfile::tempdir().unwrap();
+    let home_path = world.path().join("Users/alice");
+    std::fs::create_dir_all(&home_path).unwrap();
+    // The anchor sits one level ABOVE home, not under it.
+    let anchor = world.path().join("Users");
+    let cfg = anchor.join(".mcp.json");
+    std::fs::write(
+        &cfg,
+        r#"{"mcpServers": {"shared-tools": {"command": "/bin/true", "args": []}}}"#,
+    )
+    .unwrap();
+    let alpha = home_path.join("Work/alpha");
+    std::fs::create_dir_all(&alpha).unwrap();
+
+    let r = ancestor_reach(&cfg, "shared-tools", &[alpha], &home_path);
+    assert_eq!(r.reached, 0, "an anchor above home reaches nothing, however deep the project sits below it");
 }

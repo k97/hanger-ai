@@ -415,6 +415,13 @@ pub fn ancestor_reach(
     let Some(anchor) = config_path.parent() else {
         return AncestorReach { reached: 0, shadowed: 0 };
     };
+    // Both the anchor and the project root must sit under home. Checking
+    // only the root leaves an anchor above home (e.g. anchor = /Users,
+    // home = /Users/alice) satisfying root.starts_with(anchor) for every
+    // project under /Users, which the contract forbids.
+    if !anchor.starts_with(home) {
+        return AncestorReach { reached: 0, shadowed: 0 };
+    }
     let mut reached = 0i64;
     let mut shadowed = 0i64;
     for root in project_roots {
