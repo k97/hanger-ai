@@ -13,7 +13,7 @@ export interface AssetAnnotationView {
   asset_path: string;
   mechanism: MechanismWord;
   reach: EngineReachInfo[];
-  beyond: { kind: string; count: number; places: string[] } | null;
+  beyond: { kind: string; count: number; places: string[]; using_count?: number } | null;
 }
 
 export interface AssetItem {
@@ -86,6 +86,18 @@ function beyondCell(annotation: AssetAnnotationView): { text: string; cls: strin
         return { text: `Drifted in ${note.places.join(", ")}`, cls: "text-state-warning font-medium" };
       case "copies":
         return { text: `Tracked copy in ${note.count === 1 ? "1 project" : `${note.count} projects`}`, cls: "text-ink-2" };
+      case "ancestor_reach": {
+        // Approved copy, Karthik 2026-08-29. Both figures come from the
+        // backend; this only COMPARES them to pick a branch, and never
+        // subtracts — a subtraction here would derive a count in the
+        // frontend (invariants.md).
+        const noun = note.count === 1 ? "project" : "projects";
+        const using = note.using_count ?? note.count;
+        const text = using === note.count
+          ? `Reaches ${note.count} ${noun}`
+          : `Reaches ${using} of ${note.count} ${noun}`;
+        return { text, cls: "text-ink-2" };
+      }
       default:
         return { text: note.count === 1 ? "In 1 project" : `In ${note.count} projects`, cls: "text-ink-2" };
     }

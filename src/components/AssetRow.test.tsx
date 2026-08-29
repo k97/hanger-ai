@@ -122,6 +122,55 @@ describe("AssetRow Shell Spec Compliance", () => {
     expect(dash.className).not.toContain("opacity-45");
   });
 
+  // Backend-owned numbers: the component renders what it is given and
+  // derives nothing (invariants.md, no-frontend-counting.test.ts). Approved
+  // copy, Karthik 2026-08-29.
+  it("renders an ancestor-reach note with its shadowed count", () => {
+    const annotation: AssetAnnotationView = {
+      asset_path: "/path/to/tool",
+      mechanism: "none",
+      reach: [],
+      beyond: { kind: "ancestor_reach", count: 3, places: [], using_count: 2 },
+    };
+    const { container } = render(
+      <AssetRow
+        item={{
+          name: "ancestor-mcp",
+          category: "Tools",
+          path: "/path/to/ancestor/.mcp.json",
+        }}
+        annotation={annotation}
+      />
+    );
+    // Assert the WHOLE rendered string, not a fragment. `getByText(/1/)`
+    // would match the "1" inside "1 project" and pass whether or not the
+    // shadowed count rendered at all — a green that asserts nothing.
+    expect(within(container).getByText("Reaches 2 of 3 projects")).toBeTruthy();
+  });
+
+  it("renders an ancestor-reach note with no shadowing", () => {
+    const annotation: AssetAnnotationView = {
+      asset_path: "/path/to/tool",
+      mechanism: "none",
+      reach: [],
+      beyond: { kind: "ancestor_reach", count: 2, places: [], using_count: 2 },
+    };
+    const { container } = render(
+      <AssetRow
+        item={{
+          name: "ancestor-mcp-2",
+          category: "Tools",
+          path: "/path/to/ancestor2/.mcp.json",
+        }}
+        annotation={annotation}
+      />
+    );
+    // With nothing shadowed the row must not claim an override: it renders
+    // the plain total, not "2 of 2".
+    expect(within(container).getByText("Reaches 2 projects")).toBeTruthy();
+    expect(within(container).queryByText(/overrid|shadow/i)).toBeNull();
+  });
+
   // Class-contract guard only (happy-dom lays nothing out — verification.md).
   // The card variant's own dash -- the Tools column has no per-server tool
   // count field yet, so the cell is this component's existing "nothing to
