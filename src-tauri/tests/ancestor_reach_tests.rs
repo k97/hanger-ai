@@ -230,3 +230,35 @@ fn an_anchor_outside_home_reaches_nothing() {
     let r = ancestor_reach(&cfg, "shared-tools", &[alpha], &home_path);
     assert_eq!(r.reached, 0, "an anchor above home reaches nothing, however deep the project sits below it");
 }
+
+// Task 3: BeyondNote carries the numbers.
+
+#[test]
+fn an_ancestor_config_gets_an_ancestor_reach_note() {
+    // The note the UI renders. `count` is projects reached, matching every
+    // other BeyondNote kind; `using_count` is the new field and is None
+    // for the kinds that predate it.
+    let n = tauri_app_lib::annotations::BeyondNote {
+        kind: "ancestor_reach".into(),
+        count: 3,
+        places: vec![],
+        using_count: Some(2),
+    };
+    assert_eq!(n.kind, "ancestor_reach");
+    assert_eq!(n.count, 3, "count is the total reached — the \"of N\"");
+    assert_eq!(n.using_count, Some(2), "2 of the 3 use this definition");
+}
+
+#[test]
+fn existing_note_kinds_carry_no_using_count() {
+    // Pins that the new field is additive. If a future change starts setting
+    // it for "projects" or "copies", this reddens and the author has to say
+    // why.
+    let n = tauri_app_lib::annotations::BeyondNote {
+        kind: "projects".into(),
+        count: 2,
+        places: vec!["alpha".into(), "beta".into()],
+        using_count: None,
+    };
+    assert_eq!(n.using_count, None);
+}

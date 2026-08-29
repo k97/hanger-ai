@@ -33,12 +33,21 @@ pub struct EngineReach {
 
 #[derive(Debug, Clone, Serialize)]
 pub struct BeyondNote {
-    /// "projects" | "copies" | "drifted" | "broken"
+    /// "projects" | "copies" | "drifted" | "broken" | "ancestor_reach"
     pub kind: String,
-    /// Backend-owned count of destinations behind the note.
+    /// Backend-owned count of destinations behind the note. For
+    /// "ancestor_reach" this is the number of projects the config reaches.
     pub count: i64,
     /// Destination root labels, for the cell text and its tooltip.
     pub places: Vec<String>,
+    /// How many of `count` actually use this config — `reached - shadowed`,
+    /// computed here because the rendered string is "Reaches 2 of 3 projects"
+    /// and subtracting in the frontend would derive a count there
+    /// (`invariants.md`). `None` for every kind except "ancestor_reach", and
+    /// deliberately a separate field rather than an overload of `places`,
+    /// which means something else.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub using_count: Option<i64>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -69,6 +78,8 @@ struct AssetRow {
     id: i64,
     root_id: i64,
     engine_id: Option<i64>,
+    category: String,
+    name: String,
     abs_path: String,
 }
 
@@ -207,7 +218,7 @@ pub fn asset_annotations(db_path: &Path) -> Result<Vec<AssetAnnotation>, String>
     let assets: Vec<AssetRow> = {
         let mut stmt = conn
             .prepare(
-                "SELECT a.id, a.root_id, a.engine_id, a.abs_path
+                "SELECT a.id, a.root_id, a.engine_id, a.category, a.name, a.abs_path
                  FROM assets a JOIN roots r ON r.id = a.root_id
                  WHERE r.kind = 'engine_global'
                  ORDER BY a.id",
@@ -219,7 +230,9 @@ pub fn asset_annotations(db_path: &Path) -> Result<Vec<AssetAnnotation>, String>
                     id: r.get(0)?,
                     root_id: r.get(1)?,
                     engine_id: r.get(2)?,
-                    abs_path: r.get(3)?,
+                    category: r.get(3)?,
+                    name: r.get(4)?,
+                    abs_path: r.get(5)?,
                 })
             })
             .map_err(|e| e.to_string())?
@@ -273,6 +286,16 @@ pub fn asset_annotations(db_path: &Path) -> Result<Vec<AssetAnnotation>, String>
         .to_string_lossy()
         .to_string();
 
+    // Project roots for ancestor-reach, from the same `roots` query already
+    // read above (`roots.iter().filter(kind == "project")`, the identical
+    // filter `project_mounts` uses a few lines up) — not a second SQL query.
+    let project_root_paths: Vec<PathBuf> = roots
+        .iter()
+        .filter(|r| r.kind == "project")
+        .map(|r| PathBuf::from(&r.path))
+        .collect();
+    let home = crate::scanner::get_home_dir();
+
     let mut out = Vec::with_capacity(assets.len());
     for asset in &assets {
         let links = asset_links(&conn, asset)?;
@@ -287,7 +310,22 @@ pub fn asset_annotations(db_path: &Path) -> Result<Vec<AssetAnnotation>, String>
             places
         };
         let mechanism = mechanism_word(&links, !dir_places.is_empty());
-        let beyond = beyond_note(&links, &dir_places);
+        let mut beyond = beyond_note(&links, &dir_places);
+        if beyond.is_none() && asset.category == "tool" {
+            // Tool assets are keyed as "config_path:server_name"
+            // (`preferences.rs`'s `upsert_asset`, scope == "global"); split
+            // off the config path the same way that canonicalisation does.
+            let config_path = asset.abs_path.split_once(':').map(|(p, _)| p).unwrap_or(&asset.abs_path);
+            let ar = ancestor_reach(Path::new(config_path), &asset.name, &project_root_paths, &home);
+            if ar.reached > 0 {
+                beyond = Some(BeyondNote {
+                    kind: "ancestor_reach".into(),
+                    count: ar.reached,
+                    places: vec![],
+                    using_count: Some(ar.reached - ar.shadowed),
+                });
+            }
+        }
         let reach = engine_reach(asset, &engines, &engine_links, &root_by_id, &shared_store);
         out.push(AssetAnnotation {
             asset_path: asset.abs_path.clone(),
@@ -468,11 +506,11 @@ fn beyond_note(links: &[LinkRow], dir_places: &[String]) -> Option<BeyondNote> {
 
     let broken = places_of(&|l: &LinkRow| l.state == LinkState::Broken);
     if !broken.is_empty() {
-        return Some(BeyondNote { kind: "broken".into(), count: broken.len() as i64, places: broken });
+        return Some(BeyondNote { kind: "broken".into(), count: broken.len() as i64, places: broken, using_count: None });
     }
     let drifted = places_of(&|l: &LinkRow| matches!(l.state, LinkState::Drifted | LinkState::Foreign));
     if !drifted.is_empty() {
-        return Some(BeyondNote { kind: "drifted".into(), count: drifted.len() as i64, places: drifted });
+        return Some(BeyondNote { kind: "drifted".into(), count: drifted.len() as i64, places: drifted, using_count: None });
     }
     let mut all = places_of(&|_| true);
     all.extend(dir_places.iter().cloned());
@@ -483,7 +521,7 @@ fn beyond_note(links: &[LinkRow], dir_places: &[String]) -> Option<BeyondNote> {
     } else {
         "copies"
     };
-    Some(BeyondNote { kind: kind.into(), count: all.len() as i64, places: all })
+    Some(BeyondNote { kind: kind.into(), count: all.len() as i64, places: all, using_count: None })
 }
 
 fn engine_reach(
