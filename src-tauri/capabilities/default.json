@@ -16,9 +16,12 @@
     {
       "identifier": "opener:allow-open-path",
       "allow": [
-        {
-          "path": "$HOME/**"
-        }
+        { "path": "$HOME/**" },
+        { "path": "$HOME/**", "app": "Visual Studio Code" },
+        { "path": "$HOME/**", "app": "Cursor" },
+        { "path": "$HOME/**", "app": "Zed" },
+        { "path": "$HOME/**", "app": "Antigravity IDE" },
+        { "path": "$HOME/**", "app": "Xcode" }
       ]
     }
   ]

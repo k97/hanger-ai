@@ -79,3 +79,63 @@ fn detection_never_returns_more_rows_than_the_table_has() {
         KNOWN_EDITORS.len()
     );
 }
+
+use std::collections::HashSet;
+
+/// The capability file is static config; the table is code. Nothing links
+/// them, so they drift — and drift here is SILENT: an editor missing from the
+/// capability is offered in the picker, chosen, and then refused by the scope
+/// with the rejection swallowed frontend-side. This guard is the link.
+///
+/// It must be able to fail. Delete any entry from the capability's `allow`
+/// list and this test goes red; that is the check to run before trusting it.
+#[test]
+fn every_known_editor_is_allowed_by_the_capability() {
+    let raw = std::fs::read_to_string(
+        concat!(env!("CARGO_MANIFEST_DIR"), "/capabilities/default.json"),
+    )
+    .expect("capabilities/default.json must be readable");
+    let parsed: serde_json::Value = serde_json::from_str(&raw).expect("valid JSON");
+
+    let mut allowed: HashSet<String> = HashSet::new();
+    for permission in parsed["permissions"].as_array().expect("permissions array") {
+        if permission["identifier"] == "opener:allow-open-path" {
+            for entry in permission["allow"].as_array().expect("allow array") {
+                if let Some(app) = entry["app"].as_str() {
+                    allowed.insert(app.to_string());
+                }
+            }
+        }
+    }
+
+    for editor in KNOWN_EDITORS {
+        assert!(
+            allowed.contains(editor.name),
+            "{} is in KNOWN_EDITORS but not allowed by capabilities/default.json — \
+             it would be offered in the picker and then silently refused",
+            editor.name
+        );
+    }
+}
+
+/// The mirror: an allowlist entry with no table row is a permission granted
+/// for nothing, and usually means an editor was renamed on one side only.
+#[test]
+fn the_capability_allows_no_editor_the_table_does_not_know() {
+    let raw = std::fs::read_to_string(
+        concat!(env!("CARGO_MANIFEST_DIR"), "/capabilities/default.json"),
+    )
+    .expect("capabilities/default.json must be readable");
+    let parsed: serde_json::Value = serde_json::from_str(&raw).expect("valid JSON");
+
+    let known: HashSet<&str> = KNOWN_EDITORS.iter().map(|e| e.name).collect();
+    for permission in parsed["permissions"].as_array().expect("permissions array") {
+        if permission["identifier"] == "opener:allow-open-path" {
+            for entry in permission["allow"].as_array().expect("allow array") {
+                if let Some(app) = entry["app"].as_str() {
+                    assert!(known.contains(app), "capability allows {app}, which is not in KNOWN_EDITORS");
+                }
+            }
+        }
+    }
+}
