@@ -217,30 +217,6 @@ mark { background: transparent; }
   box-shadow: var(--capsule-shadow);
 }
 
-/* The rail column's Finder-style collapse is the one place in this app that
-   animates a layout property, and it earns it: the column is a flex parent
-   whose children have to reflow into the new size, so a transform would scale
-   them rather than resize it. The transition itself lives on the element as
-   Tailwind (`transition-[width] duration-nav`, App.tsx); this rule turns it
-   off for the length of a drag.
-
-   Both are needed because `sidebarWidth` has two writers with opposite needs.
-   Collapsing is a discrete state change — 56 + width → 56 — and eases. The
-   resize handle writes the same value on every mousemove, and against a live
-   transition each of those writes restarts a fresh interpolation, so the
-   column eases toward a target the cursor has already left and trails it for
-   the whole drag, only landing once the mouse stops. A transition belongs to
-   a state change, never to a value the user has hold of.
-
-   Keyed off body rather than a React prop because the drag is owned by
-   SourceListShell, four sidebar components below the element that needs to
-   know — threading a flag up through all four to say "a mouse is down" is a
-   lot of prop for a fact the document can hold. SourceListShell sets and
-   clears the attribute in its own mouse handlers. */
-body[data-resizing-sidebar] [data-rail-column] {
-  transition: none;
-}
-
 /* The inspector's own resize, and the other half of the same problem. The
    handle is 6px wide and the pointer is off it within a frame of the drag
    starting, so without this the cursor reverts to an arrow mid-gesture and

@@ -1310,7 +1310,7 @@ export default function App() {
     // drag is running has to live somewhere the whole document can see: the
     // cursor must stay `col-resize` and text must stop selecting until the
     // mouse comes up. Same mechanism the source list already uses
-    // (`body[data-resizing-sidebar]`, `src/styles/index.css`).
+    // (the source list did the same until its width transition went, 2026-08-29).
     document.body.setAttribute("data-resizing-inspector", "");
     const dragRoom = measureRoom();
     // The width the pointer is asking for is its distance from the window's
@@ -1519,7 +1519,13 @@ export default function App() {
           56px rail on purpose — the toggle must stay reachable to reopen. */}
       <div
         data-rail-column
-        className="shrink-0 h-full bg-sidebar flex flex-col min-h-0 transition-[width] duration-nav"
+        /* No width transition. It animated the collapse over 240ms while the
+           sheet's corner changed owner at t=0, so the corner popped off the
+           rail, travelled with <main>'s edge and popped back — and every frame
+           re-laid out the content column (~230ms of renderer CPU per toggle,
+           measured 2026-08-29). Instant: one state change, one layout, the
+           corner never leaves the rail. Karthik's ruling, 2026-08-29. */
+        className="shrink-0 h-full bg-sidebar flex flex-col min-h-0"
         style={{
           width:
             56 +

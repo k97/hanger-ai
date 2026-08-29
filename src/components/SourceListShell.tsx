@@ -37,13 +37,6 @@ export default function SourceListShell({
     const startX = e.clientX;
     const startWidth = width;
 
-    // Marks the drag for CSS. The rail column in App.tsx sizes off the same
-    // `sidebarWidth` this handle writes, and it carries a width transition so
-    // its collapse eases rather than jumps; while the handle is held, that
-    // transition has to be off. See the `[data-rail-column]` rule in
-    // styles/index.css for why, and for why this column has no transition of
-    // its own to suppress.
-    document.body.dataset.resizingSidebar = "true";
 
     const collapse = () => {
       setCollapsed(true);
@@ -65,7 +58,6 @@ export default function SourceListShell({
       // Before the early return below, not after it: a drag that ends past
       // the snap-shut threshold collapses and returns, and a flag left set
       // there would disable the collapse animation it exists to protect.
-      delete document.body.dataset.resizingSidebar;
 
       const rawWidth = startWidth + (moveEvent.clientX - startX);
       if (rawWidth < 160) {
@@ -89,7 +81,8 @@ export default function SourceListShell({
     // 16px radius on the top-left corner only, bleeding off the bottom
     // edge — the same treatment as the strip and the table.
     //
-    // No width transition on it, deliberately. This column unmounts when the
+    // No width transition on it, deliberately — nor on the rail column that
+    // sizes off the same value since 2026-08-29. This column unmounts when the
     // sidebar collapses (the `if (collapsed) return null` above), so a
     // transition on its width could never animate the collapse — the only
     // thing that changes `width` while it is mounted is the drag handle

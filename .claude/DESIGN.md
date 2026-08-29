@@ -359,7 +359,7 @@ every `animate-*` a component applies resolves to a declared utility or a
 Tailwind built-in, and the plugin's vocabulary appears nowhere.
 
 **The one layout property that animates.** The rail column eases its width on
-collapse (`App.tsx`, `transition-[width] duration-nav` on `[data-rail-column]`)
+collapse (`App.tsx`, `[data-rail-column]`; instant since 2026-08-29 — the width transition went, see Shell)
 because its children have to reflow into the new size — a transform would scale
 them. `sidebarWidth` has a second writer, though: the resize handle, which
 writes it on every mousemove. Against a live transition each of those writes
@@ -1714,6 +1714,18 @@ rail column's own tint stacked on it — the cap over the sidebar came out a
 step darker than the cap over the content, with a hard edge at the rail and
 the corner sitting on the darker patch, worst in dark. One token, one paint
 per column, no gradient (Karthik's rulings, 2026-08-28: flat, not option B).
+
+**The toggle is instant (2026-08-29).** The rail column carried
+`transition-[width] duration-nav` and eased its collapse over 240ms; the
+sheet's corner changed owner at t=0, so it popped off the rail, travelled
+with `<main>`'s edge and popped back — and every frame of the ease re-laid
+out the content column: ~230ms of renderer CPU per toggle, measured on the
+dev app. Karthik ruled the ease out ("lighter and performative"): state and
+geometry now change in one frame, one layout, the corner never leaves the
+rail, and the renderer's cost per toggle measured ~51ms. The drag mark
+(`body[data-resizing-sidebar]`) and the index.css rule that suppressed the
+ease during a drag went with it; `src/__tests__/sidebar_resize_motion.test.tsx`
+pins that no width transition exists to fight.
 
 Exactly one column after the icon rail draws the sheet's left edge and its
 16px top-left corner (`border-l rounded-tl-plane`), the treatment
