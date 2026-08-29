@@ -25,7 +25,7 @@ export default function EditorPicker({
   onChooseOther,
   onCancel,
 }: EditorPickerProps) {
-  const [remember, setRemember] = useState(false);
+  const [remember, setRemember] = useState(true);
   const hasEditors = editors.length > 0;
 
   return (

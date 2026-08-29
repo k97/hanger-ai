@@ -52,6 +52,7 @@ import {
 } from "./icons";
 import { BRAND_IDS } from "../data/brands";
 import EmptyState from "./EmptyState";
+import EditorPicker from "./EditorPicker";
 import type { StateFilter } from "../utils/linkStateCounts";
 import {
   type DesignSectionId,
@@ -61,6 +62,7 @@ import {
   SAMPLE_ASSET_DRIFTED,
   SAMPLE_CATEGORY_COUNTS,
   SAMPLE_COUNTS,
+  SAMPLE_EDITORS,
   SAMPLE_FINDINGS,
   SAMPLE_FINDING_LINES,
   SAMPLE_MCP_ENGINE_SUMMARY_ROWS,
@@ -768,6 +770,34 @@ export default function DesignSystemPane({ section }: DesignSystemPaneProps) {
                   </div>
                 }
               />
+            </div>
+          </Specimen>
+
+          <Specimen
+            name="EditorPicker"
+            file="EditorPicker.tsx"
+            note="the first-use picker (Open in editor, no editor remembered yet); props in, callbacks out, no IPC — both states shown live. The real component is a fixed, viewport-covering overlay, so each frame below traps it with `contain-paint`, which makes the overlay's own inset-0 relative to the frame instead of the page"
+            unclipped
+          >
+            <div className="flex flex-wrap gap-4">
+              <div className="relative w-[420px] h-[360px] contain-paint border border-line rounded-inner">
+                <EditorPicker
+                  assetName="ui-typography"
+                  editors={SAMPLE_EDITORS}
+                  onPick={() => {}}
+                  onChooseOther={() => {}}
+                  onCancel={() => {}}
+                />
+              </div>
+              <div className="relative w-[420px] h-[220px] contain-paint border border-line rounded-inner">
+                <EditorPicker
+                  assetName="ui-typography"
+                  editors={[]}
+                  onPick={() => {}}
+                  onChooseOther={() => {}}
+                  onCancel={() => {}}
+                />
+              </div>
             </div>
           </Specimen>
         </Section>

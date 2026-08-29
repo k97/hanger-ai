@@ -22,17 +22,17 @@ describe("EditorPicker", () => {
     expect(screen.getByText(/ui-typography/)).toBeTruthy();
   });
 
-  it("reports the pick with remember true when the box is ticked", () => {
+  it("remembers by default", () => {
     const onPick = vi.fn();
     render(<EditorPicker assetName="x" editors={EDITORS} onPick={onPick} onChooseOther={vi.fn()} onCancel={vi.fn()} />);
-    fireEvent.click(screen.getByRole("checkbox", { name: "Always open assets here" }));
     fireEvent.click(screen.getByRole("button", { name: "Cursor" }));
     expect(onPick).toHaveBeenCalledWith("Cursor", true);
   });
 
-  it("reports the pick with remember false when the box is clear", () => {
+  it("does not remember when the box is cleared", () => {
     const onPick = vi.fn();
     render(<EditorPicker assetName="x" editors={EDITORS} onPick={onPick} onChooseOther={vi.fn()} onCancel={vi.fn()} />);
+    fireEvent.click(screen.getByRole("checkbox", { name: "Always open assets here" }));
     fireEvent.click(screen.getByRole("button", { name: "Zed" }));
     expect(onPick).toHaveBeenCalledWith("Zed", false);
   });

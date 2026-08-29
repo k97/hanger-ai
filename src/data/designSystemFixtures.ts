@@ -16,6 +16,7 @@ import type { McpEngineSummaryRow } from "../types/mcpEngineSummary";
 import type { TrackSegment } from "../components/SegmentedTrack";
 import type { UnderlineTab } from "../components/UnderlineTabs";
 import type { SearchHit } from "../components/SearchPalette";
+import type { DetectedEditor } from "../components/EditorPicker";
 
 /** The TOC's layers, in reading order (Karthik's ruling, 2026-08-28, after
  *  the atomic-design read). Material's three words: Foundations are the
@@ -136,6 +137,14 @@ export const SAMPLE_FINDINGS: AssetFindings = {
 
 /** Two lines for the standalone chip, so its popover draws a divider. */
 export const SAMPLE_FINDING_LINES = ["Copy diverged", "3 copies, no shared source"];
+
+/** Matches `KNOWN_EDITORS` (`src-tauri/src/editors.rs`) in name and bundle
+ *  id shape, but is not read from it — a fixture, not a mirror. */
+export const SAMPLE_EDITORS: DetectedEditor[] = [
+  { name: "Visual Studio Code", bundleId: "com.microsoft.VSCode", path: "/Applications/Visual Studio Code.app" },
+  { name: "Cursor", bundleId: "com.todesktop.230313mzl4w4u92", path: "/Applications/Cursor.app" },
+  { name: "Zed", bundleId: "dev.zed.Zed", path: "/Applications/Zed.app" },
+];
 
 export const SAMPLE_SEGMENTS: TrackSegment[] = [
   { id: "all", label: "All", count: 142 },
