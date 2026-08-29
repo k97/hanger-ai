@@ -362,7 +362,7 @@ export default function DesignSystemPane({ section }: DesignSystemPaneProps) {
           <Group label="Ground and ink">
             <div className={swatchGridClass}>
               <Swatch token="--page" note="window ground" />
-              <Swatch token="--sidebar" note="the shell's material: the rail column and every cap, a tint over the window's vibrancy" />
+              <Swatch token="--sidebar" note="the shell's material: the rail column and every cap. A tint over the window's vibrancy, so the swatch is the tint, not what you see on screen — that moves with whatever sits behind the window" />
               <Swatch token="--plane" note="list and card surface" />
               <Swatch token="--plane-2" note="hover / press step" />
               <Swatch token="--tint" note="selection on the page" />

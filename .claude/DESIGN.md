@@ -26,15 +26,15 @@ light palette declares eleven neutral roles (`tokens.css:5-16`):
 
 | Token | Light | Dark | Role |
 |---|---|---|---|
-| `--page` | `#ffffff` | `#000000` | window ground |
-| `--sidebar` | `rgba(252,252,252,.65)` | `rgba(19,19,19,.75)` | the shell's material: the left column and, since 2026-08-28, every column's cap band — a tint over the window's vibrancy (`tokens.css:6`, `:173`); dark went from .55 to .75 that day because over a bright desktop the thinner tint read as a light grey strip against the black sheet (Karthik's ruling) |
-| `--sidebar-sel` | `#e6e6e6` | `#3a3a3c` | selection on the sidebar, neutral (`tokens.css:9`) |
+| `--page` | `#ffffff` | `#141414` | window ground. Dark came off the display floor on 2026-08-29 (`tokens.css:172`): at `#000000` nothing could sit below it, and the step up to the shell measured 2.26:1 where Codex's reads 1.58:1 |
+| `--sidebar` | `rgba(252,252,252,.65)` | `rgba(42,42,42,.92)` | the shell's material: the left column and, since 2026-08-28, every column's cap band — a tint over the window's vibrancy (`tokens.css:6`, `:176`). **The alpha is the tint's authority over the backdrop, not a style choice** — see "The shell has no fixed value" below |
+| `--sidebar-sel` | `#e6e6e6` | `#4a4a4a` | selection on the sidebar, neutral (`tokens.css:10`, `:186`); dark lifts +17 off the shell's rendered value |
 | `--sidebar-sel-ink` | `#1f1f1f` | `#ececec` | text on `--sidebar-sel` |
 | `--sidebar-ink` | `#3e4144` | `#cfd1d3` | sidebar rows and icons, one shade up from `--ink-2` |
-| `--plane` | `#f7f7f7` | `#0e0e0e` | list and card surface |
-| `--plane-2` | `#efefef` | `#171717` | hover / press step |
-| `--tint` | `#e8e8e8` | `#232323` | tonal container for selection |
-| `--tint-plane` | `#e0e0e0` | `#262626` | tonal container on the plane (`tokens.css:9`); `--tint` disappears there |
+| `--plane` | `#f7f7f7` | `#1c1c1c` | list and card surface |
+| `--plane-2` | `#efefef` | `#232323` | hover / press step |
+| `--tint` | `#e8e8e8` | `#2c2c2c` | tonal container for selection |
+| `--tint-plane` | `#e0e0e0` | `#303030` | tonal container on the plane (`tokens.css:16`, `:195`); `--tint` disappears there |
 | `--tint-ink` | `#000000` | `#ffffff` | text on `--tint` |
 | `--line` | `rgba(0,0,0,.09)` | `rgba(255,255,255,.12)` | hairline |
 | `--line-2` | `rgba(0,0,0,.20)` | `rgba(255,255,255,.22)` | stronger border |
@@ -43,7 +43,46 @@ light palette declares eleven neutral roles (`tokens.css:5-16`):
 | `--ink-3` | `#636363` | `#8c8c8c` | muted text |
 | `--fill` / `--on-fill` | `#000000` / `#ffffff` | `#ffffff` / `#000000` | the single strong action |
 
-Light values are at `tokens.css:5-16`; dark at `tokens.css:122-133`.
+Light values are at `tokens.css:5-25`; dark at `tokens.css:172-203`.
+
+### The shell has no fixed value
+
+`--sidebar` is the one token in the system whose rendered colour is not the
+value written down. It is a tint painted over the window's vibrancy —
+`windowEffects: ["sidebar"]` on a `transparent` window
+(`src-tauri/tauri.conf.json:22-31`) — so what reaches the screen is
+
+```
+rendered = alpha · tint + (1 − alpha) · backdrop
+```
+
+and the backdrop is whatever the user has behind Hanger. **The alpha is
+therefore a design decision about how far the desktop may move the chrome,
+not a style choice.** At the `.75` shipped on 2026-08-28 the excursion was
+±64 units: measured off the running dev app on 2026-08-29, that one token
+rendered `#474747` and then `#424343` minutes apart, purely because a
+window moved behind Hanger. At `.92` the excursion is ±20 and the shell has
+a value of its own — `#373838` measured. The chrome still reads what is
+behind the window, which is Karthik's 2026-08-27 ruling; it no longer takes
+its *value* from it.
+
+Two consequences that have already produced defects:
+
+- **Never calibrate an opaque token by eye against the rail or a cap band.**
+  `--sidebar-sel` was `#3a3a3c`, chosen against an assumed shell; by
+  2026-08-29 it rendered 13 units *below* the shell, so a selected row was
+  darker than its own column. It is now `#4a4a4a`, a +17 lift.
+- **A screenshot of the chrome is evidence for one backdrop only.** Say what
+  was behind the window, or measure the tint's contribution rather than the
+  composite.
+
+The reference for the relationship is Codex's dark mode, measured from
+`docs/evidence/2026-08-29-dark-contrast/0-codex-reference-*.png`: shell
+`#3a3b3b` over sheet `#181818`, a 1.58:1 step. Hanger now reads `#373838`
+over `#141414`, 1.60:1 — the same relationship on a darker ground. Codex
+also splits its cap band (shell material over the sidebar column only, sheet
+colour over the content column); Hanger's runs full width, which is
+`§ Not implemented`'s open question rather than a settled difference.
 
 `--ink-2` and `--ink-3` are solid hex rather than alpha, and the comments state
 why: they are the prototype's 66% and 44% inks quantised, with `--ink-3`
@@ -279,9 +318,11 @@ spells `bg-capsule`, because `capsule-raised` already carries the surface
 (above), so the guard never sees this pair and structurally cannot while the
 capsule stays a bundled utility. Measured by hand against the same WCAG
 formula the guard runs: `--ink-1` on `--capsule` is 21:1 in light (black on
-white, `tokens.css:14`, `:5`/`:55`) and ~15.7:1 in dark (white on `#232323`,
-`:164`, `:159`/`:189`) — comfortably above 4.5:1 today, but that margin is
-asserted here, not enforced anywhere.
+white, `tokens.css:21`, `:5`/`:62`) and ~14.0:1 in dark (white on `--tint`,
+now `#2c2c2c`, `tokens.css:194`/`:224`) — comfortably above 4.5:1 today, but
+that margin is asserted here, not enforced anywhere. It was ~15.7:1 against
+the old `#232323`; the dark ramp moved on 2026-08-29 (§ The palette) and this
+figure moved with it, which is exactly the kind of drift nothing here catches.
 
 ### Motion — one spring, three beats
 
