@@ -489,17 +489,49 @@ describe("McpServerDetail", () => {
     expect(envKey.closest(".rounded-inner")).toBeTruthy();
   });
 
-  it("states the verdict once: declared N times, twice by the same engine, and that the launches agree", () => {
+  it("states the verdict once: declared N times, repeats by one engine, and that the launches agree", () => {
     render(<Harness server={base} />);
     openDetails();
     const card = screen.getByTestId("verdict-card");
-    expect(card.textContent).toContain("Declared 3 times, twice by the same engine");
+    expect(card.textContent).toContain("Declared 3 times, more than once by the same engine");
     expect(card.textContent).toContain(
       "All 3 launches agree — the same command from Claude Code (.claude.json), Claude Code (mcp.json) and Claude Desktop."
     );
     expect(card.querySelector("i")?.className).toContain("bg-state-warning");
     expect(screen.queryByRole("button", { name: "Compare" })).toBeNull();
     expect(screen.getByRole("button", { name: "Open config" })).toBeTruthy();
+  });
+
+  /* The repeat clause was a boolean spelled as a number: `sameEngineTwice`
+     answered "does any host repeat?" and the headline then printed the
+     literal word "twice", so an engine that declared the server three times
+     said "twice", and two engines that each declared it twice said "the same
+     engine". One shape that is true of every case instead (Karthik's ruling,
+     2026-08-30). */
+  it("does not call three declarations by one engine twice", () => {
+    const thrice = { ...base, registrations: [
+      ...base.registrations,
+      { key: "cc-project", host: "Claude Code", tier: "project", configPath: "/w/app/.mcp.json", command: "node", launchDisplay: "node" },
+    ] };
+    render(<Harness server={thrice} />);
+    openDetails();
+    const card = screen.getByTestId("verdict-card");
+    expect(card.textContent).toContain("Declared 4 times, more than once by the same engine");
+    expect(card.textContent).not.toContain("twice");
+  });
+
+  it("does not call two repeating engines the same engine", () => {
+    const both = { ...base, registrations: [
+      { key: "cc-user", host: "Claude Code", tier: "user", configPath: "~/.claude.json", command: "node", launchDisplay: "node" },
+      { key: "cc-global", host: "Claude Code", tier: "global", configPath: "~/.claude/mcp.json", command: "node", launchDisplay: "node" },
+      { key: "cx-user", host: "Codex", tier: "user", configPath: "~/.codex/config.toml", command: "node", launchDisplay: "node" },
+      { key: "cx-project", host: "Codex", tier: "project", configPath: "/w/app/.codex/config.toml", command: "node", launchDisplay: "node" },
+    ] };
+    render(<Harness server={both} />);
+    openDetails();
+    const card = screen.getByTestId("verdict-card");
+    expect(card.textContent).toContain("Declared 4 times, more than once by 2 engines");
+    expect(card.textContent).not.toContain("the same engine");
   });
 
   /* Open config used to call `openPath(configPath)` with no app, so macOS

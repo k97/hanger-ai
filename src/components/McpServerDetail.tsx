@@ -767,11 +767,26 @@ export default function McpServerDetail({
      host declaring the server twice is its own kind of surprise, worth
      naming beside -- not instead of -- whether the launches themselves
      agree. */
-  const sameEngineTwice = server.registrations.some(
-    (reg, i) => server.registrations.findIndex((r) => r.host === reg.host) !== i
-  );
-  const headline = `Declared ${regCount} times${sameEngineTwice ? ", twice by the same engine" : ""}`;
-  const verdictWarns = diverges || sameEngineTwice;
+  /* Which engines declared it more than once, and how many did. The clause
+     this feeds used to be a boolean spelled as a number -- any repeat at all
+     rendered the literal word "twice", so three declarations by one engine
+     read "twice", and two engines that each declared it twice read "the same
+     engine" (found 2026-08-30). One shape, true of every case, is Karthik's
+     ruling on the fix: the count of repeats is not stated, only that there
+     were some and by how many engines. */
+  const perHost = new Map<string, number>();
+  for (const reg of server.registrations) {
+    perHost.set(reg.host, (perHost.get(reg.host) ?? 0) + 1);
+  }
+  const repeatingEngines = [...perHost.values()].filter((n) => n > 1).length;
+  const repeatClause =
+    repeatingEngines === 0
+      ? ""
+      : repeatingEngines === 1
+        ? ", more than once by the same engine"
+        : `, more than once by ${repeatingEngines} engines`;
+  const headline = `Declared ${regCount} times${repeatClause}`;
+  const verdictWarns = diverges || repeatingEngines > 0;
   /* Host, or "host (config basename)" when that same host declares the
      server more than once -- otherwise a same-engine list reads as one
      voice repeated rather than as two separate declarations. */
