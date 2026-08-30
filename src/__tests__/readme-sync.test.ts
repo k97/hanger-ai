@@ -60,17 +60,21 @@ describe("README structure", () => {
   it("every relative link and file:line citation resolves", () => {
     const src = readme();
     const problems: string[] = [];
-    for (const m of src.matchAll(/\]\((?!https?:|mailto:|#)([^)#\s]+)(?:#L(\d+)(?:-L(\d+))?)?\)/g)) {
-      const rel = m[1];
+    // The fragment is matched generically, then inspected. An earlier version
+    // only matched `#Lnnn`, so `](docs/x.md#some-anchor)` failed to match the
+    // pattern at all and the file behind it was never checked.
+    for (const m of src.matchAll(/\]\((?!https?:|mailto:|#)([^)#\s]+)(?:#([^)\s]*))?\)/g)) {
+      const [, rel, fragment] = m;
       const abs = path.join(ROOT, rel);
       if (!fs.existsSync(abs)) {
         problems.push(`${rel} does not exist`);
         continue;
       }
-      if (m[2]) {
+      const lines = fragment?.match(/^L(\d+)(?:-L(\d+))?$/);
+      if (lines) {
         const total = fs.readFileSync(abs, "utf-8").split("\n").length;
-        const highest = Number(m[3] ?? m[2]);
-        if (highest > total) problems.push(`${rel}#L${m[2]} points past end of file (${total} lines)`);
+        const highest = Number(lines[2] ?? lines[1]);
+        if (highest > total) problems.push(`${rel}#${fragment} points past end of file (${total} lines)`);
       }
     }
     expect(problems, problems.join("; ")).toEqual([]);

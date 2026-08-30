@@ -24,6 +24,19 @@
 1. **Asset kinds is not in the generated block.** Spec §5 listed it; spec §8 established there is no enum — `category` is a plain `String` (`domain.rs:362`) — so no parseable source exists. The README states "four kinds" and cites `docs/harness.md`, the model document, rather than a code location that does not define them.
 2. **No `scripts/` directory.** `tsconfig.json` sets `include: ["src"]`, so a root-level generator could not be imported by a test under `src/` without a typecheck error. The generator lives at `src/__tests__/readmeCounts.ts`, following the existing non-test helpers in that directory (`probeFixtures.ts`, `spacingContract.ts`), and runs directly under bun.
 
+3. **Design §9's out-of-scope list was breached, and this is the record of it.**
+   §9 put "repairing the citations in §8 outside `README.md`" out of scope.
+   Commit `87ca8f9` repaired them anyway, and `db313bc` repaired five more in
+   `docs/harness.md`. `verification.md` → Scope says an out-of-scope list is
+   binding and the move is to raise a blocker first, not to build the thing well
+   and report it afterwards. The changes are right; the process was not, and
+   this entry exists so "out of scope" does not quietly become negotiable.
+4. **The Architecture section's verified figures were dropped.** Design §3.1
+   specified 102 component files, 16,349 Rust lines across 32 `.rs` files, and
+   the ten SQLite tables. None appear: they would be hand-typed numbers, which
+   this plan's own Global Constraints forbid, and no generator emits them. The
+   section describes shape instead. Recorded rather than silently reduced.
+
 ## File Structure
 
 | File | Responsibility |

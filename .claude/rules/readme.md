@@ -12,17 +12,24 @@ what `docs/` already says. Established 2026-08-30; design in
   `<!-- hanger:counts:start -->` and `<!-- hanger:counts:end -->` and come from
   `src/__tests__/readmeCounts.ts`. Regenerate with
   `~/.bun/bin/bun run src/__tests__/readmeCounts.ts`. A number typed into the
-  prose beside the block is the defect the block exists to prevent —
+  prose beside the block is the defect the block exists to prevent, though
+  nothing enforces that half: the README still spells small figures in words
+  ("four kinds", "four gates") and no guard can tell those from a stale
+  tally —
   `agents.rs:48-57` records that mistake being fixed once already, in the
   Global empty-state copy, which "listed three engines by hand and went stale
   the moment `AGENT_CONFIGS` grew past them".
-- **Entries are counted between an array literal's bounds, never by grepping a
-  token.** `AgentConfig {` matches 12 times in an 11-entry table and
-  `McpHost {` 18 times in a 16-entry one — the struct definitions, and in the
-  second case an `impl`. A token grep does not fail; it reports a wrong number
-  confidently, which is worse than no guard at all.
+- **Entries are counted between an array literal's bounds**, so a token that
+  also appears in a struct definition or an `impl` cannot inflate the number:
+  `AgentConfig {` matches 12 times in an 11-entry table, `McpHost {` 18 times
+  in a 16-entry one. Within those bounds the patterns are still token matches,
+  and a `rustfmt` rewrap can change what they see — which is why the tally and
+  the roster are parsed by different anchors and then asserted equal. Only the
+  `generate_handler!` parse is structural, and it throws rather than dropping a
+  line it cannot read.
 - **Nothing goes in the README that a `docs/` file already carries.** Grep
-  before adding. The four blocks deleted on 2026-08-30 had each been duplicated
+  before adding. **Not enforced** — no guard can tell restatement from
+  reference. The four blocks deleted on 2026-08-30 had each been duplicated
   for months with nothing going red, and one of them — a hand-typed roster of
   eleven engine names — was the highest-drift content in the file.
 - **Cite a section by name, not a line range.** `invariants.md` cited

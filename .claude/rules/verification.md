@@ -123,15 +123,15 @@ Nothing else is evidence.
   reason inline. A comment that defers to a document the reader cannot open is
   worse than no comment, because it looks like there is an answer.
 
-- **A `file:line` citation is stale until you open it.** Seven were wrong here
-  on 2026-08-30: `agents.rs:69` for `AGENT_CONFIGS` (really :111),
-  `registry.rs:91` for `HOSTS` (:103), `scanner.rs:235` for `RULE_FILENAMES`
-  (:297), `agents.rs:367` for `RULE_FILE_OWNERS` (:475), and two `domain.rs`
-  ranges for the four asset kinds that can point at nothing — there is no enum,
-  so no line number is correct. They sat in `CLAUDE.md`, `docs/harness.md` and
-  `shared-asset-machinery.md`, read by every session, wrong for months, with
-  nothing able to go red. Cite the symbol — `agents.rs` → `AGENT_CONFIGS` — it
-  is what the reader wants and it cannot drift.
+- **A `file:line` citation is stale until you open it.** Ten distinct ones were
+  wrong here on 2026-08-30, across twelve occurrences in `CLAUDE.md`,
+  `docs/harness.md` and `.claude/rules/shared-asset-machinery.md` — read by
+  every session, wrong for months, with nothing able to go red. One was
+  correct. Two `domain.rs` ranges could not be repaired at all: they cited the
+  four asset kinds, and there is no enum, so no line number is right. Cite the
+  symbol — `agents.rs` → `AGENT_CONFIGS` — it is what the reader wants and it
+  cannot drift. A first draft of this very clause said "seven" and listed six,
+  four bullets below "a count you did not grep is a claim".
 
 - **A plan's checkboxes are not evidence of what was built.** This session
   reported a peer's Task 5 as "0 of 5 steps done" and told Karthik the panel
