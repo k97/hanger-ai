@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import * as fs from "fs";
 import * as path from "path";
+import { block } from "./rustTables";
 
 // Appendix A.5 (docs/superpowers/specs/2026-08-16-mcp-identity-design.md):
 // "Any hardcoded engine name, path or count in a string literal in the view
@@ -61,17 +62,9 @@ const ALLOWLIST: AllowlistEntry[] = [
  *  criterion exists to catch (§6.5: "add a registry row... the string
  *  changes with no copy edit"). A needle list built this way changes with
  *  the registry it reads, with no edit to this file. */
-function blockBetween(text: string, startMarker: string, endMarker: string): string {
-  const start = text.indexOf(startMarker);
-  if (start === -1) {
-    throw new Error(`no-hardcoded-engine-copy: marker "${startMarker}" not found — the registry moved or was renamed`);
-  }
-  const end = text.indexOf(endMarker, start);
-  if (end === -1) {
-    throw new Error(`no-hardcoded-engine-copy: end marker "${endMarker}" not found after "${startMarker}"`);
-  }
-  return text.slice(start, end);
-}
+/** Thin wrapper over the shared reader so call sites keep their arity. */
+const blockBetween = (text: string, startMarker: string, endMarker: string): string =>
+  block(text, startMarker, endMarker, "no-hardcoded-engine-copy");
 
 function extractQuoted(block: string, keyPattern: string): string[] {
   const re = new RegExp(`\\b${keyPattern}:\\s*"([^"]+)"`, "g");

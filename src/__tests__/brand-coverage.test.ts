@@ -1,7 +1,6 @@
 import { describe, it, expect } from "vitest";
-import * as fs from "fs";
-import * as path from "path";
 import { resolveBrand } from "../data/brands";
+import { read, block } from "./rustTables";
 
 /**
  * The shipped binary must draw a mark for every engine or host the Rust side
@@ -11,17 +10,6 @@ import { resolveBrand } from "../data/brands";
  * Spec (local-only design record, not tracked in this repo):
  * docs/superpowers/specs/2026-08-15-brand-icons-design.md §4, §11.
  */
-const ROOT = path.resolve(__dirname, "../..");
-const read = (rel: string) => fs.readFileSync(path.join(ROOT, rel), "utf-8");
-
-function block(source: string, startMarker: string, endMarker: string, what: string): string {
-  const start = source.indexOf(startMarker);
-  if (start < 0) throw new Error(`${what}: marker "${startMarker}" not found — the guard's anchor moved`);
-  const end = source.indexOf(endMarker, start);
-  if (end < 0) throw new Error(`${what}: end marker "${endMarker}" not found after "${startMarker}"`);
-  return source.slice(start, end);
-}
-
 /** Every identifier the backend can hand the webview for an engine or host. */
 export function backendEngineIds(): { id: string; from: string }[] {
   const out: { id: string; from: string }[] = [];

@@ -1,29 +1,9 @@
 import * as fs from "fs";
 import * as path from "path";
-import { fileURLToPath } from "url";
-
-const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
-const read = (rel: string) => fs.readFileSync(path.join(ROOT, rel), "utf-8");
+import { ROOT, read, block } from "./rustTables";
 
 export const START = "<!-- hanger:counts:start -->";
 export const END = "<!-- hanger:counts:end -->";
-
-/**
- * Slice a source file between two anchors — the same idiom as
- * brand-coverage.test.ts. Entries are counted between an array literal's
- * bounds, never by grepping a token: `AgentConfig {` occurs 12 times in an
- * 11-entry table (the `pub struct` line) and `McpHost {` 18 times in a
- * 16-entry one (the struct, plus an `impl`). A token grep does not fail — it
- * reports a wrong number confidently, which is worse than no guard.
- * docs/plans/2026-08-30-readme-structure-design.md §5.
- */
-export function block(source: string, startMarker: string, endMarker: string, what: string): string {
-  const start = source.indexOf(startMarker);
-  if (start < 0) throw new Error(`${what}: anchor "${startMarker}" not found — it moved; repoint the guard`);
-  const end = source.indexOf(endMarker, start);
-  if (end < 0) throw new Error(`${what}: end anchor "${endMarker}" not found after "${startMarker}"`);
-  return source.slice(start, end);
-}
 
 const countMatches = (s: string, re: RegExp) => [...s.matchAll(re)].length;
 

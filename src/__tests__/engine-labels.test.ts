@@ -1,8 +1,7 @@
 import { describe, it, expect } from "vitest";
-import * as fs from "fs";
-import * as path from "path";
 import { hostLabel } from "../utils/mcpServerView";
 import { engineLabel } from "../utils/assetProvenance";
+import { read, block } from "./rustTables";
 
 /**
  * A mark without a name is half a row.
@@ -15,17 +14,6 @@ import { engineLabel } from "../utils/assetProvenance";
  * lower-case ids because the ruling that fixed `windsurf` was applied to
  * `windsurf` and nothing else.
  */
-const ROOT = path.resolve(__dirname, "../..");
-const read = (rel: string) => fs.readFileSync(path.join(ROOT, rel), "utf-8");
-
-function block(source: string, startMarker: string, endMarker: string, what: string): string {
-  const start = source.indexOf(startMarker);
-  if (start < 0) throw new Error(`${what}: marker "${startMarker}" not found — the guard's anchor moved`);
-  const end = source.indexOf(endMarker, start);
-  if (end < 0) throw new Error(`${what}: end marker "${endMarker}" not found after "${startMarker}"`);
-  return source.slice(start, end);
-}
-
 /** Every MCP host id `mcpServerView` can be handed. */
 function hostIds(): string[] {
   const hosts = block(read("src-tauri/src/mcp/registry.rs"), "pub const HOSTS", "];", "registry.rs HOSTS");
