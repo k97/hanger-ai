@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { openUrl, openPath, revealItemInDir } from "@tauri-apps/plugin-opener";
+import { openUrl, revealItemInDir } from "@tauri-apps/plugin-opener";
 import { MANAGE_URL } from "../utils/mcpServerView";
 import { diffLaunch, type LaunchDiffToken } from "../utils/launchDiff";
 import { joinNames } from "../utils/prose";
@@ -171,6 +171,17 @@ interface Props {
   tab?: "primary" | "details";
   /** The user moved to another tab. */
   onTabChange?: (tab: "primary" | "details") => void;
+  /**
+   * Open a config file in whatever editor the app opens assets in.
+   *
+   * Not optional, and not `openPath` here: this panel does not own the
+   * `editor_app` preference or the first-use picker, and a bare
+   * `openPath(configPath)` hands the file to whatever owns `.json` instead
+   * — which is how Open config and the cap's Open came to launch two
+   * different editors on the same machine (Karthik, 2026-08-30). Required so
+   * the compiler, not a screenshot, is what proves the route is wired.
+   */
+  onOpenConfig: (path: string) => void;
 }
 
 /** Stable empty default, so the effect below does not see a new array every
@@ -530,6 +541,7 @@ export default function McpServerDetail({
   verifying = NONE_IN_FLIGHT,
   tab: tabProp,
   onTabChange,
+  onOpenConfig,
 }: Props) {
   // Tools first, Details second: the tool list is what "is this server
   // healthy" reduces to, and it is the only content most opens need. Flyout's
@@ -1250,7 +1262,7 @@ export default function McpServerDetail({
               <button
                 type="button"
                 className={miniBtnClass}
-                onClick={() => openPath(server.registrations[0].configPath).catch(() => {})}
+                onClick={() => onOpenConfig(server.registrations[0].configPath)}
               >
                 <DocumentTextIcon size={13} aria-hidden="true" />
                 Open config

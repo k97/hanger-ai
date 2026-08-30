@@ -66,6 +66,11 @@ interface FlyoutProps {
    *  own path is the folder holding it). App.tsx owns the cap, so this
    *  callback just carries AssetDetail's own `onDocumentPath` one level up. */
   onAssetDocumentPath?: (path: string) => void;
+  /** McpServerDetail's Open config, carried up to the owner of the
+   *  `editor_app` preference the same way `onAssetDocumentPath` is. The panel
+   *  cannot resolve an editor itself without keeping a second copy of that
+   *  preference, and the copy is what shipped two editors for one machine. */
+  onOpenConfig: (path: string) => void;
   /** The screen this inspector belongs to — App.tsx's `selectedSidebarItem`,
    *  the one string every view switches on (CLAUDE.md). Read for one thing:
    *  the inspector's tab is remembered between assets and forgotten between
@@ -97,6 +102,7 @@ export default function Flyout({
   onRefresh,
   annotation,
   onAssetDocumentPath,
+  onOpenConfig,
   screen,
   landingNonce
 }: FlyoutProps) {
@@ -745,6 +751,7 @@ export default function Flyout({
           declined={mcpDeclined}
           tab={inspectorTab}
           onTabChange={setInspectorTab}
+          onOpenConfig={onOpenConfig}
         />
       ) : targetAsset ? (
         // Link to… lives in the cap now (App.tsx), not this panel's own

@@ -92,6 +92,7 @@ describe("Flyout — asking an MCP server what it provides", () => {
   it("asks on open, without force, and never calls the old always-spawning command", async () => {
     render(
       <Flyout
+        onOpenConfig={() => {}}
         inventory={inventory}
         selectedAsset={selected as never}
         mcpProcesses={[]}
@@ -120,6 +121,7 @@ describe("Flyout — asking an MCP server what it provides", () => {
     // backend treats it as the direction that has to be confirmed.
     render(
       <Flyout
+        onOpenConfig={() => {}}
         inventory={inventory}
         selectedAsset={selected as never}
         mcpProcesses={null}
@@ -135,6 +137,7 @@ describe("Flyout — asking an MCP server what it provides", () => {
   it("carries the running fact the panel is rendering, not one it recomputes", async () => {
     render(
       <Flyout
+        onOpenConfig={() => {}}
         inventory={inventory}
         selectedAsset={selected as never}
         mcpProcesses={[
@@ -173,6 +176,7 @@ describe("Flyout — asking an MCP server what it provides", () => {
 
     render(
       <Flyout
+        onOpenConfig={() => {}}
         inventory={inventory}
         selectedAsset={selected as never}
         mcpProcesses={[]}
@@ -192,6 +196,7 @@ describe("Flyout — asking an MCP server what it provides", () => {
     // is exactly the input that would expose the panel guessing.
     render(
       <Flyout
+        onOpenConfig={() => {}}
         inventory={inventory}
         selectedAsset={selected as never}
         mcpProcesses={[
@@ -225,6 +230,7 @@ describe("Flyout — asking an MCP server what it provides", () => {
 
     render(
       <Flyout
+        onOpenConfig={() => {}}
         inventory={twoLaunches}
         selectedAsset={selected as never}
         mcpProcesses={[]}
@@ -246,6 +252,7 @@ describe("Flyout — asking an MCP server what it provides", () => {
     // permanently unasked, which is a different bug wearing the same green.
     render(
       <Flyout
+        onOpenConfig={() => {}}
         inventory={twoLaunches}
         selectedAsset={selected as never}
         mcpProcesses={[]}
@@ -275,6 +282,7 @@ describe("Flyout — asking an MCP server what it provides", () => {
 
     render(
       <Flyout
+        onOpenConfig={() => {}}
         inventory={inventory}
         selectedAsset={selected as never}
         mcpProcesses={[]}
@@ -305,6 +313,7 @@ describe("Flyout — asking an MCP server what it provides", () => {
 
     render(
       <Flyout
+        onOpenConfig={() => {}}
         inventory={inventory}
         selectedAsset={selected as never}
         mcpProcesses={[]}
@@ -341,6 +350,7 @@ describe("Flyout — asking an MCP server what it provides", () => {
 
     render(
       <Flyout
+        onOpenConfig={() => {}}
         inventory={inventory}
         selectedAsset={selected as never}
         mcpProcesses={[]}
@@ -379,6 +389,7 @@ describe("Flyout — asking an MCP server what it provides", () => {
 
     render(
       <Flyout
+        onOpenConfig={() => {}}
         inventory={inventory}
         selectedAsset={selected as never}
         mcpProcesses={[]}

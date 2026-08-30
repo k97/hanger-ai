@@ -60,6 +60,7 @@ const props = {
   inventory,
   linkedProjects: [] as string[],
   onRefresh: () => {},
+  onOpenConfig: () => {},
 };
 
 const openDetails = () => fireEvent.click(screen.getByRole("tab", { name: "Details" }));

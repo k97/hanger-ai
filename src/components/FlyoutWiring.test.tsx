@@ -101,6 +101,7 @@ function TestAppHarness() {
       />
       {selectedBubble && (
         <Flyout
+          onOpenConfig={() => {}}
           selectedBubble={selectedBubble}
           selectedAsset={flyoutInitialAsset}
           inventory={mockInventory}
@@ -136,6 +137,7 @@ describe("Detail Flyout Wiring Integration", () => {
   it("hosts the link flow inside the inspector, with a way back to the asset", async () => {
     render(
       <Flyout
+        onOpenConfig={() => {}}
         selectedBubble={{ type: "project", id: "/home/user/project", name: "project" }}
         initialDeployingAsset={{
           type: "asset",
@@ -187,6 +189,7 @@ describe("Detail Flyout Wiring Integration", () => {
   it("draws the agent's own mark beside the bubble heading, not a generic one", () => {
     render(
       <Flyout
+        onOpenConfig={() => {}}
         selectedBubble={{ type: "agent", id: "claude_code", name: "Claude Code" }}
         inventory={mockInventory}
         linkedProjects={[]}

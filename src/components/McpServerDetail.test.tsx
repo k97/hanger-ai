@@ -12,15 +12,27 @@ import { probeAnswered, probeFailed } from "../__tests__/probeFixtures";
  *  click the way the real owner does, so every render/rerender call below
  *  goes through this thin stand-in for Flyout instead of the panel
  *  directly — same props, its own `tab` state fed back from `onTabChange`. */
-function Harness(props: ComponentProps<typeof McpServerDetail>) {
+function Harness(
+  props: Omit<ComponentProps<typeof McpServerDetail>, "onOpenConfig"> & {
+    onOpenConfig?: (path: string) => void;
+  }
+) {
   const [tab, setTab] = useState<"primary" | "details">("primary");
-  return <McpServerDetail {...props} tab={props.tab ?? tab} onTabChange={props.onTabChange ?? setTab} />;
+  return (
+    <McpServerDetail
+      {...props}
+      onOpenConfig={props.onOpenConfig ?? (() => {})}
+      tab={props.tab ?? tab}
+      onTabChange={props.onTabChange ?? setTab}
+    />
+  );
 }
 
 const openUrl = vi.fn().mockResolvedValue(undefined);
+const openPath = vi.fn().mockResolvedValue(undefined);
 vi.mock("@tauri-apps/plugin-opener", () => ({
   openUrl: (u: string) => openUrl(u),
-  openPath: vi.fn(),
+  openPath: (...a: unknown[]) => openPath(...a),
   revealItemInDir: vi.fn(),
 }));
 
@@ -488,6 +500,21 @@ describe("McpServerDetail", () => {
     expect(card.querySelector("i")?.className).toContain("bg-state-warning");
     expect(screen.queryByRole("button", { name: "Compare" })).toBeNull();
     expect(screen.getByRole("button", { name: "Open config" })).toBeTruthy();
+  });
+
+  /* Open config used to call `openPath(configPath)` with no app, so macOS
+     handed the file to whatever owns .json -- a different editor from the one
+     the cap's Open uses, which honours the `editor_app` preference. The panel
+     does not own that preference, so it asks its owner instead of resolving
+     an editor of its own (Karthik, 2026-08-30). */
+  it("hands Open config to the app's editor route rather than the system default", () => {
+    openPath.mockClear();
+    const onOpenConfig = vi.fn();
+    render(<Harness server={base} onOpenConfig={onOpenConfig} />);
+    openDetails();
+    fireEvent.click(screen.getByRole("button", { name: "Open config" }));
+    expect(onOpenConfig).toHaveBeenCalledWith("~/.claude.json");
+    expect(openPath).not.toHaveBeenCalled();
   });
   it("offers Compare only when the launches disagree, and no card for a lone registration", () => {
     const diverged = { ...base, registrations: [
@@ -1160,6 +1187,7 @@ describe("McpServerDetail — the tool table and Context (M5)", () => {
     // backticks render instead of collapsing into one grey run.
     render(
       <McpServerDetail
+        onOpenConfig={() => {}}
         server={{ ...base, registrations: [base.registrations[0]] }}
         verified={{ "cc-user": probeAnswered({
           capabilities: ["tools"],

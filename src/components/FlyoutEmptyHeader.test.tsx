@@ -62,7 +62,7 @@ const emptyInventory: Inventory = {
 describe("Flyout empty inspector", () => {
   it("renders no eyebrow at all — the crumb in the cap band already names the scope", () => {
     render(
-      <Flyout inventory={emptyInventory} linkedProjects={[]} onRefresh={vi.fn()} />
+      <Flyout onOpenConfig={() => {}} inventory={emptyInventory} linkedProjects={[]} onRefresh={vi.fn()} />
     );
 
     expect(screen.getByText("Nothing selected")).toBeTruthy();
@@ -80,7 +80,7 @@ describe("Flyout empty inspector", () => {
     );
 
     render(
-      <Flyout inventory={emptyInventory} linkedProjects={[]} onRefresh={vi.fn()} />
+      <Flyout onOpenConfig={() => {}} inventory={emptyInventory} linkedProjects={[]} onRefresh={vi.fn()} />
     );
     expect(screen.getByText("Nothing selected")).toBeTruthy();
     expect(screen.queryByText("What every request carries")).toBeNull();

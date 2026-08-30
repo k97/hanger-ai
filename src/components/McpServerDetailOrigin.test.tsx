@@ -21,9 +21,20 @@ import McpServerDetail, { McpServerView } from "./McpServerDetail";
  *  helper needs something to hold that state across a click the way the
  *  real owner does, so every render below goes through this thin stand-in
  *  for Flyout instead of the panel directly. */
-function Harness(props: ComponentProps<typeof McpServerDetail>) {
+function Harness(
+  props: Omit<ComponentProps<typeof McpServerDetail>, "onOpenConfig"> & {
+    onOpenConfig?: (path: string) => void;
+  }
+) {
   const [tab, setTab] = useState<"primary" | "details">("primary");
-  return <McpServerDetail {...props} tab={props.tab ?? tab} onTabChange={props.onTabChange ?? setTab} />;
+  return (
+    <McpServerDetail
+      {...props}
+      onOpenConfig={props.onOpenConfig ?? (() => {})}
+      tab={props.tab ?? tab}
+      onTabChange={props.onTabChange ?? setTab}
+    />
+  );
 }
 
 const openDetails = () => fireEvent.click(screen.getByRole("tab", { name: "Details" }));

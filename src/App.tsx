@@ -1529,16 +1529,22 @@ export default function App() {
   // showing: for a skill those differ (folder vs SKILL.md), and for a tool
   // the stored path is a registration key, not a path at all.
   const openTargetForCap = selectedAsset ? assetOpenTarget(selectedAsset) : "";
+  // The one route to an editor: the chosen one, or the picker on first use.
+  // Both the cap's Open and the MCP panel's Open config come through here —
+  // that panel used to call `openPath` with no app, so a config file went to
+  // whatever owns `.json` while its own asset went to the chosen editor
+  // (Karthik, 2026-08-30). `label` is only what the picker says it is opening.
+  const openInChosenEditor = async (target: string, label: string) => {
+    if (chosenEditor) {
+      await attemptOpen(target, chosenEditor);
+      return;
+    }
+    const found = await invoke<DetectedEditor[]>("detect_editors").catch(() => []);
+    setDetectedEditors(found ?? []);
+    setPickerFor({ name: label, path: target });
+  };
   const onOpenInEditorForCap = selectedAsset
-    ? async () => {
-        if (chosenEditor) {
-          await attemptOpen(openTargetForCap, chosenEditor);
-          return;
-        }
-        const found = await invoke<DetectedEditor[]>("detect_editors").catch(() => []);
-        setDetectedEditors(found ?? []);
-        setPickerFor({ name: selectedAsset.name, path: openTargetForCap });
-      }
+    ? () => openInChosenEditor(openTargetForCap, selectedAsset.name)
     : undefined;
   const onCopyPathForCap = selectedAsset
     ? () => {
@@ -2190,6 +2196,12 @@ export default function App() {
                 linkedProjects={linkedDirectories}
                 onRefresh={triggerScan}
                 onAssetDocumentPath={setInspectorDocumentPath}
+                /* The picker asks by name, and the name here is the config
+                   file's own — "Open mcp.json in", not the server's name for
+                   a file that is not the server. */
+                onOpenConfig={(path) =>
+                  openInChosenEditor(path, path.split("/").pop() || path)
+                }
                 /* The inspector's tab is remembered between assets and
                    forgotten between screens; this is the screen. */
                 screen={selectedSidebarItem}

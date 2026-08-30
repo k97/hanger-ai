@@ -62,6 +62,7 @@ const server = { name: "spades-audio", category: "Tools", path: "/Users/x/.claud
 /** The panel as App mounts it, with only the two things these tests vary. */
 const panel = (asset: unknown, screen_: string) => (
   <Flyout
+    onOpenConfig={() => {}}
     inventory={inventory}
     selectedAsset={asset as never}
     screen={screen_}

@@ -79,6 +79,7 @@ describe("Flyout title block — the hairline follows the tab row, not the wrapp
   it("a selected asset with tabs: new padding, and no hairline of its own", () => {
     render(
       <Flyout
+        onOpenConfig={() => {}}
         selectedBubble={null}
         selectedAsset={{
           name: "writing-great-skills",
@@ -112,6 +113,7 @@ describe("Flyout title block — the hairline follows the tab row, not the wrapp
   it("spaces the eyebrow from the title with the column's gap, not a margin on the title", () => {
     render(
       <Flyout
+        onOpenConfig={() => {}}
         selectedBubble={{ type: "project", id: "/home/user/project", name: "project" }}
         inventory={emptyInventory}
         linkedProjects={[]}
@@ -134,6 +136,7 @@ describe("Flyout title block — the hairline follows the tab row, not the wrapp
   it("the scope line sits below the title in caption ink, not above it in caps", () => {
     render(
       <Flyout
+        onOpenConfig={() => {}}
         selectedBubble={{ type: "agent", id: "claude-code", name: "Claude Code" }}
         inventory={emptyInventory}
         linkedProjects={[]}
