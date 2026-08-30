@@ -344,8 +344,15 @@ pub fn running_processes() -> Vec<RunningProcess> {
 /// A running process, and the registration it belongs to if any.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProcessMatch {
-    /// Empty when nothing on disk accounts for this process.
-    pub registration_key: String,
+    /// Every declaration whose launch this process could have come from.
+    ///
+    /// Empty when nothing on disk accounts for it. More than one when several
+    /// declarations carry the identical launch -- the duplicate case, where
+    /// nothing in the process can say which of them started it. A single
+    /// `registration_key` here was a claim the data does not support, and the
+    /// panel printed it as one: an arbitrary first match, keyed by scan order
+    /// (`lib.rs`'s `get_mcp_processes` builds `regs` from the inventory).
+    pub registration_keys: Vec<String>,
     pub pid: u32,
     pub command_line: String,
     pub spawning_host: Option<String>,
@@ -365,13 +372,19 @@ pub fn match_processes(
     let mut out = Vec::new();
 
     for p in procs {
-        let matched = regs
+        // Every declaration this launch could have come from, not the first.
+        // Identical declarations are indistinguishable from a process, so
+        // `find` was picking one by scan order and presenting it as the
+        // answer.
+        let matched: Vec<String> = regs
             .iter()
-            .find(|(_, cmd, args)| matches_launch(&p.command_line, cmd, args));
+            .filter(|(_, cmd, args)| matches_launch(&p.command_line, cmd, args))
+            .map(|(key, _, _)| key.clone())
+            .collect();
 
         match matched {
-            Some((key, _, _)) => out.push(ProcessMatch {
-                registration_key: key.clone(),
+            keys if !keys.is_empty() => out.push(ProcessMatch {
+                registration_keys: keys,
                 pid: p.pid,
                 command_line: p.command_line.clone(),
                 spawning_host: p.spawning_host.clone(),
@@ -394,15 +407,15 @@ pub fn match_processes(
             // process Hanger cannot match appears in neither list. Widening
             // the match to fix that is how `node` starts claiming every Node
             // server on the machine.
-            None if p.spawning_host.is_none() && looks_like_mcp(&p.command_line) => {
+            _ if p.spawning_host.is_none() && looks_like_mcp(&p.command_line) => {
                 out.push(ProcessMatch {
-                    registration_key: String::new(),
+                    registration_keys: Vec::new(),
                     pid: p.pid,
                     command_line: p.command_line.clone(),
                     spawning_host: p.spawning_host.clone(),
                 })
             }
-            None => {}
+            _ => {}
         }
     }
 

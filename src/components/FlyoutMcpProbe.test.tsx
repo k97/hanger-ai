@@ -142,7 +142,7 @@ describe("Flyout — asking an MCP server what it provides", () => {
         selectedAsset={selected as never}
         mcpProcesses={[
           {
-            registration_key: "/Users/x/.claude.json:spades-audio",
+            registration_keys: ["/Users/x/.claude.json:spades-audio"],
             pid: 4242,
             command_line: "node /Applications/Spades Audio.app/index.js",
             spawning_host: "Claude Code",
@@ -201,7 +201,7 @@ describe("Flyout — asking an MCP server what it provides", () => {
         selectedAsset={selected as never}
         mcpProcesses={[
           {
-            registration_key: "/Users/x/.claude.json:spades-audio",
+            registration_keys: ["/Users/x/.claude.json:spades-audio"],
             pid: 4242,
             command_line: "node",
             spawning_host: "Claude Code",

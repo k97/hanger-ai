@@ -534,6 +534,40 @@ describe("McpServerDetail", () => {
     expect(card.textContent).not.toContain("the same engine");
   });
 
+  /* A process cannot say which of several identical declarations started it,
+     so no row may claim it. The fact is about the server, so the verdict card
+     states it once (Karthik's ruling, 2026-08-30) -- his screenshot had a
+     Claude Code row reading "running - pid 52072 - Claude Desktop", the row's
+     own engine contradicted by the spawner printed beside it. */
+  const runningEverywhere = (attributed: boolean) => ({
+    ...base,
+    registrations: base.registrations.map((r) => ({
+      ...r,
+      running: { pid: 52072, spawningHost: "Claude Desktop", attributed },
+    })),
+  });
+
+  it("states an unattributable run on the card, and on no row", () => {
+    render(<Harness server={runningEverywhere(false)} />);
+    openDetails();
+    expect(screen.getByTestId("verdict-card").textContent).toContain(
+      "Running as pid 52072, started by Claude Desktop. Nothing in the process says which declaration it came from."
+    );
+    for (const row of screen.getAllByTestId("registration-row")) {
+      expect(row.textContent).not.toContain("running");
+    }
+  });
+
+  it("leaves a sole claimant saying so on its own row", () => {
+    const sole = { ...base, registrations: base.registrations.map((r, i) =>
+      i === 0 ? { ...r, running: { pid: 52072, spawningHost: "Claude Desktop", attributed: true } } : r
+    ) };
+    render(<Harness server={sole} />);
+    openDetails();
+    expect(screen.getAllByTestId("registration-row")[0].textContent).toContain("running · pid 52072");
+    expect(screen.getByTestId("verdict-card").textContent).not.toContain("Running as pid");
+  });
+
   /* Open config used to call `openPath(configPath)` with no app, so macOS
      handed the file to whatever owns .json -- a different editor from the one
      the cap's Open uses, which honours the `editor_app` preference. The panel
@@ -897,7 +931,10 @@ describe("McpServerDetail", () => {
         server={{
           ...base,
           registrations: [
-            { ...base.registrations[0], running: { pid: 8269, spawningHost: "Claude Code" } },
+            {
+              ...base.registrations[0],
+              running: { pid: 8269, spawningHost: "Claude Code", attributed: true },
+            },
             base.registrations[1],
             base.registrations[2],
           ],
@@ -1506,7 +1543,7 @@ describe("McpServerDetail — the tool table and Context (M5)", () => {
 describe("McpServerDetail — lazy on open", () => {
   const running = (reg: McpServerView["registrations"][number]) => ({
     ...reg,
-    running: { pid: 4242, spawningHost: "Claude Code" },
+    running: { pid: 4242, spawningHost: "Claude Code", attributed: true },
   });
 
   it("asks for the tool list on open, once per launch spec rather than once per registration", () => {

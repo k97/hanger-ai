@@ -64,23 +64,58 @@ describe("buildMcpServerView", () => {
     // Desktop one, even though both declare the same server.
     const view = buildMcpServerView(tools, "spades-audio", [
       {
-        registration_key: "/home/.claude.json:spades-audio",
+        registration_keys: ["/home/.claude.json:spades-audio"],
         pid: 8269,
         command_line: "node /Applications/Spades Audio.app/index.js",
         spawning_host: "Claude Code",
       },
     ])!;
-    expect(view.registrations[0].running).toEqual({ pid: 8269, spawningHost: "Claude Code" });
+    expect(view.registrations[0].running).toEqual({
+      pid: 8269,
+      spawningHost: "Claude Code",
+      attributed: true,
+    });
     expect(view.registrations[1].running).toBeUndefined();
   });
 
   it("ignores unaccounted processes when attaching running state", () => {
-    // An unaccounted process has an empty registration_key. Matching on it
+    // An unaccounted process names no registration at all. Matching on it
     // would attach it to whichever registration also stringified to "".
     const view = buildMcpServerView(tools, "spades-audio", [
-      { registration_key: "", pid: 1649, command_line: "macos-mcp serve" },
+      { registration_keys: [], pid: 1649, command_line: "macos-mcp serve" },
     ])!;
     expect(view.registrations.every((r) => r.running === undefined)).toBe(true);
+  });
+
+  /* Identical declarations cannot be told apart by the process running them,
+     so the backend names every one it could have come from
+     (`mcp::observe::match_processes`). A registration is the live one only
+     when it is the sole claimant; otherwise it still counts as running -- the
+     auto-probe must not spawn a second copy -- but it may not say it is the
+     one. Karthik's screenshot, 2026-08-30: a Claude Code row reading
+     "running - pid 52072 - Claude Desktop". */
+  it("marks a run no single declaration can claim as unattributed, on all of them", () => {
+    const view = buildMcpServerView(tools, "spades-audio", [
+      {
+        registration_keys: [
+          "/home/.claude.json:spades-audio",
+          "/home/Library/Application Support/Claude/claude_desktop_config.json:spades-audio",
+        ],
+        pid: 52072,
+        command_line: "node /Applications/Spades Audio.app/index.js",
+        spawning_host: "Claude Desktop",
+      },
+    ])!;
+    expect(view.registrations[0].running).toEqual({
+      pid: 52072,
+      spawningHost: "Claude Desktop",
+      attributed: false,
+    });
+    expect(view.registrations[1].running).toEqual({
+      pid: 52072,
+      spawningHost: "Claude Desktop",
+      attributed: false,
+    });
   });
 
   it("leaves running state absent when no processes are supplied", () => {

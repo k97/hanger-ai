@@ -40,8 +40,16 @@ interface ToolRow {
  * `undefined` rather than a type error.
  */
 export interface ProcessMatch {
-  /** Empty when nothing on disk accounts for this process. */
-  registration_key: string;
+  /**
+   * Every declaration whose launch this process could have come from.
+   *
+   * Empty when nothing on disk accounts for it, and longer than one when
+   * several declarations carry the identical launch. The backend used to send
+   * a single key chosen by scan order, which read as "this declaration is the
+   * one running" and was a claim no process can support
+   * (`mcp::observe::match_processes`).
+   */
+  registration_keys: string[];
   pid: number;
   command_line: string;
   spawning_host?: string;
@@ -49,7 +57,7 @@ export interface ProcessMatch {
 
 /** The processes nothing on disk accounts for — the disclosure's subject. */
 export const unaccountedProcesses = (processes: ProcessMatch[] | undefined): ProcessMatch[] =>
-  (processes ?? []).filter((p) => p.registration_key === "");
+  (processes ?? []).filter((p) => p.registration_keys.length === 0);
 
 /** One launch, and every process currently running it. */
 export interface ProcessGroup {
@@ -162,13 +170,24 @@ export function buildMcpServerView(
   const matches = (tools ?? []).filter((t) => t.name === serverName);
   if (matches.length === 0) return null;
 
+  // This server's own keys, for deciding whether a process that names several
+  // declarations names more than one of THIS server's. A launch shared with a
+  // different server name is not this server's ambiguity.
+  const ourKeys = new Set<string>(matches.map(registrationKey).filter(Boolean));
+
   const registrations = matches.map((t) => {
     // Keyed on `registrationKey`, the mirror of `Tool::registration_key`, so
     // the process lands on the host that actually declared it. An unaccounted
-    // process carries an empty key and belongs to no registration — matching
-    // it would attach every orphan on the machine to the first row.
+    // process names no registration at all — matching it would attach every
+    // orphan on the machine to the first row.
+    //
+    // `attributed` is the honest half: identical declarations are
+    // indistinguishable from the process side, so each of them keeps `running`
+    // (the auto-probe must not spawn a second copy of a server that is up) but
+    // none of them may claim to be the one that started it.
     const key = registrationKey(t);
-    const hit = key ? processes.find((p) => p.registration_key === key) : undefined;
+    const hit = key ? processes.find((p) => p.registration_keys.includes(key)) : undefined;
+    const claimants = hit ? hit.registration_keys.filter((k) => ourKeys.has(k)) : [];
     return {
       key,
       host: hostLabel(scopeAgent(t.scope as Scope) || t.owning_agent),
@@ -185,7 +204,15 @@ export function buildMcpServerView(
       bridged: t.bridged ?? false,
       origin: t.origin,
       originBlocked: t.origin_blocked,
-      ...(hit ? { running: { pid: hit.pid, spawningHost: hit.spawning_host } } : {}),
+      ...(hit
+        ? {
+            running: {
+              pid: hit.pid,
+              spawningHost: hit.spawning_host,
+              attributed: claimants.length === 1,
+            },
+          }
+        : {}),
     };
   });
 

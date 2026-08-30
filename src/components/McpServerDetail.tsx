@@ -90,8 +90,13 @@ interface Registration {
    * Absent is the ordinary state, not a fault: stdio servers are started on
    * demand by whichever host needs them, so most registrations are idle most
    * of the time.
+   *
+   * `attributed` is false when identical declarations mean the process could
+   * have come from any of them. Present on all of them either way, because
+   * the auto-probe must not spawn a second copy of a server that is already
+   * up; only the claim on screen narrows.
    */
-  running?: { pid: number; spawningHost?: string };
+  running?: { pid: number; spawningHost?: string; attributed: boolean };
 }
 
 /** The panel's own name for the probe union -- `answered` carries the tool
@@ -802,6 +807,31 @@ export default function McpServerDetail({
   const detail = !diverges
     ? `All ${regCount} launches agree — the same command from ${joinNames(labels)}.`
     : undefined;
+  /* A run no single declaration can claim belongs to the server, not to a
+     row -- the rows above stay silent and the verdict card says it once. Pids
+     and hosts are deduplicated because every identical declaration carries
+     the same match, and joined rather than counted: a figure on screen comes
+     from the backend (`.claude/rules/invariants.md`). The reason is left at
+     "nothing in the process says", not "the declarations are identical" --
+     `detail` above has already said that, and this panel says a thing once. */
+  const unattributedRuns = server.registrations
+    .map((reg) => reg.running)
+    .filter((run): run is NonNullable<typeof run> => !!run && !run.attributed);
+  const runPids = [...new Set(unattributedRuns.map((run) => String(run.pid)))];
+  const runHosts = [
+    ...new Set(
+      unattributedRuns
+        .map((run) => run.spawningHost)
+        .filter((host): host is string => !!host)
+    ),
+  ];
+  const runningNote =
+    runPids.length > 0
+      ? `Running as ${runPids.length === 1 ? "pid" : "pids"} ${joinNames(runPids)}` +
+        `${runHosts.length > 0 ? `, started by ${joinNames(runHosts)}` : ""}. ` +
+        `Nothing in the process says which declaration it came from.`
+      : undefined;
+
   /* Compare scrolls to the aligned launch diff two sections down; a ref
      rather than an anchor + hash because this is the panel's own scroll
      container jumping to its own content, not navigation the URL should
@@ -1261,6 +1291,11 @@ export default function McpServerDetail({
                 {detail && (
                   <span className={captionClass}>{detail}</span>
                 )}
+                {runningNote && (
+                  <span className={captionClass} data-testid="verdict-running">
+                    {runningNote}
+                  </span>
+                )}
               </div>
             </ListCard>
             <div className={`${miniSetClass} mt-2`}>
@@ -1376,7 +1411,7 @@ export default function McpServerDetail({
                 {/* Shown only when true. Most servers are started on demand, so
                     "not running" is the normal state and badging every row with
                     it would read as an error rather than as information. */}
-                {reg.running && (
+                {reg.running?.attributed && (
                   <span className="font-mono text-small text-state-success">
                     {`running · pid ${reg.running.pid}`}
                     {reg.running.spawningHost ? ` · ${reg.running.spawningHost}` : ""}

@@ -290,8 +290,52 @@ fn a_running_process_is_attributed_to_its_registration() {
 
     let out = match_processes(&regs, &procs);
     let m = out.iter().find(|m| m.pid == 8269).unwrap();
-    assert_eq!(m.registration_key, "/home/.claude.json-spades-audio");
+    assert_eq!(m.registration_keys, vec!["/home/.claude.json-spades-audio"]);
     assert_eq!(m.spawning_host.as_deref(), Some("Claude Code"));
+}
+
+#[test]
+fn a_process_several_declarations_could_have_started_names_them_all() {
+    // The case the panel gets wrong today. spades-audio is declared three
+    // times on this machine, twice by Claude Code, and all three launches are
+    // identical -- which is what makes them a duplicate rather than a
+    // conflict. `find` returned whichever the scan recorded first, so one
+    // arbitrary registration was told it was the running one, and the row
+    // printed a spawning host that contradicted its own engine: a Claude Code
+    // row reading `running - pid 52072 - Claude Desktop` (Karthik's
+    // screenshot, 2026-08-30).
+    //
+    // Nothing in a process can say which identical declaration started it.
+    // The honest answer is all of them, and the caller decides what to do
+    // with an answer that names more than one.
+    let regs = vec![
+        (
+            "/home/.claude/mcp.json-spades-audio".to_string(),
+            "node".to_string(),
+            vec!["/Applications/Spades Audio.app/index.js".to_string()],
+        ),
+        (
+            "/home/.claude.json-spades-audio".to_string(),
+            "node".to_string(),
+            vec!["/Applications/Spades Audio.app/index.js".to_string()],
+        ),
+    ];
+    let procs = vec![proc(
+        52072,
+        "node /Applications/Spades Audio.app/index.js",
+        Some("Claude Desktop"),
+    )];
+
+    let out = match_processes(&regs, &procs);
+    let m = out.iter().find(|m| m.pid == 52072).unwrap();
+    assert_eq!(
+        m.registration_keys,
+        vec![
+            "/home/.claude/mcp.json-spades-audio",
+            "/home/.claude.json-spades-audio"
+        ],
+        "a process matching several identical declarations must name every one"
+    );
 }
 
 #[test]
@@ -307,8 +351,8 @@ fn a_server_running_with_no_config_behind_it_is_reported() {
 
     let out = match_processes(&regs, &procs);
     let orphan = out.iter().find(|m| m.pid == 1649).unwrap();
-    assert_eq!(
-        orphan.registration_key, "",
+    assert!(
+        orphan.registration_keys.is_empty(),
         "an unaccounted process must still be reported"
     );
 }
