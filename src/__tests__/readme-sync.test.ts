@@ -23,3 +23,42 @@ describe("README counts", () => {
     expect(src.slice(s, e + END.length)).toBe(renderCountsBlock());
   });
 });
+
+/** The section set .claude/rules/readme.md requires. */
+const SECTIONS = [
+  "## Quick Start",
+  "## How It Works",
+  "## Architecture",
+  "## Asset coverage",
+  "## Testing",
+  "## Design Decisions",
+  "## Installation",
+  "## Platform support",
+];
+
+describe("README structure", () => {
+  it("carries every section the rule requires", () => {
+    const src = readme();
+    const missing = SECTIONS.filter((h) => !src.includes(`\n${h}\n`));
+    expect(missing, `README.md is missing: ${missing.join(", ")}`).toEqual([]);
+  });
+
+  it("every relative link and file:line citation resolves", () => {
+    const src = readme();
+    const problems: string[] = [];
+    for (const m of src.matchAll(/\]\((?!https?:|mailto:|#)([^)#\s]+)(?:#L(\d+)(?:-L(\d+))?)?\)/g)) {
+      const rel = m[1];
+      const abs = path.join(ROOT, rel);
+      if (!fs.existsSync(abs)) {
+        problems.push(`${rel} does not exist`);
+        continue;
+      }
+      if (m[2]) {
+        const total = fs.readFileSync(abs, "utf-8").split("\n").length;
+        const highest = Number(m[3] ?? m[2]);
+        if (highest > total) problems.push(`${rel}#L${m[2]} points past end of file (${total} lines)`);
+      }
+    }
+    expect(problems, problems.join("; ")).toEqual([]);
+  });
+});
