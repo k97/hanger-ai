@@ -4,7 +4,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { fileURLToPath } from "url";
 import mermaid from "mermaid";
-import { renderCountsBlock, counts, START, END } from "./readmeCounts";
+import { BLOCK_NAMES, renderBlock, startMarker, endMarker, counts } from "./readmeCounts";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const readme = () => fs.readFileSync(path.join(ROOT, "README.md"), "utf-8");
@@ -30,13 +30,15 @@ describe("README counts", () => {
     expect(c.hostNames.length, "host tally and roster disagree").toBe(c.hosts);
   });
 
-  it("the committed block matches a fresh generation", () => {
+  it("every committed block matches a fresh generation", () => {
     const src = readme();
-    const s = src.indexOf(START);
-    const e = src.indexOf(END);
-    expect(s, `README.md has no ${START} marker`).toBeGreaterThan(-1);
-    expect(e, `README.md has no ${END} marker`).toBeGreaterThan(-1);
-    expect(src.slice(s, e + END.length)).toBe(renderCountsBlock());
+    for (const name of BLOCK_NAMES) {
+      const a = src.indexOf(startMarker(name));
+      const b = src.indexOf(endMarker(name));
+      expect(a, `README.md has no ${startMarker(name)}`).toBeGreaterThan(-1);
+      expect(b, `README.md has no ${endMarker(name)}`).toBeGreaterThan(-1);
+      expect(src.slice(a, b + endMarker(name).length), `${name} block is stale`).toBe(renderBlock(name));
+    }
   });
 });
 
@@ -45,7 +47,7 @@ const SECTIONS = [
   "## Quick start",
   "## How it works",
   "## Architecture",
-  "## Asset coverage",
+  "## What Hanger looks for",
   "## Testing",
   "## Design decisions",
   "## Installation",

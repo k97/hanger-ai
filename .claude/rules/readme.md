@@ -9,16 +9,25 @@ what `docs/` already says. Established 2026-08-30; design in
   `src/__tests__/readme-sync.test.ts`. Adding or renaming a section means
   changing `SECTIONS` in the same commit, and saying why in the message.
 - **Figures are generated, never typed.** They live between
-  `<!-- hanger:counts:start -->` and `<!-- hanger:counts:end -->` and come from
+  `<!-- hanger:<name>:start -->` and `<!-- hanger:<name>:end -->` — three
+  regions today: `coverage`, `ipc` and `tests` — and come from
   `src/__tests__/readmeCounts.ts`. Regenerate with
-  `~/.bun/bin/bun run src/__tests__/readmeCounts.ts`. A number typed into the
-  prose beside the block is the defect the block exists to prevent, though
-  nothing enforces that half: the README still spells small figures in words
-  ("four kinds", "four gates") and no guard can tell those from a stale
-  tally —
-  `agents.rs:48-57` records that mistake being fixed once already, in the
-  Global empty-state copy, which "listed three engines by hand and went stale
-  the moment `AGENT_CONFIGS` grew past them".
+  `~/.bun/bin/bun run src/__tests__/readmeCounts.ts`.
+
+  Each region sits in the section answering the question it belongs to. They
+  were one table headed "Asset coverage" until 2026-08-30, which read as a
+  scan of somebody's laptop — the figures are what Hanger recognises on **any**
+  machine, and the heading said otherwise. It also mixed capability with
+  repository statistics, which are not coverage at all.
+
+  A number typed into the prose beside a region is the defect the regions
+  exist to prevent, though nothing enforces that half: the README still
+  spells small figures in words ("four kinds", "four gates") and no guard can
+  tell those from a stale tally. `agents.rs:48-57` records the same mistake
+  being fixed once already, in the Global empty-state copy, which "listed
+  three engines by hand and went stale the moment `AGENT_CONFIGS` grew past
+  them".
+
 - **Entries are counted between an array literal's bounds**, so a token that
   also appears in a struct definition or an `impl` cannot inflate the number:
   `AgentConfig {` matches 12 times in an 11-entry table, `McpHost {` 18 times

@@ -103,6 +103,12 @@ graph TD
     AN --> FS
 ```
 
+<!-- hanger:ipc:start -->
+
+The webview reaches the Rust core through 42 Tauri commands and three events.
+
+<!-- hanger:ipc:end -->
+
 Views switch on one string of state rather than a router. Counts come from the
 backend and never the webview: `count_assets` is the single source for every
 figure on screen, and
@@ -113,34 +119,31 @@ Schema changes are `PRAGMA user_version` migrations in
 `preferences.rs::init_db` — no `.sql` files, no migration directory, and
 `src-tauri/tests/store_migration_tests.rs` pins every version.
 
-## Asset coverage
+## What Hanger looks for
 
-Hanger models what it finds as four kinds — skills, rules, subagents and MCP
-servers. Why those four and not others: [docs/harness.md](docs/harness.md).
+Hanger recognises these on any machine. Nothing below is sampled from one —
+the lists come from tables compiled into the binary, so they are the same
+wherever it runs. What it finds on *your* machine is what the app shows you
+after a scan.
 
-<!-- hanger:counts:start -->
+<!-- hanger:coverage:start -->
 
-| What | Count | Where it is written down |
-|---|---:|---|
-| Engines with directories of their own | 11 | `src-tauri/src/agents.rs` → `AGENT_CONFIGS` |
-| MCP hosts | 16 | `src-tauri/src/mcp/registry.rs` → `HOSTS` |
-| Tauri commands | 42 | `src-tauri/src/lib.rs` → `generate_handler!` |
-| Frontend test files | 143 | `src/**/*.test.ts(x)` |
-| Rust integration test files | 44 | `src-tauri/tests/` |
+**Engines with directories of their own (11).** Claude Code, Codex, Gemini / Antigravity, Kiro, Trae, OpenCode, Amp, Zed, Roo Code, Kilo Code and Cline.
 
-**Engines with directories of their own.** Claude Code, Codex, Gemini / Antigravity, Kiro, Trae, OpenCode, Amp, Zed, Roo Code, Kilo Code and Cline.
+**MCP hosts (16).** Claude Code, Codex, Gemini / Antigravity, Claude Desktop, VS Code, Cursor, Devin Desktop, Zed, Claude.ai, Kiro, Trae, OpenCode, Amp, Roo Code, Kilo Code and Cline.
 
-**MCP hosts.** Claude Code, Codex, Gemini / Antigravity, Claude Desktop, VS Code, Cursor, Devin Desktop, Zed, Claude.ai, Kiro, Trae, OpenCode, Amp, Roo Code, Kilo Code and Cline.
+<!-- hanger:coverage:end -->
 
-<!-- hanger:counts:end -->
+Assets come in four kinds — skills, rules, subagents and MCP servers. Why
+those four and not others: [docs/harness.md](docs/harness.md).
 
-Those figures are generated from the tables that define them, never typed.
+Engines and hosts are separate lists because they answer different questions.
+A host is not always an engine: Claude Desktop and VS Code declare MCP servers
+without owning skills or rules. Ownership and reach are separate too, and the
+distinction matters before changing either table.
+
+The lists are generated from the tables that define them, never typed.
 Regenerate with `bun run src/__tests__/readmeCounts.ts`.
-
-Engines and hosts are counted separately because they answer different
-questions. A host is not always an engine: Claude Desktop and VS Code declare
-MCP servers without owning skills or rules. Ownership and reach are separate
-questions too, and the distinction matters before changing either table.
 
 ## Testing
 
@@ -153,6 +156,12 @@ cd src-tauri && cargo test      # backend suite
 bunx tsc --noEmit               # types
 gitleaks detect --source .      # and --no-git -c .gitleaks.toml
 ```
+
+<!-- hanger:tests:start -->
+
+143 frontend test files under `src/`, and 44 Rust integration test files under `src-tauri/tests/`.
+
+<!-- hanger:tests:end -->
 
 Beyond the suites, a class of tests guards the repository's own rules. Each
 fails the build rather than leaving a comment for someone to notice.

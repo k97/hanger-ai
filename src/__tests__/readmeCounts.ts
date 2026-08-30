@@ -2,8 +2,16 @@ import * as fs from "fs";
 import * as path from "path";
 import { ROOT, read, block } from "./rustTables";
 
-export const START = "<!-- hanger:counts:start -->";
-export const END = "<!-- hanger:counts:end -->";
+/** Every generated region in README.md, by name. Each figure sits in the
+ *  section that answers the question it belongs to: what Hanger recognises
+ *  anywhere is coverage, how many IPC commands exist is architecture, and how
+ *  many test files there are is testing. They were one table until
+ *  2026-08-30, which read as a scan of somebody's laptop. */
+export const BLOCK_NAMES = ["coverage", "ipc", "tests"] as const;
+export type BlockName = (typeof BLOCK_NAMES)[number];
+
+export const startMarker = (name: BlockName) => `<!-- hanger:${name}:start -->`;
+export const endMarker = (name: BlockName) => `<!-- hanger:${name}:end -->`;
 
 const countMatches = (s: string, re: RegExp) => [...s.matchAll(re)].length;
 
@@ -66,35 +74,36 @@ export function counts() {
   };
 }
 
-export function renderCountsBlock(): string {
+export function renderBlock(name: BlockName): string {
   const c = counts();
-  return [
-    START,
-    "",
-    "| What | Count | Where it is written down |",
-    "|---|---:|---|",
-    `| Engines with directories of their own | ${c.engines} | \`src-tauri/src/agents.rs\` → \`AGENT_CONFIGS\` |`,
-    `| MCP hosts | ${c.hosts} | \`src-tauri/src/mcp/registry.rs\` → \`HOSTS\` |`,
-    `| Tauri commands | ${c.commands} | \`src-tauri/src/lib.rs\` → \`generate_handler!\` |`,
-    `| Frontend test files | ${c.frontendTests} | \`src/**/*.test.ts(x)\` |`,
-    `| Rust integration test files | ${c.rustTests} | \`src-tauri/tests/\` |`,
-    "",
-    `**Engines with directories of their own.** ${joined(c.engineNames)}.`,
-    "",
-    `**MCP hosts.** ${joined(c.hostNames)}.`,
-    "",
-    END,
-  ].join("\n");
+  const body: Record<BlockName, string[]> = {
+    // What Hanger recognises on any machine. Not a scan of one: these come
+    // from the tables in the binary, so they are the same figures wherever it
+    // runs. Karthik, 2026-08-30.
+    coverage: [
+      `**Engines with directories of their own (${c.engines}).** ${joined(c.engineNames)}.`,
+      "",
+      `**MCP hosts (${c.hosts}).** ${joined(c.hostNames)}.`,
+    ],
+    ipc: [`The webview reaches the Rust core through ${c.commands} Tauri commands and three events.`],
+    tests: [
+      `${c.frontendTests} frontend test files under \`src/\`, and ${c.rustTests} Rust integration test files under \`src-tauri/tests/\`.`,
+    ],
+  };
+  return [startMarker(name), "", ...body[name], "", endMarker(name)].join("\n");
 }
 
-/** Rewrite the block in place. Returns true when the file changed. */
+/** Rewrite every generated block in place. Returns true when the file changed. */
 export function rewriteReadme(): boolean {
   const p = path.join(ROOT, "README.md");
   const src = fs.readFileSync(p, "utf-8");
-  const s = src.indexOf(START);
-  const e = src.indexOf(END);
-  if (s < 0 || e < 0) throw new Error("README.md has no counts block markers to rewrite");
-  const next = src.slice(0, s) + renderCountsBlock() + src.slice(e + END.length);
+  let next = src;
+  for (const name of BLOCK_NAMES) {
+    const a = next.indexOf(startMarker(name));
+    const b = next.indexOf(endMarker(name));
+    if (a < 0 || b < 0) throw new Error(`README.md has no ${name} block markers to rewrite`);
+    next = next.slice(0, a) + renderBlock(name) + next.slice(b + endMarker(name).length);
+  }
   if (next === src) return false;
   fs.writeFileSync(p, next);
   return true;
