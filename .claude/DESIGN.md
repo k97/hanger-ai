@@ -41,7 +41,7 @@ light palette declares eleven neutral roles (`tokens.css:5-16`):
 | `--ink-1` | `#000000` | `#ffffff` | primary text |
 | `--ink-2` | `#4d4d4d` | `#b0b0b0` | secondary text |
 | `--ink-3` | `#636363` | `#8c8c8c` | muted text |
-| `--fill` / `--on-fill` | `#000000` / `#ffffff` | `#ffffff` / `#000000` | the single strong action |
+| `--fill` / `--on-fill` | `#1f1f1f` / `#ffffff` | `#ececec` / `#000000` | the single strong action. One step off the extreme in both modes, reusing `--sidebar-sel-ink`'s values rather than inventing two: at pure black/white this was the only element left on the floor or ceiling after the ramp moved (`1e27b8c`), and it carries the most area of anything that saturated. 16.5:1 light, 15.6:1 dark |
 
 Light values are at `tokens.css:5-25`; dark at `tokens.css:172-203`.
 

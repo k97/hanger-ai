@@ -21,7 +21,11 @@
   --ink-1: #000000;
   --ink-2: #4d4d4d;          /* prototype ink at 66%, quantised to solid hex */
   --ink-3: #636363;          /* prototype ink at 44%, darkened to clear 4.5:1 on --tint-plane */
-  --fill: #000000;           /* the single strong action */
+  --fill: #1f1f1f;           /* the single strong action, one step off pure black.
+                                #000000 left it the only element still on the extreme after
+                                the dark ramp moved off the floor (1e27b8c) — 21:1 against
+                                the page, on a large filled pill. #1f1f1f is not a new value:
+                                it is --sidebar-sel-ink, already in the palette. 16.5:1. */
   --on-fill: #ffffff;
   --brand: #009a97;          /* the hanger mark only, never a UI state — deepened for the light sidebar, Karthik 2026-08-27 */
 
@@ -199,7 +203,10 @@
   --ink-1: #ffffff;
   --ink-2: #b0b0b0;
   --ink-3: #8c8c8c;
-  --fill: #ffffff;
+  --fill: #ececec;           /* off pure white, mirroring light's step off pure black.
+                                At #ffffff this was the brightest thing in dark mode, 18.4:1
+                                over --page, while the sheet-to-shell step beside it is 1.60.
+                                #ececec is --sidebar-sel-ink's dark value. 15.6:1. */
   --on-fill: #000000;
   --brand: #2fd8d4;
 
