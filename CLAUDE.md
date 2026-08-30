@@ -1,15 +1,14 @@
 # CLAUDE.md
 
 Hanger is an interface for the agent harness: it inventories, monitors and
-deploys harness assets — four kinds, no more
-(`src-tauri/src/domain.rs:323-326`) — across eleven engines with directories
-of their own (`src-tauri/src/agents.rs:69`) and sixteen MCP hosts
-(`src-tauri/src/mcp/registry.rs:91`). It scans the directories those engines
-read from, records what it finds in a local SQLite store, and shows which
-engines reach each asset and through which path, and whether it still matches
-its source. React 19 + TypeScript in a Tauri 2 webview, Rust backend, SQLite
-via bundled `rusqlite`, Tailwind v4 semantic tokens, Vitest (`package.json`,
-`src-tauri/Cargo.toml`).
+deploys harness assets — four kinds, no more (`docs/harness.md`) — across
+eleven engines with directories of their own (`agents.rs` → `AGENT_CONFIGS`)
+and sixteen MCP hosts (`mcp/registry.rs` → `HOSTS`). It scans the
+directories those engines read from, records what it finds in a local SQLite
+store, and shows which engines reach each asset and through which path, and
+whether it still matches its source. React 19 + TypeScript in a Tauri 2
+webview, Rust backend, SQLite via bundled `rusqlite`, Tailwind v4 semantic
+tokens, Vitest (`package.json`, `src-tauri/Cargo.toml`).
 
 `docs/harness.md` is the model the code is built on — the harness has
 conventions and no interface, ownership is exclusive and reach is not. Read

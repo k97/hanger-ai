@@ -1,7 +1,7 @@
 # Shared asset machinery
 
 Hanger tracks four asset kinds — skill, rule, subagent, tool
-(`src-tauri/src/domain.rs:373-378`). They are **not four independent
+(`docs/harness.md`). They are **not four independent
 pipelines**. They share directories, dedup sets, roots and counting, so a
 change scoped to one kind routinely lands on the other three without any test
 going red.

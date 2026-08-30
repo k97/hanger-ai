@@ -11,7 +11,7 @@ for this repo, is at https://www.rkarthik.co/work/hanger.
 The harness is the skills, rules, subagents and MCP servers an engine reads —
 ordinary files in ordinary directories (`~/.claude/skills/`,
 `.agents/skills/`, `AGENTS.md`, a `mcp_config.json`). Hanger models four kinds
-and no more (`src-tauri/src/domain.rs:323-326`); anything an engine calls by
+and no more; anything an engine calls by
 another name maps onto one of those or is not modelled.
 
 It has conventions and no interface, which is the premise the app rests on:
@@ -48,7 +48,7 @@ changes, with nothing on disk recording which.
 ### Ownership is exclusive. Reach is not.
 
 Exactly one engine owns a path, or none does. `AGENT_CONFIGS`
-(`src-tauri/src/agents.rs:69`) holds eleven engines with directories of their
+(`src-tauri/src/agents.rs`) holds eleven engines with directories of their
 own, each declaring the roots it owns and the subpath it keeps each category
 under. `engine_for_path` resolves ownership by longest matching root, so
 `.claude/skills/` is Claude Code's and `.kilocode/rules/` is Kilo Code's.
