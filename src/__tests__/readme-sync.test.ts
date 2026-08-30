@@ -9,8 +9,12 @@ const readme = () => fs.readFileSync(path.join(ROOT, "README.md"), "utf-8");
 
 describe("README counts", () => {
   it("no parse silently collects nothing", () => {
+    // Covers both shapes counts() returns: a tally, and a roster of names. An
+    // anchor that stops matching yields 0 or [], and either would render a
+    // confident, wrong block rather than failing.
     for (const [k, v] of Object.entries(counts())) {
-      expect(v, `${k} parsed to ${v} — its anchor or regex stopped matching`).toBeGreaterThan(0);
+      const size = Array.isArray(v) ? v.length : v;
+      expect(size, `${k} parsed to ${JSON.stringify(v)} — its anchor or regex stopped matching`).toBeGreaterThan(0);
     }
   });
 

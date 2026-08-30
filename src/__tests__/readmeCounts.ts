@@ -7,6 +7,12 @@ export const END = "<!-- hanger:counts:end -->";
 
 const countMatches = (s: string, re: RegExp) => [...s.matchAll(re)].length;
 
+const collect = (s: string, re: RegExp) => [...s.matchAll(re)].map((m) => m[1]);
+
+/** "a, b and c" — the README's roster reads as a sentence, not a list. */
+const joined = (names: string[]) =>
+  names.length < 2 ? (names[0] ?? "") : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
+
 const filesIn = (dir: string, re: RegExp) =>
   fs.readdirSync(path.join(ROOT, dir)).filter((f) => re.test(f)).length;
 
@@ -25,10 +31,21 @@ export function counts() {
     .map((l) => l.trim().replace(/,$/, ""))
     .filter((l) => /^[a-z_0-9]+(::[a-z_0-9]+)?$/.test(l)).length;
 
+  const engineNames = collect(
+    block(read("src-tauri/src/agents.rs"), "pub const AGENT_CONFIGS", "];", "agents.rs AGENT_CONFIGS"),
+    /^ {8}name: "([^"]+)"/gm,
+  );
+  const hostNames = collect(
+    block(read("src-tauri/src/mcp/registry.rs"), "pub const HOSTS", "];", "registry.rs HOSTS"),
+    /display_name: "([^"]+)"/g,
+  );
+
   return {
     engines,
     hosts,
     commands,
+    engineNames,
+    hostNames,
     frontendTests: filesIn("src/__tests__", /\.test\.tsx?$/),
     rustTests: filesIn("src-tauri/tests", /\.rs$/),
   };
@@ -46,6 +63,10 @@ export function renderCountsBlock(): string {
     `| Tauri commands | ${c.commands} | \`src-tauri/src/lib.rs\` → \`generate_handler!\` |`,
     `| Frontend test files | ${c.frontendTests} | \`src/__tests__/\` |`,
     `| Rust test files | ${c.rustTests} | \`src-tauri/tests/\` |`,
+    "",
+    `**Engines with directories of their own.** ${joined(c.engineNames)}.`,
+    "",
+    `**MCP hosts.** ${joined(c.hostNames)}.`,
     "",
     END,
   ].join("\n");

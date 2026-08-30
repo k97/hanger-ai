@@ -128,6 +128,10 @@ servers. Why those four and not others: [docs/harness.md](docs/harness.md).
 | Frontend test files | 74 | `src/__tests__/` |
 | Rust test files | 44 | `src-tauri/tests/` |
 
+**Engines with directories of their own.** Claude Code, Codex, Gemini / Antigravity, Kiro, Trae, OpenCode, Amp, Zed, Roo Code, Kilo Code and Cline.
+
+**MCP hosts.** Claude Code, Codex, Gemini / Antigravity, Claude Desktop, VS Code, Cursor, Devin Desktop, Zed, Claude.ai, Kiro, Trae, OpenCode, Amp, Roo Code, Kilo Code and Cline.
+
 <!-- hanger:counts:end -->
 
 Those figures are generated from the tables that define them, never typed.
