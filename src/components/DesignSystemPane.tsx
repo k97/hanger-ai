@@ -27,6 +27,9 @@ import OriginValue from "./OriginValue";
 import ScanStamp from "./ScanStamp";
 import HeroBand from "./HeroBand";
 import { SearchPalettePanel } from "./SearchPalette";
+import FavouriteHeart from "./FavouriteHeart";
+import MarkdownDoc from "./MarkdownDoc";
+import type { Block } from "../utils/skillDocument";
 import { sectionHeadClass } from "./typeRoles";
 import { miniBtnClass, miniBtnFillClass, miniBtnTonalClass, miniSetClass } from "./miniButton";
 import * as Icons from "./icons";
@@ -204,6 +207,43 @@ const swatchGridClass = "grid grid-cols-[repeat(auto-fill,minmax(230px,1fr))] ga
  *  touches the page's. Fixture hits never filter — the backend already
  *  ranked them — so the panel's row order and marks stay fixed regardless
  *  of what's typed. */
+/** FavouriteHeart owns no state of its own; the page holds it so the pop and
+ *  ring animations can be seen firing on the way in and not on the way out. */
+function FavouriteHeartSpecimen() {
+  const [favourited, setFavourited] = useState(false);
+  return (
+    <FavouriteHeart
+      favourited={favourited}
+      name="Sample skill"
+      onToggle={() => setFavourited((v) => !v)}
+    />
+  );
+}
+
+/** A body small enough to read at a glance and wide enough to show the block
+ *  kinds MarkdownDoc actually renders differently. */
+const SAMPLE_DOC_BLOCKS: Block[] = [
+  { kind: "heading", level: 2, spans: [{ text: "Reading a skill" }] },
+  {
+    kind: "paragraph",
+    spans: [
+      { text: "A skill's body is rendered as a document, not as " },
+      { text: "pre", code: true },
+      { text: " text." },
+    ],
+  },
+  {
+    kind: "list",
+    ordered: false,
+    items: [
+      { spans: [{ text: "Lists keep the body role" }] },
+      { spans: [{ text: "Code keeps its own leading" }] },
+    ],
+  },
+  { kind: "code", language: "bash", text: "bun run tauri dev" },
+];
+
+
 function SearchPaletteSpecimen() {
   const [query, setQuery] = useState("screenshot");
   return (
@@ -653,6 +693,16 @@ export default function DesignSystemPane({ section }: DesignSystemPaneProps) {
                 <HangerMark size={15} />
               </button>
             </Tooltip>
+          </Specimen>
+
+          <Specimen name="FavouriteHeart" file="FavouriteHeart.tsx" note="click it; the pop and ring fire on the way in only, and never on the way back out">
+            <FavouriteHeartSpecimen />
+          </Specimen>
+
+          <Specimen name="MarkdownDoc" file="MarkdownDoc.tsx" note="a skill body rendered as a document — heading, prose, list and code, each on its own leading">
+            <div className="w-full max-w-[520px]">
+              <MarkdownDoc blocks={SAMPLE_DOC_BLOCKS} />
+            </div>
           </Specimen>
 
           <Specimen name="SegmentedTrack" file="SegmentedTrack.tsx" note="the track under CategoryFilterCards; the capsule slides on the nav beat">

@@ -71,10 +71,6 @@ const ALLOWLIST: Exemption[] = [
   { component: "LinkPanel", reason: "executes a deploy over IPC" },
   { component: "DiffChooser", reason: "the section-by-section merge chooser inside a deploy" },
   { component: "SidebarScanModal", reason: "a modal that links directories over IPC" },
-  // Owed. Both predate the page (2026-08-16) and take only props; they were
-  // left off the first inventory and are recorded here rather than hidden.
-  { component: "FavouriteHeart", reason: "owed a specimen: three props, no IPC" },
-  { component: "MarkdownDoc", reason: "owed a specimen: takes parsed blocks, no IPC" },
 ];
 
 function componentNames(): string[] {
