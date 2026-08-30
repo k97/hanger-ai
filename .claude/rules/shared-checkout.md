@@ -189,3 +189,15 @@ time, and they commit to the same branch. `ListAgents` shows the others.
   holds uncommitted edits in a tracked file the merge must update; it cannot
   sweep them (unlike `git commit -- <path>`), so the only move is to wait
   for the holder, never to stash their work.
+
+- **`git checkout -- <path>` reverts to HEAD, so it discards uncommitted work
+  — including your own.** Reverting a planted mutation this way on 2026-08-30
+  deleted a feature written minutes earlier and not yet committed. It was
+  caught only because a guard stayed red through what looked like a clean
+  revert; had the plant been reverted before the generated file was rewritten,
+  both sides would have agreed at HEAD and the work would have vanished with
+  nothing going red. During a mutation proof the file always holds uncommitted
+  work — that is what is being tested — so revert a plant by inverse edit,
+  never by `checkout`. The path-scoped form took one file; `git checkout .` or
+  `-- src/` from the same reflex reaches every peer's uncommitted work.
+

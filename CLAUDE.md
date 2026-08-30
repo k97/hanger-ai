@@ -106,5 +106,6 @@ it is committed.
 ## Gaps
 
 Not established, left out rather than guessed: whether Windows or Linux builds
-are intended (`tauri.conf.json` sets `"targets": "all"`, the README says macOS
-only).
+are intended — `tauri.conf.json` still sets `"targets": "all"` while the app
+ships macOS only. What actually assumes macOS, and what a second platform would
+need, is now written down in `docs/platforms.md`; the `targets` tension is not.
