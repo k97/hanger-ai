@@ -64,7 +64,7 @@ literal `strokeWidth` in a component passes it. `.claude/DESIGN.md` §2, §4.
 alias so call sites stay distinguishable.
 
 **Asset reaping is off by default** behind `HANGER_ENABLE_REAP`
-(`README.md` → Design Decisions). It is disabled because it caused data loss twice when
+(`README.md` → Design decisions). It is disabled because it caused data loss twice when
 transient unmounts or interrupted walks made live assets look stale.
 
 **The two redactors keep separate loops but share their predicates.**

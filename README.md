@@ -13,7 +13,7 @@ How this app models it: [docs/harness.md](docs/harness.md).
 
 ![IMAGE — main inventory view]
 
-## Quick Start
+## Quick start
 
 ```mermaid
 flowchart LR
@@ -32,7 +32,7 @@ The port is pinned with `strictPort` because Tauri loads it by absolute URL —
 a floating port breaks `tauri dev`. Prerequisites, environment variables and
 storage locations: [docs/setup.md](docs/setup.md).
 
-## How It Works
+## How it works
 
 A scan writes rows. Reach and link state are not among them — those are
 worked out again every time you look.
@@ -167,7 +167,7 @@ fails the build rather than leaving a comment for someone to notice.
 | [design-system-coverage](src/__tests__/design-system-coverage.test.ts) | A component with no specimen on the Design system page. |
 | [readme-sync](src/__tests__/readme-sync.test.ts) | This README drifting from the code it describes. |
 
-## Design Decisions
+## Design decisions
 
 Six choices a change could break without any test obviously failing. The full
 set, each with the code that makes it true, is

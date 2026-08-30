@@ -30,12 +30,12 @@ describe("README counts", () => {
 
 /** The section set .claude/rules/readme.md requires. */
 const SECTIONS = [
-  "## Quick Start",
-  "## How It Works",
+  "## Quick start",
+  "## How it works",
   "## Architecture",
   "## Asset coverage",
   "## Testing",
-  "## Design Decisions",
+  "## Design decisions",
   "## Installation",
   "## Platform support",
 ];
