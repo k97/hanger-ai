@@ -25,8 +25,9 @@ import {
 /**
  * The inspector column's 40px cap: the selected asset's identity — a kind
  * glyph (dotted only once the chip has shed), an eyebrow (`SKILL · GLOBAL`),
- * a finding chip — then `Link to…`, a ⋮ overflow menu, and the two
- * panel-level controls that used to be the cap's only occupants.
+ * a finding chip — then the open CTA, a ⋮ overflow menu (which carries
+ * `Link to…` at every width), and the two panel-level controls that used to
+ * be the cap's only occupants.
  *
  * Standalone and prop-driven: every value it shows and every side effect it
  * triggers arrives as a prop. `App.tsx:1783` renders it — the "later task"
@@ -207,8 +208,13 @@ export default function InspectorCap({
 
   const kind = asset ? kindLabel(asset.category) : "";
   const Icon = asset ? KIND_ICON[asset.category] : null;
-  const showLinkOnSurface = Boolean(asset && onLink && shed === 0);
-  const showLinkInMenu = Boolean(asset && onLink && shed >= 1);
+  // Opening is the cap's primary act, so it takes the surface CTA and sheds
+  // like the link used to (Karthik, 2026-08-30). `Link to…` no longer appears
+  // on the surface at any width — it lives in the menu at every shed level,
+  // one click away rather than competing with the CTA beside it.
+  const showOpenOnSurface = Boolean(asset && onOpenInEditor && shed === 0);
+  const showOpenInMenu = Boolean(asset && onOpenInEditor && shed >= 1);
+  const showLinkInMenu = Boolean(asset && onLink);
   const showReviewInMenu = Boolean(asset && findings.count > 0 && shed >= 2);
   const showChip = Boolean(asset && findings.count > 0 && shed < 2);
   // The dot understudies the chip rather than echoing it: beside `1 flagged`
@@ -280,14 +286,26 @@ export default function InspectorCap({
         data-testid="inspector-cap-trailing"
         className="shrink-0 relative ml-auto flex items-center gap-1"
       >
-        {showLinkOnSurface && onLink && (
-          <button type="button" onClick={onLink} className={miniBtnFillClass}>
+        {showOpenOnSurface && onOpenInEditor && (
+          <button
+            type="button"
+            onClick={() => {
+              if (optionHeld && onPickEditor) onPickEditor();
+              else onOpenInEditor();
+            }}
+            className={miniBtnFillClass}
+          >
             {/* No `mr-1`: the mini base already spaces icon from label with
                 `gap-1.5`, and the extra margin made this the only mini button
                 in the app with a 10px lead instead of 6px — 4px wider than
                 the chip beside it for no reason anyone chose. */}
-            <LinkIcon size={13} aria-hidden="true" />
-            Link to…
+            <PencilSquareIcon size={13} aria-hidden="true" />
+            {/* Named only until an editor is chosen. Once one is, the label
+                stops repeating it — the ⋮ menu still spells it out when the
+                CTA sheds, which is where the reminder is useful. Option
+                reaches the one-off picker here too: at shed 0 the menu
+                carries no open item, so this is its only route. */}
+            {optionHeld && onPickEditor ? "Open with…" : chosenEditor ? "Open" : "Open with"}
           </button>
         )}
 
@@ -366,7 +384,7 @@ export default function InspectorCap({
                     <span>Reveal in Finder</span>
                   </button>
                 )}
-                {onOpenInEditor && (
+                {showOpenInMenu && onOpenInEditor && (
                   <button
                     type="button"
                     role="menuitem"
@@ -378,12 +396,14 @@ export default function InspectorCap({
                     className={menuActionClass}
                   >
                     <PencilSquareIcon size={14} aria-hidden="true" className="text-ink-3" />
+                    {/* The menu DOES name the editor where the CTA does not:
+                        here the label is the only thing saying where the
+                        asset will land. An ellipsis where a pick still has to
+                        be made, per the menu convention. */}
                     <span>
-                      {optionHeld && onPickEditor
-                        ? "Open in…"
-                        : chosenEditor
-                        ? `Open in ${chosenEditor}`
-                        : "Open in editor"}
+                      {(optionHeld && onPickEditor) || !chosenEditor
+                        ? "Open with…"
+                        : `Open with ${chosenEditor}`}
                     </span>
                   </button>
                 )}

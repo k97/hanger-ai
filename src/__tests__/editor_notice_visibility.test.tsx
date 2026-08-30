@@ -111,10 +111,6 @@ const selectSkill = async () => {
   fireEvent.click(row);
 };
 
-const openMoreActions = async () => {
-  fireEvent.click(await screen.findByRole("button", { name: "More actions" }));
-};
-
 const basePreferences = () => ({
   onboarding_complete: "true",
   consent_crash: "true",
@@ -150,8 +146,7 @@ describe("Editor launch failures reach the screen (App.tsx)", () => {
 
     vi.mocked(openInEditor).mockResolvedValueOnce({ ok: false, reason: "missing" } as any);
 
-    await openMoreActions();
-    fireEvent.click(await screen.findByRole("menuitem", { name: "Open in editor" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Open with" }));
     // First use (no chosen editor yet): the picker opens on the one
     // detected editor, box ticked by default -- exactly the brief's
     // failure scenario ("picks Cursor, ticks the box").
@@ -170,8 +165,7 @@ describe("Editor launch failures reach the screen (App.tsx)", () => {
 
     vi.mocked(openInEditor).mockResolvedValueOnce({ ok: false, reason: "failed" } as any);
 
-    await openMoreActions();
-    fireEvent.click(await screen.findByRole("menuitem", { name: "Open in Cursor" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Open" }));
 
     await screen.findByText(`Hanger couldn't open ${SKILL_PATH} in Cursor.`);
     expect(screen.queryByText("Hanger Settings & Maintenance")).toBeNull();
@@ -183,13 +177,11 @@ describe("Editor launch failures reach the screen (App.tsx)", () => {
     await selectSkill();
 
     vi.mocked(openInEditor).mockResolvedValueOnce({ ok: false, reason: "failed" } as any);
-    await openMoreActions();
-    fireEvent.click(await screen.findByRole("menuitem", { name: "Open in Cursor" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Open" }));
     await screen.findByText(`Hanger couldn't open ${SKILL_PATH} in Cursor.`);
 
     vi.mocked(openInEditor).mockResolvedValueOnce({ ok: true } as any);
-    await openMoreActions();
-    fireEvent.click(await screen.findByRole("menuitem", { name: "Open in Cursor" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Open" }));
 
     await waitFor(() => {
       expect(screen.queryByText(`Hanger couldn't open ${SKILL_PATH} in Cursor.`)).toBeNull();
@@ -202,8 +194,7 @@ describe("Editor launch failures reach the screen (App.tsx)", () => {
     await selectSkill();
 
     vi.mocked(openInEditor).mockResolvedValueOnce({ ok: false, reason: "failed" } as any);
-    await openMoreActions();
-    fireEvent.click(await screen.findByRole("menuitem", { name: "Open in Cursor" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Open" }));
     await screen.findByText(`Hanger couldn't open ${SKILL_PATH} in Cursor.`);
 
     fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
@@ -238,9 +229,8 @@ describe("chooseOtherApp respects the route's remember default (App.tsx)", () =>
     render(<App />);
     await selectSkill();
 
-    await openMoreActions();
     fireEvent.keyDown(window, { key: "Alt", altKey: true });
-    fireEvent.click(await screen.findByRole("menuitem", { name: "Open in…" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Open with…" }));
     fireEvent.click(await screen.findByRole("button", { name: "Choose an app…" }));
 
     // The one-off open still happens, with the newly chosen app...
@@ -254,8 +244,14 @@ describe("chooseOtherApp respects the route's remember default (App.tsx)", () =>
       value: "Cursor",
     });
 
+    // The CTA reads "Open" once an editor is chosen, so it no longer names
+    // the default. Prove the default survived by using it: a plain click must
+    // still route to Zed.
     fireEvent.keyUp(window, { key: "Alt", altKey: false });
-    await openMoreActions();
-    expect(await screen.findByRole("menuitem", { name: "Open in Zed" })).toBeTruthy();
+    vi.mocked(openInEditor).mockClear();
+    fireEvent.click(await screen.findByRole("button", { name: "Open" }));
+    await waitFor(() => {
+      expect(openInEditor).toHaveBeenCalledWith(SKILL_PATH, "Zed");
+    });
   });
 });

@@ -131,13 +131,13 @@ describe("InspectorCap", () => {
     expect(onReview).toHaveBeenCalledWith(ONE_FINDING.issues[0]);
   });
 
-  it("orders the trailing cluster Link to…, More actions, Expand inspector, Toggle inspector", () => {
+  it("orders the trailing cluster Open with, More actions, Expand inspector, Toggle inspector", () => {
     renderCap();
     const trailing = screen.getByTestId("inspector-cap-trailing");
     const names = within(trailing)
       .getAllByRole("button")
       .map((b) => accessibleName(b));
-    expect(names).toEqual(["Link to…", "More actions", "Expand inspector", "Toggle inspector"]);
+    expect(names).toEqual(["Open with", "More actions", "Expand inspector", "Toggle inspector"]);
   });
 
   it("collapses nothing into the menu at rest (forceShed=0)", () => {
@@ -147,19 +147,23 @@ describe("InspectorCap", () => {
     const items = within(menu)
       .getAllByRole("menuitem")
       .map((b) => b.textContent);
-    expect(items).toEqual(["Copy path", "Reveal in Finder", "Open in editor"]);
-    expect(within(menu).queryByRole("separator")).toBeNull();
+    // `Link to…` sits in the menu at every width now, and the separator
+    // divides the asset-level actions from the path ones — so both are
+    // present at rest, where previously neither was. The open action is
+    // absent because it is on the surface.
+    expect(items).toEqual(["Link to…", "Copy path", "Reveal in Finder"]);
+    expect(within(menu).getByRole("separator")).toBeTruthy();
   });
 
-  it("sheds Link to… into the menu first, with a separator, and off the surface (forceShed=1)", () => {
+  it("sheds the open CTA into the menu first and off the surface (forceShed=1)", () => {
     renderCap({ forceShed: 1 });
-    expect(screen.queryByRole("button", { name: "Link to…" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Open with" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "More actions" }));
     const menu = screen.getByRole("menu", { name: "More actions" });
     const items = within(menu)
       .getAllByRole("menuitem")
       .map((b) => b.textContent);
-    expect(items).toEqual(["Link to…", "Copy path", "Reveal in Finder", "Open in editor"]);
+    expect(items).toEqual(["Link to…", "Copy path", "Reveal in Finder", "Open with…"]);
     expect(within(menu).getByRole("separator")).toBeTruthy();
   });
 
@@ -171,7 +175,7 @@ describe("InspectorCap", () => {
     const items = within(menu)
       .getAllByRole("menuitem")
       .map((b) => b.textContent);
-    expect(items).toEqual(["Link to…", "Needs review · 1", "Copy path", "Reveal in Finder", "Open in editor"]);
+    expect(items).toEqual(["Link to…", "Needs review · 1", "Copy path", "Reveal in Finder", "Open with…"]);
   });
 
   it("wires the menu's Copy path item to onCopyPath, and only onCopyPath", () => {
@@ -198,11 +202,11 @@ describe("InspectorCap", () => {
     expect(callbacks.onLink).not.toHaveBeenCalled();
   });
 
-  it("wires the menu's Open in editor item to onOpenInEditor, and only onOpenInEditor", () => {
-    const callbacks = renderCap({ forceShed: 0 });
+  it("wires the menu's shed-in open item to onOpenInEditor, and only onOpenInEditor (forceShed=1)", () => {
+    const callbacks = renderCap({ forceShed: 1 });
     fireEvent.click(screen.getByRole("button", { name: "More actions" }));
     const menu = screen.getByRole("menu", { name: "More actions" });
-    fireEvent.click(within(menu).getByRole("menuitem", { name: "Open in editor" }));
+    fireEvent.click(within(menu).getByRole("menuitem", { name: "Open with…" }));
 
     expect(callbacks.onOpenInEditor).toHaveBeenCalledTimes(1);
     expect(callbacks.onCopyPath).not.toHaveBeenCalled();
@@ -244,7 +248,7 @@ describe("InspectorCap", () => {
       onCopyPath: undefined,
       onReveal: undefined,
     });
-    expect(screen.queryByRole("button", { name: "Link to…" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Open with" })).toBeNull();
     expect(screen.queryByRole("button", { name: "More actions" })).toBeNull();
   });
 
@@ -371,7 +375,7 @@ describe("InspectorCap", () => {
    * geometry is verified by screenshot; this keeps the two classes that
    * produce it from being quietly dropped.
    */
-  it("[class contract] keeps the chip off the baseline and the link icon on the base's own gap", () => {
+  it("[class contract] keeps the chip off the baseline and the CTA icon on the base's own gap", () => {
     renderCap({ findings: ONE_FINDING });
 
     const chip = screen.getByRole("button", { name: /1 flagged/ });
@@ -382,9 +386,9 @@ describe("InspectorCap", () => {
       "a block wrapper puts FindingChip's inline-flex root back on the baseline",
     ).toContain("inline-flex");
 
-    const link = screen.getByRole("button", { name: /Link to/ });
-    const icon = link.querySelector("svg");
-    expect(icon, "the link button's icon").toBeTruthy();
+    const cta = screen.getByRole("button", { name: /Open with/ });
+    const icon = cta.querySelector("svg");
+    expect(icon, "the CTA's icon").toBeTruthy();
     expect(
       icon!.getAttribute("class") ?? "",
       "the mini base already spaces icon from label with gap-1.5",
@@ -399,52 +403,71 @@ describe("InspectorCap", () => {
     const items = within(menu)
       .getAllByRole("menuitem")
       .map((b) => b.textContent);
-    expect(items).toEqual(["Link to…", "Needs review · 1", "Copy path", "Reveal in Finder", "Open in editor"]);
+    expect(items).toEqual(["Link to…", "Needs review · 1", "Copy path", "Reveal in Finder", "Open with…"]);
   });
 
-  it("names the chosen editor in the menu row", () => {
+  // The CTA carries these labels at rest; the menu carries them only once the
+  // CTA has shed. Both halves are covered, because a label that is right in
+  // one place and wrong in the other is exactly the shape shedding hides.
+
+  it("drops the editor's name from the CTA once one is chosen", () => {
     renderCap({ chosenEditor: "Cursor" });
-    fireEvent.click(screen.getByRole("button", { name: "More actions" }));
-    expect(screen.getByRole("menuitem", { name: "Open in Cursor" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Open" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Open with" })).toBeNull();
   });
 
-  it("falls back to a generic label when no editor is chosen", () => {
+  it("names the editor on the CTA before one is chosen", () => {
     renderCap({ chosenEditor: null });
-    fireEvent.click(screen.getByRole("button", { name: "More actions" }));
-    expect(screen.getByRole("menuitem", { name: "Open in editor" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Open with" })).toBeTruthy();
   });
 
-  it("swaps to Open in… while Option is held", () => {
+  it("names the chosen editor in the menu row once the CTA has shed", () => {
+    renderCap({ chosenEditor: "Cursor", forceShed: 1 });
+    fireEvent.click(screen.getByRole("button", { name: "More actions" }));
+    expect(screen.getByRole("menuitem", { name: "Open with Cursor" })).toBeTruthy();
+  });
+
+  it("offers a pick in the shed menu row when no editor is chosen", () => {
+    renderCap({ chosenEditor: null, forceShed: 1 });
+    fireEvent.click(screen.getByRole("button", { name: "More actions" }));
+    expect(screen.getByRole("menuitem", { name: "Open with…" })).toBeTruthy();
+  });
+
+  it("swaps the CTA to Open with… while Option is held", () => {
     renderCap({ chosenEditor: "Cursor", onPickEditor: vi.fn() });
-    fireEvent.click(screen.getByRole("button", { name: "More actions" }));
     fireEvent.keyDown(window, { key: "Alt", altKey: true });
-    expect(screen.getByRole("menuitem", { name: "Open in…" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Open with…" })).toBeTruthy();
   });
 
-  it("routes an Option-held click to the picker, not the direct open", () => {
+  it("routes an Option-held CTA click to the picker, not the direct open", () => {
     const onPickEditor = vi.fn();
     const cb = renderCap({ chosenEditor: "Cursor", onPickEditor });
-    fireEvent.click(screen.getByRole("button", { name: "More actions" }));
     fireEvent.keyDown(window, { key: "Alt", altKey: true });
-    fireEvent.click(screen.getByRole("menuitem", { name: "Open in…" }));
+    fireEvent.click(screen.getByRole("button", { name: "Open with…" }));
     expect(onPickEditor).toHaveBeenCalledTimes(1);
     expect(cb.onOpenInEditor).not.toHaveBeenCalled();
   });
 
+  it("routes a plain CTA click to the direct open, not the picker", () => {
+    const onPickEditor = vi.fn();
+    const cb = renderCap({ chosenEditor: "Cursor", onPickEditor });
+    fireEvent.click(screen.getByRole("button", { name: "Open" }));
+    expect(cb.onOpenInEditor).toHaveBeenCalledTimes(1);
+    expect(onPickEditor).not.toHaveBeenCalled();
+  });
+
   it("clears the Option state when the window loses focus mid-hold", () => {
     renderCap({ chosenEditor: "Cursor", onPickEditor: vi.fn() });
-    fireEvent.click(screen.getByRole("button", { name: "More actions" }));
     fireEvent.keyDown(window, { key: "Alt", altKey: true });
     fireEvent.blur(window);
-    expect(screen.getByRole("menuitem", { name: "Open in Cursor" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Open" })).toBeTruthy();
   });
 
   it("returns to the chosen editor when Option is released", () => {
     renderCap({ chosenEditor: "Cursor", onPickEditor: vi.fn() });
-    fireEvent.click(screen.getByRole("button", { name: "More actions" }));
     fireEvent.keyDown(window, { key: "Alt", altKey: true });
-    expect(screen.getByRole("menuitem", { name: "Open in…" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Open with…" })).toBeTruthy();
     fireEvent.keyUp(window, { key: "Alt", altKey: false });
-    expect(screen.getByRole("menuitem", { name: "Open in Cursor" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Open" })).toBeTruthy();
   });
 });

@@ -1684,7 +1684,8 @@ well as the two panel-level controls it used to hold alone: a kind glyph —
 dotted only at the width where the finding chip has shed into the menu, so
 the two never state the same finding at once (`:214`) — a sentence-case
 `kind · place` eyebrow (`captionClass`, `InspectorCap.tsx:253`), a finding
-chip, then `Link to…`, a ⋮ overflow (`OverflowMenu`,
+chip, then the open CTA — `Open with` until an editor is chosen, `Open`
+after, and `Open with…` while Option is held — a ⋮ overflow (`OverflowMenu`,
 above), and
 Expand/Collapse plus Toggle inspector (`:159-335`; the shed order, its
 measurement, and the MCP exception are under Inspectors, above). Renders
@@ -2306,7 +2307,7 @@ props from `src/data/designSystemFixtures.ts`: `GelMeter`, `MechanismGlyph`,
 the twelve that had landed after the page without a specimen —
 `SegmentedTrack`, `UnderlineTabs`, `ViewControl`, `OverflowMenu`,
 `InfoPopover`, `FindingChip` under Controls, with the mini button tier
-(`miniButton.ts`: fill, tonal, outlined — the fill is the cap's `Link to…`)
+(`miniButton.ts`: fill, tonal, outlined — the fill is the cap's open CTA)
 beside them; `InspectorCap`, `ListCard`, `ReachCard`, `OriginValue`,
 `ScanStamp`, `SearchPalette` under Components; plus the two that landed the
 same day, `FindingPopover` under Controls (`DesignSystemPane.tsx:748-771`)
