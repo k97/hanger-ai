@@ -1,7 +1,9 @@
+// @vitest-environment jsdom
 import { describe, it, expect } from "vitest";
 import * as fs from "fs";
 import * as path from "path";
 import { fileURLToPath } from "url";
+import mermaid from "mermaid";
 import { renderCountsBlock, counts, START, END } from "./readmeCounts";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
@@ -49,6 +51,25 @@ const SECTIONS = [
   "## Installation",
   "## Platform support",
 ];
+
+describe("README diagrams", () => {
+  /* The README's headline feature is three mermaid diagrams, and GitHub is
+     the only place they render. v0.6.0 shipped with a broken one: a semicolon
+     inside a `Note over` ends the statement, so the rest of the line parsed as
+     garbage and GitHub printed "Unable to render rich display" on the front
+     page. Reviewing the syntax by eye is what failed; this parses it. */
+  it("every mermaid block parses", async () => {
+    mermaid.initialize({ startOnLoad: false });
+    const blocks = [...readme().matchAll(/```mermaid\n([\s\S]*?)```/g)].map((m) => m[1]);
+    expect(blocks.length, "no mermaid blocks found — the fence syntax moved").toBeGreaterThan(0);
+    for (const [i, block] of blocks.entries()) {
+      await expect(
+        mermaid.parse(block),
+        `mermaid block ${i + 1} does not parse:\n${block}`,
+      ).resolves.toBeTruthy();
+    }
+  });
+});
 
 describe("README structure", () => {
   it("carries every section the rule requires", () => {

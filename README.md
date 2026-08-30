@@ -46,7 +46,7 @@ sequenceDiagram
     participant U as Webview
 
     D->>W: ~/.claude, ~/.codex, a project's own .claude/
-    Note over W: .gitignore respected;<br/>node_modules and credentials never read
+    Note over W: .gitignore respected<br/>node_modules and credentials never read
     W->>S: assets, roots, engines, links
     Note over S: scan://progress, then scan://complete
     U->>R: get_inventory, get_asset_annotations
