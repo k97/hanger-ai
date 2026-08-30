@@ -66,6 +66,9 @@ in `src/App.tsx`, persisted as the `selected_sidebar_item` preference.
 - [Tauri opener](.claude/rules/tauri-opener.md) — `openPath`'s two silent
   failures: the capability refuses a named app unless it is allowlisted, and
   the existence check is skipped once one is.
+- [The README](.claude/rules/readme.md) — the front door's fixed section
+  set, its generated figures, and the one clause in it that nothing
+  enforces.
 
 Queued work with a defined finish line lives in [docs/TODO.md](docs/TODO.md).
 
