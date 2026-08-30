@@ -48,7 +48,17 @@ Hanger AI walks local development and configuration directories and models
 what it finds as four kinds of asset — the four the ecosystem actually
 publishes (`src-tauri/src/domain.rs:323-326`):
 
-- **Categories:** Skills, Rules, Subagents, MCP servers.
+<!-- hanger:counts:start -->
+
+| What | Count | Where it is written down |
+|---|---:|---|
+| Engines with directories of their own | 11 | `src-tauri/src/agents.rs` → `AGENT_CONFIGS` |
+| MCP hosts | 16 | `src-tauri/src/mcp/registry.rs` → `HOSTS` |
+| Tauri commands | 42 | `src-tauri/src/lib.rs` → `generate_handler!` |
+| Frontend test files | 74 | `src/__tests__/` |
+| Rust test files | 44 | `src-tauri/tests/` |
+
+<!-- hanger:counts:end -->
 
 Coverage comes from two tables, kept separately because they answer different
 questions:
