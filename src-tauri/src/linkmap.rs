@@ -217,12 +217,6 @@ pub fn build_link_graph(db_path: &Path, focus_asset_id: Option<i64>) -> Result<L
     // For each engine root, its top-level entries that are symlinks
     // resolving under a store root. (root-level entries only: descending
     // would re-derive the scan.)
-    let store_paths: Vec<String> = roots
-        .iter()
-        .filter(|r| r.kind == NodeKind::Store)
-        .map(|r| r.path.clone())
-        .collect();
-
     // (engine root id, store root id, symlink path) per root-level link.
     let mut engine_links: Vec<(i64, i64, String)> = Vec::new();
     for engine in roots.iter().filter(|r| r.kind == NodeKind::EngineRoot) {

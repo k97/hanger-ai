@@ -109,10 +109,13 @@ fn application_path(bundle_id: &str) -> Option<String> {
     use objc2_app_kit::NSWorkspace;
     use objc2_foundation::NSString;
 
-    let workspace = unsafe { NSWorkspace::sharedWorkspace() };
+    // No `unsafe` needed: objc2-app-kit 0.3 declares these three as safe `fn`s
+    // — the `#[unsafe(method(...))]` in its generated bindings marks the FFI
+    // declaration, not the Rust call.
+    let workspace = NSWorkspace::sharedWorkspace();
     let identifier = NSString::from_str(bundle_id);
-    let url = unsafe { workspace.URLForApplicationWithBundleIdentifier(&identifier) }?;
-    let path = unsafe { url.path() }?;
+    let url = workspace.URLForApplicationWithBundleIdentifier(&identifier)?;
+    let path = url.path()?;
     Some(path.to_string())
 }
 
