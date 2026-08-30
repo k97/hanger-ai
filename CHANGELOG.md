@@ -13,6 +13,38 @@ internal-refactor commits are omitted.
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-08-30
+
+Assets open in your editor, Cmd+K finds anything by name, and Hanger sees the
+MCP servers a parent directory hands your project.
+
+- **Open in editor.** Thirty-six editors detected from the installed set
+  (`KNOWN_EDITORS`), chosen on first open and remembered, changeable in
+  Settings, with Option opening one asset elsewhere. The opener scope was
+  refusing every path Hanger owns, because each has a dot component; fixed.
+- **Search palette.** Cmd+K from anywhere, results grouped by kind, a pick
+  landing on the asset's primary tab. Replaces the inspector cap's search field
+  and the per-pane text filters.
+- **MCP reach through an ancestor `.mcp.json`.** Derived at read time and shown
+  on the server card, with the ancestors reached and how many are in use. The
+  Tools column is filled from the probe cache; an engine's summary carries its
+  host count and a tools total.
+- **A skill's body renders as a document** in the inspector's Content tab, and a
+  tool's description is set as prose.
+- **Relocated config directories.** `CLAUDE_CONFIG_DIR` and `CODEX_HOME` are
+  honoured for engine roots and MCP sources alike, so a relocated config no
+  longer reports an engine with servers and no skills.
+- **Chrome and type.** Both sheet corners on every screen, the breadcrumb in the
+  cap band, an instant sidebar toggle, one icon stroke rule and one box per
+  surface, and text roles defined once and imported.
+
+Curated notes: `docs/release-notes/0.6.0.md`.
+
+**Record gap.** There is no `## [0.5.0]` section: the changelog stopped being
+maintained after 0.4.0 and 0.5.0 shipped without one. This entry does not
+reconstruct it, and it is not exhaustive for 0.6.0 either — 116 user-observable
+commits landed in this window. `git log v0.5.0..v0.6.0` is the complete record.
+
 ## [0.4.0] - 2026-08-27
 
 When macOS blocks a folder, Hanger says so instead of showing fewer assets. A

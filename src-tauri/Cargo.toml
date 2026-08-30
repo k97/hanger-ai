@@ -1,6 +1,6 @@
 [package]
 name = "tauri-app"
-version = "0.5.0"
+version = "0.6.0"
 description = "Local-first macOS app that inventories, monitors and deploys the agent harness: skills, rules, subagents and MCP servers"
 authors = ["Karthik Rajendran"]
 edition = "2021"
