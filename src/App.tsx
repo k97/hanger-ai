@@ -490,10 +490,6 @@ export default function App() {
   const mcpProcessesInFlight = useRef(false);
   /** The facet chip's category, which ProfilePane owns and reports back. */
   const [profileCategory, setProfileCategory] = useState<string | null>(null);
-  /** The same, for RepoPane's own facet chip. Kept separate because the two
-   *  panes are never shown together, but a repo view opened after a profile
-   *  one must not inherit a stale "Tools" from the pane it replaced. */
-  const [repoCategory, setRepoCategory] = useState<string | null>(null);
 
   // Link map: the graph arrives computed from the backend and is rendered
   // verbatim; the projects toggle is the only map state the shell owns —
@@ -1592,17 +1588,6 @@ export default function App() {
         ]
       : ["My machine", selectedSidebarItem.split("/").pop() || selectedSidebarItem];
 
-  /* The inspector's empty state, when the pane's own filter is MCP, names
-     the same scope word the crumb already ends on — never a recomputed or
-     hardcoded one. Whichever pane is on screen owns the live category:
-     ProfilePane and RepoPane are never shown together, so there is no case
-     where the wrong one's stale state could leak through. */
-  const inspectorScope = crumbSegments[crumbSegments.length - 1];
-  /* Whether the pane showing the inspector is a repository, not the global
-     store — picks `repoCategory` vs `profileCategory` for the inspector's
-     own active-category filter below. */
-  const inspectorIsRepoScope = selectedSidebarItem.startsWith("/") || selectedSidebarItem.startsWith("~");
-  const inspectorActiveCategory = inspectorIsRepoScope ? repoCategory : profileCategory;
 
   /* Which column comes first after the icon rail. The source list already
      draws the sheet's top-left corner and left edge when it is open
@@ -2053,7 +2038,6 @@ export default function App() {
                   ? (selectedSidebarItem.split(":")[1] as any)
                   : null
               }
-              onCategoryChange={(c) => setRepoCategory(c)}
               selectedAsset={selectedAsset}
               inventory={inventory}
               assetCounts={repoAssetCountsMap[selectedSidebarItem.split(":")[0]] || null}
@@ -2205,8 +2189,6 @@ export default function App() {
                 inventory={inventory as Inventory}
                 linkedProjects={linkedDirectories}
                 onRefresh={triggerScan}
-                activeCategory={inspectorActiveCategory}
-                paneScope={inspectorScope}
                 onAssetDocumentPath={setInspectorDocumentPath}
                 /* The inspector's tab is remembered between assets and
                    forgotten between screens; this is the screen. */

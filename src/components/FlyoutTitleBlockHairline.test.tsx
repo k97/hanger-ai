@@ -151,29 +151,9 @@ describe("Flyout title block — the hairline follows the tab row, not the wrapp
     expect(scope.className).toContain("text-ink-3");
     expect(scope.className).not.toContain("uppercase");
   });
-
-  it("a tabless view (the empty MCP eyebrow): same padding, keeps its own hairline", () => {
-    render(
-      <Flyout
-        activeCategory="Tools"
-        paneScope="Global"
-        inventory={emptyInventory}
-        linkedProjects={[]}
-        onRefresh={() => {}}
-      />
-    );
-
-    // No tab row follows this wrapper — the empty-MCP body renders no
-    // UnderlineTabs, so nothing else draws a line beneath the header.
-    expect(screen.queryByRole("tab")).toBeNull();
-
-    const header = screen.getByTestId("inspector-header");
-    expect(header.className).toContain("px-[18px]");
-    expect(header.className).toContain("pt-[18px]");
-    expect(header.className).toContain("pb-1.5");
-    expect(header.className).not.toContain("py-2");
-    expect(header.className).not.toContain("pb-4");
-    expect(header.className).toContain("border-b");
-    expect(header.className).toContain("border-line");
-  });
+  /* Removed 2026-08-30: "a tabless view (the empty MCP eyebrow)" pinned the
+     padding of a header that only the empty-MCP eyebrow could mount. Karthik
+     reversed that eyebrow the same day, so nothing selected now mounts no
+     header at all and there is nothing left to measure. The eyebrow's own
+     contract moved to FlyoutEmptyHeader.test.tsx. */
 });

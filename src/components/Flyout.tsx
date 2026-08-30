@@ -17,7 +17,6 @@ import { buildMcpServerView, type ProcessMatch } from "../utils/mcpServerView";
 import { parseProbe, type ProbeView, type ProbeWire } from "../utils/probeView";
 import LinkPanel from "./LinkPanel";
 import DiffChooser, { AlignedSection } from "./DiffChooser";
-import { categoryNoun } from "../utils/prose";
 import { documentKindFor } from "../utils/skillDocument";
 import type { OriginWire } from "../utils/assetProvenance";
 import { sectionHeadClass, captionClass, monoLabelClass } from "./typeRoles";
@@ -62,16 +61,6 @@ interface FlyoutProps {
    *  AssetDetail so the panel can answer for every engine. The Reach column
    *  shows at most three marks. */
   annotation?: AssetAnnotationView | null;
-  /** The category filter active in whichever pane is showing (App.tsx owns
-   *  both the profile facet chip and the repo one). Only "Tools" changes
-   *  anything here — the empty inspector otherwise stays silent, since a
-   *  Skills-filtered view has no business naming MCP servers. */
-  activeCategory?: string | null;
-  /** The crumb's last segment for the active pane — "Global" or a
-   *  repository's folder name. App.tsx already derives this for the
-   *  breadcrumb; the empty state reuses it rather than recomputing or
-   *  hardcoding "Global". Only read when activeCategory is "Tools". */
-  paneScope?: string;
   /** The cap's Open in editor / Copy path / Reveal act on the document
    *  AssetDetail actually read, not the folder its asset names (a skill's
    *  own path is the folder holding it). App.tsx owns the cap, so this
@@ -107,8 +96,6 @@ export default function Flyout({
   linkedProjects,
   onRefresh,
   annotation,
-  activeCategory,
-  paneScope,
   onAssetDocumentPath,
   screen,
   landingNonce
@@ -588,12 +575,6 @@ export default function Flyout({
       ? buildMcpServerView(inventory?.tools, targetAsset.name, mcpProcesses ?? [])
       : null;
 
-  /* Nothing is selected, but the pane's own filter already says what kind of
-     thing an empty result set would have held. Scoped to "Tools" only —
-     Karthik's ruling, 2026-08-18: a Skills-filtered view must not claim
-     "MCP servers" over its own empty list. */
-  const showEmptyMcpEyebrow =
-    !linking && !targetAsset && !selectedBubble && activeCategory === "Tools";
 
   /* Whether the eyebrow row has anything left to say. A selected asset's own
      kind · place moved to the cap, so `targetAsset` alone no longer earns
@@ -603,7 +584,7 @@ export default function Flyout({
      `targetAsset`, since selecting an asset inside a layered project does
      not make the project stop being layered. */
   const eyebrowShown = Boolean(
-    linking || (!targetAsset && (selectedBubble || showEmptyMcpEyebrow)) || selectedProjectScan?.layered
+    linking || (!targetAsset && selectedBubble) || selectedProjectScan?.layered
   );
 
   /* Whether a tab row (`UnderlineTabs`, via `AssetDetail` or
@@ -658,14 +639,14 @@ export default function Flyout({
           `UnderlineTabs.tsx`). The eyebrow-to-title step is this column's
           own `gap-1` rather than a margin the title row switches on and
           off. */}
-      {(linking || targetAsset || selectedBubble || showEmptyMcpEyebrow) && (
+      {(linking || targetAsset || selectedBubble) && (
       <div
         data-testid="inspector-header"
         className={`px-[18px] pt-[18px] pb-1.5 flex flex-col gap-1 shrink-0${
           tabsFollow ? "" : " border-b border-line"
         }`}
       >
-        {!showEmptyMcpEyebrow && (
+        {(
         <div className="flex items-center gap-2 min-w-0">
           {!linking && !targetAsset && selectedBubble?.type === "agent" && (
             <BrandIcon engineKey={selectedBubble.id} engineName={selectedBubble.name} size={16} />
@@ -706,20 +687,8 @@ export default function Flyout({
             <>
               {/* The class repeats the parent's on purpose: getByText resolves this leaf, and a classless leaf pins nothing. */}
               <span className={captionClass}>
-                {targetAsset
-                  ? null
-                  : selectedBubble
-                  ? `${selectedBubble.type} scope`
-                  : showEmptyMcpEyebrow
-                  ? categoryNoun("Tools", "many")
-                  : "Inspector"}
+                {targetAsset ? null : selectedBubble ? `${selectedBubble.type} scope` : "Inspector"}
               </span>
-              {showEmptyMcpEyebrow && paneScope && (
-                <>
-                  <span aria-hidden="true">·</span>
-                  <span className="truncate">{paneScope}</span>
-                </>
-              )}
             </>
           )}
           {selectedProjectScan?.layered && (

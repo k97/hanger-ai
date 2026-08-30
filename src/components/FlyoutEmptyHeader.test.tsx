@@ -1,24 +1,24 @@
 // @vitest-environment happy-dom
 //
-// The inspector's empty state (nothing selected) previously rendered no
-// eyebrow at all — the "Inspector" literal it once fell back to is
-// unreachable, since the header block only mounts when linking, targetAsset
-// or selectedBubble is truthy. Karthik signed off a plural eyebrow for this
-// state, but only when the MCP category is the pane's active filter: a user
-// filtered to Skills must not be told "MCP servers" over an empty Skills
-// list. `activeCategory` and `paneScope` are owned by App.tsx (the crumb's
-// last segment); this component only composes them.
+// The inspector's empty state carries no eyebrow. It never did until
+// 2026-08-18, when Karthik signed off a plural one — "MCP servers · Global" —
+// shown only when the pane's filter was MCP, so a Skills-filtered view could
+// not claim "MCP servers" over its own empty list.
 //
-// Fix round 1, item 5 gated a machine-wide `McpEngineSummary` table on
-// `isRepoScope` so it never rendered under a repository's own eyebrow with
-// data that both omitted that repo's real registrations and included every
-// other repo's. `McpEngineSummary` is retired (Task 8, 2026-08-28): its
-// rows moved into the hero's band, and the Tools-tab empty state is now the
-// generic "Nothing selected" body everywhere, so `isRepoScope` is no longer
-// a Flyout prop at all. The eyebrow chrome still stays identical between
-// the two panes (still names the repo via `paneScope`); the test below
-// mocks `get_mcp_engine_summary` with real rows anyway, to prove the body
-// no longer reads that answer rather than merely not asking for it.
+// He reversed that on 2026-08-30. The eyebrow's scope word was
+// `crumbSegments[crumbSegments.length - 1]` (App.tsx), and the chrome work
+// this release moved the breadcrumb into the cap band — so the same word
+// rendered twice on one screen, a thousand pixels apart. The empty body
+// already says nothing is selected and the filter chip already names the
+// kind. Removing it restores the pre-2026-08-18 shape exactly: the header
+// block mounts only when linking, targetAsset or selectedBubble is truthy.
+//
+// Three tests here pinned the eyebrow and were removed with it. What is left
+// is the one that never depended on it: `McpEngineSummary` is retired (Task 8,
+// 2026-08-28), its rows moved into the hero's band, and the Tools-tab empty
+// state is the generic "Nothing selected" body in both panes. That test mocks
+// `get_mcp_engine_summary` with real rows anyway, to prove the body no longer
+// reads that answer rather than merely not asking for it.
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, cleanup } from "@testing-library/react";
 import Flyout from "./Flyout";
@@ -59,93 +59,28 @@ const emptyInventory: Inventory = {
   project_scans: [],
 };
 
-describe("Flyout empty-inspector eyebrow", () => {
-  it("MCP filter active, nothing selected, shows the plural eyebrow with the pane's scope", () => {
+describe("Flyout empty inspector", () => {
+  it("renders no eyebrow at all — the crumb in the cap band already names the scope", () => {
     render(
-      <Flyout
-        activeCategory="Tools"
-        paneScope="Global"
-        inventory={emptyInventory}
-        linkedProjects={[]}
-        onRefresh={vi.fn()}
-      />
+      <Flyout inventory={emptyInventory} linkedProjects={[]} onRefresh={vi.fn()} />
     );
 
-    expect(screen.getByText("MCP servers")).toBeTruthy();
-    expect(screen.getByText("Global")).toBeTruthy();
-    // Nothing is selected, so there is no title beneath the eyebrow.
+    expect(screen.getByText("Nothing selected")).toBeTruthy();
+    // The eyebrow named the kind and the scope. Neither is this panel's job.
+    expect(screen.queryByText("MCP servers")).toBeNull();
+    expect(screen.queryByText("Global")).toBeNull();
+    // The header block does not mount at all, so there is no title either.
+    expect(screen.queryByTestId("inspector-header")).toBeNull();
     expect(screen.queryByRole("heading", { level: 2 })).toBeNull();
   });
 
-  it("MCP filter active in a repository view, nothing selected, shows the repo's folder name", () => {
-    render(
-      <Flyout
-        activeCategory="Tools"
-        paneScope="my-repo"
-        inventory={emptyInventory}
-        linkedProjects={[]}
-        onRefresh={vi.fn()}
-      />
-    );
-
-    expect(screen.getByText("MCP servers")).toBeTruthy();
-    expect(screen.getByText("my-repo")).toBeTruthy();
-    expect(screen.queryByText("Global")).toBeNull();
-  });
-
-  it("a non-MCP filter active, nothing selected, leaves today's empty state unchanged", () => {
-    render(
-      <Flyout
-        activeCategory="Skills"
-        paneScope="Global"
-        inventory={emptyInventory}
-        linkedProjects={[]}
-        onRefresh={vi.fn()}
-      />
-    );
-
-    expect(screen.queryByText("MCP servers")).toBeNull();
-    expect(screen.getByText("Nothing selected")).toBeTruthy();
-  });
-
-  /**
-   * McpEngineSummary is retired (Task 8, 2026-08-28): its rows moved into
-   * the hero's band, and the Tools-tab empty state is now the generic
-   * "Nothing selected" body in both panes — the fold of what were two
-   * separate cases (a global pane that used to fetch and render the
-   * machine-wide table, and a repo pane that already asserted its
-   * absence). `get_mcp_engine_summary` is never invoked from here at all
-   * now; data that WOULD have rendered a real summary is still on offer
-   * from the mocked backend, to prove the body no longer reads it rather
-   * than merely not being asked for it.
-   */
   it("nothing selected in the Tools tab is the generic empty body, in the global pane and a repository pane alike", () => {
     invoke.mockImplementation((cmd: string) =>
       cmd === "get_mcp_engine_summary" ? Promise.resolve(realSummary) : Promise.resolve(null)
     );
 
-    const { unmount } = render(
-      <Flyout
-        activeCategory="Tools"
-        paneScope="Global"
-        inventory={emptyInventory}
-        linkedProjects={[]}
-        onRefresh={vi.fn()}
-      />
-    );
-    expect(screen.getByText("Nothing selected")).toBeTruthy();
-    expect(screen.queryByText("What every request carries")).toBeNull();
-    expect(screen.queryByText("Claude Code")).toBeNull();
-    unmount();
-
     render(
-      <Flyout
-        activeCategory="Tools"
-        paneScope="my-repo"
-        inventory={emptyInventory}
-        linkedProjects={[]}
-        onRefresh={vi.fn()}
-      />
+      <Flyout inventory={emptyInventory} linkedProjects={[]} onRefresh={vi.fn()} />
     );
     expect(screen.getByText("Nothing selected")).toBeTruthy();
     expect(screen.queryByText("What every request carries")).toBeNull();

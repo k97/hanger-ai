@@ -571,4 +571,24 @@ describe("Avionics A5 — Docked Right Inspector Integration", () => {
       expect(strayMargin, `unexpected margin class on a direct child: "${strayMargin}"`).toBeUndefined();
     }
   });
+
+  /* Karthik, 2026-08-30, reversing his own 2026-08-18 ruling. The empty
+     inspector used to carry an eyebrow reading "MCP servers · Global" whenever
+     the pane's filter was MCP. Its scope word was derived from
+     `crumbSegments[crumbSegments.length - 1]` (App.tsx), so once the chrome
+     work moved the breadcrumb into the cap band this release, the same word
+     rendered twice on one screen. The empty state's own copy already says
+     nothing is selected, and the filter chip already names the kind. */
+  it("17. The empty inspector carries no eyebrow — the crumb in the band already names the scope", async () => {
+    setupMockInvoke("true");
+    render(<App />);
+
+    await screen.findByText("Nothing selected");
+    const toolsFilter = screen.getByText("MCP servers");
+    fireEvent.click(toolsFilter);
+    await screen.findByText("Nothing selected");
+
+    // One "MCP servers" on screen: the filter chip. The eyebrow was a second.
+    expect(screen.getAllByText("MCP servers")).toHaveLength(1);
+  });
 });
