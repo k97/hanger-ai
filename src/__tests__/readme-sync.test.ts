@@ -18,6 +18,16 @@ describe("README counts", () => {
     }
   });
 
+  it("the tally and the roster agree, though they use different anchors", () => {
+    // hosts counts `McpHost { id: "` (one line); hostNames collects
+    // `display_name: "` (anywhere). rustfmt wraps at 100 and the longest HOSTS
+    // line is already 94, so one longer display name would render a count above
+    // a roster that disagrees with it, with both other tests still green.
+    const c = counts();
+    expect(c.engineNames.length, "engine tally and roster disagree").toBe(c.engines);
+    expect(c.hostNames.length, "host tally and roster disagree").toBe(c.hosts);
+  });
+
   it("the committed block matches a fresh generation", () => {
     const src = readme();
     const s = src.indexOf(START);

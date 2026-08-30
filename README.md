@@ -125,8 +125,8 @@ servers. Why those four and not others: [docs/harness.md](docs/harness.md).
 | Engines with directories of their own | 11 | `src-tauri/src/agents.rs` → `AGENT_CONFIGS` |
 | MCP hosts | 16 | `src-tauri/src/mcp/registry.rs` → `HOSTS` |
 | Tauri commands | 42 | `src-tauri/src/lib.rs` → `generate_handler!` |
-| Frontend test files | 74 | `src/__tests__/` |
-| Rust test files | 44 | `src-tauri/tests/` |
+| Frontend test files | 143 | `src/**/*.test.ts(x)` |
+| Rust integration test files | 44 | `src-tauri/tests/` |
 
 **Engines with directories of their own.** Claude Code, Codex, Gemini / Antigravity, Kiro, Trae, OpenCode, Amp, Zed, Roo Code, Kilo Code and Cline.
 

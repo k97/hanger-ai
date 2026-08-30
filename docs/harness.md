@@ -23,8 +23,8 @@ changes, with nothing on disk recording which.
 - **`AGENTS.md`** — released August 2025, now stewarded by the Agentic AI
   Foundation under the Linux Foundation; agents.md lists twenty-two tools that
   read it (checked 2026-08-18). Hanger treats it as a rule file with no owner:
-  it is in `RULE_FILENAMES` (`src-tauri/src/scanner.rs:235`) and deliberately
-  absent from `RULE_FILE_OWNERS` (`src-tauri/src/agents.rs:367`), which holds
+  it is in `RULE_FILENAMES` (`src-tauri/src/scanner.rs`) and deliberately
+  absent from `RULE_FILE_OWNERS` (`src-tauri/src/agents.rs`), which holds
   only the two vendor-namespaced ones, `.cursorrules` and
   `copilot-instructions.md`.
 - **`.agents/skills/`** — described by Cody Lindley's AI Harness Engineering
@@ -32,7 +32,7 @@ changes, with nothing on disk recording which.
   today": Codex's primary path, read natively by Copilot, Cursor, Amp and
   Gemini CLI, as a fallback by OpenCode, and discovered by Devin Desktop.
   Hanger names it once, as `SHARED_AGENTS_DIR`
-  (`src-tauri/src/agents.rs:18`), and gives it no owner.
+  (`agents.rs` → `SHARED_AGENTS_DIR`), and gives it no owner.
 - **Only `SKILL.md` is read into context.** A skill folder's other entries —
   reference documents, scripts, lockfiles — do not load with it. They reach
   the model only if `SKILL.md` sends the engine to them. Roughly half of a
@@ -65,14 +65,14 @@ under Gemini.
 Read at request time from the filesystem, in `annotations.rs`:
 
 - **Reached through a link.** A top-level symlink in the engine's root
-  resolves under a store root (`src-tauri/src/annotations.rs:173-205`). This
+  resolves under a store root (`annotations.rs` → `asset_annotations`). This
   is what the Link map draws as an edge.
 - **Reached in place, no link needed.** The asset is in the shared store and
-  the engine reads the shared convention (`annotations.rs:502`). Zed owns no
+  the engine reads the shared convention (`annotations.rs` → `reads_shared_dir`). Zed owns no
   directory to link *from* — it replaced its own rules library with the
   vendor-neutral convention — so demanding a symlink would tell the user
   their agent cannot read what it plainly reads.
-- **Root not linked** (`annotations.rs:518`). The engine is installed and
+- **Root not linked** (`annotations.rs` → `engine_reach`, reason `root_not_linked`). The engine is installed and
   there is no path from it to this asset.
 
 The second verdict is the one worth keeping in mind when reading the Link
@@ -84,7 +84,7 @@ Deployments in the wild are directory mounts, not per-file links —
 `<repo>/.claude/skills` → `~/.agents/skills` — so there is no per-asset link
 row to record and none is needed. Each project's conventional engine
 directories are read for top-level symlinks resolving under a store root
-(`PROJECT_MOUNT_DIRS`, `annotations.rs:240`), and an asset beneath such a
+(`PROJECT_MOUNT_DIRS`, `annotations.rs`), and an asset beneath such a
 target is in that project. That is the "In N projects" column.
 
 ### Nothing about reach is cached
