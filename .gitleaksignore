@@ -2,3 +2,25 @@
 bb929e11450c38523fad9b79fc0e57e5314fbdf6:src-tauri/tests/leak_tests.rs:generic-api-key:8
 6bf2c1691e13879ac90f3cc98bc3105993338a92:src-tauri/tests/leak_tests.rs:generic-api-key:8
 src-tauri/tests/leak_tests.rs:generic-api-key:11
+
+# One made-up, AWS-shaped example string, written into a plan on 2026-11-24 and
+# removed from it in f3d4d0c. T3 Code snapshots the working tree into
+# refs/t3/orchestration-v2/checkpoints/ every turn, and these 16 snapshots hold
+# it. None is reachable from a branch, tag or remote. Karthik's ruling 16,
+# docs/plans/2026-11-24-context-control.md.
+24a8201d3149c609cf6baf2e6ca8cc3cab030d4a:docs/plans/2026-11-24-tool-manager-phase-a.md:aws-access-token:237
+3cdd8f77162f3b98342afdddd666dd4c2c4d8dd2:docs/plans/2026-11-24-tool-manager-phase-a.md:aws-access-token:237
+4015049c3bc8487a20ab1adb2c7d504eb5734ace:docs/plans/2026-11-24-tool-manager-phase-a.md:aws-access-token:237
+46ca866c598afa01856422bab7b5708dc218153c:docs/plans/2026-11-24-tool-manager-phase-a.md:aws-access-token:237
+7a9dcbcb2c0c7e89ffea3fab544fe5694d659394:docs/plans/2026-11-24-tool-manager-phase-a.md:aws-access-token:237
+8181be8f56a10ad31214fcf9e1d2c2aff21e6640:docs/plans/2026-11-24-tool-manager-phase-a.md:aws-access-token:237
+adba67e9cb04901e4b953224b09c58502ca50026:docs/plans/2026-11-24-tool-manager-phase-a.md:aws-access-token:237
+ca396c1808827f84dd8bded012a6077439cf4660:docs/plans/2026-11-24-tool-manager-phase-a.md:aws-access-token:237
+ce8854cb09759c8434ab332511f9c842f2f268cb:docs/plans/2026-11-24-tool-manager-phase-a.md:aws-access-token:237
+d7dbe89946640cc9b8ec914b4c620e03a016fdc5:docs/plans/2026-11-24-tool-manager-phase-a.md:aws-access-token:237
+dd926a3bbd1b27a5775cc17ec3b3cfb1197ccc7c:docs/plans/2026-11-24-tool-manager-phase-a.md:aws-access-token:237
+e460223b19a7563ec778a69a361505a659a93962:docs/plans/2026-11-24-tool-manager-phase-a.md:aws-access-token:237
+eac16823cf37d7fd0a449eb52285945931f29e87:docs/plans/2026-11-24-tool-manager-phase-a.md:aws-access-token:237
+f10c9a12ae6af0c2a270026bc50771bb05a055a0:docs/plans/2026-11-24-tool-manager-phase-a.md:aws-access-token:237
+f22810860f5fc502a95ec5b83433b17e069839e2:docs/plans/2026-11-24-tool-manager-phase-a.md:aws-access-token:237
+f2c8d9538f298cd8d45d735c2ce79a7a21992968:docs/plans/2026-11-24-tool-manager-phase-a.md:aws-access-token:237
