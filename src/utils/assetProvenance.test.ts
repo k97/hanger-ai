@@ -141,7 +141,10 @@ describe("originRow", () => {
         kind: "delivered",
         commit: "b0b9f02b0581696da41e20d6c536ec639b44080f",
         delivered_by: "tool-x",
-        installed_at_ms: 1784500208089,
+        // 2026-07-20T11:00Z: Jul 20 in every zone from UTC-11 to UTC+12. The
+        // implementation renders the viewer's local date, so an instant near
+        // midnight UTC asserted different days in AEST and on the UTC runner.
+        installed_at_ms: 1784545200000,
       },
       undefined
     )!;
