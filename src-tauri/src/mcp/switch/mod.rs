@@ -3,7 +3,7 @@
 //!
 //! `discover` reads engine configuration and never writes it. This module is
 //! where the writing lives, kept apart so that everything able to change a
-//! user's config file sits in one place. Three parts are in it today, and
+//! user's config file sits in one place. Four parts are in it today, and
 //! nothing calls any of them yet:
 //!
 //! - `edit`: pure functions that take a config file's text and return it
@@ -25,6 +25,13 @@
 //!   find the entry and to see what the command did. It never writes that
 //!   file, and does not go through `apply`: the only files it writes are its
 //!   own, in the stash.
+//! - `context`: what a switch is shown beside. A fold over what `discover`
+//!   found for one engine: each server it declares, whether it is switched
+//!   on, why Hanger offers no switch where it offers none, and what the
+//!   switched-on servers cost by the probe cache's estimate, with how many of
+//!   them that estimate covers. It opens no file itself: the registrations,
+//!   the servers `vendor` is keeping, Gemini CLI's state file, a file reader
+//!   and a probe-cache lookup are handed to it.
 //!
 //! The table that says which engines may be switched and how is
 //! `registry::SWITCHES`, with the evidence for each row in
@@ -54,5 +61,6 @@
 //! Scott Spence, MIT licence.
 
 pub mod apply;
+pub mod context;
 pub mod edit;
 pub mod vendor;

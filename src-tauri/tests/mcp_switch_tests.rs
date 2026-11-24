@@ -2939,3 +2939,914 @@ async fn a_stray_preflight_folder_is_not_listed_as_a_kept_server() {
     assert_eq!(vendor::claude_stashed(&stage.stash), vec![kept]);
     assert!(stray.join(".claude.json").exists());
 }
+
+// ---------------------------------------------------------------------------
+// One engine's context: `mcp::switch::context`. A fold: it opens no file, no
+// database and no process, so everything it is told arrives as a parameter.
+//
+// The fixtures are what the producers emit. Registrations come from
+// `discover` reading config files written into a temp folder (the machine
+// pass, and `discover_repo` for a project's file); kept servers come from
+// `vendor::claude_stashed`; every probe answer goes through
+// `probe::tool_cost`, the one place a cost is made. No `Registration` here is
+// built by hand.
+// ---------------------------------------------------------------------------
+
+use std::cell::RefCell;
+use std::collections::HashMap;
+
+use tauri_app_lib::mcp::discover::{self, DiscoveryResult};
+use tauri_app_lib::mcp::probe::{self, ProbeResult, ProbedTool};
+use tauri_app_lib::mcp::switch::context::{self, ContextItem, EngineContext, ItemState, Measured, ReadOnlyReason};
+
+/// Values a config file holds and a context must not: a command, an
+/// argument, an env variable's name and value, a query string and a header.
+const CTX_COMMAND: &str = "ctx-marker-command";
+const CTX_ARG: &str = "ctx-marker-arg";
+const CTX_ENV_NAME: &str = "CTX_MARKER_SETTING";
+const CTX_ENV_VALUE: &str = "ctx-marker-env-value";
+const CTX_QUERY_VALUE: &str = "ctx-marker-query";
+const CTX_HEADER_VALUE: &str = "ctx-marker-header";
+const CTX_VALUES: [&str; 6] = [CTX_COMMAND, CTX_ARG, CTX_ENV_NAME, CTX_ENV_VALUE, CTX_QUERY_VALUE, CTX_HEADER_VALUE];
+
+/// Codex's global file: no flag, off, on said out loud, and no flag again.
+const CTX_CODEX: &str = "# kept\n[mcp_servers.alpha]\ncommand = \"alpha-server\"\n\n[mcp_servers.beta]\ncommand = \"beta-server\"\nenabled = false\n\n[mcp_servers.gamma]\ncommand = \"gamma-server\"\nenabled = true\n\n[mcp_servers.delta]\ncommand = \"delta-server\"\n";
+/// One server under `[mcp_servers]` and one under the legacy `[tools]` table.
+const CTX_CODEX_LEGACY: &str = "[mcp_servers.alpha]\ncommand = \"alpha-server\"\n\n[tools.legacy]\ncommand = \"legacy-server\"\n";
+/// A server whose every value is a marker, switched off.
+const CTX_CODEX_MARKED: &str = "[mcp_servers.alpha]\ncommand = \"ctx-marker-command\"\nargs = [\"ctx-marker-arg\"]\nenabled = false\n\n[mcp_servers.alpha.env]\nCTX_MARKER_SETTING = \"ctx-marker-env-value\"\n";
+/// The same, as the `mcpServers` hosts write it, with a remote server beside it.
+const CTX_JSON_MARKED: &str = r#"{
+  "mcpServers": {
+    "alpha": {
+      "command": "ctx-marker-command",
+      "args": ["ctx-marker-arg"],
+      "env": { "CTX_MARKER_SETTING": "ctx-marker-env-value" }
+    },
+    "remote": {
+      "url": "https://example.test/mcp?setting=ctx-marker-query",
+      "headers": { "X-Setting": "ctx-marker-header" }
+    }
+  }
+}"#;
+
+/// A `.claude.json`: one user-scope server, one server pinned to a project
+/// (local scope), and two Claude.ai connectors.
+const CTX_CLAUDE_JSON: &str = r#"{
+  "mcpServers": { "declared": { "command": "declared-server" } },
+  "projects": { "/work/app": { "mcpServers": { "pinned": { "command": "pinned-server" } } } },
+  "claudeAiMcpEverConnected": ["claude.ai Notion", "claude.ai Linear"]
+}"#;
+/// `~/.mcp.json` and `~/.claude/mcp.json` both declare `shared`, with one launch.
+const CTX_HOME_MCP_JSON: &str = r#"{"mcpServers": {"shared": {"command": "shared-server", "args": ["serve"]}, "homewide": {"command": "homewide-server"}}}"#;
+const CTX_CLAUDE_MCP_JSON: &str = r#"{"mcpServers": {"shared": {"command": "shared-server", "args": ["serve"]}}}"#;
+const CTX_PLUGIN_MCP_JSON: &str = r#"{"mcpServers": {"plugged": {"command": "plugged-server"}}}"#;
+const CTX_MANAGED_MCP_JSON: &str = r#"{"mcpServers": {"fleet": {"command": "fleet-server"}}}"#;
+
+/// Gemini's three places, each declaring `beta`: the user's settings, the
+/// system settings, and a project's.
+const CTX_GEMINI_HOME: &str = r#"{"mcpServers": {"alpha": {"command": "alpha-server"}, "beta": {"command": "beta-server"}}}"#;
+const CTX_GEMINI_SYSTEM: &str = r#"{"mcpServers": {"beta": {"command": "beta-system-server"}}}"#;
+const CTX_GEMINI_PROJECT: &str = r#"{"mcpServers": {"beta": {"command": "beta-project-server"}}}"#;
+const CTX_GEMINI_BETA_OFF: &str = r#"{"beta": {"enabled": false}}"#;
+
+const CLAUDE_MANAGED_FILE: &str = "Library/Application Support/ClaudeCode/managed-mcp.json";
+const GEMINI_SYSTEM_FILE: &str = "Library/Application Support/GeminiCli/settings.json";
+
+/// A machine in a temp folder: a home, a system root and one project.
+struct Machine {
+    _dir: tempfile::TempDir,
+    root: PathBuf,
+}
+
+/// A machine whose home holds these files, by home-relative path.
+fn machine(home_files: &[(&str, &str)]) -> Machine {
+    // `discover` resolves a relocated config folder from the process
+    // environment, not from the home it is handed. With either variable set
+    // in the launching shell the fixtures below would not be what is read.
+    std::env::remove_var("CLAUDE_CONFIG_DIR");
+    std::env::remove_var("CODEX_HOME");
+    let dir = tempfile::tempdir().expect("temp dir");
+    let root = fs::canonicalize(dir.path()).expect("real temp dir");
+    let machine = Machine { _dir: dir, root };
+    for (rel, body) in home_files {
+        machine.put(&machine.home().join(rel), body);
+    }
+    machine
+}
+
+impl Machine {
+    fn home(&self) -> PathBuf {
+        self.root.join("home")
+    }
+
+    fn system(&self) -> PathBuf {
+        self.root.join("system")
+    }
+
+    /// A repository under the home.
+    fn repo(&self) -> PathBuf {
+        self.home().join("work").join("app")
+    }
+
+    fn put(&self, path: &Path, body: &str) {
+        fs::create_dir_all(path.parent().expect("a file in a folder")).unwrap();
+        fs::write(path, body).unwrap();
+    }
+
+    /// What Hanger's machine pass finds here.
+    fn found(&self) -> DiscoveryResult {
+        discover::discover_machine_at(&self.home(), &self.system())
+    }
+
+    /// The machine pass, and the project's own files after it.
+    fn found_with_project(&self) -> DiscoveryResult {
+        let mut found = self.found();
+        found.registrations.extend(discover::discover_repo(&self.repo()).registrations);
+        found
+    }
+
+    /// One engine's context with no kept servers and no Gemini state file.
+    fn context(&self, host_id: &str, found: &DiscoveryResult, cache: &HashMap<String, Measured>) -> EngineContext {
+        context::engine_context(host_id, found, &[], None, reader(&self.root), |key| cache.get(key).copied())
+    }
+
+    fn gemini_context(&self, found: &DiscoveryResult, state: Option<&str>) -> EngineContext {
+        context::engine_context("gemini", found, &[], state, reader(&self.root), |_| None)
+    }
+}
+
+/// The file reader a caller hands the fold. It reads the path it is asked
+/// for, and that path has to be inside the fixture: nothing here may open a
+/// file of the machine the tests run on.
+fn reader(root: &Path) -> impl Fn(&str) -> Option<String> + '_ {
+    move |path| {
+        assert!(Path::new(path).starts_with(root), "the fold asked for a file outside the fixture: {path}");
+        fs::read_to_string(path).ok()
+    }
+}
+
+/// What a caller hands the fold for one cached probe: the cost
+/// `probe::tool_cost` makes of the stored result.
+fn measured(result: &ProbeResult) -> Measured {
+    let cost = probe::tool_cost(result);
+    Measured { estimated_tokens: cost.estimated_tokens, tool_count: cost.tool_count }
+}
+
+/// A probe that answered: one tool for each entry, described in that many bytes.
+fn answered(description_bytes: &[usize]) -> ProbeResult {
+    ProbeResult {
+        tools: description_bytes
+            .iter()
+            .enumerate()
+            .map(|(i, bytes)| ProbedTool { name: format!("tool-{i}"), description: Some("d".repeat(*bytes)) })
+            .collect(),
+        ..Default::default()
+    }
+}
+
+/// A probe that did not complete, as `probe` builds one: an error and no tools.
+fn unanswered() -> ProbeResult {
+    ProbeResult { error: Some("Timed out after 10s waiting for the server to respond".to_string()), ..Default::default() }
+}
+
+/// The probe cache's key for one registration: `probe::cache_key` over its
+/// own declaration, the key `cached_probe` reads and writes for it.
+fn launch_of(found: &DiscoveryResult, host_id: &str, name: &str) -> String {
+    let reg = found
+        .registrations
+        .iter()
+        .find(|reg| reg.host_id == host_id && reg.server.name == name)
+        .unwrap_or_else(|| panic!("discovery found no {host_id} server named {name}"));
+    probe::cache_key(
+        &reg.server.command,
+        &reg.server.args,
+        &reg.server.env_keys,
+        reg.server.project_root.as_deref(),
+        &reg.server.transport,
+    )
+}
+
+/// A probe cache holding these answers, by host and server name.
+fn cached(found: &DiscoveryResult, answers: &[(&str, &str, ProbeResult)]) -> HashMap<String, Measured> {
+    answers.iter().map(|(host_id, name, result)| (launch_of(found, host_id, name), measured(result))).collect()
+}
+
+fn no_probes() -> HashMap<String, Measured> {
+    HashMap::new()
+}
+
+/// The one item of that name.
+fn item<'a>(context: &'a EngineContext, name: &str) -> &'a ContextItem {
+    let named: Vec<&ContextItem> = context.items.iter().filter(|item| item.name == name).collect();
+    assert_eq!(named.len(), 1, "expected one item named {name}, got {:?}", context.items);
+    named[0]
+}
+
+fn item_names(context: &EngineContext) -> Vec<&str> {
+    context.items.iter().map(|item| item.name.as_str()).collect()
+}
+
+/// What an item says about itself: its state, and why it has no switch.
+fn verdict(item: &ContextItem) -> (ItemState, Option<ReadOnlyReason>) {
+    (item.state, item.read_only)
+}
+
+/// The counts on a context, taken again from its items.
+fn assert_counts_agree(context: &EngineContext) {
+    let on: Vec<&ContextItem> = context.items.iter().filter(|item| item.state == ItemState::On).collect();
+    let off = context.items.iter().filter(|item| item.state == ItemState::Off).count();
+    assert_eq!(context.on_count, on.len(), "on_count, {}", context.engine_id);
+    assert_eq!(context.off_count, off, "off_count, {}", context.engine_id);
+    assert_eq!(context.on_count + context.off_count, context.items.len(), "{}", context.engine_id);
+    assert_eq!(
+        context.measured_on_count,
+        on.iter().filter(|item| item.estimated_tokens.is_some()).count(),
+        "measured_on_count, {}",
+        context.engine_id
+    );
+    for item in &context.items {
+        assert_eq!(item.estimated_tokens.is_some(), item.tool_count.is_some(), "{} is half measured", item.name);
+    }
+}
+
+// --- State ------------------------------------------------------------------
+
+#[test]
+fn an_absent_flag_is_on() {
+    let machine = machine(&[(".codex/config.toml", CTX_CODEX)]);
+    let found = machine.found();
+    let context = machine.context("codex", &found, &no_probes());
+
+    let alpha = item(&context, "alpha");
+    assert_eq!(verdict(alpha), (ItemState::On, None));
+    // `enabled = true` says the same thing out loud.
+    assert_eq!(verdict(item(&context, "gamma")), (ItemState::On, None));
+
+    // What identifies the item, and where it is declared.
+    let file = machine.home().join(".codex/config.toml");
+    assert_eq!(alpha.key, format!("{}:alpha", file.display()));
+    assert_eq!(alpha.tier, "global");
+    assert!(alpha.config_path.ends_with("config.toml"), "{}", alpha.config_path);
+    assert!(
+        !alpha.config_path.contains(machine.root.to_str().unwrap()),
+        "the path was not sanitised: {}",
+        alpha.config_path
+    );
+
+    assert_eq!(context.engine_id, "codex");
+    assert_eq!(context.engine_name, registry::host_by_id("codex").unwrap().display_name);
+}
+
+#[test]
+fn enabled_false_is_off() {
+    let machine = machine(&[(".codex/config.toml", CTX_CODEX)]);
+    let found = machine.found();
+    let context = machine.context("codex", &found, &no_probes());
+
+    // Off, and still Hanger's to switch back on.
+    assert_eq!(verdict(item(&context, "beta")), (ItemState::Off, None));
+    assert_eq!((context.on_count, context.off_count), (3, 1));
+}
+
+#[test]
+fn a_codex_server_under_the_legacy_tools_table_is_on_and_has_no_switch() {
+    let machine = machine(&[(".codex/config.toml", CTX_CODEX_LEGACY)]);
+    let found = machine.found();
+    let context = machine.context("codex", &found, &no_probes());
+
+    // `enabled` was confirmed for `[mcp_servers.*]` alone.
+    assert_eq!(verdict(item(&context, "legacy")), (ItemState::On, Some(ReadOnlyReason::EngineNotConfirmed)));
+    // Its neighbour in the same file keeps its switch.
+    assert_eq!(verdict(item(&context, "alpha")), (ItemState::On, None));
+}
+
+#[tokio::test]
+async fn a_stashed_claude_server_is_an_off_item() {
+    let (stage, kept, _) = with_beta_off().await;
+    let found = discover::discover_machine_at(&stage.root.join("home"), &stage.root.join("system"));
+    let stashed = vendor::claude_stashed(&stage.stash);
+    assert_eq!(stashed, vec![kept.clone()]);
+    // A probe cache that would answer for anything it was asked about.
+    let any_answer = measured(&answered(&[400]));
+
+    let context = context::engine_context("claude-code", &found, &stashed, None, reader(&stage.root), |_| Some(any_answer));
+
+    // Declared servers first, then what Hanger keeps.
+    assert_eq!(item_names(&context), ["alpha", "beta"]);
+    let alpha = item(&context, "alpha");
+    assert_eq!(verdict(alpha), (ItemState::On, None));
+    assert_eq!(alpha.tier, "user");
+    assert_eq!(alpha.estimated_tokens, Some(100));
+
+    let beta = item(&context, "beta");
+    assert_eq!(verdict(beta), (ItemState::Off, None), "a kept server is off, and Hanger can switch it back on");
+    assert_eq!(beta.key, format!("stash:{}", kept.id));
+    assert!(beta.key.starts_with("stash:"));
+    assert_eq!(beta.tier, "user");
+    assert_eq!(beta.config_path, "", "a kept server is declared in no file");
+    // It carries no launch to look up, whatever the cache holds.
+    assert_eq!((beta.estimated_tokens, beta.tool_count), (None, None));
+
+    assert_eq!((context.on_count, context.off_count), (1, 1));
+    assert_eq!(context.on_tokens_measured, 100);
+    assert_counts_agree(&context);
+}
+
+#[tokio::test]
+async fn kept_servers_follow_the_declared_ones_in_the_order_given() {
+    let (stage, kept, _) = with_beta_off().await;
+    stage.keep_by_hand("00000000-0000-4000-8000-000000000007", "older", 5, "{\"command\": \"older-server\"}");
+    let found = discover::discover_machine_at(&stage.root.join("home"), &stage.root.join("system"));
+    let newest_first = vendor::claude_stashed(&stage.stash);
+    assert_eq!(newest_first.iter().map(|kept| kept.name.as_str()).collect::<Vec<_>>(), ["beta", "older"]);
+    assert_eq!(newest_first[0], kept);
+
+    let context = context::engine_context("claude-code", &found, &newest_first, None, reader(&stage.root), |_| None);
+    assert_eq!(item_names(&context), ["alpha", "beta", "older"]);
+
+    // The order is the caller's: the fold does not sort.
+    let oldest_first: Vec<StashedServer> = newest_first.iter().rev().cloned().collect();
+    let context = context::engine_context("claude-code", &found, &oldest_first, None, reader(&stage.root), |_| None);
+    assert_eq!(item_names(&context), ["alpha", "older", "beta"]);
+}
+
+#[tokio::test]
+async fn kept_servers_and_the_gemini_state_file_belong_to_their_own_engines() {
+    let (stage, _, _) = with_beta_off().await;
+    let stashed = vendor::claude_stashed(&stage.stash);
+    assert_eq!(stashed.len(), 1);
+    let machine = machine(&[(".codex/config.toml", CTX_CODEX), (".gemini/settings.json", CTX_GEMINI_HOME)]);
+    let found = machine.found();
+    // A state file that names a Codex server.
+    let alpha_off = r#"{"alpha": {"enabled": false}}"#;
+
+    let codex = context::engine_context("codex", &found, &stashed, Some(alpha_off), reader(&machine.root), |_| None);
+    assert_eq!(item_names(&codex).len(), 4, "{:?}", codex.items);
+    assert!(codex.items.iter().all(|item| !item.key.starts_with("stash:")), "{:?}", codex.items);
+    assert_eq!(verdict(item(&codex, "alpha")), (ItemState::On, None), "Gemini's state file does not switch a Codex server");
+
+    let gemini = context::engine_context("gemini", &found, &stashed, Some(alpha_off), reader(&machine.root), |_| None);
+    assert_eq!(item_names(&gemini).len(), 2, "{:?}", gemini.items);
+    assert_eq!(verdict(item(&gemini, "alpha")), (ItemState::Off, None));
+}
+
+// --- Gemini CLI: one state file, keyed by name ------------------------------
+
+/// A machine with `beta` declared for Gemini at all three places.
+fn gemini_machine() -> Machine {
+    let machine = machine(&[(".gemini/settings.json", CTX_GEMINI_HOME)]);
+    machine.put(&machine.system().join(GEMINI_SYSTEM_FILE), CTX_GEMINI_SYSTEM);
+    machine.put(&machine.repo().join(".gemini/settings.json"), CTX_GEMINI_PROJECT);
+    machine
+}
+
+/// The Gemini item declared in that file.
+fn gemini_item<'a>(context: &'a EngineContext, file: &Path, name: &str) -> &'a ContextItem {
+    let key = format!("{}:{name}", file.display());
+    context.items.iter().find(|item| item.key == key).unwrap_or_else(|| panic!("no item {key} in {:?}", context.items))
+}
+
+#[test]
+fn a_gemini_server_named_in_the_state_file_is_off_at_every_scope() {
+    let machine = gemini_machine();
+    let found = machine.found_with_project();
+    let user = machine.home().join(".gemini/settings.json");
+    let system = machine.system().join(GEMINI_SYSTEM_FILE);
+    let project = machine.repo().join(".gemini/settings.json");
+
+    let context = machine.gemini_context(&found, Some(CTX_GEMINI_BETA_OFF));
+    assert_eq!(context.items.len(), 4, "{:?}", context.items);
+    for file in [&user, &system, &project] {
+        assert_eq!(gemini_item(&context, file, "beta").state, ItemState::Off, "{}", file.display());
+    }
+    assert_eq!(gemini_item(&context, &user, "alpha").state, ItemState::On);
+    assert_eq!((context.on_count, context.off_count), (1, 3));
+    assert_counts_agree(&context);
+
+    // With no state file, nothing has been switched off.
+    let context = machine.gemini_context(&found, None);
+    for file in [&user, &system, &project] {
+        assert_eq!(gemini_item(&context, file, "beta").state, ItemState::On, "{}", file.display());
+    }
+    assert_eq!((context.on_count, context.off_count), (4, 0));
+}
+
+#[test]
+fn a_gemini_project_server_is_read_only_because_the_switch_is_by_name() {
+    let machine = gemini_machine();
+    let found = machine.found_with_project();
+    let project = machine.repo().join(".gemini/settings.json");
+    let user = machine.home().join(".gemini/settings.json");
+
+    for (state, expected) in [(None, ItemState::On), (Some(CTX_GEMINI_BETA_OFF), ItemState::Off)] {
+        let context = machine.gemini_context(&found, state);
+        let in_project = gemini_item(&context, &project, "beta");
+        assert_eq!(in_project.tier, "project");
+        // It has no switch, and it still says what the state file says.
+        assert_eq!(verdict(in_project), (expected, Some(ReadOnlyReason::SwitchesByNameEverywhere)));
+        // The user's own server of that name is the one Hanger switches.
+        assert_eq!(verdict(gemini_item(&context, &user, "beta")), (expected, None));
+    }
+}
+
+// --- Why an item has no switch: one test for each reason --------------------
+
+#[test]
+fn read_only_with_its_reason_engine_not_confirmed() {
+    let machine = machine(&[
+        (".cursor/mcp.json", r#"{"mcpServers": {"alpha": {"command": "alpha-server"}}}"#),
+        // OpenCode's reader accepts this key. Nothing has confirmed OpenCode
+        // acts on it, so Hanger does not say the server is off.
+        (".config/opencode/opencode.json", r#"{"mcp": {"alpha": {"type": "local", "command": ["alpha-server"], "enabled": false}}}"#),
+    ]);
+    let found = machine.found();
+
+    for host_id in ["cursor", "opencode"] {
+        let context = machine.context(host_id, &found, &no_probes());
+        assert_eq!(
+            verdict(item(&context, "alpha")),
+            (ItemState::On, Some(ReadOnlyReason::EngineNotConfirmed)),
+            "{host_id}"
+        );
+    }
+}
+
+/// A machine with a Claude Code server in each place the machine pass reads.
+fn claude_machine() -> Machine {
+    let machine = machine(&[
+        (".claude.json", CTX_CLAUDE_JSON),
+        (".mcp.json", CTX_HOME_MCP_JSON),
+        (".claude/mcp.json", CTX_CLAUDE_MCP_JSON),
+        (".claude/plugins/marketplaces/acme/.mcp.json", CTX_PLUGIN_MCP_JSON),
+    ]);
+    machine.put(&machine.system().join(CLAUDE_MANAGED_FILE), CTX_MANAGED_MCP_JSON);
+    machine
+}
+
+#[test]
+fn read_only_with_its_reason_per_project_comes_next() {
+    let machine = claude_machine();
+    let found = machine.found();
+    let context = machine.context("claude-code", &found, &no_probes());
+
+    // `~/.mcp.json`: Claude Code is switched at user scope only.
+    let homewide = item(&context, "homewide");
+    assert_eq!(homewide.tier, "global");
+    assert_eq!(verdict(homewide), (ItemState::On, Some(ReadOnlyReason::PerProjectComesNext)));
+    // The user-scope server beside it is the one with a switch.
+    let declared = item(&context, "declared");
+    assert_eq!(declared.tier, "user");
+    assert_eq!(verdict(declared), (ItemState::On, None));
+}
+
+#[test]
+fn read_only_with_its_reason_switches_by_name_everywhere() {
+    // A machine where the project's file is the only one declaring `beta`:
+    // there is no global server of that name to offer a switch on instead.
+    let machine = machine(&[(".gemini/settings.json", r#"{"mcpServers": {"alpha": {"command": "alpha-server"}}}"#)]);
+    machine.put(&machine.repo().join(".gemini/settings.json"), CTX_GEMINI_PROJECT);
+    let found = machine.found_with_project();
+
+    let context = machine.gemini_context(&found, None);
+    assert_eq!(verdict(item(&context, "beta")), (ItemState::On, Some(ReadOnlyReason::SwitchesByNameEverywhere)));
+    assert_eq!(verdict(item(&context, "alpha")), (ItemState::On, None));
+}
+
+#[test]
+fn read_only_with_its_reason_managed_by_plugin() {
+    let machine = claude_machine();
+    let found = machine.found();
+    let context = machine.context("claude-code", &found, &no_probes());
+
+    assert_eq!(verdict(item(&context, "plugged")), (ItemState::On, Some(ReadOnlyReason::ManagedByPlugin)));
+}
+
+#[test]
+fn read_only_with_its_reason_managed_by_policy() {
+    let machine = claude_machine();
+    let found = machine.found();
+    let context = machine.context("claude-code", &found, &no_probes());
+    assert_eq!(verdict(item(&context, "fleet")), (ItemState::On, Some(ReadOnlyReason::ManagedByPolicy)));
+
+    // Gemini's system settings are the other managed file. The tier has a
+    // switch (`gemini`, global), so the reason comes from the file.
+    let machine = gemini_machine();
+    let found = machine.found();
+    let system = machine.system().join(GEMINI_SYSTEM_FILE);
+    for (state, expected) in [(None, ItemState::On), (Some(CTX_GEMINI_BETA_OFF), ItemState::Off)] {
+        let context = machine.gemini_context(&found, state);
+        let managed = gemini_item(&context, &system, "beta");
+        assert_eq!(managed.tier, "global");
+        assert_eq!(verdict(managed), (expected, Some(ReadOnlyReason::ManagedByPolicy)));
+    }
+}
+
+#[test]
+fn read_only_with_its_reason_runs_on_vendor_servers() {
+    let machine = claude_machine();
+    let found = machine.found();
+    let context = machine.context("claude-ai", &found, &no_probes());
+
+    assert_eq!(item_names(&context), ["Notion", "Linear"]);
+    for name in ["Notion", "Linear"] {
+        assert_eq!(verdict(item(&context, name)), (ItemState::On, Some(ReadOnlyReason::RunsOnVendorServers)));
+    }
+    // The connectors are Claude.ai's, not Claude Code's.
+    let claude_code = machine.context("claude-code", &found, &no_probes());
+    assert!(!item_names(&claude_code).contains(&"Notion"), "{:?}", claude_code.items);
+}
+
+#[test]
+fn read_only_with_its_reason_file_unparseable() {
+    let machine = machine(&[(".codex/config.toml", CTX_CODEX), (".gemini/settings.json", CTX_GEMINI_HOME)]);
+    let found = machine.found();
+    let codex_file = machine.home().join(".codex/config.toml");
+    let unparseable = (ItemState::On, Some(ReadOnlyReason::FileUnparseable));
+    // Before anything changes, `beta` is off and switchable.
+    assert_eq!(verdict(item(&machine.context("codex", &found, &no_probes()), "beta")), (ItemState::Off, None));
+
+    // The file changed after discovery read it: it no longer parses.
+    fs::write(&codex_file, BROKEN_TOML).unwrap();
+    let context = machine.context("codex", &found, &no_probes());
+    for name in ["alpha", "beta"] {
+        assert_eq!(verdict(item(&context, name)), unparseable, "{name}, in a file that does not parse");
+    }
+
+    // It parses, and no longer declares the server discovery saw.
+    fs::write(&codex_file, "[mcp_servers.alpha]\ncommand = \"alpha-server\"\n").unwrap();
+    let context = machine.context("codex", &found, &no_probes());
+    assert_eq!(verdict(item(&context, "beta")), unparseable, "a server the file no longer declares");
+    assert_eq!(verdict(item(&context, "alpha")), (ItemState::On, None));
+
+    // It is gone.
+    fs::remove_file(&codex_file).unwrap();
+    let context = machine.context("codex", &found, &no_probes());
+    assert_eq!(verdict(item(&context, "beta")), unparseable, "a file that cannot be read");
+    assert_eq!((context.on_count, context.off_count), (4, 0));
+
+    // Gemini's state file, when Gemini itself could not read it.
+    let context = machine.gemini_context(&found, Some("{\"beta\": {\"enabled\": false},"));
+    assert_eq!(verdict(item(&context, "beta")), unparseable);
+}
+
+#[test]
+fn a_reason_that_stands_on_its_own_outranks_a_state_file_that_does_not_parse() {
+    let machine = gemini_machine();
+    let found = machine.found_with_project();
+    let context = machine.gemini_context(&found, Some("not json"));
+
+    let user = machine.home().join(".gemini/settings.json");
+    let system = machine.system().join(GEMINI_SYSTEM_FILE);
+    let project = machine.repo().join(".gemini/settings.json");
+    assert_eq!(verdict(gemini_item(&context, &user, "beta")), (ItemState::On, Some(ReadOnlyReason::FileUnparseable)));
+    assert_eq!(verdict(gemini_item(&context, &system, "beta")), (ItemState::On, Some(ReadOnlyReason::ManagedByPolicy)));
+    assert_eq!(
+        verdict(gemini_item(&context, &project, "beta")),
+        (ItemState::On, Some(ReadOnlyReason::SwitchesByNameEverywhere))
+    );
+}
+
+// --- Population -------------------------------------------------------------
+
+#[test]
+fn a_server_pinned_to_one_project_is_not_an_item() {
+    let machine = claude_machine();
+    let found = machine.found();
+    // Discovery does find it, at local scope: its absence below is the fold's.
+    let pinned: Vec<ScopeTier> =
+        found.registrations.iter().filter(|reg| reg.server.name == "pinned").map(|reg| reg.tier).collect();
+    assert_eq!(pinned, [ScopeTier::Local]);
+
+    let context = machine.context("claude-code", &found, &no_probes());
+    assert!(!item_names(&context).contains(&"pinned"), "{:?}", context.items);
+    // Every other Claude Code server on the machine is there: one user-scope
+    // server, `shared` in two files, and one each from `~/.mcp.json`, a
+    // plugin and the managed file.
+    let mut names = item_names(&context);
+    names.sort_unstable();
+    assert_eq!(names, ["declared", "fleet", "homewide", "plugged", "shared", "shared"]);
+    assert_eq!((context.on_count, context.off_count), (6, 0));
+}
+
+#[test]
+fn an_unknown_host_id_is_an_empty_context() {
+    let machine = machine(&[(".codex/config.toml", CTX_CODEX), (".gemini/settings.json", CTX_GEMINI_HOME)]);
+    let found = machine.found();
+    assert!(registry::host_by_id("no-such-engine").is_none());
+
+    let context = machine.context("no-such-engine", &found, &no_probes());
+    assert_eq!(context.engine_id, "no-such-engine");
+    assert_eq!(context.engine_name, "no-such-engine");
+    assert_eq!(context.items, vec![]);
+    assert_eq!(
+        (context.on_count, context.off_count, context.measured_on_count, context.on_tokens_measured),
+        (0, 0, 0, 0)
+    );
+}
+
+#[test]
+fn no_engine_says_when_a_change_applies_yet() {
+    let machine = machine(&[(".codex/config.toml", CTX_CODEX), (".gemini/settings.json", CTX_GEMINI_HOME)]);
+    let found = machine.found();
+    assert!(!registry::HOSTS.is_empty());
+    for host in registry::HOSTS {
+        let context = machine.context(host.id, &found, &no_probes());
+        assert_eq!(context.applies, None, "{}", host.id);
+        assert_eq!(context.engine_name, host.display_name);
+    }
+    // Present in what the webview receives, and null.
+    let codex = serde_json::to_value(machine.context("codex", &found, &no_probes())).unwrap();
+    assert_eq!(codex.get("applies"), Some(&serde_json::Value::Null));
+}
+
+// --- Cost and the budget ----------------------------------------------------
+
+#[test]
+fn off_servers_cost_nothing_in_the_budget() {
+    let machine = machine(&[(".codex/config.toml", CTX_CODEX)]);
+    let found = machine.found();
+    let cache = cached(&found, &[("codex", "alpha", answered(&[400])), ("codex", "beta", answered(&[1200, 400]))]);
+    let context = machine.context("codex", &found, &cache);
+
+    let alpha = item(&context, "alpha");
+    assert_eq!((alpha.state, alpha.estimated_tokens, alpha.tool_count), (ItemState::On, Some(100), Some(1)));
+    // What `beta` would cost is still shown on its row.
+    let beta = item(&context, "beta");
+    assert_eq!((beta.state, beta.estimated_tokens, beta.tool_count), (ItemState::Off, Some(400), Some(2)));
+
+    assert_eq!(context.on_tokens_measured, 100, "beta is off, so its 400 is not in the budget");
+    assert_eq!(context.measured_on_count, 1, "beta is measured and off: not one of the switched-on servers");
+    assert_eq!((context.on_count, context.off_count), (3, 1));
+}
+
+#[test]
+fn unmeasured_servers_are_counted_but_not_summed() {
+    let machine = machine(&[(".codex/config.toml", CTX_CODEX)]);
+    let found = machine.found();
+    // Three are on: alpha, gamma and delta. Two of them have been measured.
+    let cache = cached(&found, &[("codex", "alpha", answered(&[400])), ("codex", "gamma", answered(&[120, 80]))]);
+    let context = machine.context("codex", &found, &cache);
+
+    assert_eq!(context.on_count, 3);
+    assert_eq!(context.measured_on_count, 2);
+    assert_eq!(context.on_tokens_measured, 150);
+    let delta = item(&context, "delta");
+    assert_eq!((delta.state, delta.estimated_tokens, delta.tool_count), (ItemState::On, None, None));
+}
+
+#[test]
+fn a_failed_probe_is_measured_at_zero_not_unmeasured() {
+    // What the producer makes of a probe that did not complete: an error,
+    // and a cost of zero built over its empty tool list.
+    let failed = unanswered();
+    assert!(failed.error.is_some());
+    assert_eq!(measured(&failed), Measured { estimated_tokens: 0, tool_count: 0 });
+
+    let machine = machine(&[(".codex/config.toml", CTX_CODEX)]);
+    let found = machine.found();
+    let cache = cached(&found, &[("codex", "alpha", failed)]);
+    let context = machine.context("codex", &found, &cache);
+
+    let alpha = item(&context, "alpha");
+    assert_eq!((alpha.estimated_tokens, alpha.tool_count), (Some(0), Some(0)));
+    assert_eq!(context.measured_on_count, 1);
+    assert_eq!(context.on_tokens_measured, 0);
+    // A server nobody asked is a different finding.
+    let gamma = item(&context, "gamma");
+    assert_eq!((gamma.estimated_tokens, gamma.tool_count), (None, None));
+}
+
+#[test]
+fn a_launch_one_engine_declares_twice_is_summed_once() {
+    let machine = claude_machine();
+    let found = machine.found();
+    // `shared` is in `~/.mcp.json` and in `~/.claude/mcp.json`, with one launch.
+    let cache = cached(&found, &[("claude-code", "shared", answered(&[400])), ("claude-code", "homewide", answered(&[80]))]);
+    let context = machine.context("claude-code", &found, &cache);
+
+    let shared: Vec<&ContextItem> = context.items.iter().filter(|item| item.name == "shared").collect();
+    assert_eq!(shared.len(), 2);
+    assert_ne!(shared[0].key, shared[1].key);
+    for one in &shared {
+        assert_eq!((one.state, one.estimated_tokens), (ItemState::On, Some(100)));
+    }
+    // Two rows carry the figure; the model is told about the launch once.
+    assert_eq!(context.measured_on_count, 3);
+    assert_eq!(context.on_tokens_measured, 120);
+}
+
+#[test]
+fn the_probe_cache_is_asked_once_for_each_launch() {
+    let machine = claude_machine();
+    let found = machine.found();
+    let asked = RefCell::new(Vec::new());
+    let context = context::engine_context("claude-code", &found, &[], None, reader(&machine.root), |key| {
+        asked.borrow_mut().push(key.to_string());
+        None
+    });
+    assert_eq!(context.items.len(), 6);
+
+    // Six items, five launches: `shared` is declared twice.
+    let mut asked = asked.into_inner();
+    asked.sort();
+    let mut launches: Vec<String> =
+        ["declared", "fleet", "homewide", "plugged", "shared"].iter().map(|name| launch_of(&found, "claude-code", name)).collect();
+    launches.sort();
+    assert_eq!(asked, launches);
+}
+
+#[test]
+fn a_connector_is_never_measured_whatever_the_cache_holds_under_its_key() {
+    let machine = claude_machine();
+    let found = machine.found();
+    // Every connector on a machine has the same cache key: nothing can be
+    // started or dialled, so nothing could have written an answer there.
+    assert_eq!(launch_of(&found, "claude-ai", "Notion"), launch_of(&found, "claude-ai", "Linear"));
+    let cache = cached(&found, &[("claude-ai", "Notion", answered(&[400]))]);
+    let context = machine.context("claude-ai", &found, &cache);
+
+    for name in ["Notion", "Linear"] {
+        let connector = item(&context, name);
+        assert_eq!((connector.estimated_tokens, connector.tool_count), (None, None), "{name}");
+    }
+    assert_eq!((context.on_count, context.measured_on_count, context.on_tokens_measured), (2, 0, 0));
+}
+
+#[tokio::test]
+async fn counts_agree_with_items() {
+    let (stage, _, _) = with_beta_off().await;
+    let stashed = vendor::claude_stashed(&stage.stash);
+    let claude_found = discover::discover_machine_at(&stage.root.join("home"), &stage.root.join("system"));
+    let claude = context::engine_context("claude-code", &claude_found, &stashed, None, reader(&stage.root), |_| None);
+
+    let machine = gemini_machine();
+    machine.put(&machine.home().join(".codex/config.toml"), CTX_CODEX);
+    let found = machine.found_with_project();
+    let cache = cached(&found, &[("codex", "alpha", answered(&[400])), ("codex", "beta", answered(&[1200]))]);
+    let codex = machine.context("codex", &found, &cache);
+    let gemini = machine.gemini_context(&found, Some(CTX_GEMINI_BETA_OFF));
+    let none = machine.context("cursor", &found, &cache);
+
+    for context in [&claude, &codex, &gemini] {
+        // Each has servers on and servers off, so neither count is checked
+        // against an empty list.
+        assert!(context.on_count > 0 && context.off_count > 0, "{}: {:?}", context.engine_id, context.items);
+        assert_counts_agree(context);
+    }
+    assert_eq!(codex.measured_on_count, 1);
+    assert_counts_agree(&none);
+    assert_eq!(none.items.len(), 0);
+}
+
+// --- What crosses to the webview --------------------------------------------
+
+/// The names of a JSON object's keys, sorted.
+fn keys_of(value: &serde_json::Value) -> Vec<&str> {
+    let mut keys: Vec<&str> = value.as_object().expect("an object").keys().map(String::as_str).collect();
+    keys.sort_unstable();
+    keys
+}
+
+#[tokio::test]
+async fn a_serialised_context_carries_no_value_from_a_config_file() {
+    let machine = machine(&[
+        (".codex/config.toml", CTX_CODEX_MARKED),
+        (".cursor/mcp.json", CTX_JSON_MARKED),
+        (".gemini/settings.json", CTX_JSON_MARKED),
+        (".mcp.json", CTX_JSON_MARKED),
+        (".claude.json", CTX_JSON_MARKED),
+    ]);
+    let found = machine.found();
+    // The fixtures do hold the values: discovery read the command and the
+    // env variable's name out of every one of them.
+    for host_id in ["codex", "cursor", "gemini", "claude-code"] {
+        let alpha = found.registrations.iter().find(|reg| reg.host_id == host_id && reg.server.name == "alpha").expect(host_id);
+        assert_eq!((alpha.server.command.as_str(), alpha.server.env_keys.as_slice()), (CTX_COMMAND, [CTX_ENV_NAME.to_string()].as_slice()));
+    }
+    let cache = cached(&found, &[("codex", "alpha", answered(&[400])), ("cursor", "alpha", answered(&[400]))]);
+
+    for host_id in ["codex", "cursor", "gemini", "claude-code"] {
+        let context = context::engine_context(host_id, &found, &[], Some(r#"{"alpha": {"enabled": false}}"#), reader(&machine.root), |key| {
+            cache.get(key).copied()
+        });
+        let text = serde_json::to_string(&context).unwrap();
+        assert!(text.contains("\"name\":\"alpha\""), "{host_id}: {text}");
+        for value in CTX_VALUES {
+            assert!(!text.contains(value), "{host_id}: the context carries {value}: {text}");
+        }
+
+        // Nothing rides along in a field of its own: these are all there are.
+        let whole = serde_json::to_value(&context).unwrap();
+        assert_eq!(
+            keys_of(&whole),
+            ["applies", "engine_id", "engine_name", "items", "measured_on_count", "off_count", "on_count", "on_tokens_measured"],
+            "{host_id}"
+        );
+        let items = whole["items"].as_array().unwrap();
+        assert!(!items.is_empty(), "{host_id}");
+        for one in items {
+            assert_eq!(
+                keys_of(one),
+                ["config_path", "estimated_tokens", "key", "name", "read_only", "state", "tier", "tool_count"],
+                "{host_id}"
+            );
+        }
+    }
+
+    // A kept server: its entry holds a command, an argument and an env value.
+    let (stage, kept, _) = with_beta_off().await;
+    let found = discover::discover_machine_at(&stage.root.join("home"), &stage.root.join("system"));
+    let context = context::engine_context("claude-code", &found, &[kept], None, reader(&stage.root), |_| None);
+    let text = serde_json::to_string(&context).unwrap();
+    assert!(text.contains("\"name\":\"beta\""), "{text}");
+    for value in KEPT_VALUES.iter().chain(&["alpha-server", "ZED_SETTING", "ALPHA_SETTING"]) {
+        assert!(!text.contains(value), "the context carries {value}: {text}");
+    }
+}
+
+#[test]
+fn states_and_reasons_are_spelled_in_snake_case() {
+    let spelled = |value: serde_json::Value| value.as_str().expect("a string").to_string();
+    assert_eq!(spelled(serde_json::to_value(ItemState::On).unwrap()), "on");
+    assert_eq!(spelled(serde_json::to_value(ItemState::Off).unwrap()), "off");
+    for (reason, spelling) in [
+        (ReadOnlyReason::EngineNotConfirmed, "engine_not_confirmed"),
+        (ReadOnlyReason::PerProjectComesNext, "per_project_comes_next"),
+        (ReadOnlyReason::SwitchesByNameEverywhere, "switches_by_name_everywhere"),
+        (ReadOnlyReason::ManagedByPlugin, "managed_by_plugin"),
+        (ReadOnlyReason::ManagedByPolicy, "managed_by_policy"),
+        (ReadOnlyReason::RunsOnVendorServers, "runs_on_vendor_servers"),
+        (ReadOnlyReason::FileUnparseable, "file_unparseable"),
+    ] {
+        assert_eq!(spelled(serde_json::to_value(reason).unwrap()), spelling);
+    }
+
+    // And as they sit in a context: a reason, no reason, and each tier.
+    let machine = claude_machine();
+    machine.put(&machine.home().join(".codex/config.toml"), CTX_CODEX);
+    machine.put(&machine.repo().join(".codex/config.toml"), "[mcp_servers.epsilon]\ncommand = \"epsilon-server\"\n");
+    let found = machine.found_with_project();
+    let codex = serde_json::to_value(machine.context("codex", &found, &no_probes())).unwrap();
+    let named = |context: &serde_json::Value, name: &str| {
+        context["items"].as_array().unwrap().iter().find(|item| item["name"] == name).cloned().expect("the item")
+    };
+    assert_eq!(named(&codex, "beta")["state"], "off");
+    assert_eq!(named(&codex, "beta")["read_only"], serde_json::Value::Null);
+    assert_eq!(named(&codex, "beta")["tier"], "global");
+    assert_eq!(named(&codex, "epsilon")["tier"], "project");
+    assert_eq!(named(&codex, "epsilon")["state"], "on");
+    let claude = serde_json::to_value(machine.context("claude-code", &found, &no_probes())).unwrap();
+    assert_eq!(named(&claude, "homewide")["read_only"], "per_project_comes_next");
+    assert_eq!(named(&claude, "declared")["tier"], "user");
+}
+
+#[test]
+fn a_codex_project_server_is_switched_in_its_own_file() {
+    let machine = machine(&[(".codex/config.toml", CTX_CODEX)]);
+    machine.put(&machine.repo().join(".codex/config.toml"), "[mcp_servers.epsilon]\ncommand = \"epsilon-server\"\nenabled = false\n");
+    let found = machine.found_with_project();
+    let context = machine.context("codex", &found, &no_probes());
+
+    let epsilon = item(&context, "epsilon");
+    assert_eq!(epsilon.tier, "project");
+    assert_eq!(verdict(epsilon), (ItemState::Off, None));
+    assert_eq!(epsilon.key, format!("{}:epsilon", machine.repo().join(".codex/config.toml").display()));
+}
+
+// --- What the fold takes from the registry on trust -------------------------
+
+#[test]
+fn every_flag_switched_tier_is_declared_in_one_dialect() {
+    // A registration does not say which `SOURCES` row it was read through.
+    // The fold finds its dialect from its host and tier, which is sound only
+    // while every row for that pair names the same one.
+    let mut checked = 0;
+    for row in registry::SWITCHES.iter().filter(|row| is_a_key_in_the_file(row.kind)) {
+        for tier in row.tiers {
+            let dialects: HashSet<Dialect> = registry::SOURCES
+                .iter()
+                .filter(|source| source.host_id == row.host_id && source.tier == *tier)
+                .map(|source| source.dialect)
+                .collect();
+            assert_eq!(dialects.len(), 1, "{} at {:?} is declared in {:?}", row.host_id, tier, dialects);
+            checked += 1;
+        }
+    }
+    assert!(checked > 0, "no engine is switched by a key in the file, so the loop above checked nothing");
+}
+
+#[test]
+fn no_system_wide_source_is_a_glob() {
+    // A managed file is recognised by its path ending in a system-wide row's
+    // path, which a `*` segment would never match.
+    let system: Vec<&str> = registry::SOURCES
+        .iter()
+        .filter(|source| source.location == registry::SourceLocation::SystemAbsolute)
+        .map(|source| source.path)
+        .collect();
+    assert!(!system.is_empty(), "no system-wide source, so the loop below checks nothing");
+    for path in system {
+        assert!(!path.contains('*'), "{path}");
+    }
+}

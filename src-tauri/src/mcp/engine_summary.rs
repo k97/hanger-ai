@@ -272,7 +272,7 @@ where
 /// transport check: a `Dial` always has an endpoint to contact; a `Spawn`
 /// with an empty program has nothing to run. A Claude.ai connector is
 /// exactly the second shape.
-fn is_askable(reg: &Registration) -> bool {
+pub(crate) fn is_askable(reg: &Registration) -> bool {
     match probe_launch(&reg.server.command, &reg.server.args, &reg.server.transport) {
         ProbeLaunch::Dial { .. } => true,
         ProbeLaunch::Spawn { program, .. } => !program.trim().is_empty(),
@@ -281,7 +281,7 @@ fn is_askable(reg: &Registration) -> bool {
 
 /// `mcp::probe::cache_key` over one registration's own declaration — the
 /// exact key `cached_probe` reads and writes for it.
-fn launch_key(reg: &Registration) -> String {
+pub(crate) fn launch_key(reg: &Registration) -> String {
     cache_key(
         &reg.server.command,
         &reg.server.args,
