@@ -18,7 +18,10 @@
 //! - `vendor`: Claude Code, which has no flag to set. Off keeps the server's
 //!   entry in a private file in the stash folder it is given and then runs
 //!   `claude mcp remove`; on hands the kept entry back to `claude mcp
-//!   add-json` on stdin. It reads `.claude.json`, at the path it is given, to
+//!   add-json` on stdin. Before an off keeps or removes anything, it has
+//!   `add-json` write the entry into a scratch config folder, and goes on
+//!   only if the entry comes back unchanged: Claude Code drops keys it does
+//!   not know. It reads `.claude.json`, at the path it is given, to
 //!   find the entry and to see what the command did. It never writes that
 //!   file, and does not go through `apply`: the only files it writes are its
 //!   own, in the stash.

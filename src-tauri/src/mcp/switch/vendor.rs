@@ -7,7 +7,8 @@
 //! so off is a removal and on is a restore (decision 10 in
 //! `docs/plans/2026-11-24-context-control.md`):
 //!
-//! - off: `claude mcp remove <name> --scope user`
+//! - off: `claude mcp remove <name> --scope user`, after a trial run of the
+//!   on command has shown the entry would come back (the pre-flight, below)
 //! - on: `claude mcp add-json <name> - --scope user`, the entry on stdin
 //!
 //! These are the commands mcpick runs (`src/utils/claude-cli.ts` →
@@ -31,19 +32,54 @@
 //!
 //! So the order is fixed, and a kept file is deleted only on proof:
 //!
-//! - off: the entry is written to the stash and synced **before** the remove
-//!   runs. If Hanger stops between the two, the server is in both places and
-//!   never in neither.
+//! - off: nothing is removed that the pre-flight has not shown would come
+//!   back. Then the entry is written to the stash and synced **before** the
+//!   remove runs. If Hanger stops between the two, the server is in both
+//!   places and never in neither.
 //! - on: the kept file is deleted only after `.claude.json` has been read
 //!   again and holds the same entry.
 //!
+//! # The pre-flight
+//!
+//! `add-json` does not write back everything it is handed. Measured with
+//! claude 2.1.331 on 2026-11-24, in a throwaway `CLAUDE_CONFIG_DIR`: it
+//! drops every key it does not know, `description` included, exits 0 and
+//! reports the server added; and it refuses an entry that has a `url` and no
+//! `type`, writing nothing. An entry with a `command` and no `type`, and an
+//! `http` entry with `url` and `headers`, came back as they went in. So a
+//! removal alone could take away a server that on would give back changed,
+//! or not at all.
+//!
+//! Hanger does not keep a list of the keys Claude Code knows. Off asks
+//! Claude Code instead, before anything is kept or removed: it makes a
+//! scratch folder, `<stash>/claude-code/.preflight-<uuid>/` (0700), and runs
+//! the on command with `CLAUDE_CONFIG_DIR` set to it, so the entry is written
+//! to a `.claude.json` in that folder and not to the one Claude Code really
+//! reads. The scratch folder is inside the stash and not in the system's
+//! temp folder because what Claude Code writes there is the entry,
+//! credentials included. It is removed when the pre-flight ends, whichever
+//! way it ends.
+//!
+//! | After the trial, the scratch file's entry is | Result |
+//! |---|---|
+//! | there, equal to the entry Hanger read | the switch goes on to keep and remove |
+//! | anything else, and the command ran to an end | `WouldNotComeBack` |
+//! | anything else, and the command could not be started or was still running at the timeout | `CliFailed` |
+//!
+//! In the last two nothing is kept, the remove is not run, and the real
+//! `.claude.json` is not touched. A command that gave no answer is
+//! `CliFailed` and not `WouldNotComeBack` because it has shown nothing about
+//! the entry: the fault to report is the command's. The pre-flight costs one
+//! more run of the CLI for every switch-off, so an off can take two timeouts.
+//!
 //! # The file decides, never the command
 //!
-//! After either command the file is read again, and what it says is the
-//! result. The exit status and stdout are not looked at, and a command that
-//! was still running at the timeout is treated like any other: `gemini mcp
-//! disable` fails and exits 0 (the engine matrix, "Gemini CLI"), and a
-//! command that is killed late may already have done its work.
+//! After each command the file it should have changed is read again, and
+//! what that says is the result. The exit status and stdout are not looked
+//! at, and a command that was still running at the timeout is treated like
+//! any other where its file shows the work done: `gemini mcp disable` fails
+//! and exits 0 (the engine matrix, "Gemini CLI"), and a command that is
+//! killed late may already have done its work.
 //!
 //! | After off, the entry is | Result | Kept file |
 //! |---|---|---|
@@ -77,10 +113,12 @@
 //! taken out (`dialect::strip_jsonc`), because Claude Code is handed JSON.
 //! `stash` is a parameter, and a path that is not absolute is refused before
 //! anything is written. A file is listed, and can be switched on, only when
-//! it is named for the id inside it.
+//! it is named for the id inside it, so a scratch folder is never listed.
 //!
 //! No value from an entry leaves this module except onto the child's stdin
-//! and into a stash file. `Entry` and `Kept` hold one, and neither can be
+//! and into a stash file; Claude Code itself writes one more copy, into the
+//! scratch folder, for as long as a pre-flight runs. `Entry` and `Kept` hold
+//! one, and neither can be
 //! serialised or printed. `StashedServer` is what Hanger says about a kept
 //! server; its transport and env key names come from `dialect::parse`, the
 //! code that drops env values everywhere else. No error here carries text
@@ -110,6 +148,12 @@
 //! off may have removed a server of that name from it, which Hanger kept no
 //! copy of; an on has added the server to it.
 //!
+//! A wrapper of that kind also defeats the pre-flight's `CLAUDE_CONFIG_DIR`.
+//! The trial `add-json` is then aimed at whatever file the wrapper names,
+//! the scratch folder stays empty, and the answer is `WouldNotComeBack` with
+//! nothing kept or removed. What `add-json` does to a name that file already
+//! declares has not been measured.
+//!
 //! A variable exported only in a shell startup file reaches neither Hanger
 //! nor the child when the app is opened from Finder (`docs/roadmap.md`,
 //! "Config-directory env vars"). Both then use the un-relocated file, and
@@ -121,11 +165,19 @@
 //!   against Claude Code changing the file between a read and a command.
 //! - The stash folder is not synced after a kept file is made, so a power
 //!   cut during an off can lose the file's name while the remove survives.
-//! - The round trip was measured for an entry that carries `type`. If Claude
-//!   Code gives back an entry that differs from the one it was handed (a key
-//!   added, `30.0` written as `30`), on answers `NotVerified` with the server
-//!   in fact declared, and its kept file stays listed. A later on of it is
-//!   `AlreadyThere`.
+//! - The pre-flight shows what `add-json` writes into an empty folder at the
+//!   moment of the off. On runs later, against the real file, perhaps with a
+//!   newer CLI. If the entry then comes back different, on answers
+//!   `NotVerified` with the server in fact declared, and its kept file stays
+//!   listed; a later on of it is `AlreadyThere`.
+//! - "Equal" tells `30.0` from `30`. An entry Claude Code writes back with a
+//!   number spelled another way is refused as `WouldNotComeBack`.
+//! - A scratch folder is removed when its pre-flight ends. If Hanger is
+//!   killed before that, or the stash folder stops accepting changes
+//!   meanwhile, a `.preflight-<uuid>` folder stays in the stash, holding
+//!   whatever Claude Code had written into it by then: the entry, with any
+//!   credential in it, if the command got that far. Nothing here looks for
+//!   old ones or removes them.
 //! - A kept file whose deletion fails after a successful on is reported as
 //!   `StashFailed`, and likewise stays listed.
 //! - The command's exit status is not used for anything, including to say
@@ -156,17 +208,23 @@ pub enum SwitchError {
     /// The name is empty, starts with `-`, or holds a control character. It
     /// would be an argument to the command, so the command is not run.
     NameRefused,
-    /// The command did not make the change: the file is as it was.
+    /// The command did not make the change: the file is as it was. Or, in
+    /// off's pre-flight, it could not be started or never came to an end.
     CliFailed,
     /// The file does not confirm the change: it cannot be read, or the entry
     /// in it is not the one Hanger kept. The kept file stays.
     NotVerified,
-    /// The kept file could not be written, or could not be deleted. The
-    /// string is one of this module's own sentences, followed at most by the
-    /// name of an `io::ErrorKind`.
+    /// The kept file could not be written or could not be deleted, or the
+    /// pre-flight's scratch folder could not be made. The string is one of
+    /// this module's own sentences, followed at most by the name of an
+    /// `io::ErrorKind`.
     StashFailed(String),
     /// On: a server of that name is declared again. Nothing was run.
     AlreadyThere,
+    /// Off: handed this entry, Claude Code's own command does not write the
+    /// same entry back, so a removal could not be taken back. Nothing was
+    /// kept and nothing was removed.
+    WouldNotComeBack,
 }
 
 /// What Hanger says about a kept server. It has no field that can hold a
@@ -192,12 +250,16 @@ pub struct StashedServer {
 const CLI_TIMEOUT: Duration = Duration::from_secs(10);
 /// The stash's subfolder for this engine: its `registry::HOSTS` id.
 const HOST_FOLDER: &str = "claude-code";
+/// How a pre-flight's scratch folder is named, before its uuid.
+const SCRATCH_PREFIX: &str = ".preflight-";
 const SCOPE: &str = "user";
 const PRIVATE_FILE: u32 = 0o600;
 const PRIVATE_FOLDER: u32 = 0o700;
 
 const STASH_NOT_ABSOLUTE: &str = "the stash folder's path is not absolute";
+const STASH_NOT_UTF8: &str = "the stash folder's path is not valid UTF-8";
 const NO_STASH_FOLDER: &str = "the stash folder could not be made";
+const NO_SCRATCH_FOLDER: &str = "the scratch folder for the trial run could not be made";
 const NOT_KEPT: &str = "the server's entry could not be kept, so it was not removed";
 const NOT_DELETED: &str = "the server is declared again, and its kept copy could not be deleted";
 
@@ -217,7 +279,8 @@ const JSONC: ParseOptions = ParseOptions {
     allow_extended_string_escapes: false,
 };
 
-/// Off: keep the entry, then remove it with Claude Code's own command.
+/// Off: check the entry would come back, keep it, then remove it with Claude
+/// Code's own command.
 ///
 /// `config` is the `.claude.json` the server was read from; it is only read.
 /// `stash` is the folder for kept servers, under the app's data directory.
@@ -250,6 +313,10 @@ pub async fn claude_off_within(
         Read::Found(entry) if entry.value.is_object() => entry,
         _ => return Err(SwitchError::NotFound),
     };
+    let folder = stash_folder(stash)?;
+    // Before anything is kept or removed: what cannot be given back is left
+    // where it is.
+    comes_back(&folder, name, &entry, cli, path_env, timeout).await?;
     let kept = Kept {
         id: uuid::Uuid::new_v4().to_string(),
         name: name.to_string(),
@@ -258,7 +325,7 @@ pub async fn claude_off_within(
     };
     // Before the command: from here on the entry is in the stash, whatever
     // happens to the one in the file.
-    let kept_file = keep(stash, &kept)?;
+    let kept_file = keep(&folder, &kept)?;
 
     let args = ["mcp", "remove", name, "--scope", SCOPE];
     // What the command reports is not used. The file is read instead.
@@ -310,8 +377,7 @@ pub async fn claude_on_within(
         Read::Unreadable => return Err(SwitchError::NotVerified),
     }
 
-    // `-` has the command read the entry from stdin. It is never an argument.
-    let args = ["mcp", "add-json", kept.name.as_str(), "-", "--scope", SCOPE];
+    let args = add_json(&kept.name);
     let entry = kept.entry.text.as_bytes();
     let _ = run_capture(cli, &args, Some(entry), &[("PATH", path_env)], timeout).await;
 
@@ -472,8 +538,14 @@ fn file_name(id: &str) -> String {
     format!("{id}.json")
 }
 
-/// Write a kept server to the stash and sync it. Returns the file.
-fn keep(stash: &Path, kept: &Kept) -> Result<PathBuf, SwitchError> {
+/// The arguments of the on command. `-` has it read the entry from stdin:
+/// the entry is never an argument.
+fn add_json(name: &str) -> [&str; 6] {
+    ["mcp", "add-json", name, "-", "--scope", SCOPE]
+}
+
+/// The stash's folder for this engine, made private if it is missing.
+fn stash_folder(stash: &Path) -> Result<PathBuf, SwitchError> {
     if !stash.is_absolute() {
         return Err(SwitchError::StashFailed(STASH_NOT_ABSOLUTE.to_string()));
     }
@@ -483,7 +555,57 @@ fn keep(stash: &Path, kept: &Kept) -> Result<PathBuf, SwitchError> {
         .mode(PRIVATE_FOLDER)
         .create(&folder)
         .map_err(|error| SwitchError::StashFailed(note(NO_STASH_FOLDER, &error)))?;
+    Ok(folder)
+}
 
+/// A pre-flight's scratch folder. Removed, with what Claude Code wrote into
+/// it, when this is dropped: on a pass, on a refusal, on an error, and when
+/// the switch is abandoned part-way.
+struct Scratch(PathBuf);
+
+impl Drop for Scratch {
+    fn drop(&mut self) {
+        let _ = fs::remove_dir_all(&self.0);
+    }
+}
+
+/// The pre-flight: `Ok` only if Claude Code's own on command, handed this
+/// entry, writes the same entry back.
+///
+/// The command is run with `CLAUDE_CONFIG_DIR` naming a scratch folder in
+/// `folder`, so it never changes the `.claude.json` the server is declared
+/// in. See "The pre-flight" in the module doc.
+async fn comes_back(
+    folder: &Path,
+    name: &str,
+    entry: &Entry,
+    cli: &Path,
+    path_env: &str,
+    timeout: Duration,
+) -> Result<(), SwitchError> {
+    let path = folder.join(format!("{SCRATCH_PREFIX}{}", uuid::Uuid::new_v4()));
+    DirBuilder::new()
+        .mode(PRIVATE_FOLDER)
+        .create(&path)
+        .map_err(|error| SwitchError::StashFailed(note(NO_SCRATCH_FOLDER, &error)))?;
+    let scratch = Scratch(path);
+    let Some(config_dir) = scratch.0.to_str() else {
+        return Err(SwitchError::StashFailed(STASH_NOT_UTF8.to_string()));
+    };
+
+    let envs = [("PATH", path_env), ("CLAUDE_CONFIG_DIR", config_dir)];
+    let ran = run_capture(cli, &add_json(name), Some(entry.text.as_bytes()), &envs, timeout).await;
+
+    match read_entry(&scratch.0.join(".claude.json"), name) {
+        Read::Found(back) if back.value == entry.value => Ok(()),
+        // No answer from the command says nothing about the entry.
+        _ if ran.is_none() => Err(SwitchError::CliFailed),
+        _ => Err(SwitchError::WouldNotComeBack),
+    }
+}
+
+/// Write a kept server to the stash folder and sync it. Returns the file.
+fn keep(folder: &Path, kept: &Kept) -> Result<PathBuf, SwitchError> {
     let path = folder.join(file_name(&kept.id));
     // `create_new`: a file of that name is another kept server, and is never
     // written over.

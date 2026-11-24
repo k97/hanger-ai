@@ -2043,20 +2043,75 @@ fn stage(config_text: &str) -> Stage {
 }
 
 impl Stage {
-    /// Write the fake `claude`. Whatever it is asked, it first records its
-    /// arguments (one per line), its input, its PATH and the names in
-    /// Hanger's stash folder at that moment. Then it does `then`.
+    /// Write the fake `claude`, with a trial run that hands back what it is
+    /// given: what the real one does with an entry it knows every key of.
     fn fake(&self, then: &str) {
+        self.fake_with_trial(&self.hands_back(), then);
+    }
+
+    /// Write the fake `claude`. Like the real one, it writes where
+    /// `CLAUDE_CONFIG_DIR` says. That makes two kinds of run:
+    ///
+    /// - a trial: `add-json` with `CLAUDE_CONFIG_DIR` naming a scratch folder
+    ///   inside Hanger's stash. It records its input, that folder and the
+    ///   folder's mode, then does `trial`.
+    /// - a real one: anything else, which is aimed at the stage's config. It
+    ///   records its input, its PATH and the names in the stash folder at
+    ///   that moment, then does `then`.
+    ///
+    /// Every run first notes its kind and appends its arguments, one per line.
+    fn fake_with_trial(&self, trial: &str, then: &str) {
+        let at = |name: &str| sh(&self.root.join(name));
         let script = format!(
-            "#!/bin/sh\nfor arg in \"$@\"; do printf '%s\\n' \"$arg\"; done >> {argv}\ncat > {stdin}\nprintf '%s' \"$PATH\" > {path}\nls {kept} > {seen} 2>/dev/null\n{then}\n",
-            argv = sh(&self.root.join("argv.log")),
-            stdin = sh(&self.root.join("stdin.log")),
-            path = sh(&self.root.join("path.log")),
+            "#!/bin/sh
+kind=real
+if [ \"$2\" = add-json ]; then
+  case \"$CLAUDE_CONFIG_DIR\" in
+    {kept}/.preflight-*) kind=trial ;;
+  esac
+fi
+printf '%s %s\\n' \"$kind\" \"$2\" >> {calls}
+for arg in \"$@\"; do printf '%s\\n' \"$arg\"; done >> {argv}
+if [ \"$kind\" = trial ]; then
+cat > {trial_stdin}
+printf '%s' \"$CLAUDE_CONFIG_DIR\" > {trial_dir}
+ls -ld \"$CLAUDE_CONFIG_DIR\" > {trial_mode}
+printf '%s' \"$PATH\" > {trial_path}
+{trial}
+exit
+fi
+cat > {stdin}
+printf '%s' \"$PATH\" > {path}
+ls {kept} > {seen} 2>/dev/null
+{then}
+",
             kept = sh(&self.kept_folder()),
-            seen = sh(&self.root.join("seen.log")),
+            calls = at("calls.log"),
+            argv = at("argv.log"),
+            trial_stdin = at("trial-stdin.log"),
+            trial_dir = at("trial-dir.log"),
+            trial_mode = at("trial-mode.log"),
+            trial_path = at("trial-path.log"),
+            stdin = at("stdin.log"),
+            path = at("path.log"),
+            seen = at("seen.log"),
         );
         fs::write(&self.cli, script).unwrap();
         fs::set_permissions(&self.cli, fs::Permissions::from_mode(0o755)).unwrap();
+    }
+
+    /// Trial script: write back the entry that arrived on stdin, as it came.
+    fn hands_back(&self) -> String {
+        format!(
+            "{{ printf '{{\"mcpServers\": {{\"%s\": ' \"$3\"; cat {}; printf '}}}}'; }} > \"$CLAUDE_CONFIG_DIR/.claude.json\"\n{SAYS_ADDED}",
+            sh(&self.root.join("trial-stdin.log")),
+        )
+    }
+
+    /// Trial script: write `wrote` as the scratch folder's `.claude.json`,
+    /// whatever arrived, and report success.
+    fn writes_instead(&self, wrote: &str) -> String {
+        format!("cp {} \"$CLAUDE_CONFIG_DIR/.claude.json\"\n{SAYS_ADDED}", sh(&self.bake("trial-wrote.json", wrote)))
     }
 
     /// A file for the fake to copy into place.
@@ -2114,23 +2169,35 @@ impl Stage {
         self.root.join("argv.log").exists()
     }
 
+    /// Each run of the fake, in order: `trial add-json`, `real remove` or
+    /// `real add-json`.
+    fn calls(&self) -> Vec<String> {
+        self.log("calls.log").lines().map(str::to_string).collect()
+    }
+
+    /// The scratch folder the last trial run was pointed at.
+    fn trial_folder(&self) -> PathBuf {
+        PathBuf::from(self.log("trial-dir.log"))
+    }
+
     /// Every argument the fake has been given, across all its runs.
     fn argv(&self) -> Vec<String> {
         self.log("argv.log").lines().map(str::to_string).collect()
     }
 
-    /// What the fake's last run read on stdin.
+    /// What the fake's last real run read on stdin.
     fn stdin(&self) -> String {
         self.log("stdin.log")
     }
 
-    /// The names in the stash folder at the moment the fake last started.
+    /// The names in the stash folder at the moment the fake's last real run
+    /// started.
     fn kept_when_the_cli_ran(&self) -> Vec<String> {
         self.log("seen.log").lines().map(str::to_string).collect()
     }
 
     fn forget_runs(&self) {
-        for name in ["argv.log", "stdin.log", "path.log", "seen.log"] {
+        for name in ["calls.log", "argv.log", "stdin.log", "path.log", "seen.log", "trial-stdin.log", "trial-dir.log", "trial-mode.log", "trial-path.log"] {
             let _ = fs::remove_file(self.root.join(name));
         }
     }
@@ -2139,6 +2206,7 @@ impl Stage {
         self.stash.join("claude-code")
     }
 
+    /// Every name in the stash folder, a scratch folder included.
     fn kept_files(&self) -> Vec<String> {
         names_in(&self.kept_folder())
     }
@@ -2224,14 +2292,18 @@ async fn off_and_on_run_claude_codes_own_two_commands() {
     stage.fake(&stage.removes(&claude_json(&[])));
     let kept = stage.off("beta").await.expect("off");
 
-    assert_eq!(stage.argv(), ["mcp", "remove", "beta", "--scope", "user"]);
+    // The trial `add-json`, then the remove.
+    assert_eq!(stage.calls(), ["trial add-json", "real remove"]);
+    assert_eq!(stage.argv(), ["mcp", "add-json", "beta", "-", "--scope", "user", "mcp", "remove", "beta", "--scope", "user"]);
     assert_eq!(stage.stdin(), "", "a remove is handed nothing on stdin");
     assert_eq!(stage.log("path.log"), CHILD_PATH, "the search path given is the child's PATH");
+    assert_eq!(stage.log("trial-path.log"), CHILD_PATH);
 
     stage.forget_runs();
     stage.fake(&stage.adds("beta", &[]));
     stage.on(&kept.id).await.expect("on");
 
+    assert_eq!(stage.calls(), ["real add-json"]);
     assert_eq!(stage.argv(), ["mcp", "add-json", "beta", "-", "--scope", "user"]);
     assert_eq!(stage.log("path.log"), CHILD_PATH);
 }
@@ -2246,7 +2318,8 @@ async fn a_remove_that_exits_nonzero_is_an_error() {
 
     assert_eq!(stage.off("beta").await, Err(SwitchError::CliFailed));
 
-    assert_eq!(stage.argv(), ["mcp", "remove", "beta", "--scope", "user"]);
+    assert_eq!(stage.calls(), ["trial add-json", "real remove"]);
+    assert_eq!(stage.argv()[6..], ["mcp", "remove", "beta", "--scope", "user"]);
     assert_eq!(stage.config_text(), before);
 }
 
@@ -2439,12 +2512,12 @@ async fn secrets_go_over_stdin_never_argv() {
     stage.fake(&stage.adds("beta", &[]));
     let on = stage.on(&kept.id).await;
 
-    // Both runs' arguments: the remove's, then the add's.
+    // Every run's arguments: the trial add's, the remove's, then the add's.
     let argv = stage.argv();
     for value in [KEPT_ENV_VALUE, KEPT_COMMAND, KEPT_ARG, "ZED_SETTING"] {
         assert!(!argv.iter().any(|arg| arg.contains(value)), "{value} was passed as an argument: {argv:?}");
     }
-    assert_eq!(argv.len(), 11, "five arguments to remove and six to add-json: {argv:?}");
+    assert_eq!(argv.len(), 17, "five arguments to remove and six to each add-json: {argv:?}");
     assert!(stage.stdin().contains(KEPT_ENV_VALUE), "the entry did not arrive on stdin: {:?}", stage.stdin());
     on.expect("on");
 }
@@ -2645,6 +2718,8 @@ async fn no_switch_error_quotes_the_entry() {
     fs::write(&stage.config, claude_json(&[("delta", DELTA)])).unwrap();
     stage.fake(&stage.leaves(&claude_json(&[("delta", DELTA)])));
     errors.push(stage.on(&id).await);
+    stage.fake_with_trial(&stage.writes_instead("{\"mcpServers\": {\"delta\": {\"type\": \"http\"}}}"), SAYS_REMOVED);
+    errors.push(stage.off("delta").await);
 
     let kinds: Vec<&str> = errors
         .iter()
@@ -2655,14 +2730,212 @@ async fn no_switch_error_quotes_the_entry() {
             Err(SwitchError::StashFailed(_)) => "stash",
             Err(SwitchError::NotVerified) => "not verified",
             Err(SwitchError::AlreadyThere) => "already there",
+            Err(SwitchError::WouldNotComeBack) => "would not come back",
             Ok(_) => panic!("expected a refusal"),
         })
         .collect();
-    assert_eq!(kinds, ["cli", "name", "not found", "stash", "not verified", "already there", "not verified", "cli"]);
+    assert_eq!(kinds, ["cli", "name", "not found", "stash", "not verified", "already there", "not verified", "cli", "would not come back"]);
     for result in &errors {
         let said = format!("{result:?}");
         for value in KEPT_VALUES.into_iter().chain(["ZED_SETTING", "another-command"]) {
             assert!(!said.contains(value), "an error quotes the entry ({value}): {said}");
         }
     }
+}
+
+// --- The trial run: `claude_off` removes only what `add-json` gives back ----
+//
+// Measured against claude 2.1.331 on 2026-11-24, in a throwaway
+// `CLAUDE_CONFIG_DIR`: `claude mcp add-json` drops every key it does not
+// know, `description` included, and still exits 0 saying the server was
+// added; and it refuses an entry that has a `url` and no `type`.
+
+/// An entry with a key Claude Code does not know.
+const EPSILON: &str = r#"{
+      "command": "epsilon-server",
+      "args": ["serve"],
+      "description": "what this server is for"
+    }"#;
+/// The scratch `.claude.json` Claude Code was measured to write for it.
+const EPSILON_AS_WRITTEN_BACK: &str = "{\"mcpServers\": {\"epsilon\": {\"command\": \"epsilon-server\", \"args\": [\"serve\"]}}}";
+/// A remote server with no `type`.
+const ZETA: &str = r#"{
+      "url": "https://example.test/mcp"
+    }"#;
+/// What Claude Code was measured to say to it. It writes nothing.
+const REFUSES_TO_ADD: &str = "printf 'Invalid configuration: it has a \"url\" but no \"type\". Add \"type\": \"http\" (or \"sse\" / \"ws\").\\n'\nexit 1";
+
+/// The server was left alone: the config's bytes are as they were, nothing
+/// is kept, no scratch folder is left, and the one thing run was the trial.
+fn assert_not_switched_off(stage: &Stage, before: &str) {
+    assert_eq!(stage.config_text(), before, "the real config was changed");
+    assert_eq!(stage.kept_files(), Vec::<String>::new());
+    assert_eq!(vendor::claude_stashed(&stage.stash), vec![]);
+    assert_eq!(stage.calls(), ["trial add-json"], "{:?}", stage.argv());
+    assert!(!stage.argv().iter().any(|arg| arg == "remove"), "{:?}", stage.argv());
+}
+
+#[tokio::test]
+async fn a_server_claude_code_would_drop_a_key_from_is_not_switched_off() {
+    // The fixture is the measured case: what comes back is the entry without
+    // `description`, and nothing else differs.
+    let mut without = json(EPSILON);
+    without.as_object_mut().unwrap().remove("description").expect("the fixture carries a description");
+    assert_eq!(json(EPSILON_AS_WRITTEN_BACK)["mcpServers"]["epsilon"], without);
+
+    let before = claude_json(&[("epsilon", EPSILON)]);
+    let stage = stage(&before);
+    // The remove would work if it were asked.
+    stage.fake_with_trial(&stage.writes_instead(EPSILON_AS_WRITTEN_BACK), &stage.removes(&claude_json(&[])));
+
+    assert_eq!(stage.off("epsilon").await, Err(SwitchError::WouldNotComeBack));
+
+    assert_not_switched_off(&stage, &before);
+}
+
+#[tokio::test]
+async fn a_server_claude_code_refuses_to_add_is_not_switched_off() {
+    let before = claude_json(&[("zeta", ZETA)]);
+    let stage = stage(&before);
+    stage.fake_with_trial(REFUSES_TO_ADD, &stage.removes(&claude_json(&[])));
+
+    assert_eq!(stage.off("zeta").await, Err(SwitchError::WouldNotComeBack));
+
+    assert_not_switched_off(&stage, &before);
+}
+
+#[tokio::test]
+async fn the_preflight_hands_the_entry_over_stdin_and_never_argv() {
+    let stage = stage(&claude_json(&[("beta", BETA)]));
+    stage.fake(&stage.removes(&claude_json(&[])));
+
+    let off = stage.off("beta").await;
+
+    let argv = stage.argv();
+    for value in [KEPT_ENV_VALUE, KEPT_COMMAND, KEPT_ARG, "ZED_SETTING"] {
+        assert!(!argv.iter().any(|arg| arg.contains(value)), "{value} was passed as an argument: {argv:?}");
+    }
+    assert_eq!(argv[..6], ["mcp", "add-json", "beta", "-", "--scope", "user"]);
+    // What the trial was handed is the entry, as it was written.
+    let handed = stage.log("trial-stdin.log");
+    assert_eq!(json(&handed), json(BETA));
+    assert_in_order(&handed, &BETA_KEY_ORDER);
+    off.expect("off");
+}
+
+#[tokio::test]
+async fn the_preflight_scratch_folder_is_private_and_is_gone_afterwards() {
+    // Claude Code writes the entry into it, credentials and all.
+    let passes = stage(&claude_json(&[("beta", BETA)]));
+    passes.fake(&passes.removes(&claude_json(&[])));
+    let kept = passes.off("beta").await.expect("off");
+
+    let fails = stage(&claude_json(&[("zeta", ZETA)]));
+    fails.fake_with_trial(REFUSES_TO_ADD, SAYS_REMOVED);
+    assert_eq!(fails.off("zeta").await, Err(SwitchError::WouldNotComeBack));
+
+    for stage in [&passes, &fails] {
+        let scratch = stage.trial_folder();
+        // Inside the stash folder, which is private too, and never in the
+        // system's temp folder.
+        assert_eq!(scratch.parent(), Some(stage.kept_folder().as_path()), "{}", scratch.display());
+        assert!(scratch.file_name().unwrap().to_str().unwrap().starts_with(".preflight-"), "{}", scratch.display());
+        let mode = stage.log("trial-mode.log");
+        assert!(mode.starts_with("drwx------"), "the scratch folder was not private while the command ran: {mode}");
+        assert!(!scratch.exists(), "the scratch folder was left behind: {}", scratch.display());
+    }
+    assert_eq!(passes.kept_files(), vec![format!("{}.json", kept.id)]);
+    assert_eq!(fails.kept_files(), Vec::<String>::new());
+}
+
+#[tokio::test]
+async fn the_preflight_never_runs_against_the_real_config() {
+    let stage = stage(&claude_json(&[("beta", BETA)]));
+    // An `add-json` that is not aimed at a scratch folder is aimed at the
+    // file Claude Code really reads. During an off that must not happen, so
+    // this fake leaves a marker and fails.
+    let marker = stage.root.join("add-json-ran-against-the-real-config");
+    let loud = format!("if [ \"$2\" = add-json ]; then : > {}; echo 'add-json: not a scratch folder' >&2; exit 9; fi", sh(&marker));
+    stage.fake(&format!("{loud}\n{}", stage.removes(&claude_json(&[]))));
+
+    let off = stage.off("beta").await;
+
+    assert!(!marker.exists(), "the trial add-json was run against the real config: {:?}", stage.calls());
+    assert_eq!(stage.calls(), ["trial add-json", "real remove"]);
+    assert_ne!(Some(stage.trial_folder().as_path()), stage.config.parent());
+    assert!(stage.trial_folder().starts_with(stage.kept_folder()));
+    // The real file changed once, and the remove is what changed it.
+    assert_eq!(stage.config_text(), claude_json(&[]));
+    off.expect("off");
+}
+
+#[tokio::test]
+async fn a_preflight_that_cannot_run_or_never_ends_is_a_cli_failure() {
+    // Neither says anything about the entry, so neither is "would not come
+    // back". What matters is the same: nothing kept, nothing removed.
+    let before = claude_json(&[("beta", BETA)]);
+    let stage = stage(&before);
+
+    let no_such_program = stage.root.join("bin").join("no-such-claude");
+    let result = vendor::claude_off_within(&stage.config, "beta", &stage.stash, &no_such_program, CHILD_PATH, QUICK_CLI).await;
+    assert_eq!(result, Err(SwitchError::CliFailed));
+    assert_eq!(stage.config_text(), before);
+    assert_eq!(stage.kept_files(), Vec::<String>::new());
+
+    stage.fake_with_trial("exec /bin/sleep 20", &stage.removes(&claude_json(&[])));
+    assert_eq!(stage.off("beta").await, Err(SwitchError::CliFailed));
+    assert_not_switched_off(&stage, &before);
+}
+
+#[tokio::test]
+async fn a_preflight_that_wrote_the_entry_back_and_then_hung_still_passes() {
+    // As for the remove: the file decides, not whether the command ended.
+    let stage = stage(&claude_json(&[("beta", BETA)]));
+    stage.fake_with_trial(&format!("{}\nexec /bin/sleep 20", stage.hands_back()), &stage.removes(&claude_json(&[])));
+
+    let kept = stage.off("beta").await.expect("the entry came back equal, so the server is switched off");
+
+    assert_eq!(stage.calls(), ["trial add-json", "real remove"]);
+    assert_eq!(stage.entry("beta"), None);
+    assert_eq!(stage.kept_files(), vec![format!("{}.json", kept.id)]);
+}
+
+#[tokio::test]
+async fn a_stash_that_stops_taking_files_after_the_preflight_stops_the_switch_before_the_remove() {
+    let before = claude_json(&[("beta", BETA)]);
+    let stage = stage(&before);
+    // The trial passes, and the stash folder stops accepting changes.
+    let closes = format!("{}\nchmod 500 {}", stage.hands_back(), sh(&stage.kept_folder()));
+    stage.fake_with_trial(&closes, &stage.removes(&claude_json(&[])));
+
+    let result = stage.off("beta").await;
+    fs::set_permissions(stage.kept_folder(), fs::Permissions::from_mode(0o700)).unwrap();
+
+    // With no kept copy the server is never removed.
+    assert!(matches!(result, Err(SwitchError::StashFailed(_))), "{result:?}");
+    assert_eq!(stage.calls(), ["trial add-json"]);
+    assert_eq!(stage.config_text(), before);
+    assert_eq!(vendor::claude_stashed(&stage.stash), vec![]);
+}
+
+#[tokio::test]
+async fn a_stray_preflight_folder_is_not_listed_as_a_kept_server() {
+    // What a crash in the middle of a trial run leaves behind.
+    let stage = stage(&claude_json(&[("beta", BETA)]));
+    let stray = stage.kept_folder().join(".preflight-00000000-0000-4000-8000-000000000009");
+    fs::create_dir_all(&stray).unwrap();
+    fs::write(stray.join(".claude.json"), "{\"mcpServers\": {\"left-behind\": {\"command\": \"stray-server\"}}}").unwrap();
+
+    assert_eq!(vendor::claude_stashed(&stage.stash), vec![]);
+    stage.fake(&stage.adds("left-behind", &[]));
+    for id in [".preflight-00000000-0000-4000-8000-000000000009", "00000000-0000-4000-8000-000000000009"] {
+        assert_eq!(stage.on(id).await, Err(SwitchError::NotFound), "{id}");
+    }
+    assert!(!stage.ran());
+
+    // It does not get in the way of a later switch, and nothing tidies it.
+    stage.fake(&stage.removes(&claude_json(&[])));
+    let kept = stage.off("beta").await.expect("off, with a stray folder in the stash");
+    assert_eq!(vendor::claude_stashed(&stage.stash), vec![kept]);
+    assert!(stray.join(".claude.json").exists());
 }
