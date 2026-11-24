@@ -3850,3 +3850,811 @@ fn no_system_wide_source_is_a_glob() {
         assert!(!path.contains('*'), "{path}");
     }
 }
+
+// ---------------------------------------------------------------------------
+// From the webview: `mcp::switch::ops`. The four commands in `lib.rs` are thin
+// wrappers over these functions, which take every folder as a parameter: the
+// home, the system root, the backups folder and the stash are all inside a
+// temp folder here, and the only `claude` is the fake above.
+//
+// The key and the receipt id are what the webview sends, so they are treated
+// as untrusted: most of this section is about what is refused.
+// ---------------------------------------------------------------------------
+
+use tauri_app_lib::mcp::switch::ops::{self, ClaudeCli, SwitchFailure, SwitchPlaces, SwitchReply};
+
+/// The four folders, all under one temp root, laid out as `Stage` and
+/// `Machine` lay theirs out.
+fn places_at(root: &Path) -> SwitchPlaces {
+    // As in `machine`: discovery resolves a relocated config folder from the
+    // process environment, not from the home it is handed.
+    std::env::remove_var("CLAUDE_CONFIG_DIR");
+    std::env::remove_var("CODEX_HOME");
+    let switch = root.join("data").join("switch");
+    SwitchPlaces { home: root.join("home"), system: root.join("system"), backups: switch.join("backups"), stash: switch.join("stash") }
+}
+
+/// No `claude` on the search path.
+fn no_cli() -> ClaudeCli {
+    ClaudeCli { program: None, path_env: CHILD_PATH.to_string() }
+}
+
+impl Machine {
+    fn places(&self) -> SwitchPlaces {
+        places_at(&self.root)
+    }
+
+    fn backups(&self) -> PathBuf {
+        self.places().backups
+    }
+}
+
+impl Stage {
+    fn places(&self) -> SwitchPlaces {
+        let places = places_at(&self.root);
+        assert_eq!(places.stash, self.stash);
+        places
+    }
+
+    /// The fake, as the resolved `claude`.
+    fn claude(&self) -> ClaudeCli {
+        ClaudeCli { program: Some(self.cli.clone()), path_env: CHILD_PATH.to_string() }
+    }
+
+    /// A fake that removes and adds `beta` as the real one would, whichever
+    /// of the two it is asked for.
+    fn fake_that_does_both(&self) {
+        let script = format!(
+            "if [ \"$2\" = remove ]; then\n{}\nelse\n{}\nfi",
+            self.removes(&claude_json(&[])),
+            self.adds("beta", &[]),
+        );
+        self.fake(&script);
+    }
+
+    fn key(&self, name: &str) -> String {
+        key_in(&self.config, name)
+    }
+}
+
+/// The key the webview holds for a server: its file's path and its name.
+fn key_in(file: &Path, name: &str) -> String {
+    format!("{}:{name}", file.display())
+}
+
+async fn ops_set(places: &SwitchPlaces, cli: &ClaudeCli, engine: &str, key: &str, enabled: bool) -> Result<SwitchReply, SwitchFailure> {
+    ops::set_enabled_for(places, cli, engine, key, enabled, |_| None).await
+}
+
+async fn ops_undo(places: &SwitchPlaces, cli: &ClaudeCli, engine: &str, receipt_id: &str) -> Result<SwitchReply, SwitchFailure> {
+    ops::undo_for(places, cli, engine, receipt_id, |_| None).await
+}
+
+/// The receipt id of a switch that changed something.
+fn receipt_of(reply: &SwitchReply) -> String {
+    assert!(reply.undoable, "a switch that changed something can be undone");
+    reply.receipt_id.clone().expect("a switch that changed something has a receipt")
+}
+
+fn failure(result: Result<SwitchReply, SwitchFailure>) -> SwitchFailure {
+    match result {
+        Ok(reply) => panic!("the switch was not refused: {reply:?}"),
+        Err(failure) => failure,
+    }
+}
+
+fn modified(path: &Path) -> std::time::SystemTime {
+    fs::metadata(path).and_then(|meta| meta.modified()).unwrap_or_else(|e| panic!("{}: {e}", path.display()))
+}
+
+// --- A real file, round trip -------------------------------------------------
+
+#[tokio::test]
+async fn switching_codex_off_and_on_round_trips_a_real_file() {
+    let machine = machine(&[(".codex/config.toml", CODEX)]);
+    let file = machine.home().join(".codex/config.toml");
+    let (places, key) = (machine.places(), key_in(&file, "beta"));
+
+    // Off: one line is added to beta's table, and nothing else moves.
+    let off = ops_set(&places, &no_cli(), "codex", &key, false).await.expect("beta is switched off");
+    let after_off = fs::read_to_string(&file).unwrap();
+    let (added, removed) = line_diff(CODEX, &after_off);
+    assert_eq!(added, vec!["enabled = false".to_string()]);
+    assert!(removed.is_empty(), "{removed:?}");
+    let last_key = "env = { GREETING = \"fixture-value\" }\n";
+    assert_eq!(after_off, CODEX.replacen(last_key, &format!("{last_key}enabled = false\n"), 1), "every other byte is as it was");
+    assert_eq!(edit::read_flag(&after_off, Dialect::CodexToml, SwitchKind::EnabledKey, "beta"), Ok(Some(false)));
+    let off_receipt = receipt_of(&off);
+    assert!(off_receipt.starts_with("file:"), "{off_receipt}");
+    // As the webview receives it: three fields and no more.
+    let said = serde_json::to_value(&off).unwrap();
+    assert_eq!(keys_of(&said), ["context", "receipt_id", "undoable"]);
+    assert_eq!((&said["receipt_id"], &said["undoable"]), (&serde_json::Value::String(off_receipt.clone()), &serde_json::Value::Bool(true)));
+    // The reply's context was built after the write.
+    assert_eq!(verdict(item(&off.context, "beta")), (ItemState::Off, None));
+    assert_eq!(verdict(item(&off.context, "zebra")), (ItemState::On, None));
+    assert_eq!(off.context.engine_id, "codex");
+    assert_counts_agree(&off.context);
+    // And what was replaced is in the backups folder, byte for byte.
+    let backups = backups_in(&machine.backups());
+    assert_eq!(backups.len(), 1, "{backups:?}");
+    assert_eq!(fs::read_to_string(machine.backups().join(&backups[0])).unwrap(), CODEX);
+
+    // On: the flag says true.
+    let on = ops_set(&places, &no_cli(), "codex", &key, true).await.expect("beta is switched on");
+    let after_on = fs::read_to_string(&file).unwrap();
+    assert_eq!(after_on, after_off.replacen("enabled = false\n", "enabled = true\n", 1));
+    assert_eq!(verdict(item(&on.context, "beta")), (ItemState::On, None));
+    let on_receipt = receipt_of(&on);
+    assert_ne!(on_receipt, off_receipt);
+
+    // The off cannot be taken back while the file holds what the on left.
+    assert_eq!(failure(ops_undo(&places, &no_cli(), "codex", &off_receipt).await), SwitchFailure::NotUndoable);
+    assert_eq!(fs::read_to_string(&file).unwrap(), after_on);
+
+    // Undo the on, then the off: the exact original bytes.
+    let back_off = ops_undo(&places, &no_cli(), "codex", &on_receipt).await.expect("the on is undone");
+    assert_eq!(fs::read_to_string(&file).unwrap(), after_off);
+    assert_eq!(verdict(item(&back_off.context, "beta")), (ItemState::Off, None));
+    assert!(receipt_of(&back_off).starts_with("file:"), "an Undo has a receipt of its own");
+    let back = ops_undo(&places, &no_cli(), "codex", &off_receipt).await.expect("the off is undone");
+    assert_eq!(fs::read(&file).unwrap(), CODEX.as_bytes(), "Undo gives back the exact original bytes");
+    assert_eq!(verdict(item(&back.context, "beta")), (ItemState::On, None));
+
+    // And an Undo can be undone: beta is off again.
+    let again = ops_undo(&places, &no_cli(), "codex", &receipt_of(&back)).await.expect("the Undo is undone");
+    assert_eq!(fs::read_to_string(&file).unwrap(), after_off);
+    assert_eq!(verdict(item(&again.context, "beta")), (ItemState::Off, None));
+}
+
+#[tokio::test]
+async fn switching_to_the_state_a_server_already_has_writes_nothing() {
+    let machine = machine(&[(".codex/config.toml", CTX_CODEX), (".gemini/settings.json", CTX_GEMINI_HOME)]);
+    let places = machine.places();
+    let codex = machine.home().join(".codex/config.toml");
+    let before = modified(&codex);
+
+    // alpha has no flag and is on; beta says `enabled = false`; gamma says
+    // `enabled = true`.
+    for (name, enabled) in [("alpha", true), ("beta", false), ("gamma", true)] {
+        let reply = ops_set(&places, &no_cli(), "codex", &key_in(&codex, name), enabled).await.expect(name);
+        assert_eq!((reply.receipt_id.as_deref(), reply.undoable), (None, false), "{name}");
+        assert_eq!(reply.context.items.len(), 4, "the reply still carries the context");
+        let said = serde_json::to_value(&reply).unwrap();
+        assert_eq!((&said["receipt_id"], &said["undoable"]), (&serde_json::Value::Null, &serde_json::Value::Bool(false)), "{name}");
+    }
+    assert_eq!(fs::read_to_string(&codex).unwrap(), CTX_CODEX);
+    assert_eq!(modified(&codex), before);
+
+    // Gemini: on, with no state file. Nothing is switched off, so no file is made.
+    let gemini = machine.home().join(".gemini/settings.json");
+    let reply = ops_set(&places, &no_cli(), "gemini", &key_in(&gemini, "beta"), true).await.expect("beta is already on");
+    assert_eq!((reply.receipt_id.as_deref(), reply.undoable), (None, false));
+    assert!(!machine.home().join(".gemini/mcp-server-enablement.json").exists());
+
+    assert!(!machine.backups().exists(), "nothing was written, so nothing was backed up");
+}
+
+// --- What a key has to be ----------------------------------------------------
+
+#[tokio::test]
+async fn a_key_for_another_engine_is_refused() {
+    let machine = machine(&[(".codex/config.toml", CTX_CODEX), (".gemini/settings.json", CTX_GEMINI_HOME)]);
+    let places = machine.places();
+    let codex = machine.home().join(".codex/config.toml");
+    let key = key_in(&codex, "alpha");
+    // The key is a real one: Codex can be switched by it.
+    let context = ops::context_for(&places, "codex", |_| None);
+    assert_eq!((item(&context, "alpha").key.as_str(), item(&context, "alpha").read_only), (key.as_str(), None));
+
+    // Gemini declares an `alpha` of its own, in another file. Asked to switch
+    // Codex's, it must not write Codex's file, and must not take the name and
+    // write its own state file either.
+    for enabled in [false, true] {
+        assert_eq!(failure(ops_set(&places, &no_cli(), "gemini", &key, enabled).await), SwitchFailure::WrongEngine);
+    }
+    for engine in ["claude-code", "cursor"] {
+        assert_eq!(failure(ops_set(&places, &no_cli(), engine, &key, false).await), SwitchFailure::WrongEngine, "{engine}");
+    }
+    // An engine Hanger has never heard of owns nothing.
+    assert_eq!(failure(ops_set(&places, &no_cli(), "no-such-engine", &key, false).await), SwitchFailure::WrongEngine);
+
+    assert_eq!(fs::read_to_string(&codex).unwrap(), CTX_CODEX);
+    assert!(!machine.home().join(".gemini/mcp-server-enablement.json").exists());
+    assert!(!machine.backups().exists());
+}
+
+#[tokio::test]
+async fn a_key_naming_a_file_another_engine_declares_servers_in_is_refused() {
+    let machine = machine(&[(".codex/config.toml", CTX_CODEX), (".cursor/mcp.json", CTX_JSON_MARKED), (".gemini/settings.json", CTX_GEMINI_HOME)]);
+    let places = machine.places();
+    let cursor = machine.home().join(".cursor/mcp.json");
+    let gemini = machine.home().join(".gemini/settings.json");
+    let (cursor_before, gemini_before) = (modified(&cursor), modified(&gemini));
+
+    // A real file of another engine's, and a server it does declare.
+    assert_eq!(failure(ops_set(&places, &no_cli(), "codex", &key_in(&cursor, "alpha"), false).await), SwitchFailure::WrongEngine);
+    assert_eq!(failure(ops_set(&places, &no_cli(), "codex", &key_in(&gemini, "beta"), false).await), SwitchFailure::WrongEngine);
+    // The same file, and a name nobody declares in it.
+    assert_eq!(failure(ops_set(&places, &no_cli(), "codex", &key_in(&cursor, "nobody"), false).await), SwitchFailure::NotFound);
+
+    assert_eq!(fs::read_to_string(&cursor).unwrap(), CTX_JSON_MARKED);
+    assert_eq!(fs::read_to_string(&gemini).unwrap(), CTX_GEMINI_HOME);
+    assert_eq!((modified(&cursor), modified(&gemini)), (cursor_before, gemini_before));
+    assert!(!machine.backups().exists());
+}
+
+#[tokio::test]
+async fn a_key_for_a_file_discovery_did_not_produce_is_refused_and_the_file_is_left_alone() {
+    let machine = machine(&[(".codex/config.toml", CTX_CODEX)]);
+    let places = machine.places();
+    let real = machine.home().join(".codex/config.toml");
+    // Files that would parse as a config, somewhere no engine keeps one.
+    let stray_toml = machine.root.join("stray").join("config.toml");
+    let stray_json = machine.home().join("notes").join("mcp.json");
+    machine.put(&stray_toml, CTX_CODEX);
+    machine.put(&stray_json, CTX_HOME_MCP_JSON);
+    // The fixtures are what the test says: `alpha` is in the stray TOML file,
+    // as it is in the real one, and `shared` is in the stray JSON one.
+    assert!(read_names(CTX_CODEX, Dialect::CodexToml).contains(&"alpha".to_string()));
+    assert!(read_names(CTX_HOME_MCP_JSON, Dialect::McpServers).contains(&"shared".to_string()));
+    let before = (modified(&stray_toml), modified(&stray_json), modified(&real));
+
+    for engine in ["codex", "claude-code", "cursor", "gemini"] {
+        for enabled in [false, true] {
+            assert_eq!(failure(ops_set(&places, &no_cli(), engine, &key_in(&stray_toml, "alpha"), enabled).await), SwitchFailure::NotFound, "{engine}");
+            assert_eq!(failure(ops_set(&places, &no_cli(), engine, &key_in(&stray_json, "shared"), enabled).await), SwitchFailure::NotFound, "{engine}");
+        }
+    }
+    // The real file under another spelling of its path is not the key
+    // discovery produced, and is not looked up.
+    let respelled = machine.home().join(".codex").join("..").join(".codex").join("config.toml");
+    assert_eq!(fs::read_to_string(&respelled).unwrap(), CTX_CODEX, "the respelled path does lead to the real file");
+    assert_eq!(failure(ops_set(&places, &no_cli(), "codex", &key_in(&respelled, "alpha"), false).await), SwitchFailure::NotFound);
+    // Things that are not keys at all.
+    for key in ["", ":", "alpha", ":alpha", "stash", "file:alpha"] {
+        assert_eq!(failure(ops_set(&places, &no_cli(), "codex", key, false).await), SwitchFailure::NotFound, "{key:?}");
+    }
+    // A path nothing is at.
+    let nowhere = key_in(&machine.root.join("nowhere").join("config.toml"), "alpha");
+    assert_eq!(failure(ops_set(&places, &no_cli(), "codex", &nowhere, false).await), SwitchFailure::NotFound);
+
+    assert_eq!(fs::read_to_string(&stray_toml).unwrap(), CTX_CODEX);
+    assert_eq!(fs::read_to_string(&stray_json).unwrap(), CTX_HOME_MCP_JSON);
+    assert_eq!(fs::read_to_string(&real).unwrap(), CTX_CODEX);
+    assert_eq!((modified(&stray_toml), modified(&stray_json), modified(&real)), before);
+    assert_eq!(names_in(stray_toml.parent().unwrap()), ["config.toml"], "nothing was left beside the stray file");
+    assert!(!machine.backups().exists(), "nothing was backed up, because nothing was to be written");
+    assert!(!places.stash.exists());
+}
+
+#[tokio::test]
+async fn a_read_only_item_is_refused() {
+    let machine = machine(&[
+        (".cursor/mcp.json", CTX_JSON_MARKED),
+        (".mcp.json", CTX_HOME_MCP_JSON),
+        (".gemini/settings.json", CTX_GEMINI_HOME),
+        (".codex/config.toml", CTX_CODEX_LEGACY),
+    ]);
+    let gemini_system = machine.system().join(GEMINI_SYSTEM_FILE);
+    machine.put(&gemini_system, CTX_GEMINI_SYSTEM);
+    let places = machine.places();
+    let state_file = machine.home().join(".gemini/mcp-server-enablement.json");
+
+    // Each is an item of its engine's context, shown with a reason and no switch.
+    let cases = [
+        ("cursor", machine.home().join(".cursor/mcp.json"), "alpha", ReadOnlyReason::EngineNotConfirmed),
+        ("claude-code", machine.home().join(".mcp.json"), "homewide", ReadOnlyReason::PerProjectComesNext),
+        // Gemini's switch does cover this tier: only the reason stands in the way.
+        ("gemini", gemini_system.clone(), "beta", ReadOnlyReason::ManagedByPolicy),
+        ("codex", machine.home().join(".codex/config.toml"), "legacy", ReadOnlyReason::EngineNotConfirmed),
+    ];
+    for (engine, file, name, reason) in &cases {
+        let key = key_in(file, name);
+        let context = ops::context_for(&places, engine, |_| None);
+        let shown = context.items.iter().find(|item| item.key == key).unwrap_or_else(|| panic!("{engine} has no item {key}"));
+        assert_eq!(shown.read_only, Some(*reason), "{engine} {name}");
+        let before = fs::read_to_string(file).unwrap();
+
+        for enabled in [false, true] {
+            assert_eq!(failure(ops_set(&places, &no_cli(), engine, &key, enabled).await), SwitchFailure::ReadOnly, "{engine} {name} {enabled}");
+        }
+        assert_eq!(fs::read_to_string(file).unwrap(), before, "{engine} {name}");
+    }
+    assert!(!state_file.exists(), "a server Gemini is handed by policy was switched off by name");
+    assert!(!machine.backups().exists());
+
+    // A state file Gemini could not read: every Gemini server loses its switch.
+    machine.put(&state_file, "{ not json");
+    let key = key_in(&machine.home().join(".gemini/settings.json"), "alpha");
+    assert_eq!(item(&ops::context_for(&places, "gemini", |_| None), "alpha").read_only, Some(ReadOnlyReason::FileUnparseable));
+    assert_eq!(failure(ops_set(&places, &no_cli(), "gemini", &key, false).await), SwitchFailure::ReadOnly);
+    assert_eq!(fs::read_to_string(&state_file).unwrap(), "{ not json");
+    assert!(!machine.backups().exists());
+}
+
+#[tokio::test]
+async fn a_server_pinned_to_one_project_cannot_be_switched() {
+    // `gamma` is a local-scope server: declared in `.claude.json`, under one
+    // project. It is no item of the machine-wide context, so no key names it.
+    let stage = stage(&claude_json(&[("beta", BETA)]));
+    stage.fake_that_does_both();
+    let before = stage.config_text();
+    assert!(before.contains("\"gamma\""), "the fixture lost its local-scope server");
+    let context = ops::context_for(&stage.places(), "claude-code", |_| None);
+    assert_eq!(item_names(&context), ["alpha", "beta"]);
+
+    for enabled in [false, true] {
+        assert_eq!(failure(ops_set(&stage.places(), &stage.claude(), "claude-code", &stage.key("gamma"), enabled).await), SwitchFailure::NotFound);
+    }
+
+    assert!(!stage.ran(), "claude was started for a server Hanger does not switch");
+    assert_eq!(stage.config_text(), before);
+    assert!(stage.kept_files().is_empty());
+}
+
+// --- Gemini CLI: its state file ----------------------------------------------
+
+#[tokio::test]
+async fn gemini_off_creates_the_state_file_and_undo_removes_it() {
+    let machine = machine(&[(".gemini/settings.json", CTX_GEMINI_HOME)]);
+    let places = machine.places();
+    let settings = machine.home().join(".gemini/settings.json");
+    let state_file = machine.home().join(".gemini/mcp-server-enablement.json");
+    assert!(!state_file.exists());
+
+    let off = ops_set(&places, &no_cli(), "gemini", &key_in(&settings, "beta"), false).await.expect("beta is switched off");
+    assert_eq!(json(&fs::read_to_string(&state_file).unwrap()), json(CTX_GEMINI_BETA_OFF));
+    assert_eq!(mode_of(&state_file), 0o600);
+    assert_eq!(verdict(item(&off.context, "beta")), (ItemState::Off, None));
+    assert_eq!(verdict(item(&off.context, "alpha")), (ItemState::On, None));
+    // The server's own declaration is never written: Gemini rejects a key there.
+    assert_eq!(fs::read_to_string(&settings).unwrap(), CTX_GEMINI_HOME);
+
+    // Undo takes the file away again: there was none before.
+    let undone = ops_undo(&places, &no_cli(), "gemini", &receipt_of(&off)).await.expect("the off is undone");
+    assert!(!state_file.exists(), "the state file Hanger made is still there");
+    assert_eq!(verdict(item(&undone.context, "beta")), (ItemState::On, None));
+
+    // And that Undo can be undone.
+    let again = ops_undo(&places, &no_cli(), "gemini", &receipt_of(&undone)).await.expect("the Undo is undone");
+    assert_eq!(json(&fs::read_to_string(&state_file).unwrap()), json(CTX_GEMINI_BETA_OFF));
+    assert_eq!(verdict(item(&again.context, "beta")), (ItemState::Off, None));
+    assert_eq!(fs::read_to_string(&settings).unwrap(), CTX_GEMINI_HOME);
+}
+
+#[tokio::test]
+async fn gemini_off_for_a_second_server_keeps_the_first() {
+    let machine = machine(&[(".gemini/settings.json", CTX_GEMINI_HOME)]);
+    let places = machine.places();
+    let settings = machine.home().join(".gemini/settings.json");
+    let state_file = machine.home().join(".gemini/mcp-server-enablement.json");
+
+    ops_set(&places, &no_cli(), "gemini", &key_in(&settings, "beta"), false).await.expect("beta off");
+    let both = ops_set(&places, &no_cli(), "gemini", &key_in(&settings, "alpha"), false).await.expect("alpha off");
+    assert_eq!(json(&fs::read_to_string(&state_file).unwrap()), json(r#"{"beta": {"enabled": false}, "alpha": {"enabled": false}}"#));
+    assert_eq!((both.context.on_count, both.context.off_count), (0, 2));
+
+    // On removes that server's entry and leaves the other.
+    let one = ops_set(&places, &no_cli(), "gemini", &key_in(&settings, "beta"), true).await.expect("beta on");
+    assert_eq!(json(&fs::read_to_string(&state_file).unwrap()), json(r#"{"alpha": {"enabled": false}}"#));
+    assert_eq!(verdict(item(&one.context, "beta")), (ItemState::On, None));
+    assert_eq!(verdict(item(&one.context, "alpha")), (ItemState::Off, None));
+    assert!(receipt_of(&one).starts_with("file:"));
+}
+
+// --- Claude Code: through its own command ------------------------------------
+
+#[tokio::test]
+async fn claude_off_then_undo_restores_it_through_the_cli() {
+    let stage = stage(&claude_json(&[("beta", BETA)]));
+    stage.fake_that_does_both();
+    let (places, cli) = (stage.places(), stage.claude());
+
+    let off = ops_set(&places, &cli, "claude-code", &stage.key("beta"), false).await.expect("beta is switched off");
+    assert_eq!(stage.entry("beta"), None);
+    let kept = vendor::claude_stashed(&stage.stash);
+    assert_eq!(kept.len(), 1);
+    assert_eq!(receipt_of(&off), format!("kept:{}", kept[0].id));
+    // It stays in the context, off, under the key that switches it back on.
+    let beta = item(&off.context, "beta");
+    assert_eq!((beta.key.clone(), verdict(beta)), (format!("stash:{}", kept[0].id), (ItemState::Off, None)));
+    assert_eq!(stage.calls(), ["trial add-json", "real remove"]);
+    stage.forget_runs();
+
+    let back = ops_undo(&places, &cli, "claude-code", &receipt_of(&off)).await.expect("the off is undone");
+    assert_eq!(stage.entry("beta"), Some(json(BETA)), "the entry is back as it was");
+    assert!(vendor::claude_stashed(&stage.stash).is_empty(), "the kept copy is gone once the entry is back");
+    assert_eq!(receipt_of(&back), "restored:beta");
+    let beta = item(&back.context, "beta");
+    assert_eq!((beta.key.clone(), verdict(beta)), (stage.key("beta"), (ItemState::On, None)));
+    assert_eq!(stage.calls(), ["real add-json"]);
+    // The entry went to the command on stdin, never as an argument.
+    assert_eq!(stage.argv(), ["mcp", "add-json", "beta", "-", "--scope", "user"]);
+}
+
+#[tokio::test]
+async fn undoing_a_restore_switches_the_server_off_again() {
+    let (stage, kept, _) = with_beta_off().await;
+    stage.fake_that_does_both();
+    let (places, cli) = (stage.places(), stage.claude());
+
+    // On, by the key a kept server has.
+    let on = ops_set(&places, &cli, "claude-code", &format!("stash:{}", kept.id), true).await.expect("beta is switched on");
+    assert_eq!(receipt_of(&on), "restored:beta");
+    assert_eq!(stage.entry("beta"), Some(json(BETA)));
+    assert!(vendor::claude_stashed(&stage.stash).is_empty());
+
+    let off = ops_undo(&places, &cli, "claude-code", "restored:beta").await.expect("the on is undone");
+    assert_eq!(stage.entry("beta"), None);
+    let kept_again = vendor::claude_stashed(&stage.stash);
+    assert_eq!(kept_again.len(), 1);
+    assert_ne!(kept_again[0].id, kept.id, "a new kept copy, under a new id");
+    assert_eq!(receipt_of(&off), format!("kept:{}", kept_again[0].id));
+    assert_eq!(verdict(item(&off.context, "beta")), (ItemState::Off, None));
+
+    // A declared server asked to be on already is: nothing is run.
+    stage.forget_runs();
+    let noop = ops_set(&places, &cli, "claude-code", &stage.key("alpha"), true).await.expect("alpha is already on");
+    assert_eq!((noop.receipt_id.as_deref(), noop.undoable), (None, false));
+    assert!(!stage.ran());
+}
+
+#[tokio::test]
+async fn a_kept_server_is_switched_on_and_nothing_else() {
+    let (stage, kept, file) = with_beta_off().await;
+    stage.fake_that_does_both();
+    let (places, cli) = (stage.places(), stage.claude());
+    let key = format!("stash:{}", kept.id);
+
+    // Off, for a server that is already off and kept: there is nothing to
+    // remove, and its kept copy is not Hanger's to throw away.
+    assert_eq!(failure(ops_set(&places, &cli, "claude-code", &key, false).await), SwitchFailure::ReadOnly);
+    // Kept servers are Claude Code's. No other engine is handed one.
+    for engine in ["codex", "gemini", "claude-ai"] {
+        assert_eq!(failure(ops_set(&places, &cli, engine, &key, true).await), SwitchFailure::WrongEngine, "{engine}");
+    }
+    // An id nothing is kept under, and ids that are not ids.
+    for key in ["stash:00000000-0000-4000-8000-000000000009", "stash:", "stash:../../home/.claude", "stash:alpha"] {
+        assert_eq!(failure(ops_set(&places, &cli, "claude-code", key, true).await), SwitchFailure::NotFound, "{key}");
+    }
+
+    assert!(!stage.ran());
+    assert_eq!(stage.kept_files(), vec![file]);
+    assert_eq!(stage.entry("beta"), None);
+}
+
+#[tokio::test]
+async fn with_no_claude_on_the_search_path_nothing_is_kept_or_removed() {
+    let stage = stage(&claude_json(&[("beta", BETA)]));
+    stage.fake_that_does_both();
+    let places = stage.places();
+    let before = stage.config_text();
+
+    assert_eq!(failure(ops_set(&places, &no_cli(), "claude-code", &stage.key("beta"), false).await), SwitchFailure::CliNotFound);
+    assert!(!stage.kept_folder().exists(), "something was kept for a switch that could not run");
+    assert_eq!(stage.config_text(), before);
+
+    // The same for switching a kept server back on, and for both Undos.
+    let (stage, kept, file) = with_beta_off().await;
+    let places = stage.places();
+    assert_eq!(failure(ops_set(&places, &no_cli(), "claude-code", &format!("stash:{}", kept.id), true).await), SwitchFailure::CliNotFound);
+    assert_eq!(failure(ops_undo(&places, &no_cli(), "claude-code", &format!("kept:{}", kept.id)).await), SwitchFailure::CliNotFound);
+    assert_eq!(failure(ops_undo(&places, &no_cli(), "claude-code", "restored:alpha").await), SwitchFailure::CliNotFound);
+    assert_eq!(stage.kept_files(), vec![file]);
+    assert!(!stage.ran());
+}
+
+// --- Undo ---------------------------------------------------------------------
+
+#[tokio::test]
+async fn a_receipt_for_a_file_another_engine_reads_is_not_undoable() {
+    let machine = machine(&[(".codex/config.toml", CTX_CODEX), (".gemini/settings.json", CTX_GEMINI_HOME)]);
+    let places = machine.places();
+    let codex = machine.home().join(".codex/config.toml");
+    let off = ops_set(&places, &no_cli(), "codex", &key_in(&codex, "alpha"), false).await.expect("alpha off");
+    let after_off = fs::read_to_string(&codex).unwrap();
+    let gemini_off = ops_set(&places, &no_cli(), "gemini", &key_in(&machine.home().join(".gemini/settings.json"), "beta"), false).await.expect("beta off");
+    let state_file = machine.home().join(".gemini/mcp-server-enablement.json");
+
+    // Each receipt is a real one, and is refused under any engine but its own.
+    for engine in ["gemini", "claude-code", "cursor", "no-such-engine"] {
+        assert_eq!(failure(ops_undo(&places, &no_cli(), engine, &receipt_of(&off)).await), SwitchFailure::NotUndoable, "{engine}");
+    }
+    for engine in ["codex", "claude-code"] {
+        assert_eq!(failure(ops_undo(&places, &no_cli(), engine, &receipt_of(&gemini_off)).await), SwitchFailure::NotUndoable, "{engine}");
+    }
+    assert_eq!(fs::read_to_string(&codex).unwrap(), after_off);
+    assert!(state_file.exists());
+
+    // Under their own engines both still undo.
+    ops_undo(&places, &no_cli(), "codex", &receipt_of(&off)).await.expect("codex's own receipt");
+    assert_eq!(fs::read_to_string(&codex).unwrap(), CTX_CODEX);
+    ops_undo(&places, &no_cli(), "gemini", &receipt_of(&gemini_off)).await.expect("gemini's own receipt");
+    assert!(!state_file.exists());
+}
+
+#[tokio::test]
+async fn an_undo_of_nothing_hanger_did_is_not_undoable() {
+    let (stage, kept, file) = with_beta_off().await;
+    stage.fake_that_does_both();
+    let (places, cli) = (stage.places(), stage.claude());
+    let machine = machine(&[(".codex/config.toml", CTX_CODEX)]);
+
+    let garbage = [
+        "",
+        "garbage",
+        "file",
+        "file:",
+        "file:not-a-receipt",
+        "file:00000000-0000-4000-8000-000000000009",
+        "file:../../home/.codex/config.toml",
+        "kept:",
+        "kept:not-an-id",
+        "kept:00000000-0000-4000-8000-000000000009",
+        "restored:",
+        "restored:nobody",
+        // A local-scope server, and a name that would read as an option.
+        "restored:gamma",
+        "restored:--scope",
+        "stash:00000000-0000-4000-8000-000000000009",
+    ];
+    for receipt_id in garbage {
+        assert_eq!(failure(ops_undo(&places, &cli, "claude-code", receipt_id).await), SwitchFailure::NotUndoable, "claude-code {receipt_id:?}");
+        assert_eq!(failure(ops_undo(&machine.places(), &cli, "codex", receipt_id).await), SwitchFailure::NotUndoable, "codex {receipt_id:?}");
+    }
+    // A kept server's receipt, and a restore's, under an engine that is not
+    // switched through a command.
+    for engine in ["codex", "gemini", "cursor"] {
+        assert_eq!(failure(ops_undo(&places, &cli, engine, &format!("kept:{}", kept.id)).await), SwitchFailure::NotUndoable, "{engine}");
+        assert_eq!(failure(ops_undo(&places, &cli, engine, "restored:alpha").await), SwitchFailure::NotUndoable, "{engine}");
+    }
+
+    assert!(!stage.ran());
+    assert_eq!(stage.kept_files(), vec![file]);
+    assert_eq!(fs::read_to_string(machine.home().join(".codex/config.toml")).unwrap(), CTX_CODEX);
+}
+
+// --- Between the read and the write ------------------------------------------
+
+#[tokio::test]
+async fn a_file_saved_by_someone_else_mid_switch_is_not_overwritten() {
+    // Review focus 1. `set_enabled_with` is `set_enabled_for` with one seam:
+    // a hook run after Hanger has read the file and worked out the new text,
+    // and before the write. Here it is the engine saving its own config.
+    let machine = machine(&[(".codex/config.toml", CTX_CODEX)]);
+    let places = machine.places();
+    let codex = machine.home().join(".codex/config.toml");
+    let saved_meanwhile = format!("{CTX_CODEX}\n[mcp_servers.epsilon]\ncommand = \"epsilon-server\"\n");
+    let save = || fs::write(&codex, &saved_meanwhile).unwrap();
+
+    let refused = ops::set_enabled_with(&places, &no_cli(), "codex", &key_in(&codex, "alpha"), false, |_| None, ops::Seams { before_write: &save }).await;
+
+    assert_eq!(failure(refused), SwitchFailure::ChangedSinceRead);
+    assert_eq!(fs::read_to_string(&codex).unwrap(), saved_meanwhile, "their save was written over");
+    assert!(backups_in(&machine.backups()).is_empty() && receipt_files_in(&machine.backups()).is_empty(), "a write that did not happen left a receipt");
+}
+
+#[tokio::test]
+async fn a_state_file_that_appeared_mid_switch_is_not_overwritten() {
+    // The same for Gemini's state file: there was none when Hanger looked.
+    let machine = machine(&[(".gemini/settings.json", CTX_GEMINI_HOME)]);
+    let places = machine.places();
+    let state_file = machine.home().join(".gemini/mcp-server-enablement.json");
+    let theirs = "{\"alpha\": {\"enabled\": false}}";
+    let appear = || fs::write(&state_file, theirs).unwrap();
+    let key = key_in(&machine.home().join(".gemini/settings.json"), "beta");
+
+    let refused = ops::set_enabled_with(&places, &no_cli(), "gemini", &key, false, |_| None, ops::Seams { before_write: &appear }).await;
+
+    assert_eq!(failure(refused), SwitchFailure::ChangedSinceRead);
+    assert_eq!(fs::read_to_string(&state_file).unwrap(), theirs);
+    assert!(receipt_files_in(&machine.backups()).is_empty(), "a write that did not happen left a receipt");
+}
+
+// --- The second check before a write -----------------------------------------
+
+#[test]
+fn the_guard_passes_a_rewrite_that_changed_one_servers_flag_and_refuses_any_other() {
+    let passes = |before: &str, after: &str, dialect: Dialect, name: &str| ops::only_the_flag_differs(before, after, dialect, name);
+
+    // What the editor really produces, in both formats and both directions.
+    let off = switch_off(CODEX, Dialect::CodexToml, SwitchKind::EnabledKey, "beta");
+    assert_ne!(off, CODEX);
+    assert!(passes(CODEX, &off, Dialect::CodexToml, "beta"));
+    assert!(passes(&off, &switch_on(&off, Dialect::CodexToml, SwitchKind::EnabledKey, "beta"), Dialect::CodexToml, "beta"));
+    for (dialect, servers_key) in JSON_DIALECTS {
+        let body = format!("{{\n  // kept\n  \"{servers_key}\": {{\n    \"alpha\": {{ \"command\": \"alpha-server\" }},\n    \"beta\": {{ \"command\": \"beta-server\", }},\n  }},\n}}");
+        assert_eq!(read_names(&body, dialect).len(), 2, "{dialect:?}");
+        let off = switch_off(&body, dialect, SwitchKind::DisabledKey, "beta");
+        assert_ne!(off, body);
+        assert!(passes(&body, &off, dialect, "beta"), "{dialect:?}");
+        assert!(!passes(&body, &off, dialect, "alpha"), "{dialect:?}");
+    }
+    let json_before = r#"{"mcpServers": {"alpha": {"command": "alpha-server"}, "beta": {"command": "beta-server"}}}"#;
+    let json_after = r#"{"mcpServers": {"alpha": {"disabled": true, "command": "alpha-server"}, "beta": {"command": "beta-server"}}}"#;
+    assert!(passes(json_before, json_after, Dialect::McpServers, "alpha"));
+    // A stale `disabled` dropped as `enabled` is written is still only the flag.
+    assert!(passes(
+        "[mcp_servers.alpha]\ncommand = \"alpha-server\"\ndisabled = true\n",
+        "[mcp_servers.alpha]\ncommand = \"alpha-server\"\nenabled = false\n",
+        Dialect::CodexToml,
+        "alpha"
+    ));
+
+    // The flag changed, and so did something else.
+    let toml_before = "[mcp_servers.alpha]\ncommand = \"alpha-server\"\n\n[mcp_servers.beta]\ncommand = \"beta-server\"\n";
+    let refused_toml = [
+        // the same server's command
+        "[mcp_servers.alpha]\ncommand = \"another\"\nenabled = false\n\n[mcp_servers.beta]\ncommand = \"beta-server\"\n",
+        // another server's command
+        "[mcp_servers.alpha]\ncommand = \"alpha-server\"\nenabled = false\n\n[mcp_servers.beta]\ncommand = \"another\"\n",
+        // another server's flag
+        "[mcp_servers.alpha]\ncommand = \"alpha-server\"\nenabled = false\n\n[mcp_servers.beta]\ncommand = \"beta-server\"\nenabled = false\n",
+        // another server gone
+        "[mcp_servers.alpha]\ncommand = \"alpha-server\"\nenabled = false\n",
+        // a setting outside the servers
+        "model = \"another\"\n\n[mcp_servers.alpha]\ncommand = \"alpha-server\"\nenabled = false\n\n[mcp_servers.beta]\ncommand = \"beta-server\"\n",
+        // the server itself gone
+        "[mcp_servers.beta]\ncommand = \"beta-server\"\n",
+        // not TOML
+        "[mcp_servers.alpha\ncommand = \"alpha-server\"\n",
+    ];
+    for after in refused_toml {
+        assert!(!passes(toml_before, after, Dialect::CodexToml, "alpha"), "passed: {after}");
+    }
+    // The right change, checked for the wrong server.
+    assert!(!passes(toml_before, &switch_off(toml_before, Dialect::CodexToml, SwitchKind::EnabledKey, "alpha"), Dialect::CodexToml, "beta"));
+    assert!(!passes(toml_before, toml_before, Dialect::CodexToml, "nobody"));
+
+    let refused_json = [
+        r#"{"mcpServers": {"alpha": {"disabled": true, "command": "another"}, "beta": {"command": "beta-server"}}}"#,
+        r#"{"mcpServers": {"alpha": {"disabled": true, "command": "alpha-server"}, "beta": {"command": "another"}}}"#,
+        r#"{"mcpServers": {"alpha": {"disabled": true, "command": "alpha-server"}}}"#,
+        r#"{"other": 1, "mcpServers": {"alpha": {"disabled": true, "command": "alpha-server"}, "beta": {"command": "beta-server"}}}"#,
+        r#"{"mcpServers": {"alpha": {"disabled": true, "command": "alpha-server"}, "beta": {"command": "beta-server"}}"#,
+    ];
+    for after in refused_json {
+        assert!(!passes(json_before, after, Dialect::McpServers, "alpha"), "passed: {after}");
+    }
+    // The servers of one dialect are not looked for under another's key.
+    assert!(!passes(json_before, json_after, Dialect::VsCodeServers, "alpha"));
+    // And nothing Hanger does not switch by a flag passes at all.
+    for dialect in [Dialect::ClaudeJson, Dialect::ClaudeAiConnectors, Dialect::Unsupported] {
+        assert!(!passes(json_before, json_after, dialect, "alpha"), "{dialect:?}");
+    }
+}
+
+// --- What a refusal says ------------------------------------------------------
+
+#[test]
+fn every_failure_is_a_snake_case_code_and_nothing_more() {
+    let every = [
+        (SwitchFailure::NotFound, "not_found"),
+        (SwitchFailure::WrongEngine, "wrong_engine"),
+        (SwitchFailure::ReadOnly, "read_only"),
+        (SwitchFailure::Unparseable, "unparseable"),
+        (SwitchFailure::ChangedSinceRead, "changed_since_read"),
+        (SwitchFailure::WriteFailed, "write_failed"),
+        (SwitchFailure::NotVerified, "not_verified"),
+        (SwitchFailure::WouldNotComeBack, "would_not_come_back"),
+        (SwitchFailure::CliNotFound, "cli_not_found"),
+        (SwitchFailure::CliFailed, "cli_failed"),
+        (SwitchFailure::AlreadyThere, "already_there"),
+        (SwitchFailure::NotUndoable, "not_undoable"),
+        (SwitchFailure::NameRefused, "name_refused"),
+    ];
+    for (failure, code) in every {
+        // What the command hands the webview as its `Err`.
+        assert_eq!(failure.code(), code);
+        // And the same thing if it is ever serialised: a bare string.
+        assert_eq!(serde_json::to_value(failure).unwrap(), serde_json::Value::String(code.to_string()));
+    }
+
+    // What `mcp::switch`'s own errors become. The ones that carry a sentence
+    // lose it: a code has nowhere to put one.
+    let sentence = || MARKER.to_string();
+    let from_edit = [
+        (EditError::NotFound, SwitchFailure::NotFound),
+        (EditError::Unparseable(sentence()), SwitchFailure::Unparseable),
+        (EditError::UnsupportedDialect, SwitchFailure::ReadOnly),
+    ];
+    for (error, failure) in from_edit {
+        assert_eq!(SwitchFailure::from(error), failure);
+    }
+    let from_apply = [
+        (ApplyError::ChangedSinceRead, SwitchFailure::ChangedSinceRead),
+        (ApplyError::Backup(sentence()), SwitchFailure::WriteFailed),
+        (ApplyError::Write(sentence()), SwitchFailure::WriteFailed),
+        (ApplyError::Verify(sentence()), SwitchFailure::NotVerified),
+        (ApplyError::NotUndoable(sentence()), SwitchFailure::NotUndoable),
+    ];
+    for (error, failure) in from_apply {
+        assert_eq!(SwitchFailure::from(error), failure);
+        assert!(!failure.code().contains(MARKER) && !format!("{failure:?}").contains(MARKER));
+    }
+    let from_vendor = [
+        (SwitchError::NotFound, SwitchFailure::NotFound),
+        (SwitchError::NameRefused, SwitchFailure::NameRefused),
+        (SwitchError::CliFailed, SwitchFailure::CliFailed),
+        (SwitchError::NotVerified, SwitchFailure::NotVerified),
+        (SwitchError::StashFailed(sentence()), SwitchFailure::WriteFailed),
+        (SwitchError::AlreadyThere, SwitchFailure::AlreadyThere),
+        (SwitchError::WouldNotComeBack, SwitchFailure::WouldNotComeBack),
+    ];
+    for (error, failure) in from_vendor {
+        assert_eq!(SwitchFailure::from(error), failure);
+    }
+}
+
+#[tokio::test]
+async fn a_server_claude_code_would_not_give_back_is_refused_by_its_code() {
+    // A vendor failure reaches the webview as its code: here, the pre-flight's.
+    let stage = stage(&claude_json(&[("epsilon", EPSILON)]));
+    stage.fake_with_trial(&stage.writes_instead(EPSILON_AS_WRITTEN_BACK), &stage.removes(&claude_json(&[])));
+    let before = stage.config_text();
+
+    let refused = ops_set(&stage.places(), &stage.claude(), "claude-code", &stage.key("epsilon"), false).await;
+
+    assert_eq!(failure(refused), SwitchFailure::WouldNotComeBack);
+    assert_not_switched_off(&stage, &before);
+}
+
+// --- Measure all ---------------------------------------------------------------
+
+#[tokio::test]
+async fn measure_never_starts_a_switched_off_server() {
+    let machine = machine(&[]);
+    let places = machine.places();
+    let db = machine.root.join("data").join("hanger.db");
+    fs::create_dir_all(db.parent().unwrap()).unwrap();
+    // Two servers whose programs leave a file behind when they are started,
+    // and then exit without speaking MCP.
+    let server = |name: &str| -> (PathBuf, PathBuf) {
+        let (program, started) = (machine.root.join("bin").join(name), machine.root.join(format!("{name}.started")));
+        machine.put(&program, &format!("#!/bin/sh\ntouch {}\n", sh(&started)));
+        fs::set_permissions(&program, fs::Permissions::from_mode(0o755)).unwrap();
+        (program, started)
+    };
+    let (on_program, on_started) = server("on-server");
+    let (off_program, off_started) = server("off-server");
+    machine.put(
+        &machine.home().join(".codex/config.toml"),
+        &format!(
+            "[mcp_servers.alpha]\ncommand = \"{}\"\n\n[mcp_servers.beta]\ncommand = \"{}\"\nenabled = false\n",
+            on_program.display(),
+            off_program.display()
+        ),
+    );
+    // Nothing is measured before anybody asks.
+    let before = ops::context_for(&places, "codex", |key| ops::cached_measure(&db, key));
+    assert_eq!((verdict(item(&before, "alpha")), verdict(item(&before, "beta"))), ((ItemState::On, None), (ItemState::Off, None)));
+    assert_eq!((item(&before, "alpha").estimated_tokens, before.measured_on_count), (None, 0));
+    assert!(!on_started.exists() && !off_started.exists(), "reading the context started a server");
+
+    let asked_at = Instant::now();
+    let context = ops::measure_for(&places, "codex", &db, 1_700_000_000_000).await;
+    assert!(asked_at.elapsed() < Duration::from_secs(15), "a server that exits at once took {:?} to measure", asked_at.elapsed());
+
+    assert!(on_started.exists(), "the switched-on server was never started, so nothing was measured");
+    assert!(!off_started.exists(), "a switched-off server was started to measure it");
+    // The one that was started did not complete a handshake. That is an
+    // answer, of zero: it is measured, and the other is not.
+    let alpha = item(&context, "alpha");
+    assert_eq!((alpha.estimated_tokens, alpha.tool_count), (Some(0), Some(0)));
+    let beta = item(&context, "beta");
+    assert_eq!((beta.state, beta.estimated_tokens, beta.tool_count), (ItemState::Off, None, None));
+    assert_eq!((context.on_count, context.measured_on_count, context.on_tokens_measured), (1, 1, 0));
+    assert_counts_agree(&context);
+
+    // Asked again a moment later, the answer is in the store: nothing is started.
+    fs::remove_file(&on_started).unwrap();
+    let again = ops::measure_for(&places, "codex", &db, 1_700_000_000_001).await;
+    assert!(!on_started.exists(), "a server with a fresh answer was started again");
+    assert!(!off_started.exists());
+    assert_eq!(item(&again, "alpha").estimated_tokens, Some(0));
+
+    // An engine with nothing declared measures nothing, and says so.
+    let none = ops::measure_for(&places, "cursor", &db, 1_700_000_000_002).await;
+    assert_eq!((none.items.len(), none.on_count), (0, 0));
+}

@@ -659,16 +659,39 @@ async fn mcp_cached_probe(
 ) -> Result<CachedProbeResponse, String> {
     let db_path = get_db_path(&app);
     let registration = crate::mcp::discover::resolve_registration(&registration_key)?;
-    let now_ms = std::time::SystemTime::now()
+    Ok(probe_and_index(&db_path, &registration_key, &registration, force, running, now_ms()).await)
+}
+
+fn now_ms() -> i64 {
+    std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap_or_default()
-        .as_millis() as i64;
-    let response = cached_probe(&db_path, &registration.server, force, running, now_ms).await;
+        .as_millis() as i64
+}
+
+/// [`cached_probe`] for one registration, and then what follows every
+/// answer: the palette's tool rows for that registration are replaced with
+/// the answer's.
+///
+/// Two callers, so that neither can ask a server and leave the palette
+/// behind: `mcp_cached_probe` (the panel, one registration) and
+/// `mcp::switch::ops::measure_for` (an engine's switched-on servers, one
+/// after another). `registration_key` is the key the rows are stored under:
+/// `RegistrationKey::new(config_path, server_name)`.
+pub async fn probe_and_index(
+    db_path: &Path,
+    registration_key: &str,
+    registration: &crate::mcp::discover::Registration,
+    force: bool,
+    running: bool,
+    now_ms: i64,
+) -> CachedProbeResponse {
+    let response = cached_probe(db_path, &registration.server, force, running, now_ms).await;
     // Cached or fresh, the answer is the tool list the palette should see.
     if let Some(result) = &response.result {
         if let Err(e) = search::index_probe_tools(
-            &db_path,
-            &registration_key,
+            db_path,
+            registration_key,
             &registration.server.name,
             &registration.config_path,
             &result.tools,
@@ -676,7 +699,120 @@ async fn mcp_cached_probe(
             log::warn!("search index not updated for {}: {}", registration_key, e);
         }
     }
-    Ok(response)
+    response
+}
+
+/// Where a switch reads and writes: the home and the system root discovery
+/// reads, and Hanger's own two folders under the app's data directory,
+/// `switch/backups` and `switch/stash`.
+///
+/// The data directory is found as [`get_db_path`] finds it, with the same
+/// fallback. If it cannot be resolved the two folders come out relative, and
+/// nothing is written to them: `mcp::switch::apply` and `mcp::switch::vendor`
+/// each refuse a folder whose path is not absolute.
+fn switch_places(app: &AppHandle) -> mcp::switch::ops::SwitchPlaces {
+    let switch = app
+        .path()
+        .app_data_dir()
+        .unwrap_or_else(|_| std::path::PathBuf::from("."))
+        .join("switch");
+    mcp::switch::ops::SwitchPlaces {
+        home: scanner::get_home_dir(),
+        system: std::path::PathBuf::from("/"),
+        backups: switch.join("backups"),
+        stash: switch.join("stash"),
+    }
+}
+
+/// Claude Code's `claude`, found the way the user's terminal finds it.
+///
+/// Only for an engine that is switched through it. The search path comes from
+/// the user's login shell and can take seconds the first time it is asked
+/// for, which a switch of a Codex or Gemini CLI server has no reason to wait
+/// on; for those the answer is "no command", and nothing asks for one.
+async fn claude_cli_for(engine_id: &str) -> mcp::switch::ops::ClaudeCli {
+    if !mcp::switch::ops::uses_claude_cli(engine_id) {
+        return mcp::switch::ops::ClaudeCli { program: None, path_env: String::new() };
+    }
+    let path_env = engine_status::resolve::search_path().await;
+    mcp::switch::ops::ClaudeCli {
+        program: engine_status::resolve::resolve_in("claude", &path_env),
+        path_env,
+    }
+}
+
+/// One engine's MCP servers: which are switched on, which Hanger can switch,
+/// and what the switched-on ones cost by the probe cache's estimate.
+///
+/// Reads config files and the probe cache. Starts nothing: a server nobody
+/// has asked yet comes back unmeasured. An id that is no engine's gives an
+/// empty context. `(async)` for the reason `get_mcp_servers` gives: the body
+/// reads files, and a plain sync command runs on the main thread.
+#[tauri::command(async)]
+fn get_engine_context(
+    app: AppHandle,
+    engine_id: String,
+) -> Result<mcp::switch::context::EngineContext, String> {
+    let db_path = get_db_path(&app);
+    Ok(mcp::switch::ops::context_for(&switch_places(&app), &engine_id, |launch| {
+        mcp::switch::ops::cached_measure(&db_path, launch)
+    }))
+}
+
+/// Switch one MCP server off or on for one engine.
+///
+/// `key` is an item's `key` from that engine's context, and is accepted only
+/// if it still is one (`mcp::switch::ops`, "A key is not a path"). `Err` is a
+/// `SwitchFailure` code such as `"changed_since_read"`, and nothing else: no
+/// path, no text from a file, nothing a command printed.
+#[tauri::command]
+async fn set_mcp_server_enabled(
+    app: AppHandle,
+    engine_id: String,
+    key: String,
+    enabled: bool,
+) -> Result<mcp::switch::ops::SwitchReply, String> {
+    let db_path = get_db_path(&app);
+    let cli = claude_cli_for(&engine_id).await;
+    mcp::switch::ops::set_enabled_for(&switch_places(&app), &cli, &engine_id, &key, enabled, |launch| {
+        mcp::switch::ops::cached_measure(&db_path, launch)
+    })
+    .await
+    .map_err(|failure| failure.code().to_string())
+}
+
+/// Take back one switch, by the `receipt_id` its reply carried. The reply to
+/// this carries a receipt id of its own, which undoes the Undo.
+///
+/// `Err` is a `SwitchFailure` code, as for `set_mcp_server_enabled`.
+#[tauri::command]
+async fn undo_mcp_switch(
+    app: AppHandle,
+    engine_id: String,
+    receipt_id: String,
+) -> Result<mcp::switch::ops::SwitchReply, String> {
+    let db_path = get_db_path(&app);
+    let cli = claude_cli_for(&engine_id).await;
+    mcp::switch::ops::undo_for(&switch_places(&app), &cli, &engine_id, &receipt_id, |launch| {
+        mcp::switch::ops::cached_measure(&db_path, launch)
+    })
+    .await
+    .map_err(|failure| failure.code().to_string())
+}
+
+/// Ask each of one engine's switched-on servers what it provides, one at a
+/// time, and return the context with those answers in it.
+///
+/// The only one of the four that can start a server, and only on request. It
+/// starts none that is switched off, none that has a fresh answer in the
+/// store, and none that is already running ([`cached_probe`]'s two rules).
+#[tauri::command]
+async fn measure_engine_context(
+    app: AppHandle,
+    engine_id: String,
+) -> Result<mcp::switch::context::EngineContext, String> {
+    let db_path = get_db_path(&app);
+    Ok(mcp::switch::ops::measure_for(&switch_places(&app), &engine_id, &db_path, now_ms()).await)
 }
 
 /// Which MCP servers are running right now, and which are running unaccounted.
@@ -2073,6 +2209,10 @@ pub fn run() {
             get_mcp_servers,
             get_mcp_coverage,
             get_mcp_engine_summary,
+            get_engine_context,
+            set_mcp_server_enabled,
+            undo_mcp_switch,
+            measure_engine_context,
             get_linked_directories,
             run_scan,
             get_inventory,

@@ -1,7 +1,7 @@
 //! Switch a Claude Code server off and on through Claude Code's own command,
 //! with the server's entry kept by Hanger while it is off.
 //!
-//! Nothing calls this yet. Claude Code ignores an on/off flag written into
+//! `ops` is its only caller. Claude Code ignores an on/off flag written into
 //! `.claude.json` and has no machine-wide one of its own (the engine matrix,
 //! `docs/plans/2026-11-24-context-control-engine-matrix.md`, "Claude Code"),
 //! so off is a removal and on is a restore (decision 10 in

@@ -254,3 +254,154 @@ Removes any remembered target file mapping for a rule family and project.
   - `projectPath`: `string` (target project root path)
   - `rulePath`: `string` (rule family filename, e.g., `"AGENTS.md"`)
 - **Response:** `null` (success) or `string` (sanitised error message)
+
+---
+
+## 15. get_engine_context
+
+Returns one engine's MCP servers: which are switched on, which Hanger can switch, and what the switched-on ones cost by the probe cache's estimate. Reads config files and the probe cache. Starts no server: one nobody has asked yet comes back with `estimated_tokens` and `tool_count` both `null`.
+
+- **Command Name:** `get_engine_context`
+- **Arguments:**
+  - `engineId`: `string` (a host id from `mcp/registry.rs` → `HOSTS`, such as `"codex"`)
+- **Response:** `EngineContext`. An id that is no host's gives a context with no items. This command does not fail.
+
+### EngineContext Schema
+- `engine_id`: `string`
+- `engine_name`: `string` (the registry's display name)
+- `applies`: `string | null` (when a switch takes effect; `null` for every engine today)
+- `items`: `ContextItem[]`
+- `on_count`: `number`
+- `off_count`: `number`
+- `measured_on_count`: `number` (items that are on and measured)
+- `on_tokens_measured`: `number` (the estimates of those items, with a launch the engine declares twice counted once)
+
+### ContextItem Schema
+- `key`: `string` (what `set_mcp_server_enabled` takes: the registration's key, or `"stash:<id>"` for a Claude Code server Hanger is keeping while it is off)
+- `name`: `string`
+- `tier`: `"global"` | `"user"` | `"project"`
+- `config_path`: `string` (sanitised; empty for a kept server, which is declared in no file)
+- `state`: `"on"` | `"off"`
+- `read_only`: `null` (Hanger can switch it) or one of `"engine_not_confirmed"`, `"per_project_comes_next"`, `"switches_by_name_everywhere"`, `"managed_by_plugin"`, `"managed_by_policy"`, `"runs_on_vendor_servers"`, `"file_unparseable"`
+- `estimated_tokens`: `number | null`
+- `tool_count`: `number | null` (`null` exactly when `estimated_tokens` is)
+
+An item holds no command, argument, address or env variable.
+
+### Response Example
+```json
+{
+  "engine_id": "codex",
+  "engine_name": "Codex",
+  "applies": null,
+  "items": [
+    {
+      "key": "/Users/demo/.codex/config.toml:alpha",
+      "name": "alpha",
+      "tier": "global",
+      "config_path": "~/.codex/config.toml",
+      "state": "on",
+      "read_only": null,
+      "estimated_tokens": 120,
+      "tool_count": 4
+    },
+    {
+      "key": "/Users/demo/.codex/config.toml:beta",
+      "name": "beta",
+      "tier": "global",
+      "config_path": "~/.codex/config.toml",
+      "state": "off",
+      "read_only": null,
+      "estimated_tokens": null,
+      "tool_count": null
+    }
+  ],
+  "on_count": 1,
+  "off_count": 1,
+  "measured_on_count": 1,
+  "on_tokens_measured": 120
+}
+```
+
+---
+
+## 16. set_mcp_server_enabled
+
+Switches one MCP server off or on for one engine, where it is declared. How depends on the engine (`mcp/registry.rs` → `SWITCHES`): a flag in the server's own entry (Codex), an entry in the engine's state file (Gemini CLI), or the engine's own command, with Hanger keeping the server's entry while it is off (Claude Code, user scope).
+
+- **Command Name:** `set_mcp_server_enabled`
+- **Arguments:**
+  - `engineId`: `string`
+  - `key`: `string` (a `ContextItem.key` from that engine's context)
+  - `enabled`: `boolean`
+- **Response:** `SwitchReply` or `string` (a failure code, below)
+
+The key is not a path and is not trusted. It is accepted only if it is still the key of an item in that engine's context, and that item has `read_only: null`. No path from the webview is opened.
+
+### SwitchReply Schema
+- `context`: `EngineContext` (built after the switch)
+- `receipt_id`: `string | null` (what `undo_mcp_switch` takes; `null` when the server was already as asked and nothing was changed)
+- `undoable`: `boolean` (`true` exactly when `receipt_id` is a string)
+
+### Failure Codes
+The error is one of these strings and nothing else. It carries no path, no text from a file and nothing a command printed.
+
+| Code | Meaning |
+|---|---|
+| `not_found` | The key names no server Hanger found, or the server is gone from its file. |
+| `wrong_engine` | The key is another engine's. |
+| `read_only` | Hanger shows this server and does not switch it. Also: a kept server asked to be off. |
+| `unparseable` | The file that would be changed cannot be read or does not parse. |
+| `changed_since_read` | The file is not as Hanger read it. Nothing was written. |
+| `write_failed` | The change, or the copy kept before it, could not be written. |
+| `not_verified` | What Hanger read back does not confirm the change. It may or may not have been made. |
+| `would_not_come_back` | Claude Code would not hand this server back unchanged, so it was not removed. |
+| `cli_not_found` | No `claude` is on the search path. |
+| `cli_failed` | Claude Code's command did not make the change. |
+| `already_there` | A server of that name is declared again. Nothing was run. |
+| `name_refused` | The server's name cannot be handed to a command. |
+| `not_undoable` | `undo_mcp_switch` only: the receipt is not one of this engine's, or what it records can no longer be taken back. |
+
+### Request Example
+```json
+{
+  "engineId": "codex",
+  "key": "/Users/demo/.codex/config.toml:alpha",
+  "enabled": false
+}
+```
+
+---
+
+## 17. undo_mcp_switch
+
+Takes back one switch. The reply carries a receipt id of its own, which undoes the Undo.
+
+- **Command Name:** `undo_mcp_switch`
+- **Arguments:**
+  - `engineId`: `string` (the engine the switch was made for)
+  - `receiptId`: `string` (the `receipt_id` of a `SwitchReply`)
+- **Response:** `SwitchReply` or `string` (a failure code from the table under `set_mcp_server_enabled`)
+
+A receipt is honoured only under the engine it was made for, and a file is put back only while it still holds exactly what the switch left. Anything else is `not_undoable`.
+
+### Request Example
+```json
+{
+  "engineId": "codex",
+  "receiptId": "file:00000000-0000-4000-8000-000000000001"
+}
+```
+
+---
+
+## 18. measure_engine_context
+
+Asks each of one engine's switched-on servers what it provides, one at a time, and returns the context with those answers in it. The only one of these four commands that can start a server, and it does so only when called.
+
+- **Command Name:** `measure_engine_context`
+- **Arguments:**
+  - `engineId`: `string`
+- **Response:** `EngineContext`. This command does not fail: a server that is asked and does not answer is measured at zero.
+
+It starts no server that is switched off, none that has a fresh answer in the probe cache, and none that is already running.

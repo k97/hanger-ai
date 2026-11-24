@@ -2,8 +2,8 @@
 //! switched on, whether Hanger can switch it, and what the switched-on ones
 //! cost in context.
 //!
-//! Nothing calls this yet; the commands that will are Task 8 of
-//! `docs/plans/2026-11-24-context-control.md`.
+//! `ops` is its only caller, for the commands `get_engine_context`,
+//! `set_mcp_server_enabled`, `undo_mcp_switch` and `measure_engine_context`.
 //!
 //! A fold. It opens no file, no database and no process, and it logs
 //! nothing: the registrations, the kept servers, Gemini CLI's state file, a
@@ -186,7 +186,7 @@ const CLAUDE_AI: &str = "claude-ai";
 /// row spells it.
 const PLUGIN_FOLDER: &str = "/.claude/plugins/marketplaces/";
 /// How a kept server's key starts. What follows is `StashedServer::id`.
-const STASH_KEY: &str = "stash:";
+pub(crate) const STASH_KEY: &str = "stash:";
 
 /// One engine's context.
 ///
@@ -372,14 +372,14 @@ where
 }
 
 /// Whether any of the engine's `SWITCHES` rows is of that kind.
-fn is_switched_by(host_id: &str, kind: SwitchKind) -> bool {
+pub(crate) fn is_switched_by(host_id: &str, kind: SwitchKind) -> bool {
     SWITCHES.iter().any(|row| row.host_id == host_id && row.kind == kind)
 }
 
 /// The dialect `host_id` declares servers in at `tier`, where every `SOURCES`
 /// row for the pair agrees on one. See "Finding a registration's row" in the
 /// module doc.
-fn dialect_of(host_id: &str, tier: ScopeTier) -> Option<Dialect> {
+pub(crate) fn dialect_of(host_id: &str, tier: ScopeTier) -> Option<Dialect> {
     let mut rows = SOURCES.iter().filter(|source| source.host_id == host_id && source.tier == tier);
     let first = rows.next()?.dialect;
     rows.all(|source| source.dialect == first).then_some(first)

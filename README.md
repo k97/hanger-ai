@@ -105,7 +105,7 @@ graph TD
 
 <!-- hanger:ipc:start -->
 
-The webview reaches the Rust core through 42 Tauri commands and three events.
+The webview reaches the Rust core through 46 Tauri commands and three events.
 
 <!-- hanger:ipc:end -->
 

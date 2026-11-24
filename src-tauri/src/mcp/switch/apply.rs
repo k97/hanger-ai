@@ -1,7 +1,7 @@
 //! Replace a config file's text safely, keep a copy of what was there, and
 //! put it back on request.
 //!
-//! Nothing calls this yet. `edit` produces the text; this module is the one
+//! `ops` is its only caller. `edit` produces the text; this module is the one
 //! place that puts text on disk. It never logs, and it takes the backups
 //! folder as a parameter: the caller passes a folder under the app's data
 //! directory, so nothing here depends on the working directory. A path that

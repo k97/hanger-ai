@@ -2,7 +2,7 @@
 //! of the text as its author wrote it.
 //!
 //! Pure functions: a string in, a string out. No filesystem, no paths, no
-//! logging. Nothing calls them yet.
+//! logging. `context` reads flags with them and `ops` sets them.
 //!
 //! Neither editor re-serialises. JSON and JSONC go through
 //! `jsonc_parser::cst::CstRootNode`, TOML through `toml_edit::DocumentMut`;
