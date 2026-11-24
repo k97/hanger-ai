@@ -24,3 +24,16 @@ deliberately left unfixed.
   no detector (`.claude/DESIGN.md`, "Not implemented"); the link map's notice
   card is a stated exception, and `docs/findings.md` discusses amending the
   rule.
+- `transactional::write_transactional` keeps its backups in the relative
+  path `.hanger/backups`, which resolves against the process's working
+  directory, not the target's folder or the app's data directory. It has
+  three call sites, all in `lib.rs`: two in `execute_deploy` (the symlink
+  deploy and the copy deploy) and one in `execute_deploy_merged_rule`.
+  Nothing under `src-tauri/src/` sets the working directory, so where a
+  deploy's backup lands depends on how the app was started;
+  `docs/plans/2026-11-24-context-control.md` (Task 4) gives that as `/` for
+  an app opened from Finder, which was not measured for this entry.
+  `docs/findings.md` F51 records the same path from the test side. Recorded
+  2026-11-24 and not fixed: `transactional.rs` is unchanged. The config
+  writer added that day, `mcp::switch::apply`, takes its backups folder as
+  a parameter and refuses one that is not absolute.
