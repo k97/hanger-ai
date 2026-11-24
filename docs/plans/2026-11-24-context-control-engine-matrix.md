@@ -136,6 +136,22 @@ exit=1
 
 Unlike Gemini, a failed `remove` exits 1.
 
+### What `add-json` gives back, by shape of entry
+
+Measured later the same day, same version, same throwaway directory. Each entry went in on stdin; "written" is what `mcpServers.<name>` held afterwards.
+
+| Entry handed to `claude mcp add-json <name> - --scope user` | Output | Written |
+|---|---|---|
+| `{"command":"echo","args":["hi"]}` (no `type`) | `Added stdio MCP server notype to user config` | Equal |
+| `{"type":"stdio","command":"echo","args":[],"timeout":30.0,"env":{}}` | `Added stdio MCP server floaty to user config` | Equal as parsed by Python, where `30.0 == 30`; the number's spelling was not checked |
+| `{"type":"http","url":"https://example.com/mcp","headers":{…}}` | `Added http MCP server http to user config` | Equal |
+| `{"url":"https://example.com/mcp"}` (a `url`, no `type`) | `Invalid configuration: it has a "url" but no "type". Add "type": "http" (or "sse" / "ws").` | Nothing |
+| `{"command":"echo","args":["hi"],"disabled":true,"description":"x","unknownKey":{"a":1}}` | `Added stdio MCP server extra to user config` | `{"command": "echo", "args": ["hi"]}` only |
+
+So `add-json` drops every key it does not know, `description` included, and still reports success. One of the nine user-scope entries in the real `~/.claude.json` carries `description`.
+
+This is why `mcp::switch::vendor::claude_off` runs a pre-flight: it hands the entry to `add-json` in a private scratch config directory first, and removes the server only if what comes back is equal. A server Claude Code would not give back unchanged is not switched off.
+
 ## OpenCode — the config reader accepts the flag; `mcp list` could not be isolated
 
 `opencode mcp list` talks to the background service by default, so it lists the real config whatever the environment says. This session also runs inside OpenCode, which sets `OPENCODE_CONFIG_CONTENT` and four other `OPENCODE_*` variables; they were unset for these runs.
