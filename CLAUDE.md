@@ -1,27 +1,20 @@
 # CLAUDE.md
 
 Hanger is an interface for the agent harness: it inventories, monitors and
-deploys harness assets — four kinds, no more (`docs/harness.md`) — across
-eleven engines with directories of their own (`agents.rs` → `AGENT_CONFIGS`)
-and sixteen MCP hosts (`mcp/registry.rs` → `HOSTS`). It scans the
-directories those engines read from, records what it finds in a local SQLite
-store, and shows which engines reach each asset and through which path, and
-whether it still matches its source. React 19 + TypeScript in a Tauri 2
-webview, Rust backend, SQLite via bundled `rusqlite`, Tailwind v4 semantic
-tokens, Vitest (`package.json`, `src-tauri/Cargo.toml`).
+deploys harness assets — four kinds, no more — across the engines that keep
+directories of their own (`agents.rs` → `AGENT_CONFIGS`) and the MCP hosts
+that declare servers (`mcp/registry.rs` → `HOSTS`). It scans the directories
+those engines read from, records what it finds in a local SQLite store, and
+shows which engines reach each asset and through which path, and whether it
+still matches its source. React 19 + TypeScript in a Tauri 2 webview, Rust
+backend, SQLite via bundled `rusqlite`, Tailwind v4 semantic tokens, Vitest.
 
-`docs/harness.md` is the model the code is built on — the harness has
-conventions and no interface, ownership is exclusive and reach is not. Read
-it before changing `agents.rs`, `annotations.rs`, or anything that draws the
-Reach column.
-
-Two places own their own domains:
-
-- **`.claude/rules/`** — the rules, linked below. `verification.md` is what
-  counts as proof; read it before reporting any work as done.
-- **`.claude/DESIGN.md`** — the design system, derived from code with every
-  statement cited, and a "Not implemented" section for what the code does not
-  yet do.
+[docs/harness.md](docs/harness.md) is the model the code is built on — the
+harness has conventions and no interface, ownership is exclusive and reach is
+not. Read it before changing `agents.rs`, `annotations.rs`, or anything that
+draws the Reach column. There is no router: views switch on one string state,
+`selectedSidebarItem` in `src/App.tsx`, persisted as the
+`selected_sidebar_item` preference.
 
 ## Commands
 
@@ -33,10 +26,8 @@ first.
   `strictPort` (`vite.config.ts`) because Tauri loads it by absolute URL
   (`src-tauri/tauri.conf.json`); a floating port breaks `tauri dev`.
 - `cargo sweep --time 30` / `cargo clean`, from `src-tauri/` — Cargo never
-  collects `target/`; it reached 94 GiB. `docs/setup.md` → Build artifact hygiene.
-
-There is no router: views switch on one string state, `selectedSidebarItem`
-in `src/App.tsx`, persisted as the `selected_sidebar_item` preference.
+  collects `target/`; it reached 94 GiB. `docs/setup.md` → Build artifact
+  hygiene.
 
 ## Rules
 
@@ -44,12 +35,14 @@ in `src/App.tsx`, persisted as the `selected_sidebar_item` preference.
   coding, simplest thing, surgical diffs, goal-driven. Always on.
 - [Verification](.claude/rules/verification.md) — what counts as evidence and
   what never does, human-gated steps, checkpoints and reporting, scope, exit.
+  Read it before reporting any work as done.
 - [Invariants](.claude/rules/invariants.md) — what a change can break without
   a test obviously failing: bundle id, crate name, backend-owned counts,
   read-time link state, `user_version` migrations, tokens-only styling, no
   blocking dialogs, reaping off by default.
 - [Shared checkout](.claude/rules/shared-checkout.md) — other sessions commit
-  to this branch: authorship, stale greens, staging by hunk.
+  to this branch: authorship, stale greens, staging by hunk, and the git
+  defaults that aim at their work.
 - [UI copy](.claude/rules/ui-copy.md) — labels get a naming brief, every
   string gets a `/humanizer` pass, empty states are findings.
 - [Verifying UI](.claude/rules/verifying-ui.md) — taking a screenshot of the
@@ -65,11 +58,15 @@ in `src/App.tsx`, persisted as the `selected_sidebar_item` preference.
 - [Tauri opener](.claude/rules/tauri-opener.md) — `openPath`'s two silent
   failures: the capability refuses a named app unless it is allowlisted, and
   the existence check is skipped once one is.
-- [The README](.claude/rules/readme.md) — the front door's fixed section
-  set, its generated figures, and the one clause in it that nothing
-  enforces.
+- [The README](.claude/rules/readme.md) — the front door's fixed section set,
+  its generated figures, and the clauses in it that nothing enforces.
+- [Documentation](.claude/rules/documentation.md) — what `docs/` holds, which
+  subdirectories are local-only, and why `to-be-reviewed/` is not a spec.
+- [Design system](.claude/DESIGN.md) — derived from code with every statement
+  cited, and a "Not implemented" section for what the code does not yet do.
 
-Queued work with a defined finish line lives in [docs/TODO.md](docs/TODO.md).
+Queued work with a defined finish line lives in [docs/TODO.md](docs/TODO.md);
+deferred work and unruled questions in [docs/roadmap.md](docs/roadmap.md).
 
 ## Verification
 
@@ -88,24 +85,3 @@ figure from any other invocation is not a gate result:
 
 A gate result is valid only for the tree at the moment it ran (Shared
 checkout).
-
-## Documentation
-
-`docs/` is tracked except for four local-only subdirectories in `.gitignore`
-(`to-be-reviewed/`, `superpowers/`, `evidence/`, `references/`).
-`docs/to-be-reviewed/` is a holding pen, not a specification — several files
-there assert behaviour the code does not implement; check the code first.
-`docs/harness.md` is the conceptual model; `docs/findings.md` records defects
-deliberately left unfixed, with evidence; `docs/roadmap.md`, deferred work.
-
-`docs/design-ref-prototypes/` holds design-reference HTML: canvas
-artboards (`*.dc.html` and their `canvas.json`) and published canvas
-pages. A canvas drafted here lands at the repo root; move it there before
-it is committed.
-
-## Gaps
-
-Not established, left out rather than guessed: whether Windows or Linux builds
-are intended — `tauri.conf.json` still sets `"targets": "all"` while the app
-ships macOS only. What actually assumes macOS, and what a second platform would
-need, is now written down in `docs/platforms.md`; the `targets` tension is not.

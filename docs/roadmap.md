@@ -180,3 +180,15 @@ tokenises differently, so treat them as a size, not a count."
 Deliberately not built as part of the provenance work: a help screen is
 product work with its own naming and copy decisions under `ui-copy.md`, not
 somewhere to tuck a line that had nowhere else to go.
+
+## Windows and Linux: never established, not guessed
+
+`tauri.conf.json` sets `"targets": "all"` while the app ships macOS only, and
+nobody has ruled on whether other platforms are intended. What actually assumes
+macOS today, and what a second platform would need, is written down in
+`docs/platforms.md`. The `targets` tension is not: the config claims a breadth
+the project has never committed to.
+
+Moved out of `CLAUDE.md`'s Gaps section on 2026-08-30 — an open question is
+roadmap material, not something every session needs in its context window.
+
