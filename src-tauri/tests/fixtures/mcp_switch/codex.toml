@@ -1,0 +1,19 @@
+# A Codex config. Every line and every space here is part of a test.
+model = "fixture-model"
+
+[mcp_servers.zebra]
+command = "echo"
+args = ["zebra"]
+
+# beta talks to example.com
+[mcp_servers.beta]
+command = "echo" # the launcher
+args = ["hi", "--flag"]
+env = { GREETING = "fixture-value" }
+
+[mcp_servers.alpha]
+url = "https://example.com/mcp"
+enabled = true # left on by hand
+
+[tools.legacy]
+command = "echo"

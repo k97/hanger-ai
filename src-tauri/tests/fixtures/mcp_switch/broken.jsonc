@@ -1,0 +1,6 @@
+{
+    "mcpServers": {
+        "alpha": { "command": "echo" },
+        "beta": { "command": "echo", "note": "marker-do-not-quote" "stray" }
+    }
+}

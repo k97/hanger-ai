@@ -1,0 +1,6 @@
+[mcp_servers.alpha]
+command = "echo"
+
+[mcp_servers.beta]
+command = "echo"
+note = marker-do-not-quote "

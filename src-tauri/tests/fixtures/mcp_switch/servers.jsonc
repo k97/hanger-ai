@@ -1,0 +1,20 @@
+{
+    // An engine's settings. Every line and every space here is part of a test.
+    "theme": "fixture-theme",
+    "mcpServers": {
+        "zebra": {
+            "command": "echo",
+            "args": ["zebra"]
+        },
+        /* beta talks to example.com */
+        "beta": {
+            "command": "echo", // the launcher
+            "args": ["hi", "--flag"],
+            "env": { "GREETING": "fixture-value" },
+        },
+        "alpha": {
+            "url": "https://example.com/mcp",
+            "disabled": false // left on by hand
+        },
+    },
+}
