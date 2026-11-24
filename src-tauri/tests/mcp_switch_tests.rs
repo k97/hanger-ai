@@ -1023,3 +1023,907 @@ fn a_gemini_state_file_gemini_could_not_read_is_unparseable() {
         assert!(matches!(edit::gemini_set_enabled(Some(body), "beta", false), Err(EditError::Unparseable(_))), "{body:?}");
     }
 }
+
+// ---------------------------------------------------------------------------
+// Writing the file: `mcp::switch::apply`. Every test works in a temp
+// directory of its own; none reads or writes anything under the real home.
+//
+// The backup, list and restore cases are ported by behaviour from mcpick's
+// `safe-apply.test.ts` (MIT, Copyright (c) 2026 Scott Spence). Its four
+// dry-run cases have no counterpart: `edit` is pure, so the text a switch
+// would write can be had without a write.
+// ---------------------------------------------------------------------------
+
+use std::fs;
+use std::os::unix::fs::PermissionsExt;
+use std::path::{Path, PathBuf};
+
+use sha2::{Digest, Sha256};
+use tauri_app_lib::mcp::switch::apply::{self, ApplyError, Format, Receipt, Seams};
+
+/// A config with a comment, a blank line, CRLF on one line and no final
+/// newline: bytes a re-serialiser would not give back.
+const TOML_BEFORE: &str = "# kept\r\n[mcp_servers.alpha]\ncommand = \"alpha-server\"\n\n[mcp_servers.beta]\ncommand = \"beta-server\"";
+const TOML_AFTER: &str = "# kept\r\n[mcp_servers.alpha]\ncommand = \"alpha-server\"\n\n[mcp_servers.beta]\ncommand = \"beta-server\"\nenabled = false";
+const JSONC_BEFORE: &str = "{\n    // kept\n    \"mcpServers\": {\n        \"alpha\": { \"command\": \"alpha-server\", },\n    },\n}";
+const JSONC_AFTER: &str = "{\n    // kept\n    \"mcpServers\": {\n        \"alpha\": { \"disabled\": true, \"command\": \"alpha-server\", },\n    },\n}";
+const WHAT: &str = "codex · beta · off";
+
+/// A temp directory with a folder for config files and a place where the
+/// backups folder will go. The backups folder itself is not created: making
+/// it is `apply`'s job.
+struct Bench {
+    _dir: tempfile::TempDir,
+    /// Where config files go. The real path: macOS keeps its temp
+    /// directories behind a link, and receipts name real paths.
+    home: PathBuf,
+    backups: PathBuf,
+}
+
+fn bench() -> Bench {
+    let dir = tempfile::tempdir().expect("temp dir");
+    let root = fs::canonicalize(dir.path()).expect("real temp dir");
+    let home = root.join("home");
+    fs::create_dir(&home).expect("home");
+    Bench { _dir: dir, home, backups: root.join("data").join("switch").join("backups") }
+}
+
+fn write_with_mode(path: &Path, text: &str, mode: u32) {
+    fs::write(path, text).expect("write fixture");
+    fs::set_permissions(path, fs::Permissions::from_mode(mode)).expect("chmod fixture");
+}
+
+fn mode_of(path: &Path) -> u32 {
+    fs::metadata(path).unwrap_or_else(|e| panic!("{}: {e}", path.display())).permissions().mode() & 0o7777
+}
+
+fn sha(bytes: &[u8]) -> String {
+    hex::encode(Sha256::digest(bytes))
+}
+
+/// Every name in a directory, sorted. A directory that is not there is empty.
+fn names_in(dir: &Path) -> Vec<String> {
+    let Ok(entries) = fs::read_dir(dir) else { return Vec::new() };
+    let mut names: Vec<String> = entries.map(|e| e.expect("dir entry").file_name().to_string_lossy().into_owned()).collect();
+    names.sort();
+    names
+}
+
+/// macOS's "user immutable" flag. A file that carries it can be read and
+/// cannot be renamed over, which is the one way to let a write get as far as
+/// its temp file and no further.
+#[cfg(target_os = "macos")]
+fn set_immutable(path: &Path, on: bool) {
+    use std::os::unix::ffi::OsStrExt;
+    let c_path = std::ffi::CString::new(path.as_os_str().as_bytes()).expect("path");
+    let flags = if on { libc::UF_IMMUTABLE } else { 0 };
+    // SAFETY: `c_path` is a NUL-terminated string that outlives the call.
+    let result = unsafe { libc::chflags(c_path.as_ptr(), flags) };
+    assert_eq!(result, 0, "chflags on {}", path.display());
+}
+
+const RECEIPT_SUFFIX: &str = ".receipt.json";
+
+/// The backups in the backups folder: every file that is not a receipt.
+fn backups_in(dir: &Path) -> Vec<String> {
+    names_in(dir).into_iter().filter(|name| !name.ends_with(RECEIPT_SUFFIX)).collect()
+}
+
+fn receipt_files_in(dir: &Path) -> Vec<String> {
+    names_in(dir).into_iter().filter(|name| name.ends_with(RECEIPT_SUFFIX)).collect()
+}
+
+fn backup_of(bench: &Bench, receipt: &Receipt) -> PathBuf {
+    bench.backups.join(receipt.backup_file.as_ref().expect("this write replaced a file, so it has a backup"))
+}
+
+fn replace(bench: &Bench, path: &Path, before: &str, next: &str, format: Format) -> Receipt {
+    apply::safe_replace(path, Some(before), next, format, &bench.backups, WHAT)
+        .unwrap_or_else(|e| panic!("safe_replace refused: {e:?}"))
+}
+
+/// `{"n": <n>}`: a different, valid file for each write of a run.
+fn numbered(n: usize) -> String {
+    format!("{{\"n\": {n}}}")
+}
+
+#[test]
+fn a_write_replaces_the_file_and_backs_up_what_was_there() {
+    // mcpick: "writes JSON and backs up existing content".
+    let bench = bench();
+    let path = bench.home.join("settings.json");
+    fs::write(&path, JSONC_BEFORE).unwrap();
+
+    let receipt = replace(&bench, &path, JSONC_BEFORE, JSONC_AFTER, Format::Jsonc);
+
+    assert_eq!(fs::read_to_string(&path).unwrap(), JSONC_AFTER);
+    // The backup holds the exact bytes that were replaced, comment and
+    // trailing commas included.
+    assert_eq!(fs::read(backup_of(&bench, &receipt)).unwrap(), JSONC_BEFORE.as_bytes());
+
+    assert_eq!(receipt.path, path.to_str().unwrap());
+    assert_eq!(receipt.before_sha256, sha(JSONC_BEFORE.as_bytes()));
+    assert_eq!(receipt.after_sha256, sha(JSONC_AFTER.as_bytes()));
+    assert_eq!(receipt.what, WHAT);
+    assert!(uuid::Uuid::parse_str(&receipt.id).is_ok(), "the id is not a uuid: {}", receipt.id);
+    let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis() as i64;
+    assert!((now - 60_000..=now).contains(&receipt.at_ms), "at_ms is not this minute: {} against {now}", receipt.at_ms);
+
+    // The name: config-<basename>-<milliseconds>-<first 10 hex of sha256(path)>.<ext>
+    let name = receipt.backup_file.clone().unwrap();
+    let hash = &sha(path.to_str().unwrap().as_bytes())[..10];
+    let stamp = name
+        .strip_prefix("config-settings.json-")
+        .and_then(|rest| rest.strip_suffix(&format!("-{hash}.json")))
+        .unwrap_or_else(|| panic!("the backup is not named for its file and path: {name}"));
+    assert_eq!(stamp.trim_start_matches('0').parse::<i64>().ok(), Some(receipt.at_ms), "{name}");
+    assert_eq!(stamp.len(), 14, "the stamp is not zero-padded to a fixed width: {name}");
+
+    // The receipt is a file beside the backup, and it is what is listed.
+    assert_eq!(names_in(&bench.backups), vec![name.clone(), format!("{name}{RECEIPT_SUFFIX}")]);
+    assert_eq!(apply::latest_receipts(&bench.backups), vec![receipt]);
+}
+
+#[test]
+fn a_toml_backup_keeps_its_extension_and_is_listed() {
+    // mcpick: "lists .toml backups alongside .json ones".
+    let bench = bench();
+    let toml_path = bench.home.join("config.toml");
+    let json_path = bench.home.join("settings.json");
+    fs::write(&toml_path, TOML_BEFORE).unwrap();
+    fs::write(&json_path, JSONC_BEFORE).unwrap();
+
+    let toml_receipt = replace(&bench, &toml_path, TOML_BEFORE, TOML_AFTER, Format::Toml);
+    let json_receipt = replace(&bench, &json_path, JSONC_BEFORE, JSONC_AFTER, Format::Jsonc);
+
+    assert!(toml_receipt.backup_file.as_ref().unwrap().ends_with(".toml"), "{toml_receipt:?}");
+    assert!(json_receipt.backup_file.as_ref().unwrap().ends_with(".json"), "{json_receipt:?}");
+    let mut listed: Vec<String> = apply::latest_receipts(&bench.backups).into_iter().map(|r| r.path).collect();
+    listed.sort();
+    assert_eq!(listed, vec![toml_path.to_str().unwrap(), json_path.to_str().unwrap()]);
+}
+
+#[test]
+fn a_file_with_no_extension_is_backed_up_as_json_and_odd_names_are_made_safe() {
+    let bench = bench();
+    let path = bench.home.join("my settings");
+    fs::write(&path, "{}").unwrap();
+
+    let receipt = replace(&bench, &path, "{}", "{\"a\": 1}", Format::StrictJson);
+
+    let name = receipt.backup_file.unwrap();
+    assert!(name.starts_with("config-my_settings-"), "{name}");
+    assert!(name.ends_with(".json"), "{name}");
+}
+
+#[test]
+fn undo_restores_the_exact_bytes() {
+    // mcpick: "restores config backups by filename" and "restores TOML
+    // backups byte-identical".
+    for (file, before, after, format) in [
+        ("config.toml", TOML_BEFORE, TOML_AFTER, Format::Toml),
+        ("settings.json", JSONC_BEFORE, JSONC_AFTER, Format::Jsonc),
+    ] {
+        let bench = bench();
+        let path = bench.home.join(file);
+        fs::write(&path, before).unwrap();
+        let receipt = replace(&bench, &path, before, after, format);
+        assert_eq!(fs::read(&path).unwrap(), after.as_bytes(), "{file}: the write did not land, so undo has nothing to prove");
+
+        let undone = apply::undo(&receipt.id, &bench.backups).unwrap_or_else(|e| panic!("{file}: {e:?}"));
+
+        assert_eq!(fs::read(&path).unwrap(), before.as_bytes(), "{file}");
+        assert_eq!(undone.before_sha256, sha(after.as_bytes()), "{file}");
+        assert_eq!(undone.after_sha256, sha(before.as_bytes()), "{file}");
+        assert_ne!(undone.id, receipt.id, "{file}: the undo is a write of its own");
+    }
+}
+
+#[test]
+fn undo_refuses_a_backup_that_is_no_longer_what_was_backed_up() {
+    // mcpick: "rejects an invalid TOML backup without touching the file".
+    let bench = bench();
+    let path = bench.home.join("config.toml");
+    fs::write(&path, TOML_BEFORE).unwrap();
+    let receipt = replace(&bench, &path, TOML_BEFORE, TOML_AFTER, Format::Toml);
+    fs::write(backup_of(&bench, &receipt), "not = [valid toml").unwrap();
+
+    let result = apply::undo(&receipt.id, &bench.backups);
+
+    assert!(matches!(result, Err(ApplyError::NotUndoable(_))), "{result:?}");
+    assert_eq!(fs::read_to_string(&path).unwrap(), TOML_AFTER);
+}
+
+#[test]
+fn undo_with_a_missing_backup_is_not_undoable() {
+    let bench = bench();
+    let path = bench.home.join("config.toml");
+    fs::write(&path, TOML_BEFORE).unwrap();
+    let receipt = replace(&bench, &path, TOML_BEFORE, TOML_AFTER, Format::Toml);
+    fs::remove_file(backup_of(&bench, &receipt)).unwrap();
+
+    let result = apply::undo(&receipt.id, &bench.backups);
+
+    assert!(matches!(result, Err(ApplyError::NotUndoable(_))), "{result:?}");
+    assert_eq!(fs::read_to_string(&path).unwrap(), TOML_AFTER);
+
+    // And an id no receipt carries, in a folder that has receipts and in one
+    // that does not exist.
+    for backups in [bench.backups.clone(), bench.home.join("no-such-folder")] {
+        let unknown = apply::undo("00000000-0000-4000-8000-000000000000", &backups);
+        assert!(matches!(unknown, Err(ApplyError::NotUndoable(_))), "{unknown:?}");
+    }
+}
+
+#[test]
+fn a_file_changed_since_read_is_not_overwritten() {
+    // Review focus 1: the engine, or an editor, saved the file between
+    // Hanger's read and its write.
+    let bench = bench();
+    let path = bench.home.join("config.toml");
+    let theirs = "[mcp_servers.gamma]\ncommand = \"gamma-server\"\n";
+    fs::write(&path, theirs).unwrap();
+
+    let result = apply::safe_replace(&path, Some(TOML_BEFORE), TOML_AFTER, Format::Toml, &bench.backups, WHAT);
+
+    assert_eq!(result, Err(ApplyError::ChangedSinceRead));
+    assert_eq!(fs::read_to_string(&path).unwrap(), theirs, "their save was overwritten");
+    assert_eq!(names_in(&bench.backups), Vec::<String>::new(), "a refused write left something in the backups folder");
+    assert_eq!(names_in(&bench.home), vec!["config.toml"]);
+
+    // One byte is enough: a final newline their editor added.
+    let with_newline = format!("{TOML_BEFORE}\n");
+    fs::write(&path, &with_newline).unwrap();
+    let result = apply::safe_replace(&path, Some(TOML_BEFORE), TOML_AFTER, Format::Toml, &bench.backups, WHAT);
+    assert_eq!(result, Err(ApplyError::ChangedSinceRead));
+    assert_eq!(fs::read_to_string(&path).unwrap(), with_newline);
+
+    // And a file that was deleted since it was read is not brought back.
+    fs::remove_file(&path).unwrap();
+    let result = apply::safe_replace(&path, Some(TOML_BEFORE), TOML_AFTER, Format::Toml, &bench.backups, WHAT);
+    assert_eq!(result, Err(ApplyError::ChangedSinceRead));
+    assert_eq!(names_in(&bench.home), Vec::<String>::new());
+}
+
+#[test]
+fn a_file_that_appeared_since_read_is_not_overwritten() {
+    let bench = bench();
+    let path = bench.home.join("mcp-server-enablement.json");
+    let theirs = "{\"alpha\": {\"enabled\": false}}";
+    fs::write(&path, theirs).unwrap();
+
+    // `None`: when Hanger read, there was no file.
+    let result = apply::safe_replace(&path, None, GEMINI_ALPHA_OFF, Format::StrictJson, &bench.backups, WHAT);
+
+    assert_eq!(result, Err(ApplyError::ChangedSinceRead));
+    assert_eq!(fs::read_to_string(&path).unwrap(), theirs);
+    assert_eq!(names_in(&bench.backups), Vec::<String>::new());
+    assert_eq!(names_in(&bench.home), vec!["mcp-server-enablement.json"]);
+}
+
+#[test]
+fn a_symlinked_config_keeps_its_link() {
+    // Review focus 2: the config is a link into a dotfiles repo. A rename
+    // onto the link would replace it with a plain file.
+    let bench = bench();
+    let dotfiles = bench.home.join("dotfiles");
+    let codex = bench.home.join(".codex");
+    fs::create_dir(&dotfiles).unwrap();
+    fs::create_dir(&codex).unwrap();
+    let real = dotfiles.join("codex.toml");
+    let link = codex.join("config.toml");
+    write_with_mode(&real, TOML_BEFORE, 0o600);
+    std::os::unix::fs::symlink(&real, &link).unwrap();
+
+    let receipt = replace(&bench, &link, TOML_BEFORE, TOML_AFTER, Format::Toml);
+
+    let is_link = |path: &Path| fs::symlink_metadata(path).unwrap().file_type().is_symlink();
+    assert!(is_link(&link), "the link was replaced by a file");
+    assert_eq!(fs::read_link(&link).unwrap(), real);
+    assert!(!is_link(&real));
+    assert_eq!(fs::read_to_string(&real).unwrap(), TOML_AFTER, "the write did not reach the link's target");
+    assert_eq!(mode_of(&real), 0o600);
+    assert_eq!(receipt.path, real.to_str().unwrap(), "the receipt names the link, not the real file");
+    // The temp file was made beside the real file and is gone from both folders.
+    assert_eq!(names_in(&dotfiles), vec!["codex.toml"]);
+    assert_eq!(names_in(&codex), vec!["config.toml"]);
+
+    // Undo goes the same way.
+    apply::undo(&receipt.id, &bench.backups).expect("undo");
+    assert!(is_link(&link), "undo replaced the link with a file");
+    assert_eq!(fs::read(&real).unwrap(), TOML_BEFORE.as_bytes());
+    assert_eq!(names_in(&dotfiles), vec!["codex.toml"]);
+}
+
+#[test]
+fn mode_is_preserved_on_the_file_and_its_backup() {
+    // Review focus 3. 0o664 is here because a process umask of 022 turns a
+    // file *created* 0o664 into 0o644: the mode has to be set, not asked for.
+    for mode in [0o600, 0o644, 0o664, 0o400] {
+        let bench = bench();
+        let path = bench.home.join("config.toml");
+        write_with_mode(&path, TOML_BEFORE, mode);
+
+        let receipt = replace(&bench, &path, TOML_BEFORE, TOML_AFTER, Format::Toml);
+
+        assert_eq!(fs::read_to_string(&path).unwrap(), TOML_AFTER);
+        assert_eq!(mode_of(&path), mode, "the rewritten file went from {mode:o} to {:o}", mode_of(&path));
+        // The backup is 0600 whatever the original was: it is a copy of a
+        // file that may hold a credential, in a folder of Hanger's own.
+        assert_eq!(mode_of(&backup_of(&bench, &receipt)), 0o600, "backup of a {mode:o} file");
+
+        apply::undo(&receipt.id, &bench.backups).expect("undo");
+        assert_eq!(mode_of(&path), mode, "undo changed the mode of a {mode:o} file");
+    }
+}
+
+#[test]
+fn the_backups_folder_is_private() {
+    let bench = bench();
+    let path = bench.home.join("config.toml");
+    write_with_mode(&path, TOML_BEFORE, 0o644);
+    let created = bench.home.join("mcp-server-enablement.json");
+    assert!(!bench.backups.parent().unwrap().exists(), "the fixture already made the folder this test watches being made");
+
+    replace(&bench, &path, TOML_BEFORE, TOML_AFTER, Format::Toml);
+    apply::safe_replace(&created, None, GEMINI_ALPHA_OFF, Format::StrictJson, &bench.backups, WHAT).expect("create");
+
+    // The folder, and the one above it that had to be made too.
+    assert_eq!(mode_of(&bench.backups), 0o700);
+    assert_eq!(mode_of(bench.backups.parent().unwrap()), 0o700);
+    // A backup, its receipt, and the receipt of the write that made a file.
+    let names = names_in(&bench.backups);
+    assert_eq!(names.len(), 3, "{names:?}");
+    for name in names {
+        assert_eq!(mode_of(&bench.backups.join(&name)), 0o600, "{name}");
+    }
+}
+
+#[test]
+fn undo_refuses_when_the_file_moved_on() {
+    // Review focus 4: the user edited the file after Hanger's write.
+    let bench = bench();
+    let path = bench.home.join("config.toml");
+    fs::write(&path, TOML_BEFORE).unwrap();
+    let receipt = replace(&bench, &path, TOML_BEFORE, TOML_AFTER, Format::Toml);
+    let theirs = format!("{TOML_AFTER}\n\n[mcp_servers.gamma]\ncommand = \"gamma-server\"\n");
+    fs::write(&path, &theirs).unwrap();
+    let before_undo = names_in(&bench.backups);
+
+    let result = apply::undo(&receipt.id, &bench.backups);
+
+    assert!(matches!(result, Err(ApplyError::NotUndoable(_))), "{result:?}");
+    assert_eq!(fs::read_to_string(&path).unwrap(), theirs, "undo discarded their edit");
+    assert_eq!(names_in(&bench.backups), before_undo, "a refused undo wrote to the backups folder");
+    assert_eq!(names_in(&bench.home), vec!["config.toml"]);
+
+    // A file they deleted is not brought back either.
+    fs::remove_file(&path).unwrap();
+    let result = apply::undo(&receipt.id, &bench.backups);
+    assert!(matches!(result, Err(ApplyError::NotUndoable(_))), "{result:?}");
+    assert!(!path.exists());
+}
+
+#[test]
+fn an_undo_can_be_undone() {
+    let bench = bench();
+    let path = bench.home.join("config.toml");
+    write_with_mode(&path, TOML_BEFORE, 0o600);
+    let written = replace(&bench, &path, TOML_BEFORE, TOML_AFTER, Format::Toml);
+
+    let undone = apply::undo(&written.id, &bench.backups).expect("undo");
+    assert_eq!(fs::read(&path).unwrap(), TOML_BEFORE.as_bytes());
+    // The undo is a write like any other: backed up and receipted.
+    assert_eq!(fs::read(backup_of(&bench, &undone)).unwrap(), TOML_AFTER.as_bytes());
+    assert_eq!(apply::latest_receipts(&bench.backups).first().map(|r| r.id.clone()), Some(undone.id.clone()));
+
+    let redone = apply::undo(&undone.id, &bench.backups).expect("undo of the undo");
+    assert_eq!(fs::read(&path).unwrap(), TOML_AFTER.as_bytes());
+    assert_eq!(mode_of(&path), 0o600);
+    assert_eq!(redone.after_sha256, written.after_sha256);
+    assert_eq!(apply::latest_receipts(&bench.backups).len(), 3);
+
+    // The first undo's receipt is spent: the file no longer holds what that
+    // undo left.
+    let stale = apply::undo(&undone.id, &bench.backups);
+    assert!(matches!(stale, Err(ApplyError::NotUndoable(_))), "{stale:?}");
+    assert_eq!(fs::read(&path).unwrap(), TOML_AFTER.as_bytes());
+}
+
+#[test]
+fn a_failed_verify_puts_the_original_back() {
+    // The check made after the rename is the one thing here a test cannot
+    // make fail from outside, so it is a parameter. `safe_replace` passes the
+    // real one.
+    let refuse = |_: &str| false;
+    let bench = bench();
+    let dotfiles = bench.home.join("dotfiles");
+    fs::create_dir(&dotfiles).unwrap();
+    let real = dotfiles.join("codex.toml");
+    let link = bench.home.join("config.toml");
+    write_with_mode(&real, TOML_BEFORE, 0o600);
+    std::os::unix::fs::symlink(&real, &link).unwrap();
+
+    let result = apply::safe_replace_with(
+        &link,
+        Some(TOML_BEFORE),
+        TOML_AFTER,
+        Format::Toml,
+        &bench.backups,
+        WHAT,
+        Seams { at_ms: 1_000, verify: &refuse },
+    );
+
+    assert!(matches!(result, Err(ApplyError::Verify(_))), "{result:?}");
+    assert_eq!(fs::read(&real).unwrap(), TOML_BEFORE.as_bytes(), "the original was not put back");
+    assert_eq!(mode_of(&real), 0o600);
+    assert!(fs::symlink_metadata(&link).unwrap().file_type().is_symlink());
+    assert_eq!(names_in(&dotfiles), vec!["codex.toml"]);
+    // The write did not happen, so nothing says it did.
+    assert_eq!(apply::latest_receipts(&bench.backups), Vec::<Receipt>::new());
+    assert_eq!(names_in(&bench.backups), Vec::<String>::new());
+
+    // A write that would have created the file leaves no file.
+    let created = bench.home.join("mcp-server-enablement.json");
+    let result = apply::safe_replace_with(
+        &created,
+        None,
+        GEMINI_ALPHA_OFF,
+        Format::StrictJson,
+        &bench.backups,
+        WHAT,
+        Seams { at_ms: 2_000, verify: &refuse },
+    );
+    assert!(matches!(result, Err(ApplyError::Verify(_))), "{result:?}");
+    assert!(!created.exists(), "a file that failed its check was left in place");
+    assert_eq!(names_in(&bench.backups), Vec::<String>::new());
+
+    // The same calls with a check that passes do write: the refusals above
+    // came from the check, not from the fixture.
+    let accept = |_: &str| true;
+    let seams = Seams { at_ms: 3_000, verify: &accept };
+    apply::safe_replace_with(&link, Some(TOML_BEFORE), TOML_AFTER, Format::Toml, &bench.backups, WHAT, seams).expect("write");
+    assert_eq!(fs::read(&real).unwrap(), TOML_AFTER.as_bytes());
+}
+
+#[test]
+fn a_write_that_cannot_land_leaves_the_file_and_no_backup() {
+    let bench = bench();
+    let folder = bench.home.join(".codex");
+    fs::create_dir(&folder).unwrap();
+    let path = folder.join("config.toml");
+    fs::write(&path, TOML_BEFORE).unwrap();
+    // Readable, and closed to new files: the temp file cannot be made.
+    fs::set_permissions(&folder, fs::Permissions::from_mode(0o500)).unwrap();
+
+    let result = apply::safe_replace(&path, Some(TOML_BEFORE), TOML_AFTER, Format::Toml, &bench.backups, WHAT);
+    fs::set_permissions(&folder, fs::Permissions::from_mode(0o700)).unwrap();
+
+    // The reason is one of the module's sentences and the kind of I/O error.
+    let Err(ApplyError::Write(reason)) = &result else { panic!("expected Write, got {result:?}") };
+    assert!(reason.ends_with(" (PermissionDenied)"), "{reason:?}");
+    assert_eq!(fs::read_to_string(&path).unwrap(), TOML_BEFORE);
+    assert_eq!(names_in(&folder), vec!["config.toml"]);
+    // The backup was made before the write was tried, and is gone again:
+    // nothing says a write happened.
+    assert!(bench.backups.exists(), "the backups folder was never made, so no backup was ever at risk of being left");
+    assert_eq!(names_in(&bench.backups), Vec::<String>::new());
+}
+
+#[test]
+fn when_the_original_cannot_be_put_back_its_backup_and_receipt_stay() {
+    let bench = bench();
+    let folder = bench.home.join(".codex");
+    fs::create_dir(&folder).unwrap();
+    let path = folder.join("config.toml");
+    fs::write(&path, TOML_BEFORE).unwrap();
+    // The check fails, and closes the folder to new files as it does: the
+    // new text has landed and the original cannot be written back.
+    let refuse_and_close = |_: &str| {
+        fs::set_permissions(&folder, fs::Permissions::from_mode(0o500)).unwrap();
+        false
+    };
+
+    let seams = Seams { at_ms: 1_000, verify: &refuse_and_close };
+    let result = apply::safe_replace_with(&path, Some(TOML_BEFORE), TOML_AFTER, Format::Toml, &bench.backups, WHAT, seams);
+    fs::set_permissions(&folder, fs::Permissions::from_mode(0o700)).unwrap();
+
+    let Err(ApplyError::Verify(reason)) = &result else { panic!("expected Verify, got {result:?}") };
+    assert!(reason.ends_with(" (PermissionDenied)"), "{reason:?}");
+    assert_eq!(fs::read_to_string(&path).unwrap(), TOML_AFTER, "the fixture did not strand the new text, so this proves nothing");
+    assert_eq!(names_in(&folder), vec!["config.toml"]);
+    // The original is still to be had, and by the ordinary route.
+    let receipts = apply::latest_receipts(&bench.backups);
+    assert_eq!(receipts.len(), 1);
+    assert_eq!(fs::read(backup_of(&bench, &receipts[0])).unwrap(), TOML_BEFORE.as_bytes());
+    apply::undo(&receipts[0].id, &bench.backups).expect("undo");
+    assert_eq!(fs::read(&path).unwrap(), TOML_BEFORE.as_bytes());
+}
+
+#[test]
+fn text_that_does_not_parse_is_refused_before_anything_is_written() {
+    let broken_toml = format!("[mcp_servers.alpha]\ncommand = \"{MARKER}\nenabled = false\n");
+    let broken_json = format!("{{\"mcpServers\": {{\"alpha\": {{\"command\": \"{MARKER}\" \"disabled\": true}}}}}}");
+    let commented_json = format!("{{\n  // {MARKER}\n  \"alpha\": {{\"enabled\": false}}\n}}");
+    for (file, before, next, format) in [
+        ("config.toml", TOML_BEFORE, broken_toml.as_str(), Format::Toml),
+        ("settings.json", JSONC_BEFORE, broken_json.as_str(), Format::Jsonc),
+        ("settings.json", JSONC_BEFORE, broken_json.as_str(), Format::StrictJson),
+        // Gemini reads its state file with JSON.parse: a comment is fatal.
+        ("mcp-server-enablement.json", "{}", commented_json.as_str(), Format::StrictJson),
+        // The right text under the wrong format.
+        ("config.toml", TOML_BEFORE, JSONC_AFTER, Format::Toml),
+        ("settings.json", JSONC_BEFORE, TOML_AFTER, Format::Jsonc),
+    ] {
+        let bench = bench();
+        let path = bench.home.join(file);
+        write_with_mode(&path, before, 0o600);
+
+        let result = apply::safe_replace(&path, Some(before), next, format, &bench.backups, WHAT);
+
+        let Err(ApplyError::Verify(reason)) = &result else {
+            panic!("{file} as {format:?}: text that does not parse must be refused with Verify, got {result:?}");
+        };
+        assert!(!reason.contains(MARKER), "the refusal quotes the text it refused: {reason:?}");
+        assert!(!format!("{result:?}").contains(MARKER), "{result:?}");
+        assert_eq!(fs::read(&path).unwrap(), before.as_bytes(), "{file} as {format:?}");
+        assert_eq!(names_in(&bench.home), vec![file]);
+        assert!(!bench.backups.exists(), "{file} as {format:?}: a refused write made the backups folder");
+
+        // A file that would be created by it is not.
+        let absent = bench.home.join("absent.json");
+        let result = apply::safe_replace(&absent, None, next, format, &bench.backups, WHAT);
+        assert!(matches!(result, Err(ApplyError::Verify(_))), "{result:?}");
+        assert!(!absent.exists());
+    }
+
+    // What each format does accept, so the refusals above are about the text.
+    let bench = bench();
+    let path = bench.home.join("mcp-server-enablement.json");
+    fs::write(&path, "{}").unwrap();
+    replace(&bench, &path, "{}", &commented_json, Format::Jsonc);
+    replace(&bench, &path, &commented_json, GEMINI_ALPHA_OFF, Format::StrictJson);
+}
+
+#[test]
+fn no_temp_file_is_left_behind() {
+    let bench = bench();
+    let path = bench.home.join("config.toml");
+    fs::write(&path, TOML_BEFORE).unwrap();
+    let only_the_config = vec!["config.toml".to_string()];
+
+    // A write that lands.
+    let receipt = replace(&bench, &path, TOML_BEFORE, TOML_AFTER, Format::Toml);
+    assert_eq!(names_in(&bench.home), only_the_config);
+    // One refused because the file moved on.
+    let stale = apply::safe_replace(&path, Some(TOML_BEFORE), TOML_BEFORE, Format::Toml, &bench.backups, WHAT);
+    assert_eq!(stale, Err(ApplyError::ChangedSinceRead));
+    assert_eq!(names_in(&bench.home), only_the_config);
+    // One refused because the text does not parse.
+    let broken = apply::safe_replace(&path, Some(TOML_AFTER), "[broken", Format::Toml, &bench.backups, WHAT);
+    assert!(matches!(broken, Err(ApplyError::Verify(_))), "{broken:?}");
+    assert_eq!(names_in(&bench.home), only_the_config);
+    // One that landed and was put back.
+    let refuse = |_: &str| false;
+    let seams = Seams { at_ms: 1_000, verify: &refuse };
+    let put_back = apply::safe_replace_with(&path, Some(TOML_AFTER), TOML_BEFORE, Format::Toml, &bench.backups, WHAT, seams);
+    assert!(matches!(put_back, Err(ApplyError::Verify(_))), "{put_back:?}");
+    assert_eq!(names_in(&bench.home), only_the_config);
+    // One whose temp file was written and could not be renamed into place.
+    #[cfg(target_os = "macos")]
+    {
+        let before_it = names_in(&bench.backups);
+        set_immutable(&path, true);
+        let stuck = apply::safe_replace(&path, Some(TOML_AFTER), TOML_BEFORE, Format::Toml, &bench.backups, WHAT);
+        set_immutable(&path, false);
+        let Err(ApplyError::Write(reason)) = &stuck else { panic!("expected Write, got {stuck:?}") };
+        assert!(reason.ends_with(" (PermissionDenied)"), "{reason:?}");
+        assert_eq!(fs::read_to_string(&path).unwrap(), TOML_AFTER);
+        assert_eq!(names_in(&bench.home), only_the_config);
+        assert_eq!(names_in(&bench.backups), before_it, "a write that did not land left its backup");
+    }
+    // An undo.
+    apply::undo(&receipt.id, &bench.backups).expect("undo");
+    assert_eq!(names_in(&bench.home), only_the_config);
+    // And nothing with a temp file's name is in the backups folder.
+    let names = names_in(&bench.backups);
+    assert!(!names.is_empty());
+    assert!(names.iter().all(|name| !name.ends_with(".tmp")), "{names:?}");
+}
+
+#[test]
+fn creating_a_file_is_undone_by_removing_it() {
+    let bench = bench();
+    let path = bench.home.join("mcp-server-enablement.json");
+
+    let receipt = apply::safe_replace(&path, None, GEMINI_ALPHA_OFF, Format::StrictJson, &bench.backups, "gemini · alpha · off")
+        .expect("create");
+
+    assert_eq!(fs::read_to_string(&path).unwrap(), GEMINI_ALPHA_OFF);
+    assert_eq!(mode_of(&path), 0o600, "a file Hanger creates is private");
+    // There was nothing to back up, and the receipt says so.
+    assert_eq!(receipt.backup_file, None);
+    assert_eq!(receipt.before_sha256, "");
+    assert_eq!(receipt.after_sha256, sha(GEMINI_ALPHA_OFF.as_bytes()));
+    assert_eq!(receipt.path, path.to_str().unwrap());
+    assert_eq!(backups_in(&bench.backups), Vec::<String>::new());
+    let receipt_files = receipt_files_in(&bench.backups);
+    assert_eq!(receipt_files.len(), 1);
+    assert!(receipt_files[0].starts_with("created-mcp-server-enablement.json-"), "{receipt_files:?}");
+    assert_eq!(apply::latest_receipts(&bench.backups), vec![receipt.clone()]);
+
+    // Undo is refused once the file holds something else.
+    let theirs = "{\"alpha\": {\"enabled\": false}, \"beta\": {\"enabled\": false}}";
+    fs::write(&path, theirs).unwrap();
+    let result = apply::undo(&receipt.id, &bench.backups);
+    assert!(matches!(result, Err(ApplyError::NotUndoable(_))), "{result:?}");
+    assert_eq!(fs::read_to_string(&path).unwrap(), theirs, "undo removed a file that had been edited");
+
+    // And removes the file while it still holds what Hanger wrote.
+    fs::write(&path, GEMINI_ALPHA_OFF).unwrap();
+    let removed = apply::undo(&receipt.id, &bench.backups).expect("undo");
+    assert!(!path.exists(), "undo of a creation left the file");
+    assert_eq!(names_in(&bench.home), Vec::<String>::new());
+    assert_eq!(removed.after_sha256, "", "the receipt of a removal says there is no file after it");
+    assert_eq!(removed.before_sha256, sha(GEMINI_ALPHA_OFF.as_bytes()));
+
+    // The removal kept a copy, so it can be undone too: the file comes back,
+    // byte for byte and private.
+    assert_eq!(fs::read(backup_of(&bench, &removed)).unwrap(), GEMINI_ALPHA_OFF.as_bytes());
+    apply::undo(&removed.id, &bench.backups).expect("undo of the removal");
+    assert_eq!(fs::read(&path).unwrap(), GEMINI_ALPHA_OFF.as_bytes());
+    assert_eq!(mode_of(&path), 0o600);
+}
+
+#[test]
+fn a_file_is_not_created_in_a_folder_that_is_not_there() {
+    let bench = bench();
+    let path = bench.home.join(".gemini").join("mcp-server-enablement.json");
+
+    let result = apply::safe_replace(&path, None, GEMINI_ALPHA_OFF, Format::StrictJson, &bench.backups, WHAT);
+
+    assert!(matches!(result, Err(ApplyError::Write(_))), "{result:?}");
+    assert_eq!(names_in(&bench.home), Vec::<String>::new(), "the engine's folder was made for it");
+    assert!(!bench.backups.exists());
+}
+
+#[test]
+fn a_path_that_is_not_absolute_is_refused() {
+    // A relative path resolves against the working directory, which is `/`
+    // for an app opened from Finder.
+    let bench = bench();
+    let path = bench.home.join("config.toml");
+    fs::write(&path, TOML_BEFORE).unwrap();
+
+    let relative_file = apply::safe_replace(Path::new("config.toml"), None, TOML_AFTER, Format::Toml, &bench.backups, WHAT);
+    assert!(matches!(relative_file, Err(ApplyError::Write(_))), "{relative_file:?}");
+
+    let relative_backups = apply::safe_replace(&path, Some(TOML_BEFORE), TOML_AFTER, Format::Toml, Path::new("backups"), WHAT);
+    assert!(matches!(relative_backups, Err(ApplyError::Backup(_))), "{relative_backups:?}");
+    assert_eq!(fs::read_to_string(&path).unwrap(), TOML_BEFORE);
+    assert!(!Path::new("backups").exists() && !Path::new("config.toml").exists());
+}
+
+#[test]
+fn the_twenty_first_backup_evicts_the_oldest() {
+    // Ruling 21: the newest 20 backups per file are kept.
+    let bench = bench();
+    let path = bench.home.join("settings.json");
+    fs::write(&path, numbered(0)).unwrap();
+
+    let mut receipts = Vec::new();
+    for n in 1..=20 {
+        receipts.push(replace(&bench, &path, &numbered(n - 1), &numbered(n), Format::StrictJson));
+    }
+    assert_eq!(backups_in(&bench.backups).len(), 20, "twenty writes keep twenty backups");
+    assert!(backup_of(&bench, &receipts[0]).exists());
+
+    receipts.push(replace(&bench, &path, &numbered(20), &numbered(21), Format::StrictJson));
+
+    assert_eq!(backups_in(&bench.backups).len(), 20);
+    assert_eq!(receipt_files_in(&bench.backups).len(), 20);
+    let oldest = backup_of(&bench, &receipts[0]);
+    assert!(!oldest.exists(), "the oldest backup outlived the twenty-first");
+    assert!(backup_of(&bench, &receipts[1]).exists(), "the second-oldest backup was evicted too");
+    assert!(backup_of(&bench, &receipts[20]).exists());
+    let listed: Vec<String> = apply::latest_receipts(&bench.backups).into_iter().map(|r| r.id).collect();
+    let newest_twenty: Vec<String> = receipts[1..].iter().rev().map(|r| r.id.clone()).collect();
+    assert_eq!(listed, newest_twenty);
+
+    // A write whose backup was evicted can no longer be undone.
+    let result = apply::undo(&receipts[0].id, &bench.backups);
+    assert!(matches!(result, Err(ApplyError::NotUndoable(_))), "{result:?}");
+    assert_eq!(fs::read_to_string(&path).unwrap(), numbered(21));
+}
+
+#[test]
+fn eviction_removes_the_receipt_with_its_backup_and_leaves_other_files_alone() {
+    let bench = bench();
+    // Two files with one name, so only the path can tell their backups apart.
+    let (quiet_dir, busy_dir) = (bench.home.join("quiet"), bench.home.join("busy"));
+    fs::create_dir(&quiet_dir).unwrap();
+    fs::create_dir(&busy_dir).unwrap();
+    let (quiet, busy) = (quiet_dir.join("settings.json"), busy_dir.join("settings.json"));
+    fs::write(&quiet, numbered(0)).unwrap();
+    fs::write(&busy, numbered(0)).unwrap();
+
+    let quiet_first = replace(&bench, &quiet, &numbered(0), &numbered(1), Format::StrictJson);
+    let mut busy_receipts = Vec::new();
+    for n in 1..=22 {
+        busy_receipts.push(replace(&bench, &busy, &numbered(n - 1), &numbered(n), Format::StrictJson));
+    }
+    let quiet_second = replace(&bench, &quiet, &numbered(1), &numbered(2), Format::StrictJson);
+
+    // The busy file is down to twenty; both of the quiet file's are still
+    // there, though the first is older than everything that was evicted.
+    let quiet_path = quiet.to_str().unwrap();
+    let listed = apply::latest_receipts(&bench.backups);
+    let of_quiet: Vec<&Receipt> = listed.iter().filter(|r| r.path == quiet_path).collect();
+    assert_eq!(of_quiet, vec![&quiet_second, &quiet_first]);
+    assert_eq!(listed.len(), 22);
+    assert!(backup_of(&bench, &quiet_first).exists());
+    assert!(backup_of(&bench, &quiet_second).exists());
+
+    // Each evicted backup took its receipt file with it, and each receipt
+    // file left has its backup beside it.
+    for evicted in &busy_receipts[..2] {
+        let backup = backup_of(&bench, evicted);
+        assert!(!backup.exists(), "{}", backup.display());
+        assert!(!PathBuf::from(format!("{}{RECEIPT_SUFFIX}", backup.display())).exists(), "an evicted backup left its receipt");
+    }
+    let backups = backups_in(&bench.backups);
+    let receipt_files = receipt_files_in(&bench.backups);
+    assert_eq!(backups.len(), 22);
+    let expected: Vec<String> = backups.iter().map(|name| format!("{name}{RECEIPT_SUFFIX}")).collect();
+    assert_eq!(receipt_files, expected);
+
+    // The quiet file's first write is still undoable in the only way that
+    // matters: its backup is there to read.
+    assert_eq!(fs::read_to_string(backup_of(&bench, &quiet_first)).unwrap(), numbered(0));
+}
+
+#[test]
+fn receipts_list_newest_first() {
+    let bench = bench();
+    assert_eq!(apply::latest_receipts(&bench.backups), Vec::<Receipt>::new(), "a folder that is not there has no receipts");
+
+    let accept = |_: &str| true;
+    let at = |at_ms: i64| Seams { at_ms, verify: &accept };
+    let (a, b) = (bench.home.join("a.json"), bench.home.join("b.json"));
+    fs::write(&a, numbered(0)).unwrap();
+    fs::write(&b, numbered(0)).unwrap();
+    // Written out of order, across two files, so neither the order of the
+    // calls nor the order of the names can stand in for the time.
+    let middle = apply::safe_replace_with(&b, Some(&numbered(0)), &numbered(1), Format::StrictJson, &bench.backups, WHAT, at(2_000)).unwrap();
+    let newest = apply::safe_replace_with(&a, Some(&numbered(0)), &numbered(1), Format::StrictJson, &bench.backups, WHAT, at(3_000)).unwrap();
+    let oldest = apply::safe_replace_with(&b, Some(&numbered(1)), &numbered(2), Format::StrictJson, &bench.backups, WHAT, at(1_000)).unwrap();
+    assert_eq!([middle.at_ms, newest.at_ms, oldest.at_ms], [2_000, 3_000, 1_000]);
+
+    // Receipt files that cannot be read as receipts are skipped.
+    fs::write(bench.backups.join("junk.receipt.json"), "not json").unwrap();
+    fs::write(bench.backups.join("other.receipt.json"), "{\"id\": 4}").unwrap();
+    fs::create_dir(bench.backups.join("folder.receipt.json")).unwrap();
+    // So is a receipt under a name that is not the one its own path and time
+    // give: a copy of a real one, renamed.
+    let mut stray = newest.clone();
+    stray.id = "stray".to_string();
+    fs::write(bench.backups.join("stray.receipt.json"), serde_json::to_string(&stray).unwrap()).unwrap();
+    // And one that names a backup other than the file it sits beside: a
+    // receipt is not followed to a file elsewhere. This is a fourth write's
+    // own receipt, in place, with only that field changed.
+    let rewritten = apply::safe_replace_with(&a, Some(&numbered(1)), &numbered(2), Format::StrictJson, &bench.backups, WHAT, at(4_000)).unwrap();
+    let its_receipt_file = bench.backups.join(format!("{}{RECEIPT_SUFFIX}", rewritten.backup_file.as_ref().unwrap()));
+    assert!(apply::latest_receipts(&bench.backups).contains(&rewritten), "the fourth write is not listed, so its removal below proves nothing");
+    let mut elsewhere = rewritten.clone();
+    elsewhere.backup_file = Some("../../home/b.json".to_string());
+    fs::write(&its_receipt_file, serde_json::to_string(&elsewhere).unwrap()).unwrap();
+
+    assert_eq!(apply::latest_receipts(&bench.backups), vec![newest, middle, oldest]);
+    for id in ["stray", rewritten.id.as_str()] {
+        let result = apply::undo(id, &bench.backups);
+        assert!(matches!(result, Err(ApplyError::NotUndoable(_))), "{id}: {result:?}");
+    }
+    assert_eq!(fs::read_to_string(&a).unwrap(), numbered(2));
+    assert_eq!(fs::read_to_string(&b).unwrap(), numbered(2));
+}
+
+#[test]
+fn a_receipt_carries_no_file_content() {
+    let bench = bench();
+    let path = bench.home.join("config.toml");
+    // Both sides of the write hold a value; neither may reach the receipt.
+    let before = format!("[mcp_servers.alpha]\ncommand = \"alpha-server\"\n\n[mcp_servers.alpha.env]\nSETTING = \"{MARKER}\"\n");
+    let next = format!("{before}\n[mcp_servers.beta]\ncommand = \"second-{MARKER}\"\n");
+    fs::write(&path, &before).unwrap();
+
+    let receipt = replace(&bench, &path, &before, &next, Format::Toml);
+    let undone = apply::undo(&receipt.id, &bench.backups).expect("undo");
+
+    for receipt in [&receipt, &undone] {
+        let json = serde_json::to_string(receipt).unwrap();
+        assert!(!json.contains(MARKER), "a serialised receipt carries file content: {json}");
+        assert!(!format!("{receipt:?}").contains(MARKER), "{receipt:?}");
+    }
+    let receipt_files = receipt_files_in(&bench.backups);
+    assert_eq!(receipt_files.len(), 2);
+    for name in receipt_files {
+        assert!(!name.contains(MARKER), "{name}");
+        let on_disk = fs::read_to_string(bench.backups.join(&name)).unwrap();
+        assert!(!on_disk.contains(MARKER), "{name} carries file content");
+        // What it does carry: exactly the receipt's own fields.
+        let value: serde_json::Value = serde_json::from_str(&on_disk).unwrap();
+        let mut keys: Vec<&str> = value.as_object().unwrap().keys().map(String::as_str).collect();
+        keys.sort_unstable();
+        assert_eq!(keys, ["after_sha256", "at_ms", "backup_file", "before_sha256", "id", "path", "what"]);
+    }
+    // The backups do hold it: that is what a backup is, and where the marker
+    // is allowed to be.
+    assert!(fs::read_to_string(backup_of(&bench, &receipt)).unwrap().contains(MARKER));
+}
+
+#[test]
+fn two_writes_in_one_millisecond_do_not_collide() {
+    let bench = bench();
+    let path = bench.home.join("settings.json");
+    fs::write(&path, numbered(0)).unwrap();
+    let accept = |_: &str| true;
+    let same_instant = || Seams { at_ms: 1_732_400_000_000, verify: &accept };
+
+    let first = apply::safe_replace_with(&path, Some(&numbered(0)), &numbered(1), Format::StrictJson, &bench.backups, WHAT, same_instant()).unwrap();
+    let second = apply::safe_replace_with(&path, Some(&numbered(1)), &numbered(2), Format::StrictJson, &bench.backups, WHAT, same_instant()).unwrap();
+    let third = apply::safe_replace_with(&path, Some(&numbered(2)), &numbered(3), Format::StrictJson, &bench.backups, WHAT, same_instant()).unwrap();
+
+    // Three backups, each still holding what its own write replaced.
+    assert_eq!(backups_in(&bench.backups).len(), 3);
+    for (receipt, replaced) in [(&first, 0), (&second, 1), (&third, 2)] {
+        assert_eq!(fs::read_to_string(backup_of(&bench, receipt)).unwrap(), numbered(replaced));
+    }
+    // And they still list in the order they happened.
+    assert_eq!(apply::latest_receipts(&bench.backups), vec![third.clone(), second, first]);
+    apply::undo(&third.id, &bench.backups).expect("undo");
+    assert_eq!(fs::read_to_string(&path).unwrap(), numbered(2));
+
+    // The same for two writes that each create a file of one name, in one
+    // millisecond, with the first removed in between.
+    let created = bench.home.join("mcp-server-enablement.json");
+    let one = apply::safe_replace_with(&created, None, &numbered(1), Format::StrictJson, &bench.backups, WHAT, same_instant()).unwrap();
+    fs::remove_file(&created).unwrap();
+    let two = apply::safe_replace_with(&created, None, &numbered(2), Format::StrictJson, &bench.backups, WHAT, same_instant()).unwrap();
+    let ids: Vec<String> = apply::latest_receipts(&bench.backups).into_iter().map(|r| r.id).collect();
+    assert!(ids.contains(&one.id) && ids.contains(&two.id), "one creation's receipt overwrote the other's");
+}
+
+#[test]
+fn an_apply_error_never_quotes_the_file() {
+    // The file on disk holds a value, the caller's stale copy holds one, and
+    // so does the text to write. Whatever is refused, none is repeated.
+    let bench = bench();
+    let path = bench.home.join("config.toml");
+    let on_disk = format!("[mcp_servers.alpha]\ncommand = \"disk-{MARKER}\"\n");
+    let stale = format!("[mcp_servers.alpha]\ncommand = \"stale-{MARKER}\"\n");
+    let next = format!("[mcp_servers.alpha]\ncommand = \"next-{MARKER}\"\n");
+    fs::write(&path, &on_disk).unwrap();
+
+    let refuse = |_: &str| false;
+    let results = [
+        apply::safe_replace(&path, Some(&stale), &next, Format::Toml, &bench.backups, WHAT),
+        apply::safe_replace(&path, None, &next, Format::Toml, &bench.backups, WHAT),
+        apply::safe_replace(&path, Some(&on_disk), &format!("{next}[broken"), Format::Toml, &bench.backups, WHAT),
+        apply::safe_replace_with(&path, Some(&on_disk), &next, Format::Toml, &bench.backups, WHAT, Seams { at_ms: 1_000, verify: &refuse }),
+        apply::safe_replace(&bench.home.join("gone").join("config.toml"), None, &next, Format::Toml, &bench.backups, WHAT),
+    ];
+    let kinds: Vec<&str> = results
+        .iter()
+        .map(|result| match result {
+            Err(ApplyError::ChangedSinceRead) => "changed",
+            Err(ApplyError::Verify(_)) => "verify",
+            Err(ApplyError::Write(_)) => "write",
+            other => panic!("expected a refusal, got {other:?}"),
+        })
+        .collect();
+    assert_eq!(kinds, ["changed", "changed", "verify", "verify", "write"]);
+    for result in &results {
+        assert!(!format!("{result:?}").contains(MARKER), "an error quotes the file: {result:?}");
+    }
+    assert_eq!(fs::read_to_string(&path).unwrap(), on_disk);
+}

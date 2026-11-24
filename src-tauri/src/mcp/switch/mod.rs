@@ -2,12 +2,21 @@
 //! is declared.
 //!
 //! `discover` reads engine configuration and never writes it. This module is
-//! where the writing will live, kept apart so that everything able to change
-//! a user's config file sits in one place. What is in it today is `edit`:
-//! pure functions that take a config file's text and return it with one
-//! server's flag set, plus the same pair for Gemini CLI's state file. Nothing
-//! calls them yet, and nothing in this module reads or writes a file. The
-//! table that says which engines may be switched and how is
+//! where the writing lives, kept apart so that everything able to change a
+//! user's config file sits in one place. Two parts are in it today, and
+//! nothing calls either yet:
+//!
+//! - `edit`: pure functions that take a config file's text and return it
+//!   with one server's flag set, plus the same pair for Gemini CLI's state
+//!   file. It reads and writes no file.
+//! - `apply`: the one place that puts text on disk. `safe_replace` refuses a
+//!   file that changed since it was read, keeps a copy of what it replaces
+//!   with a receipt beside it, writes through a temp file and a rename, and
+//!   reads the result back; `undo` puts a receipt's copy back. It writes to
+//!   the path it is given and to the backups folder it is given, and nothing
+//!   here chooses either: no code in this module names a real config file.
+//!
+//! The table that says which engines may be switched and how is
 //! `registry::SWITCHES`, with the evidence for each row in
 //! `docs/plans/2026-11-24-context-control-engine-matrix.md`. The plan this
 //! module is built to is `docs/plans/2026-11-24-context-control.md`.
@@ -34,4 +43,5 @@
 //! Portions of this module's behaviour derive from mcpick, Copyright (c) 2026
 //! Scott Spence, MIT licence.
 
+pub mod apply;
 pub mod edit;
