@@ -48,6 +48,25 @@ The other eleven hosts (Cursor, Claude Desktop, Zed, VS Code, Devin Desktop, Kir
 11. **The eleven hosts with no `mcp list` command stay read-only until Karthik checks each one in the app.** Cursor, Claude Desktop, Zed and VS Code are installed here; each gets a two-minute check sheet (Task 1, Step 5). A host nobody has checked shows a stated reason and no switch. Vendor docs alone do not unblock one.
 12. **`jsonc-parser` (its `cst` module) and `toml_edit` are added,** so a switch changes one line and keeps comments and key order. Hanger does not re-serialise a config file.
 
+## Rulings at checkpoint 1 (2026-11-24, after the engine matrix)
+
+13. **Gemini CLI is switched by writing its own state file,** `~/.gemini/mcp-server-enablement.json`, through the same safe replace and Undo as any other write. Its command, `gemini mcp disable`, is not used: on 0.56.0 it fails for every server and exits 0. This is a ruled exception to decision 3. The file is keyed by server name alone, so one switch covers every Gemini server of that name at any scope, and the row says so. This replaces the `GeminiCli` kind and `gemini_set` in Tasks 2 and 6.
+14. **Codex is switchable at both scopes.** `enabled = false` in a trusted project's `.codex/config.toml` reads `disabled` in `codex mcp list` (codex-cli 0.171.0, measured 2026-11-24), the same as the global file.
+
+15. **OpenCode is built read-only and checked at Task 13.** Its config reader accepts `"enabled": false`, but `opencode mcp list` could not be isolated, and the only confirmation is one switch on the real `opencode.json`, read back through the background service this session also runs on. That check joins Task 13's real-config checks, with Karthik's go-ahead then. If `opencode mcp list` shows the server off, OpenCode's `SWITCHES` row lands in its own commit; if the result is ambiguous, it is reported and OpenCode stays read-only.
+
+16. **The 16 history findings are allowlisted by fingerprint.** They are one made-up AWS-shaped example string from `docs/plans/2026-11-24-tool-manager-phase-a.md`, held by T3 Code's checkpoint refs (`refs/t3/orchestration-v2/checkpoints/…`) and reachable from no branch, tag or remote. Their 16 fingerprints go into `.gitleaksignore` in a commit of their own that names the cause. The string itself is already gone from the file (`f3d4d0c`). Nothing else is allowlisted, and T3's refs are not deleted.
+
+## Rulings before "go" (2026-11-24, in Plannotator)
+
+17. **A server switched off for Claude Code stays in the MCP servers list, marked off.** It is declared in no file while off, and it must not vanish from the place it was switched off from. The backend keeps every count honest (Task 8A).
+18. **Gemini CLI: global servers only.** A project-declared Gemini server shows its state and no switch, with the reason: Gemini switches by name, across every project.
+19. **No "applies to" line until observed.** `EngineContext.applies` stays `None` for every engine until Task 13 watches a real session.
+20. **The kept copy is built for Claude Code only.** Whether an app that ignores a file flag gets remove-and-keep is decided after Karthik's app checks (G3).
+21. **The newest 20 backups per file are kept.**
+22. **VS Code's new MCP config gets its own task right after the backend** (Task 8B): reading only. Karthik has a `~/.copilot/mcp-config.json` that Hanger does not read today.
+23. **Commits go on `main` and are pushed at each checkpoint** (after Task 8B and at the end), only when the gates are green and Karthik says push.
+
 ## Human gates
 
 - **G0 — this plan.** Karthik approves before any task starts.
@@ -56,11 +75,11 @@ The other eleven hosts (Cursor, Claude Desktop, Zed, VS Code, Devin Desktop, Kir
 - **G3 — app checks** (decision 11). One check per app, done by Karthik from the sheet Task 1 writes. Each passed check adds that app's row to `SWITCHES` in its own commit, with the app version and date as its evidence. Not on this slice's critical path: the slice can close with apps still read-only.
 - **Close.** Karthik closes the slice after Task 13's evidence; automation does not.
 
-Tasks 1–8 need only G0.
+Tasks 1–8B need only G0 and Karthik's "go".
 
 ## Checkpoints
 
-Work stops and reports after Task 1 (the matrix decides which engines ship), after Task 8 (backend complete), at G1, at G2, and after Task 13.
+Work stops and reports after Task 1 (done), after Task 8B (backend complete; push on Karthik's word), at G1, at G2, and after Task 13.
 
 ## Global constraints
 
@@ -120,8 +139,8 @@ Work stops and reports after Task 1 (the matrix decides which engines ship), aft
       DisabledKey,
       /// `claude mcp remove` / `claude mcp add-json`, config kept in Hanger's stash.
       ClaudeCli,
-      /// `gemini mcp disable` / `gemini mcp enable`.
-      GeminiCli,
+      /// `{"<name>": {"enabled": false}}` in `~/.gemini/mcp-server-enablement.json` (ruling 13).
+      GeminiEnablementFile,
   }
   pub struct SwitchRow {
       pub host_id: &'static str,
@@ -134,11 +153,12 @@ Work stops and reports after Task 1 (the matrix decides which engines ship), aft
   pub const SWITCHES: &[SwitchRow];
   pub fn switch_for(host_id: &str, tier: ScopeTier) -> Option<&'static SwitchRow>;
   ```
-- `SWITCHES` holds one row per engine that passed Task 1, and nothing else. Codex: `EnabledKey`, `[Global, Project]`, `"codex-cli 0.171.0, 2026-11-24"`. A host with no row is read-only.
+- `SWITCHES` holds exactly three rows, each citing the engine matrix: `codex` — `EnabledKey`, `[Global, Project]`, `"codex-cli 0.171.0, 2026-11-24"`; `claude-code` — `ClaudeCli`, `[User]`, `"claude 2.1.331, 2026-11-24"`; `gemini` — `GeminiEnablementFile`, `[Global]`, `"gemini 0.56.0, 2026-11-24"`. A host with no row is read-only. OpenCode has no row until Task 13 (ruling 15).
 
-- [ ] **Step 1: Write the failing tests** — `every_switch_row_names_a_host`; `switch_rows_are_unique_per_host_and_tier`; `gemini_is_never_switched_by_a_key_in_the_file` (no `gemini` row has `EnabledKey` or `DisabledKey`); `claude_code_is_never_switched_by_a_key_in_the_file`; `a_host_with_no_row_is_read_only` (`switch_for("cursor", Global)` is `None` until G3 adds it).
+- [ ] **Step 1: Write the failing tests** — `every_switch_row_names_a_host`; `switch_rows_are_unique_per_host_and_tier`; `gemini_is_never_switched_by_a_key_in_the_file` (no `gemini` row has `EnabledKey` or `DisabledKey`); `claude_code_is_never_switched_by_a_key_in_the_file`; `a_host_with_no_row_is_read_only` (`switch_for("cursor", Global)` and `switch_for("opencode", Global)` are `None`); `gemini_project_servers_have_no_switch` (`switch_for("gemini", Project)` is `None`); `claude_code_is_switchable_at_user_scope_only`.
 - [ ] **Step 2: Run** `cargo test --test mcp_switch_tests` from `src-tauri/` → FAIL, unresolved items.
-- [ ] **Step 3: Implement.** Read docs.rs for `jsonc-parser` 0.34 `cst` and `toml_edit` 0.25 before using either; cite both in the module doc.
+- [ ] **Step 3: Allowlist the 16 history findings** (ruling 16): append their fingerprints to `.gitleaksignore`, plant a new key-shaped string in a scratch commit on a throwaway branch to prove the history gate still fails on anything else, delete that branch, and commit `chore(gitleaks): allowlist one retired fixture string held by T3 checkpoint refs` on its own.
+- [ ] **Step 3a: Implement.** Read docs.rs for `jsonc-parser` 0.34 `cst` and `toml_edit` 0.25 before using either; cite both in the module doc.
 - [ ] **Step 4: Run** → PASS; all four gates.
 - [ ] **Step 5: Commit** `feat(mcp): a table of how each engine switches a server off, with its evidence`.
 
@@ -160,6 +180,13 @@ Work stops and reports after Task 1 (the matrix decides which engines ship), aft
   ```
 - Rules ported from mcpick (`set_server_enabled`, `codex-adapter.ts` → `writeEnabled`): `EnabledKey` writes `enabled = <bool>` and removes a stale `disabled`; `DisabledKey` writes `disabled = <!bool>`, unless the entry already carries `enabled`, in which case that key is kept and set. Unlike mcpick, only the named server is touched; mcpick rewrites the flag on every server in the file.
 - Switching on writes `enabled = true` where the key exists and leaves an absent key absent, so a file Hanger never switched stays byte-identical after off-then-on only where the key pre-existed. `shortcut: off-then-on leaves an explicit "enabled = true" behind; Undo is the byte-exact way back.`
+- Gemini's state file gets its own pair, because it is not a server declaration:
+  ```rust
+  /// `body` is `None` when the file does not exist yet. Key is `name.to_lowercase().trim()`, as Gemini's own reader does.
+  pub fn gemini_is_enabled(body: Option<&str>, name: &str) -> Result<bool, EditError>;
+  /// Off writes `{"enabled": false}` under the key; on removes the key. Other keys are untouched.
+  pub fn gemini_set_enabled(body: Option<&str>, name: &str, enabled: bool) -> Result<String, EditError>;
+  ```
 - Dialects handled: `CodexToml` (`mcp_servers` table only; the legacy `tools` table is `UnsupportedDialect`), `McpServers`, `VsCodeServers`, `OpenCodeMcp`, `ZedContextServers`, `AmpSettingsKey`. `ClaudeJson` and `ClaudeAiConnectors` are `UnsupportedDialect`.
 
 - [ ] **Step 1: Write the failing tests**, porting the enable/disable cases from mcpick's `client-config.test.ts` and `codex-adapter.test.ts` by name, plus:
@@ -169,6 +196,7 @@ Work stops and reports after Task 1 (the matrix decides which engines ship), aft
   - `an_unknown_server_is_not_found`; `a_malformed_file_is_unparseable_and_returns_no_text`.
   - `read_flag_reads_both_spellings` — `enabled: false`, `disabled: true`, neither.
   - `the_other_servers_are_untouched` — the regression test against mcpick's rewrite-all behaviour.
+  - `gemini_off_adds_one_key_and_on_removes_it`; `gemini_keys_are_lowercased_and_trimmed` (`" GitHub "` → `github`); `gemini_absent_file_reads_as_enabled_and_off_creates_it`; `gemini_other_names_are_untouched`.
 - [ ] **Step 2: Run** → FAIL.
 - [ ] **Step 3: Implement** with `jsonc_parser::cst::CstRootNode` and `toml_edit::DocumentMut`.
 - [ ] **Step 4: Run** → PASS; all four gates.
@@ -194,7 +222,8 @@ Work stops and reports after Task 1 (the matrix decides which engines ship), aft
       pub at_ms: i64,
       pub what: String,          // "codex · beta · off": ids only, never file content
   }
-  pub fn safe_replace(path: &Path, expected_before: &str, next: &str, format: Format, backups: &Path, what: &str) -> Result<Receipt, ApplyError>;
+  /// `expected_before` is `None` when the file must not exist yet (Gemini's state file on first use).
+  pub fn safe_replace(path: &Path, expected_before: Option<&str>, next: &str, format: Format, backups: &Path, what: &str) -> Result<Receipt, ApplyError>;
   pub fn undo(receipt_id: &str, backups: &Path) -> Result<Receipt, ApplyError>;
   pub fn latest_receipts(backups: &Path) -> Vec<Receipt>;   // newest first
   ```
@@ -205,10 +234,11 @@ Work stops and reports after Task 1 (the matrix decides which engines ship), aft
   4. Write `next` to `.<basename>.<pid>.<uuid>.tmp` in the same directory, † with the original's mode, then `sync_all`, then `rename`.
   5. Re-read and parse as `format` (JSONC or TOML). On any failure, write the original bytes back and return `Verify`.
   6. † Keep the newest 20 backups per file and delete older ones. `shortcut: a count cap, not an age cap; the backup and restore UI in slice 4 owns the real policy.`
+- A write that creates the file has no backup; its receipt says so, and its Undo removes the file, under the same hash check.
 - `undo` restores a receipt's backup only when the file's current hash equals `after_sha256`. Otherwise `NotUndoable` (Review focus 4). The restore itself goes through `safe_replace`, so an Undo can be undone.
 - `transactional.rs` is not changed: its backups directory is relative to the working directory, which is `/` for an app opened from Finder. That defect is recorded in `known-debt.md`, in its own commit.
 
-- [ ] **Step 1: Write the failing tests** (temp dirs only), porting mcpick's `safe-apply.test.ts` cases by name, plus `a_file_changed_since_read_is_not_overwritten`, `a_symlinked_config_keeps_its_link`, `mode_is_preserved_on_the_file_and_its_backup`, `undo_restores_the_exact_bytes`, `undo_refuses_when_the_file_moved_on`, `an_undo_can_be_undone`, `a_failed_verify_puts_the_original_back`, `the_twenty_first_backup_evicts_the_oldest`, `no_temp_file_is_left_behind`.
+- [ ] **Step 1: Write the failing tests** (temp dirs only), porting mcpick's `safe-apply.test.ts` cases by name, plus `a_file_changed_since_read_is_not_overwritten`, `a_symlinked_config_keeps_its_link`, `mode_is_preserved_on_the_file_and_its_backup`, `undo_restores_the_exact_bytes`, `undo_refuses_when_the_file_moved_on`, `an_undo_can_be_undone`, `a_failed_verify_puts_the_original_back`, `the_twenty_first_backup_evicts_the_oldest`, `no_temp_file_is_left_behind`, `creating_a_file_is_undone_by_removing_it`, `a_file_that_appeared_since_read_is_not_overwritten`.
 - [ ] **Step 2: Run** → FAIL.
 - [ ] **Step 3: Implement.**
 - [ ] **Step 4: Run** → PASS; all four gates.
@@ -236,13 +266,13 @@ This is Tasks 2 and 3 of `docs/plans/2026-11-24-tool-manager-phase-a.md`, built 
 - [ ] **Step 2: Run** → FAIL. **Step 3: Implement.** **Step 4: Run** → PASS; all four gates.
 - [ ] **Step 5: Commit** `feat(engines): find and run each CLI the way the user's terminal does`.
 
-### Task 6: Engines switched through their own CLI
+### Task 6: Claude Code, switched through `claude mcp`
 
-Built only for the mechanisms Task 1 confirmed. Each half is skipped, and reported, if its engine failed there.
+Gemini CLI is not here: by ruling 13 it is a file write, built in Tasks 3 and 4.
 
 **Files:**
 - Create: `src-tauri/src/mcp/switch/vendor.rs`
-- Test: `src-tauri/tests/mcp_switch_tests.rs` (fake `claude` and `gemini` scripts in a temp dir, a temp `CLAUDE_CONFIG_DIR`)
+- Test: `src-tauri/tests/mcp_switch_tests.rs` (a fake `claude` script in a temp dir, a temp `CLAUDE_CONFIG_DIR`)
 
 **Interfaces:**
 - Consumes: `engine_status::{resolve_in, run_capture}`, `apply::Receipt`.
@@ -251,16 +281,15 @@ Built only for the mechanisms Task 1 confirmed. Each half is skipped, and report
   pub async fn claude_off(home: &Path, scope: ClaudeScope, name: &str, stash: &Path, cli: &Path) -> Result<Receipt, SwitchError>;
   pub async fn claude_on(stash_id: &str, stash: &Path, cli: &Path) -> Result<Receipt, SwitchError>;
   pub fn claude_stashed(stash: &Path) -> Vec<StashedServer>;       // name, scope, transport, env KEY NAMES: no values
-  pub async fn gemini_set(name: &str, enabled: bool, cli: &Path) -> Result<(), SwitchError>;
   ```
 - `claude_off`, in this order: read the entry from `~/.claude.json` (read only); write it to `<stash>/claude-code/<uuid>.json`, mode 0600, and `sync_all`; run `claude mcp remove <name> --scope <scope>`; re-read and confirm the entry is gone. If the remove fails, delete the stash file and return the error.
 - `claude_on`: run `claude mcp add-json <name> - --scope <scope>` with the stashed JSON on stdin; re-read and confirm the entry is present and equal as parsed JSON; only then delete the stash file.
 - Undo for a vendor switch is the opposite call. Its `Receipt` names the stash id instead of a backup file.
 - This slice covers Claude Code's user scope only. A project's `.mcp.json` server and a local-scope server are read-only until slice 2.
 
-- [ ] **Step 1: Write the failing tests** — `the_stash_exists_before_remove_runs` (the fake `claude` asserts the stash file is present when it is invoked), `a_failed_remove_leaves_no_stash`, `on_restores_env_args_and_type`, `the_stash_is_deleted_only_after_the_entry_is_back`, `secrets_go_over_stdin_never_argv` (the fake records its argv; the fixture value is absent from it), `stashed_listing_carries_key_names_only`, `gemini_set_calls_the_documented_subcommand`.
+- [ ] **Step 1: Write the failing tests** — `the_stash_exists_before_remove_runs` (the fake `claude` asserts the stash file is present when it is invoked), `a_failed_remove_leaves_no_stash`, `on_restores_env_args_and_type`, `the_stash_is_deleted_only_after_the_entry_is_back`, `secrets_go_over_stdin_never_argv` (the fake records its argv; the fixture value is absent from it), `stashed_listing_carries_key_names_only`, `a_remove_that_exits_nonzero_is_an_error` (`claude mcp remove` exits 1 for a missing server; measured).
 - [ ] **Step 2: Run** → FAIL. **Step 3: Implement.** **Step 4: Run** → PASS; all four gates.
-- [ ] **Step 5: Commit** `feat(mcp): Claude Code and Gemini CLI are switched through their own commands`.
+- [ ] **Step 5: Commit** `feat(mcp): Claude Code is switched through its own command, with the config kept by Hanger`.
 
 ### Task 7: One engine's context — state, cost, coverage
 
@@ -275,7 +304,7 @@ Built only for the mechanisms Task 1 confirmed. Each half is skipped, and report
   #[derive(Serialize)] #[serde(rename_all = "snake_case")]
   pub enum ItemState { On, Off }
   #[derive(Serialize)] #[serde(rename_all = "snake_case")]
-  pub enum ReadOnlyReason { EngineNotConfirmed, PerProjectComesNext, ManagedByPlugin, ManagedByPolicy, RunsOnVendorServers, FileUnparseable }
+  pub enum ReadOnlyReason { EngineNotConfirmed, PerProjectComesNext, SwitchesByNameEverywhere, ManagedByPlugin, ManagedByPolicy, RunsOnVendorServers, FileUnparseable }
   #[derive(Serialize)]
   pub struct ContextItem {
       pub key: String,                         // registration key, or "stash:<id>" for a stashed Claude Code server
@@ -290,7 +319,7 @@ Built only for the mechanisms Task 1 confirmed. Each half is skipped, and report
   #[derive(Serialize)]
   pub struct EngineContext {
       pub engine_id: String, pub engine_name: String,
-      pub applies: Option<String>,             // "new_sessions" where Task 1 observed it; None otherwise
+      pub applies: Option<String>,             // None for every engine in this slice until Task 13 observes it (ruling 19)
       pub items: Vec<ContextItem>,
       pub on_count: usize, pub off_count: usize,
       pub measured_on_count: usize,            // the "12 of 15 measured" pair
@@ -298,10 +327,10 @@ Built only for the mechanisms Task 1 confirmed. Each half is skipped, and report
   }
   pub fn engine_context<R, P>(host_id: &str, discovered: &DiscoveryResult, stashed: &[StashedServer], read_file: R, probe_of: P) -> EngineContext;
   ```
-- Read-only reasons: no `SWITCHES` row → `EngineNotConfirmed`; a tier the row does not cover → `PerProjectComesNext`; a path under `.claude/plugins/marketplaces/` → `ManagedByPlugin`; `managed-mcp.json` or a `SystemAbsolute` source → `ManagedByPolicy`; the `claude-ai` host → `RunsOnVendorServers`.
+- Read-only reasons: no `SWITCHES` row → `EngineNotConfirmed`; a tier the row does not cover → `PerProjectComesNext`, except a project-declared Gemini server, which is `SwitchesByNameEverywhere` (ruling 18) and still reports its state from the state file; a path under `.claude/plugins/marketplaces/` → `ManagedByPlugin`; `managed-mcp.json` or a `SystemAbsolute` source → `ManagedByPolicy`; the `claude-ai` host → `RunsOnVendorServers`.
 - `on_tokens_measured` is the estimate the probe cache already makes (description bytes ÷ 4, schemas not stored). The budget is MCP servers only in this slice; skill descriptions join it in slice 5.
 
-- [ ] **Step 1: Write the failing tests** — `an_absent_flag_is_on`; `enabled_false_is_off`; `a_stashed_claude_server_is_an_off_item`; `an_unconfirmed_engine_is_read_only_with_its_reason` (one test per reason); `off_servers_cost_nothing_in_the_budget`; `unmeasured_servers_are_counted_but_not_summed` (three on, two measured → `measured_on_count == 2`, `on_count == 3`); `a_failed_probe_is_measured_at_zero_not_unmeasured` (fixture taken from the producer: an error together with an all-zero cost, per `verification.md`); `counts_agree_with_items`.
+- [ ] **Step 1: Write the failing tests** — `an_absent_flag_is_on`; `enabled_false_is_off`; `a_stashed_claude_server_is_an_off_item`; `a_gemini_server_named_in_the_state_file_is_off_at_every_scope`; `a_gemini_project_server_is_read_only_because_the_switch_is_by_name`; `an_unconfirmed_engine_is_read_only_with_its_reason` (one test per reason); `off_servers_cost_nothing_in_the_budget`; `unmeasured_servers_are_counted_but_not_summed` (three on, two measured → `measured_on_count == 2`, `on_count == 3`); `a_failed_probe_is_measured_at_zero_not_unmeasured` (fixture taken from the producer: an error together with an all-zero cost, per `verification.md`); `counts_agree_with_items`.
 - [ ] **Step 2: Run** → FAIL. **Step 3: Implement.** **Step 4: Run** → PASS; all four gates.
 - [ ] **Step 5: Commit** `feat(mcp): what one engine loads, what it costs, and how much of that is measured`.
 
@@ -332,7 +361,34 @@ Built only for the mechanisms Task 1 confirmed. Each half is skipped, and report
 - [ ] **Step 1: Write the failing tests** — `switching_codex_off_and_on_round_trips_a_real_file` (temp home, real `config.toml` fixture); `a_key_for_another_engine_is_refused`; `a_read_only_item_is_refused`; `measure_never_starts_a_switched_off_server`; and in `ipc_boundary_tests.rs`, `switch_replies_never_carry_a_config_value`: a fixture whose `env` holds a marker value is switched off, on and undone, and no serialised reply or error contains the marker. Plant first: temporarily add the raw entry to the reply, watch the test fail, remove it.
 - [ ] **Step 2: Run** → FAIL. **Step 3: Implement**, update the documents, regenerate the README region. **Step 4: Run** → PASS; all four gates (`readme-sync.test.ts` proves the region).
 - [ ] **Step 5: Commit** `feat(mcp): switch a server off, on, and back from the webview`.
-- [ ] **Step 6: Checkpoint.** Report the backend to Karthik with test output.
+
+### Task 8A: A switched-off Claude Code server stays in the MCP servers list (ruling 17)
+
+**Files:**
+- Modify: `src-tauri/src/mcp/servers.rs`, `src-tauri/src/lib.rs` (`mcp_server_rows_for`), `src/types/` (the row's mirror)
+- Test: `src-tauri/tests/mcp_servers_tests.rs`, `src-tauri/tests/mcp_switch_tests.rs`
+
+**Interfaces:**
+- Produces: `McpServerRow` gains `kept_off: Vec<KeptOff>` where `KeptOff { engine_id, engine_name, key }` and `key` is the `"stash:<id>"` that `set_mcp_server_enabled` accepts. A name that only the stash knows gets a row of its own with `registration_count: 0` and `file_count: 0`.
+- Constraint, from `invariants.md` and the roadmap's "a header contradicts its own rows": before writing code, read how `count_assets` and the Tools header count this list. A kept-off-only row is either counted by the backend in a figure of its own, or kept out of the counted population and returned beside it; which one is decided from that code and reported, never papered over in the webview.
+
+- [ ] **Step 1: Write the failing tests** — `a_server_kept_off_and_declared_elsewhere_carries_the_engine_on_its_row`; `a_server_only_the_stash_knows_still_has_a_row`; `kept_off_rows_join_no_registration_or_file_count`; `per_kind_asset_counts_are_unchanged_by_a_stash` (the `shared-asset-machinery.md` query, before and after).
+- [ ] **Step 2: Run** → FAIL. **Step 3: Implement.** **Step 4: Run** → PASS; all four gates.
+- [ ] **Step 5: Commit** `feat(mcp): a server switched off for Claude Code stays in the list`.
+
+### Task 8B: Read VS Code's current MCP config (ruling 22)
+
+Reading only. No switch for VS Code comes from this task.
+
+**Files:**
+- Modify: `src-tauri/src/mcp/registry.rs` (`SOURCES`), `docs/roadmap.md`, `docs/platforms.md` if it lists VS Code's paths
+- Test: `src-tauri/tests/mcp_discovery_tests.rs`, fixtures
+
+- [ ] **Step 1:** Re-fetch https://code.visualstudio.com/docs/agents/reference/mcp-configuration and cite it with the date in the registry comment. Read how the roadmap's "Config-directory env vars" section treats `CLAUDE_CONFIG_DIR` and `CODEX_HOME`, and apply the same rule to `COPILOT_HOME`.
+- [ ] **Step 2: Write the failing tests** — `vscode_reads_the_copilot_user_file` (`~/.copilot/mcp-config.json`, `mcpServers`); `vscode_reads_a_workspace_root_mcp_json`; `the_deprecated_vscode_files_are_still_read` (they work until February 2027); `one_mcp_json_read_for_two_hosts_is_two_registrations_and_one_file` (the workspace-root `.mcp.json` is already a Claude Code source; `file_count` must not double).
+- [ ] **Step 3: Run** → FAIL. **Step 4: Implement** the rows. **Step 5: Run** → PASS; all four gates; per-kind counts before and after, with the difference explained by the newly read file.
+- [ ] **Step 6: Commit** `fix(mcp): VS Code's servers are read from where VS Code now keeps them`.
+- [ ] **Step 7: Checkpoint.** Report the backend to Karthik with test output. Push on his word (ruling 23).
 
 ### Task 9: Naming brief (G1)
 
@@ -370,7 +426,9 @@ Built only for the mechanisms Task 1 confirmed. Each half is skipped, and report
 
 - [ ] **Step 1:** Per-kind asset counts before and after the whole slice (`shared-asset-machinery.md` query). They must be identical: this slice changes no asset.
 - [ ] **Step 2:** In the dev app (`verifying-ui.md`), on Karthik's real Codex config and with his go-ahead for that one write: `codex mcp list` before; switch one server off in Hanger; `codex mcp list` after shows `disabled`; `diff` of the backup against the file shows one line; Undo; `codex mcp list` and `shasum` show the original bytes back.
-- [ ] **Step 3:** The same for each other engine Task 1 confirmed.
+- [ ] **Step 3:** The same for Gemini CLI (`gemini mcp list`) and Claude Code (`claude mcp list`).
+- [ ] **Step 3a: OpenCode** (ruling 15), with Karthik's go-ahead and outside a moment when losing this session's servers would matter: copy `~/.config/opencode/opencode.json`, set `"enabled": false` on one server, `opencode reload`, `opencode mcp list`, restore the bytes, confirm the hash. If the server reads as off, add OpenCode's `SWITCHES` row in its own commit; if the result is ambiguous, report it and leave OpenCode read-only.
+- [ ] **Step 3b: When a change applies** (ruling 19). For each switchable engine, in a real signed-in session: switch a server off and note whether the running session still lists it. Set `applies` only for what was seen.
 - [ ] **Step 4:** Screenshots: the inspector switch, the Engines Context view with its budget and coverage line, a read-only row with its reason.
 - [ ] **Step 5:** Build the app, open it from Finder, and switch one Claude Code server off and on. Only a Finder launch proves the CLI is found without a terminal's PATH.
 - [ ] **Step 6:** Report to Karthik with the evidence. He closes the slice.
