@@ -15,3 +15,4 @@ pub mod probe;
 pub mod redact;
 pub mod registry;
 pub mod servers;
+pub mod switch;

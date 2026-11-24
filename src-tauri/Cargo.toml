@@ -20,6 +20,13 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 serde_yaml = "0.9"
 toml = "0.8"
+# Format-preserving editors for src/mcp/switch, so that switching a server
+# changes one line of an engine's config and keeps its comments and key
+# order; `toml` and `serde_json` re-serialise a whole file and lose both.
+# Nothing calls either crate yet: the editor that does is the next task in
+# docs/plans/2026-11-24-context-control.md.
+jsonc-parser = { version = "0.34", features = ["cst"] }
+toml_edit = "0.25"
 walkdir = "2"
 ignore = "0.4"
 glob = "0.3"

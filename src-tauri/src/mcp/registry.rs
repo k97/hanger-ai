@@ -268,3 +268,87 @@ pub fn host_by_id(id: &str) -> Option<&'static McpHost> {
 pub fn host_by_engine_key(key: &str) -> Option<&'static McpHost> {
     HOSTS.iter().find(|h| h.engine_key() == key)
 }
+
+/// How one engine is told that a server is off.
+///
+/// A kind per mechanism rather than one flag for every host, because the
+/// engines do not agree and a wrong guess is not harmless: of four engines
+/// measured, one honours a key in the file, one ignores it and starts the
+/// server anyway, one refuses to load its whole config over it, and one
+/// could not be confirmed either way. The runs are in
+/// `docs/plans/2026-11-24-context-control-engine-matrix.md`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SwitchKind {
+    /// `enabled = false` in the server's table or object.
+    ///
+    /// Codex reads this key and lists the server as `disabled` (engine
+    /// matrix, "Codex — honoured").
+    EnabledKey,
+    /// `"disabled": true` in the server's object.
+    ///
+    /// The other spelling of the same idea, and the one the engine matrix's
+    /// check sheets try by hand for Cursor, Claude Desktop and VS Code. No
+    /// row in `SWITCHES` uses it: the same matrix shows Gemini CLI rejecting
+    /// this key and Claude Code ignoring it, so a host gets it only after its
+    /// own check passes.
+    DisabledKey,
+    /// `claude mcp remove` / `claude mcp add-json`, config kept in Hanger's stash.
+    ///
+    /// Claude Code has no machine-wide flag and ignores one written into
+    /// `~/.claude.json` (engine matrix, "Claude Code — a flag is ignored;
+    /// remove and restore round-trips"). Off is therefore a removal through
+    /// its own command, and on is a restore of the entry Hanger kept.
+    ClaudeCli,
+    /// `{"<name>": {"enabled": false}}` in `~/.gemini/mcp-server-enablement.json`.
+    ///
+    /// Gemini CLI keeps on and off in a state file of its own, beside its
+    /// settings and outside the server's declaration. Its command for this,
+    /// `gemini mcp disable`, fails for every server on 0.56.0 and exits 0, so
+    /// the file is written directly (engine matrix, "Gemini CLI"; ruling 13 in
+    /// `docs/plans/2026-11-24-context-control.md`). The file is keyed by
+    /// server name alone: one entry covers every Gemini server of that name,
+    /// at any scope.
+    GeminiEnablementFile,
+}
+
+/// One engine's confirmed way of switching a server off.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SwitchRow {
+    pub host_id: &'static str,
+    pub kind: SwitchKind,
+    /// Which tiers this mechanism covers.
+    pub tiers: &'static [ScopeTier],
+    /// Engine version and date the engine's own listing confirmed it.
+    pub confirmed: &'static str,
+}
+
+/// Every engine with a way of switching a server off that its own `mcp list`
+/// has confirmed.
+///
+/// A host with no row is read-only: Hanger shows its servers and offers no
+/// switch. A row is added only with the engine's own listing as evidence —
+/// vendor documentation alone is not enough — and each row here is a section
+/// of `docs/plans/2026-11-24-context-control-engine-matrix.md`.
+pub const SWITCHES: &[SwitchRow] = &[
+    // "Codex — honoured". The global file was measured for the matrix; a
+    // trusted project's `.codex/config.toml` reads `disabled` the same way
+    // (ruling 14 in `docs/plans/2026-11-24-context-control.md`).
+    SwitchRow { host_id: "codex", kind: SwitchKind::EnabledKey, tiers: &[Global, Project], confirmed: "codex-cli 0.171.0, 2026-11-24" },
+    // "Claude Code — a flag is ignored; remove and restore round-trips". User
+    // scope only: that is the scope the round trip was measured at, so a
+    // project's `.mcp.json` server and a local-scope server get no switch.
+    SwitchRow { host_id: "claude-code", kind: SwitchKind::ClaudeCli, tiers: &[User], confirmed: "claude 2.1.331, 2026-11-24" },
+    // "Gemini CLI — … its own file works". Global only, because the state
+    // file is keyed by name: a switch offered on one project's server would
+    // reach every project's server of that name (ruling 18 in the plan).
+    SwitchRow { host_id: "gemini", kind: SwitchKind::GeminiEnablementFile, tiers: &[Global], confirmed: "gemini 0.56.0, 2026-11-24" },
+    // OpenCode has no row. Its config reader accepts `"enabled": false`, but
+    // `opencode mcp list` could not be isolated to confirm it (engine matrix,
+    // "OpenCode").
+];
+
+/// The row that switches `host_id`'s servers at `tier`, or `None` where
+/// Hanger has no confirmed way to switch them.
+pub fn switch_for(host_id: &str, tier: ScopeTier) -> Option<&'static SwitchRow> {
+    SWITCHES.iter().find(|row| row.host_id == host_id && row.tiers.contains(&tier))
+}
