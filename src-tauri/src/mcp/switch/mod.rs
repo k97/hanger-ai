@@ -3,8 +3,8 @@
 //!
 //! `discover` reads engine configuration and never writes it. This module is
 //! where the writing lives, kept apart so that everything able to change a
-//! user's config file sits in one place. Two parts are in it today, and
-//! nothing calls either yet:
+//! user's config file sits in one place. Three parts are in it today, and
+//! nothing calls any of them yet:
 //!
 //! - `edit`: pure functions that take a config file's text and return it
 //!   with one server's flag set, plus the same pair for Gemini CLI's state
@@ -15,6 +15,13 @@
 //!   reads the result back; `undo` puts a receipt's copy back. It writes to
 //!   the path it is given and to the backups folder it is given, and nothing
 //!   here chooses either: no code in this module names a real config file.
+//! - `vendor`: Claude Code, which has no flag to set. Off keeps the server's
+//!   entry in a private file in the stash folder it is given and then runs
+//!   `claude mcp remove`; on hands the kept entry back to `claude mcp
+//!   add-json` on stdin. It reads `.claude.json`, at the path it is given, to
+//!   find the entry and to see what the command did. It never writes that
+//!   file, and does not go through `apply`: the only files it writes are its
+//!   own, in the stash.
 //!
 //! The table that says which engines may be switched and how is
 //! `registry::SWITCHES`, with the evidence for each row in
@@ -45,3 +52,4 @@
 
 pub mod apply;
 pub mod edit;
+pub mod vendor;

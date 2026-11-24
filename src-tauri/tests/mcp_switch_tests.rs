@@ -1927,3 +1927,742 @@ fn an_apply_error_never_quotes_the_file() {
     }
     assert_eq!(fs::read_to_string(&path).unwrap(), on_disk);
 }
+
+// ---------------------------------------------------------------------------
+// Claude Code, switched through its own command: `mcp::switch::vendor`.
+//
+// Every test works in a temp directory of its own. The `claude` here is a
+// `#!/bin/sh` script the test writes, which does what the real one was
+// measured to do (the engine matrix, "Claude Code"): it never is the real
+// CLI, and nothing under the real home is read. The script needs only sh,
+// cat, cp, mv, ls, grep, chmod and sleep.
+// ---------------------------------------------------------------------------
+
+use std::time::{Duration, Instant};
+
+use tauri_app_lib::mcp::switch::vendor::{self, StashedServer, SwitchError};
+
+/// What the kept entries hold. None of these may appear in anything Hanger
+/// says about a kept server.
+const KEPT_COMMAND: &str = "beta-server-cmd";
+const KEPT_ARG: &str = "two words";
+const KEPT_ENV_VALUE: &str = "fixture-value-1";
+const KEPT_QUERY_VALUE: &str = "fixture-value-3";
+const KEPT_HEADER_VALUE: &str = "fixture-value-4";
+const KEPT_VALUES: [&str; 5] = [KEPT_COMMAND, KEPT_ARG, KEPT_ENV_VALUE, KEPT_QUERY_VALUE, KEPT_HEADER_VALUE];
+
+/// A user-scope server whose keys are in no sorted order: `type` before
+/// `command`, `ZED_SETTING` before `ALPHA_SETTING`. A copy that went through
+/// a sorted map would not give these back as written.
+const BETA: &str = r#"{
+      "type": "stdio",
+      "command": "beta-server-cmd",
+      "args": ["serve", "--flag", "two words"],
+      "env": {
+        "ZED_SETTING": "fixture-value-1",
+        "ALPHA_SETTING": "x y"
+      }
+    }"#;
+const BETA_KEY_ORDER: [&str; 6] = ["\"type\"", "\"command\"", "\"args\"", "\"env\"", "\"ZED_SETTING\"", "\"ALPHA_SETTING\""];
+/// The same server after somebody else edited it.
+const BETA_EDITED: &str = r#"{
+      "type": "stdio",
+      "command": "another-command"
+    }"#;
+/// A remote server: a query string and a header, both of which can hold a
+/// credential.
+const DELTA: &str = r#"{
+      "type": "http",
+      "url": "https://example.test/mcp?setting=fixture-value-3",
+      "headers": {
+        "X-Setting": "fixture-value-4"
+      }
+    }"#;
+
+/// The rest of a `.claude.json`: a key that is not a server, one user-scope
+/// server that is never switched, and a project with a server of its own.
+const CLAUDE_HEAD: &str = "{\n  \"numStartups\": 12,\n  \"mcpServers\": {\n    \"alpha\": {\n      \"command\": \"alpha-server\"\n    }";
+const CLAUDE_TAIL: &str = "\n  },\n  \"projects\": {\n    \"/work/app\": {\n      \"mcpServers\": {\n        \"gamma\": {\n          \"command\": \"gamma-server\"\n        }\n      }\n    }\n  }\n}\n";
+
+/// A `.claude.json` with `alpha` and these user-scope servers after it.
+fn claude_json(servers: &[(&str, &str)]) -> String {
+    let mut text = CLAUDE_HEAD.to_string();
+    for (name, entry) in servers {
+        text.push_str(&format!(",\n    \"{name}\": {entry}"));
+    }
+    text + CLAUDE_TAIL
+}
+
+fn json(text: &str) -> serde_json::Value {
+    serde_json::from_str(text).unwrap_or_else(|e| panic!("not JSON ({e}): {text}"))
+}
+
+/// The PATH handed to the fake `claude`: where its own commands live.
+const CHILD_PATH: &str = "/usr/bin:/bin";
+/// The longest any test waits for the fake.
+const QUICK_CLI: Duration = Duration::from_secs(2);
+const SAYS_REMOVED: &str = "printf 'Removed MCP server %s from user config\\n' \"$3\"";
+const SAYS_ADDED: &str = "printf 'Added stdio MCP server %s to user config\\n' \"$3\"";
+/// `claude mcp remove` for a server it does not find (measured: exit 1).
+const SAYS_NO_SUCH_SERVER: &str = "printf 'No MCP server named \"%s\" in user scope\\n' \"$3\"\nexit 1";
+
+/// A path as one word of a shell script.
+fn sh(path: &Path) -> String {
+    let text = path.to_str().expect("a UTF-8 temp path");
+    assert!(!text.contains('\''), "the temp path cannot be quoted: {text}");
+    format!("'{text}'")
+}
+
+/// Each needle, in this order, in `text`.
+fn assert_in_order(text: &str, needles: &[&str]) {
+    let mut from = 0;
+    for needle in needles {
+        let at = text[from..].find(needle).unwrap_or_else(|| panic!("{needle} is missing, or out of order, in: {text}"));
+        from += at + needle.len();
+    }
+}
+
+/// A temp directory holding a `.claude.json`, a place where Hanger's stash
+/// will go, and a fake `claude`.
+struct Stage {
+    _dir: tempfile::TempDir,
+    root: PathBuf,
+    config: PathBuf,
+    stash: PathBuf,
+    cli: PathBuf,
+}
+
+fn stage(config_text: &str) -> Stage {
+    let dir = tempfile::tempdir().expect("temp dir");
+    let root = fs::canonicalize(dir.path()).expect("real temp dir");
+    fs::create_dir(root.join("home")).unwrap();
+    fs::create_dir(root.join("bin")).unwrap();
+    let config = root.join("home").join(".claude.json");
+    fs::write(&config, config_text).unwrap();
+    Stage { _dir: dir, config, stash: root.join("data").join("switch").join("stash"), cli: root.join("bin").join("claude"), root }
+}
+
+impl Stage {
+    /// Write the fake `claude`. Whatever it is asked, it first records its
+    /// arguments (one per line), its input, its PATH and the names in
+    /// Hanger's stash folder at that moment. Then it does `then`.
+    fn fake(&self, then: &str) {
+        let script = format!(
+            "#!/bin/sh\nfor arg in \"$@\"; do printf '%s\\n' \"$arg\"; done >> {argv}\ncat > {stdin}\nprintf '%s' \"$PATH\" > {path}\nls {kept} > {seen} 2>/dev/null\n{then}\n",
+            argv = sh(&self.root.join("argv.log")),
+            stdin = sh(&self.root.join("stdin.log")),
+            path = sh(&self.root.join("path.log")),
+            kept = sh(&self.kept_folder()),
+            seen = sh(&self.root.join("seen.log")),
+        );
+        fs::write(&self.cli, script).unwrap();
+        fs::set_permissions(&self.cli, fs::Permissions::from_mode(0o755)).unwrap();
+    }
+
+    /// A file for the fake to copy into place.
+    fn bake(&self, name: &str, text: &str) -> PathBuf {
+        let path = self.root.join(name);
+        fs::write(&path, text).unwrap();
+        path
+    }
+
+    /// Script: leave `after` as the config, the way a command that worked
+    /// leaves the file changed.
+    fn leaves(&self, after: &str) -> String {
+        format!("cp {} {}", sh(&self.bake("after.json", after)), sh(&self.config))
+    }
+
+    /// Script: what `claude mcp remove` does when it works.
+    fn removes(&self, after: &str) -> String {
+        format!("{}\n{SAYS_REMOVED}", self.leaves(after))
+    }
+
+    /// Script: what `claude mcp add-json <name> -` does when it works. The
+    /// entry that lands in the config is the one that arrived on stdin, put
+    /// after `servers`.
+    fn adds(&self, name: &str, servers: &[(&str, &str)]) -> String {
+        let whole = claude_json(servers);
+        let head = whole.strip_suffix(CLAUDE_TAIL).unwrap();
+        let before = self.bake("add-head.json", &format!("{head},\n    \"{name}\": "));
+        let after = self.bake("add-tail.json", CLAUDE_TAIL);
+        let next = self.root.join("next.json");
+        format!(
+            "cat {} {} {} > {} && mv {} {}\n{SAYS_ADDED}",
+            sh(&before),
+            sh(&self.root.join("stdin.log")),
+            sh(&after),
+            sh(&next),
+            sh(&next),
+            sh(&self.config),
+        )
+    }
+
+    async fn off(&self, name: &str) -> Result<StashedServer, SwitchError> {
+        vendor::claude_off_within(&self.config, name, &self.stash, &self.cli, CHILD_PATH, QUICK_CLI).await
+    }
+
+    async fn on(&self, id: &str) -> Result<StashedServer, SwitchError> {
+        vendor::claude_on_within(&self.config, id, &self.stash, &self.cli, CHILD_PATH, QUICK_CLI).await
+    }
+
+    fn log(&self, name: &str) -> String {
+        fs::read_to_string(self.root.join(name)).unwrap_or_default()
+    }
+
+    /// Whether the fake was ever started.
+    fn ran(&self) -> bool {
+        self.root.join("argv.log").exists()
+    }
+
+    /// Every argument the fake has been given, across all its runs.
+    fn argv(&self) -> Vec<String> {
+        self.log("argv.log").lines().map(str::to_string).collect()
+    }
+
+    /// What the fake's last run read on stdin.
+    fn stdin(&self) -> String {
+        self.log("stdin.log")
+    }
+
+    /// The names in the stash folder at the moment the fake last started.
+    fn kept_when_the_cli_ran(&self) -> Vec<String> {
+        self.log("seen.log").lines().map(str::to_string).collect()
+    }
+
+    fn forget_runs(&self) {
+        for name in ["argv.log", "stdin.log", "path.log", "seen.log"] {
+            let _ = fs::remove_file(self.root.join(name));
+        }
+    }
+
+    fn kept_folder(&self) -> PathBuf {
+        self.stash.join("claude-code")
+    }
+
+    fn kept_files(&self) -> Vec<String> {
+        names_in(&self.kept_folder())
+    }
+
+    fn config_text(&self) -> String {
+        fs::read_to_string(&self.config).expect("the config")
+    }
+
+    /// The user-scope entry of that name in the config now.
+    fn entry(&self, name: &str) -> Option<serde_json::Value> {
+        json(&self.config_text()).get("mcpServers")?.get(name).cloned()
+    }
+
+    /// Put a stash file in place by hand, in the layout Hanger writes.
+    fn keep_by_hand(&self, id: &str, name: &str, at_ms: i64, entry: &str) -> PathBuf {
+        fs::create_dir_all(self.kept_folder()).unwrap();
+        let path = self.kept_folder().join(format!("{id}.json"));
+        let name = serde_json::Value::from(name);
+        fs::write(&path, format!("{{\"id\": \"{id}\", \"name\": {name}, \"scope\": \"user\", \"at_ms\": {at_ms}, \"entry\": {entry}}}")).unwrap();
+        path
+    }
+}
+
+/// `beta` switched off on a stage that began with it: the stage, what
+/// `claude_off` returned, and the stash file's name. The fake's logs are
+/// cleared, so what a test reads from them afterwards is its own run.
+async fn with_beta_off() -> (Stage, StashedServer, String) {
+    let stage = stage(&claude_json(&[("beta", BETA)]));
+    stage.fake(&stage.removes(&claude_json(&[])));
+    let kept = stage.off("beta").await.expect("beta is switched off");
+    stage.forget_runs();
+    let file = format!("{}.json", kept.id);
+    assert_eq!(stage.kept_files(), vec![file.clone()]);
+    (stage, kept, file)
+}
+
+#[tokio::test]
+async fn the_stash_exists_before_remove_runs() {
+    // Review focus 6: were Hanger to stop between the remove and the keeping,
+    // the server would be in neither place.
+    let stage = stage(&claude_json(&[("beta", BETA)]));
+    // The fake refuses, and changes nothing, unless the entry is already in
+    // the stash folder when it is started.
+    let looks = format!("cat {}/*.json 2>/dev/null | grep -q '{KEPT_ENV_VALUE}' || exit 3", sh(&stage.kept_folder()));
+    stage.fake(&format!("{looks}\n{}", stage.removes(&claude_json(&[]))));
+
+    let kept = stage.off("beta").await.expect("the entry was kept before the remove ran");
+
+    assert_eq!(stage.entry("beta"), None, "the remove did not happen");
+    assert_eq!(stage.entry("alpha"), Some(json("{\"command\": \"alpha-server\"}")));
+    assert_eq!(stage.kept_when_the_cli_ran(), vec![format!("{}.json", kept.id)]);
+    assert_eq!(stage.kept_files(), vec![format!("{}.json", kept.id)]);
+}
+
+#[tokio::test]
+async fn the_kept_file_holds_the_entry_as_written_and_is_private() {
+    let (stage, kept, file) = with_beta_off().await;
+
+    assert_eq!(mode_of(&stage.kept_folder()), 0o700);
+    assert_eq!(mode_of(&stage.stash), 0o700, "a folder made on the way is private too");
+    assert_eq!(mode_of(&stage.kept_folder().join(&file)), 0o600);
+
+    let text = fs::read_to_string(stage.kept_folder().join(&file)).unwrap();
+    let on_disk = json(&text);
+    let mut keys: Vec<&str> = on_disk.as_object().unwrap().keys().map(String::as_str).collect();
+    keys.sort_unstable();
+    assert_eq!(keys, ["at_ms", "entry", "id", "name", "scope"]);
+    assert_eq!(on_disk["id"], kept.id.as_str());
+    assert_eq!(on_disk["name"], "beta");
+    assert_eq!(on_disk["scope"], "user");
+    assert_eq!(on_disk["at_ms"], kept.at_ms);
+    assert_eq!(on_disk["entry"], json(BETA));
+    assert_in_order(&text, &BETA_KEY_ORDER);
+
+    assert!(uuid::Uuid::parse_str(&kept.id).is_ok(), "the id is not a uuid: {}", kept.id);
+    let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis() as i64;
+    assert!((now - 60_000..=now).contains(&kept.at_ms), "at_ms is not this minute: {} against {now}", kept.at_ms);
+}
+
+#[tokio::test]
+async fn off_and_on_run_claude_codes_own_two_commands() {
+    let stage = stage(&claude_json(&[("beta", BETA)]));
+    stage.fake(&stage.removes(&claude_json(&[])));
+    let kept = stage.off("beta").await.expect("off");
+
+    assert_eq!(stage.argv(), ["mcp", "remove", "beta", "--scope", "user"]);
+    assert_eq!(stage.stdin(), "", "a remove is handed nothing on stdin");
+    assert_eq!(stage.log("path.log"), CHILD_PATH, "the search path given is the child's PATH");
+
+    stage.forget_runs();
+    stage.fake(&stage.adds("beta", &[]));
+    stage.on(&kept.id).await.expect("on");
+
+    assert_eq!(stage.argv(), ["mcp", "add-json", "beta", "-", "--scope", "user"]);
+    assert_eq!(stage.log("path.log"), CHILD_PATH);
+}
+
+#[tokio::test]
+async fn a_remove_that_exits_nonzero_is_an_error() {
+    // Measured: `claude mcp remove` exits 1 for a server it does not find,
+    // which is what happens if it is looking at another file than Hanger is.
+    let before = claude_json(&[("beta", BETA)]);
+    let stage = stage(&before);
+    stage.fake(SAYS_NO_SUCH_SERVER);
+
+    assert_eq!(stage.off("beta").await, Err(SwitchError::CliFailed));
+
+    assert_eq!(stage.argv(), ["mcp", "remove", "beta", "--scope", "user"]);
+    assert_eq!(stage.config_text(), before);
+}
+
+#[tokio::test]
+async fn a_failed_remove_leaves_no_stash() {
+    let stage = stage(&claude_json(&[("beta", BETA)]));
+    stage.fake(SAYS_NO_SUCH_SERVER);
+
+    assert_eq!(stage.off("beta").await, Err(SwitchError::CliFailed));
+
+    // It was kept while the command ran, and is not kept now: the server is
+    // still declared, so a kept copy would list it as switched off.
+    assert_eq!(stage.kept_when_the_cli_ran().len(), 1, "{:?}", stage.kept_when_the_cli_ran());
+    assert_eq!(stage.kept_files(), Vec::<String>::new());
+    assert_eq!(vendor::claude_stashed(&stage.stash), vec![]);
+}
+
+#[tokio::test]
+async fn a_remove_that_reports_success_and_changes_nothing_is_a_failure() {
+    // The Gemini lesson (engine matrix): `gemini mcp disable` fails and exits
+    // 0. The file decides, never the exit status.
+    let before = claude_json(&[("beta", BETA)]);
+    let stage = stage(&before);
+    stage.fake(SAYS_REMOVED);
+
+    assert_eq!(stage.off("beta").await, Err(SwitchError::CliFailed));
+
+    assert!(stage.ran());
+    assert_eq!(stage.config_text(), before);
+    assert_eq!(stage.kept_when_the_cli_ran().len(), 1);
+    assert_eq!(stage.kept_files(), Vec::<String>::new());
+}
+
+#[tokio::test]
+async fn a_remove_that_timed_out_after_removing_is_a_success() {
+    let stage = stage(&claude_json(&[("beta", BETA)]));
+    // It removes the entry and then never exits. `exec`, so the sleeper is
+    // the process that gets killed.
+    stage.fake(&format!("{}\nexec /bin/sleep 20", stage.leaves(&claude_json(&[]))));
+
+    // The whole wait: the fake has to have changed the file before it is
+    // killed, or this is a different case (a remove that never happened).
+    let started = Instant::now();
+    let result = stage.off("beta").await;
+    let elapsed = started.elapsed();
+
+    let kept = result.expect("the entry is gone from the file, so the server is off");
+    assert!(elapsed >= QUICK_CLI - Duration::from_millis(100), "the command was not waited for: {elapsed:?}");
+    assert!(elapsed < Duration::from_secs(10), "the command was not given up on: {elapsed:?}");
+    assert_eq!(stage.entry("beta"), None);
+    assert_eq!(stage.kept_files(), vec![format!("{}.json", kept.id)]);
+}
+
+#[tokio::test]
+async fn an_entry_that_changed_under_the_remove_is_not_verified_and_stays_kept() {
+    let stage = stage(&claude_json(&[("beta", BETA)]));
+    let edited = claude_json(&[("beta", BETA_EDITED)]);
+    stage.fake(&stage.removes(&edited));
+
+    assert_eq!(stage.off("beta").await, Err(SwitchError::NotVerified));
+
+    // The copy of what Hanger read is the only one there is now.
+    assert_eq!(stage.config_text(), edited);
+    let listed = vendor::claude_stashed(&stage.stash);
+    assert_eq!(listed.len(), 1);
+    let kept: serde_json::Value = json(&fs::read_to_string(stage.kept_folder().join(format!("{}.json", listed[0].id))).unwrap());
+    assert_eq!(kept["entry"], json(BETA));
+}
+
+#[tokio::test]
+async fn a_config_that_cannot_be_read_back_is_not_verified_and_stays_kept() {
+    let stage = stage(&claude_json(&[("beta", BETA)]));
+    stage.fake(&stage.removes("{ this is not JSON"));
+
+    assert_eq!(stage.off("beta").await, Err(SwitchError::NotVerified));
+    assert_eq!(stage.kept_files().len(), 1);
+
+    // The same before an `on`: with a file that cannot say whether the name
+    // is free, the command is not run.
+    let id = vendor::claude_stashed(&stage.stash)[0].id.clone();
+    stage.forget_runs();
+    assert_eq!(stage.on(&id).await, Err(SwitchError::NotVerified));
+    assert!(!stage.ran());
+    assert_eq!(stage.kept_files().len(), 1);
+}
+
+#[tokio::test]
+async fn on_restores_env_args_and_type() {
+    let (stage, kept, _) = with_beta_off().await;
+    stage.fake(&stage.adds("beta", &[]));
+
+    let back = stage.on(&kept.id).await.expect("on");
+
+    // What Claude Code was handed is the entry as it was written.
+    let sent = stage.stdin();
+    assert_eq!(json(&sent), json(BETA));
+    assert_in_order(&sent, &BETA_KEY_ORDER);
+    // And its file has the server again, env, args and type included.
+    let entry = stage.entry("beta").expect("beta is declared again");
+    assert_eq!(entry, json(BETA));
+    assert_eq!(entry["type"], "stdio");
+    assert_eq!(entry["args"], serde_json::json!(["serve", "--flag", KEPT_ARG]));
+    assert_eq!(entry["env"], serde_json::json!({"ZED_SETTING": KEPT_ENV_VALUE, "ALPHA_SETTING": "x y"}));
+    assert_eq!(back, kept, "on reports the server it gave back");
+}
+
+#[tokio::test]
+async fn the_stash_is_deleted_only_after_the_entry_is_back() {
+    let (stage, kept, file) = with_beta_off().await;
+
+    // An add that says it worked and added nothing: the entry is not back.
+    stage.fake(SAYS_ADDED);
+    assert_eq!(stage.on(&kept.id).await, Err(SwitchError::CliFailed));
+    assert_eq!(stage.kept_when_the_cli_ran(), vec![file.clone()]);
+    assert_eq!(stage.kept_files(), vec![file.clone()], "the only copy was deleted with the server still gone");
+
+    // An add that works: kept while it ran, deleted once the file has it.
+    stage.fake(&stage.adds("beta", &[]));
+    stage.on(&kept.id).await.expect("on");
+    assert_eq!(stage.kept_when_the_cli_ran(), vec![file]);
+    assert_eq!(stage.entry("beta"), Some(json(BETA)));
+    assert_eq!(stage.kept_files(), Vec::<String>::new());
+    assert_eq!(vendor::claude_stashed(&stage.stash), vec![]);
+}
+
+#[tokio::test]
+async fn an_add_that_reports_success_and_adds_nothing_is_a_failure_and_stays_kept() {
+    let (stage, kept, file) = with_beta_off().await;
+    let without = stage.config_text();
+    let kept_bytes = fs::read(stage.kept_folder().join(&file)).unwrap();
+    stage.fake(SAYS_ADDED);
+
+    assert_eq!(stage.on(&kept.id).await, Err(SwitchError::CliFailed));
+
+    assert!(stage.ran());
+    assert_eq!(stage.config_text(), without);
+    assert_eq!(fs::read(stage.kept_folder().join(&file)).unwrap(), kept_bytes);
+    assert_eq!(vendor::claude_stashed(&stage.stash), vec![kept]);
+}
+
+#[tokio::test]
+async fn an_add_that_adds_a_different_entry_is_not_verified_and_stays_kept() {
+    let (stage, kept, file) = with_beta_off().await;
+    stage.fake(&format!("{}\n{SAYS_ADDED}", stage.leaves(&claude_json(&[("beta", BETA_EDITED)]))));
+
+    assert_eq!(stage.on(&kept.id).await, Err(SwitchError::NotVerified));
+
+    assert_eq!(stage.kept_files(), vec![file]);
+    assert_eq!(vendor::claude_stashed(&stage.stash), vec![kept]);
+}
+
+#[tokio::test]
+async fn on_when_the_name_is_declared_again_is_already_there() {
+    let (stage, kept, file) = with_beta_off().await;
+    // The user added a server of that name themselves, meanwhile.
+    let readded = claude_json(&[("beta", BETA_EDITED)]);
+    fs::write(&stage.config, &readded).unwrap();
+    stage.fake(&stage.adds("beta", &[]));
+
+    assert_eq!(stage.on(&kept.id).await, Err(SwitchError::AlreadyThere));
+
+    assert!(!stage.ran(), "the command was run over a server the user declared: {:?}", stage.argv());
+    assert_eq!(stage.config_text(), readded);
+    assert_eq!(stage.kept_files(), vec![file]);
+}
+
+#[tokio::test]
+async fn when_the_kept_copy_cannot_be_deleted_the_caller_is_told() {
+    let (stage, kept, file) = with_beta_off().await;
+    // The add works, and the stash folder stops accepting changes.
+    stage.fake(&format!("{}\nchmod 500 {}", stage.adds("beta", &[]), sh(&stage.kept_folder())));
+
+    let result = stage.on(&kept.id).await;
+    fs::set_permissions(stage.kept_folder(), fs::Permissions::from_mode(0o700)).unwrap();
+
+    // The server is back, and still listed as kept: not a clean success.
+    assert!(matches!(result, Err(SwitchError::StashFailed(_))), "{result:?}");
+    assert_eq!(stage.entry("beta"), Some(json(BETA)));
+    assert_eq!(stage.kept_files(), vec![file]);
+}
+
+#[tokio::test]
+async fn secrets_go_over_stdin_never_argv() {
+    // Review focus 7. Arguments are in the process table for any user of the
+    // machine to read.
+    assert!(BETA.contains(KEPT_ENV_VALUE) && BETA.contains(KEPT_COMMAND) && BETA.contains(KEPT_ARG));
+    let stage = stage(&claude_json(&[("beta", BETA)]));
+    stage.fake(&stage.removes(&claude_json(&[])));
+    let kept = stage.off("beta").await.expect("off");
+    stage.fake(&stage.adds("beta", &[]));
+    let on = stage.on(&kept.id).await;
+
+    // Both runs' arguments: the remove's, then the add's.
+    let argv = stage.argv();
+    for value in [KEPT_ENV_VALUE, KEPT_COMMAND, KEPT_ARG, "ZED_SETTING"] {
+        assert!(!argv.iter().any(|arg| arg.contains(value)), "{value} was passed as an argument: {argv:?}");
+    }
+    assert_eq!(argv.len(), 11, "five arguments to remove and six to add-json: {argv:?}");
+    assert!(stage.stdin().contains(KEPT_ENV_VALUE), "the entry did not arrive on stdin: {:?}", stage.stdin());
+    on.expect("on");
+}
+
+#[tokio::test]
+async fn stashed_listing_carries_key_names_only() {
+    for (entry, value) in [(BETA, KEPT_COMMAND), (BETA, KEPT_ARG), (BETA, KEPT_ENV_VALUE), (DELTA, KEPT_QUERY_VALUE), (DELTA, KEPT_HEADER_VALUE)] {
+        assert!(entry.contains(value), "the fixture no longer holds {value}");
+    }
+    let stage = stage(&claude_json(&[("beta", BETA), ("delta", DELTA)]));
+    stage.fake(&stage.removes(&claude_json(&[("delta", DELTA)])));
+    let beta = stage.off("beta").await.expect("beta off");
+    stage.fake(&stage.removes(&claude_json(&[])));
+    let delta = stage.off("delta").await.expect("delta off");
+
+    let listed = vendor::claude_stashed(&stage.stash);
+    assert_eq!(listed.len(), 2);
+    assert!(listed.contains(&beta) && listed.contains(&delta), "the listing is not what off returned: {listed:?}");
+
+    for said in [serde_json::to_string(&listed).unwrap(), serde_json::to_string(&[&beta, &delta]).unwrap(), format!("{listed:?}")] {
+        for value in KEPT_VALUES {
+            assert!(!said.contains(value), "a value from the entry ({value}) is in: {said}");
+        }
+        // The names are there: that is what a kept server may say.
+        assert!(said.contains("ZED_SETTING") && said.contains("ALPHA_SETTING"), "{said}");
+    }
+    for server in &listed {
+        let value = serde_json::to_value(server).unwrap();
+        let mut keys: Vec<&str> = value.as_object().unwrap().keys().map(String::as_str).collect();
+        keys.sort_unstable();
+        assert_eq!(keys, ["at_ms", "env_keys", "id", "name", "scope", "transport"]);
+    }
+
+    assert_eq!((beta.name.as_str(), beta.scope.as_str(), beta.transport.as_str()), ("beta", "user", "stdio"));
+    assert_eq!(beta.env_keys, ["ALPHA_SETTING", "ZED_SETTING"]);
+    // A remote server's transport is its address with the query string cut.
+    assert_eq!((delta.name.as_str(), delta.scope.as_str(), delta.transport.as_str()), ("delta", "user", "https://example.test/mcp"));
+    assert_eq!(delta.env_keys, Vec::<String>::new());
+}
+
+#[tokio::test]
+async fn stashed_skips_a_malformed_file_and_lists_newest_first() {
+    let stage = stage(&claude_json(&[]));
+    assert_eq!(vendor::claude_stashed(&stage.stash), vec![], "a stash folder that is not there holds nothing");
+
+    let id = |n: u32| format!("00000000-0000-4000-8000-{n:012}");
+    let entry = "{\"command\": \"kept-server\"}";
+    stage.keep_by_hand(&id(1), "oldest", 100, entry);
+    stage.keep_by_hand(&id(2), "newest", 300, entry);
+    stage.keep_by_hand(&id(3), "middle", 200, entry);
+
+    // None of these is a kept server.
+    let folder = stage.kept_folder();
+    fs::write(folder.join(format!("{}.json", id(4))), "{ not JSON").unwrap();
+    fs::write(folder.join(format!("{}.json", id(5))), format!("{{\"id\": \"{}\", \"name\": \"other-id\", \"scope\": \"user\", \"at_ms\": 900, \"entry\": {entry}}}", id(6))).unwrap();
+    fs::write(folder.join(format!("{}.json", id(7))), format!("{{\"id\": \"{}\", \"name\": \"other-scope\", \"scope\": \"project\", \"at_ms\": 900, \"entry\": {entry}}}", id(7))).unwrap();
+    fs::write(folder.join(format!("{}.json", id(8))), format!("{{\"id\": \"{}\", \"name\": \"no-entry\", \"scope\": \"user\", \"at_ms\": 900}}", id(8))).unwrap();
+    stage.keep_by_hand(&id(9), "entry-is-text", 900, "\"kept-server\"");
+    stage.keep_by_hand("not-an-id", "odd-file-name", 900, entry);
+    fs::write(folder.join(id(10)), format!("{{\"id\": \"{}\", \"name\": \"no-extension\", \"scope\": \"user\", \"at_ms\": 900, \"entry\": {entry}}}", id(10))).unwrap();
+
+    let listed = vendor::claude_stashed(&stage.stash);
+    let names: Vec<&str> = listed.iter().map(|server| server.name.as_str()).collect();
+    assert_eq!(names, ["newest", "middle", "oldest"]);
+    assert_eq!(listed[0].id, id(2));
+    assert_eq!(listed[0].at_ms, 300);
+
+    // And none of them can be switched on.
+    stage.fake(&stage.adds("beta", &[]));
+    for odd in [id(4), id(5), id(6), id(7), id(8), id(9), "not-an-id".to_string(), id(10), id(11), "../../home/.claude".to_string(), String::new()] {
+        assert_eq!(stage.on(&odd).await, Err(SwitchError::NotFound), "{odd}");
+    }
+    assert!(!stage.ran());
+}
+
+#[tokio::test]
+async fn a_name_that_would_read_as_an_option_is_refused_and_the_cli_is_not_run() {
+    // Each name is declared, so "no such server" is not why it is refused.
+    let names = ["-beta", "--scope", "", "be\nta", "be\u{7}ta"];
+    let mut servers = serde_json::Map::new();
+    for name in names {
+        servers.insert(name.to_string(), serde_json::json!({"command": "odd-server"}));
+    }
+    let before = serde_json::json!({ "mcpServers": servers }).to_string();
+    let stage = stage(&before);
+    stage.fake(&stage.removes("{}"));
+
+    for name in names {
+        assert_eq!(stage.off(name).await, Err(SwitchError::NameRefused), "{name:?}");
+    }
+    assert!(!stage.ran(), "{:?}", stage.argv());
+    assert_eq!(stage.kept_files(), Vec::<String>::new());
+    assert_eq!(stage.config_text(), before);
+
+    // A kept file that names one is refused on the way back, too.
+    let id = "00000000-0000-4000-8000-000000000001";
+    fs::write(&stage.config, "{\"mcpServers\": {}}").unwrap();
+    for name in names {
+        let file = stage.keep_by_hand(id, name, 1, "{\"command\": \"odd-server\"}");
+        assert_eq!(stage.on(id).await, Err(SwitchError::NameRefused), "{name:?}");
+        assert!(file.exists());
+    }
+    assert!(!stage.ran(), "{:?}", stage.argv());
+}
+
+#[tokio::test]
+async fn only_a_user_scope_server_declared_as_an_object_is_found() {
+    let before = claude_json(&[("words", "\"not an entry\"")]);
+    let stage = stage(&before);
+    stage.fake(&stage.removes("{\"mcpServers\": {}}"));
+
+    // `gamma` is declared, under a project: local scope, which is not switched.
+    for name in ["gamma", "nobody", "words", "mcpServers", "numStartups"] {
+        assert_eq!(stage.off(name).await, Err(SwitchError::NotFound), "{name}");
+    }
+    // The control: on the same stage, a user-scope server is found.
+    assert!(stage.kept_files().is_empty() && !stage.ran());
+    assert_eq!(stage.config_text(), before);
+    stage.off("alpha").await.expect("alpha is declared at user scope");
+
+    let missing = self::stage("{}");
+    fs::remove_file(&missing.config).unwrap();
+    missing.fake(SAYS_REMOVED);
+    assert_eq!(missing.off("alpha").await, Err(SwitchError::NotFound));
+    assert!(!missing.ran());
+}
+
+#[tokio::test]
+async fn an_entry_with_a_comment_in_it_is_kept_and_handed_back_as_plain_json() {
+    // `dialect` reads this file through `strip_jsonc`, so a server Hanger
+    // lists can sit in a file with comments. Claude Code is handed JSON.
+    let commented = "{\n      // why this server is here\n      \"command\": \"gamma-cmd\",\n      \"args\": [\"one\",],\n    }";
+    let stage = stage(&claude_json(&[("beta", commented)]));
+    stage.fake(&stage.removes(&claude_json(&[])));
+    let kept = stage.off("beta").await.expect("off");
+
+    let file = fs::read_to_string(stage.kept_folder().join(format!("{}.json", kept.id))).unwrap();
+    assert_eq!(json(&file)["entry"], serde_json::json!({"command": "gamma-cmd", "args": ["one"]}));
+
+    stage.fake(&stage.adds("beta", &[]));
+    stage.on(&kept.id).await.expect("on");
+    assert_eq!(json(&stage.stdin()), serde_json::json!({"command": "gamma-cmd", "args": ["one"]}));
+}
+
+#[tokio::test]
+async fn a_stash_that_cannot_be_written_stops_the_switch_before_the_cli_runs() {
+    let before = claude_json(&[("beta", BETA)]);
+    let stage = stage(&before);
+    stage.fake(&stage.removes(&claude_json(&[])));
+    let run = |stash: PathBuf| {
+        let stage = &stage;
+        async move { vendor::claude_off_within(&stage.config, "beta", &stash, &stage.cli, CHILD_PATH, QUICK_CLI).await }
+    };
+
+    // A stash folder that cannot be made: its parent is a file.
+    let blocker = stage.bake("blocker", "a file");
+    let under_a_file = run(blocker.join("stash")).await;
+    // One that is there and takes no new file.
+    let closed = stage.root.join("closed");
+    fs::create_dir_all(closed.join("claude-code")).unwrap();
+    fs::set_permissions(closed.join("claude-code"), fs::Permissions::from_mode(0o500)).unwrap();
+    let read_only = run(closed.clone()).await;
+    fs::set_permissions(closed.join("claude-code"), fs::Permissions::from_mode(0o700)).unwrap();
+    // One that is relative to wherever the app was started from.
+    let relative = PathBuf::from("hanger-test-relative-stash-do-not-create");
+    let not_absolute = run(relative.clone()).await;
+    let made = relative.exists();
+    let _ = fs::remove_dir_all(&relative);
+
+    for result in [&under_a_file, &read_only, &not_absolute] {
+        assert!(matches!(result, Err(SwitchError::StashFailed(_))), "{result:?}");
+    }
+    assert!(!made, "a stash folder was made relative to the working directory");
+    // With no kept copy the server is never removed.
+    assert!(!stage.ran(), "{:?}", stage.argv());
+    assert_eq!(stage.config_text(), before);
+}
+
+#[tokio::test]
+async fn no_switch_error_quotes_the_entry() {
+    let before = claude_json(&[("beta", BETA), ("delta", DELTA)]);
+    let stage = stage(&before);
+    let blocker = stage.bake("blocker", "a file");
+
+    let mut errors = Vec::new();
+    stage.fake(SAYS_NO_SUCH_SERVER);
+    errors.push(stage.off("beta").await);
+    errors.push(stage.off("-beta").await);
+    errors.push(stage.off("nobody").await);
+    errors.push(vendor::claude_off_within(&stage.config, "delta", &blocker.join("stash"), &stage.cli, CHILD_PATH, QUICK_CLI).await);
+    stage.fake(&stage.removes(&claude_json(&[("beta", BETA_EDITED), ("delta", DELTA)])));
+    errors.push(stage.off("beta").await);
+    let id = vendor::claude_stashed(&stage.stash)[0].id.clone();
+    errors.push(stage.on(&id).await);
+    fs::write(&stage.config, claude_json(&[("delta", DELTA)])).unwrap();
+    stage.fake(&stage.leaves(&claude_json(&[("beta", DELTA)])));
+    errors.push(stage.on(&id).await);
+    fs::write(&stage.config, claude_json(&[("delta", DELTA)])).unwrap();
+    stage.fake(&stage.leaves(&claude_json(&[("delta", DELTA)])));
+    errors.push(stage.on(&id).await);
+
+    let kinds: Vec<&str> = errors
+        .iter()
+        .map(|result| match result {
+            Err(SwitchError::CliFailed) => "cli",
+            Err(SwitchError::NameRefused) => "name",
+            Err(SwitchError::NotFound) => "not found",
+            Err(SwitchError::StashFailed(_)) => "stash",
+            Err(SwitchError::NotVerified) => "not verified",
+            Err(SwitchError::AlreadyThere) => "already there",
+            Ok(_) => panic!("expected a refusal"),
+        })
+        .collect();
+    assert_eq!(kinds, ["cli", "name", "not found", "stash", "not verified", "already there", "not verified", "cli"]);
+    for result in &errors {
+        let said = format!("{result:?}");
+        for value in KEPT_VALUES.into_iter().chain(["ZED_SETTING", "another-command"]) {
+            assert!(!said.contains(value), "an error quotes the entry ({value}): {said}");
+        }
+    }
+}
