@@ -25,9 +25,15 @@ MCP detector's stage 1.
   server name.
 - **Register in… and Reconcile.** The list diagnoses conflicts it cannot fix.
   Propagation, not authoring.
-- **Not building New MCP Server.** Every host ships it; authoring configs means
-  modelling a dozen dialects and makes Hanger the thirteenth way to do the thing
-  it exists to document.
+- **Hanger now writes engine configuration; adding a server comes later.**
+  This bullet read "Not building New MCP Server" until 2026-11-24, when the
+  ruling changed: Hanger switches what each engine loads, MCP servers first.
+  The plan, its decisions and its list of later slices are in
+  [docs/plans/2026-11-24-context-control.md](plans/2026-11-24-context-control.md).
+  Adding or removing a server declaration is slice 3 there and is not built.
+  What is built is the backend for switching a declared server off and on,
+  which no screen calls yet; `docs/harness.md` → "Hanger writes engine
+  configuration" states the boundary.
 - **Plugin-supplied servers.** Reconciling one by hand is undone at the next
   plugin update. Needs a ruling on exclusion from Reconcile.
 - **Bridge registry growth.** `registry.rs`'s `BRIDGES` holds `mcp-remote`,
@@ -113,6 +119,12 @@ the claude.ai console, where no local config file exists. The
 non-file source honestly. This is a design question for the Reach column, not
 a registry row, and needs a naming brief per `ui-copy.md` before any state
 label ships.
+
+Since 2026-11-24 a switched-off server is modelled, in the backend only
+(`mcp::switch::context`, behind `get_engine_context`): for Codex's global
+file, Claude Code's user scope and Gemini CLI's machine-level servers. The
+Reach column does not draw it, and approval, trust and managed policy are
+still not modelled.
 
 **Open question, NOT verified 2026-08-27**: gemini-cli's enterprise
 documentation may describe a system *defaults* file alongside the system

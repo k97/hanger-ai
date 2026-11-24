@@ -95,6 +95,79 @@ harness changes underneath you — a repo is cloned, a symlink is replaced by a
 copy, an engine is installed — and a stored verdict would be wrong more often
 than right.
 
+## Hanger writes engine configuration
+
+Until 2026-11-24 Hanger read each engine's MCP configuration and never wrote
+it. It now switches an MCP server off and on for one engine, and that is the
+whole of what it writes there. Everything that does it is in one module,
+`src-tauri/src/mcp/switch/`, behind four commands in `src-tauri/src/lib.rs`
+(`get_engine_context`, `set_mcp_server_enabled`, `undo_mcp_switch`,
+`measure_engine_context`). No screen calls them yet. Which engines can be
+switched, and how, is `mcp/registry.rs` → `SWITCHES`; an engine with no row
+there is shown and never written. The run that confirmed each row is in
+`docs/plans/2026-11-24-context-control-engine-matrix.md`.
+
+**What it writes.**
+
+- *One flag in a Codex config file.* `enabled = false` or `enabled = true` in
+  the server's own `[mcp_servers.<name>]` table in Codex's global
+  `config.toml` (`mcp::switch::edit` → `set_enabled`); a `disabled` key left
+  on that entry is removed with it. The file is edited in place and not
+  re-serialised, and a second check
+  (`mcp::switch::ops` → `only_the_flag_differs`) refuses the write unless the
+  file, parsed as data, differs in that one server's `enabled` and `disabled`
+  keys and nothing else.
+- *Gemini CLI's state file,* `~/.gemini/mcp-server-enablement.json`
+  (`mcp::switch::edit` → `gemini_set_enabled`): an entry is added for a server
+  switched off and removed for one switched on, and the file is created if it
+  is not there. It is Gemini's own file, keyed by server name alone, so one
+  entry switches every Gemini server of that name.
+- *Hanger's own files,* in two folders under the app's data directory:
+  `switch/backups` (a copy of each file before it is replaced, with a receipt)
+  and `switch/stash` (below). Folders are made 0700 and files 0600.
+
+**Through which path.** Both config writes go through one function,
+`mcp::switch::apply` → `safe_replace`: the new text has to parse; the file is
+read again and the write refused if it is not byte for byte what Hanger read
+(`ChangedSinceRead`); the current bytes are copied to the backups folder with
+a receipt; the new text goes to a temp file and is renamed over the real file,
+with a symlink resolved first so the link survives; and the result is read
+back, with the original restored if it does not hold. `apply` → `undo` puts a
+receipt's copy back, and only while the file still holds exactly what that
+write left. The newest twenty backups of a file are kept.
+
+**What it asks a vendor's command to do.** Claude Code ignores a flag in its
+file, so for a user-scope server Hanger runs Claude Code's own command
+(`mcp::switch::vendor`): `claude mcp remove <name> --scope user` to switch it
+off, and `claude mcp add-json <name> - --scope user`, with the entry on stdin,
+to switch it back on. While the server is off its entry exists only in
+Hanger's stash, any credential in its `env` included. Two things guard that
+copy. The entry is written to the stash and synced before the remove runs.
+And before either, a pre-flight hands the entry to `add-json` in a scratch
+config folder and goes on only if the same entry comes back: Claude Code
+drops keys it does not know, and a server it would not give back unchanged is
+not removed.
+
+**What it never writes.**
+
+- `~/.claude.json`. `mcp::switch::vendor` reads it, to find an entry and to
+  see what the command did; only `claude` changes it.
+- A key an engine was not shown to honour. Gemini CLI rejects a `disabled` key
+  in a server's entry and Claude Code ignores one, so neither file gets one.
+  A host with no row in `SWITCHES` is read-only.
+- A file the machine pass did not produce. The webview sends a key, never a
+  path, and `mcp::switch::ops` accepts it only if it is the key of a server
+  `mcp::discover` → `discover_machine_at` has just found for that engine, with
+  no reason against switching it (a plugin's server, a managed file, a
+  Claude.ai connector), or of a server Hanger is keeping. The one engine file
+  written that discovery did not list is Gemini CLI's state file, whose path
+  Hanger builds itself. A project's own config file is not in the machine
+  pass, so a project-scope server is not switched yet.
+
+No value from a config file crosses to the webview on the way: a reply is the
+engine's servers by name with their state, and a refusal is one code
+(`mcp::switch::ops` → `SwitchFailure`).
+
 ## What the model does not cover yet
 
 - **`~/.config/agents/skills/`** — Amp's user-level skills path. Amp's other
