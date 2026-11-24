@@ -4,6 +4,7 @@ pub mod dev_icon;
 pub mod diagnostics;
 pub mod domain;
 pub mod editors;
+pub mod engine_status;
 pub mod linkmap;
 pub mod mcp;
 pub mod menu;

@@ -288,7 +288,7 @@ pub fn launch_mtime_ms(command: &str, args: &[String], transport: &str) -> Optio
 /// under /usr/local/bin, uvx under ~/.local/bin, bunx under ~/.bun/bin. Without
 /// this, Verify reports "No such file or directory" for servers that run
 /// perfectly well from a terminal.
-fn widened_path() -> String {
+pub(crate) fn widened_path() -> String {
     let home = std::env::var("HOME").unwrap_or_default();
     let mut dirs: Vec<String> = vec![
         format!("{}/.local/bin", home),
