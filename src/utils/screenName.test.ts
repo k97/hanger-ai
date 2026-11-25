@@ -14,7 +14,11 @@ describe("screenNameFor", () => {
     expect(screenNameFor("linkmap")).toBe("link_map");
     expect(screenNameFor("discovery")).toBe("discovery");
     expect(screenNameFor("design")).toBe("design_system");
-    expect(screenNameFor("engines")).toBe("engines");
+  });
+
+  it("reports Global on any tab as my_machine: a tab is not a screen", () => {
+    expect(screenNameFor("global:Engines")).toBe("my_machine");
+    expect(screenNameFor("global:Tools")).toBe("my_machine");
   });
 
   it("reports any repository path as 'repo', never the path", () => {

@@ -69,7 +69,6 @@ describe("the rail's brand mark", () => {
         onSelectMachine={() => {}}
         onSelectLinkMap={() => {}}
         onSelectDiscovery={() => {}}
-        onSelectEngines={() => {}}
         onSelectReview={() => {}}
         onOpenSearch={() => {}}
         onOpenSettings={() => {}}
@@ -88,9 +87,10 @@ describe("the rail's brand mark", () => {
   it("is the home button, and the only target the mark adds", () => {
     // Reversed by ruling (Karthik, 2026-08-15): the mark went from inert to
     // home — it fires the same handler as the machine button, so the two can
-    // never disagree about where home is. 8 = that, the five sections
-    // (Engines, 2026-11-25), Search (Task 8, 2026-08-27), and settings; the
-    // pin should move again only for a new section or action.
+    // never disagree about where home is. 7 = that, the four sections
+    // (Engines left the rail for a tab in Global, 2026-11-25), Search (Task 8,
+    // 2026-08-27), and settings; the pin should move again only for a new
+    // section or action.
     const onSelectMachine = vi.fn();
     render(
       <IconRail
@@ -99,13 +99,12 @@ describe("the rail's brand mark", () => {
         onSelectMachine={onSelectMachine}
         onSelectLinkMap={() => {}}
         onSelectDiscovery={() => {}}
-        onSelectEngines={() => {}}
         onSelectReview={() => {}}
         onOpenSearch={() => {}}
         onOpenSettings={() => {}}
       />
     );
-    expect(screen.getAllByRole("button")).toHaveLength(8);
+    expect(screen.getAllByRole("button")).toHaveLength(7);
 
     fireEvent.click(screen.getByLabelText("Hanger"));
     expect(onSelectMachine).toHaveBeenCalledTimes(1);

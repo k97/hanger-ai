@@ -106,4 +106,19 @@ describe("SegmentedTrack", () => {
     const svg = screen.getByRole("tab").querySelector("svg");
     expect(svg?.getAttribute("width")).toBe("12");
   });
+
+  it("draws no figure, and no spinner while loading, for a segment whose count is null", () => {
+    render(
+      <SegmentedTrack
+        segments={[{ id: "Engines", label: "Engines", count: null }]}
+        selectedId="Engines"
+        onSelect={vi.fn()}
+        ariaLabel="x"
+        loading
+      />
+    );
+    const tab = screen.getByRole("tab", { name: "Engines" });
+    expect(tab.textContent).toBe("Engines");
+    expect(tab.querySelector("svg")).toBeNull();
+  });
 });

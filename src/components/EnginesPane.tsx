@@ -10,8 +10,10 @@ import {
   sectionHeadClass,
 } from "./typeRoles";
 import { miniBtnClass } from "./miniButton";
+import EngineLabel from "./EngineLabel";
 import { busyKeyOf, type McpSwitch } from "../hooks/useMcpSwitch";
 import type { ContextItem, EngineContext } from "../types/engineContext";
+import type { EngineListEntry } from "../utils/enginesList";
 import {
   budgetCaption,
   budgetHeadline,
@@ -22,8 +24,14 @@ import {
 } from "../utils/switchCopy";
 
 interface EnginesPaneProps {
-  /** The engine the source list has selected; `null` when there is none. */
+  /** `enginesList`'s answer, one chip each: `null` until the first reply lands. */
+  engines: EngineListEntry[] | null;
+  /** The engine the chips have selected; `null` when there is none. */
   engineId: string | null;
+  onSelectEngine: (engineId: string) => void;
+  /** What a click on an item's name does: open that server in the inspector.
+   *  `null` for an item with nothing to open, whose name is then plain text. */
+  openItem: (item: ContextItem) => (() => void) | null;
   /** App's `lastScanAt`: no absence is asserted before it is set. */
   scannedAt: Date | null;
   /** App's one switch state (`useMcpSwitch`). */
@@ -39,10 +47,27 @@ const switchBtnClass =
 const measureBtnClass = `${miniBtnClass} shrink-0 disabled:cursor-default disabled:opacity-50`;
 const itemClass = "px-3 py-[9px]";
 const itemLineClass = `mt-1 ${captionClass}`;
+// The name opens the server in the inspector: a text button, underlined on
+// hover, the idiom of SwitchNotice's Undo (DESIGN.md, SwitchNotice).
+const itemOpenClass = "group min-w-0 flex-1 flex flex-col text-left cursor-pointer";
+const itemNameClass = "min-w-0 flex-1 flex flex-col";
+
+// The engine chips: Needs review's plain chip row (NeedsReviewPane.tsx,
+// `chipBaseClass` / `chipPressedClass`), one engine pressed at a time.
+const chipBaseClass =
+  "h-7 px-3.5 rounded-pill border border-line-2 font-flex text-small text-ink-2 whitespace-nowrap inline-flex items-center gap-2 cursor-pointer transition-colors duration-nav ease-spring hover:bg-plane-2";
+const chipPressedClass =
+  "h-7 px-3.5 rounded-pill border border-transparent bg-tint text-tint-ink font-medium whitespace-nowrap inline-flex items-center gap-2 cursor-pointer transition-colors duration-nav ease-spring font-flex text-small";
 
 /**
- * One engine's Context: what it loads on every request, what that costs by the
- * probe cache's estimate, and a switch for each server Hanger can switch.
+ * Global's Engines tab: a chip per engine, then the selected engine's
+ * Context — what it loads on every request, what that costs by the probe
+ * cache's estimate, and a switch for each server Hanger can switch.
+ *
+ * The chips carry no figure, for the reason the Engines list never did: the
+ * summary's `server_count` counts distinct names and leaves out the servers
+ * Hanger is keeping, while the rows below list one per registration plus the
+ * kept ones (P7 of docs/plans/2026-11-25-context-control-finish.md).
  *
  * Every figure is the backend's (`get_engine_context`, docs/ipc.md entry 15):
  * the budget is `on_tokens_measured`, which counts a launch the engine
@@ -50,7 +75,15 @@ const itemLineClass = `mt-1 ${captionClass}`;
  * through `switcher` and nothing else; its reply's context replaces this one
  * straight away, and App's rescan brings the refetch that follows.
  */
-export default function EnginesPane({ engineId, scannedAt, switcher, refreshNonce }: EnginesPaneProps) {
+export default function EnginesPane({
+  engines,
+  engineId,
+  onSelectEngine,
+  openItem,
+  scannedAt,
+  switcher,
+  refreshNonce,
+}: EnginesPaneProps) {
   const [context, setContext] = useState<EngineContext | null>(null);
   const [measuringFor, setMeasuringFor] = useState<string | null>(null);
   // The engine on screen now, for replies that land after it has changed.
@@ -106,12 +139,40 @@ export default function EnginesPane({ engineId, scannedAt, switcher, refreshNonc
 
   const shown = context !== null && context.engine_id === engineId ? context : null;
   const measuring = shown !== null && measuringFor === shown.engine_id;
+  // Pending is not empty: before the first scan, and before its replies
+  // land, the chips claim nothing either way.
+  const known = scannedAt !== null && engines !== null;
 
   return (
-    // No ground of its own: <main>'s sheet is the ground (DESIGN.md §6).
-    <div data-testid="engines-pane" className="flex-1 min-h-0 overflow-y-auto pt-[18px] pb-[18px] font-sans">
+    // No ground of its own: <main>'s sheet is the ground (DESIGN.md §6). No
+    // top padding either: it sits under Global's tab track, whose wrapper
+    // already ends in the gap.
+    <div data-testid="engines-pane" className="flex-1 min-h-0 overflow-y-auto pb-[18px] font-sans">
+      {known && engines.length === 0 && (
+        <p className={`mx-[18px] ${captionClass}`}>No engine declares an MCP server.</p>
+      )}
+      {known && engines.length > 0 && (
+        <div role="group" aria-label="Engines" className="mx-[18px] flex flex-wrap items-center gap-[7px]">
+          {engines.map((engine) => {
+            const pressed = engine.engine_id === engineId;
+            return (
+              <button
+                key={engine.engine_id}
+                type="button"
+                aria-pressed={pressed}
+                onClick={() => onSelectEngine(engine.engine_id)}
+                className={pressed ? chipPressedClass : chipBaseClass}
+              >
+                <EngineLabel engineKey={engine.engine_id} engineName={engine.engine_name}>
+                  {engine.engine_name}
+                </EngineLabel>
+              </button>
+            );
+          })}
+        </div>
+      )}
       {shown && (
-        <div className="mx-[18px] flex flex-col">
+        <div className="mt-[18px] mx-[18px] flex flex-col">
           <h2 className="text-lg-app font-medium tracking-[-0.3px] text-ink-1 truncate">{shown.engine_name}</h2>
 
           {shown.items.length === 0 ? (
@@ -154,17 +215,35 @@ export default function EnginesPane({ engineId, scannedAt, switcher, refreshNonc
                   const names = { engine: shown.engine_name, server: item.name, file: item.config_path };
                   const kept = item.key.startsWith("stash:");
                   const busy = switcher.busyKeys.has(busyKeyOf(shown.engine_id, item.key));
+                  // A kept item (`stash:`) is in no file, so the inventory
+                  // has no asset for it and there is nothing to open: its
+                  // name stays plain text until T4 of
+                  // docs/plans/2026-11-25-ia-engines-into-global.md opens
+                  // the kept entry instead.
+                  const open = openItem(item);
+                  const nameLines = (
+                    <>
+                      <span
+                        data-testid="engine-item-name"
+                        className={`truncate ${rowValueClass} ${open ? "underline-offset-2 group-hover:underline" : ""}`}
+                      >
+                        {item.name}
+                      </span>
+                      <span className={`truncate ${monoLabelClass}`}>
+                        {kept ? item.tier : `${item.tier} · ${item.config_path}`}
+                      </span>
+                    </>
+                  );
                   return (
                     <div key={item.key} data-testid="engine-item" className={itemClass}>
                       <div className="flex items-center gap-2.5">
-                        <div className="min-w-0 flex-1 flex flex-col">
-                          <span data-testid="engine-item-name" className={`truncate ${rowValueClass}`}>
-                            {item.name}
-                          </span>
-                          <span className={`truncate ${monoLabelClass}`}>
-                            {kept ? item.tier : `${item.tier} · ${item.config_path}`}
-                          </span>
-                        </div>
+                        {open ? (
+                          <button type="button" onClick={open} className={itemOpenClass}>
+                            {nameLines}
+                          </button>
+                        ) : (
+                          <div className={itemNameClass}>{nameLines}</div>
+                        )}
                         <span className={`shrink-0 ${item.estimated_tokens === null ? captionClass : rowMonoClass}`}>
                           {costLabel(item.estimated_tokens)}
                         </span>

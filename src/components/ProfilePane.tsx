@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import {
   ExclamationCircleIcon,
   Disc3Icon,
@@ -10,7 +10,7 @@ import {
   ZapOffIcon,
   PlugZapIcon,
 } from "./icons";
-import CategoryFilterCards, { CategoryType } from "./CategoryFilterCards";
+import CategoryFilterCards, { CategoryType, type GlobalTab } from "./CategoryFilterCards";
 import AssetRow, { AssetItem, AssetAnnotationView, cardChipClass } from "./AssetRow";
 import AssetHeaderRow, { SortField, SortDirection } from "./AssetHeaderRow";
 import ViewControl, { ServerGrouping, ServerSort } from "./ViewControl";
@@ -58,7 +58,8 @@ interface ProfilePaneProps {
    *  the glyph and the Reach / Beyond the store columns. Rendered verbatim. */
   annotations?: AssetAnnotationView[] | null;
   assetCounts?: CategoryCounts | null;
-  selectedCategory?: CategoryType | null;
+  /** The tab, when App's route names one (`global:<tab>`). */
+  selectedCategory?: GlobalTab | null;
   selectedAsset?: { path: string } | null;
   loading: boolean;
   /** Link-state filter from the rail badge or the strip legend. */
@@ -102,7 +103,11 @@ interface ProfilePaneProps {
   /** The facet chip owns category selection internally, so the owner is told
    *  when it changes. Without this the shell cannot know the user is looking
    *  at Tools, and anything it fetches lazily for that view never fires. */
-  onCategoryChange?: (category: CategoryType | null) => void;
+  onCategoryChange?: (category: GlobalTab | null) => void;
+  /** The Engines tab's body (App's `EnginesPane`). The tab shows only when
+   *  this is given; while it is selected it stands in for the strip and the
+   *  list. */
+  enginesTab?: ReactNode;
   /** MCP servers running with no config behind them, from `get_mcp_processes`.
    *  They have no registration, so they cannot be rows — a row implies
    *  something to open, and there is nothing. */
@@ -136,7 +141,7 @@ interface ProfilePaneProps {
    *  above and in none of `get_asset_counts`' figures; they show as their
    *  own group beside it. */
   keptOff?: KeptOff | null;
-  /** A kept server's row opens the Engines screen on its engine. */
+  /** A kept server's row opens the Engines tab on its engine. */
   onOpenKeptOff?: (engineId: string) => void;
 }
 
@@ -400,8 +405,9 @@ export default function ProfilePane({
   onServerSortChange,
   keptOff = null,
   onOpenKeptOff,
+  enginesTab,
 }: ProfilePaneProps) {
-  const [internalCategory, setInternalCategory] = useState<CategoryType | null>(null);
+  const [internalCategory, setInternalCategory] = useState<GlobalTab | null>(null);
   const [internalSortField, setInternalSortField] = useState<SortField>("name");
   const [internalSortDirection, setInternalSortDirection] = useState<SortDirection>("asc");
   // Same prop-or-internal-state shape as sortField/sortDirection above:
@@ -433,7 +439,11 @@ export default function ProfilePane({
      leaked launch reads as one row with a multiplier rather than as eighty. */
   const unaccountedGroups = groupProcesses(unaccountedProcesses ?? []);
 
-  const selectedCategory = propSelectedCategory ?? internalCategory;
+  const selectedTab = propSelectedCategory ?? internalCategory;
+  // Engines is a tab and not an asset category: under it every asset path
+  // below reads All, and none of them renders (`enginesSelected`).
+  const enginesSelected = selectedTab === "Engines" && enginesTab !== undefined;
+  const selectedCategory: CategoryType | null = selectedTab === "Engines" ? null : selectedTab;
   const sortField = propSortField ?? internalSortField;
   const sortDirection = propSortDirection ?? internalSortDirection;
   const serverGrouping = propServerGrouping ?? internalServerGrouping;
@@ -446,7 +456,7 @@ export default function ProfilePane({
      inspector now holds what it has until another row is chosen (Karthik,
      2026-08-27). The prop is gone rather than left uncalled: it existed for
      this one call and nothing else. */
-  const setSelectedCategory = (cat: CategoryType | null) => {
+  const setSelectedCategory = (cat: GlobalTab | null) => {
     setInternalCategory(cat);
     setMcpReviewOnly(false);
     onCategoryChange?.(cat);
@@ -1038,6 +1048,15 @@ export default function ProfilePane({
         <CategoryFilterCards
           selectedCategory={selectedCategory}
           onSelectCategory={setSelectedCategory}
+          enginesTab={
+            enginesTab === undefined
+              ? undefined
+              : {
+                  selected: enginesSelected,
+                  // A second press clears it, as on every other tab.
+                  onSelect: () => setSelectedCategory(enginesSelected ? null : "Engines"),
+                }
+          }
           allCount={sumGlobalAssets(assetCounts)}
           skillsCount={assetCounts?.byCategory.skill?.global}
           toolsCount={assetCounts?.byCategory.tool?.global}
@@ -1047,6 +1066,10 @@ export default function ProfilePane({
         />
       </div>
 
+      {enginesSelected ? (
+        enginesTab
+      ) : (
+      <>
       {/* Inventory summary strip */}
       <div className="mx-[18px] mb-3.5">
         <SummaryStrip
@@ -1361,7 +1384,7 @@ export default function ProfilePane({
                 for an engine that switches by removing them. They are no row
                 above and in no figure from get_asset_counts, so the MCP
                 servers header keeps its own figure and this group carries
-                the backend's `count`. A row opens the Engines screen on the
+                the backend's `count`. A row opens the Engines tab on the
                 server's engine, where it can be switched back on. */}
             {showTools && keptShown && keptOff && (
               <>
@@ -1432,11 +1455,13 @@ export default function ProfilePane({
 
         </>
       )}
+      </>
+      )}
 
       {/* Foot line. Unconditional: scan progress needs a home in the empty
           state too, which is precisely when a scan is running. */}
       <div className="h-[30px] shrink-0 px-[18px] flex items-center gap-4 font-flex text-small text-ink-3">
-        {sumGlobalAssets(assetCounts) > 0 && (
+        {!enginesSelected && sumGlobalAssets(assetCounts) > 0 && (
           <span>
             Showing {visibleCount} of {sumGlobalAssets(assetCounts)}
           </span>

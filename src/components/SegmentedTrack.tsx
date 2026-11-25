@@ -4,8 +4,9 @@ import { LoaderCircleIcon } from "./icons";
 export interface TrackSegment {
   id: string;
   label: string;
-  /** Backend-owned; rendered verbatim. `undefined` with `loading` draws a spinner. */
-  count?: number;
+  /** Backend-owned; rendered verbatim. `undefined` with `loading` draws a
+   *  spinner. `null`: the segment carries no figure at all. */
+  count?: number | null;
 }
 export interface SegmentedTrackProps {
   segments: TrackSegment[];
@@ -109,13 +110,15 @@ export default function SegmentedTrack({
             }`}
           >
             <span>{segment.label}</span>
-            <span className={`text-micro tabular ${selected ? "text-ink-2" : "text-ink-3"}`}>
-              {segment.count === undefined && loading ? (
-                <LoaderCircleIcon size={12} active />
-              ) : (
-                segment.count ?? 0
-              )}
-            </span>
+            {segment.count !== null && (
+              <span className={`text-micro tabular ${selected ? "text-ink-2" : "text-ink-3"}`}>
+                {segment.count === undefined && loading ? (
+                  <LoaderCircleIcon size={12} active />
+                ) : (
+                  segment.count ?? 0
+                )}
+              </span>
+            )}
           </button>
         );
       })}

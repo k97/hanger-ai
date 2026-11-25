@@ -110,29 +110,23 @@ describe("Icon rail", () => {
     unmount();
   });
 
-  it("switches to Engines: persists the selection, swaps the source list, and has no inspector column", async () => {
-    // Open, so an inspector column would render if the screen allowed one.
+  it("has no Engines entry: Engines is a tab in Global, which keeps its source list and inspector", async () => {
+    // docs/plans/2026-11-25-ia-engines-into-global.md, D1. Open, so the
+    // inspector column renders where the screen allows one.
+    mockPreferences.selected_sidebar_item = "global:Engines";
     mockPreferences.inspector_open = "true";
     try {
       const { unmount } = render(<App />);
-      const engines = await screen.findByLabelText("Engines");
-      fireEvent.click(engines);
-
-      await waitFor(() => {
-        expect(invoke).toHaveBeenCalledWith("set_preference", {
-          key: "selected_sidebar_item",
-          value: "engines",
-        });
-      });
-      expect(engines.getAttribute("aria-current")).toBe("true");
-      expect(await screen.findByTestId("engines-sidebar")).toBeTruthy();
-      expect(screen.queryByTestId("sidebar")).toBeNull();
-      expect(screen.getByTestId("engines-pane")).toBeTruthy();
-      // The screen has no inspector: no column, and no toggle in the cap.
-      expect(document.querySelector("aside")).toBeNull();
-      expect(screen.queryByLabelText("Toggle inspector")).toBeNull();
+      const rail = await screen.findByTestId("icon-rail");
+      expect(within(rail).queryByRole("button", { name: "Engines" })).toBeNull();
+      expect(within(rail).getByLabelText("My machine").getAttribute("aria-current")).toBe("true");
+      expect(await screen.findByTestId("engines-pane")).toBeTruthy();
+      expect(screen.queryByTestId("engines-sidebar")).toBeNull();
+      expect(screen.getByTestId("sidebar")).toBeTruthy();
+      await waitFor(() => expect(document.querySelector("aside")).not.toBeNull());
       unmount();
     } finally {
+      mockPreferences.selected_sidebar_item = "profile";
       mockPreferences.inspector_open = "false";
     }
   });

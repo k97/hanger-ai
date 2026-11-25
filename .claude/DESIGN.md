@@ -647,12 +647,14 @@ and the rows it drew are the hero's band now (Panes, below).
 ### Shell
 
 **`IconRail`** (`IconRail.tsx`, `interface IconRailProps`) — `active:
-"machine" | "linkmap" | "discovery" | "engines" | "review" | "design"`,
+"machine" | "linkmap" | "discovery" | "review" | "design"`,
 `needsReviewCount: number`, `onSelectMachine`, `onSelectLinkMap`,
-`onSelectDiscovery`, `onSelectEngines`, `onSelectReview`, `onSelectDesign?`,
-`onOpenSettings`. Engines (`CpuChipIcon`, 16, optical 1) sits after
-Discovery and above the rule over Needs review: it is a place where things
-are, like the two before it (2026-11-25). Fixed 56px column (`w-14`). Buttons are
+`onSelectDiscovery`, `onSelectReview`, `onSelectDesign?`,
+`onOpenSettings`. Engines had an entry after Discovery for one day; it left
+the rail to become a tab in Global (D1 of
+`docs/plans/2026-11-25-ia-engines-into-global.md`), and a stored
+`selected_sidebar_item` of `engines` migrates on load to `global:Engines`.
+Fixed 56px column (`w-14`). Buttons are
 32×32 `rounded-soft`, neutral `bg-sidebar-sel` when current (`IconRail.tsx:21-24`).
 The hanger mark at the top is the home button — it fires `onSelectMachine`,
 same as the machine button (ruled 2026-08-15). `onSelectDesign` is optional
@@ -680,7 +682,10 @@ one row per catalogue kind from `kindCounts`, under a "Categories" eyebrow.
 The pane is a controlled consumer of `kind` (ruled 2026-08-15, reversing the
 earlier no-second-column decision).
 
-**`EnginesSidebar`** (`EnginesSidebar.tsx`) — the Engines screen's second
+**`EnginesSidebar`** (`EnginesSidebar.tsx`) — **no longer rendered**: since
+T1 of `docs/plans/2026-11-25-ia-engines-into-global.md` the Engines tab's
+chips (`EnginesPane`, below) do its job, and the file and its test stay
+until removing them is ruled on. It was the Engines screen's second
 column: `engines`, `scannedAt`, `selected`, `onSelect`, and the shell's four
 sizing props. One row per engine under an "Engines" eyebrow, each an
 `EngineLabel` with the backend's `engine_name`, in Discovery's row idiom
@@ -713,6 +718,14 @@ rather than swapping views.
 four — `hostsBandOpen?` / `onToggleHostsBand?` (`:120-121`) for the band's
 fold, `issues?` / `onReview?` (`:125-126`) for the review pill's lines and
 its route out; and `keptOff?` / `onOpenKeptOff?` for the "Switched off" group.
+`enginesTab?` is the Engines tab's body (App's `EnginesPane`): the tab shows
+only when it is given, and while it is selected it stands in for the strip
+and the list, and the foot drops its "Showing" figure. `selectedCategory` /
+`onCategoryChange` carry a `GlobalTab` (`CategoryType | "Engines"`,
+`CategoryFilterCards.tsx`); Engines is never a `CategoryType`, so no
+filtering or counting path can be handed it. App reads a tab from a
+`global:<tab>` route, and a tab chosen on the pane hands the choice back by
+setting the route to `profile` — without clearing the inspector.
 
 **The "Switched off" group** (`ProfilePane.tsx`, the block before the Rules
 group) — the servers Hanger is keeping while they are switched off for an
@@ -725,8 +738,8 @@ keeps its own figure, and the group follows the Tools rows under its own
 `<button>` (`keptRowClass`): the name and the transport chip, drawn with
 `cardChipClass` (`AssetRow.tsx`, the card row's own chip), then "Off for
 ‹engine_name›"; no reach tiles and no tool count, because the server is in
-no file. A row calls `onOpenKeptOff(engine_id)`, and App opens the Engines
-screen on that engine. It shows on MCP servers and All; a link-state filter
+no file. A row calls `onOpenKeptOff(engine_id)`, and App opens Global's
+Engines tab on that engine (T4 of the IA plan changes this again). It shows on MCP servers and All; a link-state filter
 hides it, since a kept server has no link state. With only kept servers,
 neither the zero-servers state nor the whole-store empty plane wins: every
 predicate that decides the plane reads `keptAny` (`keptOff.count > 0`, a
@@ -882,12 +895,23 @@ would filter that line straight back out (`:40`).
 from static data in `src/data/directories.ts`; the kind facet is owned by
 `DiscoverySidebar`.
 
-**`EnginesPane`** (`EnginesPane.tsx`) — `engineId`, `scannedAt`, `switcher`
-(App's `useMcpSwitch`), `refreshNonce`. One engine's Context, read with
+**`EnginesPane`** (`EnginesPane.tsx`) — `engines`, `engineId`,
+`onSelectEngine`, `openItem`, `scannedAt`, `switcher` (App's
+`useMcpSwitch`), `refreshNonce`. Global's Engines tab, rendered by
+`ProfilePane` under its tab track. First a chip row (`role="group"`,
+`aria-label="Engines"`, `mx-[18px] flex flex-wrap gap-[7px]`): one
+`<button aria-pressed>` per `engines` entry holding an `EngineLabel`, in
+Needs review's chip idiom (`chipBaseClass` / `chipPressedClass`, declared
+again here) and with **no figure**, for P7's reason (`EnginesSidebar`,
+above). Before the first scan, or before its replies land, it draws
+nothing; after them, with no engines, "No engine declares an MCP server."
+The selection is App's, persisted as `selected_engine`, falling back to the
+first chip when the stored id is not in the list. Then one engine's Context, read with
 `get_engine_context` on mount, on a new `engineId`, and on every
 `refreshNonce` (App bumps it on `scan://complete`), behind a cancellation
-flag; a reply for an engine no longer selected is dropped. The pane root is
-`pt-[18px]` with no ground of its own, and its content sits at `mx-[18px]`:
+flag; a reply for an engine no longer selected is dropped. The pane root has
+no top padding (the tab track's wrapper ends in the gap) and no ground of its
+own, and its content sits at `mx-[18px]`, `mt-[18px]` under the chips:
 the engine's name as the `h2` (`text-lg-app`, the inspector title's
 classes); a one-row `ListCard` budget — `budgetHeadline(on_tokens_measured)`
 in `rowValueClass` over `budgetCaption(measured_on_count, on_count,
@@ -900,7 +924,14 @@ order given: the name, `{tier} · {config_path}` in `monoLabelClass` (the tier
 alone for a kept server), `costLabel` (`rowMonoClass`, or `captionClass` for
 "Not measured"), and the switch (§7) — a `<button aria-pressed>` named by the
 server, holding `LayerSwitch`, disabled while its request is in `busyKeys`.
-A read-only item shows `stateLabel` ("On"/"Off") where the switch would be
+The name and its mono line are a text button when `openItem(item)` returns
+an opener (underlined on hover, SwitchNotice's Undo idiom): App's opener
+selects the inventory asset whose registration key is the item's key,
+exactly as the MCP servers list's per-registration row does, and the
+inspector opens on it. A `stash:` item, or one with no inventory asset, gets
+`null` and keeps a plain name (T4 of the IA plan gives the kept entry
+somewhere to open). The switch is a separate button, so it never selects
+the row. A read-only item shows `stateLabel` ("On"/"Off") where the switch would be
 and its `readOnlyLine` beneath (P9). A `stash:` item carries the kept line,
 and every item carries the by-name line when `switches_by_name` is true —
 no engine id is compared in the view (P10). Every word comes from
@@ -911,7 +942,7 @@ the budget and the list, and shows only once the reply has landed and
 `scannedAt` is set; `applies` renders nothing
 (ruling 19). The budget is never a sum of the rows: a launch the engine
 declares twice counts once in `on_tokens_measured`. Pinned by
-`EnginesPane.test.tsx`.
+`EnginesPane.test.tsx` and `engines_screen.test.tsx`.
 
 **`DesignSystemPane`** (`DesignSystemPane.tsx`) — `section` only. The page
 described in §9.
@@ -1311,7 +1342,11 @@ eyebrows.
   can be declared twice by one engine. A read-only item shows `stateLabel`
   there instead, with its `readOnlyLine` in `captionClass` under the path
   line. A project row, a host with no engine id, and every row before its
-  engine's first reply draw nothing new. `Flyout` asks each engine once per
+  engine's first reply draw nothing new. The host name is a link to Global's
+  Engines tab on that engine (`onOpenEngine`) when the row's `engineId` is
+  one the tab lists (`linkedEngines`, App's `enginesList` ids, carried by
+  `Flyout`): a text button, underlined on hover on the name inside the
+  `EngineLabel`. Any other row names its host in plain text. `Flyout` asks each engine once per
   open server and again on App's `scanNonce`, matches item to row by key
   (never by tier: the panel calls `~/.claude.json` "global" where its engine
   says "user"), and a switch's reply replaces that engine's context at once.
@@ -1491,9 +1526,10 @@ SVG canvas). Renders `<use href="#brand-…">`; nothing for any-agent;
 `inline-flex items-center gap-1.5` (`:17`); the one icon-plus-name compound.
 
 **`SegmentedTrack`** (`SegmentedTrack.tsx`) — the category row's tablist:
-`segments: TrackSegment[]` (`{id, label, count?}`, `:4-9`);
+`segments: TrackSegment[]` (`{id, label, count?}`, `:4-10`; `count: null`
+draws no figure and no spinner, for Global's Engines tab);
 `SegmentedTrackProps` adds `selectedId`, `onSelect`, `ariaLabel`, `loading?`
-(`:10-16`). `role="tablist"` on the outer element, one `role="tab"` per
+(`:11-17`). `role="tablist"` on the outer element, one `role="tab"` per
 segment (`:82`, `:98`); roving focus — the selected tab is `tabIndex={0}`,
 every other `-1`, Left/Right/Home/End move focus without selecting,
 Enter/Space selects (`:46-78`, `:100-101`). A segment's own count sits
@@ -1517,8 +1553,11 @@ the first caller (below).
 
 **`CategoryFilterCards`** (`CategoryFilterCards.tsx:5-15`) — per-category
 counts, `selectedCategory`, `onSelectCategory`, `loading`. `allCount` is
-labelled "Backend-owned total for the All chip" (`:6`). It no longer draws
-its own chips: it builds five `TrackSegment`s (`:46-55`), filters out empty
+labelled "Backend-owned total for the All chip". `enginesTab?` adds
+Global's Engines segment straight after All (Karthik, 2026-11-25: All ·
+Engines · Skills · MCP servers · Rules · Subagents), with `count: null`
+and never hidden; a repository passes none. It no longer draws
+its own chips: it builds five category `TrackSegment`s, filters out empty
 ones by the hide-at-zero rule stated in its own doc comment — with one
 exemption for a zero-count Tools chip (`:57-69`) — and hands the result to
 one `SegmentedTrack` (`:81-87`, above). The class strings that used to draw
@@ -1762,7 +1801,7 @@ the asset groups, in the same heading div and `rowClass` row, the label in
 `text-base-app` and `detail` on the right in `captionClass` as a hit's place
 is. While any action is listed, neither the hint nor "Nothing matches" shows;
 before the first scan none are listed. App builds them: each open reads
-`get_engine_context` for every engine the Engines screen lists, once, and
+`get_engine_context` for every engine the Engines tab lists, once, and
 keeps the replies until close; a non-empty query yields the items with
 `read_only === null` whose name contains it, any case, at most eight,
 labelled `paletteActionLabel` with the engine name as `detail`. Picking one
@@ -1846,8 +1885,9 @@ written `App.tsx:1177`). The body is `flex-1 flex min-h-0` (`App.tsx:1336`).
 
 The second column is view-dependent, and the branch order is the map first:
 the **link map** renders none, `design` renders `DesignSystemSidebar` behind
-a `Suspense`, Discovery renders `DiscoverySidebar`, Engines renders
-`EnginesSidebar`, review renders `ReviewSidebar`, and everything else renders
+a `Suspense`, Discovery renders `DiscoverySidebar`, review renders
+`ReviewSidebar`, and everything else — Global on every tab, Engines
+included — renders
 `Sidebar`
 (`App.tsx:1374-1432`).
 
@@ -1933,7 +1973,7 @@ carries both. What the curve looks like against the window edge is a
 screenshot claim.
 
 **Every screen carries the corner.** My machine, the link map, Discovery,
-Engines, Needs review and the Design system page all open on the same sheet, and the
+Needs review and the Design system page all open on the same sheet, and the
 corner is part of the shell, not of any pane: a pane must not paint its own
 full-bleed `--page` ground, because that squares the curve off from inside
 (`NeedsReviewPane`, `DiscoveryPane`, `LinkMapPane` and `DesignSystemPane`
@@ -2252,7 +2292,7 @@ decorative `LayerSwitch`.** `LayerSwitch.tsx` draws only the track: 26×16,
 the button's text or `aria-label` names what is switched and its
 `aria-pressed` carries the state. There is no `role="switch"` in `src/`, and
 none is introduced. Callers: the link map's layers panel (`LinkMapPane`);
-the Engines pane's server rows (`EnginesPane`), named by the server; the MCP
+the Engines tab's server rows (`EnginesPane`), named by the server; the MCP
 server inspector's "Registered in" rows (`McpServerDetail`), named
 `{engine}, {file}` because the server is the panel's title; the Design
 system page shows it under Controls as "Sample switch".

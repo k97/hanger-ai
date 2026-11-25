@@ -90,6 +90,10 @@ interface FlyoutProps {
   /** Bumped by App on every `scan://complete`, so the engines a server's
    *  panel asked are asked again. */
   refreshNonce?: number;
+  /** The MCP server panel's engine-name links, carried to it unchanged
+   *  (`McpServerDetail`'s `linkedEngines` / `onOpenEngine`). */
+  linkedEngines?: readonly string[];
+  onOpenEngine?: (engineId: string) => void;
 }
 
 interface RuleSection {
@@ -114,7 +118,9 @@ export default function Flyout({
   screen,
   landingNonce,
   switcher,
-  refreshNonce
+  refreshNonce,
+  linkedEngines,
+  onOpenEngine
 }: FlyoutProps) {
   const [linking, setLinking] = useState<FlatAssetItem | null>(null);
 
@@ -833,6 +839,8 @@ export default function Flyout({
           onOpenConfig={onOpenConfig}
           switches={registrationSwitches}
           onSwitch={(key) => void switchRegistration(key)}
+          linkedEngines={linkedEngines}
+          onOpenEngine={onOpenEngine}
         />
       ) : targetAsset ? (
         // Link to… lives in the cap now (App.tsx), not this panel's own

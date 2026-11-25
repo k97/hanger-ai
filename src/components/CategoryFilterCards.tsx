@@ -2,6 +2,11 @@ import SegmentedTrack from "./SegmentedTrack";
 
 export type CategoryType = "Skills" | "Agents" | "Tools" | "Rules" | "Subagents";
 
+/** Global's tabs: the asset categories, and Engines. Engines is a lens on the
+ *  same inventory, not a category of asset, so it is not a `CategoryType`:
+ *  nothing that filters or counts assets can be handed it. */
+export type GlobalTab = CategoryType | "Engines";
+
 interface CategoryFilterCardsProps {
   /** Backend-owned total for the All chip. */
   allCount?: number;
@@ -12,6 +17,11 @@ interface CategoryFilterCardsProps {
   selectedCategory: CategoryType | null;
   onSelectCategory: (category: CategoryType | null) => void;
   loading: boolean;
+  /** Global's Engines tab, second after All (Karthik, 2026-11-25: All ·
+   *  Engines · Skills · MCP servers · Rules · Subagents). Absent on a
+   *  repository, which has no Engines tab. While it is selected,
+   *  `selectedCategory` is null. */
+  enginesTab?: { selected: boolean; onSelect: () => void };
 }
 
 /** The category decision line — M3 filter-chip behaviour on the mono palette.
@@ -32,7 +42,13 @@ interface CategoryFilterCardsProps {
  *
  *  One piece of that reasoning survives: a chip the user has *selected* stays
  *  rendered even at zero, because otherwise the only control that can clear
- *  the filter disappears and the view is stranded. */
+ *  the filter disappears and the view is stranded.
+ *
+ *  The Engines tab carries no figure, for the reason the Engines list never
+ *  did: the summary's `server_count` counts distinct names and leaves out the
+ *  servers Hanger is keeping, so any number here would contradict the rows
+ *  under it (P7 of docs/plans/2026-11-25-context-control-finish.md). It never
+ *  hides, since it has no zero to hide at. */
 export default function CategoryFilterCards({
   allCount,
   skillsCount,
@@ -42,6 +58,7 @@ export default function CategoryFilterCards({
   selectedCategory,
   onSelectCategory,
   loading,
+  enginesTab,
 }: CategoryFilterCardsProps) {
   const chips: Array<{ id: CategoryType | null; label: string; count: number | undefined }> = [
     { id: null, label: "All", count: allCount },
@@ -76,12 +93,23 @@ export default function CategoryFilterCards({
     }
   };
 
+  const segments: Array<{ id: string; label: string; count?: number | null }> = visibleChips.map((c) => ({
+    id: c.id ?? "all",
+    label: c.label,
+    count: c.count,
+  }));
+  // Straight after All, which is always first.
+  if (enginesTab) segments.splice(1, 0, { id: "Engines", label: "Engines", count: null });
+
   return (
     <section className="font-sans select-none shrink-0">
       <SegmentedTrack
-        segments={visibleChips.map((c) => ({ id: c.id ?? "all", label: c.label, count: c.count }))}
-        selectedId={selectedCategory ?? "all"}
-        onSelect={(id) => handleChipClick(id === "all" ? null : (id as CategoryType))}
+        segments={segments}
+        selectedId={enginesTab?.selected ? "Engines" : selectedCategory ?? "all"}
+        onSelect={(id) => {
+          if (id === "Engines") enginesTab?.onSelect();
+          else handleChipClick(id === "all" ? null : (id as CategoryType));
+        }}
         ariaLabel="Filter by category"
         loading={loading}
       />

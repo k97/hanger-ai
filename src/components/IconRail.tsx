@@ -1,15 +1,13 @@
-import { ComputerDesktopIcon, GlobeAltIcon, CpuChipIcon, ExclamationTriangleIcon, Cog6ToothIcon, FolderSymlinkIcon, SwatchIcon, MagnifyingGlassIcon } from "./icons";
+import { ComputerDesktopIcon, GlobeAltIcon, ExclamationTriangleIcon, Cog6ToothIcon, FolderSymlinkIcon, SwatchIcon, MagnifyingGlassIcon } from "./icons";
 import HangerMark from "./HangerMark";
 import Tooltip from "./Tooltip";
 
 interface IconRailProps {
-  active: "machine" | "linkmap" | "discovery" | "engines" | "review" | "design";
+  active: "machine" | "linkmap" | "discovery" | "review" | "design";
   needsReviewCount: number;
   onSelectMachine: () => void;
   onSelectLinkMap: () => void;
   onSelectDiscovery: () => void;
-  /** What each engine loads, what it costs, and a switch for each server. */
-  onSelectEngines: () => void;
   onSelectReview: () => void;
   /** Opens the search palette; ⌘K does the same. An action, not a place —
    *  it never reads as current. */
@@ -31,7 +29,7 @@ const railBtnActiveClass =
 /** Leftmost shell column: the sections, plus settings.
  *
  *  Needs review sits below a rule because it is a different kind of place —
- *  My machine, Discovery and Engines are where things are, Needs review is
+ *  My machine and Discovery are where things are, Needs review is
  *  what is wrong with them. Its badge is the count of unresolved decisions. */
 export default function IconRail({
   active,
@@ -39,7 +37,6 @@ export default function IconRail({
   onSelectMachine,
   onSelectLinkMap,
   onSelectDiscovery,
-  onSelectEngines,
   onSelectReview,
   onOpenSearch,
   onSelectDesign,
@@ -108,17 +105,6 @@ export default function IconRail({
           className={active === "discovery" ? railBtnActiveClass : railBtnClass}
         >
           <GlobeAltIcon size={16} aria-hidden="true" />
-        </button>
-      </Tooltip>
-
-      <Tooltip label="Engines">
-        <button
-          aria-label="Engines"
-          aria-current={active === "engines" ? "true" : undefined}
-          onClick={onSelectEngines}
-          className={active === "engines" ? railBtnActiveClass : railBtnClass}
-        >
-          <CpuChipIcon size={16} aria-hidden="true" />
         </button>
       </Tooltip>
 

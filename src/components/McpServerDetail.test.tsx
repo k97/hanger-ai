@@ -1958,3 +1958,45 @@ describe("McpServerDetail — a switch on a Registered in row", () => {
     }
   });
 });
+
+/** An engine's name in "Registered in" links to Global's Engines tab on that
+ *  engine (D6 of docs/plans/2026-11-25-ia-engines-into-global.md), for an
+ *  engine that tab lists; any other row names its host in plain text. */
+describe("McpServerDetail: an engine's name links to the Engines tab", () => {
+  const linked: McpServerView = {
+    ...base,
+    registrations: [
+      { ...base.registrations[0], engineId: "claude-code" },
+      { ...base.registrations[2], engineId: "claude-desktop" },
+      { ...base.registrations[1], key: "cc-project", tier: "project", engineId: null },
+    ],
+  };
+  const hostOf = (row: HTMLElement) => within(row).getAllByText(/^Claude/)[0];
+
+  it("a listed engine's name is a button that opens the tab on that engine", () => {
+    const onOpenEngine = vi.fn();
+    render(<Harness server={linked} linkedEngines={["claude-code"]} onOpenEngine={onOpenEngine} />);
+    openDetails();
+    const [listed] = screen.getAllByTestId("registration-row");
+    const link = hostOf(listed).closest("button");
+    expect(link, "the listed engine's name is not a button").not.toBeNull();
+    fireEvent.click(link!);
+    expect(onOpenEngine).toHaveBeenCalledWith("claude-code");
+  });
+
+  it("an engine the tab does not list, and a row with no engine id, name their host in plain text", () => {
+    render(<Harness server={linked} linkedEngines={["claude-code"]} onOpenEngine={vi.fn()} />);
+    openDetails();
+    const [, unlisted, project] = screen.getAllByTestId("registration-row");
+    expect(hostOf(unlisted).closest("button")).toBeNull();
+    expect(hostOf(project).closest("button")).toBeNull();
+  });
+
+  it("without a handler no name is a link", () => {
+    render(<Harness server={linked} linkedEngines={["claude-code"]} />);
+    openDetails();
+    for (const row of screen.getAllByTestId("registration-row")) {
+      expect(hostOf(row).closest("button")).toBeNull();
+    }
+  });
+});

@@ -205,7 +205,19 @@ interface Props {
   switches?: Record<string, RegistrationSwitch>;
   /** The switch on that registration's row was clicked. */
   onSwitch?: (registrationKey: string) => void;
+  /** The engine ids Global's Engines tab lists (`enginesList`). A row whose
+   *  `engineId` is one of them names its engine as a link to that tab; any
+   *  other row names it in plain text. */
+  linkedEngines?: readonly string[];
+  /** A row's engine name was clicked: open the Engines tab on that engine. */
+  onOpenEngine?: (engineId: string) => void;
 }
+
+/** The engine name as a link: a text button, underlined on hover, the idiom
+ *  of SwitchNotice's Undo (DESIGN.md, SwitchNotice). The underline is drawn
+ *  on the name inside `EngineLabel`, which is inline-flex and so would not
+ *  inherit a decoration from here. */
+const engineLinkClass = "group min-w-0 flex cursor-pointer text-left";
 
 /** One registration's item in its engine's context. */
 export interface RegistrationSwitch {
@@ -584,6 +596,8 @@ export default function McpServerDetail({
   onOpenConfig,
   switches,
   onSwitch,
+  linkedEngines,
+  onOpenEngine,
 }: Props) {
   // Tools first, Details second: the tool list is what "is this server
   // healthy" reduces to, and it is the only content most opens need. Flyout's
@@ -1391,6 +1405,11 @@ export default function McpServerDetail({
               // engine has answered. Absent for a project or local row, a
               // host with no engine id, and before the first reply.
               const sw = switches?.[reg.key];
+              // The engine this row's name links to on the Engines tab:
+              // only one that tab lists. A project or local row has no
+              // engine id, so it names its host in plain text.
+              const linkEngine =
+                onOpenEngine && reg.engineId && linkedEngines?.includes(reg.engineId) ? reg.engineId : null;
               return (
               <div
                 key={`${reg.configPath}-${i}`}
@@ -1399,9 +1418,17 @@ export default function McpServerDetail({
               >
                 <span className="flex items-center gap-2 min-w-0">
                   {/* reg.host is the display name (hostLabel); the map resolves names too. */}
-                  <EngineLabel engineKey={reg.host} className="text-small font-medium">
-                    {reg.host}
-                  </EngineLabel>
+                  {linkEngine ? (
+                    <button type="button" onClick={() => onOpenEngine?.(linkEngine)} className={engineLinkClass}>
+                      <EngineLabel engineKey={reg.host} className="text-small font-medium">
+                        <span className="underline-offset-2 group-hover:underline">{reg.host}</span>
+                      </EngineLabel>
+                    </button>
+                  ) : (
+                    <EngineLabel engineKey={reg.host} className="text-small font-medium">
+                      {reg.host}
+                    </EngineLabel>
+                  )}
                   <span className="ml-auto text-small text-ink-3">
                     {reg.tier}
                   </span>

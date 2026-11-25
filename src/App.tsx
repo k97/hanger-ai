@@ -70,7 +70,6 @@ const DesignSystemSidebar = import.meta.env.DEV
   : null;
 import NeedsReviewPane from "./components/NeedsReviewPane";
 import ReviewSidebar from "./components/ReviewSidebar";
-import EnginesSidebar from "./components/EnginesSidebar";
 import EnginesPane from "./components/EnginesPane";
 import { enginesList } from "./utils/enginesList";
 import ReviewInspector from "./components/ReviewInspector";
@@ -97,7 +96,7 @@ import {
 import { unaccountedProcesses, type ProcessMatch } from "./utils/mcpServerView";
 import type { McpServerRow } from "./utils/serverRows";
 import type { McpEngineSummaryData } from "./types/mcpEngineSummary";
-import type { EngineContext, KeptOff } from "./types/engineContext";
+import type { ContextItem, EngineContext, KeptOff } from "./types/engineContext";
 import { paletteActionLabel } from "./utils/switchCopy";
 import { useMcpSwitch } from "./hooks/useMcpSwitch";
 import SwitchNotice from "./components/SwitchNotice";
@@ -115,6 +114,13 @@ import {
   type IssueKind,
   type ReviewIssue,
 } from "./utils/reviewIssues";
+
+/** Global with its Engines tab selected, in the `global:<tab>` form the route
+ *  already reads for a tab. */
+const ENGINES_TAB_ITEM = "global:Engines";
+
+/** Whether a sidebar item is My machine › Global, on any tab. */
+const isGlobalItem = (item: string) => item === "profile" || item === "global" || item.startsWith("global:");
 
 // --- Types ---
 export interface Scope {
@@ -390,7 +396,6 @@ export default function App() {
     selectedSidebarItem !== "discovery" &&
     selectedSidebarItem !== "linkmap" &&
     selectedSidebarItem !== "design" &&
-    selectedSidebarItem !== "engines" &&
     (selectedSidebarItem === "review" || inventory !== null);
   // Expanded puts <main> at display:none, and the Collapse control lives in
   // the inspector's own cap. Navigating to a screen the column does not
@@ -905,11 +910,17 @@ export default function App() {
       const activeItem = await invoke<string | null>("get_preference", { key: "selected_sidebar_item" });
       if (activeItem === "design" && !designSystemAvailable) {
         setSelectedSidebarItem("profile");
+      } else if (activeItem === "engines") {
+        // Engines was a rail destination until it became a tab in Global
+        // (docs/plans/2026-11-25-ia-engines-into-global.md, D1). A stored
+        // `engines` lands on that tab, and is written back in its new form.
+        setSelectedSidebarItem(ENGINES_TAB_ITEM);
+        invoke("set_preference", { key: "selected_sidebar_item", value: ENGINES_TAB_ITEM }).catch(() => {});
       } else if (activeItem) {
         setSelectedSidebarItem(activeItem);
       }
       setSidebarRestored(true);
-      // The engine the Engines screen last showed. Checked against the list
+      // The engine the Engines tab last showed. Checked against the list
       // at render time, not here: the list arrives with the first scan.
       const enginePref = await invoke<string | null>("get_preference", { key: "selected_engine" });
       if (enginePref) setStoredEngine(enginePref);
@@ -1030,7 +1041,7 @@ export default function App() {
   // that switches by removing them (docs/ipc.md entry 19). No config file
   // declares them, so no other read returns them. Same re-derive-per-scan
   // pattern as `refreshMcpEngineSummary`, and called right after it. The
-  // Engines screen's list reads it, and so does the MCP servers list's
+  // Engines tab's chips read it, and so does the MCP servers list's
   // "Switched off" group.
   const [keptOff, setKeptOff] = useState<KeptOff | null>(null);
   const refreshKeptOff = async () => {
@@ -1047,7 +1058,7 @@ export default function App() {
   // below, so the hook order never changes when onboarding resolves.
   const mcpSwitch = useMcpSwitch({ onChanged: () => triggerScan() });
 
-  // The Engines screen. Its list is every engine that declares an MCP server
+  // Global's Engines tab. Its chips are every engine that declares an MCP server
   // plus any whose servers Hanger is keeping off (P8); the selection is the
   // stored `selected_engine` when it is in that list, otherwise the first
   // row, so a stale or absent preference never selects nothing.
@@ -1064,7 +1075,7 @@ export default function App() {
   };
 
   // ⌘K's "Switch" actions. Each open reads the context of every engine the
-  // Engines screen lists, once, and keeps the replies until the palette
+  // Engines tab lists, once, and keeps the replies until the palette
   // closes. State, not a ref: a reply that lands after the first keystroke
   // must still put its actions on screen.
   const [paletteContexts, setPaletteContexts] = useState<EngineContext[] | null>(null);
@@ -1360,6 +1371,32 @@ export default function App() {
       setSelectedBubble(null);
     }
     setSelectedSidebarItem(item);
+  };
+
+  /** Global › Engines, on one engine: from a "Switched off" row and from an
+   *  engine name in the MCP server inspector. Within Global this is a change
+   *  of tab, which keeps the inspector's subject as every tab change does
+   *  (Karthik, 2026-08-27); from anywhere else it is a change of screen. */
+  const openEnginesTab = (engineId: string) => {
+    selectEngine(engineId);
+    setProfileCategory("Engines");
+    if (isGlobalItem(selectedSidebarItem)) setSelectedSidebarItem(ENGINES_TAB_ITEM);
+    else handleSelectSidebarItem(ENGINES_TAB_ITEM);
+    invoke("set_preference", { key: "selected_sidebar_item", value: ENGINES_TAB_ITEM }).catch(() => {});
+  };
+
+  /** What a click on an Engines tab row's name opens: its server in the
+   *  inventory, by the key both sides mint from `RegistrationKey`, selected
+   *  exactly as the MCP servers list's own per-registration row selects it.
+   *  A kept item (`stash:`) is in no file and has no inventory asset, so it
+   *  has nothing to open until T4 of
+   *  docs/plans/2026-11-25-ia-engines-into-global.md gives it the kept entry. */
+  const openEngineItem = (item: ContextItem): (() => void) | null => {
+    if (item.key.startsWith("stash:")) return null;
+    const tool = inventory?.tools.find((t) => registrationKey(t) === item.key);
+    if (!tool) return null;
+    return () =>
+      handleSelectAsset({ id: registrationKey(tool), name: tool.name, category: "Tools", path: tool.config_path }, "profile");
   };
 
   /** A palette hit: go where it lives, then open it, exactly as a row
@@ -1695,8 +1732,6 @@ export default function App() {
       ? ["My machine", "Link map"]
       : selectedSidebarItem === "design"
       ? ["Design system"]
-      : selectedSidebarItem === "engines"
-      ? ["Engines", ...(engineRows?.filter((e) => e.engine_id === selectedEngine).map((e) => e.engine_name) ?? [])]
       : selectedSidebarItem.includes(":")
       ? [
           "My machine",
@@ -1854,8 +1889,6 @@ export default function App() {
               ? "linkmap"
               : selectedSidebarItem === "design"
               ? "design"
-              : selectedSidebarItem === "engines"
-              ? "engines"
               : "machine"
           }
           needsReviewCount={review.counts.total}
@@ -1867,10 +1900,6 @@ export default function App() {
           onSelectDiscovery={() => {
             handleSelectSidebarItem("discovery");
             invoke("set_preference", { key: "selected_sidebar_item", value: "discovery" }).catch(() => {});
-          }}
-          onSelectEngines={() => {
-            handleSelectSidebarItem("engines");
-            invoke("set_preference", { key: "selected_sidebar_item", value: "engines" }).catch(() => {});
           }}
           onSelectReview={() => {
             handleSelectSidebarItem("review");
@@ -1910,17 +1939,6 @@ export default function App() {
             kind={discoveryKind}
             onSelectKind={setDiscoveryKind}
             favouritesCount={favourites.favourites.length}
-          />
-        ) : selectedSidebarItem === "engines" ? (
-          <EnginesSidebar
-            width={sidebarWidth}
-            setWidth={setSidebarWidth}
-            collapsed={sidebarCollapsed}
-            setCollapsed={setSidebarCollapsed}
-            engines={engineRows}
-            scannedAt={lastScanAt}
-            selected={selectedEngine}
-            onSelect={selectEngine}
           />
         ) : selectedSidebarItem === "review" ? (
           <ReviewSidebar
@@ -1993,7 +2011,7 @@ export default function App() {
                   </button>
                 </Tooltip>
               </>
-            ) : selectedSidebarItem !== "discovery" && selectedSidebarItem !== "design" && selectedSidebarItem !== "engines" && !inspectorOpen && (
+            ) : selectedSidebarItem !== "discovery" && selectedSidebarItem !== "design" && !inspectorOpen && (
               // Open, this same control moves into the inspector column's own
               // cap — one toggle, always at the window's trailing edge,
               // rather than a second button appearing beside it.
@@ -2059,7 +2077,17 @@ export default function App() {
               onSortChange={handleSortChange}
               onSelectAsset={handleSelectAsset}
               onLinkAsset={handleLinkAsset}
-              onCategoryChange={(c) => setProfileCategory(c)}
+              onCategoryChange={(c) => {
+                setProfileCategory(c);
+                // A route that names a tab (`global:<tab>`) would hold the
+                // pane on that tab against the click, so a chosen tab hands
+                // the choice back to the pane. Not handleSelectSidebarItem:
+                // a tab change keeps the inspector's subject.
+                if (selectedSidebarItem.startsWith("global:")) {
+                  setSelectedSidebarItem("profile");
+                  invoke("set_preference", { key: "selected_sidebar_item", value: "profile" }).catch(() => {});
+                }
+              }}
               hostsBandOpen={hostsBandOpen}
               onToggleHostsBand={toggleHostsBand}
               issues={review.issues.filter(
@@ -2074,11 +2102,18 @@ export default function App() {
               onServerGroupingChange={handleServerGroupingChange}
               onServerSortChange={handleServerSortChange}
               keptOff={keptOff}
-              onOpenKeptOff={(engineId) => {
-                selectEngine(engineId);
-                handleSelectSidebarItem("engines");
-                invoke("set_preference", { key: "selected_sidebar_item", value: "engines" }).catch(() => {});
-              }}
+              onOpenKeptOff={openEnginesTab}
+              enginesTab={
+                <EnginesPane
+                  engines={engineRows}
+                  engineId={selectedEngine}
+                  onSelectEngine={selectEngine}
+                  openItem={openEngineItem}
+                  scannedAt={lastScanAt}
+                  switcher={mcpSwitch}
+                  refreshNonce={scanNonce}
+                />
+              }
             />
           )}
 
@@ -2087,15 +2122,6 @@ export default function App() {
               kind={discoveryKind}
               favourites={favourites.favourites}
               onToggleFavourite={favourites.toggleFavourite}
-            />
-          )}
-
-          {selectedSidebarItem === "engines" && (
-            <EnginesPane
-              engineId={selectedEngine}
-              scannedAt={lastScanAt}
-              switcher={mcpSwitch}
-              refreshNonce={scanNonce}
             />
           )}
 
@@ -2353,6 +2379,10 @@ export default function App() {
                    state, and ask their engines again after every scan. */
                 switcher={mcpSwitch}
                 refreshNonce={scanNonce}
+                /* An engine's name in "Registered in" opens Global's
+                   Engines tab on it, for any engine the tab lists. */
+                linkedEngines={engineRows?.map((e) => e.engine_id)}
+                onOpenEngine={openEnginesTab}
               />
             )}
           </div>

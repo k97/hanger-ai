@@ -5,6 +5,7 @@ import EnginesPane from "./EnginesPane";
 import SwitchNotice from "./SwitchNotice";
 import { useMcpSwitch } from "../hooks/useMcpSwitch";
 import type { ContextItem, EngineContext, SwitchReply } from "../types/engineContext";
+import type { EngineListEntry } from "../utils/enginesList";
 
 /**
  * One engine's Context: what it loads, what that costs, and a switch for each
@@ -135,12 +136,22 @@ const byEngine: Record<string, EngineContext> = { codex: CODEX, "claude-code": C
 
 const onChanged = vi.fn();
 
-function Harness(props: { engineId: string | null; scannedAt?: Date | null; refreshNonce?: number }) {
+function Harness(props: {
+  engineId: string | null;
+  scannedAt?: Date | null;
+  refreshNonce?: number;
+  engines?: EngineListEntry[] | null;
+  onSelectEngine?: (engineId: string) => void;
+  openItem?: (item: ContextItem) => (() => void) | null;
+}) {
   const switcher = useMcpSwitch({ onChanged });
   return (
     <>
       <EnginesPane
+        engines={props.engines ?? null}
         engineId={props.engineId}
+        onSelectEngine={props.onSelectEngine ?? (() => {})}
+        openItem={props.openItem ?? (() => null)}
         scannedAt={props.scannedAt === undefined ? new Date() : props.scannedAt}
         switcher={switcher}
         refreshNonce={props.refreshNonce ?? 0}
@@ -373,5 +384,60 @@ describe("EnginesPane: Measure all and refetching", () => {
     await act(async () => finishCodex(CODEX));
     expect(screen.queryByRole("heading", { level: 2, name: "Engine C" })).toBeNull();
     expect(screen.getByRole("heading", { level: 2, name: "Engine G" })).toBeTruthy();
+  });
+});
+
+/** Global's Engines tab (T1 of docs/plans/2026-11-25-ia-engines-into-global.md):
+ *  the chips that replace the Engines screen's second column, and a row's
+ *  name, which opens its server in the inspector (D6). */
+const ENGINES: EngineListEntry[] = [
+  { engine_id: "codex", engine_name: "Engine C" },
+  { engine_id: "gemini", engine_name: "Engine G" },
+];
+
+describe("EnginesPane: the engine chips", () => {
+  it("draws a chip per engine, pressed on the selected one, with no figure", async () => {
+    render(<Harness engineId="gemini" engines={ENGINES} />);
+    const chips = within(await screen.findByRole("group", { name: "Engines" })).getAllByRole("button");
+    expect(chips.map((c) => c.textContent)).toEqual(["Engine C", "Engine G"]);
+    expect(chips.map((c) => c.getAttribute("aria-pressed"))).toEqual(["false", "true"]);
+  });
+
+  it("a click on a chip selects that engine", async () => {
+    const onSelectEngine = vi.fn();
+    render(<Harness engineId="codex" engines={ENGINES} onSelectEngine={onSelectEngine} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Engine G" }));
+    expect(onSelectEngine).toHaveBeenCalledWith("gemini");
+  });
+
+  it("claims nothing before the first scan, and says so when no engine declares a server", async () => {
+    const { rerender } = render(<Harness engineId={null} engines={[]} scannedAt={null} />);
+    expect(screen.queryByRole("group", { name: "Engines" })).toBeNull();
+    expect(screen.queryByText("No engine declares an MCP server.")).toBeNull();
+    rerender(<Harness engineId={null} engines={[]} scannedAt={new Date()} />);
+    expect(screen.getByText("No engine declares an MCP server.")).toBeTruthy();
+  });
+});
+
+describe("EnginesPane: a row's name opens its server", () => {
+  it("a click on the name runs the item's opener; a click on the switch does not", async () => {
+    const opened = vi.fn();
+    const openItem = vi.fn((i: ContextItem) => (i.name === "alpha" ? () => opened(i.key) : null));
+    render(<Harness engineId="codex" openItem={openItem} />);
+    const alpha = (await screen.findAllByTestId("engine-item"))[0];
+    fireEvent.click(within(alpha).getByTestId("engine-item-name"));
+    expect(opened).toHaveBeenCalledWith("/Users/demo/.codex/config.toml:alpha");
+
+    opened.mockClear();
+    fireEvent.click(screen.getByRole("button", { name: "alpha" }));
+    await waitFor(() => expect(calls("set_mcp_server_enabled")).toHaveLength(1));
+    expect(opened).not.toHaveBeenCalled();
+  });
+
+  it("an item with nothing to open keeps its name as plain text", async () => {
+    render(<Harness engineId="codex" openItem={(i) => (i.name === "alpha" ? () => {} : null)} />);
+    const [alpha, twin] = await screen.findAllByTestId("engine-item");
+    expect(within(alpha).getByTestId("engine-item-name").closest("button")).not.toBeNull();
+    expect(within(twin).getByTestId("engine-item-name").closest("button")).toBeNull();
   });
 });

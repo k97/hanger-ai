@@ -12,11 +12,13 @@ const SCREEN_NAMES: Record<string, string> = {
   review: "needs_review",
   linkmap: "link_map",
   discovery: "discovery",
-  engines: "engines",
   design: "design_system",
 };
 
-/** A repository path, or any id this map does not know, reports as `repo`. */
+/** A repository path, or any id this map does not know, reports as `repo`.
+ *  Global on a named tab (`global:<tab>`, e.g. `global:Engines`) is still My
+ *  machine: a tab is not a screen. */
 export function screenNameFor(item: string): string {
+  if (item.startsWith("global:")) return "my_machine";
   return SCREEN_NAMES[item] ?? "repo";
 }

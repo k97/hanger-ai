@@ -51,7 +51,8 @@ Engines* (2nd column: engine list) → pane: ≈ tokens, Measure all, a switch p
 Rail: [mark] Search  My machine  Link map  Discovery  | Needs review   Design  Settings
                                             (Engines removed from the rail)
 My machine
-└─ Global: tabs All | Skills | MCP servers | Rules | Subagents | Engines
+└─ Global: tabs All | Engines | Skills | MCP servers | Rules | Subagents
+   (Engines second, after All: Karthik, 2026-11-25)
    ├─ MCP servers tab: the cross-engine view
    │  ├─ strip "N tool descriptions across M engines"
    │  ├─ band "By engine" (renamed). Each row shows ≈ tokens · servers · J off.
@@ -142,6 +143,7 @@ Every decision below is reversible. Each line gives the decision, its reason, an
 
 - **T1. Engines tab in Global.**
   - Move the `EnginesPane` body into a `ProfilePane` tab, with engine chips and a persisted `selected_engine`.
+  - The tab sits second, straight after All: All · Engines · Skills · MCP servers · Rules · Subagents (Karthik, 2026-11-25, during T1).
   - Remove the rail entry and the `engines` route.
   - Old saved preferences pointing at `engines` migrate to `global:Engines`.
   - Rows open the inspector.

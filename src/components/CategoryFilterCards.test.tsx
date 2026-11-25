@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { render, screen, cleanup } from "@testing-library/react";
+import { render, screen, cleanup, fireEvent } from "@testing-library/react";
 import { describe, it, expect, vi, afterEach } from "vitest";
 import CategoryFilterCards from "./CategoryFilterCards";
 
@@ -101,5 +101,47 @@ describe("CategoryFilterCards", () => {
     // exemption above -- pinned here so the two don't collapse into one.
     render(<CategoryFilterCards {...props} loading toolsCount={undefined} />);
     expect(screen.getByText("MCP servers")).toBeTruthy();
+  });
+
+  // Global's Engines tab (T1 of docs/plans/2026-11-25-ia-engines-into-global.md;
+  // second after All by Karthik's ruling, 2026-11-25).
+  it("has no Engines tab unless one is given, as on a repository", () => {
+    render(<CategoryFilterCards {...props} />);
+    expect(screen.queryByRole("tab", { name: "Engines" })).toBeNull();
+  });
+
+  it("puts the Engines tab straight after All, with no figure, even while counts load", () => {
+    render(
+      <CategoryFilterCards
+        {...props}
+        loading
+        rulesCount={undefined}
+        enginesTab={{ selected: false, onSelect: vi.fn() }}
+      />
+    );
+    const labels = screen.getAllByRole("tab").map((t) => t.textContent?.replace(/\d+$/, ""));
+    expect(labels).toEqual(["All", "Engines", "Skills", "MCP servers", "Rules"]);
+    const engines = screen.getByRole("tab", { name: "Engines" });
+    expect(engines.textContent).toBe("Engines");
+    expect(engines.querySelector("svg")).toBeNull();
+  });
+
+  it("selecting Engines asks its own handler and leaves the category alone; while selected, All is not", () => {
+    const onSelect = vi.fn();
+    const onSelectCategory = vi.fn();
+    const { rerender } = render(
+      <CategoryFilterCards {...props} onSelectCategory={onSelectCategory} enginesTab={{ selected: false, onSelect }} />
+    );
+    fireEvent.click(screen.getByRole("tab", { name: "Engines" }));
+    expect(onSelect).toHaveBeenCalledTimes(1);
+    expect(onSelectCategory).not.toHaveBeenCalled();
+
+    rerender(
+      <CategoryFilterCards {...props} onSelectCategory={onSelectCategory} enginesTab={{ selected: true, onSelect }} />
+    );
+    expect(screen.getByRole("tab", { name: "Engines" }).getAttribute("aria-selected")).toBe("true");
+    expect(screen.getByRole("tab", { name: /^All/ }).getAttribute("aria-selected")).toBe("false");
+    fireEvent.click(screen.getByRole("tab", { name: /^All/ }));
+    expect(onSelectCategory).toHaveBeenCalledWith(null);
   });
 });
