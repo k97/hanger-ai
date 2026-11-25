@@ -2736,3 +2736,98 @@ fn test_tool_origin_wiring_reaches_both_construction_sites() {
     assert!(matches!(fo.kind, tauri_app_lib::provenance::OriginKind::Delivered));
     assert_eq!(fo.label, "owner/market-repo");
 }
+
+/// `scan_targets` is the loop `start_scan` ran inline: scan each target in
+/// order, concatenate, then `dedupe_combined` and collapse repeated project
+/// scans. This pins that the extraction changed nothing — the same
+/// inventory and the same per-kind counts in the store as the inline loop,
+/// on a fixture with global, project and repeated-across-targets assets.
+#[test]
+fn scan_targets_matches_the_per_target_loop() {
+    let _guard = ENV_MUTEX.get_or_init(|| Mutex::new(())).lock().unwrap();
+
+    let home = tempfile::tempdir().unwrap();
+    let h = home.path();
+    for name in ["global-one", "global-two"] {
+        let d = h.join(".claude/skills").join(name);
+        fs::create_dir_all(&d).unwrap();
+        fs::write(d.join("SKILL.md"), format!("---\nname: {name}\ndescription: d\n---\nbody\n")).unwrap();
+    }
+    fs::create_dir_all(h.join(".claude/agents")).unwrap();
+    fs::write(h.join(".claude/agents/helper.md"), "---\nname: helper\ndescription: d\n---\n").unwrap();
+    fs::write(h.join(".claude/CLAUDE.md"), "# global rule\n").unwrap();
+    fs::write(
+        h.join(".claude.json"),
+        r#"{"mcpServers":{"global-server":{"command":"node"}}}"#,
+    )
+    .unwrap();
+    fs::create_dir_all(h.join(".codex")).unwrap();
+    fs::write(h.join(".codex/config.toml"), "[mcp_servers.codex-server]\ncommand = \"git\"\n").unwrap();
+
+    let projects = tempfile::tempdir().unwrap();
+    let mut targets = vec![std::path::PathBuf::from("")];
+    for p in ["proj-a", "proj-b"] {
+        let root = projects.path().join(p);
+        let sk = root.join(".claude/skills").join(format!("{p}-skill"));
+        fs::create_dir_all(&sk).unwrap();
+        fs::write(sk.join("SKILL.md"), format!("---\nname: {p}-skill\ndescription: d\n---\n")).unwrap();
+        fs::write(root.join("AGENTS.md"), "# rules\n").unwrap();
+        // The same server name in both projects: two registrations.
+        fs::write(root.join(".mcp.json"), r#"{"mcpServers":{"shared-server":{"command":"node"}}}"#).unwrap();
+        targets.push(root);
+    }
+    // A target listed twice: its assets arrive twice and must collapse once.
+    targets.push(projects.path().join("proj-a"));
+
+    std::env::set_var("HANGER_TEST_HOME", h.to_string_lossy().to_string());
+
+    let dbs = tempfile::tempdir().unwrap();
+    let scanner_for = |name: &str| DirectoryScanner {
+        db_path: dbs.path().join(name),
+        cancellation_token: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
+    };
+
+    // The reference: start_scan's loop as it was before the extraction.
+    let old = scanner_for("old.db");
+    let mut expected = tauri_app_lib::domain::Inventory::default();
+    for t in &targets {
+        let inv = old.scan_with_progress(t, |_, _, _| {}).unwrap();
+        expected.skills.extend(inv.skills);
+        expected.tools.extend(inv.tools);
+        expected.rules.extend(inv.rules);
+        expected.subagents.extend(inv.subagents);
+        expected.project_scans.extend(inv.project_scans);
+    }
+    tauri_app_lib::dedupe_combined(&mut expected);
+    let mut seen = std::collections::HashSet::new();
+    expected.project_scans.retain(|p| seen.insert(p.path.clone()));
+
+    let new = scanner_for("new.db");
+    let actual = tauri_app_lib::scanner::scan_targets(&new, &targets, |_, _, _| {}).unwrap();
+
+    // The fixture has to exercise every kind, or equality proves nothing.
+    assert!(!expected.skills.is_empty(), "fixture yields skills");
+    assert!(!expected.tools.is_empty(), "fixture yields tools");
+    assert!(!expected.rules.is_empty(), "fixture yields rules");
+    assert!(!expected.subagents.is_empty(), "fixture yields subagents");
+    assert_eq!(expected.project_scans.len(), 2, "two distinct projects, the repeat collapsed");
+
+    assert_eq!(
+        serde_json::to_value(&actual).unwrap(),
+        serde_json::to_value(&expected).unwrap(),
+        "scan_targets must return the inventory the per-target loop did"
+    );
+
+    let mut roots: Vec<Option<String>> = vec![None];
+    for p in ["proj-a", "proj-b"] {
+        let canon = fs::canonicalize(projects.path().join(p)).unwrap();
+        roots.push(Some(canon.to_string_lossy().to_string()));
+    }
+    for root in &roots {
+        for grouping in [Grouping::PerRegistration, Grouping::Grouped] {
+            let want = tauri_app_lib::scanner::count_assets(&old.db_path, root.as_deref(), grouping).unwrap();
+            let got = tauri_app_lib::scanner::count_assets(&new.db_path, root.as_deref(), grouping).unwrap();
+            assert_eq!(got, want, "per-kind counts for root {:?}, {:?}", root, grouping);
+        }
+    }
+}

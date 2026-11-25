@@ -19,7 +19,7 @@ pub mod watcher;
 pub mod scan;
 
 use domain::Inventory;
-use scanner::{DirectoryScanner, Scanner};
+use scanner::DirectoryScanner;
 use transactional::write_transactional;
 use preferences::{PreferencesStore, SanitisedError};
 use std::fs;
@@ -1008,30 +1008,16 @@ fn run_scan(app: AppHandle) -> Result<Inventory, String> {
     let store = get_store(&app)?;
     let dirs = store.get_linked_directories().map_err(|e| e.to_string())?;
 
-    let mut combined_inventory = Inventory::default();
     let db_path = get_db_path(&app);
     let scanner = DirectoryScanner {
         db_path,
         cancellation_token: Arc::new(AtomicBool::new(false)),
     };
 
-    for dir in dirs {
-        if let Ok(inv) = scanner.scan(Path::new(&dir)) {
-            combined_inventory.skills.extend(inv.skills);
-            combined_inventory.agents.extend(inv.agents);
-            combined_inventory.tools.extend(inv.tools);
-            combined_inventory.rules.extend(inv.rules);
-            combined_inventory.subagents.extend(inv.subagents);
-            combined_inventory.project_scans.extend(inv.project_scans);
-        }
-    }
-
-    dedupe_combined(&mut combined_inventory);
-
-    let mut scan_paths = std::collections::HashSet::new();
-    combined_inventory.project_scans.retain(|p| scan_paths.insert(p.path.clone()));
-
-    Ok(combined_inventory)
+    // Linked directories only, no `""` target: unchanged from before
+    // `scan_targets` existed. Each project scan runs the global pass anyway.
+    let targets: Vec<PathBuf> = dirs.into_iter().map(PathBuf::from).collect();
+    crate::scanner::scan_targets(&scanner, &targets, |_, _, _| {}).map_err(|e| e.to_string())
 }
 
 #[derive(serde::Serialize)]
@@ -1507,55 +1493,40 @@ fn start_scan(
             cancellation_token: cancel_token_clone,
         };
 
-        let mut combined_inventory = Inventory::default();
-
-        let mut scan_targets = vec![PathBuf::from("")];
+        let mut targets = vec![PathBuf::from("")];
         for dir in dirs {
             let p = PathBuf::from(&dir);
-            if !scan_targets.contains(&p) {
-                scan_targets.push(p);
+            if !targets.contains(&p) {
+                targets.push(p);
             }
         }
 
-        for target in scan_targets {
-            let app_emitter = app_clone.clone();
-            let scan_id_progress = scan_id_clone.clone();
-
-            let res = scanner.scan_with_progress(&target, |dirs_v, files_v, current| {
-                if (dirs_v + files_v) % 100 == 0 {
-                    app_emitter.emit("scan://progress", ProgressPayload {
-                        scan_id: scan_id_progress.clone(),
-                        dirs_visited: dirs_v,
-                        files_visited: files_v,
-                        current_path: current.to_string(),
-                    }).ok();
-                }
-            });
-
-            match res {
-                Ok(inv) => {
-                    combined_inventory.skills.extend(inv.skills);
-                    combined_inventory.tools.extend(inv.tools);
-                    combined_inventory.rules.extend(inv.rules);
-                    combined_inventory.subagents.extend(inv.subagents);
-                    combined_inventory.project_scans.extend(inv.project_scans);
-                }
-                Err(e) => {
-                    app_clone.emit("scan://error", ErrorPayload {
-                        scan_id: scan_id_clone,
-                        error: e.to_string(),
-                    }).ok();
-                    return;
-                }
+        let app_emitter = app_clone.clone();
+        let scan_id_progress = scan_id_clone.clone();
+        let res = crate::scanner::scan_targets(&scanner, &targets, |dirs_v, files_v, current| {
+            if (dirs_v + files_v) % 100 == 0 {
+                app_emitter.emit("scan://progress", ProgressPayload {
+                    scan_id: scan_id_progress.clone(),
+                    dirs_visited: dirs_v,
+                    files_visited: files_v,
+                    current_path: current.to_string(),
+                }).ok();
             }
-        }
+        });
 
-        // Deduplicate lists before emitting. Shared with run_scan -- this was a
-        // second copy of the same logic, and so a second copy of the same bug.
-        dedupe_combined(&mut combined_inventory);
-
-        let mut scan_paths = std::collections::HashSet::new();
-        combined_inventory.project_scans.retain(|p| scan_paths.insert(p.path.clone()));
+        // Deduplicated inside scan_targets, which run_scan shares -- this was
+        // once a second copy of the same logic, and so a second copy of the
+        // same bug.
+        let combined_inventory = match res {
+            Ok(inv) => inv,
+            Err(e) => {
+                app_clone.emit("scan://error", ErrorPayload {
+                    scan_id: scan_id_clone,
+                    error: e.to_string(),
+                }).ok();
+                return;
+            }
+        };
 
         if let Err(e) = search::index_inventory(&get_db_path(&app_clone), &combined_inventory) {
             log::warn!("search index not rebuilt: {}", e);

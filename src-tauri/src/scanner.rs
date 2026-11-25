@@ -1028,6 +1028,38 @@ fn has_parent_skill(path: &Path, root: &Path) -> bool {
     false
 }
 
+/// Scan a list of targets — `""` for the machine, then each linked
+/// directory — and collapse what more than one of them found.
+///
+/// `start_scan` and `run_scan` both run through here, so the scan the app
+/// does and the scan the benchmark measures are one piece of code. The
+/// first target that fails ends the scan with its error.
+pub fn scan_targets<F>(
+    scanner: &DirectoryScanner,
+    targets: &[PathBuf],
+    mut on_progress: F,
+) -> Result<Inventory, ScanError>
+where
+    F: FnMut(usize, usize, &str),
+{
+    let mut combined = Inventory::default();
+    for target in targets {
+        let inv = scanner.scan_with_progress(target, &mut on_progress)?;
+        combined.skills.extend(inv.skills);
+        combined.tools.extend(inv.tools);
+        combined.rules.extend(inv.rules);
+        combined.subagents.extend(inv.subagents);
+        combined.project_scans.extend(inv.project_scans);
+    }
+
+    crate::dedupe_combined(&mut combined);
+
+    let mut scan_paths = std::collections::HashSet::new();
+    combined.project_scans.retain(|p| scan_paths.insert(p.path.clone()));
+
+    Ok(combined)
+}
+
 impl Scanner for DirectoryScanner {
     fn scan(&self, root: &Path) -> Result<Inventory, ScanError> {
         self.scan_with_progress(root, |_, _, _| {})
