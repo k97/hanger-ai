@@ -292,9 +292,10 @@ fn indexing_the_same_inventory_twice_leaves_one_row_per_asset() {
 
 #[test]
 fn an_index_write_waits_out_a_lock_held_longer_than_rusqlites_default() {
-    // The rescan a server-detail open triggers holds the store's write lock
-    // for seconds; with rusqlite's 5 s default the index write gave up and
-    // the tools half of the palette stayed empty (app log, 2026-08-28).
+    // A scan running alongside can hold the store's write lock for seconds;
+    // with rusqlite's 5 s default the index write gave up and the tools half
+    // of the palette stayed empty (app log, 2026-08-28, when opening a
+    // server's panel still triggered a rescan; it no longer does).
     let (_dir, db) = fresh();
     let holder = rusqlite::Connection::open(&db).unwrap();
     holder.execute_batch("BEGIN IMMEDIATE;").unwrap();

@@ -14,9 +14,12 @@
 //! across kinds instead of a partial fix that indexes three and drops one.
 //!
 //! Both writers open their connection with a 30 s busy timeout
-//! (`index_connection`): the rescan a server-detail open triggers can hold
-//! the store's write lock past rusqlite's 5 s default, and a dropped index
-//! write is silent to the user, so the writer waits instead of giving up.
+//! (`index_connection`): a scan running alongside (a Rescan, the rescan after
+//! a switch, or `get_mcp_processes`'s fallback before any scan has completed)
+//! can hold the store's write lock past rusqlite's 5 s default, and a dropped
+//! index write is silent to the user, so the writer waits instead of giving
+//! up. Opening a server's panel used to trigger one of those rescans; since
+//! `McpLaunches` it reads the last scan's launches and writes nothing.
 //! The `SanitisedError` a caller sees is still a fixed string; the
 //! underlying SQLite error reaches only the log, via `err`.
 use std::collections::HashSet;
@@ -70,10 +73,9 @@ fn err(msg: &'static str) -> impl Fn(rusqlite::Error) -> SanitisedError {
     }
 }
 
-/// A connection for the two index writers, with a 30 s busy timeout: the
-/// rescan a server-detail open triggers can hold the store's write lock past
-/// rusqlite's 5 s default, and a dropped index write is silent, so wait
-/// instead of giving up.
+/// A connection for the two index writers, with a 30 s busy timeout: a scan
+/// running alongside can hold the store's write lock past rusqlite's 5 s
+/// default, and a dropped index write is silent, so wait instead of giving up.
 fn index_connection(store: &PreferencesStore) -> Result<Connection, SanitisedError> {
     let conn = store.connect()?;
     conn.busy_timeout(Duration::from_secs(30))

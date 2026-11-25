@@ -154,9 +154,11 @@ describe("the running-process snapshot", () => {
   });
 
   it("keeps one scan in flight at a time, however fast the panels are opened", async () => {
-    // The refresh above calls `get_mcp_processes`, which runs `run_scan` —
-    // 11.2s measured. Clicking through servers must not stack one rescan per
-    // click; the reading in flight is already the fresh one being waited for.
+    // The refresh above calls `get_mcp_processes`. It once ran `run_scan` on
+    // every call (11.2s measured); it now reads the last scan's launches, and
+    // falls back to a scan only before the first one completes. Clicking
+    // through servers must still not stack one request per click; the reading
+    // in flight is already the fresh one being waited for.
     processHandler = () => new Promise(() => {});
 
     render(<App />);

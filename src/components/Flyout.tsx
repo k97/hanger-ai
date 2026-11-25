@@ -59,7 +59,7 @@ interface FlyoutProps {
   onExitLinkFlow?: () => void;
   inventory: Inventory;
   /** Running MCP processes, from `get_mcp_processes`. Owned by App because the
-   *  profile's disclosure needs the same answer and the command rescans. */
+   *  profile's disclosure needs the same answer, and one request serves both. */
   mcpProcesses?: ProcessMatch[] | null;
   linkedProjects: string[];
   onRefresh: () => void;

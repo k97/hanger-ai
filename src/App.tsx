@@ -491,16 +491,19 @@ export default function App() {
 
   /* Which MCP servers are running, and which are running with no config
      behind them. Owned here because two surfaces need the same answer — the
-     profile's disclosure and the inspector's per-registration state — and
-     `get_mcp_processes` rescans to derive its registration keys, so fetching
-     it in both would walk the filesystem twice.
+     profile's disclosure and the inspector's per-registration state — so
+     fetching it in both would read the process table twice.
+     `get_mcp_processes` matches against the launches the last completed scan
+     recorded and writes nothing; only before any scan has completed does it
+     fall back to a scan of its own.
 
-     Deliberately lazy: nothing outside the Tools view uses it, and paying for
-     a scan at startup for a panel most sessions never open is the wrong
-     trade. Fetched once, on the first look at Tools. */
+     Deliberately lazy: nothing outside the Tools view uses it, and reading
+     the process table at startup for a panel most sessions never open is the
+     wrong trade. Fetched once, on the first look at Tools. */
   const [mcpProcesses, setMcpProcesses] = useState<ProcessMatch[] | null>(null);
-  /** One scan at a time. A panel open refreshes this, and clicking through
-   *  sixteen servers must not stack sixteen rescans. */
+  /** One request at a time. A panel open refreshes this, and clicking through
+   *  sixteen servers must not stack sixteen reads (or, before the first scan
+   *  completes, sixteen fallback scans). */
   const mcpProcessesInFlight = useRef(false);
   /** The facet chip's category, which ProfilePane owns and reports back. */
   const [profileCategory, setProfileCategory] = useState<string | null>(null);
@@ -1321,8 +1324,8 @@ export default function App() {
   };
 
   /* Ask while the question is open. `mcpProcesses !== null` is a real answer,
-     including an empty one, and re-asking for it would pay for a rescan to
-     learn what is already known. */
+     including an empty one, and re-asking for it would pay for a read of the
+     process table to learn what is already known. */
   const needMcpProcesses = lookingAtTools && mcpProcesses === null;
   useEffect(() => {
     if (needMcpProcesses) refreshMcpProcesses();
