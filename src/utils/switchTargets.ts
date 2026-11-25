@@ -43,6 +43,17 @@ export function switchableNamed(contexts: readonly EngineContext[], query: strin
   );
 }
 
+/**
+ * "Show it" on a kept server some config file still declares
+ * (`KeptOffServer.also_declared`): the inventory's first server with exactly
+ * that name. A kept server is declared in no file and has no inventory asset,
+ * so any match is a declared one. ⌘K's `switchableNamed` matches substrings
+ * among switchable items; this one names a single server, read-only or not.
+ */
+export function declaredNamed<T extends { name: string }>(tools: readonly T[], name: string): T | null {
+  return tools.find((t) => t.name === name) ?? null;
+}
+
 /** Lowercase letters and digits only. */
 function idOf(s: string): string {
   return s.toLowerCase().replace(/[^a-z0-9]/g, "");

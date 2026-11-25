@@ -126,6 +126,14 @@ export function switchedOffLine(ago: string): string {
   return `Switched off ${ago}`;
 }
 
+/** A kept server whose name some config file still declares
+ *  (`also_declared`), and the link after it that opens that server. Approved
+ *  2026-11-25 (docs/plans/2026-11-25-decisions-round-2.md). */
+export function alsoDeclaredLine(n: Names): string {
+  return `A config file still declares a server named ${n.server}.`;
+}
+export const SHOW_DECLARED = "Show it";
+
 /** A ⌘K action, named by the state it leads to. */
 export function paletteActionLabel(turnOn: boolean, n: Names): string {
   return `Switch ${n.server} ${turnOn ? "on" : "off"} for ${n.engine}`;

@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import type { ContextItem, EngineContext } from "../types/engineContext";
-import { sameEngine, switchRequestFor, switchableNamed, tileTarget } from "./switchTargets";
+import { declaredNamed, sameEngine, switchRequestFor, switchableNamed, tileTarget } from "./switchTargets";
 
 /** docs/ipc.md entry 15's item shape. */
 const item = (over: Partial<ContextItem> & Pick<ContextItem, "key" | "name">): ContextItem =>
@@ -118,5 +118,24 @@ describe("tileTarget (a reach tile on an MCP servers row)", () => {
 
   it("for any other engine, is nothing when the row holds two of its items: one tile cannot switch both", () => {
     expect(tileTarget(all, "claude_code", ["/u/.claude.json:alpha", "/u/.mcp.json:alpha"])).toBeNull();
+  });
+});
+
+describe("declaredNamed", () => {
+  const tools = [
+    { name: "alpha", config_path: "/a.json" },
+    { name: "beta-two", config_path: "/b.json" },
+    { name: "beta", config_path: "/c.json" },
+    { name: "beta", config_path: "/d.json" },
+  ];
+
+  it("finds the first inventory server with exactly that name", () => {
+    expect(declaredNamed(tools, "beta")).toBe(tools[2]);
+  });
+
+  it("matches the whole name, in its case, and nothing for no match", () => {
+    expect(declaredNamed(tools, "bet")).toBeNull();
+    expect(declaredNamed(tools, "Beta")).toBeNull();
+    expect(declaredNamed([], "beta")).toBeNull();
   });
 });

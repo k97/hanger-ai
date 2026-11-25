@@ -177,5 +177,7 @@ Karthik approved these as his answers to `docs/plans/2026-11-25-decisions-round-
 | The strip's headline when nothing for the picked engine is measured | Not measured · {engine} | `measuredBudget` is null: servers are on and none is measured. Already on screen since Phase 1 (`engineStripHeadline`) |
 | The strip's headline with a figure | ≈ {n} tokens every session · {engine} | The approved headline above, with the engine's name after it. Already on screen since Phase 1 (`engineStripHeadline`) |
 | A kept server's view, under "Off for {engine}" | Switched off {timeAgo} | `KeptOffServer.at_ms`, in the app's own `timeAgo` words ("4 min ago", "moments ago") (`switchedOffLine`) |
+| A kept server's view, when a file still declares its name | A config file still declares a server named {server}. | `KeptOffServer.also_declared` (`alsoDeclaredLine`) |
+| The link after it | Show it | Opens the inventory's server of that name in the inspector, as its MCP row does. Shown only when one is found (`SHOW_DECLARED`) |
 
 The strip's quiet line, "Skills · Rules · Subagents: Not measured" (Q1 of the same file), needs no ruling of its own: it is the kind tabs' labels joined by " · ", then the brief's "Not measured". Karthik confirmed that on 2026-11-25. A kind that gains a figure leaves the line for a segment of its own.

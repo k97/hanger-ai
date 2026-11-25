@@ -17,7 +17,7 @@ import EngineLabel from "./EngineLabel";
 import ListCard from "./ListCard";
 import { busyKeyOf, type McpSwitch } from "../hooks/useMcpSwitch";
 import type { EngineContext, KeptOffServer } from "../types/engineContext";
-import { mechanismLine, switchedOffLine } from "../utils/switchCopy";
+import { alsoDeclaredLine, mechanismLine, SHOW_DECLARED, switchedOffLine } from "../utils/switchCopy";
 import { timeAgo } from "../utils/timeAgo";
 import BrandIcon from "./BrandIcon";
 import { buildMcpServerView, type ProcessMatch } from "../utils/mcpServerView";
@@ -106,6 +106,10 @@ interface FlyoutProps {
   keptServer?: KeptOffServer | null;
   /** A kept server's switch reply context, for App to take. */
   onEngineContext?: (ctx: EngineContext) => void;
+  /** "Show it" on a kept server some config file still declares: opens that
+   *  declared server's own inspector. Absent when App found no such server
+   *  in the inventory; the line then stands alone. */
+  onShowDeclared?: () => void;
 }
 
 interface RuleSection {
@@ -124,6 +128,8 @@ interface KeptServerDetailProps {
    *  Global only for one of them, as in `McpServerDetail`'s "Registered in". */
   linkedEngines?: readonly string[];
   onOpenEngine?: (engineId: string) => void;
+  /** Opens the server a config file still declares under this name. */
+  onShowDeclared?: () => void;
 }
 
 /** `McpServerDetail`'s switch button and engine link, verbatim: a button
@@ -150,6 +156,7 @@ function KeptServerDetail({
   onContext,
   linkedEngines,
   onOpenEngine,
+  onShowDeclared,
 }: KeptServerDetailProps) {
   const busy = switcher.busyKeys.has(busyKeyOf(server.engine_id, server.key));
   const linked = onOpenEngine !== undefined && (linkedEngines?.includes(server.engine_id) ?? false);
@@ -203,6 +210,25 @@ function KeptServerDetail({
             </span>
             <span className={captionClass}>{switchedOffLine(timeAgo(new Date(server.at_ms), new Date()))}</span>
             <span className={captionClass}>{mechanismLine("claude_kept", names)}</span>
+            {/* Some config file still declares a server of this name, so the
+                MCP servers list has a row for it; "Show it" opens that one. */}
+            {server.also_declared && (
+              <span className={captionClass}>
+                {alsoDeclaredLine(names)}
+                {onShowDeclared && (
+                  <>
+                    {" "}
+                    <button
+                      type="button"
+                      onClick={onShowDeclared}
+                      className="font-medium text-ink-1 underline-offset-2 hover:underline cursor-pointer"
+                    >
+                      {SHOW_DECLARED}
+                    </button>
+                  </>
+                )}
+              </span>
+            )}
           </div>
         </ListCard>
       </section>
@@ -230,7 +256,8 @@ export default function Flyout({
   linkedEngines,
   onOpenEngine,
   keptServer = null,
-  onEngineContext
+  onEngineContext,
+  onShowDeclared,
 }: FlyoutProps) {
   const [linking, setLinking] = useState<FlatAssetItem | null>(null);
 
@@ -961,6 +988,7 @@ export default function Flyout({
           onContext={onEngineContext}
           linkedEngines={linkedEngines}
           onOpenEngine={onOpenEngine}
+          onShowDeclared={onShowDeclared}
         />
       ) : targetAsset ? (
         // Link to… lives in the cap now (App.tsx), not this panel's own

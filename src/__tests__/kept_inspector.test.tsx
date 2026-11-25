@@ -187,11 +187,19 @@ const routeWrites = () =>
     .filter((a) => a.key === "selected_sidebar_item")
     .map((a) => a.value);
 
-const completeScan = async () => {
+const completeScan = async (inventory: typeof INVENTORY = INVENTORY) => {
   await waitFor(() => expect(eventListeners["scan://complete"]).toBeDefined());
   await act(async () => {
-    await eventListeners["scan://complete"]({ payload: { inventory: INVENTORY } });
+    await eventListeners["scan://complete"]({ payload: { inventory } });
   });
+};
+
+/** INVENTORY plus a server named beta still declared in Codex's file: the
+ *  declared twin of the kept beta (`also_declared`). */
+const BETA_KEY = `${CODEX_FILE}:beta`;
+const INVENTORY_WITH_BETA = {
+  ...INVENTORY,
+  tools: [...INVENTORY.tools, { ...INVENTORY.tools[0], id: BETA_KEY, name: "beta" }],
 };
 
 const aside = () =>
@@ -324,5 +332,35 @@ describe("A switched-off server opens in the inspector", () => {
     await waitFor(() => expect(calls("get_kept_off_servers").length).toBeGreaterThan(reads));
     // No scan://complete has fired since: the group comes from that read.
     expect(await screen.findByText("Off for Engine K")).toBeTruthy();
+  });
+});
+
+describe("A kept server some file still declares", () => {
+  it("says so, and Show it opens the declared server in the inspector", async () => {
+    // Q4 of docs/plans/2026-11-25-decisions-round-2.md: the line and its
+    // "Show it", which opens the declared server's own inspector.
+    keptReply = { ...KEPT, servers: [{ ...KEPT.servers[0], also_declared: true }] };
+    render(<App />);
+    await completeScan(INVENTORY_WITH_BETA);
+    fireEvent.click(await keptRow());
+    const kept = await within(await aside()).findByTestId("kept-detail");
+    expect(within(kept).getByText("A config file still declares a server named beta.")).toBeTruthy();
+    fireEvent.click(within(kept).getByRole("button", { name: "Show it" }));
+
+    const panel = await aside();
+    await waitFor(() => expect(within(panel).queryByTestId("kept-detail")).toBeNull());
+    expect(within(panel).getByRole("heading", { level: 2, name: "beta" })).toBeTruthy();
+    // The declared server's own view: the MCP inspector's tabs, which the
+    // kept view has none of.
+    expect(within(panel).getByRole("tab", { name: "Details" })).toBeTruthy();
+  });
+
+  it("says nothing of the kind when no file declares it", async () => {
+    render(<App />);
+    await completeScan();
+    fireEvent.click(await keptRow());
+    const kept = await within(await aside()).findByTestId("kept-detail");
+    expect(within(kept).queryByText(/still declares/)).toBeNull();
+    expect(within(kept).queryByRole("button", { name: "Show it" })).toBeNull();
   });
 });

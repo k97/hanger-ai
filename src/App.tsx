@@ -97,7 +97,7 @@ import type { McpServerRow } from "./utils/serverRows";
 import type { McpEngineSummaryData } from "./types/mcpEngineSummary";
 import type { EngineContext, KeptOff } from "./types/engineContext";
 import { paletteActionLabel } from "./utils/switchCopy";
-import { switchRequestFor, switchableNamed } from "./utils/switchTargets";
+import { declaredNamed, switchRequestFor, switchableNamed } from "./utils/switchTargets";
 import { useMcpSwitch } from "./hooks/useMcpSwitch";
 import SwitchNotice from "./components/SwitchNotice";
 import { assetOpenTarget } from "./openTarget";
@@ -1447,6 +1447,21 @@ export default function App() {
     }
   };
 
+  /** "Show it" on a kept server some config file still declares: the
+   *  declared server's own inspector, opened as its MCP row opens it. Found
+   *  in the inventory by name (`declaredNamed`); none found, no link. */
+  const declaredOfKept =
+    selectedKept?.also_declared && inventory ? declaredNamed(inventory.tools, selectedKept.name) : null;
+  const showDeclared = declaredOfKept
+    ? () =>
+        handleSelectAsset({
+          id: registrationKey(declaredOfKept),
+          name: declaredOfKept.name,
+          category: "Tools",
+          path: declaredOfKept.config_path,
+        })
+    : undefined;
+
   /** A palette hit: go where it lives, then open it, exactly as a row
    *  click would. A tool hit opens its server; the detail lists the tools. */
   const openSearchHit = (hit: SearchHit) => {
@@ -2433,6 +2448,7 @@ export default function App() {
                 onOpenEngine={openEngine}
                 keptServer={selectedKept}
                 onEngineContext={(ctx) => setTileContexts((prev) => ({ ...prev, [ctx.engine_id]: ctx }))}
+                onShowDeclared={showDeclared}
               />
             )}
           </div>

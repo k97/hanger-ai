@@ -11,6 +11,8 @@ import {
   budgetCaption,
   costLabel,
   switchedOffLine,
+  alsoDeclaredLine,
+  SHOW_DECLARED,
 } from "./switchCopy";
 
 // Every expected string below is copied from
@@ -199,5 +201,13 @@ describe("switchedOffLine", () => {
     // Approved 2026-11-25 (docs/plans/2026-11-25-decisions-round-2.md).
     expect(switchedOffLine("4 min ago")).toBe("Switched off 4 min ago");
     expect(switchedOffLine("moments ago")).toBe("Switched off moments ago");
+  });
+});
+
+describe("alsoDeclaredLine", () => {
+  it("names the server a config file still declares, and the link that shows it", () => {
+    // Approved 2026-11-25 (docs/plans/2026-11-25-decisions-round-2.md).
+    expect(alsoDeclaredLine(n)).toBe("A config file still declares a server named github.");
+    expect(SHOW_DECLARED).toBe("Show it");
   });
 });

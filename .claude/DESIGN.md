@@ -1371,7 +1371,13 @@ named by the server, `LayerSwitch` off, disabled while busy — which sends
 in `captionClass`, when it was switched off — `switchedOffLine`, "Switched off
 4 min ago", `at_ms` through `timeAgo` at render (approved 2026-11-25,
 `docs/plans/2026-11-25-decisions-round-2.md`) — and the kept line
-(`mechanismLine("claude_kept")`). Once the switch succeeds App
+(`mechanismLine("claude_kept")`). When `also_declared`, a last caption says
+"A config file still declares a server named ‹server›." (`alsoDeclaredLine`)
+and ends in a text button, "Show it" (`font-medium text-ink-1`, underlined
+on hover), that opens the declared server's own inspector: App finds it in
+the inventory by name (`switchTargets.ts` → `declaredNamed`) and selects it
+as its MCP row does. With no such server in the inventory the line stands
+without the button. Once the switch succeeds App
 reads the kept list again (`useMcpSwitch`'s `onChanged`), the server leaves
 it, and nothing is selected. Pinned by `kept_inspector.test.tsx`.
 
