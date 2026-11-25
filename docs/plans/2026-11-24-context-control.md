@@ -67,6 +67,13 @@ The other eleven hosts (Cursor, Claude Desktop, Zed, VS Code, Devin Desktop, Kir
 22. **VS Code's new MCP config gets its own task right after the backend** (Task 8B): reading only. Karthik has a `~/.copilot/mcp-config.json` that Hanger does not read today.
 23. **Commits go on `main` and are pushed at each checkpoint** (after Task 8B and at the end), only when the gates are green and Karthik says push.
 
+## Rulings at the backend checkpoint (2026-11-25, in Plannotator)
+
+24. **`COPILOT_HOME` is honoured through `agents::engine_base`, by widening its guard.** `config_dir_env_tests::every_env_table_entry_names_a_real_agent_root` also accepts the first folder of a home-relative `SOURCES` path, so `(".copilot", "COPILOT_HOME")` can join `CONFIG_DIR_ENVS`. The guard edit is its own reported commit (Task 8B).
+25. **The Claude Code switch tests wait 5 s for the fake CLI, not 2.** At 2 s, fourteen failed at a load average of 81 and all passed at 24. Its own commit, named as a test edit.
+26. **Switching a project-declared Codex server moves to slice 2,** with the project picker. Ruling 14 stands for the mechanism; this slice switches machine-wide servers only.
+27. **No push until Karthik has seen the backend in the dev app.** This narrows ruling 23 for this checkpoint.
+
 ## Human gates
 
 - **G0 — this plan.** Karthik approves before any task starts.
