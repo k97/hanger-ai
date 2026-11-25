@@ -35,6 +35,7 @@ const INVENTORY = [
   "OverflowMenu",
   "InfoPopover",
   "Mini button",
+  "LayerSwitch",
   "FindingChip",
   "FindingPopover",
   "InspectorCap",
@@ -95,6 +96,24 @@ describe("Design system — the system, rendered by the app that uses it", () =>
 
     fireEvent.click(screen.getByText("drifted"));
     expect(screen.getByText("drifted").closest("button")!.getAttribute("aria-pressed")).toBe("true");
+  });
+
+  it("the switch specimen is a pressable button whose decorative track follows its state", () => {
+    render(<DesignSystemPane section="controls" />);
+    const button = screen.getByRole("button", { name: "Sample switch" });
+    const track = button.querySelector('svg[data-testid="layer-switch"]')!;
+    expect(track.getAttribute("aria-hidden")).toBe("true");
+    const knob = () => track.querySelector("circle")!.getAttribute("class")!.split(/\s+/);
+    const fill = () => track.querySelector("rect")!.getAttribute("class")!.split(/\s+/);
+
+    expect(button.getAttribute("aria-pressed")).toBe("false");
+    expect(fill()).toContain("fill-plane-2");
+    expect(knob()).not.toContain("translate-x-[10px]");
+
+    fireEvent.click(button);
+    expect(button.getAttribute("aria-pressed")).toBe("true");
+    expect(fill()).toContain("fill-fill");
+    expect(knob()).toEqual(expect.arrayContaining(["fill-on-fill", "stroke-transparent", "translate-x-[10px]"]));
   });
 
   it("the sidebar lists the same sections and reports a choice rather than owning it", () => {

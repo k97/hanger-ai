@@ -912,12 +912,14 @@ node and checks dangling before drifted, so the worse of the two wins
 when a node has both; the store is every edge's source and never carries
 the dot.
 
-**The layers panel.** Three switch rows under "Show on map" (`:628-630`):
-Projects (`:631-639`), whose state (`showProjects`) is a prop persisted by
-App as `linkmap_show_projects`, default off, as above; Unlinked roots
-(`:640-648`, `showUnlinked`, pane-local, default on, `:204`); and Only
-drifted and dangling (`:649-657`, `onlyFaults`, pane-local, default off,
-`:205`).
+**The layers panel.** Three switch rows under "Show on map"
+(`data-testid="map-layers-panel"`), each a `layerRowClass` button with
+`aria-pressed` holding the shared `LayerSwitch` (§7): Projects
+(`chip-projects`), whose state (`showProjects`) is a prop persisted by App
+as `linkmap_show_projects`, default off, as above; Unlinked roots
+(`chip-unlinked`, `showUnlinked`, pane-local, default on); and Only
+drifted and dangling (`chip-faults`, `onlyFaults`, pane-local, default
+off).
 
 **`LinkMapPlacecard`'s node body.** A section-format `ListCard` with one
 row per kind of count — Assets always, then Skills, Rules, Subagents and
@@ -2123,6 +2125,15 @@ directly and computes WCAG 2.1 relative luminance and contrast ratios
 interactive control has an `aria-label`; toggles use `aria-pressed`; nav items
 use `aria-current="true"`; decorative icons take `aria-hidden="true"`
 (`IconRail.tsx:43-48` is representative).
+
+**A switch is a `<button aria-pressed>` named for its subject, holding a
+decorative `LayerSwitch`.** `LayerSwitch.tsx` draws only the track: 26×16,
+`--plane-2` with the knob on `--page` when off; `--fill` with the knob on
+`--on-fill`, slid 10px, when on. It is `aria-hidden` and takes no handler;
+the button's text or `aria-label` names what is switched and its
+`aria-pressed` carries the state. There is no `role="switch"` in `src/`, and
+none is introduced. Callers: the link map's layers panel (`LinkMapPane`);
+the Design system page shows it under Controls as "Sample switch".
 
 ---
 

@@ -28,6 +28,7 @@ import ScanStamp from "./ScanStamp";
 import HeroBand from "./HeroBand";
 import { SearchPalettePanel } from "./SearchPalette";
 import FavouriteHeart from "./FavouriteHeart";
+import LayerSwitch from "./LayerSwitch";
 import MarkdownDoc from "./MarkdownDoc";
 import type { Block } from "../utils/skillDocument";
 import { sectionHeadClass } from "./typeRoles";
@@ -217,6 +218,24 @@ function FavouriteHeartSpecimen() {
       name="Sample skill"
       onToggle={() => setFavourited((v) => !v)}
     />
+  );
+}
+
+/** The switch pattern: a button named for its subject carries aria-pressed,
+ *  and the LayerSwitch inside it only draws the state. The row class is the
+ *  link map's layers-panel row, repeated here as the pill pair is. */
+const sampleSwitchRowClass =
+  "w-full h-7 px-1.5 rounded-soft flex items-center justify-between font-flex text-small text-ink-1 hover:bg-plane-2 transition-colors duration-hover cursor-pointer";
+
+function LayerSwitchSpecimen() {
+  const [on, setOn] = useState(false);
+  return (
+    <div className="w-[190px]">
+      <button type="button" aria-pressed={on} onClick={() => setOn((v) => !v)} className={sampleSwitchRowClass}>
+        Sample switch
+        <LayerSwitch on={on} />
+      </button>
+    </div>
   );
 }
 
@@ -778,6 +797,10 @@ export default function DesignSystemPane({ section }: DesignSystemPaneProps) {
                 Sample outlined
               </button>
             </div>
+          </Specimen>
+
+          <Specimen name="LayerSwitch" file="LayerSwitch.tsx" note="press it; the button is named for its subject and carries aria-pressed, the track only draws the state">
+            <LayerSwitchSpecimen />
           </Specimen>
 
           <Specimen name="FindingChip" file="FindingChip.tsx" note="the count is the line count, one per finding; the popover clamps inside the 300px box around it" unclipped>
