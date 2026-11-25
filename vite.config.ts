@@ -37,7 +37,23 @@ export default defineConfig(async () => ({
       // `skills` is a symlink to ~/.agents/skills, which a skills sync
       // rewrites on a timer. Each change reloaded the page, and a reload
       // starts a full scan. Nothing under `src/` imports from `.agents/`.
-      ignored: ["**/src-tauri/**", "**/.agents/**"],
+      //
+      // 4. Docs and markdown: nothing under `src/` imports a `.md` file or
+      // anything in `docs/`, but Tailwind's plugin scans every file for
+      // class names, so each doc edit pushed a CSS update and a page reload.
+      // On 2026-11-25 agents editing docs, tests and the design notes reloaded
+      // the dev app dozens of times in an hour, and three times it stuck on
+      // "Scanning your machine" until it was restarted.
+      //
+      // 5. Test files, in `tauri dev` only. Under Vitest (`VITEST` is set)
+      // they stay watched, or `vitest` watch mode would stop re-running.
+      ignored: [
+        "**/src-tauri/**",
+        "**/.agents/**",
+        "**/docs/**",
+        "**/*.md",
+        ...(process.env.VITEST ? [] : ["**/*.{test,spec}.{ts,tsx}", "**/__tests__/**"]),
+      ],
     },
   },
 }));

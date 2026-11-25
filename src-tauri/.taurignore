@@ -1,0 +1,4 @@
+# `tauri dev` rebuilt and relaunched the app whenever a Rust integration test
+# wrote a fixture database journal (src-tauri/tests/fixtures/home/*.db-journal,
+# seen 2026-11-25). Nothing under tests/ is part of the app binary.
+tests/

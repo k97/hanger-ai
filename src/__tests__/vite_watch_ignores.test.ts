@@ -30,6 +30,32 @@ describe("vite dev server watch.ignored", () => {
     expect(isIgnored("/home/me/.agents/skills/stage-gate/SKILL.md")).toBe(true);
   });
 
+  it("ignores docs and markdown, which Tailwind's scan turned into page reloads", async () => {
+    const isIgnored = await ignoredMatcher();
+    expect(isIgnored("/repo/hanger-ai/docs/plans/2026-11-25-ia-global-by-engine.html")).toBe(true);
+    expect(isIgnored("/repo/hanger-ai/.claude/DESIGN.md")).toBe(true);
+    expect(isIgnored("/repo/hanger-ai/README.md")).toBe(true);
+  });
+
+  it("keeps test files watched under Vitest, so watch mode still re-runs", async () => {
+    const isIgnored = await ignoredMatcher();
+    expect(isIgnored("/repo/hanger-ai/src/components/SearchPalette.test.tsx")).toBe(false);
+    expect(isIgnored("/repo/hanger-ai/src/__tests__/engine_lens.test.tsx")).toBe(false);
+  });
+
+  it("ignores test files in tauri dev, where nothing imports them", async () => {
+    const saved = process.env.VITEST;
+    delete process.env.VITEST;
+    try {
+      const isIgnored = await ignoredMatcher();
+      expect(isIgnored("/repo/hanger-ai/src/components/SearchPalette.test.tsx")).toBe(true);
+      expect(isIgnored("/repo/hanger-ai/src/__tests__/engine_lens.test.tsx")).toBe(true);
+      expect(isIgnored("/repo/hanger-ai/src/components/SearchPalette.tsx")).toBe(false);
+    } finally {
+      process.env.VITEST = saved;
+    }
+  });
+
   it("still watches the frontend", async () => {
     const isIgnored = await ignoredMatcher();
     expect(isIgnored("/repo/hanger-ai/src/App.tsx")).toBe(false);
