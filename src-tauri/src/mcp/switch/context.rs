@@ -157,6 +157,11 @@ pub struct EngineContext {
     /// When a switch takes effect. `None` for every engine: nothing has been
     /// observed yet (ruling 19 in the plan).
     pub applies: Option<String>,
+    /// Whether the engine is switched by server name alone
+    /// (`SwitchKind::GeminiEnablementFile`), so one switch covers every
+    /// server it declares under that name. Lets the webview say so without
+    /// comparing an engine id.
+    pub switches_by_name: bool,
     pub items: Vec<ContextItem>,
     /// Items that are on. `on_count + off_count` is `items.len()`.
     pub on_count: usize,
@@ -276,6 +281,7 @@ where
         engine_id: host_id.to_string(),
         engine_name: engine_display_name(host_id),
         applies: None,
+        switches_by_name: is_switched_by(host_id, SwitchKind::GeminiEnablementFile),
         on_count,
         off_count: items.len() - on_count,
         measured_on_count,

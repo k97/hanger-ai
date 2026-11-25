@@ -270,6 +270,7 @@ Returns one engine's MCP servers: which are switched on, which Hanger can switch
 - `engine_id`: `string`
 - `engine_name`: `string` (the registry's display name)
 - `applies`: `string | null` (when a switch takes effect; `null` for every engine today)
+- `switches_by_name`: `boolean` (the engine is switched by server name alone, so one switch covers every server it declares under that name; `true` for Gemini CLI today)
 - `items`: `ContextItem[]`
 - `on_count`: `number`
 - `off_count`: `number`
@@ -294,6 +295,7 @@ An item holds no command, argument, address or env variable.
   "engine_id": "codex",
   "engine_name": "Codex",
   "applies": null,
+  "switches_by_name": false,
   "items": [
     {
       "key": "/Users/demo/.codex/config.toml:alpha",

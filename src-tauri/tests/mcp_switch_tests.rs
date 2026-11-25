@@ -3563,6 +3563,28 @@ fn no_engine_says_when_a_change_applies_yet() {
     assert_eq!(codex.get("applies"), Some(&serde_json::Value::Null));
 }
 
+#[test]
+fn a_context_says_when_its_switch_covers_every_server_of_a_name() {
+    let machine = machine(&[(".codex/config.toml", CTX_CODEX), (".gemini/settings.json", CTX_GEMINI_HOME)]);
+    let found = machine.found();
+
+    assert!(machine.context("gemini", &found, &no_probes()).switches_by_name);
+    for host_id in ["codex", "claude-code", "cursor", "no-such-engine"] {
+        assert!(!machine.context(host_id, &found, &no_probes()).switches_by_name, "{host_id}");
+    }
+    // Decided by the engine's switch kind, for every host there is.
+    for host in registry::HOSTS {
+        let by_name = registry::SWITCHES.iter().any(|row| row.host_id == host.id && row.kind == SwitchKind::GeminiEnablementFile);
+        assert_eq!(machine.context(host.id, &found, &no_probes()).switches_by_name, by_name, "{}", host.id);
+    }
+
+    // The webview reads it under this name.
+    let gemini = serde_json::to_value(machine.context("gemini", &found, &no_probes())).unwrap();
+    assert_eq!(gemini.get("switches_by_name"), Some(&serde_json::Value::Bool(true)));
+    let codex = serde_json::to_value(machine.context("codex", &found, &no_probes())).unwrap();
+    assert_eq!(codex.get("switches_by_name"), Some(&serde_json::Value::Bool(false)));
+}
+
 // --- Cost and the budget ----------------------------------------------------
 
 #[test]
@@ -3743,7 +3765,7 @@ async fn a_serialised_context_carries_no_value_from_a_config_file() {
         let whole = serde_json::to_value(&context).unwrap();
         assert_eq!(
             keys_of(&whole),
-            ["applies", "engine_id", "engine_name", "items", "measured_on_count", "off_count", "on_count", "on_tokens_measured"],
+            ["applies", "engine_id", "engine_name", "items", "measured_on_count", "off_count", "on_count", "on_tokens_measured", "switches_by_name"],
             "{host_id}"
         );
         let items = whole["items"].as_array().unwrap();

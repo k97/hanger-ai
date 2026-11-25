@@ -67,6 +67,11 @@ export interface EngineContext {
    * been observed yet.
    */
   applies: string | null;
+  /**
+   * The engine is switched by server name alone, so one switch covers every
+   * server it declares under that name.
+   */
+  switches_by_name: boolean;
   items: ContextItem[];
   /** Items that are on. `on_count + off_count` is the number of items. */
   on_count: number;
