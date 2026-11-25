@@ -23,6 +23,9 @@ import {
   monoLabelClass,
 } from "./typeRoles";
 import type { ProbeView, ToolCost } from "../utils/probeView";
+import type { ContextItem } from "../types/engineContext";
+import { readOnlyLine, stateLabel } from "../utils/switchCopy";
+import LayerSwitch from "./LayerSwitch";
 import {
   RevealInFileManagerIcon,
   ServerRelayIcon,
@@ -59,6 +62,12 @@ interface Registration {
   host: string;
   /** `global` | `user` | `local` | `project` — where the declaration lives. */
   tier: string;
+  /** The host id whose `get_engine_context` can switch this registration:
+   *  the scope's agent on a machine-level row, `null` on a project or local
+   *  one. Read by `Flyout`, which asks the engine; this panel reads only what
+   *  `switches` hands it. Always set by `buildMcpServerView`, optional so a
+   *  hand-built view needs no engine. */
+  engineId?: string | null;
   configPath: string;
   command: string;
   /** What this registration launches, already redacted by the backend. */
@@ -187,7 +196,33 @@ interface Props {
    * the compiler, not a screenshot, is what proves the route is wired.
    */
   onOpenConfig: (path: string) => void;
+  /**
+   * What an engine said about a registration, by REGISTRATION key: present
+   * only for a row whose engine has answered `get_engine_context` with an item
+   * of the same key. A row without one draws nothing new, so nothing is
+   * claimed before that engine's reply lands. Built by `Flyout`.
+   */
+  switches?: Record<string, RegistrationSwitch>;
+  /** The switch on that registration's row was clicked. */
+  onSwitch?: (registrationKey: string) => void;
 }
+
+/** One registration's item in its engine's context. */
+export interface RegistrationSwitch {
+  /** The host id the switch is asked of. */
+  engineId: string;
+  /** The backend's display name for the engine (`EngineContext.engine_name`). */
+  engineName: string;
+  item: ContextItem;
+  /** Its request is in flight (`useMcpSwitch`'s `busyKeys`). */
+  busy: boolean;
+}
+
+/** The Engines pane's switch button, verbatim (`EnginesPane.tsx` →
+ *  `switchBtnClass`): a button pressed by its state, holding the track
+ *  (DESIGN.md §7). Declared again here rather than exported from a pane. */
+const switchBtnClass =
+  "shrink-0 grid place-items-center rounded-pill cursor-pointer disabled:cursor-default disabled:opacity-50";
 
 /** Stable empty default, so the effect below does not see a new array every
  *  render. */
@@ -547,6 +582,8 @@ export default function McpServerDetail({
   tab: tabProp,
   onTabChange,
   onOpenConfig,
+  switches,
+  onSwitch,
 }: Props) {
   // Tools first, Details second: the tool list is what "is this server
   // healthy" reduces to, and it is the only content most opens need. Flyout's
@@ -1350,6 +1387,10 @@ export default function McpServerDetail({
               // the install date lives in the Origin row's own disclosure
               // elsewhere and would be one fact too many for a compact line.
               const deliveryFacts = originView?.subRows.filter((r) => r.label !== "Installed") ?? [];
+              // This registration's item in its engine's context, once that
+              // engine has answered. Absent for a project or local row, a
+              // host with no engine id, and before the first reply.
+              const sw = switches?.[reg.key];
               return (
               <div
                 key={`${reg.configPath}-${i}`}
@@ -1364,6 +1405,26 @@ export default function McpServerDetail({
                   <span className="ml-auto text-small text-ink-3">
                     {reg.tier}
                   </span>
+                  {/* Named by engine and file, not by the server: the server
+                      is this panel's title, and one engine can declare it in
+                      two files, which would be two buttons with one name. */}
+                  {sw &&
+                    (sw.item.read_only === null ? (
+                      <button
+                        type="button"
+                        aria-pressed={sw.item.state === "on"}
+                        aria-label={`${sw.engineName}, ${reg.configPath}`}
+                        disabled={sw.busy}
+                        onClick={() => onSwitch?.(reg.key)}
+                        className={switchBtnClass}
+                      >
+                        <LayerSwitch on={sw.item.state === "on"} />
+                      </button>
+                    ) : (
+                      <span className={`shrink-0 w-[26px] text-right ${captionClass}`}>
+                        {stateLabel(sw.item.state)}
+                      </span>
+                    ))}
                 </span>
                 <div className="flex items-center gap-1.5 min-w-0">
                   <span className={`${monoLabelClass} truncate flex-1`}>
@@ -1382,6 +1443,15 @@ export default function McpServerDetail({
                     </button>
                   </Tooltip>
                 </div>
+                {sw && sw.item.read_only !== null && (
+                  <span className={captionClass}>
+                    {readOnlyLine(sw.item.read_only, {
+                      engine: sw.engineName,
+                      server: sw.item.name,
+                      file: sw.item.config_path,
+                    })}
+                  </span>
+                )}
                 {originView && (
                   <div className="flex items-center gap-1.5 min-w-0" data-testid="registration-origin">
                     <OriginValue origin={originView} variant="registration" />

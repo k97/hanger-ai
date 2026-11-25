@@ -1051,7 +1051,8 @@ export default function App() {
   // stored `selected_engine` when it is in that list, otherwise the first
   // row, so a stale or absent preference never selects nothing.
   const [storedEngine, setStoredEngine] = useState<string | null>(null);
-  // Bumped on every `scan://complete`, so the Engines pane reads again.
+  // Bumped on every `scan://complete`, so the Engines pane and the MCP
+  // server inspector's switches read again.
   const [scanNonce, setScanNonce] = useState(0);
   const engineRows = enginesList(mcpEngineSummary, keptOff);
   const selectedEngine =
@@ -2285,6 +2286,10 @@ export default function App() {
                    forgotten between screens; this is the screen. */
                 screen={selectedSidebarItem}
                 landingNonce={landingNonce}
+                /* The MCP server panel's switches go through the one switch
+                   state, and ask their engines again after every scan. */
+                switcher={mcpSwitch}
+                refreshNonce={scanNonce}
               />
             )}
           </div>

@@ -1283,7 +1283,20 @@ eyebrows.
 - **Registered in** lists one row per registration: host and tier, the config
   path with a reveal button, the launch itself only when hosts disagree about
   it, this registration's own probe result once one exists, and a running
-  line only while a matching process is up (`:1005-1072`). Below the rows, a
+  line only while a matching process is up (`:1005-1072`). After the tier,
+  a row whose engine has answered `get_engine_context` with an item of the
+  same key (`switches`, by registration key) carries that item's switch
+  (§7): the Engines pane's `switchBtnClass` button, `aria-pressed` by state,
+  disabled while busy, named `{engine}, {file}` from the engine's name and
+  the row's config path — not by the server, which is the panel's title and
+  can be declared twice by one engine. A read-only item shows `stateLabel`
+  there instead, with its `readOnlyLine` in `captionClass` under the path
+  line. A project row, a host with no engine id, and every row before its
+  engine's first reply draw nothing new. `Flyout` asks each engine once per
+  open server and again on App's `scanNonce`, matches item to row by key
+  (never by tier: the panel calls `~/.claude.json` "global" where its engine
+  says "user"), and a switch's reply replaces that engine's context at once.
+  Pinned by `McpServerDetail.test.tsx` and `FlyoutMcpSwitch.test.tsx`. Below the rows, a
   warning sentence per kind of disagreement — endpoints, launches — and the
   aligned launch diff for the latter (`:1073-1118`).
 
@@ -2205,8 +2218,10 @@ decorative `LayerSwitch`.** `LayerSwitch.tsx` draws only the track: 26×16,
 the button's text or `aria-label` names what is switched and its
 `aria-pressed` carries the state. There is no `role="switch"` in `src/`, and
 none is introduced. Callers: the link map's layers panel (`LinkMapPane`);
-the Engines pane's server rows (`EnginesPane`), named by the server; the
-Design system page shows it under Controls as "Sample switch".
+the Engines pane's server rows (`EnginesPane`), named by the server; the MCP
+server inspector's "Registered in" rows (`McpServerDetail`), named
+`{engine}, {file}` because the server is the panel's title; the Design
+system page shows it under Controls as "Sample switch".
 
 ---
 

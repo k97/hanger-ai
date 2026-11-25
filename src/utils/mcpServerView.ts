@@ -188,10 +188,18 @@ export function buildMcpServerView(
     const key = registrationKey(t);
     const hit = key ? processes.find((p) => p.registration_keys.includes(key)) : undefined;
     const claimants = hit ? hit.registration_keys.filter((k) => ourKeys.has(k)) : [];
+    const tier = tierOf(t.scope);
     return {
       key,
       host: hostLabel(scopeAgent(t.scope as Scope) || t.owning_agent),
-      tier: tierOf(t.scope),
+      tier,
+      // The host id a switch is asked of. Every machine-level registration
+      // the scanner emits carries `Scope::Global { agent }` with a registry
+      // host id; `owning_agent` is not that id everywhere (the agent-root
+      // sweep leaves it "" for most engines), so it is not read here. A
+      // project or local registration belongs to a repository, and slice 1
+      // switches none, so it has no engine to ask.
+      engineId: tier === "global" ? scopeAgent(t.scope as Scope) || null : null,
       configPath: t.config_path,
       command: t.command ?? "",
       launchDisplay: t.launch_display ?? "",

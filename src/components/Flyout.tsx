@@ -11,7 +11,9 @@ import {
 import { Inventory } from "../App";
 import AssetDetail from "./AssetDetail";
 import type { AssetAnnotationView } from "./AssetRow";
-import McpServerDetail from "./McpServerDetail";
+import McpServerDetail, { type RegistrationSwitch } from "./McpServerDetail";
+import { busyKeyOf, type McpSwitch } from "../hooks/useMcpSwitch";
+import type { EngineContext } from "../types/engineContext";
 import BrandIcon from "./BrandIcon";
 import { buildMcpServerView, type ProcessMatch } from "../utils/mcpServerView";
 import { parseProbe, type ProbeView, type ProbeWire } from "../utils/probeView";
@@ -82,6 +84,12 @@ interface FlyoutProps {
    *  whatever tab this remembers — a plain click never touches this prop, so
    *  it keeps the memory (Karthik's ruling, 2026-08-29). */
   landingNonce?: number;
+  /** App's one switch state (`useMcpSwitch`). Without it the MCP server
+   *  panel asks no engine and draws no switch. */
+  switcher?: McpSwitch;
+  /** Bumped by App on every `scan://complete`, so the engines a server's
+   *  panel asked are asked again. */
+  refreshNonce?: number;
 }
 
 interface RuleSection {
@@ -104,7 +112,9 @@ export default function Flyout({
   onAssetDocumentPath,
   onOpenConfig,
   screen,
-  landingNonce
+  landingNonce,
+  switcher,
+  refreshNonce
 }: FlyoutProps) {
   const [linking, setLinking] = useState<FlatAssetItem | null>(null);
 
@@ -581,6 +591,75 @@ export default function Flyout({
       ? buildMcpServerView(inventory?.tools, targetAsset.name, mcpProcesses ?? [])
       : null;
 
+  /* Each engine's context (`get_engine_context`), by engine id: what the
+     panel's switches read. Asked once per engine, not per registration --
+     one engine can declare the server in two files, and its one reply holds
+     both. Asked again when another server opens and on every rescan
+     (`refreshNonce`); until a reply lands, that engine's rows claim nothing.
+     A reply for a server no longer open is dropped. */
+  const [engineContexts, setEngineContexts] = useState<Record<string, EngineContext>>({});
+  const engineIdsKey =
+    mcpView && switcher
+      ? [
+          ...new Set(
+            mcpView.registrations
+              .map((r) => r.engineId)
+              .filter((id): id is string => !!id)
+          ),
+        ].join("\u0000")
+      : "";
+  const mcpServerName = mcpView?.name ?? null;
+  useEffect(() => {
+    if (!engineIdsKey) return;
+    let cancelled = false;
+    for (const engineId of engineIdsKey.split("\u0000")) {
+      invoke<EngineContext | null>("get_engine_context", { engineId })
+        .then((reply) => {
+          if (!cancelled && reply) setEngineContexts((prev) => ({ ...prev, [engineId]: reply }));
+        })
+        .catch(() => {});
+    }
+    return () => {
+      cancelled = true;
+    };
+  }, [mcpServerName, engineIdsKey, refreshNonce]);
+
+  /* A registration's item, matched on the key both sides mint from
+     `RegistrationKey` -- never on tier: the panel calls `~/.claude.json`
+     "global" where its engine says "user", and two files of one engine can
+     share a tier. */
+  const registrationSwitches: Record<string, RegistrationSwitch> = {};
+  if (mcpView && switcher) {
+    for (const reg of mcpView.registrations) {
+      const ctx = reg.engineId ? engineContexts[reg.engineId] : undefined;
+      const item = ctx?.items.find((i) => i.key === reg.key);
+      if (!ctx || !item) continue;
+      registrationSwitches[reg.key] = {
+        engineId: ctx.engine_id,
+        engineName: ctx.engine_name,
+        item,
+        busy: switcher.busyKeys.has(busyKeyOf(ctx.engine_id, item.key)),
+      };
+    }
+  }
+
+  /* The same request the Engines pane sends for the item. Its reply's
+     context replaces that engine's at once; App's rescan follows from the
+     hook and brings the refetch. */
+  const switchRegistration = async (registrationKey: string) => {
+    const sw = registrationSwitches[registrationKey];
+    if (!sw || !switcher) return;
+    const next = await switcher.switchServer({
+      engineId: sw.engineId,
+      engineName: sw.engineName,
+      key: sw.item.key,
+      serverName: sw.item.name,
+      file: sw.item.config_path,
+      enabled: sw.item.state !== "on",
+    });
+    if (next) setEngineContexts((prev) => ({ ...prev, [next.engine_id]: next }));
+  };
+
 
   /* Whether the eyebrow row has anything left to say. A selected asset's own
      kind · place moved to the cap, so `targetAsset` alone no longer earns
@@ -752,6 +831,8 @@ export default function Flyout({
           tab={inspectorTab}
           onTabChange={setInspectorTab}
           onOpenConfig={onOpenConfig}
+          switches={registrationSwitches}
+          onSwitch={(key) => void switchRegistration(key)}
         />
       ) : targetAsset ? (
         // Link to… lives in the cap now (App.tsx), not this panel's own

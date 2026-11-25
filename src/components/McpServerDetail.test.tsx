@@ -4,6 +4,7 @@ import { render, screen, cleanup, fireEvent, within, act } from "@testing-librar
 import { describe, it, expect, afterEach, vi } from "vitest";
 import McpServerDetail, { McpServerView } from "./McpServerDetail";
 import { probeAnswered, probeFailed } from "../__tests__/probeFixtures";
+import type { ContextItem } from "../types/engineContext";
 
 /** `tab` is a Flyout-controlled prop now, not McpServerDetail's own state
  *  (Karthik's ruling, 2026-08-29 fix round: lift the tab into Flyout so a
@@ -1866,5 +1867,94 @@ describe("McpServerDetail — Identity & capabilities card", () => {
       "identity-row-prompts",
     ]);
     expect(screen.getByTestId("identity-row-transport").textContent).toBe("Transportstdio");
+  });
+});
+
+describe("McpServerDetail — a switch on a Registered in row", () => {
+  // Shaped as `get_engine_context` sends an item (docs/ipc.md entry 15).
+  const userItem: ContextItem = {
+    key: "cc-user",
+    name: "spades-audio",
+    tier: "user",
+    config_path: "~/.claude.json",
+    state: "on",
+    read_only: null,
+    estimated_tokens: 120,
+    tool_count: 4,
+  };
+  const pluginItem: ContextItem = {
+    key: "cc-global",
+    name: "spades-audio",
+    tier: "global",
+    config_path: "~/.claude/mcp.json",
+    state: "off",
+    read_only: "managed_by_plugin",
+    estimated_tokens: null,
+    tool_count: null,
+  };
+  const rows = () => screen.getAllByTestId("registration-row");
+
+  it("draws a switch named by engine and file, pressed by the item's state, on that row only", () => {
+    const onSwitch = vi.fn();
+    render(
+      <Harness
+        server={base}
+        switches={{ "cc-user": { engineId: "claude-code", engineName: "Claude Code", item: userItem, busy: false } }}
+        onSwitch={onSwitch}
+      />
+    );
+    openDetails();
+    const sw = within(rows()[0]).getByRole("button", { name: "Claude Code, ~/.claude.json" });
+    expect(sw.getAttribute("aria-pressed")).toBe("true");
+    expect(within(sw).getByTestId("layer-switch")).toBeTruthy();
+    // The other rows have no item: nothing new on them.
+    for (const row of rows().slice(1)) {
+      expect(within(row).queryByTestId("layer-switch")).toBeNull();
+      expect(within(row).queryByText(/^(On|Off)$/)).toBeNull();
+    }
+
+    fireEvent.click(sw);
+    expect(onSwitch).toHaveBeenCalledWith("cc-user");
+  });
+
+  it("an off item's switch is not pressed, and a busy one is disabled", () => {
+    render(
+      <Harness
+        server={base}
+        switches={{ "cc-user": { engineId: "claude-code", engineName: "Claude Code", item: { ...userItem, state: "off" }, busy: true } }}
+        onSwitch={() => {}}
+      />
+    );
+    openDetails();
+    const sw = within(rows()[0]).getByRole("button", { name: "Claude Code, ~/.claude.json" }) as HTMLButtonElement;
+    expect(sw.getAttribute("aria-pressed")).toBe("false");
+    expect(sw.disabled).toBe(true);
+  });
+
+  it("a read-only item shows its state and why, and no switch", () => {
+    render(
+      <Harness
+        server={base}
+        switches={{ "cc-global": { engineId: "claude-code", engineName: "Claude Code", item: pluginItem, busy: false } }}
+        onSwitch={() => {}}
+      />
+    );
+    openDetails();
+    const row = rows()[1];
+    expect(within(row).queryByRole("button", { name: /^Claude Code, / })).toBeNull();
+    expect(within(row).queryByTestId("layer-switch")).toBeNull();
+    expect(within(row).getByText("Off")).toBeTruthy();
+    expect(
+      within(row).getByText("Declared by a plugin. A change here would be undone when the plugin updates.")
+    ).toBeTruthy();
+  });
+
+  it("claims nothing when no engine has answered", () => {
+    render(<Harness server={base} />);
+    openDetails();
+    for (const row of rows()) {
+      expect(within(row).queryByTestId("layer-switch")).toBeNull();
+      expect(within(row).queryByText(/^(On|Off)$/)).toBeNull();
+    }
   });
 });

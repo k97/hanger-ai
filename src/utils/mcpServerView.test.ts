@@ -53,6 +53,29 @@ describe("buildMcpServerView", () => {
     expect(view.registrations[0].host).toBe("Devin Desktop");
   });
 
+  // The engine a switch is asked of. The scope's agent is the host id on every
+  // machine-level registration the scanner emits (`Scope::Global { agent }`);
+  // `owning_agent` is not, so it is never read for this.
+  it("names the engine a machine-level registration belongs to, and no other", () => {
+    expect(buildMcpServerView(tools, "spades-audio")!.registrations.map((r) => r.engineId)).toEqual([
+      "claude-code",
+      "claude-desktop",
+    ]);
+    // Local and project registrations are per repository: slice 1 switches
+    // none of them.
+    expect(buildMcpServerView(tools, "repo-local")!.registrations[0].engineId).toBeNull();
+    expect(buildMcpServerView(tools, "loose")!.registrations[0].engineId).toBeNull();
+    const ownerless = buildMcpServerView(
+      [
+        { id: "/home/a.json:x", name: "x", config_path: "/home/a.json", owning_agent: "codex",
+          scope: { Global: { agent: "" } } },
+        { id: "/home/b.json:x", name: "x", config_path: "/home/b.json", owning_agent: "codex" },
+      ],
+      "x"
+    )!;
+    expect(ownerless.registrations.map((r) => r.engineId)).toEqual([null, null]);
+  });
+
   it("returns null for a server that is not registered anywhere", () => {
     expect(buildMcpServerView(tools, "nonexistent")).toBeNull();
     expect(buildMcpServerView(undefined, "spades-audio")).toBeNull();
