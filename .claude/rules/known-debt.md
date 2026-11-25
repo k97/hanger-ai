@@ -62,3 +62,11 @@ deliberately left unfixed.
     1". Seen in the dev app, not traced.
   - Dev only: after many Vite hot reloads, the dev app stayed on "Scanning
     your machine" with a growing queue until it was restarted.
+- Claude.ai connectors carry no reach entry for Claude.ai in `get_asset_annotations`:
+  every engine reads "cannot read this format", Claude Code included, although
+  `claude mcp get` lists them among Claude Code's configured servers ("claude.ai
+  Claude Docs", …). So with Claude.ai picked, its own tile cannot lead those rows,
+  and the rows reach the Claude.ai lens only through its engine context. Seen in
+  the dev app on 2026-11-25 after `get_engine_contexts` landed; not traced in
+  `annotations.rs`. Whether Claude Code loads a connector depends on sign-in, so
+  the fix needs a ruling on what "reached" means for vendor-hosted servers.
