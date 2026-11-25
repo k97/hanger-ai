@@ -6,6 +6,7 @@ import {
   projectOverrideNote,
   sortServerRows,
   mergeReach,
+  transportChipLabel,
   type McpServerRow,
 } from "./serverRows";
 import type { EngineReachInfo } from "../components/EngineReachTiles";
@@ -305,5 +306,43 @@ describe("mergeReach", () => {
     ]);
     const merged = mergeReach(["/a:tauri", "/b:tauri"], byAssetPath);
     expect(merged!.find((r) => r.engine_key === "codex")?.reached).toBe(true);
+  });
+});
+
+// The list row's transport chip names where a remote server lives, never
+// the address: the path of a hosted server can carry an account id, and the
+// full URL squeezed the server's name off the row (F4, 2026-11-25). The
+// inspector keeps the backend's sanitised address; only the chip shortens.
+describe("transportChipLabel", () => {
+  it("cuts a hosted server's address to its registrable domain, dropping the path and the account subdomain", () => {
+    expect(
+      transportChipLabel(
+        "https://hmc-zohomail-12345678901.zohomcp.in/mcp/0123456789abcdef0123456789abcdef/message"
+      )
+    ).toBe("zohomcp.in");
+    expect(transportChipLabel("https://mcp.wonder.so/mcp")).toBe("wonder.so");
+    expect(transportChipLabel("https://mcp.example.com/weather")).toBe("example.com");
+  });
+
+  it("keeps a local server's host and port, which is what tells two of them apart", () => {
+    expect(transportChipLabel("http://localhost:3845")).toBe("localhost:3845");
+    expect(transportChipLabel("http://localhost:3845/mcp")).toBe("localhost:3845");
+    expect(transportChipLabel("http://127.0.0.1:8080/sse")).toBe("127.0.0.1:8080");
+    expect(transportChipLabel("https://example.com:8443/x")).toBe("example.com:8443");
+  });
+
+  it("keeps a country's second-level domain with the name in front of it", () => {
+    expect(transportChipLabel("https://api.example.co.uk/mcp")).toBe("example.co.uk");
+  });
+
+  it("reads a bare host the same way, and leaves a word that is no address alone", () => {
+    expect(transportChipLabel("mcp.wonder.so")).toBe("wonder.so");
+    expect(transportChipLabel("claude.ai")).toBe("claude.ai");
+    expect(transportChipLabel("stdio")).toBe("stdio");
+    expect(transportChipLabel("unknown")).toBe("unknown");
+  });
+
+  it("never returns a path, even for an address the URL parser refuses", () => {
+    expect(transportChipLabel("https://bad host.example.com/secret/path")).not.toContain("/");
   });
 });

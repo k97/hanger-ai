@@ -220,3 +220,42 @@ export function mergeReach(
   }
   return found ? [...byEngine.values()] : null;
 }
+
+/** Second-level labels a country registry sells names under ("co.uk",
+ *  "com.au"): the registrable domain is one label further left of them. */
+const COUNTRY_SECOND_LEVELS = new Set(["co", "com", "net", "org", "gov", "edu", "ac", "or", "ne", "go"]);
+
+function shortHost(host: string): string {
+  const labels = host.split(".");
+  // An IP address, a bracketed IPv6 one, or a single label (localhost) is
+  // already as short as it can be and stay the same address.
+  if (host.startsWith("[") || /^\d+(\.\d+){3}$/.test(host) || labels.length <= 2) return host;
+  const keep =
+    labels[labels.length - 1].length === 2 && COUNTRY_SECOND_LEVELS.has(labels[labels.length - 2]) ? 3 : 2;
+  return labels.slice(-keep).join(".");
+}
+
+/**
+ * The text of a list row's transport chip: `"stdio"` and the other plain
+ * words as they are, and for a remote server only the domain it lives on,
+ * plus a port when it has one ("zohomcp.in", "localhost:3845"). Never the
+ * path: a hosted server's path can carry an account id, which has no place
+ * in a list, and the whole address squeezed the server's name off its row.
+ * The input is the backend's already-sanitised `transport`; the inspector
+ * still shows that in full. Subdomains go, so two servers on one domain
+ * share a chip; their names still tell them apart.
+ */
+export function transportChipLabel(transport: string): string {
+  const scheme = transport.indexOf("://");
+  if (scheme === -1) {
+    // A bare word ("stdio", "unknown") or a bare host ("claude.ai").
+    return /^[a-z0-9-]+(\.[a-z0-9-]+)+$/i.test(transport) ? shortHost(transport) : transport;
+  }
+  try {
+    const url = new URL(transport);
+    if (url.hostname) return shortHost(url.hostname) + (url.port ? `:${url.port}` : "");
+  } catch {
+    // Not parseable: fall through and cut it by hand.
+  }
+  return transport.slice(scheme + 3).split(/[/?#]/)[0];
+}

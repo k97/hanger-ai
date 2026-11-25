@@ -76,4 +76,22 @@ describe("HeroBand", () => {
     rerender(<HeroBand label="By engine" open onToggle={vi.fn()} rows={rows} />);
     expect(screen.queryByTestId("hero-band-foot")).toBeNull();
   });
+
+  // Class contract only: happy-dom applies no container queries. Two columns
+  // cut engine names to "Cla…" with the inspector open (F1, 2026-11-25), so
+  // the open band is one column until it is wide enough for two.
+  it("open: one column until the band is wide enough for two, and a cut name keeps its full name as a tooltip", () => {
+    render(<HeroBand label="By engine" open onToggle={vi.fn()} rows={rows} foot={<span>foot</span>} />);
+    const band = screen.getByTestId("hero-band");
+    expect(band.className).toContain("@container");
+    const grid = screen.getByTestId("hero-band-row-claude-code").parentElement!;
+    expect(grid.className).toContain("grid-cols-1");
+    expect(grid.className).toContain("@[680px]:grid-cols-2");
+    // The second row opens the grid's first line only when there are two columns.
+    const second = screen.getByTestId("hero-band-row-claude-ai");
+    expect(second.className).toContain("@[680px]:border-t-0");
+    expect(second.className).not.toMatch(/(^|\s)border-t-0/);
+    expect(screen.getByTestId("hero-band-foot").className).toContain("col-span-full");
+    expect(screen.getByText("Claude Code").getAttribute("title")).toBe("Claude Code");
+  });
 });

@@ -222,7 +222,9 @@ describe("the MCP card row", () => {
     it("shows the transport chip, never a bare command or a file path, for a remote-only row", () => {
       render(<ProfilePane {...base} inventory={remoteOnlyInventory} scannedAt={new Date()} />);
       expect(screen.getByText("weather")).toBeTruthy();
-      expect(screen.getByText("https://mcp.example.com/weather")).toBeTruthy();
+      // The chip names the domain, never the address (F4, 2026-11-25).
+      expect(screen.getByText("example.com")).toBeTruthy();
+      expect(screen.queryByText(/mcp\.example\.com\/weather/)).toBeNull();
       expect(screen.getByText("claude.ai")).toBeTruthy();
       expect(screen.queryByText(/Command:/)).toBeNull();
       expect(screen.queryByText("/home/.claude.json")).toBeNull();
@@ -394,5 +396,32 @@ describe("the MCP card row", () => {
     expect(within(header).getByText("Tools")).toBeTruthy();
     expect(within(header).queryByText("Beyond the store")).toBeNull();
     expect(screen.getByText("tauri")).toBeTruthy();
+  });
+
+  // Class contract only (happy-dom applies no container queries). Registered
+  // in carries the switches, so it outlives the Tools label at narrow widths
+  // (F1, 2026-11-25); the rows stack their tool figure under the tiles.
+  it.each(["ProfilePane", "RepoPane"] as const)("%s keeps the Registered in label at every width and drops Tools when narrow", (pane) => {
+    if (pane === "ProfilePane") {
+      render(<ProfilePane {...base} inventory={inventoryWithOneServer} selectedCategory="Tools" />);
+    } else {
+      render(
+        <RepoPane
+          repoPath="/Users/test/Work"
+          inventory={inventoryWithOneRepoServer}
+          loading={false}
+          selectedCategory="Tools"
+          onRefresh={vi.fn()}
+          onSelectAsset={vi.fn()}
+          onLinkFromProfile={vi.fn()}
+        />
+      );
+    }
+    const header = screen.getByTestId("section-header-tools");
+    const registered = within(header).getByText("Registered in");
+    expect(registered.className).not.toMatch(/(^|\s)hidden(\s|$)/);
+    const tools = within(header).getByText("Tools");
+    expect(tools.className).toContain("hidden");
+    expect(tools.className).toContain("@[580px]:block");
   });
 });

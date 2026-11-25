@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { render, screen, cleanup, fireEvent } from "@testing-library/react";
+import { render, screen, cleanup, fireEvent, within } from "@testing-library/react";
 import { describe, it, expect, vi, afterEach } from "vitest";
 import CategoryFilterCards from "./CategoryFilterCards";
 
@@ -143,5 +143,21 @@ describe("CategoryFilterCards", () => {
     expect(screen.getByRole("tab", { name: /^All/ }).getAttribute("aria-selected")).toBe("false");
     fireEvent.click(screen.getByRole("tab", { name: /^All/ }));
     expect(onSelectCategory).toHaveBeenCalledWith(null);
+  });
+
+  // Class contract only: happy-dom applies no container queries. With the
+  // inspector open the six tabs ran past the track's edge and cut
+  // "Subagents 302" off (F1, 2026-11-25). The track still scrolls as its
+  // last resort; before that, its segments tighten, then drop their counts
+  // (the strip below carries the figure for the selected tab).
+  it("tightens its segments, then drops their counts, as its own width narrows", () => {
+    const { container } = render(<CategoryFilterCards {...props} enginesTab={{ selected: false, onSelect: vi.fn() }} />);
+    expect(container.querySelector("section")!.className).toContain("@container");
+    const skills = screen.getByRole("tab", { name: /^Skills/ });
+    expect(skills.className).toContain("px-3");
+    expect(skills.className).toContain("@[576px]:px-4");
+    const count = within(skills).getByText("8");
+    expect(count.className).toContain("hidden");
+    expect(count.className).toContain("@[512px]:inline");
   });
 });

@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, within, cleanup } from "@testing-library/react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import AssetRow, { AssetItem, AssetAnnotationView } from "./AssetRow";
@@ -423,5 +423,58 @@ describe("scrolls a selected row into view", () => {
     render(<AssetRow item={baseItem} isSelected />);
     expect(scrollIntoViewSpy).toHaveBeenCalledTimes(1);
     expect(scrollIntoViewSpy).toHaveBeenCalledWith({ block: "nearest" });
+  });
+});
+
+// Class contracts only: happy-dom lays nothing out and applies no container
+// queries (verification.md), so these pin which classes carry the narrow-width
+// behaviour. Whether the tiles actually show at 1024x700 with the inspector
+// open is settled by a screenshot of the running app.
+describe("the card row at narrow widths (F1, F4, 2026-11-25)", () => {
+  afterEach(cleanup);
+
+  const reachAnnotation: AssetAnnotationView = {
+    asset_path: "/test/config.json:tauri",
+    mechanism: "none",
+    reach: [{ engine_id: 1, engine_key: "codex", engine_name: "Codex", reached: true, reason: null }],
+    beyond: null,
+  };
+
+  it("never hides the Registered in tiles behind a width; the Tools figure stacks under them instead", () => {
+    const { container } = render(
+      <AssetRow
+        item={{ name: "tauri", category: "Tools", path: "/test/config.json:tauri", toolCount: 20 }}
+        annotation={reachAnnotation}
+        variant="card"
+      />
+    );
+    const registered = within(container).getByTestId("card-registered-in");
+    expect(registered.className).not.toMatch(/(^|\s)hidden(\s|$)/);
+    expect(registered.className).not.toContain("@[580px]:flex");
+    const columns = within(container).getByTestId("card-columns");
+    expect(columns.className).toContain("flex-col");
+    expect(columns.className).toContain("@[580px]:flex-row");
+    expect(within(columns).getByText("20 tools")).toBeTruthy();
+  });
+
+  it("drops the Tools dash under the tiles when narrow, where no column label explains it", () => {
+    const { container } = render(
+      <AssetRow item={{ name: "tauri", category: "Tools", path: "/test/config.json:tauri" }} variant="card" />
+    );
+    const dash = within(container).getByText("—");
+    expect(dash.className).toContain("hidden");
+    expect(dash.className).toContain("@[580px]:block");
+  });
+
+  it("shows a remote server's domain in its chip, never the path, and the chip gives way before the name", () => {
+    const transport = "https://hmc-zohomail-12345678901.zohomcp.in/mcp/0123456789abcdef0123456789abcdef/message";
+    const { container } = render(
+      <AssetRow item={{ name: "ZohoMail", category: "Tools", path: "/x.json:ZohoMail", transport }} variant="card" />
+    );
+    const chip = within(container).getByText("zohomcp.in");
+    expect(container.textContent).not.toContain("0123456789abcdef0123456789abcdef");
+    expect(chip.className).toContain("truncate");
+    expect(chip.className).toContain("max-w-[50%]");
+    expect(chip.className).not.toContain("shrink-0");
   });
 });

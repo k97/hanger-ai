@@ -14,6 +14,12 @@ export interface SegmentedTrackProps {
   onSelect: (id: string) => void;
   ariaLabel: string;
   loading?: boolean;
+  /** Given by a caller whose wrapper is an `@container` sized to the room
+   *  the track has: below 576px its segments tighten, and below 512px they
+   *  drop their counts, before the track falls back to scrolling. Off by
+   *  default, because a container query answers to whichever ancestor is a
+   *  container, and other callers sit inside unrelated ones. */
+  fitToContainer?: boolean;
 }
 
 export default function SegmentedTrack({
@@ -22,6 +28,7 @@ export default function SegmentedTrack({
   onSelect,
   ariaLabel,
   loading,
+  fitToContainer,
 }: SegmentedTrackProps) {
   const buttonRefs = useRef<Record<string, HTMLButtonElement | null>>({});
   const [capsuleStyle, setCapsuleStyle] = useState<{ top: number; left: number; width: number }>({
@@ -105,13 +112,13 @@ export default function SegmentedTrack({
             }}
             onClick={() => onSelect(segment.id)}
             onKeyDown={(event) => handleKeyDown(event, index)}
-            className={`relative z-[1] h-7 px-4 rounded-pill font-flex text-small whitespace-nowrap shrink-0 inline-flex items-center gap-1.5 cursor-pointer transition-colors duration-nav ease-spring ${
+            className={`relative z-[1] h-7 ${fitToContainer ? "px-3 @[576px]:px-4" : "px-4"} rounded-pill font-flex text-small whitespace-nowrap shrink-0 inline-flex items-center gap-1.5 cursor-pointer transition-colors duration-nav ease-spring ${
               selected ? "text-ink-1 font-medium" : "text-ink-2 hover:text-ink-1"
             }`}
           >
             <span>{segment.label}</span>
             {segment.count !== null && (
-              <span className={`text-micro tabular ${selected ? "text-ink-2" : "text-ink-3"}`}>
+              <span className={`text-micro tabular ${fitToContainer ? "hidden @[512px]:inline" : ""} ${selected ? "text-ink-2" : "text-ink-3"}`}>
                 {segment.count === undefined && loading ? (
                   <LoaderCircleIcon size={12} active />
                 ) : (

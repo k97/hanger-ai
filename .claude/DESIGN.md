@@ -736,7 +736,8 @@ keeps its own figure, and the group follows the Tools rows under its own
 `h3` (`groupLabelClass`, the other groups' shape) reading "Switched off ·
 ‹keptOff.count›" — the backend's figure, never the rows'. Each row is a
 `<button>` (`keptRowClass`): the name and the transport chip, drawn with
-`cardChipClass` (`AssetRow.tsx`, the card row's own chip), then "Off for
+`cardChipClass` (`AssetRow.tsx`, the card row's own chip) and, like it,
+showing only the domain (`transportChipLabel`, below), then "Off for
 ‹engine_name›"; no reach tiles and no tool count, because the server is in
 no file. A row calls `onOpenKeptOff(key)` with its `stash:` key, and App
 opens the server in the inspector without a change of screen (T4 of the IA
@@ -1486,12 +1487,17 @@ rotates 90° when open, the label, and then one of two things (`:43-64`).
 Collapsed, that is one line: every row's 13px `BrandIcon` beside its figure
 in `rowMonoClass` (`:55-62`). Open, it is the `note` beside the label (`:53`)
 and, beneath, the inspector's key-value rows without the card — a
-`grid-cols-2 gap-x-6` of `min-h-8 py-[7px] border-t border-line` rows, each
-mark, name in `text-base-app`, optional `secondary` caption, and the figure
-with its unit word pushed right by `ml-auto` (`:66-82`). The first two rows
-drop the top border because they are the grid's opening line (`:72`). `foot`
-is a `col-span-2` last row for something that is not a row of figures — the
-project pane's nested-repo notice and its `Promote…` (`:83-87`).
+`grid-cols-1 @[680px]:grid-cols-2 gap-x-6` of `min-h-8 py-[7px] border-t
+border-line` rows, each mark, name in `text-base-app` (with the name as its
+own `title`, for when it is cut), optional `secondary` caption, and the
+figure with its unit word pushed right by `ml-auto`. The band is its own
+`@container`: two columns at the default window with the inspector open cut
+every engine name to "Cla…" (F1, 2026-11-25), so it takes one column until
+it is 680px wide. The grid's opening line drops its top border — the first
+row always, the second only at two columns (`@[680px]:border-t-0`). `foot`
+is a `col-span-full` last row for something that is not a row of figures —
+the project pane's nested-repo notice and its `Promote…`. Class contracts in
+`HeroBand.test.tsx`; the widths are settled by screenshot.
 
 *A row is `HeroBandRow`* — `key`, `engineKey`, `engineName`, `secondary?`,
 `value: number | string | null`, `word`, `filter?`. A string `value` is a
@@ -1601,7 +1607,14 @@ Enter/Space selects (`:46-78`, `:100-101`). A segment's own count sits
 beside its label; `count === undefined` under `loading` draws a spinner in
 its place rather than a stale zero (`:112-118`). The track scrolls rather
 than wraps at narrow widths — `overflow-x-auto [scrollbar-width:none]` on
-the outer element (`:84`) — and selecting a segment calls its own button's
+the outer element — as its last resort. Before that, a caller that passes
+`fitToContainer` from inside an `@container` gets segments that tighten
+from `px-4` to `px-3` below 576px and drop their counts below 512px
+(`hidden @[512px]:inline`); with the inspector open at the default window,
+Global's six tabs ran past the track's edge and cut "Subagents 302" off
+(F1, 2026-11-25). It is opt-in because a container query answers to the
+nearest container of any kind, and the other callers sit inside unrelated
+ones. Selecting a segment calls its own button's
 `scrollIntoView` so an off-screen selection brings itself on screen
 (`:40`). The selected segment carries a floating pill, `<i
 data-testid="track-capsule">`, styled `capsule-raised` (§3) and
@@ -1625,7 +1638,8 @@ and never hidden; a repository passes none. It no longer draws
 its own chips: it builds five category `TrackSegment`s, filters out empty
 ones by the hide-at-zero rule stated in its own doc comment — with one
 exemption for a zero-count Tools chip (`:57-69`) — and hands the result to
-one `SegmentedTrack` (`:81-87`, above). The class strings that used to draw
+one `SegmentedTrack` (above), from a `<section>` that is its `@container`
+and with `fitToContainer` set. The class strings that used to draw
 pressed/unpressed chips by hand, `chipBaseClass` / `chipPressedClass`, are
 gone with them; `NeedsReviewPane.tsx` declares its own identically-named
 pair for an unrelated, non-tablist chip row (§6, Pane composition) — the
@@ -2236,7 +2250,20 @@ the only one whose column names had no rule under them (Karthik,
 2026-08-29). It takes the same `border-b border-line` now, its `pb`
 going 5px to 7px so the rule is not tight against the labels
 (`ProfilePane.tsx:1264`, `RepoPane.tsx:777`; pinned by
-`mcp_card_row.test.tsx`). In a mixed view both rules render, which is
+`mcp_card_row.test.tsx`). *Below 580px the Tools label goes and Registered
+in stays*, because the tiles under it are the switches (F1, 2026-11-25):
+the header's "Tools" is `hidden @[580px]:block`, and the card row's two
+right-hand cells sit in one `data-testid="card-columns"` wrapper that is a
+`flex-col` stack below 580px — the tool figure under the tiles, in the same
+100px — and the two columns the header names from 580px up. Stacked, a
+missing figure's dash is hidden, since no label there says what it stands
+for. The card row's transport chip names the domain a remote server lives
+on, plus its port, never the address (`transportChipLabel` in
+`serverRows.ts`: "zohomcp.in", "localhost:3845"): a hosted server's path
+can carry an account id, and the full address squeezed the name off its row
+(F4, 2026-11-25). The inspector still shows the backend's sanitised address
+in full. `cardChipClass` is `min-w-0 max-w-[50%] truncate`, so a chip gives
+way before the name beside it does. In a mixed view both rules render, which is
 what a second set of column names deserves; the plain group labels —
 Agents, Skills, Rules, Subagents — still carry none, because the columns
 above them were already announced.

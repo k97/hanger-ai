@@ -4,7 +4,7 @@ import MechanismGlyph, { MechanismWord } from "./MechanismGlyph";
 import EngineReachTiles, { EngineReachInfo, type TileSwitch } from "./EngineReachTiles";
 import EngineLabel from "./EngineLabel";
 import { SelectionOriginContext } from "./selectionOrigin";
-import { ancestorReachNote } from "../utils/serverRows";
+import { ancestorReachNote, transportChipLabel } from "../utils/serverRows";
 
 /** One asset's backend-derived annotation: the glyph word, the reach list,
  *  and the beyond-the-store note whose count is backend-owned. Arrives from
@@ -119,8 +119,11 @@ function beyondCell(annotation: AssetAnnotationView): { text: string; cls: strin
 }
 
 /** The card row's chip — transport, or plugin. Exported so the MCP servers
- *  list's "Switched off" rows draw a kept server's transport the same way. */
-export const cardChipClass = "shrink-0 text-micro font-mono bg-plane border border-line px-2 py-px rounded-pill text-ink-2";
+ *  list's "Switched off" rows draw a kept server's transport the same way.
+ *  It gives way before the name does: capped at half the line and cut with
+ *  an ellipsis, so the name beside it keeps at least the other half (F4,
+ *  2026-11-25, where a full URL left the name a single glyph wide). */
+export const cardChipClass = "min-w-0 max-w-[50%] truncate text-micro font-mono bg-plane border border-line px-2 py-px rounded-pill text-ink-2";
 
 export function getSingularType(category: string): string {
   if (category.endsWith("s")) {
@@ -223,9 +226,11 @@ export default function AssetRow({ item, isSelected, showKindColumn = true, anno
         <div className="flex-1 min-w-0 flex flex-col gap-0.5 overflow-hidden">
           <div className="flex items-center gap-1.5 min-w-0">
             <span className={`text-base-app ${nameColor} truncate`}>{item.name}</span>
+            {/* The domain only, never the backend's full address: the
+                inspector shows that (`transportChipLabel`). */}
             {item.transport && (
               <span className={cardChipClass}>
-                {item.transport}
+                {transportChipLabel(item.transport)}
               </span>
             )}
             {item.plugin && (
@@ -239,31 +244,43 @@ export default function AssetRow({ item, isSelected, showKindColumn = true, anno
           )}
         </div>
 
-        {/* Registered in — the same engine-reach tiles the annotated table
-            rows use below: which engines register an MCP server is exactly
-            what "reach" already means for one, so this reuses that data
-            rather than inventing a second source for it. */}
-        <span className="shrink-0 w-[100px] text-left hidden @[580px]:flex">
-          {annotation ? <EngineReachTiles reach={annotation.reach} switchFor={tileSwitchFor} /> : null}
-        </span>
-
-        {/* Tools — `McpServerRow.tool_count`, filled from the probe cache.
-            `null`/`undefined` (no probe cached yet, or a Conflicting row,
-            which the backend always withholds a count for rather than
-            summing or guessing between two distinct launches) keeps this
-            component's existing convention for a cell with nothing to show
-            (`beyondCell`'s default case, above), not a fabricated zero. */}
-        <span
-          className={`shrink-0 w-[150px] text-left text-small ${
-            item.toolCount != null ? "text-ink-2" : "text-ink-3"
-          }`}
+        {/* Registered in, then Tools. Registered in carries the switches,
+            so it never hides: below 580px the pair stacks into the one
+            100px column instead, the tool figure under the tiles, and the
+            section header drops its "Tools" label (F1, 2026-11-25). At 580px
+            and up it is the two columns the header names, unchanged. */}
+        <div
+          data-testid="card-columns"
+          className="shrink-0 flex flex-col gap-0.5 @[580px]:flex-row @[580px]:items-center @[580px]:gap-3"
         >
-          {item.toolCount != null
-            ? item.toolCount === 1
-              ? "1 tool"
-              : `${item.toolCount} tools`
-            : "—"}
-        </span>
+          {/* Registered in — the same engine-reach tiles the annotated table
+              rows use below: which engines register an MCP server is exactly
+              what "reach" already means for one, so this reuses that data
+              rather than inventing a second source for it. */}
+          <span data-testid="card-registered-in" className="shrink-0 w-[100px] text-left flex">
+            {annotation ? <EngineReachTiles reach={annotation.reach} switchFor={tileSwitchFor} /> : null}
+          </span>
+
+          {/* Tools — `McpServerRow.tool_count`, filled from the probe cache.
+              `null`/`undefined` (no probe cached yet, or a Conflicting row,
+              which the backend always withholds a count for rather than
+              summing or guessing between two distinct launches) keeps this
+              component's existing convention for a cell with nothing to show
+              (`beyondCell`'s default case, above), not a fabricated zero.
+              Stacked under the tiles, where no column label names it, the
+              dash says nothing, so it shows only as a column. */}
+          <span
+            className={`shrink-0 @[580px]:w-[150px] text-left text-small ${
+              item.toolCount != null ? "text-ink-2" : "text-ink-3 hidden @[580px]:block"
+            }`}
+          >
+            {item.toolCount != null
+              ? item.toolCount === 1
+                ? "1 tool"
+                : `${item.toolCount} tools`
+              : "—"}
+          </span>
+        </div>
       </div>
     );
   }

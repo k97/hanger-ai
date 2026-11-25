@@ -23,7 +23,7 @@ import { dedupeRegistrations } from "../utils/mcpRegistration";
 import { sortAssetItems } from "../utils/sortUtils";
 import { registrationKey } from "../utils/mcpRegistration";
 import { groupProcesses, type ProcessMatch } from "../utils/mcpServerView";
-import { ancestorReachNote, cardSecondLine, mergeReach, sortServerRows, type McpServerRow } from "../utils/serverRows";
+import { ancestorReachNote, cardSecondLine, mergeReach, sortServerRows, transportChipLabel, type McpServerRow } from "../utils/serverRows";
 import { sumGlobalAssets, categoryCountKey } from "../utils/globalAssetCount";
 import { groupLabelClass } from "./typeRoles";
 import SummaryStrip, { type StripReview } from "./SummaryStrip";
@@ -1491,10 +1491,10 @@ export default function ProfilePane({
                   <h3 className="flex-1 truncate">
                     MCP servers · {assetCounts ? (assetCounts.byCategory.tool?.global ?? 0) : sortedTools.length}
                   </h3>
-                  <span className="hidden @[580px]:block w-[100px] shrink-0 text-left">
+                  <span className="w-[100px] shrink-0 text-left">
                     Registered in
                   </span>
-                  <span className="w-[150px] shrink-0 text-left">
+                  <span className="hidden @[580px]:block w-[150px] shrink-0 text-left">
                     Tools
                   </span>
                 </div>
@@ -1548,7 +1548,7 @@ export default function ProfilePane({
                         <span className={`text-base-app truncate ${selected ? "text-tint-ink font-medium" : "text-ink-1"}`}>
                           {server.name}
                         </span>
-                        <span className={cardChipClass}>{server.transport}</span>
+                        <span className={cardChipClass}>{transportChipLabel(server.transport)}</span>
                       </span>
                       <span className="text-small text-ink-3 truncate">Off for {server.engine_name}</span>
                     </button>

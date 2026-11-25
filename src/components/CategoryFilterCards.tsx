@@ -102,7 +102,7 @@ export default function CategoryFilterCards({
   if (enginesTab) segments.splice(1, 0, { id: "Engines", label: "Engines", count: null });
 
   return (
-    <section className="font-sans select-none shrink-0">
+    <section className="@container font-sans select-none shrink-0">
       <SegmentedTrack
         segments={segments}
         selectedId={enginesTab?.selected ? "Engines" : selectedCategory ?? "all"}
@@ -112,6 +112,7 @@ export default function CategoryFilterCards({
         }}
         ariaLabel="Filter by category"
         loading={loading}
+        fitToContainer
       />
     </section>
   );

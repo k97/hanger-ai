@@ -50,7 +50,7 @@ const filterRowClass = `${rowClass} w-full -mx-1.5 px-1.5 text-left font-sans cu
 
 export default function HeroBand({ label, open, onToggle, rows, note, foot, trailing }: HeroBandProps) {
   return (
-    <div data-testid="hero-band" className="mt-3 pt-3 border-t border-line">
+    <div data-testid="hero-band" className="@container mt-3 pt-3 border-t border-line">
       <div className="flex items-center gap-2">
         <button
           type="button"
@@ -77,13 +77,16 @@ export default function HeroBand({ label, open, onToggle, rows, note, foot, trai
         {trailing}
       </div>
 
+      {/* One column until the band is wide enough for two: two columns at
+          the default window with the inspector open cut every engine name
+          to "Cla…" (F1, 2026-11-25). */}
       {open && (
-        <div className="mt-2.5 grid grid-cols-2 gap-x-6">
+        <div className="mt-2.5 grid grid-cols-1 @[680px]:grid-cols-2 gap-x-6">
           {rows.map((r, i) => {
             const body = (
               <>
                 <BrandIcon engineKey={r.engineKey} engineName={r.engineName} size={14} />
-                <span className="text-base-app text-ink-1 truncate">{r.engineName}</span>
+                <span title={r.engineName} className="text-base-app text-ink-1 truncate">{r.engineName}</span>
                 {r.secondary && <span className={`min-w-0 truncate ${captionClass}`}>{r.secondary}</span>}
                 <span className="ml-auto shrink-0 flex items-baseline gap-1.5">
                   <span className={rowMonoClass}>{r.value === null ? "—" : r.value}</span>
@@ -91,7 +94,9 @@ export default function HeroBand({ label, open, onToggle, rows, note, foot, trai
                 </span>
               </>
             );
-            const edge = i < 2 ? "border-t-0" : "";
+            // The grid's opening line carries no top border: the first row,
+            // and the second as well once there are two columns.
+            const edge = i === 0 ? "border-t-0" : i === 1 ? "@[680px]:border-t-0" : "";
             return r.filter ? (
               <button
                 key={r.key}
@@ -111,7 +116,7 @@ export default function HeroBand({ label, open, onToggle, rows, note, foot, trai
             );
           })}
           {foot && (
-            <div data-testid="hero-band-foot" className="col-span-2 flex items-center gap-2.5 min-h-8 py-[7px] border-t border-line">
+            <div data-testid="hero-band-foot" className="col-span-full flex items-center gap-2.5 min-h-8 py-[7px] border-t border-line">
               {foot}
             </div>
           )}

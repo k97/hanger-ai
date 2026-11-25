@@ -240,6 +240,16 @@ describe("A switched-off server opens in the inspector", () => {
     expect(screen.getByRole("tab", { name: /^MCP servers/ }).getAttribute("aria-selected")).toBe("true");
   });
 
+  it("a kept remote server's chip shows the domain it lives on, never its address", async () => {
+    const address = "https://hmc-zohomail-12345678901.zohomcp.in/mcp/0123456789abcdef0123456789abcdef/message";
+    keptReply = { ...KEPT, servers: [{ ...KEPT.servers[0], transport: address }] };
+    render(<App />);
+    await completeScan();
+    const row = await keptRow();
+    expect(within(row).getByText("zohomcp.in")).toBeTruthy();
+    expect(row.textContent).not.toContain("0123456789abcdef0123456789abcdef");
+  });
+
   it("the kept view's switch turns it back on with its stash key, and the notice offers Undo", async () => {
     render(<App />);
     await completeScan();

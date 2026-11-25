@@ -121,4 +121,19 @@ describe("SegmentedTrack", () => {
     expect(tab.textContent).toBe("Engines");
     expect(tab.querySelector("svg")).toBeNull();
   });
+
+  // Only a caller that sits in a sized container opts in to shrinking: the
+  // container queries would otherwise answer to whatever ancestor happens to
+  // be one (the inspector's Reach card, the design-system page).
+  it("keeps its full padding and every count unless asked to fit its container", () => {
+    const { unmount } = render(<SegmentedTrack segments={segments} selectedId="all" onSelect={vi.fn()} ariaLabel="t" />);
+    const plain = screen.getByRole("tab", { name: "Skills 110" });
+    expect(plain.className).toContain("px-4");
+    expect(plain.className).not.toContain("@[576px]");
+    expect(screen.getByText("110").className).not.toContain("hidden");
+    unmount();
+    render(<SegmentedTrack segments={segments} selectedId="all" onSelect={vi.fn()} ariaLabel="t" fitToContainer />);
+    expect(screen.getByRole("tab", { name: "Skills 110" }).className).toContain("@[576px]:px-4");
+    expect(screen.getByText("110").className).toContain("@[512px]:inline");
+  });
 });

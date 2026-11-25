@@ -779,10 +779,10 @@ export default function RepoPane({
                   <h3 className="flex-1 truncate">
                     MCP servers · {assetCounts ? (assetCounts.byCategory.tool?.total ?? 0) : sortedTools.length}
                   </h3>
-                  <span className="hidden @[580px]:block w-[100px] shrink-0 text-left">
+                  <span className="w-[100px] shrink-0 text-left">
                     Registered in
                   </span>
-                  <span className="w-[150px] shrink-0 text-left">
+                  <span className="hidden @[580px]:block w-[150px] shrink-0 text-left">
                     Tools
                   </span>
                 </div>
