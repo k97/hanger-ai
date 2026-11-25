@@ -100,9 +100,9 @@ than right.
 Until 2026-11-24 Hanger read each engine's MCP configuration and never wrote
 it. It now switches an MCP server off and on for one engine, and that is the
 whole of what it writes there. Everything that does it is in one module,
-`src-tauri/src/mcp/switch/`, behind four commands in `src-tauri/src/lib.rs`
-(`get_engine_context`, `set_mcp_server_enabled`, `undo_mcp_switch`,
-`measure_engine_context`). No screen calls them yet. Which engines can be
+`src-tauri/src/mcp/switch/`, behind five commands in `src-tauri/src/lib.rs`
+(`get_engine_context`, `get_engine_contexts`, `set_mcp_server_enabled`,
+`undo_mcp_switch`, `measure_engine_context`). No screen calls them yet. Which engines can be
 switched, and how, is `mcp/registry.rs` → `SWITCHES`; an engine with no row
 there is shown and never written. The run that confirmed each row is in
 `docs/plans/2026-11-24-context-control-engine-matrix.md`.

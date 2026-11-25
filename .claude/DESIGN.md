@@ -1339,7 +1339,7 @@ eyebrows.
   path with a reveal button, the launch itself only when hosts disagree about
   it, this registration's own probe result once one exists, and a running
   line only while a matching process is up (`:1005-1072`). After the tier,
-  a row whose engine has answered `get_engine_context` with an item of the
+  a row whose engine's context holds an item of the
   same key (`switches`, by registration key) carries that item's switch
   (§7): a `switchBtnClass` button, `aria-pressed` by state,
   disabled while busy, named `{engine}, {file}` from the engine's name and
@@ -1352,10 +1352,12 @@ eyebrows.
   `openEngine`), when the row's `engineId` is one the engine chips list
   (`linkedEngines`, App's `enginesList` ids, carried by
   `Flyout`): a text button, underlined on hover on the name inside the
-  `EngineLabel`. Any other row names its host in plain text. `Flyout` asks each engine once per
-  open server and again on App's `scanNonce`, matches item to row by key
+  `EngineLabel`. Any other row names its host in plain text. `Flyout` reads
+  App's one copy of the contexts (`engineContexts`, from `get_engine_contexts`
+  once per scan) and asks no engine itself, matches item to row by key
   (never by tier: the panel calls `~/.claude.json` "global" where its engine
-  says "user"), and a switch's reply replaces that engine's context at once.
+  says "user"), and a switch's reply replaces that engine's context in App's
+  copy at once.
   Pinned by `McpServerDetail.test.tsx` and `FlyoutMcpSwitch.test.tsx`. Below the rows, a
   warning sentence per kind of disagreement — endpoints, launches — and the
   aligned launch diff for the latter (`:1073-1118`).
@@ -1919,9 +1921,10 @@ is that leading server, else the first asset row, else no row at all (a
 actions are the only rows. A row the user reaches with the keys, the pointer
 or a click stays highlighted while the query stands; a row cmdk picks on its
 own is overruled. While any action is listed, neither the hint nor "Nothing
-matches" shows; before the first scan none are listed. App builds them: each open reads
-`get_engine_context` for every engine the engine chips list, once, and
-keeps the replies until close; a non-empty query yields the items with
+matches" shows; before the first scan none are listed. App builds them from
+its one copy of the contexts (`get_engine_contexts`, read once per scan and
+replaced by every switch's reply), for the engines the engine chips list;
+opening the palette reads nothing. A non-empty query yields the items with
 `read_only === null` whose name contains it, any case, at most eight,
 labelled `paletteActionLabel` with the engine name as `detail`. Picking one
 closes the palette and calls `useMcpSwitch`'s `switchServer` with the

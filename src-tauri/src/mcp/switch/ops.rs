@@ -1,9 +1,11 @@
-//! What the webview may ask of `mcp::switch`: one engine's context, a
-//! switch, an Undo, a measurement, and the servers Hanger is keeping off.
+//! What the webview may ask of `mcp::switch`: one engine's context, every
+//! engine's, a switch, an Undo, a measurement, and the servers Hanger is
+//! keeping off.
 //!
-//! Five commands in `lib.rs` call this module and nothing else in
-//! `mcp::switch`: `get_engine_context`, `set_mcp_server_enabled`,
-//! `undo_mcp_switch`, `measure_engine_context` and `get_kept_off_servers`.
+//! Six commands in `lib.rs` call this module and nothing else in
+//! `mcp::switch`: `get_engine_context`, `get_engine_contexts`,
+//! `set_mcp_server_enabled`, `undo_mcp_switch`, `measure_engine_context` and
+//! `get_kept_off_servers`.
 //! Each is a thin wrapper.
 //! Every folder is a parameter here (`SwitchPlaces`), so the tests in
 //! `tests/mcp_switch_tests.rs` and `tests/ipc_boundary_tests.rs` run against
@@ -99,7 +101,7 @@ use crate::domain::RegistrationKey;
 use crate::mcp::dialect::strip_jsonc;
 use crate::mcp::discover::{discover_machine_at, engine_display_name, DiscoveryResult, Registration};
 use crate::mcp::engine_summary::is_askable;
-use crate::mcp::registry::{switch_for, Dialect, ScopeTier, SwitchKind, SWITCHES};
+use crate::mcp::registry::{host_by_id, switch_for, Dialect, ScopeTier, SwitchKind, SWITCHES};
 use crate::mcp::switch::apply::{self, ApplyError, Format};
 use crate::mcp::switch::context::{self, ContextItem, EngineContext, ItemState, Measured};
 use crate::mcp::switch::edit::{self, EditError};
@@ -311,6 +313,34 @@ where
     P: FnMut(&str) -> Option<Measured>,
 {
     context_of(&look(places), engine_id, probe_of)
+}
+
+/// Every engine's context, from one discovery pass: what one `context_for`
+/// per engine would give, for each engine that has an item.
+///
+/// The engines are every host the machine pass finds a registration of for,
+/// local-scope ones aside, in the order discovery first saw each; then, if
+/// it is not listed already, the engine switched through `claude` when
+/// Hanger is keeping a server for it. Any other host's context has no items,
+/// and is left out. `probe_of` is asked as `context_for` asks it.
+pub fn contexts_for<P>(places: &SwitchPlaces, mut probe_of: P) -> Vec<EngineContext>
+where
+    P: FnMut(&str) -> Option<Measured>,
+{
+    let seen = look(places);
+    let mut engines: Vec<&str> = Vec::new();
+    for reg in &seen.discovered.registrations {
+        if reg.tier != ScopeTier::Local && host_by_id(reg.host_id).is_some() && !engines.contains(&reg.host_id) {
+            engines.push(reg.host_id);
+        }
+    }
+    if !seen.stashed.is_empty() {
+        let keeper = SWITCHES.iter().find(|row| row.kind == SwitchKind::ClaudeCli).map(|row| row.host_id);
+        if let Some(keeper) = keeper.filter(|id| !engines.contains(id)) {
+            engines.push(keeper);
+        }
+    }
+    engines.into_iter().map(|engine_id| context_of(&seen, engine_id, &mut probe_of)).collect()
 }
 
 /// What the probe cache holds for one launch, as a context wants it. `None`:

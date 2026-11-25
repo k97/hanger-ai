@@ -138,6 +138,7 @@ vi.mock("@tauri-apps/api/core", () => ({
     if (cmd === "get_mcp_engine_summary") return SUMMARY;
     if (cmd === "get_kept_off_servers") return KEPT;
     if (cmd === "get_engine_context") return contexts[args.engineId] ?? context(args.engineId, args.engineId, []);
+    if (cmd === "get_engine_contexts") return ["codex", "gemini", "claude-code"].map((id) => contexts[id]);
     if (cmd === "search_assets") return { hits: [], total: 0 };
     // Already as asked: nothing changed, so no notice and no rescan.
     if (cmd === "set_mcp_server_enabled")
@@ -283,7 +284,7 @@ describe("⌘K's Switch actions", () => {
     await completeScan();
     openPalette();
     await screen.findByLabelText("Search assets");
-    await waitFor(() => expect(calls("get_engine_context")).toHaveLength(3));
+    await waitFor(() => expect(calls("get_engine_contexts")).toHaveLength(1));
     expect(switchGroup()).toBeNull();
     await type("   ");
     expect(switchGroup()).toBeNull();
@@ -306,22 +307,23 @@ describe("⌘K's Switch actions", () => {
     expect(actionLabels()).toEqual(Array.from({ length: 8 }, (_, i) => `Switch srv${i} off for Engine G`));
   });
 
-  it("reads each listed engine's context once per open, and again on the next", async () => {
+  it("reads no context when it opens: its actions come from the scan's one read", async () => {
     render(<App />);
     await completeScan();
-    expect(calls("get_engine_context")).toEqual([]);
+    expect(calls("get_engine_contexts")).toHaveLength(1);
 
     openPalette();
     await type("a");
     await type("al");
     await waitFor(() => expect(switchGroup()).not.toBeNull());
-    expect(calls("get_engine_context").map((a) => a.engineId).sort()).toEqual(["claude-code", "codex", "gemini"]);
 
     fireEvent.keyDown(window, { key: "Escape" });
     await waitFor(() => expect(screen.queryByRole("dialog", { name: "Search" })).toBeNull());
     openPalette();
     await type("al");
-    await waitFor(() => expect(calls("get_engine_context")).toHaveLength(6));
+    await waitFor(() => expect(switchGroup()).not.toBeNull());
+    expect(calls("get_engine_contexts")).toHaveLength(1);
+    expect(calls("get_engine_context")).toEqual([]);
   });
 
   it("on a server's exact name, in any case, Enter opens the server and never switches; one ↓ reaches its switch; a partial match keeps Switch last", async () => {

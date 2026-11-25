@@ -1,7 +1,8 @@
 /**
- * What the four switch commands hand back: `get_engine_context`,
- * `set_mcp_server_enabled`, `undo_mcp_switch` and `measure_engine_context`;
- * and `get_kept_off_servers`'s report.
+ * What the switch commands hand back: `get_engine_context`,
+ * `get_engine_contexts` (a list of contexts), `set_mcp_server_enabled`,
+ * `undo_mcp_switch` and `measure_engine_context`; and
+ * `get_kept_off_servers`'s report.
  *
  * A hand-written mirror of `mcp::switch::context` and `mcp::switch::ops` in
  * the Rust core, narrowed to what those modules emit. Where the Rust type

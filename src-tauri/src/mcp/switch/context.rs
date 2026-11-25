@@ -3,7 +3,8 @@
 //! cost in context.
 //!
 //! `ops` is its only caller, for the commands `get_engine_context`,
-//! `set_mcp_server_enabled`, `undo_mcp_switch` and `measure_engine_context`.
+//! `get_engine_contexts`, `set_mcp_server_enabled`, `undo_mcp_switch` and
+//! `measure_engine_context`.
 //!
 //! A fold. It opens no file, no database and no process, and it logs
 //! nothing: the registrations, the kept servers, Gemini CLI's state file, a

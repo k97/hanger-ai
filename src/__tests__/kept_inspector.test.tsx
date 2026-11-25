@@ -134,6 +134,7 @@ vi.mock("@tauri-apps/api/core", () => ({
     if (cmd === "get_mcp_engine_summary") return SUMMARY;
     if (cmd === "get_kept_off_servers") return keptReply;
     if (cmd === "get_engine_context") return contextOf(args.engineId, ITEMS[args.engineId] ?? []);
+    if (cmd === "get_engine_contexts") return ["codex", "claude-code"].map((id) => contextOf(id, ITEMS[id]));
     if (cmd === "get_mcp_processes") return [];
     if (cmd === "get_asset_annotations")
       return [

@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 /** App's share of the switchable engine tiles (T2 of
- *  docs/plans/2026-11-25-ia-engines-into-global.md): it reads each listed
- *  engine's context for Global's MCP servers rows, hands it down, runs a tile
+ *  docs/plans/2026-11-25-ia-engines-into-global.md): it reads every engine's
+ *  context once per scan, hands the listed ones down, runs a tile
  *  click through the one switch state, so the notice offers Undo, and takes
  *  the reply's context at once, with no rescan. */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
@@ -114,6 +114,7 @@ vi.mock("@tauri-apps/api/core", () => ({
         },
       ];
     if (cmd === "get_engine_context") return answerContext();
+    if (cmd === "get_engine_contexts") return [await answerContext()];
     if (cmd === "set_mcp_server_enabled") return { context: codex("off"), receipt_id: "r1", undoable: true };
     if (cmd === "start_scan") return "mock-scan-id";
     return null;
@@ -152,15 +153,26 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe("Global › MCP servers: App wires the engine tiles to the switch", () => {
-  it("reads each listed engine's context, and until it lands the tile is display only", async () => {
+  it("reads every engine's context once per scan, and until it lands the tile is display only", async () => {
     let release: (c: EngineContext) => void = () => {};
     answerContext = () => new Promise((r) => (release = r));
     render(<App />);
-    await completeScan();
-    await waitFor(() => expect(calls("get_engine_context")).toEqual([{ engineId: "codex" }]));
+    // The scan's handler waits on the read, so it is not awaited here.
+    await waitFor(() => expect(eventListeners["scan://complete"]).toBeDefined());
+    let handled: Promise<unknown> = Promise.resolve();
+    act(() => {
+      handled = eventListeners["scan://complete"]({
+        payload: { inventory: { agents: [], skills: [], tools: [TOOL], rules: [], subagents: [], project_scans: [] } },
+      });
+    });
+    await waitFor(() => expect(calls("get_engine_contexts")).toEqual([undefined]));
+    expect(calls("get_engine_context")).toEqual([]);
     expect((await screen.findByTestId("reach-tile-codex")).tagName).toBe("I");
 
-    await act(async () => release(codex("on")));
+    await act(async () => {
+      release(codex("on"));
+      await handled;
+    });
     const btn = await screen.findByRole("button", { name: "Switch alpha off for Engine C" });
     expect(btn.getAttribute("aria-pressed")).toBe("true");
   });
@@ -169,7 +181,7 @@ describe("Global › MCP servers: App wires the engine tiles to the switch", () 
     render(<App />);
     await completeScan();
     const before = await screen.findByRole("button", { name: "Switch alpha off for Engine C" });
-    const contextReads = calls("get_engine_context").length;
+    const contextReads = calls("get_engine_contexts").length;
     fireEvent.click(before);
 
     await waitFor(() =>
@@ -182,7 +194,8 @@ describe("Global › MCP servers: App wires the engine tiles to the switch", () 
     const after = await screen.findByRole("button", { name: "Switch alpha on for Engine C" });
     expect(after.getAttribute("aria-pressed")).toBe("false");
     // The reply's context, not a second read.
-    expect(calls("get_engine_context")).toHaveLength(contextReads);
+    expect(calls("get_engine_contexts")).toHaveLength(contextReads);
+    expect(calls("get_engine_context")).toEqual([]);
 
     const row = after.closest("[data-selected]") as HTMLElement;
     expect(row.getAttribute("data-selected")).toBe("false");

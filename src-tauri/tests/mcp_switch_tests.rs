@@ -4995,3 +4995,57 @@ fn every_engine_context_carries_the_annotations_engine_key() {
     assert_eq!(context::engine_context("claude-code", &found, &[], None, |_| None, |_| None).engine_key.as_deref(), Some("claude_code"));
     assert_eq!(context::engine_context("no-such-engine", &found, &[], None, |_| None, |_| None).engine_key, None);
 }
+
+// ---------------------------------------------------------------------------
+// Every engine's context from one look (Q1 of docs/plans/2026-11-25-t3-code-review.md)
+// ---------------------------------------------------------------------------
+
+/// `get_engine_contexts` is one discovery pass, and what it hands back is
+/// exactly what one `get_engine_context` per engine would. Its engines are
+/// those with an item: every host the machine pass finds a non-local
+/// registration for, in the order discovery first saw each, then Claude Code
+/// when the only servers it has are the ones Hanger is keeping. Every other
+/// host's context is empty.
+#[tokio::test]
+async fn contexts_for_matches_context_for_per_engine() {
+    let (stage, _kept, _) = with_beta_off().await;
+    let home = stage.root.join("home");
+    // Claude Code declares nothing now: beta is kept, and alpha is gone too.
+    fs::write(&stage.config, "{}").unwrap();
+    for (rel, body) in [
+        (".gemini/settings.json", CTX_GEMINI_HOME),
+        (".codex/config.toml", CTX_CODEX),
+        (".cursor/mcp.json", CTX_HOME_MCP_JSON),
+    ] {
+        fs::create_dir_all(home.join(rel).parent().unwrap()).unwrap();
+        fs::write(home.join(rel), body).unwrap();
+    }
+    fs::write(home.join(".gemini/mcp-server-enablement.json"), CTX_GEMINI_BETA_OFF).unwrap();
+    let places = stage.places();
+    // A cost that differs by launch, so a context built from the wrong
+    // engine's answers cannot compare equal.
+    let probe = |launch: &str| Some(Measured { estimated_tokens: launch.len() as u64, tool_count: 1 });
+
+    let all = ops::contexts_for(&places, probe);
+
+    let mut first_seen: Vec<&str> = Vec::new();
+    for reg in discover::discover_machine_at(&places.home, &places.system).registrations.iter() {
+        if reg.tier != ScopeTier::Local && registry::host_by_id(reg.host_id).is_some() && !first_seen.contains(&reg.host_id) {
+            first_seen.push(reg.host_id);
+        }
+    }
+    assert!(!first_seen.contains(&"claude-code"), "the fixture's Claude Code declares nothing: {first_seen:?}");
+    let mut expected = first_seen.clone();
+    expected.push("claude-code");
+    let ids: Vec<&str> = all.iter().map(|ctx| ctx.engine_id.as_str()).collect();
+    assert_eq!(ids, expected);
+    assert!(["codex", "gemini", "cursor"].iter().all(|id| ids.contains(id)), "{ids:?}");
+
+    for ctx in &all {
+        assert!(!ctx.items.is_empty(), "{} is listed with no item", ctx.engine_id);
+        assert_eq!(ctx, &ops::context_for(&places, &ctx.engine_id, probe), "{}", ctx.engine_id);
+    }
+    for host in registry::HOSTS.iter().filter(|host| !ids.contains(&host.id)) {
+        assert!(ops::context_for(&places, host.id, probe).items.is_empty(), "{} has items and is not listed", host.id);
+    }
+}

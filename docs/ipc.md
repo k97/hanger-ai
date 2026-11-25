@@ -454,3 +454,15 @@ A kept server holds no command, argument, env variable or header.
   "only_kept_count": 1
 }
 ```
+
+---
+
+## 20. get_engine_contexts
+
+Returns every engine's context from one pass over the machine's config files: for each engine, exactly what `get_engine_context` returns for it. The webview reads this once per scan and keeps the one copy every surface reads. Reads config files and the probe cache, and starts no server.
+
+- **Command Name:** `get_engine_contexts`
+- **Arguments:** None
+- **Response:** `EngineContext[]` (the schema under `get_engine_context`). This command does not fail.
+
+The list holds each engine that has an item: every engine the config files declare a server for, outside one project's local scope, in the order they were found; then Claude Code, if Hanger is keeping a server for it and it declares none. Any other engine's context has no items and is left out.

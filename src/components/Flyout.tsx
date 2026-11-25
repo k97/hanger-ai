@@ -90,11 +90,12 @@ interface FlyoutProps {
    *  it keeps the memory (Karthik's ruling, 2026-08-29). */
   landingNonce?: number;
   /** App's one switch state (`useMcpSwitch`). Without it the MCP server
-   *  panel asks no engine and draws no switch. */
+   *  panel draws no switch. */
   switcher?: McpSwitch;
-  /** Bumped by App on every `scan://complete`, so the engines a server's
-   *  panel asked are asked again. */
-  refreshNonce?: number;
+  /** App's one copy of every engine's context (`get_engine_contexts`, read
+   *  once per scan and replaced by every switch's reply): what the MCP
+   *  server panel's switches read. */
+  engineContexts?: readonly EngineContext[];
   /** The MCP server panel's engine-name links, carried to it unchanged
    *  (`McpServerDetail`'s `linkedEngines` / `onOpenEngine`). */
   linkedEngines?: readonly string[];
@@ -104,7 +105,7 @@ interface FlyoutProps {
    *  docs/plans/2026-11-25-ia-engines-into-global.md). It has no inventory
    *  asset, so App passes it in place of `selectedAsset`, never with one. */
   keptServer?: KeptOffServer | null;
-  /** A kept server's switch reply context, for App to take. */
+  /** A switch's reply context, for App's one copy to take. */
   onEngineContext?: (ctx: EngineContext) => void;
   /** "Show it" on a kept server some config file still declares: opens that
    *  declared server's own inspector. Absent when App found no such server
@@ -252,7 +253,7 @@ export default function Flyout({
   screen,
   landingNonce,
   switcher,
-  refreshNonce,
+  engineContexts,
   linkedEngines,
   onOpenEngine,
   keptServer = null,
@@ -734,39 +735,6 @@ export default function Flyout({
       ? buildMcpServerView(inventory?.tools, targetAsset.name, mcpProcesses ?? [])
       : null;
 
-  /* Each engine's context (`get_engine_context`), by engine id: what the
-     panel's switches read. Asked once per engine, not per registration --
-     one engine can declare the server in two files, and its one reply holds
-     both. Asked again when another server opens and on every rescan
-     (`refreshNonce`); until a reply lands, that engine's rows claim nothing.
-     A reply for a server no longer open is dropped. */
-  const [engineContexts, setEngineContexts] = useState<Record<string, EngineContext>>({});
-  const engineIdsKey =
-    mcpView && switcher
-      ? [
-          ...new Set(
-            mcpView.registrations
-              .map((r) => r.engineId)
-              .filter((id): id is string => !!id)
-          ),
-        ].join("\u0000")
-      : "";
-  const mcpServerName = mcpView?.name ?? null;
-  useEffect(() => {
-    if (!engineIdsKey) return;
-    let cancelled = false;
-    for (const engineId of engineIdsKey.split("\u0000")) {
-      invoke<EngineContext | null>("get_engine_context", { engineId })
-        .then((reply) => {
-          if (!cancelled && reply) setEngineContexts((prev) => ({ ...prev, [engineId]: reply }));
-        })
-        .catch(() => {});
-    }
-    return () => {
-      cancelled = true;
-    };
-  }, [mcpServerName, engineIdsKey, refreshNonce]);
-
   /* A registration's item, matched on the key both sides mint from
      `RegistrationKey` -- never on tier: the panel calls `~/.claude.json`
      "global" where its engine says "user", and two files of one engine can
@@ -774,7 +742,7 @@ export default function Flyout({
   const registrationSwitches: Record<string, RegistrationSwitch> = {};
   if (mcpView && switcher) {
     for (const reg of mcpView.registrations) {
-      const ctx = reg.engineId ? engineContexts[reg.engineId] : undefined;
+      const ctx = reg.engineId ? engineContexts?.find((c) => c.engine_id === reg.engineId) : undefined;
       const item = ctx?.items.find((i) => i.key === reg.key);
       if (!ctx || !item) continue;
       registrationSwitches[reg.key] = {
@@ -787,8 +755,9 @@ export default function Flyout({
   }
 
   /* The same request every switch sends for the item. Its reply's
-     context replaces that engine's at once; App's rescan follows from the
-     hook and brings the refetch. */
+     context replaces that engine's in App's copy at once; App's rescan
+     follows from the hook and brings the next read. Until an engine's
+     context is there, its rows claim nothing. */
   const switchRegistration = async (registrationKey: string) => {
     const sw = registrationSwitches[registrationKey];
     if (!sw || !switcher) return;
@@ -800,7 +769,7 @@ export default function Flyout({
       file: sw.item.config_path,
       enabled: sw.item.state !== "on",
     });
-    if (next) setEngineContexts((prev) => ({ ...prev, [next.engine_id]: next }));
+    if (next) onEngineContext?.(next);
   };
 
 

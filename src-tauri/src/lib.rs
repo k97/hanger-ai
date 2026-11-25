@@ -759,6 +759,21 @@ fn get_engine_context(
     }))
 }
 
+/// Every engine's MCP context from one discovery pass: what
+/// `get_engine_context` gives for each engine that has a server, in the order
+/// discovery first found each (`mcp::switch::ops::contexts_for`). The
+/// webview's one copy of the contexts is read from this once per scan.
+///
+/// Reads config files and the probe cache, and starts nothing, as
+/// `get_engine_context` does. `(async)` for the same reason.
+#[tauri::command(async)]
+fn get_engine_contexts(app: AppHandle) -> Result<Vec<mcp::switch::context::EngineContext>, String> {
+    let db_path = get_db_path(&app);
+    Ok(mcp::switch::ops::contexts_for(&switch_places(&app), |launch| {
+        mcp::switch::ops::cached_measure(&db_path, launch)
+    }))
+}
+
 /// Switch one MCP server off or on for one engine.
 ///
 /// `key` is an item's `key` from that engine's context, and is accepted only
@@ -2265,6 +2280,7 @@ pub fn run() {
             get_mcp_coverage,
             get_mcp_engine_summary,
             get_engine_context,
+            get_engine_contexts,
             set_mcp_server_enabled,
             undo_mcp_switch,
             measure_engine_context,

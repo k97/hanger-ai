@@ -1,15 +1,16 @@
 // @vitest-environment happy-dom
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, cleanup, fireEvent, waitFor, within, act } from "@testing-library/react";
+import { useState } from "react";
+import { render, screen, cleanup, fireEvent, waitFor, within } from "@testing-library/react";
 import Flyout from "./Flyout";
 import { Inventory } from "../App";
 import { useMcpSwitch } from "../hooks/useMcpSwitch";
 import type { ContextItem, EngineContext, SwitchReply } from "../types/engineContext";
 
 /**
- * The MCP server inspector's switches, joined up: which engines the panel
- * asks, how a registration finds its item in an engine's reply, and what a
- * click sends. `McpServerDetail.test.tsx` covers how a row draws what it is
+ * The MCP server inspector's switches, joined up: how a registration finds
+ * its item in App's one copy of the contexts (`engineContexts`, read once
+ * per scan), and what a click sends. `McpServerDetail.test.tsx` covers how a row draws what it is
  * handed; this covers what `Flyout` hands it.
  */
 
@@ -82,7 +83,7 @@ const inventory: Inventory = {
 
 const selected = { name: "spades-audio", category: "Tools", path: "/Users/x/.claude.json" };
 
-// Items shaped as `get_engine_context` sends them (docs/ipc.md entry 15):
+// Items shaped as `get_engine_contexts` sends them (docs/ipc.md entries 15, 20):
 // Claude Code calls `~/.claude.json` its user tier and `~/.mcp.json` global;
 // the panel calls both "global".
 const item = (over: Partial<ContextItem> & Pick<ContextItem, "key" | "tier" | "config_path">): ContextItem => ({
@@ -116,17 +117,13 @@ const codexContext = context("codex", "Codex", [
   item({ key: CODEX, tier: "global", config_path: "~/.codex/config.toml", read_only: "file_unparseable" }),
 ]);
 
-const engineCalls = () => invoke.mock.calls.filter(([cmd]) => cmd === "get_engine_context");
-const callsFor = (engineId: string) => engineCalls().filter(([, a]) => (a as { engineId: string }).engineId === engineId);
-
-let answerContext: (engineId: string) => Promise<EngineContext | null>;
+const contextReads = () =>
+  invoke.mock.calls.filter(([cmd]) => cmd === "get_engine_context" || cmd === "get_engine_contexts");
 
 beforeEach(() => {
   invoke.mockReset();
-  answerContext = (engineId) =>
-    Promise.resolve(engineId === "claude-code" ? claudeContext("on") : engineId === "codex" ? codexContext : null);
-  invoke.mockImplementation((cmd: string, args?: { engineId: string }) => {
-    if (cmd === "get_engine_context") return answerContext(args!.engineId);
+  invoke.mockImplementation((cmd: string) => {
+    if (cmd === "get_engine_context" || cmd === "get_engine_contexts") return Promise.resolve(null);
     if (cmd === "set_mcp_server_enabled") {
       const reply: SwitchReply = { context: claudeContext("off"), receipt_id: "r1", undoable: true };
       return Promise.resolve(reply);
@@ -140,9 +137,16 @@ beforeEach(() => {
 
 afterEach(cleanup);
 
-/** App's part: the one switch state, and the nonce a scan bumps. */
-function Harness({ refreshNonce = 0 }: { refreshNonce?: number }) {
+/** App's part: the one switch state, and the one copy of the contexts,
+ *  which a switch's reply replaces. */
+function Harness({ contexts }: { contexts: EngineContext[] }) {
   const switcher = useMcpSwitch({ onChanged: () => {} });
+  const [held, setHeld] = useState(contexts);
+  const [given, setGiven] = useState(contexts);
+  if (given !== contexts) {
+    setGiven(contexts);
+    setHeld(contexts);
+  }
   return (
     <Flyout
       onOpenConfig={() => {}}
@@ -152,44 +156,41 @@ function Harness({ refreshNonce = 0 }: { refreshNonce?: number }) {
       linkedProjects={[]}
       onRefresh={() => {}}
       switcher={switcher}
-      refreshNonce={refreshNonce}
+      engineContexts={held}
+      onEngineContext={(next) => setHeld((prev) => prev.map((c) => (c.engine_id === next.engine_id ? next : c)))}
     />
   );
 }
+
+const BOTH = [claudeContext("on"), codexContext];
 
 const openDetails = () => fireEvent.click(screen.getByRole("tab", { name: "Details" }));
 const rows = () => screen.getAllByTestId("registration-row");
 
 describe("Flyout — switching an MCP server from its inspector", () => {
-  it("asks each engine once, even when it declares the server twice, and asks no engine for a repository row", async () => {
-    render(<Harness />);
+  it("reads no context of its own: every row is drawn from App's copy", async () => {
+    render(<Harness contexts={BOTH} />);
     openDetails();
     await screen.findByRole("button", { name: "Claude Code, /Users/x/.claude.json" });
-    expect(callsFor("claude-code")).toHaveLength(1);
-    expect(callsFor("codex")).toHaveLength(1);
-    expect(engineCalls()).toHaveLength(2);
+    expect(contextReads()).toEqual([]);
   });
 
-  it("claims no state on any row before that engine's first reply lands", async () => {
-    let release: (c: EngineContext) => void = () => {};
-    answerContext = (engineId) =>
-      engineId === "claude-code" ? new Promise((r) => (release = r)) : new Promise(() => {});
-    render(<Harness />);
+  it("claims no state on a row whose engine has no context in the copy yet", async () => {
+    const { rerender } = render(<Harness contexts={[]} />);
     openDetails();
-    await waitFor(() => expect(engineCalls()).toHaveLength(2));
     for (const row of rows()) {
       expect(within(row).queryByTestId("layer-switch")).toBeNull();
       expect(within(row).queryByText(/^(On|Off)$/)).toBeNull();
     }
 
-    await act(async () => release(claudeContext("on")));
-    expect(within(rows()[0]).getByTestId("layer-switch")).toBeTruthy();
-    // Codex has not answered: its row still claims nothing.
+    rerender(<Harness contexts={[claudeContext("on")]} />);
+    await waitFor(() => expect(within(rows()[0]).getByTestId("layer-switch")).toBeTruthy());
+    // Codex is not in the copy: its row still claims nothing.
     expect(within(rows()[2]).queryByText(/^(On|Off)$/)).toBeNull();
   });
 
   it("matches each row to its own item by key, not by tier", async () => {
-    render(<Harness />);
+    render(<Harness contexts={BOTH} />);
     openDetails();
     const user = await screen.findByRole("button", { name: "Claude Code, /Users/x/.claude.json" });
     const global = screen.getByRole("button", { name: "Claude Code, /Users/x/.mcp.json" });
@@ -199,7 +200,7 @@ describe("Flyout — switching an MCP server from its inspector", () => {
   });
 
   it("a click asks that row's engine with that row's key, and the row follows the reply", async () => {
-    render(<Harness />);
+    render(<Harness contexts={BOTH} />);
     openDetails();
     const sw = await screen.findByRole("button", { name: "Claude Code, /Users/x/.claude.json" });
     fireEvent.click(sw);
@@ -214,7 +215,7 @@ describe("Flyout — switching an MCP server from its inspector", () => {
   });
 
   it("a read-only item shows its state and why, and a repository row shows neither", async () => {
-    render(<Harness />);
+    render(<Harness contexts={BOTH} />);
     openDetails();
     const codexRow = rows()[2];
     await within(codexRow).findByText("On");
@@ -228,12 +229,17 @@ describe("Flyout — switching an MCP server from its inspector", () => {
     expect(within(projectRow).queryByText(/^(On|Off)$/)).toBeNull();
   });
 
-  it("asks again after a scan", async () => {
-    const { rerender } = render(<Harness refreshNonce={0} />);
+  it("draws a new copy from App when the next scan hands one down", async () => {
+    const { rerender } = render(<Harness contexts={BOTH} />);
     openDetails();
-    await waitFor(() => expect(engineCalls()).toHaveLength(2));
-    rerender(<Harness refreshNonce={1} />);
-    await waitFor(() => expect(engineCalls()).toHaveLength(4));
-    expect(callsFor("claude-code")).toHaveLength(2);
+    const sw = await screen.findByRole("button", { name: "Claude Code, /Users/x/.claude.json" });
+    expect(sw.getAttribute("aria-pressed")).toBe("true");
+    rerender(<Harness contexts={[claudeContext("off"), codexContext]} />);
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "Claude Code, /Users/x/.claude.json" }).getAttribute("aria-pressed")
+      ).toBe("false")
+    );
+    expect(contextReads()).toEqual([]);
   });
 });

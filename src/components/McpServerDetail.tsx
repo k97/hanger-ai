@@ -62,9 +62,10 @@ interface Registration {
   host: string;
   /** `global` | `user` | `local` | `project` — where the declaration lives. */
   tier: string;
-  /** The host id whose `get_engine_context` can switch this registration:
+  /** The host id whose engine context can switch this registration:
    *  the scope's agent on a machine-level row, `null` on a project or local
-   *  one. Read by `Flyout`, which asks the engine; this panel reads only what
+   *  one. Read by `Flyout`, which finds that engine's context in App's copy;
+   *  this panel reads only what
    *  `switches` hands it. Always set by `buildMcpServerView`, optional so a
    *  hand-built view needs no engine. */
   engineId?: string | null;
@@ -198,9 +199,9 @@ interface Props {
   onOpenConfig: (path: string) => void;
   /**
    * What an engine said about a registration, by REGISTRATION key: present
-   * only for a row whose engine has answered `get_engine_context` with an item
-   * of the same key. A row without one draws nothing new, so nothing is
-   * claimed before that engine's reply lands. Built by `Flyout`.
+   * only for a row whose engine's context holds an item of the same key. A
+   * row without one draws nothing new, so nothing is claimed before that
+   * engine's context lands. Built by `Flyout`.
    */
   switches?: Record<string, RegistrationSwitch>;
   /** The switch on that registration's row was clicked. */

@@ -162,7 +162,8 @@ interface ProfilePaneProps {
   onOpenKeptOff?: (key: string) => void;
   /** The kept server the inspector is showing, whose row reads as selected. */
   selectedKeptKey?: string | null;
-  /** Each listed engine's context (`get_engine_context`), App's copy. With
+  /** Each listed engine's context, from App's one copy
+   *  (`get_engine_contexts`, read once per scan). With
    *  `switcher`, it makes the MCP servers rows' engine tiles switches (T2 of
    *  docs/plans/2026-11-25-ia-engines-into-global.md). `null` before the
    *  replies land: every tile stays display only. The picked engine's is

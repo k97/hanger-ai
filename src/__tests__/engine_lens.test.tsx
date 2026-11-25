@@ -147,6 +147,7 @@ vi.mock("@tauri-apps/api/core", () => ({
     if (cmd === "get_mcp_engine_summary") return SUMMARY;
     if (cmd === "get_kept_off_servers") return KEPT;
     if (cmd === "get_engine_context") return contextOf(args.engineId, NAMES[args.engineId] ?? args.engineId);
+    if (cmd === "get_engine_contexts") return ["codex", "gemini", "claude-code"].map((id) => contextOf(id, NAMES[id]));
     if (cmd === "get_mcp_processes") return [];
     if (cmd === "start_scan") return "mock-scan-id";
     return null;
@@ -282,9 +283,7 @@ describe("the engine chips", () => {
     render(<App />);
     await completeScan();
     await waitFor(() => expect(chip("Engine G").getAttribute("aria-pressed")).toBe("true"));
-    await waitFor(() =>
-      expect(vi.mocked(invoke).mock.calls.some((c) => c[0] === "get_engine_context" && (c[1] as any).engineId === "gemini")).toBe(true)
-    );
+    await waitFor(() => expect(vi.mocked(invoke).mock.calls.some((c) => c[0] === "get_engine_contexts")).toBe(true));
   });
 
   it("fall back to All engines when the stored engine is not in the list", async () => {

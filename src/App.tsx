@@ -844,9 +844,7 @@ export default function App() {
         await refreshMcpCoverage();
         await refreshMcpEngineSummary();
         await refreshKeptOff();
-        // After the replies the Engines list is built from, so the pane reads
-        // its engine again against the list they produce.
-        setScanNonce((n) => n + 1);
+        await refreshEngineContexts();
 
         // If onboarding was incomplete, mark it complete now!
         setOnboardingComplete((prev) => {
@@ -1048,6 +1046,30 @@ export default function App() {
     }
   };
 
+  // Every engine's context (docs/ipc.md entry 20), the one copy each surface
+  // that shows an engine's servers reads: the engine tiles on Global's rows
+  // and the picked engine's filter, the MCP server inspector's switches and
+  // ⌘K's Switch actions. Read once per scan, right after the kept servers;
+  // a switch's, an Undo's or Measure all's reply replaces that engine's
+  // entry at once (`recordContext`). A read that fails keeps what was there.
+  const [engineContexts, setEngineContexts] = useState<EngineContext[] | null>(null);
+  const refreshEngineContexts = async () => {
+    try {
+      const reply = await invoke<EngineContext[]>("get_engine_contexts");
+      if (Array.isArray(reply)) setEngineContexts(reply);
+    } catch {
+      // The contexts stay as they were.
+    }
+  };
+  const recordContext = (ctx: EngineContext | null) => {
+    if (!ctx) return;
+    setEngineContexts((prev) =>
+      prev?.some((c) => c.engine_id === ctx.engine_id)
+        ? prev.map((c) => (c.engine_id === ctx.engine_id ? ctx : c))
+        : [...(prev ?? []), ctx]
+    );
+  };
+
   // The one switch state. A switch or an Undo that changed a file rescans,
   // as unlink and deploy do, so the MCP servers list and its counts stay
   // true. It reads the kept servers again at once too: a Claude Code server
@@ -1068,9 +1090,6 @@ export default function App() {
   // so a stale preference never filters by an engine the list cannot show.
   // Persisted on every pick, All engines as "" (Q2).
   const [storedEngine, setStoredEngine] = useState<string | null>(null);
-  // Bumped on every `scan://complete`, so the MCP server inspector's
-  // switches read again.
-  const [scanNonce, setScanNonce] = useState(0);
   const engineRows = enginesList(mcpEngineSummary, keptOff);
   const selectedEngine = engineRows?.find((e) => e.engine_id === storedEngine)?.engine_id ?? null;
   const selectedEngineName = engineRows?.find((e) => e.engine_id === selectedEngine)?.engine_name ?? null;
@@ -1079,31 +1098,12 @@ export default function App() {
     invoke("set_preference", { key: "selected_engine", value: engineId ?? "" }).catch(() => {});
   };
 
-  // ⌘K's "Switch" actions. Each open reads the context of every engine the
-  // Engines tab lists, once, and keeps the replies until the palette
-  // closes. State, not a ref: a reply that lands after the first keystroke
-  // must still put its actions on screen.
-  const [paletteContexts, setPaletteContexts] = useState<EngineContext[] | null>(null);
-  useEffect(() => {
-    if (!searchOpen) {
-      setPaletteContexts(null);
-      return;
-    }
-    if (!engineRows || engineRows.length === 0) return;
-    let cancelled = false;
-    Promise.all(
-      engineRows.map((e) =>
-        invoke<EngineContext>("get_engine_context", { engineId: e.engine_id }).catch(() => null)
-      )
-    ).then((replies) => {
-      if (!cancelled) setPaletteContexts(replies.filter((c): c is EngineContext => c !== null));
-    });
-    return () => {
-      cancelled = true;
-    };
-    // Once per open: the list is read as it stands when the palette opens.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchOpen]);
+  // Each listed engine's context, in the chips' order, from the one copy.
+  // Until the first read lands, no tile switches and ⌘K offers no Switch
+  // action.
+  const listedContexts = (engineRows ?? []).flatMap(
+    (e) => engineContexts?.find((c) => c.engine_id === e.engine_id) ?? []
+  );
 
   /** The servers a query names that Hanger can switch, at most eight. Each
    *  runs the switch the Engines pane's own button would, with the same
@@ -1111,8 +1111,7 @@ export default function App() {
    *  is the query, in any case, is `exact`, and the palette then lists the
    *  group first (D7 of docs/plans/2026-11-25-ia-engines-into-global.md). */
   const paletteActions = (query: string): PaletteAction[] => {
-    if (paletteContexts === null) return [];
-    return switchableNamed(paletteContexts, query)
+    return switchableNamed(listedContexts, query)
       .map((target) => ({
         id: `${target.ctx.engine_id}\u0000${target.item.key}`,
         label: paletteActionLabel(target.item.state !== "on", {
@@ -1123,7 +1122,7 @@ export default function App() {
         exact: target.item.name.toLowerCase() === query.toLowerCase(),
         onRun: () => {
           setSearchOpen(false);
-          void mcpSwitch.switchServer(switchRequestFor(target));
+          void mcpSwitch.switchServer(switchRequestFor(target)).then(recordContext);
         },
       }))
       .slice(0, 8);
@@ -1136,37 +1135,6 @@ export default function App() {
   const profileActiveCategory = selectedSidebarItem.includes(":")
     ? selectedSidebarItem.split(":")[1]
     : profileCategory;
-
-  /* Each listed engine's context, by engine id, for the engine tiles on
-     Global's MCP servers rows (T2 of
-     docs/plans/2026-11-25-ia-engines-into-global.md) and for the picked
-     engine's filter. Read while those rows are on screen — Global, on All or
-     MCP servers, with a server to show — or while Global is seen by an
-     engine, on any tab; and again on every scan (`scanNonce`). Until an
-     engine's reply lands its tiles stay display only. A tile switch's reply
-     replaces that engine's entry at once. */
-  const [tileContexts, setTileContexts] = useState<Record<string, EngineContext>>({});
-  const tileEngineIds = (engineRows ?? []).map((e) => e.engine_id).join("\u0000");
-  const serverRowsShown =
-    isGlobalItem(selectedSidebarItem) &&
-    inventory !== null &&
-    (((profileActiveCategory === null || profileActiveCategory === "Tools") && inventory.tools[0] !== undefined) ||
-      selectedEngine !== null);
-  useEffect(() => {
-    if (!serverRowsShown || !tileEngineIds) return;
-    let cancelled = false;
-    for (const engineId of tileEngineIds.split("\u0000")) {
-      invoke<EngineContext | null>("get_engine_context", { engineId })
-        .then((reply) => {
-          if (!cancelled && reply) setTileContexts((prev) => ({ ...prev, [engineId]: reply }));
-        })
-        .catch(() => {});
-    }
-    return () => {
-      cancelled = true;
-    };
-  }, [serverRowsShown, tileEngineIds, scanNonce]);
-  const listedTileContexts = (engineRows ?? []).flatMap((e) => tileContexts[e.engine_id] ?? []);
 
   const [selectedAsset, setSelectedAsset] = useState<any>(null);
   // A kept server in the inspector (T4 of
@@ -2170,9 +2138,9 @@ export default function App() {
               keptOff={keptOff}
               onOpenKeptOff={selectKept}
               selectedKeptKey={selectedKept?.key ?? null}
-              engineContexts={listedTileContexts}
+              engineContexts={listedContexts}
               switcher={mcpSwitch}
-              onEngineContext={(ctx) => setTileContexts((prev) => ({ ...prev, [ctx.engine_id]: ctx }))}
+              onEngineContext={recordContext}
               engines={engineRows}
               selectedEngine={selectedEngine}
               onSelectEngine={selectEngine}
@@ -2438,16 +2406,16 @@ export default function App() {
                 screen={selectedSidebarItem}
                 landingNonce={landingNonce}
                 /* The MCP server panel's switches go through the one switch
-                   state, and ask their engines again after every scan. */
+                   state, and read App's one copy of the contexts. */
                 switcher={mcpSwitch}
-                refreshNonce={scanNonce}
+                engineContexts={engineContexts ?? undefined}
                 /* An engine's name in "Registered in" shows Global seen by
                    it, for any engine the chips list, on the tab already
                    open. */
                 linkedEngines={engineRows?.map((e) => e.engine_id)}
                 onOpenEngine={openEngine}
                 keptServer={selectedKept}
-                onEngineContext={(ctx) => setTileContexts((prev) => ({ ...prev, [ctx.engine_id]: ctx }))}
+                onEngineContext={recordContext}
                 onShowDeclared={showDeclared}
               />
             )}
@@ -2705,7 +2673,7 @@ export default function App() {
       <SwitchNotice
         notice={mcpSwitch.notice}
         onUndo={() => {
-          void mcpSwitch.undo();
+          void mcpSwitch.undo().then(recordContext);
         }}
         onDismiss={mcpSwitch.dismiss}
       />
