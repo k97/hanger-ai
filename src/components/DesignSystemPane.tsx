@@ -933,7 +933,7 @@ export default function DesignSystemPane({ section }: DesignSystemPaneProps) {
             </SummaryStrip>
           </Specimen>
 
-          <Specimen name="SummaryStrip · engine mode" file="SummaryStrip.tsx" note="one engine picked: its budget every session, by kind; only MCP is measured in Phase 1, so the other segments read Not measured; a segment opens its tab; Measure all asks this engine alone">
+          <Specimen name="SummaryStrip · engine mode" file="SummaryStrip.tsx" note="one engine picked: its budget every session, by kind; only MCP is measured in Phase 1, so it is the one segment and the rest share a quiet Not measured line; a segment or a kind's name opens its tab; Measure all asks this engine alone, its caption as its tooltip">
             <SummaryStrip
               total={SAMPLE_ENGINE_HEADLINE.figure}
               subtitle={SAMPLE_ENGINE_HEADLINE.subtitle}

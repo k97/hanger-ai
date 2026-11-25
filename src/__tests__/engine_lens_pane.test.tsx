@@ -434,7 +434,8 @@ const DESK: EngineContext = {
 const display = () => strip().querySelector(".text-display");
 const subtitle = () => strip().querySelector("[title]")?.textContent;
 const segments = () => within(strip()).getByTestId("strip-segments");
-const segment = (name: string) => within(segments()).getByRole("button", { name: new RegExp(`^${name}`) });
+const unmeasured = () => within(strip()).getByTestId("strip-unmeasured");
+const segment = (name: string) => within(strip()).getByRole("button", { name: new RegExp(`^${name}`) });
 const rowOf = (name: string) =>
   Array.from(screen.getByTestId("asset-list-scroll").querySelectorAll("[data-selected]")).find(
     (el) => el.querySelector(".truncate")?.textContent === name
@@ -455,17 +456,15 @@ describe("the strip with an engine picked shows its budget, on every tab", () =>
     }
   });
 
-  it("splits it by kind: MCP as the budget prints it, the other three Not measured", () => {
+  it("splits it by kind: one MCP segment as the budget prints it, one quiet line for the other three", () => {
     render(<ProfilePane {...props({ selectedEngine: "codex" })} />);
     const figures = engineBandFigures(CODEX);
-    const mcp = segment("MCP servers");
-    expect(mcp.textContent).toBe(`MCP servers${figures.value}${figures.secondary}`);
+    expect(within(segments()).getAllByRole("button")).toHaveLength(1);
+    expect(segment("MCP servers").textContent).toBe(`MCP servers ${figures.value} · ${figures.secondary}`);
     expect(figures.secondary).toBe("2 of 3 servers measured · 1 off");
-    for (const kind of ["Skills", "Rules", "Subagents"]) {
-      expect(segment(kind).textContent).toBe(`${kind}Not measured`);
-    }
-    expect(within(segments()).getAllByRole("button").map((b) => b.textContent?.split(/[≈N]/)[0])).toEqual([
-      "MCP servers",
+    // Built from the tabs' labels and the approved "Not measured".
+    expect(unmeasured().textContent).toBe("Skills · Rules · Subagents: Not measured");
+    expect(within(unmeasured()).getAllByRole("button").map((b) => b.textContent)).toEqual([
       "Skills",
       "Rules",
       "Subagents",
@@ -476,7 +475,7 @@ describe("the strip with an engine picked shows its budget, on every tab", () =>
     render(<ProfilePane {...props({ selectedEngine: "claude-desktop", engineContexts: [CODEX, CLAUDE, DESK] })} />);
     expect(display()).toBeNull();
     expect(subtitle()).toBe("Not measured · Engine D");
-    expect(segment("MCP servers").textContent).toBe("MCP serversNot measured0 of 1 servers measured");
+    expect(segment("MCP servers").textContent).toBe("MCP servers Not measured · 0 of 1 servers measured");
     expect(strip().textContent).not.toContain("≈");
   });
 
@@ -499,7 +498,9 @@ describe("the strip with an engine picked shows its budget, on every tab", () =>
     invoke.mockImplementation(async (cmd: string) => (cmd === "measure_engine_context" ? measured : null));
     const onEngineContext = vi.fn();
     render(<ProfilePane {...props({ selectedEngine: "codex", onEngineContext })} />);
-    expect(within(strip()).getByText(MEASURE_ALL_CAPTION)).toBeTruthy();
+    const measure = within(strip()).getByRole("button", { name: "Measure all" });
+    expect(measure.getAttribute("title")).toBe(MEASURE_ALL_CAPTION);
+    expect(document.getElementById(measure.getAttribute("aria-describedby") ?? "")?.textContent).toBe(MEASURE_ALL_CAPTION);
     fireEvent.click(within(strip()).getByRole("button", { name: "Measure all" }));
     await waitFor(() => expect(onEngineContext).toHaveBeenCalledWith(measured));
     expect(invoke.mock.calls.filter((c) => c[0] === "measure_engine_context")).toEqual([
@@ -508,15 +509,22 @@ describe("the strip with an engine picked shows its budget, on every tab", () =>
     await waitFor(() => expect(within(strip()).getByRole("button", { name: "Measure all" })).toBeTruthy());
   });
 
-  it("wraps its four segments two by two below 640px, as a class contract", () => {
-    // happy-dom applies no container queries: the strip is the @container,
-    // and the grid's column count is what F1's narrow list needs.
+  it("wraps rather than overflow at F1's narrow width, as a class contract", () => {
+    // happy-dom lays nothing out, so the ~534px list with the inspector open
+    // (F1) is pinned as classes: the strip is the @container, the segment
+    // row, the quiet line and the action row all wrap, and the MCP caption
+    // truncates inside its button rather than push the row wider.
     render(<ProfilePane {...props({ selectedEngine: "codex" })} />);
     expect(strip().className).toContain("@container");
-    const cls = segments().className;
-    expect(cls).toContain("grid-cols-2");
-    expect(cls).toContain("@[640px]:grid-cols-4");
-    for (const b of within(segments()).getAllByRole("button")) expect(b.querySelector(".tabular")).not.toBeNull();
+    expect(segments().className).toContain("flex-wrap");
+    expect(segments().className).not.toMatch(/\bgrid\b/);
+    // The quiet line is inline text: it wraps at a separator and never clips.
+    expect(unmeasured().className).not.toMatch(/truncate|nowrap/);
+    expect(within(strip()).getByTestId("strip-actions").className).toContain("flex-wrap");
+    const mcp = segment("MCP servers");
+    expect(mcp.className).toContain("min-w-0");
+    expect(mcp.querySelector(".truncate")).not.toBeNull();
+    expect(mcp.querySelector(".tabular")).not.toBeNull();
   });
 });
 

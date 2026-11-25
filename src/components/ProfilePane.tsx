@@ -728,7 +728,8 @@ export default function ProfilePane({
   /* The strip's engine mode, on every tab while an engine is picked: that
      engine's budget, "≈ N tokens every session", split by kind. Phase 1
      measures MCP only, so the headline is the MCP figure and the other three
-     segments say "Not measured"; nothing is added up here. Each segment opens
+     say "Not measured", which the strip folds into one quiet line; nothing
+     is added up here. Each segment opens
      its kind's tab and keeps the engine. Measure all asks this engine alone,
      through the command the band used (docs/ipc.md entry 18, which does not
      fail), and hands the reply to App. */

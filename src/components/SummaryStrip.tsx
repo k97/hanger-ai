@@ -1,4 +1,4 @@
-import { useRef, useState, type ReactNode } from "react";
+import { Fragment, useId, useRef, useState, type ReactNode } from "react";
 import { RotateCcwIcon } from "./icons";
 import GelMeter from "./GelMeter";
 import { useScanStampText } from "./ScanStamp";
@@ -8,7 +8,10 @@ import { miniBtnClass } from "./miniButton";
 import type { StateCounts, StateFilter, LinkState } from "../utils/linkStateCounts";
 
 /** One kind's share of an engine's budget: a button that opens that kind's
- *  tab. Every string arrives formatted from the caller (`switchCopy`). */
+ *  tab. Every string arrives formatted from the caller (`switchCopy`). A
+ *  segment with a figure or a caption is drawn whole; one with neither joins
+ *  the quiet line, by its label (Q1 of
+ *  docs/plans/2026-11-25-decisions-round-2.md). */
 export interface StripSegment {
   key: string;
   /** The kind, by its tab's label. */
@@ -34,7 +37,7 @@ export interface EngineStripFigures {
   segments: StripSegment[];
   measuring: boolean;
   onMeasure: () => void;
-  /** Under Measure all (`MEASURE_ALL_CAPTION`). */
+  /** Measure all's tooltip and description (`MEASURE_ALL_CAPTION`). */
   measureCaption: string;
 }
 
@@ -111,6 +114,12 @@ export default function SummaryStrip({
   const sectionRef = useRef<HTMLElement>(null);
   const barLabel = `${counts.linked} linked, ${counts.drifted} drifted, ${counts.broken} broken, ${counts.local} local only`;
   const stampText = useScanStampText(scannedAt);
+  const measureCaptionId = useId();
+  // A kind is drawn whole when it has a figure or a caption; the rest share
+  // the quiet line. A partition of the caller's list — nothing is counted.
+  const drawnWhole = (seg: StripSegment) => seg.measured || seg.caption !== undefined;
+  const figured = engine ? engine.segments.filter(drawnWhole) : [];
+  const unfigured = engine ? engine.segments.filter((seg) => !drawnWhole(seg)) : [];
 
   const toggle = (state: LinkState) =>
     onFilterState(activeStateFilter === state ? null : state);
@@ -220,37 +229,74 @@ export default function SummaryStrip({
 
       {engine ? (
         <>
-          {/* Four across, or two by two below 640px — the width Rescan
-              sheds its label at, measured for the legend row it replaces.
-              With the inspector open the list is about 534px (F1). */}
-          <div data-testid="strip-segments" className="grid grid-cols-2 @[640px]:grid-cols-4 gap-2">
-            {engine.segments.map((seg) => (
+          {/* The kinds with a figure, each its own button: Phase 1 measures
+              MCP alone, so one segment, label · value · caption on one line.
+              The row wraps, and the caption truncates inside its button, so
+              F1's ~534px list (inspector open) never scrolls sideways. */}
+          <div data-testid="strip-segments" className="flex flex-wrap items-center gap-2">
+            {figured.map((seg) => (
               <button
                 key={seg.key}
                 type="button"
                 aria-pressed={seg.pressed}
                 onClick={seg.onSelect}
-                className={`min-w-0 flex flex-col items-start gap-0.5 px-3 py-2 rounded-inner border text-left font-flex cursor-pointer transition-colors duration-hover ease-spring ${
+                className={`min-w-0 max-w-full flex items-baseline gap-1.5 px-3 py-1.5 rounded-inner border text-left font-flex text-small cursor-pointer transition-colors duration-hover ease-spring ${
                   seg.pressed ? "border-transparent bg-tint" : "border-line hover:bg-plane-2"
                 }`}
               >
-                <span className={`text-small ${seg.pressed ? "text-tint-ink font-medium" : "text-ink-2"}`}>{seg.label}</span>
-                <b className={`text-small font-medium tabular ${seg.measured ? "text-ink-1" : "text-ink-3"}`}>{seg.value}</b>
-                {seg.caption && <span className={`${captionClass} max-w-full truncate`}>{seg.caption}</span>}
+                <span className={`shrink-0 ${seg.pressed ? "text-tint-ink font-medium" : "text-ink-2"}`}>{seg.label}</span>{" "}
+                <b className={`shrink-0 font-medium tabular ${seg.measured ? "text-ink-1" : "text-ink-3"}`}>{seg.value}</b>
+                {seg.caption && (
+                  <>
+                    {" "}
+                    <span className="text-ink-3 min-w-0 truncate">
+                      · {seg.caption}
+                    </span>
+                  </>
+                )}
               </button>
             ))}
           </div>
-          <div className="flex items-center gap-3 mt-2.5 flex-wrap">
+          {/* The kinds with nothing measured, as one quiet line built from
+              their labels: "Skills · Rules · Subagents: Not measured". Each
+              name still opens its tab, as its segment did. Inline text, so
+              a narrow strip wraps it at a separator. */}
+          {unfigured.length > 0 && (
+            <p data-testid="strip-unmeasured" className={`${captionClass} font-flex mt-1.5`}>
+              {unfigured.map((seg, i) => (
+                <Fragment key={seg.key}>
+                  {i > 0 && " · "}
+                  <button
+                    type="button"
+                    aria-pressed={seg.pressed}
+                    onClick={seg.onSelect}
+                    className={`cursor-pointer transition-colors duration-hover ease-spring hover:text-ink-1 ${
+                      seg.pressed ? "text-ink-1 font-medium" : ""
+                    }`}
+                  >
+                    {seg.label}
+                  </button>
+                </Fragment>
+              ))}
+              : {unfigured[0].value}
+            </p>
+          )}
+          {/* Measure all, Rescan and the pill on one row. The caption that
+              sat beside Measure all is its tooltip and its description now. */}
+          <div data-testid="strip-actions" className="flex items-center gap-3 mt-2.5 flex-wrap">
             <button
               type="button"
               onClick={engine.onMeasure}
               disabled={engine.measuring}
               title={engine.measureCaption}
+              aria-describedby={measureCaptionId}
               className={`${miniBtnClass} shrink-0 disabled:cursor-default disabled:opacity-50`}
             >
               {engine.measuring ? "Measuring…" : "Measure all"}
             </button>
-            <p className={`${captionClass} font-flex flex-1 min-w-0`}>{engine.measureCaption}</p>
+            <span id={measureCaptionId} hidden>
+              {engine.measureCaption}
+            </span>
             <div className="ml-auto flex items-center gap-2">
               {rescanButton}
               {reviewPill}

@@ -860,10 +860,12 @@ engine mode (Surfaces and controls, below): the numeral is that engine's
 · ‹engine›", both from `switchCopy.ts` → `engineStripHeadline`, or no
 numeral and "Not measured · ‹engine›" when servers are on and none is
 measured (`measuredBudget`). Phase 1 measures MCP only, so that figure is the
-MCP figure, and the segments say so: MCP servers carries `engineBandFigures`
-— the same figure and `budgetCaption` ("M of K servers measured · J off") —
-and Skills, Rules and Subagents read "Not measured". Each segment opens its
-kind's tab and keeps the engine. Measure all asks `measure_engine_context`
+MCP figure, and the strip says so: one MCP servers segment carries
+`engineBandFigures` — the same figure and `budgetCaption` ("M of K servers
+measured · J off") — and Skills, Rules and Subagents share one quiet line,
+"Skills · Rules · Subagents: Not measured" (Q1 of
+`docs/plans/2026-11-25-decisions-round-2.md`). The segment and each kind's
+name in that line open its kind's tab and keep the engine. Measure all asks `measure_engine_context`
 for that engine alone and hands the reply to App. Nothing in the strip is a
 sum made here.
 
@@ -1399,19 +1401,28 @@ map view's toolbar slot holds Rescan instead of the inspector toggle
 `onRescan?`, `engine?: EngineStripFigures`, `review?: StripReview` and
 `children?: ReactNode`. `engine` is the second mode, Global seen by one
 engine; it replaced the MCP mode (`mcp?`, one caption line) on 2026-11-25.
-It replaces the link-state branch — meter and legend — with a
-`data-testid="strip-segments"` grid of `StripSegment` buttons, `grid-cols-2
-@[640px]:grid-cols-4 gap-2` (two by two below the width Rescan sheds its
-label at, so the four fit the 534px list F1 measured): each `aria-pressed`
+It replaces the link-state branch — meter and legend — with the engine's
+budget by kind, shortened on 2026-11-25 (Q1 of
+`docs/plans/2026-11-25-decisions-round-2.md`). A `StripSegment` with a
+figure or a caption is drawn whole in the `data-testid="strip-segments"`
+row (`flex flex-wrap items-center gap-2`): one `aria-pressed` button per kind
 for its open tab, `rounded-inner border border-line` (`bg-tint` pressed, its
-label `text-tint-ink`), the kind's tab label (`CategoryFilterCards.tsx` →
-`TAB_LABELS`) in the legend's `text-small font-flex text-ink-2`, the value
-in the legend figure's `font-medium tabular` (`text-ink-1`, or `text-ink-3`
-for "Not measured"), and an optional caption in `captionClass`. Under them
-one row: Measure all (`miniBtnClass`, "Measuring…" and disabled while it
-runs, its caption as `title`), the caption beside it, then Rescan and the
-pill at the right. In engine mode `total` is a formatted figure or `null`,
-which leaves the numeral out. The Needs review pill renders in *both* modes
+label `text-tint-ink`), label · value · caption on one line in
+`text-small font-flex` — the kind's tab label (`CategoryFilterCards.tsx` →
+`TAB_LABELS`) in `text-ink-2`, the value `font-medium tabular`
+(`text-ink-1`, or `text-ink-3` for "Not measured"), and the caption in
+`text-ink-3`, `min-w-0 truncate` so F1's 534px list clips it rather than
+scroll. In Phase 1 that is MCP servers alone. The segments with neither
+share one quiet line under it, `data-testid="strip-unmeasured"` in
+`captionClass`: their labels joined by " · ", then ": " and their value —
+"Skills · Rules · Subagents: Not measured" — each label still an
+`aria-pressed` button that opens its tab (`text-ink-1 font-medium` when
+pressed). It is inline text, so it wraps at a separator. Under that one
+`data-testid="strip-actions"` row: Measure all (`miniBtnClass`,
+"Measuring…" and disabled while it runs), whose caption is its `title` and,
+through a `hidden` span, its `aria-describedby` — there is no visible
+caption line — then Rescan and the pill at the right. In engine mode `total`
+is a formatted figure or `null`, which leaves the numeral out. The Needs review pill renders in *both* modes
 from one definition; `children` is the slot the engine chips
 (`EngineChipRow`) and a project pane's band render into. `review` is `StripReview` —
 `count`, `lines`, `actions?` (`:27-34`) — where `count` is "counted where

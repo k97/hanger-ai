@@ -20,6 +20,8 @@ const ENGINE = {
   segments: [
     { key: "Tools", label: "MCP servers", value: "≈ 12,400", measured: true, caption: "2 of 3 servers measured · 1 off", pressed: false, onSelect: vi.fn() },
     { key: "Skills", label: "Skills", value: "Not measured", measured: false, pressed: false, onSelect: vi.fn() },
+    { key: "Rules", label: "Rules", value: "Not measured", measured: false, pressed: false, onSelect: vi.fn() },
+    { key: "Subagents", label: "Subagents", value: "Not measured", measured: false, pressed: false, onSelect: vi.fn() },
   ],
   measuring: false,
   onMeasure: vi.fn(),
@@ -191,9 +193,11 @@ describe("SummaryStrip", () => {
     expect(btn.querySelector("g.aim-loop")).toBeNull();
   });
 
-  it("in engine mode: no meter, no legend; the segments, Measure all and its caption, Rescan and the pill", () => {
+  it("in engine mode: no meter, no legend; one MCP segment, a quiet line for the rest, Measure all, Rescan and the pill", () => {
     // The MCP mode this replaced drew one caption in the legend's place
-    // (docs/plans/2026-11-25-ia-global-by-engine.md).
+    // (docs/plans/2026-11-25-ia-global-by-engine.md). Q1 of
+    // docs/plans/2026-11-25-decisions-round-2.md shortened it: one segment
+    // for the kind with a figure, one quiet line for the kinds without.
     renderStrip({
       total: "≈ 12,400",
       subtitle: "tokens every session · Claude Code",
@@ -211,13 +215,73 @@ describe("SummaryStrip", () => {
     expect(screen.getByText("tokens every session · Claude Code")).toBeTruthy();
     expect(screen.queryByRole("img")).toBeNull();                     // no GelMeter
     expect(screen.getByTestId("strip-segments").textContent).toBe(
-      "MCP servers≈ 12,4002 of 3 servers measured · 1 offSkillsNot measured"
+      "MCP servers ≈ 12,400 · 2 of 3 servers measured · 1 off"
     );
-    expect(screen.getByText(ENGINE.measureCaption)).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "MCP servers ≈ 12,400 · 2 of 3 servers measured · 1 off" })
+    ).toBeTruthy();
+    expect(screen.getByTestId("strip-unmeasured").textContent).toBe("Skills · Rules · Subagents: Not measured");
     expect(screen.getByRole("button", { name: "Measure all" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Refresh scan" })).toBeTruthy();
     expect(screen.getByText("Needs review 2")).toBeTruthy();
     expect(screen.queryByText("local only")).toBeNull();
+  });
+
+  it("Measure all's caption is its tooltip and description, never a visible line", () => {
+    renderStrip({ onRescan: vi.fn(), engine: ENGINE });
+    const measure = screen.getByRole("button", { name: "Measure all" });
+    expect(measure.getAttribute("title")).toBe(ENGINE.measureCaption);
+    const describedBy = measure.getAttribute("aria-describedby");
+    expect(describedBy).toBeTruthy();
+    const description = document.getElementById(describedBy!);
+    expect(description?.textContent).toBe(ENGINE.measureCaption);
+    // happy-dom applies no CSS, so "not visible" is pinned as the `hidden`
+    // attribute: every node carrying the caption sits inside one.
+    for (const el of screen.getAllByText(ENGINE.measureCaption)) expect(el.closest("[hidden]")).not.toBeNull();
+  });
+
+  it("Rescan and the pill share Measure all's row", () => {
+    renderStrip({ onRescan: vi.fn(), engine: ENGINE, review: { count: 1, lines: reviewLines.slice(0, 1) } });
+    const row = screen.getByRole("button", { name: "Measure all" }).closest("[data-testid='strip-actions']");
+    expect(row).not.toBeNull();
+    expect(row!.contains(screen.getByRole("button", { name: "Refresh scan" }))).toBe(true);
+    expect(row!.contains(screen.getByText("Needs review 1"))).toBe(true);
+  });
+
+  it("each kind in the quiet line is a button that opens its tab", () => {
+    const onRules = vi.fn();
+    renderStrip({
+      engine: {
+        ...ENGINE,
+        segments: ENGINE.segments.map((s) => (s.key === "Rules" ? { ...s, pressed: true, onSelect: onRules } : s)),
+      },
+    });
+    const line = screen.getByTestId("strip-unmeasured");
+    const kinds = Array.from(line.querySelectorAll("button"));
+    expect(kinds.map((b) => b.textContent)).toEqual(["Skills", "Rules", "Subagents"]);
+    expect(kinds.map((b) => b.getAttribute("aria-pressed"))).toEqual(["false", "true", "false"]);
+    fireEvent.click(kinds[1]);
+    expect(onRules).toHaveBeenCalledTimes(1);
+  });
+
+  it("a kind with a figure gets its own segment, and leaves the quiet line", () => {
+    renderStrip({
+      engine: {
+        ...ENGINE,
+        segments: ENGINE.segments.map((s) =>
+          s.key === "Skills" ? { ...s, value: "≈ 800", measured: true } : s
+        ),
+      },
+    });
+    expect(screen.getByTestId("strip-segments").textContent).toBe(
+      "MCP servers ≈ 12,400 · 2 of 3 servers measured · 1 offSkills ≈ 800"
+    );
+    expect(screen.getByTestId("strip-unmeasured").textContent).toBe("Rules · Subagents: Not measured");
+  });
+
+  it("draws no quiet line when every kind has a figure", () => {
+    renderStrip({ engine: { ...ENGINE, segments: ENGINE.segments.slice(0, 1) } });
+    expect(screen.queryByTestId("strip-unmeasured")).toBeNull();
   });
 
   it("the pill opens the finding popover with the caller's lines and actions", () => {
