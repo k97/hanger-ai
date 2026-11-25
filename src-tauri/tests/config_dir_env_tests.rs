@@ -1,7 +1,7 @@
 //! Config-directory env var resolution.
 //!
 //! Deliberately its own test binary. These tests set process-global env vars
-//! (`CLAUDE_CONFIG_DIR`, `CODEX_HOME`), and cargo runs integration tests in
+//! (`CLAUDE_CONFIG_DIR`, `CODEX_HOME`, `COPILOT_HOME`), and cargo runs integration tests in
 //! parallel threads WITHIN a binary but gives each binary its own process.
 //! Owning the variables here cannot disturb another file's tests. The
 //! ENV_MUTEX below still serialises this file's own tests against each other.
@@ -11,19 +11,21 @@ use tauri_app_lib::agents;
 
 static ENV_MUTEX: OnceLock<Mutex<()>> = OnceLock::new();
 
-/// Clears all three variables on drop, including on panic, so one test cannot
+/// Clears all four variables on drop, including on panic, so one test cannot
 /// leak a relocated base into the next.
 ///
 /// HANGER_TEST_HOME added alongside CLAUDE_CONFIG_DIR/CODEX_HOME (task 2):
 /// `a_relocated_claude_dir_is_detected_as_the_agent_root` sets it to point
 /// `get_home_dir()` at a temp dir distinct from the relocated config dir, and
 /// a leaked value would silently point later tests' home resolution at a
-/// directory that no longer exists.
+/// directory that no longer exists. COPILOT_HOME added with ruling 24
+/// (2026-11-25) for the same reason as the first two.
 struct EnvGuard;
 impl Drop for EnvGuard {
     fn drop(&mut self) {
         std::env::remove_var("CLAUDE_CONFIG_DIR");
         std::env::remove_var("CODEX_HOME");
+        std::env::remove_var("COPILOT_HOME");
         std::env::remove_var("HANGER_TEST_HOME");
     }
 }
@@ -32,6 +34,7 @@ fn guard() -> (std::sync::MutexGuard<'static, ()>, EnvGuard) {
     let l = ENV_MUTEX.get_or_init(|| Mutex::new(())).lock().unwrap_or_else(|e| e.into_inner());
     std::env::remove_var("CLAUDE_CONFIG_DIR");
     std::env::remove_var("CODEX_HOME");
+    std::env::remove_var("COPILOT_HOME");
     std::env::remove_var("HANGER_TEST_HOME");
     (l, EnvGuard)
 }
@@ -101,16 +104,27 @@ fn a_prefix_matches_only_on_a_path_boundary() {
 
 #[test]
 fn every_env_table_entry_names_a_real_agent_root() {
-    // Keeps the table honest against AGENT_CONFIGS: a prefix nothing declares
-    // is a typo that silently never fires.
+    // Keeps the table honest: a prefix nothing declares is a typo that
+    // silently never fires. A prefix fires for an AGENT_CONFIGS global_root
+    // (skills, rules, subagents) or for the first folder of a home-relative
+    // MCP source, which `discover::home_base_for` resolves through
+    // `engine_base` too. The second half is Karthik's ruling 24 (2026-11-25,
+    // docs/plans/2026-11-24-context-control.md): `.copilot` holds VS Code's
+    // Copilot MCP file and is no engine's asset root.
     let roots: Vec<&str> = agents::AGENT_CONFIGS
         .iter()
         .flat_map(|c| c.global_roots.iter().copied())
         .collect();
+    let source_folders: Vec<&str> = tauri_app_lib::mcp::registry::SOURCES
+        .iter()
+        .filter(|s| s.location == tauri_app_lib::mcp::registry::SourceLocation::HomeRelative)
+        .map(|s| s.path.split('/').next().unwrap_or(s.path))
+        .collect();
     for (prefix, var) in agents::CONFIG_DIR_ENVS {
         assert!(
-            roots.contains(prefix),
-            "CONFIG_DIR_ENVS entry ({prefix}, {var}) names no AGENT_CONFIGS global_root"
+            roots.contains(prefix) || source_folders.contains(prefix),
+            "CONFIG_DIR_ENVS entry ({prefix}, {var}) names no AGENT_CONFIGS global_root \
+             and no first folder of a HomeRelative SOURCES path"
         );
     }
 }
