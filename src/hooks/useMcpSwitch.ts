@@ -58,9 +58,9 @@ interface LastSwitch {
 
 /**
  * One `.mcp.json` registration key can belong to two hosts, so the engine is
- * part of the key.
+ * part of the key. Exported so a switch can ask `busyKeys` about itself.
  */
-function busyKeyOf(engineId: string, key: string): string {
+export function busyKeyOf(engineId: string, key: string): string {
   return `${engineId}\u0000${key}`;
 }
 

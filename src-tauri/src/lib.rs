@@ -379,7 +379,7 @@ fn report_unmapped_engine(app: AppHandle, engine_key: String, engine_name: Optio
 }
 
 /// The webview reports the screen it is showing, once per change
-/// (`src/App.tsx`, the effect on `selectedSidebarItem`). Only one of the six
+/// (`src/App.tsx`, the effect on `selectedSidebarItem`). Only one of the seven
 /// names in `telemetry::SCREENS` becomes a `page_view` — a repository screen
 /// arrives as `repo`, and anything else is dropped here, so a path can never
 /// leave the machine as a title. Consent, client id and the debug endpoint

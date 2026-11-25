@@ -158,7 +158,7 @@ describe("The content sheet", () => {
   // to be removed"). The sheet is <main>'s, so the class is there on every
   // screen by construction; what can hide it is a pane painting its own
   // full-bleed --page ground over the curve. Four did.
-  for (const screen of ["profile", "linkmap", "discovery", "review", "design"]) {
+  for (const screen of ["profile", "linkmap", "discovery", "engines", "review", "design"]) {
     it(`${screen}: the sheet leads with the corner when the source list is collapsed, and the pane paints no ground over it`, async () => {
       mockPreferences.selected_sidebar_item = screen;
       mockPreferences.sidebar_collapsed = "true";
@@ -176,7 +176,7 @@ describe("The content sheet", () => {
   // ends the window draws the sheet's right edge and its top-right corner:
   // the inspector whenever it renders, otherwise <main>. Never the source
   // list — <main> or the expanded inspector always follows it.
-  for (const screen of ["profile", "linkmap", "discovery", "review", "design"]) {
+  for (const screen of ["profile", "linkmap", "discovery", "engines", "review", "design"]) {
     it(`${screen}: <main> ends the window while the inspector is closed, so its sheet takes the right corner and the right edge`, async () => {
       mockPreferences.selected_sidebar_item = screen;
       mockPreferences.inspector_open = "false";

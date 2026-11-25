@@ -8,7 +8,7 @@
 //! The session is a pure state machine fed a clock, so these tests pin the
 //! boundary GA4 itself uses (30 minutes without an event starts a new session)
 //! without sleeping. The screen allowlist is pinned here too: `page_view` may
-//! carry only one of six fixed names, never a path.
+//! carry only one of seven fixed names, never a path.
 
 use tauri_app_lib::telemetry::{build_payload, screen_page, Session, SessionParams, SESSION_TIMEOUT_MS};
 
@@ -83,8 +83,16 @@ fn an_empty_params_object_still_gets_the_session() {
 }
 
 #[test]
-fn the_six_screens_map_to_a_title_and_a_hanger_url() {
-    for name in ["my_machine", "needs_review", "link_map", "discovery", "design_system", "repo"] {
+fn the_seven_screens_map_to_a_title_and_a_hanger_url() {
+    for name in [
+        "my_machine",
+        "needs_review",
+        "link_map",
+        "discovery",
+        "engines",
+        "design_system",
+        "repo",
+    ] {
         let (title, location) =
             screen_page(name).unwrap_or_else(|| panic!("{name} must be a screen"));
         assert_eq!(title, name);
@@ -93,7 +101,7 @@ fn the_six_screens_map_to_a_title_and_a_hanger_url() {
 }
 
 #[test]
-fn anything_that_is_not_one_of_the_six_names_is_dropped() {
+fn anything_that_is_not_one_of_the_seven_names_is_dropped() {
     for raw in [
         "",
         "Link Map",

@@ -646,10 +646,13 @@ and the rows it drew are the hero's band now (Panes, below).
 
 ### Shell
 
-**`IconRail`** (`IconRail.tsx:5-17`) — `active: "machine" | "linkmap" |
-"discovery" | "review" | "design"`, `needsReviewCount: number`,
-`onSelectMachine`, `onSelectLinkMap`, `onSelectDiscovery`, `onSelectReview`,
-`onSelectDesign?`, `onOpenSettings`. Fixed 56px column (`w-14`). Buttons are
+**`IconRail`** (`IconRail.tsx`, `interface IconRailProps`) — `active:
+"machine" | "linkmap" | "discovery" | "engines" | "review" | "design"`,
+`needsReviewCount: number`, `onSelectMachine`, `onSelectLinkMap`,
+`onSelectDiscovery`, `onSelectEngines`, `onSelectReview`, `onSelectDesign?`,
+`onOpenSettings`. Engines (`CpuChipIcon`, 16, optical 1) sits after
+Discovery and above the rule over Needs review: it is a place where things
+are, like the two before it (2026-11-25). Fixed 56px column (`w-14`). Buttons are
 32×32 `rounded-soft`, neutral `bg-sidebar-sel` when current (`IconRail.tsx:21-24`).
 The hanger mark at the top is the home button — it fires `onSelectMachine`,
 same as the machine button (ruled 2026-08-15). `onSelectDesign` is optional
@@ -676,6 +679,24 @@ own Search row above Scope.
 one row per catalogue kind from `kindCounts`, under a "Categories" eyebrow.
 The pane is a controlled consumer of `kind` (ruled 2026-08-15, reversing the
 earlier no-second-column decision).
+
+**`EnginesSidebar`** (`EnginesSidebar.tsx`) — the Engines screen's second
+column: `engines`, `scannedAt`, `selected`, `onSelect`, and the shell's four
+sizing props. One row per engine under an "Engines" eyebrow, each an
+`EngineLabel` with the backend's `engine_name`, in Discovery's row idiom
+(`aria-current="true"` and `bg-sidebar-sel` when selected). **No figure
+beside a row**: the summary's `server_count` counts distinct names and leaves
+out kept servers, while the pane lists one row per registration plus the
+kept ones, so a count here would contradict the rows beside it (P7,
+`docs/plans/2026-11-25-context-control-finish.md`). App builds the list with
+`enginesList` (`src/utils/enginesList.ts`): the engine summary's rows in
+their order, then any engine with a server Hanger is keeping off that the
+summary does not list (P8). Before the first scan, or before its replies
+land, it shows the eyebrow and nothing else; after them, with no rows, "No
+engine declares an MCP server." The selection is App's, persisted as
+`selected_engine` and falling back to the first row when the stored id is
+not in the list. Pinned by `EnginesSidebar.test.tsx`,
+`enginesList.test.ts` and `engines_screen.test.tsx`.
 
 **`DesignSystemSidebar`** (`DesignSystemSidebar.tsx`) — the Design system
 page's table of contents: one row per `DESIGN_SECTIONS` entry
@@ -841,6 +862,37 @@ would filter that line straight back out (`:40`).
 **`DiscoveryPane`** (`DiscoveryPane.tsx`) — `kind?`. Renders
 from static data in `src/data/directories.ts`; the kind facet is owned by
 `DiscoverySidebar`.
+
+**`EnginesPane`** (`EnginesPane.tsx`) — `engineId`, `scannedAt`, `switcher`
+(App's `useMcpSwitch`), `refreshNonce`. One engine's Context, read with
+`get_engine_context` on mount, on a new `engineId`, and on every
+`refreshNonce` (App bumps it on `scan://complete`), behind a cancellation
+flag; a reply for an engine no longer selected is dropped. The pane root is
+`pt-[18px]` with no ground of its own, and its content sits at `mx-[18px]`:
+the engine's name as the `h2` (`text-lg-app`, the inspector title's
+classes); a one-row `ListCard` budget — `budgetHeadline(on_tokens_measured)`
+in `rowValueClass` over `budgetCaption(measured_on_count, on_count,
+off_count)` in `captionClass`, with **Measure all** (`miniBtnClass`;
+"Measuring…" and disabled while `measure_engine_context` runs, whose reply
+replaces the context) — and under it "Starts each server that's on and has
+no recent answer, and reads its tool list."; then a "Context"
+`sectionHeadClass` heading over one `ListCard` with a row per item in the
+order given: the name, `{tier} · {config_path}` in `monoLabelClass` (the tier
+alone for a kept server), `costLabel` (`rowMonoClass`, or `captionClass` for
+"Not measured"), and the switch (§7) — a `<button aria-pressed>` named by the
+server, holding `LayerSwitch`, disabled while its request is in `busyKeys`.
+A read-only item shows `stateLabel` ("On"/"Off") where the switch would be
+and its `readOnlyLine` beneath (P9). A `stash:` item carries the kept line,
+and every item carries the by-name line when `switches_by_name` is true —
+no engine id is compared in the view (P10). Every word comes from
+`src/utils/switchCopy.ts` or the naming brief. A switch's reply context
+replaces the pane's at once; App's rescan follows from the hook. Pending
+draws nothing at all; "‹engine› declares no MCP servers." stands in place of
+the budget and the list, and shows only once the reply has landed and
+`scannedAt` is set; `applies` renders nothing
+(ruling 19). The budget is never a sum of the rows: a launch the engine
+declares twice counts once in `on_tokens_measured`. Pinned by
+`EnginesPane.test.tsx`.
 
 **`DesignSystemPane`** (`DesignSystemPane.tsx`) — `section` only. The page
 described in §9.
@@ -1747,8 +1799,9 @@ written `App.tsx:1177`). The body is `flex-1 flex min-h-0` (`App.tsx:1336`).
 
 The second column is view-dependent, and the branch order is the map first:
 the **link map** renders none, `design` renders `DesignSystemSidebar` behind
-a `Suspense`, Discovery renders `DiscoverySidebar`, review renders
-`ReviewSidebar`, and everything else renders `Sidebar`
+a `Suspense`, Discovery renders `DiscoverySidebar`, Engines renders
+`EnginesSidebar`, review renders `ReviewSidebar`, and everything else renders
+`Sidebar`
 (`App.tsx:1374-1432`).
 
 Views are switched by a single string state, not a router — `App.tsx:307`
@@ -1826,14 +1879,14 @@ where the left curve meets the rail, the right one meets the window's own
 edge. That edge lands on the window's last pixel column, where `index.html`'s
 `#win-border` already paints the 1px window line, so along the straight run
 the two coincide and only the curve is the sheet's own. The guard's
-right-corner cases: `<main>` trails on all five screens with the inspector
+right-corner cases: `<main>` trails on all six screens with the inspector
 closed; the inspector's sheet takes the corner, and `<main>`'s gives it up,
 when the inspector renders; expanded over a collapsed source list its sheet
 carries both. What the curve looks like against the window edge is a
 screenshot claim.
 
 **Every screen carries the corner.** My machine, the link map, Discovery,
-Needs review and the Design system page all open on the same sheet, and the
+Engines, Needs review and the Design system page all open on the same sheet, and the
 corner is part of the shell, not of any pane: a pane must not paint its own
 full-bleed `--page` ground, because that squares the curve off from inside
 (`NeedsReviewPane`, `DiscoveryPane`, `LinkMapPane` and `DesignSystemPane`
@@ -1843,10 +1896,10 @@ so `Flyout` and `ReviewInspector` paint no ground either (they did, and the
 corner Karthik asked for was square there until the same day). Karthik's standing
 instruction, 2026-08-28: **a new screen gets the corner by default, and it
 comes off only when explicitly asked** — `window_chrome_sheet.test.tsx`
-walks all five screens and fails a pane root that carries `bg-page`.
+walks all six screens and fails a pane root that carries `bg-page`.
 Since 2026-08-29 "the corner" is both top corners: the right one is the
 shell's in the same way, drawn by whichever column ends the window, and the
-same guard asserts it on all five screens with the inspector closed.
+same guard asserts it on all six screens with the inspector closed.
 
 ### Window chrome — one vertical baseline
 
@@ -2152,7 +2205,8 @@ decorative `LayerSwitch`.** `LayerSwitch.tsx` draws only the track: 26×16,
 the button's text or `aria-label` names what is switched and its
 `aria-pressed` carries the state. There is no `role="switch"` in `src/`, and
 none is introduced. Callers: the link map's layers panel (`LinkMapPane`);
-the Design system page shows it under Controls as "Sample switch".
+the Engines pane's server rows (`EnginesPane`), named by the server; the
+Design system page shows it under Controls as "Sample switch".
 
 ---
 

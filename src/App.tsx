@@ -70,6 +70,9 @@ const DesignSystemSidebar = import.meta.env.DEV
   : null;
 import NeedsReviewPane from "./components/NeedsReviewPane";
 import ReviewSidebar from "./components/ReviewSidebar";
+import EnginesSidebar from "./components/EnginesSidebar";
+import EnginesPane from "./components/EnginesPane";
+import { enginesList } from "./utils/enginesList";
 import ReviewInspector from "./components/ReviewInspector";
 import LinkMapPane from "./components/LinkMapPane";
 import ScanStamp from "./components/ScanStamp";
@@ -386,6 +389,7 @@ export default function App() {
     selectedSidebarItem !== "discovery" &&
     selectedSidebarItem !== "linkmap" &&
     selectedSidebarItem !== "design" &&
+    selectedSidebarItem !== "engines" &&
     (selectedSidebarItem === "review" || inventory !== null);
   // Expanded puts <main> at display:none, and the Collapse control lives in
   // the inspector's own cap. Navigating to a screen the column does not
@@ -787,7 +791,7 @@ export default function App() {
   // Every route converges on selectedSidebarItem — rail, palette, flyout,
   // "show engine assets" — so this is the single place GA4 learns which
   // screen is showing. The backend maps the name onto page_view and drops
-  // anything outside its six-name allowlist (`track_screen_view`, lib.rs).
+  // anything outside its seven-name allowlist (`track_screen_view`, lib.rs).
   // Nothing fires while onboarding covers the shell: the user is not on that
   // screen yet, and consent is still being asked for.
   useEffect(() => {
@@ -840,6 +844,9 @@ export default function App() {
         await refreshMcpCoverage();
         await refreshMcpEngineSummary();
         await refreshKeptOff();
+        // After the replies the Engines list is built from, so the pane reads
+        // its engine again against the list they produce.
+        setScanNonce((n) => n + 1);
 
         // If onboarding was incomplete, mark it complete now!
         setOnboardingComplete((prev) => {
@@ -901,6 +908,10 @@ export default function App() {
         setSelectedSidebarItem(activeItem);
       }
       setSidebarRestored(true);
+      // The engine the Engines screen last showed. Checked against the list
+      // at render time, not here: the list arrives with the first scan.
+      const enginePref = await invoke<string | null>("get_preference", { key: "selected_engine" });
+      if (enginePref) setStoredEngine(enginePref);
       const showProjectsPref = await invoke<string | null>("get_preference", { key: "linkmap_show_projects" });
       if (showProjectsPref === "true") {
         setLinkMapShowProjects(true);
@@ -1017,10 +1028,10 @@ export default function App() {
   // The servers Hanger is keeping while they are switched off for an engine
   // that switches by removing them (docs/ipc.md entry 19). No config file
   // declares them, so no other read returns them. Same re-derive-per-scan
-  // pattern as `refreshMcpEngineSummary`, and called right after it. Nothing
-  // reads the value yet (`noUnusedLocals`); the MCP servers list's
-  // switched-off group will.
-  const [, setKeptOff] = useState<KeptOff | null>(null);
+  // pattern as `refreshMcpEngineSummary`, and called right after it. The
+  // Engines screen's list reads it; the MCP servers list's switched-off
+  // group will.
+  const [keptOff, setKeptOff] = useState<KeptOff | null>(null);
   const refreshKeptOff = async () => {
     try {
       setKeptOff(await invoke<KeptOff>("get_kept_off_servers"));
@@ -1034,6 +1045,21 @@ export default function App() {
   // true. Declared after `triggerScan` and before the onboarding returns
   // below, so the hook order never changes when onboarding resolves.
   const mcpSwitch = useMcpSwitch({ onChanged: () => triggerScan() });
+
+  // The Engines screen. Its list is every engine that declares an MCP server
+  // plus any whose servers Hanger is keeping off (P8); the selection is the
+  // stored `selected_engine` when it is in that list, otherwise the first
+  // row, so a stale or absent preference never selects nothing.
+  const [storedEngine, setStoredEngine] = useState<string | null>(null);
+  // Bumped on every `scan://complete`, so the Engines pane reads again.
+  const [scanNonce, setScanNonce] = useState(0);
+  const engineRows = enginesList(mcpEngineSummary, keptOff);
+  const selectedEngine =
+    engineRows?.find((e) => e.engine_id === storedEngine)?.engine_id ?? engineRows?.[0]?.engine_id ?? null;
+  const selectEngine = (engineId: string) => {
+    setStoredEngine(engineId);
+    invoke("set_preference", { key: "selected_engine", value: engineId }).catch(() => {});
+  };
 
   const [selectedAsset, setSelectedAsset] = useState<any>(null);
   // What AssetDetail actually read, reported back once its body loads — a
@@ -1611,6 +1637,8 @@ export default function App() {
       ? ["My machine", "Link map"]
       : selectedSidebarItem === "design"
       ? ["Design system"]
+      : selectedSidebarItem === "engines"
+      ? ["Engines", ...(engineRows?.filter((e) => e.engine_id === selectedEngine).map((e) => e.engine_name) ?? [])]
       : selectedSidebarItem.includes(":")
       ? [
           "My machine",
@@ -1768,6 +1796,8 @@ export default function App() {
               ? "linkmap"
               : selectedSidebarItem === "design"
               ? "design"
+              : selectedSidebarItem === "engines"
+              ? "engines"
               : "machine"
           }
           needsReviewCount={review.counts.total}
@@ -1779,6 +1809,10 @@ export default function App() {
           onSelectDiscovery={() => {
             handleSelectSidebarItem("discovery");
             invoke("set_preference", { key: "selected_sidebar_item", value: "discovery" }).catch(() => {});
+          }}
+          onSelectEngines={() => {
+            handleSelectSidebarItem("engines");
+            invoke("set_preference", { key: "selected_sidebar_item", value: "engines" }).catch(() => {});
           }}
           onSelectReview={() => {
             handleSelectSidebarItem("review");
@@ -1818,6 +1852,17 @@ export default function App() {
             kind={discoveryKind}
             onSelectKind={setDiscoveryKind}
             favouritesCount={favourites.favourites.length}
+          />
+        ) : selectedSidebarItem === "engines" ? (
+          <EnginesSidebar
+            width={sidebarWidth}
+            setWidth={setSidebarWidth}
+            collapsed={sidebarCollapsed}
+            setCollapsed={setSidebarCollapsed}
+            engines={engineRows}
+            scannedAt={lastScanAt}
+            selected={selectedEngine}
+            onSelect={selectEngine}
           />
         ) : selectedSidebarItem === "review" ? (
           <ReviewSidebar
@@ -1890,7 +1935,7 @@ export default function App() {
                   </button>
                 </Tooltip>
               </>
-            ) : selectedSidebarItem !== "discovery" && selectedSidebarItem !== "design" && !inspectorOpen && (
+            ) : selectedSidebarItem !== "discovery" && selectedSidebarItem !== "design" && selectedSidebarItem !== "engines" && !inspectorOpen && (
               // Open, this same control moves into the inspector column's own
               // cap — one toggle, always at the window's trailing edge,
               // rather than a second button appearing beside it.
@@ -1978,6 +2023,15 @@ export default function App() {
               kind={discoveryKind}
               favourites={favourites.favourites}
               onToggleFavourite={favourites.toggleFavourite}
+            />
+          )}
+
+          {selectedSidebarItem === "engines" && (
+            <EnginesPane
+              engineId={selectedEngine}
+              scannedAt={lastScanAt}
+              switcher={mcpSwitch}
+              refreshNonce={scanNonce}
             />
           )}
 

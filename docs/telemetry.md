@@ -139,8 +139,8 @@ paths, names, or file content.**
   startup (after onboarding, once the stored selection has been read) and once per
   change. Every route — rail, palette, flyout, "show engine assets" — converges there.
 - **Parameters:** `page_title` and `page_location` (`hanger://<title>`), where the title
-  is one of six fixed names: `my_machine`, `needs_review`, `link_map`, `discovery`,
-  `design_system`, `repo`. The webview maps its sidebar ids onto these
+  is one of seven fixed names: `my_machine`, `needs_review`, `link_map`, `discovery`,
+  `engines`, `design_system`, `repo`. The webview maps its sidebar ids onto these
   (`src/utils/screenName.ts`); a repository screen reports as `repo`, never its path, and
   `telemetry::screen_page` drops any other string, so a path cannot become a title even
   if the map falls behind.

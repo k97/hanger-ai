@@ -55,6 +55,7 @@ describe("shell marks are 16px boxes (I2)", () => {
         onSelectMachine: () => {},
         onSelectLinkMap: () => {},
         onSelectDiscovery: () => {},
+        onSelectEngines: () => {},
         onSelectReview: () => {},
         onOpenSearch: () => {},
         onSelectDesign: () => {},
@@ -65,6 +66,7 @@ describe("shell marks are 16px boxes (I2)", () => {
       ["My machine", "17.92"], // ComputerDesktopIcon, factor 1.12
       ["Link map", "16"], // FolderSymlinkIcon, factor 1
       ["Discovery", "17.44"], // GlobeAltIcon, factor 1.09
+      ["Engines", "16"], // CpuChipIcon, factor 1
       ["Needs review — 0 flagged", "16.64"], // ExclamationTriangleIcon, factor 1.04
       ["Search", "16"], // MagnifyingGlassIcon, factor 1
       ["Design system", "16"], // SwatchIcon, factor 1

@@ -110,6 +110,33 @@ describe("Icon rail", () => {
     unmount();
   });
 
+  it("switches to Engines: persists the selection, swaps the source list, and has no inspector column", async () => {
+    // Open, so an inspector column would render if the screen allowed one.
+    mockPreferences.inspector_open = "true";
+    try {
+      const { unmount } = render(<App />);
+      const engines = await screen.findByLabelText("Engines");
+      fireEvent.click(engines);
+
+      await waitFor(() => {
+        expect(invoke).toHaveBeenCalledWith("set_preference", {
+          key: "selected_sidebar_item",
+          value: "engines",
+        });
+      });
+      expect(engines.getAttribute("aria-current")).toBe("true");
+      expect(await screen.findByTestId("engines-sidebar")).toBeTruthy();
+      expect(screen.queryByTestId("sidebar")).toBeNull();
+      expect(screen.getByTestId("engines-pane")).toBeTruthy();
+      // The screen has no inspector: no column, and no toggle in the cap.
+      expect(document.querySelector("aside")).toBeNull();
+      expect(screen.queryByLabelText("Toggle inspector")).toBeNull();
+      unmount();
+    } finally {
+      mockPreferences.inspector_open = "false";
+    }
+  });
+
   it("the hanger mark is the home button: any inner screen back to Global", async () => {
     // Karthik's ruling, 2026-08-15: the mark and the crumb's "My machine"
     // always land on My machine › Global.

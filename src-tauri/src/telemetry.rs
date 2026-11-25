@@ -108,20 +108,21 @@ pub fn build_payload(
     })
 }
 
-/// The six names a `page_view` may carry. The webview maps its sidebar ids
+/// The seven names a `page_view` may carry. The webview maps its sidebar ids
 /// onto these (`src/utils/screenName.ts`); a repository screen is `repo`,
 /// never its path.
-pub const SCREENS: [&str; 6] = [
+pub const SCREENS: [&str; 7] = [
     "my_machine",
     "needs_review",
     "link_map",
     "discovery",
+    "engines",
     "design_system",
     "repo",
 ];
 
 /// The `page_title` and `page_location` for a screen name the webview
-/// reports, or `None` for anything outside the six. Exact match, no
+/// reports, or `None` for anything outside the seven. Exact match, no
 /// trimming or case-folding: a path can never become a title.
 pub fn screen_page(raw: &str) -> Option<(String, String)> {
     SCREENS

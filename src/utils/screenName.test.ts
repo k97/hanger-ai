@@ -3,7 +3,7 @@ import { screenNameFor } from "./screenName";
 
 /**
  * The sidebar's selected item is a screen id, or a repository path. GA4 gets
- * one of six fixed names for it — never the path, which is the promise
+ * one of seven fixed names for it — never the path, which is the promise
  * docs/telemetry.md makes about what leaves the machine.
  */
 describe("screenNameFor", () => {
@@ -14,6 +14,7 @@ describe("screenNameFor", () => {
     expect(screenNameFor("linkmap")).toBe("link_map");
     expect(screenNameFor("discovery")).toBe("discovery");
     expect(screenNameFor("design")).toBe("design_system");
+    expect(screenNameFor("engines")).toBe("engines");
   });
 
   it("reports any repository path as 'repo', never the path", () => {
