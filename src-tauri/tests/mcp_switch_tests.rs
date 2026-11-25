@@ -1999,8 +1999,11 @@ fn json(text: &str) -> serde_json::Value {
 
 /// The PATH handed to the fake `claude`: where its own commands live.
 const CHILD_PATH: &str = "/usr/bin:/bin";
-/// The longest any test waits for the fake.
-const QUICK_CLI: Duration = Duration::from_secs(2);
+/// The longest any test waits for the fake. Five seconds, as
+/// `engine_status_tests` gives the same kind of script: at two, fourteen of
+/// these tests failed at a load average of 81 and all passed at 24
+/// (2026-11-25). The three tests whose fake hangs (`sleep 20`) wait this long.
+const QUICK_CLI: Duration = Duration::from_secs(5);
 const SAYS_REMOVED: &str = "printf 'Removed MCP server %s from user config\\n' \"$3\"";
 const SAYS_ADDED: &str = "printf 'Added stdio MCP server %s to user config\\n' \"$3\"";
 /// `claude mcp remove` for a server it does not find (measured: exit 1).
