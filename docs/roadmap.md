@@ -222,3 +222,73 @@ the project has never committed to.
 Moved out of `CLAUDE.md`'s Gaps section on 2026-08-30 — an open question is
 roadmap material, not something every session needs in its context window.
 
+## Scan speed: two store changes left on the shelf
+
+Recorded 2026-11-25, at the end of Phase B of
+[docs/plans/2026-11-25-context-control-finish.md](plans/2026-11-25-context-control-finish.md)
+(decision P6: build only the low-risk fixes). B2–B4 are kept and measured in
+[docs/perf-ledger.md](perf-ledger.md). These two are not built.
+
+**What a scan costs now.** On the bench fixture (7 targets, 549 assets), a
+warm Rescan in release reads 233 / 235 / 241 ms wall, 208 ms CPU (B3 row),
+down from 1522 / 1596 / 1672 ms in the baseline. A Rescan with a server panel
+opening beside it reads 228 / 257 / 275 ms (B4 row), where it used to roughly
+double. `index_inventory` is 10–17 ms of a scan (baseline row). Wall is close
+to CPU in every row, so the scan is mostly CPU. The gap between median wall
+and median CPU is about 27 ms warm and 37 ms cold in release, and that gap is
+the most that lock waits and commits could add up to on this fixture. Neither
+change below can save more than that here. **What no row has yet is a Rescan
+of the real store** (Rescan to `scan://complete`, decision P11): B1 to B4 all
+deferred it. The figures in the ledger's open finding (~70% CPU, 31 of ~2000
+sampled stacks in SQLite's busy handler) were taken before B2, when every
+upsert opened its own connection and a server panel ran a second writing
+scan. Neither is true now.
+
+**What decides.** Take the real-store Rescan figure, debug and release, and a
+3 s `sample` of the Rust process during it. Build one of these only if wall
+is well above CPU there, or the sample still shows busy-handler or commit
+stacks. If the real Rescan is CPU-bound like the fixture, neither change is
+needed.
+
+- **Batch the scan's writes into short `IMMEDIATE` transactions.** Today
+  every statement on the scan's one connection (`scanner.rs` → `ScanStore`)
+  commits on its own, so a scan takes and releases the write lock once per
+  statement. Batching would mean one commit per N rows instead. The risks:
+  - *Rollback on drop at early returns.* A rusqlite `Transaction` rolls
+    back when dropped. The scan returns early on cancellation (the
+    `cancellation_token` checks in `scanner.rs`) and on every `?`, and
+    `scanner_tests::test_pass_2_cancellation_preserves_pass_1_rows` pins
+    that rows written before a cancellation persist. Each batch must commit
+    before every early return, or the cancelled scan's work vanishes.
+  - *Other writers wait 5 s.* Everything outside `search.rs` writes through
+    `PreferencesStore::connect` with rusqlite's default 5 s busy timeout:
+    preference writes, link and unlink, deploy checksums, the probe cache
+    (`put_probe_result`). A transaction held for a whole pass makes them wait
+    out that pass, and a pass on the real store has not been measured. That
+    is why the batches must be short, bounded by row count, not by pass.
+  - *The invariant's wording.* `.claude/rules/invariants.md`'s `asset_search`
+    paragraph says what holds the write lock, and today that is the scan's
+    many single-statement commits. Long-held locks would change that
+    sentence and the 30 s timeout's reason in `search.rs` →
+    `index_connection`, in the same commit.
+- **WAL (`PRAGMA journal_mode = WAL`).** Readers would stop blocking the
+  writer and the writer would stop blocking readers. The risks:
+  - *`import_store` copies the file.* It backs up and stages an import with
+    `fs::copy` of `hanger.db`, then `fs::rename`s the staged copy over it
+    (`preferences.rs` → `import_store`). Under WAL, committed pages can sit
+    in `hanger.db-wal` until a checkpoint, so the backup and the import's
+    base can miss recent writes, and the rename lands beside a `-wal` and
+    `-shm` pair written for the old file. It needs a
+    `wal_checkpoint(TRUNCATE)` or SQLite's online backup API first.
+  - *The mode is persistent.* `journal_mode = WAL` is stored in the database
+    file, so turning it on is a one-way change for every existing install,
+    and it would be a `user_version` migration in `init_db`
+    (`invariants.md`).
+  - *The invariant's wording.* The `asset_search` paragraph opens "The store
+    runs a rollback journal", and its reason for `BEGIN IMMEDIATE` is the
+    rollback journal's SHARED-to-RESERVED upgrade. Under WAL the rule still
+    holds: a `Deferred` transaction that read, then writes after another
+    connection committed, gets `SQLITE_BUSY_SNAPSHOT` without the busy
+    handler running. But that paragraph and the comments in `search.rs` would
+    need rewriting to give the new reason.
+

@@ -101,12 +101,16 @@ silently disarm those six sites at once.
 
 **Write transactions on `asset_search` open `BEGIN IMMEDIATE`, and the
 index writers set their own busy timeout.** The store runs a rollback
-journal; rusqlite's default busy timeout is 5 s; the rescan a server-detail
-open triggers holds the write lock longer than that. Two facts make the
-default shape fail *without waiting*: `index_probe_tools` reads before it
-writes, and even a first-statement `DELETE` on the FTS5 table performs a
-read first, because FTS5's vtable constructor reads its shadow config
-table when the statement is prepared — so a `Deferred` transaction already
+journal; rusqlite's default busy timeout is 5 s. Opening a server panel no
+longer rescans (`6ddc58c`, 2026-11-25), so nothing is known to hold the write
+lock that long now. A Rescan takes it once per statement, briefly: every
+statement on the scan's one connection commits on its own. The store's other
+writers take it too (preferences, links, deploy checksums, the probe cache,
+and the two index writers themselves). Two facts make the default shape
+fail *without waiting*, however briefly the other writer holds the lock:
+`index_probe_tools` reads before it writes, and even a first-statement
+`DELETE` on the FTS5 table performs a read first, because FTS5's vtable
+constructor reads its shadow config table when the statement is prepared — so a `Deferred` transaction already
 holds SHARED when it needs RESERVED and SQLite returns `SQLITE_BUSY`
 instead of invoking the busy handler. `search.rs` opens both writers
 `Immediate` with a 30 s timeout and logs the SQLite error text (log only).
