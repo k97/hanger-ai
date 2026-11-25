@@ -188,6 +188,21 @@ describe("The Engines screen in App", () => {
     await waitFor(() => expect(contextCalls()).toEqual(["codex", "codex"]));
   });
 
+  it("a kept server's row in the MCP servers list opens the Engines screen on its engine", async () => {
+    mockPreferences.selected_sidebar_item = "global:Tools";
+    render(<App />);
+    await completeScan();
+    const line = await screen.findByText("Off for Engine K");
+    fireEvent.click(line.closest("button")!);
+    await waitFor(() =>
+      expect(invoke).toHaveBeenCalledWith("set_preference", { key: "selected_sidebar_item", value: "engines" })
+    );
+    expect(invoke).toHaveBeenCalledWith("set_preference", { key: "selected_engine", value: "claude-code" });
+    const engine = await screen.findByRole("button", { name: "Engine K" });
+    await waitFor(() => expect(engine.getAttribute("aria-current")).toBe("true"));
+    await waitFor(() => expect(contextCalls()).toContain("claude-code"));
+  });
+
   it("reports the screen as engines", async () => {
     render(<App />);
     await screen.findByTestId("engines-sidebar");

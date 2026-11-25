@@ -1029,8 +1029,8 @@ export default function App() {
   // that switches by removing them (docs/ipc.md entry 19). No config file
   // declares them, so no other read returns them. Same re-derive-per-scan
   // pattern as `refreshMcpEngineSummary`, and called right after it. The
-  // Engines screen's list reads it; the MCP servers list's switched-off
-  // group will.
+  // Engines screen's list reads it, and so does the MCP servers list's
+  // "Switched off" group.
   const [keptOff, setKeptOff] = useState<KeptOff | null>(null);
   const refreshKeptOff = async () => {
     try {
@@ -2016,6 +2016,12 @@ export default function App() {
               serverSort={serverSort}
               onServerGroupingChange={handleServerGroupingChange}
               onServerSortChange={handleServerSortChange}
+              keptOff={keptOff}
+              onOpenKeptOff={(engineId) => {
+                selectEngine(engineId);
+                handleSelectSidebarItem("engines");
+                invoke("set_preference", { key: "selected_sidebar_item", value: "engines" }).catch(() => {});
+              }}
             />
           )}
 

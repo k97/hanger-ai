@@ -114,6 +114,10 @@ function beyondCell(annotation: AssetAnnotationView): { text: string; cls: strin
   return { text: "—", cls: "text-ink-3" };
 }
 
+/** The card row's chip — transport, or plugin. Exported so the MCP servers
+ *  list's "Switched off" rows draw a kept server's transport the same way. */
+export const cardChipClass = "shrink-0 text-micro font-mono bg-plane border border-line px-2 py-px rounded-pill text-ink-2";
+
 export function getSingularType(category: string): string {
   if (category.endsWith("s")) {
     return category.slice(0, -1);
@@ -216,12 +220,12 @@ export default function AssetRow({ item, isSelected, showKindColumn = true, anno
           <div className="flex items-center gap-1.5 min-w-0">
             <span className={`text-base-app ${nameColor} truncate`}>{item.name}</span>
             {item.transport && (
-              <span className="shrink-0 text-micro font-mono bg-plane border border-line px-2 py-px rounded-pill text-ink-2">
+              <span className={cardChipClass}>
                 {item.transport}
               </span>
             )}
             {item.plugin && (
-              <span className="shrink-0 text-micro font-mono bg-plane border border-line px-2 py-px rounded-pill text-ink-2">
+              <span className={cardChipClass}>
                 plugin · {item.plugin}
               </span>
             )}

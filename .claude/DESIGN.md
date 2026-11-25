@@ -712,7 +712,26 @@ rather than swapping views.
 `onLinkAsset`, `onClearSelection?`; and, since 2026-08-28, the hero's own
 four — `hostsBandOpen?` / `onToggleHostsBand?` (`:120-121`) for the band's
 fold, `issues?` / `onReview?` (`:125-126`) for the review pill's lines and
-its route out.
+its route out; and `keptOff?` / `onOpenKeptOff?` for the "Switched off" group.
+
+**The "Switched off" group** (`ProfilePane.tsx`, the block before the Rules
+group) — the servers Hanger is keeping while they are switched off for an
+engine that switches by removing them (`get_kept_off_servers`, docs/ipc.md
+entry 19). No config file declares them, so they are no row of the MCP
+servers list and in no figure from `get_asset_counts`: the list's header
+keeps its own figure, and the group follows the Tools rows under its own
+`h3` (`groupLabelClass`, the other groups' shape) reading "Switched off ·
+‹keptOff.count›" — the backend's figure, never the rows'. Each row is a
+`<button>` (`keptRowClass`): the name and the transport chip, drawn with
+`cardChipClass` (`AssetRow.tsx`, the card row's own chip), then "Off for
+‹engine_name›"; no reach tiles and no tool count, because the server is in
+no file. A row calls `onOpenKeptOff(engine_id)`, and App opens the Engines
+screen on that engine. It shows on MCP servers and All; a link-state filter
+hides it, since a kept server has no link state. With only kept servers,
+neither the zero-servers state nor the whole-store empty plane wins: every
+predicate that decides the plane reads `keptAny` (`keptOff.count > 0`, a
+boolean) or `keptShown` (that, with no link-state filter). Pinned by
+`ProfilePaneIntegration.test.tsx` and `engines_screen.test.tsx`.
 
 **`RepoPane`** (`RepoPane.tsx:36-69`) — the same shape plus `repoPath`,
 `onRefresh`, `onLinkFromProfile`, `linkedRepos?`, `onPromoteCandidates?`,

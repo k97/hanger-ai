@@ -11,7 +11,7 @@ import {
   PlugZapIcon,
 } from "./icons";
 import CategoryFilterCards, { CategoryType } from "./CategoryFilterCards";
-import AssetRow, { AssetItem, AssetAnnotationView } from "./AssetRow";
+import AssetRow, { AssetItem, AssetAnnotationView, cardChipClass } from "./AssetRow";
 import AssetHeaderRow, { SortField, SortDirection } from "./AssetHeaderRow";
 import ViewControl, { ServerGrouping, ServerSort } from "./ViewControl";
 import { Inventory, CategoryCounts } from "../App";
@@ -33,6 +33,7 @@ import EmptyState from "./EmptyState";
 import { annotationStateCounts, linkStateCounts, matchesStateFilter, StateFilter } from "../utils/linkStateCounts";
 import { categoryNoun, joinNames, joinNamesTruncated } from "../utils/prose";
 import type { McpEngineSummaryData } from "../types/mcpEngineSummary";
+import type { KeptOff } from "../types/engineContext";
 import { issueSeverity, type ReviewIssue } from "../utils/reviewIssues";
 
 /** The frontend's mirror of Rust's `ConfigProblem`
@@ -129,7 +130,20 @@ interface ProfilePaneProps {
   serverSort?: ServerSort;
   onServerGroupingChange?: (grouping: ServerGrouping) => void;
   onServerSortChange?: (sort: ServerSort) => void;
+  /** The servers Hanger is keeping while they are switched off for an engine
+   *  that switches by removing them (`get_kept_off_servers`, docs/ipc.md
+   *  entry 19). No config file declares them, so they are no row of the list
+   *  above and in none of `get_asset_counts`' figures; they show as their
+   *  own group beside it. */
+  keptOff?: KeptOff | null;
+  /** A kept server's row opens the Engines screen on its engine. */
+  onOpenKeptOff?: (engineId: string) => void;
 }
+
+/** A kept server's row: the card row's first line, then which engine it is
+ *  off for. A button, since the whole row is the one thing it does. */
+const keptRowClass =
+  "flex flex-col gap-0.5 min-w-0 mx-1.5 px-2.5 py-2 rounded-inner text-left cursor-pointer font-sans hover:bg-plane-2 transition-colors duration-hover ease-spring";
 
 type McpCoverageProp = { checked_file_count: number; checked_engine_count: number; checked_files: string[] } | null;
 type EngineLocationsProp = { location_count: number; locations: string[] } | null;
@@ -384,6 +398,8 @@ export default function ProfilePane({
   serverSort: propServerSort,
   onServerGroupingChange,
   onServerSortChange,
+  keptOff = null,
+  onOpenKeptOff,
 }: ProfilePaneProps) {
   const [internalCategory, setInternalCategory] = useState<CategoryType | null>(null);
   const [internalSortField, setInternalSortField] = useState<SortField>("name");
@@ -531,7 +547,12 @@ export default function ProfilePane({
   // content for another. `storeEmpty` itself is untouched: `emptyState`
   // below still keys on it exactly as ruled 2026-08-16/08-18 — a negative
   // claim still needs a finished scan and real counts behind it.
+  // Servers Hanger is keeping while they are switched off are something to
+  // draw too: the "Switched off" group below the MCP servers. A boolean from
+  // the backend's own figure, never a count taken here.
+  const keptAny = keptOff !== null && keptOff.count > 0;
   const nothingToShow =
+    !keptAny &&
     globalSkills.length === 0 &&
     globalTools.length === 0 &&
     globalRules.length === 0 &&
@@ -539,7 +560,10 @@ export default function ProfilePane({
     (mcpServers == null || mcpServers.length === 0) &&
     configProblemRows.length === 0;
   const pendingState = nothingToShow && (loading || !hasScanned);
-  const emptyState = storeEmpty && hasScanned && !loading;
+  // `storeEmpty` stays the backend's figure: kept servers are in no count, so
+  // with only kept servers it reads empty. The plane must not say so while
+  // the group has rows to show.
+  const emptyState = storeEmpty && !keptAny && hasScanned && !loading;
 
   // Two different absences share the empty plane. "No developer agent
   // folders detected" was the only headline, and it was false whenever the
@@ -565,6 +589,9 @@ export default function ProfilePane({
   // "matches that filter" only when a filter is what emptied it. Text search
   // lives in the palette now (⌘K), not in the pane.
   const filterActive = stateFilter !== null;
+  // The kept group, on MCP servers and All. A link-state filter hides it:
+  // a kept server is in no file, so it has no link state to match.
+  const keptShown = keptAny && !filterActive;
 
   const filteredSkills = scopedSkills.filter(
     (s) => matchesStateFilter(s, stateFilter)
@@ -748,7 +775,7 @@ export default function ProfilePane({
   // not read or parse, with no working server anywhere to fall back on.
   const isCategoryEmpty =
     (selectedCategory === "Skills" && filteredSkills.length === 0) ||
-    (selectedCategory === "Tools" && filteredTools.length === 0 && configProblemRows.length === 0) ||
+    (selectedCategory === "Tools" && filteredTools.length === 0 && configProblemRows.length === 0 && !keptShown) ||
     (selectedCategory === "Rules" && filteredRules.length === 0) ||
     (selectedCategory === "Agents" && agents.length === 0) ||
     (selectedCategory === "Subagents" && filteredSubagents.length === 0);
@@ -776,6 +803,7 @@ export default function ProfilePane({
     filteredSkills.length === 0 &&
     filteredTools.length === 0 &&
     configProblemRows.length === 0 &&
+    !keptShown &&
     filteredRules.length === 0 &&
     filteredSubagents.length === 0;
 
@@ -993,8 +1021,10 @@ export default function ProfilePane({
     (showSubagents && sortedSubagents.length > 0);
   // The Tools group has something to show whenever there is a server row OR
   // a problem row — a machine with one unreadable config and zero working
-  // servers still has a Tools section worth rendering (A.3/A.4).
-  const hasToolsContent = sortedTools.length > 0 || configProblemRows.length > 0;
+  // servers still has a Tools section worth rendering (A.3/A.4). So does one
+  // whose only servers are switched off and kept: its header says the real
+  // figure, and the "Switched off" group follows it.
+  const hasToolsContent = sortedTools.length > 0 || configProblemRows.length > 0 || keptShown;
   const toolsOnlyView = showTools && hasToolsContent && !nonToolsSectionVisible;
 
   // Visible rows post-filter for the foot line — a display subset, never the
@@ -1322,6 +1352,34 @@ export default function ProfilePane({
                       already follow. */}
                   {configProblemRows.map((p, idx) => (
                     <McpConfigProblemRow key={`config-problem-${p.kind}-${p.path}-${p.line ?? idx}`} problem={p} />
+                  ))}
+                </div>
+              </>
+            )}
+
+            {/* Switched off — servers Hanger is keeping while they are off
+                for an engine that switches by removing them. They are no row
+                above and in no figure from get_asset_counts, so the MCP
+                servers header keeps its own figure and this group carries
+                the backend's `count`. A row opens the Engines screen on the
+                server's engine, where it can be switched back on. */}
+            {showTools && keptShown && keptOff && (
+              <>
+                <h3 className={`px-3.5 pt-[11px] pb-[5px] ${groupLabelClass}`}>Switched off · {keptOff.count}</h3>
+                <div className="flex flex-col">
+                  {keptOff.servers.map((server) => (
+                    <button
+                      key={server.key}
+                      type="button"
+                      onClick={() => onOpenKeptOff?.(server.engine_id)}
+                      className={keptRowClass}
+                    >
+                      <span className="flex items-center gap-1.5 min-w-0">
+                        <span className="text-base-app text-ink-1 truncate">{server.name}</span>
+                        <span className={cardChipClass}>{server.transport}</span>
+                      </span>
+                      <span className="text-small text-ink-3 truncate">Off for {server.engine_name}</span>
+                    </button>
                   ))}
                 </div>
               </>

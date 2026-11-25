@@ -3,6 +3,7 @@ import { describe, it, expect, vi, afterEach } from "vitest";
 import { render, screen, fireEvent, cleanup, within } from "@testing-library/react";
 import ProfilePane from "./ProfilePane";
 import { Inventory } from "../App";
+import type { KeptOff } from "../types/engineContext";
 
 afterEach(() => {
   cleanup();
@@ -1477,5 +1478,242 @@ describe("ProfilePane — the All tab's own filter-empty state", () => {
     // pending plane itself, same as the whole-store pending test above.
     expect(within(screen.getByTestId("scan-pending")).getByText("Not scanned yet")).toBeTruthy();
     expect(screen.queryByText("No assets match that filter")).toBeNull();
+  });
+});
+
+describe("ProfilePane — servers switched off and kept by Hanger (Task A8)", () => {
+  // `get_kept_off_servers`'s shape (docs/ipc.md entry 19): a server Hanger is
+  // keeping while it is off for an engine that switches by removing it. No
+  // config file declares it, so it is in no count `get_asset_counts` keeps.
+  const kept = (over: Partial<KeptOff> = {}): KeptOff => ({
+    servers: [
+      {
+        key: "stash:00000000-0000-4000-8000-000000000001",
+        name: "beta",
+        engine_id: "claude-code",
+        engine_name: "Engine K",
+        transport: "stdio",
+        at_ms: 1795566217263,
+        also_declared: false,
+      },
+    ],
+    count: 1,
+    only_kept_count: 1,
+    ...over,
+  });
+
+  const oneServer: Inventory = {
+    agents: [],
+    skills: [],
+    rules: [],
+    subagents: [],
+    project_scans: [],
+    tools: [
+      {
+        id: "/home/.claude.json:tauri",
+        name: "tauri",
+        command: "npx",
+        transport: "stdio",
+        config_path: "/home/.claude.json",
+        scope: { Global: { agent: "codex" } },
+        owning_agent: "codex",
+      },
+    ],
+  } as Inventory;
+  const oneServerCounts = { total: 1, byCategory: { tool: { global: 1, project: 0 } } } as any;
+
+  const nothing: Inventory = { agents: [], skills: [], tools: [], rules: [], subagents: [], project_scans: [] };
+  const zeroCounts = { total: 0, byCategory: {} } as any;
+
+  const groupHeading = () => screen.queryByRole("heading", { name: /^Switched off · / });
+
+  it("lists each kept server under its own heading, with the backend's figure", () => {
+    render(
+      <ProfilePane
+        inventory={oneServer}
+        assetCounts={oneServerCounts}
+        loading={false}
+        scannedAt={new Date()}
+        selectedCategory="Tools"
+        keptOff={kept()}
+        onOpenKeptOff={vi.fn()}
+        onSelectAsset={vi.fn()}
+        onLinkAsset={vi.fn()}
+      />
+    );
+    expect(groupHeading()?.textContent).toBe("Switched off · 1");
+    const row = screen.getByRole("button", { name: /beta/ });
+    expect(within(row).getByText("stdio")).toBeTruthy();
+    expect(within(row).getByText("Off for Engine K")).toBeTruthy();
+    // No tool count and no reach: a kept server is in no file Hanger probes.
+    expect(within(row).queryByText("—")).toBeNull();
+    expect(within(row).queryByText(/tools?$/)).toBeNull();
+  });
+
+  it("leaves the MCP servers figure to get_asset_counts", () => {
+    render(
+      <ProfilePane
+        inventory={oneServer}
+        assetCounts={oneServerCounts}
+        loading={false}
+        scannedAt={new Date()}
+        selectedCategory="Tools"
+        keptOff={kept()}
+        onOpenKeptOff={vi.fn()}
+        onSelectAsset={vi.fn()}
+        onLinkAsset={vi.fn()}
+      />
+    );
+    expect(within(screen.getByTestId("section-header-tools")).getByRole("heading").textContent).toBe(
+      "MCP servers · 1"
+    );
+  });
+
+  it("renders the group's figure as the reply gives it, never the rows' number", () => {
+    // A probe, not a real reply: the backend's `count` always equals the
+    // number of `servers`, so only a count the rows cannot produce tells a
+    // figure printed from the field apart from one counted here.
+    render(
+      <ProfilePane
+        inventory={oneServer}
+        assetCounts={oneServerCounts}
+        loading={false}
+        scannedAt={new Date()}
+        selectedCategory="Tools"
+        keptOff={kept({ count: 7 })}
+        onOpenKeptOff={vi.fn()}
+        onSelectAsset={vi.fn()}
+        onLinkAsset={vi.fn()}
+      />
+    );
+    expect(groupHeading()?.textContent).toBe("Switched off · 7");
+  });
+
+  it("with only kept servers, MCP servers shows the group and not the zero-servers state", () => {
+    render(
+      <ProfilePane
+        inventory={nothing}
+        assetCounts={zeroCounts}
+        loading={false}
+        scannedAt={new Date()}
+        selectedCategory="Tools"
+        detectedEngines={[{ id: "claude-code", name: "Engine K" }]}
+        keptOff={kept()}
+        onOpenKeptOff={vi.fn()}
+        onSelectAsset={vi.fn()}
+        onLinkAsset={vi.fn()}
+      />
+    );
+    expect(groupHeading()?.textContent).toBe("Switched off · 1");
+    expect(screen.queryByText("No MCP servers registered")).toBeNull();
+    expect(screen.getByText("Off for Engine K")).toBeTruthy();
+  });
+
+  it("with only kept servers, All shows the group and not the whole-store empty state", () => {
+    render(
+      <ProfilePane
+        inventory={nothing}
+        assetCounts={zeroCounts}
+        loading={false}
+        scannedAt={new Date()}
+        detectedEngines={[{ id: "claude-code", name: "Engine K" }]}
+        keptOff={kept()}
+        onOpenKeptOff={vi.fn()}
+        onSelectAsset={vi.fn()}
+        onLinkAsset={vi.fn()}
+      />
+    );
+    expect(groupHeading()?.textContent).toBe("Switched off · 1");
+    expect(screen.queryByText("Nothing in the global store yet")).toBeNull();
+  });
+
+  it("with only kept servers, a rescan in flight keeps the group rather than the scanning plane", () => {
+    render(
+      <ProfilePane
+        inventory={nothing}
+        assetCounts={zeroCounts}
+        loading={true}
+        scannedAt={new Date()}
+        selectedCategory="Tools"
+        detectedEngines={[{ id: "claude-code", name: "Engine K" }]}
+        keptOff={kept()}
+        onOpenKeptOff={vi.fn()}
+        onSelectAsset={vi.fn()}
+        onLinkAsset={vi.fn()}
+      />
+    );
+    expect(groupHeading()?.textContent).toBe("Switched off · 1");
+    expect(screen.queryByTestId("scan-pending")).toBeNull();
+  });
+
+  it("a row opens its engine", () => {
+    const onOpenKeptOff = vi.fn();
+    render(
+      <ProfilePane
+        inventory={oneServer}
+        assetCounts={oneServerCounts}
+        loading={false}
+        scannedAt={new Date()}
+        selectedCategory="Tools"
+        keptOff={kept()}
+        onOpenKeptOff={onOpenKeptOff}
+        onSelectAsset={vi.fn()}
+        onLinkAsset={vi.fn()}
+      />
+    );
+    fireEvent.click(screen.getByRole("button", { name: /beta/ }));
+    expect(onOpenKeptOff).toHaveBeenCalledWith("claude-code");
+  });
+
+  it("a link-state filter hides the group: kept servers have no link state", () => {
+    render(
+      <ProfilePane
+        inventory={oneServer}
+        assetCounts={oneServerCounts}
+        loading={false}
+        scannedAt={new Date()}
+        selectedCategory="Tools"
+        stateFilter="linked"
+        keptOff={kept()}
+        onOpenKeptOff={vi.fn()}
+        onSelectAsset={vi.fn()}
+        onLinkAsset={vi.fn()}
+      />
+    );
+    expect(groupHeading()).toBeNull();
+    expect(screen.queryByText("Off for Engine K")).toBeNull();
+  });
+
+  it("stays off the tabs that are not MCP servers", () => {
+    render(
+      <ProfilePane
+        inventory={mockInventory}
+        loading={false}
+        scannedAt={new Date()}
+        selectedCategory="Skills"
+        keptOff={kept()}
+        onOpenKeptOff={vi.fn()}
+        onSelectAsset={vi.fn()}
+        onLinkAsset={vi.fn()}
+      />
+    );
+    expect(groupHeading()).toBeNull();
+  });
+
+  it("shows nothing for an empty or absent reply", () => {
+    render(
+      <ProfilePane
+        inventory={oneServer}
+        assetCounts={oneServerCounts}
+        loading={false}
+        scannedAt={new Date()}
+        selectedCategory="Tools"
+        keptOff={{ servers: [], count: 0, only_kept_count: 0 }}
+        onOpenKeptOff={vi.fn()}
+        onSelectAsset={vi.fn()}
+        onLinkAsset={vi.fn()}
+      />
+    );
+    expect(groupHeading()).toBeNull();
   });
 });
