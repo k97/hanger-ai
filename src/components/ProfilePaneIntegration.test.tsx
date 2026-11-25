@@ -3,7 +3,8 @@ import { describe, it, expect, vi, afterEach } from "vitest";
 import { render, screen, fireEvent, cleanup, within } from "@testing-library/react";
 import ProfilePane from "./ProfilePane";
 import { Inventory } from "../App";
-import type { KeptOff } from "../types/engineContext";
+import type { KeptOff, KeptOffServer } from "../types/engineContext";
+import { keptOffOf } from "../__tests__/keptOffFixtures";
 
 afterEach(() => {
   cleanup();
@@ -1487,22 +1488,17 @@ describe("ProfilePane — servers switched off and kept by Hanger (Task A8)", ()
   // `get_kept_off_servers`'s shape (docs/ipc.md entry 19): a server Hanger is
   // keeping while it is off for an engine that switches by removing it. No
   // config file declares it, so it is in no count `get_asset_counts` keeps.
-  const kept = (over: Partial<KeptOff> = {}): KeptOff => ({
-    servers: [
-      {
-        key: "stash:00000000-0000-4000-8000-000000000001",
-        name: "beta",
-        engine_id: "claude-code",
-        engine_name: "Engine K",
-        transport: "stdio",
-        at_ms: 1795566217263,
-        also_declared: false,
-      },
-    ],
-    count: 1,
-    only_kept_count: 1,
-    ...over,
-  });
+  const BETA: KeptOffServer = {
+    key: "stash:00000000-0000-4000-8000-000000000001",
+    name: "beta",
+    engine_id: "claude-code",
+    engine_name: "Engine K",
+    transport: "stdio",
+    at_ms: 1795566217263,
+    also_declared: false,
+  };
+  // Built the way `kept_off_for` builds it, so the figures match the list.
+  const kept = (servers: KeptOffServer[] = [BETA]): KeptOff => keptOffOf(servers);
 
   const oneServer: Inventory = {
     agents: [],
@@ -1582,7 +1578,7 @@ describe("ProfilePane — servers switched off and kept by Hanger (Task A8)", ()
         loading={false}
         scannedAt={new Date()}
         selectedCategory="Tools"
-        keptOff={kept({ count: 7 })}
+        keptOff={{ ...kept(), count: 7 }}
         onOpenKeptOff={vi.fn()}
         onSelectAsset={vi.fn()}
         onLinkAsset={vi.fn()}
@@ -1710,7 +1706,7 @@ describe("ProfilePane — servers switched off and kept by Hanger (Task A8)", ()
         loading={false}
         scannedAt={new Date()}
         selectedCategory="Tools"
-        keptOff={{ servers: [], count: 0, only_kept_count: 0 }}
+        keptOff={kept([])}
         onOpenKeptOff={vi.fn()}
         onSelectAsset={vi.fn()}
         onLinkAsset={vi.fn()}
