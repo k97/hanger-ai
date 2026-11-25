@@ -1455,6 +1455,7 @@ export default function ProfilePane({
                       showKindColumn={false}
                       item={item}
                       annotation={annotationFor(item)}
+                      leadEngine={engine?.engine_id ?? null}
                       onClick={() => onSelectAsset({ name: item.name, category: "Agents", path: item.path })}
                     />
                   ))}
@@ -1476,6 +1477,7 @@ export default function ProfilePane({
                       showKindColumn={!selectedCategory}
                       item={item}
                       annotation={annotationFor(item)}
+                      leadEngine={engine?.engine_id ?? null}
                       onLink={() => onLinkAsset(item)}
                       onClick={() => onSelectAsset({ name: item.name, category: "Skills", path: item.path })}
                     />
@@ -1607,6 +1609,7 @@ export default function ProfilePane({
                       showKindColumn={!selectedCategory}
                       item={item}
                       annotation={annotationFor(item)}
+                      leadEngine={engine?.engine_id ?? null}
                       onLink={() => onLinkAsset(item)}
                       onClick={() => onSelectAsset({ name: item.name, category: "Rules", path: item.path })}
                     />
@@ -1631,6 +1634,7 @@ export default function ProfilePane({
                       showKindColumn={!selectedCategory}
                       item={item}
                       annotation={annotationFor(item)}
+                      leadEngine={engine?.engine_id ?? null}
                       onLink={() => onLinkAsset(item)}
                       onClick={() => onSelectAsset({ name: item.name, category: "Subagents", path: item.path })}
                     />

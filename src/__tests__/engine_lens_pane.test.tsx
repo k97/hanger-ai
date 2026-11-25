@@ -562,6 +562,26 @@ describe("All engines keeps today's strip", () => {
   });
 });
 
+describe("a skill row seen by one engine", () => {
+  it("leads with that engine's tile and dims the rest, as an MCP row does", () => {
+    // Q3 of docs/plans/2026-11-25-decisions-round-2.md: the selected
+    // engine's tile leads every row, not only the MCP servers rows.
+    render(<ProfilePane {...props({ selectedCategory: "Skills", selectedEngine: "codex" })} />);
+    const tiles = Array.from(
+      within(rowOf("atlas")).getByTestId("engine-reach-tiles").querySelectorAll("[data-testid^='reach-tile-']")
+    );
+    expect(tiles.map((t) => t.getAttribute("data-testid"))).toEqual(["reach-tile-codex", "reach-tile-claude_code"]);
+    expect(tiles[0].hasAttribute("data-dimmed")).toBe(false);
+    expect(tiles[1].getAttribute("data-dimmed")).toBe("true");
+  });
+
+  it("All engines leads with nobody and dims nothing", () => {
+    render(<ProfilePane {...props({ selectedCategory: "Skills" })} />);
+    const tiles = within(rowOf("atlas")).getByTestId("engine-reach-tiles");
+    expect(tiles.querySelector("[data-dimmed]")).toBeNull();
+  });
+});
+
 describe("an MCP row seen by one engine", () => {
   it("shows that engine's figure in the Tools column, or Not measured", () => {
     render(<ProfilePane {...props({ selectedCategory: "Tools", selectedEngine: "codex" })} />);

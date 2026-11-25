@@ -7,7 +7,7 @@
  * is never mistaken for the store. Do not import from anywhere else.
  */
 import type { AssetItem, AssetAnnotationView } from "../components/AssetRow";
-import type { EngineReachInfo } from "../components/EngineReachTiles";
+import type { EngineReachInfo, TileSwitch } from "../components/EngineReachTiles";
 import type { StateCounts } from "../utils/linkStateCounts";
 import type { ScanStatus } from "../hooks/useScanStatus";
 import type { AssetFindings, ReviewIssue } from "../utils/reviewIssues";
@@ -26,7 +26,7 @@ import {
   NOT_MEASURED_FIGURE,
   switchedLine,
 } from "../utils/switchCopy";
-import type { EngineContext } from "../types/engineContext";
+import type { EngineContext, ItemState, ReadOnlyReason } from "../types/engineContext";
 import type { EngineStripFigures } from "../components/SummaryStrip";
 import { TAB_LABELS } from "../components/CategoryFilterCards";
 import type { EngineListEntry } from "../utils/enginesList";
@@ -75,6 +75,24 @@ export const SAMPLE_REACH: EngineReachInfo[] = [
   { engine_id: 4, engine_key: "claude_desktop", engine_name: "Claude Desktop", reached: false, reason: "format" },
   { engine_id: 5, engine_key: "vscode", engine_name: "VS Code", reached: false, reason: "root_not_linked" },
 ];
+
+/** Codex's switch for one server, for the Reach tiles' switch-mode
+ *  specimen: the three looks Q3 of
+ *  docs/plans/2026-11-25-decisions-round-2.md asks to tell apart — off, another
+ *  engine while one is picked, read-only. Codex is SAMPLE_REACH's second
+ *  engine, so `leadEngine` "claude" leaves its tile the dimmed one. */
+export function sampleTileSwitch(state: ItemState, readOnly: ReadOnlyReason | null = null) {
+  const t: TileSwitch = {
+    engineName: "Codex",
+    serverName: "chrome-devtools",
+    file: "~/.codex/config.toml",
+    state,
+    readOnly,
+    busy: false,
+    onToggle: () => {},
+  };
+  return (r: EngineReachInfo): TileSwitch | null => (r.engine_key === "codex" ? t : null);
+}
 
 export const SAMPLE_ANNOTATION: AssetAnnotationView = {
   asset_path: "/sample/skills/writing-great-skills/SKILL.md",

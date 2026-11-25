@@ -86,7 +86,7 @@ interface AssetRowProps {
    *  tile's switch for this row's server, or `null` for a tile that stays
    *  display only (`EngineReachTiles`' `switchFor`). */
   tileSwitchFor?: (r: EngineReachInfo) => TileSwitch | null;
-  /** Card variant only: the engine Global is seen by, whose tile leads and
+  /** Either variant: the engine Global is seen by, whose tile leads and
    *  whose others dim (`EngineReachTiles`' `leadEngine`). */
   leadEngine?: string | null;
   onClick?: () => void;
@@ -349,7 +349,7 @@ export default function AssetRow({ item, isSelected, showKindColumn = true, anno
         <>
           {/* 2: Reach — engine tiles, rendered from the backend list. */}
           <span className="shrink-0 w-[100px] text-left hidden @[580px]:flex">
-            {annotation ? <EngineReachTiles reach={annotation.reach} /> : null}
+            {annotation ? <EngineReachTiles reach={annotation.reach} leadEngine={leadEngine} /> : null}
           </span>
 
           {/* 3: Beyond the store — the backend note, count and all. */}

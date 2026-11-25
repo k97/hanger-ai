@@ -76,11 +76,15 @@ function readOnlyTip(t: TileSwitch, reason: ReadOnlyReason): string {
 }
 
 const tileClass = "w-4 h-4 rounded-[6px] grid place-items-center text-ink-1 not-italic";
-/* Off is a hollow slot: the --line-2 ring with the mark dimmed inside it.
-   --line-2, not the unreached slot's --line, so a server switched off reads
-   apart from an engine that cannot read it. On is the mark alone, as a
-   reached engine is. */
-const offClass = "border border-line-2";
+/* Off is an outline: an --ink-3 ring, no fill, the tile itself unfaded and
+   only the mark inside dimmed. --ink-3 rather than the --line-2 it was, so
+   off reads as a ring at a glance and not as one more faded tile: another
+   engine's tile (`opacity-40`) and a read-only one (`opacity-60`) are the
+   faded looks, and off must not be mistaken for either (Q3 of
+   docs/plans/2026-11-25-decisions-round-2.md). It also stays apart from the
+   unreached slot's faint --line ring at `opacity-40`. On is the mark alone,
+   as a reached engine is. */
+const offClass = "border border-ink-3";
 
 /** The Reach column: a 16px slot per engine up to four, and above that three
  *  slots plus an ellipsis chip, each carrying that engine's
@@ -98,13 +102,15 @@ const offClass = "border border-line-2";
 /** `switchFor`, given only on Global's MCP servers rows, makes a tile whose
  *  engine has an item for the row that engine's switch for the server: a
  *  `<button aria-pressed>`, as the Engines tab's switch is. A read-only item
- *  keeps its state's look, muted and inert, with its reason as the tip. A
- *  tile with no item, and every tile without `switchFor`, draws as today.
+ *  keeps its state's look — the mark, or the off ring — faded to
+ *  `opacity-60` and inert, with its reason as the tip. A tile with no item,
+ *  and every tile without `switchFor`, draws as today.
  *
- *  `leadEngine`, given only while Global is seen by one engine (an MCP host
- *  id, matched across formats by `sameEngine`), draws that engine's tile
- *  first and dims every other one to `opacity-40` (`data-dimmed`): the row is
- *  being read for that engine. The dimmed tiles keep their switches. */
+ *  `leadEngine`, given on every Global row while Global is seen by one
+ *  engine (an MCP host id, matched across formats by `sameEngine`), draws
+ *  that engine's tile first and dims every other one to `opacity-40`
+ *  (`data-dimmed`): the row is being read for that engine. The dimmed tiles
+ *  keep their switches. */
 export default function EngineReachTiles({
   reach,
   switchFor,

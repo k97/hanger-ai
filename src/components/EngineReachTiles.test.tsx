@@ -147,6 +147,9 @@ describe("EngineReachTiles — switch mode", () => {
     ...over,
   });
   const only = (key: string, t: TileSwitch | null) => (r: EngineReachInfo) => (r.engine_key === key ? t : null);
+  /* A tile's classes at rest: state variants (`hover:`, `disabled:`, …)
+     apply only on interaction, so they are not part of the look. */
+  const restingClasses = (el: HTMLElement) => el.className.split(/\s+/).filter((c) => c && !c.includes(":"));
 
   it("a switchable tile is a pressed button named by the action, server and engine both", () => {
     render(<EngineReachTiles reach={reach} switchFor={only("codex", tile())} />);
@@ -156,12 +159,44 @@ describe("EngineReachTiles — switch mode", () => {
     expect(btn.getAttribute("type")).toBe("button");
   });
 
-  it("an off tile is unpressed, a hollow ring, and names the action that turns it on", () => {
+  it("an off tile is unpressed, an outline ring only, and names the action that turns it on", () => {
+    // Q3 of docs/plans/2026-11-25-decisions-round-2.md: off is the outline,
+    // drawn at --ink-3 so it reads as a ring at a glance, with no fill and
+    // the tile itself never faded; only the mark inside is dimmed.
     render(<EngineReachTiles reach={reach} switchFor={only("codex", tile({ state: "off" }))} />);
     const btn = screen.getByRole("button", { name: "Switch alpha on for Codex" });
     expect(btn.getAttribute("aria-pressed")).toBe("false");
-    expect(btn.className).toContain("border-line-2");
+    expect(btn.className).toContain("border-ink-3");
+    expect(btn.className).not.toContain("border-line");
+    expect(restingClasses(btn).filter((c) => c.startsWith("bg-"))).toEqual([]);
+    expect(restingClasses(btn).filter((c) => c.startsWith("opacity-"))).toEqual([]);
     expect(btn.querySelector("svg")?.getAttribute("class") ?? "").toContain("opacity-40");
+  });
+
+  it("off, another engine and read-only are three looks, told apart without hovering", () => {
+    // Off: the full ring, the tile unfaded. Another engine while one is
+    // picked: the whole tile at opacity-40. Read-only: faded to opacity-60,
+    // keeping its on/off shape, its reason in the tip.
+    const look = (el: HTMLElement) => restingClasses(el).filter((c) => /^(border|opacity-)/.test(c)).sort().join(" ");
+    render(<EngineReachTiles reach={reach} switchFor={only("codex", tile({ state: "off" }))} />);
+    const off = look(screen.getByTestId("reach-tile-codex"));
+    cleanup();
+    render(<EngineReachTiles reach={reach} switchFor={only("codex", tile())} leadEngine="gemini" />);
+    const other = look(screen.getByTestId("reach-tile-codex"));
+    cleanup();
+    render(<EngineReachTiles reach={reach} switchFor={only("codex", tile({ readOnly: "managed_by_plugin" }))} />);
+    const readOnlyOn = look(screen.getByTestId("reach-tile-codex"));
+    cleanup();
+    render(
+      <EngineReachTiles reach={reach} switchFor={only("codex", tile({ state: "off", readOnly: "managed_by_plugin" }))} />
+    );
+    const readOnlyOff = look(screen.getByTestId("reach-tile-codex"));
+
+    expect(off).toBe("border border-ink-3");
+    expect(other).toBe("opacity-40");
+    expect(readOnlyOn).toBe("opacity-60");
+    expect(readOnlyOff).toBe("border border-ink-3 opacity-60");
+    expect(new Set([off, other, readOnlyOn, readOnlyOff]).size).toBe(4);
   });
 
   it("an on tile is the mark alone, as a reached tile is", () => {

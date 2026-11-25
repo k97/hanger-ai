@@ -34,7 +34,7 @@ import FavouriteHeart from "./FavouriteHeart";
 import LayerSwitch from "./LayerSwitch";
 import MarkdownDoc from "./MarkdownDoc";
 import type { Block } from "../utils/skillDocument";
-import { sectionHeadClass } from "./typeRoles";
+import { captionClass, sectionHeadClass } from "./typeRoles";
 import { miniBtnClass, miniBtnFillClass, miniBtnTonalClass, miniSetClass } from "./miniButton";
 import * as Icons from "./icons";
 import {
@@ -82,6 +82,7 @@ import {
   SAMPLE_ORIGIN,
   SAMPLE_ORIGIN_BLOCKED,
   SAMPLE_REACH,
+  sampleTileSwitch,
   SAMPLE_REVIEW,
   SAMPLE_REVIEW_ISSUE,
   SAMPLE_SCAN_STATUS,
@@ -989,6 +990,26 @@ export default function DesignSystemPane({ section }: DesignSystemPaneProps) {
 
           <Specimen name="EngineReachTiles" file="EngineReachTiles.tsx" note="reached engines wear their mark; unreached are empty slots">
             <EngineReachTiles reach={SAMPLE_REACH} />
+          </Specimen>
+
+          <Specimen name="EngineReachTiles · switches" file="EngineReachTiles.tsx" note="on Global's MCP servers rows a tile is that engine's switch, here the second one; off is an outline ring, another engine's tile while one is picked fades to 40%, a read-only one fades to 60% with its reason as the tip">
+            <div className="flex items-start gap-6 flex-wrap">
+              <div className="flex flex-col gap-1.5">
+                <EngineReachTiles reach={SAMPLE_REACH.slice(0, 3)} switchFor={sampleTileSwitch("off")} />
+                <span className={captionClass}>Off</span>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <EngineReachTiles reach={SAMPLE_REACH.slice(0, 3)} switchFor={sampleTileSwitch("on")} leadEngine="claude" />
+                <span className={captionClass}>Another engine picked</span>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <EngineReachTiles
+                  reach={SAMPLE_REACH.slice(0, 3)}
+                  switchFor={sampleTileSwitch("on", "managed_by_plugin")}
+                />
+                <span className={captionClass}>Read-only</span>
+              </div>
+            </div>
           </Specimen>
 
           <Specimen name="EngineLabel · BrandIcon" file="EngineLabel.tsx · BrandIcon.tsx" note="the one icon-plus-name compound">

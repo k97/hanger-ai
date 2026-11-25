@@ -1564,16 +1564,21 @@ key is one of the row's registrations becomes that engine's switch: a
 `<button aria-pressed>`, named and tipped with
 `paletteActionLabel` ("Switch ‹server› off for ‹engine›"), disabled while its
 request is in `busyKeys`, and its click stops at the tile so the row is not
-selected. On is the mark alone; off is a `border-line-2` ring with the mark at
-`opacity-40` — `--line-2`, not the unreached slot's `--line`, so off reads
-apart from "cannot read it". A read-only item keeps its state's look at
-`opacity-60`, is not a control, and its tip is `‹engine› — ‹stateLabel›.
-‹readOnlyLine›`. A grouped row matches every registration it stands for; an
+selected. On is the mark alone; off is an outline, a `border-ink-3` ring with
+no fill and the tile unfaded, only the mark inside at `opacity-40` — so off
+reads as a ring at a glance, apart from the two faded looks below and from
+the unreached slot's faint `--line` ring (Q3 of
+`docs/plans/2026-11-25-decisions-round-2.md`; it was a `--line-2` ring until
+then, which read as one more faded tile). A read-only item keeps its state's
+shape — the mark, or the ring — faded to `opacity-60`, is not a control, and
+its tip is `‹engine› — ‹stateLabel›. ‹readOnlyLine›`. The design-system page
+shows the three side by side (`EngineReachTiles · switches`). A grouped row matches every registration it stands for; an
 engine that switches by name takes any of its items, preferring a switchable
 one, and any other engine holding two of them draws no switch
 (`switchTargets.ts` → `tileTarget`). No item, or no reply yet, draws the tile
-as before. `leadEngine` (an MCP host id, given by Global's MCP rows while an
-engine is picked, through `AssetRow`) draws that engine's tile first,
+as before. `leadEngine` (an MCP host id, given by every Global row while an
+engine is picked, through `AssetRow` in either variant) draws that engine's
+tile first,
 matched by `sameEngine`, ahead of the reached-first order so the cap never
 hides it, and dims every other tile to `opacity-40` (`data-dimmed`); the
 dimmed tiles keep their switches. On the same rows the Tools column shows
