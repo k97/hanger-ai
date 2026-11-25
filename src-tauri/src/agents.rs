@@ -254,9 +254,12 @@ pub const AGENT_CONFIGS: &[AgentConfig] = &[
 /// Engine config directories a user can relocate with an environment
 /// variable, as (home-relative root, variable name).
 ///
-/// Each prefix must also be an `AGENT_CONFIGS` global_root — a prefix nothing
+/// Each prefix must also be an `AGENT_CONFIGS` global_root or the first folder
+/// of a home-relative `mcp::registry::SOURCES` path — a prefix nothing
 /// declares would never fire, and `every_env_table_entry_names_a_real_agent_root`
-/// pins that.
+/// pins that. `.copilot` is the second kind (ruling 24, 2026-11-25): it holds
+/// VS Code's Copilot MCP file and is no engine's asset root, so relocating it
+/// moves that one MCP source and no skill, rule or subagent.
 ///
 /// `.claude.json` is NOT listed here: it is not a directory and not a
 /// global_root, so `engine_base` special-cases it below against the same
@@ -271,6 +274,11 @@ pub const AGENT_CONFIGS: &[AgentConfig] = &[
 pub const CONFIG_DIR_ENVS: &[(&str, &str)] = &[
     (".claude", "CLAUDE_CONFIG_DIR"),
     (".codex", "CODEX_HOME"),
+    // From VS Code's documentation, not measured: "setting COPILOT_HOME
+    // replaces the default ~/.copilot location. VS Code does not check both
+    // locations" (code.visualstudio.com/docs/agents/reference/
+    // mcp-configuration, fetched 2026-11-25).
+    (".copilot", "COPILOT_HOME"),
 ];
 
 /// Where a home-relative engine path actually resolves.

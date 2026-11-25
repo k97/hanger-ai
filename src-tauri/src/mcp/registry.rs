@@ -182,6 +182,36 @@ pub const SOURCES: &[McpSource] = &[
     McpSource { host_id: "claude-desktop", location: HomeRelative, path: "Library/Application Support/Claude/claude_desktop_config.json", tier: Global, dialect: McpServers },
 
     // VS Code
+    //
+    // The Copilot harness reads `$COPILOT_HOME/mcp-config.json` ("or
+    // `~/.copilot/mcp-config.json` when `COPILOT_HOME` is unset") and
+    // "`.mcp.json` at the workspace root"; "Both files use a top-level
+    // `mcpServers` object" (code.visualstudio.com/docs/agents/reference/
+    // mcp-configuration, page dated 11/18/2026, fetched 2026-11-25).
+    // COPILOT_HOME is honoured through `agents::CONFIG_DIR_ENVS` (ruling 24).
+    // Global, like every other host's home-wide file; `User` is Claude Code's
+    // own term for `~/.claude.json`.
+    //
+    // KNOWN LIMIT: VS Code now has two dialects at Global (`McpServers` here,
+    // `VsCodeServers` in the profile rows below) and two at Project, so
+    // `switch::context::dialect_of` answers `None` for vscode at either tier.
+    // That is the "not a guess" answer, never a wrong dialect, and it matters
+    // only to a flag switch, which vscode has no `SWITCHES` row for.
+    McpSource { host_id: "vscode", location: HomeRelative, path: ".copilot/mcp-config.json", tier: Global, dialect: McpServers },
+    // Workspace root only: the docs name no ancestor walk, so there is no
+    // `RepoAncestors` row for vscode (Claude Code's own walk is its row above).
+    //
+    // KNOWN LIMIT: this is the same file as Claude Code's `.mcp.json` row, so
+    // a server in it is two registrations (one per host) with one
+    // `RegistrationKey` — `{config_path}:{server_name}` names no host. The
+    // file still counts once (`coverage`, `servers::file_count`), but the
+    // server's `registrations` list carries the same key twice, and a lookup
+    // by key (`discover::resolve_registration`) answers with Claude Code's
+    // row, which comes first. docs/roadmap.md, MCP section.
+    McpSource { host_id: "vscode", location: RepoRelative, path: ".mcp.json", tier: Project, dialect: McpServers },
+    // The `servers` files below belong to the Local harness, which the same
+    // page calls deprecated and "will be removed in February 2027". Still
+    // read until then.
     McpSource { host_id: "vscode", location: HomeRelative, path: "Library/Application Support/Code/User/mcp.json", tier: Global, dialect: VsCodeServers },
     // Per-profile servers — each VS Code profile carries its own mcp.json
     // (code.visualstudio.com MCP docs, fetched 2026-08-27). Same dialect as

@@ -212,6 +212,43 @@ fn a_relocated_claude_dir_moves_its_mcp_sources() {
     );
 }
 
+#[test]
+fn copilot_home_relocates_the_copilot_file() {
+    // Task 8B, ruling 24. VS Code's docs (mcp-configuration, page dated
+    // 11/18/2026, fetched 2026-11-25): "setting COPILOT_HOME replaces the
+    // default ~/.copilot location. VS Code does not check both locations."
+    // Taken from the docs; nothing was measured against the Copilot CLI.
+    let (_l, _g) = guard();
+    let home = tempfile::tempdir().unwrap();
+    let relocated = tempfile::tempdir().unwrap();
+    std::fs::write(
+        relocated.path().join("mcp-config.json"),
+        r#"{"mcpServers": {"relocated-probe": {"command": "/bin/true", "args": []}}}"#,
+    )
+    .unwrap();
+    // A decoy at the default location must NOT be read once the var is set.
+    std::fs::create_dir_all(home.path().join(".copilot")).unwrap();
+    std::fs::write(
+        home.path().join(".copilot/mcp-config.json"),
+        r#"{"mcpServers": {"stale-probe": {"command": "/bin/true", "args": []}}}"#,
+    )
+    .unwrap();
+
+    std::env::set_var("COPILOT_HOME", relocated.path());
+    let r = tauri_app_lib::mcp::discover::discover_machine_at(
+        home.path(),
+        Path::new("tests/fixtures/no_such_system_root"),
+    );
+    let vscode: Vec<&str> = r
+        .registrations
+        .iter()
+        .filter(|x| x.host_id == "vscode")
+        .map(|x| x.server.name.as_str())
+        .collect();
+
+    assert_eq!(vscode, vec!["relocated-probe"], "COPILOT_HOME substitutes for ~/.copilot");
+}
+
 // ─── Task 4: the no-op guarantee, end to end ───────────────────────────────
 
 #[test]

@@ -906,9 +906,12 @@ fn fixture_home() -> &'static Path {
 /// left alone, that would silently change what these frozen counts mean
 /// (review finding, Minor 9). Clear both before the assertion so the count is
 /// about the fixture, never about the environment that launched the binary.
+/// `COPILOT_HOME` joined `CONFIG_DIR_ENVS` with Task 8B (ruling 24) and is
+/// cleared for the same reason.
 fn clear_config_dir_envs() {
     std::env::remove_var("CLAUDE_CONFIG_DIR");
     std::env::remove_var("CODEX_HOME");
+    std::env::remove_var("COPILOT_HOME");
 }
 
 #[test]
@@ -1793,4 +1796,137 @@ fn ancestor_walk_ignores_a_repo_outside_home() {
         "a repo outside $HOME walks nothing — ancestor reach above an \
          unrelated tree is a claim this function cannot verify"
     );
+}
+
+// ─── VS Code's Copilot harness (Task 8B, ruling 22) ─────────────────────────
+//
+// code.visualstudio.com/docs/agents/reference/mcp-configuration (page dated
+// 11/18/2026, fetched 2026-11-25): the Copilot harness reads
+// `$COPILOT_HOME/mcp-config.json` (or `~/.copilot/mcp-config.json`) and a
+// workspace-root `.mcp.json`, both `mcpServers`. The `servers` files are the
+// deprecated Local harness's and are still read until February 2027.
+// Relocation by COPILOT_HOME is tested in config_dir_env_tests.rs, which owns
+// the variable; this file never sets it.
+
+fn write_file(path: &Path, body: &str) {
+    std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+    std::fs::write(path, body).unwrap();
+}
+
+#[test]
+fn vscode_reads_the_copilot_user_file() {
+    clear_config_dir_envs();
+    let home = tempfile::tempdir().unwrap();
+    write_file(
+        &home.path().join(".copilot/mcp-config.json"),
+        r#"{"mcpServers": {
+            "local-probe": {"type": "stdio", "command": "probe-server", "args": ["--plain"], "tools": ["*"]},
+            "remote-probe": {"type": "http", "url": "https://example.invalid/mcp", "tools": ["*"]}
+        }}"#,
+    );
+    let result = discover::discover_machine_at(home.path(), no_system_root());
+    let vscode: Vec<_> = result.registrations.iter().filter(|r| r.host_id == "vscode").collect();
+    assert_eq!(vscode.len(), 2, "both servers in the Copilot file: {:#?}", result.registrations);
+
+    let local = vscode.iter().find(|r| r.server.name == "local-probe").expect("the stdio server");
+    assert_eq!(local.tier, ScopeTier::Global);
+    assert_eq!(local.server.command, "probe-server");
+    assert_eq!(local.server.args, vec!["--plain".to_string()]);
+    assert_eq!(local.server.transport, "stdio");
+
+    let remote = vscode.iter().find(|r| r.server.name == "remote-probe").expect("the url-only server");
+    assert_eq!(remote.tier, ScopeTier::Global);
+    assert_eq!(remote.server.command, "");
+    assert_eq!(remote.server.transport, "https://example.invalid/mcp");
+    assert!(remote.config_path.ends_with(".copilot/mcp-config.json"));
+}
+
+#[test]
+fn vscode_reads_a_workspace_root_mcp_json() {
+    let repo = tempfile::tempdir().unwrap();
+    write_file(
+        &repo.path().join(".mcp.json"),
+        r#"{"mcpServers": {"workspace-probe": {"type": "stdio", "command": "probe-server", "args": []}}}"#,
+    );
+    let result = discover::discover_repo(repo.path());
+    let vscode: Vec<_> = result.registrations.iter().filter(|r| r.host_id == "vscode").collect();
+    assert_eq!(vscode.len(), 1, "{:#?}", result.registrations);
+    assert_eq!(vscode[0].server.name, "workspace-probe");
+    assert_eq!(vscode[0].tier, ScopeTier::Project);
+    assert_eq!(vscode[0].server.command, "probe-server");
+}
+
+#[test]
+fn the_deprecated_vscode_files_are_still_read() {
+    clear_config_dir_envs();
+    let home = tempfile::tempdir().unwrap();
+    write_file(
+        &home.path().join("Library/Application Support/Code/User/mcp.json"),
+        r#"{"servers": {"profile-probe": {"type": "stdio", "command": "probe-server", "args": []}}}"#,
+    );
+    let machine = discover::discover_machine_at(home.path(), no_system_root());
+    assert!(
+        machine.registrations.iter().any(|r| r.host_id == "vscode" && r.server.name == "profile-probe"),
+        "User/mcp.json: {:#?}",
+        machine.registrations
+    );
+
+    let repo = tempfile::tempdir().unwrap();
+    write_file(
+        &repo.path().join(".vscode/mcp.json"),
+        r#"{"servers": {"folder-probe": {"type": "stdio", "command": "probe-server", "args": []}}}"#,
+    );
+    let project = discover::discover_repo(repo.path());
+    assert!(
+        project.registrations.iter().any(|r| r.host_id == "vscode" && r.server.name == "folder-probe"),
+        ".vscode/mcp.json: {:#?}",
+        project.registrations
+    );
+}
+
+#[test]
+fn one_mcp_json_read_for_two_hosts_is_two_registrations_and_one_file() {
+    let repo = tempfile::tempdir().unwrap();
+    write_file(
+        &repo.path().join(".mcp.json"),
+        r#"{"mcpServers": {"shared-probe": {"type": "stdio", "command": "probe-server", "args": []}}}"#,
+    );
+    let result = discover::discover_repo(repo.path());
+    let shared: Vec<_> = result.registrations.iter().filter(|r| r.server.name == "shared-probe").collect();
+    let mut hosts: Vec<&str> = shared.iter().map(|r| r.host_id).collect();
+    hosts.sort_unstable();
+    assert_eq!(hosts, vec!["claude-code", "vscode"], "one registration per host");
+
+    let rows = tauri_app_lib::mcp::servers::group_servers(&result.registrations);
+    let row = rows.iter().find(|row| row.name == "shared-probe").expect("one row");
+    assert_eq!(row.registration_count, 2);
+    assert_eq!(row.file_count, 1, "one file, read for two hosts");
+
+    let coverage = discover::coverage(&result, &std::collections::HashSet::new());
+    assert_eq!(coverage.checked_file_count, 1, "the file is counted once: {:?}", coverage.checked_files);
+}
+
+#[test]
+fn vscode_does_not_walk_ancestors_for_mcp_json() {
+    let home = tempfile::tempdir().unwrap();
+    let repo = home.path().join("parent/repo");
+    write_file(
+        &home.path().join("parent/.mcp.json"),
+        r#"{"mcpServers": {"parent-probe": {"type": "stdio", "command": "probe-server", "args": []}}}"#,
+    );
+    write_file(
+        &repo.join(".mcp.json"),
+        r#"{"mcpServers": {"root-probe": {"type": "stdio", "command": "probe-server", "args": []}}}"#,
+    );
+    let mut regs = discover::discover_repo_ancestors(&repo, home.path()).registrations;
+    regs.extend(discover::discover_repo(&repo).registrations);
+    let hosts_of = |name: &str| {
+        let mut hosts: Vec<&str> = regs.iter().filter(|r| r.server.name == name).map(|r| r.host_id).collect();
+        hosts.sort_unstable();
+        hosts
+    };
+    // VS Code reads `.mcp.json` at the workspace root only; Claude Code's
+    // ancestor walk is its own.
+    assert_eq!(hosts_of("parent-probe"), vec!["claude-code"], "a parent's .mcp.json is Claude Code's only");
+    assert_eq!(hosts_of("root-probe"), vec!["claude-code", "vscode"], "the root's is read for both");
 }

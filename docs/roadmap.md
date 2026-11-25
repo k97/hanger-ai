@@ -34,6 +34,16 @@ MCP detector's stage 1.
   What is built is the backend for switching a declared server off and on,
   which no screen calls yet; `docs/harness.md` → "Hanger writes engine
   configuration" states the boundary.
+- **A workspace-root `.mcp.json` is one file read for two hosts, under one
+  key.** Since 2026-11-25 (Task 8B) both Claude Code and VS Code's Copilot
+  harness read it, so a server declared there is two registrations. Both
+  carry the same `RegistrationKey` — `{config_path}:{server_name}` names no
+  host — so the server's `registrations` list holds that key twice and a
+  lookup by key (`discover::resolve_registration`) answers with Claude Code's
+  row. The file is still counted once (`coverage`, `servers::file_count`).
+  Production reads this file only through the project pass's filename sweep,
+  which keeps one row per key, so no screen shows the second host yet. Known
+  limit, recorded at the row in `registry.rs`; `RegistrationKey` is unchanged.
 - **Plugin-supplied servers.** Reconciling one by hand is undone at the next
   plugin update. Needs a ruling on exclusion from Reconcile.
 - **Bridge registry growth.** `registry.rs`'s `BRIDGES` holds `mcp-remote`,
@@ -140,6 +150,14 @@ Updated 2026-08-28. `CLAUDE_CONFIG_DIR` and `CODEX_HOME` are now honoured for
 all four asset kinds through one chokepoint, `agents::engine_base` — agent
 detection and MCP source resolution both call it, so a relocated directory
 cannot be followed for tools and missed for skills.
+
+`COPILOT_HOME` joined them on 2026-11-25 (ruling 24 in
+[docs/plans/2026-11-24-context-control.md](plans/2026-11-24-context-control.md)).
+It relocates `~/.copilot`, where VS Code's Copilot harness keeps
+`mcp-config.json`; Hanger reads no skill, rule or subagent from there, so it
+moves one MCP source and nothing else. It follows VS Code's documentation
+("setting `COPILOT_HOME` replaces the default `~/.copilot` location", fetched
+2026-11-25) and was not measured against the Copilot CLI.
 
 `CLAUDE_CONFIG_DIR` relocating `.claude.json` is measured, not inferred: with
 the variable set, `claude mcp list` returned a server declared in
