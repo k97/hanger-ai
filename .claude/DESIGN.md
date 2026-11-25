@@ -682,27 +682,6 @@ one row per catalogue kind from `kindCounts`, under a "Categories" eyebrow.
 The pane is a controlled consumer of `kind` (ruled 2026-08-15, reversing the
 earlier no-second-column decision).
 
-**`EnginesSidebar`** (`EnginesSidebar.tsx`) — **no longer rendered**: since
-T1 of `docs/plans/2026-11-25-ia-engines-into-global.md` the Engines tab's
-chips (`EnginesPane`, below) do its job, and the file and its test stay
-until removing them is ruled on. It was the Engines screen's second
-column: `engines`, `scannedAt`, `selected`, `onSelect`, and the shell's four
-sizing props. One row per engine under an "Engines" eyebrow, each an
-`EngineLabel` with the backend's `engine_name`, in Discovery's row idiom
-(`aria-current="true"` and `bg-sidebar-sel` when selected). **No figure
-beside a row**: the summary's `server_count` counts distinct names and leaves
-out kept servers, while the pane lists one row per registration plus the
-kept ones, so a count here would contradict the rows beside it (P7,
-`docs/plans/2026-11-25-context-control-finish.md`). App builds the list with
-`enginesList` (`src/utils/enginesList.ts`): the engine summary's rows in
-their order, then any engine with a server Hanger is keeping off that the
-summary does not list (P8). Before the first scan, or before its replies
-land, it shows the eyebrow and nothing else; after them, with no rows, "No
-engine declares an MCP server." The selection is App's, persisted as
-`selected_engine` and falling back to the first row when the stored id is
-not in the list. Pinned by `EnginesSidebar.test.tsx`,
-`enginesList.test.ts` and `engines_screen.test.tsx`.
-
 **`DesignSystemSidebar`** (`DesignSystemSidebar.tsx`) — the Design system
 page's table of contents: one row per `DESIGN_SECTIONS` entry
 (`src/data/designSystemFixtures.ts`); choosing a row scrolls the one page
@@ -714,18 +693,32 @@ rather than swapping views.
 `selectedCategory?`, `selectedAsset?`, `loading`, `stateFilter?`,
 `onStateFilterChange?`, `scannedAt?`, `detectedEngines?`, `onRescan?`,
 `sortField?`, `sortDirection?`, `onSortChange?`, `onSelectAsset`,
-`onLinkAsset`, `onClearSelection?`; and, since 2026-08-28, the hero's own
-four — `hostsBandOpen?` / `onToggleHostsBand?` (`:120-121`) for the band's
-fold, `issues?` / `onReview?` (`:125-126`) for the review pill's lines and
-its route out; and `keptOff?` / `onOpenKeptOff?` for the "Switched off" group.
-`enginesTab?` is the Engines tab's body (App's `EnginesPane`): the tab shows
-only when it is given, and while it is selected it stands in for the strip
-and the list, and the foot drops its "Showing" figure. `selectedCategory` /
-`onCategoryChange` carry a `GlobalTab` (`CategoryType | "Engines"`,
-`CategoryFilterCards.tsx`); Engines is never a `CategoryType`, so no
-filtering or counting path can be handed it. App reads a tab from a
-`global:<tab>` route, and a tab chosen on the pane hands the choice back by
-setting the route to `profile` — without clearing the inspector.
+`onLinkAsset`; `issues?` / `onReview?` for the review pill's lines and its
+route out; `keptOff?` / `onOpenKeptOff?` for the "Switched off" group; and,
+since the engine lens (Phase 1 of
+`docs/plans/2026-11-25-ia-global-by-engine.md`), `engines?` (App's
+`enginesList` rows), `selectedEngine?` (an MCP host id, `null` for All
+engines) and `onSelectEngine?`. There is no Engines tab and no `GlobalTab`
+type any more: `selectedCategory` / `onCategoryChange` carry a
+`CategoryType`. App reads a tab from a `global:<tab>` route, and a tab chosen
+on the pane hands the choice back by setting the route to `profile` —
+without clearing the inspector.
+
+*The engine lens.* With an engine picked the list keeps what that engine
+reaches, on every tab: a skill, rule or subagent row when its
+`get_asset_annotations` reach for the engine (`reachFor`, matched across
+host ids and asset keys by `switchTargets.ts` → `sameEngine`) is `reached`;
+an MCP server row when one of its registrations is an item key of the
+engine's `get_engine_context` (the T3 band's filter, unchanged: `filterKeys`,
+`inEngineFilter`). Until that context lands no server row shows under the
+engine's name. A row the backend says the engine does not reach goes to
+"Not loaded by ‹engine›" (`NotLoadedGroup`, below); a row with no verdict for
+the engine is in neither. While filtered, every section head drops its store
+figure ("Skills", not "Skills · 553"): the figure is `get_asset_counts`'
+total, which the rows beneath would contradict, and no filtered figure
+exists without a frontend count. An emptied tab reads "No ‹kind› matches
+that filter" (`narrowed`), never that the store is empty. The tab track's
+counts stay store totals.
 
 **The "Switched off" group** (`ProfilePane.tsx`, the block before the Rules
 group) — the servers Hanger is keeping while they are switched off for an
@@ -735,7 +728,7 @@ servers list and in no figure from `get_asset_counts`: the list's header
 keeps its own figure, and the group follows the Tools rows under its own
 `h3` (`groupLabelClass`, the other groups' shape) reading "Switched off ·
 ‹keptOff.count›" — the backend's figure, never the rows'. Each row is a
-`<button>` (`keptRowClass`): the name and the transport chip, drawn with
+`<button>` (`keptRowClass`, which is `NotLoadedGroup.tsx` → `groupRowClass`): the name and the transport chip, drawn with
 `cardChipClass` (`AssetRow.tsx`, the card row's own chip) and, like it,
 showing only the domain (`transportChipLabel`, below), then "Off for
 ‹engine_name›"; no reach tiles and no tool count, because the server is in
@@ -746,8 +739,48 @@ card row's `bg-tint` ground, tinted name and `data-selected`. It shows on MCP se
 hides it, since a kept server has no link state. With only kept servers,
 neither the zero-servers state nor the whole-store empty plane wins: every
 predicate that decides the plane reads `keptAny` (`keptOff.count > 0`, a
-boolean) or `keptShown` (that, with no link-state filter). Pinned by
-`ProfilePaneIntegration.test.tsx` and `engines_screen.test.tsx`.
+boolean) or `keptShown` (that, with no link-state filter). With an engine
+picked it holds that engine's kept servers only (`keptRows`, by the
+context's `stash:` keys) and its head reads "Switched off" with no figure,
+since `count` is every engine's. Pinned by `ProfilePaneIntegration.test.tsx`,
+`kept_inspector.test.tsx` and `engine_lens_pane.test.tsx`.
+
+**`EngineChipRow`** (`EngineChipRow.tsx`) — `engines`, `selected`,
+`onSelect`. Global's engine selector, inside `SummaryStrip`'s `children`
+slot on every tab, where the Global "By engine" band was. A `role="group"`,
+`aria-label="Engines"` row (`mt-3 pt-3 border-t border-line flex flex-wrap
+items-center gap-[7px]`, the band's rule and the retired Engines tab's gap):
+"All engines" first, then one `<button aria-pressed>` per engine holding an
+`EngineLabel` (its `BrandIcon` mark from the sprite) — Needs review's chip
+idiom, `chipBaseClass` / `chipPressedClass`, moved here from the retired
+`EnginesPane` with the pressed chip's check replaced by the mark, so it
+keeps `px-3.5`. One pressed at a time; it wraps and never becomes a grid.
+No chip carries a figure in Phase 1. ProfilePane draws it only once
+`scannedAt` is set and the list has an engine. The selection is App's
+`selected_engine`, restored on open (Q2) and written on every pick, All
+engines as `""`; a stored id the list does not hold reads as All engines.
+The crumb follows it: "My machine › Global" for All engines, "My machine ›
+Global › ‹engine›" with one picked, its "Global" a button that clears back
+to All engines on the same tab. Pinned by `engine_lens_pane.test.tsx` and
+`engine_lens.test.tsx`.
+
+**`NotLoadedGroup`** (`NotLoadedGroup.tsx`) — `engineName`, `rows`,
+`defaultOpen?`. "Not loaded by ‹engine›", once, at the end of Global's list
+while an engine is picked and the backend says it misses something there
+(Q4). The head is the "Switched off" group's `h3` (`groupLabelClass` at
+`px-3.5 pt-[11px] pb-[5px]`) made a fold: a full-width `<button
+aria-expanded>` with HeroBand's chevron (`ChevronRightIcon`, here at the
+12px chevron size, `rotate-90` open, `duration-hover ease-spring`), folded
+by default. **It carries no figure**: no backend command counts these, and a
+number made here would be a frontend count. Each row is a `groupRowClass`
+button, the "Switched off" row's shape: the name, a `cardChipClass` chip (an
+MCP server's `transportChipLabel`, otherwise the kind, `getSingularType`),
+then the reason in `text-small text-ink-3` — `ReachCard.tsx` → `missTitle`,
+the Reach card's own route title for a miss ("Not linked", "Another
+engine's format"), so the list and the inspector name one miss one way. A
+row opens its asset in the inspector; the cap's Link to… is the way to act.
+Selected, it takes `bg-tint` and the tinted name. Pinned by
+`engine_lens_pane.test.tsx`.
 
 **`RepoPane`** (`RepoPane.tsx:36-69`) — the same shape plus `repoPath`,
 `onRefresh`, `onLinkFromProfile`, `linkedRepos?`, `onPromoteCandidates?`,
@@ -837,28 +870,12 @@ complete (`SummaryStrip.tsx:13-16`; §1 records the aqua ruling that
 withdrew with it). The four coverage counts remain backend fields
 (`src/types/mcpEngineSummary.ts:23-42`); nothing on screen reads them.
 
-**The band is what the per-engine prose became, in both panes.** `HeroBand`
-(Surfaces and controls, below) renders in the strip's `children` slot. On
-the Global MCP hero it is "By engine" (it was "By host" until 2026-11-25, T3
-of `docs/plans/2026-11-25-ia-engines-into-global.md`): one row per engine
-the Engines tab lists (`enginesList`), each carrying that engine's
-`get_engine_context` exactly as the Engines tab's budget card prints it —
-`tokenFigure(on_tokens_measured)` with "tokens" as the figure and
-`budgetCaption` as the secondary, through one helper, `engineBandFigures`
-(`switchCopy.ts`) — or "Not measured" with no figure while the context has
-not arrived, and with the caption kept when servers are on and none is
-measured (`measuredBudget`: a sum over nothing measured is no figure; with
-nothing on, the 0 stands). Tool counts stay on the server rows and in the inspector (D4).
-It shows on the MCP servers tab in both row modes (`bandShown` in
-`ProfilePane`), not only with grouped rows as the strip's MCP mode does. Each
-row is a filter: pressed, the list keeps the server rows with a
-registration among that context's item keys and the kept servers whose
-`stash:` key is one; pressed again, or the tinted chip with the engine's name
-the band's header carries while a filter is on, clears it. It is screen state,
-not a preference, and resets with the Review filter on every category
-change. The header's right end carries Measure all, which asks
-`measure_engine_context` for each listed engine in turn and hands each reply
-to App. "By engine" on a project pane, one row per
+**The band is what the per-engine prose became, on a project pane.**
+`HeroBand` (Surfaces and controls, below) renders in the strip's `children`
+slot. Global's "By engine" band (T3 of
+`docs/plans/2026-11-25-ia-engines-into-global.md`) is gone: the engine chips
+(`EngineChipRow`, above) took its slot on every tab, and its row filter
+became the engine lens (`ProfilePane`, above). "By engine" on a project pane, one row per
 engine with its asset count, sorted `none` last then count descending
 (`RepoPane.tsx:243-253`, rendered `:565-573`). The project pane's subtitle
 lost its engine tail when the band arrived — a count of engine kinds beside
@@ -915,57 +932,6 @@ would filter that line straight back out (`:40`).
 **`DiscoveryPane`** (`DiscoveryPane.tsx`) — `kind?`. Renders
 from static data in `src/data/directories.ts`; the kind facet is owned by
 `DiscoverySidebar`.
-
-**`EnginesPane`** (`EnginesPane.tsx`) — `engines`, `engineId`,
-`onSelectEngine`, `openItem`, `scannedAt`, `switcher` (App's
-`useMcpSwitch`), `refreshNonce`. Global's Engines tab, rendered by
-`ProfilePane` under its tab track. First a chip row (`role="group"`,
-`aria-label="Engines"`, `mx-[18px] flex flex-wrap gap-[7px]`): one
-`<button aria-pressed>` per `engines` entry holding an `EngineLabel`, in
-Needs review's chip idiom (`chipBaseClass` / `chipPressedClass`, declared
-again here) and with **no figure**, for P7's reason (`EnginesSidebar`,
-above). Before the first scan, or before its replies land, it draws
-nothing; after them, with no engines, "No engine declares an MCP server."
-The selection is App's, persisted as `selected_engine`, falling back to the
-first chip when the stored id is not in the list. Then one engine's Context, read with
-`get_engine_context` on mount, on a new `engineId`, and on every
-`refreshNonce` (App bumps it on `scan://complete`), behind a cancellation
-flag; a reply for an engine no longer selected is dropped. The pane root has
-no top padding (the tab track's wrapper ends in the gap) and no ground of its
-own, and its content sits at `mx-[18px]`, `mt-[18px]` under the chips:
-the engine's name as the `h2` (`text-lg-app`, the inspector title's
-classes); a one-row `ListCard` budget — `engineBudgetHeadline(context)`
-(`budgetHeadline(on_tokens_measured)`, or "Not measured" by the band's rule)
-in `rowValueClass` over `budgetCaption(measured_on_count, on_count,
-off_count)` in `captionClass`, with **Measure all** (`miniBtnClass`;
-"Measuring…" and disabled while `measure_engine_context` runs, whose reply
-replaces the context) — and under it "Starts each server that's on and has
-no recent answer, and reads its tool list."; then a "Context"
-`sectionHeadClass` heading over one `ListCard` with a row per item in the
-order given: the name, `{tier} · {config_path}` in `monoLabelClass` (the tier
-alone for a kept server), `costLabel` (`rowMonoClass`, or `captionClass` for
-"Not measured"), and the switch (§7) — a `<button aria-pressed>` named by the
-server, holding `LayerSwitch`, disabled while its request is in `busyKeys`.
-The name and its mono line are a text button when `openItem(item)` returns
-an opener (underlined on hover, SwitchNotice's Undo idiom): App's opener
-selects the inventory asset whose registration key is the item's key,
-exactly as the MCP servers list's per-registration row does, and the
-inspector opens on it. A `stash:` item the kept list holds opens the kept
-view instead (T4 of the IA plan, below under Inspectors); an item with no
-inventory asset, or a `stash:` item the kept list does not hold, gets `null`
-and keeps a plain name. The switch is a separate button, so it never selects
-the row. A read-only item shows `stateLabel` ("On"/"Off") where the switch would be
-and its `readOnlyLine` beneath (P9). A `stash:` item carries the kept line,
-and every item carries the by-name line when `switches_by_name` is true —
-no engine id is compared in the view (P10). Every word comes from
-`src/utils/switchCopy.ts` or the naming brief. A switch's reply context
-replaces the pane's at once; App's rescan follows from the hook. Pending
-draws nothing at all; "‹engine› declares no MCP servers." stands in place of
-the budget and the list, and shows only once the reply has landed and
-`scannedAt` is set; `applies` renders nothing
-(ruling 19). The budget is never a sum of the rows: a launch the engine
-declares twice counts once in `on_tokens_measured`. Pinned by
-`EnginesPane.test.tsx` and `engines_screen.test.tsx`.
 
 **`DesignSystemPane`** (`DesignSystemPane.tsx`) — `section` only. The page
 described in §9.
@@ -1359,15 +1325,16 @@ eyebrows.
   line only while a matching process is up (`:1005-1072`). After the tier,
   a row whose engine has answered `get_engine_context` with an item of the
   same key (`switches`, by registration key) carries that item's switch
-  (§7): the Engines pane's `switchBtnClass` button, `aria-pressed` by state,
+  (§7): a `switchBtnClass` button, `aria-pressed` by state,
   disabled while busy, named `{engine}, {file}` from the engine's name and
   the row's config path — not by the server, which is the panel's title and
   can be declared twice by one engine. A read-only item shows `stateLabel`
   there instead, with its `readOnlyLine` in `captionClass` under the path
   line. A project row, a host with no engine id, and every row before its
-  engine's first reply draw nothing new. The host name is a link to Global's
-  Engines tab on that engine (`onOpenEngine`) when the row's `engineId` is
-  one the tab lists (`linkedEngines`, App's `enginesList` ids, carried by
+  engine's first reply draw nothing new. The host name is a link that shows
+  Global seen by that engine, on the tab already open (`onOpenEngine`, App's
+  `openEngine`), when the row's `engineId` is one the engine chips list
+  (`linkedEngines`, App's `enginesList` ids, carried by
   `Flyout`): a text button, underlined on hover on the name inside the
   `EngineLabel`. Any other row names its host in plain text. `Flyout` asks each engine once per
   open server and again on App's `scanNonce`, matches item to row by key
@@ -1380,16 +1347,16 @@ eyebrows.
 **A kept server's view** (`Flyout.tsx`, `KeptServerDetail`, local to the
 file: it has one caller). A server Hanger is keeping while it is switched
 off has no inventory asset, so App holds it as a selection of its own,
-`selectedKeptKey`, set from a "Switched off" row or a kept item on the
-Engines tab and cleared by any asset selection or change of screen, and
+`selectedKeptKey`, set from a "Switched off" row and cleared by any asset
+selection or change of screen, and
 hands `Flyout` the matching `KeptOffServer` as `keptServer`. The header is
 the server's: its name and its transport chip; the cap reads `MCP server ·
 Global` and offers nothing to open, copy, reveal or link. The body is one
 `ListCard` row in `McpServerDetail`'s `SECTION`: "Off for" and the engine's
-`EngineLabel`, a link to Global's Engines tab on it when the tab lists it
-(the "Registered in" idiom), then the switch — `aria-pressed="false"`, named
-by the server, `LayerSwitch` off, disabled while busy — which sends the
-Engines tab's request for the kept item through `useMcpSwitch`; under it the
+`EngineLabel`, a link that shows Global seen by that engine when the chips
+list it (the "Registered in" idiom), then the switch — `aria-pressed="false"`,
+named by the server, `LayerSwitch` off, disabled while busy — which sends
+`switchRequestFor`'s request for the kept item through `useMcpSwitch`; under it the
 kept line (`mechanismLine("claude_kept")`). Once the switch succeeds App
 reads the kept list again (`useMcpSwitch`'s `onChanged`), the server leaves
 it, and nothing is selected. Pinned by `kept_inspector.test.tsx`.
@@ -1475,14 +1442,16 @@ and which spelling is read, are settled by screenshot
 
 **`HeroBand`** (`HeroBand.tsx:29-38`) — `label`, `open`, `onToggle`, `rows`,
 `note?`, `foot?`, `trailing?`. The hero's foldable band, drawn inside
-`SummaryStrip`'s `children` slot: "By engine" on the Global MCP hero
-(Karthik's Q1 ruling, 2026-11-25; "By host" before) and on a project pane
-(Karthik's ruling, 2026-08-28; the component's own docstring).
+`SummaryStrip`'s `children` slot: "By engine" on a project pane (Karthik's
+ruling, 2026-08-28; the component's own docstring). It was Global's MCP hero
+band too until the engine lens replaced it with `EngineChipRow`
+(`docs/plans/2026-11-25-ia-global-by-engine.md`); `filter` and `trailing`
+have no caller since.
 
 *Anatomy.* A `mt-3 pt-3 border-t border-line` band beneath the strip's second
 row, opened by a 26px button that takes the header line's width less
-`trailing` — controls that cannot sit inside the fold's own button: the
-Global hero's filter chip and Measure all — carrying a chevron that
+`trailing` — controls that cannot sit inside the fold's own button, which
+the Global hero used for its filter chip and Measure all — carrying a chevron that
 rotates 90° when open, the label, and then one of two things (`:43-64`).
 Collapsed, that is one line: every row's 13px `BrandIcon` beside its figure
 in `rowMonoClass` (`:55-62`). Open, it is the `note` beside the label (`:53`)
@@ -1510,11 +1479,10 @@ an em dash in both states, with `word` saying what is unknown ("Not
 measured") — never a zero the screen would have to explain away.
 
 *States.* Two, and the fold is all of it. `open` is a prop, persisted by App
-as `hosts_band_open` and `engines_band_open` (`App.tsx:560-571` writing,
-`:906-909` reading), so the choice survives a rebuild of either pane. A
-project pane's rows have no hover state and none is a destination; there the
-fold is the only control. The Global hero's rows are filters (`filter`,
-above) and its header carries `trailing`.
+as `engines_band_open`, so the choice survives a rebuild of the pane
+(`hosts_band_open`, Global's, is no longer read or written). A project
+pane's rows have no hover state and none is a destination; there the fold is
+the only control.
 
 *Tokens.* `border-line` for every rule, `text-ink-1` for the label and the
 names, `captionClass` for the note, the secondary and the unit word,
@@ -1562,7 +1530,7 @@ MCP servers rows (`ProfilePane`, through `AssetRow`'s card-variant
 `tileSwitchFor`); repo rows, the table variant and `AssetDetail` never pass
 it. A tile whose engine's context (App's per-engine copy) holds an item whose
 key is one of the row's registrations becomes that engine's switch: a
-`<button aria-pressed>` like the Engines tab's, named and tipped with
+`<button aria-pressed>`, named and tipped with
 `paletteActionLabel` ("Switch ‹server› off for ‹engine›"), disabled while its
 request is in `busyKeys`, and its click stops at the tile so the row is not
 selected. On is the mark alone; off is a `border-line-2` ring with the mark at
@@ -1598,7 +1566,8 @@ SVG canvas). Renders `<use href="#brand-…">`; nothing for any-agent;
 
 **`SegmentedTrack`** (`SegmentedTrack.tsx`) — the category row's tablist:
 `segments: TrackSegment[]` (`{id, label, count?}`, `:4-10`; `count: null`
-draws no figure and no spinner, for Global's Engines tab);
+draws no figure and no spinner; no caller passes it since Global's Engines
+tab went);
 `SegmentedTrackProps` adds `selectedId`, `onSelect`, `ariaLabel`, `loading?`
 (`:11-17`). `role="tablist"` on the outer element, one `role="tab"` per
 segment (`:82`, `:98`); roving focus — the selected tab is `tabIndex={0}`,
@@ -1892,12 +1861,12 @@ actions are the only rows. A row the user reaches with the keys, the pointer
 or a click stays highlighted while the query stands; a row cmdk picks on its
 own is overruled. While any action is listed, neither the hint nor "Nothing
 matches" shows; before the first scan none are listed. App builds them: each open reads
-`get_engine_context` for every engine the Engines tab lists, once, and
+`get_engine_context` for every engine the engine chips list, once, and
 keeps the replies until close; a non-empty query yields the items with
 `read_only === null` whose name contains it, any case, at most eight,
 labelled `paletteActionLabel` with the engine name as `detail`. Picking one
 closes the palette and calls `useMcpSwitch`'s `switchServer` with the
-request the Engines pane's own button sends. Pinned by
+request a row's engine tile sends (`switchRequestFor`). Pinned by
 `SearchPalette.test.tsx` and `palette_switch_actions.test.tsx`. The shell's cap no
 longer carries a search field: its trailing-controls block runs straight
 from the breadcrumb to Rescan or the view control, with no input between
@@ -2396,7 +2365,7 @@ decorative `LayerSwitch`.** `LayerSwitch.tsx` draws only the track: 26×16,
 the button's text or `aria-label` names what is switched and its
 `aria-pressed` carries the state. There is no `role="switch"` in `src/`, and
 none is introduced. Callers: the link map's layers panel (`LinkMapPane`);
-the Engines tab's server rows (`EnginesPane`), named by the server; the MCP
+the kept server's view (`Flyout`), named by the server; the MCP
 server inspector's "Registered in" rows (`McpServerDetail`), named
 `{engine}, {file}` because the server is the panel's title; the Design
 system page shows it under Controls as "Sample switch".

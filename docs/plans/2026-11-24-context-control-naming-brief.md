@@ -155,3 +155,15 @@ The ⌘K placeholder gains the tail the approved plan's D7 names. "Search skills
 The singular forms follow: "1 host" is now "1 engine". The inspector has no in-flight label to rename: it asks on open and shows no "Verifying…" (the control is withheld while the probe runs). The band's Measure all reads "Measuring…" while it runs, as the Engines tab's does.
 
 The band reuses this brief's strings and adds none. Each engine's row shows the budget's token figure without its tail ("≈ {n} tokens"), the budget caption ("{measured} of {on} servers measured", with "· {off} off" when some are off), or "Not measured" when the engine's context has not arrived. Its Measure all carries the caption under the Engines tab's button, as the band's note and as the button's tooltip. Its active filter is a chip with the engine's name. "A tool counts once per host that carries it." is gone with the tool figures (D4).
+
+## Global seen by engine, 2026-11-25
+
+Karthik approved these with [the engine-lens plan](2026-11-25-ia-global-by-engine.md) on 2026-11-25, taking each of its three new labels as proposed. They land with its Phase 1.
+
+| Where | String | True because |
+|---|---|---|
+| The engine chip row's first chip, the unfiltered choice | All engines | `selected_engine` is empty: no engine narrows the list |
+| The strip's headline with an engine picked | ≈ {n} tokens every session | Phase 1: `on_tokens_measured` of the picked engine's MCP servers, the only kind measured. It reads "Not measured" when servers are on and none is measured, by the band's rule (`measuredBudget`) |
+| The folded group at the end of Global's list | Not loaded by {engine} | Assets whose `get_asset_annotations` reach for the engine is `reached: false`. No figure: no backend command counts them |
+
+The group's rows reuse the inspector Reach card's titles for a miss, "Not linked" and "Another engine's format" (ruled 2026-08-28). The strip's segments reuse the kind tabs' own labels ("MCP servers", "Skills", "Rules", "Subagents"), the brief's "Not measured", the budget caption, "Measure all" and its caption. Today's "≈ {n} tokens of tool descriptions" has no caller once the Engines tab's budget card is gone.

@@ -110,9 +110,10 @@ describe("Icon rail", () => {
     unmount();
   });
 
-  it("has no Engines entry: Engines is a tab in Global, which keeps its source list and inspector", async () => {
-    // docs/plans/2026-11-25-ia-engines-into-global.md, D1. Open, so the
-    // inspector column renders where the screen allows one.
+  it("has no Engines entry: a stored Engines route is Global, which keeps its source list and inspector", async () => {
+    // docs/plans/2026-11-25-ia-engines-into-global.md, D1, and the engine
+    // lens that replaced the tab (docs/plans/2026-11-25-ia-global-by-engine.md).
+    // Open, so the inspector column renders where the screen allows one.
     mockPreferences.selected_sidebar_item = "global:Engines";
     mockPreferences.inspector_open = "true";
     try {
@@ -120,8 +121,8 @@ describe("Icon rail", () => {
       const rail = await screen.findByTestId("icon-rail");
       expect(within(rail).queryByRole("button", { name: "Engines" })).toBeNull();
       expect(within(rail).getByLabelText("My machine").getAttribute("aria-current")).toBe("true");
-      expect(await screen.findByTestId("engines-pane")).toBeTruthy();
-      expect(screen.queryByTestId("engines-sidebar")).toBeNull();
+      expect(await screen.findByLabelText("Inventory summary")).toBeTruthy();
+      expect(screen.queryByTestId("engines-pane")).toBeNull();
       expect(screen.getByTestId("sidebar")).toBeTruthy();
       await waitFor(() => expect(document.querySelector("aside")).not.toBeNull());
       unmount();

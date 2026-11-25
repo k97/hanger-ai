@@ -26,6 +26,8 @@ import ReviewPillActions from "./ReviewPillActions";
 import OriginValue from "./OriginValue";
 import ScanStamp from "./ScanStamp";
 import HeroBand from "./HeroBand";
+import EngineChipRow from "./EngineChipRow";
+import NotLoadedGroup from "./NotLoadedGroup";
 import { SearchPalettePanel } from "./SearchPalette";
 import { SwitchNoticePill } from "./SwitchNotice";
 import FavouriteHeart from "./FavouriteHeart";
@@ -73,6 +75,8 @@ import {
   SAMPLE_FINDINGS,
   SAMPLE_FINDING_LINES,
   SAMPLE_ENGINE_BAND_ROWS,
+  SAMPLE_ENGINES,
+  SAMPLE_NOT_LOADED,
   SAMPLE_ORIGIN,
   SAMPLE_ORIGIN_BLOCKED,
   SAMPLE_REACH,
@@ -386,6 +390,7 @@ export default function DesignSystemPane({ section }: DesignSystemPaneProps) {
   const [grouping, setGrouping] = useState<ServerGrouping>("server");
   const [sort, setSort] = useState<ServerSort>("attention");
   const [heroOpen, setHeroOpen] = useState(true);
+  const [engine, setEngine] = useState<string | null>(null);
   // The surfaces a finding popover clamps against, standing in for the
   // inspector column and a placecard.
   const capHostRef = useRef<HTMLDivElement>(null);
@@ -1127,7 +1132,19 @@ export default function DesignSystemPane({ section }: DesignSystemPaneProps) {
             </div>
           </Specimen>
 
-          <Specimen name="HeroBand" file="HeroBand.tsx" note="the hero's foldable band, by engine on the Global MCP hero, in tokens; press the row to fold it">
+          <Specimen name="EngineChipRow" file="EngineChipRow.tsx" note="Global's engine selector, in the strip on every tab: All engines, then a chip per engine with its mark; it wraps, never a grid, and carries no figure in Phase 1">
+            <div className="max-w-[534px] px-4 pb-3.5 border border-line rounded-plane">
+              <EngineChipRow engines={SAMPLE_ENGINES} selected={engine} onSelect={setEngine} />
+            </div>
+          </Specimen>
+
+          <Specimen name="NotLoadedGroup" file="NotLoadedGroup.tsx" note="Not loaded by ‹engine›, at the end of Global's list: folded until asked, no figure, each row with ReachCard's reason; a row opens the inspector">
+            <div className="max-w-[534px] border border-line rounded-plane pb-1.5">
+              <NotLoadedGroup engineName={SAMPLE_ENGINES[1].engine_name} rows={SAMPLE_NOT_LOADED} defaultOpen />
+            </div>
+          </Specimen>
+
+          <Specimen name="HeroBand" file="HeroBand.tsx" note="the hero's foldable band, by engine on a project pane, in assets; press the row to fold it">
             <div className="max-w-[384px] p-3 border border-line rounded-inner">
               <HeroBand
                 label="By engine"

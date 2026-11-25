@@ -57,8 +57,6 @@ const ALLOWLIST: Exemption[] = [
   { component: "Sidebar", reason: "the source list, fed by linked roots and scan state" },
   { component: "DiscoverySidebar", reason: "the discovery source list, fed by the walk" },
   { component: "ReviewSidebar", reason: "the review source list, fed by derived issues" },
-  { component: "EnginesPane", reason: "reads engine context over IPC" },
-  { component: "EnginesSidebar", reason: "the engines source list, fed by the engine summary and the kept-off servers" },
   {
     component: "SourceListShell",
     reason:

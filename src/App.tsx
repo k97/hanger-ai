@@ -70,7 +70,6 @@ const DesignSystemSidebar = import.meta.env.DEV
   : null;
 import NeedsReviewPane from "./components/NeedsReviewPane";
 import ReviewSidebar from "./components/ReviewSidebar";
-import EnginesPane from "./components/EnginesPane";
 import { enginesList } from "./utils/enginesList";
 import ReviewInspector from "./components/ReviewInspector";
 import LinkMapPane from "./components/LinkMapPane";
@@ -96,7 +95,7 @@ import {
 import { unaccountedProcesses, type ProcessMatch } from "./utils/mcpServerView";
 import type { McpServerRow } from "./utils/serverRows";
 import type { McpEngineSummaryData } from "./types/mcpEngineSummary";
-import type { ContextItem, EngineContext, KeptOff } from "./types/engineContext";
+import type { EngineContext, KeptOff } from "./types/engineContext";
 import { paletteActionLabel } from "./utils/switchCopy";
 import { switchRequestFor, switchableNamed } from "./utils/switchTargets";
 import { useMcpSwitch } from "./hooks/useMcpSwitch";
@@ -115,10 +114,6 @@ import {
   type IssueKind,
   type ReviewIssue,
 } from "./utils/reviewIssues";
-
-/** Global with its Engines tab selected, in the `global:<tab>` form the route
- *  already reads for a tab. */
-const ENGINES_TAB_ITEM = "global:Engines";
 
 /** Whether a sidebar item is My machine › Global, on any tab. */
 const isGlobalItem = (item: string) => item === "profile" || item === "global" || item.startsWith("global:");
@@ -379,9 +374,10 @@ export default function App() {
   const [selectedIssue, setSelectedIssue] = useState<ReviewIssue | null>(null);
 
   const [inspectorOpen, setInspectorOpen] = useState<boolean>(false);
-  // The hero bands, one per pane. Folded by default: the hero's job is the
-  // headline, and the per-host / per-engine breakdown is the second question.
-  const [hostsBandOpen, setHostsBandOpen] = useState(false);
+  // The project pane's hero band. Folded by default: the hero's job is the
+  // headline, and the per-engine breakdown is the second question. Global's
+  // band, and its `hosts_band_open` preference, went with the engine lens
+  // (docs/plans/2026-11-25-ia-global-by-engine.md).
   const [enginesBandOpen, setEnginesBandOpen] = useState(false);
   // The floor, and the starting width. INSPECTOR_MIN_WIDTH in
   // utils/inspectorLayout.ts says why it is where it is.
@@ -589,12 +585,6 @@ export default function App() {
 
   const toggleInspectorExpanded = () => setInspectorExpanded((prev) => !prev);
 
-  const toggleHostsBand = () =>
-    setHostsBandOpen((prev) => {
-      const next = !prev;
-      invoke("set_preference", { key: "hosts_band_open", value: String(next) }).catch(() => {});
-      return next;
-    });
   const toggleEnginesBand = () =>
     setEnginesBandOpen((prev) => {
       const next = !prev;
@@ -914,18 +904,22 @@ export default function App() {
       const activeItem = await invoke<string | null>("get_preference", { key: "selected_sidebar_item" });
       if (activeItem === "design" && !designSystemAvailable) {
         setSelectedSidebarItem("profile");
-      } else if (activeItem === "engines") {
-        // Engines was a rail destination until it became a tab in Global
-        // (docs/plans/2026-11-25-ia-engines-into-global.md, D1). A stored
-        // `engines` lands on that tab, and is written back in its new form.
-        setSelectedSidebarItem(ENGINES_TAB_ITEM);
-        invoke("set_preference", { key: "selected_sidebar_item", value: ENGINES_TAB_ITEM }).catch(() => {});
+      } else if (activeItem === "engines" || activeItem === "global:Engines") {
+        // Engines was a rail destination (`engines`), then a tab in Global
+        // (`global:Engines`, docs/plans/2026-11-25-ia-engines-into-global.md,
+        // T1), and is now the engine lens on Global's own tabs
+        // (docs/plans/2026-11-25-ia-global-by-engine.md). Either lands on
+        // Global and is written back as `profile`; `selected_engine` is left
+        // as it is, so the engine it showed stays picked.
+        setSelectedSidebarItem("profile");
+        invoke("set_preference", { key: "selected_sidebar_item", value: "profile" }).catch(() => {});
       } else if (activeItem) {
         setSelectedSidebarItem(activeItem);
       }
       setSidebarRestored(true);
-      // The engine the Engines tab last showed. Checked against the list
-      // at render time, not here: the list arrives with the first scan.
+      // The engine Global was last seen by; "" is All engines. Checked
+      // against the list at render time, not here: the list arrives with the
+      // first scan.
       const enginePref = await invoke<string | null>("get_preference", { key: "selected_engine" });
       if (enginePref) setStoredEngine(enginePref);
       const showProjectsPref = await invoke<string | null>("get_preference", { key: "linkmap_show_projects" });
@@ -966,8 +960,6 @@ export default function App() {
       if (inspectorPref === "true") {
         setInspectorOpen(true);
       }
-      const hostsPref = await invoke<string | null>("get_preference", { key: "hosts_band_open" });
-      if (hostsPref === "true") setHostsBandOpen(true);
       const enginesPref = await invoke<string | null>("get_preference", { key: "engines_band_open" });
       if (enginesPref === "true") setEnginesBandOpen(true);
       const inspectorWidthPref = await invoke<string | null>("get_preference", { key: "inspector_width" });
@@ -1069,20 +1061,22 @@ export default function App() {
     },
   });
 
-  // Global's Engines tab. Its chips are every engine that declares an MCP server
-  // plus any whose servers Hanger is keeping off (P8); the selection is the
-  // stored `selected_engine` when it is in that list, otherwise the first
-  // row, so a stale or absent preference never selects nothing.
+  // The engine Global is seen by (docs/plans/2026-11-25-ia-global-by-engine.md).
+  // Its chips are every engine that declares an MCP server plus any whose
+  // servers Hanger is keeping off (P8); the selection is the stored
+  // `selected_engine` when it is in that list, otherwise All engines (`null`),
+  // so a stale preference never filters by an engine the list cannot show.
+  // Persisted on every pick, All engines as "" (Q2).
   const [storedEngine, setStoredEngine] = useState<string | null>(null);
-  // Bumped on every `scan://complete`, so the Engines pane and the MCP
-  // server inspector's switches read again.
+  // Bumped on every `scan://complete`, so the MCP server inspector's
+  // switches read again.
   const [scanNonce, setScanNonce] = useState(0);
   const engineRows = enginesList(mcpEngineSummary, keptOff);
-  const selectedEngine =
-    engineRows?.find((e) => e.engine_id === storedEngine)?.engine_id ?? engineRows?.[0]?.engine_id ?? null;
-  const selectEngine = (engineId: string) => {
+  const selectedEngine = engineRows?.find((e) => e.engine_id === storedEngine)?.engine_id ?? null;
+  const selectedEngineName = engineRows?.find((e) => e.engine_id === selectedEngine)?.engine_name ?? null;
+  const selectEngine = (engineId: string | null) => {
     setStoredEngine(engineId);
-    invoke("set_preference", { key: "selected_engine", value: engineId }).catch(() => {});
+    invoke("set_preference", { key: "selected_engine", value: engineId ?? "" }).catch(() => {});
   };
 
   // ⌘K's "Switch" actions. Each open reads the context of every engine the
@@ -1145,18 +1139,19 @@ export default function App() {
 
   /* Each listed engine's context, by engine id, for the engine tiles on
      Global's MCP servers rows (T2 of
-     docs/plans/2026-11-25-ia-engines-into-global.md). Read while those rows
-     are on screen — Global, on All or MCP servers, with a server to show —
-     and again on every scan (`scanNonce`). Until an engine's reply lands its
-     tiles stay display only. A tile switch's reply replaces that engine's
-     entry at once. */
+     docs/plans/2026-11-25-ia-engines-into-global.md) and for the picked
+     engine's filter. Read while those rows are on screen — Global, on All or
+     MCP servers, with a server to show — or while Global is seen by an
+     engine, on any tab; and again on every scan (`scanNonce`). Until an
+     engine's reply lands its tiles stay display only. A tile switch's reply
+     replaces that engine's entry at once. */
   const [tileContexts, setTileContexts] = useState<Record<string, EngineContext>>({});
   const tileEngineIds = (engineRows ?? []).map((e) => e.engine_id).join("\u0000");
   const serverRowsShown =
     isGlobalItem(selectedSidebarItem) &&
-    (profileActiveCategory === null || profileActiveCategory === "Tools") &&
     inventory !== null &&
-    inventory.tools[0] !== undefined;
+    (((profileActiveCategory === null || profileActiveCategory === "Tools") && inventory.tools[0] !== undefined) ||
+      selectedEngine !== null);
   useEffect(() => {
     if (!serverRowsShown || !tileEngineIds) return;
     let cancelled = false;
@@ -1427,21 +1422,21 @@ export default function App() {
     setSelectedSidebarItem(item);
   };
 
-  /** Global › Engines, on one engine: from an engine name in the MCP server
-   *  inspector and in a kept server's. Within Global this is a change
-   *  of tab, which keeps the inspector's subject as every tab change does
-   *  (Karthik, 2026-08-27); from anywhere else it is a change of screen. */
-  const openEnginesTab = (engineId: string) => {
+  /** Global seen by one engine: from an engine name in the MCP server
+   *  inspector and in a kept server's. Within Global it keeps the tab and the
+   *  inspector's subject, as a tab change does (Karthik, 2026-08-27); from
+   *  anywhere else it is a change of screen, to Global. */
+  const openEngine = (engineId: string) => {
     selectEngine(engineId);
-    setProfileCategory("Engines");
-    if (isGlobalItem(selectedSidebarItem)) setSelectedSidebarItem(ENGINES_TAB_ITEM);
-    else handleSelectSidebarItem(ENGINES_TAB_ITEM);
-    invoke("set_preference", { key: "selected_sidebar_item", value: ENGINES_TAB_ITEM }).catch(() => {});
+    if (!isGlobalItem(selectedSidebarItem)) {
+      handleSelectSidebarItem("profile");
+      invoke("set_preference", { key: "selected_sidebar_item", value: "profile" }).catch(() => {});
+    }
   };
 
-  /** A kept server in the inspector, from a "Switched off" row or a kept
-   *  item on the Engines tab: a selection like a row's, on the same screen,
-   *  opening the inspector as a row tap does. */
+  /** A kept server in the inspector, from a "Switched off" row: a selection
+   *  like a row's, on the same screen, opening the inspector as a row tap
+   *  does. */
   const selectKept = (key: string) => {
     setSelectedAsset(null);
     setSelectedBubble(null);
@@ -1450,21 +1445,6 @@ export default function App() {
       setInspectorOpen(true);
       invoke("set_preference", { key: "inspector_open", value: "true" }).catch(() => {});
     }
-  };
-
-  /** What a click on an Engines tab row's name opens: its server in the
-   *  inventory, by the key both sides mint from `RegistrationKey`, selected
-   *  exactly as the MCP servers list's own per-registration row selects it.
-   *  A kept item (`stash:`) is in no file and has no inventory asset: it
-   *  opens the kept view, when the kept list holds it. */
-  const openEngineItem = (item: ContextItem): (() => void) | null => {
-    if (item.key.startsWith("stash:")) {
-      return keptOff?.servers.some((s) => s.key === item.key) ? () => selectKept(item.key) : null;
-    }
-    const tool = inventory?.tools.find((t) => registrationKey(t) === item.key);
-    if (!tool) return null;
-    return () =>
-      handleSelectAsset({ id: registrationKey(tool), name: tool.name, category: "Tools", path: tool.config_path }, "profile");
   };
 
   /** A palette hit: go where it lives, then open it, exactly as a row
@@ -1781,16 +1761,15 @@ export default function App() {
     if (issue) setSelectedIssue(issue);
   };
 
-  // Crumb never shows a filesystem path — folder names only.
+  // Crumb never shows a filesystem path — folder names only. Global, on any
+  // tab, names the engine it is seen by, and no tab id.
   const crumbSegments: string[] =
     selectedSidebarItem === "review"
       ? ["My machine", "Needs review"]
-      : selectedSidebarItem === "profile"
-      ? ["My machine", "Global"]
-      : selectedSidebarItem === "global"
-      ? ["My machine", "Global"]
-      : selectedSidebarItem.startsWith("global:")
-      ? ["My machine", "Global", selectedSidebarItem.split(":")[1]]
+      : isGlobalItem(selectedSidebarItem)
+      ? selectedEngineName
+        ? ["My machine", "Global", selectedEngineName]
+        : ["My machine", "Global"]
       : selectedSidebarItem === "discovery"
       ? ["Discovery"]
       : selectedSidebarItem === "linkmap"
@@ -1929,6 +1908,15 @@ export default function App() {
                          overlay; the rest of the crumb stays draggable. */
                       <button
                         onClick={goToGlobal}
+                        className="relative cursor-pointer hover:text-ink-1 transition-colors duration-hover ease-spring"
+                      >
+                        {segment}
+                      </button>
+                    ) : segment === "Global" && idx === 1 && isGlobalItem(selectedSidebarItem) ? (
+                      /* Global seen by an engine: "Global" goes back to All
+                         engines, on the same tab. */
+                      <button
+                        onClick={() => selectEngine(null)}
                         className="relative cursor-pointer hover:text-ink-1 transition-colors duration-hover ease-spring"
                       >
                         {segment}
@@ -2153,8 +2141,6 @@ export default function App() {
                   invoke("set_preference", { key: "selected_sidebar_item", value: "profile" }).catch(() => {});
                 }
               }}
-              hostsBandOpen={hostsBandOpen}
-              onToggleHostsBand={toggleHostsBand}
               issues={review.issues.filter(
                 (i) => i.whereKeys.includes("global") && (profileActiveCategory === null || i.category === profileActiveCategory)
               )}
@@ -2172,17 +2158,9 @@ export default function App() {
               engineContexts={listedTileContexts}
               switcher={mcpSwitch}
               onEngineContext={(ctx) => setTileContexts((prev) => ({ ...prev, [ctx.engine_id]: ctx }))}
-              enginesTab={
-                <EnginesPane
-                  engines={engineRows}
-                  engineId={selectedEngine}
-                  onSelectEngine={selectEngine}
-                  openItem={openEngineItem}
-                  scannedAt={lastScanAt}
-                  switcher={mcpSwitch}
-                  refreshNonce={scanNonce}
-                />
-              }
+              engines={engineRows}
+              selectedEngine={selectedEngine}
+              onSelectEngine={selectEngine}
             />
           )}
 
@@ -2448,10 +2426,11 @@ export default function App() {
                    state, and ask their engines again after every scan. */
                 switcher={mcpSwitch}
                 refreshNonce={scanNonce}
-                /* An engine's name in "Registered in" opens Global's
-                   Engines tab on it, for any engine the tab lists. */
+                /* An engine's name in "Registered in" shows Global seen by
+                   it, for any engine the chips list, on the tab already
+                   open. */
                 linkedEngines={engineRows?.map((e) => e.engine_id)}
-                onOpenEngine={openEnginesTab}
+                onOpenEngine={openEngine}
                 keptServer={selectedKept}
                 onEngineContext={(ctx) => setTileContexts((prev) => ({ ...prev, [ctx.engine_id]: ctx }))}
               />

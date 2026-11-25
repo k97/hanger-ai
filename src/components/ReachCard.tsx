@@ -30,6 +30,14 @@ const ROUTES: { key: string; title: string; holds: (r: EngineReachInfo) => boole
   { key: "format", title: "Another engine's format", holds: (r) => !r.reached && r.reason === "format" },
 ];
 
+/** The route title for an engine that does not reach an asset: the reason
+ *  the backend gave (`reason`, "format" or "root_not_linked"), in the words
+ *  this card's rows already use. Global's "Not loaded by ‹engine›" rows print
+ *  it, so the list and the inspector name one miss one way. */
+export function missTitle(r: EngineReachInfo): string {
+  return ROUTES.find((route) => route.holds({ ...r, reached: false }))!.title;
+}
+
 /* What the footer says for one engine, and what its plate is labelled. A
    reached engine's answer is its own path, or "in place" when there is no
    link to name. A miss carries its reason, lower-cased for the value slot

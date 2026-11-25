@@ -99,7 +99,7 @@ interface FlyoutProps {
   linkedEngines?: readonly string[];
   onOpenEngine?: (engineId: string) => void;
   /** A server Hanger is keeping while it is switched off, selected from the
-   *  "Switched off" group or the Engines tab (T4 of
+   *  "Switched off" group (T4 of
    *  docs/plans/2026-11-25-ia-engines-into-global.md). It has no inventory
    *  asset, so App passes it in place of `selectedAsset`, never with one. */
   keptServer?: KeptOffServer | null;
@@ -119,8 +119,8 @@ interface KeptServerDetailProps {
   switcher: McpSwitch;
   /** A switch's reply context, for App to take in place of its copy. */
   onContext?: (ctx: EngineContext) => void;
-  /** The engine ids Global's Engines tab lists; the engine's name links to
-   *  the tab only for one of them, as in `McpServerDetail`'s "Registered in". */
+  /** The engine ids Global's engine chips list; the engine's name links to
+   *  Global only for one of them, as in `McpServerDetail`'s "Registered in". */
   linkedEngines?: readonly string[];
   onOpenEngine?: (engineId: string) => void;
 }
@@ -139,7 +139,7 @@ const engineLinkClass = "group min-w-0 flex cursor-pointer text-left";
  * open or reveal: what is shown is what `get_kept_off_servers` says of it.
  * The Flyout's header carries its name and transport, as it does for every
  * server; this panel draws one row — "Off for {engine}", the engine a link
- * to the Engines tab, and the switch that puts it back — and the kept line
+ * that shows Global seen by it, and the switch that puts it back — and the kept line
  * under it. Every word is the naming brief's (`switchCopy.ts`).
  */
 function KeptServerDetail({
@@ -153,7 +153,7 @@ function KeptServerDetail({
   const linked = onOpenEngine !== undefined && (linkedEngines?.includes(server.engine_id) ?? false);
   const names = { engine: server.engine_name, server: server.name };
 
-  // The request the Engines tab sends for the same kept item
+  // The request every switch sends for the same kept item
   // (`switchRequestFor`): a kept item's `config_path` is empty.
   const switchOn = async () => {
     const next = await switcher.switchServer({
@@ -756,7 +756,7 @@ export default function Flyout({
     }
   }
 
-  /* The same request the Engines pane sends for the item. Its reply's
+  /* The same request every switch sends for the item. Its reply's
      context replaces that engine's at once; App's rescan follows from the
      hook and brings the refetch. */
   const switchRegistration = async (registrationKey: string) => {

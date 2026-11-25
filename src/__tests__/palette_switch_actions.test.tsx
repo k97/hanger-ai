@@ -3,7 +3,8 @@
  *  docs/plans/2026-11-25-context-control-finish.md): App reads every listed
  *  engine's context once per palette open, offers a switch for each server
  *  Hanger can switch whose name holds the query, and runs it through the one
- *  switch state with exactly what the Engines pane would send. */
+ *  switch state with exactly what the list's own switches send: a row's
+ *  engine tile, and the kept view's switch. */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, waitFor, cleanup, act, within } from "@testing-library/react";
 import App from "../App";
@@ -132,6 +133,7 @@ vi.mock("@tauri-apps/api/core", () => ({
     }
     if (cmd === "get_linked_directories") return [];
     if (cmd === "get_asset_counts") return { total: 0, byCategory: {}, engines: {} };
+    if (cmd === "get_asset_annotations") return ANNOTATIONS;
     if (cmd === "get_mcp_engine_summary") return SUMMARY;
     if (cmd === "get_kept_off_servers") return KEPT;
     if (cmd === "get_engine_context") return contexts[args.engineId] ?? context(args.engineId, args.engineId, []);
@@ -144,17 +146,38 @@ vi.mock("@tauri-apps/api/core", () => ({
   }),
 }));
 
+/** alpha, as the inventory has it, and its reach: Engine C reads it, so its
+ *  row on Global › MCP servers carries Engine C's tile. */
+const ALPHA_TOOL = {
+  id: "/Users/demo/.codex/config.toml:alpha",
+  name: "alpha",
+  command: "npx",
+  args: [],
+  transport: "stdio",
+  config_path: "/Users/demo/.codex/config.toml",
+  scope: { Global: { agent: "codex" } },
+  owning_agent: "codex",
+};
+const ANNOTATIONS = [
+  {
+    asset_path: ALPHA_TOOL.id,
+    mechanism: "none",
+    reach: [{ engine_id: 2, engine_key: "codex", engine_name: "Engine C", reached: true, reason: null }],
+    beyond: null,
+  },
+];
+
 const calls = (cmd: string) =>
   vi
     .mocked(invoke)
     .mock.calls.filter((c) => c[0] === cmd)
     .map((c) => c[1] as any);
 
-const completeScan = async () => {
+const completeScan = async (tools: unknown[] = []) => {
   await waitFor(() => expect(eventListeners["scan://complete"]).toBeDefined());
   await act(async () => {
     await eventListeners["scan://complete"]({
-      payload: { inventory: { agents: [], skills: [], tools: [], rules: [], subagents: [], project_scans: [] } },
+      payload: { inventory: { agents: [], skills: [], tools, rules: [], subagents: [], project_scans: [] } },
     });
   });
 };
@@ -186,14 +209,15 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe("⌘K's Switch actions", () => {
-  it("sends exactly what the Engines pane sends for the same server", async () => {
-    mockPreferences.selected_sidebar_item = "engines";
-    mockPreferences.selected_engine = "codex";
+  it("sends exactly what a row's engine tile sends for the same server", async () => {
+    // The Engines pane this compared against is retired
+    // (docs/plans/2026-11-25-ia-global-by-engine.md); the row's tile is the
+    // list's own switch for the same item (T2).
+    mockPreferences.selected_sidebar_item = "global:Tools";
     render(<App />);
-    await completeScan();
+    await completeScan([ALPHA_TOOL]);
 
-    const pane = await screen.findByTestId("engines-pane");
-    const paneSwitch = await within(pane).findByRole("button", { name: "alpha" });
+    const paneSwitch = await screen.findByRole("button", { name: "Switch alpha off for Engine C" });
     fireEvent.click(paneSwitch);
     await waitFor(() => expect(calls("set_mcp_server_enabled")).toHaveLength(1));
     await waitFor(() => expect((paneSwitch as HTMLButtonElement).disabled).toBe(false));
@@ -217,12 +241,18 @@ describe("⌘K's Switch actions", () => {
   });
 
   it("does the same for a server Hanger is keeping, which is in no file", async () => {
-    mockPreferences.selected_sidebar_item = "engines";
-    mockPreferences.selected_engine = "claude-code";
+    // Its switch is the kept view's, in the inspector, opened from its
+    // "Switched off" row.
+    mockPreferences.selected_sidebar_item = "global:Tools";
     render(<App />);
     await completeScan();
 
-    const pane = await screen.findByTestId("engines-pane");
+    fireEvent.click((await screen.findByText("Off for Engine K")).closest("button") as HTMLElement);
+    const pane = await waitFor(() => {
+      const el = document.querySelector("aside");
+      expect(el).not.toBeNull();
+      return el as HTMLElement;
+    });
     const paneSwitch = await within(pane).findByRole("button", { name: "kappa" });
     fireEvent.click(paneSwitch);
     await waitFor(() => expect(calls("set_mcp_server_enabled")).toHaveLength(1));

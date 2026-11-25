@@ -60,8 +60,6 @@ const renderPane = (over: Partial<React.ComponentProps<typeof ProfilePane>> = {}
       serverSort="name"
       mcpServers={grouped as never}
       mcpEngineSummary={summary as never}
-      hostsBandOpen={false}
-      onToggleHostsBand={vi.fn()}
       {...over}
     />
   );

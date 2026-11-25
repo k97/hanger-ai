@@ -121,16 +121,6 @@ describe("the band's fold is a preference, under the keys App actually reads", (
     await waitFor(() => expect(mockPreferences["engines_band_open"]).toBe("false"));
   });
 
-  it("hosts_band_open opens the Global MCP band at startup, and the toggle writes it back", async () => {
-    mockPreferences = { ...basePrefs, selected_sidebar_item: "global:Tools", hosts_band_open: "true" };
-    render(<App />);
-    await waitFor(() => expect(screen.getByTestId("hero-band-row-claude-code")).toBeTruthy());
-    expect(screen.getByTestId("hero-band-toggle").getAttribute("aria-expanded")).toBe("true");
-
-    fireEvent.click(screen.getByTestId("hero-band-toggle"));
-    await waitFor(() => expect(mockPreferences["hosts_band_open"]).toBe("false"));
-  });
-
   it("folded is the default when neither preference is set", async () => {
     mockPreferences = { ...basePrefs, selected_sidebar_item: "/Users/test/repo" };
     render(<App />);

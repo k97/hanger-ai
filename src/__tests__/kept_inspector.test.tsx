@@ -1,11 +1,12 @@
 // @vitest-environment happy-dom
 /** A server Hanger is keeping while it is switched off opens in the
  *  inspector (T4, D5 of docs/plans/2026-11-25-ia-engines-into-global.md):
- *  from the "Switched off" group on Global › MCP servers and from its item on
- *  the Engines tab, without a change of screen. The kept view switches it
- *  back on through the one switch state, names its engine as a link to the
- *  Engines tab, and the list of kept servers is read again after a switch,
- *  not only after the rescan. */
+ *  from the "Switched off" group on Global › MCP servers, without a change of
+ *  screen, with or without its engine picked. The kept view switches it back
+ *  on through the one switch state, names its engine as a link that shows
+ *  Global seen by it (docs/plans/2026-11-25-ia-global-by-engine.md), and the
+ *  list of kept servers is read again after a switch, not only after the
+ *  rescan. */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, waitFor, cleanup, act, within } from "@testing-library/react";
 import App from "../App";
@@ -267,7 +268,7 @@ describe("A switched-off server opens in the inspector", () => {
     expect(within(status).getByRole("button", { name: "Undo" })).toBeTruthy();
   });
 
-  it("the kept view names its engine as a link to the Engines tab on that engine", async () => {
+  it("the kept view names its engine as a link that shows Global seen by that engine, on the same tab", async () => {
     render(<App />);
     await completeScan();
     fireEvent.click(await keptRow());
@@ -275,27 +276,26 @@ describe("A switched-off server opens in the inspector", () => {
     const kept = await within(panel).findByTestId("kept-detail");
     fireEvent.click(within(kept).getByRole("button", { name: "Engine K" }));
 
-    await waitFor(() => expect(routeWrites()).toContain("global:Engines"));
-    expect(invoke).toHaveBeenCalledWith("set_preference", { key: "selected_engine", value: "claude-code" });
-    await waitFor(() => expect(screen.getByRole("tab", { name: "Engines" }).getAttribute("aria-selected")).toBe("true"));
-    // A change of tab within Global keeps the inspector's subject.
+    await waitFor(() =>
+      expect(invoke).toHaveBeenCalledWith("set_preference", { key: "selected_engine", value: "claude-code" })
+    );
+    const chips = screen.getByRole("group", { name: "Engines" });
+    await waitFor(() => expect(within(chips).getByRole("button", { name: "Engine K" }).getAttribute("aria-pressed")).toBe("true"));
+    expect(routeWrites()).not.toContain("global:Engines");
+    expect(screen.getByRole("tab", { name: /^MCP servers/ }).getAttribute("aria-selected")).toBe("true");
+    // Picking an engine keeps the inspector's subject.
     expect(within(await aside()).getByRole("heading", { level: 2, name: "beta" })).toBeTruthy();
   });
 
-  it("a kept item on the Engines tab opens the same kept view", async () => {
-    mockPreferences.selected_sidebar_item = "global:Engines";
+  it("with its engine picked, the Switched off row still opens the same kept view", async () => {
     mockPreferences.selected_engine = "claude-code";
     render(<App />);
     await completeScan();
-    const item = (await screen.findAllByTestId("engine-item"))[0];
-    const name = within(item).getByTestId("engine-item-name");
-    expect(name.textContent).toBe("beta");
-    fireEvent.click(name.closest("button") as HTMLElement);
+    fireEvent.click(await keptRow());
 
     const panel = await aside();
     expect(await within(panel).findByTestId("kept-detail")).toBeTruthy();
     expect(within(panel).getByRole("heading", { level: 2, name: "beta" })).toBeTruthy();
-    expect(screen.getByRole("tab", { name: "Engines" }).getAttribute("aria-selected")).toBe("true");
   });
 
   it("reads the kept servers again after a switch, without waiting for the rescan", async () => {

@@ -5,7 +5,7 @@
  * Switch actions (by name) and the engine tiles on Global's MCP servers rows
  * (by registration key, T2 of docs/plans/2026-11-25-ia-engines-into-global.md).
  * Both send `switchRequestFor`, so a server switched from either is asked for
- * exactly as the Engines tab asks for it.
+ * exactly as the inspector's own switch asks for it.
  */
 
 import type { ContextItem, EngineContext } from "../types/engineContext";

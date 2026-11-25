@@ -18,7 +18,10 @@ import type { UnderlineTab } from "../components/UnderlineTabs";
 import type { SearchHit } from "../components/SearchPalette";
 import type { DetectedEditor } from "../components/EditorPicker";
 import type { SwitchNoticeState } from "../hooks/useMcpSwitch";
-import { budgetCaption, engineBandFigures, failureLine, switchedLine, tokenFigure } from "../utils/switchCopy";
+import { failureLine, switchedLine } from "../utils/switchCopy";
+import type { EngineListEntry } from "../utils/enginesList";
+import type { NotLoadedRow } from "../components/NotLoadedGroup";
+import { missTitle } from "../components/ReachCard";
 
 /** The TOC's layers, in reading order (Karthik's ruling, 2026-08-28, after
  *  the atomic-design read). Material's three words: Foundations are the
@@ -169,13 +172,29 @@ export const SAMPLE_ORIGIN: OriginRowView = originRow(
 
 export const SAMPLE_ORIGIN_BLOCKED: OriginRowView = originRow(null, true)!;
 
-/** A partial picture on purpose: one engine whose context has not landed.
- *  The figures are `switchCopy`'s, as ProfilePane builds the Global "By
- *  engine" band's rows from each engine's context. */
+/** A project pane's "By engine" band, one row per engine with its asset
+ *  count, as RepoPane builds it. Global's own band went with the engine lens
+ *  (docs/plans/2026-11-25-ia-global-by-engine.md). */
 export const SAMPLE_ENGINE_BAND_ROWS: HeroBandRow[] = [
-  { key: "claude-code", engineKey: "claude-code", engineName: "Claude Code", value: tokenFigure(12400), word: "tokens", secondary: budgetCaption(5, 6, 1) },
-  { key: "codex", engineKey: "codex", engineName: "Codex", value: tokenFigure(2100), word: "tokens", secondary: budgetCaption(2, 2, 0) },
-  { key: "claude-desktop", engineKey: "claude-desktop", engineName: "Claude Desktop", ...engineBandFigures(null) },
+  { key: "Claude Code", engineKey: "Claude Code", engineName: "Claude Code", value: 41, word: "assets" },
+  { key: "Codex", engineKey: "Codex", engineName: "Codex", value: 12, word: "assets" },
+  { key: "none", engineKey: "none", engineName: "Any agent", value: 1, word: "asset" },
+];
+
+/** The engine chip row's engines, in `enginesList`'s order. */
+export const SAMPLE_ENGINES: EngineListEntry[] = [
+  { engine_id: "claude-code", engine_name: "Claude Code" },
+  { engine_id: "codex", engine_name: "Codex" },
+  { engine_id: "gemini", engine_name: "Gemini CLI" },
+  { engine_id: "claude-desktop", engine_name: "Claude Desktop" },
+];
+
+/** "Not loaded by Codex": a skill whose root is not linked, an MCP server
+ *  in another engine's format. The reasons are ReachCard's (`missTitle`),
+ *  from the sample reach's own misses. */
+export const SAMPLE_NOT_LOADED: NotLoadedRow[] = [
+  { key: "Skills:sample-1", name: "writing-great-skills", chip: "Skill", reason: missTitle(SAMPLE_REACH[2]), selected: false, onOpen: () => {} },
+  { key: "Tools:sample-2", name: "chrome-devtools", chip: "stdio", reason: missTitle(SAMPLE_REACH[3]), selected: false, onOpen: () => {} },
 ];
 
 /** The two notices `useMcpSwitch` sets: a switch with its receipt, and a

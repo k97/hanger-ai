@@ -1,5 +1,4 @@
-import { useState, type ReactNode } from "react";
-import { invoke } from "@tauri-apps/api/core";
+import { useState } from "react";
 import {
   ExclamationCircleIcon,
   Disc3Icon,
@@ -10,11 +9,9 @@ import {
   InboxIcon,
   ZapOffIcon,
   PlugZapIcon,
-  XMarkIcon,
 } from "./icons";
-import BrandIcon from "./BrandIcon";
-import CategoryFilterCards, { CategoryType, type GlobalTab } from "./CategoryFilterCards";
-import AssetRow, { AssetItem, AssetAnnotationView, cardChipClass } from "./AssetRow";
+import CategoryFilterCards, { CategoryType } from "./CategoryFilterCards";
+import AssetRow, { AssetItem, AssetAnnotationView, cardChipClass, getSingularType } from "./AssetRow";
 import AssetHeaderRow, { SortField, SortDirection } from "./AssetHeaderRow";
 import ViewControl, { ServerGrouping, ServerSort } from "./ViewControl";
 import { Inventory, CategoryCounts } from "../App";
@@ -27,7 +24,9 @@ import { ancestorReachNote, cardSecondLine, mergeReach, sortServerRows, transpor
 import { sumGlobalAssets, categoryCountKey } from "../utils/globalAssetCount";
 import { groupLabelClass } from "./typeRoles";
 import SummaryStrip, { type StripReview } from "./SummaryStrip";
-import HeroBand from "./HeroBand";
+import EngineChipRow from "./EngineChipRow";
+import NotLoadedGroup, { groupRowClass, type NotLoadedRow } from "./NotLoadedGroup";
+import { missTitle } from "./ReachCard";
 import ReviewPillActions from "./ReviewPillActions";
 import type { FindingLine } from "./FindingPopover";
 import { miniBtnClass, miniSetClass } from "./miniButton";
@@ -39,9 +38,8 @@ import type { McpEngineSummaryData } from "../types/mcpEngineSummary";
 import type { EngineContext, KeptOff } from "../types/engineContext";
 import type { EngineReachInfo, TileSwitch } from "./EngineReachTiles";
 import { busyKeyOf, type McpSwitch } from "../hooks/useMcpSwitch";
-import { switchRequestFor, tileTarget, type SwitchTarget } from "../utils/switchTargets";
-import { enginesList } from "../utils/enginesList";
-import { engineBandFigures, MEASURE_ALL_CAPTION } from "../utils/switchCopy";
+import { sameEngine, switchRequestFor, tileTarget, type SwitchTarget } from "../utils/switchTargets";
+import type { EngineListEntry } from "../utils/enginesList";
 import { issueSeverity, type ReviewIssue } from "../utils/reviewIssues";
 
 /** The frontend's mirror of Rust's `ConfigProblem`
@@ -67,7 +65,7 @@ interface ProfilePaneProps {
   annotations?: AssetAnnotationView[] | null;
   assetCounts?: CategoryCounts | null;
   /** The tab, when App's route names one (`global:<tab>`). */
-  selectedCategory?: GlobalTab | null;
+  selectedCategory?: CategoryType | null;
   selectedAsset?: { path: string } | null;
   loading: boolean;
   /** Link-state filter from the rail badge or the strip legend. */
@@ -111,11 +109,15 @@ interface ProfilePaneProps {
   /** The facet chip owns category selection internally, so the owner is told
    *  when it changes. Without this the shell cannot know the user is looking
    *  at Tools, and anything it fetches lazily for that view never fires. */
-  onCategoryChange?: (category: GlobalTab | null) => void;
-  /** The Engines tab's body (App's `EnginesPane`). The tab shows only when
-   *  this is given; while it is selected it stands in for the strip and the
-   *  list. */
-  enginesTab?: ReactNode;
+  onCategoryChange?: (category: CategoryType | null) => void;
+  /** The engines the chip row offers (`enginesList`, App's `engineRows`):
+   *  `null` until the replies it is built from land. */
+  engines?: EngineListEntry[] | null;
+  /** The engine Global is seen by, an MCP host id (`EngineContext.engine_id`);
+   *  `null` is All engines. App's `selected_engine` (Phase 1 of
+   *  docs/plans/2026-11-25-ia-global-by-engine.md). */
+  selectedEngine?: string | null;
+  onSelectEngine?: (engineId: string | null) => void;
   /** MCP servers running with no config behind them, from `get_mcp_processes`.
    *  They have no registration, so they cannot be rows — a row implies
    *  something to open, and there is nothing. */
@@ -130,10 +132,6 @@ interface ProfilePaneProps {
    *  together switch the strip to MCP mode — probe coverage instead of link
    *  state, with a Review pill that filters to conflicting servers. */
   mcpEngineSummary?: McpEngineSummaryData | null;
-  /** The band under the hero, folded or open, and the toggle that persists
-   *  it. Owned by App so the choice survives a rebuild of this pane. */
-  hostsBandOpen?: boolean;
-  onToggleHostsBand?: () => void;
   /** The global store's own review issues — what the Needs review pill lists
    *  on every tab but MCP servers. Already narrowed to the selected category
    *  by App, so the pill's count follows the tab. */
@@ -157,27 +155,18 @@ interface ProfilePaneProps {
   /** Each listed engine's context (`get_engine_context`), App's copy. With
    *  `switcher`, it makes the MCP servers rows' engine tiles switches (T2 of
    *  docs/plans/2026-11-25-ia-engines-into-global.md). `null` before the
-   *  replies land: every tile stays display only. */
+   *  replies land: every tile stays display only. The picked engine's is
+   *  what its MCP rows are filtered by. */
   engineContexts?: EngineContext[] | null;
   /** App's one switch state (`useMcpSwitch`). */
   switcher?: McpSwitch;
-  /** A tile switch's reply context, or a band Measure all's, for App to
-   *  take in place of its copy. */
+  /** A tile switch's reply context, for App to take in place of its copy. */
   onEngineContext?: (ctx: EngineContext) => void;
 }
 
-// The band's active-filter chip, beside Measure all: the pressed chip of the
-// Engines tab's row (EnginesPane.tsx, `chipPressedClass`), at the band's
-// 26px line height. Pressing it clears the filter.
-const bandFilterChipClass =
-  "h-[26px] px-2.5 shrink-0 rounded-pill border border-transparent bg-tint text-tint-ink font-flex text-small font-medium whitespace-nowrap inline-flex items-center gap-1.5 cursor-pointer";
-const measureAllBtnClass = `${miniBtnClass} shrink-0 disabled:cursor-default disabled:opacity-50`;
-
 /** A kept server's row: the card row's first line, then which engine it is
- *  off for. A button, since the whole row is the one thing it does. Selected,
- *  it takes the card row's selected ground (`AssetRow.tsx`, `activeClass`). */
-const keptRowClass =
-  "flex flex-col gap-0.5 min-w-0 mx-1.5 px-2.5 py-2 rounded-inner text-left cursor-pointer font-sans transition-colors duration-hover ease-spring";
+ *  off for (`groupRowClass`, NotLoadedGroup.tsx, shared with that group). */
+const keptRowClass = groupRowClass;
 
 type McpCoverageProp = { checked_file_count: number; checked_engine_count: number; checked_files: string[] } | null;
 type EngineLocationsProp = { location_count: number; locations: string[] } | null;
@@ -424,8 +413,6 @@ export default function ProfilePane({
   unaccountedProcesses,
   mcpServers,
   mcpEngineSummary = null,
-  hostsBandOpen = false,
-  onToggleHostsBand,
   issues = [],
   onReview,
   serverGrouping: propServerGrouping,
@@ -435,12 +422,14 @@ export default function ProfilePane({
   keptOff = null,
   onOpenKeptOff,
   selectedKeptKey = null,
-  enginesTab,
+  engines = null,
+  selectedEngine = null,
+  onSelectEngine,
   engineContexts = null,
   switcher,
   onEngineContext,
 }: ProfilePaneProps) {
-  const [internalCategory, setInternalCategory] = useState<GlobalTab | null>(null);
+  const [internalCategory, setInternalCategory] = useState<CategoryType | null>(null);
   const [internalSortField, setInternalSortField] = useState<SortField>("name");
   const [internalSortDirection, setInternalSortDirection] = useState<SortDirection>("asc");
   // Same prop-or-internal-state shape as sortField/sortDirection above:
@@ -452,11 +441,6 @@ export default function ProfilePane({
   // change so switching away from Tools and back never carries a stale
   // filter over from a different session's look at the list.
   const [mcpReviewOnly, setMcpReviewOnly] = useState(false);
-  // The "By engine" band's filter: the engine whose servers the list shows,
-  // or null. Screen state like the Review filter above, not a preference,
-  // and reset with it on every category change.
-  const [engineFilter, setEngineFilter] = useState<string | null>(null);
-  const [measuringAll, setMeasuringAll] = useState(false);
 
   // Lookup only — keyed by the backend's own asset_path. A row without an
   // entry renders empty annotation cells rather than a guessed state.
@@ -477,11 +461,7 @@ export default function ProfilePane({
      leaked launch reads as one row with a multiplier rather than as eighty. */
   const unaccountedGroups = groupProcesses(unaccountedProcesses ?? []);
 
-  const selectedTab = propSelectedCategory ?? internalCategory;
-  // Engines is a tab and not an asset category: under it every asset path
-  // below reads All, and none of them renders (`enginesSelected`).
-  const enginesSelected = selectedTab === "Engines" && enginesTab !== undefined;
-  const selectedCategory: CategoryType | null = selectedTab === "Engines" ? null : selectedTab;
+  const selectedCategory: CategoryType | null = propSelectedCategory ?? internalCategory;
   const sortField = propSortField ?? internalSortField;
   const sortDirection = propSortDirection ?? internalSortDirection;
   const serverGrouping = propServerGrouping ?? internalServerGrouping;
@@ -494,10 +474,9 @@ export default function ProfilePane({
      inspector now holds what it has until another row is chosen (Karthik,
      2026-08-27). The prop is gone rather than left uncalled: it existed for
      this one call and nothing else. */
-  const setSelectedCategory = (cat: GlobalTab | null) => {
+  const setSelectedCategory = (cat: CategoryType | null) => {
     setInternalCategory(cat);
     setMcpReviewOnly(false);
-    setEngineFilter(null);
     onCategoryChange?.(cat);
   };
 
@@ -634,13 +613,36 @@ export default function ProfilePane({
     subagents: scopedSubagents,
   } = filterProfileAssets(inventory, selectedCategory);
 
+  /* The engine lens (Phase 1 of docs/plans/2026-11-25-ia-global-by-engine.md).
+     With an engine picked, the list keeps what that engine reaches. An MCP
+     server by its registrations, as the T3 band's filter did: every server
+     row with a registration among the engine context's item keys, and every
+     kept server whose `stash:` key is one. Until that context lands, no
+     server is shown under its name. Every other asset by the backend's own
+     verdict, its `get_asset_annotations` reach for the engine (`reachFor`),
+     matched across the two id formats by `sameEngine`. */
+  const engine = selectedEngine !== null ? engines?.find((e) => e.engine_id === selectedEngine) ?? null : null;
+  const contextFor = (engineId: string): EngineContext | null =>
+    engineContexts?.find((c) => c.engine_id === engineId) ?? null;
+  const filterContext = engine ? contextFor(engine.engine_id) : null;
+  const filterKeys = engine ? new Set((filterContext?.items ?? []).map((i) => i.key)) : null;
+  const inEngineFilter = (keys: readonly string[]) => filterKeys === null || keys.some((k) => filterKeys.has(k));
+  const reachFor = (annotation: AssetAnnotationView | null) =>
+    engine && annotation ? annotation.reach.find((r) => sameEngine(engine.engine_id, r.engine_key)) ?? null : null;
+
   // Whether anything is narrowing the rows — the category-empty copy says
   // "matches that filter" only when a filter is what emptied it. Text search
-  // lives in the palette now (⌘K), not in the pane.
+  // lives in the palette now (⌘K), not in the pane. A picked engine narrows
+  // them too (`narrowed`), and an emptied tab says so rather than calling
+  // the store empty.
   const filterActive = stateFilter !== null;
+  const narrowed = filterActive || engine !== null;
   // The kept group, on MCP servers and All. A link-state filter hides it:
-  // a kept server is in no file, so it has no link state to match.
-  const keptShown = keptAny && !filterActive;
+  // a kept server is in no file, so it has no link state to match. With an
+  // engine picked it holds that engine's kept servers only. `.length > 0`
+  // is a boolean, never a figure.
+  const keptRows = (keptOff?.servers ?? []).filter((server) => inEngineFilter([server.key]));
+  const keptShown = keptAny && !filterActive && keptRows.length > 0;
 
   const filteredSkills = scopedSkills.filter(
     (s) => matchesStateFilter(s, stateFilter)
@@ -676,8 +678,7 @@ export default function ProfilePane({
   /* MCP mode: what the hero says about MCP servers rather than about assets
      with link state. It swaps three things — the subtitle counts servers,
      tools and engines; the meter gives way to one caption; and the review
-     pill lists disagreeing servers instead of this store's issues. The band
-     under it is `bandShown`'s, below, and needs none of this.
+     pill lists disagreeing servers instead of this store's issues.
 
      Probe coverage is NOT what it shows any more: the "answered / not yet
      asked / can't be asked" meter came out on Karthik's ruling, 2026-08-28,
@@ -687,42 +688,6 @@ export default function ProfilePane({
      Gated on a grouped row existing to point the Review pill's filter at —
      a per-registration view has no `agreement` verdict to filter on. */
   const mcpMode = selectedCategory === "Tools" && mcpEngineSummary !== null && useGroupedTools;
-
-  /* The "By engine" band (T3 of docs/plans/2026-11-25-ia-engines-into-global.md).
-     It needs no grouped verdict, so it shows in both row modes, unlike
-     `mcpMode`. One row per engine the Engines tab lists (`enginesList`, the
-     list App reads contexts for), its figures from that engine's
-     `get_engine_context` exactly as the Engines tab's budget card prints them.
-     A row filters the list to the servers its context holds: every server
-     row with a registration among the context's item keys, and every kept
-     server whose `stash:` key is one. */
-  const bandShown = selectedCategory === "Tools" && mcpEngineSummary !== null;
-  const bandEngines = bandShown ? enginesList(mcpEngineSummary, keptOff) ?? [] : [];
-  const contextFor = (engineId: string): EngineContext | null =>
-    engineContexts?.find((c) => c.engine_id === engineId) ?? null;
-  const filterContext = bandShown && engineFilter !== null ? contextFor(engineFilter) : null;
-  const filterKeys = filterContext ? new Set(filterContext.items.map((i) => i.key)) : null;
-  const inEngineFilter = (keys: readonly string[]) => filterKeys === null || keys.some((k) => filterKeys.has(k));
-  /* Every engine the band lists, one at a time, through the Engines tab's
-     own command: it starts only servers that are on and have no fresh
-     answer, so asking in turn lets a launch two engines share answer once
-     and the second engine read the cache. Each reply goes to App as it
-     lands. The command does not fail (docs/ipc.md entry 18). */
-  const measureAll = async () => {
-    setMeasuringAll(true);
-    try {
-      for (const engine of bandEngines) {
-        try {
-          const reply = await invoke<EngineContext>("measure_engine_context", { engineId: engine.engine_id });
-          if (reply) onEngineContext?.(reply);
-        } catch {
-          // The figures stay as they were.
-        }
-      }
-    } finally {
-      setMeasuringAll(false);
-    }
-  };
 
   // Identity set for the selected category's own rows — the same keys
   // `annotationFor` uses (path for everything but Tools, `registrationKey`
@@ -850,54 +815,6 @@ export default function ProfilePane({
       }
     : undefined;
 
-  // configProblemRows (Appendix A.3/A.4's rows) is computed earlier, near
-  // `nothingToShow`, which needs it before this point — see that comment.
-
-  // Check if the selected category itself is empty. Tools is not empty just
-  // because it has zero servers if it has a problem to report instead — "a
-  // row, not an empty state" (A.3/A.4) means these rows must be reachable
-  // even on a machine whose only MCP-relevant fact is a config Hanger could
-  // not read or parse, with no working server anywhere to fall back on.
-  const isCategoryEmpty =
-    (selectedCategory === "Skills" && filteredSkills.length === 0) ||
-    (selectedCategory === "Tools" && filteredTools.length === 0 && configProblemRows.length === 0 && !keptShown) ||
-    (selectedCategory === "Rules" && filteredRules.length === 0) ||
-    (selectedCategory === "Agents" && agents.length === 0) ||
-    (selectedCategory === "Subagents" && filteredSubagents.length === 0);
-
-  // Same "a scan in flight is not an absence" rule as pendingState above,
-  // scoped to one category. Filtering to MCP servers on a machine with
-  // skills elsewhere never makes `storeEmpty` true, so the whole-store
-  // pendingState above never fires for it — this is the category branch's
-  // own pending state, needed for exactly that case.
-  const categoryPending = isCategoryEmpty && !!selectedCategory && loading;
-
-  // The All tab's own reading of the same bug class isCategoryEmpty exists
-  // to prevent, one level up: `isCategoryEmpty` is a disjunction over
-  // `selectedCategory === "<literal>"`, so on All (`selectedCategory ===
-  // null`) every arm is false and a non-matching filter fell through to the
-  // table, rendering `AssetHeaderRow`'s column labels over zero rows. Same
-  // four collections `isCategoryEmpty` checks per-category, checked together
-  // — Agents is not one of them because the Agents section only renders
-  // when `selectedCategory === "Agents"` (never on All), so it contributes
-  // no rows here to be empty or not. Gated on `filterActive` at the call
-  // site below, not here, to mirror `isCategoryEmpty` itself staying a pure
-  // "what's on screen" predicate.
-  const isAllEmpty =
-    selectedCategory === null &&
-    filteredSkills.length === 0 &&
-    filteredTools.length === 0 &&
-    configProblemRows.length === 0 &&
-    !keptShown &&
-    filteredRules.length === 0 &&
-    filteredSubagents.length === 0;
-
-  // categoryPending's own shape, scoped to the All tab instead of one
-  // category: a scan in flight is not yet an answer, so it must win over the
-  // "no assets match" reading below even when the filtered rows are
-  // currently zero.
-  const allPending = isAllEmpty && loading;
-
   const showSkills = selectedCategory === null || selectedCategory === "Skills";
   const showTools = selectedCategory === null || selectedCategory === "Tools";
   const showRules = selectedCategory === null || selectedCategory === "Rules";
@@ -921,8 +838,14 @@ export default function ProfilePane({
     return selected.path === item.path;
   };
 
+  // With an engine picked, a skill, rule or subagent row shows when the
+  // backend says the engine reaches it, and goes to "Not loaded by" when it
+  // says it does not. One with no verdict for the engine is in neither.
+  const reachesEngine = (item: AssetItem) => engine === null || reachFor(annotationFor(item))?.reached === true;
+  const missedByEngine = (item: AssetItem) => engine !== null && reachFor(annotationFor(item))?.reached === false;
+
   // Map and sort category items
-  const sortedSkills: AssetItem[] = sortAssetItems(
+  const allSkillRows: AssetItem[] = sortAssetItems(
     filteredSkills.map((s) => ({
       name: s.name,
       category: "Skills",
@@ -939,6 +862,7 @@ export default function ProfilePane({
     sortField,
     sortDirection
   );
+  const sortedSkills = allSkillRows.filter(reachesEngine);
 
   // Per-registration rows — today's shape, unchanged. Still built
   // unconditionally: it is what renders whenever grouping is
@@ -946,7 +870,7 @@ export default function ProfilePane({
   // machine-global IPC call) has not resolved yet, so a scan never flashes
   // an empty Tools section waiting on it.
   const perRegistrationTools: AssetItem[] = sortAssetItems(
-    filteredTools.filter((t) => inEngineFilter([registrationKey(t)])).map((t) => ({
+    filteredTools.map((t) => ({
       name: t.name,
       category: "Tools",
       // `path` stays the config FILE — it is what the row shows and what the
@@ -995,7 +919,7 @@ export default function ProfilePane({
         // servers when active — one gate, so the card rows and the strip's
         // own "tauri"/"spades" count never disagree on what "filtered" means.
         mcpServers!.filter(
-          (row) => (!mcpReviewOnly || row.agreement === "Conflicting") && inEngineFilter(row.registrations)
+          (row) => !mcpReviewOnly || row.agreement === "Conflicting"
         ),
         serverSort
       ).map((row) => {
@@ -1035,7 +959,7 @@ export default function ProfilePane({
       })
     : [];
 
-  const sortedTools: AssetItem[] = useGroupedTools ? groupedTools : perRegistrationTools;
+  const allToolRows: AssetItem[] = useGroupedTools ? groupedTools : perRegistrationTools;
 
   // The Tools section's own annotation lookup: the merged view above for a
   // grouped row, the ordinary per-registration lookup otherwise. Every other
@@ -1055,6 +979,9 @@ export default function ProfilePane({
   };
   const registrationKeysOf = (item: AssetItem): string[] =>
     useGroupedTools ? groupedRegistrationsById.get(item.id ?? "") ?? [] : item.id ? [item.id] : [];
+  // The rows the picked engine's context registers (T3's filter); with All
+  // engines, every row.
+  const sortedTools = allToolRows.filter((item) => inEngineFilter(registrationKeysOf(item)));
   const tileSwitchFor = (item: AssetItem): ((r: EngineReachInfo) => TileSwitch | null) | undefined => {
     if (!engineContexts || !switcher) return undefined;
     const keys = registrationKeysOf(item);
@@ -1073,7 +1000,7 @@ export default function ProfilePane({
     };
   };
 
-  const sortedRules: AssetItem[] = sortAssetItems(
+  const allRuleRows: AssetItem[] = sortAssetItems(
     filteredRules.map((r) => ({
       name: r.name,
       category: "Rules",
@@ -1087,8 +1014,9 @@ export default function ProfilePane({
     sortField,
     sortDirection
   );
+  const sortedRules = allRuleRows.filter(reachesEngine);
 
-  const sortedSubagents: AssetItem[] = sortAssetItems(
+  const allSubagentRows: AssetItem[] = sortAssetItems(
     filteredSubagents.map((sa) => ({
       name: sa.name,
       category: "Subagents",
@@ -1101,6 +1029,98 @@ export default function ProfilePane({
     sortField,
     sortDirection
   );
+  const sortedSubagents = allSubagentRows.filter(reachesEngine);
+
+  /* "Not loaded by ‹engine›": every row the backend says the picked engine
+     does not reach, in the list's own order and on the tab's own kinds, with
+     the reason it gave. An MCP server is in it when the engine's context
+     does not register it and its reach for the engine is a miss. Once, at
+     the end of the list (NotLoadedGroup). */
+  const notLoadedRow = (item: AssetItem, annotation: AssetAnnotationView | null, chip: string): NotLoadedRow[] => {
+    const miss = reachFor(annotation);
+    if (!miss || miss.reached) return [];
+    const category = item.category as "Skills" | "Tools" | "Rules" | "Subagents";
+    return [
+      {
+        key: `${category}:${item.id ?? item.path}`,
+        name: item.name,
+        chip,
+        reason: missTitle(miss),
+        selected: rowIsSelected(item),
+        onOpen: () => onSelectAsset({ ...(item.id ? { id: item.id } : {}), name: item.name, category, path: item.path }),
+      },
+    ];
+  };
+  const kindChip = (item: AssetItem) => getSingularType(item.category);
+  const notLoadedRows: NotLoadedRow[] = engine
+    ? [
+        ...(showSkills ? allSkillRows.filter(missedByEngine) : []).flatMap((i) => notLoadedRow(i, annotationFor(i), kindChip(i))),
+        ...(showTools ? allToolRows.filter((i) => !inEngineFilter(registrationKeysOf(i))) : []).flatMap((i) =>
+          notLoadedRow(i, toolAnnotationFor(i), i.transport ? transportChipLabel(i.transport) : kindChip(i))
+        ),
+        ...(showRules ? allRuleRows.filter(missedByEngine) : []).flatMap((i) => notLoadedRow(i, annotationFor(i), kindChip(i))),
+        ...(showSubagents ? allSubagentRows.filter(missedByEngine) : []).flatMap((i) =>
+          notLoadedRow(i, annotationFor(i), kindChip(i))
+        ),
+      ]
+    : [];
+
+  // configProblemRows (Appendix A.3/A.4's rows) is computed earlier, near
+  // `nothingToShow`, which needs it before this point — see that comment.
+
+  // Check if the selected category itself is empty. Tools is not empty just
+  // because it has zero servers if it has a problem to report instead — "a
+  // row, not an empty state" (A.3/A.4) means these rows must be reachable
+  // even on a machine whose only MCP-relevant fact is a config Hanger could
+  // not read or parse, with no working server anywhere to fall back on.
+  //
+  // With an engine picked, a row counts as shown when it reaches that engine
+  // or sits in "Not loaded by" (`notLoadedAny`). Booleans throughout.
+  const skillsAny = sortedSkills.length > 0;
+  const toolsAny = engine ? sortedTools.length > 0 : filteredTools.length > 0;
+  const rulesAny = sortedRules.length > 0;
+  const subagentsAny = sortedSubagents.length > 0;
+  const notLoadedAny = notLoadedRows.length > 0;
+  const isCategoryEmpty =
+    (selectedCategory === "Skills" && !skillsAny && !notLoadedAny) ||
+    (selectedCategory === "Tools" && !toolsAny && configProblemRows.length === 0 && !keptShown && !notLoadedAny) ||
+    (selectedCategory === "Rules" && !rulesAny && !notLoadedAny) ||
+    (selectedCategory === "Agents" && agents.length === 0) ||
+    (selectedCategory === "Subagents" && !subagentsAny && !notLoadedAny);
+
+  // Same "a scan in flight is not an absence" rule as pendingState above,
+  // scoped to one category. Filtering to MCP servers on a machine with
+  // skills elsewhere never makes `storeEmpty` true, so the whole-store
+  // pendingState above never fires for it — this is the category branch's
+  // own pending state, needed for exactly that case.
+  const categoryPending = isCategoryEmpty && !!selectedCategory && loading;
+
+  // The All tab's own reading of the same bug class isCategoryEmpty exists
+  // to prevent, one level up: `isCategoryEmpty` is a disjunction over
+  // `selectedCategory === "<literal>"`, so on All (`selectedCategory ===
+  // null`) every arm is false and a non-matching filter fell through to the
+  // table, rendering `AssetHeaderRow`'s column labels over zero rows. Same
+  // four collections `isCategoryEmpty` checks per-category, checked together
+  // — Agents is not one of them because the Agents section only renders
+  // when `selectedCategory === "Agents"` (never on All), so it contributes
+  // no rows here to be empty or not. Gated on `filterActive` at the call
+  // site below, not here, to mirror `isCategoryEmpty` itself staying a pure
+  // "what's on screen" predicate.
+  const isAllEmpty =
+    selectedCategory === null &&
+    !skillsAny &&
+    !toolsAny &&
+    configProblemRows.length === 0 &&
+    !keptShown &&
+    !rulesAny &&
+    !subagentsAny &&
+    !notLoadedAny;
+
+  // categoryPending's own shape, scoped to the All tab instead of one
+  // category: a scan in flight is not yet an answer, so it must win over the
+  // "no assets match" reading below even when the filtered rows are
+  // currently zero.
+  const allPending = isAllEmpty && loading;
 
   const sortedAgents: AssetItem[] = sortAssetItems(
     filteredAgents.map((agent) => {
@@ -1157,15 +1177,6 @@ export default function ProfilePane({
         <CategoryFilterCards
           selectedCategory={selectedCategory}
           onSelectCategory={setSelectedCategory}
-          enginesTab={
-            enginesTab === undefined
-              ? undefined
-              : {
-                  selected: enginesSelected,
-                  // A second press clears it, as on every other tab.
-                  onSelect: () => setSelectedCategory(enginesSelected ? null : "Engines"),
-                }
-          }
           allCount={sumGlobalAssets(assetCounts)}
           skillsCount={assetCounts?.byCategory.skill?.global}
           toolsCount={assetCounts?.byCategory.tool?.global}
@@ -1175,10 +1186,6 @@ export default function ProfilePane({
         />
       </div>
 
-      {enginesSelected ? (
-        enginesTab
-      ) : (
-      <>
       {/* Inventory summary strip */}
       <div className="mx-[18px] mb-3.5">
         <SummaryStrip
@@ -1193,55 +1200,11 @@ export default function ProfilePane({
           mcp={mcpFigures}
           review={mcpMode ? mcpReview : assetReview}
         >
-          {bandShown && (
-            <HeroBand
-              label="By engine"
-              open={hostsBandOpen}
-              onToggle={() => onToggleHostsBand?.()}
-              note={MEASURE_ALL_CAPTION}
-              rows={bandEngines.map((e) => {
-                const ctx = contextFor(e.engine_id);
-                return {
-                  key: e.engine_id,
-                  engineKey: e.engine_id,
-                  engineName: e.engine_name,
-                  ...engineBandFigures(ctx),
-                  filter: {
-                    pressed: filterContext?.engine_id === e.engine_id,
-                    // An engine with no context yet names no servers, so it
-                    // filters nothing until its reply lands.
-                    onPress: ctx
-                      ? () => setEngineFilter((prev) => (prev === e.engine_id ? null : e.engine_id))
-                      : null,
-                  },
-                };
-              })}
-              trailing={
-                <>
-                  {filterContext && (
-                    <button
-                      type="button"
-                      aria-pressed
-                      onClick={() => setEngineFilter(null)}
-                      className={bandFilterChipClass}
-                    >
-                      <BrandIcon engineKey={filterContext.engine_id} engineName={filterContext.engine_name} size={13} />
-                      {filterContext.engine_name}
-                      <XMarkIcon size={12} />
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => void measureAll()}
-                    disabled={measuringAll}
-                    title={MEASURE_ALL_CAPTION}
-                    className={measureAllBtnClass}
-                  >
-                    {measuringAll ? "Measuring…" : "Measure all"}
-                  </button>
-                </>
-              }
-            />
+          {/* The engine selector, on every tab (Q1). Pending is not empty:
+              before the first scan, and before the replies the list is
+              built from, it draws nothing. */}
+          {scannedAt !== null && engines && engines.length > 0 && (
+            <EngineChipRow engines={engines} selected={engine?.engine_id ?? null} onSelect={(id) => onSelectEngine?.(id)} />
           )}
         </SummaryStrip>
       </div>
@@ -1328,7 +1291,7 @@ export default function ProfilePane({
         ) : (
           <EmptyState
             icon={
-              filterActive ? (
+              narrowed ? (
                 <SearchIcon size={40} className="text-ink-3 mb-2" />
               ) : selectedCategory === "Tools" ? (
                 enginesDetected ? (
@@ -1341,15 +1304,15 @@ export default function ProfilePane({
               )
             }
             headline={
-              filterActive
+              narrowed
                 ? `No ${categoryNoun(selectedCategory, "one")} matches that filter`
                 : selectedCategory === "Tools"
                   ? ""
                   : `No ${categoryNoun(selectedCategory)} in the global store`
             }
-            sub={filterActive || selectedCategory === "Tools" ? undefined : "The scan finished without finding any."}
+            sub={narrowed || selectedCategory === "Tools" ? undefined : "The scan finished without finding any."}
           >
-            {selectedCategory === "Tools" && !filterActive ? (
+            {selectedCategory === "Tools" && !narrowed ? (
               /* Appendix A.1/A.2 (§6.3 states 1 and 2), normative. Both are
                  Tools' own reading of "nothing configured" — A.1 when the
                  engines Hanger found are real but declared no server, A.2
@@ -1364,7 +1327,7 @@ export default function ProfilePane({
             ) : null}
           </EmptyState>
         )
-      ) : selectedCategory === null && isAllEmpty && filterActive ? (
+      ) : selectedCategory === null && isAllEmpty && narrowed ? (
         /* The All tab's own filter-empty state. Reached only past every
            whole-store branch above, so a fresh or mid-scan store never lands
            here — this fires strictly for "a query that matched nothing",
@@ -1436,7 +1399,7 @@ export default function ProfilePane({
             {showSkills && sortedSkills.length > 0 && (
               <>
                 <h3 className={`px-3.5 pt-[11px] pb-[5px] ${groupLabelClass}`}>
-                  Skills · {assetCounts ? (assetCounts.byCategory.skill?.global ?? 0) : sortedSkills.length}
+                  {engine ? "Skills" : `Skills · ${assetCounts ? (assetCounts.byCategory.skill?.global ?? 0) : sortedSkills.length}`}
                 </h3>
                 <div className="flex flex-col">
                   {sortedSkills.map((item, idx) => (
@@ -1489,7 +1452,9 @@ export default function ProfilePane({
                     onSortChange={handleServerSortChange}
                   />
                   <h3 className="flex-1 truncate">
-                    MCP servers · {assetCounts ? (assetCounts.byCategory.tool?.global ?? 0) : sortedTools.length}
+                    {engine
+                      ? "MCP servers"
+                      : `MCP servers · ${assetCounts ? (assetCounts.byCategory.tool?.global ?? 0) : sortedTools.length}`}
                   </h3>
                   <span className="w-[100px] shrink-0 text-left">
                     Registered in
@@ -1532,9 +1497,11 @@ export default function ProfilePane({
                 inspector, where it can be switched back on. */}
             {showTools && keptShown && keptOff && (
               <>
-                <h3 className={`px-3.5 pt-[11px] pb-[5px] ${groupLabelClass}`}>Switched off · {keptOff.count}</h3>
+                <h3 className={`px-3.5 pt-[11px] pb-[5px] ${groupLabelClass}`}>
+                  {engine ? "Switched off" : `Switched off · ${keptOff.count}`}
+                </h3>
                 <div className="flex flex-col">
-                  {keptOff.servers.filter((server) => inEngineFilter([server.key])).map((server) => {
+                  {keptRows.map((server) => {
                     const selected = server.key === selectedKeptKey;
                     return (
                     <button
@@ -1562,7 +1529,7 @@ export default function ProfilePane({
             {showRules && sortedRules.length > 0 && (
               <>
                 <h3 className={`px-3.5 pt-[11px] pb-[5px] ${groupLabelClass}`}>
-                  Rules · {assetCounts ? (assetCounts.byCategory.rule?.global ?? 0) : sortedRules.length}
+                  {engine ? "Rules" : `Rules · ${assetCounts ? (assetCounts.byCategory.rule?.global ?? 0) : sortedRules.length}`}
                 </h3>
                 <div className="flex flex-col">
                   {sortedRules.map((item, idx) => (
@@ -1584,7 +1551,9 @@ export default function ProfilePane({
             {showSubagents && sortedSubagents.length > 0 && (
               <>
                 <h3 className={`px-3.5 pt-[11px] pb-[5px] ${groupLabelClass}`}>
-                  Subagents · {assetCounts ? (assetCounts.byCategory.subagent?.global ?? 0) : sortedSubagents.length}
+                  {engine
+                    ? "Subagents"
+                    : `Subagents · ${assetCounts ? (assetCounts.byCategory.subagent?.global ?? 0) : sortedSubagents.length}`}
                 </h3>
                 <div className="flex flex-col">
                   {sortedSubagents.map((item, idx) => (
@@ -1601,17 +1570,17 @@ export default function ProfilePane({
                 </div>
               </>
             )}
+
+            {engine && notLoadedAny && <NotLoadedGroup engineName={engine.engine_name} rows={notLoadedRows} />}
           </div>
 
         </>
-      )}
-      </>
       )}
 
       {/* Foot line. Unconditional: scan progress needs a home in the empty
           state too, which is precisely when a scan is running. */}
       <div className="h-[30px] shrink-0 px-[18px] flex items-center gap-4 font-flex text-small text-ink-3">
-        {!enginesSelected && sumGlobalAssets(assetCounts) > 0 && (
+        {sumGlobalAssets(assetCounts) > 0 && (
           <span>
             Showing {visibleCount} of {sumGlobalAssets(assetCounts)}
           </span>

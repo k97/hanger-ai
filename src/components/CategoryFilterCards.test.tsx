@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { render, screen, cleanup, fireEvent, within } from "@testing-library/react";
+import { render, screen, cleanup, within } from "@testing-library/react";
 import { describe, it, expect, vi, afterEach } from "vitest";
 import CategoryFilterCards from "./CategoryFilterCards";
 
@@ -103,46 +103,14 @@ describe("CategoryFilterCards", () => {
     expect(screen.getByText("MCP servers")).toBeTruthy();
   });
 
-  // Global's Engines tab (T1 of docs/plans/2026-11-25-ia-engines-into-global.md;
-  // second after All by Karthik's ruling, 2026-11-25).
-  it("has no Engines tab unless one is given, as on a repository", () => {
-    render(<CategoryFilterCards {...props} />);
+  // Global's Engines tab (T1 of docs/plans/2026-11-25-ia-engines-into-global.md)
+  // is gone: an engine is a lens on these tabs, chosen with the engine chips
+  // in the strip (docs/plans/2026-11-25-ia-global-by-engine.md).
+  it("has no Engines tab, even while counts load", () => {
+    render(<CategoryFilterCards {...props} loading rulesCount={undefined} />);
     expect(screen.queryByRole("tab", { name: "Engines" })).toBeNull();
-  });
-
-  it("puts the Engines tab straight after All, with no figure, even while counts load", () => {
-    render(
-      <CategoryFilterCards
-        {...props}
-        loading
-        rulesCount={undefined}
-        enginesTab={{ selected: false, onSelect: vi.fn() }}
-      />
-    );
     const labels = screen.getAllByRole("tab").map((t) => t.textContent?.replace(/\d+$/, ""));
-    expect(labels).toEqual(["All", "Engines", "Skills", "MCP servers", "Rules"]);
-    const engines = screen.getByRole("tab", { name: "Engines" });
-    expect(engines.textContent).toBe("Engines");
-    expect(engines.querySelector("svg")).toBeNull();
-  });
-
-  it("selecting Engines asks its own handler and leaves the category alone; while selected, All is not", () => {
-    const onSelect = vi.fn();
-    const onSelectCategory = vi.fn();
-    const { rerender } = render(
-      <CategoryFilterCards {...props} onSelectCategory={onSelectCategory} enginesTab={{ selected: false, onSelect }} />
-    );
-    fireEvent.click(screen.getByRole("tab", { name: "Engines" }));
-    expect(onSelect).toHaveBeenCalledTimes(1);
-    expect(onSelectCategory).not.toHaveBeenCalled();
-
-    rerender(
-      <CategoryFilterCards {...props} onSelectCategory={onSelectCategory} enginesTab={{ selected: true, onSelect }} />
-    );
-    expect(screen.getByRole("tab", { name: "Engines" }).getAttribute("aria-selected")).toBe("true");
-    expect(screen.getByRole("tab", { name: /^All/ }).getAttribute("aria-selected")).toBe("false");
-    fireEvent.click(screen.getByRole("tab", { name: /^All/ }));
-    expect(onSelectCategory).toHaveBeenCalledWith(null);
+    expect(labels).toEqual(["All", "Skills", "MCP servers", "Rules"]);
   });
 
   // Class contract only: happy-dom applies no container queries. With the
@@ -151,7 +119,7 @@ describe("CategoryFilterCards", () => {
   // last resort; before that, its segments tighten, then drop their counts
   // (the strip below carries the figure for the selected tab).
   it("tightens its segments, then drops their counts, as its own width narrows", () => {
-    const { container } = render(<CategoryFilterCards {...props} enginesTab={{ selected: false, onSelect: vi.fn() }} />);
+    const { container } = render(<CategoryFilterCards {...props} />);
     expect(container.querySelector("section")!.className).toContain("@container");
     const skills = screen.getByRole("tab", { name: /^Skills/ });
     expect(skills.className).toContain("px-3");

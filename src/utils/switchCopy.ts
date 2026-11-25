@@ -166,12 +166,6 @@ function measuredBudget(ctx: EngineContext | null): number | null {
   return ctx.on_tokens_measured;
 }
 
-/** The Engines tab budget card's headline: `budgetHeadline`, or "Not measured". */
-export function engineBudgetHeadline(ctx: EngineContext): string {
-  const tokens = measuredBudget(ctx);
-  return tokens === null ? NOT_MEASURED : budgetHeadline(tokens);
-}
-
 /**
  * One engine's row in Global's "By engine" band: the figures the Engines
  * tab's budget card prints for the same context, so the two cannot disagree.

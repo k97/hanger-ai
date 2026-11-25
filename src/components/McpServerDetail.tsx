@@ -205,11 +205,11 @@ interface Props {
   switches?: Record<string, RegistrationSwitch>;
   /** The switch on that registration's row was clicked. */
   onSwitch?: (registrationKey: string) => void;
-  /** The engine ids Global's Engines tab lists (`enginesList`). A row whose
-   *  `engineId` is one of them names its engine as a link to that tab; any
-   *  other row names it in plain text. */
+  /** The engine ids Global's engine chips list (`enginesList`). A row whose
+   *  `engineId` is one of them names its engine as a link that shows Global
+   *  seen by it; any other row names it in plain text. */
   linkedEngines?: readonly string[];
-  /** A row's engine name was clicked: open the Engines tab on that engine. */
+  /** A row's engine name was clicked: pick that engine on Global. */
   onOpenEngine?: (engineId: string) => void;
 }
 
@@ -230,9 +230,9 @@ export interface RegistrationSwitch {
   busy: boolean;
 }
 
-/** The Engines pane's switch button, verbatim (`EnginesPane.tsx` →
- *  `switchBtnClass`): a button pressed by its state, holding the track
- *  (DESIGN.md §7). Declared again here rather than exported from a pane. */
+/** The switch button: a button pressed by its state, holding the track
+ *  (DESIGN.md §7). Born on the Engines pane, retired with it on 2026-11-25
+ *  (docs/plans/2026-11-25-ia-global-by-engine.md); this is its copy. */
 const switchBtnClass =
   "shrink-0 grid place-items-center rounded-pill cursor-pointer disabled:cursor-default disabled:opacity-50";
 
@@ -1406,8 +1406,8 @@ export default function McpServerDetail({
               // engine has answered. Absent for a project or local row, a
               // host with no engine id, and before the first reply.
               const sw = switches?.[reg.key];
-              // The engine this row's name links to on the Engines tab:
-              // only one that tab lists. A project or local row has no
+              // The engine this row's name links to on Global: only one
+              // the engine chips list. A project or local row has no
               // engine id, so it names its host in plain text.
               const linkEngine =
                 onOpenEngine && reg.engineId && linkedEngines?.includes(reg.engineId) ? reg.engineId : null;
