@@ -1858,8 +1858,11 @@ that answered empty (`SearchPalette.tsx:150-156`). **Switch actions** (Task
 A8): `SearchPalette` takes an optional `actionsFor(query)`, asks it with the
 trimmed query on every render once a scan has completed, and hands the
 result to the panel as `actions` (`PaletteAction`: `id`, `label`, `detail?`,
-`onRun`). The panel lists them as one more `Command.Group`, "Switch", after
-the asset groups, in the same heading div and `rowClass` row, the label in
+`exact?`, `onRun`). The panel lists them as one more `Command.Group`,
+"Switch", after the asset groups — or ahead of them when any action is
+`exact`, which App sets on an item whose name is the query in any case (D7
+of the IA plan); it is drawn there, so cmdk's arrow keys, which walk the
+items in DOM order, follow — in the same heading div and `rowClass` row, the label in
 `text-base-app` and `detail` on the right in `captionClass` as a hit's place
 is. While any action is listed, neither the hint nor "Nothing matches" shows;
 before the first scan none are listed. App builds them: each open reads

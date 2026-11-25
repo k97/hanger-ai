@@ -263,6 +263,68 @@ describe("SearchPalette — Switch actions", () => {
     expect(actionsFor).not.toHaveBeenCalled();
   });
 
+  // D7 of docs/plans/2026-11-25-ia-engines-into-global.md: the query names a
+  // server exactly, so switching it is the likely ask.
+  const groupOrder = () => Array.from(document.querySelectorAll("[cmdk-group]")).map((g) => g.getAttribute("aria-label"));
+
+  it("leads with Switch when an action's server is the query exactly", async () => {
+    render(
+      <SearchPalette
+        open={true}
+        scannedAt={scanned}
+        onClose={() => {}}
+        onPick={() => {}}
+        actionsFor={(q) => (q ? [action({ exact: true })] : [])}
+      />
+    );
+    fireEvent.change(screen.getByLabelText("Search assets"), { target: { value: "alpha" } });
+    await screen.findByText("deploy-helper");
+    expect(groupOrder()).toEqual(["Switch", "Skills"]);
+  });
+
+  it("keeps Switch last on a partial match", async () => {
+    render(
+      <SearchPalette
+        open={true}
+        scannedAt={scanned}
+        onClose={() => {}}
+        onPick={() => {}}
+        actionsFor={(q) => (q ? [action({ exact: false })] : [])}
+      />
+    );
+    fireEvent.change(screen.getByLabelText("Search assets"), { target: { value: "alp" } });
+    await screen.findByText("deploy-helper");
+    expect(groupOrder()).toEqual(["Skills", "Switch"]);
+  });
+
+  it("the arrow keys walk the rows in the order they are drawn", async () => {
+    const onRun = vi.fn();
+    const onPick = vi.fn();
+    render(
+      <SearchPalette
+        open={true}
+        scannedAt={scanned}
+        onClose={() => {}}
+        onPick={onPick}
+        actionsFor={(q) => (q ? [action({ exact: true, onRun })] : [])}
+      />
+    );
+    const input = screen.getByLabelText("Search assets");
+    fireEvent.change(input, { target: { value: "alpha" } });
+    await screen.findByText("deploy-helper");
+    const selected = () => document.querySelector("[cmdk-item][data-selected='true']")?.getAttribute("data-kind");
+    const drawn = screen.getAllByRole("option").map((el) => el.getAttribute("data-kind"));
+    expect(drawn).toEqual(["action", "skill"]);
+    await waitFor(() => expect(selected()).toBe("action"));
+    fireEvent.keyDown(input, { key: "ArrowDown" });
+    await waitFor(() => expect(selected()).toBe("skill"));
+    fireEvent.keyDown(input, { key: "ArrowUp" });
+    await waitFor(() => expect(selected()).toBe("action"));
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(onRun).toHaveBeenCalledTimes(1);
+    expect(onPick).not.toHaveBeenCalled();
+  });
+
   it("an empty list of actions keeps the hint", () => {
     render(
       <SearchPalette open={true} scannedAt={scanned} onClose={() => {}} onPick={() => {}} actionsFor={() => []} />

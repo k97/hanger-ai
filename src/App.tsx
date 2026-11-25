@@ -1110,7 +1110,9 @@ export default function App() {
 
   /** The servers a query names that Hanger can switch, at most eight. Each
    *  runs the switch the Engines pane's own button would, with the same
-   *  request (`switchRequestFor`), after closing the palette. */
+   *  request (`switchRequestFor`), after closing the palette. One whose name
+   *  is the query, in any case, is `exact`, and the palette then lists the
+   *  group first (D7 of docs/plans/2026-11-25-ia-engines-into-global.md). */
   const paletteActions = (query: string): PaletteAction[] => {
     if (paletteContexts === null) return [];
     return switchableNamed(paletteContexts, query)
@@ -1121,6 +1123,7 @@ export default function App() {
           server: target.item.name,
         }),
         detail: target.ctx.engine_name,
+        exact: target.item.name.toLowerCase() === query.toLowerCase(),
         onRun: () => {
           setSearchOpen(false);
           void mcpSwitch.switchServer(switchRequestFor(target));

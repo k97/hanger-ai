@@ -32,6 +32,10 @@ export interface PaletteAction {
   label: string;
   /** A short second word on the right of the row, as a hit's place is. */
   detail?: string;
+  /** The query is this action's server name exactly, in any case. Any such
+   *  action puts the Switch group ahead of the asset groups (D7 of
+   *  docs/plans/2026-11-25-ia-engines-into-global.md). */
+  exact?: boolean;
   onRun: () => void;
 }
 
@@ -103,8 +107,9 @@ export interface SearchPalettePanelProps {
   /** False before the first scan completes: the pending line shows and nothing is queried. */
   hasScanned: boolean;
   onPick: (hit: SearchHit) => void;
-  /** Listed under "Switch" after the asset groups. While any are listed,
-   *  neither the hint nor "Nothing matches" shows: the list is not empty. */
+  /** Listed under "Switch" after the asset groups, or ahead of them when one
+   *  is `exact`. While any are listed, neither the hint nor "Nothing matches"
+   *  shows: the list is not empty. */
   actions?: PaletteAction[];
   /** The panel's accessible name and the input's. The app passes the real ones;
    *  the Design system page passes sample names so a reader never hears a control that does nothing. */
@@ -135,12 +140,44 @@ export function SearchPalettePanel({
   // Before the first scan there is nothing to act on either.
   const shownActions = hasScanned ? actions ?? [] : [];
   const hasActions = shownActions.length > 0;
+  // Drawn first, so it is first for the arrow keys too: cmdk walks the items
+  // in DOM order.
+  const actionsLead = shownActions.some((action) => action.exact);
   const answeredEmpty = hits !== null && hits.length === 0;
   const groups = GROUP_ORDER.map(({ kind, heading }) => ({
     kind,
     heading,
     rows: (hits ?? []).filter((hit) => hit.kind === kind),
   })).filter((group) => group.rows.length > 0);
+
+  const switchGroup = hasActions ? (
+    <Command.Group aria-label="Switch">
+      <div
+        className={`flex items-center px-3 pb-[5px] ${groupLabelClass} ${actionsLead || groups.length === 0 ? "pt-1" : "pt-[11px]"}`}
+        aria-hidden="true"
+      >
+        Switch
+      </div>
+      {shownActions.map((action) => (
+        <Command.Item
+          key={`action:${action.id}`}
+          value={`action:${action.id}`}
+          data-kind="action"
+          onSelect={() => action.onRun()}
+          className={rowClass}
+        >
+          <div className="flex items-center gap-2 min-w-0">
+            <span data-action-label className="text-base-app text-ink-1 truncate">
+              {action.label}
+            </span>
+            {action.detail && (
+              <span className={`ml-auto pl-4 ${captionClass} shrink-0`}>{action.detail}</span>
+            )}
+          </div>
+        </Command.Item>
+      ))}
+    </Command.Group>
+  ) : null;
 
   return (
     <div
@@ -183,6 +220,7 @@ export function SearchPalettePanel({
           ) : answeredEmpty ? (
             <p className={`py-8 px-4 text-center ${captionClass}`}>Nothing matches “{q}”.</p>
           ) : null}
+          {actionsLead && switchGroup}
           {groups.map((group, i) => (
             <Command.Group key={group.kind} aria-label={group.heading}>
               {/* cmdk's own `heading` prop marks the string aria-hidden and
@@ -190,7 +228,7 @@ export function SearchPalettePanel({
                   instead so the app's own tokens apply directly — the
                   sidebar's own group-label shape (`Sidebar.tsx`'s `grpClass`). */}
               <div
-                className={`flex items-center px-3 pb-[5px] ${groupLabelClass} ${i === 0 ? "pt-1" : "pt-[11px]"}`}
+                className={`flex items-center px-3 pb-[5px] ${groupLabelClass} ${i === 0 && !actionsLead ? "pt-1" : "pt-[11px]"}`}
                 aria-hidden="true"
               >
                 {group.heading}
@@ -217,34 +255,7 @@ export function SearchPalettePanel({
               ))}
             </Command.Group>
           ))}
-          {hasActions && (
-            <Command.Group aria-label="Switch">
-              <div
-                className={`flex items-center px-3 pb-[5px] ${groupLabelClass} ${groups.length === 0 ? "pt-1" : "pt-[11px]"}`}
-                aria-hidden="true"
-              >
-                Switch
-              </div>
-              {shownActions.map((action) => (
-                <Command.Item
-                  key={`action:${action.id}`}
-                  value={`action:${action.id}`}
-                  data-kind="action"
-                  onSelect={() => action.onRun()}
-                  className={rowClass}
-                >
-                  <div className="flex items-center gap-2 min-w-0">
-                    <span data-action-label className="text-base-app text-ink-1 truncate">
-                      {action.label}
-                    </span>
-                    {action.detail && (
-                      <span className={`ml-auto pl-4 ${captionClass} shrink-0`}>{action.detail}</span>
-                    )}
-                  </div>
-                </Command.Item>
-              ))}
-            </Command.Group>
-          )}
+          {!actionsLead && switchGroup}
         </Command.List>
       </Command>
     </div>

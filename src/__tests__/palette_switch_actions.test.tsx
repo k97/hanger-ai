@@ -293,6 +293,45 @@ describe("⌘K's Switch actions", () => {
     await waitFor(() => expect(calls("get_engine_context")).toHaveLength(6));
   });
 
+  it("leads with Switch when the query is a server's name exactly, in any case, and not on a partial match", async () => {
+    // search_assets answers with a server hit for this test only.
+    const base = vi.mocked(invoke).getMockImplementation()!;
+    vi.mocked(invoke).mockImplementation(async (cmd: string, args?: any) =>
+      cmd === "search_assets"
+        ? {
+            hits: [
+              {
+                kind: "server",
+                id: "/Users/demo/.codex/config.toml:alpha",
+                path: "/Users/demo/.codex/config.toml",
+                name: "alpha",
+                server: null,
+                place: "global",
+                snippet: "alpha",
+                rank: -1,
+              },
+            ],
+            total: 1,
+          }
+        : base(cmd, args)
+    );
+    try {
+      render(<App />);
+      await completeScan();
+      openPalette();
+      const groupOrder = () =>
+        Array.from(document.querySelectorAll("[cmdk-group]")).map((g) => g.getAttribute("aria-label"));
+
+      await type(" ALPHA ");
+      await waitFor(() => expect(groupOrder()).toEqual(["Switch", "MCP servers"]));
+
+      await type("alph");
+      await waitFor(() => expect(groupOrder()).toEqual(["MCP servers", "Switch"]));
+    } finally {
+      vi.mocked(invoke).mockImplementation(base);
+    }
+  });
+
   it("before the first scan, opens with no actions and reads nothing", async () => {
     render(<App />);
     await screen.findByTestId("icon-rail");
