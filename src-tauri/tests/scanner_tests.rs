@@ -3067,6 +3067,105 @@ fn scan_targets_equals_scanning_each_target_whole() {
     println!("reference digest: {}", blake3::hash(normalised.as_bytes()).to_hex());
 }
 
+/// The root row at `path`: its kind, its engine's key ("" for none) and its
+/// label; and the engine row `key`'s config root.
+fn root_row(db: &Path, path: &str) -> (String, String, String) {
+    let conn = rusqlite::Connection::open(db).unwrap();
+    conn.query_row(
+        "SELECT r.kind, COALESCE(e.key, ''), r.label
+         FROM roots r LEFT JOIN engines e ON e.id = r.engine_id WHERE r.abs_path = ?1",
+        [path],
+        |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+    )
+    .unwrap()
+}
+
+fn engine_config_root(db: &Path, key: &str) -> String {
+    let conn = rusqlite::Connection::open(db).unwrap();
+    conn.query_row("SELECT config_root FROM engines WHERE key = ?1", [key], |r| r.get(0))
+        .unwrap()
+}
+
+/// A linked directory that is also an engine's global root (`~/.cursor`:
+/// Cursor owns no engine root, so the project walk is not fenced out of it)
+/// keeps that root's kind, engine and label whatever order the targets run
+/// in — the last target included, and a scan of that directory alone. Its
+/// project pass upserts the same path as `("project", None, ".cursor")`.
+///
+/// Also: a project holding `.cursorrules` must not blank the Cursor engine
+/// row's config root, whichever target comes last.
+///
+/// Read back through the store and both readers that care: the annotation
+/// for `~/.cursor`'s server says Cursor reaches it in place, and the link
+/// map draws `~/.cursor` as an engine root, not a store.
+#[test]
+fn an_engine_root_linked_as_a_directory_keeps_its_engine_in_any_order() {
+    let _guard = ENV_MUTEX.get_or_init(|| Mutex::new(())).lock().unwrap();
+    let (_home, h, _) = split_fixture();
+    std::env::set_var("HANGER_TEST_HOME", h.to_string_lossy().to_string());
+    fs::write(h.join("work/proj-b/.cursorrules"), "be terse\n").unwrap();
+
+    let cursor = h.join(".cursor");
+    let cursor_path = cursor.to_string_lossy().to_string();
+    let a = h.join("work/proj-a");
+    let b = h.join("work/proj-b");
+    let machine = std::path::PathBuf::from("");
+    let orders: Vec<(&str, Vec<std::path::PathBuf>)> = vec![
+        ("cursor last", vec![machine.clone(), a.clone(), b.clone(), cursor.clone()]),
+        ("cursor only", vec![machine.clone(), cursor.clone()]),
+        ("cursor first, rules last", vec![machine.clone(), cursor.clone(), a.clone(), b.clone()]),
+        ("cursor middle", vec![machine.clone(), a.clone(), cursor.clone(), b.clone()]),
+        ("scan(cursor)", vec![cursor.clone()]),
+    ];
+
+    let dbs = tempfile::tempdir().unwrap();
+    let mut failures = Vec::new();
+    for (i, (name, targets)) in orders.iter().enumerate() {
+        let scanner = DirectoryScanner {
+            db_path: dbs.path().join(format!("order-{i}.db")),
+            cancellation_token: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
+        };
+        let inv = if *name == "scan(cursor)" {
+            scanner.scan(&cursor).unwrap()
+        } else {
+            tauri_app_lib::scanner::scan_targets(&scanner, targets, |_, _, _| {}).unwrap()
+        };
+        // The fixture has to reach the overlap, or a green proves nothing.
+        assert!(
+            inv.project_scans.iter().any(|p| Path::new(&p.path) == cursor),
+            "{name}: ~/.cursor was walked as a project"
+        );
+
+        let root = root_row(&scanner.db_path, &cursor_path);
+        let want = ("engine_global".to_string(), "cursor".to_string(), "Cursor".to_string());
+        if root != want {
+            failures.push(format!("{name}: ~/.cursor root is {root:?}"));
+        }
+
+        let config_root = engine_config_root(&scanner.db_path, "cursor");
+        if config_root != cursor_path {
+            failures.push(format!("{name}: cursor engine config_root is {config_root:?}"));
+        }
+
+        let notes = tauri_app_lib::annotations::asset_annotations(&scanner.db_path).unwrap();
+        let note = notes
+            .iter()
+            .find(|n| n.asset_path.contains("cursor-server"))
+            .unwrap_or_else(|| panic!("{name}: ~/.cursor's server is annotated"));
+        let cursor_reach = note.reach.iter().find(|r| r.engine_key == "cursor");
+        if !matches!(cursor_reach, Some(r) if r.reached && r.via_store.is_none()) {
+            failures.push(format!("{name}: Cursor's reach of its own server is {cursor_reach:?}"));
+        }
+
+        let graph = tauri_app_lib::linkmap::build_link_graph(&scanner.db_path, None).unwrap();
+        let node = graph.nodes.iter().find(|n| n.path == cursor_path).map(|n| n.kind);
+        if node != Some(tauri_app_lib::linkmap::NodeKind::EngineRoot) {
+            failures.push(format!("{name}: the link map draws ~/.cursor as {node:?}"));
+        }
+    }
+    assert!(failures.is_empty(), "an engine root was downgraded:\n{}", failures.join("\n"));
+}
+
 /// A Rescan writes through one store connection, not one per write. Each
 /// upsert used to open its own connection and compile its statements again:
 /// thousands of opens per Rescan. Now the machine pass opens one (after
