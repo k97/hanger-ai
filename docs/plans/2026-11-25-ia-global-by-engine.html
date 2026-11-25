@@ -1,0 +1,297 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>IA · Global, seen by engine</title>
+<style>
+  :root{
+    --bg:#f6f6f4; --plane:#fff; --plane-2:#f0f0ee; --ink:#1b1b1a; --ink-2:#55554f; --ink-3:#8a8a83;
+    --line:#e4e4e0; --line-2:#d2d2cc; --accent:#2a8f8a; --accent-soft:#e3f2f1; --new:#b45309; --new-soft:#fdf1e3; --gone:#b42318;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 -apple-system,BlinkMacSystemFont,"SF Pro Text",Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+  main{max-width:1180px;margin:0 auto;padding:40px 32px 80px}
+  h1{font-size:26px;font-weight:600;margin:0 0 6px;text-wrap:balance}
+  h2{font-size:17px;font-weight:600;margin:48px 0 6px}
+  p.lede{color:var(--ink-2);margin:0 0 4px;max-width:70ch;text-wrap:pretty}
+  .sub{color:var(--ink-3);font-size:13px;margin:0 0 16px}
+  .legend{display:flex;gap:16px;flex-wrap:wrap;margin:14px 0 0;font-size:12px;color:var(--ink-2)}
+  .sw{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+  .card{background:var(--plane);border:1px solid var(--line);border-radius:16px;padding:20px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+  @media (max-width:900px){.grid2{grid-template-columns:1fr}}
+  .tag{font-size:11px;font-weight:600;letter-spacing:.02em;padding:1px 7px;border-radius:999px;margin-left:6px;vertical-align:1px}
+  .tag.new{background:var(--new-soft);color:var(--new)}
+  .tag.gone{background:#fde8e6;color:var(--gone)}
+  .tag.p2{background:var(--plane-2);color:var(--ink-2)}
+  .mono{font:12px/1.4 ui-monospace,"SF Mono",Menlo,monospace;color:var(--ink-3)}
+  .num{font-variant-numeric:tabular-nums}
+
+  /* sitemap */
+  .tree{list-style:none;margin:0;padding:0}
+  .tree ul{list-style:none;margin:0;padding-left:22px;border-left:1px solid var(--line-2);margin-left:9px}
+  .tree li{position:relative;padding:5px 0 5px 14px}
+  .tree ul > li::before{content:"";position:absolute;left:-1px;top:16px;width:12px;border-top:1px solid var(--line-2)}
+  .node{display:inline-flex;align-items:center;gap:8px;padding:5px 11px;border:1px solid var(--line);border-radius:10px;background:var(--plane)}
+  .node.rail{background:var(--ink);color:#fff;border-color:var(--ink)}
+  .node.hl{border-color:var(--accent);background:var(--accent-soft)}
+  .node.newn{border-color:#f0c48a;background:var(--new-soft)}
+  .node.goneN{border-style:dashed;color:var(--ink-3);text-decoration:line-through}
+  .node .mono{margin-left:4px}
+
+  /* matrix */
+  table.mx{border-collapse:separate;border-spacing:0;width:100%;font-size:13px}
+  .mx th,.mx td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:center}
+  .mx th:first-child,.mx td:first-child{text-align:left}
+  .mx thead th{font-weight:500;color:var(--ink-2)}
+  .mx thead th.sel{background:var(--accent-soft);color:var(--accent);border-radius:8px 8px 0 0}
+  .mx td.sel{background:var(--accent-soft)}
+  .dot{display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--ink)}
+  .dot.off{background:transparent;border:1.5px solid var(--ink-3)}
+  .dot.no{background:transparent;border:1.5px dashed var(--line-2)}
+  .kind{color:var(--ink-3);font-size:12px}
+  .row-kind td{background:var(--plane-2);font-size:12px;color:var(--ink-2);text-align:left!important}
+
+  /* wireframes */
+  .win{background:var(--plane);border:1px solid var(--line-2);border-radius:14px;overflow:hidden;box-shadow:0 1px 2px rgb(0 0 0 / .04),0 8px 24px rgb(0 0 0 / .06)}
+  .bar{height:34px;display:flex;align-items:center;gap:8px;padding:0 12px;border-bottom:1px solid var(--line);font-size:12px;color:var(--ink-3)}
+  .bar i{width:10px;height:10px;border-radius:50%;background:var(--line-2);display:inline-block}
+  .bar b{color:var(--ink);font-weight:600}
+  .body{display:flex}
+  .rail{width:40px;border-right:1px solid var(--line);background:var(--bg);display:flex;flex-direction:column;align-items:center;gap:10px;padding:12px 0}
+  .rail span{width:18px;height:18px;border-radius:5px;background:var(--line-2)}
+  .rail span.on{background:var(--ink-2)}
+  .pane{flex:1;padding:14px;min-width:0}
+  .tabs{display:inline-flex;gap:2px;padding:3px;border:1px solid var(--line);border-radius:999px;background:var(--plane-2);font-size:12px;margin-bottom:10px}
+  .tabs span{padding:3px 10px;border-radius:999px;color:var(--ink-2)}
+  .tabs span.on{background:var(--plane);color:var(--ink);box-shadow:0 1px 2px rgb(0 0 0 / .08)}
+  .strip{border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:10px}
+  .big{font-size:22px;font-weight:600}
+  .big small{font-size:13px;font-weight:400;color:var(--ink-2);margin-left:6px}
+  .lg{display:flex;gap:12px;font-size:11px;color:var(--ink-2);margin-top:6px;flex-wrap:wrap}
+  .chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;padding-top:10px;border-top:1px solid var(--line)}
+  .chip{font-size:11px;padding:3px 9px;border:1px solid var(--line);border-radius:999px;color:var(--ink-2);white-space:nowrap}
+  .chip.on{border-color:var(--accent);background:var(--accent-soft);color:var(--accent);font-weight:600}
+  .seg{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:8px}
+  .seg div{border:1px solid var(--line);border-radius:8px;padding:6px 8px;font-size:11px;color:var(--ink-2)}
+  .seg div b{display:block;color:var(--ink);font-size:13px}
+  .seg div.nm b{color:var(--ink-3);font-weight:500}
+  .list{border:1px solid var(--line);border-radius:12px;overflow:hidden}
+  .lh{font-size:11px;color:var(--ink-3);padding:6px 10px;background:var(--plane-2);display:flex;justify-content:space-between}
+  .li{display:flex;justify-content:space-between;align-items:center;padding:7px 10px;border-top:1px solid var(--line);font-size:12px}
+  .li .r{display:flex;gap:8px;align-items:center;color:var(--ink-2)}
+  .tg{width:22px;height:12px;border-radius:999px;background:var(--ink);position:relative}
+  .tg::after{content:"";position:absolute;right:2px;top:2px;width:8px;height:8px;border-radius:50%;background:#fff}
+  .ro{font-size:10px;color:var(--ink-3)}
+  .fold{padding:7px 10px;border-top:1px solid var(--line);font-size:12px;color:var(--ink-2);background:var(--bg)}
+  .note{font-size:12px;color:var(--ink-2);margin-top:10px}
+  .call{position:relative}
+  .pin{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;background:var(--new);color:#fff;font-size:10px;font-weight:700;margin-left:4px;vertical-align:1px}
+
+  /* flows */
+  .flow{display:flex;align-items:stretch;gap:0;flex-wrap:wrap;margin:8px 0 18px}
+  .step{background:var(--plane);border:1px solid var(--line);border-radius:10px;padding:8px 11px;font-size:12.5px;max-width:200px}
+  .step b{display:block;font-size:11px;color:var(--ink-3);font-weight:500}
+  .arr{align-self:center;color:var(--ink-3);padding:0 8px}
+  .phases{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+  @media (max-width:900px){.phases{grid-template-columns:1fr}}
+  .ph h3{margin:0 0 6px;font-size:14px}
+  .ph ul{margin:0;padding-left:18px;color:var(--ink-2);font-size:13px}
+</style>
+</head>
+<body>
+<main>
+  <h1>Global, seen by engine</h1>
+  <p class="lede">Global becomes one grid: <b>asset × engine</b>. Two independent filters slice it: the <b>kind tabs</b> and an <b>engine selector</b>. All with one engine picked is that engine’s page, so the Engines tab goes.</p>
+  <p class="sub">Draft for review · 2026-11-25 · companion to <span class="mono">docs/plans/2026-11-25-ia-global-by-engine.md</span></p>
+  <div class="legend">
+    <span><i class="sw" style="background:var(--accent-soft);border:1px solid var(--accent)"></i>where the change lands</span>
+    <span><i class="sw" style="background:var(--new-soft);border:1px solid #f0c48a"></i>new</span>
+    <span><i class="sw" style="border:1px dashed var(--ink-3)"></i>removed</span>
+    <span><span class="tag p2" style="margin:0">P2</span> needs the Phase 2 backend</span>
+  </div>
+
+  <!-- 1. Sitemap -->
+  <h2>1 · Sitemap</h2>
+  <p class="sub">There are no URLs, because Hanger is a Tauri app. View state is stored in preferences, shown in mono.</p>
+  <div class="grid2">
+    <div class="card">
+      <div class="sub" style="margin-bottom:10px"><b style="color:var(--ink)">Today</b> on local main</div>
+      <ul class="tree">
+        <li><span class="node rail">Rail</span>
+          <ul>
+            <li><span class="node">Search ⌘K</span></li>
+            <li><span class="node">My machine</span>
+              <ul>
+                <li><span class="node">Global <span class="mono">profile</span></span>
+                  <ul>
+                    <li><span class="node">All</span></li>
+                    <li><span class="node goneN">Engines <span class="mono">global:Engines</span></span></li>
+                    <li><span class="node">Skills · MCP servers · Rules · Subagents</span></li>
+                    <li><span class="node">MCP servers › “By engine” band <span class="mono">(MCP tab only)</span></span></li>
+                  </ul>
+                </li>
+                <li><span class="node">‹repo› <span class="mono">/path</span></span></li>
+              </ul>
+            </li>
+            <li><span class="node">Link map</span></li>
+            <li><span class="node">Discovery</span></li>
+            <li><span class="node">Needs review</span></li>
+            <li><span class="node">Settings · Design system (dev)</span></li>
+          </ul>
+        </li>
+      </ul>
+    </div>
+    <div class="card">
+      <div class="sub" style="margin-bottom:10px"><b style="color:var(--ink)">Proposed</b></div>
+      <ul class="tree">
+        <li><span class="node rail">Rail</span> <span class="ro">unchanged</span>
+          <ul>
+            <li><span class="node">Search ⌘K</span></li>
+            <li><span class="node">My machine</span>
+              <ul>
+                <li><span class="node hl">Global <span class="mono">profile</span></span>
+                  <ul>
+                    <li><span class="node newn">Engine: All engines | Claude Code | Codex | … <span class="mono">selected_engine</span></span>
+                      <ul>
+                        <li><span class="node hl">Kind: All | Skills | MCP servers | Rules | Subagents</span>
+                          <ul>
+                            <li><span class="node">Inspector: asset · MCP server · switched-off server</span></li>
+                          </ul>
+                        </li>
+                      </ul>
+                    </li>
+                  </ul>
+                </li>
+                <li><span class="node">‹repo› <span class="mono">/path</span></span> <span class="tag p2">engine filter: P3</span></li>
+              </ul>
+            </li>
+            <li><span class="node">Link map</span></li>
+            <li><span class="node">Discovery</span></li>
+            <li><span class="node">Needs review</span></li>
+            <li><span class="node">Settings · Design system (dev)</span></li>
+          </ul>
+        </li>
+      </ul>
+      <p class="note">A saved <span class="mono">global:Engines</span> migrates to <span class="mono">profile</span> and keeps the engine selected.</p>
+    </div>
+  </div>
+
+  <!-- 2. Model -->
+  <h2>2 · The model: one grid, two filters</h2>
+  <p class="sub">The rows are assets and the columns are engines. The backend already knows every cell from <span class="mono">get_asset_annotations</span>, which records reach per engine. Picking Claude Code selects the shaded column; a kind tab selects a band of rows.</p>
+  <div class="card">
+    <table class="mx">
+      <thead><tr><th></th><th class="sel">Claude Code</th><th>Codex</th><th>Gemini</th><th>Cursor</th><th>OpenCode</th><th class="kind">cost for selected engine</th></tr></thead>
+      <tbody>
+        <tr class="row-kind"><td colspan="7">MCP servers: switchable · ≈ tokens measured today</td></tr>
+        <tr><td>cua</td><td class="sel"><span class="dot"></span></td><td><span class="dot"></span></td><td><span class="dot"></span></td><td><span class="dot no"></span></td><td><span class="dot no"></span></td><td class="num">≈ 7,294</td></tr>
+        <tr><td>chrome-devtools</td><td class="sel"><span class="dot"></span></td><td><span class="dot off"></span></td><td><span class="dot off"></span></td><td><span class="dot no"></span></td><td><span class="dot no"></span></td><td class="num">≈ 1,890</td></tr>
+        <tr class="row-kind"><td colspan="7">Skills: read-only · descriptions load every session <span class="tag p2">P2</span></td></tr>
+        <tr><td>3d-four-seasons</td><td class="sel"><span class="dot"></span></td><td><span class="dot"></span></td><td><span class="dot no"></span></td><td><span class="dot no"></span></td><td><span class="dot"></span></td><td class="num">≈ 72</td></tr>
+        <tr class="row-kind"><td colspan="7">Rules · Subagents: read-only <span class="tag p2">P2</span></td></tr>
+        <tr><td>CLAUDE.md</td><td class="sel"><span class="dot"></span></td><td><span class="dot no"></span></td><td><span class="dot no"></span></td><td><span class="dot no"></span></td><td><span class="dot no"></span></td><td class="num">≈ …</td></tr>
+      </tbody>
+    </table>
+    <div class="legend"><span><span class="dot" style="margin-right:6px"></span>reached / on</span><span><span class="dot off" style="margin-right:6px"></span>off (MCP)</span><span><span class="dot no" style="margin-right:6px"></span>not reached → listed under “Not loaded by …”</span><span>Figures are illustrative.</span></div>
+  </div>
+
+  <!-- 3. Wireframes -->
+  <h2>3 · Global in its two states</h2>
+  <div class="grid2">
+    <div>
+      <p class="sub"><b style="color:var(--ink)">All engines</b>: the store view, which is today’s job</p>
+      <div class="win">
+        <div class="bar"><i></i><i></i><i></i>&nbsp; My machine › <b>Global</b></div>
+        <div class="body">
+          <div class="rail"><span></span><span></span><span class="on"></span><span></span><span></span></div>
+          <div class="pane">
+            <div class="tabs"><span class="on">All 891</span><span>Skills 553</span><span>MCP servers 33</span><span>Rules 3</span><span>Subagents 302</span></div>
+            <div class="strip">
+              <div class="big num">891<small>assets in the global store · 10 engines</small></div>
+              <div class="lg"><span>● 853 linked</span><span>● 0 drifted</span><span>● 0 broken</span><span>○ 61 local only</span><span style="margin-left:auto">Rescan · Needs review</span></div>
+              <div class="chips call"><span class="chip on">All engines</span><span class="chip">Claude Code</span><span class="chip">Codex</span><span class="chip">Gemini</span><span class="chip">Cursor</span><span class="chip">VS Code</span><span class="chip">Zed</span><span class="chip">OpenCode</span><span class="pin">1</span></div>
+            </div>
+            <div class="list">
+              <div class="lh"><span>Skills · 553</span><span>Reach</span></div>
+              <div class="li"><span>3d-four-seasons</span><span class="r">● ● ○ ●</span></div>
+              <div class="lh"><span>MCP servers · 33</span><span>Registered in (switches)</span></div>
+              <div class="li"><span>cua <span class="ro">stdio</span></span><span class="r">● ● ● ⋯</span></div>
+              <div class="fold">› Switched off · 1</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div>
+      <p class="sub"><b style="color:var(--ink)">One engine picked</b>: the engine’s page, which is the new job</p>
+      <div class="win">
+        <div class="bar"><i></i><i></i><i></i>&nbsp; My machine › Global › <b>Claude Code</b></div>
+        <div class="body">
+          <div class="rail"><span></span><span></span><span class="on"></span><span></span><span></span></div>
+          <div class="pane">
+            <div class="tabs"><span class="on">All 891</span><span>Skills 553</span><span>MCP servers 33</span><span>Rules 3</span><span>Subagents 302</span></div>
+            <div class="strip">
+              <div class="big num">≈ 13,598<small>tokens every session · Claude Code</small><span class="pin">2</span></div>
+              <div class="seg num">
+                <div><b>≈ 13,598</b>MCP · 11 of 17 measured</div>
+                <div class="nm"><b>Not measured</b>Skills <span class="tag p2">P2</span></div>
+                <div class="nm"><b>Not measured</b>Rules <span class="tag p2">P2</span></div>
+                <div class="nm"><b>Not measured</b>Subagents <span class="tag p2">P2</span></div>
+              </div>
+              <div class="chips"><span class="chip">All engines</span><span class="chip on">Claude Code</span><span class="chip">Codex</span><span class="chip">Gemini</span><span class="chip">Cursor</span><span class="chip">VS Code</span><span class="chip">…</span><span style="margin-left:auto;font-size:11px" class="chip">Measure all</span></div>
+            </div>
+            <div class="list">
+              <div class="lh"><span>MCP servers it loads</span><span>≈ tokens · switch</span></div>
+              <div class="li"><span>cua</span><span class="r num">≈ 7,294 <i class="tg"></i></span></div>
+              <div class="li"><span>Claude Docs</span><span class="r ro">Runs on Anthropic’s servers</span></div>
+              <div class="lh"><span>Skills it loads</span><span>≈ always-on <span class="tag p2">P2</span></span></div>
+              <div class="li"><span>3d-four-seasons</span><span class="r num">≈ 72</span></div>
+              <div class="fold">› Not loaded by Claude Code · N <span class="pin">3</span></div>
+              <div class="fold">› Switched off for Claude Code · 0</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <p class="note"><span class="pin" style="margin:0 4px 0 0">1</span>One row of engine chips on every Global tab replaces the “By engine” band. It wraps and never grows into a grid. (Q1)
+  &nbsp; <span class="pin" style="margin:0 4px 0 0">2</span>In engine mode the strip shows the budget, split by kind. Each segment opens its tab, and the link legend leaves.
+  &nbsp; <span class="pin" style="margin:0 4px 0 0">3</span>“Not loaded by” lists what this engine can’t see, with the reason and Link to…. (Q4)</p>
+
+  <!-- 4. Flows -->
+  <h2>4 · Main flows</h2>
+  <p class="sub"><b style="color:var(--ink)">Trim what an engine loads (new)</b></p>
+  <div class="flow">
+    <div class="step"><b>1</b>Global → pick <i>Claude Code</i></div><span class="arr">→</span>
+    <div class="step"><b>2</b>Strip shows the budget by kind</div><span class="arr">→</span>
+    <div class="step"><b>3</b>Click the largest segment → its tab opens, still filtered</div><span class="arr">→</span>
+    <div class="step"><b>4</b>Switch a server off → Undo notice, the total drops</div>
+  </div>
+  <p class="sub"><b style="color:var(--ink)">Why can’t Codex see this skill?</b></p>
+  <div class="flow">
+    <div class="step"><b>1</b>Pick <i>Codex</i></div><span class="arr">→</span>
+    <div class="step"><b>2</b>Open “Not loaded by Codex”</div><span class="arr">→</span>
+    <div class="step"><b>3</b>The row gives the reason (“Not linked”)</div><span class="arr">→</span>
+    <div class="step"><b>4</b>Link to…</div>
+  </div>
+  <p class="sub"><b style="color:var(--ink)">Turn one server off somewhere</b></p>
+  <div class="flow">
+    <div class="step"><b>1</b>⌘K, type its name</div><span class="arr">→</span>
+    <div class="step"><b>2</b>Enter opens it</div><span class="arr">→</span>
+    <div class="step"><b>3</b>Click a row tile, or use Details › Registered in, then switch</div>
+  </div>
+
+  <!-- 5. Phases -->
+  <h2>5 · Phases</h2>
+  <div class="phases">
+    <div class="card ph"><h3>Phase 1 · no backend change</h3><ul><li>Remove the Engines tab and migrate its preference</li><li>Engine chips on every Global tab</li><li>Filter the list by reach</li><li>Strip engine mode: MCP figures are real, the other kinds read “Not measured”</li><li>“Not loaded by …” group</li><li>Delete EnginesPane and EnginesSidebar</li></ul></div>
+    <div class="card ph"><h3>Phase 2 · backend budget</h3><ul><li>Measure, engine by engine, what each loads at startup</li><li><span class="mono">get_engine_budget</span>: reached count and ≈ tokens per kind</li><li>Real figures in the strip segments, tab counts and chips</li></ul></div>
+    <div class="card ph"><h3>Phase 3</h3><ul><li>The same engine filter on repo screens</li></ul></div>
+  </div>
+
+  <h2>New labels to sign off</h2>
+  <p class="lede">“All engines” · “≈ N tokens every session” · “Not loaded by {engine}”</p>
+</main>
+</body>
+</html>
