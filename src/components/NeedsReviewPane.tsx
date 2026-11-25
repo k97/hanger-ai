@@ -8,6 +8,7 @@ import {
 } from "./icons";
 import GelMeter from "./GelMeter";
 import { ScanStatusIndicator } from "./ScanStatusIndicator";
+import { chipBaseClass, chipPressedCheckClass } from "./chipClasses";
 import {
   matchesIssueFilter,
   type IssueKind,
@@ -48,11 +49,6 @@ const PROBLEM_INK: Record<IssueKind, string> = {
   duplicate: "text-ink-2",
   parse: "text-ink-2",
 };
-
-const chipBaseClass =
-  "h-7 px-3.5 rounded-pill border border-line-2 font-flex text-small text-ink-2 whitespace-nowrap inline-flex items-center gap-2 cursor-pointer transition-colors duration-nav ease-spring hover:bg-plane-2";
-const chipPressedClass =
-  "h-7 pl-2.5 pr-3.5 rounded-pill border border-transparent bg-tint text-tint-ink font-medium whitespace-nowrap inline-flex items-center gap-2 cursor-pointer transition-colors duration-nav ease-spring font-flex text-small";
 
 function basename(path: string): string {
   const parts = path.split("/").filter(Boolean);
@@ -191,7 +187,7 @@ export default function NeedsReviewPane({
               tabIndex={0}
               aria-pressed={pressed}
               onClick={() => onSelectPlace(pressed ? null : chip.id)}
-              className={pressed ? chipPressedClass : chipBaseClass}
+              className={pressed ? chipPressedCheckClass : chipBaseClass}
             >
               {pressed && <CheckIcon size={14} className="shrink-0" />}
               <span>{chip.label}</span>

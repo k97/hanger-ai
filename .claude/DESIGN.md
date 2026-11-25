@@ -757,8 +757,8 @@ items-center gap-[7px]`, the retired Engines tab's gap; the rule it carried
 inside the strip went with the move):
 "All engines" first, then one `<button aria-pressed>` per engine holding an
 `EngineLabel` (its `BrandIcon` mark from the sprite) — Needs review's chip
-idiom, `chipBaseClass` / `chipPressedClass`, moved here from the retired
-`EnginesPane` with the pressed chip's check replaced by the mark, so it
+idiom, `chipBaseClass` / `chipPressedClass` from `chipClasses.ts`, which
+both rows import, with the pressed chip's check replaced by the mark, so it
 keeps `px-3.5`. One pressed at a time; it wraps and never becomes a grid.
 No chip carries a figure in Phase 1. ProfilePane draws it only once
 `scannedAt` is set and the list has an engine. The selection is App's
@@ -1670,9 +1670,9 @@ exemption for a zero-count Tools chip (`:57-69`) — and hands the result to
 one `SegmentedTrack` (above), from a `<section>` that is its `@container`
 and with `fitToContainer` set. The class strings that used to draw
 pressed/unpressed chips by hand, `chipBaseClass` / `chipPressedClass`, are
-gone with them; `NeedsReviewPane.tsx` declares its own identically-named
-pair for an unrelated, non-tablist chip row (§6, Pane composition) — the
-two are not the same constants.
+gone with them; the identically-named pair in `chipClasses.ts` serves an
+unrelated, non-tablist chip row (§6, Pane composition) — the two were
+never the same constants.
 
 **`AssetRow`** (`AssetRow.tsx:22-28`) — `item`, `isSelected?`,
 `showKindColumn?`, `onClick?`, `onLink?`, `onUnlink?`. **`AssetHeaderRow`**
@@ -2309,9 +2309,10 @@ border-line rounded-plane shrink-0`, sits first (`:90`); then a chip row,
 shrink-0` with `role="group"` and an `aria-label` (`:171-175`); then the
 list plane (`:202`); then the foot (`:289`). The chip row is a plain button
 group, not a tablist — it filters by place (All / Repo-level / Cross-repo),
-not by asset category — styled by its own `chipBaseClass` /
-`chipPressedClass` (`:46-48`), a same-named but unrelated pair to the class
-strings `CategoryFilterCards` dropped (above); `SegmentedTrack` was never a
+not by asset category — styled by `chipBaseClass` /
+`chipPressedCheckClass` from `chipClasses.ts`, shared with Global's engine
+chips (`EngineChipRow`) and unrelated to the class strings
+`CategoryFilterCards` dropped (above); `SegmentedTrack` was never a
 candidate for this row.
 
 **`DiscoveryPane` has neither a strip nor a chip row.** Its category facet
@@ -2341,9 +2342,10 @@ selected by ternary — never `clsx`, never `cva`. `railBtnClass` /
 `railBtnActiveClass` (`IconRail.tsx:21-24`), `tbBtnClass` /
 `tbBtnPlaneClass` (`App.tsx:1148-1153`). `CategoryFilterCards` no longer
 belongs on this list — its `chipBaseClass` / `chipPressedClass` were deleted
-when it moved onto `SegmentedTrack` (§5); `NeedsReviewPane.tsx:46-48`
-declares an unrelated pair under the same two names, for its own
-non-tablist chip row (Pane composition, above).
+when it moved onto `SegmentedTrack` (§5). `chipClasses.ts` holds an
+unrelated set under the same names (`chipBaseClass`, `chipPressedClass`,
+`chipPressedCheckClass`), for the non-tablist chip rows of Needs review and
+Global's engine chips (Pane composition, above), each declared once there.
 
 **`tbBtnClass` is a real, deliberate exception to "declared once": it exists
 verbatim in two files.** `App.tsx:1148-1149` still declares it for the

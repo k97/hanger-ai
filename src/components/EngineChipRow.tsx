@@ -1,14 +1,8 @@
 import EngineLabel from "./EngineLabel";
 import type { EngineListEntry } from "../types/engineContext";
-
-// Needs review's plain chip row (NeedsReviewPane.tsx, `chipBaseClass` /
-// `chipPressedClass`) as the retired Engines tab drew it: a brand mark in
-// place of the pressed chip's check, so the pressed chip keeps the even
-// `px-3.5`. Moved here from EnginesPane.tsx with the row, not copied.
-const chipBaseClass =
-  "h-7 px-3.5 rounded-pill border border-line-2 font-flex text-small text-ink-2 whitespace-nowrap inline-flex items-center gap-2 cursor-pointer transition-colors duration-nav ease-spring hover:bg-plane-2";
-const chipPressedClass =
-  "h-7 px-3.5 rounded-pill border border-transparent bg-tint text-tint-ink font-medium whitespace-nowrap inline-flex items-center gap-2 cursor-pointer transition-colors duration-nav ease-spring font-flex text-small";
+// Needs review's plain chip, with a brand mark in place of the pressed
+// chip's check, so the pressed chip keeps the even `px-3.5`.
+import { chipBaseClass, chipPressedClass } from "./chipClasses";
 
 interface EngineChipRowProps {
   /** Every engine that has an MCP server, `get_engine_contexts`' list, in
