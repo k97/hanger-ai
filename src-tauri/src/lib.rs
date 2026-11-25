@@ -1015,7 +1015,9 @@ fn run_scan(app: AppHandle) -> Result<Inventory, String> {
     };
 
     // Linked directories only, no `""` target: unchanged from before
-    // `scan_targets` existed. Each project scan runs the global pass anyway.
+    // `scan_targets` existed. `scan_targets` runs the global pass once
+    // before the first of them, so global assets are still returned — but
+    // only when at least one directory is linked.
     let targets: Vec<PathBuf> = dirs.into_iter().map(PathBuf::from).collect();
     crate::scanner::scan_targets(&scanner, &targets, |_, _, _| {}).map_err(|e| e.to_string())
 }

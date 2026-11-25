@@ -1028,6 +1028,21 @@ fn has_parent_skill(path: &Path, root: &Path) -> bool {
     false
 }
 
+thread_local! {
+    static GLOBAL_PASSES: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+
+/// How many times the machine-wide pass has run on the calling thread.
+///
+/// The one signal that the pass runs once per `scan_targets`, not once per
+/// target: assets carry `first_seen`/`last_seen` and no write count, so the
+/// store cannot say how often a row was rewritten. Per thread, because test
+/// binaries run scans on parallel threads and a process-wide count would
+/// read every other test's scans too.
+pub fn global_passes_on_this_thread() -> usize {
+    GLOBAL_PASSES.with(|c| c.get())
+}
+
 /// Scan a list of targets — `""` for the machine, then each linked
 /// directory — and collapse what more than one of them found.
 ///
@@ -1042,15 +1057,38 @@ pub fn scan_targets<F>(
 where
     F: FnMut(usize, usize, &str),
 {
-    let mut combined = Inventory::default();
+    // The machine-wide pass runs once, under the first target's lock — the
+    // lock it ran under when every target ran it — and each target's project
+    // pass then starts from what it found. It used to run once per target,
+    // rewriting every global row each time (about 11 x 914 upserts per
+    // Rescan on the real store, 2026-11-25).
+    let mut global: Option<GlobalPass> = None;
+    let mut projects = Inventory::default();
     for target in targets {
-        let inv = scanner.scan_with_progress(target, &mut on_progress)?;
-        combined.skills.extend(inv.skills);
-        combined.tools.extend(inv.tools);
-        combined.rules.extend(inv.rules);
-        combined.subagents.extend(inv.subagents);
-        combined.project_scans.extend(inv.project_scans);
+        let _status_guard =
+            crate::scan::status::acquire_scan_lock(target, crate::scan::status::ScanPhase::Scanning);
+        let rerun = global.is_some();
+        let g = global.get_or_insert_with(|| scanner.global_pass());
+        if rerun {
+            g.rewrite_containers();
+        }
+        let inv = scanner.project_pass(target, g, &mut on_progress)?;
+        projects.skills.extend(inv.skills);
+        projects.tools.extend(inv.tools);
+        projects.rules.extend(inv.rules);
+        projects.subagents.extend(inv.subagents);
+        projects.project_scans.extend(inv.project_scans);
     }
+    let Some(global) = global else {
+        return Ok(Inventory::default());
+    };
+
+    let mut combined = global.inventory;
+    combined.skills.extend(projects.skills);
+    combined.tools.extend(projects.tools);
+    combined.rules.extend(projects.rules);
+    combined.subagents.extend(projects.subagents);
+    combined.project_scans.extend(projects.project_scans);
 
     crate::dedupe_combined(&mut combined);
 
@@ -1066,12 +1104,86 @@ impl Scanner for DirectoryScanner {
     }
 }
 
+/// What the machine-wide pass found, and everything a project pass reads
+/// from it. A project pass clones the two it adds to (`seen_registrations`,
+/// `parse_warnings`), so each project starts from the machine pass's state
+/// exactly as it did when every target ran both passes; the rest it only
+/// reads, except `origin_resolver`, whose mutation is a cache of
+/// filesystem lookups and is shared.
+pub struct GlobalPass {
+    inventory: Inventory,
+    seen_registrations: std::collections::HashSet<(String, String)>,
+    agent_root_ids: std::collections::HashMap<String, i64>,
+    engine_db_ids: std::collections::HashMap<String, i64>,
+    checksums: Vec<(String, String, String)>,
+    origin_resolver: crate::provenance::OriginResolver,
+    parse_warnings: Vec<String>,
+    store_opt: Option<crate::preferences::PreferencesStore>,
+    containers: Vec<ContainerWrite>,
+}
+
+/// An engine or `engine_global` root row the machine pass wrote, in order.
+enum ContainerWrite {
+    Engine { key: String, name: String, config_root: String },
+    Root { path: String, engine_id: Option<i64>, label: String },
+}
+
+impl GlobalPass {
+    /// Write the machine pass's engine and root rows again, before a later
+    /// target's project pass. When every target ran the machine pass, each
+    /// one rewrote these rows after the previous target's project pass, and
+    /// one case depends on it: a linked directory that is also a
+    /// machine-pass root (`~/.cursor`, whose host owns no engine root, so
+    /// the walk is not fenced out of it) has its `engine_id` and `label`
+    /// overwritten by the project pass's `upsert_root("project", …)`, and an
+    /// `engine_global` root with no engine reads as a shared store in
+    /// `annotations.rs`. So the rows end the scan as they did before: right
+    /// unless that directory is the last target. Only these rows; the asset
+    /// work is not repeated.
+    fn rewrite_containers(&self) {
+        let Some(store) = &self.store_opt else { return };
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_millis() as i64)
+            .unwrap_or(0);
+        for w in &self.containers {
+            match w {
+                ContainerWrite::Engine { key, name, config_root } => {
+                    let _ = store.upsert_engine(key, name, config_root, now);
+                }
+                ContainerWrite::Root { path, engine_id, label } => {
+                    let _ = store.upsert_root("engine_global", path, *engine_id, label, now);
+                }
+            }
+        }
+    }
+}
+
 impl DirectoryScanner {
+    /// One target, both passes: the machine and then `root`. Every caller of
+    /// `scan(root)` expects global assets back, so this keeps that contract;
+    /// `scan_targets` is what runs the machine pass once for many targets.
     pub fn scan_with_progress<F>(&self, root: &Path, mut on_progress: F) -> Result<Inventory, ScanError>
     where
         F: FnMut(usize, usize, &str),
     {
         let _status_guard = crate::scan::status::acquire_scan_lock(root, crate::scan::status::ScanPhase::Scanning);
+        let mut global = self.global_pass();
+        let project = self.project_pass(root, &mut global, &mut on_progress)?;
+        let mut inventory = global.inventory;
+        inventory.skills.extend(project.skills);
+        inventory.tools.extend(project.tools);
+        inventory.rules.extend(project.rules);
+        inventory.subagents.extend(project.subagents);
+        inventory.project_scans.extend(project.project_scans);
+        Ok(inventory)
+    }
+
+    /// The machine-wide pass: engine roots, their skills, rules, subagents
+    /// and swept MCP configs, then the registry's machine-level MCP
+    /// registrations. The caller holds the scan lock.
+    pub fn global_pass(&self) -> GlobalPass {
+        GLOBAL_PASSES.with(|c| c.set(c.get() + 1));
 
         let mut inventory = Inventory::default();
 
@@ -1114,6 +1226,7 @@ impl DirectoryScanner {
             .unwrap_or(0);
 
         let mut engine_db_ids = std::collections::HashMap::new();
+        let mut containers: Vec<ContainerWrite> = Vec::new();
         if let Some(store) = &store_opt {
             for agent in &detected_agents {
                 if let Some(g_path) = &agent.global_config_path {
@@ -1123,6 +1236,11 @@ impl DirectoryScanner {
                     // filing its assets under the wrong engine.
                     let key = get_engine_key(&agent.id)
                         .expect("every AGENT_CONFIGS id must have an engine key");
+                    containers.push(ContainerWrite::Engine {
+                        key: key.to_string(),
+                        name: agent.name.clone(),
+                        config_root: g_path.clone(),
+                    });
                     if let Ok(id) = store.upsert_engine(key, &agent.name, g_path, now) {
                         engine_db_ids.insert(key.to_string(), id);
                     }
@@ -1137,10 +1255,16 @@ impl DirectoryScanner {
         // engine_id is NULL: shared standards render "Any agent".
         let mut shared_agents_root_id: Option<i64> = None;
         let ensure_shared_root = |store_opt: &Option<crate::preferences::PreferencesStore>,
-                                      shared_agents_root_id: &mut Option<i64>| {
+                                      shared_agents_root_id: &mut Option<i64>,
+                                      containers: &mut Vec<ContainerWrite>| {
             if shared_agents_root_id.is_none() {
                 if let Some(store) = store_opt {
                     let container_str = shared_agents_dir().to_string_lossy().to_string();
+                    containers.push(ContainerWrite::Root {
+                        path: container_str.clone(),
+                        engine_id: None,
+                        label: ".agents".to_string(),
+                    });
                     *shared_agents_root_id = store
                         .upsert_root("engine_global", &container_str, None, ".agents", now)
                         .ok();
@@ -1158,6 +1282,13 @@ impl DirectoryScanner {
                 // "gemini"` fallback. Reached when store_opt is None and
                 // engine_db_ids is empty. Left as-is here; out of scope.
                 let engine_id = engine_db_ids.get(engine_key).copied().unwrap_or(1);
+                if store_opt.is_some() {
+                    containers.push(ContainerWrite::Root {
+                        path: g_path.clone(),
+                        engine_id: Some(engine_id),
+                        label: agent.name.clone(),
+                    });
+                }
                 let global_root_id = store_opt.as_ref().and_then(|s| {
                     s.upsert_root("engine_global", g_path, Some(engine_id), &agent.name, now).ok()
                 });
@@ -1280,7 +1411,7 @@ impl DirectoryScanner {
                 let skills_path = g_path_buf.join("skills");
                 let skills_shared = shared_agents_container(&skills_path).is_some();
                 if skills_shared {
-                    ensure_shared_root(&store_opt, &mut shared_agents_root_id);
+                    ensure_shared_root(&store_opt, &mut shared_agents_root_id, &mut containers);
                 }
                 if skills_path.exists() && skills_path.is_dir() {
                     let walker = WalkBuilder::new(&skills_path)
@@ -1431,7 +1562,7 @@ impl DirectoryScanner {
                 for subagents_path in agent_subagent_paths {
                     let subagents_shared = shared_agents_container(&subagents_path).is_some();
                     if subagents_shared {
-                        ensure_shared_root(&store_opt, &mut shared_agents_root_id);
+                        ensure_shared_root(&store_opt, &mut shared_agents_root_id, &mut containers);
                     }
                     if subagents_path.exists() && subagents_path.is_dir() {
                         let walker = WalkBuilder::new(&subagents_path)
@@ -1648,11 +1779,21 @@ impl DirectoryScanner {
                     };
                     {
                         let config_dir = config_dir.to_string_lossy().to_string();
+                        containers.push(ContainerWrite::Engine {
+                            key: engine_key.clone(),
+                            name: host.display_name.to_string(),
+                            config_root: config_dir.clone(),
+                        });
                         let eid = store
                             .upsert_engine(&engine_key, host.display_name, &config_dir, now)
                             .ok();
                         if let Some(eid) = eid {
                             engine_db_ids.entry(engine_key.clone()).or_insert(eid);
+                            containers.push(ContainerWrite::Root {
+                                path: config_dir.clone(),
+                                engine_id: Some(eid),
+                                label: host.display_name.to_string(),
+                            });
                         }
                         let rid = eid.and_then(|eid| {
                             store
@@ -1698,6 +1839,46 @@ impl DirectoryScanner {
                 }
             }
         }
+
+        GlobalPass {
+            inventory,
+            seen_registrations,
+            agent_root_ids,
+            engine_db_ids,
+            checksums,
+            origin_resolver,
+            parse_warnings,
+            store_opt,
+            containers,
+        }
+    }
+
+    /// One linked directory's pass, starting from what the machine pass
+    /// found. Returns only what this directory adds, and its `ProjectScan`
+    /// (none for `""` or a directory that is not there). The caller holds
+    /// the scan lock.
+    pub fn project_pass<F>(
+        &self,
+        root: &Path,
+        global: &mut GlobalPass,
+        on_progress: &mut F,
+    ) -> Result<Inventory, ScanError>
+    where
+        F: FnMut(usize, usize, &str),
+    {
+        let mut inventory = Inventory::default();
+        let global_rules = &global.inventory.rules;
+        let agent_root_ids = &global.agent_root_ids;
+        let engine_db_ids = &global.engine_db_ids;
+        let checksums = &global.checksums;
+        let store_opt = &global.store_opt;
+        let mut origin_resolver = &mut global.origin_resolver;
+        let mut seen_registrations = global.seen_registrations.clone();
+        let mut parse_warnings = global.parse_warnings.clone();
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_millis() as i64)
+            .unwrap_or(0);
 
         // Return early if the project path is not there — but "not there" and
         // "not allowed" are different answers. `Path::exists()` is
@@ -2193,9 +2374,10 @@ impl DirectoryScanner {
         // Which projects a file reaches is derived at read time
         // (annotations.rs), never stored — docs/harness.md.
         //
-        // `seen_registrations` guards only a same-scan duplicate: a second
-        // discovery pass, within THIS ONE `scan()` call, reaching the exact
-        // same (config_path, server_name) again. Currently moot for
+        // `seen_registrations` guards only a same-pass duplicate: a second
+        // discovery pass, within THIS ONE project pass (which starts from a
+        // clone of the machine pass's set), reaching the exact same
+        // (config_path, server_name) again. Currently moot for
         // RepoAncestors -- `registry::SOURCES` has exactly one such row, so
         // one project's ancestor walk cannot produce a duplicate pair on its
         // own -- but it would matter the day a second source or pass reaches
@@ -2203,9 +2385,9 @@ impl DirectoryScanner {
         // project passes that already share this set.
         //
         // It does NOT provide the one-row-per-file guarantee across separate
-        // projects/scans: each `scan()` call gets its own fresh HashSet here
-        // (declared at the top of `scan_with_progress`, not a struct field),
-        // so `insert()` returns true in every call that reaches this file.
+        // projects/scans: each project pass gets its own clone of the
+        // machine pass's set (`project_pass`, from `GlobalPass`), so
+        // `insert()` returns true in every project pass that reaches this file.
         // What actually collapses N projects' calls to one row is
         // `PreferencesStore::upsert_asset`'s `SELECT ... WHERE abs_path = ?1`
         // branch (preferences.rs) taking UPDATE on a hit instead of INSERT.
@@ -2284,7 +2466,7 @@ impl DirectoryScanner {
                         .and_then(|n| n.to_str())
                         .unwrap_or(family)
                         .to_string();
-                    if !inventory.rules.iter().any(|r| &r.path == p_str) {
+                    if !global_rules.iter().chain(&inventory.rules).any(|r| &r.path == p_str) {
                         let (drifted, is_sym, warning, source_path) = check_asset_drift(Path::new(p_str), &checksums);
                         if let Some(w) = warning {
                             parse_warnings.push(w);

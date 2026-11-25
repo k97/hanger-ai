@@ -2831,3 +2831,238 @@ fn scan_targets_matches_the_per_target_loop() {
         }
     }
 }
+
+/// A home and linked directories that reach every value the project pass
+/// reads from the machine pass:
+///
+/// * `seen_registrations` — `~/.cursor` is linked as a directory. Cursor owns
+///   no engine root, so the project walk enters it and sweeps
+///   `~/.cursor/mcp.json`, which the machine pass already registered.
+/// * `agent_root_ids` — `work/.mcp.json` sits above both projects; its
+///   servers attach to Claude Code's engine root.
+/// * `engine_db_ids` — project skills under `.claude/skills` take Claude
+///   Code's engine id.
+/// * the global `parse_warnings` — `~/.claude/agents/broken.md` has
+///   frontmatter that does not parse.
+/// * a shared root — `~/.codex/skills` and `~/.gemini/skills` both link
+///   `~/.agents/skills`.
+/// * a repeated target — `proj-a` is listed twice.
+///
+/// The home is canonical: the ancestor walk compares a canonical project
+/// path against the home, and a `/var` tempdir would never match it.
+fn split_fixture() -> (tempfile::TempDir, std::path::PathBuf, Vec<std::path::PathBuf>) {
+    let home = tempfile::tempdir().unwrap();
+    let h = fs::canonicalize(home.path()).unwrap();
+
+    let d = h.join(".claude/skills/global-one");
+    fs::create_dir_all(&d).unwrap();
+    fs::write(d.join("SKILL.md"), "---\nname: global-one\ndescription: d\n---\nbody\n").unwrap();
+    fs::create_dir_all(h.join(".claude/agents")).unwrap();
+    fs::write(h.join(".claude/agents/helper.md"), "---\nname: helper\ndescription: d\n---\n").unwrap();
+    fs::write(h.join(".claude/agents/broken.md"), "---\nname: [unclosed\n---\n").unwrap();
+    fs::write(h.join(".claude/CLAUDE.md"), "# global rule\n").unwrap();
+    fs::write(h.join(".claude.json"), r#"{"mcpServers":{"global-server":{"command":"node"}}}"#).unwrap();
+
+    let shared = h.join(".agents/skills/shared-skill");
+    fs::create_dir_all(&shared).unwrap();
+    fs::write(shared.join("SKILL.md"), "---\nname: shared-skill\ndescription: d\n---\n").unwrap();
+    for engine in [".codex", ".gemini"] {
+        fs::create_dir_all(h.join(engine)).unwrap();
+        std::os::unix::fs::symlink(h.join(".agents/skills"), h.join(engine).join("skills")).unwrap();
+    }
+    fs::write(h.join(".codex/config.toml"), "[mcp_servers.codex-server]\ncommand = \"git\"\n").unwrap();
+
+    fs::create_dir_all(h.join(".cursor")).unwrap();
+    fs::write(h.join(".cursor/mcp.json"), r#"{"mcpServers":{"cursor-server":{"command":"node"}}}"#).unwrap();
+
+    fs::create_dir_all(h.join("work")).unwrap();
+    fs::write(h.join("work/.mcp.json"), r#"{"mcpServers":{"ancestor-server":{"command":"node"}}}"#).unwrap();
+
+    let mut targets = vec![std::path::PathBuf::from("")];
+    for p in ["proj-a", "proj-b"] {
+        let root = h.join("work").join(p);
+        let sk = root.join(".claude/skills").join(format!("{p}-skill"));
+        fs::create_dir_all(&sk).unwrap();
+        fs::write(sk.join("SKILL.md"), format!("---\nname: {p}-skill\ndescription: d\n---\n")).unwrap();
+        fs::write(root.join("AGENTS.md"), "# rules\n").unwrap();
+        fs::write(root.join(".mcp.json"), r#"{"mcpServers":{"shared-server":{"command":"node"}}}"#).unwrap();
+        targets.push(root);
+    }
+    targets.push(h.join(".cursor"));
+    targets.push(h.join("work/proj-a"));
+
+    (home, h, targets)
+}
+
+/// Every row the scan leaves in the store, without ids or timestamps:
+/// what it is, where it lives, which root holds it and which engine owns it.
+fn store_rows(db: &Path) -> Vec<String> {
+    let conn = rusqlite::Connection::open(db).unwrap();
+    let mut out = Vec::new();
+    let mut stmt = conn
+        .prepare(
+            "SELECT a.category, a.scope, a.name, a.abs_path, r.kind, r.abs_path, r.label,
+                    COALESCE(e.key, ''), a.parse_status, COALESCE(a.parse_error, ''), COALESCE(a.version, '')
+             FROM assets a JOIN roots r ON r.id = a.root_id LEFT JOIN engines e ON e.id = a.engine_id
+             ORDER BY a.abs_path, a.category, a.name",
+        )
+        .unwrap();
+    let rows = stmt
+        .query_map([], |r| {
+            let mut cols = Vec::new();
+            for i in 0..11 {
+                cols.push(r.get::<_, String>(i)?);
+            }
+            Ok(cols.join(" | "))
+        })
+        .unwrap();
+    for row in rows {
+        out.push(row.unwrap());
+    }
+    let mut stmt = conn
+        .prepare(
+            "SELECT r.kind, r.abs_path, r.label, COALESCE(e.key, '')
+             FROM roots r LEFT JOIN engines e ON e.id = r.engine_id ORDER BY r.abs_path",
+        )
+        .unwrap();
+    let rows = stmt
+        .query_map([], |r| {
+            Ok(format!(
+                "root {} | {} | {} | {}",
+                r.get::<_, String>(0)?,
+                r.get::<_, String>(1)?,
+                r.get::<_, String>(2)?,
+                r.get::<_, String>(3)?
+            ))
+        })
+        .unwrap();
+    for row in rows {
+        out.push(row.unwrap());
+    }
+    out
+}
+
+/// The scan before the global pass was split out: each target through
+/// `scan_with_progress`, which still runs the machine pass and the project
+/// pass together, concatenated and collapsed the way `start_scan` did.
+fn per_target_loop(scanner: &DirectoryScanner, targets: &[std::path::PathBuf]) -> tauri_app_lib::domain::Inventory {
+    let mut expected = tauri_app_lib::domain::Inventory::default();
+    for t in targets {
+        let inv = scanner.scan_with_progress(t, |_, _, _| {}).unwrap();
+        expected.skills.extend(inv.skills);
+        expected.tools.extend(inv.tools);
+        expected.rules.extend(inv.rules);
+        expected.subagents.extend(inv.subagents);
+        expected.project_scans.extend(inv.project_scans);
+    }
+    tauri_app_lib::dedupe_combined(&mut expected);
+    let mut seen = std::collections::HashSet::new();
+    expected.project_scans.retain(|p| seen.insert(p.path.clone()));
+    expected
+}
+
+/// A Rescan over two projects runs the machine-wide pass once, not once per
+/// target. `scan(root)` alone still runs it, because every caller of it
+/// expects global assets back; an empty target list runs nothing.
+#[test]
+fn scan_targets_runs_the_global_pass_once() {
+    let _guard = ENV_MUTEX.get_or_init(|| Mutex::new(())).lock().unwrap();
+    let (_home, h, targets) = split_fixture();
+    std::env::set_var("HANGER_TEST_HOME", h.to_string_lossy().to_string());
+
+    let dbs = tempfile::tempdir().unwrap();
+    let scanner = DirectoryScanner {
+        db_path: dbs.path().join("once.db"),
+        cancellation_token: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
+    };
+    let passes = tauri_app_lib::scanner::global_passes_on_this_thread;
+
+    let before = passes();
+    let inv = tauri_app_lib::scanner::scan_targets(&scanner, &targets, |_, _, _| {}).unwrap();
+    assert_eq!(inv.project_scans.len(), 3, "proj-a, proj-b and ~/.cursor were scanned");
+    assert_eq!(passes() - before, 1, "one global pass for {} targets", targets.len());
+
+    let before = passes();
+    let inv = scanner.scan(&targets[1]).unwrap();
+    assert!(inv.skills.iter().any(|s| s.name == "global-one"), "scan(project) still returns global assets");
+    assert_eq!(passes() - before, 1, "scan(root) runs the global pass itself");
+
+    let before = passes();
+    let inv = tauri_app_lib::scanner::scan_targets(&scanner, &[], |_, _, _| {}).unwrap();
+    assert!(inv.skills.is_empty() && inv.tools.is_empty(), "no targets, nothing scanned");
+    assert_eq!(passes() - before, 0, "no targets, no global pass");
+}
+
+/// Running the global pass once must change nothing a scan produces: the
+/// inventory (every `project_scans[*].parse_warnings` included), every row
+/// and root in the store, and the per-kind counts for the whole store and
+/// for each project, in both groupings — against each target scanned on
+/// its own through `scan_with_progress`, as `start_scan` did before.
+///
+/// Prints a digest of the reference with the temp paths taken out, so the
+/// reference itself can be compared across commits.
+#[test]
+fn scan_targets_equals_scanning_each_target_whole() {
+    let _guard = ENV_MUTEX.get_or_init(|| Mutex::new(())).lock().unwrap();
+    let (home, h, targets) = split_fixture();
+    std::env::set_var("HANGER_TEST_HOME", h.to_string_lossy().to_string());
+
+    let dbs = tempfile::tempdir().unwrap();
+    let scanner_for = |name: &str| DirectoryScanner {
+        db_path: dbs.path().join(name),
+        cancellation_token: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
+    };
+    let old = scanner_for("old.db");
+    let expected = per_target_loop(&old, &targets);
+    let new = scanner_for("new.db");
+    let actual = tauri_app_lib::scanner::scan_targets(&new, &targets, |_, _, _| {}).unwrap();
+
+    // The fixture has to reach every path, or equality proves nothing.
+    let tool = |name: &str| expected.tools.iter().any(|t| t.name == name);
+    assert!(tool("cursor-server"), "machine-level registration under a linked directory");
+    assert!(tool("ancestor-server"), "ancestor .mcp.json registration");
+    assert!(expected.skills.iter().any(|s| s.name == "shared-skill"), "shared-root skill");
+    assert!(expected.skills.iter().any(|s| s.name == "proj-a-skill"), "project skill");
+    assert!(!expected.rules.is_empty() && !expected.subagents.is_empty(), "rules and subagents");
+    assert_eq!(expected.project_scans.len(), 3, "three distinct targets, the repeat collapsed");
+    for ps in &expected.project_scans {
+        assert!(
+            ps.parse_warnings.iter().any(|w| w.contains("broken.md")),
+            "the global pass's parse warning reaches {}",
+            ps.path
+        );
+    }
+
+    assert_eq!(
+        serde_json::to_value(&actual).unwrap(),
+        serde_json::to_value(&expected).unwrap(),
+        "scan_targets must return the inventory scanning each target whole did"
+    );
+    let mut roots: Vec<Option<String>> = vec![None];
+    for t in &targets[1..] {
+        roots.push(Some(fs::canonicalize(t).unwrap().to_string_lossy().to_string()));
+    }
+    for root in &roots {
+        for grouping in [Grouping::PerRegistration, Grouping::Grouped] {
+            let want = tauri_app_lib::scanner::count_assets(&old.db_path, root.as_deref(), grouping).unwrap();
+            let got = tauri_app_lib::scanner::count_assets(&new.db_path, root.as_deref(), grouping).unwrap();
+            assert_eq!(got, want, "per-kind counts for root {:?}, {:?}", root, grouping);
+        }
+    }
+
+    let want_rows = store_rows(&old.db_path);
+    assert!(
+        want_rows.iter().any(|r| r.contains("cursor-server") && r.contains("| cursor |")),
+        "the reference keeps ~/.cursor's server with its engine"
+    );
+    assert_eq!(store_rows(&new.db_path), want_rows, "every row and root in the store");
+
+    let normalised = format!(
+        "{}\n{}",
+        serde_json::to_string(&serde_json::to_value(&expected).unwrap()).unwrap(),
+        want_rows.join("\n")
+    )
+    .replace(h.to_string_lossy().as_ref(), "<HOME>")
+    .replace(home.path().to_string_lossy().as_ref(), "<HOME>");
+    println!("reference digest: {}", blake3::hash(normalised.as_bytes()).to_hex());
+}
