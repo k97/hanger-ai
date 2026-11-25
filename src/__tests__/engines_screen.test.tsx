@@ -294,16 +294,17 @@ describe("Global's Engines tab", () => {
     expect(routeWrites()).toContain("profile");
   });
 
-  it("a kept server's row in the MCP servers list opens the Engines tab on its engine", async () => {
+  it("a kept server's row in the MCP servers list opens it in the inspector, not the Engines tab", async () => {
     mockPreferences.selected_sidebar_item = "global:Tools";
     render(<App />);
     await completeScan();
     const line = await screen.findByText("Off for Engine K");
     fireEvent.click(line.closest("button")!);
-    await waitFor(() => expect(routeWrites()).toContain("global:Engines"));
-    expect(invoke).toHaveBeenCalledWith("set_preference", { key: "selected_engine", value: "claude-code" });
-    await waitFor(() => expect(chip("Engine K").getAttribute("aria-pressed")).toBe("true"));
-    await waitFor(() => expect(contextCalls()).toContain("claude-code"));
+    await waitFor(() =>
+      expect(invoke).toHaveBeenCalledWith("set_preference", { key: "inspector_open", value: "true" })
+    );
+    expect(routeWrites()).not.toContain("global:Engines");
+    expect(invoke).not.toHaveBeenCalledWith("set_preference", { key: "selected_engine", value: "claude-code" });
   });
 
   it("reports the screen as my_machine, since a tab is not a screen", async () => {
@@ -339,13 +340,13 @@ describe("Global's Engines tab and the inspector (D6)", () => {
     expect(enginesTab().getAttribute("aria-selected")).toBe("true");
   });
 
-  it("a kept item has no inventory asset, so its name opens nothing", async () => {
+  it("a kept item has no inventory asset, so its name opens the kept view", async () => {
     mockPreferences.selected_engine = "claude-code";
     render(<App />);
     await completeScan();
     const row = (await screen.findAllByTestId("engine-item"))[0];
     expect(within(row).getByTestId("engine-item-name").textContent).toBe("beta");
-    expect(within(row).getByTestId("engine-item-name").closest("button")).toBeNull();
+    expect(within(row).getByTestId("engine-item-name").closest("button")).not.toBeNull();
   });
 
   it("an engine's name in Registered in opens the Engines tab on that engine", async () => {

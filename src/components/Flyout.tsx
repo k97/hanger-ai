@@ -12,8 +12,12 @@ import { Inventory } from "../App";
 import AssetDetail from "./AssetDetail";
 import type { AssetAnnotationView } from "./AssetRow";
 import McpServerDetail, { type RegistrationSwitch } from "./McpServerDetail";
+import LayerSwitch from "./LayerSwitch";
+import EngineLabel from "./EngineLabel";
+import ListCard from "./ListCard";
 import { busyKeyOf, type McpSwitch } from "../hooks/useMcpSwitch";
-import type { EngineContext } from "../types/engineContext";
+import type { EngineContext, KeptOffServer } from "../types/engineContext";
+import { mechanismLine } from "../utils/switchCopy";
 import BrandIcon from "./BrandIcon";
 import { buildMcpServerView, type ProcessMatch } from "../utils/mcpServerView";
 import { parseProbe, type ProbeView, type ProbeWire } from "../utils/probeView";
@@ -94,12 +98,113 @@ interface FlyoutProps {
    *  (`McpServerDetail`'s `linkedEngines` / `onOpenEngine`). */
   linkedEngines?: readonly string[];
   onOpenEngine?: (engineId: string) => void;
+  /** A server Hanger is keeping while it is switched off, selected from the
+   *  "Switched off" group or the Engines tab (T4 of
+   *  docs/plans/2026-11-25-ia-engines-into-global.md). It has no inventory
+   *  asset, so App passes it in place of `selectedAsset`, never with one. */
+  keptServer?: KeptOffServer | null;
+  /** A kept server's switch reply context, for App to take. */
+  onEngineContext?: (ctx: EngineContext) => void;
 }
 
 interface RuleSection {
   heading: string | null;
   heading_level: number;
   content: string;
+}
+
+interface KeptServerDetailProps {
+  server: KeptOffServer;
+  /** App's one switch state (`useMcpSwitch`). */
+  switcher: McpSwitch;
+  /** A switch's reply context, for App to take in place of its copy. */
+  onContext?: (ctx: EngineContext) => void;
+  /** The engine ids Global's Engines tab lists; the engine's name links to
+   *  the tab only for one of them, as in `McpServerDetail`'s "Registered in". */
+  linkedEngines?: readonly string[];
+  onOpenEngine?: (engineId: string) => void;
+}
+
+/** `McpServerDetail`'s switch button and engine link, verbatim: a button
+ *  pressed by its state, holding the track (DESIGN.md §7), and a text button
+ *  underlined on hover on the name inside the `EngineLabel`. */
+const switchBtnClass =
+  "shrink-0 grid place-items-center rounded-pill cursor-pointer disabled:cursor-default disabled:opacity-50";
+const engineLinkClass = "group min-w-0 flex cursor-pointer text-left";
+
+/**
+ * The inspector's view of a server Hanger is keeping while it is switched off
+ * (T4, D5 of docs/plans/2026-11-25-ia-engines-into-global.md). A kept server
+ * is in no file, so it has no inventory asset, no tool list and nothing to
+ * open or reveal: what is shown is what `get_kept_off_servers` says of it.
+ * The Flyout's header carries its name and transport, as it does for every
+ * server; this panel draws one row — "Off for {engine}", the engine a link
+ * to the Engines tab, and the switch that puts it back — and the kept line
+ * under it. Every word is the naming brief's (`switchCopy.ts`).
+ */
+function KeptServerDetail({
+  server,
+  switcher,
+  onContext,
+  linkedEngines,
+  onOpenEngine,
+}: KeptServerDetailProps) {
+  const busy = switcher.busyKeys.has(busyKeyOf(server.engine_id, server.key));
+  const linked = onOpenEngine !== undefined && (linkedEngines?.includes(server.engine_id) ?? false);
+  const names = { engine: server.engine_name, server: server.name };
+
+  // The request the Engines tab sends for the same kept item
+  // (`switchRequestFor`): a kept item's `config_path` is empty.
+  const switchOn = async () => {
+    const next = await switcher.switchServer({
+      engineId: server.engine_id,
+      engineName: server.engine_name,
+      key: server.key,
+      serverName: server.name,
+      file: "",
+      enabled: true,
+    });
+    if (next) onContext?.(next);
+  };
+
+  const engine = (
+    <EngineLabel engineKey={server.engine_id} engineName={server.engine_name} className="text-small font-medium">
+      <span className={linked ? "underline-offset-2 group-hover:underline" : ""}>{server.engine_name}</span>
+    </EngineLabel>
+  );
+
+  return (
+    <div data-testid="kept-detail" className="flex-1 min-h-0 overflow-y-auto scroll-thin font-sans text-base-app text-ink-1">
+      {/* McpServerDetail's SECTION: the panes' block gap. */}
+      <section className="mx-[12px] my-3.5">
+        <ListCard>
+          <div className="flex flex-col gap-[3px] px-3 py-[9px] text-small">
+            <span className="flex items-center gap-1.5 min-w-0">
+              <span className="shrink-0 text-ink-2">Off for</span>
+              {linked ? (
+                <button type="button" onClick={() => onOpenEngine?.(server.engine_id)} className={engineLinkClass}>
+                  {engine}
+                </button>
+              ) : (
+                engine
+              )}
+              <button
+                type="button"
+                aria-pressed={false}
+                aria-label={server.name}
+                disabled={busy}
+                onClick={() => void switchOn()}
+                className={`ml-auto ${switchBtnClass}`}
+              >
+                <LayerSwitch on={false} />
+              </button>
+            </span>
+            <span className={captionClass}>{mechanismLine("claude_kept", names)}</span>
+          </div>
+        </ListCard>
+      </section>
+    </div>
+  );
 }
 
 export default function Flyout({
@@ -120,7 +225,9 @@ export default function Flyout({
   switcher,
   refreshNonce,
   linkedEngines,
-  onOpenEngine
+  onOpenEngine,
+  keptServer = null,
+  onEngineContext
 }: FlyoutProps) {
   const [linking, setLinking] = useState<FlatAssetItem | null>(null);
 
@@ -675,7 +782,7 @@ export default function Flyout({
      `targetAsset`, since selecting an asset inside a layered project does
      not make the project stop being layered. */
   const eyebrowShown = Boolean(
-    linking || (!targetAsset && selectedBubble) || selectedProjectScan?.layered
+    linking || (!targetAsset && !keptServer && selectedBubble) || selectedProjectScan?.layered
   );
 
   /* Whether a tab row (`UnderlineTabs`, via `AssetDetail` or
@@ -730,7 +837,7 @@ export default function Flyout({
           `UnderlineTabs.tsx`). The eyebrow-to-title step is this column's
           own `gap-1` rather than a margin the title row switches on and
           off. */}
-      {(linking || targetAsset || selectedBubble) && (
+      {(linking || targetAsset || keptServer || selectedBubble) && (
       <div
         data-testid="inspector-header"
         className={`px-[18px] pt-[18px] pb-1.5 flex flex-col gap-1 shrink-0${
@@ -739,7 +846,7 @@ export default function Flyout({
       >
         {(
         <div className="flex items-center gap-2 min-w-0">
-          {!linking && !targetAsset && selectedBubble?.type === "agent" && (
+          {!linking && !targetAsset && !keptServer && selectedBubble?.type === "agent" && (
             <BrandIcon engineKey={selectedBubble.id} engineName={selectedBubble.name} size={16} />
           )}
           <h2 className="text-lg-app font-medium tracking-[-0.3px] text-ink-1 truncate max-w-[280px] font-sans">
@@ -747,15 +854,17 @@ export default function Flyout({
               ? "Link to projects"
               : targetAsset
               ? targetAsset.name
+              : keptServer
+              ? keptServer.name
               : selectedBubble
               ? selectedBubble.name
               : "Asset Inspector"}
           </h2>
           {/* Transport rides the heading rather than owning a row of its own —
               one short token does not earn 18px of vertical padding. */}
-          {!linking && mcpView && (
+          {!linking && (mcpView || (!targetAsset && keptServer)) && (
             <span className="shrink-0 text-small font-mono px-2 py-px rounded-pill bg-tint text-ink-1 whitespace-nowrap">
-              {mcpView.transport}
+              {mcpView ? mcpView.transport : keptServer?.transport}
             </span>
           )}
         </div>
@@ -839,6 +948,14 @@ export default function Flyout({
           onOpenConfig={onOpenConfig}
           switches={registrationSwitches}
           onSwitch={(key) => void switchRegistration(key)}
+          linkedEngines={linkedEngines}
+          onOpenEngine={onOpenEngine}
+        />
+      ) : !targetAsset && keptServer && switcher ? (
+        <KeptServerDetail
+          server={keptServer}
+          switcher={switcher}
+          onContext={onEngineContext}
           linkedEngines={linkedEngines}
           onOpenEngine={onOpenEngine}
         />

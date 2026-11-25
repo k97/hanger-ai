@@ -1646,7 +1646,7 @@ describe("ProfilePane — servers switched off and kept by Hanger (Task A8)", ()
     expect(screen.queryByTestId("scan-pending")).toBeNull();
   });
 
-  it("a row opens its engine", () => {
+  it("a row opens its server in the inspector, by its stash key", () => {
     const onOpenKeptOff = vi.fn();
     render(
       <ProfilePane
@@ -1662,7 +1662,7 @@ describe("ProfilePane — servers switched off and kept by Hanger (Task A8)", ()
       />
     );
     fireEvent.click(screen.getByRole("button", { name: /beta/ }));
-    expect(onOpenKeptOff).toHaveBeenCalledWith("claude-code");
+    expect(onOpenKeptOff).toHaveBeenCalledWith("stash:00000000-0000-4000-8000-000000000001");
   });
 
   it("a link-state filter hides the group: kept servers have no link state", () => {

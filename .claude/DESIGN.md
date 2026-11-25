@@ -738,8 +738,10 @@ keeps its own figure, and the group follows the Tools rows under its own
 `<button>` (`keptRowClass`): the name and the transport chip, drawn with
 `cardChipClass` (`AssetRow.tsx`, the card row's own chip), then "Off for
 ‹engine_name›"; no reach tiles and no tool count, because the server is in
-no file. A row calls `onOpenKeptOff(engine_id)`, and App opens Global's
-Engines tab on that engine (T4 of the IA plan changes this again). It shows on MCP servers and All; a link-state filter
+no file. A row calls `onOpenKeptOff(key)` with its `stash:` key, and App
+opens the server in the inspector without a change of screen (T4 of the IA
+plan); the row App names in `selectedKeptKey` reads as selected, with the
+card row's `bg-tint` ground, tinted name and `data-selected`. It shows on MCP servers and All; a link-state filter
 hides it, since a kept server has no link state. With only kept servers,
 neither the zero-servers state nor the whole-store empty plane wins: every
 predicate that decides the plane reads `keptAny` (`keptOff.count > 0`, a
@@ -944,9 +946,10 @@ The name and its mono line are a text button when `openItem(item)` returns
 an opener (underlined on hover, SwitchNotice's Undo idiom): App's opener
 selects the inventory asset whose registration key is the item's key,
 exactly as the MCP servers list's per-registration row does, and the
-inspector opens on it. A `stash:` item, or one with no inventory asset, gets
-`null` and keeps a plain name (T4 of the IA plan gives the kept entry
-somewhere to open). The switch is a separate button, so it never selects
+inspector opens on it. A `stash:` item the kept list holds opens the kept
+view instead (T4 of the IA plan, below under Inspectors); an item with no
+inventory asset, or a `stash:` item the kept list does not hold, gets `null`
+and keeps a plain name. The switch is a separate button, so it never selects
 the row. A read-only item shows `stateLabel` ("On"/"Off") where the switch would be
 and its `readOnlyLine` beneath (P9). A `stash:` item carries the kept line,
 and every item carries the by-name line when `switches_by_name` is true —
@@ -1369,6 +1372,23 @@ eyebrows.
   Pinned by `McpServerDetail.test.tsx` and `FlyoutMcpSwitch.test.tsx`. Below the rows, a
   warning sentence per kind of disagreement — endpoints, launches — and the
   aligned launch diff for the latter (`:1073-1118`).
+
+**A kept server's view** (`Flyout.tsx`, `KeptServerDetail`, local to the
+file: it has one caller). A server Hanger is keeping while it is switched
+off has no inventory asset, so App holds it as a selection of its own,
+`selectedKeptKey`, set from a "Switched off" row or a kept item on the
+Engines tab and cleared by any asset selection or change of screen, and
+hands `Flyout` the matching `KeptOffServer` as `keptServer`. The header is
+the server's: its name and its transport chip; the cap reads `MCP server ·
+Global` and offers nothing to open, copy, reveal or link. The body is one
+`ListCard` row in `McpServerDetail`'s `SECTION`: "Off for" and the engine's
+`EngineLabel`, a link to Global's Engines tab on it when the tab lists it
+(the "Registered in" idiom), then the switch — `aria-pressed="false"`, named
+by the server, `LayerSwitch` off, disabled while busy — which sends the
+Engines tab's request for the kept item through `useMcpSwitch`; under it the
+kept line (`mechanismLine("claude_kept")`). Once the switch succeeds App
+reads the kept list again (`useMcpSwitch`'s `onChanged`), the server leaves
+it, and nothing is selected. Pinned by `kept_inspector.test.tsx`.
 
 `Flyout` is the asset inspector's coordinator and owns its own `<aside>`
 (@b383a08).

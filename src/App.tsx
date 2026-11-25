@@ -1055,9 +1055,16 @@ export default function App() {
 
   // The one switch state. A switch or an Undo that changed a file rescans,
   // as unlink and deploy do, so the MCP servers list and its counts stay
-  // true. Declared after `triggerScan` and before the onboarding returns
-  // below, so the hook order never changes when onboarding resolves.
-  const mcpSwitch = useMcpSwitch({ onChanged: () => triggerScan() });
+  // true. It reads the kept servers again at once too: a Claude Code server
+  // switched off becomes one, and "Switched off" should not wait for the
+  // rescan to say so. Declared after `triggerScan` and before the onboarding
+  // returns below, so the hook order never changes when onboarding resolves.
+  const mcpSwitch = useMcpSwitch({
+    onChanged: () => {
+      triggerScan();
+      void refreshKeptOff();
+    },
+  });
 
   // Global's Engines tab. Its chips are every engine that declares an MCP server
   // plus any whose servers Hanger is keeping off (P8); the selection is the
@@ -1161,6 +1168,15 @@ export default function App() {
   const listedTileContexts = (engineRows ?? []).flatMap((e) => tileContexts[e.engine_id] ?? []);
 
   const [selectedAsset, setSelectedAsset] = useState<any>(null);
+  // A kept server in the inspector (T4 of
+  // docs/plans/2026-11-25-ia-engines-into-global.md), by its `stash:` key. It
+  // has no inventory asset, so it is a selection of its own, never set with
+  // `selectedAsset`. Resolved against the latest `keptOff`: once the server
+  // is switched back on and the list no longer holds it, nothing is selected.
+  const [selectedKeptKey, setSelectedKeptKey] = useState<string | null>(null);
+  const selectedKept = selectedKeptKey
+    ? keptOff?.servers.find((s) => s.key === selectedKeptKey) ?? null
+    : null;
   // What AssetDetail actually read, reported back once its body loads — a
   // skill's own path is the folder holding it, so the cap's Open in
   // editor / Copy path / Reveal act on this when it is known, and on the
@@ -1338,6 +1354,7 @@ export default function App() {
     origin: SelectionOrigin = "click"
   ) => {
     setSelectionOrigin(origin);
+    setSelectedKeptKey(null);
     // Tapping a row means "inspect this" — open the panel straight away
     // rather than requiring the toolbar toggle first.
     if (!inspectorOpen) {
@@ -1399,12 +1416,13 @@ export default function App() {
     if (item !== selectedSidebarItem) {
       setSelectedAsset(null);
       setSelectedBubble(null);
+      setSelectedKeptKey(null);
     }
     setSelectedSidebarItem(item);
   };
 
-  /** Global › Engines, on one engine: from a "Switched off" row and from an
-   *  engine name in the MCP server inspector. Within Global this is a change
+  /** Global › Engines, on one engine: from an engine name in the MCP server
+   *  inspector and in a kept server's. Within Global this is a change
    *  of tab, which keeps the inspector's subject as every tab change does
    *  (Karthik, 2026-08-27); from anywhere else it is a change of screen. */
   const openEnginesTab = (engineId: string) => {
@@ -1415,14 +1433,28 @@ export default function App() {
     invoke("set_preference", { key: "selected_sidebar_item", value: ENGINES_TAB_ITEM }).catch(() => {});
   };
 
+  /** A kept server in the inspector, from a "Switched off" row or a kept
+   *  item on the Engines tab: a selection like a row's, on the same screen,
+   *  opening the inspector as a row tap does. */
+  const selectKept = (key: string) => {
+    setSelectedAsset(null);
+    setSelectedBubble(null);
+    setSelectedKeptKey(key);
+    if (!inspectorOpen) {
+      setInspectorOpen(true);
+      invoke("set_preference", { key: "inspector_open", value: "true" }).catch(() => {});
+    }
+  };
+
   /** What a click on an Engines tab row's name opens: its server in the
    *  inventory, by the key both sides mint from `RegistrationKey`, selected
    *  exactly as the MCP servers list's own per-registration row selects it.
-   *  A kept item (`stash:`) is in no file and has no inventory asset, so it
-   *  has nothing to open until T4 of
-   *  docs/plans/2026-11-25-ia-engines-into-global.md gives it the kept entry. */
+   *  A kept item (`stash:`) is in no file and has no inventory asset: it
+   *  opens the kept view, when the kept list holds it. */
   const openEngineItem = (item: ContextItem): (() => void) | null => {
-    if (item.key.startsWith("stash:")) return null;
+    if (item.key.startsWith("stash:")) {
+      return keptOff?.servers.some((s) => s.key === item.key) ? () => selectKept(item.key) : null;
+    }
     const tool = inventory?.tools.find((t) => registrationKey(t) === item.key);
     if (!tool) return null;
     return () =>
@@ -1675,11 +1707,15 @@ export default function App() {
    * layout the scan inferred, not a harness asset with a link state or
    * findings.
    */
+  /* A kept server is an MCP server on Global with no file: the cap names its
+   * kind and place and offers nothing to open, copy, reveal or link. */
   const capAsset: InspectorCapAsset | null =
     selectedAsset && selectedAsset.category !== "Agents"
       ? { category: selectedAsset.category }
+      : selectedKept
+      ? { category: "Tools" }
       : null;
-  const capPlace = selectedAsset ? provenanceOf(selectedAsset, inventory).place : "";
+  const capPlace = selectedAsset ? provenanceOf(selectedAsset, inventory).place : selectedKept ? "Global" : "";
 
   // The document AssetDetail actually read, once known — a skill's own path
   // is the folder holding it. Falls back to the asset's own path before the
@@ -2125,7 +2161,8 @@ export default function App() {
               onServerGroupingChange={handleServerGroupingChange}
               onServerSortChange={handleServerSortChange}
               keptOff={keptOff}
-              onOpenKeptOff={openEnginesTab}
+              onOpenKeptOff={selectKept}
+              selectedKeptKey={selectedKept?.key ?? null}
               engineContexts={listedTileContexts}
               switcher={mcpSwitch}
               onEngineContext={(ctx) => setTileContexts((prev) => ({ ...prev, [ctx.engine_id]: ctx }))}
@@ -2409,6 +2446,8 @@ export default function App() {
                    Engines tab on it, for any engine the tab lists. */
                 linkedEngines={engineRows?.map((e) => e.engine_id)}
                 onOpenEngine={openEnginesTab}
+                keptServer={selectedKept}
+                onEngineContext={(ctx) => setTileContexts((prev) => ({ ...prev, [ctx.engine_id]: ctx }))}
               />
             )}
           </div>

@@ -149,8 +149,11 @@ interface ProfilePaneProps {
    *  above and in none of `get_asset_counts`' figures; they show as their
    *  own group beside it. */
   keptOff?: KeptOff | null;
-  /** A kept server's row opens the Engines tab on its engine. */
-  onOpenKeptOff?: (engineId: string) => void;
+  /** A kept server's row opens it in the inspector, by its `stash:` key (T4
+   *  of docs/plans/2026-11-25-ia-engines-into-global.md). */
+  onOpenKeptOff?: (key: string) => void;
+  /** The kept server the inspector is showing, whose row reads as selected. */
+  selectedKeptKey?: string | null;
   /** Each listed engine's context (`get_engine_context`), App's copy. With
    *  `switcher`, it makes the MCP servers rows' engine tiles switches (T2 of
    *  docs/plans/2026-11-25-ia-engines-into-global.md). `null` before the
@@ -171,9 +174,10 @@ const bandFilterChipClass =
 const measureAllBtnClass = `${miniBtnClass} shrink-0 disabled:cursor-default disabled:opacity-50`;
 
 /** A kept server's row: the card row's first line, then which engine it is
- *  off for. A button, since the whole row is the one thing it does. */
+ *  off for. A button, since the whole row is the one thing it does. Selected,
+ *  it takes the card row's selected ground (`AssetRow.tsx`, `activeClass`). */
 const keptRowClass =
-  "flex flex-col gap-0.5 min-w-0 mx-1.5 px-2.5 py-2 rounded-inner text-left cursor-pointer font-sans hover:bg-plane-2 transition-colors duration-hover ease-spring";
+  "flex flex-col gap-0.5 min-w-0 mx-1.5 px-2.5 py-2 rounded-inner text-left cursor-pointer font-sans transition-colors duration-hover ease-spring";
 
 type McpCoverageProp = { checked_file_count: number; checked_engine_count: number; checked_files: string[] } | null;
 type EngineLocationsProp = { location_count: number; locations: string[] } | null;
@@ -430,6 +434,7 @@ export default function ProfilePane({
   onServerSortChange,
   keptOff = null,
   onOpenKeptOff,
+  selectedKeptKey = null,
   enginesTab,
   engineContexts = null,
   switcher,
@@ -1523,26 +1528,32 @@ export default function ProfilePane({
                 for an engine that switches by removing them. They are no row
                 above and in no figure from get_asset_counts, so the MCP
                 servers header keeps its own figure and this group carries
-                the backend's `count`. A row opens the Engines tab on the
-                server's engine, where it can be switched back on. */}
+                the backend's `count`. A row opens the server in the
+                inspector, where it can be switched back on. */}
             {showTools && keptShown && keptOff && (
               <>
                 <h3 className={`px-3.5 pt-[11px] pb-[5px] ${groupLabelClass}`}>Switched off · {keptOff.count}</h3>
                 <div className="flex flex-col">
-                  {keptOff.servers.filter((server) => inEngineFilter([server.key])).map((server) => (
+                  {keptOff.servers.filter((server) => inEngineFilter([server.key])).map((server) => {
+                    const selected = server.key === selectedKeptKey;
+                    return (
                     <button
                       key={server.key}
                       type="button"
-                      onClick={() => onOpenKeptOff?.(server.engine_id)}
-                      className={keptRowClass}
+                      onClick={() => onOpenKeptOff?.(server.key)}
+                      data-selected={selected ? "true" : "false"}
+                      className={`${keptRowClass} ${selected ? "bg-tint" : "hover:bg-plane-2"}`}
                     >
                       <span className="flex items-center gap-1.5 min-w-0">
-                        <span className="text-base-app text-ink-1 truncate">{server.name}</span>
+                        <span className={`text-base-app truncate ${selected ? "text-tint-ink font-medium" : "text-ink-1"}`}>
+                          {server.name}
+                        </span>
                         <span className={cardChipClass}>{server.transport}</span>
                       </span>
                       <span className="text-small text-ink-3 truncate">Off for {server.engine_name}</span>
                     </button>
-                  ))}
+                    );
+                  })}
                 </div>
               </>
             )}

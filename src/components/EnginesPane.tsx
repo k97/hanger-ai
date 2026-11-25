@@ -215,10 +215,9 @@ export default function EnginesPane({
                   const kept = item.key.startsWith("stash:");
                   const busy = switcher.busyKeys.has(busyKeyOf(shown.engine_id, item.key));
                   // A kept item (`stash:`) is in no file, so the inventory
-                  // has no asset for it and there is nothing to open: its
-                  // name stays plain text until T4 of
-                  // docs/plans/2026-11-25-ia-engines-into-global.md opens
-                  // the kept entry instead.
+                  // has no asset for it: App's opener shows the kept view
+                  // instead (T4 of
+                  // docs/plans/2026-11-25-ia-engines-into-global.md).
                   const open = openItem(item);
                   const nameLines = (
                     <>
