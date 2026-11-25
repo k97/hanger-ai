@@ -4,15 +4,19 @@
 //! Every program here is a `#!/bin/sh` script in a temp dir. No test runs the
 //! user's real shell or a real engine CLI, and none reads the real home, so
 //! `resolve::search_path` itself is not called: it would start `$SHELL` with
-//! the user's rc files. Its three parts are tested instead: `login_shell`,
-//! `path_from_shell` against a fake shell, and `merge_paths`.
+//! the user's rc files. Its parts are tested instead: `login_shell`,
+//! `path_from_shell` and `cached_shell_path` against a fake shell, and
+//! `merge_paths`.
 
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
-use tauri_app_lib::engine_status::resolve::{login_shell, merge_paths, path_from_shell, resolve_in};
+use tauri_app_lib::engine_status::resolve::{
+    cached_shell_path, login_shell, merge_paths, path_from_shell, resolve_in,
+};
 use tauri_app_lib::engine_status::run::run_capture;
+use tokio::sync::OnceCell;
 
 /// Long enough for a script that answers at once on a busy machine, short
 /// enough that a wrongly hung child fails the test instead of stalling it.
@@ -239,6 +243,59 @@ async fn path_from_shell_is_none_for_a_shell_that_hangs() {
 
     assert_eq!(got, None);
     assert!(started.elapsed() < Duration::from_secs(10), "took {:?}", started.elapsed());
+}
+
+/// A fake shell that counts its runs in `runs` and answers only from run
+/// `answers_from` on; earlier runs exit non-zero, as a shell that failed
+/// would.
+fn counting_shell(dir: &Path, answers_from: u32) -> (PathBuf, PathBuf) {
+    let runs = dir.join("runs");
+    let shell = script(
+        dir,
+        "fakeshell",
+        &format!(
+            "echo x >> '{runs}'\n\
+             n=$(wc -l < '{runs}')\n\
+             [ \"$n\" -lt {answers_from} ] && exit 1\n\
+             PATH=/fake/a\n\
+             eval \"$4\"",
+            runs = runs.display()
+        ),
+    );
+    (shell, runs)
+}
+
+fn run_count(runs: &Path) -> usize {
+    std::fs::read_to_string(runs).map(|s| s.lines().count()).unwrap_or(0)
+}
+
+#[tokio::test]
+async fn a_shell_that_fails_once_is_asked_again() {
+    let tmp = tempfile::tempdir().unwrap();
+    let (shell, runs) = counting_shell(tmp.path(), 2);
+    let cache = OnceCell::new();
+
+    assert_eq!(cached_shell_path(&cache, &shell, QUICK).await, None);
+    assert_eq!(
+        cached_shell_path(&cache, &shell, QUICK).await.as_deref(),
+        Some("/fake/a")
+    );
+    assert_eq!(run_count(&runs), 2);
+}
+
+#[tokio::test]
+async fn a_shell_that_answered_is_not_asked_again() {
+    let tmp = tempfile::tempdir().unwrap();
+    let (shell, runs) = counting_shell(tmp.path(), 1);
+    let cache = OnceCell::new();
+
+    for _ in 0..3 {
+        assert_eq!(
+            cached_shell_path(&cache, &shell, QUICK).await.as_deref(),
+            Some("/fake/a")
+        );
+    }
+    assert_eq!(run_count(&runs), 1);
 }
 
 #[test]

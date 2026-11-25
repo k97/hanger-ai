@@ -27,28 +27,45 @@ const PATH_END: &str = "__HANGER_PATH_END__";
 /// whatever the shell's startup files print around it.
 const PATH_SCRIPT: &str = r#"printf '__HANGER_PATH_START__%s__HANGER_PATH_END__' "$PATH""#;
 
-static SEARCH_PATH: OnceCell<String> = OnceCell::const_new();
+/// The login shell's own PATH, once it has given one.
+static SHELL_PATH: OnceCell<String> = OnceCell::const_new();
 
 /// The PATH a terminal would give the user, then Hanger's own widened
-/// fallback (`mcp::probe::widened_path`). Cached for the process.
+/// fallback (`mcp::probe::widened_path`).
 ///
-/// The shell is `login_shell` of `$SHELL`, asked through `path_from_shell`
-/// with a 5 s timeout. If it gives no answer, the result is the widened
-/// fallback alone, and that is what stays cached: a shell that was slow once
-/// is not asked again until Hanger restarts.
+/// The shell is `login_shell` of `$SHELL`, asked through `cached_shell_path`
+/// with a 5 s timeout. Its answer is cached for the process. If it gives no
+/// answer, this call gets the widened fallback alone and nothing is cached:
+/// a shell that was slow during a busy boot is asked again on the next call,
+/// so a CLI it puts on PATH is not hidden until Hanger restarts.
 ///
 /// `async` because the shell is a child process on the tokio runtime. The
-/// first caller pays for the shell; callers that arrive meanwhile wait for
-/// the same answer.
+/// caller that first gets an answer pays for the shell; callers that arrive
+/// meanwhile wait for it.
 pub async fn search_path() -> String {
-    SEARCH_PATH
-        .get_or_init(|| async {
-            let shell = login_shell(std::env::var("SHELL").ok().as_deref());
-            let from_shell = path_from_shell(&shell, SHELL_TIMEOUT).await;
-            merge_paths(from_shell.as_deref(), &crate::mcp::probe::widened_path())
-        })
+    let shell = login_shell(std::env::var("SHELL").ok().as_deref());
+    let from_shell = cached_shell_path(&SHELL_PATH, &shell, SHELL_TIMEOUT).await;
+    merge_paths(from_shell.as_deref(), &crate::mcp::probe::widened_path())
+}
+
+/// `shell`'s PATH through `path_from_shell`, kept in `cache` once it answers.
+/// Testable: the cache and the shell are parameters.
+///
+/// Only an answer is kept. A shell that fails or times out leaves `cache`
+/// empty, so the next call asks it again. A caller that arrives while the
+/// shell is being asked waits for that run; if the run fails, the waiter asks
+/// next, so concurrent callers of a failing shell are served one after
+/// another, each bounded by `timeout`.
+pub async fn cached_shell_path(
+    cache: &OnceCell<String>,
+    shell: &Path,
+    timeout: Duration,
+) -> Option<String> {
+    cache
+        .get_or_try_init(|| async { path_from_shell(shell, timeout).await.ok_or(()) })
         .await
-        .clone()
+        .ok()
+        .cloned()
 }
 
 /// The shell to ask: `shell_env` (the value of `$SHELL`) when it is an
