@@ -150,6 +150,8 @@ Karthik approved these as his answer to Q1 of [the IA plan](2026-11-25-ia-engine
 | The inspector's Tools section, before an answer | Verify | Measure |
 | The inspector's re-check (tooltip and accessible name) | Check again | Measure again |
 
+The ⌘K placeholder gains the tail the approved plan's D7 names. "Search skills, rules, subagents and MCP servers" becomes "Search skills, rules, subagents and MCP servers, or switch a server". This lands with T5.
+
 The singular forms follow: "1 host" is now "1 engine". The inspector has no in-flight label to rename: it asks on open and shows no "Verifying…" (the control is withheld while the probe runs). The band's Measure all reads "Measuring…" while it runs, as the Engines tab's does.
 
 The band reuses this brief's strings and adds none. Each engine's row shows the budget's token figure without its tail ("≈ {n} tokens"), the budget caption ("{measured} of {on} servers measured", with "· {off} off" when some are off), or "Not measured" when the engine's context has not arrived. Its Measure all carries the caption under the Engines tab's button, as the band's note and as the button's tooltip. Its active filter is a chip with the engine's name. "A tool counts once per host that carries it." is gone with the tool figures (D4).

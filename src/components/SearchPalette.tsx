@@ -205,7 +205,7 @@ export function SearchPalettePanel({
               value={query}
               onValueChange={onQueryChange}
               aria-label={inputLabel}
-              placeholder="Search skills, rules, subagents and MCP servers"
+              placeholder="Search skills, rules, subagents and MCP servers, or switch a server"
               className="w-full h-full rounded-pill border border-transparent bg-plane pl-[30px] pr-3.5 text-small text-ink-1 placeholder:text-ink-3 focus:border-line-2 focus:bg-page transition-colors duration-hover ease-spring"
             />
           </div>

@@ -39,6 +39,13 @@ describe("SearchPalette", () => {
     expect(document.activeElement).toBe(screen.getByLabelText("Search assets"));
   });
 
+  it("says in its placeholder that it can switch a server (D7, the IA plan)", () => {
+    render(<SearchPalette open={true} scannedAt={scanned} onClose={() => {}} onPick={() => {}} />);
+    expect(screen.getByLabelText("Search assets").getAttribute("placeholder")).toBe(
+      "Search skills, rules, subagents and MCP servers, or switch a server"
+    );
+  });
+
   it("groups hits by kind under headings, in rank order within a group, with no glyph", async () => {
     render(<SearchPalette open={true} scannedAt={scanned} onClose={() => {}} onPick={() => {}} />);
     fireEvent.change(screen.getByLabelText("Search assets"), { target: { value: "deploy" } });
