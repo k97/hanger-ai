@@ -24,12 +24,14 @@ Hanger's own words, already on screen: "engine" for Claude Code and the rest, "M
 
 ## The three decisions
 
+Answered by Karthik in Plannotator on 2026-11-25, each with the recommendation: the section is **Engines**, the states are **On** and **Off**, and the budget reads **"≈ 12,400 tokens of tool descriptions"** with **"12 of 15 servers measured"** under it. He made no change to the tables below. The brief is signed off as a whole when he approves it with the layout options (gate G2), since the strings are only seen in a layout.
+
 :::question
 What is the new rail section called?
 
 It lists each engine and, for the one you pick, what it loads and what that costs. The rail's other entries are "Search", "My machine", "Link map", "Discovery", "Needs review" and "Settings". "Engine" is already the app's word everywhere else: the Reach column, the engine tiles, every sentence that names Claude Code or Codex.
 
-- [ ] Engines — the app's own noun; matches every other screen
+- [x] Engines — the app's own noun; matches every other screen
 - [ ] Coding tools — your phrase for what Hanger manages; collides with "tools", which the app avoids because it also means MCP tools
 - [ ] Agents — what the vendors say; `ui-copy.md` rules it out for Claude Code and the rest
 
@@ -41,7 +43,7 @@ What are the two states of a server called?
 
 Every vendor says enabled and disabled. But for Claude Code, Hanger's "off" removes the server from Claude Code's config and keeps a copy, so no file says "disabled" anywhere. For Gemini the flag lives in a separate state file. "Off" is true of all three; "disabled" is the word you'd see if you checked `codex mcp list`.
 
-- [ ] On and Off — short, true of every mechanism, reads naturally on a switch
+- [x] On and Off — short, true of every mechanism, reads naturally on a switch
 - [ ] Enabled and Disabled — the vendors' word; matches what the engines' own lists print
 
 Recommended: On and Off
@@ -52,7 +54,7 @@ How should the budget line read?
 
 The figure is an estimate from the tool descriptions each switched-on server sends: bytes divided by four. Input schemas aren't counted, and the inspector already says so. The line also has to say how much of the total is measured, because unmeasured servers add nothing to it.
 
-- [ ] "≈ 12,400 tokens of tool descriptions" with "12 of 15 servers measured" under it — says exactly what was counted
+- [x] "≈ 12,400 tokens of tool descriptions" with "12 of 15 servers measured" under it — says exactly what was counted
 - [ ] "≈ 12,400 tokens" with "12 of 15 servers measured · schemas not counted" under it — shorter headline, the caveat moves to the caption
 - [ ] "At least 12,400 tokens" with "12 of 15 servers measured" under it — leads with the fact that the real cost is higher
 
