@@ -17,6 +17,10 @@
 //! five first scans. The filesystem is warm for all of them after the first.
 //! CPU is this process's user + system time from `getrusage(RUSAGE_SELF)`.
 //!
+//! `panel_open_bench` times opening a server panel (`get_mcp_processes`'
+//! core) alone and during a Rescan, the old rescanning path against the
+//! recorded launches; its doc comment says how. Run it by name the same way.
+//!
 //! Sizes default to 300 skills, 100 subagents, 2 MCP configs and 6 linked
 //! projects, and are set by `HANGER_BENCH_SKILLS`, `HANGER_BENCH_SUBAGENTS`,
 //! `HANGER_BENCH_MCP_CONFIGS` and `HANGER_BENCH_PROJECTS`.
@@ -242,5 +246,90 @@ fn scan_bench() {
     );
     report("cold", &cold);
     report("warm", &warm);
+    std::env::remove_var("HANGER_TEST_HOME");
+}
+
+/// Opening a server panel, timed: `get_mcp_processes`' core
+/// (`mcp_processes_from`, with this machine's real process table read inside
+/// the timing, as the command does), alone and while a Rescan runs on another
+/// thread. "old" passes an empty `McpLaunches`, so the core takes its
+/// fallback, which is exactly what the command did before Task B4: `run_scan`
+/// over the linked directories, then the match. "new" passes the launches a
+/// completed scan recorded.
+#[test]
+#[ignore = "benchmark: run with --ignored --nocapture --test-threads=1"]
+fn panel_open_bench() {
+    use tauri_app_lib::{mcp_processes_from, McpLaunches};
+    for var in ["CLAUDE_CONFIG_DIR", "CODEX_HOME", "COPILOT_HOME"] {
+        std::env::remove_var(var);
+    }
+    let fixture = build_fixture();
+    std::env::set_var("HANGER_TEST_HOME", fixture._home.path());
+    let mut targets = vec![PathBuf::from("")];
+    targets.extend(fixture.project_paths.iter().cloned());
+
+    let dbs = tempfile::tempdir().unwrap();
+    // (alone, during-scan panel latency, rescan wall during the panel call)
+    let mut rows: Vec<(&str, Vec<Duration>, Vec<Duration>, Vec<Duration>)> = Vec::new();
+    for arm in ["old", "new"] {
+        let (mut alone, mut during, mut scan_wall) = (Vec::new(), Vec::new(), Vec::new());
+        for run in 0..RUNS {
+            let db_path = dbs.path().join(format!("panel-{arm}-{run}.db"));
+            let store = PreferencesStore::new(&db_path).expect("fresh store");
+            for p in &fixture.project_paths {
+                store.link_directory(&p.to_string_lossy()).expect("link_directory");
+            }
+            let scanner = DirectoryScanner {
+                db_path: db_path.clone(),
+                cancellation_token: Arc::new(AtomicBool::new(false)),
+            };
+            // The scan the app does at launch, so "new" has launches to read.
+            let first = scan_targets(&scanner, &targets, |_, _, _| {}).expect("scan_targets");
+            let launches = McpLaunches::default();
+            if arm == "new" {
+                launches.record(&first);
+            }
+            let run_scan = || {
+                let targets: Vec<PathBuf> = fixture.project_paths.clone();
+                scan_targets(&scanner, &targets, |_, _, _| {}).map_err(|e| e.to_string())
+            };
+            let panel = || {
+                let t0 = Instant::now();
+                let procs = tauri_app_lib::mcp::observe::running_processes();
+                mcp_processes_from(&launches, &procs, run_scan).expect("panel core");
+                t0.elapsed()
+            };
+
+            alone.push(panel());
+
+            std::thread::scope(|s| {
+                let rescan_thread = s.spawn(|| {
+                    let t0 = Instant::now();
+                    let inv = scan_targets(&scanner, &targets, |_, _, _| {}).expect("concurrent rescan");
+                    tauri_app_lib::search::index_inventory(&scanner.db_path, &inv).expect("index_inventory");
+                    t0.elapsed()
+                });
+                // Open the panel once the Rescan is under way.
+                std::thread::sleep(Duration::from_millis(30));
+                during.push(panel());
+                scan_wall.push(rescan_thread.join().unwrap());
+            });
+        }
+        rows.push((arm, alone, during, scan_wall));
+    }
+
+    let profile = if cfg!(debug_assertions) { "debug" } else { "release" };
+    println!("panel_open_bench [{profile}] fixture: {}", fixture.summary);
+    let stat = |v: &[Duration]| {
+        let mut m: Vec<f64> = v.iter().map(|d| ms(*d)).collect();
+        m.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        let each: Vec<String> = v.iter().map(|d| format!("{:.0}", ms(*d))).collect();
+        format!("{:.0} / {:.0} / {:.0} [{}]", m[0], m[m.len() / 2], m[m.len() - 1], each.join(", "))
+    };
+    for (arm, alone, during, scan_wall) in &rows {
+        println!("{arm:<4} panel alone        ms min/median/max {}", stat(alone));
+        println!("{arm:<4} panel during scan  ms min/median/max {}", stat(during));
+        println!("{arm:<4} that rescan's wall ms min/median/max {}", stat(scan_wall));
+    }
     std::env::remove_var("HANGER_TEST_HOME");
 }

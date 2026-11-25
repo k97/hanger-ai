@@ -829,6 +829,60 @@ fn get_kept_off_servers(app: AppHandle) -> Result<mcp::switch::ops::KeptOff, Str
     Ok(mcp::switch::ops::kept_off_for(&switch_places(&app)))
 }
 
+/// One MCP registration's launch: `(registration_key, command, args)`, the
+/// shape `mcp::observe::match_processes` takes.
+pub type McpLaunch = (String, String, Vec<String>);
+
+fn launches_of(inventory: &Inventory) -> Vec<McpLaunch> {
+    inventory
+        .tools
+        .iter()
+        .map(|t| (t.registration_key().to_string(), t.command.clone(), t.args.clone()))
+        .collect()
+}
+
+/// The launches of the last scan `start_scan` completed, for
+/// `get_mcp_processes` to match running processes against without scanning.
+///
+/// Tauri-managed. `args` can carry a credential (`--header`, `--api-key`), so
+/// this type derives neither `Debug` nor `Serialize`: nothing here is logged
+/// or sent to the webview. What leaves is `match_processes`' output, as
+/// before. `None` until a scan completes.
+#[derive(Default)]
+pub struct McpLaunches {
+    last_scan: Mutex<Option<Vec<McpLaunch>>>,
+}
+
+impl McpLaunches {
+    /// Replace what is held with the launches of `inventory`'s tools.
+    pub fn record(&self, inventory: &Inventory) {
+        let launches = launches_of(inventory);
+        *self.last_scan.lock().unwrap_or_else(|e| e.into_inner()) = Some(launches);
+    }
+
+    pub fn last_scan(&self) -> Option<Vec<McpLaunch>> {
+        self.last_scan.lock().unwrap_or_else(|e| e.into_inner()).clone()
+    }
+}
+
+/// `get_mcp_processes` without the `AppHandle`: match `procs` against the
+/// last completed scan's launches. Writes nothing. Only before any scan has
+/// completed does it call `rescan` (the command passes `run_scan`).
+pub fn mcp_processes_from<F>(
+    launches: &McpLaunches,
+    procs: &[crate::mcp::observe::RunningProcess],
+    rescan: F,
+) -> Result<Vec<crate::mcp::observe::ProcessMatch>, String>
+where
+    F: FnOnce() -> Result<Inventory, String>,
+{
+    let regs = match launches.last_scan() {
+        Some(regs) => regs,
+        None => launches_of(&rescan()?),
+    };
+    Ok(crate::mcp::observe::match_processes(&regs, procs))
+}
+
 /// Which MCP servers are running right now, and which are running unaccounted.
 ///
 /// Read-only. Nothing is started or stopped — see spec §8 for why start/stop is
@@ -836,27 +890,28 @@ fn get_kept_off_servers(app: AppHandle) -> Result<mcp::switch::ops::KeptOff, Str
 /// child, and killing one breaks that host's session rather than stopping a
 /// service.
 ///
-/// Rescans rather than taking registrations from the caller, so the keys it
+/// Matches against the launches `start_scan` recorded from its last completed
+/// inventory (`McpLaunches`), not registrations from the caller, so the keys it
 /// returns are the ones `Tool::registration_key` produces and identity stays in
-/// one place. That costs a filesystem walk per call, which is why this is
-/// invoked on demand and not on a timer.
+/// one place. It writes nothing. It used to run `run_scan` on every call — a
+/// full writing scan of every linked directory, queued behind any scan already
+/// running — each time a server panel opened; and because `run_scan` scans
+/// only linked directories, with none linked it saw no tools at all. Only
+/// before any scan has completed does it still fall back to `run_scan`.
 ///
 /// `(async)` is not decoration. Tauri runs a plain sync command on the main
-/// thread, and this one measured 11.2s against the real machine — the whole
-/// window froze for eleven seconds, which is how the freeze was found at all
-/// (the automation bridge's own script timeout fired). The annotation moves the
-/// body off the main thread; `start_scan` reaches the same end by returning
-/// immediately and doing its work in `async_runtime::spawn`.
+/// thread, and this one measured 11.2s against the real machine when it
+/// rescanned — the whole window froze for eleven seconds, which is how the
+/// freeze was found at all (the automation bridge's own script timeout
+/// fired). Reading the process table is still not free, and the fallback
+/// still scans, so the body stays off the main thread.
 #[tauri::command(async)]
-fn get_mcp_processes(app: AppHandle) -> Result<Vec<crate::mcp::observe::ProcessMatch>, String> {
-    let inventory = run_scan(app)?;
-    let regs: Vec<(String, String, Vec<String>)> = inventory
-        .tools
-        .iter()
-        .map(|t| (t.registration_key().to_string(), t.command.clone(), t.args.clone()))
-        .collect();
+fn get_mcp_processes(
+    app: AppHandle,
+    launches: tauri::State<'_, McpLaunches>,
+) -> Result<Vec<crate::mcp::observe::ProcessMatch>, String> {
     let procs = crate::mcp::observe::running_processes();
-    Ok(crate::mcp::observe::match_processes(&regs, &procs))
+    mcp_processes_from(&launches, &procs, || run_scan(app))
 }
 
 /// The server list: one row per server name, grouped and counted in Rust
@@ -1530,6 +1585,10 @@ fn start_scan(
             }
         };
 
+        if let Some(launches) = app_clone.try_state::<McpLaunches>() {
+            launches.record(&combined_inventory);
+        }
+
         if let Err(e) = search::index_inventory(&get_db_path(&app_clone), &combined_inventory) {
             log::warn!("search index not rebuilt: {}", e);
         }
@@ -2098,6 +2157,7 @@ pub fn run() {
     }
     builder
         .manage(ScanManager::default())
+        .manage(McpLaunches::default())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
