@@ -145,11 +145,6 @@ export function tokenFigure(tokens: number): string {
   return `≈ ${tokens.toLocaleString("en-US")}`;
 }
 
-/** `on_tokens_measured`, as the budget's headline. */
-export function budgetHeadline(tokens: number): string {
-  return `${tokenFigure(tokens)} tokens of tool descriptions`;
-}
-
 /**
  * `measured_on_count`, `on_count` and `off_count`, as the backend counted
  * them; the off figure only when some are off.

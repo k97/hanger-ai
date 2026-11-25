@@ -7,7 +7,6 @@ import {
   switchedLine,
   mechanismLine,
   paletteActionLabel,
-  budgetHeadline,
   budgetCaption,
   costLabel,
   switchedOffLine,
@@ -185,11 +184,6 @@ describe("paletteActionLabel", () => {
 });
 
 describe("budget and cost", () => {
-  it("groups the headline's figure", () => {
-    expect(budgetHeadline(12400)).toBe("≈ 12,400 tokens of tool descriptions");
-    expect(budgetHeadline(0)).toBe("≈ 0 tokens of tool descriptions");
-  });
-
   it("adds the off figure to the caption only when some are off", () => {
     expect(budgetCaption(12, 15, 0)).toBe("12 of 15 servers measured");
     expect(budgetCaption(12, 15, 3)).toBe("12 of 15 servers measured · 3 off");
