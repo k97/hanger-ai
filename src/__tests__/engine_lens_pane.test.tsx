@@ -242,10 +242,10 @@ const notLoaded = () =>
     .queryAllByTestId("not-loaded-row")
     .map((r) => r.textContent);
 const strip = () => screen.getByLabelText("Inventory summary");
-const chipGroup = () => within(strip()).getByRole("group", { name: "Engines" });
+const chipGroup = () => screen.getByRole("group", { name: "Engines" });
 
 describe("the engine chips replace the By engine band", () => {
-  it("draw in the strip on every tab, All engines first, and Global has no band", () => {
+  it("draw on every tab, All engines first, and Global has no band", () => {
     for (const tab of [undefined, "Skills", "Tools", "Rules", "Subagents"] as const) {
       const { unmount } = render(<ProfilePane {...props({ selectedCategory: tab ?? null })} />);
       expect(within(chipGroup()).getAllByRole("button").map((b) => b.textContent)).toEqual([
@@ -283,7 +283,7 @@ describe("the engine chips replace the By engine band", () => {
 
   it("claim nothing before the first scan", () => {
     render(<ProfilePane {...props({ scannedAt: null })} />);
-    expect(within(strip()).queryByRole("group", { name: "Engines" })).toBeNull();
+    expect(screen.queryByRole("group", { name: "Engines" })).toBeNull();
   });
 });
 
@@ -449,9 +449,9 @@ describe("the strip with an engine picked shows its budget, on every tab", () =>
       expect(subtitle()).toBe("tokens every session · Engine C");
       expect(within(strip()).queryByRole("button", { name: /linked$/ })).toBeNull();
       expect(within(strip()).queryByRole("img")).toBeNull();
-      // Rescan and the chips stay.
+      // Rescan stays in the strip; the chips stay, above it (Q2).
       expect(within(strip()).getByRole("button", { name: "Refresh scan" })).toBeTruthy();
-      expect(within(strip()).getByRole("group", { name: "Engines" })).toBeTruthy();
+      expect(chipGroup()).toBeTruthy();
       unmount();
     }
   });
