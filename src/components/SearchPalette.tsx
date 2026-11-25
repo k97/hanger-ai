@@ -23,6 +23,18 @@ export interface SearchHit {
   rank: number;
 }
 
+/** Something the palette can do rather than open: today, switch an MCP
+ *  server off or on for one engine. App builds them; the palette lists them
+ *  under "Switch", after the asset groups, and runs `onRun` when one is
+ *  picked. */
+export interface PaletteAction {
+  id: string;
+  label: string;
+  /** A short second word on the right of the row, as a hit's place is. */
+  detail?: string;
+  onRun: () => void;
+}
+
 export interface SearchResponse {
   hits: SearchHit[];
   total: number;
@@ -30,6 +42,10 @@ export interface SearchResponse {
 
 const MARK_OPEN = "";
 const MARK_CLOSE = "";
+
+/** One row of the list, a hit or an action. */
+const rowClass =
+  "h-[46px] px-3 rounded-pill flex flex-col justify-center gap-0.5 cursor-pointer hover:bg-plane data-[selected=true]:bg-tint transition-colors duration-nav ease-spring";
 
 /** Fixed group order (Karthik's ruling, 2026-08-28, superseding "glyph rows,
  *  no headings"): a heading does the grouping's job now, so the glyph is
@@ -71,6 +87,10 @@ interface SearchPaletteProps {
   scannedAt: Date | null;
   onClose: () => void;
   onPick: (hit: SearchHit) => void;
+  /** The actions for a query, asked again on every change with the trimmed
+   *  query. Not asked before the first scan: the engines they come from are
+   *  listed by it. */
+  actionsFor?: (query: string) => PaletteAction[];
 }
 
 const DEBOUNCE_MS = 80;
@@ -83,6 +103,9 @@ export interface SearchPalettePanelProps {
   /** False before the first scan completes: the pending line shows and nothing is queried. */
   hasScanned: boolean;
   onPick: (hit: SearchHit) => void;
+  /** Listed under "Switch" after the asset groups. While any are listed,
+   *  neither the hint nor "Nothing matches" shows: the list is not empty. */
+  actions?: PaletteAction[];
   /** The panel's accessible name and the input's. The app passes the real ones;
    *  the Design system page passes sample names so a reader never hears a control that does nothing. */
   dialogLabel: string;
@@ -103,11 +126,15 @@ export function SearchPalettePanel({
   hits,
   hasScanned,
   onPick,
+  actions,
   dialogLabel,
   inputLabel,
   autoFocus,
 }: SearchPalettePanelProps) {
   const q = query.trim();
+  // Before the first scan there is nothing to act on either.
+  const shownActions = hasScanned ? actions ?? [] : [];
+  const hasActions = shownActions.length > 0;
   const answeredEmpty = hits !== null && hits.length === 0;
   const groups = GROUP_ORDER.map(({ kind, heading }) => ({
     kind,
@@ -149,7 +176,7 @@ export function SearchPalettePanel({
         <Command.List className="flex-1 min-h-0 overflow-y-auto px-3 pb-3 scroll-thin [&_[cmdk-group-items]]:flex [&_[cmdk-group-items]]:flex-col [&_[cmdk-group-items]]:gap-px">
           {!hasScanned ? (
             <p className={`py-8 px-4 text-center ${captionClass}`}>Results show up here once the first scan finishes.</p>
-          ) : hits === null ? (
+          ) : hasActions ? null : hits === null ? (
             // Covers an empty query and a rejected search alike: neither has an
             // answer to show, so both get the hint rather than an asserted absence.
             <p className={`py-8 px-4 text-center ${captionClass}`}>Type to search names and what's inside.</p>
@@ -174,7 +201,7 @@ export function SearchPalettePanel({
                   value={`${hit.kind}:${hit.id}:${hit.name}`}
                   data-kind={hit.kind}
                   onSelect={() => onPick(hit)}
-                  className="h-[46px] px-3 rounded-pill flex flex-col justify-center gap-0.5 cursor-pointer hover:bg-plane data-[selected=true]:bg-tint transition-colors duration-nav ease-spring"
+                  className={rowClass}
                 >
                   <div className="flex items-center gap-2 min-w-0">
                     <span className="text-base-app text-ink-1 truncate">{hit.name}</span>
@@ -190,6 +217,34 @@ export function SearchPalettePanel({
               ))}
             </Command.Group>
           ))}
+          {hasActions && (
+            <Command.Group aria-label="Switch">
+              <div
+                className={`flex items-center px-3 pb-[5px] ${groupLabelClass} ${groups.length === 0 ? "pt-1" : "pt-[11px]"}`}
+                aria-hidden="true"
+              >
+                Switch
+              </div>
+              {shownActions.map((action) => (
+                <Command.Item
+                  key={`action:${action.id}`}
+                  value={`action:${action.id}`}
+                  data-kind="action"
+                  onSelect={() => action.onRun()}
+                  className={rowClass}
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span data-action-label className="text-base-app text-ink-1 truncate">
+                      {action.label}
+                    </span>
+                    {action.detail && (
+                      <span className={`ml-auto pl-4 ${captionClass} shrink-0`}>{action.detail}</span>
+                    )}
+                  </div>
+                </Command.Item>
+              ))}
+            </Command.Group>
+          )}
         </Command.List>
       </Command>
     </div>
@@ -203,7 +258,7 @@ export function SearchPalettePanel({
  * backend and are grouped by kind under headings, in fixed group order,
  * each group keeping the backend's own rank order within it.
  */
-export default function SearchPalette({ open, scannedAt, onClose, onPick }: SearchPaletteProps) {
+export default function SearchPalette({ open, scannedAt, onClose, onPick, actionsFor }: SearchPaletteProps) {
   const [query, setQuery] = useState("");
   // null: nothing asked yet (or the query is empty); []: asked, nothing found.
   const [hits, setHits] = useState<SearchHit[] | null>(null);
@@ -250,6 +305,10 @@ export default function SearchPalette({ open, scannedAt, onClose, onPick }: Sear
 
   if (!open) return null;
 
+  // Asked on every render, so a new query and the replies the actions are
+  // built from both show at once.
+  const actions = scannedAt !== null && actionsFor ? actionsFor(query.trim()) : undefined;
+
   return (
     <div
       data-testid="search-wash"
@@ -264,6 +323,7 @@ export default function SearchPalette({ open, scannedAt, onClose, onPick }: Sear
         hits={hits}
         hasScanned={scannedAt !== null}
         onPick={onPick}
+        actions={actions}
         dialogLabel="Search"
         inputLabel="Search assets"
         autoFocus

@@ -48,7 +48,7 @@ import {
   PanelRightIcon
 } from "./components/icons";
 import IconRail from "./components/IconRail";
-import SearchPalette, { type SearchHit } from "./components/SearchPalette";
+import SearchPalette, { type PaletteAction, type SearchHit } from "./components/SearchPalette";
 import Tooltip from "./components/Tooltip";
 import Sidebar from "./components/Sidebar";
 import ProfilePane, { ConfigProblemRow } from "./components/ProfilePane";
@@ -97,7 +97,8 @@ import {
 import { unaccountedProcesses, type ProcessMatch } from "./utils/mcpServerView";
 import type { McpServerRow } from "./utils/serverRows";
 import type { McpEngineSummaryData } from "./types/mcpEngineSummary";
-import type { KeptOff } from "./types/engineContext";
+import type { EngineContext, KeptOff } from "./types/engineContext";
+import { paletteActionLabel } from "./utils/switchCopy";
 import { useMcpSwitch } from "./hooks/useMcpSwitch";
 import SwitchNotice from "./components/SwitchNotice";
 import { assetOpenTarget } from "./openTarget";
@@ -1060,6 +1061,62 @@ export default function App() {
   const selectEngine = (engineId: string) => {
     setStoredEngine(engineId);
     invoke("set_preference", { key: "selected_engine", value: engineId }).catch(() => {});
+  };
+
+  // ⌘K's "Switch" actions. Each open reads the context of every engine the
+  // Engines screen lists, once, and keeps the replies until the palette
+  // closes. State, not a ref: a reply that lands after the first keystroke
+  // must still put its actions on screen.
+  const [paletteContexts, setPaletteContexts] = useState<EngineContext[] | null>(null);
+  useEffect(() => {
+    if (!searchOpen) {
+      setPaletteContexts(null);
+      return;
+    }
+    if (!engineRows || engineRows.length === 0) return;
+    let cancelled = false;
+    Promise.all(
+      engineRows.map((e) =>
+        invoke<EngineContext>("get_engine_context", { engineId: e.engine_id }).catch(() => null)
+      )
+    ).then((replies) => {
+      if (!cancelled) setPaletteContexts(replies.filter((c): c is EngineContext => c !== null));
+    });
+    return () => {
+      cancelled = true;
+    };
+    // Once per open: the list is read as it stands when the palette opens.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchOpen]);
+
+  /** The servers a query names that Hanger can switch, at most eight. Each
+   *  runs the switch the Engines pane's own button would, with the same
+   *  request, after closing the palette. */
+  const paletteActions = (query: string): PaletteAction[] => {
+    if (query === "" || paletteContexts === null) return [];
+    const needle = query.toLowerCase();
+    return paletteContexts
+      .flatMap((ctx) =>
+        ctx.items
+          .filter((item) => item.read_only === null && item.name.toLowerCase().includes(needle))
+          .map((item) => ({
+            id: `${ctx.engine_id}\u0000${item.key}`,
+            label: paletteActionLabel(item.state !== "on", { engine: ctx.engine_name, server: item.name }),
+            detail: ctx.engine_name,
+            onRun: () => {
+              setSearchOpen(false);
+              void mcpSwitch.switchServer({
+                engineId: ctx.engine_id,
+                engineName: ctx.engine_name,
+                key: item.key,
+                serverName: item.name,
+                file: item.config_path,
+                enabled: item.state !== "on",
+              });
+            },
+          }))
+      )
+      .slice(0, 8);
   };
 
   const [selectedAsset, setSelectedAsset] = useState<any>(null);
@@ -2307,6 +2364,7 @@ export default function App() {
         scannedAt={lastScanAt}
         onClose={() => setSearchOpen(false)}
         onPick={openSearchHit}
+        actionsFor={paletteActions}
       />
 
       {pickerFor && (

@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, waitFor, cleanup } from "@testing-library/react";
-import SearchPalette, { renderSnippet, placeLabel, type SearchHit } from "./SearchPalette";
+import SearchPalette, { renderSnippet, placeLabel, type PaletteAction, type SearchHit } from "./SearchPalette";
 import { invoke } from "@tauri-apps/api/core";
 import * as fs from "fs";
 import * as path from "path";
@@ -167,6 +167,108 @@ describe("SearchPalette", () => {
     resolveFirst({ hits: [skillHit], total: 1 });
     await new Promise((r) => setTimeout(r, 20));
     expect(screen.queryByText("deploy-helper")).toBeNull();
+  });
+});
+
+describe("SearchPalette — Switch actions", () => {
+  const action = (over: Partial<PaletteAction> = {}): PaletteAction => ({
+    id: "codex\u0000/Users/demo/.codex/config.toml:alpha",
+    label: "Switch alpha off for Engine C",
+    detail: "Engine C",
+    onRun: vi.fn(),
+    ...over,
+  });
+
+  beforeEach(() => {
+    vi.mocked(invoke).mockReset();
+    vi.mocked(invoke).mockImplementation(async () => ({ hits: [skillHit], total: 1 }));
+  });
+  afterEach(() => cleanup());
+
+  it("asks for actions with the trimmed query and lists them under Switch, after the asset groups", async () => {
+    const actionsFor = vi.fn((q: string) => (q === "deploy" ? [action()] : []));
+    render(
+      <SearchPalette open={true} scannedAt={scanned} onClose={() => {}} onPick={() => {}} actionsFor={actionsFor} />
+    );
+    fireEvent.change(screen.getByLabelText("Search assets"), { target: { value: "  deploy " } });
+    expect(actionsFor).toHaveBeenLastCalledWith("deploy");
+    await screen.findByText("deploy-helper");
+    const groups = Array.from(document.querySelectorAll("[cmdk-group]")).map((g) => g.getAttribute("aria-label"));
+    expect(groups).toEqual(["Skills", "Switch"]);
+    const option = screen.getByRole("option", { name: /Switch alpha off for Engine C/ });
+    expect(option.textContent).toContain("Engine C");
+  });
+
+  it("runs an action when it is picked", async () => {
+    const onRun = vi.fn();
+    const onPick = vi.fn();
+    render(
+      <SearchPalette
+        open={true}
+        scannedAt={scanned}
+        onClose={() => {}}
+        onPick={onPick}
+        actionsFor={(q) => (q ? [action({ onRun })] : [])}
+      />
+    );
+    fireEvent.change(screen.getByLabelText("Search assets"), { target: { value: "alpha" } });
+    fireEvent.click(await screen.findByRole("option", { name: /Switch alpha off/ }));
+    expect(onRun).toHaveBeenCalledTimes(1);
+    expect(onPick).not.toHaveBeenCalled();
+  });
+
+  it("does not say nothing matches while an action matches", async () => {
+    vi.mocked(invoke).mockImplementation(async () => ({ hits: [], total: 0 }));
+    render(
+      <SearchPalette
+        open={true}
+        scannedAt={scanned}
+        onClose={() => {}}
+        onPick={() => {}}
+        actionsFor={(q) => (q === "alpha" ? [action()] : [])}
+      />
+    );
+    fireEvent.change(screen.getByLabelText("Search assets"), { target: { value: "alpha" } });
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("search_assets", { query: "alpha", limit: 50 }));
+    await new Promise((r) => setTimeout(r, 20));
+    expect(screen.queryByText("Nothing matches “alpha”.")).toBeNull();
+    expect(screen.queryByText("Type to search names and what's inside.")).toBeNull();
+    expect(screen.getByRole("option", { name: /Switch alpha off/ })).toBeTruthy();
+  });
+
+  it("shows no hint while the search has not answered and an action already matches", () => {
+    vi.mocked(invoke).mockImplementation(() => new Promise(() => {}));
+    render(
+      <SearchPalette
+        open={true}
+        scannedAt={scanned}
+        onClose={() => {}}
+        onPick={() => {}}
+        actionsFor={(q) => (q === "alpha" ? [action()] : [])}
+      />
+    );
+    fireEvent.change(screen.getByLabelText("Search assets"), { target: { value: "alpha" } });
+    expect(screen.queryByText("Type to search names and what's inside.")).toBeNull();
+    expect(screen.getByRole("option", { name: /Switch alpha off/ })).toBeTruthy();
+  });
+
+  it("before the first scan there are no actions, and none are asked for", () => {
+    const actionsFor = vi.fn(() => [action()]);
+    render(
+      <SearchPalette open={true} scannedAt={null} onClose={() => {}} onPick={() => {}} actionsFor={actionsFor} />
+    );
+    fireEvent.change(screen.getByLabelText("Search assets"), { target: { value: "alpha" } });
+    expect(screen.getByText("Results show up here once the first scan finishes.")).toBeTruthy();
+    expect(screen.queryByRole("option")).toBeNull();
+    expect(actionsFor).not.toHaveBeenCalled();
+  });
+
+  it("an empty list of actions keeps the hint", () => {
+    render(
+      <SearchPalette open={true} scannedAt={scanned} onClose={() => {}} onPick={() => {}} actionsFor={() => []} />
+    );
+    expect(screen.getByText("Type to search names and what's inside.")).toBeTruthy();
+    expect(document.querySelector('[cmdk-group][aria-label="Switch"]')).toBeNull();
   });
 });
 

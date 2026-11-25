@@ -1704,7 +1704,7 @@ instead of through cmdk's `aria-hidden` heading slot (`:164-169`). Each row
 is now `h-[46px] px-3 rounded-pill flex flex-col justify-center gap-0.5
 cursor-pointer hover:bg-plane data-[selected=true]:bg-tint …` in place of the
 command-menu's `px-3.5 py-2.5 rounded-inner … data-[selected=true]:bg-plane`
-(`:176`); a selected row wins over a hovered one not because of the order the
+(hoisted as `rowClass`, which the Switch rows share); a selected row wins over a hovered one not because of the order the
 two classes are written in but because Tailwind's compiled output places the
 `[data-selected=true]` rule after the `:hover` rule for these two utilities
 (equal specificity otherwise) — confirmed by inspecting the built
@@ -1753,7 +1753,22 @@ for `"search"` and `"nearest"` otherwise (`AssetRow.tsx:163, 172`). As
 committed, the list carries three copy states: "Results show up here once
 the first scan finishes." before the first scan, "Type to search names and
 what's inside." for an empty query, and "Nothing matches “{q}”." for a query
-that answered empty (`SearchPalette.tsx:150-156`). The shell's cap no
+that answered empty (`SearchPalette.tsx:150-156`). **Switch actions** (Task
+A8): `SearchPalette` takes an optional `actionsFor(query)`, asks it with the
+trimmed query on every render once a scan has completed, and hands the
+result to the panel as `actions` (`PaletteAction`: `id`, `label`, `detail?`,
+`onRun`). The panel lists them as one more `Command.Group`, "Switch", after
+the asset groups, in the same heading div and `rowClass` row, the label in
+`text-base-app` and `detail` on the right in `captionClass` as a hit's place
+is. While any action is listed, neither the hint nor "Nothing matches" shows;
+before the first scan none are listed. App builds them: each open reads
+`get_engine_context` for every engine the Engines screen lists, once, and
+keeps the replies until close; a non-empty query yields the items with
+`read_only === null` whose name contains it, any case, at most eight,
+labelled `paletteActionLabel` with the engine name as `detail`. Picking one
+closes the palette and calls `useMcpSwitch`'s `switchServer` with the
+request the Engines pane's own button sends. Pinned by
+`SearchPalette.test.tsx` and `palette_switch_actions.test.tsx`. The shell's cap no
 longer carries a search field: its trailing-controls block runs straight
 from the breadcrumb to Rescan or the view control, with no input between
 them (`App.tsx:1619-1621`). The dialog panel itself is `SearchPalettePanel`
