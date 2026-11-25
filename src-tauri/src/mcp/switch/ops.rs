@@ -100,10 +100,9 @@ use crate::agents::engine_base;
 use crate::domain::RegistrationKey;
 use crate::mcp::dialect::strip_jsonc;
 use crate::mcp::discover::{discover_machine_at, engine_display_name, DiscoveryResult, Registration};
-use crate::mcp::engine_summary::is_askable;
 use crate::mcp::registry::{host_by_id, switch_for, Dialect, ScopeTier, SwitchKind, SWITCHES};
 use crate::mcp::switch::apply::{self, ApplyError, Format};
-use crate::mcp::switch::context::{self, ContextItem, EngineContext, ItemState, Measured};
+use crate::mcp::switch::context::{self, is_askable, ContextItem, EngineContext, ItemState, Measured};
 use crate::mcp::switch::edit::{self, EditError};
 use crate::mcp::switch::vendor::{self, StashedServer, SwitchError};
 
@@ -499,7 +498,7 @@ where
 /// time, and hand back the context those answers make.
 ///
 /// A server is asked only if it is on, declared in a file (a kept server is
-/// off), and can be asked anything at all (`engine_summary::is_askable`). A
+/// off), and can be asked anything at all (`context::is_askable`). A
 /// server that is off is never started. Each is asked through
 /// `crate::probe_and_index`, which is `cached_probe` and its two rules: a
 /// server with a fresh answer in the store is not started again, and a

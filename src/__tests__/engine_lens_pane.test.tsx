@@ -22,8 +22,7 @@ import EngineReachTiles, { type EngineReachInfo } from "../components/EngineReac
 import { engineBandFigures, MEASURE_ALL_CAPTION, readOnlyLine } from "../utils/switchCopy";
 import McpServerDetail, { type McpServerView } from "../components/McpServerDetail";
 import type { McpSwitch } from "../hooks/useMcpSwitch";
-import type { ContextItem, EngineContext, KeptOff } from "../types/engineContext";
-import type { McpEngineSummaryData } from "../types/mcpEngineSummary";
+import type { ContextItem, EngineContext, EngineListEntry, KeptOff } from "../types/engineContext";
 import type { McpServerRow } from "../utils/serverRows";
 
 const invoke = vi.fn();
@@ -87,21 +86,11 @@ const CLAUDE: EngineContext = {
   on_tokens_measured: 800,
 };
 
-const SUMMARY: McpEngineSummaryData = {
-  rows: [
-    { engine_id: "codex", engine_name: "Engine C", server_count: 4, tools_known: 17 },
-    { engine_id: "claude-code", engine_name: "Engine K", server_count: 1, tools_known: 2 },
-    { engine_id: "claude-desktop", engine_name: "Engine D", server_count: 1, tools_known: null },
-  ],
-  host_count: 3,
-  tools_known_total: 19,
-  total_server_count: 6,
-  answered_server_count: 3,
-  unasked_server_count: 3,
-  unaskable_server_count: 0,
-  conflicting_server_count: 0,
-};
-const ENGINES = SUMMARY.rows.map((r) => ({ engine_id: r.engine_id, engine_name: r.engine_name }));
+const ENGINES: EngineListEntry[] = [
+  { engine_id: "codex", engine_name: "Engine C" },
+  { engine_id: "claude-code", engine_name: "Engine K" },
+  { engine_id: "claude-desktop", engine_name: "Engine D" },
+];
 
 const KEPT: KeptOff = {
   servers: [
@@ -216,7 +205,6 @@ const props = (over: Partial<PaneProps> = {}): PaneProps => ({
     engines: { codex: 4, claude_code: 6 },
   } as any,
   mcpServers: SERVERS,
-  mcpEngineSummary: SUMMARY,
   serverGrouping: "server",
   serverSort: "name",
   mcpCoverage: { checked_file_count: 3, checked_engine_count: 3, checked_files: [], problems: [] },

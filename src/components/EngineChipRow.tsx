@@ -1,5 +1,5 @@
 import EngineLabel from "./EngineLabel";
-import type { EngineListEntry } from "../utils/enginesList";
+import type { EngineListEntry } from "../types/engineContext";
 
 // Needs review's plain chip row (NeedsReviewPane.tsx, `chipBaseClass` /
 // `chipPressedClass`) as the retired Engines tab drew it: a brand mark in
@@ -11,7 +11,8 @@ const chipPressedClass =
   "h-7 px-3.5 rounded-pill border border-transparent bg-tint text-tint-ink font-medium whitespace-nowrap inline-flex items-center gap-2 cursor-pointer transition-colors duration-nav ease-spring font-flex text-small";
 
 interface EngineChipRowProps {
-  /** `enginesList`'s answer, in its order. */
+  /** Every engine that has an MCP server, `get_engine_contexts`' list, in
+   *  its order. */
   engines: EngineListEntry[];
   /** The engine the list is seen by; `null` is All engines. */
   selected: string | null;

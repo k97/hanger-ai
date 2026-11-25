@@ -206,7 +206,7 @@ interface Props {
   switches?: Record<string, RegistrationSwitch>;
   /** The switch on that registration's row was clicked. */
   onSwitch?: (registrationKey: string) => void;
-  /** The engine ids Global's engine chips list (`enginesList`). A row whose
+  /** The engine ids Global's engine chips list (`get_engine_contexts`). A row whose
    *  `engineId` is one of them names its engine as a link that shows Global
    *  seen by it; any other row names it in plain text. */
   linkedEngines?: readonly string[];

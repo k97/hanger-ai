@@ -83,7 +83,7 @@ use serde::Serialize;
 
 use crate::domain::RegistrationKey;
 use crate::mcp::discover::{engine_display_name, DiscoveryResult, Registration};
-use crate::mcp::engine_summary::{is_askable, launch_key};
+use crate::mcp::probe::{cache_key, probe_launch, ProbeLaunch};
 use crate::mcp::registry::{
     host_by_id, switch_for, Dialect, ScopeTier, SourceLocation, SwitchKind, SOURCES, SWITCHES,
 };
@@ -178,7 +178,7 @@ pub struct EngineContext {
     pub measured_on_count: usize,
     /// The estimates of the items that are on and measured, summed, with a
     /// launch the engine declares in two files counted once: the engine
-    /// describes it to the model once (`engine_summary.rs`, `own_launches`).
+    /// describes it to the model once.
     /// MCP servers only.
     pub on_tokens_measured: u64,
 }
@@ -214,7 +214,7 @@ pub(crate) const STASH_KEY: &str = "stash:";
 ///   own file.
 /// - `probe_of`: a launch's `probe::cache_key` to what the probe cache holds
 ///   for it. Asked once for each launch, and never for a server that could
-///   not be asked anything (`engine_summary::is_askable`): every Claude.ai
+///   not be asked anything (`is_askable`): every Claude.ai
 ///   connector on a machine shares one key, and whatever sits under it is no
 ///   connector's answer.
 ///
@@ -296,6 +296,31 @@ where
         on_tokens_measured,
         items,
     }
+}
+
+/// Whether Hanger could ever ask this registration anything: the test
+/// `McpServerDetail`'s `nothingToAsk` applies in the webview
+/// (`isConnector || (command.trim().is_empty() && !isRemote)`), taken from
+/// `probe_launch`'s own decision. A `Dial` always has an endpoint to
+/// contact; a `Spawn` with an empty program has nothing to run, which is
+/// exactly a Claude.ai connector.
+pub(crate) fn is_askable(reg: &Registration) -> bool {
+    match probe_launch(&reg.server.command, &reg.server.args, &reg.server.transport) {
+        ProbeLaunch::Dial { .. } => true,
+        ProbeLaunch::Spawn { program, .. } => !program.trim().is_empty(),
+    }
+}
+
+/// `mcp::probe::cache_key` over one registration's own declaration: the
+/// exact key `cached_probe` reads and writes for it.
+pub(crate) fn launch_key(reg: &Registration) -> String {
+    cache_key(
+        &reg.server.command,
+        &reg.server.args,
+        &reg.server.env_keys,
+        reg.server.project_root.as_deref(),
+        &reg.server.transport,
+    )
 }
 
 /// Rules 1 to 4 of the module doc: a reason that holds whatever the engine's

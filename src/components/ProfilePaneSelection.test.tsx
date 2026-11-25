@@ -23,8 +23,8 @@ const inventory = {
 
 const base = { loading: false, onSelectAsset: vi.fn(), onLinkAsset: vi.fn() };
 
-/** One grouped server and a summary — the two things the strip's MCP mode is
- *  gated on (`mcpMode`, ProfilePane). Undeclared processes now reach the
+/** One grouped server and an engine list — the two things the strip's MCP
+ *  mode is gated on (`mcpMode`, ProfilePane). Undeclared processes now reach the
  *  screen through that mode's review pill rather than a banner of their own,
  *  so a fixture that does not enter it has nowhere to put them. */
 const grouped = [
@@ -39,17 +39,6 @@ const grouped = [
     registrations: ["/home/.claude.json:tauri"],
   },
 ];
-const summary = {
-  rows: [{ engine_id: "claude-code", engine_name: "Claude Code", server_count: 3, tools_known: 12 }],
-  host_count: 1,
-  tools_known_total: 12,
-  total_server_count: 3,
-  answered_server_count: 3,
-  unasked_server_count: 0,
-  unaskable_server_count: 0,
-  conflicting_server_count: 0,
-};
-
 const renderPane = (over: Partial<React.ComponentProps<typeof ProfilePane>> = {}) =>
   render(
     <ProfilePane
@@ -59,7 +48,7 @@ const renderPane = (over: Partial<React.ComponentProps<typeof ProfilePane>> = {}
       serverGrouping="server"
       serverSort="name"
       mcpServers={grouped as never}
-      mcpEngineSummary={summary as never}
+      engines={[]}
       {...over}
     />
   );

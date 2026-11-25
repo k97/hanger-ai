@@ -177,8 +177,8 @@ describe("ProfilePane Component-Level Filtering Integration", () => {
     expect(within(strip).getByRole("img", { name: "0 linked, 0 drifted, 0 broken, 1 local only" })).toBeTruthy();
   });
 
-  // MCP mode's own fixture: a grouped server list is what `mcpMode` is gated
-  // on, and the summary is what the subtitle and the band print.
+  // MCP mode's own fixture: a grouped server list and a landed engine list
+  // are what `mcpMode` is gated on.
   const mcpServers = [
     { name: "tauri", transport: "stdio", registration_count: 2, distinct_spec_count: 2, agreement: "Conflicting", aliased_with: [], plugin: null, registrations: ["/a:tauri", "/b:tauri"] },
     { name: "spades", transport: "stdio", registration_count: 1, distinct_spec_count: 1, agreement: "Consistent", aliased_with: [], plugin: null, registrations: ["/a:spades"] },
@@ -201,13 +201,7 @@ describe("ProfilePane Component-Level Filtering Integration", () => {
     );
 
   it("MCP servers with All engines: the store's subtitle, no tool-description total, and no By engine band", () => {
-    // Hyphenated ids throughout: these come from `engine_id` on the MCP
-    // summary, not from `assetCounts.engines`, whose keys are underscored.
-    const summary = { rows: [
-      { engine_id: "claude-code", engine_name: "Claude Code", server_count: 10, tools_known: 131 },
-      { engine_id: "claude-ai", engine_name: "Claude.ai", server_count: 7, tools_known: null },
-    ], host_count: 2, tools_known_total: 131, total_server_count: 17, answered_server_count: 10, unasked_server_count: 0, unaskable_server_count: 7, conflicting_server_count: 0 };
-    renderMcp({ mcpEngineSummary: summary });
+    renderMcp({ engines: [] });
     // MCP mode's subtitle went with the engine lens; the strip is every tab's.
     expect(screen.getByText("MCP servers in the global store · 0 engines")).toBeTruthy();
     expect(screen.queryByText(/tool descriptions across/)).toBeNull();
@@ -219,15 +213,13 @@ describe("ProfilePane Component-Level Filtering Integration", () => {
   });
 
   it("MCP servers with nothing ever probed: the subtitle states no total", () => {
-    const summary = { rows: [{ engine_id: "codex", engine_name: "Codex", server_count: 1, tools_known: null }], host_count: 1, tools_known_total: null, total_server_count: 1, answered_server_count: 0, unasked_server_count: 1, unaskable_server_count: 0, conflicting_server_count: 0 };
-    renderMcp({ mcpEngineSummary: summary });
+    renderMcp({ engines: [] });
     expect(screen.getByText("MCP servers in the global store · 0 engines")).toBeTruthy();
     expect(screen.queryByText(/across/)).toBeNull();
   });
 
   it("the pill's popover names the disagreeing server and its action filters the list", () => {
-    const summary = { rows: [{ engine_id: "claude-code", engine_name: "Claude Code", server_count: 2, tools_known: 4 }], host_count: 1, tools_known_total: 4, total_server_count: 3, answered_server_count: 1, unasked_server_count: 2, unaskable_server_count: 0, conflicting_server_count: 1 };
-    renderMcp({ mcpEngineSummary: summary });
+    renderMcp({ engines: [] });
     const strip = screen.getByLabelText("Inventory summary");
     expect(strip.querySelector(".text-display")?.textContent).toBe("2");
     fireEvent.click(within(strip).getByText("Needs review 1"));
@@ -245,8 +237,7 @@ describe("ProfilePane Component-Level Filtering Integration", () => {
       { name: "tauri", transport: "stdio", registration_count: 2, distinct_spec_count: 2, agreement: "Conflicting", aliased_with: [], plugin: null, registrations: ["/a:tauri", "/b:tauri"], tool_count: null },
       { name: "spades", transport: "stdio", registration_count: 1, distinct_spec_count: 1, agreement: "Consistent", aliased_with: [], plugin: null, registrations: ["/a:spades"], tool_count: 7 },
     ];
-    const summary = { rows: [{ engine_id: "claude-code", engine_name: "Claude Code", server_count: 2, tools_known: 4 }], host_count: 1, tools_known_total: 4, total_server_count: 3, answered_server_count: 1, unasked_server_count: 2, unaskable_server_count: 0, conflicting_server_count: 1 };
-    render(<ProfilePane inventory={mockInventory} assetCounts={counts} mcpServers={mcpServers as never} serverGrouping="server" serverSort="name" mcpEngineSummary={summary} mcpCoverage={{ checked_file_count: 16, checked_engine_count: 2, checked_files: [], problems: [] }} loading={false} onSelectAsset={vi.fn()} onLinkAsset={vi.fn()} />);
+    render(<ProfilePane inventory={mockInventory} assetCounts={counts} mcpServers={mcpServers as never} serverGrouping="server" serverSort="name" engines={[]} mcpCoverage={{ checked_file_count: 16, checked_engine_count: 2, checked_files: [], problems: [] }} loading={false} onSelectAsset={vi.fn()} onLinkAsset={vi.fn()} />);
     fireEvent.click(screen.getAllByText("MCP servers").find((el) => el.closest("[tabindex]"))!.closest("[tabindex]")!);
     const spadesRow = screen.getByText("spades").closest("[data-selected]") as HTMLElement;
     expect(within(spadesRow).getByText("7 tools")).toBeTruthy();
@@ -255,8 +246,7 @@ describe("ProfilePane Component-Level Filtering Integration", () => {
   });
 
   it("clears the Review filter when the category changes, so it never carries back to Tools", () => {
-    const summary = { rows: [{ engine_id: "claude-code", engine_name: "Claude Code", server_count: 2, tools_known: 4 }], host_count: 1, tools_known_total: 4, total_server_count: 3, answered_server_count: 1, unasked_server_count: 2, unaskable_server_count: 0, conflicting_server_count: 1 };
-    renderMcp({ mcpEngineSummary: summary, selectedCategory: undefined });
+    renderMcp({ engines: [], selectedCategory: undefined });
     const card = (label: string) =>
       screen.getAllByText(label).find((el) => el.closest("[tabindex]"))!.closest("[tabindex]")!;
     const strip = () => screen.getByLabelText("Inventory summary");
@@ -364,7 +354,7 @@ describe("ProfilePane Component-Level Filtering Integration", () => {
   it("undeclared processes reach the pill on a Global tab that is not MCP servers", () => {
     // The banner they replace was gated on `unaccounted.length > 0` alone.
     // `mcpMode` is four conditions, so gating the lines on it hid them on
-    // every other tab AND on Tools whenever `mcpEngineSummary` was null.
+    // every other tab AND on Tools whenever the engine list was null.
     render(
       <ProfilePane
         inventory={mockInventory}

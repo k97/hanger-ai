@@ -26,10 +26,9 @@ import {
   NOT_MEASURED_FIGURE,
   switchedLine,
 } from "../utils/switchCopy";
-import type { EngineContext, ItemState, ReadOnlyReason } from "../types/engineContext";
+import type { EngineContext, EngineListEntry, ItemState, ReadOnlyReason } from "../types/engineContext";
 import type { EngineStripFigures } from "../components/SummaryStrip";
 import { TAB_LABELS } from "../components/CategoryFilterCards";
-import type { EngineListEntry } from "../utils/enginesList";
 import type { NotLoadedRow } from "../components/NotLoadedGroup";
 import { missTitle } from "../components/ReachCard";
 
@@ -209,7 +208,7 @@ export const SAMPLE_ENGINE_BAND_ROWS: HeroBandRow[] = [
   { key: "none", engineKey: "none", engineName: "Any agent", value: 1, word: "asset" },
 ];
 
-/** The engine chip row's engines, in `enginesList`'s order. */
+/** The engine chip row's engines, in `get_engine_contexts`' order. */
 export const SAMPLE_ENGINES: EngineListEntry[] = [
   { engine_id: "claude-code", engine_name: "Claude Code" },
   { engine_id: "codex", engine_name: "Codex" },

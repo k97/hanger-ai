@@ -223,8 +223,8 @@ fn dialect_for_swept(path: &Path) -> dialect::Dialect {
 /// its `engine` field the same way `scanner.rs` already resolves the same
 /// table for `Tool` rows.
 ///
-/// `pub(crate)`: `mcp::engine_summary` resolves a row's `engine_name` the
-/// same way, and a second copy of this lookup is exactly the drift
+/// `pub(crate)`: `mcp::switch` resolves an engine's `engine_name` the same
+/// way, and a second copy of this lookup is exactly the drift
 /// `invariants.md` warns about for the redactors — one place, not two.
 pub(crate) fn engine_display_name(host_id: &str) -> String {
     crate::mcp::registry::host_by_id(host_id)

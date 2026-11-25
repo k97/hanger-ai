@@ -12,7 +12,6 @@ import { render, screen, fireEvent, waitFor, cleanup, act, within } from "@testi
 import App from "../App";
 import { invoke } from "@tauri-apps/api/core";
 import type { ContextItem, EngineContext, KeptOff } from "../types/engineContext";
-import type { McpEngineSummaryData } from "../types/mcpEngineSummary";
 
 vi.mock("@tauri-apps/plugin-log", () => ({
   warn: vi.fn(),
@@ -36,17 +35,6 @@ vi.mock("@tauri-apps/api/event", () => ({
 }));
 
 const STASH = "stash:00000000-0000-4000-8000-000000000001";
-
-const SUMMARY: McpEngineSummaryData = {
-  rows: [{ engine_id: "codex", engine_name: "Engine C", server_count: 1, tools_known: null }],
-  host_count: 1,
-  tools_known_total: null,
-  total_server_count: 1,
-  answered_server_count: 0,
-  unasked_server_count: 1,
-  unaskable_server_count: 0,
-  conflicting_server_count: 0,
-};
 
 const KEPT: KeptOff = {
   servers: [
@@ -131,7 +119,6 @@ vi.mock("@tauri-apps/api/core", () => ({
     }
     if (cmd === "get_linked_directories") return [];
     if (cmd === "get_asset_counts") return { total: 1, byCategory: { tool: { global: 1 } }, engines: {} };
-    if (cmd === "get_mcp_engine_summary") return SUMMARY;
     if (cmd === "get_kept_off_servers") return keptReply;
     if (cmd === "get_engine_context") return contextOf(args.engineId, ITEMS[args.engineId] ?? []);
     if (cmd === "get_engine_contexts") return ["codex", "claude-code"].map((id) => contextOf(id, ITEMS[id]));

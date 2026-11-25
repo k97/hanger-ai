@@ -13,7 +13,6 @@ import { render, screen, fireEvent, waitFor, cleanup, act, within } from "@testi
 import App from "../App";
 import { invoke } from "@tauri-apps/api/core";
 import type { ContextItem, EngineContext, KeptOff } from "../types/engineContext";
-import type { McpEngineSummaryData } from "../types/mcpEngineSummary";
 
 vi.mock("@tauri-apps/plugin-log", () => ({
   warn: vi.fn(),
@@ -36,22 +35,8 @@ vi.mock("@tauri-apps/api/event", () => ({
   }),
 }));
 
-const SUMMARY: McpEngineSummaryData = {
-  rows: [
-    { engine_id: "codex", engine_name: "Engine C", server_count: 2, tools_known: null },
-    { engine_id: "gemini", engine_name: "Engine G", server_count: 1, tools_known: null },
-  ],
-  host_count: 2,
-  tools_known_total: null,
-  total_server_count: 3,
-  answered_server_count: 0,
-  unasked_server_count: 3,
-  unaskable_server_count: 0,
-  conflicting_server_count: 0,
-};
-
-/** Every server Engine K declares is switched off and kept, so the summary
- *  has no row for it: the chips must still reach it (P8). */
+/** Every server Engine K declares is switched off and kept, so it is listed
+ *  last, for its kept server alone: the chips must still reach it (P8). */
 const KEPT: KeptOff = {
   servers: [
     {
@@ -144,7 +129,6 @@ vi.mock("@tauri-apps/api/core", () => ({
     if (cmd === "get_linked_directories") return [];
     if (cmd === "get_asset_counts") return { total: 0, byCategory: {}, engines: {} };
     if (cmd === "get_asset_annotations") return ANNOTATIONS;
-    if (cmd === "get_mcp_engine_summary") return SUMMARY;
     if (cmd === "get_kept_off_servers") return KEPT;
     if (cmd === "get_engine_context") return contextOf(args.engineId, NAMES[args.engineId] ?? args.engineId);
     if (cmd === "get_engine_contexts") return ["codex", "gemini", "claude-code"].map((id) => contextOf(id, NAMES[id]));
@@ -248,7 +232,7 @@ describe("Global has no Engines tab", () => {
 });
 
 describe("the engine chips", () => {
-  it("lead with All engines, then the summary's engines and one reachable only through its kept servers", async () => {
+  it("lead with All engines, then every engine get_engine_contexts lists, in its order", async () => {
     render(<App />);
     await completeScan();
     await waitFor(() =>

@@ -70,7 +70,6 @@ const DesignSystemSidebar = import.meta.env.DEV
   : null;
 import NeedsReviewPane from "./components/NeedsReviewPane";
 import ReviewSidebar from "./components/ReviewSidebar";
-import { enginesList } from "./utils/enginesList";
 import ReviewInspector from "./components/ReviewInspector";
 import LinkMapPane from "./components/LinkMapPane";
 import ScanStamp from "./components/ScanStamp";
@@ -94,7 +93,6 @@ import {
 } from "./utils/inspectorLayout";
 import { unaccountedProcesses, type ProcessMatch } from "./utils/mcpServerView";
 import type { McpServerRow } from "./utils/serverRows";
-import type { McpEngineSummaryData } from "./types/mcpEngineSummary";
 import type { EngineContext, KeptOff } from "./types/engineContext";
 import { paletteActionLabel } from "./utils/switchCopy";
 import { declaredNamed, switchRequestFor, switchableNamed } from "./utils/switchTargets";
@@ -312,12 +310,6 @@ export default function App() {
   // and (since it never could) no longer takes this value as a prop at all
   // — removed along with its inert View control.
   const [mcpServers, setMcpServers] = useState<McpServerRow[] | null>(null);
-  // `get_mcp_engine_summary`'s answer, refetched alongside `mcpServers` and
-  // `mcpCoverage` on every scan (same reason as both: a fresh answer per
-  // scan, not a cached one). ProfilePane's strip reads this for MCP mode —
-  // Flyout.tsx fetches its own copy locally rather than reading this one,
-  // the same division of labour `mcpCoverage`'s doc comment describes.
-  const [mcpEngineSummary, setMcpEngineSummary] = useState<McpEngineSummaryData | null>(null);
   // The View control's own state — grouping and sort for the MCP section,
   // shared between both panes the way sortField/sortDirection already are.
   // "server" and "attention" are the signed-off defaults (2026-08-18).
@@ -714,17 +706,6 @@ export default function App() {
     }
   };
 
-  // Same re-derive-from-disk pattern as `refreshMcpCoverage` above — the
-  // strip's MCP mode reads this for probe coverage and the conflicting-server
-  // figure the Review pill filters on.
-  const refreshMcpEngineSummary = async () => {
-    try {
-      setMcpEngineSummary(await invoke<McpEngineSummaryData>("get_mcp_engine_summary"));
-    } catch {
-      setMcpEngineSummary(null);
-    }
-  };
-
   // Re-fetch counts when the grouping choice changes so the chip agrees with
   // the rows immediately, not just after the next scan. Skips the mount
   // render — `refreshGlobalCounts` already runs once scan://complete fires,
@@ -842,7 +823,6 @@ export default function App() {
         await refreshAnnotations();
         await refreshMcpServers();
         await refreshMcpCoverage();
-        await refreshMcpEngineSummary();
         await refreshKeptOff();
         await refreshEngineContexts();
 
@@ -1033,10 +1013,9 @@ export default function App() {
 
   // The servers Hanger is keeping while they are switched off for an engine
   // that switches by removing them (docs/ipc.md entry 19). No config file
-  // declares them, so no other read returns them. Same re-derive-per-scan
-  // pattern as `refreshMcpEngineSummary`, and called right after it. The
-  // Engines tab's chips read it, and so does the MCP servers list's
-  // "Switched off" group.
+  // declares them, so no other read returns them. Re-read on every scan,
+  // after the MCP servers list. The MCP servers list's "Switched off" group
+  // reads it.
   const [keptOff, setKeptOff] = useState<KeptOff | null>(null);
   const refreshKeptOff = async () => {
     try {
@@ -1084,13 +1063,14 @@ export default function App() {
   });
 
   // The engine Global is seen by (docs/plans/2026-11-25-ia-global-by-engine.md).
-  // Its chips are every engine that declares an MCP server plus any whose
-  // servers Hanger is keeping off (P8); the selection is the stored
+  // Its chips are the engines `get_engine_contexts` lists: every engine that
+  // declares an MCP server, then one whose servers Hanger is keeping off and
+  // that declares none (P8). The selection is the stored
   // `selected_engine` when it is in that list, otherwise All engines (`null`),
   // so a stale preference never filters by an engine the list cannot show.
   // Persisted on every pick, All engines as "" (Q2).
   const [storedEngine, setStoredEngine] = useState<string | null>(null);
-  const engineRows = enginesList(mcpEngineSummary, keptOff);
+  const engineRows = engineContexts;
   const selectedEngine = engineRows?.find((e) => e.engine_id === storedEngine)?.engine_id ?? null;
   const selectedEngineName = engineRows?.find((e) => e.engine_id === selectedEngine)?.engine_name ?? null;
   const selectEngine = (engineId: string | null) => {
@@ -1098,12 +1078,9 @@ export default function App() {
     invoke("set_preference", { key: "selected_engine", value: engineId ?? "" }).catch(() => {});
   };
 
-  // Each listed engine's context, in the chips' order, from the one copy.
-  // Until the first read lands, no tile switches and ⌘K offers no Switch
-  // action.
-  const listedContexts = (engineRows ?? []).flatMap(
-    (e) => engineContexts?.find((c) => c.engine_id === e.engine_id) ?? []
-  );
+  // Until the first read of the contexts lands, no tile switches and ⌘K
+  // offers no Switch action.
+  const listedContexts = engineContexts ?? [];
 
   /** The servers a query names that Hanger can switch, at most eight. Each
    *  runs the switch the Engines pane's own button would, with the same
@@ -2130,7 +2107,6 @@ export default function App() {
               onReview={routeToReview}
               unaccountedProcesses={unaccountedProcesses(mcpProcesses ?? undefined)}
               mcpServers={mcpServers}
-              mcpEngineSummary={mcpEngineSummary}
               serverGrouping={serverGrouping}
               serverSort={serverSort}
               onServerGroupingChange={handleServerGroupingChange}

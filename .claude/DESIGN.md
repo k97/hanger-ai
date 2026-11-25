@@ -698,7 +698,7 @@ rather than swapping views.
 route out; `keptOff?` / `onOpenKeptOff?` for the "Switched off" group; and,
 since the engine lens (Phase 1 of
 `docs/plans/2026-11-25-ia-global-by-engine.md`), `engines?` (App's
-`enginesList` rows), `selectedEngine?` (an MCP host id, `null` for All
+`get_engine_contexts` list), `selectedEngine?` (an MCP host id, `null` for All
 engines) and `onSelectEngine?`. There is no Engines tab and no `GlobalTab`
 type any more: `selectedCategory` / `onCategoryChange` carry a
 `CategoryType`. App reads a tab from a `global:<tab>` route, and a tab chosen
@@ -881,8 +881,7 @@ sum made here.
 The MCP mode had lost its meter on 2026-08-28 (§1): a `GelMeter` of
 answered / not yet asked / can't be asked, which said whether Hanger had
 asked each server rather than whether anything was up. The four coverage
-counts remain backend fields (`src/types/mcpEngineSummary.ts`); nothing on
-screen reads them.
+counts went with `get_mcp_engine_summary` on 2026-11-25.
 
 **The band is what the per-engine prose became, on a project pane.**
 `HeroBand` (Surfaces and controls, below) renders in the strip's `children`
@@ -1350,7 +1349,7 @@ eyebrows.
   engine's first reply draw nothing new. The host name is a link that shows
   Global seen by that engine, on the tab already open (`onOpenEngine`, App's
   `openEngine`), when the row's `engineId` is one the engine chips list
-  (`linkedEngines`, App's `enginesList` ids, carried by
+  (`linkedEngines`, the ids of App's `get_engine_contexts` list, carried by
   `Flyout`): a text button, underlined on hover on the name inside the
   `EngineLabel`. Any other row names its host in plain text. `Flyout` reads
   App's one copy of the contexts (`engineContexts`, from `get_engine_contexts`

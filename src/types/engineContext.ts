@@ -93,6 +93,12 @@ export interface EngineContext {
 }
 
 /**
+ * One of Global's engine chips: an engine's id and the backend's name for it.
+ * Every `EngineContext` is one; the chips are `get_engine_contexts`' list.
+ */
+export type EngineListEntry = Pick<EngineContext, "engine_id" | "engine_name">;
+
+/**
  * The reply to a switch or an Undo. A switch that found the server already
  * as asked changed nothing, and has no receipt.
  */

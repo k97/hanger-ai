@@ -10,7 +10,6 @@ import { render, screen, fireEvent, waitFor, cleanup, act, within } from "@testi
 import App from "../App";
 import { invoke } from "@tauri-apps/api/core";
 import type { ContextItem, EngineContext } from "../types/engineContext";
-import type { McpEngineSummaryData } from "../types/mcpEngineSummary";
 
 vi.mock("@tauri-apps/plugin-log", () => ({
   warn: vi.fn(),
@@ -36,17 +35,6 @@ vi.mock("@tauri-apps/api/event", () => ({
 
 const FILE = "/Users/demo/.codex/config.toml";
 const KEY = `${FILE}:alpha`;
-
-const SUMMARY: McpEngineSummaryData = {
-  rows: [{ engine_id: "codex", engine_name: "Engine C", server_count: 1, tools_known: null }],
-  host_count: 1,
-  tools_known_total: null,
-  total_server_count: 1,
-  answered_server_count: 0,
-  unasked_server_count: 1,
-  unaskable_server_count: 0,
-  conflicting_server_count: 0,
-};
 
 const TOOL = {
   id: KEY,
@@ -89,7 +77,6 @@ vi.mock("@tauri-apps/api/core", () => ({
     if (cmd === "set_preference") return null;
     if (cmd === "get_linked_directories") return [];
     if (cmd === "get_asset_counts") return { total: 1, byCategory: { tool: { global: 1 } }, engines: {} };
-    if (cmd === "get_mcp_engine_summary") return SUMMARY;
     if (cmd === "get_kept_off_servers") return { servers: [], count: 0, only_kept_count: 0 };
     if (cmd === "get_asset_annotations")
       return [

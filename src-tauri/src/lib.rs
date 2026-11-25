@@ -970,10 +970,8 @@ fn get_mcp_servers(app: AppHandle) -> Result<Vec<crate::mcp::servers::McpServerR
 /// swap here cannot race a concurrent test that reads `get_home_dir()`
 /// through some other path, which an earlier version of this test did.
 ///
-/// `probe_of` is the same division of labour `mcp_engine_summary_for` uses
-/// for the empty inspector's per-engine summary: the probe cache lookup is a
-/// parameter, so a test can hand it a fixture `HashMap` instead of a
-/// database. `apply_tool_counts` (`mcp::servers`) does the actual grouping
+/// `probe_of` is the probe cache lookup, a parameter so a test can hand it a
+/// fixture `HashMap` instead of a database. `apply_tool_counts` (`mcp::servers`) does the actual grouping
 /// and the Conflicting-row exclusion — this only wires the two populations
 /// (the rows, and the registrations they were built from) together.
 fn mcp_server_rows_for<F>(home: &std::path::Path, probe_of: F) -> Vec<crate::mcp::servers::McpServerRow>
@@ -1009,12 +1007,8 @@ where
 /// from; skipping it put a Local row on screen under a header that did not
 /// count it.
 ///
-/// Both surfaces under that header read through here — the server list
-/// (`mcp_server_rows_for`) and the empty inspector's per-engine summary
-/// (`mcp_engine_summary_for`). They used to disagree: the list filtered and
-/// the summary did not, so the summary's total counted (host, server name)
-/// pairs the adjacent list would never show, with nothing on screen
-/// explaining the difference.
+/// The server list (`mcp_server_rows_for`) reads through here. An engine's
+/// context leaves the same tier out (`mcp::switch::context`).
 fn machine_wide(
     registrations: &[crate::mcp::discover::Registration],
 ) -> Vec<crate::mcp::discover::Registration> {
@@ -1673,50 +1667,6 @@ fn get_mcp_coverage() -> Result<mcp::discover::McpCoverage, String> {
     Ok(mcp::discover::coverage(&discovered, &detected))
 }
 
-/// Task 15's empty inspector: one row per host that registers at least one
-/// server, what it registers, and what is known of what it exposes.
-///
-/// Population is every host `discover_machine` finds a registration for —
-/// NOT `get_global_agents()`'s detected-engine set. Fix round 1
-/// (2026-08-20) ruled out the detected-engine restriction this command
-/// shipped with originally: it silently dropped every MCP-only host
-/// (Claude Desktop, Cursor, VS Code, Claude.ai, Devin Desktop) from a
-/// machine that had real registrations under them. `mcp::engine_summary`'s
-/// own doc comment carries the full reasoning; this command no longer
-/// builds a `detected` set at all.
-///
-/// The probe half reads `preferences::get_probe_result` per distinct
-/// launch, which is the same cache `mcp_cached_probe` reads and writes —
-/// this command starts no probe of its own, so most launches on a real
-/// machine answer `None` here, by construction. `(async)`: same
-/// filesystem-bound reasoning as `get_mcp_coverage`.
-#[tauri::command(async)]
-fn get_mcp_engine_summary(app: AppHandle) -> Result<mcp::engine_summary::McpEngineSummary, String> {
-    let db_path = get_db_path(&app);
-    Ok(mcp_engine_summary_for(&scanner::get_home_dir(), |key| {
-        preferences::get_probe_result(&db_path, key)
-            .ok()
-            .flatten()
-            .map(|cached| cached.result.tools.len())
-    }))
-}
-
-/// `get_mcp_engine_summary`'s testable core, the same division of labour
-/// `mcp_server_rows_for` uses for the server list: `home` and the probe
-/// lookup are parameters, so a test can hand it a fixture home and an empty
-/// cache instead of a database and a process-global env var.
-fn mcp_engine_summary_for<F>(
-    home: &std::path::Path,
-    probe_of: F,
-) -> mcp::engine_summary::McpEngineSummary
-where
-    F: FnMut(&str) -> Option<usize>,
-{
-    let mut discovered = mcp::discover::discover_machine(home);
-    discovered.registrations = machine_wide(&discovered.registrations);
-    mcp::engine_summary::engine_summary(&discovered, probe_of)
-}
-
 /// Appendix A.2's "Checked {n} locations" figure and its `[Show locations]`
 /// disclosure. `agents::known_engine_locations()` is pure registry data
 /// (home-relative, no I/O by that module's own contract); the home-join and
@@ -2278,7 +2228,6 @@ pub fn run() {
             get_mcp_processes,
             get_mcp_servers,
             get_mcp_coverage,
-            get_mcp_engine_summary,
             get_engine_context,
             get_engine_contexts,
             set_mcp_server_enabled,
@@ -2662,38 +2611,6 @@ mod get_mcp_servers_tests {
         assert_eq!(
             tauri.registration_count, 1,
             "the Local registration explains the row; it does not join it"
-        );
-    }
-
-    /// m1, settled with the same decision: the empty inspector's per-engine
-    /// summary sits beside this list under the same header and read a
-    /// DIFFERENT population — `get_mcp_engine_summary` passed
-    /// `discover_machine`'s output unfiltered, so its total counted (host,
-    /// server name) pairs the adjacent list will never show, with nothing on
-    /// screen to explain the difference. The fixture's `repo-local` and
-    /// `stray` are exactly that shape: Local-tier, and declared at no wider
-    /// tier anywhere.
-    #[test]
-    fn the_engine_summary_counts_the_same_population_the_list_shows() {
-        let fixture = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("tests/fixtures/mcp_home");
-
-        let summary = super::mcp_engine_summary_for(&fixture, |_| None);
-        let claude_code = summary
-            .rows
-            .iter()
-            .find(|r| r.engine_id == "claude-code")
-            .expect("the fixture's claude-code registrations must produce a row");
-
-        // claude-code's distinct names in this fixture: spades-audio,
-        // chrome-devtools and tauri from `.claude.json`'s user-scope
-        // `mcpServers`, spades-audio again from `.claude/mcp.json` (one
-        // name, counted once), and github + context7 from the plugin
-        // marketplace. `repo-local` and `stray` are the two Local-tier
-        // names, and are the whole difference between this figure and 7.
-        assert_eq!(
-            claude_code.server_count, 5,
-            "a project-pinned server is not part of what this machine carries by default"
         );
     }
 

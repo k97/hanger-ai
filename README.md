@@ -105,7 +105,7 @@ graph TD
 
 <!-- hanger:ipc:start -->
 
-The webview reaches the Rust core through 48 Tauri commands and three events.
+The webview reaches the Rust core through 47 Tauri commands and three events.
 
 <!-- hanger:ipc:end -->
 
@@ -159,7 +159,7 @@ gitleaks detect --source .      # and --no-git -c .gitleaks.toml
 
 <!-- hanger:tests:start -->
 
-158 frontend test files under `src/`, and 48 Rust integration test files under `src-tauri/tests/`.
+157 frontend test files under `src/`, and 47 Rust integration test files under `src-tauri/tests/`.
 
 <!-- hanger:tests:end -->
 

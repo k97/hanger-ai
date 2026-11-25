@@ -35,12 +35,10 @@ import { ScanStatusIndicator } from "./ScanStatusIndicator";
 import EmptyState from "./EmptyState";
 import { annotationStateCounts, linkStateCounts, matchesStateFilter, StateFilter } from "../utils/linkStateCounts";
 import { categoryNoun, joinNames, joinNamesTruncated } from "../utils/prose";
-import type { McpEngineSummaryData } from "../types/mcpEngineSummary";
-import type { EngineContext, KeptOff } from "../types/engineContext";
+import type { EngineContext, EngineListEntry, KeptOff } from "../types/engineContext";
 import type { EngineReachInfo, TileSwitch } from "./EngineReachTiles";
 import { busyKeyOf, type McpSwitch } from "../hooks/useMcpSwitch";
 import { switchRequestFor, tileTarget, type SwitchTarget } from "../utils/switchTargets";
-import type { EngineListEntry } from "../utils/enginesList";
 import {
   costLabel,
   engineBandFigures,
@@ -120,8 +118,8 @@ interface ProfilePaneProps {
    *  when it changes. Without this the shell cannot know the user is looking
    *  at Tools, and anything it fetches lazily for that view never fires. */
   onCategoryChange?: (category: CategoryType | null) => void;
-  /** The engines the chip row offers (`enginesList`, App's `engineRows`):
-   *  `null` until the replies it is built from land. */
+  /** The engines the chip row offers (App's `engineRows`, every engine
+   *  `get_engine_contexts` lists): `null` until that reply lands. */
   engines?: EngineListEntry[] | null;
   /** The engine Global is seen by, an MCP host id (`EngineContext.engine_id`);
    *  `null` is All engines. App's `selected_engine` (Phase 1 of
@@ -137,11 +135,6 @@ interface ProfilePaneProps {
    *  section falls back to per-registration rows until it does, so a scan
    *  never flashes an empty list waiting on a second IPC round trip. */
   mcpServers?: McpServerRow[] | null;
-  /** `get_mcp_engine_summary`'s answer, fetched once in App.tsx and refreshed
-   *  alongside `mcpCoverage` on every scan. Present and grouped rows in view
-   *  together switch the strip to MCP mode — probe coverage instead of link
-   *  state, with a Review pill that filters to conflicting servers. */
-  mcpEngineSummary?: McpEngineSummaryData | null;
   /** The global store's own review issues — what the Needs review pill lists
    *  on every tab but MCP servers. Already narrowed to the selected category
    *  by App, so the pill's count follows the tab. */
@@ -423,7 +416,6 @@ export default function ProfilePane({
   onCategoryChange,
   unaccountedProcesses,
   mcpServers,
-  mcpEngineSummary = null,
   issues = [],
   onReview,
   serverGrouping: propServerGrouping,
@@ -698,8 +690,9 @@ export default function ProfilePane({
      engine mode, below.
 
      Gated on a grouped row existing to point the Review pill's filter at —
-     a per-registration view has no `agreement` verdict to filter on. */
-  const mcpMode = selectedCategory === "Tools" && mcpEngineSummary !== null && useGroupedTools;
+     a per-registration view has no `agreement` verdict to filter on — and on
+     the engine list having landed, as it was on the retired engine summary. */
+  const mcpMode = selectedCategory === "Tools" && engines !== null && useGroupedTools;
 
   // Identity set for the selected category's own rows — the same keys
   // `annotationFor` uses (path for everything but Tools, `registrationKey`
@@ -786,7 +779,7 @@ export default function ProfilePane({
   /* The processes nothing on disk accounts for. They belong to every Global
      tab, not just MCP servers: the banner they replace was gated on
      `unaccounted.length > 0` alone, while `mcpMode` is four conditions — a
-     null `mcpEngineSummary` would have hidden them on the correct tab. Built
+     null engine list would have hidden them on the correct tab. Built
      once and appended to whichever pill is showing (coordinator review,
      2026-08-28, finding 5).
 

@@ -10,7 +10,6 @@ import { render, screen, fireEvent, waitFor, cleanup, act, within } from "@testi
 import App from "../App";
 import { invoke } from "@tauri-apps/api/core";
 import type { ContextItem, EngineContext, KeptOff } from "../types/engineContext";
-import type { McpEngineSummaryData } from "../types/mcpEngineSummary";
 import type { SwitchRequest } from "../hooks/useMcpSwitch";
 
 vi.mock("@tauri-apps/plugin-log", () => ({
@@ -53,20 +52,6 @@ vi.mock("../hooks/useMcpSwitch", async (importOriginal) => {
     },
   };
 });
-
-const SUMMARY: McpEngineSummaryData = {
-  rows: [
-    { engine_id: "codex", engine_name: "Engine C", server_count: 3, tools_known: null },
-    { engine_id: "gemini", engine_name: "Engine G", server_count: 1, tools_known: null },
-  ],
-  host_count: 2,
-  tools_known_total: null,
-  total_server_count: 4,
-  answered_server_count: 0,
-  unasked_server_count: 4,
-  unaskable_server_count: 0,
-  conflicting_server_count: 0,
-};
 
 /** Engine K is reachable only through its kept server (P8). */
 const KEPT: KeptOff = {
@@ -135,7 +120,6 @@ vi.mock("@tauri-apps/api/core", () => ({
     if (cmd === "get_linked_directories") return [];
     if (cmd === "get_asset_counts") return { total: 0, byCategory: {}, engines: {} };
     if (cmd === "get_asset_annotations") return ANNOTATIONS;
-    if (cmd === "get_mcp_engine_summary") return SUMMARY;
     if (cmd === "get_kept_off_servers") return KEPT;
     if (cmd === "get_engine_context") return contexts[args.engineId] ?? context(args.engineId, args.engineId, []);
     if (cmd === "get_engine_contexts") return ["codex", "gemini", "claude-code"].map((id) => contexts[id]);

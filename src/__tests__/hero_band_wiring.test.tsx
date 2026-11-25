@@ -45,13 +45,6 @@ const inventory = {
   project_scans: [{ path: "/Users/test/repo", layered: false, rule_chains: {}, parse_warnings: [] }],
 };
 
-const engineSummary = {
-  rows: [{ engine_id: "claude-code", engine_name: "Claude Code", server_count: 1, tools_known: 7 }],
-  host_count: 1, tools_known_total: 7, total_server_count: 1,
-  answered_server_count: 1, unasked_server_count: 0, unaskable_server_count: 0,
-  conflicting_server_count: 0,
-};
-
 const serverRow = {
   name: "tauri", transport: "stdio", registration_count: 1, distinct_spec_count: 1,
   agreement: "Consistent", aliased_with: [], plugin: null,
@@ -80,7 +73,7 @@ vi.mock("@tauri-apps/api/core", () => ({
     if (cmd === "get_detected_engines") return [];
     if (cmd === "get_known_engines") return [];
     if (cmd === "get_mcp_servers") return [serverRow];
-    if (cmd === "get_mcp_engine_summary") return engineSummary;
+    if (cmd === "get_engine_contexts") return [];
     if (cmd === "get_mcp_coverage") return { checked_file_count: 1, checked_engine_count: 1, checked_files: [], problems: [] };
     if (cmd === "get_mcp_processes") return [];
     if (cmd === "start_scan") {

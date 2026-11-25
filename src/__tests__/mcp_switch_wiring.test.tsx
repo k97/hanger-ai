@@ -81,7 +81,7 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe("The switch wiring in App", () => {
-  it("reads the kept-off servers after a scan completes, after the engine summary", async () => {
+  it("reads the kept-off servers after a scan completes, then every engine's context", async () => {
     render(<App />);
     await screen.findByLabelText("My machine");
     await waitFor(() => expect(commands()).toContain("start_scan"));
@@ -91,8 +91,10 @@ describe("The switch wiring in App", () => {
 
     await waitFor(() => expect(commands()).toContain("get_kept_off_servers"));
     const calls = commands();
-    expect(calls.indexOf("get_kept_off_servers")).toBeGreaterThan(calls.indexOf("get_mcp_engine_summary"));
-    expect(calls.indexOf("get_mcp_engine_summary")).toBeGreaterThan(-1);
+    expect(calls.indexOf("get_kept_off_servers")).toBeGreaterThan(calls.indexOf("get_mcp_coverage"));
+    expect(calls.indexOf("get_mcp_coverage")).toBeGreaterThan(-1);
+    await waitFor(() => expect(commands()).toContain("get_engine_contexts"));
+    expect(commands().indexOf("get_engine_contexts")).toBeGreaterThan(calls.indexOf("get_kept_off_servers"));
   });
 
   it("mounts the switch notice's status region, empty, outside <main>", async () => {
