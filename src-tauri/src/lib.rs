@@ -865,6 +865,18 @@ impl McpLaunches {
     }
 }
 
+/// What `start_scan` does with a completed scan's inventory before it reports
+/// `scan://complete`, without the `AppHandle`: record its MCP launches for
+/// `get_mcp_processes`, then rebuild the search index from it. An index that
+/// fails to rebuild is logged, not fatal, as before.
+pub fn finish_scan(launches: &McpLaunches, db_path: &Path, inventory: &Inventory) {
+    launches.record(inventory);
+
+    if let Err(e) = search::index_inventory(db_path, inventory) {
+        log::warn!("search index not rebuilt: {}", e);
+    }
+}
+
 /// `get_mcp_processes` without the `AppHandle`: match `procs` against the
 /// last completed scan's launches. Writes nothing. Only before any scan has
 /// completed does it call `rescan` (the command passes `run_scan`).
@@ -1585,13 +1597,9 @@ fn start_scan(
             }
         };
 
-        if let Some(launches) = app_clone.try_state::<McpLaunches>() {
-            launches.record(&combined_inventory);
-        }
-
-        if let Err(e) = search::index_inventory(&get_db_path(&app_clone), &combined_inventory) {
-            log::warn!("search index not rebuilt: {}", e);
-        }
+        // `run()` manages `McpLaunches` unconditionally, so `state` cannot
+        // miss it here.
+        finish_scan(&app_clone.state::<McpLaunches>(), &get_db_path(&app_clone), &combined_inventory);
 
         {
             if let Some(state_scans) = app_clone.try_state::<ScanManager>() {
