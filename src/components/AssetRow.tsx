@@ -1,7 +1,7 @@
 import { useContext, useEffect, useRef } from "react";
 import { formatEngineLabel } from "../utils/engineUtils";
 import MechanismGlyph, { MechanismWord } from "./MechanismGlyph";
-import EngineReachTiles, { EngineReachInfo } from "./EngineReachTiles";
+import EngineReachTiles, { EngineReachInfo, type TileSwitch } from "./EngineReachTiles";
 import EngineLabel from "./EngineLabel";
 import { SelectionOriginContext } from "./selectionOrigin";
 import { ancestorReachNote } from "../utils/serverRows";
@@ -78,6 +78,10 @@ interface AssetRowProps {
    *  sentence, with engine tiles and a tool-count stat pinned on the right
    *  instead of table cells (§5.6). */
   variant?: "table" | "card";
+  /** Card variant only, and given only by Global's MCP servers list: a reach
+   *  tile's switch for this row's server, or `null` for a tile that stays
+   *  display only (`EngineReachTiles`' `switchFor`). */
+  tileSwitchFor?: (r: EngineReachInfo) => TileSwitch | null;
   onClick?: () => void;
   onLink?: () => void;
   onUnlink?: () => void;
@@ -173,7 +177,7 @@ export function getRowState(item: AssetItem) {
   }
 }
 
-export default function AssetRow({ item, isSelected, showKindColumn = true, annotation, variant = "table", onClick }: AssetRowProps) {
+export default function AssetRow({ item, isSelected, showKindColumn = true, annotation, variant = "table", tileSwitchFor, onClick }: AssetRowProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   // Read at fire time, not tracked as a dependency: it is the origin of
   // whichever selection just happened, and the effect below only needs its
@@ -240,7 +244,7 @@ export default function AssetRow({ item, isSelected, showKindColumn = true, anno
             what "reach" already means for one, so this reuses that data
             rather than inventing a second source for it. */}
         <span className="shrink-0 w-[100px] text-left hidden @[580px]:flex">
-          {annotation ? <EngineReachTiles reach={annotation.reach} /> : null}
+          {annotation ? <EngineReachTiles reach={annotation.reach} switchFor={tileSwitchFor} /> : null}
         </span>
 
         {/* Tools — `McpServerRow.tool_count`, filled from the probe cache.

@@ -98,6 +98,7 @@ import type { McpServerRow } from "./utils/serverRows";
 import type { McpEngineSummaryData } from "./types/mcpEngineSummary";
 import type { ContextItem, EngineContext, KeptOff } from "./types/engineContext";
 import { paletteActionLabel } from "./utils/switchCopy";
+import { switchRequestFor, switchableNamed } from "./utils/switchTargets";
 import { useMcpSwitch } from "./hooks/useMcpSwitch";
 import SwitchNotice from "./components/SwitchNotice";
 import { assetOpenTarget } from "./openTarget";
@@ -1102,33 +1103,62 @@ export default function App() {
 
   /** The servers a query names that Hanger can switch, at most eight. Each
    *  runs the switch the Engines pane's own button would, with the same
-   *  request, after closing the palette. */
+   *  request (`switchRequestFor`), after closing the palette. */
   const paletteActions = (query: string): PaletteAction[] => {
-    if (query === "" || paletteContexts === null) return [];
-    const needle = query.toLowerCase();
-    return paletteContexts
-      .flatMap((ctx) =>
-        ctx.items
-          .filter((item) => item.read_only === null && item.name.toLowerCase().includes(needle))
-          .map((item) => ({
-            id: `${ctx.engine_id}\u0000${item.key}`,
-            label: paletteActionLabel(item.state !== "on", { engine: ctx.engine_name, server: item.name }),
-            detail: ctx.engine_name,
-            onRun: () => {
-              setSearchOpen(false);
-              void mcpSwitch.switchServer({
-                engineId: ctx.engine_id,
-                engineName: ctx.engine_name,
-                key: item.key,
-                serverName: item.name,
-                file: item.config_path,
-                enabled: item.state !== "on",
-              });
-            },
-          }))
-      )
+    if (paletteContexts === null) return [];
+    return switchableNamed(paletteContexts, query)
+      .map((target) => ({
+        id: `${target.ctx.engine_id}\u0000${target.item.key}`,
+        label: paletteActionLabel(target.item.state !== "on", {
+          engine: target.ctx.engine_name,
+          server: target.item.name,
+        }),
+        detail: target.ctx.engine_name,
+        onRun: () => {
+          setSearchOpen(false);
+          void mcpSwitch.switchServer(switchRequestFor(target));
+        },
+      }))
       .slice(0, 8);
   };
+
+  /* The category ProfilePane is actually showing. It comes from the sidebar
+     item when the rail carries one and from the facet chip otherwise — the
+     same either/or `lookingAtTools` reconciles — so the review pill's lines
+     follow the tab the way its old count did. */
+  const profileActiveCategory = selectedSidebarItem.includes(":")
+    ? selectedSidebarItem.split(":")[1]
+    : profileCategory;
+
+  /* Each listed engine's context, by engine id, for the engine tiles on
+     Global's MCP servers rows (T2 of
+     docs/plans/2026-11-25-ia-engines-into-global.md). Read while those rows
+     are on screen — Global, on All or MCP servers, with a server to show —
+     and again on every scan (`scanNonce`). Until an engine's reply lands its
+     tiles stay display only. A tile switch's reply replaces that engine's
+     entry at once. */
+  const [tileContexts, setTileContexts] = useState<Record<string, EngineContext>>({});
+  const tileEngineIds = (engineRows ?? []).map((e) => e.engine_id).join("\u0000");
+  const serverRowsShown =
+    isGlobalItem(selectedSidebarItem) &&
+    (profileActiveCategory === null || profileActiveCategory === "Tools") &&
+    inventory !== null &&
+    inventory.tools[0] !== undefined;
+  useEffect(() => {
+    if (!serverRowsShown || !tileEngineIds) return;
+    let cancelled = false;
+    for (const engineId of tileEngineIds.split("\u0000")) {
+      invoke<EngineContext | null>("get_engine_context", { engineId })
+        .then((reply) => {
+          if (!cancelled && reply) setTileContexts((prev) => ({ ...prev, [engineId]: reply }));
+        })
+        .catch(() => {});
+    }
+    return () => {
+      cancelled = true;
+    };
+  }, [serverRowsShown, tileEngineIds, scanNonce]);
+  const listedTileContexts = (engineRows ?? []).flatMap((e) => tileContexts[e.engine_id] ?? []);
 
   const [selectedAsset, setSelectedAsset] = useState<any>(null);
   // What AssetDetail actually read, reported back once its body loads — a
@@ -1615,13 +1645,6 @@ export default function App() {
   // One derivation feeds the rail badge, the review filter list and the pane,
   // so the three can never disagree about what needs a decision.
   const review = deriveReviewIssues(inventory);
-  /* The category ProfilePane is actually showing. It comes from the sidebar
-     item when the rail carries one and from the facet chip otherwise — the
-     same either/or `lookingAtTools` above already reconciles — so the review
-     pill's lines follow the tab the way its old count did. */
-  const profileActiveCategory = selectedSidebarItem.includes(":")
-    ? selectedSidebarItem.split(":")[1]
-    : profileCategory;
   /* The repository RepoPane is showing, bound once: it keys both the pane's
      own root and the issues filtered to it (`placeKey`, reviewIssues.ts). */
   const repoPaneRoot = selectedSidebarItem.split(":")[0];
@@ -2103,6 +2126,9 @@ export default function App() {
               onServerSortChange={handleServerSortChange}
               keptOff={keptOff}
               onOpenKeptOff={openEnginesTab}
+              engineContexts={listedTileContexts}
+              switcher={mcpSwitch}
+              onEngineContext={(ctx) => setTileContexts((prev) => ({ ...prev, [ctx.engine_id]: ctx }))}
               enginesTab={
                 <EnginesPane
                   engines={engineRows}

@@ -1,6 +1,8 @@
 import Tooltip from "./Tooltip";
 import BrandIcon from "./BrandIcon";
 import { joinNames } from "../utils/prose";
+import { paletteActionLabel, readOnlyLine, stateLabel } from "../utils/switchCopy";
+import type { ItemState, ReadOnlyReason } from "../types/engineContext";
 
 /** One engine's verdict on one asset, as the backend derived it. The
  *  frontend renders the list verbatim (dispatch item 8). */
@@ -43,6 +45,42 @@ function overflowTip(hidden: EngineReachInfo[]): string {
   return `${joinNames(hidden.map((r) => r.engine_name))} — the panel answers for each one`;
 }
 
+/** One tile's switch, on Global's MCP servers rows only (T2 of
+ *  docs/plans/2026-11-25-ia-engines-into-global.md): the tile's engine has an
+ *  item for the row, in this state. The names are the engine context's, so
+ *  the tile says what the switch notice will. */
+export interface TileSwitch {
+  engineName: string;
+  serverName: string;
+  file?: string;
+  state: ItemState;
+  /** `null`: Hanger can switch it. */
+  readOnly: ReadOnlyReason | null;
+  /** Its request is in flight. */
+  busy: boolean;
+  onToggle: () => void;
+}
+
+/* The action the click takes, named for the state it leads to: ⌘K's label
+   (switchCopy), so the tile and the palette offer one action in one phrase. */
+function switchTip(t: TileSwitch): string {
+  return paletteActionLabel(t.state !== "on", { engine: t.engineName, server: t.serverName });
+}
+
+/* The tile tip's `name — statement` shape, holding the state and its
+   read-only line from switchCopy. */
+function readOnlyTip(t: TileSwitch, reason: ReadOnlyReason): string {
+  const line = readOnlyLine(reason, { engine: t.engineName, server: t.serverName, file: t.file });
+  return `${t.engineName} — ${stateLabel(t.state)}. ${line}`;
+}
+
+const tileClass = "w-4 h-4 rounded-[6px] grid place-items-center text-ink-1 not-italic";
+/* Off is a hollow slot: the --line-2 ring with the mark dimmed inside it.
+   --line-2, not the unreached slot's --line, so a server switched off reads
+   apart from an engine that cannot read it. On is the mark alone, as a
+   reached engine is. */
+const offClass = "border border-line-2";
+
 /** The Reach column: a 16px slot per engine up to four, and above that three
  *  slots plus an ellipsis chip, each carrying that engine's
  *  own mark (BrandIcon). Each mark is its owner's trademark, drawn only to
@@ -56,7 +94,18 @@ function overflowTip(hidden: EngineReachInfo[]): string {
  *  slightly fainter presence. --line (~0.1 alpha) rather than --line-2 (~0.2):
  *  a dark line on a light page reads heavier than its alpha suggests.
  */
-export default function EngineReachTiles({ reach }: { reach: EngineReachInfo[] }) {
+/** `switchFor`, given only on Global's MCP servers rows, makes a tile whose
+ *  engine has an item for the row that engine's switch for the server: a
+ *  `<button aria-pressed>`, as the Engines tab's switch is. A read-only item
+ *  keeps its state's look, muted and inert, with its reason as the tip. A
+ *  tile with no item, and every tile without `switchFor`, draws as today. */
+export default function EngineReachTiles({
+  reach,
+  switchFor,
+}: {
+  reach: EngineReachInfo[];
+  switchFor?: (r: EngineReachInfo) => TileSwitch | null;
+}) {
   /* Reached first. Nothing orders the backend's list, so a cap that kept
      declaration order could draw three engines that cannot read the asset
      while hiding three that can — the column would be stating the opposite of
@@ -68,7 +117,65 @@ export default function EngineReachTiles({ reach }: { reach: EngineReachInfo[] }
 
   return (
     <span className="flex items-center gap-1" data-testid="engine-reach-tiles">
-      {shown.map((r) => (
+      {shown.map((r) => {
+        const sw = switchFor?.(r) ?? null;
+        if (sw && sw.readOnly === null) {
+          const label = switchTip(sw);
+          const on = sw.state === "on";
+          return (
+            <Tooltip key={r.engine_id} label={label} placement="bottom">
+              <button
+                type="button"
+                data-testid={`reach-tile-${r.engine_key}`}
+                data-reached={r.reached ? "true" : "false"}
+                data-state={sw.state}
+                aria-label={label}
+                aria-pressed={on}
+                disabled={sw.busy}
+                onClick={(e) => {
+                  // The row under the tile opens the inspector; a switch is
+                  // not a choice of subject.
+                  e.stopPropagation();
+                  sw.onToggle();
+                }}
+                className={`${tileClass} cursor-pointer hover:bg-plane-2 transition-colors duration-hover ease-spring disabled:cursor-default disabled:opacity-50 ${
+                  on ? "" : offClass
+                }`}
+              >
+                <BrandIcon
+                  engineKey={r.engine_key}
+                  engineName={r.engine_name}
+                  size={12}
+                  className={on ? undefined : "opacity-40"}
+                />
+              </button>
+            </Tooltip>
+          );
+        }
+        if (sw && sw.readOnly !== null) {
+          const label = readOnlyTip(sw, sw.readOnly);
+          const on = sw.state === "on";
+          return (
+            <Tooltip key={r.engine_id} label={label} placement="bottom">
+              <i
+                data-testid={`reach-tile-${r.engine_key}`}
+                data-reached={r.reached ? "true" : "false"}
+                data-state={sw.state}
+                data-read-only="true"
+                aria-label={label}
+                className={`${tileClass} cursor-default opacity-60 ${on ? "" : offClass}`}
+              >
+                <BrandIcon
+                  engineKey={r.engine_key}
+                  engineName={r.engine_name}
+                  size={12}
+                  className={on ? undefined : "opacity-40"}
+                />
+              </i>
+            </Tooltip>
+          );
+        }
+        return (
         <Tooltip key={r.engine_id} label={tileTip(r)} placement="bottom">
           <i
             data-testid={`reach-tile-${r.engine_key}`}
@@ -83,7 +190,8 @@ export default function EngineReachTiles({ reach }: { reach: EngineReachInfo[] }
             <BrandIcon engineKey={r.engine_key} engineName={r.engine_name} size={12} />
           </i>
         </Tooltip>
-      ))}
+        );
+      })}
       {hidden.length > 0 && (
         /* An ellipsis rather than a number: "+4" would be a count the backend
            never gave us, and the ellipsis says "there is more" without one.

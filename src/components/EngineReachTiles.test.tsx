@@ -1,11 +1,11 @@
 // @vitest-environment happy-dom
 import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
-import { render, screen, cleanup } from "@testing-library/react";
+import { render, screen, cleanup, fireEvent } from "@testing-library/react";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn(async () => undefined) }));
 
 import { invoke } from "@tauri-apps/api/core";
-import EngineReachTiles, { type EngineReachInfo } from "./EngineReachTiles";
+import EngineReachTiles, { type EngineReachInfo, type TileSwitch } from "./EngineReachTiles";
 import { resetUnmappedEngineReports } from "../utils/reportUnmappedEngine";
 
 beforeEach(() => {
@@ -129,5 +129,108 @@ describe("EngineReachTiles", () => {
     expect(screen.getByTestId("reach-tile-unmapped-engine").getAttribute("aria-label")).toBe(
       "Unmapped Engine — cannot read this format",
     );
+  });
+});
+
+/* Switch mode (T2 of docs/plans/2026-11-25-ia-engines-into-global.md): on
+   Global's MCP servers rows a tile whose engine has an item for the row is
+   that engine's switch for the server. */
+describe("EngineReachTiles — switch mode", () => {
+  const tile = (over: Partial<TileSwitch> = {}): TileSwitch => ({
+    engineName: "Codex",
+    serverName: "alpha",
+    file: "~/.codex/config.toml",
+    state: "on",
+    readOnly: null,
+    busy: false,
+    onToggle: vi.fn(),
+    ...over,
+  });
+  const only = (key: string, t: TileSwitch | null) => (r: EngineReachInfo) => (r.engine_key === key ? t : null);
+
+  it("a switchable tile is a pressed button named by the action, server and engine both", () => {
+    render(<EngineReachTiles reach={reach} switchFor={only("codex", tile())} />);
+    const btn = screen.getByRole("button", { name: "Switch alpha off for Codex" });
+    expect(btn.getAttribute("aria-pressed")).toBe("true");
+    expect(btn.getAttribute("data-testid")).toBe("reach-tile-codex");
+    expect(btn.getAttribute("type")).toBe("button");
+  });
+
+  it("an off tile is unpressed, a hollow ring, and names the action that turns it on", () => {
+    render(<EngineReachTiles reach={reach} switchFor={only("codex", tile({ state: "off" }))} />);
+    const btn = screen.getByRole("button", { name: "Switch alpha on for Codex" });
+    expect(btn.getAttribute("aria-pressed")).toBe("false");
+    expect(btn.className).toContain("border-line-2");
+    expect(btn.querySelector("svg")?.getAttribute("class") ?? "").toContain("opacity-40");
+  });
+
+  it("an on tile is the mark alone, as a reached tile is", () => {
+    render(<EngineReachTiles reach={reach} switchFor={only("codex", tile())} />);
+    const btn = screen.getByTestId("reach-tile-codex");
+    expect(btn.className).not.toContain("border");
+    expect(btn.querySelector("svg")?.getAttribute("class") ?? "").not.toContain("opacity");
+  });
+
+  it("a click switches it", () => {
+    const onToggle = vi.fn();
+    render(<EngineReachTiles reach={reach} switchFor={only("codex", tile({ onToggle }))} />);
+    fireEvent.click(screen.getByTestId("reach-tile-codex"));
+    expect(onToggle).toHaveBeenCalledTimes(1);
+  });
+
+  it("a click does not reach the row under it", () => {
+    const rowClick = vi.fn();
+    render(
+      <div onClick={rowClick}>
+        <EngineReachTiles reach={reach} switchFor={only("codex", tile())} />
+      </div>
+    );
+    fireEvent.click(screen.getByTestId("reach-tile-codex"));
+    expect(rowClick).not.toHaveBeenCalled();
+  });
+
+  it("is keyboard operable: a native, focusable button, so Enter and Space press it", () => {
+    // happy-dom does not synthesise a click from a key on a button, so this
+    // pins the native element that does, plus focus.
+    render(<EngineReachTiles reach={reach} switchFor={only("codex", tile())} />);
+    const btn = screen.getByTestId("reach-tile-codex") as HTMLButtonElement;
+    expect(btn.tagName).toBe("BUTTON");
+    expect(btn.tabIndex).toBeGreaterThanOrEqual(0);
+    btn.focus();
+    expect(document.activeElement).toBe(btn);
+  });
+
+  it("is disabled while its switch is in flight", () => {
+    const onToggle = vi.fn();
+    render(<EngineReachTiles reach={reach} switchFor={only("codex", tile({ busy: true, onToggle }))} />);
+    const btn = screen.getByTestId("reach-tile-codex") as HTMLButtonElement;
+    expect(btn.disabled).toBe(true);
+    fireEvent.click(btn);
+    expect(onToggle).not.toHaveBeenCalled();
+  });
+
+  it("a read-only tile is no control, and carries its reason", () => {
+    const onToggle = vi.fn();
+    render(
+      <EngineReachTiles reach={reach} switchFor={only("codex", tile({ readOnly: "managed_by_plugin", onToggle }))} />
+    );
+    const t = screen.getByTestId("reach-tile-codex");
+    expect(t.tagName).not.toBe("BUTTON");
+    expect(t.getAttribute("role")).toBeNull();
+    expect(t.hasAttribute("tabindex")).toBe(false);
+    expect(t.getAttribute("data-read-only")).toBe("true");
+    expect(t.getAttribute("aria-label")).toBe(
+      "Codex — On. Declared by a plugin. A change here would be undone when the plugin updates."
+    );
+    fireEvent.click(t);
+    expect(onToggle).not.toHaveBeenCalled();
+  });
+
+  it("a tile with nothing to switch keeps today's display", () => {
+    render(<EngineReachTiles reach={reach} switchFor={only("codex", tile())} />);
+    const gemini = screen.getByTestId("reach-tile-gemini");
+    expect(gemini.tagName).toBe("I");
+    expect(gemini.getAttribute("aria-label")).toBe("Gemini CLI — reads it in place");
+    expect(screen.getAllByRole("button")).toHaveLength(1);
   });
 });

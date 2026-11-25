@@ -1504,6 +1504,25 @@ the asset through its linked root. Each tile carries the engine's own mark
 (`BrandIcon`), the generic mark for one the map cannot draw. Capped at four,
 or three plus an ellipsis chip above that, reached-first; every engine is
 answered for in the inspector's `reach-detail` section (`AssetDetail.tsx`).
+Switch mode (`switchFor`, T2 of
+`docs/plans/2026-11-25-ia-engines-into-global.md`) is given only by Global's
+MCP servers rows (`ProfilePane`, through `AssetRow`'s card-variant
+`tileSwitchFor`); repo rows, the table variant and `AssetDetail` never pass
+it. A tile whose engine's context (App's per-engine copy) holds an item whose
+key is one of the row's registrations becomes that engine's switch: a
+`<button aria-pressed>` like the Engines tab's, named and tipped with
+`paletteActionLabel` ("Switch ‹server› off for ‹engine›"), disabled while its
+request is in `busyKeys`, and its click stops at the tile so the row is not
+selected. On is the mark alone; off is a `border-line-2` ring with the mark at
+`opacity-40` — `--line-2`, not the unreached slot's `--line`, so off reads
+apart from "cannot read it". A read-only item keeps its state's look at
+`opacity-60`, is not a control, and its tip is `‹engine› — ‹stateLabel›.
+‹readOnlyLine›`. A grouped row matches every registration it stands for; an
+engine that switches by name takes any of its items, preferring a switchable
+one, and any other engine holding two of them draws no switch
+(`switchTargets.ts` → `tileTarget`). No item, or no reply yet, draws the tile
+as before. Pinned by `EngineReachTiles.test.tsx`, `mcp_tile_switch.test.tsx`
+and `mcp_tile_switch_wiring.test.tsx`.
 
 **`ReachCard`** (`ReachCard.tsx`) — the inspector's Reach section: route rows
 of pressable engine plates over one footer that answers for the selected one.

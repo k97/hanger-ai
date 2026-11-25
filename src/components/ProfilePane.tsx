@@ -33,7 +33,10 @@ import EmptyState from "./EmptyState";
 import { annotationStateCounts, linkStateCounts, matchesStateFilter, StateFilter } from "../utils/linkStateCounts";
 import { categoryNoun, joinNames, joinNamesTruncated } from "../utils/prose";
 import type { McpEngineSummaryData } from "../types/mcpEngineSummary";
-import type { KeptOff } from "../types/engineContext";
+import type { EngineContext, KeptOff } from "../types/engineContext";
+import type { EngineReachInfo, TileSwitch } from "./EngineReachTiles";
+import { busyKeyOf, type McpSwitch } from "../hooks/useMcpSwitch";
+import { switchRequestFor, tileTarget, type SwitchTarget } from "../utils/switchTargets";
 import { issueSeverity, type ReviewIssue } from "../utils/reviewIssues";
 
 /** The frontend's mirror of Rust's `ConfigProblem`
@@ -143,6 +146,15 @@ interface ProfilePaneProps {
   keptOff?: KeptOff | null;
   /** A kept server's row opens the Engines tab on its engine. */
   onOpenKeptOff?: (engineId: string) => void;
+  /** Each listed engine's context (`get_engine_context`), App's copy. With
+   *  `switcher`, it makes the MCP servers rows' engine tiles switches (T2 of
+   *  docs/plans/2026-11-25-ia-engines-into-global.md). `null` before the
+   *  replies land: every tile stays display only. */
+  engineContexts?: EngineContext[] | null;
+  /** App's one switch state (`useMcpSwitch`). */
+  switcher?: McpSwitch;
+  /** A tile switch's reply context, for App to take in place of its copy. */
+  onEngineContext?: (ctx: EngineContext) => void;
 }
 
 /** A kept server's row: the card row's first line, then which engine it is
@@ -406,6 +418,9 @@ export default function ProfilePane({
   keptOff = null,
   onOpenKeptOff,
   enginesTab,
+  engineContexts = null,
+  switcher,
+  onEngineContext,
 }: ProfilePaneProps) {
   const [internalCategory, setInternalCategory] = useState<GlobalTab | null>(null);
   const [internalSortField, setInternalSortField] = useState<SortField>("name");
@@ -911,6 +926,9 @@ export default function ProfilePane({
   // alongside the row so `toolAnnotationFor` below can hand `AssetRow` the
   // union rather than whichever single registration happened first.
   const groupedAnnotationById = new Map<string, AssetAnnotationView | null>();
+  // Every registration a grouped row stands for, by the row's id: what its
+  // engine tiles look an engine's item up by.
+  const groupedRegistrationsById = new Map<string, string[]>();
   const groupedTools: AssetItem[] = useGroupedTools
     ? sortServerRows(
         // The strip's Review pill filters this same list to disagreeing
@@ -923,6 +941,7 @@ export default function ProfilePane({
       ).map((row) => {
         const id = row.registrations[0] ?? row.name;
         const reach = mergeReach(row.registrations, annotationByAssetPath);
+        groupedRegistrationsById.set(id, row.registrations);
         groupedAnnotationById.set(
           id,
           reach ? { asset_path: row.name, mechanism: "none", reach, beyond: null } : null
@@ -963,6 +982,36 @@ export default function ProfilePane({
   // section keeps calling `annotationFor` directly.
   const toolAnnotationFor = (item: AssetItem): AssetAnnotationView | null =>
     useGroupedTools ? groupedAnnotationById.get(item.id ?? "") ?? null : annotationFor(item);
+
+  /* The engine tiles as switches. A tile switches when its engine's context
+     holds an item whose key is one of the row's registrations: every one a
+     grouped row stands for, or a per-registration row's own. The request is
+     the one every switch sends, and the reply's context goes back to App at
+     once, so the tile redraws before the rescan the hook asks for. */
+  const switchTile = async (target: SwitchTarget) => {
+    if (!switcher) return;
+    const next = await switcher.switchServer(switchRequestFor(target));
+    if (next) onEngineContext?.(next);
+  };
+  const registrationKeysOf = (item: AssetItem): string[] =>
+    useGroupedTools ? groupedRegistrationsById.get(item.id ?? "") ?? [] : item.id ? [item.id] : [];
+  const tileSwitchFor = (item: AssetItem): ((r: EngineReachInfo) => TileSwitch | null) | undefined => {
+    if (!engineContexts || !switcher) return undefined;
+    const keys = registrationKeysOf(item);
+    return (r) => {
+      const target = tileTarget(engineContexts, r.engine_key, keys);
+      if (!target) return null;
+      return {
+        engineName: target.ctx.engine_name,
+        serverName: target.item.name,
+        file: target.item.config_path,
+        state: target.item.state,
+        readOnly: target.item.read_only,
+        busy: switcher.busyKeys.has(busyKeyOf(target.ctx.engine_id, target.item.key)),
+        onToggle: () => void switchTile(target),
+      };
+    };
+  };
 
   const sortedRules: AssetItem[] = sortAssetItems(
     filteredRules.map((r) => ({
@@ -1363,6 +1412,7 @@ export default function ProfilePane({
                       isSelected={rowIsSelected(item)}
                       item={item}
                       annotation={toolAnnotationFor(item)}
+                      tileSwitchFor={tileSwitchFor(item)}
                       onLink={() => onLinkAsset(item)}
                       onClick={() => onSelectAsset({ id: item.id, name: item.name, category: "Tools", path: item.path })}
                     />
