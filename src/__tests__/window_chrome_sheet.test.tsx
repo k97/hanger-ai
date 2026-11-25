@@ -20,7 +20,7 @@
  *  happy-dom lays nothing out, so this pins the class contract only; the
  *  corner actually meeting the rail, and the traffic lights sitting on the
  *  band's baseline, are screenshot claims (verifying-ui.md). */
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, beforeAll, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, cleanup, waitFor } from "@testing-library/react";
 import * as fs from "fs";
 import * as path from "path";
@@ -60,6 +60,18 @@ const screen_ready = async (which: string) => {
   // The pane itself mounts after the preferences resolve; wait for it.
   await waitFor(() => expect(main().querySelector(":scope > div.overflow-x-auto > div > *")).not.toBeNull());
 };
+
+// The `design` screen renders through React.lazy, and the first import() of
+// its chunk makes Vite transform and evaluate some forty modules. Measured
+// inside a full `npx vitest run` on 2026-11-25: 0.6 to 1.7 s on an idle
+// machine, past the 1 s that screen_ready's waitFor allows, so both design
+// cases failed under CPU load, timing the compiler and not the sheet. Loading
+// the chunk here moves that one-off cost into a hook with a 10 s budget; the
+// lazy boundary is still crossed and Suspense still shows its fallback first.
+beforeAll(async () => {
+  await import("../components/DesignSystemPane");
+  await import("../components/DesignSystemSidebar");
+});
 
 beforeEach(() => {
   cleanup();

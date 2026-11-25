@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeAll, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor, cleanup, within } from "@testing-library/react";
 import App from "../App";
 import { invoke } from "@tauri-apps/api/core";
@@ -80,6 +80,19 @@ const flaggedInventory = {
 };
 
 describe("Icon rail", () => {
+  // App reaches the design-system page through React.lazy, and the first
+  // import() of that chunk makes Vite transform and evaluate some forty
+  // modules. Measured inside a full `npx vitest run` on 2026-11-25: 0.6 to
+  // 1.7 s on an idle machine, well past the 1 s that findBy waits. The page
+  // test then failed under CPU load, timing the compiler and not the page.
+  // Loading the chunk here moves that one-off cost into a hook with a 10 s
+  // budget. The lazy boundary is still crossed: the import() still resolves
+  // asynchronously, and Suspense still shows its fallback first.
+  beforeAll(async () => {
+    await import("../components/DesignSystemPane");
+    await import("../components/DesignSystemSidebar");
+  });
+
   beforeEach(() => {
     cleanup();
     eventListeners = {};
