@@ -58,7 +58,7 @@ Gates on `4fa9216` (run 2026-11-25): vitest 143 files / 1309 tests; `cargo test`
 ## Run order
 
 1. H0 (this plan approved).
-2. A0 → A1 → A2 → A3 → A4 → A5+A6 (one task) → A7 → A8 → A9, each a fresh subagent, reviewed and gated before the next.
+2. A00 → A0 → A1 → A2 → A3 → A4 → A5+A6 (one task) → A7 → A8 → A9, each a fresh subagent, reviewed and gated before the next.
 3. At A9: start Phase B in its worktree (B1 → B2 → B3 → B4 → B5), and in parallel stop on `main` for H1.
 4. After H1: A10 on `main`, then B6 (rebase, fast-forward, gates).
 5. C1 (each real write gated by H2), then C2: report and wait for H4 (push).
@@ -114,6 +114,16 @@ Automation never marks H1–H4 as passed. Their outcome must be Karthik's words 
 ---
 
 ## Phase A — the switches on screen
+
+### Task A00: The dev app stops reloading itself every ten minutes
+
+Found 2026-11-25 in the dev app's log after it ran for two hours: Vite reloaded the page about every ten minutes, each time for a file under `/Users/karthik/.agents/skills/synced/…` or `…/stage-gate/…`. The repository tracks `.agents/skills` as a symlink to `~/.agents/skills`, a skills sync rewrites files there on a timer, and `vite.config.ts` → `server.watch.ignored` lists only `**/src-tauri/**`. A page reload cold-starts the frontend, and `initializeApp` starts a full scan, so the dev app rescanned the machine every ten minutes. This also skews every Phase B measurement taken in the dev app.
+
+**Files:** `vite.config.ts`, a new `src/__tests__/vite_watch_ignores.test.ts` (README figure moves; regenerate).
+- Add `"**/.agents/**"` to `server.watch.ignored`. Before adding it, check whether anything under `.agents/` is meant to hot-reload (nothing in `src/` imports from it: grep); say what you found.
+- Test: import the config (it is a function of `{ command, mode }`; call it as `vite.config.ts` does) and assert `server.watch.ignored` covers a path inside `.agents/skills/` and still does not cover a path inside `src/`. Red first, against today's config.
+- Proof: run the dev app for at least eleven minutes across one sync and show its log has no `page reload` line for a path under `.agents/`. If no sync happens in that window, say so; touch a file under `~/.agents/skills` only with Karthik's go-ahead, since that folder is his.
+**Commit:** `fix(dev): the dev server stops reloading the app when synced skills change`.
 
 ### Task A0: `EngineContext.switches_by_name`
 
