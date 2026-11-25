@@ -1249,6 +1249,15 @@ export default function ProfilePane({
           subagentsCount={assetCounts?.byCategory.subagent?.global}
           loading={loading}
         />
+        {/* The engine selector, on every tab (Q1 of the IA), straight under
+            the kind tabs and above the strip: it decides whose figures the
+            strip shows, so it is read first (Q2 of
+            docs/plans/2026-11-25-decisions-round-2.md). Pending is not empty:
+            before the first scan, and before the replies the list is built
+            from, it draws nothing. */}
+        {scannedAt !== null && engines && engines.length > 0 && (
+          <EngineChipRow engines={engines} selected={engine?.engine_id ?? null} onSelect={(id) => onSelectEngine?.(id)} />
+        )}
       </div>
 
       {/* Inventory summary strip */}
@@ -1264,14 +1273,7 @@ export default function ProfilePane({
           onRescan={onRescan}
           engine={engineFigures}
           review={mcpMode ? mcpReview : assetReview}
-        >
-          {/* The engine selector, on every tab (Q1). Pending is not empty:
-              before the first scan, and before the replies the list is
-              built from, it draws nothing. */}
-          {scannedAt !== null && engines && engines.length > 0 && (
-            <EngineChipRow engines={engines} selected={engine?.engine_id ?? null} onSelect={(id) => onSelectEngine?.(id)} />
-          )}
-        </SummaryStrip>
+        />
       </div>
 
       {pendingState ? (

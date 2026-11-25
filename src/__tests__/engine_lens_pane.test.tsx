@@ -285,6 +285,25 @@ describe("the engine chips replace the By engine band", () => {
     render(<ProfilePane {...props({ scannedAt: null })} />);
     expect(screen.queryByRole("group", { name: "Engines" })).toBeNull();
   });
+
+  it("sit straight under the kind tabs and above the strip, in both modes (Q2)", () => {
+    // The chips say whose figures the strip shows, so they come first
+    // (docs/plans/2026-11-25-decisions-round-2.md, Q2). happy-dom lays
+    // nothing out: this pins document order and containment.
+    for (const selectedEngine of [null, "codex"] as const) {
+      for (const tab of [null, "Tools"] as const) {
+        const { unmount } = render(<ProfilePane {...props({ selectedCategory: tab, selectedEngine })} />);
+        const tabs = screen.getByRole("tablist");
+        const chips = chipGroup();
+        expect(strip().contains(chips)).toBe(false);
+        expect(tabs.compareDocumentPosition(chips) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+        expect(chips.compareDocumentPosition(strip()) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+        // Directly under: the element before the chips holds the tabs.
+        expect(chips.previousElementSibling?.contains(tabs)).toBe(true);
+        unmount();
+      }
+    }
+  });
 });
 
 describe("with an engine picked, the list is what it reaches", () => {

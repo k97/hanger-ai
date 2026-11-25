@@ -21,8 +21,11 @@ interface EngineChipRowProps {
 /**
  * Global's engine selector (Phase 1 of
  * docs/plans/2026-11-25-ia-global-by-engine.md, Q1): "All engines", then one
- * chip per engine with its mark, inside the summary strip on every Global
- * tab. One pressed at a time. The row wraps; it never becomes a grid. No chip
+ * chip per engine with its mark, on every Global tab, straight under the kind
+ * tabs and above the summary strip (Q2 of
+ * docs/plans/2026-11-25-decisions-round-2.md): `mt-3` off the tabs, and no
+ * rule, since it no longer sits inside the strip under its controls. One
+ * pressed at a time. The row wraps; it never becomes a grid. No chip
  * carries a figure in Phase 1: the per-engine budget is Phase 2's backend
  * command, and no count is made here.
  */
@@ -32,7 +35,7 @@ export default function EngineChipRow({ engines, selected, onSelect }: EngineChi
       role="group"
       aria-label="Engines"
       data-testid="engine-chip-row"
-      className="mt-3 pt-3 border-t border-line flex flex-wrap items-center gap-[7px]"
+      className="mt-3 flex flex-wrap items-center gap-[7px]"
     >
       <button
         type="button"

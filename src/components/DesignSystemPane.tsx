@@ -903,7 +903,7 @@ export default function DesignSystemPane({ section }: DesignSystemPaneProps) {
           label="Composites"
           lede="Imported, not imitated. Each specimen is the component the panes render, fed sample props; captions name the file."
         >
-          <Specimen name="SummaryStrip" file="SummaryStrip.tsx" note="All engines: the strip with its GelMeter; legend toggles filter; Needs review opens the popover; the engine chips under it">
+          <Specimen name="SummaryStrip" file="SummaryStrip.tsx" note="All engines: the strip with its GelMeter; legend toggles filter; Needs review opens the popover; the engine chips sit above it, under the kind tabs">
             <SummaryStrip
               total={SAMPLE_COUNTS.total}
               subtitle="assets in the global store · 6 engines"
@@ -928,9 +928,7 @@ export default function DesignSystemPane({ section }: DesignSystemPaneProps) {
                   />
                 ),
               }}
-            >
-              <EngineChipRow engines={SAMPLE_ENGINES} selected={null} onSelect={() => {}} />
-            </SummaryStrip>
+            />
           </Specimen>
 
           <Specimen name="SummaryStrip · engine mode" file="SummaryStrip.tsx" note="one engine picked: its budget every session, by kind; only MCP is measured in Phase 1, so it is the one segment and the rest share a quiet Not measured line; a segment or a kind's name opens its tab; Measure all asks this engine alone, its caption as its tooltip">
@@ -944,9 +942,7 @@ export default function DesignSystemPane({ section }: DesignSystemPaneProps) {
               onFilterState={() => {}}
               onRescan={() => {}}
               engine={SAMPLE_ENGINE_STRIP}
-            >
-              <EngineChipRow engines={SAMPLE_ENGINES} selected={SAMPLE_ENGINES[0].engine_id} onSelect={() => {}} />
-            </SummaryStrip>
+            />
           </Specimen>
 
           <Specimen name="ReviewPillActions" file="ReviewPillActions.tsx" note="the review pill's action row; a duplicate among the issues withholds Show in list, and no issue at all renders nothing">
@@ -1152,7 +1148,7 @@ export default function DesignSystemPane({ section }: DesignSystemPaneProps) {
             </div>
           </Specimen>
 
-          <Specimen name="EngineChipRow" file="EngineChipRow.tsx" note="Global's engine selector, in the strip on every tab: All engines, then a chip per engine with its mark; it wraps, never a grid, and carries no figure in Phase 1">
+          <Specimen name="EngineChipRow" file="EngineChipRow.tsx" note="Global's engine selector, on every tab, under the kind tabs and above the strip: All engines, then a chip per engine with its mark; it wraps, never a grid, and carries no figure in Phase 1">
             <div className="max-w-[534px] px-4 pb-3.5 border border-line rounded-plane">
               <EngineChipRow engines={SAMPLE_ENGINES} selected={engine} onSelect={setEngine} />
             </div>

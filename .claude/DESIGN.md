@@ -747,10 +747,14 @@ since `count` is every engine's. Pinned by `ProfilePaneIntegration.test.tsx`,
 `kept_inspector.test.tsx` and `engine_lens_pane.test.tsx`.
 
 **`EngineChipRow`** (`EngineChipRow.tsx`) — `engines`, `selected`,
-`onSelect`. Global's engine selector, inside `SummaryStrip`'s `children`
-slot on every tab, where the Global "By engine" band was. A `role="group"`,
-`aria-label="Engines"` row (`mt-3 pt-3 border-t border-line flex flex-wrap
-items-center gap-[7px]`, the band's rule and the retired Engines tab's gap):
+`onSelect`. Global's engine selector, on every tab, straight under the kind
+tabs and above `SummaryStrip`: ProfilePane draws it inside the tabs' block,
+after `CategoryFilterCards`, because it decides whose figures the strip
+shows (Q2 of `docs/plans/2026-11-25-decisions-round-2.md`; it sat in the
+strip's `children` slot, where the Global "By engine" band was, until then).
+A `role="group"`, `aria-label="Engines"` row (`mt-3 flex flex-wrap
+items-center gap-[7px]`, the retired Engines tab's gap; the rule it carried
+inside the strip went with the move):
 "All engines" first, then one `<button aria-pressed>` per engine holding an
 `EngineLabel` (its `BrandIcon` mark from the sprite) — Needs review's chip
 idiom, `chipBaseClass` / `chipPressedClass`, moved here from the retired
@@ -879,7 +883,9 @@ screen reads them.
 `HeroBand` (Surfaces and controls, below) renders in the strip's `children`
 slot. Global's "By engine" band (T3 of
 `docs/plans/2026-11-25-ia-engines-into-global.md`) is gone: the engine chips
-(`EngineChipRow`, above) took its slot on every tab, and its row filter
+(`EngineChipRow`, above) took its slot on every tab, then moved above the
+strip, under the kind tabs (Q2 of
+`docs/plans/2026-11-25-decisions-round-2.md`), and its row filter
 became the engine lens (`ProfilePane`, above). "By engine" on a project pane, one row per
 engine with its asset count, sorted `none` last then count descending
 (`RepoPane.tsx:243-253`, rendered `:565-573`). The project pane's subtitle
@@ -1423,8 +1429,9 @@ pressed). It is inline text, so it wraps at a separator. Under that one
 through a `hidden` span, its `aria-describedby` — there is no visible
 caption line — then Rescan and the pill at the right. In engine mode `total`
 is a formatted figure or `null`, which leaves the numeral out. The Needs review pill renders in *both* modes
-from one definition; `children` is the slot the engine chips
-(`EngineChipRow`) and a project pane's band render into. `review` is `StripReview` —
+from one definition; `children` is the slot a project pane's band renders
+into. Global's engine chips (`EngineChipRow`) rendered there too until Q2 of
+`docs/plans/2026-11-25-decisions-round-2.md` moved them above the strip. `review` is `StripReview` —
 `count`, `lines`, `actions?` (`:27-34`) — where `count` is "counted where
 the lines are built, and allowlisted there, never derived here" (`:28-29`)
 and every action is a button the caller puts inside the popover, so the two
@@ -2222,7 +2229,10 @@ category track (`CategoryFilterCards`, above) opens the pane in
 `px-[18px] pt-1.5 pb-3.5` (`ProfilePane.tsx:987`; `RepoPane.tsx:529`, where
 it is nested one level deeper in a `min-w-0 flex-1` wrapper, so the
 track can shrink beside a control that does not exist yet — the comment
-above it says none is needed here). Then the `SummaryStrip` itself, in
+above it says none is needed here). On Global the engine chips
+(`EngineChipRow`) follow the track inside that same block, `mt-3` under it
+(Q2 of `docs/plans/2026-11-25-decisions-round-2.md`), so the block's
+`pb-3.5` spaces the chips from the strip. Then the `SummaryStrip` itself, in
 `mx-[18px] mb-3.5` (`ProfilePane.tsx:1001`, `RepoPane.tsx:550`). Then the
 list plane, flat per §3 — no `bg-plane` — rounding only its top corners and
 running off the bottom edge: `@container flex-1 min-h-0 overflow-y-auto

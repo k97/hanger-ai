@@ -74,7 +74,9 @@ interface SummaryStripProps {
   engine?: EngineStripFigures;
   /** The Needs review pill, in either mode. Absent, or zero, draws nothing. */
   review?: StripReview;
-  /** The hero band, rendered inside the section below the second row. */
+  /** A project pane's hero band, rendered inside the section below the
+   *  second row. Global's engine chips left this slot for a row above the
+   *  strip (Q2 of docs/plans/2026-11-25-decisions-round-2.md). */
   children?: ReactNode;
 }
 
