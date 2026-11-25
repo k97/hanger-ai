@@ -94,6 +94,9 @@ import {
 import { unaccountedProcesses, type ProcessMatch } from "./utils/mcpServerView";
 import type { McpServerRow } from "./utils/serverRows";
 import type { McpEngineSummaryData } from "./types/mcpEngineSummary";
+import type { KeptOff } from "./types/engineContext";
+import { useMcpSwitch } from "./hooks/useMcpSwitch";
+import SwitchNotice from "./components/SwitchNotice";
 import { assetOpenTarget } from "./openTarget";
 import { openInEditor } from "./openInEditor";
 import EditorPicker, { type DetectedEditor } from "./components/EditorPicker";
@@ -836,6 +839,7 @@ export default function App() {
         await refreshMcpServers();
         await refreshMcpCoverage();
         await refreshMcpEngineSummary();
+        await refreshKeptOff();
 
         // If onboarding was incomplete, mark it complete now!
         setOnboardingComplete((prev) => {
@@ -1009,6 +1013,27 @@ export default function App() {
       setLoading(false);
     }
   };
+
+  // The servers Hanger is keeping while they are switched off for an engine
+  // that switches by removing them (docs/ipc.md entry 19). No config file
+  // declares them, so no other read returns them. Same re-derive-per-scan
+  // pattern as `refreshMcpEngineSummary`, and called right after it. Nothing
+  // reads the value yet (`noUnusedLocals`); the MCP servers list's
+  // switched-off group will.
+  const [, setKeptOff] = useState<KeptOff | null>(null);
+  const refreshKeptOff = async () => {
+    try {
+      setKeptOff(await invoke<KeptOff>("get_kept_off_servers"));
+    } catch {
+      setKeptOff(null);
+    }
+  };
+
+  // The one switch state. A switch or an Undo that changed a file rescans,
+  // as unlink and deploy do, so the MCP servers list and its counts stay
+  // true. Declared after `triggerScan` and before the onboarding returns
+  // below, so the hook order never changes when onboarding resolves.
+  const mcpSwitch = useMcpSwitch({ onChanged: () => triggerScan() });
 
   const [selectedAsset, setSelectedAsset] = useState<any>(null);
   // What AssetDetail actually read, reported back once its body loads — a
@@ -2455,6 +2480,16 @@ export default function App() {
           </div>
         </div>
       )}
+      {/* The switch notice belongs to the window, not to a pane: a direct
+          child of the root, never inside <main>, which is `hidden` while the
+          inspector is expanded. It positions itself (fixed, bottom centre). */}
+      <SwitchNotice
+        notice={mcpSwitch.notice}
+        onUndo={() => {
+          void mcpSwitch.undo();
+        }}
+        onDismiss={mcpSwitch.dismiss}
+      />
     </div>
     </SelectionOriginContext.Provider>
   );
