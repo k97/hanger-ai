@@ -405,3 +405,48 @@ Asks each of one engine's switched-on servers what it provides, one at a time, a
 - **Response:** `EngineContext`. This command does not fail: a server that is asked and does not answer is measured at zero.
 
 It starts no server that is switched off, none that has a fresh answer in the probe cache, and none that is already running.
+
+---
+
+## 19. get_kept_off_servers
+
+Returns the MCP servers Hanger is keeping while they are switched off for Claude Code. Claude Code is switched off by removing the server from its config, so while it is off the server is declared in no file. It is therefore not a row of `get_mcp_servers` and not in any figure `get_asset_counts` returns, and comes back here instead, with counts of its own. Reads Hanger's stash and the machine's config files. Writes nothing and starts no server.
+
+- **Command Name:** `get_kept_off_servers`
+- **Arguments:** None
+- **Response:** `KeptOff`. With nothing kept, or no stash folder, the lists are empty and both counts are `0`. This command does not fail.
+
+### KeptOff Schema
+- `servers`: `KeptOffServer[]` (newest first)
+- `count`: `number` (the number of servers)
+- `only_kept_count`: `number` (servers with `also_declared: false`: names the MCP servers list has no row for)
+
+### KeptOffServer Schema
+- `key`: `string` (`"stash:<id>"`: what `set_mcp_server_enabled` takes, with `enabled: true`, to switch it back on)
+- `name`: `string`
+- `engine_id`: `string` (the host switched through Claude Code's own command, `"claude-code"` today)
+- `engine_name`: `string` (the registry's display name)
+- `transport`: `string` (`"stdio"`, `"unknown"`, or an address without its userinfo or query string)
+- `at_ms`: `number` (when it was switched off)
+- `also_declared`: `boolean` (some config file on this machine still declares a server of this name, for any engine, outside one project's local scope; names are matched trimmed and nothing else, as the MCP servers list groups them)
+
+A kept server holds no command, argument, env variable or header.
+
+### Response Example
+```json
+{
+  "servers": [
+    {
+      "key": "stash:00000000-0000-4000-8000-000000000001",
+      "name": "beta",
+      "engine_id": "claude-code",
+      "engine_name": "Claude Code",
+      "transport": "stdio",
+      "at_ms": 1795566217263,
+      "also_declared": false
+    }
+  ],
+  "count": 1,
+  "only_kept_count": 1
+}
+```

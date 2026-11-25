@@ -4658,3 +4658,289 @@ async fn measure_never_starts_a_switched_off_server() {
     let none = ops::measure_for(&places, "cursor", &db, 1_700_000_000_002).await;
     assert_eq!((none.items.len(), none.on_count), (0, 0));
 }
+
+// ---------------------------------------------------------------------------
+// Kept servers, beside the MCP servers list: `ops::kept_off_for`.
+//
+// A server switched off for Claude Code is declared in no file while it is
+// off, so it is no registration. It joins no row of the list and no count the
+// list's header is built from; it is reported beside the list, with figures
+// of its own.
+// ---------------------------------------------------------------------------
+
+use tauri_app_lib::mcp::servers::{self, McpServerRow};
+use tauri_app_lib::mcp::switch::ops::{KeptOff, KeptOffServer};
+use tauri_app_lib::scanner::{self as asset_scanner, DirectoryScanner, Grouping, Scanner};
+
+/// A Codex config in the stage's home declaring these servers.
+fn codex_declares(stage: &Stage, names: &[&str]) {
+    let path = stage.root.join("home").join(".codex").join("config.toml");
+    fs::create_dir_all(path.parent().unwrap()).unwrap();
+    let text: String = names.iter().map(|name| format!("[mcp_servers.{name}]\ncommand = \"{name}-server\"\n\n")).collect();
+    fs::write(&path, text).unwrap();
+}
+
+/// `beta` switched off through `ops` and the fake `claude`.
+async fn switch_beta_off(stage: &Stage, places: &SwitchPlaces) {
+    ops_set(places, &stage.claude(), "claude-code", &stage.key("beta"), false).await.expect("beta is switched off");
+    assert_eq!(stage.entry("beta"), None, "the fake removed beta");
+}
+
+/// The MCP servers list's rows. `lib.rs::mcp_server_rows_for` is private to
+/// the crate, so this is its grouping step: `servers::group_servers` over the
+/// machine pass without `ScopeTier::Local` (`lib.rs::machine_wide`). The two
+/// steps it leaves out, `apply_tool_counts` and the override note, fill in
+/// fields of rows that already exist and add none.
+fn list_rows(places: &SwitchPlaces) -> Vec<McpServerRow> {
+    let found = discover::discover_machine_at(&places.home, &places.system);
+    let machine_wide: Vec<_> = found.registrations.into_iter().filter(|reg| reg.tier != ScopeTier::Local).collect();
+    servers::group_servers(&machine_wide)
+}
+
+fn kept_names(report: &KeptOff) -> Vec<&str> {
+    report.servers.iter().map(|kept| kept.name.as_str()).collect()
+}
+
+fn empty_report() -> KeptOff {
+    KeptOff { servers: Vec::new(), count: 0, only_kept_count: 0 }
+}
+
+#[tokio::test]
+async fn a_server_kept_off_and_declared_elsewhere_says_so() {
+    let stage = stage(&claude_json(&[("beta", BETA)]));
+    codex_declares(&stage, &["beta"]);
+    stage.fake_that_does_both();
+    let places = stage.places();
+    switch_beta_off(&stage, &places).await;
+
+    let stashed = vendor::claude_stashed(&stage.stash);
+    assert_eq!(stashed.len(), 1);
+    let claude_code = registry::host_by_id("claude-code").expect("Claude Code is a host");
+    let report = ops::kept_off_for(&places);
+    assert_eq!(
+        report.servers,
+        vec![KeptOffServer {
+            key: format!("stash:{}", stashed[0].id),
+            name: "beta".to_string(),
+            engine_id: "claude-code".to_string(),
+            engine_name: claude_code.display_name.to_string(),
+            transport: "stdio".to_string(),
+            at_ms: stashed[0].at_ms,
+            also_declared: true,
+        }]
+    );
+    assert_eq!((report.count, report.only_kept_count), (1, 0));
+    // The list does have a row for it: Codex's.
+    assert!(list_rows(&places).iter().any(|row| row.name == "beta"));
+}
+
+#[tokio::test]
+async fn a_server_only_the_stash_knows_is_still_reported() {
+    let stage = stage(&claude_json(&[("beta", BETA)]));
+    stage.fake_that_does_both();
+    let places = stage.places();
+    switch_beta_off(&stage, &places).await;
+
+    let report = ops::kept_off_for(&places);
+    assert_eq!(kept_names(&report), ["beta"]);
+    assert!(!report.servers[0].also_declared);
+    assert_eq!((report.count, report.only_kept_count), (1, 1));
+    assert!(!list_rows(&places).iter().any(|row| row.name == "beta"), "nothing declares beta now");
+}
+
+#[tokio::test]
+async fn kept_servers_join_no_row_and_no_count_of_the_servers_list() {
+    let stage = stage(&claude_json(&[("beta", BETA)]));
+    stage.fake_that_does_both();
+    let places = stage.places();
+    let before = list_rows(&places);
+    assert!(before.iter().any(|row| row.name == "beta"), "beta has a row while it is declared");
+
+    switch_beta_off(&stage, &places).await;
+    let after = list_rows(&places);
+
+    assert!(!after.iter().any(|row| row.name == "beta"), "a kept server became a row: {after:?}");
+    assert_eq!(after.len(), before.len() - 1);
+    // Every other row is as it was: no registration, file or name joined one.
+    let shape = |rows: &[McpServerRow]| -> Vec<(String, usize, usize, Vec<String>)> {
+        rows.iter()
+            .filter(|row| row.name != "beta")
+            .map(|row| (row.name.clone(), row.registration_count, row.file_count, row.registrations.clone()))
+            .collect()
+    };
+    assert_eq!(shape(&after), shape(&before));
+    // Beside the list, not inside it.
+    let report = ops::kept_off_for(&places);
+    assert_eq!(kept_names(&report), ["beta"]);
+    assert_eq!((report.count, report.only_kept_count), (1, 1));
+}
+
+#[tokio::test]
+async fn the_key_switches_the_server_back_on() {
+    let stage = stage(&claude_json(&[("beta", BETA)]));
+    stage.fake_that_does_both();
+    let (places, cli) = (stage.places(), stage.claude());
+    switch_beta_off(&stage, &places).await;
+
+    let report = ops::kept_off_for(&places);
+    let kept = report.servers.first().expect("beta is reported as kept");
+    let on = ops::set_enabled_for(&places, &cli, &kept.engine_id, &kept.key, true, |_| None)
+        .await
+        .expect("the reported key switches beta back on");
+    assert_eq!(receipt_of(&on), "restored:beta");
+    assert_eq!(stage.entry("beta"), Some(json(BETA)));
+    assert_eq!(ops::kept_off_for(&places), empty_report());
+}
+
+#[test]
+fn a_local_tier_declaration_does_not_count_as_declared() {
+    // `CLAUDE_TAIL` declares `gamma` under `projects["/work/app"].mcpServers`
+    // and nowhere else.
+    let stage = stage(&claude_json(&[]));
+    let places = stage.places();
+    let found = discover::discover_machine_at(&places.home, &places.system);
+    let gamma: Vec<ScopeTier> = found.registrations.iter().filter(|reg| reg.server.name == "gamma").map(|reg| reg.tier).collect();
+    assert_eq!(gamma, [ScopeTier::Local], "the fixture declares gamma at local scope only");
+
+    stage.keep_by_hand("00000000-0000-4000-8000-000000000001", "gamma", 1_700_000_000_000, r#"{"command": "gamma-server"}"#);
+    let report = ops::kept_off_for(&places);
+    assert_eq!(kept_names(&report), ["gamma"]);
+    assert!(!report.servers[0].also_declared, "a local-scope server has no row in the list");
+    assert_eq!((report.count, report.only_kept_count), (1, 1));
+}
+
+#[test]
+fn kept_names_are_matched_as_the_list_groups_them() {
+    // `CLAUDE_HEAD` declares `alpha` at user scope. The list groups by the
+    // name trimmed, and folds nothing else.
+    let stage = stage(&claude_json(&[]));
+    let places = stage.places();
+    stage.keep_by_hand("00000000-0000-4000-8000-000000000002", "Alpha", 1_700_000_000_002, r#"{"command": "alpha-server"}"#);
+    stage.keep_by_hand("00000000-0000-4000-8000-000000000001", " alpha ", 1_700_000_000_001, r#"{"command": "alpha-server"}"#);
+
+    let report = ops::kept_off_for(&places);
+    assert_eq!(kept_names(&report), ["Alpha", " alpha "]);
+    assert!(!report.servers[0].also_declared, "a kept Alpha and a declared alpha are not the same name");
+    assert!(report.servers[1].also_declared, "the list groups a name trimmed");
+    assert_eq!((report.count, report.only_kept_count), (2, 1));
+}
+
+#[test]
+fn nothing_kept_is_an_empty_report() {
+    let stage = stage(&claude_json(&[]));
+    let places = stage.places();
+    assert!(!places.stash.exists());
+    assert_eq!(ops::kept_off_for(&places), empty_report(), "no stash folder");
+
+    fs::create_dir_all(stage.kept_folder()).unwrap();
+    assert_eq!(ops::kept_off_for(&places), empty_report(), "an empty stash folder");
+
+    let said = serde_json::to_value(empty_report()).unwrap();
+    assert_eq!(said, serde_json::json!({"servers": [], "count": 0, "only_kept_count": 0}));
+}
+
+#[tokio::test]
+async fn the_kept_report_carries_no_value_from_the_entry() {
+    let stage = stage(&claude_json(&[("beta", BETA)]));
+    stage.fake_that_does_both();
+    let places = stage.places();
+    switch_beta_off(&stage, &places).await;
+    stage.keep_by_hand("00000000-0000-4000-8000-000000000003", "delta", 1, DELTA);
+    // The fixture does carry every value: in the kept files.
+    let kept_text: String =
+        stage.kept_files().iter().map(|file| fs::read_to_string(stage.kept_folder().join(file)).unwrap()).collect();
+    for value in KEPT_VALUES {
+        assert!(kept_text.contains(value), "the fixture no longer holds {value}");
+    }
+
+    let report = ops::kept_off_for(&places);
+    assert_eq!(kept_names(&report), ["beta", "delta"]);
+    let said = serde_json::to_value(&report).unwrap();
+    assert_eq!(keys_of(&said), ["count", "only_kept_count", "servers"]);
+    for server in said["servers"].as_array().unwrap() {
+        assert_eq!(keys_of(server), ["also_declared", "at_ms", "engine_id", "engine_name", "key", "name", "transport"]);
+    }
+    let text = said.to_string();
+    for value in KEPT_VALUES {
+        assert!(!text.contains(value), "{value} reached the report: {text}");
+    }
+    assert_eq!(report.servers[1].transport, "https://example.test/mcp");
+}
+
+#[tokio::test]
+async fn counts_agree_with_the_list() {
+    let stage = stage(&claude_json(&[("beta", BETA)]));
+    codex_declares(&stage, &["beta"]);
+    stage.fake_that_does_both();
+    let places = stage.places();
+    switch_beta_off(&stage, &places).await;
+    stage.keep_by_hand("00000000-0000-4000-8000-000000000004", "solo", 1, r#"{"command": "solo-server"}"#);
+
+    let report = ops::kept_off_for(&places);
+    let mut names = kept_names(&report);
+    names.sort_unstable();
+    assert_eq!(names, ["beta", "solo"]);
+    assert_eq!(report.count, report.servers.len());
+    assert_eq!(report.only_kept_count, report.servers.iter().filter(|kept| !kept.also_declared).count());
+    assert_eq!((report.count, report.only_kept_count), (2, 1));
+}
+
+/// Scan the home into a new database and count it as `get_asset_counts`
+/// does, under both groupings.
+fn asset_counts(stage: &Stage, label: &str) -> [tauri_app_lib::domain::AssetCounts; 2] {
+    let home = stage.root.join("home");
+    let db_path = stage.root.join(format!("{label}.db"));
+    // The scanner finds its home through `scanner::get_home_dir`. No other
+    // test in this file reads that variable.
+    std::env::set_var("HANGER_TEST_HOME", &home);
+    let scanner = DirectoryScanner {
+        db_path: db_path.clone(),
+        cancellation_token: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
+    };
+    scanner.scan(&home).expect("the temp home scans");
+    std::env::remove_var("HANGER_TEST_HOME");
+    [Grouping::PerRegistration, Grouping::Grouped]
+        .map(|grouping| asset_scanner::count_assets(&db_path, None, grouping).expect("counted"))
+}
+
+#[tokio::test]
+async fn per_kind_asset_counts_are_unchanged_by_a_kept_server() {
+    let mut stage = stage(&claude_json(&[("beta", BETA)]));
+    // The stash where production keeps it: in the app's data folder, which is
+    // under the home.
+    stage.stash = stage.root.join("home/Library/Application Support/com.rkarthik.hanger/switch/stash");
+    stage.fake_that_does_both();
+    let places = SwitchPlaces { stash: stage.stash.clone(), ..places_at(&stage.root) };
+    // One of each of the other three kinds.
+    let home = stage.root.join("home");
+    for (rel, body) in [
+        (".claude/skills/probe/SKILL.md", "---\nname: probe\ndescription: A probe skill\n---\n# Probe\n"),
+        (".claude/agents/probe.md", "---\nname: probe-agent\ndescription: A probe subagent\n---\n# Probe\n"),
+        (".claude/CLAUDE.md", "# Probe rules\n"),
+    ] {
+        fs::create_dir_all(home.join(rel).parent().unwrap()).unwrap();
+        fs::write(home.join(rel), body).unwrap();
+    }
+
+    let before = asset_counts(&stage, "before");
+    ops_set(&places, &stage.claude(), "claude-code", &stage.key("beta"), false).await.expect("beta is switched off");
+    assert_eq!(kept_names(&ops::kept_off_for(&places)), ["beta"]);
+    let kept = asset_counts(&stage, "kept");
+    // The same home with the stash moved out of it.
+    fs::rename(&stage.stash, stage.root.join("stash-elsewhere")).unwrap();
+    let without_stash = asset_counts(&stage, "without-stash");
+
+    println!("before: {before:?}\nkept: {kept:?}\nwithout stash: {without_stash:?}");
+    // A kept server adds nothing to any figure.
+    assert_eq!(kept, without_stash);
+    for (before, kept) in before.iter().zip(&kept) {
+        assert!(before.skill.as_ref().is_some_and(|count| count.total > 0), "the fixture's skill is counted: {before:?}");
+        assert!(before.subagent.as_ref().is_some_and(|count| count.total > 0), "the fixture's subagent is counted: {before:?}");
+        assert!(before.rule.as_ref().is_some_and(|count| count.total > 0), "the fixture's rule is counted: {before:?}");
+        assert_eq!((&kept.skill, &kept.rule, &kept.subagent), (&before.skill, &before.rule, &before.subagent));
+        // The switch-off removed beta's one declaration, so the tools figure
+        // loses it, and gains nothing back from the stash.
+        let tools = |counts: &tauri_app_lib::domain::AssetCounts| counts.tool.as_ref().map_or(0, |count| count.total);
+        assert_eq!(tools(kept), tools(before) - 1, "before: {before:?}, kept: {kept:?}");
+    }
+}

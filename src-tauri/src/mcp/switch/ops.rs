@@ -1,9 +1,10 @@
 //! What the webview may ask of `mcp::switch`: one engine's context, a
-//! switch, an Undo, and a measurement.
+//! switch, an Undo, a measurement, and the servers Hanger is keeping off.
 //!
-//! Four commands in `lib.rs` call this module and nothing else in
+//! Five commands in `lib.rs` call this module and nothing else in
 //! `mcp::switch`: `get_engine_context`, `set_mcp_server_enabled`,
-//! `undo_mcp_switch` and `measure_engine_context`. Each is a thin wrapper.
+//! `undo_mcp_switch`, `measure_engine_context` and `get_kept_off_servers`.
+//! Each is a thin wrapper.
 //! Every folder is a parameter here (`SwitchPlaces`), so the tests in
 //! `tests/mcp_switch_tests.rs` and `tests/ipc_boundary_tests.rs` run against
 //! a temp folder and never the real home.
@@ -96,9 +97,9 @@ use serde::Serialize;
 use crate::agents::engine_base;
 use crate::domain::RegistrationKey;
 use crate::mcp::dialect::strip_jsonc;
-use crate::mcp::discover::{discover_machine_at, DiscoveryResult, Registration};
+use crate::mcp::discover::{discover_machine_at, engine_display_name, DiscoveryResult, Registration};
 use crate::mcp::engine_summary::is_askable;
-use crate::mcp::registry::{switch_for, Dialect, ScopeTier, SwitchKind};
+use crate::mcp::registry::{switch_for, Dialect, ScopeTier, SwitchKind, SWITCHES};
 use crate::mcp::switch::apply::{self, ApplyError, Format};
 use crate::mcp::switch::context::{self, ContextItem, EngineContext, ItemState, Measured};
 use crate::mcp::switch::edit::{self, EditError};
@@ -137,6 +138,43 @@ pub struct SwitchReply {
     /// Whether there is anything to undo. `true` exactly when `receipt_id`
     /// is there.
     pub undoable: bool,
+}
+
+/// A server Hanger is keeping while it is switched off for Claude Code.
+///
+/// Declared in no config file, so it is not a registration: it is in no row
+/// of the MCP servers list and in none of the list's counts. It is reported
+/// beside the list instead (`kept_off_for`).
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct KeptOffServer {
+    /// `"stash:<id>"`: what `set_mcp_server_enabled` takes to switch it back
+    /// on.
+    pub key: String,
+    pub name: String,
+    /// The host whose `registry::SWITCHES` row is `SwitchKind::ClaudeCli`.
+    pub engine_id: String,
+    /// The registry's display name for that host.
+    pub engine_name: String,
+    /// `StashedServer::transport`, already sanitised.
+    pub transport: String,
+    /// When it was switched off.
+    pub at_ms: i64,
+    /// Whether a config file on this machine still declares a server of this
+    /// name for any engine, so the MCP servers list already has a row for
+    /// it. Worked out here so the webview never filters the list to find out.
+    pub also_declared: bool,
+}
+
+/// Every server Hanger is keeping switched off, with its figures.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct KeptOff {
+    /// Newest first, as `vendor::claude_stashed` lists them.
+    pub servers: Vec<KeptOffServer>,
+    /// `servers.len()`.
+    pub count: usize,
+    /// How many have `also_declared == false`: the names the MCP servers
+    /// list has no row for at all.
+    pub only_kept_count: usize,
 }
 
 /// Why a switch, or an Undo, did not happen.
@@ -287,6 +325,47 @@ pub fn cached_measure(db_path: &Path, launch_key: &str) -> Option<Measured> {
 /// leave the search path alone for every engine that is not.
 pub fn uses_claude_cli(engine_id: &str) -> bool {
     context::is_switched_by(engine_id, SwitchKind::ClaudeCli)
+}
+
+/// Every server Hanger is keeping switched off, for the MCP servers list to
+/// show beside its rows.
+///
+/// A kept server is declared in no file, so it is no registration: it is not
+/// in `servers::group_servers`'s rows or in any count `scanner::count_assets`
+/// makes, and this adds it to neither. `also_declared` is worked out over the
+/// population that list is built from, the machine pass without
+/// `ScopeTier::Local` (`lib.rs::machine_wide`), matching names trimmed and
+/// nothing else, as `group_servers` groups them.
+///
+/// Reads the stash and the machine pass's config files. Writes nothing and
+/// starts nothing. With no engine switched by `SwitchKind::ClaudeCli` in
+/// `registry::SWITCHES`, nothing is reported.
+pub fn kept_off_for(places: &SwitchPlaces) -> KeptOff {
+    let Some(engine_id) = SWITCHES.iter().find(|row| row.kind == SwitchKind::ClaudeCli).map(|row| row.host_id) else {
+        return KeptOff { servers: Vec::new(), count: 0, only_kept_count: 0 };
+    };
+    let discovered = discover_machine_at(&places.home, &places.system);
+    let listed: HashSet<&str> = discovered
+        .registrations
+        .iter()
+        .filter(|reg| reg.tier != ScopeTier::Local)
+        .map(|reg| reg.server.name.trim())
+        .collect();
+    let engine_name = engine_display_name(engine_id);
+    let servers: Vec<KeptOffServer> = vendor::claude_stashed(&places.stash)
+        .into_iter()
+        .map(|kept| KeptOffServer {
+            key: format!("{}{}", context::STASH_KEY, kept.id),
+            also_declared: listed.contains(kept.name.trim()),
+            name: kept.name,
+            engine_id: engine_id.to_string(),
+            engine_name: engine_name.clone(),
+            transport: kept.transport,
+            at_ms: kept.at_ms,
+        })
+        .collect();
+    let only_kept_count = servers.iter().filter(|kept| !kept.also_declared).count();
+    KeptOff { count: servers.len(), only_kept_count, servers }
 }
 
 /// Switch one server off or on for one engine.

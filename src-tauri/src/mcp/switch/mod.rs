@@ -4,7 +4,7 @@
 //! `discover` reads engine configuration and never writes it. This module is
 //! where the writing lives, kept apart so that everything able to change a
 //! user's config file sits in one place. Five parts are in it. The first four
-//! are called only by the fifth, `ops`, and `ops` only by four commands in
+//! are called only by the fifth, `ops`, and `ops` only by five commands in
 //! `lib.rs`. No screen calls those commands yet:
 //!
 //! - `edit`: pure functions that take a config file's text and return it

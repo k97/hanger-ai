@@ -815,6 +815,20 @@ async fn measure_engine_context(
     Ok(mcp::switch::ops::measure_for(&switch_places(&app), &engine_id, &db_path, now_ms()).await)
 }
 
+/// The servers Hanger is keeping while they are switched off for Claude Code,
+/// for the MCP servers list to show beside its rows.
+///
+/// A kept server is declared in no file, so it is not one of `get_mcp_servers`'
+/// rows and not in any figure `get_asset_counts` returns: putting it in a row
+/// would show a row the header above the list does not count. It comes back
+/// here instead, with a count of its own. Reads the stash and config files;
+/// writes nothing and starts nothing. No stash, or nothing in it, is an empty
+/// report, not an error. `(async)` for the reason `get_mcp_servers` gives.
+#[tauri::command(async)]
+fn get_kept_off_servers(app: AppHandle) -> Result<mcp::switch::ops::KeptOff, String> {
+    Ok(mcp::switch::ops::kept_off_for(&switch_places(&app)))
+}
+
 /// Which MCP servers are running right now, and which are running unaccounted.
 ///
 /// Read-only. Nothing is started or stopped — see spec §8 for why start/stop is
@@ -2213,6 +2227,7 @@ pub fn run() {
             set_mcp_server_enabled,
             undo_mcp_switch,
             measure_engine_context,
+            get_kept_off_servers,
             get_linked_directories,
             run_scan,
             get_inventory,

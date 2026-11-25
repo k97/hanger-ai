@@ -1,6 +1,7 @@
 /**
  * What the four switch commands hand back: `get_engine_context`,
- * `set_mcp_server_enabled`, `undo_mcp_switch` and `measure_engine_context`.
+ * `set_mcp_server_enabled`, `undo_mcp_switch` and `measure_engine_context`;
+ * and `get_kept_off_servers`'s report.
  *
  * A hand-written mirror of `mcp::switch::context` and `mcp::switch::ops` in
  * the Rust core, narrowed to what those modules emit. Where the Rust type
@@ -87,6 +88,36 @@ export type SwitchReply = { context: EngineContext } & (
   | { receipt_id: string; undoable: true }
   | { receipt_id: null; undoable: false }
 );
+
+/**
+ * A server Hanger is keeping while it is switched off for Claude Code, from
+ * `get_kept_off_servers`. Declared in no file, so it is no row of the MCP
+ * servers list and in none of its counts.
+ */
+export interface KeptOffServer {
+  /** What `set_mcp_server_enabled` takes to switch it back on. */
+  key: `stash:${string}`;
+  name: string;
+  engine_id: string;
+  engine_name: string;
+  /** Sanitised by the backend: `"stdio"`, `"unknown"`, or a bare address. */
+  transport: string;
+  at_ms: number;
+  /**
+   * Whether some config file still declares a server of this name, so the
+   * MCP servers list already has a row for it.
+   */
+  also_declared: boolean;
+}
+
+/** Every kept server, newest first, with figures counted by the backend. */
+export interface KeptOff {
+  servers: KeptOffServer[];
+  /** The number of servers. */
+  count: number;
+  /** How many have `also_declared: false`. */
+  only_kept_count: number;
+}
 
 /**
  * What `set_mcp_server_enabled` and `undo_mcp_switch` reject with: one of
