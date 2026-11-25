@@ -21,7 +21,7 @@ use tauri_app_lib::domain::Inventory;
 use tauri_app_lib::mcp::observe::RunningProcess;
 use tauri_app_lib::preferences::PreferencesStore;
 use tauri_app_lib::scanner::{scan_targets, DirectoryScanner};
-use tauri_app_lib::{mcp_processes_from, McpLaunch, McpLaunches};
+use tauri_app_lib::{finish_scan, mcp_processes_from, McpLaunch, McpLaunches};
 
 static ENV_MUTEX: OnceLock<Mutex<()>> = OnceLock::new();
 
@@ -73,10 +73,10 @@ impl Fixture {
         scan_targets(&self.scanner(), &targets, |_, _, _| {}).map_err(|e| e.to_string())
     }
 
-    /// A completed `start_scan`: scan, then record the launches.
+    /// A completed `start_scan`: scan, then its post-step (`finish_scan`).
     fn start_scan(&self, launches: &McpLaunches) -> Inventory {
         let inventory = scan_targets(&self.scanner(), &self.start_scan_targets(), |_, _, _| {}).unwrap();
-        launches.record(&inventory);
+        finish_scan(launches, &self.db_path(), &inventory);
         inventory
     }
 }
@@ -190,6 +190,33 @@ fn a_completed_scan_records_every_tools_launch_under_its_registration_key() {
         Some(expected),
         "the recorded launches are the inventory's tools: Tool::registration_key, command, args"
     );
+}
+
+/// The step `start_scan` runs after `scan_targets` succeeds, called as it
+/// calls it. The test above records by hand, so deleting the `record` call
+/// from `start_scan` left it green; this one goes red.
+#[test]
+fn the_scans_post_step_records_the_launches_and_rebuilds_the_index() {
+    let _guard = ENV_MUTEX.get_or_init(|| Mutex::new(())).lock().unwrap_or_else(|e| e.into_inner());
+    let _home = TestHome;
+    let f = fixture(true);
+    let launches = McpLaunches::default();
+    let inventory = scan_targets(&f.scanner(), &f.start_scan_targets(), |_, _, _| {}).unwrap();
+    assert!(!inventory.tools.is_empty(), "the fixture scan finds the two servers");
+    assert_eq!(launches.last_scan(), None, "nothing is recorded before the post-step runs");
+
+    finish_scan(&launches, &f.db_path(), &inventory);
+
+    assert_eq!(
+        launches.last_scan(),
+        Some(launches_of(&inventory)),
+        "the post-step records every tool's launch"
+    );
+    let conn = rusqlite::Connection::open(f.db_path()).unwrap();
+    let indexed: i64 = conn
+        .query_row("SELECT count(*) FROM asset_search", [], |r| r.get(0))
+        .unwrap();
+    assert!(indexed > 0, "the post-step rebuilds the search index from the inventory");
 }
 
 #[test]
