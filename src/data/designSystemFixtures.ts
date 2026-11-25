@@ -17,6 +17,8 @@ import type { TrackSegment } from "../components/SegmentedTrack";
 import type { UnderlineTab } from "../components/UnderlineTabs";
 import type { SearchHit } from "../components/SearchPalette";
 import type { DetectedEditor } from "../components/EditorPicker";
+import type { SwitchNoticeState } from "../hooks/useMcpSwitch";
+import { failureLine, switchedLine } from "../utils/switchCopy";
 
 /** The TOC's layers, in reading order (Karthik's ruling, 2026-08-28, after
  *  the atomic-design read). Material's three words: Foundations are the
@@ -173,6 +175,23 @@ export const SAMPLE_MCP_ENGINE_SUMMARY_ROWS: McpEngineSummaryRow[] = [
   { engine_id: "claude-code", engine_name: "Claude Code", server_count: 6, tools_known: 41 },
   { engine_id: "codex", engine_name: "Codex", server_count: 2, tools_known: 9 },
   { engine_id: "claude-desktop", engine_name: "Claude Desktop", server_count: 3, tools_known: null },
+];
+
+/** The two notices `useMcpSwitch` sets: a switch with its receipt, and a
+ *  failure. Lines built by `switchCopy`, as the hook builds them. A done
+ *  notice without Undo is left out: the hook sets none (a switch that
+ *  changed nothing sets no notice). */
+const SAMPLE_SWITCH_NAMES = { engine: "Codex", server: "chrome-devtools", file: "~/.codex/config.toml" };
+export const SAMPLE_SWITCH_NOTICES: SwitchNoticeState[] = [
+  {
+    kind: "done",
+    line: switchedLine("off", SAMPLE_SWITCH_NAMES),
+    receiptEngineId: "codex",
+    receiptId: "file:00000000-0000-4000-8000-000000000001",
+    undoable: true,
+    pending: false,
+  },
+  { kind: "failed", line: failureLine("changed_since_read", SAMPLE_SWITCH_NAMES) },
 ];
 
 // The backend's match markers (private-use U+E000/U+E001), written as escapes

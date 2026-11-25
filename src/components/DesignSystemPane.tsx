@@ -27,6 +27,7 @@ import OriginValue from "./OriginValue";
 import ScanStamp from "./ScanStamp";
 import HeroBand from "./HeroBand";
 import { SearchPalettePanel } from "./SearchPalette";
+import { SwitchNoticePill } from "./SwitchNotice";
 import FavouriteHeart from "./FavouriteHeart";
 import LayerSwitch from "./LayerSwitch";
 import MarkdownDoc from "./MarkdownDoc";
@@ -79,6 +80,7 @@ import {
   SAMPLE_SCAN_STATUS,
   SAMPLE_SEARCH_HITS,
   SAMPLE_SEGMENTS,
+  SAMPLE_SWITCH_NOTICES,
   SAMPLE_TABS,
 } from "../data/designSystemFixtures";
 
@@ -1144,6 +1146,21 @@ export default function DesignSystemPane({ section }: DesignSystemPaneProps) {
 
           <Specimen name="SearchPalette" file="SearchPalette.tsx" note="⌘K's panel without its wash; the rows are fixtures in the backend's order and the mark is the matched run — type, and nothing filters, because the backend ranks" unclipped>
             <SearchPaletteSpecimen />
+          </Specimen>
+
+          <Specimen name="SwitchNotice" file="SwitchNotice.tsx" note="the pill without its fixed band and status region; a switch with its Undo, and a failure. It stays until dismissed or replaced, because it carries Undo — the buttons here are samples and do nothing">
+            <div className="flex flex-col items-start gap-3">
+              {SAMPLE_SWITCH_NOTICES.map((notice) => (
+                <SwitchNoticePill
+                  key={notice.line}
+                  notice={notice}
+                  onUndo={() => {}}
+                  onDismiss={() => {}}
+                  undoLabel="Sample undo"
+                  dismissLabel="Sample dismiss"
+                />
+              ))}
+            </div>
           </Specimen>
         </Section>
       </div>

@@ -45,6 +45,7 @@ const INVENTORY = [
   "ScanStamp",
   "HeroBand",
   "SearchPalette",
+  "SwitchNotice",
 ];
 
 describe("Design system — the system, rendered by the app that uses it", () => {

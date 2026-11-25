@@ -1703,6 +1703,25 @@ than imported from a shared module (`:79-85`; the duplication itself, and
 why, is recorded under Repeated variants are hoisted, not computed, §6,
 below).
 
+**`SwitchNotice`** (`SwitchNotice.tsx`) — `notice`, `onUndo`, `onDismiss`:
+the line after an MCP server is switched off or on, fed by `useMcpSwitch`
+(`src/hooks/useMcpSwitch.ts`), which takes every word from `switchCopy`. It
+is Discovery's toast pill (`DiscoveryPane.tsx`, the `toast` block: `bg-fill
+text-on-fill font-flex text-small rounded-pill animate-rise`) with two
+controls in it: **Undo**, a text button in the fill's own ink, underlined on
+hover and disabled while its request runs, shown only when the notice is
+`undoable`; and a dismiss button (`XMarkIcon` 14, `aria-label="Dismiss"`, the
+wording of App's editor-notice dismiss). `miniBtnClass` is not used: it is a
+white button and would sit inside the black pill. The notice does not time
+out, because it carries Undo; a new switch replaces it. The default export is
+a `fixed` band at the foot (`bottom-[22px]`, `z-[110]` as App's editor notice)
+carrying `role="status"` and `pointer-events-none`, always in the document and
+empty when there is nothing to say, so a screen reader hears each new line;
+only the pill takes clicks (`pointer-events-auto`). The pill alone is the
+named export `SwitchNoticePill`, which takes its two labels as props, so the
+Design system page shows it under Composites with "Sample undo" and "Sample
+dismiss", never the app's own names (the `SearchPalettePanel` split).
+
 **`DisclosureBanner`** (`DisclosureBanner.tsx:4-10`) — `variant: "warning" | "error" | "info"`,
 `summary`, `count`, `children`, `defaultOpen?`. Every variant sits on the same
 neutral plane; only the text colour changes, because "the state carries the
