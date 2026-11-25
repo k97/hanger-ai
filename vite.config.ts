@@ -2,7 +2,8 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 
-// @ts-expect-error process is a nodejs global
+// `process` is typed by @types/node; tsc checks this file through
+// `src/__tests__/vite_watch_ignores.test.ts`.
 const host = process.env.TAURI_DEV_HOST;
 
 // https://vite.dev/config/
@@ -32,8 +33,11 @@ export default defineConfig(async () => ({
         }
       : undefined,
     watch: {
-      // 3. tell Vite to ignore watching `src-tauri`
-      ignored: ["**/src-tauri/**"],
+      // 3. tell Vite to ignore watching `src-tauri`, and `.agents/`: its
+      // `skills` is a symlink to ~/.agents/skills, which a skills sync
+      // rewrites on a timer. Each change reloaded the page, and a reload
+      // starts a full scan. Nothing under `src/` imports from `.agents/`.
+      ignored: ["**/src-tauri/**", "**/.agents/**"],
     },
   },
 }));
