@@ -498,6 +498,21 @@ describe("the strip with an engine picked shows its budget, on every tab", () =>
     expect(strip().textContent).not.toContain("≈");
   });
 
+  it("for an engine whose servers all run on the vendor's, says so and offers no Measure all", () => {
+    // Q4 of docs/plans/2026-11-25-decisions-round-2.md: Claude.ai's case,
+    // decided by a yes/no over the context's items.
+    const vendor: EngineContext = {
+      ...DESK,
+      items: DESK.items.map((i) => ({ ...i, read_only: "runs_on_vendor_servers" as const })),
+    };
+    render(<ProfilePane {...props({ selectedEngine: "claude-desktop", engineContexts: [CODEX, CLAUDE, vendor] })} />);
+    expect(segment("MCP servers").textContent).toBe(
+      "MCP servers Not measured · Runs on Anthropic's servers. Hanger can't measure it from this machine."
+    );
+    expect(within(strip()).queryByRole("button", { name: "Measure all" })).toBeNull();
+    expect(within(strip()).getByRole("button", { name: "Refresh scan" })).toBeTruthy();
+  });
+
   it("a segment opens its kind's tab and keeps the engine", () => {
     const onCategoryChange = vi.fn();
     const onSelectEngine = vi.fn();

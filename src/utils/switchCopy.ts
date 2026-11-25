@@ -5,7 +5,9 @@
  * (`docs/plans/2026-11-24-context-control-naming-brief.md`), verbatim, plus
  * the fallback and the ⌘K label from the "New strings" table of
  * `docs/plans/2026-11-25-context-control-finish.md`. `{engine}`, `{server}`
- * and `{file}` come from the backend; no engine name is written here.
+ * and `{file}` come from the backend; no engine name is written here. One
+ * vendor is: `VENDOR_SERVERS_LINE` names Anthropic, because only claude-ai's
+ * servers are ever `runs_on_vendor_servers` (`mcp/switch/context.rs`).
  *
  * The failure and reason lines are exhaustive `Record`s over the backend's
  * unions in `../types/engineContext`, so a code added there fails `tsc` until
@@ -202,11 +204,26 @@ export function engineStripHeadline(ctx: EngineContext | null, engineName: strin
 export const NOT_MEASURED_FIGURE = NOT_MEASURED;
 
 /**
+ * Whether every MCP server of an engine runs on the vendor's own servers —
+ * Claude.ai's, the only engine whose items the backend marks
+ * `runs_on_vendor_servers` (`mcp/switch/context.rs`). Then nothing on this
+ * machine can be measured: a yes or a no over the items, never a count.
+ */
+export function runsOnVendorServersOnly(ctx: EngineContext | null): boolean {
+  return ctx !== null && ctx.items.length > 0 && ctx.items.every((i) => i.read_only === "runs_on_vendor_servers");
+}
+
+/** The MCP segment's caption for such an engine, in place of "0 of N servers
+ *  measured", which implies a measure that cannot happen. Approved
+ *  2026-11-25 (docs/plans/2026-11-25-decisions-round-2.md). */
+export const VENDOR_SERVERS_LINE = "Runs on Anthropic's servers. Hanger can't measure it from this machine.";
+
+/**
  * The MCP segment of Global's strip with an engine picked: the figure
  * (`measuredBudget`) and `budgetCaption` for its context. No figure is "Not
  * measured", never a zero; the caption stays when there is a context to
- * count. It was the "By engine" band's row until the engine lens replaced
- * the band.
+ * count, or says why there is none to make (`runsOnVendorServersOnly`). It
+ * was the "By engine" band's row until the engine lens replaced the band.
  */
 export function engineBandFigures(ctx: EngineContext | null): {
   value: string | null;
@@ -214,7 +231,9 @@ export function engineBandFigures(ctx: EngineContext | null): {
   secondary?: string;
 } {
   if (ctx === null) return { value: null, word: NOT_MEASURED };
-  const secondary = budgetCaption(ctx.measured_on_count, ctx.on_count, ctx.off_count);
+  const secondary = runsOnVendorServersOnly(ctx)
+    ? VENDOR_SERVERS_LINE
+    : budgetCaption(ctx.measured_on_count, ctx.on_count, ctx.off_count);
   const tokens = measuredBudget(ctx);
   if (tokens === null) return { value: null, word: NOT_MEASURED, secondary };
   return { value: tokenFigure(tokens), word: "tokens", secondary };

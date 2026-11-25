@@ -179,5 +179,6 @@ Karthik approved these as his answers to `docs/plans/2026-11-25-decisions-round-
 | A kept server's view, under "Off for {engine}" | Switched off {timeAgo} | `KeptOffServer.at_ms`, in the app's own `timeAgo` words ("4 min ago", "moments ago") (`switchedOffLine`) |
 | A kept server's view, when a file still declares its name | A config file still declares a server named {server}. | `KeptOffServer.also_declared` (`alsoDeclaredLine`) |
 | The link after it | Show it | Opens the inventory's server of that name in the inspector, as its MCP row does. Shown only when one is found (`SHOW_DECLARED`) |
+| The strip's MCP caption when every server of the picked engine runs on the vendor's | Runs on Anthropic's servers. Hanger can't measure it from this machine. | Every item is read-only `runs_on_vendor_servers`, which the backend gives claude-ai alone (`mcp/switch/context.rs`). Replaces "0 of {n} servers measured", and Measure all is not drawn (`VENDOR_SERVERS_LINE`) |
 
 The strip's quiet line, "Skills · Rules · Subagents: Not measured" (Q1 of the same file), needs no ruling of its own: it is the kind tabs' labels joined by " · ", then the brief's "Not measured". Karthik confirmed that on 2026-11-25. A kind that gains a figure leaves the line for a segment of its own.

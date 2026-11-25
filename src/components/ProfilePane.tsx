@@ -46,6 +46,7 @@ import {
   engineBandFigures,
   engineStripHeadline,
   MEASURE_ALL_CAPTION,
+  runsOnVendorServersOnly,
   NOT_MEASURED_FIGURE,
   readOnlyLine,
 } from "../utils/switchCopy";
@@ -769,7 +770,12 @@ export default function ProfilePane({
               }
         ),
         measuring: measuringFor === engine.engine_id,
-        onMeasure: () => void measureEngine(engine.engine_id),
+        // Nothing to measure when every server runs on the vendor's own
+        // (`runsOnVendorServersOnly`): the MCP segment says so, and Measure
+        // all is not drawn.
+        onMeasure: runsOnVendorServersOnly(filterContext)
+          ? undefined
+          : () => void measureEngine(engine.engine_id),
         measureCaption: MEASURE_ALL_CAPTION,
       }
     : undefined;

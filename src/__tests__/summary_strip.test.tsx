@@ -279,6 +279,15 @@ describe("SummaryStrip", () => {
     expect(screen.getByTestId("strip-unmeasured").textContent).toBe("Rules · Subagents: Not measured");
   });
 
+  it("draws no Measure all for an engine with nothing to measure", () => {
+    const { onMeasure: _onMeasure, ...noMeasure } = ENGINE;
+    renderStrip({ onRescan: vi.fn(), engine: noMeasure });
+    expect(screen.queryByRole("button", { name: "Measure all" })).toBeNull();
+    expect(screen.queryByText(ENGINE.measureCaption)).toBeNull();
+    // Rescan keeps its row.
+    expect(screen.getByRole("button", { name: "Refresh scan" }).closest("[data-testid='strip-actions']")).not.toBeNull();
+  });
+
   it("draws no quiet line when every kind has a figure", () => {
     renderStrip({ engine: { ...ENGINE, segments: ENGINE.segments.slice(0, 1) } });
     expect(screen.queryByTestId("strip-unmeasured")).toBeNull();

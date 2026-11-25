@@ -13,7 +13,11 @@ import {
   switchedOffLine,
   alsoDeclaredLine,
   SHOW_DECLARED,
+  engineBandFigures,
+  runsOnVendorServersOnly,
+  VENDOR_SERVERS_LINE,
 } from "./switchCopy";
+import type { ContextItem, EngineContext } from "../types/engineContext";
 
 // Every expected string below is copied from
 // docs/plans/2026-11-24-context-control-naming-brief.md, or from the "New
@@ -209,5 +213,53 @@ describe("alsoDeclaredLine", () => {
     // Approved 2026-11-25 (docs/plans/2026-11-25-decisions-round-2.md).
     expect(alsoDeclaredLine(n)).toBe("A config file still declares a server named github.");
     expect(SHOW_DECLARED).toBe("Show it");
+  });
+});
+
+describe("an engine whose servers all run on the vendor's servers", () => {
+  // Approved 2026-11-25 (docs/plans/2026-11-25-decisions-round-2.md):
+  // Claude.ai's, where "0 of N servers measured" implies a measure that
+  // cannot happen. The backend gives `runs_on_vendor_servers` to claude-ai
+  // alone (mcp/switch/context.rs).
+  const vendorItem = (name: string): ContextItem =>
+    ({
+      key: `claude-ai:${name}`,
+      name,
+      tier: "global",
+      config_path: "",
+      state: "on",
+      read_only: "runs_on_vendor_servers",
+      estimated_tokens: null,
+      tool_count: null,
+    }) as ContextItem;
+  const ctx = (items: ContextItem[]): EngineContext => ({
+    engine_id: "claude-ai",
+    engine_name: "Engine A",
+    applies: null,
+    switches_by_name: false,
+    items,
+    on_count: 2,
+    off_count: 0,
+    measured_on_count: 0,
+    on_tokens_measured: 0,
+  });
+
+  it("is a yes over the items, and a no for none or for a mix", () => {
+    expect(runsOnVendorServersOnly(ctx([vendorItem("a"), vendorItem("b")]))).toBe(true);
+    expect(runsOnVendorServersOnly(ctx([vendorItem("a"), { ...vendorItem("b"), read_only: null }]))).toBe(false);
+    expect(runsOnVendorServersOnly(ctx([]))).toBe(false);
+    expect(runsOnVendorServersOnly(null)).toBe(false);
+  });
+
+  it("says why in place of the measured caption", () => {
+    expect(VENDOR_SERVERS_LINE).toBe("Runs on Anthropic's servers. Hanger can't measure it from this machine.");
+    expect(engineBandFigures(ctx([vendorItem("a"), vendorItem("b")]))).toEqual({
+      value: null,
+      word: "Not measured",
+      secondary: VENDOR_SERVERS_LINE,
+    });
+    expect(engineBandFigures(ctx([vendorItem("a"), { ...vendorItem("b"), read_only: null }])).secondary).toBe(
+      "0 of 2 servers measured"
+    );
   });
 });

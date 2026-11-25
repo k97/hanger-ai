@@ -36,7 +36,10 @@ export interface StripSegment {
 export interface EngineStripFigures {
   segments: StripSegment[];
   measuring: boolean;
-  onMeasure: () => void;
+  /** Absent for an engine with nothing Hanger can measure (every server
+   *  runs on the vendor's, `runsOnVendorServersOnly`), when no Measure all
+   *  is drawn. */
+  onMeasure?: () => void;
   /** Measure all's tooltip and description (`MEASURE_ALL_CAPTION`). */
   measureCaption: string;
 }
@@ -251,7 +254,7 @@ export default function SummaryStrip({
                 {seg.caption && (
                   <>
                     {" "}
-                    <span className="text-ink-3 min-w-0 truncate">
+                    <span className="text-ink-3 min-w-0 truncate" title={seg.caption}>
                       · {seg.caption}
                     </span>
                   </>
@@ -286,19 +289,23 @@ export default function SummaryStrip({
           {/* Measure all, Rescan and the pill on one row. The caption that
               sat beside Measure all is its tooltip and its description now. */}
           <div data-testid="strip-actions" className="flex items-center gap-3 mt-2.5 flex-wrap">
-            <button
-              type="button"
-              onClick={engine.onMeasure}
-              disabled={engine.measuring}
-              title={engine.measureCaption}
-              aria-describedby={measureCaptionId}
-              className={`${miniBtnClass} shrink-0 disabled:cursor-default disabled:opacity-50`}
-            >
-              {engine.measuring ? "Measuring…" : "Measure all"}
-            </button>
-            <span id={measureCaptionId} hidden>
-              {engine.measureCaption}
-            </span>
+            {engine.onMeasure && (
+              <>
+                <button
+                  type="button"
+                  onClick={engine.onMeasure}
+                  disabled={engine.measuring}
+                  title={engine.measureCaption}
+                  aria-describedby={measureCaptionId}
+                  className={`${miniBtnClass} shrink-0 disabled:cursor-default disabled:opacity-50`}
+                >
+                  {engine.measuring ? "Measuring…" : "Measure all"}
+                </button>
+                <span id={measureCaptionId} hidden>
+                  {engine.measureCaption}
+                </span>
+              </>
+            )}
             <div className="ml-auto flex items-center gap-2">
               {rescanButton}
               {reviewPill}

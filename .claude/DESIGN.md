@@ -869,7 +869,12 @@ MCP figure, and the strip says so: one MCP servers segment carries
 measured · J off") — and Skills, Rules and Subagents share one quiet line,
 "Skills · Rules · Subagents: Not measured" (Q1 of
 `docs/plans/2026-11-25-decisions-round-2.md`). The segment and each kind's
-name in that line open its kind's tab and keep the engine. Measure all asks `measure_engine_context`
+name in that line open its kind's tab and keep the engine. When every MCP
+item of the engine is read-only `runs_on_vendor_servers` (Claude.ai's; a
+yes/no over the items, `runsOnVendorServersOnly`), the caption is "Runs on
+Anthropic's servers. Hanger can't measure it from this machine."
+(`VENDOR_SERVERS_LINE`) in place of "0 of N servers measured", and Measure
+all is not drawn. Measure all asks `measure_engine_context`
 for that engine alone and hands the reply to App. Nothing in the strip is a
 sum made here.
 
@@ -1434,9 +1439,11 @@ share one quiet line under it, `data-testid="strip-unmeasured"` in
 `aria-pressed` button that opens its tab (`text-ink-1 font-medium` when
 pressed). It is inline text, so it wraps at a separator. Under that one
 `data-testid="strip-actions"` row: Measure all (`miniBtnClass`,
-"Measuring…" and disabled while it runs), whose caption is its `title` and,
-through a `hidden` span, its `aria-describedby` — there is no visible
-caption line — then Rescan and the pill at the right. In engine mode `total`
+"Measuring…" and disabled while it runs; drawn only when `onMeasure` is
+given), whose caption is its `title` and, through a `hidden` span, its
+`aria-describedby` — there is no visible caption line — then Rescan and the
+pill at the right. The segment's caption carries its own text as `title`,
+since it truncates. In engine mode `total`
 is a formatted figure or `null`, which leaves the numeral out. The Needs review pill renders in *both* modes
 from one definition; `children` is the slot a project pane's band renders
 into. Global's engine chips (`EngineChipRow`) rendered there too until Q2 of
