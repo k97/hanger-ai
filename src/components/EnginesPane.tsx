@@ -16,8 +16,8 @@ import type { ContextItem, EngineContext } from "../types/engineContext";
 import type { EngineListEntry } from "../utils/enginesList";
 import {
   budgetCaption,
-  budgetHeadline,
   costLabel,
+  engineBudgetHeadline,
   MEASURE_ALL_CAPTION,
   mechanismLine,
   readOnlyLine,
@@ -187,7 +187,7 @@ export default function EnginesPane({
                   <ListCardRow
                     label={
                       <span className="min-w-0 flex flex-col">
-                        <span className={rowValueClass}>{budgetHeadline(shown.on_tokens_measured)}</span>
+                        <span className={rowValueClass}>{engineBudgetHeadline(shown)}</span>
                         <span className={captionClass}>
                           {budgetCaption(shown.measured_on_count, shown.on_count, shown.off_count)}
                         </span>

@@ -155,10 +155,29 @@ export const MEASURE_ALL_CAPTION =
   "Starts each server that's on and has no recent answer, and reads its tool list.";
 
 /**
+ * `on_tokens_measured`, or `null` when it is no figure at all: no context
+ * yet, or servers on and none of them measured. A sum over nothing measured
+ * is 0, and "≈ 0" would claim a cost Hanger never read. With nothing on, the
+ * 0 is true: nothing on is nothing loaded.
+ */
+function measuredBudget(ctx: EngineContext | null): number | null {
+  if (ctx === null) return null;
+  if (ctx.measured_on_count === 0 && ctx.on_count > 0) return null;
+  return ctx.on_tokens_measured;
+}
+
+/** The Engines tab budget card's headline: `budgetHeadline`, or "Not measured". */
+export function engineBudgetHeadline(ctx: EngineContext): string {
+  const tokens = measuredBudget(ctx);
+  return tokens === null ? NOT_MEASURED : budgetHeadline(tokens);
+}
+
+/**
  * One engine's row in Global's "By engine" band: the figures the Engines
  * tab's budget card prints for the same context, so the two cannot disagree.
- * The token figure is the headline's (`on_tokens_measured`), the caption is
- * `budgetCaption` itself. No context yet is "Not measured", never a zero.
+ * The token figure is the headline's (`measuredBudget`), the caption is
+ * `budgetCaption` itself. No figure is "Not measured", never a zero; the
+ * caption stays when there is a context to count.
  */
 export function engineBandFigures(ctx: EngineContext | null): {
   value: string | null;
@@ -166,9 +185,8 @@ export function engineBandFigures(ctx: EngineContext | null): {
   secondary?: string;
 } {
   if (ctx === null) return { value: null, word: NOT_MEASURED };
-  return {
-    value: tokenFigure(ctx.on_tokens_measured),
-    word: "tokens",
-    secondary: budgetCaption(ctx.measured_on_count, ctx.on_count, ctx.off_count),
-  };
+  const secondary = budgetCaption(ctx.measured_on_count, ctx.on_count, ctx.off_count);
+  const tokens = measuredBudget(ctx);
+  if (tokens === null) return { value: null, word: NOT_MEASURED, secondary };
+  return { value: tokenFigure(tokens), word: "tokens", secondary };
 }

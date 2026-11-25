@@ -845,7 +845,9 @@ the Engines tab lists (`enginesList`), each carrying that engine's
 `tokenFigure(on_tokens_measured)` with "tokens" as the figure and
 `budgetCaption` as the secondary, through one helper, `engineBandFigures`
 (`switchCopy.ts`) — or "Not measured" with no figure while the context has
-not arrived. Tool counts stay on the server rows and in the inspector (D4).
+not arrived, and with the caption kept when servers are on and none is
+measured (`measuredBudget`: a sum over nothing measured is no figure; with
+nothing on, the 0 stands). Tool counts stay on the server rows and in the inspector (D4).
 It shows on the MCP servers tab in both row modes (`bandShown` in
 `ProfilePane`), not only with grouped rows as the strip's MCP mode does. Each
 row is a filter: pressed, the list keeps the server rows with a
@@ -931,7 +933,8 @@ flag; a reply for an engine no longer selected is dropped. The pane root has
 no top padding (the tab track's wrapper ends in the gap) and no ground of its
 own, and its content sits at `mx-[18px]`, `mt-[18px]` under the chips:
 the engine's name as the `h2` (`text-lg-app`, the inspector title's
-classes); a one-row `ListCard` budget — `budgetHeadline(on_tokens_measured)`
+classes); a one-row `ListCard` budget — `engineBudgetHeadline(context)`
+(`budgetHeadline(on_tokens_measured)`, or "Not measured" by the band's rule)
 in `rowValueClass` over `budgetCaption(measured_on_count, on_count,
 off_count)` in `captionClass`, with **Measure all** (`miniBtnClass`;
 "Measuring…" and disabled while `measure_engine_context` runs, whose reply

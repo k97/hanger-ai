@@ -237,6 +237,95 @@ describe("an engine's figures are the Engines tab's", () => {
   });
 });
 
+describe("an engine with nothing measured", () => {
+  /** One server on, nobody has asked it: the shape `context::build` emits
+   *  for Claude Desktop before Measure all, and for every Claude.ai
+   *  connector, which no measure can ask. */
+  const DESK: EngineContext = {
+    engine_id: "claude-desktop",
+    engine_name: "Engine D",
+    applies: null,
+    switches_by_name: false,
+    items: [item({ key: key(DESKTOP_FILE, "desk"), name: "desk" })],
+    on_count: 1,
+    off_count: 0,
+    measured_on_count: 0,
+    on_tokens_measured: 0,
+  };
+  /** One server on, asked, and it described no tools: measured, at zero. */
+  const EMPTY_TOOLS: EngineContext = {
+    ...DESK,
+    items: [item({ key: key(DESKTOP_FILE, "desk"), name: "desk", estimated_tokens: 0, tool_count: 0 })],
+    measured_on_count: 1,
+  };
+  /** Its one server switched off: nothing on, so nothing loaded. */
+  const ALL_OFF: EngineContext = {
+    ...DESK,
+    items: [item({ key: key(DESKTOP_FILE, "desk"), name: "desk", state: "off" })],
+    on_count: 0,
+    off_count: 1,
+  };
+
+  async function budgetLines(ctx: EngineContext) {
+    invoke.mockImplementation(async (cmd: string) => (cmd === "get_engine_context" ? ctx : null));
+    render(
+      <EnginesPane
+        engines={[{ engine_id: ctx.engine_id, engine_name: ctx.engine_name }]}
+        engineId={ctx.engine_id}
+        onSelectEngine={vi.fn()}
+        openItem={() => null}
+        scannedAt={new Date()}
+        switcher={switcher}
+        refreshNonce={0}
+      />
+    );
+    const budget = await screen.findByTestId("engine-budget");
+    const lines = Array.from(budget.querySelectorAll("span.flex-col > span")).map((s) => s.textContent);
+    const rows = screen.getAllByTestId("engine-item");
+    cleanup();
+    return { lines, rows };
+  }
+
+  it("says Not measured, not ≈ 0, in the band and on the budget card, and keeps the caption", async () => {
+    const { lines } = await budgetLines(DESK);
+    expect(lines).toEqual(["Not measured", "0 of 1 servers measured"]);
+
+    render(<ProfilePane {...props({ engineContexts: [CODEX, CLAUDE, DESK] })} />);
+    const desk = bandRow("claude-desktop");
+    expect(desk.textContent).toContain("Not measured");
+    expect(desk.textContent).toContain("0 of 1 servers measured");
+    expect(desk.textContent).not.toContain("≈");
+    expect(desk.textContent).not.toContain("tokens");
+  });
+
+  it("still says ≈ 0 for an engine whose measured servers describe nothing", async () => {
+    const { lines } = await budgetLines(EMPTY_TOOLS);
+    expect(lines).toEqual(["≈ 0 tokens of tool descriptions", "1 of 1 servers measured"]);
+
+    render(<ProfilePane {...props({ engineContexts: [CODEX, CLAUDE, EMPTY_TOOLS] })} />);
+    const desk = bandRow("claude-desktop");
+    expect(desk.textContent).toContain("≈ 0");
+    expect(desk.textContent).not.toContain("Not measured");
+  });
+
+  it("still says ≈ 0 for an engine with every server off: nothing on is nothing loaded", async () => {
+    const { lines } = await budgetLines(ALL_OFF);
+    expect(lines).toEqual(["≈ 0 tokens of tool descriptions", "0 of 0 servers measured · 1 off"]);
+
+    render(<ProfilePane {...props({ engineContexts: [CODEX, CLAUDE, ALL_OFF] })} />);
+    expect(bandRow("claude-desktop").textContent).toContain("≈ 0");
+  });
+
+  it("labels a server nobody asked Not measured, and one that described nothing ≈ 0", async () => {
+    const unasked = (await budgetLines(DESK)).rows;
+    expect(within(unasked[0]).getByText("Not measured")).toBeTruthy();
+    expect(within(unasked[0]).queryByText(/≈/)).toBeNull();
+
+    const empty = (await budgetLines(EMPTY_TOOLS)).rows;
+    expect(within(empty[0]).getByText("≈ 0 tokens")).toBeTruthy();
+  });
+});
+
 describe("a row filters the list", () => {
   it("narrows to the engine's servers, keeps the switch tiles, and a second press clears it", () => {
     render(<ProfilePane {...props()} />);
