@@ -3066,3 +3066,62 @@ fn scan_targets_equals_scanning_each_target_whole() {
     .replace(home.path().to_string_lossy().as_ref(), "<HOME>");
     println!("reference digest: {}", blake3::hash(normalised.as_bytes()).to_hex());
 }
+
+/// A Rescan writes through one store connection, not one per write. Each
+/// upsert used to open its own connection and compile its statements again:
+/// thousands of opens per Rescan. Now the machine pass opens one (after
+/// `PreferencesStore::new` opens one for the schema) and every project pass,
+/// the link backfill, link resolution and reaping write through it.
+///
+/// Reaping is switched on for the run, so its writes are inside the count
+/// too; the fixture's symlink makes the walk record a link and the
+/// resolution pass rewrite it, so those writers are reached as well.
+#[test]
+fn scan_targets_opens_a_bounded_number_of_connections() {
+    let _guard = ENV_MUTEX.get_or_init(|| Mutex::new(())).lock().unwrap();
+    let (_home, h, mut targets) = split_fixture();
+    std::env::set_var("HANGER_TEST_HOME", h.to_string_lossy().to_string());
+    let reap_before = std::env::var("HANGER_ENABLE_REAP").ok();
+    std::env::set_var("HANGER_ENABLE_REAP", "1");
+
+    for p in ["proj-c", "proj-d", "proj-e", "proj-f"] {
+        let root = h.join("work").join(p);
+        let sk = root.join(".claude/skills").join(format!("{p}-skill"));
+        fs::create_dir_all(&sk).unwrap();
+        fs::write(sk.join("SKILL.md"), format!("---\nname: {p}-skill\ndescription: d\n---\n")).unwrap();
+        fs::create_dir_all(root.join("notes")).unwrap();
+        std::os::unix::fs::symlink(h.join(".claude/CLAUDE.md"), root.join("notes/house.md")).unwrap();
+        targets.push(root);
+    }
+
+    let dbs = tempfile::tempdir().unwrap();
+    let scanner = DirectoryScanner {
+        db_path: dbs.path().join("bounded.db"),
+        cancellation_token: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
+    };
+    let opened = tauri_app_lib::preferences::connections_opened_on_this_thread;
+
+    let before = opened();
+    let inv = tauri_app_lib::scanner::scan_targets(&scanner, &targets, |_, _, _| {}).unwrap();
+    let cold = opened() - before;
+    let before = opened();
+    tauri_app_lib::scanner::scan_targets(&scanner, &targets, |_, _, _| {}).unwrap();
+    let warm = opened() - before;
+
+    match reap_before {
+        Some(v) => std::env::set_var("HANGER_ENABLE_REAP", v),
+        None => std::env::remove_var("HANGER_ENABLE_REAP"),
+    }
+
+    // The fixture has to reach the writers, or a low count proves nothing.
+    assert_eq!(inv.project_scans.len(), 7, "seven distinct projects scanned");
+    assert!(inv.skills.len() > 6 && inv.tools.len() > 3, "assets written in both passes");
+    let conn = rusqlite::Connection::open(&scanner.db_path).unwrap();
+    let links: i64 = conn
+        .query_row("SELECT COUNT(*) FROM links WHERE mechanism = 'symlink'", [], |r| r.get(0))
+        .unwrap();
+    assert_eq!(links, 4, "each project's symlink to the global rule is a link row");
+
+    assert!(cold <= 3, "a cold scan of {} targets opened {} connections", targets.len(), cold);
+    assert!(warm <= 3, "a warm rescan of {} targets opened {} connections", targets.len(), warm);
+}

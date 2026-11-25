@@ -139,6 +139,25 @@ pub struct PreferencesStore {
     db_path: PathBuf,
 }
 
+/// Above the 16 distinct statements the `_on` writers use
+/// (`connect_for_scan`).
+const SCAN_STATEMENT_CACHE_CAPACITY: usize = 32;
+
+thread_local! {
+    static CONNECTIONS_OPENED: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+
+/// How many store connections `connect()` has opened on the calling thread.
+///
+/// The signal that a scan writes through one connection: SQLite reports no
+/// count of the connections a file has seen, and the open file descriptors
+/// show only the ones still open, not the thousands opened and closed again.
+/// Per thread, because test binaries run in parallel and a process-wide
+/// count would read every other test's connections too.
+pub fn connections_opened_on_this_thread() -> usize {
+    CONNECTIONS_OPENED.with(|c| c.get())
+}
+
 #[allow(dead_code)]
 impl PreferencesStore {
     pub fn new(db_path: &Path) -> Result<Self, SanitisedError> {
@@ -150,6 +169,7 @@ impl PreferencesStore {
     }
 
     pub fn connect(&self) -> Result<Connection, SanitisedError> {
+        CONNECTIONS_OPENED.with(|c| c.set(c.get() + 1));
         if let Some(parent) = self.db_path.parent() {
             fs::create_dir_all(parent).map_err(|_| {
                 SanitisedError("Failed to create database directory".to_string())
@@ -161,6 +181,17 @@ impl PreferencesStore {
         conn.execute_batch("PRAGMA foreign_keys = ON;").map_err(|_| {
             SanitisedError("Failed to enable foreign keys".to_string())
         })?;
+        Ok(conn)
+    }
+
+    /// The one connection a scan writes through: `connect()`, so foreign
+    /// keys are on, with a statement cache that holds every statement the
+    /// `_on` writers compile at once. They compile 16 distinct statements —
+    /// exactly rusqlite's default capacity, so one more would start evicting
+    /// and recompiling on every scan.
+    pub fn connect_for_scan(&self) -> Result<Connection, SanitisedError> {
+        let conn = self.connect()?;
+        conn.set_prepared_statement_cache_capacity(SCAN_STATEMENT_CACHE_CAPACITY);
         Ok(conn)
     }
 
@@ -700,11 +731,8 @@ impl PreferencesStore {
     fn find_asset_id_by_path(conn: &Connection, source_path: &str) -> Result<Option<i64>, rusqlite::Error> {
         for variant in Self::path_variants(source_path) {
             let found: Option<i64> = conn
-                .query_row(
-                    "SELECT id FROM assets WHERE abs_path = ?1",
-                    params![variant],
-                    |r| r.get(0),
-                )
+                .prepare_cached("SELECT id FROM assets WHERE abs_path = ?1")?
+                .query_row(params![variant], |r| r.get(0))
                 .optional()?;
             if found.is_some() {
                 return Ok(found);
@@ -782,19 +810,26 @@ impl PreferencesStore {
         now: i64,
     ) -> Result<WalkSymlinkOutcome, SanitisedError> {
         let conn = self.connect()?;
+        Self::record_walk_symlink_on(&conn, dest_root_id, link_path, canonical_target, now)
+    }
 
-        let asset_id = Self::find_asset_id_by_path(&conn, canonical_target)
+    /// `record_walk_symlink` on a connection the caller holds — the scan's.
+    pub fn record_walk_symlink_on(
+        conn: &Connection,
+        dest_root_id: i64,
+        link_path: &str,
+        canonical_target: &str,
+        now: i64,
+    ) -> Result<WalkSymlinkOutcome, SanitisedError> {
+        let asset_id = Self::find_asset_id_by_path(conn, canonical_target)
             .map_err(|_| SanitisedError("Failed to resolve symlink target asset".to_string()))?;
         let Some(asset_id) = asset_id else {
             return Ok(WalkSymlinkOutcome::TargetNotInStore);
         };
 
         let asset_root_id: i64 = conn
-            .query_row(
-                "SELECT root_id FROM assets WHERE id = ?1",
-                params![asset_id],
-                |r| r.get(0),
-            )
+            .prepare_cached("SELECT root_id FROM assets WHERE id = ?1")
+            .and_then(|mut s| s.query_row(params![asset_id], |r| r.get(0)))
             .map_err(|_| SanitisedError("Failed to read symlink target root".to_string()))?;
         if asset_root_id == dest_root_id {
             return Ok(WalkSymlinkOutcome::TargetInSameRoot);
@@ -810,8 +845,8 @@ impl PreferencesStore {
             .map(|c| blake3::hash(&c).to_hex().to_string())
             .unwrap_or_default();
 
-        drop(conn);
-        self.upsert_link(
+        Self::upsert_link_on(
+            conn,
             asset_id,
             dest_root_id,
             link_path,
@@ -1222,8 +1257,12 @@ impl PreferencesStore {
 
     pub fn get_all_deploy_checksums(&self) -> Result<Vec<(String, String, String)>, SanitisedError> {
         let conn = self.connect()?;
+        Self::get_all_deploy_checksums_on(&conn)
+    }
+
+    pub fn get_all_deploy_checksums_on(conn: &Connection) -> Result<Vec<(String, String, String)>, SanitisedError> {
         let mut fn_stmt = conn
-            .prepare("SELECT source_path, destination_path, blake3_hash FROM deploy_checksums")
+            .prepare_cached("SELECT source_path, destination_path, blake3_hash FROM deploy_checksums")
             .map_err(|_| SanitisedError("Database query failed".to_string()))?;
         let rows = fn_stmt
             .query_map([], |row| {
@@ -1266,21 +1305,25 @@ impl PreferencesStore {
 
     pub fn upsert_engine(&self, key: &str, display_name: &str, config_root: &str, detected_at: i64) -> Result<i64, SanitisedError> {
         let conn = self.connect()?;
-        conn.execute(
+        Self::upsert_engine_on(&conn, key, display_name, config_root, detected_at)
+    }
+
+    pub fn upsert_engine_on(conn: &Connection, key: &str, display_name: &str, config_root: &str, detected_at: i64) -> Result<i64, SanitisedError> {
+        conn.prepare_cached(
             "INSERT INTO engines (key, display_name, config_root, detected_at)
              VALUES (?1, ?2, ?3, ?4)
              ON CONFLICT(key) DO UPDATE SET
                display_name = excluded.display_name,
                config_root = excluded.config_root,
                detected_at = excluded.detected_at;",
-            params![key, display_name, config_root, detected_at],
-        ).map_err(|_| SanitisedError("Failed to upsert engine".to_string()))?;
+        )
+        .and_then(|mut s| s.execute(params![key, display_name, config_root, detected_at]))
+        .map_err(|_| SanitisedError("Failed to upsert engine".to_string()))?;
 
-        let id: i64 = conn.query_row(
-            "SELECT id FROM engines WHERE key = ?1",
-            params![key],
-            |r| r.get(0),
-        ).map_err(|_| SanitisedError("Failed to query engine ID".to_string()))?;
+        let id: i64 = conn
+            .prepare_cached("SELECT id FROM engines WHERE key = ?1")
+            .and_then(|mut s| s.query_row(params![key], |r| r.get(0)))
+            .map_err(|_| SanitisedError("Failed to query engine ID".to_string()))?;
 
         Ok(id)
     }
@@ -1332,7 +1375,11 @@ impl PreferencesStore {
 
     pub fn upsert_root(&self, kind: &str, abs_path: &str, engine_id: Option<i64>, label: &str, added_at: i64) -> Result<i64, SanitisedError> {
         let conn = self.connect()?;
-        conn.execute(
+        Self::upsert_root_on(&conn, kind, abs_path, engine_id, label, added_at)
+    }
+
+    pub fn upsert_root_on(conn: &Connection, kind: &str, abs_path: &str, engine_id: Option<i64>, label: &str, added_at: i64) -> Result<i64, SanitisedError> {
+        conn.prepare_cached(
             // kind is deliberately NOT updated on conflict: a root's kind is
             // set at creation and stays. Before this, a project walk over an
             // engine root flipped its kind to 'project' and the next global
@@ -1343,14 +1390,14 @@ impl PreferencesStore {
                engine_id = excluded.engine_id,
                label = excluded.label,
                added_at = excluded.added_at;",
-            params![kind, abs_path, engine_id, label, added_at],
-        ).map_err(|_| SanitisedError("Failed to upsert root".to_string()))?;
+        )
+        .and_then(|mut s| s.execute(params![kind, abs_path, engine_id, label, added_at]))
+        .map_err(|_| SanitisedError("Failed to upsert root".to_string()))?;
 
-        let id: i64 = conn.query_row(
-            "SELECT id FROM roots WHERE abs_path = ?1",
-            params![abs_path],
-            |r| r.get(0),
-        ).map_err(|_| SanitisedError("Failed to query root ID".to_string()))?;
+        let id: i64 = conn
+            .prepare_cached("SELECT id FROM roots WHERE abs_path = ?1")
+            .and_then(|mut s| s.query_row(params![abs_path], |r| r.get(0)))
+            .map_err(|_| SanitisedError("Failed to query root ID".to_string()))?;
 
         Ok(id)
     }
@@ -1403,7 +1450,29 @@ pub fn resolve_deepest_root(asset_path: &Path, project_roots: &[(i64, String)]) 
         last_seen: i64,
     ) -> Result<i64, SanitisedError> {
         let conn = self.connect()?;
+        Self::upsert_asset_on(
+            &conn, root_id, engine_id, category, scope, name, abs_path, version, content_hash,
+            parse_status, parse_error, first_seen, last_seen,
+        )
+    }
 
+    /// `upsert_asset` on a connection the caller holds — the scan's.
+    #[allow(clippy::too_many_arguments)]
+    pub fn upsert_asset_on(
+        conn: &Connection,
+        root_id: i64,
+        engine_id: Option<i64>,
+        category: &str,
+        scope: &str,
+        name: &str,
+        abs_path: &str,
+        version: Option<&str>,
+        content_hash: Option<&str>,
+        parse_status: &str,
+        parse_error: Option<&str>,
+        first_seen: i64,
+        last_seen: i64,
+    ) -> Result<i64, SanitisedError> {
         // A deliberate straddle, not an oversight — it has been mistaken for
         // one. `abs_path` is joined against by two families that spell paths
         // differently, and both are load-bearing:
@@ -1448,24 +1517,24 @@ pub fn resolve_deepest_root(asset_path: &Path, project_roots: &[(i64, String)]) 
             abs_path.to_string()
         };
 
-        let project_roots: Vec<(i64, String)> = {
-            let mut stmt = conn
-                .prepare("SELECT id, abs_path FROM roots WHERE kind = 'project'")
-                .map_err(|_| SanitisedError("Failed to prepare roots query".to_string()))?;
-            let rows = stmt
-                .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))
-                .map_err(|_| SanitisedError("Failed to query roots".to_string()))?;
-            let mut res = Vec::new();
-            for pair in rows.flatten() {
-                res.push(pair);
-            }
-            res
-        };
-
         // None when the canonical path lies outside every project root —
         // which a project walk can only produce by resolving a symlink that
-        // points out of the project.
+        // points out of the project. Only a project upsert reads the project
+        // roots, so only a project upsert queries them.
         let resolved_project_root = if scope == "project" {
+            let project_roots: Vec<(i64, String)> = {
+                let mut stmt = conn
+                    .prepare_cached("SELECT id, abs_path FROM roots WHERE kind = 'project'")
+                    .map_err(|_| SanitisedError("Failed to prepare roots query".to_string()))?;
+                let rows = stmt
+                    .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))
+                    .map_err(|_| SanitisedError("Failed to query roots".to_string()))?;
+                let mut res = Vec::new();
+                for pair in rows.flatten() {
+                    res.push(pair);
+                }
+                res
+            };
             Self::resolve_deepest_root(Path::new(&canonical_abs_path), &project_roots)
         } else {
             None
@@ -1477,12 +1546,11 @@ pub fn resolve_deepest_root(asset_path: &Path, project_roots: &[(i64, String)]) 
         };
 
         let existing: Option<(i64, Option<i64>, i64)> = conn
-            .query_row(
-                "SELECT id, engine_id, root_id FROM assets WHERE abs_path = ?1",
-                params![canonical_abs_path],
-                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
-            )
-            .optional()
+            .prepare_cached("SELECT id, engine_id, root_id FROM assets WHERE abs_path = ?1")
+            .and_then(|mut s| {
+                s.query_row(params![canonical_abs_path], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))
+                    .optional()
+            })
             .map_err(|_| SanitisedError("Failed to query existing asset".to_string()))?;
 
         if let Some((existing_id, existing_engine_id, existing_root_id)) = existing {
@@ -1508,18 +1576,24 @@ pub fn resolve_deepest_root(asset_path: &Path, project_roots: &[(i64, String)]) 
                 (_, incoming) => incoming.or(existing_engine_id),
             };
 
-            conn.execute(
+            conn.prepare_cached(
                 "UPDATE assets SET root_id = ?1, engine_id = ?2, parse_status = ?3, parse_error = ?4, last_seen = ?5 WHERE id = ?6",
-                params![update_root_id, new_engine_id, parse_status, parse_error, last_seen, existing_id],
-            ).map_err(|_| SanitisedError("Failed to update existing asset row".to_string()))?;
+            )
+            .and_then(|mut s| {
+                s.execute(params![update_root_id, new_engine_id, parse_status, parse_error, last_seen, existing_id])
+            })
+            .map_err(|_| SanitisedError("Failed to update existing asset row".to_string()))?;
 
             Ok(existing_id)
         } else {
-            conn.execute(
+            conn.prepare_cached(
                 "INSERT INTO assets (root_id, engine_id, category, scope, name, abs_path, version, content_hash, parse_status, parse_error, first_seen, last_seen)
                  VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
-                params![effective_root_id, engine_id, category, scope, name, canonical_abs_path, version, content_hash, parse_status, parse_error, first_seen, last_seen],
-            ).map_err(|_| SanitisedError("Failed to insert asset row".to_string()))?;
+            )
+            .and_then(|mut s| {
+                s.execute(params![effective_root_id, engine_id, category, scope, name, canonical_abs_path, version, content_hash, parse_status, parse_error, first_seen, last_seen])
+            })
+            .map_err(|_| SanitisedError("Failed to insert asset row".to_string()))?;
 
             let id = conn.last_insert_rowid();
             Ok(id)
@@ -1527,18 +1601,26 @@ pub fn resolve_deepest_root(asset_path: &Path, project_roots: &[(i64, String)]) 
     }
 
     pub fn reap_stale_assets(&self, root_id: i64, scan_start_time: i64) -> Result<usize, SanitisedError> {
-        let enabled = std::env::var("HANGER_ENABLE_REAP")
-            .map(|v| v == "1" || v.eq_ignore_ascii_case("true"))
-            .unwrap_or(false);
-        if !enabled {
+        if !Self::reap_enabled() {
             return Ok(0);
         }
         let conn = self.connect()?;
+        Self::reap_stale_assets_on(&conn, root_id, scan_start_time)
+    }
+
+    fn reap_enabled() -> bool {
+        std::env::var("HANGER_ENABLE_REAP")
+            .map(|v| v == "1" || v.eq_ignore_ascii_case("true"))
+            .unwrap_or(false)
+    }
+
+    pub fn reap_stale_assets_on(conn: &Connection, root_id: i64, scan_start_time: i64) -> Result<usize, SanitisedError> {
+        if !Self::reap_enabled() {
+            return Ok(0);
+        }
         let reaped = conn
-            .execute(
-                "DELETE FROM assets WHERE root_id = ?1 AND last_seen < ?2",
-                params![root_id, scan_start_time],
-            )
+            .prepare_cached("DELETE FROM assets WHERE root_id = ?1 AND last_seen < ?2")
+            .and_then(|mut s| s.execute(params![root_id, scan_start_time]))
             .map_err(|_| SanitisedError("Failed to reap stale assets".to_string()))?;
         Ok(reaped)
     }
@@ -1567,11 +1649,29 @@ pub fn resolve_deepest_root(asset_path: &Path, project_roots: &[(i64, String)]) 
         last_verified_at: Option<i64>,
     ) -> Result<i64, SanitisedError> {
         let conn = self.connect()?;
+        Self::upsert_link_on(
+            &conn, asset_id, dest_root_id, dest_path, mechanism, source_hash, dest_hash, created_at,
+            last_verified_at,
+        )
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn upsert_link_on(
+        conn: &Connection,
+        asset_id: i64,
+        dest_root_id: i64,
+        dest_path: &str,
+        mechanism: &str,
+        source_hash: &str,
+        dest_hash: Option<&str>,
+        created_at: i64,
+        last_verified_at: Option<i64>,
+    ) -> Result<i64, SanitisedError> {
         // A real upsert since v4: re-deploying the same asset to the same
         // destination refreshes the row rather than appending a duplicate.
         // created_at is deliberately absent from the update list — it records
         // the first deployment, not the latest.
-        conn.execute(
+        conn.prepare_cached(
             "INSERT INTO links (asset_id, dest_root_id, dest_path, mechanism, source_hash, dest_hash, created_at, last_verified_at)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
              ON CONFLICT(asset_id, dest_path) DO UPDATE SET
@@ -1580,21 +1680,25 @@ pub fn resolve_deepest_root(asset_path: &Path, project_roots: &[(i64, String)]) 
                  source_hash = excluded.source_hash,
                  dest_hash = excluded.dest_hash,
                  last_verified_at = excluded.last_verified_at",
-            params![asset_id, dest_root_id, dest_path, mechanism, source_hash, dest_hash, created_at, last_verified_at],
-        ).map_err(|_| SanitisedError("Failed to upsert link row".to_string()))?;
+        )
+        .and_then(|mut s| {
+            s.execute(params![asset_id, dest_root_id, dest_path, mechanism, source_hash, dest_hash, created_at, last_verified_at])
+        })
+        .map_err(|_| SanitisedError("Failed to upsert link row".to_string()))?;
         let id: i64 = conn
-            .query_row(
-                "SELECT id FROM links WHERE asset_id = ?1 AND dest_path = ?2",
-                params![asset_id, dest_path],
-                |r| r.get(0),
-            )
+            .prepare_cached("SELECT id FROM links WHERE asset_id = ?1 AND dest_path = ?2")
+            .and_then(|mut s| s.query_row(params![asset_id, dest_path], |r| r.get(0)))
             .map_err(|_| SanitisedError("Failed to read back link row".to_string()))?;
         Ok(id)
     }
 
     pub fn get_hydrated_links(&self) -> Result<Vec<crate::domain::HydratedLink>, SanitisedError> {
         let conn = self.connect()?;
-        let mut stmt = conn.prepare(
+        Self::get_hydrated_links_on(&conn)
+    }
+
+    pub fn get_hydrated_links_on(conn: &Connection) -> Result<Vec<crate::domain::HydratedLink>, SanitisedError> {
+        let mut stmt = conn.prepare_cached(
             "SELECT l.id, l.asset_id, l.dest_root_id, a.abs_path, l.dest_path, l.mechanism, l.source_hash, l.dest_hash, l.created_at, l.last_verified_at
              FROM links l
              JOIN assets a ON l.asset_id = a.id"
@@ -1630,10 +1734,13 @@ pub fn resolve_deepest_root(asset_path: &Path, project_roots: &[(i64, String)]) 
 
     pub fn update_link_state(&self, link_id: i64, dest_hash: Option<&str>, last_verified_at: i64) -> Result<(), SanitisedError> {
         let conn = self.connect()?;
-        conn.execute(
-            "UPDATE links SET dest_hash = ?1, last_verified_at = ?2 WHERE id = ?3",
-            params![dest_hash, last_verified_at, link_id],
-        ).map_err(|_| SanitisedError("Failed to update link state".to_string()))?;
+        Self::update_link_state_on(&conn, link_id, dest_hash, last_verified_at)
+    }
+
+    pub fn update_link_state_on(conn: &Connection, link_id: i64, dest_hash: Option<&str>, last_verified_at: i64) -> Result<(), SanitisedError> {
+        conn.prepare_cached("UPDATE links SET dest_hash = ?1, last_verified_at = ?2 WHERE id = ?3")
+            .and_then(|mut s| s.execute(params![dest_hash, last_verified_at, link_id]))
+            .map_err(|_| SanitisedError("Failed to update link state".to_string()))?;
         Ok(())
     }
 }

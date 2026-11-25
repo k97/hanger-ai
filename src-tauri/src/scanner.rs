@@ -447,7 +447,7 @@ pub(crate) fn get_home_dir() -> PathBuf {
 /// already exists for its destination, read-time state derivation reports
 /// it dangling — nothing to record here.
 fn offer_walk_symlink(
-    store: &crate::preferences::PreferencesStore,
+    store: &ScanStore,
     dest_root_id: i64,
     path: &Path,
     now: i64,
@@ -1118,8 +1118,82 @@ pub struct GlobalPass {
     checksums: Vec<(String, String, String)>,
     origin_resolver: crate::provenance::OriginResolver,
     parse_warnings: Vec<String>,
-    store_opt: Option<crate::preferences::PreferencesStore>,
+    store_opt: Option<ScanStore>,
     containers: Vec<ContainerWrite>,
+}
+
+/// The store as a scan writes to it: one connection, opened by the machine
+/// pass and held by its `GlobalPass` until the last target's project pass
+/// is done. Each write used to open its own connection and compile its
+/// statements again — thousands of opens per Rescan. The methods keep the
+/// `PreferencesStore` names so the walk's write sites read as they did.
+struct ScanStore {
+    conn: rusqlite::Connection,
+}
+
+type Prefs = crate::preferences::PreferencesStore;
+
+impl ScanStore {
+    fn open(db_path: &Path) -> Option<Self> {
+        let conn = Prefs::new(db_path).ok()?.connect_for_scan().ok()?;
+        Some(ScanStore { conn })
+    }
+
+    fn get_all_deploy_checksums(&self) -> Result<Vec<(String, String, String)>, crate::preferences::SanitisedError> {
+        Prefs::get_all_deploy_checksums_on(&self.conn)
+    }
+
+    fn upsert_engine(&self, key: &str, name: &str, config_root: &str, now: i64) -> Result<i64, crate::preferences::SanitisedError> {
+        Prefs::upsert_engine_on(&self.conn, key, name, config_root, now)
+    }
+
+    fn upsert_root(&self, kind: &str, path: &str, engine_id: Option<i64>, label: &str, now: i64) -> Result<i64, crate::preferences::SanitisedError> {
+        Prefs::upsert_root_on(&self.conn, kind, path, engine_id, label, now)
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn upsert_asset(
+        &self,
+        root_id: i64,
+        engine_id: Option<i64>,
+        category: &str,
+        scope: &str,
+        name: &str,
+        abs_path: &str,
+        version: Option<&str>,
+        content_hash: Option<&str>,
+        parse_status: &str,
+        parse_error: Option<&str>,
+        first_seen: i64,
+        last_seen: i64,
+    ) -> Result<i64, crate::preferences::SanitisedError> {
+        Prefs::upsert_asset_on(
+            &self.conn, root_id, engine_id, category, scope, name, abs_path, version, content_hash,
+            parse_status, parse_error, first_seen, last_seen,
+        )
+    }
+
+    fn reap_stale_assets(&self, root_id: i64, now: i64) -> Result<usize, crate::preferences::SanitisedError> {
+        Prefs::reap_stale_assets_on(&self.conn, root_id, now)
+    }
+
+    fn record_walk_symlink(
+        &self,
+        dest_root_id: i64,
+        link_path: &str,
+        canonical_target: &str,
+        now: i64,
+    ) -> Result<crate::preferences::WalkSymlinkOutcome, crate::preferences::SanitisedError> {
+        Prefs::record_walk_symlink_on(&self.conn, dest_root_id, link_path, canonical_target, now)
+    }
+
+    fn get_hydrated_links(&self) -> Result<Vec<crate::domain::HydratedLink>, crate::preferences::SanitisedError> {
+        Prefs::get_hydrated_links_on(&self.conn)
+    }
+
+    fn update_link_state(&self, link_id: i64, dest_hash: Option<&str>, now: i64) -> Result<(), crate::preferences::SanitisedError> {
+        Prefs::update_link_state_on(&self.conn, link_id, dest_hash, now)
+    }
 }
 
 /// An engine or `engine_global` root row the machine pass wrote, in order.
@@ -1199,15 +1273,16 @@ impl DirectoryScanner {
         let mut agent_root_ids: std::collections::HashMap<String, i64> =
             std::collections::HashMap::new();
 
+        // The scan's one store connection, used by every pass of it. It
+        // opened a second `PreferencesStore` here before, for the checksums
+        // alone.
+        let store_opt = ScanStore::open(&self.db_path);
+
         // 0. Load deploy checksums for drift checking
-        let mut checksums = Vec::new();
-        if self.db_path.exists() {
-            if let Ok(store) = crate::preferences::PreferencesStore::new(&self.db_path) {
-                if let Ok(all_cs) = store.get_all_deploy_checksums() {
-                    checksums = all_cs;
-                }
-            }
-        }
+        let checksums = store_opt
+            .as_ref()
+            .and_then(|s| s.get_all_deploy_checksums().ok())
+            .unwrap_or_default();
 
         let (detected_agents, engine_root_denials) = get_global_agents_with_denials();
         let mut parse_warnings = Vec::new();
@@ -1219,7 +1294,6 @@ impl DirectoryScanner {
         // resolver's cache with one built against a different home.
         let mut origin_resolver = crate::provenance::OriginResolver::new(&get_home_dir());
 
-        let store_opt = crate::preferences::PreferencesStore::new(&self.db_path).ok();
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .map(|d| d.as_millis() as i64)
@@ -1254,7 +1328,7 @@ impl DirectoryScanner {
         // Root for shared ~/.agents assets, created lazily on first symlink hit.
         // engine_id is NULL: shared standards render "Any agent".
         let mut shared_agents_root_id: Option<i64> = None;
-        let ensure_shared_root = |store_opt: &Option<crate::preferences::PreferencesStore>,
+        let ensure_shared_root = |store_opt: &Option<ScanStore>,
                                       shared_agents_root_id: &mut Option<i64>,
                                       containers: &mut Vec<ContainerWrite>| {
             if shared_agents_root_id.is_none() {
@@ -2544,7 +2618,7 @@ impl DirectoryScanner {
 }
 
 fn resolve_pass_2_links(
-    store: &crate::preferences::PreferencesStore,
+    store: &ScanStore,
     cancellation_token: &std::sync::atomic::AtomicBool,
     now: i64,
 ) {
