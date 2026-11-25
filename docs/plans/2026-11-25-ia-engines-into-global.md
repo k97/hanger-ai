@@ -76,7 +76,7 @@ My machine
 
 Every decision below is reversible. Each line gives the decision, its reason, and how to revert it.
 
-**D1. Engines leaves the rail and becomes the sixth tab in Global.**
+**D1. Engines leaves the rail and becomes a tab in Global, second after All (Karthik, 2026-11-25).**
 - Reason: an engine is a lens on the same inventory, not a separate place. This is also your suggestion.
 - The inspector then works on it for free, because Global renders one.
 - Revert: put the rail entry back and route `engines` again.
