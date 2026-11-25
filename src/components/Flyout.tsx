@@ -17,7 +17,8 @@ import EngineLabel from "./EngineLabel";
 import ListCard from "./ListCard";
 import { busyKeyOf, type McpSwitch } from "../hooks/useMcpSwitch";
 import type { EngineContext, KeptOffServer } from "../types/engineContext";
-import { mechanismLine } from "../utils/switchCopy";
+import { mechanismLine, switchedOffLine } from "../utils/switchCopy";
+import { timeAgo } from "../utils/timeAgo";
 import BrandIcon from "./BrandIcon";
 import { buildMcpServerView, type ProcessMatch } from "../utils/mcpServerView";
 import { parseProbe, type ProbeView, type ProbeWire } from "../utils/probeView";
@@ -139,8 +140,9 @@ const engineLinkClass = "group min-w-0 flex cursor-pointer text-left";
  * open or reveal: what is shown is what `get_kept_off_servers` says of it.
  * The Flyout's header carries its name and transport, as it does for every
  * server; this panel draws one row — "Off for {engine}", the engine a link
- * that shows Global seen by it, and the switch that puts it back — and the kept line
- * under it. Every word is the naming brief's (`switchCopy.ts`).
+ * that shows Global seen by it, and the switch that puts it back — then when it
+ * was switched off ("Switched off 4 min ago", from `at_ms`, read at render)
+ * and the kept line. Every word is the naming brief's (`switchCopy.ts`).
  */
 function KeptServerDetail({
   server,
@@ -199,6 +201,7 @@ function KeptServerDetail({
                 <LayerSwitch on={false} />
               </button>
             </span>
+            <span className={captionClass}>{switchedOffLine(timeAgo(new Date(server.at_ms), new Date()))}</span>
             <span className={captionClass}>{mechanismLine("claude_kept", names)}</span>
           </div>
         </ListCard>

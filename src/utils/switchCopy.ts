@@ -119,6 +119,13 @@ export function mechanismLine(kind: "claude_kept" | "gemini_by_name", n: Names):
   return MECHANISM_LINES[kind](n);
 }
 
+/** When a kept server was switched off: `ago` is `timeAgo`'s words for its
+ *  `at_ms` ("4 min ago"). Approved 2026-11-25
+ *  (docs/plans/2026-11-25-decisions-round-2.md). */
+export function switchedOffLine(ago: string): string {
+  return `Switched off ${ago}`;
+}
+
 /** A ⌘K action, named by the state it leads to. */
 export function paletteActionLabel(turnOn: boolean, n: Names): string {
   return `Switch ${n.server} ${turnOn ? "on" : "off"} for ${n.engine}`;

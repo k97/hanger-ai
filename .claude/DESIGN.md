@@ -1367,8 +1367,11 @@ Global` and offers nothing to open, copy, reveal or link. The body is one
 `EngineLabel`, a link that shows Global seen by that engine when the chips
 list it (the "Registered in" idiom), then the switch — `aria-pressed="false"`,
 named by the server, `LayerSwitch` off, disabled while busy — which sends
-`switchRequestFor`'s request for the kept item through `useMcpSwitch`; under it the
-kept line (`mechanismLine("claude_kept")`). Once the switch succeeds App
+`switchRequestFor`'s request for the kept item through `useMcpSwitch`; under it,
+in `captionClass`, when it was switched off — `switchedOffLine`, "Switched off
+4 min ago", `at_ms` through `timeAgo` at render (approved 2026-11-25,
+`docs/plans/2026-11-25-decisions-round-2.md`) — and the kept line
+(`mechanismLine("claude_kept")`). Once the switch succeeds App
 reads the kept list again (`useMcpSwitch`'s `onChanged`), the server leaves
 it, and nothing is selected. Pinned by `kept_inspector.test.tsx`.
 

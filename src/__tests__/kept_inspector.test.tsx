@@ -241,6 +241,17 @@ describe("A switched-off server opens in the inspector", () => {
     expect(screen.getByRole("tab", { name: /^MCP servers/ }).getAttribute("aria-selected")).toBe("true");
   });
 
+  it("the kept view says when it was switched off, as an age", async () => {
+    // Q4 of docs/plans/2026-11-25-decisions-round-2.md: "Switched off
+    // {timeAgo}", from `at_ms` through the app's own timeAgo.
+    keptReply = { ...KEPT, servers: [{ ...KEPT.servers[0], at_ms: Date.now() - 4 * 60_000 - 5_000 }] };
+    render(<App />);
+    await completeScan();
+    fireEvent.click(await keptRow());
+    const kept = await within(await aside()).findByTestId("kept-detail");
+    expect(within(kept).getByText("Switched off 4 min ago")).toBeTruthy();
+  });
+
   it("a kept remote server's chip shows the domain it lives on, never its address", async () => {
     const address = "https://hmc-zohomail-12345678901.zohomcp.in/mcp/0123456789abcdef0123456789abcdef/message";
     keptReply = { ...KEPT, servers: [{ ...KEPT.servers[0], transport: address }] };

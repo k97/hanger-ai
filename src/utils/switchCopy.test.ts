@@ -10,6 +10,7 @@ import {
   budgetHeadline,
   budgetCaption,
   costLabel,
+  switchedOffLine,
 } from "./switchCopy";
 
 // Every expected string below is copied from
@@ -190,5 +191,13 @@ describe("budget and cost", () => {
     expect(costLabel(null)).toBe("Not measured");
     expect(costLabel(0)).toBe("≈ 0 tokens");
     expect(costLabel(1200)).toBe("≈ 1,200 tokens");
+  });
+});
+
+describe("switchedOffLine", () => {
+  it("says when a kept server was switched off, in timeAgo's words", () => {
+    // Approved 2026-11-25 (docs/plans/2026-11-25-decisions-round-2.md).
+    expect(switchedOffLine("4 min ago")).toBe("Switched off 4 min ago");
+    expect(switchedOffLine("moments ago")).toBe("Switched off moments ago");
   });
 });
