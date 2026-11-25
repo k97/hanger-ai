@@ -4,20 +4,38 @@ import GelMeter from "./GelMeter";
 import { useScanStampText } from "./ScanStamp";
 import FindingPopover, { type FindingLine } from "./FindingPopover";
 import { captionClass } from "./typeRoles";
+import { miniBtnClass } from "./miniButton";
 import type { StateCounts, StateFilter, LinkState } from "../utils/linkStateCounts";
 
-/** The strip's second mode: MCP. It replaces the entire link-state branch —
- *  meter and legend — with one caption line; `total`/`subtitle` still render
- *  as passed by the caller.
- *
- *  The probe-coverage meter it used to draw is gone (Karthik's ruling,
- *  2026-08-28): "answered / not yet asked / can't be asked" measured whether
- *  Hanger had ASKED each server, not whether anything was up, and it
- *  converges to a constant as the probes complete. */
-export interface McpStripFigures {
-  /** The caption under the headline, passed so the string lives with its
-   *  caller's other strings. */
-  caption: string;
+/** One kind's share of an engine's budget: a button that opens that kind's
+ *  tab. Every string arrives formatted from the caller (`switchCopy`). */
+export interface StripSegment {
+  key: string;
+  /** The kind, by its tab's label. */
+  label: string;
+  /** "≈ 12,400", or "Not measured". */
+  value: string;
+  /** `false` for "Not measured", which recedes to --ink-3. */
+  measured: boolean;
+  /** The MCP segment's "M of K servers measured · J off". */
+  caption?: string;
+  /** Its tab is the one open. */
+  pressed: boolean;
+  onSelect: () => void;
+}
+
+/** The strip's second mode: Global seen by one engine
+ *  (docs/plans/2026-11-25-ia-global-by-engine.md). It replaces the
+ *  link-state branch — meter and legend — with the engine's budget by kind
+ *  and Measure all; `total`/`subtitle` still render as passed by the caller,
+ *  and Rescan and the pill stay. It replaced the MCP mode, whose caption was
+ *  "Described to the model on every request, used or not." */
+export interface EngineStripFigures {
+  segments: StripSegment[];
+  measuring: boolean;
+  onMeasure: () => void;
+  /** Under Measure all (`MEASURE_ALL_CAPTION`). */
+  measureCaption: string;
 }
 
 /** What the Needs review pill says, and what its popover shows. One shape
@@ -34,8 +52,10 @@ export interface StripReview {
 }
 
 interface SummaryStripProps {
-  /** Backend-owned asset total for the scope — never derived on the frontend. */
-  total: number;
+  /** Backend-owned asset total for the scope — never derived on the frontend.
+   *  In engine mode a formatted figure ("≈ 12,400"), or `null` for none, when
+   *  the numeral is left out and the subtitle carries the line alone. */
+  total: number | string | null;
   subtitle: string;
   scannedAt: Date | null;
   scanning: boolean;
@@ -47,8 +67,8 @@ interface SummaryStripProps {
    *  as its tooltip — the age left the headline on 2026-08-29 and the foot
    *  line prints it now. */
   onRescan?: () => void;
-  /** MCP mode when given — see McpStripFigures. */
-  mcp?: McpStripFigures;
+  /** Engine mode when given — see EngineStripFigures. */
+  engine?: EngineStripFigures;
   /** The Needs review pill, in either mode. Absent, or zero, draws nothing. */
   review?: StripReview;
   /** The hero band, rendered inside the section below the second row. */
@@ -82,7 +102,7 @@ export default function SummaryStrip({
   activeStateFilter,
   onFilterState,
   onRescan,
-  mcp,
+  engine,
   review,
   children,
 }: SummaryStripProps) {
@@ -188,22 +208,55 @@ export default function SummaryStrip({
           The controls were tried here on 2026-08-29 and sent back down the
           same day (Karthik) — they stay in the row under the meter. */}
       <div className="flex items-baseline gap-3 mb-3">
-        <span className="text-display font-medium tabular tracking-[-0.5px] leading-display text-ink-1 shrink-0">
-          {total}
-        </span>
+        {total !== null && (
+          <span className="text-display font-medium tabular tracking-[-0.5px] leading-display text-ink-1 shrink-0">
+            {total}
+          </span>
+        )}
         <span className="text-lg-app text-ink-2 min-w-0 truncate" title={subtitle}>
           {subtitle}
         </span>
       </div>
 
-      {mcp ? (
-        <div className="flex items-center gap-3 min-h-[30px]">
-          <p className={`${captionClass} font-flex flex-1`}>{mcp.caption}</p>
-          <div className="ml-auto flex items-center gap-2">
-            {rescanButton}
-            {reviewPill}
+      {engine ? (
+        <>
+          {/* Four across, or two by two below 640px — the width Rescan
+              sheds its label at, measured for the legend row it replaces.
+              With the inspector open the list is about 534px (F1). */}
+          <div data-testid="strip-segments" className="grid grid-cols-2 @[640px]:grid-cols-4 gap-2">
+            {engine.segments.map((seg) => (
+              <button
+                key={seg.key}
+                type="button"
+                aria-pressed={seg.pressed}
+                onClick={seg.onSelect}
+                className={`min-w-0 flex flex-col items-start gap-0.5 px-3 py-2 rounded-inner border text-left font-flex cursor-pointer transition-colors duration-hover ease-spring ${
+                  seg.pressed ? "border-transparent bg-tint" : "border-line hover:bg-plane-2"
+                }`}
+              >
+                <span className={`text-small ${seg.pressed ? "text-tint-ink font-medium" : "text-ink-2"}`}>{seg.label}</span>
+                <b className={`text-small font-medium tabular ${seg.measured ? "text-ink-1" : "text-ink-3"}`}>{seg.value}</b>
+                {seg.caption && <span className={`${captionClass} max-w-full truncate`}>{seg.caption}</span>}
+              </button>
+            ))}
           </div>
-        </div>
+          <div className="flex items-center gap-3 mt-2.5 flex-wrap">
+            <button
+              type="button"
+              onClick={engine.onMeasure}
+              disabled={engine.measuring}
+              title={engine.measureCaption}
+              className={`${miniBtnClass} shrink-0 disabled:cursor-default disabled:opacity-50`}
+            >
+              {engine.measuring ? "Measuring…" : "Measure all"}
+            </button>
+            <p className={`${captionClass} font-flex flex-1 min-w-0`}>{engine.measureCaption}</p>
+            <div className="ml-auto flex items-center gap-2">
+              {rescanButton}
+              {reviewPill}
+            </div>
+          </div>
+        </>
       ) : (
         <>
           {counts.total > 0 && (

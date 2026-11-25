@@ -2,6 +2,17 @@ import SegmentedTrack from "./SegmentedTrack";
 
 export type CategoryType = "Skills" | "Agents" | "Tools" | "Rules" | "Subagents";
 
+/** Each tab's label. Display only: the `id` stays "Tools" -- it is the
+ *  discriminant wired through filterPredicate and the count commands, and
+ *  assets.category stays the literal 'tool' in the database. Rename is
+ *  display-layer. Global's strip names its budget segments with these too. */
+export const TAB_LABELS: Record<Exclude<CategoryType, "Agents">, string> = {
+  Skills: "Skills",
+  Tools: "MCP servers",
+  Rules: "Rules",
+  Subagents: "Subagents",
+};
+
 interface CategoryFilterCardsProps {
   /** Backend-owned total for the All chip. */
   allCount?: number;
@@ -49,13 +60,10 @@ export default function CategoryFilterCards({
 }: CategoryFilterCardsProps) {
   const chips: Array<{ id: CategoryType | null; label: string; count: number | undefined }> = [
     { id: null, label: "All", count: allCount },
-    { id: "Skills", label: "Skills", count: skillsCount },
-    // Display label only. The `id` stays "Tools" -- it is the discriminant
-    // wired through filterPredicate and the count commands, and assets.category
-    // stays the literal 'tool' in the database. Rename is display-layer.
-    { id: "Tools", label: "MCP servers", count: toolsCount },
-    { id: "Rules", label: "Rules", count: rulesCount },
-    { id: "Subagents", label: "Subagents", count: subagentsCount },
+    { id: "Skills", label: TAB_LABELS.Skills, count: skillsCount },
+    { id: "Tools", label: TAB_LABELS.Tools, count: toolsCount },
+    { id: "Rules", label: TAB_LABELS.Rules, count: rulesCount },
+    { id: "Subagents", label: TAB_LABELS.Subagents, count: subagentsCount },
   ];
 
   const visibleChips = chips.filter((chip) => {

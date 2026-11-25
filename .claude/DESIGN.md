@@ -107,8 +107,9 @@ Karthik withdrew it together with the probe-coverage meter that drew it, and
 the reason is that nothing in MCP mode is a share of anything: "answered /
 not yet asked / can't be asked" measured whether Hanger had ASKED each
 server, not whether anything was up, and it converges to a constant as the
-probes complete (`SummaryStrip.tsx:13-16`). The MCP branch now draws one
-caption line, Rescan and the review pill — no meter, no legend (`:157-164`).
+probes complete. The MCP mode itself went with the engine lens
+(`docs/plans/2026-11-25-ia-global-by-engine.md`); the strip's second mode is
+now an engine's budget, which draws no meter either.
 The 2026-08-15 ruling itself stands unchanged for the link-state meter.
 `GelMeter`'s own docstring has not caught up: it still names the answered
 share as a second permitted use (`GelMeter.tsx:10-14`), and no caller passes
@@ -846,29 +847,31 @@ The empty copy itself, reviewed 2026-08-16 (Karthik: "review with
 Pinned by `ProfilePaneIntegration.test.tsx`, `RepoPaneIntegration.test.tsx`,
 `needs_review_pane.test.tsx`, `inspector_avionics.test.tsx`, `prose.test.ts`.
 
-**The Global pane's hero on MCP servers.** With Tools selected and the
-grouped server rows in view, `SummaryStrip` runs in its second mode
-(`ProfilePane.tsx:599-602`, passed at `:1011`). It draws the 32px numeral; a
-subtitle assembled from two backend fields — "MCP servers · ‹n› tool
-descriptions across ‹m› engines", and the shorter "MCP servers across ‹m›
-engines" when no launch has been probed yet (they said "hosts" until
-Karthik's Q1 ruling, 2026-11-25) (`ProfilePane.tsx:628-633`; the
-fields are `tools_known_total` and `host_count`,
-`src/types/mcpEngineSummary.ts:17`, `:22`, from
-`src-tauri/src/mcp/engine_summary.rs:94-105`); one caption, "Described to
-the model on every request, used or not." (`ProfilePane.tsx:646`); then
-Rescan and the Needs review pill (`SummaryStrip.tsx:200-206`). Nothing in
-that row is arithmetic done here — `host_count` exists as a backend field
-precisely so the subtitle prints one rather than measuring `rows`
-(`engine_summary.rs:95-98`).
+**The Global pane's hero seen by one engine.** With All engines every Global
+tab, MCP servers included, draws the link-state strip: the store total, the
+meter and legend, Rescan and the pill. The MCP mode that tab had — "MCP
+servers · ‹n› tool descriptions across ‹m› engines" and the caption
+"Described to the model on every request, used or not." — went with the
+engine lens (`docs/plans/2026-11-25-ia-global-by-engine.md`); only its
+review pill stays, listing disagreeing servers on MCP servers with grouped
+rows (`mcpMode`). With an engine picked, every tab draws `SummaryStrip`'s
+engine mode (Surfaces and controls, below): the numeral is that engine's
+`on_tokens_measured` as `tokenFigure` and the subtitle "tokens every session
+· ‹engine›", both from `switchCopy.ts` → `engineStripHeadline`, or no
+numeral and "Not measured · ‹engine›" when servers are on and none is
+measured (`measuredBudget`). Phase 1 measures MCP only, so that figure is the
+MCP figure, and the segments say so: MCP servers carries `engineBandFigures`
+— the same figure and `budgetCaption` ("M of K servers measured · J off") —
+and Skills, Rules and Subagents read "Not measured". Each segment opens its
+kind's tab and keeps the engine. Measure all asks `measure_engine_context`
+for that engine alone and hands the reply to App. Nothing in the strip is a
+sum made here.
 
-**The mode lost its meter on 2026-08-28.** It drew a `GelMeter` of answered
-/ not yet asked / can't be asked with a three-word legend beneath. Karthik
-removed both: the figures said whether Hanger had asked each server, not
-whether anything was up, and they converge to a constant as the probes
-complete (`SummaryStrip.tsx:13-16`; §1 records the aqua ruling that
-withdrew with it). The four coverage counts remain backend fields
-(`src/types/mcpEngineSummary.ts:23-42`); nothing on screen reads them.
+The MCP mode had lost its meter on 2026-08-28 (§1): a `GelMeter` of
+answered / not yet asked / can't be asked, which said whether Hanger had
+asked each server rather than whether anything was up. The four coverage
+counts remain backend fields (`src/types/mcpEngineSummary.ts`); nothing on
+screen reads them.
 
 **The band is what the per-engine prose became, on a project pane.**
 `HeroBand` (Surfaces and controls, below) renders in the strip's `children`
@@ -1391,16 +1394,26 @@ map view's toolbar slot holds Rescan instead of the inspector toggle
 
 ### Surfaces and controls
 
-**`SummaryStrip`** (`SummaryStrip.tsx:36-56`) — `total`, `subtitle`,
+**`SummaryStrip`** (`SummaryStrip.tsx`) — `total`, `subtitle`,
 `scannedAt`, `scanning`, `counts`, `activeStateFilter`, `onFilterState`,
-`onRescan?`, `mcp?: McpStripFigures`, `review?: StripReview` and
-`children?: ReactNode`. `mcp` is the second mode, which "replaces the entire
-link-state branch — meter and legend — with one caption line;
-`total`/`subtitle` still render as passed by the caller" (`:9-11`, interface
-`:17-21`, now a single `caption` field). The Needs review pill left that
-sentence on 2026-08-28 because it renders in *both* modes from one
-definition (`:129-171`, placed at `:204` and `:242`); `children` is the slot
-the hero band renders into (`:54-55`, `:248`). `review` is `StripReview` —
+`onRescan?`, `engine?: EngineStripFigures`, `review?: StripReview` and
+`children?: ReactNode`. `engine` is the second mode, Global seen by one
+engine; it replaced the MCP mode (`mcp?`, one caption line) on 2026-11-25.
+It replaces the link-state branch — meter and legend — with a
+`data-testid="strip-segments"` grid of `StripSegment` buttons, `grid-cols-2
+@[640px]:grid-cols-4 gap-2` (two by two below the width Rescan sheds its
+label at, so the four fit the 534px list F1 measured): each `aria-pressed`
+for its open tab, `rounded-inner border border-line` (`bg-tint` pressed, its
+label `text-tint-ink`), the kind's tab label (`CategoryFilterCards.tsx` →
+`TAB_LABELS`) in the legend's `text-small font-flex text-ink-2`, the value
+in the legend figure's `font-medium tabular` (`text-ink-1`, or `text-ink-3`
+for "Not measured"), and an optional caption in `captionClass`. Under them
+one row: Measure all (`miniBtnClass`, "Measuring…" and disabled while it
+runs, its caption as `title`), the caption beside it, then Rescan and the
+pill at the right. In engine mode `total` is a formatted figure or `null`,
+which leaves the numeral out. The Needs review pill renders in *both* modes
+from one definition; `children` is the slot the engine chips
+(`EngineChipRow`) and a project pane's band render into. `review` is `StripReview` —
 `count`, `lines`, `actions?` (`:27-34`) — where `count` is "counted where
 the lines are built, and allowlisted there, never derived here" (`:28-29`)
 and every action is a button the caller puts inside the popover, so the two
@@ -1505,7 +1518,7 @@ may mark only a share that is actually true — the linked share, and nothing
 else since the MCP extension was withdrawn on 2026-08-28 (§1). `GelMeter`'s
 own comment has not caught up: it still names an answered share as a second
 permitted use (`GelMeter.tsx:10-14`), and nothing passes it one, because
-`SummaryStrip`'s MCP branch draws no meter at all. Both strips draw through it
+`SummaryStrip`'s engine mode draws no meter at all. Both strips draw through it
 (`SummaryStrip.tsx`, `NeedsReviewPane.tsx`); a proportional bar styled by
 hand is a divergence, not a variant. The glass is painted with stacked
 gradients, not cast — `--overlay-shadow` belongs to the map's overlays and
@@ -1541,8 +1554,15 @@ apart from "cannot read it". A read-only item keeps its state's look at
 engine that switches by name takes any of its items, preferring a switchable
 one, and any other engine holding two of them draws no switch
 (`switchTargets.ts` → `tileTarget`). No item, or no reply yet, draws the tile
-as before. Pinned by `EngineReachTiles.test.tsx`, `mcp_tile_switch.test.tsx`
-and `mcp_tile_switch_wiring.test.tsx`.
+as before. `leadEngine` (an MCP host id, given by Global's MCP rows while an
+engine is picked, through `AssetRow`) draws that engine's tile first,
+matched by `sameEngine`, ahead of the reached-first order so the cap never
+hides it, and dims every other tile to `opacity-40` (`data-dimmed`); the
+dimmed tiles keep their switches. On the same rows the Tools column shows
+that engine's `costLabel` (`AssetItem.engineFigure`, at every width) and a
+read-only item's `readOnlyLine` takes the second line. Pinned by
+`EngineReachTiles.test.tsx`, `mcp_tile_switch.test.tsx`,
+`mcp_tile_switch_wiring.test.tsx` and `engine_lens_pane.test.tsx`.
 
 **`ReachCard`** (`ReachCard.tsx`) — the inspector's Reach section: route rows
 of pressable engine plates over one footer that answers for the selected one.

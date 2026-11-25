@@ -76,6 +76,8 @@ import {
   SAMPLE_FINDING_LINES,
   SAMPLE_ENGINE_BAND_ROWS,
   SAMPLE_ENGINES,
+  SAMPLE_ENGINE_HEADLINE,
+  SAMPLE_ENGINE_STRIP,
   SAMPLE_NOT_LOADED,
   SAMPLE_ORIGIN,
   SAMPLE_ORIGIN_BLOCKED,
@@ -901,7 +903,7 @@ export default function DesignSystemPane({ section }: DesignSystemPaneProps) {
           label="Composites"
           lede="Imported, not imitated. Each specimen is the component the panes render, fed sample props; captions name the file."
         >
-          <Specimen name="SummaryStrip" file="SummaryStrip.tsx" note="the strip with its GelMeter; legend toggles filter; Needs review opens the popover">
+          <Specimen name="SummaryStrip" file="SummaryStrip.tsx" note="All engines: the strip with its GelMeter; legend toggles filter; Needs review opens the popover; the engine chips under it">
             <SummaryStrip
               total={SAMPLE_COUNTS.total}
               subtitle="assets in the global store · 6 engines"
@@ -926,7 +928,25 @@ export default function DesignSystemPane({ section }: DesignSystemPaneProps) {
                   />
                 ),
               }}
-            />
+            >
+              <EngineChipRow engines={SAMPLE_ENGINES} selected={null} onSelect={() => {}} />
+            </SummaryStrip>
+          </Specimen>
+
+          <Specimen name="SummaryStrip · engine mode" file="SummaryStrip.tsx" note="one engine picked: its budget every session, by kind; only MCP is measured in Phase 1, so the other segments read Not measured; a segment opens its tab; Measure all asks this engine alone">
+            <SummaryStrip
+              total={SAMPLE_ENGINE_HEADLINE.figure}
+              subtitle={SAMPLE_ENGINE_HEADLINE.subtitle}
+              scannedAt={scannedAt}
+              scanning={false}
+              counts={SAMPLE_COUNTS}
+              activeStateFilter={null}
+              onFilterState={() => {}}
+              onRescan={() => {}}
+              engine={SAMPLE_ENGINE_STRIP}
+            >
+              <EngineChipRow engines={SAMPLE_ENGINES} selected={SAMPLE_ENGINES[0].engine_id} onSelect={() => {}} />
+            </SummaryStrip>
           </Specimen>
 
           <Specimen name="ReviewPillActions" file="ReviewPillActions.tsx" note="the review pill's action row; a duplicate among the issues withholds Show in list, and no issue at all renders nothing">

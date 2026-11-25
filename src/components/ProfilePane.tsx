@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import {
   ExclamationCircleIcon,
   Disc3Icon,
@@ -10,7 +11,7 @@ import {
   ZapOffIcon,
   PlugZapIcon,
 } from "./icons";
-import CategoryFilterCards, { CategoryType } from "./CategoryFilterCards";
+import CategoryFilterCards, { CategoryType, TAB_LABELS } from "./CategoryFilterCards";
 import AssetRow, { AssetItem, AssetAnnotationView, cardChipClass, getSingularType } from "./AssetRow";
 import AssetHeaderRow, { SortField, SortDirection } from "./AssetHeaderRow";
 import ViewControl, { ServerGrouping, ServerSort } from "./ViewControl";
@@ -23,7 +24,7 @@ import { groupProcesses, type ProcessMatch } from "../utils/mcpServerView";
 import { ancestorReachNote, cardSecondLine, mergeReach, sortServerRows, transportChipLabel, type McpServerRow } from "../utils/serverRows";
 import { sumGlobalAssets, categoryCountKey } from "../utils/globalAssetCount";
 import { groupLabelClass } from "./typeRoles";
-import SummaryStrip, { type StripReview } from "./SummaryStrip";
+import SummaryStrip, { type EngineStripFigures, type StripReview } from "./SummaryStrip";
 import EngineChipRow from "./EngineChipRow";
 import NotLoadedGroup, { groupRowClass, type NotLoadedRow } from "./NotLoadedGroup";
 import { missTitle } from "./ReachCard";
@@ -40,6 +41,14 @@ import type { EngineReachInfo, TileSwitch } from "./EngineReachTiles";
 import { busyKeyOf, type McpSwitch } from "../hooks/useMcpSwitch";
 import { sameEngine, switchRequestFor, tileTarget, type SwitchTarget } from "../utils/switchTargets";
 import type { EngineListEntry } from "../utils/enginesList";
+import {
+  costLabel,
+  engineBandFigures,
+  engineStripHeadline,
+  MEASURE_ALL_CAPTION,
+  NOT_MEASURED_FIGURE,
+  readOnlyLine,
+} from "../utils/switchCopy";
 import { issueSeverity, type ReviewIssue } from "../utils/reviewIssues";
 
 /** The frontend's mirror of Rust's `ConfigProblem`
@@ -441,6 +450,8 @@ export default function ProfilePane({
   // change so switching away from Tools and back never carries a stale
   // filter over from a different session's look at the list.
   const [mcpReviewOnly, setMcpReviewOnly] = useState(false);
+  // The engine Measure all is running for, if any.
+  const [measuringFor, setMeasuringFor] = useState<string | null>(null);
 
   // Lookup only — keyed by the backend's own asset_path. A row without an
   // entry renders empty annotation cells rather than a guessed state.
@@ -675,15 +686,12 @@ export default function ProfilePane({
       ? sumGlobalAssets(assetCounts)
       : assetCounts?.byCategory[kindKey]?.global ?? 0;
 
-  /* MCP mode: what the hero says about MCP servers rather than about assets
-     with link state. It swaps three things — the subtitle counts servers,
-     tools and engines; the meter gives way to one caption; and the review
-     pill lists disagreeing servers instead of this store's issues.
-
-     Probe coverage is NOT what it shows any more: the "answered / not yet
-     asked / can't be asked" meter came out on Karthik's ruling, 2026-08-28,
-     because it measured whether Hanger had asked rather than whether
-     anything was wrong, and converged to a constant as the probes finished.
+  /* MCP mode, what is left of it: on MCP servers the review pill lists
+     disagreeing servers instead of this store's issues. Its subtitle ("N
+     tool descriptions across M engines") and caption went with the engine
+     lens (docs/plans/2026-11-25-ia-global-by-engine.md): with All engines
+     the strip is the link-state strip every tab has, and with one engine its
+     engine mode, below.
 
      Gated on a grouped row existing to point the Review pill's filter at —
      a per-registration view has no `agreement` verdict to filter on. */
@@ -710,29 +718,60 @@ export default function ProfilePane({
         : linkStateCounts(inventory, { kind: "global" }, selectedCategory);
 
   const engineCount = Object.keys(assetCounts?.engines ?? {}).filter((k) => k !== "none").length;
-  const stripSubtitle =
+  const storeSubtitle =
     selectedCategory === null
       ? `assets in the global store · ${engineCount} ${engineCount === 1 ? "engine" : "engines"}`
-      : mcpMode && mcpEngineSummary
-        ? mcpEngineSummary.tools_known_total === null
-          ? `MCP servers across ${mcpEngineSummary.host_count} ${mcpEngineSummary.host_count === 1 ? "engine" : "engines"}`
-          : `MCP servers · ${mcpEngineSummary.tools_known_total} tool ${
-              mcpEngineSummary.tools_known_total === 1 ? "description" : "descriptions"
-            } across ${mcpEngineSummary.host_count} ${mcpEngineSummary.host_count === 1 ? "engine" : "engines"}`
-        : `${categoryNoun(selectedCategory)} in the global store · ${engineCount} ${
-            engineCount === 1 ? "engine" : "engines"
-          }`;
+      : `${categoryNoun(selectedCategory)} in the global store · ${engineCount} ${
+          engineCount === 1 ? "engine" : "engines"
+        }`;
 
-  // The strip's MCP-mode caption, or undefined to keep it in the ordinary
-  // link-state mode — `mcpEngineSummary &&` (not just `mcpMode`, which TS
-  // cannot narrow through) is what lets this read `mcpEngineSummary`'s
-  // fields without a non-null assertion.
-  //
-  // The probe-coverage meter that used to live here is gone (Karthik's
-  // ruling, 2026-08-28): it measured whether Hanger had asked, not whether
-  // anything was up, and converged to a constant.
-  const MCP_CAPTION = "Described to the model on every request, used or not.";
-  const mcpFigures = mcpMode && mcpEngineSummary ? { caption: MCP_CAPTION } : undefined;
+  /* The strip's engine mode, on every tab while an engine is picked: that
+     engine's budget, "≈ N tokens every session", split by kind. Phase 1
+     measures MCP only, so the headline is the MCP figure and the other three
+     segments say "Not measured"; nothing is added up here. Each segment opens
+     its kind's tab and keeps the engine. Measure all asks this engine alone,
+     through the command the band used (docs/ipc.md entry 18, which does not
+     fail), and hands the reply to App. */
+  const engineHeadline = engine ? engineStripHeadline(filterContext, engine.engine_name) : null;
+  const measureEngine = async (engineId: string) => {
+    setMeasuringFor(engineId);
+    try {
+      const reply = await invoke<EngineContext>("measure_engine_context", { engineId });
+      if (reply) onEngineContext?.(reply);
+    } catch {
+      // The figures stay as they were.
+    } finally {
+      setMeasuringFor((prev) => (prev === engineId ? null : prev));
+    }
+  };
+  const mcpSegment = engineBandFigures(filterContext);
+  const engineFigures: EngineStripFigures | undefined = engine
+    ? {
+        segments: (["Tools", "Skills", "Rules", "Subagents"] as const).map((kind) =>
+          kind === "Tools"
+            ? {
+                key: kind,
+                label: TAB_LABELS[kind],
+                value: mcpSegment.value ?? mcpSegment.word,
+                measured: mcpSegment.value !== null,
+                caption: mcpSegment.secondary,
+                pressed: selectedCategory === kind,
+                onSelect: () => setSelectedCategory(kind),
+              }
+            : {
+                key: kind,
+                label: TAB_LABELS[kind],
+                value: NOT_MEASURED_FIGURE,
+                measured: false,
+                pressed: selectedCategory === kind,
+                onSelect: () => setSelectedCategory(kind),
+              }
+        ),
+        measuring: measuringFor === engine.engine_id,
+        onMeasure: () => void measureEngine(engine.engine_id),
+        measureCaption: MEASURE_ALL_CAPTION,
+      }
+    : undefined;
 
   /* The processes nothing on disk accounts for. They belong to every Global
      tab, not just MCP servers: the banner they replace was gated on
@@ -981,7 +1020,32 @@ export default function ProfilePane({
     useGroupedTools ? groupedRegistrationsById.get(item.id ?? "") ?? [] : item.id ? [item.id] : [];
   // The rows the picked engine's context registers (T3's filter); with All
   // engines, every row.
-  const sortedTools = allToolRows.filter((item) => inEngineFilter(registrationKeysOf(item)));
+  /* With an engine picked, each row it keeps carries that engine's item: its
+     cost in the Tools column (`costLabel`), and, for one Hanger cannot
+     switch, the read-only reason as its second line. */
+  const engineItemFor = (item: AssetItem) => {
+    if (!filterContext) return null;
+    const keys = new Set(registrationKeysOf(item));
+    return filterContext.items.find((i) => keys.has(i.key)) ?? null;
+  };
+  const sortedTools = allToolRows
+    .filter((item) => inEngineFilter(registrationKeysOf(item)))
+    .map((item) => {
+      const ctxItem = engine ? engineItemFor(item) : null;
+      if (!ctxItem || !filterContext) return item;
+      return {
+        ...item,
+        engineFigure: costLabel(ctxItem.estimated_tokens),
+        agreementLine:
+          ctxItem.read_only !== null
+            ? readOnlyLine(ctxItem.read_only, {
+                engine: filterContext.engine_name,
+                server: ctxItem.name,
+                file: ctxItem.config_path,
+              })
+            : item.agreementLine,
+      };
+    });
   const tileSwitchFor = (item: AssetItem): ((r: EngineReachInfo) => TileSwitch | null) | undefined => {
     if (!engineContexts || !switcher) return undefined;
     const keys = registrationKeysOf(item);
@@ -1189,15 +1253,15 @@ export default function ProfilePane({
       {/* Inventory summary strip */}
       <div className="mx-[18px] mb-3.5">
         <SummaryStrip
-          total={stripTotal}
-          subtitle={stripSubtitle}
+          total={engineHeadline ? engineHeadline.figure : stripTotal}
+          subtitle={engineHeadline ? engineHeadline.subtitle : storeSubtitle}
           scannedAt={scannedAt}
           scanning={loading}
           counts={stripCounts}
           activeStateFilter={stateFilter}
           onFilterState={(f) => onStateFilterChange?.(f)}
           onRescan={onRescan}
-          mcp={mcpFigures}
+          engine={engineFigures}
           review={mcpMode ? mcpReview : assetReview}
         >
           {/* The engine selector, on every tab (Q1). Pending is not empty:
@@ -1472,6 +1536,7 @@ export default function ProfilePane({
                       item={item}
                       annotation={toolAnnotationFor(item)}
                       tileSwitchFor={tileSwitchFor(item)}
+                      leadEngine={engine?.engine_id ?? null}
                       onLink={() => onLinkAsset(item)}
                       onClick={() => onSelectAsset({ id: item.id, name: item.name, category: "Tools", path: item.path })}
                     />

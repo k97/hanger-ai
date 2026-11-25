@@ -62,6 +62,10 @@ export interface AssetItem {
    *  two distinct launches) and renders the existing dash convention, not a
    *  fabricated zero. */
   toolCount?: number | null;
+  /** Card variant only, while Global is seen by one engine: that engine's
+   *  cost for this server, as `switchCopy`'s `costLabel` prints it ("≈ 9,000
+   *  tokens", or "Not measured"). Given, it takes the Tools column's place. */
+  engineFigure?: string;
 }
 
 interface AssetRowProps {
@@ -82,6 +86,9 @@ interface AssetRowProps {
    *  tile's switch for this row's server, or `null` for a tile that stays
    *  display only (`EngineReachTiles`' `switchFor`). */
   tileSwitchFor?: (r: EngineReachInfo) => TileSwitch | null;
+  /** Card variant only: the engine Global is seen by, whose tile leads and
+   *  whose others dim (`EngineReachTiles`' `leadEngine`). */
+  leadEngine?: string | null;
   onClick?: () => void;
   onLink?: () => void;
   onUnlink?: () => void;
@@ -180,7 +187,7 @@ export function getRowState(item: AssetItem) {
   }
 }
 
-export default function AssetRow({ item, isSelected, showKindColumn = true, annotation, variant = "table", tileSwitchFor, onClick }: AssetRowProps) {
+export default function AssetRow({ item, isSelected, showKindColumn = true, annotation, variant = "table", tileSwitchFor, leadEngine, onClick }: AssetRowProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   // Read at fire time, not tracked as a dependency: it is the origin of
   // whichever selection just happened, and the effect below only needs its
@@ -258,7 +265,9 @@ export default function AssetRow({ item, isSelected, showKindColumn = true, anno
               what "reach" already means for one, so this reuses that data
               rather than inventing a second source for it. */}
           <span data-testid="card-registered-in" className="shrink-0 w-[100px] text-left flex">
-            {annotation ? <EngineReachTiles reach={annotation.reach} switchFor={tileSwitchFor} /> : null}
+            {annotation ? (
+              <EngineReachTiles reach={annotation.reach} switchFor={tileSwitchFor} leadEngine={leadEngine} />
+            ) : null}
           </span>
 
           {/* Tools — `McpServerRow.tool_count`, filled from the probe cache.
@@ -269,6 +278,13 @@ export default function AssetRow({ item, isSelected, showKindColumn = true, anno
               (`beyondCell`'s default case, above), not a fabricated zero.
               Stacked under the tiles, where no column label names it, the
               dash says nothing, so it shows only as a column. */}
+          {item.engineFigure !== undefined ? (
+            /* One engine's cost: shown at every width, stacked under the
+               tiles when narrow, since it is the figure the row is read for. */
+            <span className="shrink-0 @[580px]:w-[150px] text-left text-small tabular text-ink-2">
+              {item.engineFigure}
+            </span>
+          ) : (
           <span
             className={`shrink-0 @[580px]:w-[150px] text-left text-small ${
               item.toolCount != null ? "text-ink-2" : "text-ink-3 hidden @[580px]:block"
@@ -280,6 +296,7 @@ export default function AssetRow({ item, isSelected, showKindColumn = true, anno
                 : `${item.toolCount} tools`
               : "—"}
           </span>
+          )}
         </div>
       </div>
     );

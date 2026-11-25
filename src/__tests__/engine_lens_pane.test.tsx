@@ -7,11 +7,19 @@
  *  context, as the band's filter did — and "Not loaded by {engine}" lists the
  *  rest the backend says it does not reach, with the reason. Counts stay the
  *  backend's: a section header drops its store figure while filtered rather
- *  than show one the rows below contradict, and the group has none. */
+ *  than show one the rows below contradict, and the group has none.
+ *
+ *  And the strip's engine mode (commit B): with an engine picked the strip
+ *  shows that engine's budget by kind instead of the link-health legend —
+ *  only MCP is measured in Phase 1 — each segment opens its kind's tab,
+ *  Measure all asks that engine alone, and each MCP row carries that
+ *  engine's figure or its read-only reason. */
 import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
 import { useState, type ComponentProps } from "react";
-import { render, screen, cleanup, fireEvent, within } from "@testing-library/react";
+import { render, screen, cleanup, fireEvent, within, waitFor } from "@testing-library/react";
 import ProfilePane from "../components/ProfilePane";
+import EngineReachTiles, { type EngineReachInfo } from "../components/EngineReachTiles";
+import { engineBandFigures, MEASURE_ALL_CAPTION, readOnlyLine } from "../utils/switchCopy";
 import McpServerDetail, { type McpServerView } from "../components/McpServerDetail";
 import type { McpSwitch } from "../hooks/useMcpSwitch";
 import type { ContextItem, EngineContext, KeptOff } from "../types/engineContext";
@@ -219,6 +227,7 @@ const props = (over: Partial<PaneProps> = {}): PaneProps => ({
   engines: ENGINES,
   selectedEngine: null,
   onSelectEngine: vi.fn(),
+  onRescan: vi.fn(),
   ...over,
 });
 
@@ -406,5 +415,168 @@ describe("the inspector's measure control", () => {
     );
     expect(screen.getByRole("button", { name: "Measure again" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Check again" })).toBeNull();
+  });
+});
+
+/** Engine D, one server on and nobody has asked it. */
+const DESK: EngineContext = {
+  engine_id: "claude-desktop",
+  engine_name: "Engine D",
+  applies: null,
+  switches_by_name: false,
+  items: [item({ key: key(DESKTOP_FILE, "desk"), name: "desk" })],
+  on_count: 1,
+  off_count: 0,
+  measured_on_count: 0,
+  on_tokens_measured: 0,
+};
+
+const display = () => strip().querySelector(".text-display");
+const subtitle = () => strip().querySelector("[title]")?.textContent;
+const segments = () => within(strip()).getByTestId("strip-segments");
+const segment = (name: string) => within(segments()).getByRole("button", { name: new RegExp(`^${name}`) });
+const rowOf = (name: string) =>
+  Array.from(screen.getByTestId("asset-list-scroll").querySelectorAll("[data-selected]")).find(
+    (el) => el.querySelector(".truncate")?.textContent === name
+  ) as HTMLElement;
+
+describe("the strip with an engine picked shows its budget, on every tab", () => {
+  it("leads with ≈ the MCP figure every session, and drops the link legend", () => {
+    for (const tab of [null, "Skills", "Tools", "Rules", "Subagents"] as const) {
+      const { unmount } = render(<ProfilePane {...props({ selectedCategory: tab, selectedEngine: "codex" })} />);
+      expect(display()?.textContent).toBe("≈ 12,400");
+      expect(subtitle()).toBe("tokens every session · Engine C");
+      expect(within(strip()).queryByRole("button", { name: /linked$/ })).toBeNull();
+      expect(within(strip()).queryByRole("img")).toBeNull();
+      // Rescan and the chips stay.
+      expect(within(strip()).getByRole("button", { name: "Refresh scan" })).toBeTruthy();
+      expect(within(strip()).getByRole("group", { name: "Engines" })).toBeTruthy();
+      unmount();
+    }
+  });
+
+  it("splits it by kind: MCP as the budget prints it, the other three Not measured", () => {
+    render(<ProfilePane {...props({ selectedEngine: "codex" })} />);
+    const figures = engineBandFigures(CODEX);
+    const mcp = segment("MCP servers");
+    expect(mcp.textContent).toBe(`MCP servers${figures.value}${figures.secondary}`);
+    expect(figures.secondary).toBe("2 of 3 servers measured · 1 off");
+    for (const kind of ["Skills", "Rules", "Subagents"]) {
+      expect(segment(kind).textContent).toBe(`${kind}Not measured`);
+    }
+    expect(within(segments()).getAllByRole("button").map((b) => b.textContent?.split(/[≈N]/)[0])).toEqual([
+      "MCP servers",
+      "Skills",
+      "Rules",
+      "Subagents",
+    ]);
+  });
+
+  it("says Not measured, never ≈ 0, for an engine with nothing measured", () => {
+    render(<ProfilePane {...props({ selectedEngine: "claude-desktop", engineContexts: [CODEX, CLAUDE, DESK] })} />);
+    expect(display()).toBeNull();
+    expect(subtitle()).toBe("Not measured · Engine D");
+    expect(segment("MCP servers").textContent).toBe("MCP serversNot measured0 of 1 servers measured");
+    expect(strip().textContent).not.toContain("≈");
+  });
+
+  it("a segment opens its kind's tab and keeps the engine", () => {
+    const onCategoryChange = vi.fn();
+    const onSelectEngine = vi.fn();
+    render(<ProfilePane {...props({ selectedEngine: "codex", onCategoryChange, onSelectEngine })} />);
+    expect(segment("Skills").getAttribute("aria-pressed")).toBe("false");
+    fireEvent.click(segment("Skills"));
+    expect(onCategoryChange).toHaveBeenLastCalledWith("Skills");
+    expect(onSelectEngine).not.toHaveBeenCalled();
+    expect(screen.getByRole("tab", { name: /^Skills/ }).getAttribute("aria-selected")).toBe("true");
+    expect(segment("Skills").getAttribute("aria-pressed")).toBe("true");
+    fireEvent.click(segment("MCP servers"));
+    expect(onCategoryChange).toHaveBeenLastCalledWith("Tools");
+  });
+
+  it("Measure all asks the picked engine alone, and hands its reply back", async () => {
+    const measured = { ...CODEX, measured_on_count: 3, on_tokens_measured: 15000 };
+    invoke.mockImplementation(async (cmd: string) => (cmd === "measure_engine_context" ? measured : null));
+    const onEngineContext = vi.fn();
+    render(<ProfilePane {...props({ selectedEngine: "codex", onEngineContext })} />);
+    expect(within(strip()).getByText(MEASURE_ALL_CAPTION)).toBeTruthy();
+    fireEvent.click(within(strip()).getByRole("button", { name: "Measure all" }));
+    await waitFor(() => expect(onEngineContext).toHaveBeenCalledWith(measured));
+    expect(invoke.mock.calls.filter((c) => c[0] === "measure_engine_context")).toEqual([
+      ["measure_engine_context", { engineId: "codex" }],
+    ]);
+    await waitFor(() => expect(within(strip()).getByRole("button", { name: "Measure all" })).toBeTruthy());
+  });
+
+  it("wraps its four segments two by two below 640px, as a class contract", () => {
+    // happy-dom applies no container queries: the strip is the @container,
+    // and the grid's column count is what F1's narrow list needs.
+    render(<ProfilePane {...props({ selectedEngine: "codex" })} />);
+    expect(strip().className).toContain("@container");
+    const cls = segments().className;
+    expect(cls).toContain("grid-cols-2");
+    expect(cls).toContain("@[640px]:grid-cols-4");
+    for (const b of within(segments()).getAllByRole("button")) expect(b.querySelector(".tabular")).not.toBeNull();
+  });
+});
+
+describe("All engines keeps today's strip", () => {
+  it("the legend, Rescan and no segments, on every tab, and no MCP-mode subtitle", () => {
+    for (const tab of [null, "Skills", "Tools"] as const) {
+      const { unmount } = render(<ProfilePane {...props({ selectedCategory: tab })} />);
+      expect(within(strip()).getAllByRole("button", { name: /linked$/ }).length).toBeGreaterThan(0);
+      expect(within(strip()).getByRole("button", { name: "Refresh scan" })).toBeTruthy();
+      expect(within(strip()).queryByTestId("strip-segments")).toBeNull();
+      expect(within(strip()).queryByRole("button", { name: "Measure all" })).toBeNull();
+      expect(strip().textContent).not.toContain("tool descriptions across");
+      expect(strip().textContent).not.toContain("tokens every session");
+      unmount();
+    }
+  });
+});
+
+describe("an MCP row seen by one engine", () => {
+  it("shows that engine's figure in the Tools column, or Not measured", () => {
+    render(<ProfilePane {...props({ selectedCategory: "Tools", selectedEngine: "codex" })} />);
+    expect(within(rowOf("alpha")).getByText("≈ 9,000 tokens")).toBeTruthy();
+    expect(within(rowOf("delta")).getByText("Not measured")).toBeTruthy();
+  });
+
+  it("says why a read-only server has no switch, on its second line", () => {
+    render(<ProfilePane {...props({ selectedCategory: "Tools", selectedEngine: "codex" })} />);
+    const line = readOnlyLine("per_project_comes_next", { engine: "Engine C", server: "gamma", file: "~/.codex/config.toml" });
+    expect(within(rowOf("gamma")).getByText(line)).toBeTruthy();
+    expect(within(rowOf("alpha")).queryByText(line)).toBeNull();
+  });
+
+  it("leads with that engine's tile and dims the rest", () => {
+    render(<ProfilePane {...props({ selectedCategory: "Tools", selectedEngine: "codex" })} />);
+    const tiles = within(rowOf("alpha")).getByTestId("engine-reach-tiles");
+    const [first, ...rest] = Array.from(tiles.children) as HTMLElement[];
+    expect(first.querySelector("[data-testid='reach-tile-codex']") ?? first).toBeTruthy();
+    expect(tiles.querySelector("[data-testid='reach-tile-codex']")!.closest("[data-dimmed]")).toBeNull();
+    expect(rest.length).toBeGreaterThan(0);
+    expect(tiles.querySelector("[data-testid='reach-tile-claude_code']")!.getAttribute("data-dimmed")).toBe("true");
+  });
+
+  it("with All engines keeps the tool count and no engine's reason", () => {
+    render(<ProfilePane {...props({ selectedCategory: "Tools" })} />);
+    expect(within(rowOf("alpha")).queryByText(/tokens/)).toBeNull();
+    expect(within(rowOf("gamma")).queryByText(/Hanger can't switch/)).toBeNull();
+    expect(rowOf("alpha").querySelector("[data-dimmed]")).toBeNull();
+  });
+});
+
+describe("EngineReachTiles with a lead engine", () => {
+  const reach: EngineReachInfo[] = [
+    { engine_id: 2, engine_key: "codex", engine_name: "Engine C", reached: true },
+    { engine_id: 1, engine_key: "claude_code", engine_name: "Engine K", reached: true },
+  ];
+  it("draws the lead engine's tile first, matched across id formats, and dims the others", () => {
+    const { container } = render(<EngineReachTiles reach={reach} leadEngine="claude-code" />);
+    const ids = Array.from(container.querySelectorAll("[data-testid^='reach-tile-']")).map((t) => t.getAttribute("data-testid"));
+    expect(ids).toEqual(["reach-tile-claude_code", "reach-tile-codex"]);
+    expect(container.querySelector("[data-testid='reach-tile-codex']")!.getAttribute("data-dimmed")).toBe("true");
+    expect(container.querySelector("[data-testid='reach-tile-claude_code']")!.hasAttribute("data-dimmed")).toBe(false);
   });
 });

@@ -2,6 +2,7 @@ import Tooltip from "./Tooltip";
 import BrandIcon from "./BrandIcon";
 import { joinNames } from "../utils/prose";
 import { paletteActionLabel, readOnlyLine, stateLabel } from "../utils/switchCopy";
+import { sameEngine } from "../utils/switchTargets";
 import type { ItemState, ReadOnlyReason } from "../types/engineContext";
 
 /** One engine's verdict on one asset, as the backend derived it. The
@@ -98,19 +99,31 @@ const offClass = "border border-line-2";
  *  engine has an item for the row that engine's switch for the server: a
  *  `<button aria-pressed>`, as the Engines tab's switch is. A read-only item
  *  keeps its state's look, muted and inert, with its reason as the tip. A
- *  tile with no item, and every tile without `switchFor`, draws as today. */
+ *  tile with no item, and every tile without `switchFor`, draws as today.
+ *
+ *  `leadEngine`, given only while Global is seen by one engine (an MCP host
+ *  id, matched across formats by `sameEngine`), draws that engine's tile
+ *  first and dims every other one to `opacity-40` (`data-dimmed`): the row is
+ *  being read for that engine. The dimmed tiles keep their switches. */
 export default function EngineReachTiles({
   reach,
   switchFor,
+  leadEngine,
 }: {
   reach: EngineReachInfo[];
   switchFor?: (r: EngineReachInfo) => TileSwitch | null;
+  leadEngine?: string | null;
 }) {
   /* Reached first. Nothing orders the backend's list, so a cap that kept
      declaration order could draw three engines that cannot read the asset
      while hiding three that can — the column would be stating the opposite of
-     the truth. Array.sort is stable, so each group keeps its arrival order. */
-  const ordered = [...reach].sort((a, b) => Number(b.reached) - Number(a.reached));
+     the truth. Array.sort is stable, so each group keeps its arrival order.
+     A lead engine goes before both, so the cap never hides it. */
+  const leads = (r: EngineReachInfo) => (leadEngine ? sameEngine(leadEngine, r.engine_key) : false);
+  const dimmed = (r: EngineReachInfo) => (leadEngine ? !leads(r) : false);
+  const ordered = [...reach].sort(
+    (a, b) => Number(leads(b)) - Number(leads(a)) || Number(b.reached) - Number(a.reached)
+  );
   const capped = reach.length > FITS_WHOLE;
   const shown = capped ? ordered.slice(0, SHOWN_WHEN_CAPPED) : ordered;
   const hidden = capped ? ordered.slice(SHOWN_WHEN_CAPPED) : [];
@@ -129,6 +142,7 @@ export default function EngineReachTiles({
                 data-testid={`reach-tile-${r.engine_key}`}
                 data-reached={r.reached ? "true" : "false"}
                 data-state={sw.state}
+                data-dimmed={dimmed(r) ? "true" : undefined}
                 aria-label={label}
                 aria-pressed={on}
                 disabled={sw.busy}
@@ -140,7 +154,7 @@ export default function EngineReachTiles({
                 }}
                 className={`${tileClass} cursor-pointer hover:bg-plane-2 transition-colors duration-hover ease-spring disabled:cursor-default disabled:opacity-50 ${
                   on ? "" : offClass
-                }`}
+                } ${dimmed(r) ? "opacity-40" : ""}`}
               >
                 <BrandIcon
                   engineKey={r.engine_key}
@@ -162,8 +176,9 @@ export default function EngineReachTiles({
                 data-reached={r.reached ? "true" : "false"}
                 data-state={sw.state}
                 data-read-only="true"
+                data-dimmed={dimmed(r) ? "true" : undefined}
                 aria-label={label}
-                className={`${tileClass} cursor-default opacity-60 ${on ? "" : offClass}`}
+                className={`${tileClass} cursor-default ${dimmed(r) ? "opacity-40" : "opacity-60"} ${on ? "" : offClass}`}
               >
                 <BrandIcon
                   engineKey={r.engine_key}
@@ -180,10 +195,13 @@ export default function EngineReachTiles({
           <i
             data-testid={`reach-tile-${r.engine_key}`}
             data-reached={r.reached ? "true" : "false"}
+            data-dimmed={dimmed(r) ? "true" : undefined}
             aria-label={tileTip(r)}
             className={`w-4 h-4 rounded-[6px] grid place-items-center text-ink-1 not-italic cursor-default ${
               r.reached
-                ? ""
+                ? dimmed(r)
+                  ? "opacity-40"
+                  : ""
                 : "border border-line opacity-40"
             }`}
           >

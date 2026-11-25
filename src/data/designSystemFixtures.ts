@@ -18,7 +18,17 @@ import type { UnderlineTab } from "../components/UnderlineTabs";
 import type { SearchHit } from "../components/SearchPalette";
 import type { DetectedEditor } from "../components/EditorPicker";
 import type { SwitchNoticeState } from "../hooks/useMcpSwitch";
-import { failureLine, switchedLine } from "../utils/switchCopy";
+import {
+  engineBandFigures,
+  engineStripHeadline,
+  failureLine,
+  MEASURE_ALL_CAPTION,
+  NOT_MEASURED_FIGURE,
+  switchedLine,
+} from "../utils/switchCopy";
+import type { EngineContext } from "../types/engineContext";
+import type { EngineStripFigures } from "../components/SummaryStrip";
+import { TAB_LABELS } from "../components/CategoryFilterCards";
 import type { EngineListEntry } from "../utils/enginesList";
 import type { NotLoadedRow } from "../components/NotLoadedGroup";
 import { missTitle } from "../components/ReachCard";
@@ -188,6 +198,51 @@ export const SAMPLE_ENGINES: EngineListEntry[] = [
   { engine_id: "gemini", engine_name: "Gemini CLI" },
   { engine_id: "claude-desktop", engine_name: "Claude Desktop" },
 ];
+
+/** One engine's context, part-way measured: six servers on, five of them
+ *  measured, one off. The figures are the backend's to give; these are
+ *  literals for the strip's engine mode. */
+const SAMPLE_ENGINE_CONTEXT: EngineContext = {
+  engine_id: "claude-code",
+  engine_name: "Claude Code",
+  applies: null,
+  switches_by_name: false,
+  items: [],
+  on_count: 6,
+  off_count: 1,
+  measured_on_count: 5,
+  on_tokens_measured: 12400,
+};
+
+/** The strip's engine mode for that context, built as ProfilePane builds it:
+ *  the headline and the MCP segment through `switchCopy`, the other kinds
+ *  "Not measured" (Phase 1). */
+export const SAMPLE_ENGINE_HEADLINE = engineStripHeadline(SAMPLE_ENGINE_CONTEXT, SAMPLE_ENGINE_CONTEXT.engine_name);
+const SAMPLE_MCP_SEGMENT = engineBandFigures(SAMPLE_ENGINE_CONTEXT);
+export const SAMPLE_ENGINE_STRIP: EngineStripFigures = {
+  segments: [
+    {
+      key: "Tools",
+      label: TAB_LABELS.Tools,
+      value: SAMPLE_MCP_SEGMENT.value ?? SAMPLE_MCP_SEGMENT.word,
+      measured: SAMPLE_MCP_SEGMENT.value !== null,
+      caption: SAMPLE_MCP_SEGMENT.secondary,
+      pressed: false,
+      onSelect: () => {},
+    },
+    ...(["Skills", "Rules", "Subagents"] as const).map((kind) => ({
+      key: kind,
+      label: TAB_LABELS[kind],
+      value: NOT_MEASURED_FIGURE,
+      measured: false,
+      pressed: false,
+      onSelect: () => {},
+    })),
+  ],
+  measuring: false,
+  onMeasure: () => {},
+  measureCaption: MEASURE_ALL_CAPTION,
+};
 
 /** "Not loaded by Codex": a skill whose root is not linked, an MCP server
  *  in another engine's format. The reasons are ReachCard's (`missTitle`),

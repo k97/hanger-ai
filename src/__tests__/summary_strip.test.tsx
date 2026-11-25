@@ -15,6 +15,17 @@ const reviewLines: FindingLine[] = [
   { severity: "warning", text: "Diverged from its source", detail: "prose" },
 ];
 
+/** Engine mode's figures, as ProfilePane passes them for one engine. */
+const ENGINE = {
+  segments: [
+    { key: "Tools", label: "MCP servers", value: "≈ 12,400", measured: true, caption: "2 of 3 servers measured · 1 off", pressed: false, onSelect: vi.fn() },
+    { key: "Skills", label: "Skills", value: "Not measured", measured: false, pressed: false, onSelect: vi.fn() },
+  ],
+  measuring: false,
+  onMeasure: vi.fn(),
+  measureCaption: "Starts each server that's on and has no recent answer, and reads its tool list.",
+};
+
 function renderStrip(overrides: Partial<Parameters<typeof SummaryStrip>[0]> = {}) {
   const onFilterState = vi.fn();
   const utils = render(
@@ -180,11 +191,14 @@ describe("SummaryStrip", () => {
     expect(btn.querySelector("g.aim-loop")).toBeNull();
   });
 
-  it("in MCP mode the strip is two lines: no meter, no legend, the caption, Rescan and the pill", () => {
+  it("in engine mode: no meter, no legend; the segments, Measure all and its caption, Rescan and the pill", () => {
+    // The MCP mode this replaced drew one caption in the legend's place
+    // (docs/plans/2026-11-25-ia-global-by-engine.md).
     renderStrip({
-      total: 20,
-      subtitle: "MCP servers · 223 tool descriptions across 8 hosts",
-      mcp: { caption: "Described to the model on every request, used or not." },
+      total: "≈ 12,400",
+      subtitle: "tokens every session · Claude Code",
+      onRescan: vi.fn(),
+      engine: ENGINE,
       review: {
         count: 2,
         lines: [
@@ -193,11 +207,15 @@ describe("SummaryStrip", () => {
         ],
       },
     });
-    expect(screen.getByText("20")).toBeTruthy();
-    expect(screen.getByText("MCP servers · 223 tool descriptions across 8 hosts")).toBeTruthy();
+    expect(document.querySelector(".text-display")?.textContent).toBe("≈ 12,400");
+    expect(screen.getByText("tokens every session · Claude Code")).toBeTruthy();
     expect(screen.queryByRole("img")).toBeNull();                     // no GelMeter
-    expect(screen.queryByText(/answered|not yet asked|can't be asked/)).toBeNull();
-    expect(screen.getByText("Described to the model on every request, used or not.")).toBeTruthy();
+    expect(screen.getByTestId("strip-segments").textContent).toBe(
+      "MCP servers≈ 12,4002 of 3 servers measured · 1 offSkillsNot measured"
+    );
+    expect(screen.getByText(ENGINE.measureCaption)).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Measure all" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Refresh scan" })).toBeTruthy();
     expect(screen.getByText("Needs review 2")).toBeTruthy();
     expect(screen.queryByText("local only")).toBeNull();
   });
@@ -205,7 +223,7 @@ describe("SummaryStrip", () => {
   it("the pill opens the finding popover with the caller's lines and actions", () => {
     const onShow = vi.fn();
     renderStrip({
-      mcp: { caption: "c" },
+      engine: ENGINE,
       review: {
         count: 1,
         lines: [{ severity: "danger", text: "context7: 2 different launch specs" }],
@@ -221,7 +239,7 @@ describe("SummaryStrip", () => {
   });
 
   it("no pill at zero, in either mode", () => {
-    renderStrip({ mcp: { caption: "c" }, review: { count: 0, lines: [] } });
+    renderStrip({ engine: ENGINE, review: { count: 0, lines: [] } });
     expect(screen.queryByText(/Needs review \d/)).toBeNull();
     cleanup();
     renderStrip({ review: { count: 0, lines: [] } });
@@ -229,7 +247,7 @@ describe("SummaryStrip", () => {
   });
 
   it("renders its children as the band, inside the section", () => {
-    renderStrip({ mcp: { caption: "c" }, children: <div data-testid="band">band</div> });
+    renderStrip({ engine: ENGINE, children: <div data-testid="band">band</div> });
     const section = screen.getByRole("region", { name: "Inventory summary" });
     expect(section.contains(screen.getByTestId("band"))).toBe(true);
   });

@@ -167,11 +167,31 @@ function measuredBudget(ctx: EngineContext | null): number | null {
 }
 
 /**
- * One engine's row in Global's "By engine" band: the figures the Engines
- * tab's budget card prints for the same context, so the two cannot disagree.
- * The token figure is the headline's (`measuredBudget`), the caption is
- * `budgetCaption` itself. No figure is "Not measured", never a zero; the
- * caption stays when there is a context to count.
+ * Global's strip with an engine picked (docs/plans/2026-11-25-ia-global-by-engine.md):
+ * the headline, "≈ {n} tokens every session · {engine}", from the same
+ * `measuredBudget` as the MCP segment below it, or "Not measured · {engine}"
+ * with no figure. Phase 1 measures MCP only, so `n` is the engine's MCP
+ * figure; the other kinds' segments say "Not measured".
+ */
+export function engineStripHeadline(ctx: EngineContext | null, engineName: string): {
+  figure: string | null;
+  subtitle: string;
+} {
+  const tokens = measuredBudget(ctx);
+  return tokens === null
+    ? { figure: null, subtitle: `${NOT_MEASURED} · ${engineName}` }
+    : { figure: tokenFigure(tokens), subtitle: `tokens every session · ${engineName}` };
+}
+
+/** A strip segment for a kind Phase 1 does not measure. */
+export const NOT_MEASURED_FIGURE = NOT_MEASURED;
+
+/**
+ * The MCP segment of Global's strip with an engine picked: the figure
+ * (`measuredBudget`) and `budgetCaption` for its context. No figure is "Not
+ * measured", never a zero; the caption stays when there is a context to
+ * count. It was the "By engine" band's row until the engine lens replaced
+ * the band.
  */
 export function engineBandFigures(ctx: EngineContext | null): {
   value: string | null;
