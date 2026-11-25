@@ -37,3 +37,28 @@ deliberately left unfixed.
   2026-11-24 and not fixed: `transactional.rs` is unchanged. The config
   writer added that day, `mcp::switch::apply`, takes its backups folder as
   a parameter and refuses one that is not absolute.
+- Found by a cold read of `src/` and the dev-app screenshots on 2026-11-25, while
+  folding Engines into Global (`docs/plans/2026-11-25-ia-engines-into-global.md`,
+  "Sorted" › Hygiene). None is fixed. Claims marked † come from the cold read
+  and have not been checked against the code since:
+  - `AssetRow` declares `onLink` and `onUnlink` but never renders them, so
+    RepoPane's "Unlink Asset" confirm modal can't be reached. Checked.
+  - The Agents category has no tab in `CategoryFilterCards`, so ProfilePane's
+    Agents group renders only from a saved `global:Agents` preference. Checked.
+  - A repo's MCP rows have no annotation and no tool count, so "Registered in"
+    is blank and Tools always reads "—". †
+  - The internal category id "Tools" leaks into ReviewInspector
+    ("Broken link · Tools"). †
+  - "Link an asset from Global" on an empty repo stages the repo, but the
+    cap's Link to… resets it to `undefined`. †
+  - Config-problem rows on Global › MCP servers name a file but can't be
+    clicked: no Reveal, no Open. †
+  - In MCP mode, the strip's "Needs review" pill counts disagreeing servers,
+    which are not Needs review issues, while the rail badge counts issues. †
+  - One `stateFilter` in App is shared by Global and repos, so a legend filter
+    set on Global stays on when a repo opens. †
+  - The repo screen for `~/Work/Projects/rkarthik` showed "1 assets in
+    rkarthik", "Skills · 0" with skills listed under it, and "Showing 124 of
+    1". Seen in the dev app, not traced.
+  - Dev only: after many Vite hot reloads, the dev app stayed on "Scanning
+    your machine" with a growing queue until it was restarted.
