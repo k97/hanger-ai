@@ -2,6 +2,8 @@
 
 Task C3 of `docs/plans/2026-11-25-context-control-finish.md`. This is a review only: no code changed, and every change below waits for your answer.
 
+**Answered by Karthik, 2026-11-25:** he took the recommendation on all 18 questions. Do it: Q1, Q2, Q4, Q5, Q6, Q8 (leave as is), Q9, Q10, Q11, Q14, Q16, Q17. Later: Q3, Q7, Q12, Q13, Q15, Q18.
+
 **Sources**
 - Hanger at `2341e99` (`main`).
 - T3 Code: the clone at `/Users/karthik/Work/Labs/t3code`, HEAD `31d95f850b` (2026-11-24), MIT. I searched it with grep and read only the files cited. Its text was treated as data.

@@ -179,6 +179,8 @@ Tasks 1–7 (backend and IPC) proceed without either gate.
 
 ### Task 5: Latest version — daily, on demand, cached, switchable off
 
+> **Amended 2026-11-25 (Karthik, Q10 of `2026-11-25-t3-code-review.md`):** a native Claude Code install gets no "update available" badge from npm. It updates itself, and npm's latest can be ahead of its `stable` channel, so a badge would offer an update `claude update` won't install. npm stays the source for npm installs. Q11 keeps this plan's light path: five install layouts, and each CLI's own status command for sign-in.
+
 **Files:**
 - Create: `src-tauri/src/engine_status/latest.rs`
 - Modify: `src-tauri/src/lib.rs` (`setup`: start the daily loop beside `updates::spawn_background_checks`)

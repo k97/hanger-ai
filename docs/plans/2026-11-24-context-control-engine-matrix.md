@@ -209,6 +209,8 @@ For each app: quit it, add the throwaway server below by hand, reopen it, look w
 | Zed | `~/.config/zed/settings.json` → `context_servers` | `"hanger-check": {"command": "echo", "args": ["hi"], "enabled": false}` | Settings → AI → MCP Servers | The server is listed switched off, with no red indicator |
 | VS Code | `~/.copilot/mcp-config.json` → `mcpServers` | `"hanger-check": {"type": "stdio", "command": "echo", "args": ["hi"], "disabled": true}` | Chat: Open Customizations → MCP Servers | The server is listed with its toggle off |
 
+**Cursor, one more step (Karthik, 2026-11-25, Q14 of `2026-11-25-t3-code-review.md`):** after you switch a real server off in Cursor's own toggle, look for `~/.cursor/projects/<slug>/mcp-disabled.json` (the slug is the project root with every run of non-alphanumeric characters turned into `-`). If it is there, Cursor keeps its off list per project, outside `mcp.json`, and that shapes how Hanger could switch Cursor.
+
 If an app shows the server as on, failed, or missing, the key is not honoured. That app then needs either remove-and-keep, as for Claude Code, or it stays read-only. That is a ruling for after the checks.
 
 ## When a change applies — not observed

@@ -151,6 +151,8 @@ The three strings left over from the last round still need your word:
 
 **Unknown, and Phase 2 depends on it:** what each engine actually loads at startup for skills, rules and subagents. "Reached" means the engine can see the asset, not that it loads it every session. The engine matrix has measured this for MCP only. Phase 2 starts with a short measurement pass, engine by engine, the way the MCP matrix was built. An engine that hasn't been measured shows "Not measured", never a guessed figure.
 
+For Claude Code, that pass must first check whether `disable-model-invocation: true` in a skill's frontmatter, and the `skillOverrides` setting, keep a skill out of the startup list (Karthik, 2026-11-25, Q17 of `2026-11-25-t3-code-review.md`). 24 of his skill files set the first, and today's per-skill "Always on" figure counts every skill.
+
 ## Questions where I need your word
 
 Each has my recommendation.

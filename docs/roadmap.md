@@ -292,3 +292,6 @@ needed.
     handler running. But that paragraph and the comments in `search.rs` would
     need rewriting to give the new reason.
 
+## Profiles (slice 4): named sets of on/off states
+
+Ruled by Karthik on 2026-11-25 (Q16 of `docs/plans/2026-11-25-t3-code-review.md`). A profile is a named set of on/off states, applied through the MCP switch Hanger already has, so it reuses its receipts and Undo and touches nothing but on/off. Not a separate config folder per profile: that splits sign-in and conversation state, the cost T3 Code documents for its per-instance `CLAUDE_CONFIG_DIR`.
