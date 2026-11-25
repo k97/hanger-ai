@@ -1310,11 +1310,16 @@ impl PreferencesStore {
 
     pub fn upsert_engine_on(conn: &Connection, key: &str, display_name: &str, config_root: &str, detected_at: i64) -> Result<i64, SanitisedError> {
         conn.prepare_cached(
+            // An empty config_root never replaces a known one: a project's
+            // `.cursorrules` names its engine with no root to give
+            // (scanner.rs, the rules walk), and must not blank the one the
+            // machine pass recorded.
             "INSERT INTO engines (key, display_name, config_root, detected_at)
              VALUES (?1, ?2, ?3, ?4)
              ON CONFLICT(key) DO UPDATE SET
                display_name = excluded.display_name,
-               config_root = excluded.config_root,
+               config_root = CASE WHEN excluded.config_root = '' THEN engines.config_root
+                                  ELSE excluded.config_root END,
                detected_at = excluded.detected_at;",
         )
         .and_then(|mut s| s.execute(params![key, display_name, config_root, detected_at]))
@@ -1384,11 +1389,21 @@ impl PreferencesStore {
             // set at creation and stays. Before this, a project walk over an
             // engine root flipped its kind to 'project' and the next global
             // scan flipped it back — last-writer-wins on identity.
+            //
+            // Nor do an engine_global root's engine and label yield to a
+            // write of another kind. A linked directory that is also an
+            // engine's root (~/.cursor) is upserted by its project pass as
+            // ("project", NULL, ".cursor"); taking those left an
+            // engine_global row with no engine, which annotations.rs and the
+            // link map read as a shared store, until a later target's
+            // machine-pass rows repaired it — never, for the last target.
             "INSERT INTO roots (kind, abs_path, engine_id, label, added_at)
              VALUES (?1, ?2, ?3, ?4, ?5)
              ON CONFLICT(abs_path) DO UPDATE SET
-               engine_id = excluded.engine_id,
-               label = excluded.label,
+               engine_id = CASE WHEN roots.kind = 'engine_global' AND excluded.kind <> 'engine_global'
+                                THEN roots.engine_id ELSE excluded.engine_id END,
+               label = CASE WHEN roots.kind = 'engine_global' AND excluded.kind <> 'engine_global'
+                            THEN roots.label ELSE excluded.label END,
                added_at = excluded.added_at;",
         )
         .and_then(|mut s| s.execute(params![kind, abs_path, engine_id, label, added_at]))
