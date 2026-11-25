@@ -1567,10 +1567,19 @@ describe("ProfilePane — servers switched off and kept by Hanger (Task A8)", ()
     );
   });
 
-  it("renders the group's figure as the reply gives it, never the rows' number", () => {
-    // A probe, not a real reply: the backend's `count` always equals the
-    // number of `servers`, so only a count the rows cannot produce tells a
-    // figure printed from the field apart from one counted here.
+  it("renders the group's figure as the reply's count, not only_kept_count", () => {
+    // A reply the backend can send: three kept servers, one of which a config
+    // file still declares, so count is 3 and only_kept_count is 2. The
+    // heading counts every kept server. Because count always equals the
+    // number of servers, no real reply can tell a figure printed from
+    // `count` apart from one counted from the rows; until 2026-11-25 this
+    // test used count: 7, a reply the backend never sends, to do that. Since
+    // then nothing catches it: a heading reading `keptOff.servers.length`
+    // passes this test and no-frontend-counting.test.ts alike.
+    const declared = { ...BETA, key: "stash:00000000-0000-4000-8000-000000000002", name: "gamma", also_declared: true } as const;
+    const third = { ...BETA, key: "stash:00000000-0000-4000-8000-000000000003", name: "delta" } as const;
+    const reply = kept([BETA, declared, third]);
+    expect([reply.count, reply.only_kept_count]).toEqual([3, 2]);
     render(
       <ProfilePane
         inventory={oneServer}
@@ -1578,13 +1587,13 @@ describe("ProfilePane — servers switched off and kept by Hanger (Task A8)", ()
         loading={false}
         scannedAt={new Date()}
         selectedCategory="Tools"
-        keptOff={{ ...kept(), count: 7 }}
+        keptOff={reply}
         onOpenKeptOff={vi.fn()}
         onSelectAsset={vi.fn()}
         onLinkAsset={vi.fn()}
       />
     );
-    expect(groupHeading()?.textContent).toBe("Switched off · 7");
+    expect(groupHeading()?.textContent).toBe("Switched off · 3");
   });
 
   it("with only kept servers, MCP servers shows the group and not the zero-servers state", () => {
