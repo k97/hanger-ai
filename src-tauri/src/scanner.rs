@@ -1067,11 +1067,7 @@ where
     for target in targets {
         let _status_guard =
             crate::scan::status::acquire_scan_lock(target, crate::scan::status::ScanPhase::Scanning);
-        let rerun = global.is_some();
         let g = global.get_or_insert_with(|| scanner.global_pass());
-        if rerun {
-            g.rewrite_containers();
-        }
         let inv = scanner.project_pass(target, g, &mut on_progress)?;
         projects.skills.extend(inv.skills);
         projects.tools.extend(inv.tools);
@@ -1119,7 +1115,6 @@ pub struct GlobalPass {
     origin_resolver: crate::provenance::OriginResolver,
     parse_warnings: Vec<String>,
     store_opt: Option<ScanStore>,
-    containers: Vec<ContainerWrite>,
 }
 
 /// The store as a scan writes to it: one connection, opened by the machine
@@ -1196,43 +1191,6 @@ impl ScanStore {
     }
 }
 
-/// An engine or `engine_global` root row the machine pass wrote, in order.
-enum ContainerWrite {
-    Engine { key: String, name: String, config_root: String },
-    Root { path: String, engine_id: Option<i64>, label: String },
-}
-
-impl GlobalPass {
-    /// Write the machine pass's engine and root rows again, before a later
-    /// target's project pass. When every target ran the machine pass, each
-    /// one rewrote these rows after the previous target's project pass, and
-    /// one case depends on it: a linked directory that is also a
-    /// machine-pass root (`~/.cursor`, whose host owns no engine root, so
-    /// the walk is not fenced out of it) has its `engine_id` and `label`
-    /// overwritten by the project pass's `upsert_root("project", …)`, and an
-    /// `engine_global` root with no engine reads as a shared store in
-    /// `annotations.rs`. So the rows end the scan as they did before: right
-    /// unless that directory is the last target. Only these rows; the asset
-    /// work is not repeated.
-    fn rewrite_containers(&self) {
-        let Some(store) = &self.store_opt else { return };
-        let now = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map(|d| d.as_millis() as i64)
-            .unwrap_or(0);
-        for w in &self.containers {
-            match w {
-                ContainerWrite::Engine { key, name, config_root } => {
-                    let _ = store.upsert_engine(key, name, config_root, now);
-                }
-                ContainerWrite::Root { path, engine_id, label } => {
-                    let _ = store.upsert_root("engine_global", path, *engine_id, label, now);
-                }
-            }
-        }
-    }
-}
-
 impl DirectoryScanner {
     /// One target, both passes: the machine and then `root`. Every caller of
     /// `scan(root)` expects global assets back, so this keeps that contract;
@@ -1300,7 +1258,6 @@ impl DirectoryScanner {
             .unwrap_or(0);
 
         let mut engine_db_ids = std::collections::HashMap::new();
-        let mut containers: Vec<ContainerWrite> = Vec::new();
         if let Some(store) = &store_opt {
             for agent in &detected_agents {
                 if let Some(g_path) = &agent.global_config_path {
@@ -1310,11 +1267,6 @@ impl DirectoryScanner {
                     // filing its assets under the wrong engine.
                     let key = get_engine_key(&agent.id)
                         .expect("every AGENT_CONFIGS id must have an engine key");
-                    containers.push(ContainerWrite::Engine {
-                        key: key.to_string(),
-                        name: agent.name.clone(),
-                        config_root: g_path.clone(),
-                    });
                     if let Ok(id) = store.upsert_engine(key, &agent.name, g_path, now) {
                         engine_db_ids.insert(key.to_string(), id);
                     }
@@ -1328,17 +1280,10 @@ impl DirectoryScanner {
         // Root for shared ~/.agents assets, created lazily on first symlink hit.
         // engine_id is NULL: shared standards render "Any agent".
         let mut shared_agents_root_id: Option<i64> = None;
-        let ensure_shared_root = |store_opt: &Option<ScanStore>,
-                                      shared_agents_root_id: &mut Option<i64>,
-                                      containers: &mut Vec<ContainerWrite>| {
+        let ensure_shared_root = |store_opt: &Option<ScanStore>, shared_agents_root_id: &mut Option<i64>| {
             if shared_agents_root_id.is_none() {
                 if let Some(store) = store_opt {
                     let container_str = shared_agents_dir().to_string_lossy().to_string();
-                    containers.push(ContainerWrite::Root {
-                        path: container_str.clone(),
-                        engine_id: None,
-                        label: ".agents".to_string(),
-                    });
                     *shared_agents_root_id = store
                         .upsert_root("engine_global", &container_str, None, ".agents", now)
                         .ok();
@@ -1356,13 +1301,6 @@ impl DirectoryScanner {
                 // "gemini"` fallback. Reached when store_opt is None and
                 // engine_db_ids is empty. Left as-is here; out of scope.
                 let engine_id = engine_db_ids.get(engine_key).copied().unwrap_or(1);
-                if store_opt.is_some() {
-                    containers.push(ContainerWrite::Root {
-                        path: g_path.clone(),
-                        engine_id: Some(engine_id),
-                        label: agent.name.clone(),
-                    });
-                }
                 let global_root_id = store_opt.as_ref().and_then(|s| {
                     s.upsert_root("engine_global", g_path, Some(engine_id), &agent.name, now).ok()
                 });
@@ -1485,7 +1423,7 @@ impl DirectoryScanner {
                 let skills_path = g_path_buf.join("skills");
                 let skills_shared = shared_agents_container(&skills_path).is_some();
                 if skills_shared {
-                    ensure_shared_root(&store_opt, &mut shared_agents_root_id, &mut containers);
+                    ensure_shared_root(&store_opt, &mut shared_agents_root_id);
                 }
                 if skills_path.exists() && skills_path.is_dir() {
                     let walker = WalkBuilder::new(&skills_path)
@@ -1636,7 +1574,7 @@ impl DirectoryScanner {
                 for subagents_path in agent_subagent_paths {
                     let subagents_shared = shared_agents_container(&subagents_path).is_some();
                     if subagents_shared {
-                        ensure_shared_root(&store_opt, &mut shared_agents_root_id, &mut containers);
+                        ensure_shared_root(&store_opt, &mut shared_agents_root_id);
                     }
                     if subagents_path.exists() && subagents_path.is_dir() {
                         let walker = WalkBuilder::new(&subagents_path)
@@ -1853,21 +1791,11 @@ impl DirectoryScanner {
                     };
                     {
                         let config_dir = config_dir.to_string_lossy().to_string();
-                        containers.push(ContainerWrite::Engine {
-                            key: engine_key.clone(),
-                            name: host.display_name.to_string(),
-                            config_root: config_dir.clone(),
-                        });
                         let eid = store
                             .upsert_engine(&engine_key, host.display_name, &config_dir, now)
                             .ok();
                         if let Some(eid) = eid {
                             engine_db_ids.entry(engine_key.clone()).or_insert(eid);
-                            containers.push(ContainerWrite::Root {
-                                path: config_dir.clone(),
-                                engine_id: Some(eid),
-                                label: host.display_name.to_string(),
-                            });
                         }
                         let rid = eid.and_then(|eid| {
                             store
@@ -1923,7 +1851,6 @@ impl DirectoryScanner {
             origin_resolver,
             parse_warnings,
             store_opt,
-            containers,
         }
     }
 
