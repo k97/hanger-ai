@@ -19,16 +19,15 @@ import type { SwitchFailure, ReadOnlyReason, ItemState, EngineContext } from "..
 type Names = { engine: string; server: string; file?: string };
 
 /**
- * The path, or "the file" when none is known. A kept server is in no file, so
- * its `config_path` is empty; the line keeps its wording without the path.
+ * The path, or the engine's config when none is known: "Codex's config", not
+ * "the file" (Q5 of docs/plans/2026-11-25-decisions-round-2.md, approved
+ * 2026-11-25). A kept server is in no file, so its `config_path` is empty;
+ * the line keeps its wording and names whose config it is. An engine name
+ * leads with its own capital, so one form serves mid-sentence and at the
+ * start.
  */
 function file(n: Names): string {
-  return n.file ? n.file : "the file";
-}
-
-/** As `file`, at the start of a sentence. */
-function fileAtStart(n: Names): string {
-  return n.file ? n.file : "The file";
+  return n.file ? n.file : `${n.engine}'s config`;
 }
 
 const STATE_LABELS: Record<ItemState, string> = {
@@ -61,7 +60,7 @@ export function readOnlyLine(r: ReadOnlyReason, n: Names): string {
 
 const FAILURE_LINES: Record<SwitchFailure, (n: Names) => string> = {
   changed_since_read: (n) =>
-    `${fileAtStart(n)} changed while Hanger was working. Nothing was written. Try again.`,
+    `${file(n)} changed while Hanger was working. Nothing was written. Try again.`,
   would_not_come_back: (n) =>
     `${n.engine} wouldn't give this server back unchanged, so Hanger left it on. Its own command drops settings it doesn't recognise.`,
   cli_not_found: (n) => `Hanger couldn't find the ${n.engine} command on this machine.`,

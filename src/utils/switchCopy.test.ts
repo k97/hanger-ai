@@ -58,12 +58,14 @@ describe("readOnlyLine", () => {
     );
   });
 
-  it("drops the path, not the sentence, when no file is known", () => {
+  it("names the engine's config in place of the path when no file is known", () => {
+    // Q5 of docs/plans/2026-11-25-decisions-round-2.md: "{engine}'s config",
+    // not "the file".
     expect(readOnlyLine("per_project_comes_next", noFile)).toBe(
-      "Hanger can't switch servers declared in the file yet."
+      "Hanger can't switch servers declared in Engine X's config yet."
     );
     expect(readOnlyLine("file_unparseable", { ...noFile, file: "" })).toBe(
-      "Hanger can't read the file, so it can't switch this server."
+      "Hanger can't read Engine X's config, so it can't switch this server."
     );
   });
 });
@@ -105,12 +107,12 @@ describe("failureLine", () => {
     );
   });
 
-  it("drops the path, not the sentence, when no file is known", () => {
+  it("names the engine's config in place of the path when no file is known", () => {
     expect(failureLine("changed_since_read", noFile)).toBe(
-      "The file changed while Hanger was working. Nothing was written. Try again."
+      "Engine X's config changed while Hanger was working. Nothing was written. Try again."
     );
     expect(failureLine("unparseable", { ...noFile, file: "" })).toBe(
-      "Hanger can't read the file. Fix it in an editor and try again."
+      "Hanger can't read Engine X's config. Fix it in an editor and try again."
     );
   });
 
