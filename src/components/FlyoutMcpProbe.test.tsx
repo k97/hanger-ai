@@ -323,7 +323,7 @@ describe("Flyout — asking an MCP server what it provides", () => {
     );
 
     await waitFor(() => expect(screen.getByText("get_system_volume")).toBeTruthy());
-    fireEvent.click(screen.getByRole("button", { name: "Check again" }));
+    fireEvent.click(screen.getByRole("button", { name: "Measure again" }));
 
     await waitFor(() => expect(probeCalls()).toHaveLength(2));
     expect(probeCalls()[1][1]).toMatchObject({ force: true });
@@ -362,7 +362,7 @@ describe("Flyout — asking an MCP server what it provides", () => {
     await waitFor(() => expect(screen.getByText("get_system_volume")).toBeTruthy());
     const openingProbes = probeCalls().length;
 
-    const again = screen.getByRole("button", { name: "Check again" });
+    const again = screen.getByRole("button", { name: "Measure again" });
     await act(async () => {
       again.click();
       again.click();

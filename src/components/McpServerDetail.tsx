@@ -399,7 +399,7 @@ function VerifyButton({
       onClick={() => onVerify?.(registrationKey)}
       className="self-start shrink-0 text-small text-ink-2 border border-line-2 px-2.5 py-px rounded-pill cursor-pointer hover:bg-plane-2 hover:text-ink-1 transition-colors duration-hover"
     >
-      Verify
+      Measure
     </button>
   );
 }
@@ -413,8 +413,9 @@ function VerifyButton({
  * carries the whole meaning; it does not change while in flight the way
  * Verify's visible label does, since the spin animation already says so.
  *
- * "Check again" is unreviewed copy — ui-copy.md wants Karthik's sign-off on
- * a first-time label before it lands, and this has not had it yet.
+ * "Measure again" and "Measure" were "Check again" and "Verify" until
+ * Karthik's answer to Q1 of docs/plans/2026-11-25-ia-engines-into-global.md
+ * (2026-11-25): one action, one verb, the Engines tab's "Measure all".
  *
  * Nothing reads this list's tool count today: probing is session-only
  * (`useState` in the panel that owns `verified`), so a result never grows
@@ -433,12 +434,12 @@ function CheckAgainButton({
   onVerify?: (registrationKey: string) => void;
 }) {
   return (
-    <Tooltip label="Check again" placement="bottom">
+    <Tooltip label="Measure again" placement="bottom">
       <button
         type="button"
         onClick={() => onVerify?.(registrationKey)}
         disabled={verifying}
-        aria-label="Check again"
+        aria-label="Measure again"
         className="shrink-0 text-ink-3 hover:text-ink-1 transition-colors duration-hover cursor-pointer disabled:opacity-60 disabled:cursor-default"
       >
         <ServerRelayIcon size={13} active={verifying} aria-hidden="true" />

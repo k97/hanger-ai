@@ -12,7 +12,7 @@
  * it has a line here.
  */
 
-import type { SwitchFailure, ReadOnlyReason, ItemState } from "../types/engineContext";
+import type { SwitchFailure, ReadOnlyReason, ItemState, EngineContext } from "../types/engineContext";
 
 type Names = { engine: string; server: string; file?: string };
 
@@ -124,9 +124,14 @@ export function paletteActionLabel(turnOn: boolean, n: Names): string {
   return `Switch ${n.server} ${turnOn ? "on" : "off"} for ${n.engine}`;
 }
 
+/** A token estimate as every figure prints it: "≈ 12,400". */
+export function tokenFigure(tokens: number): string {
+  return `≈ ${tokens.toLocaleString("en-US")}`;
+}
+
 /** `on_tokens_measured`, as the budget's headline. */
 export function budgetHeadline(tokens: number): string {
-  return `≈ ${tokens.toLocaleString("en-US")} tokens of tool descriptions`;
+  return `${tokenFigure(tokens)} tokens of tool descriptions`;
 }
 
 /**
@@ -140,5 +145,30 @@ export function budgetCaption(measured: number, on: number, off: number): string
 
 /** One server's `estimated_tokens`; `null` is a server nobody has measured. */
 export function costLabel(tokens: number | null): string {
-  return tokens === null ? "Not measured" : `≈ ${tokens.toLocaleString("en-US")} tokens`;
+  return tokens === null ? NOT_MEASURED : `${tokenFigure(tokens)} tokens`;
+}
+
+const NOT_MEASURED = "Not measured";
+
+/** Under Measure all, and its tooltip where there is no room for the line. */
+export const MEASURE_ALL_CAPTION =
+  "Starts each server that's on and has no recent answer, and reads its tool list.";
+
+/**
+ * One engine's row in Global's "By engine" band: the figures the Engines
+ * tab's budget card prints for the same context, so the two cannot disagree.
+ * The token figure is the headline's (`on_tokens_measured`), the caption is
+ * `budgetCaption` itself. No context yet is "Not measured", never a zero.
+ */
+export function engineBandFigures(ctx: EngineContext | null): {
+  value: string | null;
+  word: string;
+  secondary?: string;
+} {
+  if (ctx === null) return { value: null, word: NOT_MEASURED };
+  return {
+    value: tokenFigure(ctx.on_tokens_measured),
+    word: "tokens",
+    secondary: budgetCaption(ctx.measured_on_count, ctx.on_count, ctx.off_count),
+  };
 }

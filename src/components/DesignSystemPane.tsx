@@ -72,7 +72,7 @@ import {
   SAMPLE_EDITORS,
   SAMPLE_FINDINGS,
   SAMPLE_FINDING_LINES,
-  SAMPLE_MCP_ENGINE_SUMMARY_ROWS,
+  SAMPLE_ENGINE_BAND_ROWS,
   SAMPLE_ORIGIN,
   SAMPLE_ORIGIN_BLOCKED,
   SAMPLE_REACH,
@@ -1127,21 +1127,13 @@ export default function DesignSystemPane({ section }: DesignSystemPaneProps) {
             </div>
           </Specimen>
 
-          <Specimen name="HeroBand" file="HeroBand.tsx" note="the hero's foldable band, by host on the Global MCP hero; press the row to fold it">
+          <Specimen name="HeroBand" file="HeroBand.tsx" note="the hero's foldable band, by engine on the Global MCP hero, in tokens; press the row to fold it">
             <div className="max-w-[384px] p-3 border border-line rounded-inner">
               <HeroBand
-                label="By host"
+                label="By engine"
                 open={heroOpen}
                 onToggle={() => setHeroOpen((v) => !v)}
-                note="A tool counts once per host that carries it."
-                rows={SAMPLE_MCP_ENGINE_SUMMARY_ROWS.map((r) => ({
-                  key: r.engine_id,
-                  engineKey: r.engine_id,
-                  engineName: r.engine_name,
-                  secondary: r.server_count === 1 ? "1 server" : `${r.server_count} servers`,
-                  value: r.tools_known,
-                  word: r.tools_known === null ? "can't be asked" : r.tools_known === 1 ? "tool" : "tools",
-                }))}
+                rows={SAMPLE_ENGINE_BAND_ROWS}
               />
             </div>
           </Specimen>

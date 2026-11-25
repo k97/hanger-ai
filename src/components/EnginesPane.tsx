@@ -18,6 +18,7 @@ import {
   budgetCaption,
   budgetHeadline,
   costLabel,
+  MEASURE_ALL_CAPTION,
   mechanismLine,
   readOnlyLine,
   stateLabel,
@@ -204,9 +205,7 @@ export default function EnginesPane({
                     }
                   />
                 </ListCard>
-                <p className={`mt-1.5 ${captionClass}`}>
-                  Starts each server that's on and has no recent answer, and reads its tool list.
-                </p>
+                <p className={`mt-1.5 ${captionClass}`}>{MEASURE_ALL_CAPTION}</p>
               </div>
 
               <h3 className={`mt-[18px] mb-2 ${sectionHeadClass}`}>Context</h3>

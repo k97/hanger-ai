@@ -145,7 +145,7 @@ describe("McpServerDetail", () => {
         }}
       />
     );
-    const button = screen.getByRole("button", { name: "Check again" });
+    const button = screen.getByRole("button", { name: "Measure again" });
     // Resting is half of what `active` means -- no motion class at all
     // while nothing is in flight, not merely a stopped-looking spin.
     expect(button.querySelector("g.aim-loop")).toBeNull();
@@ -163,7 +163,7 @@ describe("McpServerDetail", () => {
         }}
       />
     );
-    const button = screen.getByRole("button", { name: "Check again" });
+    const button = screen.getByRole("button", { name: "Measure again" });
     expect(button).toHaveProperty("disabled", true);
     // Pins ServerRelayIcon by its distinctive geometry -- the rack rect --
     // and its out-of-phase structure, not merely "a loop class is present".
@@ -187,7 +187,7 @@ describe("McpServerDetail", () => {
     // rather than below an otherwise-empty block.
     render(<Harness server={{ ...base, registrations: [base.registrations[0]] }} />);
     const toolsHeader = toolsHeading().parentElement!;
-    expect(within(toolsHeader).getByRole("button", { name: /^verify$/i })).toBeTruthy();
+    expect(within(toolsHeader).getByRole("button", { name: /^measure$/i })).toBeTruthy();
     // Nothing has been probed, so there is nothing to count -- the
     // registration-count fallback stays off this slot too.
     expect(within(toolsHeader).queryByText(/registration/i)).toBeNull();
@@ -209,7 +209,7 @@ describe("McpServerDetail", () => {
     );
     const toolsHeader = toolsHeading().parentElement!;
     expect(within(toolsHeader).getByText("2")).toBeTruthy();
-    expect(within(toolsHeader).getByRole("button", { name: "Check again" })).toBeTruthy();
+    expect(within(toolsHeader).getByRole("button", { name: "Measure again" })).toBeTruthy();
     expect(within(toolsHeader).queryByText(/registration/i)).toBeNull();
   });
 
@@ -254,7 +254,7 @@ describe("McpServerDetail", () => {
     // covers all of them -- a real and correct outcome, but not what this
     // test is about. One registration keeps the query singular.
     render(<Harness server={{ ...base, registrations: [base.registrations[0]] }} />);
-    expect(screen.getByRole("button", { name: /verify/i })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /^measure$/i })).toBeTruthy();
     // One short line is enough to explain an empty section.
     expect(screen.getByText(/only known by asking the server/i)).toBeTruthy();
     // Ruled 2026-08-18, superseding 2026-08-16: Verify moved INTO the Tools
@@ -263,10 +263,10 @@ describe("McpServerDetail", () => {
     // but offers no action of its own now that Task 9's per-spec grouping
     // removed the labelling collision that forced the button there.
     const toolsSection = toolsHeading().closest("section")!;
-    expect(within(toolsSection).getByRole("button", { name: /verify/i })).toBeTruthy();
+    expect(within(toolsSection).getByRole("button", { name: /^measure$/i })).toBeTruthy();
     openDetails();
     const registeredSection = screen.getByText("Registered in").closest("section")!;
-    expect(within(registeredSection).queryByRole("button", { name: /verify/i })).toBeNull();
+    expect(within(registeredSection).queryByRole("button", { name: /^measure$/i })).toBeNull();
     // The old copy told the reader to act elsewhere. The button is right
     // here now, so that instruction is not just moved but gone.
     expect(screen.queryByText(/use Verify on a registration above/i)).toBeNull();
@@ -278,7 +278,7 @@ describe("McpServerDetail", () => {
     // to pin this: nothing about the rendered text or role distinguishes the
     // two font stacks.
     render(<Harness server={{ ...base, registrations: [base.registrations[0]] }} />);
-    const button = screen.getByRole("button", { name: /^verify$/i });
+    const button = screen.getByRole("button", { name: /^measure$/i });
     expect(button.className).not.toMatch(/font-mono/);
   });
 
@@ -376,7 +376,7 @@ describe("McpServerDetail", () => {
     // singular button query.
     const onVerify = vi.fn();
     render(<Harness server={{ ...base, registrations: [base.registrations[0]] }} onVerify={onVerify} />);
-    fireEvent.click(screen.getByRole("button", { name: /verify/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^measure$/i }));
     expect(onVerify).toHaveBeenCalledTimes(1);
     expect(onVerify).toHaveBeenCalledWith(base.registrations[0].key);
     expect(base.command).toBe("node");
@@ -412,7 +412,7 @@ describe("McpServerDetail", () => {
     render(<Harness server={{ ...base, command: "",
       transport: "https://mei-recipes-api.example.workers.dev/mcp",
       registrations: [base.registrations[0]] }} />);
-    expect(screen.getByRole("button", { name: /verify/i })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /^measure$/i })).toBeTruthy();
     expect(screen.getByText(/no credentials are sent/i)).toBeTruthy();
   });
 
@@ -436,7 +436,7 @@ describe("McpServerDetail", () => {
         }}
       />
     );
-    expect(screen.queryByRole("button", { name: /verify/i })).toBeNull();
+    expect(screen.queryByRole("button", { name: /^measure$/i })).toBeNull();
   });
 
   it("sends a claude.ai connector where it is actually managed", () => {
@@ -445,7 +445,7 @@ describe("McpServerDetail", () => {
     // Scoped to one registration -- see the "never verified" test above.
     render(<Harness server={{ ...base, name: "Notion", command: "",
       transport: "claude.ai", registrations: [base.registrations[0]] }} />);
-    expect(screen.queryByRole("button", { name: /verify/i })).toBeNull();
+    expect(screen.queryByRole("button", { name: /^measure$/i })).toBeNull();
     expect(screen.getByText(/runs on anthropic/i)).toBeTruthy();
 
     const link = screen.getByRole("button", { name: /open claude\.ai connectors/i });
@@ -1080,7 +1080,7 @@ describe("McpServerDetail", () => {
     // The other spec is real and still unprobed -- it gets its own Verify,
     // not silence.
     expect(within(toolsSection).getByText("Gemini · global")).toBeTruthy();
-    expect(within(toolsSection).getByRole("button", { name: /^verify$/i })).toBeTruthy();
+    expect(within(toolsSection).getByRole("button", { name: /^measure$/i })).toBeTruthy();
   });
 
   it("offers one Verify per spec when a server has two unprobed launches", () => {
@@ -1099,7 +1099,7 @@ describe("McpServerDetail", () => {
     };
     render(<Harness server={server} onVerify={onVerify} />);
     const toolsSection = toolsHeading().closest("section")!;
-    const buttons = within(toolsSection).getAllByRole("button", { name: /^verify$/i });
+    const buttons = within(toolsSection).getAllByRole("button", { name: /^measure$/i });
     expect(buttons).toHaveLength(2);
     // Each button hands back a key belonging to ITS group, not the other
     // one's -- the group is the unit, but onVerify still needs one real
@@ -1118,7 +1118,7 @@ describe("McpServerDetail", () => {
         onVerify={onVerify}
       />
     );
-    fireEvent.click(screen.getByRole("button", { name: /verify/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^measure$/i }));
     expect(onVerify).toHaveBeenCalledWith("k1");
   });
 
@@ -1769,7 +1769,7 @@ describe("McpServerDetail — lazy on open", () => {
     const onVerify = vi.fn();
     const server: McpServerView = { ...base, registrations: [running(base.registrations[0])] };
     render(<Harness server={server} onVerify={onVerify} onAutoProbe={vi.fn()} />);
-    fireEvent.click(screen.getByRole("button", { name: /^verify$/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^measure$/i }));
     expect(onVerify).toHaveBeenCalledWith("cc-user");
   });
 });

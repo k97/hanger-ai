@@ -12,13 +12,13 @@ import type { StateCounts } from "../utils/linkStateCounts";
 import type { ScanStatus } from "../hooks/useScanStatus";
 import type { AssetFindings, ReviewIssue } from "../utils/reviewIssues";
 import { originRow, type OriginRowView } from "../utils/assetProvenance";
-import type { McpEngineSummaryRow } from "../types/mcpEngineSummary";
+import type { HeroBandRow } from "../components/HeroBand";
 import type { TrackSegment } from "../components/SegmentedTrack";
 import type { UnderlineTab } from "../components/UnderlineTabs";
 import type { SearchHit } from "../components/SearchPalette";
 import type { DetectedEditor } from "../components/EditorPicker";
 import type { SwitchNoticeState } from "../hooks/useMcpSwitch";
-import { failureLine, switchedLine } from "../utils/switchCopy";
+import { budgetCaption, engineBandFigures, failureLine, switchedLine, tokenFigure } from "../utils/switchCopy";
 
 /** The TOC's layers, in reading order (Karthik's ruling, 2026-08-28, after
  *  the atomic-design read). Material's three words: Foundations are the
@@ -169,12 +169,13 @@ export const SAMPLE_ORIGIN: OriginRowView = originRow(
 
 export const SAMPLE_ORIGIN_BLOCKED: OriginRowView = originRow(null, true)!;
 
-/** A partial picture on purpose: one row not yet asked. The HeroBand
- *  specimen maps these the way ProfilePane maps `mcpEngineSummary.rows`. */
-export const SAMPLE_MCP_ENGINE_SUMMARY_ROWS: McpEngineSummaryRow[] = [
-  { engine_id: "claude-code", engine_name: "Claude Code", server_count: 6, tools_known: 41 },
-  { engine_id: "codex", engine_name: "Codex", server_count: 2, tools_known: 9 },
-  { engine_id: "claude-desktop", engine_name: "Claude Desktop", server_count: 3, tools_known: null },
+/** A partial picture on purpose: one engine whose context has not landed.
+ *  The figures are `switchCopy`'s, as ProfilePane builds the Global "By
+ *  engine" band's rows from each engine's context. */
+export const SAMPLE_ENGINE_BAND_ROWS: HeroBandRow[] = [
+  { key: "claude-code", engineKey: "claude-code", engineName: "Claude Code", value: tokenFigure(12400), word: "tokens", secondary: budgetCaption(5, 6, 1) },
+  { key: "codex", engineKey: "codex", engineName: "Codex", value: tokenFigure(2100), word: "tokens", secondary: budgetCaption(2, 2, 0) },
+  { key: "claude-desktop", engineKey: "claude-desktop", engineName: "Claude Desktop", ...engineBandFigures(null) },
 ];
 
 /** The two notices `useMcpSwitch` sets: a switch with its receipt, and a

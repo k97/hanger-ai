@@ -199,7 +199,7 @@ describe("ProfilePane Component-Level Filtering Integration", () => {
       />
     );
 
-  it("MCP mode: the subtitle carries the backend's totals and the band lists each host", () => {
+  it("MCP mode: the subtitle carries the backend's totals and the band lists each engine", () => {
     // Hyphenated ids throughout: these come from `engine_id` on the MCP
     // summary, not from `assetCounts.engines`, whose keys are underscored.
     const summary = { rows: [
@@ -207,19 +207,19 @@ describe("ProfilePane Component-Level Filtering Integration", () => {
       { engine_id: "claude-ai", engine_name: "Claude.ai", server_count: 7, tools_known: null },
     ], host_count: 2, tools_known_total: 131, total_server_count: 17, answered_server_count: 10, unasked_server_count: 0, unaskable_server_count: 7, conflicting_server_count: 0 };
     renderMcp({ mcpEngineSummary: summary, hostsBandOpen: true });
-    expect(screen.getByText("MCP servers · 131 tool descriptions across 2 hosts")).toBeTruthy();
+    expect(screen.getByText("MCP servers · 131 tool descriptions across 2 engines")).toBeTruthy();
     // The probe-coverage meter is gone, not merely relabelled.
     expect(screen.queryByRole("img", { name: /answered/ })).toBeNull();
-    const ai = screen.getByTestId("hero-band-row-claude-ai");
-    expect(ai.textContent).toContain("7 servers");
-    expect(ai.textContent).toContain("can't be asked");
-    expect(screen.getByTestId("hero-band-row-claude-code").textContent).toContain("131");
+    // A row per engine; its figure is its context's tokens (D4), and with no
+    // context passed none has one yet. engine_band.test.tsx pins the figures.
+    expect(screen.getByTestId("hero-band-row-claude-ai").textContent).toContain("Not measured");
+    expect(screen.getByTestId("hero-band-row-claude-code").textContent).toContain("Not measured");
   });
 
   it("MCP mode with nothing ever probed: the subtitle states no total", () => {
     const summary = { rows: [{ engine_id: "codex", engine_name: "Codex", server_count: 1, tools_known: null }], host_count: 1, tools_known_total: null, total_server_count: 1, answered_server_count: 0, unasked_server_count: 1, unaskable_server_count: 0, conflicting_server_count: 0 };
     renderMcp({ mcpEngineSummary: summary, hostsBandOpen: false });
-    expect(screen.getByText("MCP servers across 1 host")).toBeTruthy();
+    expect(screen.getByText("MCP servers across 1 engine")).toBeTruthy();
   });
 
   it("the pill's popover names the disagreeing server and its action filters the list", () => {

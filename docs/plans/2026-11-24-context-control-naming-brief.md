@@ -137,3 +137,19 @@ The thirteen codes are `mcp::switch::ops::SwitchFailure` as built in `2b674b4`. 
 - `write_failed` is a failed file write, a failed write of Hanger's kept copy, and the editor's own safety check refusing a rewrite. In one of those (the kept copy could not be removed after a successful switch-on) the change did happen, so the line makes no claim either way and points at the list, which is re-read after every failure.
 - `not_verified` is a file that did not read back as written (Hanger puts the original back) and a Claude Code entry that came back different (Hanger keeps its copy).
 - `read_only` is a server with a stated reason, and a server in a form Hanger does not switch.
+
+## Renames, 2026-11-25
+
+Karthik approved these as his answer to Q1 of [the IA plan](2026-11-25-ia-engines-into-global.md) on 2026-11-25: one word for one idea, and one verb for one action. They land with T3 of that plan.
+
+| Where | Was | Now |
+|---|---|---|
+| The band on Global › MCP servers | By host | By engine |
+| The strip on Global › MCP servers | MCP servers · {n} tool descriptions across {m} hosts | MCP servers · {n} tool descriptions across {m} engines |
+| The same, before anything is measured | MCP servers across {m} hosts | MCP servers across {m} engines |
+| The inspector's Tools section, before an answer | Verify | Measure |
+| The inspector's re-check (tooltip and accessible name) | Check again | Measure again |
+
+The singular forms follow: "1 host" is now "1 engine". The inspector has no in-flight label to rename: it asks on open and shows no "Verifying…" (the control is withheld while the probe runs). The band's Measure all reads "Measuring…" while it runs, as the Engines tab's does.
+
+The band reuses this brief's strings and adds none. Each engine's row shows the budget's token figure without its tail ("≈ {n} tokens"), the budget caption ("{measured} of {on} servers measured", with "· {off} off" when some are off), or "Not measured" when the engine's context has not arrived. Its Measure all carries the caption under the Engines tab's button, as the band's note and as the button's tooltip. Its active filter is a chip with the engine's name. "A tool counts once per host that carries it." is gone with the tool figures (D4).

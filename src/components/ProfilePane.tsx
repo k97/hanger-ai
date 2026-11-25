@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import {
   ExclamationCircleIcon,
   Disc3Icon,
@@ -9,7 +10,9 @@ import {
   InboxIcon,
   ZapOffIcon,
   PlugZapIcon,
+  XMarkIcon,
 } from "./icons";
+import BrandIcon from "./BrandIcon";
 import CategoryFilterCards, { CategoryType, type GlobalTab } from "./CategoryFilterCards";
 import AssetRow, { AssetItem, AssetAnnotationView, cardChipClass } from "./AssetRow";
 import AssetHeaderRow, { SortField, SortDirection } from "./AssetHeaderRow";
@@ -37,6 +40,8 @@ import type { EngineContext, KeptOff } from "../types/engineContext";
 import type { EngineReachInfo, TileSwitch } from "./EngineReachTiles";
 import { busyKeyOf, type McpSwitch } from "../hooks/useMcpSwitch";
 import { switchRequestFor, tileTarget, type SwitchTarget } from "../utils/switchTargets";
+import { enginesList } from "../utils/enginesList";
+import { engineBandFigures, MEASURE_ALL_CAPTION } from "../utils/switchCopy";
 import { issueSeverity, type ReviewIssue } from "../utils/reviewIssues";
 
 /** The frontend's mirror of Rust's `ConfigProblem`
@@ -153,9 +158,17 @@ interface ProfilePaneProps {
   engineContexts?: EngineContext[] | null;
   /** App's one switch state (`useMcpSwitch`). */
   switcher?: McpSwitch;
-  /** A tile switch's reply context, for App to take in place of its copy. */
+  /** A tile switch's reply context, or a band Measure all's, for App to
+   *  take in place of its copy. */
   onEngineContext?: (ctx: EngineContext) => void;
 }
+
+// The band's active-filter chip, beside Measure all: the pressed chip of the
+// Engines tab's row (EnginesPane.tsx, `chipPressedClass`), at the band's
+// 26px line height. Pressing it clears the filter.
+const bandFilterChipClass =
+  "h-[26px] px-2.5 shrink-0 rounded-pill border border-transparent bg-tint text-tint-ink font-flex text-small font-medium whitespace-nowrap inline-flex items-center gap-1.5 cursor-pointer";
+const measureAllBtnClass = `${miniBtnClass} shrink-0 disabled:cursor-default disabled:opacity-50`;
 
 /** A kept server's row: the card row's first line, then which engine it is
  *  off for. A button, since the whole row is the one thing it does. */
@@ -434,6 +447,11 @@ export default function ProfilePane({
   // change so switching away from Tools and back never carries a stale
   // filter over from a different session's look at the list.
   const [mcpReviewOnly, setMcpReviewOnly] = useState(false);
+  // The "By engine" band's filter: the engine whose servers the list shows,
+  // or null. Screen state like the Review filter above, not a preference,
+  // and reset with it on every category change.
+  const [engineFilter, setEngineFilter] = useState<string | null>(null);
+  const [measuringAll, setMeasuringAll] = useState(false);
 
   // Lookup only — keyed by the backend's own asset_path. A row without an
   // entry renders empty annotation cells rather than a guessed state.
@@ -474,6 +492,7 @@ export default function ProfilePane({
   const setSelectedCategory = (cat: GlobalTab | null) => {
     setInternalCategory(cat);
     setMcpReviewOnly(false);
+    setEngineFilter(null);
     onCategoryChange?.(cat);
   };
 
@@ -650,10 +669,10 @@ export default function ProfilePane({
       : assetCounts?.byCategory[kindKey]?.global ?? 0;
 
   /* MCP mode: what the hero says about MCP servers rather than about assets
-     with link state. It swaps four things — the subtitle counts servers,
-     tools and hosts; the meter gives way to one caption; the review pill
-     lists disagreeing servers instead of this store's issues; and the band
-     under it breaks the tool figure down by host.
+     with link state. It swaps three things — the subtitle counts servers,
+     tools and engines; the meter gives way to one caption; and the review
+     pill lists disagreeing servers instead of this store's issues. The band
+     under it is `bandShown`'s, below, and needs none of this.
 
      Probe coverage is NOT what it shows any more: the "answered / not yet
      asked / can't be asked" meter came out on Karthik's ruling, 2026-08-28,
@@ -663,6 +682,42 @@ export default function ProfilePane({
      Gated on a grouped row existing to point the Review pill's filter at —
      a per-registration view has no `agreement` verdict to filter on. */
   const mcpMode = selectedCategory === "Tools" && mcpEngineSummary !== null && useGroupedTools;
+
+  /* The "By engine" band (T3 of docs/plans/2026-11-25-ia-engines-into-global.md).
+     It needs no grouped verdict, so it shows in both row modes, unlike
+     `mcpMode`. One row per engine the Engines tab lists (`enginesList`, the
+     list App reads contexts for), its figures from that engine's
+     `get_engine_context` exactly as the Engines tab's budget card prints them.
+     A row filters the list to the servers its context holds: every server
+     row with a registration among the context's item keys, and every kept
+     server whose `stash:` key is one. */
+  const bandShown = selectedCategory === "Tools" && mcpEngineSummary !== null;
+  const bandEngines = bandShown ? enginesList(mcpEngineSummary, keptOff) ?? [] : [];
+  const contextFor = (engineId: string): EngineContext | null =>
+    engineContexts?.find((c) => c.engine_id === engineId) ?? null;
+  const filterContext = bandShown && engineFilter !== null ? contextFor(engineFilter) : null;
+  const filterKeys = filterContext ? new Set(filterContext.items.map((i) => i.key)) : null;
+  const inEngineFilter = (keys: readonly string[]) => filterKeys === null || keys.some((k) => filterKeys.has(k));
+  /* Every engine the band lists, one at a time, through the Engines tab's
+     own command: it starts only servers that are on and have no fresh
+     answer, so asking in turn lets a launch two engines share answer once
+     and the second engine read the cache. Each reply goes to App as it
+     lands. The command does not fail (docs/ipc.md entry 18). */
+  const measureAll = async () => {
+    setMeasuringAll(true);
+    try {
+      for (const engine of bandEngines) {
+        try {
+          const reply = await invoke<EngineContext>("measure_engine_context", { engineId: engine.engine_id });
+          if (reply) onEngineContext?.(reply);
+        } catch {
+          // The figures stay as they were.
+        }
+      }
+    } finally {
+      setMeasuringAll(false);
+    }
+  };
 
   // Identity set for the selected category's own rows — the same keys
   // `annotationFor` uses (path for everything but Tools, `registrationKey`
@@ -690,10 +745,10 @@ export default function ProfilePane({
       ? `assets in the global store · ${engineCount} ${engineCount === 1 ? "engine" : "engines"}`
       : mcpMode && mcpEngineSummary
         ? mcpEngineSummary.tools_known_total === null
-          ? `MCP servers across ${mcpEngineSummary.host_count} ${mcpEngineSummary.host_count === 1 ? "host" : "hosts"}`
+          ? `MCP servers across ${mcpEngineSummary.host_count} ${mcpEngineSummary.host_count === 1 ? "engine" : "engines"}`
           : `MCP servers · ${mcpEngineSummary.tools_known_total} tool ${
               mcpEngineSummary.tools_known_total === 1 ? "description" : "descriptions"
-            } across ${mcpEngineSummary.host_count} ${mcpEngineSummary.host_count === 1 ? "host" : "hosts"}`
+            } across ${mcpEngineSummary.host_count} ${mcpEngineSummary.host_count === 1 ? "engine" : "engines"}`
         : `${categoryNoun(selectedCategory)} in the global store · ${engineCount} ${
             engineCount === 1 ? "engine" : "engines"
           }`;
@@ -886,7 +941,7 @@ export default function ProfilePane({
   // machine-global IPC call) has not resolved yet, so a scan never flashes
   // an empty Tools section waiting on it.
   const perRegistrationTools: AssetItem[] = sortAssetItems(
-    filteredTools.map((t) => ({
+    filteredTools.filter((t) => inEngineFilter([registrationKey(t)])).map((t) => ({
       name: t.name,
       category: "Tools",
       // `path` stays the config FILE — it is what the row shows and what the
@@ -935,7 +990,7 @@ export default function ProfilePane({
         // servers when active — one gate, so the card rows and the strip's
         // own "tauri"/"spades" count never disagree on what "filtered" means.
         mcpServers!.filter(
-          (row) => !mcpReviewOnly || row.agreement === "Conflicting"
+          (row) => (!mcpReviewOnly || row.agreement === "Conflicting") && inEngineFilter(row.registrations)
         ),
         serverSort
       ).map((row) => {
@@ -1133,20 +1188,54 @@ export default function ProfilePane({
           mcp={mcpFigures}
           review={mcpMode ? mcpReview : assetReview}
         >
-          {mcpMode && mcpEngineSummary && (
+          {bandShown && (
             <HeroBand
-              label="By host"
+              label="By engine"
               open={hostsBandOpen}
               onToggle={() => onToggleHostsBand?.()}
-              note="A tool counts once per host that carries it."
-              rows={mcpEngineSummary.rows.map((r) => ({
-                key: r.engine_id,
-                engineKey: r.engine_id,
-                engineName: r.engine_name,
-                secondary: r.server_count === 1 ? "1 server" : `${r.server_count} servers`,
-                value: r.tools_known,
-                word: r.tools_known === null ? "can't be asked" : r.tools_known === 1 ? "tool" : "tools",
-              }))}
+              note={MEASURE_ALL_CAPTION}
+              rows={bandEngines.map((e) => {
+                const ctx = contextFor(e.engine_id);
+                return {
+                  key: e.engine_id,
+                  engineKey: e.engine_id,
+                  engineName: e.engine_name,
+                  ...engineBandFigures(ctx),
+                  filter: {
+                    pressed: filterContext?.engine_id === e.engine_id,
+                    // An engine with no context yet names no servers, so it
+                    // filters nothing until its reply lands.
+                    onPress: ctx
+                      ? () => setEngineFilter((prev) => (prev === e.engine_id ? null : e.engine_id))
+                      : null,
+                  },
+                };
+              })}
+              trailing={
+                <>
+                  {filterContext && (
+                    <button
+                      type="button"
+                      aria-pressed
+                      onClick={() => setEngineFilter(null)}
+                      className={bandFilterChipClass}
+                    >
+                      <BrandIcon engineKey={filterContext.engine_id} engineName={filterContext.engine_name} size={13} />
+                      {filterContext.engine_name}
+                      <XMarkIcon size={12} />
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => void measureAll()}
+                    disabled={measuringAll}
+                    title={MEASURE_ALL_CAPTION}
+                    className={measureAllBtnClass}
+                  >
+                    {measuringAll ? "Measuring…" : "Measure all"}
+                  </button>
+                </>
+              }
             />
           )}
         </SummaryStrip>
@@ -1440,7 +1529,7 @@ export default function ProfilePane({
               <>
                 <h3 className={`px-3.5 pt-[11px] pb-[5px] ${groupLabelClass}`}>Switched off · {keptOff.count}</h3>
                 <div className="flex flex-col">
-                  {keptOff.servers.map((server) => (
+                  {keptOff.servers.filter((server) => inEngineFilter([server.key])).map((server) => (
                     <button
                       key={server.key}
                       type="button"

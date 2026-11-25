@@ -814,8 +814,9 @@ Pinned by `ProfilePaneIntegration.test.tsx`, `RepoPaneIntegration.test.tsx`,
 grouped server rows in view, `SummaryStrip` runs in its second mode
 (`ProfilePane.tsx:599-602`, passed at `:1011`). It draws the 32px numeral; a
 subtitle assembled from two backend fields — "MCP servers · ‹n› tool
-descriptions across ‹m› hosts", and the shorter "MCP servers across ‹m›
-hosts" when no launch has been probed yet (`ProfilePane.tsx:628-633`; the
+descriptions across ‹m› engines", and the shorter "MCP servers across ‹m›
+engines" when no launch has been probed yet (they said "hosts" until
+Karthik's Q1 ruling, 2026-11-25) (`ProfilePane.tsx:628-633`; the
 fields are `tools_known_total` and `host_count`,
 `src/types/mcpEngineSummary.ts:17`, `:22`, from
 `src-tauri/src/mcp/engine_summary.rs:94-105`); one caption, "Described to
@@ -834,10 +835,25 @@ withdrew with it). The four coverage counts remain backend fields
 (`src/types/mcpEngineSummary.ts:23-42`); nothing on screen reads them.
 
 **The band is what the per-engine prose became, in both panes.** `HeroBand`
-(Surfaces and controls, below) renders in the strip's `children` slot: "By
-host" on the Global MCP hero, one row per host carrying its server count as
-the secondary and its tool count as the figure
-(`ProfilePane.tsx:1014-1029`); "By engine" on a project pane, one row per
+(Surfaces and controls, below) renders in the strip's `children` slot. On
+the Global MCP hero it is "By engine" (it was "By host" until 2026-11-25, T3
+of `docs/plans/2026-11-25-ia-engines-into-global.md`): one row per engine
+the Engines tab lists (`enginesList`), each carrying that engine's
+`get_engine_context` exactly as the Engines tab's budget card prints it —
+`tokenFigure(on_tokens_measured)` with "tokens" as the figure and
+`budgetCaption` as the secondary, through one helper, `engineBandFigures`
+(`switchCopy.ts`) — or "Not measured" with no figure while the context has
+not arrived. Tool counts stay on the server rows and in the inspector (D4).
+It shows on the MCP servers tab in both row modes (`bandShown` in
+`ProfilePane`), not only with grouped rows as the strip's MCP mode does. Each
+row is a filter: pressed, the list keeps the server rows with a
+registration among that context's item keys and the kept servers whose
+`stash:` key is one; pressed again, or the tinted chip with the engine's name
+the band's header carries while a filter is on, clears it. It is screen state,
+not a preference, and resets with the Review filter on every category
+change. The header's right end carries Measure all, which asks
+`measure_engine_context` for each listed engine in turn and hands each reply
+to App. "By engine" on a project pane, one row per
 engine with its asset count, sorted `none` last then count descending
 (`RepoPane.tsx:243-253`, rendered `:565-573`). The project pane's subtitle
 lost its engine tail when the band arrived — a count of engine kinds beside
@@ -1434,13 +1450,15 @@ and which spelling is read, are settled by screenshot
 (`verification.md`).
 
 **`HeroBand`** (`HeroBand.tsx:29-38`) — `label`, `open`, `onToggle`, `rows`,
-`note?`, `foot?`. The hero's foldable band, drawn inside `SummaryStrip`'s
-`children` slot: "By host" on the Global MCP hero, "By engine" on a project
-pane (Karthik's ruling, 2026-08-28; the component's own docstring,
-`HeroBand.tsx:6-13`).
+`note?`, `foot?`, `trailing?`. The hero's foldable band, drawn inside
+`SummaryStrip`'s `children` slot: "By engine" on the Global MCP hero
+(Karthik's Q1 ruling, 2026-11-25; "By host" before) and on a project pane
+(Karthik's ruling, 2026-08-28; the component's own docstring).
 
 *Anatomy.* A `mt-3 pt-3 border-t border-line` band beneath the strip's second
-row (`:42`), opened by a full-width 26px button carrying a chevron that
+row, opened by a 26px button that takes the header line's width less
+`trailing` — controls that cannot sit inside the fold's own button: the
+Global hero's filter chip and Measure all — carrying a chevron that
 rotates 90° when open, the label, and then one of two things (`:43-64`).
 Collapsed, that is one line: every row's 13px `BrandIcon` beside its figure
 in `rowMonoClass` (`:55-62`). Open, it is the `note` beside the label (`:53`)
@@ -1453,16 +1471,21 @@ is a `col-span-2` last row for something that is not a row of figures — the
 project pane's nested-repo notice and its `Promote…` (`:83-87`).
 
 *A row is `HeroBandRow`* — `key`, `engineKey`, `engineName`, `secondary?`,
-`value: number | null`, `word` (`:14-27`). `engineKey` reaches `BrandIcon`
+`value: number | string | null`, `word`, `filter?`. A string `value` is a
+figure already formatted ("≈ 12,400"). With `filter` the open row is a
+`<button>` with `aria-pressed`, `bg-tint` while pressed and `hover:bg-plane-2`
+otherwise, disabled when its `onPress` is null. `engineKey` reaches `BrandIcon`
 untouched: hyphenated MCP host ids and underscored asset engine keys are both
 correct and neither is normalised here (`:16-18`). A `null` `value` renders
-an em dash in both states (`:59`, `:78`), with `word` carrying "can't be
-asked" — unknown, never a zero the screen would have to explain away.
+an em dash in both states, with `word` saying what is unknown ("Not
+measured") — never a zero the screen would have to explain away.
 
 *States.* Two, and the fold is all of it. `open` is a prop, persisted by App
 as `hosts_band_open` and `engines_band_open` (`App.tsx:560-571` writing,
-`:906-909` reading), so the choice survives a rebuild of either pane. No row
-has a hover state and none is a destination; the button is the only control.
+`:906-909` reading), so the choice survives a rebuild of either pane. A
+project pane's rows have no hover state and none is a destination; there the
+fold is the only control. The Global hero's rows are filters (`filter`,
+above) and its header carries `trailing`.
 
 *Tokens.* `border-line` for every rule, `text-ink-1` for the label and the
 names, `captionClass` for the note, the secondary and the unit word,
