@@ -85,6 +85,13 @@ const ALLOWLIST: AllowlistEntry[] = [
     reason: "Counts filtered assets for flyout detail summary",
   },
   {
+    file: "src/components/ProfilePane.tsx",
+    linePattern: /Agents · \{sortedAgents\.length\}/,
+    category: "unclassified",
+    reason:
+      "Known debt, not a sanction: the Agents group's heading counts its own rows. No tab reaches the Agents category (.claude/rules/known-debt.md, 2026-11-25), so it renders only from a stale saved preference. Remove this entry when that group is removed or given a backend count.",
+  },
+  {
     file: "src/components/SidebarScanModal.tsx",
     linePattern: /const\s+selectedCount\s*=\s*Object\.values\(selectedCandidates\)/,
     category: "ui",
@@ -148,7 +155,16 @@ export function isCountComputationLine(line: string): boolean {
   // Pattern 2: .reduce( over array
   const hasReduce = /\.reduce\s*\(/.test(line);
 
-  return hasLengthInSum || hasLengthCountAssignment || hasInventoryLengthAccess || hasReduce;
+  // Pattern 3: a heading that prints `.length`, in the app's "Label · N" form
+  // (JSX `· {xs.length}` or a template's `· ${xs.length}`) or inside an
+  // <h1>–<h6>. A section heading's figure is the backend's count, never the
+  // rows on screen counted again. Headings only: a foot line or a "3 copies"
+  // detail is a display subset and stays out of this rule.
+  const hasLengthInHeading =
+    /·\s*\$?\{\s*[a-zA-Z0-9_$.?]+\.length\s*\}/.test(line) ||
+    /<h[1-6][^>]*>[^<]*\{[^}]*\.length/.test(line);
+
+  return hasLengthInSum || hasLengthCountAssignment || hasInventoryLengthAccess || hasReduce || hasLengthInHeading;
 }
 
 describe("the counting rule itself", () => {
@@ -169,6 +185,12 @@ describe("the counting rule itself", () => {
     // sum signal, and the other three still catch each of these.
     "  const skillCount = (i + inventory.skills.length) % inventory.skills.length;",
     "  const t = (i + rows.length) % rows.length + other.length;",
+    // A heading that counts the rows it shows instead of printing the
+    // backend's figure (Karthik, 2026-11-25, round 4 Q2). Since the kept-off
+    // fixtures became realistic, no test of the "Switched off · N" heading can
+    // tell `keptOff.count` from `keptOff.servers.length`; this rule can.
+    "                  {engine ? \"Switched off\" : `Switched off · ${keptOff.servers.length}`}",
+    "                <h3 className={groupLabelClass}>Switched off · {keptOff.servers.length}</h3>",
   ];
 
   it("distinguishes index math from asset counting", () => {
