@@ -2,7 +2,6 @@ import Tooltip from "./Tooltip";
 import BrandIcon from "./BrandIcon";
 import { joinNames } from "../utils/prose";
 import { paletteActionLabel, readOnlyLine, stateLabel } from "../utils/switchCopy";
-import { sameEngine } from "../utils/switchTargets";
 import type { ItemState, ReadOnlyReason } from "../types/engineContext";
 
 /** One engine's verdict on one asset, as the backend derived it. The
@@ -107,7 +106,7 @@ const offClass = "border border-ink-3";
  *  and every tile without `switchFor`, draws as today.
  *
  *  `leadEngine`, given on every Global row while Global is seen by one
- *  engine (an MCP host id, matched across formats by `sameEngine`), draws
+ *  engine (its context's `engine_key`, matched exactly), draws
  *  that engine's tile first and dims every other one to `opacity-40`
  *  (`data-dimmed`): the row is being read for that engine. The dimmed tiles
  *  keep their switches. */
@@ -125,7 +124,7 @@ export default function EngineReachTiles({
      while hiding three that can — the column would be stating the opposite of
      the truth. Array.sort is stable, so each group keeps its arrival order.
      A lead engine goes before both, so the cap never hides it. */
-  const leads = (r: EngineReachInfo) => (leadEngine ? sameEngine(leadEngine, r.engine_key) : false);
+  const leads = (r: EngineReachInfo) => (leadEngine ? r.engine_key === leadEngine : false);
   const dimmed = (r: EngineReachInfo) => (leadEngine ? !leads(r) : false);
   const ordered = [...reach].sort(
     (a, b) => Number(leads(b)) - Number(leads(a)) || Number(b.reached) - Number(a.reached)

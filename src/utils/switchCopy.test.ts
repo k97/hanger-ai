@@ -236,6 +236,7 @@ describe("an engine whose servers all run on the vendor's servers", () => {
     }) as ContextItem;
   const ctx = (items: ContextItem[]): EngineContext => ({
     engine_id: "claude-ai",
+    engine_key: "claude_ai",
     engine_name: "Engine A",
     applies: null,
     switches_by_name: false,

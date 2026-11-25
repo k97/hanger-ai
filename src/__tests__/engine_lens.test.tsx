@@ -111,6 +111,7 @@ const ITEMS: Record<string, ContextItem[]> = {
 
 const contextOf = (engineId: string, engineName: string): EngineContext => ({
   engine_id: engineId,
+  engine_key: engineId.replace(/-/g, "_"),
   engine_name: engineName,
   applies: null,
   switches_by_name: false,

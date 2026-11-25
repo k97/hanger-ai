@@ -81,6 +81,7 @@ const item = (over: Partial<ContextItem> & Pick<ContextItem, "key">): ContextIte
 
 const context = (engine_id: string, engine_name: string, items: ContextItem[], switches_by_name = false): EngineContext => ({
   engine_id,
+  engine_key: engine_id.replace(/-/g, "_"),
   engine_name,
   applies: null,
   switches_by_name,

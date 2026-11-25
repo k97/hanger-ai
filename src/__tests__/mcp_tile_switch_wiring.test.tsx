@@ -69,6 +69,7 @@ const item = (state: "on" | "off"): ContextItem =>
 
 const codex = (state: "on" | "off"): EngineContext => ({
   engine_id: "codex",
+  engine_key: "codex",
   engine_name: "Engine C",
   applies: null,
   switches_by_name: false,

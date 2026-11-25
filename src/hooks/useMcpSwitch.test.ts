@@ -16,6 +16,7 @@ vi.mock("@tauri-apps/api/core", () => ({ invoke: (cmd: string, args?: unknown) =
 /** `docs/ipc.md` entry 15's example, after `alpha` was switched off. */
 const CONTEXT: EngineContext = {
   engine_id: "codex",
+  engine_key: "codex",
   engine_name: "Codex",
   applies: null,
   switches_by_name: false,

@@ -39,7 +39,7 @@ import type { McpEngineSummaryData } from "../types/mcpEngineSummary";
 import type { EngineContext, KeptOff } from "../types/engineContext";
 import type { EngineReachInfo, TileSwitch } from "./EngineReachTiles";
 import { busyKeyOf, type McpSwitch } from "../hooks/useMcpSwitch";
-import { sameEngine, switchRequestFor, tileTarget, type SwitchTarget } from "../utils/switchTargets";
+import { switchRequestFor, tileTarget, type SwitchTarget } from "../utils/switchTargets";
 import type { EngineListEntry } from "../utils/enginesList";
 import {
   costLabel,
@@ -632,15 +632,17 @@ export default function ProfilePane({
      kept server whose `stash:` key is one. Until that context lands, no
      server is shown under its name. Every other asset by the backend's own
      verdict, its `get_asset_annotations` reach for the engine (`reachFor`),
-     matched across the two id formats by `sameEngine`. */
+     matched exactly on the context's `engine_key`, so until that context
+     lands no other asset is shown under the engine's name either. */
   const engine = selectedEngine !== null ? engines?.find((e) => e.engine_id === selectedEngine) ?? null : null;
   const contextFor = (engineId: string): EngineContext | null =>
     engineContexts?.find((c) => c.engine_id === engineId) ?? null;
   const filterContext = engine ? contextFor(engine.engine_id) : null;
   const filterKeys = engine ? new Set((filterContext?.items ?? []).map((i) => i.key)) : null;
   const inEngineFilter = (keys: readonly string[]) => filterKeys === null || keys.some((k) => filterKeys.has(k));
+  const engineKey = filterContext?.engine_key ?? null;
   const reachFor = (annotation: AssetAnnotationView | null) =>
-    engine && annotation ? annotation.reach.find((r) => sameEngine(engine.engine_id, r.engine_key)) ?? null : null;
+    engineKey !== null && annotation ? annotation.reach.find((r) => r.engine_key === engineKey) ?? null : null;
 
   // Whether anything is narrowing the rows — the category-empty copy says
   // "matches that filter" only when a filter is what emptied it. Text search
@@ -1461,7 +1463,7 @@ export default function ProfilePane({
                       showKindColumn={false}
                       item={item}
                       annotation={annotationFor(item)}
-                      leadEngine={engine?.engine_id ?? null}
+                      leadEngine={engineKey}
                       onClick={() => onSelectAsset({ name: item.name, category: "Agents", path: item.path })}
                     />
                   ))}
@@ -1483,7 +1485,7 @@ export default function ProfilePane({
                       showKindColumn={!selectedCategory}
                       item={item}
                       annotation={annotationFor(item)}
-                      leadEngine={engine?.engine_id ?? null}
+                      leadEngine={engineKey}
                       onLink={() => onLinkAsset(item)}
                       onClick={() => onSelectAsset({ name: item.name, category: "Skills", path: item.path })}
                     />
@@ -1547,7 +1549,7 @@ export default function ProfilePane({
                       item={item}
                       annotation={toolAnnotationFor(item)}
                       tileSwitchFor={tileSwitchFor(item)}
-                      leadEngine={engine?.engine_id ?? null}
+                      leadEngine={engineKey}
                       onLink={() => onLinkAsset(item)}
                       onClick={() => onSelectAsset({ id: item.id, name: item.name, category: "Tools", path: item.path })}
                     />
@@ -1615,7 +1617,7 @@ export default function ProfilePane({
                       showKindColumn={!selectedCategory}
                       item={item}
                       annotation={annotationFor(item)}
-                      leadEngine={engine?.engine_id ?? null}
+                      leadEngine={engineKey}
                       onLink={() => onLinkAsset(item)}
                       onClick={() => onSelectAsset({ name: item.name, category: "Rules", path: item.path })}
                     />
@@ -1640,7 +1642,7 @@ export default function ProfilePane({
                       showKindColumn={!selectedCategory}
                       item={item}
                       annotation={annotationFor(item)}
-                      leadEngine={engine?.engine_id ?? null}
+                      leadEngine={engineKey}
                       onLink={() => onLinkAsset(item)}
                       onClick={() => onSelectAsset({ name: item.name, category: "Subagents", path: item.path })}
                     />

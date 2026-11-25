@@ -3765,7 +3765,7 @@ async fn a_serialised_context_carries_no_value_from_a_config_file() {
         let whole = serde_json::to_value(&context).unwrap();
         assert_eq!(
             keys_of(&whole),
-            ["applies", "engine_id", "engine_name", "items", "measured_on_count", "off_count", "on_count", "on_tokens_measured", "switches_by_name"],
+            ["applies", "engine_id", "engine_key", "engine_name", "items", "measured_on_count", "off_count", "on_count", "on_tokens_measured", "switches_by_name"],
             "{host_id}"
         );
         let items = whole["items"].as_array().unwrap();
@@ -4968,4 +4968,30 @@ async fn per_kind_asset_counts_are_unchanged_by_a_kept_server() {
         let tools = |counts: &tauri_app_lib::domain::AssetCounts| counts.tool.as_ref().map_or(0, |count| count.total);
         assert_eq!(tools(kept), tools(before) - 1, "before: {before:?}, kept: {kept:?}");
     }
+}
+
+// ---------------------------------------------------------------------------
+// One engine id across the boundary (Q4 of docs/plans/2026-11-25-t3-code-review.md)
+// ---------------------------------------------------------------------------
+
+/// A context carries the key the asset annotations use for its engine
+/// (`engines.key`, written by the scanner as `McpHost::engine_key`), so the
+/// webview matches a context to a reach tile with `===` and strips nothing.
+/// For every engine `scanner::get_engine_key` also knows, the two agree.
+#[test]
+fn every_engine_context_carries_the_annotations_engine_key() {
+    let found = DiscoveryResult::default();
+    for host in registry::HOSTS {
+        let ctx = context::engine_context(host.id, &found, &[], None, |_| None, |_| None);
+        assert_eq!(ctx.engine_key.as_deref(), Some(host.engine_key().as_str()), "{}", host.id);
+        if let Some(scanner_key) = asset_scanner::get_engine_key(host.id) {
+            assert_eq!(ctx.engine_key.as_deref(), Some(scanner_key), "{}", host.id);
+        }
+    }
+    for row in registry::SWITCHES {
+        let ctx = context::engine_context(row.host_id, &found, &[], None, |_| None, |_| None);
+        assert!(ctx.engine_key.is_some(), "a switchable engine with no key: {}", row.host_id);
+    }
+    assert_eq!(context::engine_context("claude-code", &found, &[], None, |_| None, |_| None).engine_key.as_deref(), Some("claude_code"));
+    assert_eq!(context::engine_context("no-such-engine", &found, &[], None, |_| None, |_| None).engine_key, None);
 }

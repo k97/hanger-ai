@@ -268,6 +268,7 @@ Returns one engine's MCP servers: which are switched on, which Hanger can switch
 
 ### EngineContext Schema
 - `engine_id`: `string`
+- `engine_key`: `string | null` (the key the asset annotations use for this engine, `"claude_code"` for `"claude-code"`; the webview matches an annotation's `engine_key` against it exactly. `null` for an id that is no host's)
 - `engine_name`: `string` (the registry's display name)
 - `applies`: `string | null` (when a switch takes effect; `null` for every engine today)
 - `switches_by_name`: `boolean` (the engine is switched by server name alone, so one switch covers every server it declares under that name; `true` for Gemini CLI today)
@@ -293,6 +294,7 @@ An item holds no command, argument, address or env variable.
 ```json
 {
   "engine_id": "codex",
+  "engine_key": "codex",
   "engine_name": "Codex",
   "applies": null,
   "switches_by_name": false,

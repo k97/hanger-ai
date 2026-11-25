@@ -222,6 +222,7 @@ export const SAMPLE_ENGINES: EngineListEntry[] = [
  *  literals for the strip's engine mode. */
 const SAMPLE_ENGINE_CONTEXT: EngineContext = {
   engine_id: "claude-code",
+  engine_key: "claude_code",
   engine_name: "Claude Code",
   applies: null,
   switches_by_name: false,

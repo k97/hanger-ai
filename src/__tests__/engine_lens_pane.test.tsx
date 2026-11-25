@@ -55,6 +55,7 @@ const item = (over: Partial<ContextItem> & Pick<ContextItem, "key" | "name">): C
 
 const CODEX: EngineContext = {
   engine_id: "codex",
+  engine_key: "codex",
   engine_name: "Engine C",
   applies: null,
   switches_by_name: false,
@@ -72,6 +73,7 @@ const CODEX: EngineContext = {
 
 const CLAUDE: EngineContext = {
   engine_id: "claude-code",
+  engine_key: "claude_code",
   engine_name: "Engine K",
   applies: null,
   switches_by_name: false,
@@ -440,6 +442,7 @@ describe("the inspector's measure control", () => {
 /** Engine D, one server on and nobody has asked it. */
 const DESK: EngineContext = {
   engine_id: "claude-desktop",
+  engine_key: "claude_desktop",
   engine_name: "Engine D",
   applies: null,
   switches_by_name: false,
@@ -634,8 +637,8 @@ describe("EngineReachTiles with a lead engine", () => {
     { engine_id: 2, engine_key: "codex", engine_name: "Engine C", reached: true },
     { engine_id: 1, engine_key: "claude_code", engine_name: "Engine K", reached: true },
   ];
-  it("draws the lead engine's tile first, matched across id formats, and dims the others", () => {
-    const { container } = render(<EngineReachTiles reach={reach} leadEngine="claude-code" />);
+  it("draws the lead engine's tile first, matched on its engine key, and dims the others", () => {
+    const { container } = render(<EngineReachTiles reach={reach} leadEngine="claude_code" />);
     const ids = Array.from(container.querySelectorAll("[data-testid^='reach-tile-']")).map((t) => t.getAttribute("data-testid"));
     expect(ids).toEqual(["reach-tile-claude_code", "reach-tile-codex"]);
     expect(container.querySelector("[data-testid='reach-tile-codex']")!.getAttribute("data-dimmed")).toBe("true");

@@ -707,11 +707,11 @@ without clearing the inspector.
 
 *The engine lens.* With an engine picked the list keeps what that engine
 reaches, on every tab: a skill, rule or subagent row when its
-`get_asset_annotations` reach for the engine (`reachFor`, matched across
-host ids and asset keys by `switchTargets.ts` → `sameEngine`) is `reached`;
+`get_asset_annotations` reach for the engine (`reachFor`, matched exactly
+on the engine context's `engine_key`) is `reached`;
 an MCP server row when one of its registrations is an item key of the
 engine's `get_engine_context` (the T3 band's filter, unchanged: `filterKeys`,
-`inEngineFilter`). Until that context lands no server row shows under the
+`inEngineFilter`). Until that context lands no row shows under the
 engine's name. A row the backend says the engine does not reach goes to
 "Not loaded by ‹engine›" (`NotLoadedGroup`, below); a row with no verdict for
 the engine is in neither. While filtered, every section head drops its store
@@ -1592,10 +1592,10 @@ shows the three side by side (`EngineReachTiles · switches`). A grouped row mat
 engine that switches by name takes any of its items, preferring a switchable
 one, and any other engine holding two of them draws no switch
 (`switchTargets.ts` → `tileTarget`). No item, or no reply yet, draws the tile
-as before. `leadEngine` (an MCP host id, given by every Global row while an
-engine is picked, through `AssetRow` in either variant) draws that engine's
-tile first,
-matched by `sameEngine`, ahead of the reached-first order so the cap never
+as before. `leadEngine` (the picked engine context's `engine_key`, given by
+every Global row while an engine is picked, through `AssetRow` in either
+variant) draws that engine's tile first,
+matched exactly, ahead of the reached-first order so the cap never
 hides it, and dims every other tile to `opacity-40` (`data-dimmed`); the
 dimmed tiles keep their switches. On the same rows the Tools column shows
 that engine's `costLabel` (`AssetItem.engineFigure`, at every width) and a

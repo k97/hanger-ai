@@ -152,6 +152,12 @@ pub struct ContextItem {
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct EngineContext {
     pub engine_id: String,
+    /// The key the asset annotations use for this engine (`engines.key`,
+    /// `McpHost::engine_key`): `"claude_code"` where `engine_id` is
+    /// `"claude-code"`. The webview matches a context to an annotation's
+    /// `engine_key` on this, exactly. `None` for an id that is not in
+    /// `registry::HOSTS`.
+    pub engine_key: Option<String>,
     /// The registry's display name, or the id where the registry has none.
     pub engine_name: String,
     /// When a switch takes effect. `None` for every engine: nothing has been
@@ -279,6 +285,7 @@ where
     let measured_on_count = on().filter(|item| item.estimated_tokens.is_some()).count();
     EngineContext {
         engine_id: host_id.to_string(),
+        engine_key: host_by_id(host_id).map(|host| host.engine_key()),
         engine_name: engine_display_name(host_id),
         applies: None,
         switches_by_name: is_switched_by(host_id, SwitchKind::GeminiEnablementFile),

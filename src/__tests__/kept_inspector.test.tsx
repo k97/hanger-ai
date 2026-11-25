@@ -103,6 +103,7 @@ const NAMES: Record<string, string> = { codex: "Engine C", "claude-code": "Engin
 
 const contextOf = (engineId: string, items: ContextItem[]): EngineContext => ({
   engine_id: engineId,
+  engine_key: engineId.replace(/-/g, "_"),
   engine_name: NAMES[engineId] ?? engineId,
   applies: null,
   switches_by_name: false,

@@ -54,25 +54,10 @@ export function declaredNamed<T extends { name: string }>(tools: readonly T[], n
   return tools.find((t) => t.name === name) ?? null;
 }
 
-/** Lowercase letters and digits only. */
-function idOf(s: string): string {
-  return s.toLowerCase().replace(/[^a-z0-9]/g, "");
-}
-
 /**
- * Whether an MCP host id (`EngineContext.engine_id`, `mcp/registry.rs` →
- * `HOSTS`) and an asset engine key (`EngineReachInfo.engine_key`) name one
- * engine. The scanner maps the first to the second in `scanner.rs` →
- * `get_engine_key`, which changes only the separator ("claude-code" →
- * "claude_code"), so the two are compared without it.
- */
-export function sameEngine(hostId: string, engineKey: string): boolean {
-  return idOf(hostId) === idOf(engineKey);
-}
-
-/**
- * The item a reach tile switches: in the context of the tile's engine, the
- * item whose key is one of the row's registrations. Matched on the key both
+ * The item a reach tile switches: in the context of the tile's engine (the one
+ * whose `engine_key` is the tile's, exactly), the item whose key is one of the
+ * row's registrations. Matched on the key both
  * sides mint from `RegistrationKey`, as the inspector matches its rows
  * (`Flyout.tsx`), never on name or tier: a kept server's `stash:` key is no
  * registration, and an engine's tier word is not the panel's.
@@ -88,7 +73,7 @@ export function tileTarget(
   engineKey: string,
   registrationKeys: readonly string[]
 ): SwitchTarget | null {
-  const ctx = contexts.find((c) => sameEngine(c.engine_id, engineKey));
+  const ctx = contexts.find((c) => c.engine_key === engineKey);
   if (!ctx) return null;
   const keys = new Set(registrationKeys);
   const matches = ctx.items.filter((i) => keys.has(i.key));

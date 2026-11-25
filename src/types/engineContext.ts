@@ -61,6 +61,12 @@ export type ContextItem = {
  */
 export interface EngineContext {
   engine_id: string;
+  /**
+   * The key the asset annotations use for this engine
+   * (`EngineReachInfo.engine_key`): `"claude_code"` where `engine_id` is
+   * `"claude-code"`. Compare it exactly. `null` for an id that is no host's.
+   */
+  engine_key: string | null;
   engine_name: string;
   /**
    * When a switch takes effect. `null` for every engine today: nothing has

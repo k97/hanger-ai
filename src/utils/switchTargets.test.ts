@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import type { ContextItem, EngineContext } from "../types/engineContext";
-import { declaredNamed, sameEngine, switchRequestFor, switchableNamed, tileTarget } from "./switchTargets";
+import { declaredNamed, switchRequestFor, switchableNamed, tileTarget } from "./switchTargets";
 
 /** docs/ipc.md entry 15's item shape. */
 const item = (over: Partial<ContextItem> & Pick<ContextItem, "key" | "name">): ContextItem =>
@@ -14,8 +14,16 @@ const item = (over: Partial<ContextItem> & Pick<ContextItem, "key" | "name">): C
     ...over,
   }) as ContextItem;
 
-const context = (engine_id: string, items: ContextItem[], switches_by_name = false): EngineContext => ({
+/** `engine_key` as the backend sends it: `McpHost::engine_key`, hyphens to
+ *  underscores. */
+const context = (
+  engine_id: string,
+  items: ContextItem[],
+  switches_by_name = false,
+  engine_key: string | null = engine_id.replace(/-/g, "_")
+): EngineContext => ({
   engine_id,
+  engine_key,
   engine_name: `Engine ${engine_id}`,
   applies: null,
   switches_by_name,
@@ -72,17 +80,6 @@ describe("switchableNamed (⌘K)", () => {
   });
 });
 
-describe("sameEngine", () => {
-  it("matches an MCP host id to the asset engine key the scanner maps it to", () => {
-    // scanner.rs → get_engine_key: "claude-code" → "claude_code", the rest as is.
-    expect(sameEngine("claude-code", "claude_code")).toBe(true);
-    expect(sameEngine("claude-code", "claude-code")).toBe(true);
-    expect(sameEngine("codex", "codex")).toBe(true);
-    expect(sameEngine("codex", "claude_code")).toBe(false);
-    expect(sameEngine("claude-desktop", "claude_code")).toBe(false);
-  });
-});
-
 describe("tileTarget (a reach tile on an MCP servers row)", () => {
   const all = [CODEX, GEMINI, CLAUDE];
 
@@ -94,6 +91,18 @@ describe("tileTarget (a reach tile on an MCP servers row)", () => {
 
   it("finds the engine through the scanner's key, not the host id", () => {
     expect(tileTarget(all, "claude_code", ["/u/.claude.json:alpha"])?.item.key).toBe("/u/.claude.json:alpha");
+  });
+
+  it("matches the context's engine_key exactly, and never the host id with its punctuation stripped", () => {
+    // The two ids differ only by "-" and "_": the backend's engine_key is what joins them.
+    const keyed = context("claude-code", CLAUDE.items, false, "claude_code");
+    expect(tileTarget([keyed], "claude_code", ["/u/.claude.json:alpha"])?.ctx).toBe(keyed);
+    // A context with no engine_key matches no annotation, whatever its host id.
+    const unkeyed = context("claude-code", CLAUDE.items, false, null);
+    expect(tileTarget([unkeyed], "claude_code", ["/u/.claude.json:alpha"])).toBeNull();
+    expect(tileTarget([unkeyed], "claude-code", ["/u/.claude.json:alpha"])).toBeNull();
+    // Nothing is folded: another case is another key.
+    expect(tileTarget([keyed], "Claude_Code", ["/u/.claude.json:alpha"])).toBeNull();
   });
 
   it("is nothing when the engine has no context yet, or no item for the row", () => {
