@@ -293,7 +293,7 @@ describe("⌘K's Switch actions", () => {
     await waitFor(() => expect(calls("get_engine_context")).toHaveLength(6));
   });
 
-  it("leads with Switch when the query is a server's name exactly, in any case, and not on a partial match", async () => {
+  it("on a server's exact name, in any case, Enter opens the server and never switches; one ↓ reaches its switch; a partial match keeps Switch last", async () => {
     // search_assets answers with a server hit for this test only.
     const base = vi.mocked(invoke).getMockImplementation()!;
     vi.mocked(invoke).mockImplementation(async (cmd: string, args?: any) =>
@@ -318,15 +318,37 @@ describe("⌘K's Switch actions", () => {
     try {
       render(<App />);
       await completeScan();
-      openPalette();
       const groupOrder = () =>
         Array.from(document.querySelectorAll("[cmdk-group]")).map((g) => g.getAttribute("aria-label"));
+      const selectedKind = () => document.querySelector("[cmdk-item][data-selected='true']")?.getAttribute("data-kind");
+      const input = () => screen.getByLabelText("Search assets");
 
+      // Exact, in any case: the server is drawn first and is the default.
+      openPalette();
       await type(" ALPHA ");
-      await waitFor(() => expect(groupOrder()).toEqual(["Switch", "MCP servers"]));
+      await waitFor(() => expect(groupOrder()).toEqual(["MCP servers", "Switch"]));
+      await waitFor(() => expect(selectedKind()).toBe("server"));
+      fireEvent.keyDown(input(), { key: "Enter" });
+      await waitFor(() => expect(screen.queryByRole("dialog", { name: "Search" })).toBeNull());
+      expect(switchCalls).toEqual([]);
+      expect(calls("set_mcp_server_enabled")).toEqual([]);
 
+      // One ↓ is the first switch.
+      openPalette();
+      await type(" ALPHA ");
+      await waitFor(() => expect(selectedKind()).toBe("server"));
+      fireEvent.keyDown(input(), { key: "ArrowDown" });
+      await waitFor(() => expect(selectedKind()).toBe("action"));
+      fireEvent.keyDown(input(), { key: "Enter" });
+      await waitFor(() => expect(switchCalls).toHaveLength(1));
+      expect(switchCalls[0]).toMatchObject({ engineId: "codex", key: "/Users/demo/.codex/config.toml:alpha" });
+      await waitFor(() => expect(screen.queryByRole("dialog", { name: "Search" })).toBeNull());
+
+      // A partial match: Switch last, the server still the default.
+      openPalette();
       await type("alph");
       await waitFor(() => expect(groupOrder()).toEqual(["MCP servers", "Switch"]));
+      await waitFor(() => expect(selectedKind()).toBe("server"));
     } finally {
       vi.mocked(invoke).mockImplementation(base);
     }

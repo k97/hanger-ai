@@ -26,15 +26,18 @@ export interface SearchHit {
 /** Something the palette can do rather than open: today, switch an MCP
  *  server off or on for one engine. App builds them; the palette lists them
  *  under "Switch", after the asset groups, and runs `onRun` when one is
- *  picked. */
+ *  picked. An action is never the row Enter picks by default: a switch
+ *  writes the user's real config. */
 export interface PaletteAction {
   id: string;
   label: string;
   /** A short second word on the right of the row, as a hit's place is. */
   detail?: string;
-  /** The query is this action's server name exactly, in any case. Any such
-   *  action puts the Switch group ahead of the asset groups (D7 of
-   *  docs/plans/2026-11-25-ia-engines-into-global.md). */
+  /** The query is this action's server name exactly, in any case. When one
+   *  is, and the search has returned that MCP server, the server is drawn
+   *  first and stays the default, and the Switch group follows it, one ↓
+   *  away, ahead of the asset groups (D7 of
+   *  docs/plans/2026-11-25-ia-engines-into-global.md, amended by F2). */
   exact?: boolean;
   onRun: () => void;
 }
@@ -46,6 +49,13 @@ export interface SearchResponse {
 
 const MARK_OPEN = "";
 const MARK_CLOSE = "";
+
+/** cmdk's value for a row. Hit values start with their kind, so none can
+ *  collide with an action's or with NO_ROW. */
+const hitValue = (hit: SearchHit) => `${hit.kind}:${hit.id}:${hit.name}`;
+const actionValue = (action: PaletteAction) => `action:${action.id}`;
+/** A highlight that names no row, so none is highlighted. */
+const NO_ROW = "none:";
 
 /** One row of the list, a hit or an action. */
 const rowClass =
@@ -107,9 +117,10 @@ export interface SearchPalettePanelProps {
   /** False before the first scan completes: the pending line shows and nothing is queried. */
   hasScanned: boolean;
   onPick: (hit: SearchHit) => void;
-  /** Listed under "Switch" after the asset groups, or ahead of them when one
-   *  is `exact`. While any are listed, neither the hint nor "Nothing matches"
-   *  shows: the list is not empty. */
+  /** Listed under "Switch" after the asset groups, or right after the
+   *  matching server when one is `exact` and that server is among the hits.
+   *  While any are listed, neither the hint nor "Nothing matches" shows: the
+   *  list is not empty. */
   actions?: PaletteAction[];
   /** The panel's accessible name and the input's. The app passes the real ones;
    *  the Design system page passes sample names so a reader never hears a control that does nothing. */
@@ -140,28 +151,107 @@ export function SearchPalettePanel({
   // Before the first scan there is nothing to act on either.
   const shownActions = hasScanned ? actions ?? [] : [];
   const hasActions = shownActions.length > 0;
-  // Drawn first, so it is first for the arrow keys too: cmdk walks the items
-  // in DOM order.
-  const actionsLead = shownActions.some((action) => action.exact);
+  // On an exact name, the server the search returned under that name leads,
+  // and Switch follows it. Both are drawn there, so the arrow keys, which
+  // walk the items in DOM order, follow.
+  const lowerQ = q.toLowerCase();
+  const leadHit = shownActions.some((action) => action.exact)
+    ? (hits ?? []).find((hit) => hit.kind === "server" && hit.name.toLowerCase() === lowerQ) ?? null
+    : null;
+  const actionsLead = leadHit !== null;
   const answeredEmpty = hits !== null && hits.length === 0;
   const groups = GROUP_ORDER.map(({ kind, heading }) => ({
     kind,
     heading,
-    rows: (hits ?? []).filter((hit) => hit.kind === kind),
+    rows: (hits ?? []).filter((hit) => hit.kind === kind && hit !== leadHit),
   })).filter((group) => group.rows.length > 0);
+
+  // The highlighted row is controlled, because cmdk on its own highlights
+  // the first row it draws, and while the search has not answered that is a
+  // switch: Enter would write the user's config. The default is the leading
+  // server, else the first asset row, else nothing. A row the user moves to
+  // with the arrows or the pointer stays theirs while the query stands.
+  const firstHit = leadHit ?? groups[0]?.rows[0] ?? null;
+  const drawn = [
+    ...(leadHit ? [hitValue(leadHit)] : []),
+    ...groups.flatMap((group) => group.rows.map(hitValue)),
+    ...shownActions.map(actionValue),
+  ];
+  const [choice, setChoice] = useState<{ query: string; value: string } | null>(null);
+  // Bumped to move the highlight back to "nothing" when cmdk picks a row on
+  // its own: the value must change for cmdk to take it again.
+  const [vetoes, setVetoes] = useState(0);
+  const userMove = useRef(false);
+  const selected =
+    choice && choice.query === q && drawn.includes(choice.value)
+      ? choice.value
+      : firstHit
+        ? hitValue(firstHit)
+        : `${NO_ROW}${vetoes}`;
+  const onSelectedChange = (value: string) => {
+    if (userMove.current) setChoice({ query: q, value });
+    else if (value !== selected) setVetoes((n) => n + 1);
+  };
+  // cmdk changes the highlight synchronously inside its own key, pointer and
+  // click handlers. The root's capture-phase and the panel's bubble-phase
+  // handlers bracket them, so a change inside the bracket is the user's and
+  // any other is cmdk's own pick.
+  const markUserMove = () => {
+    userMove.current = true;
+  };
+  const endUserMove = () => {
+    userMove.current = false;
+  };
+
+  const hitRow = (hit: SearchHit) => (
+    <Command.Item
+      key={hitValue(hit)}
+      value={hitValue(hit)}
+      data-kind={hit.kind}
+      onSelect={() => onPick(hit)}
+      className={rowClass}
+    >
+      <div className="flex items-center gap-2 min-w-0">
+        <span className="text-base-app text-ink-1 truncate">{hit.name}</span>
+        {hit.server && (
+          <span className="text-base-app text-ink-3 truncate">
+            · <span>{hit.server}</span>
+          </span>
+        )}
+        <span className={`ml-auto pl-4 ${captionClass} tabular shrink-0`}>{placeLabel(hit.place)}</span>
+      </div>
+      <div className={`${captionClass} truncate`}>{renderSnippet(hit.snippet)}</div>
+    </Command.Item>
+  );
+
+  const hitGroup = (key: string, heading: string, rows: SearchHit[], first: boolean) => (
+    <Command.Group key={key} aria-label={heading}>
+      {/* cmdk's own `heading` prop marks the string aria-hidden and
+          wires aria-labelledby itself; rendered as our own div
+          instead so the app's own tokens apply directly — the
+          sidebar's own group-label shape (`Sidebar.tsx`'s `grpClass`). */}
+      <div
+        className={`flex items-center px-3 pb-[5px] ${groupLabelClass} ${first ? "pt-1" : "pt-[11px]"}`}
+        aria-hidden="true"
+      >
+        {heading}
+      </div>
+      {rows.map(hitRow)}
+    </Command.Group>
+  );
 
   const switchGroup = hasActions ? (
     <Command.Group aria-label="Switch">
       <div
-        className={`flex items-center px-3 pb-[5px] ${groupLabelClass} ${actionsLead || groups.length === 0 ? "pt-1" : "pt-[11px]"}`}
+        className={`flex items-center px-3 pb-[5px] ${groupLabelClass} ${!actionsLead && groups.length === 0 ? "pt-1" : "pt-[11px]"}`}
         aria-hidden="true"
       >
         Switch
       </div>
       {shownActions.map((action) => (
         <Command.Item
-          key={`action:${action.id}`}
-          value={`action:${action.id}`}
+          key={actionValue(action)}
+          value={actionValue(action)}
           data-kind="action"
           onSelect={() => action.onRun()}
           className={rowClass}
@@ -184,8 +274,20 @@ export function SearchPalettePanel({
       role="dialog"
       aria-label={dialogLabel}
       className="w-[560px] max-w-[calc(100vw-32px)] max-h-[60vh] flex flex-col bg-page border border-line rounded-plane shadow-overlay animate-drop overflow-hidden"
+      onKeyDown={endUserMove}
+      onPointerMove={endUserMove}
+      onClick={endUserMove}
     >
-      <Command shouldFilter={false} label={dialogLabel} className="flex flex-col min-h-0">
+      <Command
+        shouldFilter={false}
+        label={dialogLabel}
+        value={selected}
+        onValueChange={onSelectedChange}
+        onKeyDownCapture={markUserMove}
+        onPointerMoveCapture={markUserMove}
+        onClickCapture={markUserMove}
+        className="flex flex-col min-h-0"
+      >
         <div className="p-3 shrink-0">
           <div className="relative h-[30px]">
             <MagnifyingGlassIcon
@@ -220,41 +322,9 @@ export function SearchPalettePanel({
           ) : answeredEmpty ? (
             <p className={`py-8 px-4 text-center ${captionClass}`}>Nothing matches “{q}”.</p>
           ) : null}
+          {leadHit && hitGroup("lead", "MCP servers", [leadHit], true)}
           {actionsLead && switchGroup}
-          {groups.map((group, i) => (
-            <Command.Group key={group.kind} aria-label={group.heading}>
-              {/* cmdk's own `heading` prop marks the string aria-hidden and
-                  wires aria-labelledby itself; rendered as our own div
-                  instead so the app's own tokens apply directly — the
-                  sidebar's own group-label shape (`Sidebar.tsx`'s `grpClass`). */}
-              <div
-                className={`flex items-center px-3 pb-[5px] ${groupLabelClass} ${i === 0 && !actionsLead ? "pt-1" : "pt-[11px]"}`}
-                aria-hidden="true"
-              >
-                {group.heading}
-              </div>
-              {group.rows.map((hit) => (
-                <Command.Item
-                  key={`${hit.kind}:${hit.id}:${hit.name}`}
-                  value={`${hit.kind}:${hit.id}:${hit.name}`}
-                  data-kind={hit.kind}
-                  onSelect={() => onPick(hit)}
-                  className={rowClass}
-                >
-                  <div className="flex items-center gap-2 min-w-0">
-                    <span className="text-base-app text-ink-1 truncate">{hit.name}</span>
-                    {hit.server && (
-                      <span className="text-base-app text-ink-3 truncate">
-                        · <span>{hit.server}</span>
-                      </span>
-                    )}
-                    <span className={`ml-auto pl-4 ${captionClass} tabular shrink-0`}>{placeLabel(hit.place)}</span>
-                  </div>
-                  <div className={`${captionClass} truncate`}>{renderSnippet(hit.snippet)}</div>
-                </Command.Item>
-              ))}
-            </Command.Group>
-          ))}
+          {groups.map((group, i) => hitGroup(group.kind, group.heading, group.rows, i === 0 && !actionsLead))}
           {!actionsLead && switchGroup}
         </Command.List>
       </Command>

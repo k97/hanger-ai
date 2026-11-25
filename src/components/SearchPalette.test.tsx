@@ -270,11 +270,22 @@ describe("SearchPalette — Switch actions", () => {
     expect(actionsFor).not.toHaveBeenCalled();
   });
 
-  // D7 of docs/plans/2026-11-25-ia-engines-into-global.md: the query names a
-  // server exactly, so switching it is the likely ask.
+  // D7 of docs/plans/2026-11-25-ia-engines-into-global.md, as amended by F2:
+  // on an exact server name the server itself stays the default, so Enter
+  // opens it; the Switch rows follow it, one ↓ away. A switch writes the
+  // user's real config, so it is never what Enter does by default.
   const groupOrder = () => Array.from(document.querySelectorAll("[cmdk-group]")).map((g) => g.getAttribute("aria-label"));
+  const drawnKinds = () => screen.getAllByRole("option").map((el) => el.getAttribute("data-kind"));
+  const selected = () => document.querySelector("[cmdk-item][data-selected='true']");
+  const serverHit = (name: string, rank = -4): SearchHit => ({
+    kind: "server", id: `/home/u/.codex/config.toml:${name}`, path: "/home/u/.codex/config.toml",
+    name, server: null, place: "global", snippet: name, rank,
+  });
+  const alphaServer = serverHit("alpha");
+  const alphabetServer = serverHit("alphabet", -5);
 
-  it("leads with Switch when an action's server is the query exactly", async () => {
+  it("on an exact server name, draws that server first and Switch right after it", async () => {
+    vi.mocked(invoke).mockImplementation(async () => ({ hits: [skillHit, alphabetServer, alphaServer], total: 3 }));
     render(
       <SearchPalette
         open={true}
@@ -284,9 +295,124 @@ describe("SearchPalette — Switch actions", () => {
         actionsFor={(q) => (q ? [action({ exact: true })] : [])}
       />
     );
-    fireEvent.change(screen.getByLabelText("Search assets"), { target: { value: "alpha" } });
+    fireEvent.change(screen.getByLabelText("Search assets"), { target: { value: "ALPHA" } });
     await screen.findByText("deploy-helper");
-    expect(groupOrder()).toEqual(["Switch", "Skills"]);
+    // The exact hit leads under its own heading; the other server keeps its
+    // place in the asset groups.
+    expect(groupOrder()).toEqual(["MCP servers", "Switch", "Skills", "MCP servers"]);
+    expect(drawnKinds()).toEqual(["server", "action", "skill", "server"]);
+    expect(screen.getAllByRole("option")[0].textContent).toContain("alpha");
+    expect(screen.getAllByRole("option")[0].textContent).not.toContain("alphabet");
+  });
+
+  it("on an exact server name, Enter opens the server and never runs a switch", async () => {
+    vi.mocked(invoke).mockImplementation(async () => ({ hits: [skillHit, alphaServer], total: 2 }));
+    const onRun = vi.fn();
+    const onPick = vi.fn();
+    render(
+      <SearchPalette
+        open={true}
+        scannedAt={scanned}
+        onClose={() => {}}
+        onPick={onPick}
+        actionsFor={(q) => (q ? [action({ exact: true, onRun })] : [])}
+      />
+    );
+    const input = screen.getByLabelText("Search assets");
+    fireEvent.change(input, { target: { value: "alpha" } });
+    await screen.findByText("deploy-helper");
+    await waitFor(() => expect(selected()?.getAttribute("data-kind")).toBe("server"));
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(onPick).toHaveBeenCalledTimes(1);
+    expect(onPick).toHaveBeenCalledWith(alphaServer);
+    expect(onRun).not.toHaveBeenCalled();
+  });
+
+  it("on an exact server name, one ↓ then Enter runs the first switch, and the arrows walk the drawn order", async () => {
+    vi.mocked(invoke).mockImplementation(async () => ({ hits: [skillHit, alphaServer], total: 2 }));
+    const first = vi.fn();
+    const second = vi.fn();
+    const onPick = vi.fn();
+    render(
+      <SearchPalette
+        open={true}
+        scannedAt={scanned}
+        onClose={() => {}}
+        onPick={onPick}
+        actionsFor={(q) =>
+          q
+            ? [
+                action({ id: "a1", label: "Switch alpha off for Engine C", exact: true, onRun: first }),
+                action({ id: "a2", label: "Switch alpha off for Engine G", exact: true, onRun: second }),
+              ]
+            : []
+        }
+      />
+    );
+    const input = screen.getByLabelText("Search assets");
+    fireEvent.change(input, { target: { value: "alpha" } });
+    await screen.findByText("deploy-helper");
+    expect(drawnKinds()).toEqual(["server", "action", "action", "skill"]);
+    await waitFor(() => expect(selected()?.getAttribute("data-kind")).toBe("server"));
+    fireEvent.keyDown(input, { key: "ArrowDown" });
+    await waitFor(() => expect(selected()?.textContent).toContain("Engine C"));
+    fireEvent.keyDown(input, { key: "ArrowDown" });
+    await waitFor(() => expect(selected()?.textContent).toContain("Engine G"));
+    fireEvent.keyDown(input, { key: "ArrowDown" });
+    await waitFor(() => expect(selected()?.getAttribute("data-kind")).toBe("skill"));
+    fireEvent.keyDown(input, { key: "ArrowUp" });
+    fireEvent.keyDown(input, { key: "ArrowUp" });
+    await waitFor(() => expect(selected()?.textContent).toContain("Engine C"));
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(first).toHaveBeenCalledTimes(1);
+    expect(second).not.toHaveBeenCalled();
+    expect(onPick).not.toHaveBeenCalled();
+  });
+
+  it("highlights no switch while the search has not answered, and Enter does nothing", async () => {
+    vi.mocked(invoke).mockImplementation(() => new Promise(() => {}));
+    const onRun = vi.fn();
+    const onPick = vi.fn();
+    render(
+      <SearchPalette
+        open={true}
+        scannedAt={scanned}
+        onClose={() => {}}
+        onPick={onPick}
+        actionsFor={(q) => (q ? [action({ exact: true, onRun })] : [])}
+      />
+    );
+    const input = screen.getByLabelText("Search assets");
+    fireEvent.change(input, { target: { value: "alpha" } });
+    expect(screen.getByRole("option", { name: /Switch alpha off/ })).toBeTruthy();
+    // Long enough for cmdk's own first-item pick to have run.
+    await new Promise((r) => setTimeout(r, 30));
+    expect(selected()).toBeNull();
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(onRun).not.toHaveBeenCalled();
+    expect(onPick).not.toHaveBeenCalled();
+  });
+
+  it("with no server hit for an exact name, keeps Switch last and highlights the first asset row", async () => {
+    const onRun = vi.fn();
+    const onPick = vi.fn();
+    render(
+      <SearchPalette
+        open={true}
+        scannedAt={scanned}
+        onClose={() => {}}
+        onPick={onPick}
+        actionsFor={(q) => (q ? [action({ exact: true, onRun })] : [])}
+      />
+    );
+    const input = screen.getByLabelText("Search assets");
+    fireEvent.change(input, { target: { value: "alpha" } });
+    await screen.findByText("deploy-helper");
+    expect(groupOrder()).toEqual(["Skills", "Switch"]);
+    await waitFor(() => expect(selected()?.getAttribute("data-kind")).toBe("skill"));
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(onPick).toHaveBeenCalledWith(skillHit);
+    expect(onRun).not.toHaveBeenCalled();
   });
 
   it("keeps Switch last on a partial match", async () => {
@@ -304,7 +430,8 @@ describe("SearchPalette — Switch actions", () => {
     expect(groupOrder()).toEqual(["Skills", "Switch"]);
   });
 
-  it("the arrow keys walk the rows in the order they are drawn", async () => {
+  it("on a partial match, the first asset row is the default and Enter picks it", async () => {
+    vi.mocked(invoke).mockImplementation(async () => ({ hits: [skillHit, alphaServer], total: 2 }));
     const onRun = vi.fn();
     const onPick = vi.fn();
     render(
@@ -313,23 +440,17 @@ describe("SearchPalette — Switch actions", () => {
         scannedAt={scanned}
         onClose={() => {}}
         onPick={onPick}
-        actionsFor={(q) => (q ? [action({ exact: true, onRun })] : [])}
+        actionsFor={(q) => (q ? [action({ exact: false, onRun })] : [])}
       />
     );
     const input = screen.getByLabelText("Search assets");
-    fireEvent.change(input, { target: { value: "alpha" } });
+    fireEvent.change(input, { target: { value: "alp" } });
     await screen.findByText("deploy-helper");
-    const selected = () => document.querySelector("[cmdk-item][data-selected='true']")?.getAttribute("data-kind");
-    const drawn = screen.getAllByRole("option").map((el) => el.getAttribute("data-kind"));
-    expect(drawn).toEqual(["action", "skill"]);
-    await waitFor(() => expect(selected()).toBe("action"));
-    fireEvent.keyDown(input, { key: "ArrowDown" });
-    await waitFor(() => expect(selected()).toBe("skill"));
-    fireEvent.keyDown(input, { key: "ArrowUp" });
-    await waitFor(() => expect(selected()).toBe("action"));
+    expect(groupOrder()).toEqual(["Skills", "MCP servers", "Switch"]);
+    await waitFor(() => expect(selected()?.getAttribute("data-kind")).toBe("skill"));
     fireEvent.keyDown(input, { key: "Enter" });
-    expect(onRun).toHaveBeenCalledTimes(1);
-    expect(onPick).not.toHaveBeenCalled();
+    expect(onPick).toHaveBeenCalledWith(skillHit);
+    expect(onRun).not.toHaveBeenCalled();
   });
 
   it("an empty list of actions keeps the hint", () => {

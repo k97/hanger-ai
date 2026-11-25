@@ -1862,13 +1862,22 @@ A8): `SearchPalette` takes an optional `actionsFor(query)`, asks it with the
 trimmed query on every render once a scan has completed, and hands the
 result to the panel as `actions` (`PaletteAction`: `id`, `label`, `detail?`,
 `exact?`, `onRun`). The panel lists them as one more `Command.Group`,
-"Switch", after the asset groups — or ahead of them when any action is
-`exact`, which App sets on an item whose name is the query in any case (D7
-of the IA plan); it is drawn there, so cmdk's arrow keys, which walk the
-items in DOM order, follow — in the same heading div and `rowClass` row, the label in
-`text-base-app` and `detail` on the right in `captionClass` as a hit's place
-is. While any action is listed, neither the hint nor "Nothing matches" shows;
-before the first scan none are listed. App builds them: each open reads
+"Switch", after the asset groups, in the same heading div and `rowClass`
+row, the label in `text-base-app` and `detail` on the right in
+`captionClass` as a hit's place is. When an action is `exact`, which App
+sets on an item whose name is the query in any case (D7 of the IA plan), and
+the hits hold an MCP server of that name, the first such server is drawn
+first under its own "MCP servers" heading, the Switch group right after it,
+then the asset groups without it (F2: on a name typed exactly, Enter opens
+the server and one ↓ reaches the switch). Every row is drawn where it sits,
+so cmdk's arrow keys, which walk the items in DOM order, follow. **An action
+is never the default row**: the panel controls cmdk's `value`. The default
+is that leading server, else the first asset row, else no row at all (a
+`none:` value), which covers the moment before the search answers, when the
+actions are the only rows. A row the user reaches with the keys, the pointer
+or a click stays highlighted while the query stands; a row cmdk picks on its
+own is overruled. While any action is listed, neither the hint nor "Nothing
+matches" shows; before the first scan none are listed. App builds them: each open reads
 `get_engine_context` for every engine the Engines tab lists, once, and
 keeps the replies until close; a non-empty query yields the items with
 `read_only === null` whose name contains it, any case, at most eight,
