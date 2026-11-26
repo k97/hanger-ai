@@ -53,7 +53,7 @@ log = "0.4"
 tauri-plugin-log = "2.9.0"
 tauri-plugin-clipboard-manager = "2"
 tauri-plugin-updater = "2"
-tauri-plugin-mcp-bridge = "0.12"
+tauri-plugin-mcp-bridge = "0.13"
 
 # AppKit access for the dev-only Dock icon override (see src/dev_icon.rs).
 # Already in the tree via tauri; naming them here just makes them reachable.
