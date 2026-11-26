@@ -1237,7 +1237,7 @@ export default function DesignSystemPane({ section }: DesignSystemPaneProps) {
             </div>
           </Specimen>
 
-          <Specimen name="KeptSkillsGroup" file="KeptSkillsGroup.tsx" note="Switched off, after the Skills group on Global: the backend's count in the head, no figure when an engine is picked, each row the skill's name and that it is off for every engine; a row opens the kept skill in the inspector. Sample skills; the rows do nothing">
+          <Specimen name="KeptSkillsGroup" file="KeptSkillsGroup.tsx" note="Switched off, after the Skills group on Global, or just before Not loaded by when a picked engine shows no Skills rows: the backend's count in the head, no figure when an engine is picked, each row the skill's name and that it is off for every engine; a row opens the kept skill in the inspector. Sample skills; the rows do nothing">
             <div className="max-w-[534px] border border-line rounded-plane pb-1.5">
               <KeptSkillsGroup kept={SAMPLE_KEPT_SKILLS} showFigure selectedKey={SAMPLE_KEPT_SKILLS_SELECTED} />
             </div>

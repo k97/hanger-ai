@@ -747,7 +747,10 @@ since `count` is every engine's. Pinned by `ProfilePaneIntegration.test.tsx`,
 `kept_inspector.test.tsx` and `engine_lens_pane.test.tsx`.
 
 **The Skills "Switched off" group** (`KeptSkillsGroup.tsx`, drawn by
-`ProfilePane.tsx` straight after the Skills group) — the skills Hanger is
+`ProfilePane.tsx` straight after the Skills group, or, with an engine picked
+and no Skills rows on screen, just before "Not loaded by ‹engine›":
+`keptSkillsLast`, round 13 q4 of `docs/plans/2026-11-26-decisions-round-13.md`)
+— the skills Hanger is
 keeping while they are switched off for every engine (`get_kept_skills`,
 docs/ipc.md entry 24; `docs/plans/2026-11-26-skill-switch.md`). A kept
 skill's folder is out of the global store, so it is no row of the Skills

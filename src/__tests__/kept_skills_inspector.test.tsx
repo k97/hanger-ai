@@ -10,6 +10,7 @@ import { render, screen, fireEvent, waitFor, cleanup, act, within } from "@testi
 import App from "../App";
 import { invoke } from "@tauri-apps/api/core";
 import type { KeptSkills, SkillSwitchReply } from "../types/skillSwitch";
+import type { EngineContext } from "../types/engineContext";
 
 vi.mock("@tauri-apps/plugin-log", () => ({
   warn: vi.fn(),
@@ -62,6 +63,57 @@ const EMPTY = { ...INVENTORY, skills: [] };
 /** What `get_kept_skills` answers now; a switch moves the skill in or out. */
 let keptReply: KeptSkills;
 
+/** An engine whose context registers one MCP server and no skill, and the
+ *  backend's reach verdict on figma for it. Empty unless a test sets them. */
+const LINT = "/u/.config/opencode/opencode.json:lint";
+const OPENCODE: EngineContext = {
+  engine_id: "opencode",
+  engine_key: "opencode",
+  engine_name: "Engine O",
+  applies: null,
+  switches_by_name: false,
+  items: [
+    {
+      key: LINT,
+      name: "lint",
+      tier: "global",
+      config_path: "~/.config/opencode/opencode.json",
+      state: "on",
+      read_only: null,
+      estimated_tokens: null,
+      tool_count: null,
+    } as EngineContext["items"][number],
+  ],
+  on_count: 1,
+  off_count: 0,
+  measured_on_count: 0,
+  on_tokens_measured: 0,
+};
+const figmaReach = (reached: boolean) => [
+  {
+    asset_path: STORE_PATH,
+    mechanism: "none",
+    reach: [{ engine_id: 9, engine_key: "opencode", engine_name: "Engine O", reached, reason: reached ? null : "format" }],
+    beyond: null,
+  },
+];
+const WITH_SERVER = {
+  ...INVENTORY,
+  tools: [
+    {
+      id: LINT,
+      name: "lint",
+      command: "npx",
+      transport: "stdio",
+      config_path: "/u/.config/opencode/opencode.json",
+      scope: { Global: { agent: "opencode" } },
+      owning_agent: "opencode",
+    },
+  ],
+};
+let engineContexts: EngineContext[] = [];
+let annotations: unknown[] = [];
+
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: vi.fn(async (cmd: string, args?: any) => {
     if (cmd === "get_preference") return mockPreferences[args?.key] ?? null;
@@ -74,7 +126,8 @@ vi.mock("@tauri-apps/api/core", () => ({
     if (cmd === "get_asset_counts") return { total_assets: 1, skill: { total: 1, global: 1, project: 0 }, engines: {} };
     if (cmd === "get_kept_off_servers") return { servers: [], count: 0, only_kept_count: 0 };
     if (cmd === "get_kept_skills") return keptReply;
-    if (cmd === "get_engine_contexts") return [];
+    if (cmd === "get_engine_contexts") return engineContexts;
+    if (cmd === "get_asset_annotations") return annotations;
     if (cmd === "get_mcp_processes") return [];
     if (cmd === "get_skill_switch") return args?.skillPath === STORE_PATH ? { key: "skill:figma", read_only: null } : null;
     if (cmd === "set_skill_enabled") {
@@ -119,6 +172,8 @@ beforeEach(() => {
   cleanup();
   eventListeners = {};
   vi.mocked(invoke).mockClear();
+  engineContexts = [];
+  annotations = [];
   mockPreferences = {
     onboarding_complete: "true",
     consent_crash: "true",
@@ -183,5 +238,62 @@ describe("App — the skill switch", () => {
     await waitFor(() => expect(calls("start_scan").length).toBe(scansBefore + 1));
     expect(await within(panel).findByTestId("kept-skill-detail")).toBeTruthy();
     expect(within(panel).getByRole("button", { name: "Switch figma on for every engine" })).toBeTruthy();
+  });
+});
+
+/** Where "Switched off" sits on Global's All tab (round 13 q4, 2026-11-26).
+ *  It follows the Skills rows whenever they show. With an engine picked that
+ *  loads no skill there are none, so it sits just before "Not loaded by" —
+ *  next to the skill it holds there, not stranded above the MCP servers. */
+describe("App — where the Switched off group sits", () => {
+  const follows = (a: Element, b: Element) => (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
+  const showAll = () => {
+    mockPreferences.selected_sidebar_item = "profile";
+  };
+
+  it("with an engine picked that loads no skills, the kept skills group sits just before Not loaded", async () => {
+    keptReply = KEPT;
+    showAll();
+    mockPreferences.selected_engine = "opencode";
+    engineContexts = [OPENCODE];
+    annotations = figmaReach(false);
+    render(<App />);
+    await completeScan(WITH_SERVER);
+    const notLoaded = await screen.findByTestId("not-loaded-group");
+    const kept = await screen.findByTestId("kept-skills-group");
+    const tools = await screen.findByTestId("section-header-tools");
+    // figma is not loaded by the engine, so no Skills row shows.
+    expect(screen.queryByRole("heading", { level: 3, name: "Skills" })).toBeNull();
+    expect(follows(kept, notLoaded)).toBe(true);
+    expect(follows(tools, kept)).toBe(true);
+    expect(kept.nextElementSibling).toBe(notLoaded);
+  });
+
+  it("with an engine picked that loads a skill, it still follows the Skills rows", async () => {
+    keptReply = KEPT;
+    showAll();
+    mockPreferences.selected_engine = "opencode";
+    engineContexts = [OPENCODE];
+    annotations = figmaReach(true);
+    render(<App />);
+    await completeScan(WITH_SERVER);
+    const kept = await screen.findByTestId("kept-skills-group");
+    const tools = await screen.findByTestId("section-header-tools");
+    const skillsHeading = screen.getByRole("heading", { level: 3, name: "Skills" });
+    expect(follows(skillsHeading, kept)).toBe(true);
+    expect(follows(kept, tools)).toBe(true);
+    expect(within(kept.previousElementSibling as HTMLElement).getByText("figma")).toBeTruthy();
+    expect(screen.queryByTestId("not-loaded-group")).toBeNull();
+  });
+
+  it("with All engines, it directly follows the Skills rows", async () => {
+    keptReply = KEPT;
+    showAll();
+    render(<App />);
+    await completeScan(WITH_SERVER);
+    const kept = await screen.findByTestId("kept-skills-group");
+    const tools = await screen.findByTestId("section-header-tools");
+    expect(follows(kept, tools)).toBe(true);
+    expect(within(kept.previousElementSibling as HTMLElement).getByText("figma")).toBeTruthy();
   });
 });

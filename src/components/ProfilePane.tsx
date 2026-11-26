@@ -1248,6 +1248,19 @@ export default function ProfilePane({
     (showSkills && sortedSkills.length > 0) ||
     (showRules && sortedRules.length > 0) ||
     (showSubagents && sortedSubagents.length > 0);
+  // The Skills "Switched off" group, drawn once in one of two places: after
+  // the Skills rows, or, with an engine picked and no Skills rows on screen,
+  // just before "Not loaded by". Booleans, never a figure.
+  const keptSkillsGroup =
+    showSkills && keptSkillsShown && keptSkills ? (
+      <KeptSkillsGroup
+        kept={keptSkills}
+        showFigure={!engine}
+        selectedKey={selectedKeptSkillKey}
+        onOpen={onOpenKeptSkill}
+      />
+    ) : null;
+  const keptSkillsLast = engine !== null && !skillsAny;
   // The Tools group has something to show whenever there is a server row OR
   // a problem row — a machine with one unreadable config and zero working
   // servers still has a Tools section worth rendering (A.3/A.4). So does one
@@ -1516,15 +1529,10 @@ export default function ProfilePane({
                 no figure from get_asset_counts, so the Skills header keeps its
                 own figure and this group carries the backend's `count`. A row
                 opens the skill in the inspector, where it can be switched
-                back on. */}
-            {showSkills && keptSkillsShown && keptSkills && (
-              <KeptSkillsGroup
-                kept={keptSkills}
-                showFigure={!engine}
-                selectedKey={selectedKeptSkillKey}
-                onOpen={onOpenKeptSkill}
-              />
-            )}
+                back on. With an engine picked that loads no skill there are
+                no Skills rows to follow, so it moves down to sit just before
+                "Not loaded by" (round 13 q4, 2026-11-26). */}
+            {!keptSkillsLast && keptSkillsGroup}
 
             {/* Tools Group — card rows, not table rows (§5.6). This section
                 owns its own column labels rather than sharing the header
@@ -1682,6 +1690,8 @@ export default function ProfilePane({
                 </div>
               </>
             )}
+
+            {keptSkillsLast && keptSkillsGroup}
 
             {engine && notLoadedAny && <NotLoadedGroup engineName={engine.engine_name} rows={notLoadedRows} />}
           </div>
