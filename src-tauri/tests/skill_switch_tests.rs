@@ -122,3 +122,126 @@ fn rename_keeps_the_inode() {
     assert!(fs::symlink_metadata(&from).is_err());
     assert_eq!(fs::symlink_metadata(&to).unwrap().ino(), ino);
 }
+
+// ---------------------------------------------------------------------------
+// Task 2: find the one-by-one links to a skill
+// ---------------------------------------------------------------------------
+
+use tauri_app_lib::skill_switch::links::{find_links, link_places, FoundLink};
+
+/// A temp home with a store holding the named skills.
+struct Home {
+    _dir: tempfile::TempDir,
+    home: PathBuf,
+    store: PathBuf,
+}
+
+fn home_with(skills: &[&str]) -> Home {
+    let dir = temp();
+    let home = dir.path().join("home");
+    let store = home.join(".agents/skills");
+    for name in skills {
+        make_skill(&store.join(name));
+    }
+    Home { _dir: dir, home, store }
+}
+
+fn link(text: impl AsRef<Path>, at: &Path) {
+    fs::create_dir_all(at.parent().unwrap()).unwrap();
+    symlink(text, at).unwrap();
+}
+
+fn paths(found: &[FoundLink]) -> Vec<PathBuf> {
+    found.iter().map(|f| f.path.clone()).collect()
+}
+
+#[test]
+fn an_absolute_link_is_found() {
+    let h = home_with(&["x", "y"]);
+    let at = h.home.join(".cursor/skills/x");
+    link(h.store.join("x"), &at);
+    let found = find_links(&h.store.join("x"), &link_places(&h.home, &h.store, &[]), &[]);
+    assert_eq!(paths(&found), [at]);
+    assert_eq!(found[0].text, h.store.join("x").into_os_string());
+}
+
+#[test]
+fn a_relative_link_is_found_and_recorded_by_its_own_text() {
+    let h = home_with(&["x"]);
+    let at = h.home.join(".gemini/config/skills/x");
+    link("../../../.agents/skills/x", &at);
+    let found = find_links(&h.store.join("x"), &link_places(&h.home, &h.store, &[]), &[]);
+    assert_eq!(paths(&found), [at]);
+    assert_eq!(found[0].text, std::ffi::OsString::from("../../../.agents/skills/x"), "the text is kept as written, never made absolute");
+}
+
+#[test]
+fn a_place_that_resolves_to_the_store_is_skipped() {
+    let h = home_with(&["x"]);
+    let container = h.home.join(".claude/skills");
+    link(&h.store, &container);
+    let places = link_places(&h.home, &h.store, &[]);
+    assert!(!places.contains(&container), "{places:?}");
+    let found = find_links(&h.store.join("x"), &places, &[]);
+    assert!(found.iter().all(|f| !f.path.starts_with(&container)), "{found:?}");
+    assert!(found.is_empty(), "the skill itself, seen through the container, is not a link to it: {found:?}");
+}
+
+#[test]
+fn a_link_inside_another_skill_is_found() {
+    let h = home_with(&["figma", "web-design-guidelines"]);
+    let at = h.store.join("web-design-guidelines/figma");
+    link(h.store.join("figma"), &at);
+    let found = find_links(&h.store.join("figma"), &link_places(&h.home, &h.store, &[]), &[]);
+    assert_eq!(paths(&found), [at]);
+}
+
+#[test]
+fn a_link_to_another_skill_is_not_found() {
+    let h = home_with(&["x", "y"]);
+    link(h.store.join("y"), &h.home.join(".cursor/skills/y"));
+    // An already-dangling link to a skill that is not there.
+    link(h.store.join("gone"), &h.home.join(".cursor/skills/gone"));
+    let found = find_links(&h.store.join("x"), &link_places(&h.home, &h.store, &[]), &[]);
+    assert!(found.is_empty(), "{found:?}");
+}
+
+#[test]
+fn a_link_into_a_subfolder_of_the_skill_is_not_found() {
+    let h = home_with(&["x"]);
+    link(h.store.join("x/references"), &h.home.join(".cursor/skills/x-refs"));
+    let found = find_links(&h.store.join("x"), &link_places(&h.home, &h.store, &[]), &[]);
+    assert!(found.is_empty(), "{found:?}");
+}
+
+#[test]
+fn a_linked_projects_link_is_found() {
+    let h = home_with(&["x"]);
+    let project = h.home.join("Work/app");
+    let at = project.join(".claude/skills/x");
+    link(h.store.join("x"), &at);
+    assert!(find_links(&h.store.join("x"), &link_places(&h.home, &h.store, &[]), &[]).is_empty(), "not a place until the project is linked");
+    let found = find_links(&h.store.join("x"), &link_places(&h.home, &h.store, &[project]), &[]);
+    assert_eq!(paths(&found), [at]);
+}
+
+#[test]
+fn a_recorded_link_outside_every_place_is_found() {
+    let h = home_with(&["x"]);
+    let at = h.home.join("somewhere/else/x");
+    link(h.store.join("x"), &at);
+    let places = link_places(&h.home, &h.store, &[]);
+    assert!(find_links(&h.store.join("x"), &places, &[]).is_empty());
+    let found = find_links(&h.store.join("x"), &places, &[at.clone()]);
+    assert_eq!(paths(&found), [at]);
+}
+
+#[test]
+fn a_container_link_to_the_whole_store_is_never_returned() {
+    let h = home_with(&["x"]);
+    let project = h.home.join("Work/hanger");
+    let container = project.join(".agents/skills");
+    link(&h.store, &container);
+    let found = find_links(&h.store.join("x"), &link_places(&h.home, &h.store, &[project]), &[container.clone()]);
+    assert!(found.is_empty(), "{found:?}");
+}

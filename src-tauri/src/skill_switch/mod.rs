@@ -28,5 +28,7 @@
 //! The pieces:
 //!
 //! - `tree`: the folder's fingerprint, and the rename that never replaces.
+//! - `links`: where one-by-one links to a skill are kept, and which they are.
 
+pub mod links;
 pub mod tree;
