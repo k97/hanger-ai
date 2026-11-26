@@ -8,9 +8,9 @@
  *
  *  Since Task 2 of docs/plans/2026-11-26-global-list.md the card docks when
  *  the pane has room, and the popover is what it does when it has not. App
- *  takes no `forceDock`, so these run at a measured 900px pane, too narrow
- *  to dock (`notDocked()`): the not-docked case. The docked case is at the
- *  end. */
+ *  takes no `forceDock`, so these run at a measured 883px pane, 1px too
+ *  narrow to dock since round 21 (`notDocked()`): the not-docked case. The
+ *  docked case is at the end. */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, waitFor, cleanup, act, within } from "@testing-library/react";
 import App from "../App";
@@ -134,7 +134,7 @@ function stubPaneWidth(width: number) {
   );
 }
 /** App's `forceDock={false}`: a pane too narrow to dock the card. */
-const notDocked = () => stubPaneWidth(900);
+const notDocked = () => stubPaneWidth(883);
 
 describe("the overview button in the content cap", () => {
   it("is on Global, labelled Show overview  ⌘E", async () => {

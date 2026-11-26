@@ -1,22 +1,27 @@
 import { describe, it, expect } from "vitest";
 import { DOCKED_LANE_CLEARANCE, OVERVIEW_DOCK_MIN_WIDTH, shouldDockOverview } from "./overviewLayout";
 
-/** Task 2 of docs/plans/2026-11-26-global-list.md: the card docks when the
- *  list has room for T3's 640px column, its two 48px paddings, the 32px
- *  clearance, the 12px gap and the 280px card, and never beside an open
- *  inspector (round 16 q2). */
+/** The card docks when the column beside it can stay at least 560px wide
+ *  (round 21, docs/plans/2026-11-26-decisions-round-21.md, which replaced
+ *  Task 2's 640px column and its two 48px paddings): 560 + the 280px card,
+ *  its 12px gap and T3's 32px clearance is 884px of list. Never beside an
+ *  open inspector (round 16 q2). */
 describe("shouldDockOverview", () => {
-  it("does not dock at 1059px", () => {
-    expect(shouldDockOverview(1059, false)).toBe(false);
+  it("does not dock at 883px", () => {
+    expect(shouldDockOverview(883, false)).toBe(false);
   });
 
-  it("docks at 1060px: 640 + 280 + 12 + 32 + 2 × 48", () => {
-    expect(OVERVIEW_DOCK_MIN_WIDTH).toBe(1060);
-    expect(shouldDockOverview(1060, false)).toBe(true);
+  it("docks at 884px: 560 + 280 + 12 + 32", () => {
+    expect(OVERVIEW_DOCK_MIN_WIDTH).toBe(884);
+    expect(shouldDockOverview(884, false)).toBe(true);
+  });
+
+  it("docks at 968px, the list area of Karthik's 1,024px window with nothing selected", () => {
+    expect(shouldDockOverview(968, false)).toBe(true);
   });
 
   it("never docks beside an open inspector, however wide the list", () => {
-    expect(shouldDockOverview(1060, true)).toBe(false);
+    expect(shouldDockOverview(968, true)).toBe(false);
     expect(shouldDockOverview(4000, true)).toBe(false);
   });
 

@@ -1829,9 +1829,12 @@ geometry to a screenshot.
 `docs/plans/2026-11-26-global-list.md`). One `ResizeObserver`, on the pane
 itself (always mounted; the list is not, behind an empty state), gives the
 pane's width. `shouldDockOverview(width, inspectorOpen)` in
-`utils/overviewLayout.ts` docks the card at 1060px and up with the inspector
-closed: T3's 640px column, two 48px paddings, its 32px clearance, the 12px
-gap and the 280px card. Docked, the card sits in `absolute right-3 top-3
+`utils/overviewLayout.ts` docks the card at 884px and up with the inspector
+closed: a column of at least 560px, T3's 32px clearance, the 12px gap and the
+280px card (round 21, `docs/plans/2026-11-26-decisions-round-21.md`; it was
+T3's 640px column and two 48px paddings, 1060px, until then). At Karthik's
+1,024px window the list is 968px with nothing selected, so the card docks; a
+row selected opens the inspector and sends it behind its button. Docked, the card sits in `absolute right-3 top-3
 z-10 w-[280px]`, scrolling past `calc(100% - 24px)`, and both lanes (the
 kind tabs' and the list's) trade `mx-auto` for `ml-auto
 mr-[max(258px,calc((100%-736px)/2))]`, as T3 places its column

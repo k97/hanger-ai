@@ -273,7 +273,8 @@ describe("in App: the dock is measured, and overview_hidden persists", () => {
   });
 
   it("a narrow window keeps it behind the button", async () => {
-    stubResizeObserver(900);
+    // 1px under round 21's 884px (900 docks since then).
+    stubResizeObserver(883);
     render(<App />);
     await screen.findByText("Claude Math Skill");
     const show = await waitFor(() => within(cap()).getByRole("button", { name: named(SHOW) }));
