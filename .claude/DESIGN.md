@@ -1826,7 +1826,9 @@ it in the bubble phase on `document` and skips one already marked, so Esc in
 its Needs review popover closes only that. App's Esc is last, in the bubble
 phase on `window`. On Global, with the inspector open and showing an asset,
 a bubble or a kept item, an unmarked Esc clears that selection, so the pinned
-card comes back (round 14 q4). It does nothing on other screens.
+card comes back (round 14 q4). It does nothing on other screens, and nothing
+to an Esc typed into an input, a textarea or contenteditable:
+`isTextEntryTarget` (`utils/textEntry.ts`) is the one check, shared with ⌘E.
 `escape_layering.test.tsx` and `overview_pinned.test.tsx` pin the order.
 
 **`MechanismGlyph`** (`MechanismGlyph.tsx`) — the per-row attachment glyph:

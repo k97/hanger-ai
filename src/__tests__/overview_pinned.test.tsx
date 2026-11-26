@@ -258,6 +258,26 @@ describe("Esc leaves the selection alone when something else takes it (Review Fo
   });
 });
 
+describe("Esc typed into a text field", () => {
+  it("on Global, with an asset selected, Esc in a text input leaves the selection alone", async () => {
+    mockPreferences.overview_pinned = "true";
+    render(<App />);
+    fireEvent.click(await screen.findByText("Claude Math Skill"));
+    await waitFor(() => expect(inspecting()).toBe(true));
+    const input = document.createElement("input");
+    document.body.appendChild(input);
+    input.focus();
+    try {
+      pressEsc(input);
+      await new Promise((r) => setTimeout(r, 0));
+      expect(inspecting()).toBe(true);
+      expect(pinnedCard()).toBeNull();
+    } finally {
+      input.remove();
+    }
+  });
+});
+
 describe("Esc is Global's alone (round 14 q4)", () => {
   it("on a repository screen, Esc leaves the selection alone", async () => {
     mockPreferences.selected_sidebar_item = REPO;

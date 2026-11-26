@@ -32,6 +32,7 @@ import OverviewCard from "./OverviewCard";
 import OverviewPopover from "./OverviewPopover";
 import Tooltip from "./Tooltip";
 import { overviewButtonLabel } from "../utils/overviewCopy";
+import { isTextEntryTarget } from "../utils/textEntry";
 import NotLoadedGroup, { groupRowClass, notLoadedHead, type NotLoadedRow } from "./NotLoadedGroup";
 import GroupTicks, { groupHead, type TickGroup } from "./GroupTicks";
 import KeptSkillsGroup from "./KeptSkillsGroup";
@@ -503,8 +504,7 @@ export default function ProfilePane({
     if (!overviewAvailable) return;
     const onKeyDown = (e: KeyboardEvent) => {
       if (!(e.metaKey || e.ctrlKey) || e.altKey || e.shiftKey || e.key.toLowerCase() !== "e") return;
-      const t = e.target as HTMLElement | null;
-      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable || t.closest?.("[contenteditable]:not([contenteditable='false'])"))) return;
+      if (isTextEntryTarget(e.target)) return;
       e.preventDefault();
       setOverviewOpen((v) => !v);
     };

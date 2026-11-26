@@ -92,6 +92,7 @@ import {
   refitInspectorWidth,
 } from "./utils/inspectorLayout";
 import { unaccountedProcesses, type ProcessMatch } from "./utils/mcpServerView";
+import { isTextEntryTarget } from "./utils/textEntry";
 import type { McpServerRow } from "./utils/serverRows";
 import type { EngineContext, KeptOff } from "./types/engineContext";
 import type { KeptSkills } from "./types/skillSwitch";
@@ -1460,7 +1461,9 @@ export default function App() {
   useEffect(() => {
     if (!isGlobalItem(selectedSidebarItem) || !inspectorOpen || !inspectorHasSubject) return;
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key !== "Escape" || e.defaultPrevented) return;
+      // Esc typed into a field is the field's (search, rename), not a
+      // request to drop the subject.
+      if (e.key !== "Escape" || e.defaultPrevented || isTextEntryTarget(e.target)) return;
       setSelectedAsset(null);
       setSelectedBubble(null);
       setSelectedKeptKey(null);
