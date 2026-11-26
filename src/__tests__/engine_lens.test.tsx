@@ -3,7 +3,8 @@
  *  docs/plans/2026-11-25-ia-global-by-engine.md), which replaces the Engines
  *  tab T1 of docs/plans/2026-11-25-ia-engines-into-global.md built. Global has
  *  no Engines tab; a stored Engines route lands on Global and keeps its
- *  engine; the engine is a chip row on every Global tab, persisted as
+ *  engine; the engine is picked in the overview card's Engines group (the
+ *  chip row until Task 7 of docs/plans/2026-11-26-overview-card.md), persisted as
  *  `selected_engine` ("" for All engines) and restored on open (Q2); the crumb
  *  names the engine, and its "Global" clears it; and the inspector's engine
  *  names set the engine without leaving the tab. These are the intents of the
@@ -154,9 +155,22 @@ const crumbText = () =>
     .join(" › ");
 const tabs = () => within(screen.getByRole("tablist", { name: "Filter by category" })).getAllByRole("tab");
 const tab = (name: RegExp) => screen.getByRole("tab", { name });
-const chipGroup = () => screen.getByRole("group", { name: "Engines" });
+/** The engine selector is the overview card's Engines group since Task 7 of
+ *  docs/plans/2026-11-26-overview-card.md: the card opens from the content
+ *  cap's button, and stays open while an engine is picked. */
+const openCard = () => {
+  const open = screen.queryByRole("dialog", { name: "Overview" });
+  if (open) return open;
+  fireEvent.click(screen.getByLabelText("Show overview ⌘E"));
+  return screen.getByRole("dialog", { name: "Overview" });
+};
+const chipGroup = () => within(openCard()).getByRole("group", { name: "Engines" });
 const chips = () => within(chipGroup()).getAllByRole("button");
-const chip = (name: string) => within(chipGroup()).getByRole("button", { name });
+const chip = (name: string) => {
+  const row = chipGroup().querySelector(`[data-engine-name="${name}"]`);
+  if (!row) throw new Error(`no engine row named ${name}`);
+  return row as HTMLElement;
+};
 const routeWrites = () =>
   vi
     .mocked(invoke)
@@ -205,7 +219,7 @@ describe("Global has no Engines tab", () => {
     await completeScan();
     await waitFor(() => expect(routeWrites()).toContain("profile"));
     expect(routeWrites()).not.toContain("global:Engines");
-    await waitFor(() => expect(chip("Engine G").getAttribute("aria-pressed")).toBe("true"));
+    await waitFor(() => expect(chip("Engine G").getAttribute("aria-current")).toBe("true"));
     expect(screen.queryByTestId("engines-pane")).toBeNull();
     expect(engineWrites()).toEqual([]);
   });
@@ -216,7 +230,7 @@ describe("Global has no Engines tab", () => {
     render(<App />);
     await completeScan();
     await waitFor(() => expect(routeWrites()).toContain("profile"));
-    await waitFor(() => expect(chip("Engine C").getAttribute("aria-pressed")).toBe("true"));
+    await waitFor(() => expect(chip("Engine C").getAttribute("aria-current")).toBe("true"));
     expect(tab(/^All/).getAttribute("aria-selected")).toBe("true");
     expect(screen.queryByTestId("engines-pane")).toBeNull();
     expect(
@@ -231,12 +245,13 @@ describe("Global has no Engines tab", () => {
   });
 });
 
-describe("the engine chips", () => {
-  it("lead with All engines, then every engine get_engine_contexts lists, in its order", async () => {
+describe("the engines in the overview card", () => {
+  it("lead with All engines, then every engine get_engine_contexts lists, ranked", async () => {
     render(<App />);
     await completeScan();
+    // None has a figure here, so the ranking falls to the names.
     await waitFor(() =>
-      expect(chips().map((b) => b.textContent)).toEqual(["All engines", "Engine C", "Engine G", "Engine K"])
+      expect(chips().map((b) => b.getAttribute("data-engine-name"))).toEqual(["All engines", "Engine C", "Engine G", "Engine K"])
     );
   });
 
@@ -249,15 +264,15 @@ describe("the engine chips", () => {
       const t = screen.queryByRole("tab", { name });
       if (!t) continue;
       fireEvent.click(t);
-      expect(chip("Engine C").getAttribute("aria-pressed")).toBe("true");
-      expect(chip("All engines").getAttribute("aria-pressed")).toBe("false");
+      expect(chip("Engine C").getAttribute("aria-current")).toBe("true");
+      expect(chip("All engines").getAttribute("aria-current")).toBeNull();
     }
   });
 
   it("open on All engines the first time", async () => {
     render(<App />);
     await completeScan();
-    await waitFor(() => expect(chip("All engines").getAttribute("aria-pressed")).toBe("true"));
+    await waitFor(() => expect(chip("All engines").getAttribute("aria-current")).toBe("true"));
     expect(crumbText()).toBe("My machine › Global");
   });
 
@@ -266,7 +281,7 @@ describe("the engine chips", () => {
     mockPreferences.selected_engine = "gemini";
     render(<App />);
     await completeScan();
-    await waitFor(() => expect(chip("Engine G").getAttribute("aria-pressed")).toBe("true"));
+    await waitFor(() => expect(chip("Engine G").getAttribute("aria-current")).toBe("true"));
     await waitFor(() => expect(vi.mocked(invoke).mock.calls.some((c) => c[0] === "get_engine_contexts")).toBe(true));
   });
 
@@ -274,7 +289,7 @@ describe("the engine chips", () => {
     mockPreferences.selected_engine = "cursor";
     render(<App />);
     await completeScan();
-    await waitFor(() => expect(chip("All engines").getAttribute("aria-pressed")).toBe("true"));
+    await waitFor(() => expect(chip("All engines").getAttribute("aria-current")).toBe("true"));
   });
 
   it("claim nothing before the first scan", async () => {
@@ -289,19 +304,19 @@ describe("the engine chips", () => {
     await waitFor(() => expect(chips()).toHaveLength(4));
     fireEvent.click(chip("Engine K"));
     await waitFor(() => expect(engineWrites()).toEqual(["claude-code"]));
-    expect(chip("Engine K").getAttribute("aria-pressed")).toBe("true");
+    expect(chip("Engine K").getAttribute("aria-current")).toBe("true");
     fireEvent.click(chip("All engines"));
     await waitFor(() => expect(engineWrites()).toEqual(["claude-code", ""]));
-    expect(chip("All engines").getAttribute("aria-pressed")).toBe("true");
+    expect(chip("All engines").getAttribute("aria-current")).toBe("true");
   });
 
-  it("are buttons with a visible focus target: aria-pressed, no outline opt-out", async () => {
+  it("are buttons with a visible focus target: the picked one aria-current, no outline opt-out", async () => {
     render(<App />);
     await completeScan();
     await waitFor(() => expect(chips()).toHaveLength(4));
     for (const b of chips()) {
       expect(b.tagName).toBe("BUTTON");
-      expect(b.getAttribute("aria-pressed")).toMatch(/^(true|false)$/);
+      expect(b.getAttribute("aria-current")).toBe(b.getAttribute("data-engine-name") === "All engines" ? "true" : null);
       expect(b.className).not.toMatch(/outline-none/);
     }
   });
@@ -317,7 +332,7 @@ describe("the crumb", () => {
 
     fireEvent.click(within(crumb()).getByRole("button", { name: "Global" }));
     await waitFor(() => expect(crumbText()).toBe("My machine › Global"));
-    expect(chip("All engines").getAttribute("aria-pressed")).toBe("true");
+    expect(chip("All engines").getAttribute("aria-current")).toBe("true");
     expect(engineWrites()).toEqual(["codex", ""]);
   });
 
@@ -352,7 +367,7 @@ describe("the inspector sets the engine, and the tab stays", () => {
 
     fireEvent.click(link!);
     await waitFor(() => expect(engineWrites()).toEqual(["codex"]));
-    await waitFor(() => expect(chip("Engine C").getAttribute("aria-pressed")).toBe("true"));
+    await waitFor(() => expect(chip("Engine C").getAttribute("aria-current")).toBe("true"));
     expect(screen.getByRole("tab", { name: /^MCP servers/ }).getAttribute("aria-selected")).toBe("true");
     expect(routeWrites()).not.toContain("global:Engines");
     // Setting the engine is not choosing a new subject.

@@ -6,8 +6,28 @@ import { Inventory } from "../App";
 import type { KeptOff, KeptOffServer } from "../types/engineContext";
 import { keptOffOf } from "../__tests__/keptOffFixtures";
 
+/** Global's summary is the overview card since Task 7 of
+ *  docs/plans/2026-11-26-overview-card.md. A standalone pane draws the card
+ *  only into a cap slot, so the tests that read it hand the pane one and
+ *  open the card from its button. */
+let capSlot: HTMLElement | null = null;
+const slots = () => {
+  capSlot = document.createElement("div");
+  document.body.appendChild(capSlot);
+  return { overviewSlots: { cap: capSlot, inspector: null } };
+};
+const openOverview = () => {
+  fireEvent.click(screen.getByLabelText("Show overview ⌘E"));
+  return screen.getByRole("dialog", { name: "Overview" });
+};
+/** The card's Needs review row: its name is the label and the count. */
+const cardPill = (card: HTMLElement, n: number) =>
+  within(card).getByRole("button", { name: new RegExp(`^Needs review\\s*${n}$`) });
+
 afterEach(() => {
   cleanup();
+  capSlot?.remove();
+  capSlot = null;
 });
 
 // Mock mixed inventory with skills, tools, rules, and agents
@@ -133,11 +153,11 @@ describe("ProfilePane Component-Level Filtering Integration", () => {
     expect(subagentsCard?.textContent).toBe("Subagents1");
   });
 
-  it("the category track sits above the strip — the control above what it changes", () => {
-    render(<ProfilePane inventory={mockInventory} loading={false} onSelectAsset={vi.fn()} onLinkAsset={vi.fn()} />);
+  it("the category track keeps its wrapper, and Global draws no strip under it", () => {
+    render(<ProfilePane inventory={mockInventory} loading={false} onSelectAsset={vi.fn()} onLinkAsset={vi.fn()} {...slots()} />);
     const track = screen.getByRole("tablist", { name: "Filter by category" });
-    const strip = screen.getByLabelText("Inventory summary");
-    expect(track.compareDocumentPosition(strip) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    // The strip that sat under the track is the overview card now (Task 7).
+    expect(screen.queryByLabelText("Inventory summary")).toBeNull();
 
     // The line above reads MARKUP order, which is all happy-dom has — it lays
     // nothing out and has no paint order (verification.md). So `order-2` on
@@ -152,10 +172,6 @@ describe("ProfilePane Component-Level Filtering Integration", () => {
     // removed — the assertion below fails first, so nothing could ever have
     // made that line fire. Real paint order stays a screenshot claim.
     const trackBox = track.parentElement!.parentElement!; // wrapper > section > tablist
-    const stripBox = strip.parentElement!;
-    // Siblings under one flex column, which is the only arrangement in which
-    // an `order` utility would apply at all.
-    expect(trackBox.parentElement).toBe(stripBox.parentElement);
     // Cited verbatim by DESIGN.md -> Pane composition; change them together.
     // `pt-[18px]` since 2026-08-28 (same day, one ruling after `pt-3.5`):
     // the sheet's inset is uniform -- 18 from its top rule, the same 18 the
@@ -163,18 +179,19 @@ describe("ProfilePane Component-Level Filtering Integration", () => {
     // pair as inconsistent next to Needs review, whose strip sits at 18 on
     // both sides. See src/__tests__/shell_first_gap.test.tsx.
     expect(trackBox.className).toBe("px-[18px] pt-[18px] pb-3.5");
-    expect(stripBox.className).toBe("mx-[18px] mb-3.5");
   });
 
-  it("the strip follows the selected category: the skill count, the skill noun, the skill split", () => {
+  it("the card's legend follows the selected category: the skill split, beside the whole store's total", () => {
     const counts = { total: 3, byCategory: { skill: { total: 200, global: 200, project: 0 }, tool: { total: 8, global: 8, project: 0 }, rule: { total: 3, global: 3, project: 0 }, subagent: { total: 1, global: 1, project: 0 } }, engines: { "claude-code": 3 } };
-    render(<ProfilePane inventory={mockInventory} assetCounts={counts} loading={false} onSelectAsset={vi.fn()} onLinkAsset={vi.fn()} />);
+    render(<ProfilePane inventory={mockInventory} assetCounts={counts} loading={false} onSelectAsset={vi.fn()} onLinkAsset={vi.fn()} {...slots()} />);
     fireEvent.click(screen.getAllByText("Skills").find((el) => el.closest("[tabindex]"))!.closest("[tabindex]")!);
-    const strip = screen.getByLabelText("Inventory summary");
-    expect(within(strip).getByText("200")).toBeTruthy();
-    expect(within(strip).getByText("skills in the global store · 1 engine")).toBeTruthy();
+    const card = openOverview();
+    // The card's total is the store's (round 14 strings: "The global store ·
+    // {n} assets"), the figure the All tab carries, not the tab's.
+    expect(within(card).getByText("The global store")).toBeTruthy();
+    expect(within(card).getAllByText("212 assets").length).toBeGreaterThan(0);
     // One global skill in the fixture, local: the split is the skill's alone.
-    expect(within(strip).getByRole("img", { name: "0 linked, 0 drifted, 0 broken, 1 local only" })).toBeTruthy();
+    expect(within(card).getByRole("img", { name: "0 linked, 0 drifted, 0 broken, 1 local only" })).toBeTruthy();
   });
 
   // MCP mode's own fixture: a grouped server list and a landed engine list
@@ -196,14 +213,17 @@ describe("ProfilePane Component-Level Filtering Integration", () => {
         loading={false}
         onSelectAsset={vi.fn()}
         onLinkAsset={vi.fn()}
+        {...slots()}
         {...over}
       />
     );
 
-  it("MCP servers with All engines: the store's subtitle, no tool-description total, and no By engine band", () => {
+  it("MCP servers with All engines: the card's store section, no tool-description total, and no By engine band", () => {
     renderMcp({ engines: [] });
-    // MCP mode's subtitle went with the engine lens; the strip is every tab's.
-    expect(screen.getByText("MCP servers in the global store · 0 engines")).toBeTruthy();
+    // MCP mode's subtitle went with the engine lens; the card's store
+    // section is every tab's.
+    const card = openOverview();
+    expect(within(card).getByText("The global store")).toBeTruthy();
     expect(screen.queryByText(/tool descriptions across/)).toBeNull();
     // The probe-coverage meter is gone, not merely relabelled.
     expect(screen.queryByRole("img", { name: /answered/ })).toBeNull();
@@ -212,18 +232,18 @@ describe("ProfilePane Component-Level Filtering Integration", () => {
     expect(screen.queryByTestId("hero-band")).toBeNull();
   });
 
-  it("MCP servers with nothing ever probed: the subtitle states no total", () => {
+  it("MCP servers with nothing ever probed: the card states no total", () => {
     renderMcp({ engines: [] });
-    expect(screen.getByText("MCP servers in the global store · 0 engines")).toBeTruthy();
+    const card = openOverview();
+    expect(within(card).getByText("The global store")).toBeTruthy();
     expect(screen.queryByText(/across/)).toBeNull();
   });
 
   it("the pill's popover names the disagreeing server and its action filters the list", () => {
     renderMcp({ engines: [] });
-    const strip = screen.getByLabelText("Inventory summary");
-    expect(strip.querySelector(".text-display")?.textContent).toBe("2");
-    fireEvent.click(within(strip).getByText("Needs review 1"));
-    expect(within(strip).getByTestId("finding-popover-line").textContent).toContain("tauri");
+    const card = openOverview();
+    fireEvent.click(cardPill(card, 1));
+    expect(within(card).getByTestId("finding-popover-line").textContent).toContain("tauri");
     // The pill alone must not filter — that behaviour is the popover's action.
     expect(screen.getByText("spades")).toBeTruthy();
     fireEvent.click(screen.getByText("Show disagreeing servers"));
@@ -249,10 +269,10 @@ describe("ProfilePane Component-Level Filtering Integration", () => {
     renderMcp({ engines: [], selectedCategory: undefined });
     const card = (label: string) =>
       screen.getAllByText(label).find((el) => el.closest("[tabindex]"))!.closest("[tabindex]")!;
-    const strip = () => screen.getByLabelText("Inventory summary");
 
     fireEvent.click(card("MCP servers"));
-    fireEvent.click(within(strip()).getByText("Needs review 1"));
+    const overview = openOverview();
+    fireEvent.click(cardPill(overview, 1));
     fireEvent.click(screen.getByText("Show disagreeing servers"));
     // The filter is genuinely on before the category moves — without this the
     // rest could pass vacuously against an action that never applied.
@@ -265,7 +285,7 @@ describe("ProfilePane Component-Level Filtering Integration", () => {
     // unfiltered. Asserting only the row would pass a reset that left the
     // control lit. The popover is still open — the pill is not clicked again
     // here, because clicking it would close it.
-    expect(within(strip()).getByText("Needs review 1")).toBeTruthy();
+    expect(cardPill(overview, 1)).toBeTruthy();
     expect(screen.getByText("Show disagreeing servers").getAttribute("aria-pressed")).toBe("false");
     expect(screen.getByText("spades")).toBeTruthy();
     expect(screen.getByText("tauri")).toBeTruthy();
@@ -282,9 +302,10 @@ describe("ProfilePane Component-Level Filtering Integration", () => {
         onLinkAsset={vi.fn()}
         issues={[issue] as never}
         onReview={onReview}
+        {...slots()}
       />
     );
-    fireEvent.click(screen.getByText("Needs review 1"));
+    fireEvent.click(cardPill(openOverview(), 1));
     const line = screen.getByTestId("finding-popover-line");
     expect(line.textContent).toContain("Target is gone");
     expect(line.textContent).toContain("CLAUDE.md");
@@ -297,8 +318,8 @@ describe("ProfilePane Component-Level Filtering Integration", () => {
     // alone paints this dot bg-state-warning, and the same asset then wears
     // two colours in two surfaces.
     const issue = { id: "i1", name: "reviewer.md", category: "Subagents", kind: "parse", problem: "Won't parse", path: "/x/reviewer.md", whereLabel: "Global", whereKeys: ["global"], crossRepo: false };
-    render(<ProfilePane inventory={mockInventory} loading={false} onSelectAsset={vi.fn()} onLinkAsset={vi.fn()} issues={[issue] as never} />);
-    fireEvent.click(screen.getByText("Needs review 1"));
+    render(<ProfilePane inventory={mockInventory} loading={false} onSelectAsset={vi.fn()} onLinkAsset={vi.fn()} issues={[issue] as never} {...slots()} />);
+    fireEvent.click(cardPill(openOverview(), 1));
     const dot = screen.getByTestId("finding-popover-line").querySelector("i")!;
     expect(dot.className).toContain("bg-state-danger");
     expect(dot.className).not.toContain("bg-state-warning");
@@ -309,16 +330,16 @@ describe("ProfilePane Component-Level Filtering Integration", () => {
     // "needs-review" filters a duplicate out of the very list the button
     // offers to show it in. Rendering it anyway is the bug.
     const duplicate = { id: "i1", name: "math", category: "Skills", kind: "duplicate", problem: "Duplicated in 3 places", path: "/x/math", whereLabel: "Global", whereKeys: ["global"], crossRepo: true };
-    render(<ProfilePane inventory={mockInventory} loading={false} onSelectAsset={vi.fn()} onLinkAsset={vi.fn()} issues={[duplicate] as never} />);
-    fireEvent.click(screen.getByText("Needs review 1"));
+    render(<ProfilePane inventory={mockInventory} loading={false} onSelectAsset={vi.fn()} onLinkAsset={vi.fn()} issues={[duplicate] as never} {...slots()} />);
+    fireEvent.click(cardPill(openOverview(), 1));
     expect(screen.getByText("Needs review →")).toBeTruthy();
     expect(screen.queryByText("Show in list")).toBeNull();
   });
 
   it("without a duplicate, both actions render", () => {
     const broken = { id: "i1", name: "CLAUDE.md", category: "Rules", kind: "broken", problem: "Target is gone", path: "/x/CLAUDE.md", whereLabel: "Global", whereKeys: ["global"], crossRepo: false };
-    render(<ProfilePane inventory={mockInventory} loading={false} onSelectAsset={vi.fn()} onLinkAsset={vi.fn()} issues={[broken] as never} />);
-    fireEvent.click(screen.getByText("Needs review 1"));
+    render(<ProfilePane inventory={mockInventory} loading={false} onSelectAsset={vi.fn()} onLinkAsset={vi.fn()} issues={[broken] as never} {...slots()} />);
+    fireEvent.click(cardPill(openOverview(), 1));
     expect(screen.getByText("Show in list")).toBeTruthy();
     expect(screen.getByText("Needs review →")).toBeTruthy();
   });
@@ -343,9 +364,10 @@ describe("ProfilePane Component-Level Filtering Integration", () => {
         unaccountedProcesses={[
           { registration_key: "", pid: 24149, command_line: "node dist/index.js --port 3002", spawning_host: "Claude Code" },
         ] as never}
+        {...slots()}
       />
     );
-    fireEvent.click(screen.getByText("Needs review 1"));
+    fireEvent.click(cardPill(openOverview(), 1));
     expect(screen.getByTestId("finding-popover-line").textContent).toContain("Running with no config behind it.");
     expect(screen.queryByText("Needs review →")).toBeNull();
     expect(screen.queryByText("Show in list")).toBeNull();
@@ -365,9 +387,10 @@ describe("ProfilePane Component-Level Filtering Integration", () => {
         unaccountedProcesses={[
           { registration_key: "", pid: 24149, command_line: "node dist/index.js --port 3002", spawning_host: "Claude Code" },
         ] as never}
+        {...slots()}
       />
     );
-    fireEvent.click(screen.getByText("Needs review 1"));
+    fireEvent.click(cardPill(openOverview(), 1));
     const line = screen.getByTestId("finding-popover-line");
     expect(line.textContent).toContain("Running with no config behind it.");
     expect(line.textContent).toContain("pid 24149 · node dist/index.js --port 3002 · started by Claude Code");

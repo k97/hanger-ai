@@ -134,7 +134,8 @@ describe("Icon rail", () => {
       const rail = await screen.findByTestId("icon-rail");
       expect(within(rail).queryByRole("button", { name: "Engines" })).toBeNull();
       expect(within(rail).getByLabelText("My machine").getAttribute("aria-current")).toBe("true");
-      expect(await screen.findByLabelText("Inventory summary")).toBeTruthy();
+      // Global, not an engines pane: its overview button is in the cap.
+      expect(await screen.findByLabelText("Show overview ⌘E")).toBeTruthy();
       expect(screen.queryByTestId("engines-pane")).toBeNull();
       expect(screen.getByTestId("sidebar")).toBeTruthy();
       await waitFor(() => expect(document.querySelector("aside")).not.toBeNull());

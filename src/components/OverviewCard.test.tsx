@@ -3,7 +3,7 @@ import { describe, it, expect, vi, afterEach } from "vitest";
 import { render, screen, fireEvent, cleanup, within } from "@testing-library/react";
 import OverviewCard, { type OverviewCardProps } from "./OverviewCard";
 import type { EngineContext } from "../types/engineContext";
-import type { EngineStripFigures } from "./SummaryStrip";
+import type { EngineStripFigures } from "./OverviewCard";
 import type { StateCounts } from "../utils/linkStateCounts";
 import { engineStripHeadline, MEASURE_ALL_CAPTION } from "../utils/switchCopy";
 import { pinLabel } from "../utils/overviewCopy";

@@ -46,7 +46,7 @@ interface CategoryFilterCardsProps {
  *  the filter disappears and the view is stranded.
  *
  *  There is no Engines tab: an engine is a lens on these tabs, chosen with the
- *  engine chips in Global's strip, not a kind beside them (Phase 1 of
+ *  overview card's engines, not a kind beside them (Phase 1 of
  *  docs/plans/2026-11-25-ia-global-by-engine.md). */
 export default function CategoryFilterCards({
   allCount,

@@ -153,7 +153,7 @@ interface KeptServerDetailProps {
   switcher: McpSwitch;
   /** A switch's reply context, for App to take in place of its copy. */
   onContext?: (ctx: EngineContext) => void;
-  /** The engine ids Global's engine chips list; the engine's name links to
+  /** The engine ids Global's overview card lists; the engine's name links to
    *  Global only for one of them, as in `McpServerDetail`'s "Registered in". */
   linkedEngines?: readonly string[];
   onOpenEngine?: (engineId: string) => void;

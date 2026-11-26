@@ -1,51 +1,12 @@
-import { Fragment, useId, useRef, useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { RotateCcwIcon } from "./icons";
 import GelMeter from "./GelMeter";
 import { useScanStampText } from "./ScanStamp";
 import FindingPopover, { type FindingLine } from "./FindingPopover";
-import { captionClass } from "./typeRoles";
-import { miniBtnClass } from "./miniButton";
 import type { StateCounts, StateFilter, LinkState } from "../utils/linkStateCounts";
 
-/** One kind's share of an engine's budget: a button that opens that kind's
- *  tab. Every string arrives formatted from the caller (`switchCopy`). A
- *  segment with a figure or a caption is drawn whole; one with neither joins
- *  the quiet line, by its label (Q1 of
- *  docs/plans/2026-11-25-decisions-round-2.md). */
-export interface StripSegment {
-  key: string;
-  /** The kind, by its tab's label. */
-  label: string;
-  /** "≈ 12,400", or "Not measured". */
-  value: string;
-  /** `false` for "Not measured", which recedes to --ink-3. */
-  measured: boolean;
-  /** The MCP segment's "M of K servers measured · J off". */
-  caption?: string;
-  /** Its tab is the one open. */
-  pressed: boolean;
-  onSelect: () => void;
-}
-
-/** The strip's second mode: Global seen by one engine
- *  (docs/plans/2026-11-25-ia-global-by-engine.md). It replaces the
- *  link-state branch — meter and legend — with the engine's budget by kind
- *  and Measure all; `total`/`subtitle` still render as passed by the caller,
- *  and Rescan and the pill stay. It replaced the MCP mode, whose caption was
- *  "Described to the model on every request, used or not." */
-export interface EngineStripFigures {
-  segments: StripSegment[];
-  measuring: boolean;
-  /** Absent for an engine with nothing Hanger can measure (every server
-   *  runs on the vendor's, `runsOnVendorServersOnly`), when no Measure all
-   *  is drawn. */
-  onMeasure?: () => void;
-  /** Measure all's tooltip and description (`MEASURE_ALL_CAPTION`). */
-  measureCaption: string;
-}
-
 /** What the Needs review pill says, and what its popover shows. One shape
- *  for both modes: the pill only opens the popover, and every action —
+ *  for the strip and the overview card: the pill only opens the popover, and every action —
  *  filtering the list, routing to Needs review — is a button the caller
  *  puts inside it. */
 export interface StripReview {
@@ -59,8 +20,7 @@ export interface StripReview {
 
 interface SummaryStripProps {
   /** Backend-owned asset total for the scope — never derived on the frontend.
-   *  In engine mode a formatted figure ("≈ 12,400"), or `null` for none, when
-   *  the numeral is left out and the subtitle carries the line alone. */
+   *  `null` leaves the numeral out and the subtitle carries the line alone. */
   total: number | string | null;
   subtitle: string;
   scannedAt: Date | null;
@@ -73,13 +33,10 @@ interface SummaryStripProps {
    *  as its tooltip — the age left the headline on 2026-08-29 and the foot
    *  line prints it now. */
   onRescan?: () => void;
-  /** Engine mode when given — see EngineStripFigures. */
-  engine?: EngineStripFigures;
-  /** The Needs review pill, in either mode. Absent, or zero, draws nothing. */
+  /** The Needs review pill. Absent, or zero, draws nothing. */
   review?: StripReview;
   /** A project pane's hero band, rendered inside the section below the
-   *  second row. Global's engine chips left this slot for a row above the
-   *  strip (Q2 of docs/plans/2026-11-25-decisions-round-2.md). */
+   *  second row. */
   children?: ReactNode;
 }
 
@@ -113,7 +70,7 @@ interface LinkStateLegendProps {
 /**
  * The link-state meter and its legend: linked, drifted, broken, local only,
  * each a toggle that filters the list. One drawing for the two places that
- * show the store's link state — this strip with no engine picked, and the
+ * show the store's link state — this strip on a repository, and the
  * overview card's store section (round 14 q2,
  * docs/plans/2026-11-26-decisions-round-14.md) — so the labels and the look
  * cannot drift apart.
@@ -169,7 +126,6 @@ export default function SummaryStrip({
   activeStateFilter,
   onFilterState,
   onRescan,
-  engine,
   review,
   children,
 }: SummaryStripProps) {
@@ -177,15 +133,8 @@ export default function SummaryStrip({
   const pillRef = useRef<HTMLSpanElement>(null);
   const sectionRef = useRef<HTMLElement>(null);
   const stampText = useScanStampText(scannedAt);
-  const measureCaptionId = useId();
-  // A kind is drawn whole when it has a figure or a caption; the rest share
-  // the quiet line. A partition of the caller's list — nothing is counted.
-  const drawnWhole = (seg: StripSegment) => seg.measured || seg.caption !== undefined;
-  const figured = engine ? engine.segments.filter(drawnWhole) : [];
-  const unfigured = engine ? engine.segments.filter((seg) => !drawnWhole(seg)) : [];
 
-  // Rescan is the one control both modes keep — unchanged in either. Its
-  // tooltip is the age of the figure above it: the stamp that used to print
+  // Rescan's tooltip is the age of the figure above it: the stamp that used to print
   // that age in the headline moved to the foot line on 2026-08-29 (Karthik's
   // ruling), and the control that changes the figure is where the age stays
   // reachable without a line of its own.
@@ -212,9 +161,9 @@ export default function SummaryStrip({
     </button>
   );
 
-  // One pill for both modes. It opens the popover and does nothing else —
-  // the needs-review preset that used to be its click is now an action the
-  // caller puts inside, so the two modes' pills behave identically.
+  // The pill opens the popover and does nothing else — the needs-review
+  // preset that used to be its click is now an action the caller puts
+  // inside.
   const reviewPill = review && review.count > 0 && (
     <span ref={pillRef} className="relative inline-flex">
       <button
@@ -287,100 +236,17 @@ export default function SummaryStrip({
         </span>
       </div>
 
-      {engine ? (
-        <>
-          {/* The kinds with a figure, each its own button: Phase 1 measures
-              MCP alone, so one segment, label · value · caption on one line.
-              The row wraps, and the caption truncates inside its button, so
-              F1's ~534px list (inspector open) never scrolls sideways. */}
-          <div data-testid="strip-segments" className="flex flex-wrap items-center gap-2">
-            {figured.map((seg) => (
-              <button
-                key={seg.key}
-                type="button"
-                aria-pressed={seg.pressed}
-                onClick={seg.onSelect}
-                className={`min-w-0 max-w-full flex items-baseline gap-1.5 px-3 py-1.5 rounded-inner border text-left font-flex text-small cursor-pointer transition-colors duration-hover ease-spring ${
-                  seg.pressed ? "border-transparent bg-tint" : "border-line hover:bg-plane-2"
-                }`}
-              >
-                <span className={`shrink-0 ${seg.pressed ? "text-tint-ink font-medium" : "text-ink-2"}`}>{seg.label}</span>{" "}
-                <b className={`shrink-0 font-medium tabular ${seg.measured ? "text-ink-1" : "text-ink-3"}`}>{seg.value}</b>
-                {seg.caption && (
-                  <>
-                    {" "}
-                    <span className="text-ink-3 min-w-0 truncate" title={seg.caption}>
-                      · {seg.caption}
-                    </span>
-                  </>
-                )}
-              </button>
-            ))}
+      <LinkStateLegend
+        counts={counts}
+        active={activeStateFilter}
+        onFilter={onFilterState}
+        trailing={
+          <div className="ml-auto flex items-center gap-2">
+            {rescanButton}
+            {reviewPill}
           </div>
-          {/* The kinds with nothing measured, as one quiet line built from
-              their labels: "Skills · Rules · Subagents: Not measured". Each
-              name still opens its tab, as its segment did. Inline text, so
-              a narrow strip wraps it at a separator. */}
-          {unfigured.length > 0 && (
-            <p data-testid="strip-unmeasured" className={`${captionClass} font-flex mt-1.5`}>
-              {unfigured.map((seg, i) => (
-                <Fragment key={seg.key}>
-                  {i > 0 && " · "}
-                  <button
-                    type="button"
-                    aria-pressed={seg.pressed}
-                    onClick={seg.onSelect}
-                    className={`cursor-pointer transition-colors duration-hover ease-spring hover:text-ink-1 ${
-                      seg.pressed ? "text-ink-1 font-medium" : ""
-                    }`}
-                  >
-                    {seg.label}
-                  </button>
-                </Fragment>
-              ))}
-              : {unfigured[0].value}
-            </p>
-          )}
-          {/* Measure all, Rescan and the pill on one row. The caption that
-              sat beside Measure all is its tooltip and its description now. */}
-          <div data-testid="strip-actions" className="flex items-center gap-3 mt-2.5 flex-wrap">
-            {engine.onMeasure && (
-              <>
-                <button
-                  type="button"
-                  onClick={engine.onMeasure}
-                  disabled={engine.measuring}
-                  title={engine.measureCaption}
-                  aria-describedby={measureCaptionId}
-                  className={`${miniBtnClass} shrink-0 disabled:cursor-default disabled:opacity-50`}
-                >
-                  {engine.measuring ? "Measuring…" : "Measure all"}
-                </button>
-                <span id={measureCaptionId} hidden>
-                  {engine.measureCaption}
-                </span>
-              </>
-            )}
-            <div className="ml-auto flex items-center gap-2">
-              {rescanButton}
-              {reviewPill}
-            </div>
-          </div>
-        </>
-      ) : (
-        <LinkStateLegend
-          counts={counts}
-          active={activeStateFilter}
-          onFilter={onFilterState}
-          trailing={
-            <div className="ml-auto flex items-center gap-2">
-              {rescanButton}
-
-              {reviewPill}
-            </div>
-          }
-        />
-      )}
+        }
+      />
 
       {children}
     </section>

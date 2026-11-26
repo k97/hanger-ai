@@ -37,13 +37,6 @@ const ALLOWLIST: AllowlistEntry[] = [
       "Counts VISIBLE rows post-filter for the foot line — a display subset, not the asset total (which stays backend-owned)",
   },
   {
-    file: "src/components/ProfilePane.tsx",
-    linePattern: /const engineCount = Object\.keys\(assetCounts\?\.engines/,
-    category: "ui",
-    reason:
-      "Counts engine KEYS of the backend counts record for the strip subtitle — engine kinds, not assets; the asset total stays backend-owned",
-  },
-  {
     file: "src/components/Sidebar.tsx",
     linePattern: /linkedDescendants\(repoPath,\s*linkedRepos\)\.length/,
     category: "ui",

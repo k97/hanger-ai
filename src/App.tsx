@@ -1093,7 +1093,7 @@ export default function App() {
   });
 
   // The engine Global is seen by (docs/plans/2026-11-25-ia-global-by-engine.md).
-  // Its chips are the engines `get_engine_contexts` lists: every engine that
+  // The overview card lists the engines `get_engine_contexts` lists: every engine that
   // declares an MCP server, then one whose servers Hanger is keeping off and
   // that declares none (P8). The selection is the stored
   // `selected_engine` when it is in that list, otherwise All engines (`null`),
@@ -2487,7 +2487,7 @@ export default function App() {
                 switcher={mcpSwitch}
                 engineContexts={engineContexts ?? undefined}
                 /* An engine's name in "Registered in" shows Global seen by
-                   it, for any engine the chips list, on the tab already
+                   it, for any engine the overview card lists, on the tab already
                    open. */
                 linkedEngines={engineRows?.map((e) => e.engine_id)}
                 onOpenEngine={openEngine}

@@ -24,11 +24,10 @@ import { sortAssetItems } from "../utils/sortUtils";
 import { registrationKey } from "../utils/mcpRegistration";
 import { groupProcesses, type ProcessMatch } from "../utils/mcpServerView";
 import { ancestorReachNote, cardSecondLine, mergeReach, sortServerRows, transportChipLabel, type McpServerRow } from "../utils/serverRows";
-import { sumGlobalAssets, categoryCountKey } from "../utils/globalAssetCount";
+import { sumGlobalAssets } from "../utils/globalAssetCount";
 import { groupLabelClass } from "./typeRoles";
-import SummaryStrip, { type EngineStripFigures, type StripReview } from "./SummaryStrip";
-import EngineChipRow from "./EngineChipRow";
-import OverviewCard from "./OverviewCard";
+import type { StripReview } from "./SummaryStrip";
+import OverviewCard, { type EngineStripFigures } from "./OverviewCard";
 import OverviewPopover from "./OverviewPopover";
 import Tooltip from "./Tooltip";
 import { overviewButtonLabel } from "../utils/overviewCopy";
@@ -52,7 +51,6 @@ import { switchRequestFor, tileTarget, type SwitchTarget } from "../utils/switch
 import {
   costLabel,
   engineBandFigures,
-  engineStripHeadline,
   MEASURE_ALL_CAPTION,
   runsOnVendorServersOnly,
   NOT_MEASURED_FIGURE,
@@ -86,10 +84,10 @@ interface ProfilePaneProps {
   selectedCategory?: CategoryType | null;
   selectedAsset?: { path: string } | null;
   loading: boolean;
-  /** Link-state filter from the rail badge or the strip legend. */
+  /** Link-state filter from the rail badge or the overview card's legend. */
   stateFilter?: StateFilter;
   onStateFilterChange?: (filter: StateFilter) => void;
-  /** When the last scan completed — feeds the strip's scan stamp. */
+  /** When the last scan completed — feeds the overview card's scan stamp. */
   scannedAt?: Date | null;
   /** Engines whose home folder exists on disk (`get_detected_engines`, a
    *  filesystem probe). This, not the store, decides whether an empty store
@@ -128,7 +126,7 @@ interface ProfilePaneProps {
    *  when it changes. Without this the shell cannot know the user is looking
    *  at Tools, and anything it fetches lazily for that view never fires. */
   onCategoryChange?: (category: CategoryType | null) => void;
-  /** The engines the chip row offers (App's `engineRows`, every engine
+  /** The engines Global can be seen by (App's `engineRows`, every engine
    *  `get_engine_contexts` lists): `null` until that reply lands. */
   engines?: EngineListEntry[] | null;
   /** The engine Global is seen by, an MCP host id (`EngineContext.engine_id`);
@@ -191,8 +189,8 @@ interface ProfilePaneProps {
    *  only: the card's button goes there and its popover hangs from it.
    *  `inspector` is the inspector's empty state while the card is pinned
    *  (Flyout's `emptyState`): pinned, the card is drawn there. With no
-   *  slots, as standalone, the card is drawn nowhere and the strip below is
-   *  the only summary. */
+   *  slots, as standalone, the card is drawn nowhere, and the pane has no
+   *  summary of its own (Task 7: the card replaced the strip). */
   overviewSlots?: { cap: HTMLElement | null; inspector: HTMLElement | null };
   /** The content cap's button class, App's `tbBtnClass`, passed in rather
    *  than copied: `tbbtn-duplicate.test.ts` allows two declarations, not
@@ -483,7 +481,7 @@ export default function ProfilePane({
   // fixture in mcp_card_row.test.tsx renders ProfilePane standalone).
   const [internalServerGrouping, setInternalServerGrouping] = useState<ServerGrouping>("server");
   const [internalServerSort, setInternalServerSort] = useState<ServerSort>("attention");
-  // The strip's MCP-mode Review pill, own state — reset on every category
+  // The MCP-mode Review pill's filter, own state — reset on every category
   // change so switching away from Tools and back never carries a stale
   // filter over from a different session's look at the list.
   const [mcpReviewOnly, setMcpReviewOnly] = useState(false);
@@ -739,28 +737,20 @@ export default function ProfilePane({
 
   // One row per server (the View control's default) — moved up from its
   // original point of use below (still true there; see that comment for
-  // what it drives in the Tools section itself) because the strip's MCP
-  // mode needs it before `stripSubtitle` is composed.
+  // what it drives in the Tools section itself) because MCP mode, below,
+  // needs it.
   const useGroupedTools = serverGrouping === "server" && mcpServers != null;
 
-  // Strip data: backend-owned total; the state split prefers the backend's
+  // The overview card's link-state legend: the split prefers the backend's
   // annotations (which see directory-level links) and falls back to the
   // inventory classification while they load. A selected category narrows
-  // both the total and the split to that category's own figures rather than
-  // the whole store's — `categoryCountKey` is the same category-to-field map
-  // both panes share.
-  const kindKey = selectedCategory ? categoryCountKey(selectedCategory) : null;
-  const stripTotal =
-    selectedCategory === null || kindKey === null
-      ? sumGlobalAssets(assetCounts)
-      : assetCounts?.byCategory[kindKey]?.global ?? 0;
+  // the split to that category's own rows rather than the whole store's.
 
   /* MCP mode, what is left of it: on MCP servers the review pill lists
      disagreeing servers instead of this store's issues. Its subtitle ("N
      tool descriptions across M engines") and caption went with the engine
-     lens (docs/plans/2026-11-25-ia-global-by-engine.md): with All engines
-     the strip is the link-state strip every tab has, and with one engine its
-     engine mode, below.
+     lens (docs/plans/2026-11-25-ia-global-by-engine.md). The pill lives in
+     the overview card now (Task 7 of docs/plans/2026-11-26-overview-card.md).
 
      Gated on a grouped row existing to point the Review pill's filter at —
      a per-registration view has no `agreement` verdict to filter on — and on
@@ -778,7 +768,7 @@ export default function ProfilePane({
     ...scopedTools.map((t) => registrationKey(t)),
   ]);
 
-  const stripCounts =
+  const legendCounts =
     selectedCategory === null
       ? annotations
         ? annotationStateCounts(annotations)
@@ -787,23 +777,13 @@ export default function ProfilePane({
         ? annotationStateCounts(annotations.filter((a) => categoryPaths.has(a.asset_path)))
         : linkStateCounts(inventory, { kind: "global" }, selectedCategory);
 
-  const engineCount = Object.keys(assetCounts?.engines ?? {}).filter((k) => k !== "none").length;
-  const storeSubtitle =
-    selectedCategory === null
-      ? `assets in the global store · ${engineCount} ${engineCount === 1 ? "engine" : "engines"}`
-      : `${categoryNoun(selectedCategory)} in the global store · ${engineCount} ${
-          engineCount === 1 ? "engine" : "engines"
-        }`;
-
-  /* The strip's engine mode, on every tab while an engine is picked: that
-     engine's budget, "≈ N tokens every session", split by kind. Phase 1
-     measures MCP only, so the headline is the MCP figure and the other three
-     say "Not measured", which the strip folds into one quiet line; nothing
-     is added up here. Each segment opens
-     its kind's tab and keeps the engine. Measure all asks this engine alone,
-     through the command the band used (docs/ipc.md entry 18, which does not
-     fail), and hands the reply to App. */
-  const engineHeadline = engine ? engineStripHeadline(filterContext, engine.engine_name) : null;
+  /* The overview card's engine section, on every tab while an engine is
+     picked: that engine's budget, "≈ N tokens every session", split by
+     kind. Phase 1 measures MCP only, so the other three say "Not measured";
+     nothing is added up here. Each kind row opens its kind's tab and keeps
+     the engine. Measure all asks this engine alone, through the command the
+     band used (docs/ipc.md entry 18, which does not fail), and hands the
+     reply to App. */
   const measureEngine = async (engineId: string) => {
     setMeasuringFor(engineId);
     try {
@@ -912,7 +892,7 @@ export default function ProfilePane({
 
   // Every other tab: this store's own review issues, then the same processes.
   // The pill's figure used to be `counts.drifted + counts.broken` computed
-  // inside the strip; it is now the lines it actually shows.
+  // inside the old strip; it is the lines it actually shows.
   const assetReviewLines: FindingLine[] = [...issues.map(issueLine), ...processLines];
   const assetReviewLineCount = assetReviewLines.length; // allowlisted: the lines this popover itself renders
   const assetReview: StripReview | undefined = !mcpMode
@@ -1018,8 +998,8 @@ export default function ProfilePane({
   // `get_mcp_servers`, never from `inventory.tools`: `registration_count`
   // and `distinct_spec_count` are backend-owned, and this is the one place
   // that renders them rather than recomputing anything from `registrations`.
-  // (`useGroupedTools` itself is declared above, near `stripCounts` — the
-  // strip's MCP mode needs it before this point.)
+  // (`useGroupedTools` itself is declared above, near `legendCounts` — MCP
+  // mode needs it before this point.)
   // Reach is keyed by REGISTRATION in `annotations`, but one grouped row
   // stands for every registration of a server name at once — looked up
   // alongside the row so `toolAnnotationFor` below can hand `AssetRow` the
@@ -1030,9 +1010,9 @@ export default function ProfilePane({
   const groupedRegistrationsById = new Map<string, string[]>();
   const groupedTools: AssetItem[] = useGroupedTools
     ? sortServerRows(
-        // The strip's Review pill filters this same list to disagreeing
-        // servers when active — one gate, so the card rows and the strip's
-        // own "tauri"/"spades" count never disagree on what "filtered" means.
+        // The card's Review pill filters this same list to disagreeing
+        // servers when active — one gate, so the rows and the pill never
+        // disagree on what "filtered" means.
         mcpServers!.filter(
           (row) => !mcpReviewOnly || row.agreement === "Conflicting"
         ),
@@ -1352,15 +1332,15 @@ export default function ProfilePane({
   if (keptSkillsLast && keptSkillsTick) tickGroups.push(keptSkillsTick);
   if (engine && notLoadedAny) tickGroups.push({ id: "group-not-loaded", label: notLoadedHead(engine.engine_name), count: null });
 
-  // The overview card, drawn from the same figures as the strip above it
-  // until Task 7: in the window bar's popover, or pinned in the inspector.
+  // The overview card, Global's one summary since Task 7: in the window
+  // bar's popover, or pinned in the inspector.
   const overviewCard = (
     <OverviewCard
       engines={engineContexts ?? []}
       selectedEngineId={engine?.engine_id ?? null}
       onSelectEngine={(id) => onSelectEngine?.(id)}
       storeTotal={globalAssetsTotal}
-      linkLegend={{ counts: stripCounts, active: stateFilter, onFilter: (f) => onStateFilterChange?.(f) }}
+      linkLegend={{ counts: legendCounts, active: stateFilter, onFilter: (f) => onStateFilterChange?.(f) }}
       engineFigures={engineFigures ?? null}
       review={(mcpMode ? mcpReview : assetReview) ?? null}
       scan={{ scannedAt: scannedAt ? scannedAt.getTime() : null, scanning: loading, onRescan: () => onRescan?.() }}
@@ -1392,38 +1372,11 @@ export default function ProfilePane({
           subagentsCount={assetCounts?.byCategory.subagent?.global}
           loading={loading}
         />
-        {/* The engine selector, on every tab (Q1 of the IA), straight under
-            the kind tabs and above the strip: it decides whose figures the
-            strip shows, so it is read first (Q2 of
-            docs/plans/2026-11-25-decisions-round-2.md). Pending is not empty:
-            before the first scan, and before the replies the list is built
-            from, it draws nothing. */}
-        {scannedAt !== null && engines && engines.length > 0 && (
-          <EngineChipRow engines={engines} selected={engine?.engine_id ?? null} onSelect={(id) => onSelectEngine?.(id)} />
-        )}
-      </div>
-
-      {/* Inventory summary strip */}
-      <div className="mx-[18px] mb-3.5">
-        <SummaryStrip
-          total={engineHeadline ? engineHeadline.figure : stripTotal}
-          subtitle={engineHeadline ? engineHeadline.subtitle : storeSubtitle}
-          scannedAt={scannedAt}
-          scanning={loading}
-          counts={stripCounts}
-          activeStateFilter={stateFilter}
-          onFilterState={(f) => onStateFilterChange?.(f)}
-          onRescan={onRescan}
-          engine={engineFigures}
-          review={mcpMode ? mcpReview : assetReview}
-        />
       </div>
 
       {/* The overview card from the window bar (Task 5 of
           docs/plans/2026-11-26-overview-card.md, as amended). The button is
-          portalled into App's cap slot and the popover onto document.body;
-          the card reads the same figures the strip above does, until Task 7
-          removes the strip. */}
+          portalled into App's cap slot and the popover onto document.body. */}
       {overviewAvailable &&
         createPortal(
           <Tooltip label={overviewButtonLabel(overviewOpen)} placement="bottom">

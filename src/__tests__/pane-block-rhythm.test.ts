@@ -7,7 +7,9 @@ import { BLOCK_GAP } from "./spacingContract";
  * The two content panes stack the same four blocks, and space them the same.
  *
  * Global (`ProfilePane`) and My machine (`RepoPane`) both lay out: a facet
- * row, a summary strip, optional disclosure cards, and the list. Every gap
+ * row, a summary strip (RepoPane only since Task 7 of
+ * docs/plans/2026-11-26-overview-card.md; Global's is the overview card),
+ * optional disclosure cards, and the list. Every gap
  * between them is one value, and the horizontal inset is one value.
  *
  * They were not. Measured at 2x in the running app, Global drew 16px between
@@ -35,12 +37,14 @@ function read(rel: string): string {
 const INSET = "18px";
 
 describe("pane block rhythm", () => {
-  it("gives the summary strip the same wrapper class in both panes", () => {
-    for (const pane of PANES) {
-      const m = read(pane).match(/<div className="(mx-\[[^\]]+\][^"]*)">\s*<SummaryStrip/);
-      expect(m, `${pane}: summary strip wrapper`).toBeTruthy();
-      expect(m![1]).toBe(`mx-[${INSET}] mb-${BLOCK_GAP}`);
-    }
+  it("gives the summary strip its wrapper class on a repository, and Global draws none", () => {
+    // Global's strip is the overview card since Task 7 of
+    // docs/plans/2026-11-26-overview-card.md, so the strip block is
+    // RepoPane's alone; ProfilePane must not grow one back.
+    const m = read("src/components/RepoPane.tsx").match(/<div className="(mx-\[[^\]]+\][^"]*)">\s*<SummaryStrip/);
+    expect(m, "src/components/RepoPane.tsx: summary strip wrapper").toBeTruthy();
+    expect(m![1]).toBe(`mx-[${INSET}] mb-${BLOCK_GAP}`);
+    expect(read("src/components/ProfilePane.tsx")).not.toMatch(/<SummaryStrip\b/);
   });
 
   it("keeps the list card free of a top margin, in both panes", () => {

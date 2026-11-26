@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent, waitFor, cleanup } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, cleanup, within } from "@testing-library/react";
 import App from "../App";
 import { invoke } from "@tauri-apps/api/core";
 
@@ -79,7 +79,7 @@ describe("Avionics A3 Toolbar Verification", () => {
 
   it("theme control lives in the settings panel, not the toolbar", async () => {
     const { unmount } = render(<App />);
-    await screen.findByLabelText("Refresh scan");
+    await screen.findByLabelText("Show overview ⌘E"); // Global is up: its overview button is in the cap
 
     // No theme control anywhere in the composed tree until settings opens
     expect(screen.queryByLabelText("Toggle theme colour")).toBeNull();
@@ -116,14 +116,18 @@ describe("Avionics A3 Toolbar Verification", () => {
     unmount();
   });
 
-  it("puts rescan in the summary strip, not the toolbar, and fires its handler", async () => {
+  it("puts rescan in the overview card, not the toolbar, and fires its handler", async () => {
     const { unmount } = render(<App />);
-    const refreshButton = await screen.findByLabelText("Refresh scan");
+    // On Global, Rescan is in the overview card (Task 7 of
+    // docs/plans/2026-11-26-overview-card.md), opened from the cap's button.
+    fireEvent.click(await screen.findByLabelText("Show overview ⌘E"));
+    const card = screen.getByRole("dialog", { name: "Overview" });
+    const refreshButton = within(card).getByRole("button", { name: /^Rescan/ });
     expect(refreshButton).toBeTruthy();
 
-    // It sits with the figure it refreshes, not in the window chrome.
-    expect(screen.getByRole("banner").contains(refreshButton)).toBe(false);
-    expect(screen.getByLabelText("Inventory summary").contains(refreshButton)).toBe(true);
+    // It sits with the figures it refreshes, not in the window chrome.
+    const toolbar = document.querySelector("main > header") as HTMLElement;
+    expect(toolbar.contains(refreshButton)).toBe(false);
 
     fireEvent.click(refreshButton);
 

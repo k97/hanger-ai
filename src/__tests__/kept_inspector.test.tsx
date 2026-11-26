@@ -287,8 +287,11 @@ describe("A switched-off server opens in the inspector", () => {
     await waitFor(() =>
       expect(invoke).toHaveBeenCalledWith("set_preference", { key: "selected_engine", value: "claude-code" })
     );
-    const chips = screen.getByRole("group", { name: "Engines" });
-    await waitFor(() => expect(within(chips).getByRole("button", { name: "Engine K" }).getAttribute("aria-pressed")).toBe("true"));
+    // The engine picker is the overview card's Engines group since Task 7
+    // of docs/plans/2026-11-26-overview-card.md.
+    fireEvent.click(screen.getByLabelText("Show overview ⌘E"));
+    const chips = within(screen.getByRole("dialog", { name: "Overview" })).getByRole("group", { name: "Engines" });
+    await waitFor(() => expect(chips.querySelector('[data-engine-name="Engine K"]')?.getAttribute("aria-current")).toBe("true"));
     expect(routeWrites()).not.toContain("global:Engines");
     expect(screen.getByRole("tab", { name: /^MCP servers/ }).getAttribute("aria-selected")).toBe("true");
     // Picking an engine keeps the inspector's subject.

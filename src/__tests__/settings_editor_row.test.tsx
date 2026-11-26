@@ -112,7 +112,7 @@ describe("Settings row wiring (App.tsx): chooseOtherApp with no asset in hand", 
 
   it("persists the editor choice and launches nothing, when reached from Settings", async () => {
     render(<App />);
-    await screen.findByLabelText("Refresh scan");
+    await screen.findByLabelText("Show overview ⌘E"); // Global is up: its overview button is in the cap
 
     fireEvent.click(screen.getByLabelText("Settings"));
     const chooseButton = await screen.findByRole("button", { name: "Choose an app…" });

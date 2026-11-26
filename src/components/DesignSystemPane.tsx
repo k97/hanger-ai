@@ -28,7 +28,6 @@ import ReviewPillActions from "./ReviewPillActions";
 import OriginValue from "./OriginValue";
 import ScanStamp from "./ScanStamp";
 import HeroBand from "./HeroBand";
-import EngineChipRow from "./EngineChipRow";
 import NotLoadedGroup from "./NotLoadedGroup";
 import KeptSkillsGroup from "./KeptSkillsGroup";
 import GroupTicks, { groupHead, type TickGroup } from "./GroupTicks";
@@ -85,7 +84,6 @@ import {
   SAMPLE_FINDING_LINES,
   SAMPLE_ENGINE_BAND_ROWS,
   SAMPLE_ENGINES,
-  SAMPLE_ENGINE_HEADLINE,
   SAMPLE_ENGINE_STRIP,
   SAMPLE_OVERVIEW_ENGINES,
   SAMPLE_NOT_LOADED,
@@ -487,7 +485,6 @@ export default function DesignSystemPane({ section }: DesignSystemPaneProps) {
   const [grouping, setGrouping] = useState<ServerGrouping>("server");
   const [sort, setSort] = useState<ServerSort>("attention");
   const [heroOpen, setHeroOpen] = useState(true);
-  const [engine, setEngine] = useState<string | null>(null);
   // The overview popover's specimen: its own sample trigger and open state.
   const [overviewOpen, setOverviewOpen] = useState(false);
   const overviewAnchorRef = useRef<HTMLButtonElement>(null);
@@ -507,8 +504,7 @@ export default function DesignSystemPane({ section }: DesignSystemPaneProps) {
 
   const scannedAt = new Date(Date.now() - 4 * 60_000);
   // The overview card's specimens share one sample: the props ProfilePane
-  // hands the card from the figures its strip reads, with handlers that do
-  // nothing but the legend's.
+  // hands the card, with handlers that do nothing but the legend's.
   const overview: OverviewCardProps = {
     engines: SAMPLE_OVERVIEW_ENGINES,
     selectedEngineId: null,
@@ -1022,10 +1018,10 @@ export default function DesignSystemPane({ section }: DesignSystemPaneProps) {
           label="Composites"
           lede="Imported, not imitated. Each specimen is the component the panes render, fed sample props; captions name the file."
         >
-          <Specimen name="SummaryStrip" file="SummaryStrip.tsx" note="All engines: the strip with its GelMeter; legend toggles filter; Needs review opens the popover; the engine chips sit above it, under the kind tabs">
+          <Specimen name="SummaryStrip" file="SummaryStrip.tsx" note="a repository's summary: the total, the strip's GelMeter and link-state legend, whose toggles filter the list; Needs review opens the popover. Global's is the overview card since Task 7">
             <SummaryStrip
               total={SAMPLE_COUNTS.total}
-              subtitle="assets in the global store · 6 engines"
+              subtitle="assets in sample-repo · 6 engines"
               scannedAt={scannedAt}
               scanning={false}
               counts={SAMPLE_COUNTS}
@@ -1047,20 +1043,6 @@ export default function DesignSystemPane({ section }: DesignSystemPaneProps) {
                   />
                 ),
               }}
-            />
-          </Specimen>
-
-          <Specimen name="SummaryStrip · engine mode" file="SummaryStrip.tsx" note="one engine picked: its budget every session, by kind; only MCP is measured in Phase 1, so it is the one segment and the rest share a quiet Not measured line; a segment or a kind's name opens its tab; Measure all asks this engine alone, its caption as its tooltip">
-            <SummaryStrip
-              total={SAMPLE_ENGINE_HEADLINE.figure}
-              subtitle={SAMPLE_ENGINE_HEADLINE.subtitle}
-              scannedAt={scannedAt}
-              scanning={false}
-              counts={SAMPLE_COUNTS}
-              activeStateFilter={null}
-              onFilterState={() => {}}
-              onRescan={() => {}}
-              engine={SAMPLE_ENGINE_STRIP}
             />
           </Specimen>
 
@@ -1332,12 +1314,6 @@ export default function DesignSystemPane({ section }: DesignSystemPaneProps) {
             <div className="flex items-center gap-6">
               <ScanStamp scannedAt={scannedAt} className="font-flex text-micro text-ink-3" />
               <ScanStamp scannedAt={null} className="font-flex text-micro text-ink-3" />
-            </div>
-          </Specimen>
-
-          <Specimen name="EngineChipRow" file="EngineChipRow.tsx" note="Global's engine selector, on every tab, under the kind tabs and above the strip: All engines, then a chip per engine with its mark; it wraps, never a grid, and carries no figure in Phase 1">
-            <div className="max-w-[534px] px-4 pb-3.5 border border-line rounded-plane">
-              <EngineChipRow engines={SAMPLE_ENGINES} selected={engine} onSelect={setEngine} />
             </div>
           </Specimen>
 

@@ -772,28 +772,16 @@ and, at once, after every switch (`useMcpSwitch`'s `onChanged`). Pinned by
 `ProfilePaneKeptSkills.test.tsx` and `kept_skills_inspector.test.tsx`; the
 Design system page shows it with two sample kept skills, one selected.
 
-**`EngineChipRow`** (`EngineChipRow.tsx`) — `engines`, `selected`,
-`onSelect`. Global's engine selector, on every tab, straight under the kind
-tabs and above `SummaryStrip`: ProfilePane draws it inside the tabs' block,
-after `CategoryFilterCards`, because it decides whose figures the strip
-shows (Q2 of `docs/plans/2026-11-25-decisions-round-2.md`; it sat in the
-strip's `children` slot, where the Global "By engine" band was, until then).
-A `role="group"`, `aria-label="Engines"` row (`mt-3 flex flex-wrap
-items-center gap-[7px]`, the retired Engines tab's gap; the rule it carried
-inside the strip went with the move):
-"All engines" first, then one `<button aria-pressed>` per engine holding an
-`EngineLabel` (its `BrandIcon` mark from the sprite) — Needs review's chip
-idiom, `chipBaseClass` / `chipPressedClass` from `chipClasses.ts`, which
-both rows import, with the pressed chip's check replaced by the mark, so it
-keeps `px-3.5`. One pressed at a time; it wraps and never becomes a grid.
-No chip carries a figure in Phase 1. ProfilePane draws it only once
-`scannedAt` is set and the list has an engine. The selection is App's
-`selected_engine`, restored on open (Q2) and written on every pick, All
-engines as `""`; a stored id the list does not hold reads as All engines.
-The crumb follows it: "My machine › Global" for All engines, "My machine ›
-Global › ‹engine›" with one picked, its "Global" a button that clears back
-to All engines on the same tab. Pinned by `engine_lens_pane.test.tsx` and
-`engine_lens.test.tsx`.
+**The engine selector is the overview card's Engines group** since Task 7
+of `docs/plans/2026-11-26-overview-card.md`; `EngineChipRow`, the chip row
+that sat under Global's kind tabs, is deleted. The selection is still App's
+`selected_engine`, restored on open (Q2 of
+`docs/plans/2026-11-25-decisions-round-2.md`) and written on every pick, All
+engines as `""`; a stored id the list does not hold reads as All engines. The
+crumb follows it: "My machine › Global" for All engines, "My machine ›
+Global › ‹engine›" with one picked, its "Global" a button that clears back to
+All engines on the same tab. Pinned by `engine_lens.test.tsx` and
+`engine_lens_pane.test.tsx`.
 
 **`NotLoadedGroup`** (`NotLoadedGroup.tsx`) — `engineName`, `rows`,
 `defaultOpen?`. "Not loaded by ‹engine›", once, at the end of Global's list
@@ -914,32 +902,18 @@ The empty copy itself, reviewed 2026-08-16 (Karthik: "review with
 Pinned by `ProfilePaneIntegration.test.tsx`, `RepoPaneIntegration.test.tsx`,
 `needs_review_pane.test.tsx`, `inspector_avionics.test.tsx`, `prose.test.ts`.
 
-**The Global pane's hero seen by one engine.** With All engines every Global
-tab, MCP servers included, draws the link-state strip: the store total, the
-meter and legend, Rescan and the pill. The MCP mode that tab had — "MCP
-servers · ‹n› tool descriptions across ‹m› engines" and the caption
-"Described to the model on every request, used or not." — went with the
-engine lens (`docs/plans/2026-11-25-ia-global-by-engine.md`); only its
-review pill stays, listing disagreeing servers on MCP servers with grouped
-rows (`mcpMode`). With an engine picked, every tab draws `SummaryStrip`'s
-engine mode (Surfaces and controls, below): the numeral is that engine's
-`on_tokens_measured` as `tokenFigure` and the subtitle "tokens every session
-· ‹engine›", both from `switchCopy.ts` → `engineStripHeadline`, or no
-numeral and "Not measured · ‹engine›" when servers are on and none is
-measured (`measuredBudget`). Phase 1 measures MCP only, so that figure is the
-MCP figure, and the strip says so: one MCP servers segment carries
-`engineBandFigures` — the same figure and `budgetCaption` ("M of K servers
-measured · J off") — and Skills, Rules and Subagents share one quiet line,
-"Skills · Rules · Subagents: Not measured" (Q1 of
-`docs/plans/2026-11-25-decisions-round-2.md`). The segment and each kind's
-name in that line open its kind's tab and keep the engine. When every MCP
-item of the engine is read-only `runs_on_vendor_servers` (Claude.ai's; a
-yes/no over the items, `runsOnVendorServersOnly`), the caption is "Runs on
-Anthropic's servers. Hanger can't measure it from this machine."
-(`VENDOR_SERVERS_LINE`) in place of "0 of N servers measured", and Measure
-all is not drawn. Measure all asks `measure_engine_context`
-for that engine alone and hands the reply to App. Nothing in the strip is a
-sum made here.
+**The Global pane's summary is the overview card** (`OverviewCard`,
+Surfaces and controls, below) since Task 7 of
+`docs/plans/2026-11-26-overview-card.md`: Global draws no `SummaryStrip`.
+With All engines the card's second section is the store, its total and the
+link-state legend; with an engine picked it is that engine's budget, from
+`switchCopy.ts` → `engineStripHeadline` and `engineBandFigures`, with MCP
+servers measured and the other three kinds "Not measured" in Phase 1. The
+MCP mode the MCP servers tab had — "MCP servers · ‹n› tool descriptions
+across ‹m› engines" — went with the engine lens
+(`docs/plans/2026-11-25-ia-global-by-engine.md`); only its review pill
+stays, in the card, listing disagreeing servers on MCP servers with grouped
+rows (`mcpMode`). Nothing in the card is a sum made here.
 
 The MCP mode had lost its meter on 2026-08-28 (§1): a `GelMeter` of
 answered / not yet asked / can't be asked, which said whether Hanger had
@@ -950,9 +924,9 @@ counts went with `get_mcp_engine_summary` on 2026-11-25.
 `HeroBand` (Surfaces and controls, below) renders in the strip's `children`
 slot. Global's "By engine" band (T3 of
 `docs/plans/2026-11-25-ia-engines-into-global.md`) is gone: the engine chips
-(`EngineChipRow`, above) took its slot on every tab, then moved above the
-strip, under the kind tabs (Q2 of
-`docs/plans/2026-11-25-decisions-round-2.md`), and its row filter
+took its slot on every tab, then moved above the strip (Q2 of
+`docs/plans/2026-11-25-decisions-round-2.md`), then into the overview card
+(Task 7 of `docs/plans/2026-11-26-overview-card.md`), and its row filter
 became the engine lens (`ProfilePane`, above). "By engine" on a project pane, one row per
 engine with its asset count, sorted `none` last then count descending
 (`RepoPane.tsx:243-253`, rendered `:565-573`). The project pane's subtitle
@@ -1411,7 +1385,7 @@ eyebrows.
   line. A project row, a host with no engine id, and every row before its
   engine's first reply draw nothing new. The host name is a link that shows
   Global seen by that engine, on the tab already open (`onOpenEngine`, App's
-  `openEngine`), when the row's `engineId` is one the engine chips list
+  `openEngine`), when the row's `engineId` is one the overview card lists
   (`linkedEngines`, the ids of App's `get_engine_contexts` list, carried by
   `Flyout`): a text button, underlined on hover on the name inside the
   `EngineLabel`. Any other row names its host in plain text. `Flyout` reads
@@ -1578,44 +1552,21 @@ map view's toolbar slot holds Rescan instead of the inspector toggle
 
 **`SummaryStrip`** (`SummaryStrip.tsx`) — `total`, `subtitle`,
 `scannedAt`, `scanning`, `counts`, `activeStateFilter`, `onFilterState`,
-`onRescan?`, `engine?: EngineStripFigures`, `review?: StripReview` and
-`children?: ReactNode`. `engine` is the second mode, Global seen by one
-engine; it replaced the MCP mode (`mcp?`, one caption line) on 2026-11-25.
-It replaces the link-state branch — meter and legend — with the engine's
-budget by kind, shortened on 2026-11-25 (Q1 of
-`docs/plans/2026-11-25-decisions-round-2.md`). A `StripSegment` with a
-figure or a caption is drawn whole in the `data-testid="strip-segments"`
-row (`flex flex-wrap items-center gap-2`): one `aria-pressed` button per kind
-for its open tab, `rounded-inner border border-line` (`bg-tint` pressed, its
-label `text-tint-ink`), label · value · caption on one line in
-`text-small font-flex` — the kind's tab label (`CategoryFilterCards.tsx` →
-`TAB_LABELS`) in `text-ink-2`, the value `font-medium tabular`
-(`text-ink-1`, or `text-ink-3` for "Not measured"), and the caption in
-`text-ink-3`, `min-w-0 truncate` so F1's 534px list clips it rather than
-scroll. In Phase 1 that is MCP servers alone. The segments with neither
-share one quiet line under it, `data-testid="strip-unmeasured"` in
-`captionClass`: their labels joined by " · ", then ": " and their value —
-"Skills · Rules · Subagents: Not measured" — each label still an
-`aria-pressed` button that opens its tab (`text-ink-1 font-medium` when
-pressed). It is inline text, so it wraps at a separator. Under that one
-`data-testid="strip-actions"` row: Measure all (`miniBtnClass`,
-"Measuring…" and disabled while it runs; drawn only when `onMeasure` is
-given), whose caption is its `title` and, through a `hidden` span, its
-`aria-describedby` — there is no visible caption line — then Rescan and the
-pill at the right. The segment's caption carries its own text as `title`,
-since it truncates. In engine mode `total`
-is a formatted figure or `null`, which leaves the numeral out. The Needs review pill renders in *both* modes
-from one definition; `children` is the slot a project pane's band renders
-into. Global's engine chips (`EngineChipRow`) rendered there too until Q2 of
-`docs/plans/2026-11-25-decisions-round-2.md` moved them above the strip. `review` is `StripReview` —
-`count`, `lines`, `actions?` (`:27-34`) — where `count` is "counted where
-the lines are built, and allowlisted there, never derived here" (`:28-29`)
-and every action is a button the caller puts inside the popover, so the two
-modes' pills behave identically (`:23-26`). Two contracts are stated in the
-link-state props themselves: `total` is "Backend-owned asset total for the
-scope — never derived on the frontend" (`:37`), and Rescan lives here rather
-than in the toolbar because it is the control that changes the figure
-directly above it (`:45-48`).
+`onRescan?`, `review?: StripReview` and `children?: ReactNode`. A
+repository's summary; Global's is the overview card since Task 7 of
+`docs/plans/2026-11-26-overview-card.md`, and the strip's engine mode
+(`engine?: EngineStripFigures`, one engine's budget by kind) went with it:
+nothing else passed it, and the card's engine section draws those figures
+now. `EngineStripFigures` and `StripSegment` moved to `OverviewCard.tsx`.
+`total` is a figure or `null`, which leaves the numeral out. `children` is
+the slot a project pane's band renders into. `review` is `StripReview` —
+`count`, `lines`, `actions?` — where `count` is "counted where the lines are
+built, and allowlisted there, never derived here", and every action is a
+button the caller puts inside the popover. Two contracts are stated in the
+props themselves: `total` is "Backend-owned asset total for the scope —
+never derived on the frontend", and Rescan lives here rather than in the
+toolbar because it is the control that changes the figure directly above
+it.
 
 The link-state meter and legend are a named export, `LinkStateLegend`
 (`counts`, `active`, `onFilter`, `trailing?`), moved out of the strip's
@@ -1658,7 +1609,7 @@ and which spelling is read, are settled by screenshot
 `note?`, `foot?`, `trailing?`. The hero's foldable band, drawn inside
 `SummaryStrip`'s `children` slot: "By engine" on a project pane (Karthik's
 ruling, 2026-08-28; the component's own docstring). It was Global's MCP hero
-band too until the engine lens replaced it with `EngineChipRow`
+band too until the engine lens replaced it with the engine chips
 (`docs/plans/2026-11-25-ia-global-by-engine.md`); `filter` and `trailing`
 have no caller since.
 
@@ -1718,8 +1669,7 @@ sets the segment's flex share, zero-count segments are omitted, and `aqua`
 may mark only a share that is actually true — the linked share, and nothing
 else since the MCP extension was withdrawn on 2026-08-28 (§1). `GelMeter`'s
 own comment has not caught up: it still names an answered share as a second
-permitted use (`GelMeter.tsx:10-14`), and nothing passes it one, because
-`SummaryStrip`'s engine mode draws no meter at all. Both strips draw through it
+permitted use (`GelMeter.tsx:10-14`), and nothing passes it one. Both strips draw through it
 (`SummaryStrip.tsx`, `NeedsReviewPane.tsx`); a proportional bar styled by
 hand is a divergence, not a variant. The glass is painted with stacked
 gradients, not cast — `--overlay-shadow` belongs to the map's overlays and
@@ -1744,8 +1694,8 @@ second style.
 `selectedEngineId`, `onSelectEngine`, `storeTotal`, `linkLegend`,
 `engineFigures`, `review`, `scan`, `pinned` and `onTogglePin`. It is purely
 presentational: it calls no command. ProfilePane renders it in
-`OverviewPopover`, from the figures its summary strip reads, so the two show
-the same values side by side until Task 7 removes the strip. Pinned (App's
+`OverviewPopover`, from the figures Global's summary strip read until Task 7
+removed the strip. Pinned (App's
 `overview_pinned` preference, saved beside `inspector_open`), it is the
 inspector's empty state on Global instead: App passes Flyout an `emptyState`
 holding `overviewSlots.inspector`, a `flex-1 min-h-0 overflow-y-auto p-1.5`
@@ -1941,9 +1891,9 @@ exemption for a zero-count Tools chip (`:57-69`) — and hands the result to
 one `SegmentedTrack` (above), from a `<section>` that is its `@container`
 and with `fitToContainer` set. The class strings that used to draw
 pressed/unpressed chips by hand, `chipBaseClass` / `chipPressedClass`, are
-gone with them; the identically-named pair in `chipClasses.ts` serves an
-unrelated, non-tablist chip row (§6, Pane composition) — the two were
-never the same constants.
+gone with them; `chipClasses.ts`'s `chipBaseClass` serves an unrelated,
+non-tablist chip row (§6, Pane composition) — the two were never the same
+constants.
 
 **`AssetRow`** (`AssetRow.tsx:22-28`) — `item`, `isSelected?`,
 `showKindColumn?`, `onClick?`, `onLink?`, `onUnlink?`. **`AssetHeaderRow`**
@@ -2193,7 +2143,7 @@ or a click stays highlighted while the query stands; a row cmdk picks on its
 own is overruled. While any action is listed, neither the hint nor "Nothing
 matches" shows; before the first scan none are listed. App builds them from
 its one copy of the contexts (`get_engine_contexts`, read once per scan and
-replaced by every switch's reply), for the engines the engine chips list;
+replaced by every switch's reply), for the engines the overview card lists;
 opening the palette reads nothing. A non-empty query yields the items with
 `read_only === null` whose name contains it, any case, at most eight,
 labelled `paletteActionLabel` with the engine name as `detail`. Picking one
@@ -2531,11 +2481,10 @@ category track (`CategoryFilterCards`, above) opens the pane in
 `px-[18px] pt-1.5 pb-3.5` (`ProfilePane.tsx:987`; `RepoPane.tsx:529`, where
 it is nested one level deeper in a `min-w-0 flex-1` wrapper, so the
 track can shrink beside a control that does not exist yet — the comment
-above it says none is needed here). On Global the engine chips
-(`EngineChipRow`) follow the track inside that same block, `mt-3` under it
-(Q2 of `docs/plans/2026-11-25-decisions-round-2.md`), so the block's
-`pb-3.5` spaces the chips from the strip. Then the `SummaryStrip` itself, in
-`mx-[18px] mb-3.5` (`ProfilePane.tsx:1001`, `RepoPane.tsx:550`). Then the
+above it says none is needed here). On a repository the `SummaryStrip`
+follows, in `mx-[18px] mb-3.5` (`RepoPane.tsx:550`); Global draws no strip
+since Task 7 of `docs/plans/2026-11-26-overview-card.md`, so its track's
+block spaces it from the list. Then the
 list plane, flat per §3 — no `bg-plane` — rounding only its top corners and
 running off the bottom edge: `@container flex-1 min-h-0 overflow-y-auto
 mx-[18px] border border-line rounded-tl-plane rounded-tr-plane pb-1.5`
@@ -2589,8 +2538,8 @@ shrink-0` with `role="group"` and an `aria-label` (`:171-175`); then the
 list plane (`:202`); then the foot (`:289`). The chip row is a plain button
 group, not a tablist — it filters by place (All / Repo-level / Cross-repo),
 not by asset category — styled by `chipBaseClass` /
-`chipPressedCheckClass` from `chipClasses.ts`, shared with Global's engine
-chips (`EngineChipRow`) and unrelated to the class strings
+`chipPressedCheckClass` from `chipClasses.ts` (Global's engine chips shared
+it until Task 7 deleted them), unrelated to the class strings
 `CategoryFilterCards` dropped (above); `SegmentedTrack` was never a
 candidate for this row.
 
@@ -2622,9 +2571,9 @@ selected by ternary — never `clsx`, never `cva`. `railBtnClass` /
 `tbBtnPlaneClass` (`App.tsx:1148-1153`). `CategoryFilterCards` no longer
 belongs on this list — its `chipBaseClass` / `chipPressedClass` were deleted
 when it moved onto `SegmentedTrack` (§5). `chipClasses.ts` holds an
-unrelated set under the same names (`chipBaseClass`, `chipPressedClass`,
-`chipPressedCheckClass`), for the non-tablist chip rows of Needs review and
-Global's engine chips (Pane composition, above), each declared once there.
+unrelated pair (`chipBaseClass`, `chipPressedCheckClass`), for Needs
+review's non-tablist chip row (Pane composition, above), each declared once
+there; its `chipPressedClass` went with Global's engine chips.
 
 **`tbBtnClass` is a real, deliberate exception to "declared once": it exists
 verbatim in two files.** `App.tsx:1148-1149` still declares it for the

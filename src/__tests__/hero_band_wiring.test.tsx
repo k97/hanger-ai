@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, fireEvent, waitFor, cleanup } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, cleanup, within } from "@testing-library/react";
 import App from "../App";
 
 /**
@@ -123,6 +123,15 @@ describe("the band's fold is a preference, under the keys App actually reads", (
   });
 });
 
+/** Global's pill is in the overview card since Task 7 of
+ *  docs/plans/2026-11-26-overview-card.md, opened from the content cap. */
+const openGlobalCard = async () => {
+  fireEvent.click(await screen.findByLabelText("Show overview ⌘E"));
+  return screen.getByRole("dialog", { name: "Overview" });
+};
+const cardPill = (card: HTMLElement, n: number) =>
+  within(card).getByRole("button", { name: new RegExp(`^Needs review\\s*${n}$`) });
+
 describe("each pane's pill gets only the issues that belong to it", () => {
   it("the Global pane sees the two global issues and not the repository's", async () => {
     mockPreferences = { ...basePrefs, selected_sidebar_item: "profile" };
@@ -130,8 +139,8 @@ describe("each pane's pill gets only the issues that belong to it", () => {
     // Two global issues (global-skill, GLOBAL.md); the repo's is filtered out
     // by `whereKeys.includes("global")`. Passing `review.issues` unfiltered
     // would read 3.
-    await waitFor(() => expect(screen.getByText("Needs review 2")).toBeTruthy());
-    fireEvent.click(screen.getByText("Needs review 2"));
+    const card = await openGlobalCard();
+    fireEvent.click(await waitFor(() => cardPill(card, 2)));
     const text = screen.getAllByTestId("finding-popover-line").map((l) => l.textContent).join(" ");
     expect(text).toContain("global-skill");
     expect(text).toContain("GLOBAL.md");
@@ -143,8 +152,8 @@ describe("each pane's pill gets only the issues that belong to it", () => {
     render(<App />);
     // Only GLOBAL.md is a Rules issue. Without the category narrowing this
     // reads "Needs review 2" while the tab shows one kind of asset.
-    await waitFor(() => expect(screen.getByText("Needs review 1")).toBeTruthy());
-    fireEvent.click(screen.getByText("Needs review 1"));
+    const card = await openGlobalCard();
+    fireEvent.click(await waitFor(() => cardPill(card, 1)));
     expect(screen.getByTestId("finding-popover-line").textContent).toContain("GLOBAL.md");
   });
 

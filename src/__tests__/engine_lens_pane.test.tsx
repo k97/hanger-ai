@@ -1,7 +1,9 @@
 // @vitest-environment happy-dom
 /** Global seen by one engine, the pane's share (Phase 1 of
- *  docs/plans/2026-11-25-ia-global-by-engine.md). The engine chips sit in
- *  the strip on every tab and replace the "By engine" band; with an engine
+ *  docs/plans/2026-11-25-ia-global-by-engine.md). The engine is picked in
+ *  the overview card's Engines group (the chips until Task 7 of
+ *  docs/plans/2026-11-26-overview-card.md), which replaced the "By engine"
+ *  band; with an engine
  *  picked the list keeps what that engine reaches — a skill by its backend
  *  `reached` verdict, an MCP server by its registrations in the engine's
  *  context, as the band's filter did — and "Not loaded by {engine}" lists the
@@ -9,11 +11,12 @@
  *  backend's: a section header drops its store figure while filtered rather
  *  than show one the rows below contradict, and the group has none.
  *
- *  And the strip's engine mode (commit B): with an engine picked the strip
- *  shows that engine's budget by kind instead of the link-health legend —
- *  only MCP is measured in Phase 1 — each segment opens its kind's tab,
- *  Measure all asks that engine alone, and each MCP row carries that
- *  engine's figure or its read-only reason. */
+ *  And the card's engine section (the strip's engine mode until Task 7):
+ *  with an engine picked the card shows that engine's budget by kind
+ *  instead of the store's link-health legend — only MCP is measured in
+ *  Phase 1 — each kind row opens its kind's tab, Measure all asks that
+ *  engine alone, and each MCP row carries that engine's figure or its
+ *  read-only reason. */
 import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
 import { useState, type ComponentProps } from "react";
 import { render, screen, cleanup, fireEvent, within, waitFor } from "@testing-library/react";
@@ -33,7 +36,23 @@ beforeEach(() => {
   invoke.mockReset();
   invoke.mockImplementation(async () => null);
 });
-afterEach(cleanup);
+/** Global's overview card draws only into a cap slot, so the tests that
+ *  read it hand the pane one and open the card from its button. */
+const capSlots: HTMLElement[] = [];
+const slots = () => {
+  const cap = document.createElement("div");
+  document.body.appendChild(cap);
+  capSlots.push(cap);
+  return { overviewSlots: { cap, inspector: null } };
+};
+const openOverview = () => {
+  fireEvent.click(screen.getByLabelText("Show overview ⌘E"));
+  return screen.getByRole("dialog", { name: "Overview" });
+};
+afterEach(() => {
+  cleanup();
+  capSlots.splice(0).forEach((el) => el.remove());
+});
 
 const CODEX_FILE = "/u/.codex/config.toml";
 const CLAUDE_FILE = "/u/.claude.json";
@@ -231,68 +250,48 @@ const notLoaded = () =>
   within(group())
     .queryAllByTestId("not-loaded-row")
     .map((r) => r.textContent);
-const strip = () => screen.getByLabelText("Inventory summary");
-const chipGroup = () => screen.getByRole("group", { name: "Engines" });
+const card = () => screen.getByRole("dialog", { name: "Overview" });
+const chipGroup = () => within(card()).getByRole("group", { name: "Engines" });
+const engineRow = (name: string) => chipGroup().querySelector(`[data-engine-name="${name}"]`) as HTMLElement;
 
-describe("the engine chips replace the By engine band", () => {
-  it("draw on every tab, All engines first, and Global has no band", () => {
+describe("the overview card's engines replace the By engine band", () => {
+  it("draw on every tab, All engines first, then ranked, and Global has no band", () => {
     for (const tab of [undefined, "Skills", "Tools", "Rules", "Subagents"] as const) {
-      const { unmount } = render(<ProfilePane {...props({ selectedCategory: tab ?? null })} />);
-      expect(within(chipGroup()).getAllByRole("button").map((b) => b.textContent)).toEqual([
+      const { unmount } = render(<ProfilePane {...props({ selectedCategory: tab ?? null })} {...slots()} />);
+      openOverview();
+      // The card ranks by tokens every session: Engine C's 12,400 over
+      // Engine K's 800. Its rows are the engines with a context.
+      expect(within(chipGroup()).getAllByRole("button").map((b) => b.getAttribute("data-engine-name"))).toEqual([
         "All engines",
         "Engine C",
         "Engine K",
-        "Engine D",
       ]);
       expect(screen.queryByTestId("hero-band")).toBeNull();
       unmount();
     }
   });
 
-  it("press the picked engine, each with its brand mark, and say which was chosen", () => {
+  it("mark the picked engine, each with its brand mark, and say which was chosen", () => {
     const onSelectEngine = vi.fn();
-    render(<ProfilePane {...props({ selectedEngine: "codex", onSelectEngine })} />);
-    const [all, c] = within(chipGroup()).getAllByRole("button");
-    expect(all.getAttribute("aria-pressed")).toBe("false");
-    expect(c.getAttribute("aria-pressed")).toBe("true");
+    render(<ProfilePane {...props({ selectedEngine: "codex", onSelectEngine })} {...slots()} />);
+    openOverview();
+    const all = engineRow("All engines");
+    const c = engineRow("Engine C");
+    expect(all.getAttribute("aria-current")).toBeNull();
+    expect(c.getAttribute("aria-current")).toBe("true");
     // The mark comes from the sprite: a <use> into #brand-…; All engines has none.
     expect(c.querySelector("use")).not.toBeNull();
     expect(all.querySelector("use")).toBeNull();
-    fireEvent.click(within(chipGroup()).getByRole("button", { name: "Engine K" }));
+    fireEvent.click(engineRow("Engine K"));
     expect(onSelectEngine).toHaveBeenLastCalledWith("claude-code");
     fireEvent.click(all);
     expect(onSelectEngine).toHaveBeenLastCalledWith(null);
   });
 
-  it("wrap rather than grow into a grid, at any width", () => {
-    render(<ProfilePane {...props()} />);
-    const cls = chipGroup().className;
-    expect(cls).toContain("flex-wrap");
-    expect(cls).not.toMatch(/\bgrid\b/);
-  });
-
-  it("claim nothing before the first scan", () => {
-    render(<ProfilePane {...props({ scannedAt: null })} />);
-    expect(screen.queryByRole("group", { name: "Engines" })).toBeNull();
-  });
-
-  it("sit straight under the kind tabs and above the strip, in both modes (Q2)", () => {
-    // The chips say whose figures the strip shows, so they come first
-    // (docs/plans/2026-11-25-decisions-round-2.md, Q2). happy-dom lays
-    // nothing out: this pins document order and containment.
-    for (const selectedEngine of [null, "codex"] as const) {
-      for (const tab of [null, "Tools"] as const) {
-        const { unmount } = render(<ProfilePane {...props({ selectedCategory: tab, selectedEngine })} />);
-        const tabs = screen.getByRole("tablist");
-        const chips = chipGroup();
-        expect(strip().contains(chips)).toBe(false);
-        expect(tabs.compareDocumentPosition(chips) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-        expect(chips.compareDocumentPosition(strip()) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-        // Directly under: the element before the chips holds the tabs.
-        expect(chips.previousElementSibling?.contains(tabs)).toBe(true);
-        unmount();
-      }
-    }
+  it("claim nothing before the engine contexts land", () => {
+    render(<ProfilePane {...props({ scannedAt: null, engineContexts: null })} {...slots()} />);
+    openOverview();
+    expect(within(card()).queryByRole("group", { name: "Engines" })).toBeNull();
   });
 });
 
@@ -441,52 +440,56 @@ const DESK: EngineContext = {
   on_tokens_measured: 0,
 };
 
-const display = () => strip().querySelector(".text-display");
-const subtitle = () => strip().querySelector("[title]")?.textContent;
-const segments = () => within(strip()).getByTestId("strip-segments");
-const unmeasured = () => within(strip()).getByTestId("strip-unmeasured");
-const segment = (name: string) => within(strip()).getByRole("button", { name: new RegExp(`^${name}`) });
+/** The card's engine section, headed by the picked engine's name. */
+const engineSection = (name: string) => within(card()).getByRole("region", { name });
+const figureOf = (name: string) => engineSection(name).querySelector(".text-lg-app")?.textContent ?? null;
+const kinds = () => Array.from(within(card()).getByTestId("overview-kinds").querySelectorAll("button"));
+const kind = (key: string) => within(card()).getByTestId("overview-kinds").querySelector(`[data-kind="${key}"]`) as HTMLElement;
+const valueOf = (el: HTMLElement) => el.querySelector('[data-cell="value"]')?.textContent;
 const rowOf = (name: string) =>
   Array.from(screen.getByTestId("asset-list-scroll").querySelectorAll("[data-selected]")).find(
     (el) => el.querySelector(".truncate")?.textContent === name
   ) as HTMLElement;
 
-describe("the strip with an engine picked shows its budget, on every tab", () => {
+describe("the card with an engine picked shows its budget, on every tab", () => {
   it("leads with ≈ the MCP figure every session, and drops the link legend", () => {
     for (const tab of [null, "Skills", "Tools", "Rules", "Subagents"] as const) {
-      const { unmount } = render(<ProfilePane {...props({ selectedCategory: tab, selectedEngine: "codex" })} />);
-      expect(display()?.textContent).toBe("≈ 12,400");
-      expect(subtitle()).toBe("tokens every session · Engine C");
-      expect(within(strip()).queryByRole("button", { name: /linked$/ })).toBeNull();
-      expect(within(strip()).queryByRole("img")).toBeNull();
-      // Rescan stays in the strip; the chips stay, above it (Q2).
-      expect(within(strip()).getByRole("button", { name: "Refresh scan" })).toBeTruthy();
+      const { unmount } = render(<ProfilePane {...props({ selectedCategory: tab, selectedEngine: "codex" })} {...slots()} />);
+      openOverview();
+      expect(figureOf("Engine C")).toBe("≈ 12,400");
+      expect(within(engineSection("Engine C")).getByText("tokens every session")).toBeTruthy();
+      expect(within(card()).queryByRole("button", { name: /linked$/ })).toBeNull();
+      expect(within(card()).queryByText("The global store")).toBeNull();
+      // Rescan stays in the card, and so do the engines above.
+      expect(within(card()).getByRole("button", { name: /^Rescan/ })).toBeTruthy();
       expect(chipGroup()).toBeTruthy();
       unmount();
     }
   });
 
-  it("splits it by kind: one MCP segment as the budget prints it, one quiet line for the other three", () => {
-    render(<ProfilePane {...props({ selectedEngine: "codex" })} />);
+  it("splits it by kind: MCP servers with the budget's figure, its caption at the head, the other three Not measured", () => {
+    render(<ProfilePane {...props({ selectedEngine: "codex" })} {...slots()} />);
+    openOverview();
     const figures = engineBandFigures(CODEX);
-    expect(within(segments()).getAllByRole("button")).toHaveLength(1);
-    expect(segment("MCP servers").textContent).toBe(`MCP servers ${figures.value} · ${figures.secondary}`);
     expect(figures.secondary).toBe("2 of 3 servers measured · 1 off");
+    expect(within(engineSection("Engine C")).getByText(figures.secondary!)).toBeTruthy();
+    expect(kinds().map((b) => b.getAttribute("data-kind"))).toEqual(["Tools", "Skills", "Rules", "Subagents"]);
+    expect(valueOf(kind("Tools"))).toBe(figures.value);
     // Built from the tabs' labels and the approved "Not measured".
-    expect(unmeasured().textContent).toBe("Skills · Rules · Subagents: Not measured");
-    expect(within(unmeasured()).getAllByRole("button").map((b) => b.textContent)).toEqual([
-      "Skills",
-      "Rules",
-      "Subagents",
+    expect(kinds().slice(1).map((b) => `${b.querySelector('[data-cell="name"]')?.textContent}: ${valueOf(b)}`)).toEqual([
+      "Skills: Not measured",
+      "Rules: Not measured",
+      "Subagents: Not measured",
     ]);
   });
 
   it("says Not measured, never ≈ 0, for an engine with nothing measured", () => {
-    render(<ProfilePane {...props({ selectedEngine: "claude-desktop", engineContexts: [CODEX, CLAUDE, DESK] })} />);
-    expect(display()).toBeNull();
-    expect(subtitle()).toBe("Not measured · Engine D");
-    expect(segment("MCP servers").textContent).toBe("MCP servers Not measured · 0 of 1 servers measured");
-    expect(strip().textContent).not.toContain("≈");
+    render(<ProfilePane {...props({ selectedEngine: "claude-desktop", engineContexts: [CODEX, CLAUDE, DESK] })} {...slots()} />);
+    openOverview();
+    expect(figureOf("Engine D")).toBe("Not measured");
+    expect(within(engineSection("Engine D")).getByText("0 of 1 servers measured")).toBeTruthy();
+    expect(valueOf(kind("Tools"))).toBe("Not measured");
+    expect(engineSection("Engine D").textContent).not.toContain("≈");
   });
 
   it("for an engine whose servers all run on the vendor's, says so and offers no Measure all", () => {
@@ -496,25 +499,27 @@ describe("the strip with an engine picked shows its budget, on every tab", () =>
       ...DESK,
       items: DESK.items.map((i) => ({ ...i, read_only: "runs_on_vendor_servers" as const })),
     };
-    render(<ProfilePane {...props({ selectedEngine: "claude-desktop", engineContexts: [CODEX, CLAUDE, vendor] })} />);
-    expect(segment("MCP servers").textContent).toBe(
-      "MCP servers Not measured · Runs on Anthropic's servers. Hanger can't measure it from this machine."
-    );
-    expect(within(strip()).queryByRole("button", { name: "Measure all" })).toBeNull();
-    expect(within(strip()).getByRole("button", { name: "Refresh scan" })).toBeTruthy();
+    render(<ProfilePane {...props({ selectedEngine: "claude-desktop", engineContexts: [CODEX, CLAUDE, vendor] })} {...slots()} />);
+    openOverview();
+    expect(
+      within(engineSection("Engine D")).getByText("Runs on Anthropic's servers. Hanger can't measure it from this machine.")
+    ).toBeTruthy();
+    expect(within(card()).queryByRole("button", { name: "Measure all" })).toBeNull();
+    expect(within(card()).getByRole("button", { name: /^Rescan/ })).toBeTruthy();
   });
 
-  it("a segment opens its kind's tab and keeps the engine", () => {
+  it("a kind row opens its kind's tab and keeps the engine", () => {
     const onCategoryChange = vi.fn();
     const onSelectEngine = vi.fn();
-    render(<ProfilePane {...props({ selectedEngine: "codex", onCategoryChange, onSelectEngine })} />);
-    expect(segment("Skills").getAttribute("aria-pressed")).toBe("false");
-    fireEvent.click(segment("Skills"));
+    render(<ProfilePane {...props({ selectedEngine: "codex", onCategoryChange, onSelectEngine })} {...slots()} />);
+    openOverview();
+    expect(kind("Skills").getAttribute("aria-pressed")).toBe("false");
+    fireEvent.click(kind("Skills"));
     expect(onCategoryChange).toHaveBeenLastCalledWith("Skills");
     expect(onSelectEngine).not.toHaveBeenCalled();
     expect(screen.getByRole("tab", { name: /^Skills/ }).getAttribute("aria-selected")).toBe("true");
-    expect(segment("Skills").getAttribute("aria-pressed")).toBe("true");
-    fireEvent.click(segment("MCP servers"));
+    expect(kind("Skills").getAttribute("aria-pressed")).toBe("true");
+    fireEvent.click(kind("Tools"));
     expect(onCategoryChange).toHaveBeenLastCalledWith("Tools");
   });
 
@@ -522,47 +527,31 @@ describe("the strip with an engine picked shows its budget, on every tab", () =>
     const measured = { ...CODEX, measured_on_count: 3, on_tokens_measured: 15000 };
     invoke.mockImplementation(async (cmd: string) => (cmd === "measure_engine_context" ? measured : null));
     const onEngineContext = vi.fn();
-    render(<ProfilePane {...props({ selectedEngine: "codex", onEngineContext })} />);
-    const measure = within(strip()).getByRole("button", { name: "Measure all" });
+    render(<ProfilePane {...props({ selectedEngine: "codex", onEngineContext })} {...slots()} />);
+    openOverview();
+    const measure = within(card()).getByRole("button", { name: "Measure all" });
     expect(measure.getAttribute("title")).toBe(MEASURE_ALL_CAPTION);
     expect(document.getElementById(measure.getAttribute("aria-describedby") ?? "")?.textContent).toBe(MEASURE_ALL_CAPTION);
-    fireEvent.click(within(strip()).getByRole("button", { name: "Measure all" }));
+    fireEvent.click(within(card()).getByRole("button", { name: "Measure all" }));
     await waitFor(() => expect(onEngineContext).toHaveBeenCalledWith(measured));
     expect(invoke.mock.calls.filter((c) => c[0] === "measure_engine_context")).toEqual([
       ["measure_engine_context", { engineId: "codex" }],
     ]);
-    await waitFor(() => expect(within(strip()).getByRole("button", { name: "Measure all" })).toBeTruthy());
-  });
-
-  it("wraps rather than overflow at F1's narrow width, as a class contract", () => {
-    // happy-dom lays nothing out, so the ~534px list with the inspector open
-    // (F1) is pinned as classes: the strip is the @container, the segment
-    // row, the quiet line and the action row all wrap, and the MCP caption
-    // truncates inside its button rather than push the row wider.
-    render(<ProfilePane {...props({ selectedEngine: "codex" })} />);
-    expect(strip().className).toContain("@container");
-    expect(segments().className).toContain("flex-wrap");
-    expect(segments().className).not.toMatch(/\bgrid\b/);
-    // The quiet line is inline text: it wraps at a separator and never clips.
-    expect(unmeasured().className).not.toMatch(/truncate|nowrap/);
-    expect(within(strip()).getByTestId("strip-actions").className).toContain("flex-wrap");
-    const mcp = segment("MCP servers");
-    expect(mcp.className).toContain("min-w-0");
-    expect(mcp.querySelector(".truncate")).not.toBeNull();
-    expect(mcp.querySelector(".tabular")).not.toBeNull();
+    await waitFor(() => expect(within(card()).getByRole("button", { name: "Measure all" })).toBeTruthy());
   });
 });
 
-describe("All engines keeps today's strip", () => {
-  it("the legend, Rescan and no segments, on every tab, and no MCP-mode subtitle", () => {
+describe("All engines: the card shows the store", () => {
+  it("the legend, Rescan and no engine section, on every tab, and no MCP-mode subtitle", () => {
     for (const tab of [null, "Skills", "Tools"] as const) {
-      const { unmount } = render(<ProfilePane {...props({ selectedCategory: tab })} />);
-      expect(within(strip()).getAllByRole("button", { name: /linked$/ }).length).toBeGreaterThan(0);
-      expect(within(strip()).getByRole("button", { name: "Refresh scan" })).toBeTruthy();
-      expect(within(strip()).queryByTestId("strip-segments")).toBeNull();
-      expect(within(strip()).queryByRole("button", { name: "Measure all" })).toBeNull();
-      expect(strip().textContent).not.toContain("tool descriptions across");
-      expect(strip().textContent).not.toContain("tokens every session");
+      const { unmount } = render(<ProfilePane {...props({ selectedCategory: tab })} {...slots()} />);
+      openOverview();
+      expect(within(card()).getByText("The global store")).toBeTruthy();
+      expect(within(card()).getAllByRole("button", { name: /linked$/ }).length).toBeGreaterThan(0);
+      expect(within(card()).getByRole("button", { name: /^Rescan/ })).toBeTruthy();
+      expect(within(card()).queryByTestId("overview-kinds")).toBeNull();
+      expect(within(card()).queryByRole("button", { name: "Measure all" })).toBeNull();
+      expect(card().textContent).not.toContain("tool descriptions across");
       unmount();
     }
   });

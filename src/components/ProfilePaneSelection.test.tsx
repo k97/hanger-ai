@@ -1,9 +1,29 @@
 // @vitest-environment happy-dom
-import { render, screen, cleanup, fireEvent } from "@testing-library/react";
+import { render, screen, cleanup, fireEvent, within } from "@testing-library/react";
 import { describe, it, expect, vi, afterEach } from "vitest";
 import ProfilePane from "./ProfilePane";
 
-afterEach(cleanup);
+/** The pill is the overview card's since Task 7 of
+ *  docs/plans/2026-11-26-overview-card.md. A standalone pane draws the card
+ *  only into a cap slot, so the pill's tests hand the pane one and open it. */
+let capSlot: HTMLElement | null = null;
+const slots = () => {
+  capSlot = document.createElement("div");
+  document.body.appendChild(capSlot);
+  return { overviewSlots: { cap: capSlot, inspector: null } };
+};
+const openOverview = () => {
+  fireEvent.click(screen.getByLabelText("Show overview ⌘E"));
+  return screen.getByRole("dialog", { name: "Overview" });
+};
+const cardPill = (card: HTMLElement, n: number) =>
+  within(card).getByRole("button", { name: new RegExp(`^Needs review\\s*${n}$`) });
+
+afterEach(() => {
+  cleanup();
+  capSlot?.remove();
+  capSlot = null;
+});
 
 /** Three servers declared by ONE config file — the shape of ~/.claude.json. */
 const inventory = {
@@ -49,6 +69,7 @@ const renderPane = (over: Partial<React.ComponentProps<typeof ProfilePane>> = {}
       serverSort="name"
       mcpServers={grouped as never}
       engines={[]}
+      {...slots()}
       {...over}
     />
   );
@@ -92,7 +113,7 @@ describe("servers running with no config behind them", () => {
       ] as never,
     });
     expect(screen.queryByText(/undeclared MCP server/i)).toBeNull();
-    fireEvent.click(screen.getByText("Needs review 1"));
+    fireEvent.click(cardPill(openOverview(), 1));
     const line = screen.getByTestId("finding-popover-line");
     expect(line.textContent).toContain("Running with no config behind it.");
     expect(line.textContent).toContain("pid 24149 · node dist/index.js --port 3002 · started by Claude Code");
@@ -123,7 +144,8 @@ describe("servers running with no config behind them", () => {
     // Silence is the ordinary state. A pill reading "0" on every launch would
     // train the reader to ignore the one that matters.
     renderPane({ unaccountedProcesses: [] });
-    expect(screen.queryByText(/Needs review \d/)).toBeNull();
+    const card = openOverview();
+    expect(within(card).queryByRole("button", { name: /^Needs review/ })).toBeNull();
   });
 
   it("many processes of one launch are one line, with a count and an example pid", () => {
@@ -138,7 +160,7 @@ describe("servers running with no config behind them", () => {
         command_line: "uvx mcp-server-fetch",
       })) as never,
     });
-    fireEvent.click(screen.getByText("Needs review 1"));
+    fireEvent.click(cardPill(openOverview(), 1));
     expect(screen.getByTestId("finding-popover-line").textContent).toContain(
       "3 processes · e.g. pid 100 · uvx mcp-server-fetch"
     );

@@ -3,7 +3,7 @@ import GelMeter from "./GelMeter";
 import BrandIcon from "./BrandIcon";
 import Tooltip from "./Tooltip";
 import FindingPopover from "./FindingPopover";
-import { LinkStateLegend, type EngineStripFigures, type StripReview } from "./SummaryStrip";
+import { LinkStateLegend, type StripReview } from "./SummaryStrip";
 import { useScanStampText } from "./ScanStamp";
 import { ExclamationTriangleIcon, PinIcon, PinOffIcon, RotateCcwIcon } from "./icons";
 import { miniBtnClass } from "./miniButton";
@@ -20,6 +20,41 @@ import {
   rankEngines,
   storeAssetsLabel,
 } from "../utils/overviewCopy";
+
+/** One kind's share of an engine's budget: a button that opens that kind's
+ *  tab. Every string arrives formatted from the caller (`switchCopy`). A
+ *  segment with a figure or a caption is drawn whole; one with neither joins
+ *  the quiet line, by its label (Q1 of
+ *  docs/plans/2026-11-25-decisions-round-2.md). */
+export interface StripSegment {
+  key: string;
+  /** The kind, by its tab's label. */
+  label: string;
+  /** "≈ 12,400", or "Not measured". */
+  value: string;
+  /** `false` for "Not measured", which recedes to --ink-3. */
+  measured: boolean;
+  /** The MCP segment's "M of K servers measured · J off". */
+  caption?: string;
+  /** Its tab is the one open. */
+  pressed: boolean;
+  onSelect: () => void;
+}
+
+/** The chosen engine's section of the card: Global seen by one engine
+ *  (docs/plans/2026-11-25-ia-global-by-engine.md), its budget by kind and
+ *  Measure all. Named for the strip's engine mode, which drew it until Task 7
+ *  of docs/plans/2026-11-26-overview-card.md moved it here. */
+export interface EngineStripFigures {
+  segments: StripSegment[];
+  measuring: boolean;
+  /** Absent for an engine with nothing Hanger can measure (every server
+   *  runs on the vendor's, `runsOnVendorServersOnly`), when no Measure all
+   *  is drawn. */
+  onMeasure?: () => void;
+  /** Measure all's tooltip and description (`MEASURE_ALL_CAPTION`). */
+  measureCaption: string;
+}
 
 export interface OverviewCardProps {
   /** App's `engineContexts`, in `get_engine_contexts`' order: the card ranks. */
@@ -87,10 +122,10 @@ function RankBar({ label, value, max }: { label: string; value: number | null; m
  * The overview card (docs/plans/2026-11-26-overview-card.md, Task 3): every
  * engine ranked by its tokens every session, then the chosen engine by kind
  * or, with All engines, the store's link state, then Needs review and
- * Rescan. Purely presentational — it calls nothing. ProfilePane draws it
- * from the figures its strip reads, into `OverviewPopover` from the window
- * bar (Task 5); pinning it into the inspector lands with Task 6. It draws
- * no border or elevation of its own: whichever surface holds it does.
+ * Rescan. Purely presentational — it calls nothing. Global's one summary
+ * since Task 7: ProfilePane draws it into `OverviewPopover` from the window
+ * bar, or pinned into the inspector's empty state. It draws no border or
+ * elevation of its own: whichever surface holds it does.
  */
 export default function OverviewCard({
   engines,

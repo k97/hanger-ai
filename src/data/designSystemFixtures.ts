@@ -22,14 +22,13 @@ import type { SwitchNoticeState } from "../hooks/useMcpSwitch";
 import type { AllEnginesState } from "../utils/switchTargets";
 import {
   engineBandFigures,
-  engineStripHeadline,
   failureLine,
   MEASURE_ALL_CAPTION,
   NOT_MEASURED_FIGURE,
   switchedLine,
 } from "../utils/switchCopy";
 import type { EngineContext, EngineListEntry, ItemState, ReadOnlyReason } from "../types/engineContext";
-import type { EngineStripFigures } from "../components/SummaryStrip";
+import type { EngineStripFigures } from "../components/OverviewCard";
 import { TAB_LABELS } from "../components/CategoryFilterCards";
 import type { NotLoadedRow } from "../components/NotLoadedGroup";
 import { missTitle } from "../components/ReachCard";
@@ -210,7 +209,7 @@ export const SAMPLE_ENGINE_BAND_ROWS: HeroBandRow[] = [
   { key: "none", engineKey: "none", engineName: "Any agent", value: 1, word: "asset" },
 ];
 
-/** The engine chip row's engines, in `get_engine_contexts`' order. */
+/** Sample engines, in `get_engine_contexts`' order. */
 export const SAMPLE_ENGINES: EngineListEntry[] = [
   { engine_id: "claude-code", engine_name: "Claude Code" },
   { engine_id: "codex", engine_name: "Codex" },
@@ -245,10 +244,9 @@ export const SAMPLE_OVERVIEW_ENGINES: EngineContext[] = [
   { ...SAMPLE_ENGINE_CONTEXT, engine_id: "gemini", engine_key: "gemini", engine_name: "Gemini CLI", on_count: 4, off_count: 0, measured_on_count: 4, on_tokens_measured: 7310 },
 ];
 
-/** The strip's engine mode for that context, built as ProfilePane builds it:
- *  the headline and the MCP segment through `switchCopy`, the other kinds
- *  "Not measured" (Phase 1). */
-export const SAMPLE_ENGINE_HEADLINE = engineStripHeadline(SAMPLE_ENGINE_CONTEXT, SAMPLE_ENGINE_CONTEXT.engine_name);
+/** The overview card's engine section for that context, built as
+ *  ProfilePane builds it: the MCP segment through `switchCopy`, the other
+ *  kinds "Not measured" (Phase 1). */
 const SAMPLE_MCP_SEGMENT = engineBandFigures(SAMPLE_ENGINE_CONTEXT);
 export const SAMPLE_ENGINE_STRIP: EngineStripFigures = {
   segments: [

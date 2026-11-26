@@ -123,7 +123,7 @@ describe("Auto theme follows the system", () => {
   it("defaults a fresh install to Auto and paints the system's dark appearance", async () => {
     stubSystemDark(true);
     const { unmount } = render(<App />);
-    await screen.findByLabelText("Refresh scan");
+    await screen.findByLabelText("Show overview ⌘E"); // Global is up: its overview button is in the cap
 
     await waitFor(() => expect(isDark()).toBe(true));
     expect(queriedFor).toContain("(prefers-color-scheme: dark)");
@@ -138,7 +138,7 @@ describe("Auto theme follows the system", () => {
   it("repaints live when the system appearance flips while Auto is active", async () => {
     stubSystemDark(false);
     const { unmount } = render(<App />);
-    await screen.findByLabelText("Refresh scan");
+    await screen.findByLabelText("Show overview ⌘E"); // Global is up: its overview button is in the cap
     await waitFor(() => expect(isDark()).toBe(false));
 
     emit!(true);
@@ -152,7 +152,7 @@ describe("Auto theme follows the system", () => {
   it("stops following the system once Light is chosen explicitly", async () => {
     stubSystemDark(true);
     const { unmount } = render(<App />);
-    await screen.findByLabelText("Refresh scan");
+    await screen.findByLabelText("Show overview ⌘E"); // Global is up: its overview button is in the cap
     await waitFor(() => expect(isDark()).toBe(true));
 
     await openSettings();
@@ -172,7 +172,7 @@ describe("Auto theme follows the system", () => {
     stubSystemDark(true);
     mockPreferences.theme = "light";
     const { unmount } = render(<App />);
-    await screen.findByLabelText("Refresh scan");
+    await screen.findByLabelText("Show overview ⌘E"); // Global is up: its overview button is in the cap
     await waitFor(() => expect(isDark()).toBe(false));
 
     await openSettings();
@@ -187,7 +187,7 @@ describe("Auto theme follows the system", () => {
     stubSystemDark(false);
     mockPreferences.dark_mode = "true";
     const { unmount } = render(<App />);
-    await screen.findByLabelText("Refresh scan");
+    await screen.findByLabelText("Show overview ⌘E"); // Global is up: its overview button is in the cap
 
     await waitFor(() => expect(isDark()).toBe(true));
     await openSettings();
@@ -199,7 +199,7 @@ describe("Auto theme follows the system", () => {
     stubSystemDark(true);
     mockPreferences.dark_mode = "false";
     const { unmount } = render(<App />);
-    await screen.findByLabelText("Refresh scan");
+    await screen.findByLabelText("Show overview ⌘E"); // Global is up: its overview button is in the cap
 
     await waitFor(() => expect(isDark()).toBe(false));
     await openSettings();
@@ -211,7 +211,7 @@ describe("Auto theme follows the system", () => {
     // @ts-expect-error — modelling an environment without media query support
     window.matchMedia = undefined;
     const { unmount } = render(<App />);
-    await screen.findByLabelText("Refresh scan");
+    await screen.findByLabelText("Show overview ⌘E"); // Global is up: its overview button is in the cap
 
     await waitFor(() => expect(isDark()).toBe(false));
     unmount();
