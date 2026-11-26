@@ -1,0 +1,366 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Global › the top of the page: layout prototypes</title>
+<style>
+  /* Hanger's light tokens (src/styles/tokens.css), copied as values for a static prototype. */
+  :root{
+    --page:#fff; --plane:#f7f7f7; --plane-2:#efefef; --tint:#e8e8e8; --tint-plane:#e0e0e0;
+    --line:rgba(0,0,0,.09); --line-2:rgba(0,0,0,.20); --ink-1:#000; --ink-2:#4d4d4d; --ink-3:#636363;
+    --fill:#1f1f1f; --on-fill:#fff; --brand:#009a97; --sidebar:rgba(252,252,252,.65); --sidebar-sel:#e6e6e6;
+    --overlay-shadow:0 0 3px rgba(0,0,0,.05),0 11px 34px rgba(0,0,0,.16);
+    --capsule-shadow:0 1px 2px rgba(0,0,0,.10),0 2px 6px rgba(0,0,0,.06);
+    --r-plane:16px; --r-inner:12px; --r-soft:10px; --r-control:8px; --r-pill:9999px;
+    --fs-micro:11px; --fs-small:12px; --fs-base:13px; --fs-lg:16px; --fs-display:32px;
+    --sans:-apple-system,BlinkMacSystemFont,system-ui,sans-serif; --mono:ui-monospace,"SF Mono",Menlo,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:#dcdcdc;font:var(--fs-base)/1.4 var(--sans);color:var(--ink-1);-webkit-font-smoothing:antialiased}
+  .doc{max-width:1100px;margin:0 auto;padding:32px 24px 80px}
+  .doc>h1{font-size:22px;font-weight:600;letter-spacing:-.3px;margin:0 0 6px}
+  .doc>p{color:var(--ink-2);max-width:72ch;margin:0 0 8px}
+  .frame{margin:36px 0 0}
+  .frame>h2{font-size:var(--fs-lg);font-weight:600;margin:0 0 4px}
+  .frame>.why{color:var(--ink-2);max-width:80ch;margin:0 0 12px}
+  .tag{display:inline-block;font-size:var(--fs-micro);font-weight:600;padding:1px 7px;border-radius:var(--r-pill);background:var(--fill);color:var(--on-fill);margin-left:6px;vertical-align:2px}
+  .tag.ghost{background:var(--tint);color:var(--ink-1)}
+
+  /* window */
+  .win{width:1024px;height:640px;background:var(--plane);border-radius:12px;box-shadow:0 18px 50px rgba(0,0,0,.25);overflow:hidden;display:grid;grid-template-rows:36px 1fr;position:relative}
+  .bar{display:flex;align-items:center;gap:8px;padding:0 12px;font-size:var(--fs-base);color:var(--ink-2)}
+  .lights{display:flex;gap:7px;margin-right:6px}.lights i{width:12px;height:12px;border-radius:50%;background:#ff5f57}.lights i:nth-child(2){background:#febc2e}.lights i:nth-child(3){background:#28c840}
+  .crumb b{color:var(--ink-1);font-weight:500}
+  .body{display:grid;grid-template-columns:56px 1fr 390px;min-height:0}
+  .body.side{grid-template-columns:56px 220px 1fr}
+  .rail{display:flex;flex-direction:column;align-items:center;gap:14px;padding-top:6px}
+  .rail i{width:20px;height:20px;border-radius:6px;background:var(--line-2);opacity:.5}.rail i.on{background:var(--ink-2);opacity:.8}
+  .main{background:var(--page);border-radius:var(--r-plane) var(--r-plane) 0 0;margin-right:8px;padding:16px 18px;min-width:0;overflow:hidden;display:flex;flex-direction:column;gap:12px}
+  .insp{background:var(--page);border-radius:var(--r-plane) 0 0 0;padding:18px;color:var(--ink-3);display:flex;align-items:center;justify-content:center;font-size:var(--fs-small)}
+  .sidecol{padding:10px 8px;display:flex;flex-direction:column;gap:2px;font-size:var(--fs-base);color:#3e4144}
+  .sidecol .sec{font-size:var(--fs-micro);color:var(--ink-3);padding:10px 10px 4px;font-weight:500}
+  .sidecol .row{display:flex;align-items:center;gap:8px;height:30px;padding:0 10px;border-radius:var(--r-control)}
+  .sidecol .row.sel{background:var(--sidebar-sel);color:#1f1f1f;font-weight:500}
+  .sidecol .row .n{margin-left:auto;font-size:var(--fs-micro);color:var(--ink-3);font-variant-numeric:tabular-nums}
+
+  /* controls */
+  .seg{display:inline-flex;gap:2px;padding:3px;border-radius:var(--r-pill);background:var(--plane-2);border:1px solid var(--line);font-size:var(--fs-base);white-space:nowrap}
+  .seg span{padding:4px 11px;border-radius:var(--r-pill);color:var(--ink-2)}
+  .seg span.on{background:var(--page);color:var(--ink-1);font-weight:500;box-shadow:var(--capsule-shadow)}
+  .seg small{color:var(--ink-3);margin-left:4px;font-variant-numeric:tabular-nums}
+  .chips{display:flex;flex-wrap:wrap;gap:6px}
+  .chip{display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 11px;border-radius:var(--r-pill);border:1px solid var(--line-2);font-size:var(--fs-base);color:var(--ink-1);background:var(--page);white-space:nowrap}
+  .chip.on{background:var(--tint);border-color:transparent;font-weight:500}
+  .g{width:14px;height:14px;border-radius:4px;display:inline-grid;place-items:center;font:600 9px/1 var(--sans);color:#fff;flex:none}
+  .cc{background:#d97757}.ca{background:#c96442;border-radius:50%}.cx{background:#5b6bf5;border-radius:50%}.ge{background:linear-gradient(135deg,#4f8ef7,#a35ef7,#f7604f)}
+  .cd{background:#e07a5f;border-radius:50%}.vs{background:#2f80ed}.cu{background:#111}.ze{background:#555}.oc{background:#000;border-radius:2px}
+  .row1{display:flex;align-items:center;gap:10px;min-width:0}
+  .grow{flex:1}
+  .popbtn{display:inline-flex;align-items:center;gap:7px;height:30px;padding:0 10px 0 9px;border-radius:var(--r-control);border:1px solid var(--line-2);background:var(--page);font-size:var(--fs-base);font-weight:500;white-space:nowrap}
+  .popbtn .chev{color:var(--ink-3);font-size:10px;margin-left:2px}
+  .popbtn .lbl{color:var(--ink-3);font-weight:400}
+
+  /* strip */
+  .strip{border:1px solid var(--line);border-radius:var(--r-plane);padding:14px 16px;display:flex;flex-direction:column;gap:8px}
+  .head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+  .big{font-size:var(--fs-display);font-weight:500;letter-spacing:-.8px;line-height:1;font-variant-numeric:tabular-nums}
+  .big.sm{font-size:24px;letter-spacing:-.5px}
+  .sub{color:var(--ink-2);font-size:15px}
+  .meta{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:var(--fs-small);color:var(--ink-2)}
+  .seg2{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:var(--r-soft);background:var(--tint);color:var(--ink-1);font-weight:500;font-variant-numeric:tabular-nums}
+  .meta .m1{color:var(--ink-1);font-weight:500;font-variant-numeric:tabular-nums}
+  .seg.tight span{padding:4px 9px}
+  .seg2 em{font-style:normal;font-weight:400;color:var(--ink-2)}
+  .acts{display:flex;align-items:center;gap:8px;margin-left:auto}
+  .ibtn{width:30px;height:30px;border-radius:50%;border:1px solid var(--line-2);display:grid;place-items:center;color:var(--ink-2);font-size:14px;background:var(--page)}
+  .pbtn{height:30px;padding:0 13px;border-radius:var(--r-pill);background:var(--fill);color:var(--on-fill);font-weight:500;display:inline-flex;align-items:center;font-size:var(--fs-base)}
+  .gbtn{height:28px;padding:0 11px;border-radius:var(--r-control);border:1px solid var(--line-2);display:inline-flex;align-items:center;font-size:var(--fs-base);background:var(--page)}
+
+  /* list */
+  .list{border:1px solid var(--line);border-radius:var(--r-plane);overflow:hidden;flex:1;min-height:0}
+  .lh{display:flex;justify-content:space-between;padding:9px 14px;font-size:var(--fs-small);color:var(--ink-3);border-bottom:1px solid var(--line)}
+  .li{display:flex;justify-content:space-between;align-items:center;padding:9px 14px;font-size:var(--fs-base)}
+  .li .r{color:var(--ink-2);font-variant-numeric:tabular-nums;font-size:var(--fs-small)}
+  .li .ch{font:var(--fs-micro) var(--mono);padding:1px 7px;border-radius:var(--r-pill);background:var(--tint);margin-left:8px;color:var(--ink-1)}
+
+  /* popover */
+  .pop{position:absolute;width:300px;background:var(--page);border-radius:var(--r-inner);box-shadow:var(--overlay-shadow);padding:6px;font-size:var(--fs-base);z-index:5}
+  .pop .filter{height:30px;border-radius:var(--r-control);background:var(--plane);display:flex;align-items:center;padding:0 10px;color:var(--ink-3);margin-bottom:4px;gap:6px}
+  .pop .opt{display:flex;align-items:center;gap:9px;height:30px;padding:0 10px;border-radius:var(--r-control)}
+  .pop .opt.hl{background:var(--tint)}
+  .pop .opt .v{margin-left:auto;font-variant-numeric:tabular-nums;color:var(--ink-2);font-size:var(--fs-small)}
+  .pop .opt .v.nm{color:var(--ink-3)}
+  .pop .ck{width:12px;color:var(--ink-1);font-size:11px}
+  .pop .sep{height:1px;background:var(--line);margin:4px 6px}
+  .pop .foot{display:flex;justify-content:space-between;padding:6px 10px 2px;color:var(--ink-3);font-size:var(--fs-micro)}
+  kbd{font:var(--fs-micro) var(--sans);border:1px solid var(--line-2);border-radius:4px;padding:0 4px}
+
+  /* icon segments */
+  .iseg{display:flex;align-items:center;gap:2px;padding:3px;border-radius:var(--r-pill);background:var(--plane-2);border:1px solid var(--line);overflow:hidden;white-space:nowrap}
+  .iseg span{height:26px;min-width:26px;display:inline-flex;align-items:center;justify-content:center;gap:6px;border-radius:var(--r-pill);color:var(--ink-2);font-size:var(--fs-base)}
+  .iseg span.txt{padding:0 10px}
+  .iseg span.on{background:var(--page);box-shadow:var(--capsule-shadow);color:var(--ink-1);font-weight:500;padding:0 10px 0 7px}
+  .tip{position:absolute;background:var(--fill);color:var(--on-fill);font-size:var(--fs-micro);padding:4px 8px;border-radius:6px;white-space:nowrap}
+  .note{font-size:var(--fs-small);color:var(--ink-3)}
+  .cols{display:grid;grid-template-columns:1fr 1fr;gap:6px 24px;max-width:900px;margin:10px 0 0;font-size:var(--fs-small);color:var(--ink-2)}
+  .cols b{color:var(--ink-1);font-weight:600}
+
+  /* F and G: T3-style overview card */
+  .tbtns{margin-left:auto;display:flex;gap:4px}
+  .tbtn{width:26px;height:26px;border-radius:var(--r-control);display:grid;place-items:center;color:var(--ink-2)}
+  .tbtn.on{background:var(--tint);color:var(--ink-1)}
+  .tbtn svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.4}
+  .card{background:var(--page);border:1px solid var(--line);border-radius:var(--r-plane);font-size:var(--fs-base);overflow:hidden}
+  .card.float{position:absolute;z-index:5;width:350px;border-color:transparent;box-shadow:var(--overlay-shadow)}
+  .card .sec{padding:4px 6px 6px}
+  .card .sec+.sec{border-top:1px solid var(--line)}
+  .card .sh{display:flex;align-items:center;justify-content:space-between;padding:7px 10px 3px;font-size:var(--fs-small);color:var(--ink-3)}
+  .card .sh b{font-weight:500;color:var(--ink-2)}
+  .card .sh .pin{width:22px;height:22px;border-radius:6px;display:grid;place-items:center;color:var(--ink-2)}
+  .mrow{display:grid;grid-template-columns:16px 128px 1fr 80px;align-items:center;gap:8px;height:28px;padding:0 8px 0 10px;border-radius:var(--r-control)}
+  .mrow.k{grid-template-columns:110px 1fr 80px}
+  .mrow.sel{background:var(--tint)}
+  .mrow .nm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .mrow.sel .nm{font-weight:500}
+  .track{position:relative;height:2px;background:var(--line-2);border-radius:1px}
+  .track.none{background:repeating-linear-gradient(90deg,var(--line-2) 0 3px,transparent 3px 6px)}
+  .track i{position:absolute;left:0;top:0;height:2px;background:var(--ink-1);border-radius:1px}
+  .track i::after{content:"";position:absolute;right:-1px;top:-4px;width:1.5px;height:10px;background:var(--ink-1)}
+  .val{text-align:right;font-variant-numeric:tabular-nums;color:var(--ink-2);font-size:var(--fs-small);white-space:nowrap}
+  .val.nm{color:var(--ink-3)}
+  .arow{display:flex;align-items:center;gap:9px;height:30px;padding:0 10px;border-radius:var(--r-control)}
+  .arow .ic{width:16px;color:var(--ink-2);text-align:center}
+  .arow .r{margin-left:auto;color:var(--ink-3);font-size:var(--fs-small);font-variant-numeric:tabular-nums}
+  .bigline{display:flex;align-items:baseline;gap:8px;padding:4px 10px 6px}
+  .bigline .n{font-size:24px;font-weight:500;letter-spacing:-.5px;font-variant-numeric:tabular-nums}
+  .bigline .t{color:var(--ink-2)}
+  .bigline .gbtn{margin-left:auto;height:26px}
+  .glist{position:relative;flex:1;min-height:0;padding-left:22px}
+  .glist .list{height:100%}
+  .gh{padding:9px 14px 5px;font-size:var(--fs-small);color:var(--ink-3);font-weight:500}
+  .mini{position:absolute;left:0;top:10px;display:flex;flex-direction:column;gap:5px}
+  .mini i{display:block;width:10px;height:2px;border-radius:1px;background:var(--line-2)}
+  .mini i.on{width:14px;background:var(--ink-1)}
+  .mini i.gap{margin-top:7px}
+  .body.pinned{grid-template-columns:56px 1fr 370px}
+  .pincol{padding:6px 10px 0 4px;min-height:0}
+</style>
+</head>
+<body>
+<div class="doc">
+  <h1>Global › the top of the page: seven layouts</h1>
+  <p>The tabs, the engine selector and the summary at the top of Global. Every frame is the real window size (1024 × 640) with the details panel open, the width where today's chips wrap to three rows. Values are Hanger's light theme. The engine marks are placeholders, not the real logos.</p>
+  <p><b>The goal:</b> pick a kind and an engine quickly, keep the cost figure readable, and give the list most of the height.</p>
+
+  <!-- A: today -->
+  <section class="frame" id="a">
+    <h2>A · Today <span class="tag ghost">baseline</span></h2>
+    <p class="why">Tabs, then ten chips over three rows, then a summary card. Picking an engine takes one click, but the scope controls and the summary use about 330 px before the first row of the list.</p>
+    <div class="win">
+      <div class="bar"><div class="lights"><i></i><i></i><i></i></div><span class="crumb">My machine › Global › <b>Claude Code</b></span></div>
+      <div class="body">
+        <div class="rail"><i></i><i></i><i class="on"></i><i></i><i></i></div>
+        <div class="main">
+          <div><span class="seg"><span class="on">All<small>892</small></span><span>Skills<small>554</small></span><span>MCP servers<small>33</small></span><span>Rules<small>3</small></span><span>Subagents<small>302</small></span></span></div>
+          <div class="chips">
+            <span class="chip">All engines</span><span class="chip on"><i class="g cc"></i>Claude Code</span><span class="chip"><i class="g ca"></i>Claude.ai</span><span class="chip"><i class="g cx"></i>Codex</span>
+            <span class="chip"><i class="g ge"></i>Gemini / Antigravity</span><span class="chip"><i class="g cd"></i>Claude Desktop</span><span class="chip"><i class="g vs"></i>VS Code</span>
+            <span class="chip"><i class="g cu"></i>Cursor</span><span class="chip"><i class="g ze"></i>Zed</span><span class="chip"><i class="g oc"></i>OpenCode</span>
+          </div>
+          <div class="strip">
+            <div class="head"><span class="big">≈ 13,598</span><span class="sub">tokens every session · Claude Code</span></div>
+            <div class="meta"><span class="seg2">MCP servers ≈ 13,598 <em>· 11 of 17 servers measured</em></span></div>
+            <div class="meta">Skills · Rules · Subagents: Not measured</div>
+            <div class="meta"><span class="gbtn">Measure all</span><span class="acts"><span class="ibtn">↻</span><span class="pbtn">Review 84</span></span></div>
+          </div>
+          <div class="list"><div class="lh"><span>Name</span><span>Beyond the store</span></div><div class="li"><span>zoom-out</span><span class="r">In 3 projects</span></div></div>
+        </div>
+        <div class="insp">Details panel</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- B: scope menu -->
+  <section class="frame" id="b">
+    <h2>B · Engine menu <span class="tag">recommended</span></h2>
+    <p class="why">The kinds and the engine share one row. The engine is a pop-up button, as in Xcode's scheme picker or Mail's mailbox menu. Its menu lists every engine with its cost, so opening it also compares them: you see at once which engine is heaviest. You can type to filter, use ↑↓ and Return, and open it with ⌘E. The summary shrinks from four lines to two. The list starts about 150 px higher than today.</p>
+    <div class="win">
+      <div class="bar"><div class="lights"><i></i><i></i><i></i></div><span class="crumb">My machine › Global › <b>Claude Code</b></span></div>
+      <div class="body">
+        <div class="rail"><i></i><i></i><i class="on"></i><i></i><i></i></div>
+        <div class="main">
+          <div class="row1">
+            <span class="seg tight"><span class="on">All<small>892</small></span><span>Skills<small>554</small></span><span>MCP<small>33</small></span><span>Rules<small>3</small></span><span>Subagents<small>302</small></span></span>
+            <span class="grow"></span>
+            <span class="popbtn"><i class="g cc"></i>Claude Code<span class="chev">▾</span></span>
+          </div>
+          <div class="strip">
+            <div class="head"><span class="big sm">≈ 13,598</span><span class="sub">tokens every session</span><span class="acts"><span class="gbtn">Measure all</span><span class="ibtn">↻</span><span class="pbtn">Review 84</span></span></div>
+            <div class="meta"><span class="m1">MCP servers ≈ 13,598</span><span>(11 of 17 measured)</span><span>·</span><span>Skills, Rules, Subagents not measured</span></div>
+          </div>
+          <div class="list"><div class="lh"><span>Name</span><span>Beyond the store</span></div><div class="li"><span>zoom-out</span><span class="r">In 3 projects</span></div><div class="li"><span>xlsx</span><span class="r">In 3 projects</span></div><div class="li"><span>x-bookmark-quote-posts</span><span class="r">In 3 projects</span></div><div class="li"><span>writing-great-skills</span><span class="r">In 3 projects</span></div><div class="li"><span>workflow-threads-manager</span><span class="r">In 3 projects</span></div><div class="li"><span>workflow-ship-change</span><span class="r">In 3 projects</span></div></div>
+        </div>
+        <div class="insp">Details panel</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="frame" id="b2">
+    <h2>B · Engine menu, open</h2>
+    <p class="why">One click opens a ranked comparison: the costs are right-aligned with tabular figures, sorted heaviest first, with "Not measured" engines last. It drops from its button, from the trigger's corner. It opens instantly, with no animation, because it's used many times a day.</p>
+    <div class="win">
+      <div class="bar"><div class="lights"><i></i><i></i><i></i></div><span class="crumb">My machine › Global › <b>Claude Code</b></span></div>
+      <div class="body">
+        <div class="rail"><i></i><i></i><i class="on"></i><i></i><i></i></div>
+        <div class="main">
+          <div class="row1">
+            <span class="seg tight"><span class="on">All<small>892</small></span><span>Skills<small>554</small></span><span>MCP<small>33</small></span><span>Rules<small>3</small></span><span>Subagents<small>302</small></span></span>
+            <span class="grow"></span>
+            <span class="popbtn" style="background:var(--tint)"><i class="g cc"></i>Claude Code<span class="chev">▾</span></span>
+          </div>
+          <div class="strip">
+            <div class="head"><span class="big sm">≈ 13,598</span><span class="sub">tokens every session</span><span class="acts"><span class="gbtn">Measure all</span><span class="ibtn">↻</span><span class="pbtn">Review 84</span></span></div>
+            <div class="meta"><span class="m1">MCP servers ≈ 13,598</span><span>(11 of 17 measured)</span><span>·</span><span>Skills, Rules, Subagents not measured</span></div>
+          </div>
+          <div class="list"><div class="lh"><span>Name</span><span>Beyond the store</span></div><div class="li"><span>zoom-out</span><span class="r">In 3 projects</span></div></div>
+        </div>
+        <div class="insp">Details panel</div>
+      </div>
+      <div class="pop" style="left:308px;top:84px">
+        <div class="filter">⌕ Filter engines</div>
+        <div class="opt"><span class="ck"></span>All engines<span class="v">892 assets</span></div>
+        <div class="sep"></div>
+        <div class="opt hl"><span class="ck">✓</span><i class="g cc"></i>Claude Code<span class="v">≈ 13,598</span></div>
+        <div class="opt"><span class="ck"></span><i class="g cx"></i>Codex<span class="v">≈ 9,951</span></div>
+        <div class="opt"><span class="ck"></span><i class="g ge"></i>Gemini / Antigravity<span class="v">≈ 9,737</span></div>
+        <div class="opt"><span class="ck"></span><i class="g oc"></i>OpenCode<span class="v">≈ 9,358</span></div>
+        <div class="opt"><span class="ck"></span><i class="g cu"></i>Cursor<span class="v">≈ 7,673</span></div>
+        <div class="opt"><span class="ck"></span><i class="g vs"></i>VS Code<span class="v">≈ 7,294</span></div>
+        <div class="opt"><span class="ck"></span><i class="g ze"></i>Zed<span class="v">≈ 7,294</span></div>
+        <div class="opt"><span class="ck"></span><i class="g ca"></i>Claude.ai<span class="v nm">Not measured</span></div>
+        <div class="opt"><span class="ck"></span><i class="g cd"></i>Claude Desktop<span class="v nm">Not measured</span></div>
+        <div class="foot"><span>tokens every session</span><span><kbd>⌘E</kbd></span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- C: sidebar -->
+  <section class="frame" id="c">
+    <h2>C · Engines in the sidebar</h2>
+    <p class="why">The left column lists the engines under Global, each with its cost, like mailboxes in Mail. It's always visible, one click away, and compares the engines at a glance. The cost: the column takes 220 px, so the details panel has to close at this width. You also usually keep the sidebar collapsed, which would hide the engines completely.</p>
+    <div class="win">
+      <div class="bar"><div class="lights"><i></i><i></i><i></i></div><span class="crumb">My machine › Global › <b>Claude Code</b></span></div>
+      <div class="body side">
+        <div class="rail"><i></i><i></i><i class="on"></i><i></i><i></i></div>
+        <div class="sidecol">
+          <div class="row">Global<span class="n">892</span></div>
+          <div class="sec">Engines</div>
+          <div class="row"><i class="g" style="background:var(--line-2)"></i>All engines</div>
+          <div class="row sel"><i class="g cc"></i>Claude Code<span class="n">≈ 13.6k</span></div>
+          <div class="row"><i class="g cx"></i>Codex<span class="n">≈ 10.0k</span></div>
+          <div class="row"><i class="g ge"></i>Gemini<span class="n">≈ 9.7k</span></div>
+          <div class="row"><i class="g oc"></i>OpenCode<span class="n">≈ 9.4k</span></div>
+          <div class="row"><i class="g cu"></i>Cursor<span class="n">≈ 7.7k</span></div>
+          <div class="row"><i class="g vs"></i>VS Code<span class="n">≈ 7.3k</span></div>
+          <div class="row"><i class="g ze"></i>Zed<span class="n">≈ 7.3k</span></div>
+          <div class="row"><i class="g ca"></i>Claude.ai<span class="n">—</span></div>
+          <div class="row"><i class="g cd"></i>Claude Desktop<span class="n">—</span></div>
+          <div class="sec">Repositories</div>
+          <div class="row">hanger-ai<span class="n">41</span></div>
+        </div>
+        <div class="main" style="margin-right:0;border-radius:var(--r-plane) 0 0 0">
+          <div><span class="seg"><span class="on">All<small>892</small></span><span>Skills<small>554</small></span><span>MCP servers<small>33</small></span><span>Rules<small>3</small></span><span>Subagents<small>302</small></span></span></div>
+          <div class="strip">
+            <div class="head"><span class="big sm">≈ 13,598</span><span class="sub">tokens every session · Claude Code</span><span class="acts"><span class="gbtn">Measure all</span><span class="ibtn">↻</span><span class="pbtn">Review 84</span></span></div>
+            <div class="meta"><span class="m1">MCP servers ≈ 13,598</span><span>(11 of 17 measured)</span><span>·</span><span>Skills, Rules, Subagents not measured</span></div>
+          </div>
+          <div class="list"><div class="lh"><span>Name</span><span>Reach</span><span>Beyond the store</span></div><div class="li"><span>zoom-out</span><span class="r">In 3 projects</span></div><div class="li"><span>xlsx</span><span class="r">In 3 projects</span></div><div class="li"><span>x-bookmark-quote-posts</span><span class="r">In 3 projects</span></div><div class="li"><span>writing-great-skills</span><span class="r">In 3 projects</span></div><div class="li"><span>workflow-threads-manager</span><span class="r">In 3 projects</span></div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- D: title bar -->
+  <section class="frame" id="d">
+    <h2>D · The engine picker in the window bar</h2>
+    <p class="why">The last part of the window bar's path becomes the picker, like Finder's path or Xcode's scheme menu: <i>My machine › Global › Claude Code ▾</i>. It opens the same ranked menu as B. This saves a whole row, and the scope reads as where you are. The cost: a control in the window bar is less easy to find, and the window bar is also where you drag the window.</p>
+    <div class="win">
+      <div class="bar"><div class="lights"><i></i><i></i><i></i></div><span class="crumb">My machine › Global ›</span><span class="popbtn" style="height:24px;padding:0 8px;border-color:var(--line)"><i class="g cc"></i>Claude Code<span class="chev">▾</span></span></div>
+      <div class="body">
+        <div class="rail"><i></i><i></i><i class="on"></i><i></i><i></i></div>
+        <div class="main">
+          <div><span class="seg"><span class="on">All<small>892</small></span><span>Skills<small>554</small></span><span>MCP servers<small>33</small></span><span>Rules<small>3</small></span><span>Subagents<small>302</small></span></span></div>
+          <div class="strip">
+            <div class="head"><span class="big sm">≈ 13,598</span><span class="sub">tokens every session</span><span class="acts"><span class="gbtn">Measure all</span><span class="ibtn">↻</span><span class="pbtn">Review 84</span></span></div>
+            <div class="meta"><span class="m1">MCP servers ≈ 13,598</span><span>(11 of 17 measured)</span><span>·</span><span>Skills, Rules, Subagents not measured</span></div>
+          </div>
+          <div class="list"><div class="lh"><span>Name</span><span>Beyond the store</span></div><div class="li"><span>zoom-out</span><span class="r">In 3 projects</span></div><div class="li"><span>xlsx</span><span class="r">In 3 projects</span></div><div class="li"><span>x-bookmark-quote-posts</span><span class="r">In 3 projects</span></div><div class="li"><span>writing-great-skills</span><span class="r">In 3 projects</span></div><div class="li"><span>workflow-threads-manager</span><span class="r">In 3 projects</span></div><div class="li"><span>workflow-ship-change</span><span class="r">In 3 projects</span></div></div>
+        </div>
+        <div class="insp">Details panel</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- E: icon segments -->
+  <section class="frame" id="e">
+    <h2>E · One row of engine icons</h2>
+    <p class="why">The engines become one segmented control. Each engine is an icon, and only the selected one shows its name, so the whole set fits on one row at any width and any engine is still one click away. The cost: the three Claude engines (Claude Code, Claude.ai, Claude Desktop) share similar orange marks, so telling them apart relies on hover. It also shows no costs, so it doesn't compare the engines.</p>
+    <div class="win">
+      <div class="bar"><div class="lights"><i></i><i></i><i></i></div><span class="crumb">My machine › Global › <b>Claude Code</b></span></div>
+      <div class="body">
+        <div class="rail"><i></i><i></i><i class="on"></i><i></i><i></i></div>
+        <div class="main">
+          <div><span class="seg"><span class="on">All<small>892</small></span><span>Skills<small>554</small></span><span>MCP servers<small>33</small></span><span>Rules<small>3</small></span><span>Subagents<small>302</small></span></span></div>
+          <div><span class="iseg"><span class="txt">All</span><span class="on"><i class="g cc"></i>Claude Code</span><span><i class="g ca"></i></span><span><i class="g cx"></i></span><span><i class="g ge"></i></span><span><i class="g cd"></i></span><span><i class="g vs"></i></span><span><i class="g cu"></i></span><span><i class="g ze"></i></span><span><i class="g oc"></i></span></span></div>
+          <div class="strip">
+            <div class="head"><span class="big sm">≈ 13,598</span><span class="sub">tokens every session</span><span class="acts"><span class="gbtn">Measure all</span><span class="ibtn">↻</span><span class="pbtn">Review 84</span></span></div>
+            <div class="meta"><span class="m1">MCP servers ≈ 13,598</span><span>(11 of 17 measured)</span><span>·</span><span>Skills, Rules, Subagents not measured</span></div>
+          </div>
+          <div class="list"><div class="lh"><span>Name</span><span>Beyond the store</span></div><div class="li"><span>zoom-out</span><span class="r">In 3 projects</span></div><div class="li"><span>xlsx</span><span class="r">In 3 projects</span></div><div class="li"><span>x-bookmark-quote-posts</span><span class="r">In 3 projects</span></div><div class="li"><span>writing-great-skills</span><span class="r">In 3 projects</span></div></div>
+        </div>
+        <div class="insp">Details panel</div>
+      </div>
+      <span class="tip" style="left:248px;top:152px">Claude.ai</span>
+    </div>
+  </section>
+
+
+  <!-- F: overview card -->
+  <section class="frame" id="f">
+    <h2>F · Overview card, from the window bar <span class="tag">new · after T3</span></h2>
+    <p class="why">The page keeps only the kind tabs, so the list starts right under them. Everything about scope and cost moves into one card that drops from a button at the right of the window bar, the way T3's session card does. The card has three parts. <b>Engines</b> ranks every engine by its cost, with a thin meter bar each, and clicking one picks it. <b>The chosen engine</b> shows its total and one meter for each kind, with dashed bars for kinds that aren't measured yet. <b>Actions</b> holds Needs review and Rescan. The breadcrumb names the engine you're looking at. The card opens instantly, ⌘E toggles it, and Esc closes it.</p>
+    <div class="win">
+      <div class="bar"><div class="lights"><i></i><i></i><i></i></div><span class="crumb">My machine › Global › <b>Claude Code</b></span><span class="tbtns"><span class="tbtn on"><svg viewBox="0 0 16 16"><rect x="2.5" y="2.5" width="11" height="11" rx="2"/><path d="M5 5.5h6M5 8h6M5 10.5h4"/></svg></span><span class="tbtn"><svg viewBox="0 0 16 16"><rect x="2" y="2.5" width="12" height="11" rx="2"/><path d="M10 2.5v11"/></svg></span></span></div>
+      <div class="body">
+        <div class="rail"><i></i><i></i><i class="on"></i><i></i><i></i></div>
+        <div class="main"><div><span class="seg"><span class="on">All<small>892</small></span><span>Skills<small>554</small></span><span>MCP servers<small>33</small></span><span>Rules<small>3</small></span><span>Subagents<small>302</small></span></span></div><div class="list"><div class="lh"><span>Name</span><span>Beyond the store</span></div><div class="gh">Skills · 554</div><div class="li"><span>zoom-out</span><span class="r">In 3 projects</span></div><div class="li"><span>xlsx</span><span class="r">In 3 projects</span></div><div class="li"><span>x-bookmark-quote-posts</span><span class="r">In 3 projects</span></div><div class="li"><span>writing-great-skills</span><span class="r">In 3 projects</span></div><div class="li"><span>workflow-threads-manager</span><span class="r">In 3 projects</span></div><div class="li"><span>workflow-ship-change</span><span class="r">In 3 projects</span></div><div class="li"><span>workflow-score-to-target</span><span class="r">In 3 projects</span></div><div class="li"><span>web-perf</span><span class="r">In 3 projects</span></div><div class="li"><span>webgl-laser</span><span class="r">In 3 projects</span></div><div class="li"><span>web-launch-checklist</span><span class="r">In 3 projects</span></div><div class="li"><span>vercel-react-best-practices</span><span class="r">In 3 projects</span></div></div></div>
+        <div class="insp">Details panel</div>
+      </div>
+      <div class="card float" style="right:8px;top:38px"><div class="sec"><div class="sh"><b>Engines</b><span>tokens every session</span></div><div class="mrow"><span></span><span class="nm">All engines</span><span></span><span class="val">892 assets</span></div><div class="mrow sel"><i class="g cc"></i><span class="nm">Claude Code</span><span class="track"><i style="width:100%"></i></span><span class="val">≈ 13.6k</span></div><div class="mrow"><i class="g cx"></i><span class="nm">Codex</span><span class="track"><i style="width:73%"></i></span><span class="val">≈ 10.0k</span></div><div class="mrow"><i class="g ge"></i><span class="nm">Gemini / Antigravity</span><span class="track"><i style="width:72%"></i></span><span class="val">≈ 9.7k</span></div><div class="mrow"><i class="g oc"></i><span class="nm">OpenCode</span><span class="track"><i style="width:69%"></i></span><span class="val">≈ 9.4k</span></div><div class="mrow"><i class="g cu"></i><span class="nm">Cursor</span><span class="track"><i style="width:56%"></i></span><span class="val">≈ 7.7k</span></div><div class="mrow"><i class="g vs"></i><span class="nm">VS Code</span><span class="track"><i style="width:54%"></i></span><span class="val">≈ 7.3k</span></div><div class="mrow"><i class="g ze"></i><span class="nm">Zed</span><span class="track"><i style="width:54%"></i></span><span class="val">≈ 7.3k</span></div><div class="mrow"><i class="g ca"></i><span class="nm">Claude.ai</span><span class="track none"></span><span class="val nm">Not measured</span></div><div class="mrow"><i class="g cd"></i><span class="nm">Claude Desktop</span><span class="track none"></span><span class="val nm">Not measured</span></div></div><div class="sec"><div class="sh"><b>Claude Code</b><span>11 of 17 servers measured</span></div><div class="bigline"><span class="n">≈ 13,598</span><span class="t">tokens</span><span class="gbtn">Measure all</span></div><div class="mrow k"><span class="nm">MCP servers</span><span class="track"><i style="width:100%"></i></span><span class="val">≈ 13,598</span></div><div class="mrow k"><span class="nm">Skills</span><span class="track none"></span><span class="val nm">Not measured</span></div><div class="mrow k"><span class="nm">Rules</span><span class="track none"></span><span class="val nm">Not measured</span></div><div class="mrow k"><span class="nm">Subagents</span><span class="track none"></span><span class="val nm">Not measured</span></div></div><div class="sec"><div class="arow"><span class="ic">⚑</span>Needs review<span class="r">84 ›</span></div><div class="arow"><span class="ic">↻</span>Rescan<span class="r">2 min ago</span></div></div></div>
+    </div>
+  </section>
+
+  <!-- G: pinned -->
+  <section class="frame" id="g">
+    <h2>G · The same card, pinned <span class="tag">new · after T3</span></h2>
+    <p class="why">The second window-bar button pins the card into the right column, like T3's pinned session panel. That's the column's resting state when nothing is selected, which today is an empty "Details panel". Selecting an asset shows its details in that column, and Esc or deselecting brings the overview back. Tick marks to the left of the list stand for its groups (Skills, MCP servers, Rules, Subagents, Switched off, Not loaded). The dark tick is the group in view. Hover a tick for its name and count, and click it to jump there.</p>
+    <div class="win">
+      <div class="bar"><div class="lights"><i></i><i></i><i></i></div><span class="crumb">My machine › Global › <b>Claude Code</b></span><span class="tbtns"><span class="tbtn"><svg viewBox="0 0 16 16"><rect x="2.5" y="2.5" width="11" height="11" rx="2"/><path d="M5 5.5h6M5 8h6M5 10.5h4"/></svg></span><span class="tbtn on"><svg viewBox="0 0 16 16"><rect x="2" y="2.5" width="12" height="11" rx="2"/><path d="M10 2.5v11"/></svg></span></span></div>
+      <div class="body pinned">
+        <div class="rail"><i></i><i></i><i class="on"></i><i></i><i></i></div>
+        <div class="main"><div><span class="seg"><span class="on">All<small>892</small></span><span>Skills<small>554</small></span><span>MCP servers<small>33</small></span><span>Rules<small>3</small></span><span>Subagents<small>302</small></span></span></div><div class="glist"><div class="mini" title="Jump to a group"><i class="on"></i><i></i><i></i><i></i><i class="gap"></i><i></i><i></i><i class="gap"></i><i></i><i class="gap"></i><i></i><i></i><i></i><i class="gap"></i><i></i></div><div class="list"><div class="lh"><span>Name</span><span>Beyond the store</span></div><div class="gh">Skills · 554</div><div class="li"><span>zoom-out</span><span class="r">In 3 projects</span></div><div class="li"><span>xlsx</span><span class="r">In 3 projects</span></div><div class="li"><span>x-bookmark-quote-posts</span><span class="r">In 3 projects</span></div><div class="li"><span>writing-great-skills</span><span class="r">In 3 projects</span></div><div class="li"><span>workflow-threads-manager</span><span class="r">In 3 projects</span></div><div class="li"><span>workflow-ship-change</span><span class="r">In 3 projects</span></div><div class="li"><span>workflow-score-to-target</span><span class="r">In 3 projects</span></div><div class="li"><span>web-perf</span><span class="r">In 3 projects</span></div><div class="li"><span>webgl-laser</span><span class="r">In 3 projects</span></div><div class="li"><span>web-launch-checklist</span><span class="r">In 3 projects</span></div><div class="li"><span>vercel-react-best-practices</span><span class="r">In 3 projects</span></div></div></div></div>
+        <div class="pincol"><div class="card"><div class="sec"><div class="sh"><b>Engines</b><span>tokens every session</span></div><div class="mrow"><span></span><span class="nm">All engines</span><span></span><span class="val">892 assets</span></div><div class="mrow sel"><i class="g cc"></i><span class="nm">Claude Code</span><span class="track"><i style="width:100%"></i></span><span class="val">≈ 13.6k</span></div><div class="mrow"><i class="g cx"></i><span class="nm">Codex</span><span class="track"><i style="width:73%"></i></span><span class="val">≈ 10.0k</span></div><div class="mrow"><i class="g ge"></i><span class="nm">Gemini / Antigravity</span><span class="track"><i style="width:72%"></i></span><span class="val">≈ 9.7k</span></div><div class="mrow"><i class="g oc"></i><span class="nm">OpenCode</span><span class="track"><i style="width:69%"></i></span><span class="val">≈ 9.4k</span></div><div class="mrow"><i class="g cu"></i><span class="nm">Cursor</span><span class="track"><i style="width:56%"></i></span><span class="val">≈ 7.7k</span></div><div class="mrow"><i class="g vs"></i><span class="nm">VS Code</span><span class="track"><i style="width:54%"></i></span><span class="val">≈ 7.3k</span></div><div class="mrow"><i class="g ze"></i><span class="nm">Zed</span><span class="track"><i style="width:54%"></i></span><span class="val">≈ 7.3k</span></div><div class="mrow"><i class="g ca"></i><span class="nm">Claude.ai</span><span class="track none"></span><span class="val nm">Not measured</span></div><div class="mrow"><i class="g cd"></i><span class="nm">Claude Desktop</span><span class="track none"></span><span class="val nm">Not measured</span></div></div><div class="sec"><div class="sh"><b>Claude Code</b><span>11 of 17 servers measured</span></div><div class="bigline"><span class="n">≈ 13,598</span><span class="t">tokens</span><span class="gbtn">Measure all</span></div><div class="mrow k"><span class="nm">MCP servers</span><span class="track"><i style="width:100%"></i></span><span class="val">≈ 13,598</span></div><div class="mrow k"><span class="nm">Skills</span><span class="track none"></span><span class="val nm">Not measured</span></div><div class="mrow k"><span class="nm">Rules</span><span class="track none"></span><span class="val nm">Not measured</span></div><div class="mrow k"><span class="nm">Subagents</span><span class="track none"></span><span class="val nm">Not measured</span></div></div><div class="sec"><div class="arow"><span class="ic">⚑</span>Needs review<span class="r">84 ›</span></div><div class="arow"><span class="ic">↻</span>Rescan<span class="r">2 min ago</span></div></div></div></div>
+      </div>
+      <span class="tip" style="left:96px;top:104px">Skills · 554</span>
+    </div>
+  </section>
+  <h2 style="margin-top:40px;font-size:var(--fs-lg)">Shared by B–G</h2>
+  <div class="cols">
+    <div><b>Two-line summary.</b> The figure and its label sit on one line, with the actions to the right. Below that, one line: the MCP part plus the parts not measured yet. Today's version takes four lines.</div>
+    <div><b>No count is worked out on screen.</b> The menu figures are the same backend totals the summary uses, and the "892 assets" for All engines is the store total.</div>
+    <div><b>Instant.</b> The menu and the selection change with no animation, because they're used many times a day. A press still scales slightly (0.97) for feedback.</div>
+    <div><b>Keyboard.</b> ⌘E opens the engine menu; type to filter, use ↑↓ and Return. The kind tabs keep ←→.</div>
+  </div>
+</div>
+</body>
+</html>
