@@ -33,6 +33,7 @@ import { SwitchNoticePill } from "./SwitchNotice";
 import FavouriteHeart from "./FavouriteHeart";
 import LayerSwitch from "./LayerSwitch";
 import AllEnginesSwitch from "./AllEnginesSwitch";
+import HeaderSwitch from "./HeaderSwitch";
 import MarkdownDoc from "./MarkdownDoc";
 import type { Block } from "../utils/skillDocument";
 import { captionClass, sectionHeadClass } from "./typeRoles";
@@ -64,6 +65,7 @@ import EmptyState from "./EmptyState";
 import EditorPicker from "./EditorPicker";
 import EditorSetting from "./EditorSetting";
 import type { StateFilter } from "../utils/linkStateCounts";
+import { skillStateLabel, skillSwitchLabel } from "../utils/switchCopy";
 import {
   type DesignSectionId,
   SAMPLE_ANNOTATION,
@@ -91,6 +93,7 @@ import {
   SAMPLE_SEGMENTS,
   SAMPLE_SWITCH_NOTICES,
   SAMPLE_ALL_ENGINES_HEADERS,
+  SAMPLE_SKILL_HEADERS,
   SAMPLE_TABS,
 } from "../data/designSystemFixtures";
 
@@ -267,6 +270,30 @@ function AllEnginesSwitchSpecimen() {
           <span className={sampleHeaderTitleClass}>{server}</span>
           <span className={sampleHeaderChipClass}>{transport}</span>
           <AllEnginesSwitch server={server} state={state} pending={false} onToggle={() => {}} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** A store skill's inspector header with its On/Off switch: On, Off, and
+ *  pending while its request runs. The words are `switchCopy`'s, as the
+ *  inspector's are; the title class is `Flyout.tsx`'s header, as above. */
+function HeaderSwitchSpecimen() {
+  return (
+    <div className="w-[384px] flex flex-col gap-3">
+      {SAMPLE_SKILL_HEADERS.map(({ skill, on, pending }) => (
+        <div key={skill} className="flex items-center gap-2 min-w-0">
+          <span className={sampleHeaderTitleClass}>{skill}</span>
+          <HeaderSwitch
+            testId="sample-header-switch"
+            label={skillSwitchLabel(skill, on)}
+            pressed={on}
+            on={on}
+            stateWord={skillStateLabel(on)}
+            pending={pending}
+            onToggle={() => {}}
+          />
         </div>
       ))}
     </div>
@@ -1222,6 +1249,10 @@ export default function DesignSystemPane({ section }: DesignSystemPaneProps) {
 
           <Specimen name="AllEnginesSwitch" file="AllEnginesSwitch.tsx" note="the MCP server inspector's header with its switch for every engine: On, On in some, Off. The button is named for what it does, carries aria-pressed (mixed for On in some) and is disabled while its group runs; the switches here are samples and do nothing">
             <AllEnginesSwitchSpecimen />
+          </Specimen>
+
+          <Specimen name="HeaderSwitch" file="HeaderSwitch.tsx" note="the switch at the end of an inspector header, here a store skill's: On, Off, and pending while its request runs. AllEnginesSwitch above is the same switch with an MCP server's words. The button is named for what a click does and carries aria-pressed; the switches here are samples and do nothing">
+            <HeaderSwitchSpecimen />
           </Specimen>
 
           <Specimen name="SwitchNotice" file="SwitchNotice.tsx" note="the pill without its fixed band and status region; a switch with its Undo, and a failure. It stays until dismissed or replaced, because it carries Undo — the buttons here are samples and do nothing">

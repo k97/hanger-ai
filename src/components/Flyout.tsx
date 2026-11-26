@@ -14,12 +14,22 @@ import type { AssetAnnotationView } from "./AssetRow";
 import McpServerDetail, { type RegistrationSwitch } from "./McpServerDetail";
 import LayerSwitch from "./LayerSwitch";
 import AllEnginesSwitch from "./AllEnginesSwitch";
+import HeaderSwitch from "./HeaderSwitch";
 import Tooltip from "./Tooltip";
 import EngineLabel from "./EngineLabel";
 import ListCard from "./ListCard";
 import { busyKeyOf, type McpSwitch } from "../hooks/useMcpSwitch";
 import type { EngineContext, KeptOffServer } from "../types/engineContext";
-import { alsoDeclaredLine, mechanismLine, SHOW_DECLARED, switchedOffLine } from "../utils/switchCopy";
+import {
+  alsoDeclaredLine,
+  mechanismLine,
+  SHOW_DECLARED,
+  skillReadOnlyLine,
+  skillStateLabel,
+  skillSwitchLabel,
+  switchedOffLine,
+} from "../utils/switchCopy";
+import type { SkillSwitchInfo } from "../types/skillSwitch";
 import { allEnginesRequests, allEnginesState, serverSwitchTargets, stillOnEngines } from "../utils/switchTargets";
 import { timeAgo } from "../utils/timeAgo";
 import BrandIcon from "./BrandIcon";
@@ -114,6 +124,10 @@ interface FlyoutProps {
    *  declared server's own inspector. Absent when App found no such server
    *  in the inventory; the line then stands alone. */
   onShowDeclared?: () => void;
+  /** A store skill switched off from its header: the kept skill's
+   *  `kept-skill:` key, for App to open its panel in place of the skill,
+   *  which is no longer in the store. */
+  onSkillKept?: (key: string) => void;
 }
 
 interface RuleSection {
@@ -262,6 +276,7 @@ export default function Flyout({
   keptServer = null,
   onEngineContext,
   onShowDeclared,
+  onSkillKept,
 }: FlyoutProps) {
   const [linking, setLinking] = useState<FlatAssetItem | null>(null);
 
@@ -795,6 +810,43 @@ export default function Flyout({
     });
   };
 
+  /* A store skill's On/Off switch (docs/plans/2026-11-26-skill-switch.md,
+     Task 8). `get_skill_switch` says whether the selected skill is in the
+     global store and why it has no switch if not; it is read for the path
+     on selection and again after every switch or Undo (the notice changes
+     with each), so a skill switched off loses its switch and one put back
+     gets it again. Nothing is drawn for a path until its own answer lands.
+     The label names the skill by its folder, from the backend's key. */
+  const skillPath =
+    !linking && switcher && targetAsset && targetAsset.category === "Skills" ? targetAsset.path : null;
+  const [skillAnswer, setSkillAnswer] = useState<{ path: string; info: SkillSwitchInfo | null } | null>(null);
+  const switchNotice = switcher?.notice ?? null;
+  useEffect(() => {
+    if (skillPath === null) return;
+    let cancelled = false;
+    invoke<SkillSwitchInfo | null>("get_skill_switch", { skillPath })
+      .then((info) => {
+        if (!cancelled) setSkillAnswer({ path: skillPath, info: info ?? null });
+      })
+      .catch(() => {
+        if (!cancelled) setSkillAnswer({ path: skillPath, info: null });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [skillPath, switchNotice]);
+  const skillInfo = skillPath !== null && skillAnswer?.path === skillPath ? skillAnswer.info : null;
+  const skillFolder = skillInfo ? skillInfo.key.slice("skill:".length) : "";
+  const skillPending = skillInfo ? switcher?.busyKeys.has(busyKeyOf("skills", skillInfo.key)) ?? false : false;
+  const switchSkillOff = () => {
+    if (!skillInfo || !switcher) return;
+    void switcher.switchSkill({ key: skillInfo.key, skillName: skillFolder, enabled: false }).then((reply) => {
+      if (!reply || reply.receipt_id === null || !reply.receipt_id.startsWith("kept:")) return;
+      const kept = reply.kept.skills.find((k) => k.key === `kept-skill:${reply.receipt_id!.slice("kept:".length)}`);
+      if (kept) onSkillKept?.(kept.key);
+    });
+  };
+
   /* Whether the eyebrow row has anything left to say. A selected asset's own
      kind · place moved to the cap, so `targetAsset` alone no longer earns
      the row; linking (the "Back to" nav), a bubble scope with no asset
@@ -889,7 +941,25 @@ export default function Flyout({
               onToggle={switchEveryEngine}
             />
           )}
+          {skillInfo && skillInfo.read_only === null && (
+            <HeaderSwitch
+              testId="skill-header-switch"
+              label={skillSwitchLabel(skillFolder, true)}
+              pressed
+              on
+              stateWord={skillStateLabel(true)}
+              pending={skillPending}
+              onToggle={switchSkillOff}
+            />
+          )}
         </div>
+        )}
+        {/* A store skill Hanger shows and doesn't switch says why, under its
+            name, where the switch would be. */}
+        {skillInfo && skillInfo.read_only !== null && (
+          <p data-testid="skill-read-only" className={captionClass}>
+            {skillReadOnlyLine(skillInfo.read_only)}
+          </p>
         )}
         {/* The transport has its own row under the name (Karthik, 2026-11-26).
             In the title row a remote server's full URL could not shrink: it

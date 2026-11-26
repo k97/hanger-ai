@@ -296,6 +296,15 @@ export const SAMPLE_ALL_ENGINES_HEADERS: { server: string; transport: string; st
   { server: "context7", transport: "mcp.context7.com", state: "off" },
 ];
 
+/** A store skill's inspector header switch (`HeaderSwitch`), On, Off and
+ *  pending, each on its own sample skill: names no store holds, so no
+ *  specimen shares a name with a real skill's switch. */
+export const SAMPLE_SKILL_HEADERS: { skill: string; on: boolean; pending: boolean }[] = [
+  { skill: "sample-skill-on", on: true, pending: false },
+  { skill: "sample-skill-off", on: false, pending: false },
+  { skill: "sample-skill-busy", on: true, pending: true },
+];
+
 // The backend's match markers (private-use U+E000/U+E001), written as escapes
 // rather than the literal characters so they read here as what they are.
 const MARK_OPEN = "\uE000";

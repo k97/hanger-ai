@@ -1390,7 +1390,8 @@ it, and nothing is selected. Pinned by `kept_inspector.test.tsx`.
 **The transport row** (`Flyout.tsx`, `data-testid="inspector-transport"`). An MCP server's transport chip has its own row under the name (Karthik, 2026-11-26): in the title row a remote server's full URL could not shrink, squeezed the name to nothing and pushed the header switch out of view. The chip is `truncate` within the column's width, and the whole transport shows on hover in the shared `Tooltip` (`placement="bottom"`). Pinned by `FlyoutAllEnginesSwitch.test.tsx`.
 
 **The switch for every engine** (`Flyout.tsx`, the header row;
-`AllEnginesSwitch.tsx`). An MCP server's header — a declared server's or a
+`AllEnginesSwitch.tsx`, which draws through `HeaderSwitch.tsx`, the header
+switch a store skill's On/Off uses too). An MCP server's header — a declared server's or a
 kept one's — ends in one switch that covers every engine
 (`docs/plans/2026-11-25-decisions-round-5.md`, `-round-6.md`, approved
 2026-11-25), pushed right by `ml-auto` after the name (`min-w-0`, so a long name truncates before the switch moves),
