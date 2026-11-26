@@ -291,9 +291,11 @@ describe("ProfilePane Component-Level Filtering Integration", () => {
 
     // Both halves: the action reads unpressed AND the list it gates is
     // unfiltered. Asserting only the row would pass a reset that left the
-    // control lit. The popover is still open — the pill is not clicked again
-    // here, because clicking it would close it.
-    expect(cardPill(overview, 1)).toBeTruthy();
+    // control lit. The tab clicks were presses outside the overview
+    // popover, which closes on them (shadcn's Popover on Base UI, Task 2 of
+    // docs/plans/2026-11-26-global-list.md), so the card is opened again to
+    // read the action.
+    fireEvent.click(cardPill(openOverview(), 1));
     expect(screen.getByText("Show disagreeing servers").getAttribute("aria-pressed")).toBe("false");
     expect(screen.getByText("spades")).toBeTruthy();
     expect(screen.getByText("tauri")).toBeTruthy();

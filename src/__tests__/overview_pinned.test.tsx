@@ -1,10 +1,11 @@
 // @vitest-environment happy-dom
-/** The overview card pinned into the inspector, and Esc bringing it back
- *  (Task 6 of docs/plans/2026-11-26-overview-card.md, on the amendment's
- *  slot design). Pinned on Global with nothing selected, the inspector's
- *  empty state is the card. Esc on Global clears the inspector's selection
- *  so the card returns (round 14 q4), unless something open took the Esc
- *  first: a menu, a popover, the search palette (Review Focus 4). */
+/** Esc on Global (Task 6 of docs/plans/2026-11-26-overview-card.md): it
+ *  clears the inspector's selection (round 14 q4), unless something open
+ *  took the Esc first: a menu, a popover, the search palette (Review Focus
+ *  4). The file is named for the pin these tests were written beside; the
+ *  pin and its four tests went with Task 2 of
+ *  docs/plans/2026-11-26-global-list.md, and overview_dock.test.tsx pins
+ *  that Esc still clears the selection. */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, waitFor, cleanup, within } from "@testing-library/react";
 import App from "../App";
@@ -126,7 +127,6 @@ const named = (label: string) => label.replace(/\s+/g, " ");
 const SHOW = named("Show overview  ⌘E");
 const cap = () => document.querySelector("main > header") as HTMLElement;
 const aside = () => document.querySelector("aside") as HTMLElement | null;
-const pinnedCard = () => aside()?.querySelector('[data-testid="overview-card"]') ?? null;
 const popover = () => screen.queryByRole("dialog", { name: "Overview" });
 /** The inspector renders a tab row only while it has a subject. */
 const inspecting = () => screen.queryByRole("tablist", { name: "Inspector view" }) !== null;
@@ -149,62 +149,8 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
-describe("pinned in the inspector", () => {
-  it("on Global with nothing selected, the inspector shows the card, not Nothing selected", async () => {
-    mockPreferences.overview_pinned = "true";
-    render(<App />);
-    await screen.findByText("Claude Math Skill");
-    await waitFor(() => expect(pinnedCard()).not.toBeNull());
-    expect(within(aside()!).queryByText("Nothing selected")).toBeNull();
-    // Pinned, the window bar carries no button and opens no popover.
-    expect(within(cap()).queryByRole("button", { name: SHOW })).toBeNull();
-    expect(popover()).toBeNull();
-  });
-
-  it("selecting an asset shows its details; Esc clears the selection and the card returns", async () => {
-    mockPreferences.overview_pinned = "true";
-    render(<App />);
-    fireEvent.click(await screen.findByText("Claude Math Skill"));
-    await waitFor(() => expect(inspecting()).toBe(true));
-    expect(pinnedCard()).toBeNull();
-    pressEsc(document.body);
-    await waitFor(() => expect(inspecting()).toBe(false));
-    expect(pinnedCard()).not.toBeNull();
-  });
-
-  it("pinning from the popover opens a closed inspector, persists overview_pinned, and survives a remount", async () => {
-    mockPreferences.inspector_open = "false";
-    const first = render(<App />);
-    await screen.findByText("Claude Math Skill");
-    fireEvent.click(await waitFor(() => within(cap()).getByRole("button", { name: SHOW })));
-    fireEvent.click(within(popover()!).getByRole("button", { name: "Pin to the inspector" }));
-    await waitFor(() => expect(pinnedCard()).not.toBeNull());
-    expect(popover()).toBeNull();
-    expect(mockPreferences.overview_pinned).toBe("true");
-    expect(mockPreferences.inspector_open).toBe("true");
-
-    first.unmount();
-    render(<App />);
-    await screen.findByText("Claude Math Skill");
-    await waitFor(() => expect(pinnedCard()).not.toBeNull());
-  });
-
-  it("unpinning from the card returns it to the window bar and the inspector to Nothing selected", async () => {
-    mockPreferences.overview_pinned = "true";
-    render(<App />);
-    await screen.findByText("Claude Math Skill");
-    await waitFor(() => expect(pinnedCard()).not.toBeNull());
-    fireEvent.click(within(pinnedCard() as HTMLElement).getByRole("button", { name: "Unpin from the inspector" }));
-    await waitFor(() => expect(pinnedCard()).toBeNull());
-    expect(mockPreferences.overview_pinned).toBe("false");
-    expect(within(aside()!).getByText("Nothing selected")).toBeTruthy();
-    expect(within(cap()).getByRole("button", { name: SHOW })).toBeTruthy();
-  });
-});
-
 describe("Esc leaves the selection alone when something else takes it (Review Focus 4)", () => {
   it("with the inspector's More actions menu open, Esc closes the menu and keeps the asset", async () => {
-    mockPreferences.overview_pinned = "true";
     render(<App />);
     fireEvent.click(await screen.findByText("Claude Math Skill"));
     await waitFor(() => expect(inspecting()).toBe(true));
@@ -214,11 +160,9 @@ describe("Esc leaves the selection alone when something else takes it (Review Fo
     pressEsc(more);
     await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
     expect(inspecting()).toBe(true);
-    expect(pinnedCard()).toBeNull();
   });
 
   it("with the search palette open, Esc closes the palette and keeps the asset", async () => {
-    mockPreferences.overview_pinned = "true";
     render(<App />);
     fireEvent.click(await screen.findByText("Claude Math Skill"));
     await waitFor(() => expect(inspecting()).toBe(true));
@@ -260,7 +204,6 @@ describe("Esc leaves the selection alone when something else takes it (Review Fo
 
 describe("Esc typed into a text field", () => {
   it("on Global, with an asset selected, Esc in a text input leaves the selection alone", async () => {
-    mockPreferences.overview_pinned = "true";
     render(<App />);
     fireEvent.click(await screen.findByText("Claude Math Skill"));
     await waitFor(() => expect(inspecting()).toBe(true));
@@ -271,8 +214,7 @@ describe("Esc typed into a text field", () => {
       pressEsc(input);
       await new Promise((r) => setTimeout(r, 0));
       expect(inspecting()).toBe(true);
-      expect(pinnedCard()).toBeNull();
-    } finally {
+      } finally {
       input.remove();
     }
   });

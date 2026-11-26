@@ -20,14 +20,16 @@ interface GelMeterProps {
   /** Read to assistive tech in place of the painted bar. */
   label: string;
   /** `gel`, the default: the glossed gel, aqua where a segment asks.
-   *  `rank`: one plain --ink-1 bar with no gloss and no aqua, for a figure
-   *  ranked against its neighbours rather than a share of a whole — the
-   *  overview card's engines and kinds (round 14 q1,
-   *  docs/plans/2026-11-26-decisions-round-14.md). */
-  tone?: "gel" | "rank";
+   *  `line`: T3 Code's usage meter (`ThreadDetailsUsage.tsx`), for the
+   *  overview card's kind rows (Task 2 of
+   *  docs/plans/2026-11-26-global-list.md): a 3px bar on a --line-2 track,
+   *  one --ink-1 fill with no gloss and no aqua, and a 1px tick at the
+   *  fill's end. It draws the first segment only: a figure against a whole,
+   *  not shares of one. */
+  tone?: "gel" | "line";
   /** Given, each segment is sized as its value's share of `max` instead of
-   *  sharing the track with the others: a ranked bar is the engine's figure
-   *  over the heaviest engine's. A width ratio, not a count. */
+   *  sharing the track with the others: the line tone's figure over its
+   *  whole. A width ratio, not a count. */
   max?: number;
 }
 
@@ -38,11 +40,33 @@ interface GelMeterProps {
  *
  * The glass is painted, not cast: stacked background-image gradients from
  * the tokens --gel-gloss, --gel-aqua and --bar-track, because the system
- * has exactly one elevation and this is not it. The rank tone is the one
- * fill that is not glass: flat ink on the same track.
+ * has exactly one elevation and this is not it. The line tone is the one
+ * meter that is not glass: a thin bar in flat ink.
  */
 export default function GelMeter({ segments, label, tone = "gel", max }: GelMeterProps) {
-  const rank = tone === "rank";
+  const widthOf = (value: number) =>
+    max !== undefined && max > 0 ? `${Math.min(100, (value / max) * 100)}%` : undefined;
+  if (tone === "line") {
+    const seg = segments.find((s) => s.value > 0);
+    const width = seg ? widthOf(seg.value) ?? "100%" : null;
+    return (
+      <div role="img" aria-label={label} className="relative h-[3px] rounded-pill bg-line-2">
+        {width !== null && (
+          <>
+            <span data-meter-fill className="absolute inset-y-0 left-0 rounded-pill bg-ink-1" style={{ width }} />
+            {/* The end tick, as T3 marks a bar: 9px tall, centred on the
+                fill's end, and kept inside the track at 100%. */}
+            <span
+              data-meter-tick
+              aria-hidden="true"
+              className="absolute -top-[3px] w-px h-[9px] -translate-x-1/2 bg-ink-1"
+              style={{ left: width }}
+            />
+          </>
+        )}
+      </div>
+    );
+  }
   return (
     <div
       role="img"
@@ -55,18 +79,10 @@ export default function GelMeter({ segments, label, tone = "gel", max }: GelMete
           value > 0 && (
             <span
               key={key}
-              className={`block h-full rounded-pill ${rank ? "bg-ink-1" : barClass ?? ""}`}
+              className={`block h-full rounded-pill ${barClass ?? ""}`}
               style={{
-                ...(max !== undefined && max > 0
-                  ? { width: `${Math.min(100, (value / max) * 100)}%` }
-                  : { flex: value }),
-                // Unset for the rank tone: flat ink, never the gloss or the
-                // aqua, whatever a segment asks for.
-                backgroundImage: rank
-                  ? undefined
-                  : aqua
-                    ? "var(--gel-gloss), var(--gel-aqua)"
-                    : "var(--gel-gloss)",
+                ...(widthOf(value) !== undefined ? { width: widthOf(value) } : { flex: value }),
+                backgroundImage: aqua ? "var(--gel-gloss), var(--gel-aqua)" : "var(--gel-gloss)",
               }}
             />
           )

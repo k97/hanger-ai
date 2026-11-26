@@ -4,7 +4,13 @@
  *  hook). App draws an empty slot in the content cap on Global; ProfilePane
  *  portals its button there and the card's popover to document.body, fed by
  *  the figures the strip already gets. ⌘E toggles it, Esc closes it, and
- *  ⌘E typed into a text field does nothing (Review Focus 3). */
+ *  ⌘E typed into a text field does nothing (Review Focus 3).
+ *
+ *  Since Task 2 of docs/plans/2026-11-26-global-list.md the card docks when
+ *  the pane has room, and the popover is what it does when it has not. App
+ *  takes no `forceDock`, so these run at a measured 900px pane, too narrow
+ *  to dock (`notDocked()`): the not-docked case. The docked case is at the
+ *  end. */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, waitFor, cleanup, act, within } from "@testing-library/react";
 import App from "../App";
@@ -104,7 +110,31 @@ beforeEach(() => {
     inspector_open: "false",
   };
 });
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.unstubAllGlobals();
+});
+
+/** A ResizeObserver that reports `width` for whatever it observes, once,
+ *  as a real one does on observe(). happy-dom's never fires. */
+function stubPaneWidth(width: number) {
+  vi.stubGlobal(
+    "ResizeObserver",
+    class {
+      cb: ResizeObserverCallback;
+      constructor(cb: ResizeObserverCallback) {
+        this.cb = cb;
+      }
+      observe(el: Element) {
+        this.cb([{ target: el, contentRect: { width } } as unknown as ResizeObserverEntry], this as unknown as ResizeObserver);
+      }
+      unobserve() {}
+      disconnect() {}
+    }
+  );
+}
+/** App's `forceDock={false}`: a pane too narrow to dock the card. */
+const notDocked = () => stubPaneWidth(900);
 
 describe("the overview button in the content cap", () => {
   it("is on Global, labelled Show overview  ⌘E", async () => {
@@ -138,6 +168,7 @@ describe("the overview button in the content cap", () => {
   });
 
   it("opens the card in a dialog and relabels itself Hide overview  ⌘E; pressed again, closes it", async () => {
+    notDocked();
     render(<App />);
     await completeScan();
     fireEvent.click(await waitFor(() => overviewButton()));
@@ -155,6 +186,7 @@ describe("the overview button in the content cap", () => {
 
 describe("⌘E and Esc", () => {
   it("⌘E toggles the card, and Esc closes it", async () => {
+    notDocked();
     render(<App />);
     await completeScan();
     await waitFor(() => expect(overviewButton()).toBeTruthy());
@@ -189,6 +221,7 @@ describe("⌘E and Esc", () => {
 
 describe("the card in the popover", () => {
   it("picking an engine changes the engine, persisted as selected_engine, and keeps the card open", async () => {
+    notDocked();
     render(<App />);
     await completeScan();
     fireEvent.click(await waitFor(() => overviewButton()));
@@ -200,5 +233,25 @@ describe("the card in the popover", () => {
     const open = dialog();
     expect(open).not.toBeNull();
     expect(open!.querySelector('[data-engine-name="Engine C"]')!.getAttribute("aria-current")).toBe("true");
+  });
+});
+
+describe("docked (a pane wide enough, no inspector)", () => {
+  it("draws the card in the pane, not a dialog; the button reads Hide overview  ⌘E and hides it, and ⌘E shows it again", async () => {
+    stubPaneWidth(1400);
+    render(<App />);
+    await completeScan();
+    const docked = () => document.querySelector('[data-testid="overview-dock"]');
+    await waitFor(() => expect(docked()).not.toBeNull());
+    expect(dialog()).toBeNull();
+    const hide = within(cap()).getByRole("button", { name: named(HIDE) });
+    expect(hide.getAttribute("aria-pressed")).toBe("true");
+    fireEvent.click(hide);
+    await waitFor(() => expect(docked()).toBeNull());
+    expect(dialog()).toBeNull();
+    expect(overviewButton().getAttribute("aria-pressed")).toBe("false");
+    pressCmdE();
+    await waitFor(() => expect(docked()).not.toBeNull());
+    expect(dialog()).toBeNull();
   });
 });

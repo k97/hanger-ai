@@ -130,6 +130,9 @@
   --radius-pill: var(--radius-pill);
   --radius-control: var(--radius-control);
 
+  /* ── Blur: the overview card's frost (`backdrop-blur-frost`) ── */
+  --blur-frost: var(--frost-blur);
+
   /* ── Motion ── */
   --ease-spring: var(--spring);
 }

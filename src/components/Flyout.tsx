@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, type ReactNode } from "react";
+import { useState, useRef, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import {
@@ -133,12 +133,6 @@ interface FlyoutProps {
    *  Skills "Switched off" group. Out of the store, it has no inventory
    *  asset, so App passes it in place of `selectedAsset`, never with one. */
   keptSkill?: KeptSkill | null;
-  /** Drawn in place of "Nothing selected" when nothing is selected. App
-   *  passes it on Global while the overview card is pinned: the slot
-   *  ProfilePane portals the card into (Task 6 of
-   *  docs/plans/2026-11-26-overview-card.md). Absent, the empty state is
-   *  "Nothing selected". */
-  emptyState?: ReactNode;
 }
 
 interface RuleSection {
@@ -289,7 +283,6 @@ export default function Flyout({
   onShowDeclared,
   onSkillKept,
   keptSkill = null,
-  emptyState,
 }: FlyoutProps) {
   const [linking, setLinking] = useState<FlatAssetItem | null>(null);
 
@@ -1227,8 +1220,6 @@ export default function Flyout({
             </div>
           )}
         </div>
-      ) : emptyState ? (
-        emptyState
       ) : (
         /* Empty Inspector State when no asset or bubble is selected */
         <div className="flex-1 p-6 flex flex-col items-center justify-center text-center text-ink-3 font-sans">

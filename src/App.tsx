@@ -368,10 +368,10 @@ export default function App() {
   const [selectedIssue, setSelectedIssue] = useState<ReviewIssue | null>(null);
 
   const [inspectorOpen, setInspectorOpen] = useState<boolean>(false);
-  // Global's overview card pinned into the inspector's empty state
-  // (`overview_pinned`, Task 6 of docs/plans/2026-11-26-overview-card.md).
-  // Saved like `inspector_open`, beside it.
-  const [overviewPinned, setOverviewPinned] = useState<boolean>(false);
+  // Global's docked overview card, put away by its window-bar button
+  // (`overview_hidden`, Task 2 of docs/plans/2026-11-26-global-list.md).
+  // Shown by default; saved like `inspector_open`, beside it.
+  const [overviewHidden, setOverviewHidden] = useState<boolean>(false);
   // The project pane's hero band. Folded by default: the hero's job is the
   // headline, and the per-engine breakdown is the second question. Global's
   // band, and its `hosts_band_open` preference, went with the engine lens
@@ -945,8 +945,8 @@ export default function App() {
       if (inspectorPref === "true") {
         setInspectorOpen(true);
       }
-      const overviewPinnedPref = await invoke<string | null>("get_preference", { key: "overview_pinned" });
-      if (overviewPinnedPref === "true") setOverviewPinned(true);
+      const overviewHiddenPref = await invoke<string | null>("get_preference", { key: "overview_hidden" });
+      if (overviewHiddenPref === "true") setOverviewHidden(true);
       const enginesPref = await invoke<string | null>("get_preference", { key: "engines_band_open" });
       if (enginesPref === "true") setEnginesBandOpen(true);
       const inspectorWidthPref = await invoke<string | null>("get_preference", { key: "inspector_width" });
@@ -1112,14 +1112,11 @@ export default function App() {
   // offers no Switch action.
   const listedContexts = engineContexts ?? [];
 
-  // Where ProfilePane draws the overview card (the amendment to
+  // Where ProfilePane puts the overview card's button (the amendment to
   // docs/plans/2026-11-26-overview-card.md: portals, not a lifted hook).
-  // The pane keeps the figures and their state; App only owns the places.
-  // `capSlot` is an empty span in the content cap, on Global only;
-  // `inspectorSlot` is the inspector's empty state on Global while the card
-  // is pinned (Flyout's `emptyState`).
+  // The pane keeps the figures, the card and its state; App owns the place.
+  // `capSlot` is an empty span in the content cap, on Global only.
   const [capSlot, setCapSlot] = useState<HTMLElement | null>(null);
-  const [inspectorSlot, setInspectorSlot] = useState<HTMLElement | null>(null);
 
   /** The servers a query names that Hanger can switch, at most eight. Each
    *  runs the switch the Engines pane's own button would, with the same
@@ -1438,25 +1435,21 @@ export default function App() {
     }
   };
 
-  /** The overview card's pin. Pinned, it fills the inspector's empty state,
-   *  so pinning opens a closed inspector to show it there. */
-  const toggleOverviewPin = () => {
-    const next = !overviewPinned;
-    setOverviewPinned(next);
-    invoke("set_preference", { key: "overview_pinned", value: String(next) }).catch(() => {});
-    if (next && !inspectorOpen) {
-      setInspectorOpen(true);
-      invoke("set_preference", { key: "inspector_open", value: "true" }).catch(() => {});
-    }
+  /** The docked overview card's button: hide or show it, saved. */
+  const toggleOverviewHidden = () => {
+    const next = !overviewHidden;
+    setOverviewHidden(next);
+    invoke("set_preference", { key: "overview_hidden", value: String(next) }).catch(() => {});
   };
 
-  /* Esc on Global clears what the inspector is showing, so the pinned card
-     comes back (round 14 q4: Global only). Whatever else uses Esc marks it
-     handled with preventDefault, and this skips those: a menu, a popover,
-     the search palette, a tip, the overview popover. They run first however
-     the listeners were added. The primitives take Esc in the capture phase
-     on window, the overview popover in the bubble phase on document, and
-     this one in the bubble phase on window, the last stop a key event makes. */
+  /* Esc on Global clears what the inspector is showing (round 14 q4:
+     Global only). Whatever else uses Esc marks it handled with
+     preventDefault, and this skips those: a menu, a popover, the search
+     palette, a tip, the overview popover. They run first however the
+     listeners were added. The primitives take Esc in the capture phase on
+     window, the overview popover (Base UI's) in the bubble phase on
+     document, and this one in the bubble phase on window, the last stop a
+     key event makes. */
   const inspectorHasSubject = selectedAsset !== null || selectedBubble !== null || selectedKeptKey !== null;
   useEffect(() => {
     if (!isGlobalItem(selectedSidebarItem) || !inspectorOpen || !inspectorHasSubject) return;
@@ -2217,10 +2210,10 @@ export default function App() {
               engines={engineRows}
               selectedEngine={selectedEngine}
               onSelectEngine={selectEngine}
-              overviewSlots={{ cap: capSlot, inspector: inspectorSlot }}
-              overviewButtonClass={tbBtnClass}
-              overviewPinned={overviewPinned}
-              onToggleOverviewPin={toggleOverviewPin}
+              overviewSlots={{ cap: capSlot }}
+              inspectorOpen={inspectorOpen}
+              overviewHidden={overviewHidden}
+              onToggleOverviewHidden={toggleOverviewHidden}
             />
           )}
 
@@ -2498,11 +2491,6 @@ export default function App() {
                 onSkillKept={selectKept}
                 onEngineContext={recordContext}
                 onShowDeclared={showDeclared}
-                emptyState={
-                  overviewPinned && isGlobalItem(selectedSidebarItem) ? (
-                    <div ref={setInspectorSlot} data-testid="overview-inspector-slot" className="flex-1 min-h-0 overflow-y-auto p-1.5" />
-                  ) : undefined
-                }
               />
             )}
           </div>

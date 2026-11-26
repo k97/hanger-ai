@@ -9,11 +9,10 @@
  * lands on screen at 1.0px up to the 16px box and at the family's own weight
  * above it — the weight the mono-tight prototype was drawn against.
  *
- * Nine marks have no Heroicons equivalent and stay on lucide: the two
+ * Seven marks have no Heroicons equivalent and stay on lucide: the two
  * titlebar panel toggles, the nested-repo folder pair (symlink and tree), the
- * diff-merge header, the inspector's expand/collapse pair, and the overview
- * card's pin pair. They run through the same size/stroke table so they sit at
- * the same weight.
+ * diff-merge header and the inspector's expand/collapse pair. They run
+ * through the same size/stroke table so they sit at the same weight.
  *
  * Twenty more are animated (below, "Animated marks") and stay on lucide for a
  * different reason than the first seven: Heroicons has no motion story, and
@@ -88,8 +87,6 @@ import {
   Minimize2 as LucideMinimize2,
   PanelLeft as LucidePanelLeft,
   PanelRight as LucidePanelRight,
-  Pin as LucidePin,
-  PinOff as LucidePinOff,
 } from "lucide-react";
 
 export interface IconProps extends Omit<SVGProps<SVGSVGElement>, "ref"> {
@@ -209,10 +206,6 @@ export const PanelRightIcon = sized(LucidePanelRight as SvgIcon);
  *  for an unrelated affordance. */
 export const ExpandIcon = sized(LucideMaximize2 as SvgIcon);
 export const CollapseIcon = sized(LucideMinimize2 as SvgIcon);
-/** The overview card's pin, by what a click does: Pin while the card floats,
- *  PinOff while it fills the inspector (round 14 q3). Heroicons has no pin. */
-export const PinIcon = sized(LucidePin as SvgIcon);
-export const PinOffIcon = sized(LucidePinOff as SvgIcon);
 
 /**
  * macOS Finder's mark, traced at the same 24px grid as the Heroicons set.

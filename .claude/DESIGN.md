@@ -637,7 +637,7 @@ Design record (local-only, not tracked in this repo):
 
 65 non-test `.tsx` files flat in `src/components/`, one component per file,
 and one subdirectory, `src/components/ui/`, which holds shadcn's components
-(Tabs, below). Views are suffixed `Pane`.
+(Tabs, Popover, Toggle and Tooltip, below). Views are suffixed `Pane`.
 
 The "all default-exported, with an `interface <Name>Props` declared directly
 above" rule holds for most and has named exceptions, listed here so the rule
@@ -1725,51 +1725,53 @@ gradients, not cast — `--overlay-shadow` belongs to the map's overlays and
 `--capsule-shadow` (§3) to the segmented track's capsule; neither elevation
 belongs to a bar.
 
-Two props since 2026-11-26, for the overview card (round 14 q1,
-`docs/plans/2026-11-26-decisions-round-14.md`). `tone?: "gel" | "rank"`:
-`gel` is the default above; `rank` paints each segment flat `bg-ink-1`, with
-no gloss and no aqua whatever a segment asks, because a ranked figure is
-compared with its neighbours and is no share of a whole. `max?: number`:
-given, a segment is sized as `value / max` of the track (`width`, capped at
-100%) instead of sharing it by `flex`, so a bar can be one engine's figure
-over the heaviest engine's. That is a width ratio, not a count. An empty
-`segments` list draws the bare track, which is how a figure Hanger has not
-measured reads: q1 chose that over a dashed track, so the meter has no
-second style.
+Two props since 2026-11-26, for the overview card. `tone?: "gel" | "line"`:
+`gel` is the default above; `line` is T3 Code's usage meter
+(`ThreadDetailsUsage.tsx`), drawn for the card's kind rows by Task 2 of
+`docs/plans/2026-11-26-global-list.md`: a 3px `rounded-pill` track in
+`bg-line-2`, one `bg-ink-1` fill with no gloss and no aqua whatever a segment
+asks (`data-meter-fill`), and a 1px × 9px `bg-ink-1` tick centred on the
+fill's end (`data-meter-tick`). It draws the first non-zero segment only: a
+figure against a whole, not shares of one. It replaced the `rank` tone (round
+14 q1), a flat ink bar at the gel's height, whose only caller was the card's
+engine rows; those lost their bars in Task 2, matched to `approved-HI.png`.
+`max?: number`: given, a segment is sized as `value / max` of the track
+(`width`, capped at 100%) instead of sharing it by `flex`. That is a width
+ratio, not a count. An empty `segments` list draws the bare track, with no
+tick, which is how a figure Hanger has not measured reads (round 14 q1 chose
+that over a dashed track). Pinned by `GelMeter.test.tsx`.
 
 **`OverviewCard`** (`OverviewCard.tsx`) — Global's overview
 (`docs/plans/2026-11-26-overview-card.md`, Task 3, after layout F of
-`docs/plans/2026-11-26-global-top-prototypes.html`): `engines`,
-`selectedEngineId`, `onSelectEngine`, `storeTotal`, `linkLegend`,
-`engineFigures`, `review`, `scan`, `pinned` and `onTogglePin`. It is purely
-presentational: it calls no command. ProfilePane renders it in
-`OverviewPopover`, from the figures Global's summary strip read until Task 7
-removed the strip. Pinned (App's
-`overview_pinned` preference, saved beside `inspector_open`), it is the
-inspector's empty state on Global instead: App passes Flyout an `emptyState`
-holding `overviewSlots.inspector`, a `flex-1 min-h-0 overflow-y-auto p-1.5`
-div, and ProfilePane portals the card into it. Pinning opens a closed
-inspector, and pinning or unpinning closes the popover, so an unpinned card
-goes back to its window-bar button. Every other screen keeps "Nothing
-selected". It draws no border or elevation of its own; the surface holding it
-does. Three
-sections, divided by `border-t border-line`, each headed by a `SectionHead`:
-the name in `font-medium text-ink-2`, the caption at the right in
-`text-small text-ink-3`, and, in whichever section comes first, the pin
-(round 14 q3). The pin is a 22px `rounded-control` button with `PinIcon`, or
-`PinOffIcon` while pinned, named and tooltipped by `pinLabel`.
+`docs/plans/2026-11-26-global-top-prototypes.html`; at T3 Code's size and
+anatomy since Task 2 of `docs/plans/2026-11-26-global-list.md`, after
+`ThreadDetailsCard.tsx`, `ThreadDetailsSection.tsx` and
+`threadDetailsPanelStyles.ts`): `engines`, `selectedEngineId`,
+`onSelectEngine`, `storeTotal`, `linkLegend`, `engineFigures`, `review` and
+`scan`. It is purely presentational: it calls no command. ProfilePane docks
+it at the pane's top right when there is room, or renders it in
+`OverviewPopover` (both below). It draws its own frame, T3's: `w-[280px]
+rounded-plane border border-line bg-page/86 backdrop-blur-frost`, the page
+token at 86% over the 16px `--frost-blur` (tokens.css, registered as
+`--blur-frost`), after T3's `dropdown-glass`. It casts no elevation; the
+popover adds `shadow-overlay` around it. The pin, its `overview_pinned`
+preference, the inspector slot and Flyout's `emptyState` went with Task 2
+(round 16 q2: the app decides where the card goes, as T3 does). Three
+sections, each T3's `px-2 pt-2 pb-2.5` and divided by `border-t
+border-line`, each headed by a `SectionHead`: `min-h-8 px-2.5 text-micro
+font-medium text-ink-3`, the name, and the caption at the right in the same
+size at normal weight.
 
 - **Engines** · "tokens every session". "All engines" with the store
   total, then every engine in `rankEngines` order (`overviewCopy.ts`):
   heaviest `on_tokens_measured` first, no-figure engines last, and ties by
-  name. Each row is a button on prototype F's grid,
-  `grid-cols-[16px_128px_minmax(0,1fr)_80px]`, `h-7`, `rounded-control`:
-  the `BrandIcon` at 14, the name (`truncate`), a rank-tone `GelMeter`
-  scaled to the top engine's figure, and the value (`whitespace-nowrap`,
-  80px, right-aligned, `tabular`): `engineRowValue`'s "≈ 13.6k", or "Not
-  measured" in `text-ink-3` on a bare track. The picked row is `bg-tint`
-  with `aria-current="true"` and a `font-medium` name. The bar is
-  `aria-hidden`, since the row already reads its value. Before the first
+  name. Each row is a 32px button, T3's row: `h-8 px-2.5 gap-2.5
+  rounded-control text-base-app` on `grid-cols-[14px_minmax(0,1fr)_auto]`:
+  the `BrandIcon` at 14, the name (`truncate`), and the value
+  (`whitespace-nowrap`, right-aligned, `text-small tabular`):
+  `engineRowValue`'s "≈ 13.6k", or "Not measured" in `text-ink-3`. No bar,
+  as in `approved-HI.png`. The picked row is `bg-tint` with
+  `aria-current="true"` and a `font-medium` name. Before the first
   scan has listed any engine the section is not drawn at all, so a head
   never sits over nothing (Review Focus 1).
 - **The chosen engine**, when an engine is picked and `engineFigures` is
@@ -1778,10 +1780,13 @@ the name in `font-medium text-ink-2`, the caption at the right in
   `engineStripHeadline`'s figure in `text-lg-app font-medium tabular`, then
   "tokens every session", or "Not measured" in its place. Then Measure all
   (`miniBtnClass`, its caption as its `title` and `aria-describedby`, drawn
-  only with `onMeasure`). Then one button per kind
-  (`grid-cols-[110px_minmax(0,1fr)_80px]`, `aria-pressed` for its open
-  tab). Phase 1 measures MCP alone, so that kind's bar fills its track and
-  the other three are bare, reading "Not measured".
+  only with `onMeasure`). Then one button per kind, T3's 24px meter row:
+  `h-6 px-2.5 gap-3 rounded-control text-small` on
+  `grid-cols-[96px_minmax(48px,1fr)_88px]`, `aria-pressed` for its open
+  tab, its bar a line-tone `GelMeter` (`aria-hidden`, since the row reads
+  its value). Phase 1 measures MCP alone, so that kind's bar fills its
+  track and ends in the tick, and the other three are bare, reading "Not
+  measured".
 - **The global store** · "{n} assets", with All engines picked (round 14
   q2): `LinkStateLegend` from `SummaryStrip.tsx`, whose toggles filter the
   list.
@@ -1789,46 +1794,76 @@ the name in `font-medium text-ink-2`, the caption at the right in
   lines. It opens the same `FindingPopover` the strip's pill opens, from
   the same `StripReview`, clamped to the card. Then Rescan, or "Scanning"
   and disabled while a scan runs, with `useScanStampText`'s age at the
-  right. Both are 30px `rounded-control` rows that press to 0.97.
+  right. Both are 32px `rounded-control` rows that press to 0.97.
 
 Nothing in it opens or closes with an animation. No figure is counted:
-`rankEngines` sorts, and a bar is a ratio. A narrow inspector shortens the
-bars first, because names truncate and values never wrap (Review Focus 5).
-`happy-dom` lays nothing out, so `OverviewCard.test.tsx` pins that as a
-class contract and leaves the 384px geometry to a screenshot.
+`rankEngines` sorts, and a bar is a ratio. Names truncate and values never
+wrap (Review Focus 5). `happy-dom` lays nothing out, so
+`OverviewCard.test.tsx` pins the sizes as a class contract and leaves the
+geometry to a screenshot.
+
+**The docked card** (`ProfilePane.tsx`, Task 2 of
+`docs/plans/2026-11-26-global-list.md`). One `ResizeObserver`, on the pane
+itself (always mounted; the list is not, behind an empty state), gives the
+pane's width. `shouldDockOverview(width, inspectorOpen)` in
+`utils/overviewLayout.ts` docks the card at 1060px and up with the inspector
+closed: T3's 640px column, two 48px paddings, its 32px clearance, the 12px
+gap and the 280px card. Docked, the card sits in `absolute right-3 top-3
+z-10 w-[280px]`, scrolling past `calc(100% - 24px)`, and both lanes (the
+kind tabs' and the list's) trade `mx-auto` for `ml-auto
+mr-[max(258px,calc((100%-736px)/2))]`, as T3 places its column
+(`chatCanvasLayout.ts`): centred while that keeps clear, otherwise moved
+left until the rows' right edge is 324px (`DOCKED_LANE_CLEARANCE`) from
+the pane's, 32px clear of the card. 258 is 324 less the list's 18px inset
+and the lane's 48px padding. The same width sets the lane's padding: below
+640px of list it drops to `px-3` and the ticks go. App's `overview_hidden`
+preference (shown by default, saved beside `inspector_open`) puts the docked
+card away; it hides nothing else. A popover open when the card docks
+closes. `forceDock` is the test-only override; `overview_dock.test.tsx` pins
+the contract, and where the card lands is a screenshot claim.
 
 **`OverviewPopover`** (`OverviewPopover.tsx`) — the overview card from the
-window bar (Task 5 of `docs/plans/2026-11-26-overview-card.md`, as amended:
-portals, not a lifted hook). App draws an empty `contents` span in the content
-cap's trailing group, on Global only, ahead of Toggle inspector, and hands it
-to ProfilePane as `overviewSlots.cap` with `tbBtnClass` as
-`overviewButtonClass` (passed, not copied: `tbbtn-duplicate.test.ts`).
-ProfilePane portals the button there: `GaugeIcon` at 16 in a `Tooltip`, named
-by `overviewButtonLabel` ("Show overview  ⌘E", "Hide overview  ⌘E"), with
-`aria-haspopup="dialog"` and `aria-expanded`. The panel is portalled to
-`document.body`, `fixed z-50 w-[350px] bg-page rounded-plane shadow-overlay`,
-its top 6px under the button and its right edge on the button's, measured once
-per opening. It is `role="dialog"`, `aria-label="Overview"`, and closes on Esc
-or a pointerdown outside both itself and the button. Nothing animates. ⌘E
-toggles it through a `window` keydown in ProfilePane, so the shortcut exists
-only on Global, and a keystroke whose target is an input, a textarea or
-contenteditable is left alone (Review Focus 3). With no cap slot, as in
-standalone ProfilePane tests, neither the button nor the panel is drawn. The
-button is not drawn while the card is pinned.
+window bar when it cannot dock (Task 5 of
+`docs/plans/2026-11-26-overview-card.md`, as amended: portals, not a lifted
+hook; on shadcn's Popover since Task 2 of
+`docs/plans/2026-11-26-global-list.md`). App draws an empty `contents` span
+in the content cap's trailing group, on Global only, ahead of Toggle
+inspector, and hands it to ProfilePane as `overviewSlots.cap`. ProfilePane
+portals the button there: `GaugeIcon` at 16 in shadcn's `Toggle`, inside a
+`relative flex shrink-0` span that is the `Tooltip`'s trigger (as T3 wraps
+its toggles, so the trigger's props stay off the button), named and
+tooltipped by `overviewButtonLabel` ("Show overview  ⌘E", "Hide overview
+⌘E") by whether it is on. Docked, on means the card shows and a press
+toggles `overview_hidden`; otherwise on means the popover is open, and the
+button carries `aria-haspopup="dialog"` and `aria-expanded`. The popover is
+`ui/popover`'s `PopoverContent`, anchored to the button (`side="bottom"
+align="end"`, 6px under it), `bg-transparent` around the card's own frost,
+`rounded-plane shadow-overlay`. Base UI portals it, names it a dialog
+(`aria-label="Overview"`), and closes it on Esc or on the click that ends a
+press outside. A press on the button itself is cancelled as an outside
+press, so the button's own click toggles it. It renders only while open:
+Base UI would otherwise keep a closed popup a frame, for exit animations it
+does not have. ⌘E does what the button does, through a `window` keydown in
+ProfilePane, so the shortcut exists only on Global, and a keystroke whose
+target is an input, a textarea or contenteditable is left alone (Review
+Focus 3). With no cap slot, as in standalone ProfilePane tests, neither the
+button nor the card is drawn.
 
 **Who gets an Esc** (Task 6, Review Focus 4). Esc goes to the innermost thing
 open, and a fixed listener phase decides that, not the order the listeners
 were added in. `FindingPopover`, `OverflowMenu`, `InfoPopover`,
 `SearchPalette` and `Tooltip` (only while a tip is up) take Escape in the
-capture phase on `window` and call `preventDefault`. `OverviewPopover` takes
-it in the bubble phase on `document` and skips one already marked, so Esc in
-its Needs review popover closes only that. App's Esc is last, in the bubble
-phase on `window`. On Global, with the inspector open and showing an asset,
-a bubble or a kept item, an unmarked Esc clears that selection, so the pinned
-card comes back (round 14 q4). It does nothing on other screens, and nothing
-to an Esc typed into an input, a textarea or contenteditable:
-`isTextEntryTarget` (`utils/textEntry.ts`) is the one check, shared with ⌘E.
-`escape_layering.test.tsx` and `overview_pinned.test.tsx` pin the order.
+capture phase on `window` and call `preventDefault`. `OverviewPopover`'s
+Esc is Base UI's, in the bubble phase on `document`: it marks the Esc it
+uses, and `OverviewPopover` cancels one already marked, so Esc in its Needs
+review popover closes only that. App's Esc is last, in the bubble phase on
+`window`. On Global, with the inspector open and showing an asset, a bubble
+or a kept item, an unmarked Esc clears that selection (round 14 q4). It does
+nothing on other screens, and nothing to an Esc typed into an input, a
+textarea or contenteditable: `isTextEntryTarget` (`utils/textEntry.ts`) is
+the one check, shared with ⌘E. `escape_layering.test.tsx` and
+`overview_pinned.test.tsx` pin the order; `overview_dock.test.tsx` pins that
+Esc still clears the selection.
 
 **`MechanismGlyph`** (`MechanismGlyph.tsx`) — the per-row attachment glyph:
 one of five backend words (`symlink | copy | drift | broken | none`), drawn
@@ -1941,6 +1976,38 @@ capsule's box reads 0 and the indicator stays hidden, so its position is a
 screenshot claim. `CategoryFilterCards.test.tsx` pins its classes only. Base UI
 moves focus a microtask after an arrow key, so a test awaits each landing.
 `CategoryFilterCards` is the first caller (below).
+
+**`Popover`** (`ui/popover.tsx`) — shadcn's Popover on Base UI, restyled:
+`Popover` (Base UI's root), `PopoverTrigger` and `PopoverContent`, which
+portals, positions (`side`, `align`, their offsets, and an `anchor` passed
+through, so a popover can hang from a control that is not its trigger) and
+draws the popup as Hanger's one overlay surface, `bg-page text-ink-1
+rounded-plane shadow-overlay`, with no padding of its own. The CLI's ring,
+padding, 12px type and enter and exit animations are gone, and
+`PopoverHeader`, `PopoverTitle` and `PopoverDescription` were left out until
+something has a heading. Base UI owns Esc and the outside press: with a
+mouse, the click that ends a press outside closes it, not the pointerdown
+that starts it. `OverviewPopover` is the first caller (above).
+
+**`Toggle`** (`ui/toggle.tsx`) — shadcn's Toggle on Base UI, restyled to
+the window bar's icon toggle, as T3 draws its panel toggles
+(`PanelLayoutControls.tsx`): one size, `icon`, `h-7 w-7 rounded-control`,
+`text-ink-2`, `hover:bg-plane-2 hover:text-ink-1`, and `data-pressed:bg-tint
+data-pressed:text-ink-1` while on. Base UI gives a native `<button>` with
+`aria-pressed`. The CLI's `bg-muted` would be `--plane` for hover and
+pressed alike, so an open card would not read as on. The `outline` variant,
+the other sizes, the `aria-invalid` and `dark:` rules and the focus-ring
+utilities were removed. Its first caller is the overview card's button; the
+other window-bar buttons keep `tbBtnClass` until each is swapped (round 19).
+
+**`Tooltip` (shadcn)** (`ui/tooltip.tsx`) — shadcn's Tooltip on Base UI,
+restyled to `Tooltip.tsx`'s look: `bg-fill text-on-fill font-flex
+text-micro px-2 py-1 rounded-[6px]`, one line, no arrow, no animation, and
+an 80ms open delay on `TooltipTrigger` in place of Base UI's 600ms.
+`TooltipProvider` was left out until two tips need to share a delay. Its
+first caller is the overview card's button, whose trigger is a wrapping
+span so its props stay off the `Toggle`; Hanger's own `Tooltip` serves
+every other control until each is swapped (round 19).
 
 **`CategoryFilterCards`** (`CategoryFilterCards.tsx:5-15`) — per-category
 counts, `selectedCategory`, `onSelectCategory`, `loading`. `allCount` is

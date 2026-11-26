@@ -8,7 +8,6 @@ import {
   compactTokens,
   engineRowValue,
   overviewButtonLabel,
-  pinLabel,
   rankEngines,
   storeAssetsLabel,
 } from "./overviewCopy";
@@ -41,11 +40,6 @@ describe("the overview card's strings (round 14 q5)", () => {
   it("names the window-bar button by what a click does, with its shortcut", () => {
     expect(overviewButtonLabel(false)).toBe("Show overview  ⌘E");
     expect(overviewButtonLabel(true)).toBe("Hide overview  ⌘E");
-  });
-
-  it("names the pin button by what a click does", () => {
-    expect(pinLabel(false)).toBe("Pin to the inspector");
-    expect(pinLabel(true)).toBe("Unpin from the inspector");
   });
 
   it("heads the sections with the approved words", () => {

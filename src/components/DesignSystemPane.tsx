@@ -16,6 +16,9 @@ import OverviewPopover from "./OverviewPopover";
 import { ScanStatusIndicator } from "./ScanStatusIndicator";
 import HangerMark from "./HangerMark";
 import { Tabs, TabsIndicator, TabsList, TabsTrigger } from "./ui/tabs";
+import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
+import { Toggle } from "./ui/toggle";
+import { Tooltip as UiTooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
 import UnderlineTabs from "./UnderlineTabs";
 import ViewControl, { type ServerGrouping, type ServerSort } from "./ViewControl";
 import OverflowMenu, { menuItemClass, MenuSeparator } from "./OverflowMenu";
@@ -488,6 +491,8 @@ export default function DesignSystemPane({ section }: DesignSystemPaneProps) {
   const [heroOpen, setHeroOpen] = useState(true);
   // The overview popover's specimen: its own sample trigger and open state.
   const [overviewOpen, setOverviewOpen] = useState(false);
+  // The Toggle specimen's pressed state.
+  const [togglePressed, setTogglePressed] = useState(true);
   const overviewAnchorRef = useRef<HTMLButtonElement>(null);
   // The surfaces a finding popover clamps against, standing in for the
   // inspector column and a placecard.
@@ -521,8 +526,6 @@ export default function DesignSystemPane({ section }: DesignSystemPaneProps) {
       ],
     },
     scan: { scannedAt: scannedAt.getTime(), scanning: false, onRescan: () => {} },
-    pinned: false,
-    onTogglePin: () => {},
   };
 
   return (
@@ -851,6 +854,26 @@ export default function DesignSystemPane({ section }: DesignSystemPaneProps) {
             </div>
           </Specimen>
 
+          <Specimen name="Toggle · Tooltip" file="ui/toggle.tsx" note="shadcn's Toggle and Tooltip on Base UI, in Hanger's tokens: the overview card's window-bar button, 28px with the 8px control radius, --plane-2 on hover and --tint while pressed; the tip is Tooltip.tsx's look, after 80ms">
+            <UiTooltip>
+              <TooltipTrigger render={<span className="flex shrink-0" />}>
+                <Toggle pressed={togglePressed} onPressedChange={setTogglePressed} aria-label="Sample toggle">
+                  <GaugeIcon size={16} aria-hidden="true" />
+                </Toggle>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">Sample toggle</TooltipContent>
+            </UiTooltip>
+          </Specimen>
+
+          <Specimen name="Popover" file="ui/popover.tsx" note="shadcn's Popover on Base UI, in Hanger's tokens: the page, the plane radius and the overlay elevation, with no padding of its own; Esc or a click outside closes it" unclipped>
+            <Popover>
+              <PopoverTrigger className={miniBtnClass}>Sample popover</PopoverTrigger>
+              <PopoverContent side="bottom" align="start" className="p-3 text-small text-ink-2">
+                Whatever the popover holds draws its own layout.
+              </PopoverContent>
+            </Popover>
+          </Specimen>
+
           <Specimen name="Tabs" file="ui/tabs.tsx" note="shadcn's Tabs on Base UI, in Hanger's tokens: the track under CategoryFilterCards; the capsule slides on the nav beat">
             <Tabs value={segment} onValueChange={(value) => setSegment(String(value))}>
               <TabsList aria-label="Sample segments">
@@ -1052,20 +1075,20 @@ export default function DesignSystemPane({ section }: DesignSystemPaneProps) {
             />
           </Specimen>
 
-          <Specimen name="OverviewCard · an engine picked" file="OverviewCard.tsx" note="Global's overview, from the window bar or pinned in the inspector: every engine ranked by its tokens every session on a rank-tone GelMeter scaled to the heaviest, Not measured last on a bare track; the picked engine by kind, only MCP measured in Phase 1; then Needs review and Rescan. The card draws no border or elevation of its own; this frame stands in for the popover's">
-            <div className="max-w-[350px] border border-line rounded-plane">
+          <Specimen name="OverviewCard · an engine picked" file="OverviewCard.tsx" note="Global's overview, at T3's size: 280px, frosted, a --line border, docked at the list's top right when there is room or in the window bar's popover. Every engine as a 32px row, ranked by its tokens every session, Not measured last; the picked engine by kind on 24px meter rows, a 3px line-tone GelMeter with an end tick, only MCP measured in Phase 1; then Needs review and Rescan">
+            <div>
               <OverviewCard {...overview} selectedEngineId={SAMPLE_OVERVIEW_ENGINES[2].engine_id} engineFigures={SAMPLE_ENGINE_STRIP} />
             </div>
           </Specimen>
 
           <Specimen name="OverviewCard · All engines" file="OverviewCard.tsx" note="no engine picked: the second section is the global store with its total and the link-state meter and legend, whose toggles filter the list (round 14 q2)">
-            <div className="max-w-[350px] border border-line rounded-plane">
+            <div>
               <OverviewCard {...overview} />
             </div>
           </Specimen>
 
-          <Specimen name="OverviewCard · before the first scan" file="OverviewCard.tsx" note="no engines listed yet: no Engines head over nothing, so the pin moves to the store's head; nothing scanned and nothing to review">
-            <div className="max-w-[350px] border border-line rounded-plane">
+          <Specimen name="OverviewCard · before the first scan" file="OverviewCard.tsx" note="no engines listed yet: no Engines head over nothing; nothing scanned and nothing to review">
+            <div>
               <OverviewCard
                 {...overview}
                 engines={[]}
@@ -1077,21 +1100,23 @@ export default function DesignSystemPane({ section }: DesignSystemPaneProps) {
             </div>
           </Specimen>
 
-          <Specimen name="OverviewPopover" file="OverviewPopover.tsx" note="the card from the window bar: press the sample button. Fixed on the page, right-aligned under its trigger, with the overlay elevation; Esc or a click outside closes it, and nothing animates" unclipped>
+          <Specimen name="OverviewPopover" file="OverviewPopover.tsx" note="the card from the window bar when there is no room to dock it: press the sample toggle. shadcn's Popover on Base UI, right-aligned under its anchor, with the overlay elevation around the card's frost; Esc or a click outside closes it, and nothing animates" unclipped>
             <div className="flex items-center gap-2.5">
-              <Tooltip label="Sample overview" placement="bottom">
-                <button
-                  ref={overviewAnchorRef}
-                  type="button"
-                  aria-label="Sample overview"
-                  aria-haspopup="dialog"
-                  aria-expanded={overviewOpen}
-                  onClick={() => setOverviewOpen((v) => !v)}
-                  className={capButtonClass}
-                >
-                  <GaugeIcon size={16} aria-hidden="true" />
-                </button>
-              </Tooltip>
+              <UiTooltip>
+                <TooltipTrigger render={<span className="flex shrink-0" />}>
+                  <Toggle
+                    ref={overviewAnchorRef}
+                    pressed={overviewOpen}
+                    onPressedChange={() => setOverviewOpen((v) => !v)}
+                    aria-label="Sample overview"
+                    aria-haspopup="dialog"
+                    aria-expanded={overviewOpen}
+                  >
+                    <GaugeIcon size={16} aria-hidden="true" />
+                  </Toggle>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">Sample overview</TooltipContent>
+              </UiTooltip>
               <OverviewPopover open={overviewOpen} onClose={() => setOverviewOpen(false)} anchorRef={overviewAnchorRef}>
                 <OverviewCard {...overview} />
               </OverviewPopover>
@@ -1106,7 +1131,7 @@ export default function DesignSystemPane({ section }: DesignSystemPaneProps) {
             />
           </Specimen>
 
-          <Specimen name="GelMeter" file="GelMeter.tsx" note="aqua marks the linked share only; the review split stays glass; the rank tone is plain ink against a max, never aqua, and an empty segments list is the bare track">
+          <Specimen name="GelMeter" file="GelMeter.tsx" note="aqua marks the linked share only; the review split stays glass; the line tone, the overview card's kind rows, is a 3px ink bar against a max with an end tick, never aqua, and an empty segments list is the bare track">
             <div className="flex flex-col gap-4">
               <GelMeter
                 label={`${SAMPLE_COUNTS.linked} linked, ${SAMPLE_COUNTS.drifted} drifted, ${SAMPLE_COUNTS.broken} broken, ${SAMPLE_COUNTS.local} local only`}
@@ -1126,8 +1151,8 @@ export default function DesignSystemPane({ section }: DesignSystemPaneProps) {
                   { key: "parse", value: SAMPLE_REVIEW.parse, barClass: "bg-line" },
                 ]}
               />
-              <GelMeter tone="rank" max={12400} label="Ranked: 9,951 of the heaviest 12,400" segments={[{ key: "rank", value: 9951 }]} />
-              <GelMeter tone="rank" label="Ranked: not measured" segments={[]} />
+              <GelMeter tone="line" max={12400} label="Line: 9,951 of 12,400" segments={[{ key: "line", value: 9951 }]} />
+              <GelMeter tone="line" label="Line: not measured" segments={[]} />
             </div>
           </Specimen>
 

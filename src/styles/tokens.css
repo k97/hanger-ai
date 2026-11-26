@@ -59,6 +59,11 @@
    * Everything else in the mono system stays flat — ruled 2026-08-15. */
   --overlay-shadow: 0 0 3px rgba(0, 0, 0, 0.05), 0 11px 34px rgba(0, 0, 0, 0.16);
 
+  /* The overview card's frost (Task 2 of docs/plans/2026-11-26-global-list.md),
+   * after T3 Code's `dropdown-glass`: the page token at 86% over this blur.
+   * A radius, not a colour: it reads the same in both themes. */
+  --frost-blur: 16px;
+
   /* The segmented track's selected capsule (Karthik, 2026-08-22): no
    * border, a tight contact elevation — a second, smaller one beside the
    * map's, sized for a 28px capsule. Its surface is a token of its own

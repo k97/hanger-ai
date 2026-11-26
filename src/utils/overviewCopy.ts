@@ -21,16 +21,10 @@ export const ALL_ENGINES = "All engines";
 /** The second section's head with All engines picked (round 14 q2). */
 export const STORE_HEAD = "The global store";
 
-/** The content cap's button: its tooltip and its accessible name. ⌘E is
- *  the shortcut that toggles the card. */
+/** The content cap's button: its tooltip and its accessible name, by what
+ *  a press does. ⌘E is the shortcut that does the same. */
 export function overviewButtonLabel(open: boolean): string {
   return open ? "Hide overview  ⌘E" : "Show overview  ⌘E";
-}
-
-/** The pin in the card's own header (round 14 q3). Pinned, the card fills
- *  the inspector's empty state. */
-export function pinLabel(pinned: boolean): string {
-  return pinned ? "Unpin from the inspector" : "Pin to the inspector";
 }
 
 /** The store total, as the old summary's backend-owned figure. */

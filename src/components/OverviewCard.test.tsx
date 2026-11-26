@@ -6,7 +6,6 @@ import type { EngineContext } from "../types/engineContext";
 import type { EngineStripFigures } from "./OverviewCard";
 import type { StateCounts } from "../utils/linkStateCounts";
 import { engineStripHeadline, MEASURE_ALL_CAPTION } from "../utils/switchCopy";
-import { pinLabel } from "../utils/overviewCopy";
 
 afterEach(cleanup);
 
@@ -58,8 +57,6 @@ function props(overrides: Partial<OverviewCardProps> = {}): OverviewCardProps {
     engineFigures: null,
     review: { count: 2, lines: [{ severity: "danger", text: "Target is gone", detail: "CLAUDE.md" }, { severity: "warning", text: "Diverged from its source", detail: "math" }] },
     scan: { scannedAt: Date.now() - 2 * 60_000, scanning: false, onRescan: vi.fn() },
-    pinned: false,
-    onTogglePin: vi.fn(),
     ...overrides,
   };
 }
@@ -90,19 +87,6 @@ describe("OverviewCard · Engines", () => {
     expect(rows.getByRole("button", { name: /^Claude Code/ }).textContent).toContain("≈ 13.6k");
     expect(rows.getByRole("button", { name: /^Codex/ }).textContent).toContain("≈ 10.0k");
     expect(rows.getByRole("button", { name: /^Claude\.ai/ }).textContent).toContain("Not measured");
-  });
-
-  it("scales each bar to the heaviest engine, and gives a not-measured engine the bare track", () => {
-    render(<OverviewCard {...props()} />);
-    const rows = within(engineRows());
-    // The bar is hidden from assistive tech: the row already reads its value.
-    const meter = (row: RegExp) => rows.getByRole("button", { name: row }).querySelector("[role='img']") as HTMLElement;
-    expect((meter(/^Claude Code/).firstElementChild as HTMLElement).style.width).toBe("100%");
-    expect(parseFloat((meter(/^Codex/).firstElementChild as HTMLElement).style.width)).toBeCloseTo(73.18, 1);
-    expect(meter(/^Claude\.ai/).children).toHaveLength(0);
-    expect(meter(/^Codex/).closest("[aria-hidden='true']")).toBeTruthy();
-    // All engines is no engine's figure, so it draws no bar.
-    expect(rows.getByRole("button", { name: /^All engines/ }).querySelector("[role='img']")).toBeNull();
   });
 
   it("picks an engine, or All engines, on a click", () => {
@@ -253,27 +237,6 @@ describe("OverviewCard · actions", () => {
   });
 });
 
-describe("OverviewCard · pin (round 14 q3)", () => {
-  it("sits in the card's own header and reads pinLabel(pinned)", () => {
-    const p = props();
-    const { rerender } = render(<OverviewCard {...p} />);
-    const pin = screen.getByRole("button", { name: pinLabel(false) });
-    // In the first section's head, beside "Engines".
-    expect(pin.closest("[data-section-head]")?.textContent).toContain("Engines");
-    fireEvent.click(pin);
-    expect(p.onTogglePin).toHaveBeenCalledTimes(1);
-    rerender(<OverviewCard {...p} pinned />);
-    expect(screen.getByRole("button", { name: pinLabel(true) })).toBeTruthy();
-  });
-
-  it("moves to the store's head when there are no engines yet", () => {
-    render(<OverviewCard {...props({ engines: [] })} />);
-    expect(screen.getByRole("button", { name: pinLabel(false) }).closest("[data-section-head]")?.textContent).toContain(
-      "The global store"
-    );
-  });
-});
-
 describe("OverviewCard · a narrow window (Review Focus 5)", () => {
   // happy-dom lays nothing out (verification.md), so wrapping cannot be
   // measured here. This is a class contract: the names truncate and the
@@ -297,5 +260,63 @@ describe("OverviewCard · a narrow window (Review Focus 5)", () => {
       expect(row.querySelector("[data-cell='name']")?.className).toContain("truncate");
       expect(row.querySelector("[data-cell='value']")?.className).toContain("whitespace-nowrap");
     }
+  });
+});
+
+/* Task 2 of docs/plans/2026-11-26-global-list.md: T3's size and anatomy
+   (ThreadDetailsCard, ThreadDetailsSection, ThreadDetailsUsage), drawn in
+   Hanger's tokens, matched against approved-HI.png. happy-dom lays nothing
+   out, so these are class contracts; the sizes are a screenshot claim. */
+describe("OverviewCard · T3's size and anatomy (Task 2)", () => {
+  it("is a 280px frosted card: the page token at 86%, a backdrop blur, a line border, the plane radius, no elevation", () => {
+    render(<OverviewCard {...props()} />);
+    const cls = screen.getByTestId("overview-card").className.split(/\s+/);
+    for (const c of ["w-[280px]", "rounded-plane", "border", "border-line", "bg-page/86", "backdrop-blur-frost"]) expect(cls).toContain(c);
+    expect(cls.some((c) => c.startsWith("shadow"))).toBe(false);
+  });
+
+  it("heads each section in 11px muted type, 32px tall", () => {
+    render(<OverviewCard {...props({ selectedEngineId: "claude-code", engineFigures: figures() })} />);
+    const heads = Array.from(document.querySelectorAll("[data-section-head]"));
+    expect(heads.length).toBeGreaterThan(1);
+    for (const h of heads) for (const c of ["min-h-8", "text-micro", "font-medium", "text-ink-3"]) expect(h.className.split(/\s+/)).toContain(c);
+  });
+
+  it("draws the engines as 32px rows with an 8px radius, and no bar", () => {
+    render(<OverviewCard {...props()} />);
+    for (const row of within(engineRows()).getAllByRole("button")) {
+      for (const c of ["h-8", "rounded-control"]) expect(row.className.split(/\s+/)).toContain(c);
+      expect(row.querySelector("[role='img']")).toBeNull();
+    }
+  });
+
+  it("draws the kinds as 24px meter rows: a 3px bar, and an end tick on a measured one", () => {
+    render(<OverviewCard {...props({ selectedEngineId: "claude-code", engineFigures: figures() })} />);
+    const rows = within(screen.getByTestId("overview-kinds")).getAllByRole("button");
+    for (const row of rows) {
+      expect(row.className.split(/\s+/)).toContain("h-6");
+      const meter = row.querySelector("[role='img']") as HTMLElement;
+      expect(meter.className.split(/\s+/)).toContain("h-[3px]");
+    }
+    const mcp = rows.find((r) => r.getAttribute("data-kind") === "Tools")!;
+    expect(mcp.querySelector("[data-meter-tick]")).not.toBeNull();
+    const skills = rows.find((r) => r.getAttribute("data-kind") === "Skills")!;
+    expect(skills.querySelector("[data-meter-tick]")).toBeNull();
+  });
+
+  it("draws Needs review and Rescan as 32px rows with an 8px radius", () => {
+    render(<OverviewCard {...props()} />);
+    for (const name of [/^Needs review/, /^Rescan/]) {
+      const row = screen.getByRole("button", { name });
+      for (const c of ["h-8", "rounded-control"]) expect(row.className.split(/\s+/)).toContain(c);
+    }
+  });
+
+  it("carries no pin, with engines or without", () => {
+    render(<OverviewCard {...props()} />);
+    expect(screen.queryByRole("button", { name: /pin/i })).toBeNull();
+    cleanup();
+    render(<OverviewCard {...props({ engines: [] })} />);
+    expect(screen.queryByRole("button", { name: /pin/i })).toBeNull();
   });
 });

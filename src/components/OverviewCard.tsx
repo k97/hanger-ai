@@ -1,11 +1,10 @@
-import { useId, useRef, useState, type ReactNode } from "react";
+import { useId, useRef, useState } from "react";
 import GelMeter from "./GelMeter";
 import BrandIcon from "./BrandIcon";
-import Tooltip from "./Tooltip";
 import FindingPopover from "./FindingPopover";
 import { LinkStateLegend, type StripReview } from "./SummaryStrip";
 import { useScanStampText } from "./ScanStamp";
-import { ExclamationTriangleIcon, PinIcon, PinOffIcon, RotateCcwIcon } from "./icons";
+import { ExclamationTriangleIcon, RotateCcwIcon } from "./icons";
 import { miniBtnClass } from "./miniButton";
 import type { EngineContext } from "../types/engineContext";
 import type { StateCounts, StateFilter } from "../utils/linkStateCounts";
@@ -16,7 +15,6 @@ import {
   ENGINES_HEAD,
   STORE_HEAD,
   engineRowValue,
-  pinLabel,
   rankEngines,
   storeAssetsLabel,
 } from "../utils/overviewCopy";
@@ -72,48 +70,46 @@ export interface OverviewCardProps {
   review: StripReview | null;
   /** `scannedAt` in epoch ms, `null` before the first scan. */
   scan: { scannedAt: number | null; scanning: boolean; onRescan: () => void };
-  pinned: boolean;
-  onTogglePin: () => void;
 }
 
-/* The rows' grids, from prototype F (docs/plans/2026-11-26-global-top-prototypes.html):
-   mark, name, meter, value for an engine; name, meter, value for a kind. The
-   value cell is fixed at 80px and never wraps; the name truncates; the meter
-   takes what is left, so a narrow inspector shortens the bars first. */
+/* T3 Code's card, in Hanger's tokens (Task 2 of
+   docs/plans/2026-11-26-global-list.md; ThreadDetailsSection.tsx,
+   threadDetailsPanelStyles.ts, ThreadDetailsUsage.tsx), matched against
+   approved-HI.png. Rows are 32px with the 8px control radius; a kind's row
+   is T3's 24px meter row, its bar GelMeter's line tone. The value cell is
+   fixed and never wraps; the name truncates. */
 const ROW =
-  "w-full h-7 items-center gap-2 pl-2.5 pr-2 rounded-control text-left text-base-app cursor-pointer transition-colors duration-hover ease-spring";
-const ENGINE_GRID = "grid grid-cols-[16px_128px_minmax(0,1fr)_80px]";
-const KIND_GRID = "grid grid-cols-[110px_minmax(0,1fr)_80px]";
+  "w-full h-8 items-center gap-2.5 px-2.5 rounded-control text-left text-base-app cursor-pointer transition-colors duration-hover ease-spring";
+const ENGINE_GRID = "grid grid-cols-[14px_minmax(0,1fr)_auto]";
+const KIND_ROW =
+  "w-full h-6 grid grid-cols-[96px_minmax(48px,1fr)_88px] items-center gap-3 px-2.5 rounded-control text-left text-small cursor-pointer transition-colors duration-hover ease-spring";
 const VALUE = "text-right text-small tabular whitespace-nowrap";
 const ACTION_ROW =
-  "w-full h-[30px] flex items-center gap-[9px] px-2.5 rounded-control text-left text-base-app text-ink-1 cursor-pointer transition-[background-color,transform] duration-hover ease-spring hover:bg-plane-2 active:scale-[0.97] disabled:cursor-default disabled:opacity-50";
+  "w-full h-8 flex items-center gap-2.5 px-2.5 rounded-control text-left text-base-app text-ink-1 cursor-pointer transition-[background-color,transform] duration-hover ease-spring hover:bg-plane-2 active:scale-[0.97] disabled:cursor-default disabled:opacity-50";
+/** T3's section: 8px in, the --line border between sections. */
+const SECTION = "px-2 pt-2 pb-2.5";
 
-/** A section's head: its name, its caption at the right, and the pin when
- *  this is the card's first section (round 14 q3). */
-function SectionHead({ id, name, caption, pin }: { id: string; name: string; caption?: string; pin?: ReactNode }) {
+/** A section's head, as T3 heads one: 11px, medium, muted, 32px tall, its
+ *  caption at the right. */
+function SectionHead({ id, name, caption }: { id: string; name: string; caption?: string }) {
   return (
-    <div data-section-head className="flex items-center gap-2 min-h-[22px] pl-2.5 pr-1 pt-1.5 pb-0.5 text-small text-ink-3">
-      <span id={id} className="font-medium text-ink-2 truncate">
+    <div data-section-head className="flex items-center gap-2 min-h-8 px-2.5 text-micro font-medium text-ink-3">
+      <span id={id} className="truncate">
         {name}
       </span>
-      {caption && <span className="ml-auto min-w-0 truncate">{caption}</span>}
-      {pin && <span className={caption ? "shrink-0" : "ml-auto shrink-0"}>{pin}</span>}
+      {caption && <span className="ml-auto min-w-0 truncate font-normal">{caption}</span>}
     </div>
   );
 }
 
-/** A ranked bar: the figure over the heaviest one, or the bare track for
- *  no figure. Hidden from assistive tech: the row it sits in already reads
- *  the value it draws. */
-function RankBar({ label, value, max }: { label: string; value: number | null; max: number | null }) {
+/** A kind's bar, GelMeter's line tone. Phase 1 measures MCP alone, so the
+ *  one measured kind is the engine's whole figure and fills its track; the
+ *  others are the bare track. Hidden from assistive tech: the row it sits
+ *  in already reads the value it draws. */
+function KindBar({ label, value }: { label: string; value: number | null }) {
   return (
     <span aria-hidden="true" className="min-w-0">
-      <GelMeter
-        tone="rank"
-        label={label}
-        max={max ?? undefined}
-        segments={value === null || max === null ? [] : [{ key: label, value }]}
-      />
+      <GelMeter tone="line" label={label} max={value ?? undefined} segments={value === null ? [] : [{ key: label, value }]} />
     </span>
   );
 }
@@ -123,9 +119,11 @@ function RankBar({ label, value, max }: { label: string; value: number | null; m
  * engine ranked by its tokens every session, then the chosen engine by kind
  * or, with All engines, the store's link state, then Needs review and
  * Rescan. Purely presentational — it calls nothing. Global's one summary
- * since Task 7: ProfilePane draws it into `OverviewPopover` from the window
- * bar, or pinned into the inspector's empty state. It draws no border or
- * elevation of its own: whichever surface holds it does.
+ * since Task 7: ProfilePane docks it at the list's top right when there is
+ * room, or draws it into `OverviewPopover` from the window bar. It draws its
+ * own frame, T3's: 280px, the plane radius, frosted (the page token at 86%
+ * over a backdrop blur) with a --line border. The popover adds the overlay
+ * elevation; docked, it has none.
  */
 export default function OverviewCard({
   engines,
@@ -136,8 +134,6 @@ export default function OverviewCard({
   engineFigures,
   review,
   scan,
-  pinned,
-  onTogglePin,
 }: OverviewCardProps) {
   const cardRef = useRef<HTMLDivElement>(null);
   const reviewRef = useRef<HTMLSpanElement>(null);
@@ -149,37 +145,23 @@ export default function OverviewCard({
 
   const ranked = rankEngines(engines);
   const hasEngines = ranked.length > 0;
-  // Every bar is scaled to the first engine's figure: the ranking puts the
-  // heaviest there, and an engine with no figure there means none has one.
-  const top = hasEngines ? measuredBudget(ranked[0]) : null;
   const chosen = selectedEngineId === null ? null : engines.find((e) => e.engine_id === selectedEngineId) ?? null;
   const showEngine = chosen !== null && engineFigures !== null;
-
-  const pinButton = (
-    <Tooltip label={pinLabel(pinned)} placement="bottom">
-      <button
-        type="button"
-        aria-label={pinLabel(pinned)}
-        onClick={onTogglePin}
-        className={`w-[22px] h-[22px] grid place-items-center rounded-control cursor-pointer transition-[background-color,color,transform] duration-hover ease-spring hover:bg-plane-2 hover:text-ink-1 active:scale-[0.97] ${
-          pinned ? "text-ink-1" : "text-ink-2"
-        }`}
-      >
-        {pinned ? <PinOffIcon size={14} aria-hidden="true" /> : <PinIcon size={14} aria-hidden="true" />}
-      </button>
-    </Tooltip>
-  );
 
   const rowTone = (selected: boolean) => (selected ? "bg-tint" : "hover:bg-plane-2");
 
   return (
-    <div ref={cardRef} data-testid="overview-card" className="flex flex-col font-flex">
+    <div
+      ref={cardRef}
+      data-testid="overview-card"
+      className="w-[280px] flex flex-col font-flex rounded-plane border border-line bg-page/86 backdrop-blur-frost"
+    >
       {/* Engines. Before the first scan has listed any, the section is not
           drawn at all: a head over nothing would read as "no engines"
           (Review Focus 1). */}
       {hasEngines && (
-        <section aria-labelledby={enginesHeadId} className="px-1.5 pb-1.5">
-          <SectionHead id={enginesHeadId} name={ENGINES_HEAD} caption={ENGINES_CAPTION} pin={pinButton} />
+        <section aria-labelledby={enginesHeadId} className={SECTION}>
+          <SectionHead id={enginesHeadId} name={ENGINES_HEAD} caption={ENGINES_CAPTION} />
           <div role="group" aria-labelledby={enginesHeadId}>
             <button
               type="button"
@@ -192,7 +174,6 @@ export default function OverviewCard({
               <span data-cell="name" className={`truncate text-ink-1 ${selectedEngineId === null ? "font-medium" : ""}`}>
                 {ALL_ENGINES}
               </span>
-              <span />
               <span data-cell="value" className={`${VALUE} text-ink-2`}>
                 {storeAssetsLabel(storeTotal)}
               </span>
@@ -200,7 +181,7 @@ export default function OverviewCard({
             {ranked.map((ctx) => {
               const selected = ctx.engine_id === selectedEngineId;
               const value = engineRowValue(ctx);
-              const tokens = measuredBudget(ctx);
+              const measured = measuredBudget(ctx) !== null;
               return (
                 <button
                   key={ctx.engine_id}
@@ -214,8 +195,7 @@ export default function OverviewCard({
                   <span data-cell="name" className={`truncate text-ink-1 ${selected ? "font-medium" : ""}`}>
                     {ctx.engine_name}
                   </span>
-                  <RankBar label={`${ctx.engine_name}: ${value}`} value={tokens} max={top} />
-                  <span data-cell="value" className={`${VALUE} ${tokens === null ? "text-ink-3" : "text-ink-2"}`}>
+                  <span data-cell="value" className={`${VALUE} ${measured ? "text-ink-2" : "text-ink-3"}`}>
                     {value}
                   </span>
                 </button>
@@ -231,17 +211,11 @@ export default function OverviewCard({
           ctx={chosen}
           figures={engineFigures}
           measureCaptionId={measureCaptionId}
-          pin={hasEngines ? undefined : pinButton}
           divided={hasEngines}
         />
       ) : (
-        <section aria-labelledby={secondHeadId} className={`px-1.5 pb-2.5 ${hasEngines ? "border-t border-line" : ""}`}>
-          <SectionHead
-            id={secondHeadId}
-            name={STORE_HEAD}
-            caption={storeAssetsLabel(storeTotal)}
-            pin={hasEngines ? undefined : pinButton}
-          />
+        <section aria-labelledby={secondHeadId} className={`${SECTION} ${hasEngines ? "border-t border-line" : ""}`}>
+          <SectionHead id={secondHeadId} name={STORE_HEAD} caption={storeAssetsLabel(storeTotal)} />
           <div className="px-2.5 pt-1.5">
             <LinkStateLegend counts={linkLegend.counts} active={linkLegend.active} onFilter={linkLegend.onFilter} />
           </div>
@@ -251,7 +225,7 @@ export default function OverviewCard({
       {/* Actions. Needs review opens the same FindingPopover the strip's
           pill does, from the same `review`; Rescan carries the scan's age
           where the strip kept it in a tooltip. */}
-      <div className="px-1.5 py-1.5 border-t border-line">
+      <div className="px-2 py-2 border-t border-line">
         {review && review.count > 0 && (
           <span ref={reviewRef} className="relative block">
             <button
@@ -297,22 +271,20 @@ function EngineSection({
   ctx,
   figures,
   measureCaptionId,
-  pin,
   divided,
 }: {
   headId: string;
   ctx: EngineContext;
   figures: EngineStripFigures;
   measureCaptionId: string;
-  pin?: ReactNode;
   divided: boolean;
 }) {
   const headline = engineStripHeadline(ctx, ctx.engine_name);
   const tokens = measuredBudget(ctx);
   return (
-    <section aria-labelledby={headId} className={`px-1.5 pb-1.5 ${divided ? "border-t border-line" : ""}`}>
-      <SectionHead id={headId} name={ctx.engine_name} caption={engineBandFigures(ctx).secondary} pin={pin} />
-      <div className="flex items-center gap-2 pl-2.5 pr-1 pt-1 pb-1.5">
+    <section aria-labelledby={headId} className={`${SECTION} ${divided ? "border-t border-line" : ""}`}>
+      <SectionHead id={headId} name={ctx.engine_name} caption={engineBandFigures(ctx).secondary} />
+      <div className="flex items-center gap-2 px-2.5 pb-2">
         {headline.figure === null ? (
           <span className="text-lg-app font-medium text-ink-3">{NOT_MEASURED_FIGURE}</span>
         ) : (
@@ -347,12 +319,12 @@ function EngineSection({
             data-kind={seg.key}
             aria-pressed={seg.pressed}
             onClick={seg.onSelect}
-            className={`${ROW} ${KIND_GRID} ${seg.pressed ? "bg-tint" : "hover:bg-plane-2"}`}
+            className={`${KIND_ROW} ${seg.pressed ? "bg-tint" : "hover:bg-plane-2"}`}
           >
             <span data-cell="name" className={`truncate ${seg.pressed ? "text-ink-1 font-medium" : "text-ink-2"}`}>
               {seg.label}
             </span>
-            <RankBar label={`${seg.label}: ${seg.value}`} value={seg.measured ? tokens : null} max={seg.measured ? tokens : null} />
+            <KindBar label={`${seg.label}: ${seg.value}`} value={seg.measured ? tokens : null} />
             <span data-cell="value" className={`${VALUE} ${seg.measured ? "text-ink-2" : "text-ink-3"}`}>
               {seg.value}
             </span>
