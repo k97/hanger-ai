@@ -101,6 +101,39 @@
 - [ ] **Step 5: Commit** `feat(global): two-line rows in a centred column`.
 - [ ] **Step 6: Screenshots** (the parent does this). In the dev app, take Global at 1024 × 700: All, Skills, MCP servers, scrolled into Subagents, and with a row selected. Put each beside `approved-HI.png`, check the mark checklist, and send the pictures to Karthik through Plannotator. **Stop until he approves.**
 
+### Task 1b: shadcn on Base UI with Hanger's tokens, and the kind tabs (round 19)
+
+Runs after Karthik approves Task 1's screenshots.
+
+**Files:**
+- Create: `components.json`, `src/lib/utils.ts` (`cn`), and `src/components/ui/tabs.tsx`.
+- Modify: `package.json` (add `@base-ui/react`, `class-variance-authority`, `tailwind-merge` and `clsx`), `src/styles/index.css` (the shadcn semantic variables, mapped onto Hanger's tokens), `src/components/CategoryFilterCards.tsx` (drawn with `Tabs`/`TabsList`/`TabsTrigger`), `DesignSystemPane.tsx`, `.claude/DESIGN.md`, and `design-system-coverage.test.ts`, so that `src/components/ui/*` is covered by its own specimen.
+
+**The rules (from round 19):**
+- Base UI, configured like T3's `components.json` (`/Users/karthik/Work/Labs/t3code/apps/web/components.json`): `style: base-mira`, `iconLibrary: lucide`, `cssVariables: true`, `tsx`, no RSC.
+- **Hanger's look:**
+  - shadcn's variables (`--background`, `--foreground`, `--muted`, `--muted-foreground`, `--popover`, `--popover-foreground`, `--accent`, `--border`, `--input`, `--ring`, `--radius` and the rest) are each set to an existing Hanger token (`--page`, `--ink-1`, `--ink-3`, `--tint`, `--line`, …).
+  - No new colour values.
+  - `init` must not overwrite `tokens.css` or Hanger's `@theme`. Run it with `--dry-run` first, and hand-merge.
+- Use the CLI (`bunx --bun shadcn@latest add tabs`), never files fetched from GitHub. Read every file it adds and fix it to Hanger's rules: tokens only, `cn()`, no raw colours.
+- **The kind tabs look the same as today.** Same pill track, same counts, and ←/→ keys still work. Screenshot them before and after.
+
+- [ ] **Step 1: Write the failing tests.**
+  - The kind tabs render `role="tablist"` from `src/components/ui/tabs.tsx`.
+  - Each count still shows.
+  - ←/→ move between tabs, and selecting one calls `onSelectCategory`.
+  - The coverage test finds the `ui/tabs` specimen.
+- [ ] **Step 2:** Run them. Expected: FAIL.
+- [ ] **Step 3:** Set up shadcn as above, and switch `CategoryFilterCards` to `Tabs`. Retire `SegmentedTrack` if nothing else uses it.
+- [ ] **Step 4:** Run the gates. Name every forced test edit.
+- [ ] **Step 5: Commit** `feat(ui): shadcn on Base UI with Hanger's tokens; the kind tabs use its Tabs`.
+- [ ] **Step 6:** Screenshots of the kind tabs before and after, which must look the same.
+
+**From here on, each task swaps the components it touches (round 19 table), with the same rules: CLI add, tokens, specimens.**
+- **Task 2:** `popover` (OverviewPopover), `tooltip` (the window-bar buttons' tooltips) and `toggle` (the window-bar buttons).
+- **Task 3:** `collapsible` (Not loaded, Switched off), `dropdown-menu` (ViewControl, OverflowMenu) and `separator`.
+- **Task 4:** the same components on Repositories.
+
 ### Task 2: The card docks or pops over, and the pin goes
 
 **Files:**
