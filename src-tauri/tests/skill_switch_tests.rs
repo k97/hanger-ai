@@ -245,3 +245,134 @@ fn a_container_link_to_the_whole_store_is_never_returned() {
     let found = find_links(&h.store.join("x"), &link_places(&h.home, &h.store, &[project]), &[container.clone()]);
     assert!(found.is_empty(), "{found:?}");
 }
+
+// ---------------------------------------------------------------------------
+// Task 3: the keep and its receipts
+// ---------------------------------------------------------------------------
+
+use tauri_app_lib::skill_switch::keep::{self, EntryKind, KeepError, LinkRecord, SkillReceipt, Stage};
+
+fn receipt(id: &str, name: &str, at_ms: i64) -> SkillReceipt {
+    SkillReceipt {
+        id: id.to_string(),
+        name: name.to_string(),
+        original: format!("/nowhere/.agents/skills/{name}"),
+        kind: EntryKind::Folder,
+        fingerprint: None,
+        links: vec![LinkRecord { path: "/nowhere/.cursor/skills/x".into(), text: "../x".into() }],
+        stage: Stage::Moving,
+        at_ms,
+    }
+}
+
+const ID_A: &str = "00000000-0000-4000-8000-00000000000a";
+const ID_B: &str = "00000000-0000-4000-8000-00000000000b";
+
+fn mode(path: &Path) -> u32 {
+    fs::symlink_metadata(path).unwrap().permissions().mode() & 0o7777
+}
+
+#[test]
+fn a_relative_keep_is_refused_and_nothing_is_made() {
+    let rel = PathBuf::from(format!("relative-keep-{}", uuid::Uuid::new_v4()));
+    assert_eq!(keep::create_entry(&rel, &receipt(ID_A, "x", 1)).unwrap_err(), KeepError::NotAbsolute);
+    assert!(!rel.exists(), "nothing was made in the working directory");
+    assert_eq!(keep::update(&rel, &receipt(ID_A, "x", 1)).unwrap_err(), KeepError::NotAbsolute);
+    assert!(keep::list(&rel).is_empty());
+    assert!(!rel.exists());
+}
+
+#[test]
+fn entry_and_receipt_are_private() {
+    let dir = temp();
+    let k = dir.path().join("kept/skills");
+    let entry = keep::create_entry(&k, &receipt(ID_A, "x", 1)).unwrap();
+    assert_eq!(entry, k.join(ID_A));
+    assert_eq!(mode(&k), 0o700);
+    assert_eq!(mode(&entry), 0o700);
+    assert_eq!(mode(&entry.join("receipt.json")), 0o600);
+    assert_eq!(keep::load(&k, ID_A), Some(receipt(ID_A, "x", 1)));
+}
+
+#[test]
+fn two_skills_of_one_name_are_kept_apart() {
+    let dir = temp();
+    let k = dir.path().join("keep");
+    keep::create_entry(&k, &receipt(ID_A, "foo", 1)).unwrap();
+    keep::create_entry(&k, &receipt(ID_B, "foo", 2)).unwrap();
+    let listed = keep::list(&k);
+    let ids: Vec<&str> = listed.iter().map(|r| r.id.as_str()).collect();
+    assert_eq!(ids, [ID_B, ID_A], "both are kept, newest first");
+    assert!(listed.iter().all(|r| r.name == "foo"));
+}
+
+#[test]
+fn create_entry_never_reuses_a_folder() {
+    let dir = temp();
+    let k = dir.path().join("keep");
+    keep::create_entry(&k, &receipt(ID_A, "foo", 1)).unwrap();
+    let err = keep::create_entry(&k, &receipt(ID_A, "bar", 2)).unwrap_err();
+    assert_eq!(err, KeepError::Io(std::io::ErrorKind::AlreadyExists));
+    assert_eq!(keep::load(&k, ID_A).unwrap().name, "foo", "the first receipt is untouched");
+}
+
+#[test]
+fn a_receipt_not_named_for_its_id_is_not_listed() {
+    let dir = temp();
+    let k = dir.path().join("keep");
+    keep::create_entry(&k, &receipt(ID_A, "foo", 1)).unwrap();
+    fs::rename(k.join(ID_A), k.join(ID_B)).unwrap();
+    assert!(keep::list(&k).is_empty());
+    assert_eq!(keep::load(&k, ID_B), None);
+    assert_eq!(keep::load(&k, ID_A), None);
+}
+
+#[test]
+fn load_refuses_a_non_uuid_id() {
+    let dir = temp();
+    let k = dir.path().join("keep");
+    keep::create_entry(&k, &receipt(ID_A, "foo", 1)).unwrap();
+    // A receipt one level up, which "../x" would reach.
+    fs::create_dir_all(dir.path().join("x")).unwrap();
+    fs::write(dir.path().join("x/receipt.json"), serde_json::to_string(&receipt("../x", "foo", 1)).unwrap()).unwrap();
+    assert_eq!(keep::load(&k, "../x"), None);
+    // The folder name resolves on a case-insensitive volume; the id does not.
+    assert_eq!(keep::load(&k, &ID_A.to_uppercase()), None);
+    assert!(keep::load(&k, ID_A).is_some());
+    // A receipt that names itself in the uppercase spelling, made by hand:
+    // only the spelling check refuses it.
+    let upper = ID_B.to_uppercase();
+    fs::create_dir_all(k.join(&upper)).unwrap();
+    fs::write(k.join(&upper).join("receipt.json"), serde_json::to_string(&receipt(&upper, "foo", 1)).unwrap()).unwrap();
+    assert_eq!(keep::load(&k, &upper), None);
+    assert_eq!(keep::list(&k).len(), 1, "only Hanger's own spelling is listed");
+    assert!(keep::create_entry(&k, &receipt("../x", "foo", 1)).is_err(), "an id that is no uuid makes nothing");
+}
+
+#[test]
+fn update_leaves_no_temp_file() {
+    let dir = temp();
+    let k = dir.path().join("keep");
+    keep::create_entry(&k, &receipt(ID_A, "foo", 1)).unwrap();
+    let mut next = receipt(ID_A, "foo", 1);
+    next.stage = Stage::Kept;
+    next.fingerprint = Some("abc".into());
+    keep::update(&k, &next).unwrap();
+    assert_eq!(keep::load(&k, ID_A), Some(next));
+    let names: Vec<_> = fs::read_dir(k.join(ID_A)).unwrap().map(|e| e.unwrap().file_name()).collect();
+    assert_eq!(names, [std::ffi::OsString::from("receipt.json")]);
+    assert_eq!(mode(&k.join(ID_A).join("receipt.json")), 0o600);
+}
+
+#[test]
+fn a_non_utf8_link_text_is_refused() {
+    use std::os::unix::ffi::OsStringExt;
+    let text = std::ffi::OsString::from_vec(b"../skills/\xff".to_vec());
+    let found = FoundLink { path: PathBuf::from("/nowhere/link"), text };
+    assert_eq!(LinkRecord::from_found(&found).unwrap_err(), KeepError::NotUtf8);
+    let path = PathBuf::from(std::ffi::OsString::from_vec(b"/nowhere/\xfe".to_vec()));
+    let found = FoundLink { path, text: "x".into() };
+    assert_eq!(LinkRecord::from_found(&found).unwrap_err(), KeepError::NotUtf8);
+    let ok = FoundLink { path: PathBuf::from("/nowhere/link"), text: "../x".into() };
+    assert_eq!(LinkRecord::from_found(&ok).unwrap(), LinkRecord { path: "/nowhere/link".into(), text: "../x".into() });
+}

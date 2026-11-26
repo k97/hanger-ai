@@ -29,6 +29,9 @@
 //!
 //! - `tree`: the folder's fingerprint, and the rename that never replaces.
 //! - `links`: where one-by-one links to a skill are kept, and which they are.
+//! - `keep`: the private keep, one entry and one receipt per switched-off
+//!   skill.
 
+pub mod keep;
 pub mod links;
 pub mod tree;
