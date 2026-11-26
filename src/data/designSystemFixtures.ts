@@ -13,7 +13,6 @@ import type { ScanStatus } from "../hooks/useScanStatus";
 import type { AssetFindings, ReviewIssue } from "../utils/reviewIssues";
 import { originRow, type OriginRowView } from "../utils/assetProvenance";
 import type { HeroBandRow } from "../components/HeroBand";
-import type { TrackSegment } from "../components/SegmentedTrack";
 import type { UnderlineTab } from "../components/UnderlineTabs";
 import type { SearchHit } from "../components/SearchPalette";
 import type { KeptSkill, KeptSkills } from "../types/skillSwitch";
@@ -179,7 +178,8 @@ export const SAMPLE_EDITORS: DetectedEditor[] = [
   { name: "Zed", bundleId: "dev.zed.Zed", path: "/Applications/Zed.app" },
 ];
 
-export const SAMPLE_SEGMENTS: TrackSegment[] = [
+/** The Tabs specimen's three tabs (ui/tabs.tsx). */
+export const SAMPLE_SEGMENTS: Array<{ id: string; label: string; count: number }> = [
   { id: "all", label: "All", count: 142 },
   { id: "skills", label: "Skills", count: 105 },
   { id: "tools", label: "MCP servers", count: 23 },

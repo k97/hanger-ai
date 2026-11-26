@@ -134,6 +134,72 @@
   --ease-spring: var(--spring);
 }
 
+/* ── shadcn's semantic variables, pointed at Hanger's tokens ──
+   shadcn on Base UI (round 19, docs/plans/2026-11-26-decisions-round-19.md):
+   its components read these names, and each one is an existing Hanger token,
+   so a component added through the CLI takes Hanger's look and no new colour
+   enters the system. `shadcn init` was not run here: it rewrites `--sidebar`
+   and `--font-sans`, which are Hanger's, and adds a global `@layer base`.
+   This block, `components.json` and `src/lib/utils.ts` are its hand-merged
+   output (Task 1b of docs/plans/2026-11-26-global-list.md).
+
+   One selector for both themes: every right-hand side is a token tokens.css
+   already redefines under `.dark`, and declaring the block on `.dark` too
+   makes it recompute inside a `.dark` subtree, not only at the root.
+
+   `--accent` is absent on purpose. Hanger already defines it (tokens.css,
+   the legacy role aliases: `var(--fill)`), and `@theme` above already
+   registers `--color-accent` from it, so shadcn's accent IS Hanger's: the
+   strong fill, with `--on-accent` on it. shadcn's own styles use accent for
+   a quiet hover; a component that does is restyled to `hover:bg-plane-2`
+   when it comes in, the way the menus here already draw it. */
+:root,
+.dark {
+  --background: var(--page);
+  --foreground: var(--ink-1);
+  --card: var(--page);
+  --card-foreground: var(--ink-1);
+  --popover: var(--page);
+  --popover-foreground: var(--ink-1);
+  --primary: var(--fill);
+  --primary-foreground: var(--on-fill);
+  --secondary: var(--plane-2);
+  --secondary-foreground: var(--ink-1);
+  --muted: var(--plane);
+  --muted-foreground: var(--ink-3);
+  --accent-foreground: var(--on-accent);
+  --destructive: var(--state-danger);
+  --destructive-foreground: var(--on-fill);
+  --border: var(--line);
+  --input: var(--line-2);
+  --ring: var(--ink-1);
+  --radius: var(--radius-inner);
+}
+
+/* Registered `inline`, so each utility reads the variable where it is used.
+   No radius scale is registered from `--radius`: Hanger's radii are the four
+   named ones above, and the off-token guard rejects the `-sm`…`-3xl` scale. */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+}
+
 /* Brand marks with a per-theme variant ship both and hide one. The app's theme
    is a .dark class on <html> (App.tsx) and this project declares no
    `@custom-variant dark`, so a `dark:` utility would silently do nothing —

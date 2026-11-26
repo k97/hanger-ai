@@ -1,4 +1,6 @@
-import SegmentedTrack from "./SegmentedTrack";
+import { useEffect, useRef } from "react";
+import { Tabs, TabsIndicator, TabsList, TabsTrigger } from "./ui/tabs";
+import { LoaderCircleIcon } from "./icons";
 
 export type CategoryType = "Skills" | "Agents" | "Tools" | "Rules" | "Subagents";
 
@@ -80,30 +82,53 @@ export default function CategoryFilterCards({
     return chip.count > 0;
   });
 
-  const handleChipClick = (id: CategoryType | null) => {
-    if (id !== null && selectedCategory === id) {
-      onSelectCategory(null);
-    } else {
-      onSelectCategory(id);
-    }
+  /* A press on the selected tab clears the filter, as the chips always have.
+     Base UI fires onValueChange only on a change, so the re-press is caught
+     on the tab itself; every other press arrives through onValueChange. */
+  const handleValueChange = (value: unknown) => {
+    onSelectCategory(value === "all" ? null : (value as CategoryType));
+  };
+  const handleTabClick = (id: CategoryType | null) => {
+    if (id !== null && selectedCategory === id) onSelectCategory(null);
   };
 
-  const segments: Array<{ id: string; label: string; count?: number | null }> = visibleChips.map((c) => ({
-    id: c.id ?? "all",
-    label: c.label,
-    count: c.count,
-  }));
+  /* When the track scrolls (a narrow pane), keep the selected tab in view,
+     including a selection made from elsewhere. */
+  const listRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    listRef.current
+      ?.querySelector<HTMLElement>("[data-active]")
+      ?.scrollIntoView?.({ inline: "nearest", block: "nearest", behavior: "smooth" });
+  }, [selectedCategory]);
 
   return (
-    <section className="@container font-sans select-none shrink-0">
-      <SegmentedTrack
-        segments={segments}
-        selectedId={selectedCategory ?? "all"}
-        onSelect={(id) => handleChipClick(id === "all" ? null : (id as CategoryType))}
-        ariaLabel="Filter by category"
-        loading={loading}
-        fitToContainer
-      />
-    </section>
+    <Tabs
+      value={selectedCategory ?? "all"}
+      onValueChange={handleValueChange}
+      render={<section />}
+      className="@container font-sans select-none shrink-0"
+    >
+      <TabsList ref={listRef} aria-label="Filter by category">
+        <TabsIndicator />
+        {visibleChips.map((chip) => {
+          const selected = chip.id === selectedCategory;
+          return (
+            <TabsTrigger
+              key={chip.id ?? "all"}
+              value={chip.id ?? "all"}
+              onClick={() => handleTabClick(chip.id)}
+              // Below 576px of its own width the track tightens, and below
+              // 512px it drops the counts, before it falls back to scrolling.
+              className="px-3 @[576px]:px-4"
+            >
+              <span>{chip.label}</span>
+              <span className={`text-micro tabular hidden @[512px]:inline ${selected ? "text-ink-2" : "text-ink-3"}`}>
+                {chip.count === undefined && loading ? <LoaderCircleIcon size={12} active /> : (chip.count ?? 0)}
+              </span>
+            </TabsTrigger>
+          );
+        })}
+      </TabsList>
+    </Tabs>
   );
 }

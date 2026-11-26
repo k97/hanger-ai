@@ -54,7 +54,7 @@ describe("the animated-icon family rule", () => {
     //
     // A value is either a plain quoted string (className="...") or a
     // JSXExpressionContainer (className={...}) — this codebase composes
-    // classes both ways (SegmentedTrack.tsx's template-literal className,
+    // classes both ways (CategoryFilterCards.tsx's template-literal className,
     // ternary classNames elsewhere), so both are extracted and scanned: a
     // bare string/backtick match for the first form, a brace-depth walk for
     // the second so a template literal or a conditional inside the braces —

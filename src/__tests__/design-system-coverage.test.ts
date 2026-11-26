@@ -73,18 +73,29 @@ const ALLOWLIST: Exemption[] = [
   { component: "SidebarScanModal", reason: "a modal that links directories over IPC" },
 ];
 
-function componentNames(): string[] {
+// shadcn's components live one level down, in `src/components/ui/`, and are
+// named by that path (`ui/tabs`): the caption a reader looks for is
+// `ui/tabs.tsx`, and the bare names (`tabs`, `popover`) would otherwise sit
+// beside Hanger's own in one flat list (Task 1b of
+// docs/plans/2026-11-26-global-list.md).
+const UI_DIR = path.join(COMPONENTS_DIR, "ui");
+
+function tsxModules(dir: string, prefix: string): string[] {
+  if (!fs.existsSync(dir)) return [];
   return fs
-    .readdirSync(COMPONENTS_DIR)
+    .readdirSync(dir)
     .filter((f) => f.endsWith(".tsx") && !f.endsWith(".test.tsx"))
-    .map((f) => f.replace(/\.tsx$/, ""))
-    .sort();
+    .map((f) => prefix + f.replace(/\.tsx$/, ""));
+}
+
+function componentNames(): string[] {
+  return [...tsxModules(COMPONENTS_DIR, ""), ...tsxModules(UI_DIR, "ui/")].sort();
 }
 
 function pageImports(): Set<string> {
   const src = fs.readFileSync(PAGE, "utf8");
   const names = new Set<string>();
-  for (const m of src.matchAll(/from\s+"\.\/([A-Za-z0-9_]+)"/g)) names.add(m[1]);
+  for (const m of src.matchAll(/from\s+"\.\/((?:ui\/)?[A-Za-z0-9_-]+)"/g)) names.add(m[1]);
   return names;
 }
 
@@ -111,6 +122,11 @@ describe("Design system page coverage", () => {
       covered,
       `Allowlisted components the page now imports — drop the exemption: ${covered.join(", ")}`,
     ).toEqual([]);
+  });
+
+  it("reads src/components/ui too, so a shadcn component needs a specimen of its own", () => {
+    expect(components).toContain("ui/tabs");
+    expect(imported.has("ui/tabs"), "DesignSystemPane imports ./ui/tabs").toBe(true);
   });
 
   it("every exemption carries a reason", () => {

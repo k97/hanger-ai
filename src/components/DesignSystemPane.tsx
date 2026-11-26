@@ -15,7 +15,7 @@ import OverviewCard, { type OverviewCardProps } from "./OverviewCard";
 import OverviewPopover from "./OverviewPopover";
 import { ScanStatusIndicator } from "./ScanStatusIndicator";
 import HangerMark from "./HangerMark";
-import SegmentedTrack from "./SegmentedTrack";
+import { Tabs, TabsIndicator, TabsList, TabsTrigger } from "./ui/tabs";
 import UnderlineTabs from "./UnderlineTabs";
 import ViewControl, { type ServerGrouping, type ServerSort } from "./ViewControl";
 import OverflowMenu, { menuItemClass, MenuSeparator } from "./OverflowMenu";
@@ -851,13 +851,18 @@ export default function DesignSystemPane({ section }: DesignSystemPaneProps) {
             </div>
           </Specimen>
 
-          <Specimen name="SegmentedTrack" file="SegmentedTrack.tsx" note="the track under CategoryFilterCards; the capsule slides on the nav beat">
-            <SegmentedTrack
-              segments={SAMPLE_SEGMENTS}
-              selectedId={segment}
-              onSelect={setSegment}
-              ariaLabel="Sample segments"
-            />
+          <Specimen name="Tabs" file="ui/tabs.tsx" note="shadcn's Tabs on Base UI, in Hanger's tokens: the track under CategoryFilterCards; the capsule slides on the nav beat">
+            <Tabs value={segment} onValueChange={(value) => setSegment(String(value))}>
+              <TabsList aria-label="Sample segments">
+                <TabsIndicator />
+                {SAMPLE_SEGMENTS.map((s) => (
+                  <TabsTrigger key={s.id} value={s.id}>
+                    <span>{s.label}</span>
+                    <span className={`text-micro tabular ${s.id === segment ? "text-ink-2" : "text-ink-3"}`}>{s.count}</span>
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </Tabs>
           </Specimen>
 
           <Specimen name="UnderlineTabs" file="UnderlineTabs.tsx" note="switches views inside one surface; weight and the rule are all that change">

@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { render, screen, cleanup, within } from "@testing-library/react";
+import { render, screen, cleanup, within, fireEvent, waitFor } from "@testing-library/react";
 import { describe, it, expect, vi, afterEach } from "vitest";
 import CategoryFilterCards from "./CategoryFilterCards";
 
@@ -127,5 +127,113 @@ describe("CategoryFilterCards", () => {
     const count = within(skills).getByText("8");
     expect(count.className).toContain("hidden");
     expect(count.className).toContain("@[512px]:inline");
+  });
+});
+
+// The kind tabs on shadcn's Tabs (Task 1b of docs/plans/2026-11-26-global-list.md,
+// round 19). `data-slot` is how shadcn marks each part, so it is what proves
+// the markup comes from src/components/ui/tabs.tsx and not a hand-built track.
+describe("CategoryFilterCards on shadcn Tabs", () => {
+  it("draws its tablist, tabs and capsule from ui/tabs", () => {
+    render(<CategoryFilterCards {...props} />);
+    const list = screen.getByRole("tablist", { name: "Filter by category" });
+    expect(list.getAttribute("data-slot")).toBe("tabs-list");
+    for (const tab of within(list).getAllByRole("tab")) {
+      expect(tab.getAttribute("data-slot")).toBe("tabs-trigger");
+    }
+    expect(list.querySelector('[data-slot="tabs-indicator"]')).not.toBeNull();
+    // The root is the @container section itself, so the tablist's parent is
+    // still the section the panes' class contracts walk up from.
+    expect(list.parentElement!.tagName).toBe("SECTION");
+    expect(list.parentElement!.getAttribute("data-slot")).toBe("tabs");
+  });
+
+  // Class contract only: happy-dom lays nothing out, so the capsule's real
+  // position under the selected tab is a screenshot claim (verification.md).
+  it("keeps today's pill track and its raised capsule, which follows the tab Base UI measures", () => {
+    render(<CategoryFilterCards {...props} />);
+    const list = screen.getByRole("tablist", { name: "Filter by category" });
+    for (const c of ["bg-plane", "rounded-pill", "border-line", "p-1", "overflow-x-auto"]) {
+      expect(list.className.split(/\s+/), c).toContain(c);
+    }
+    const capsule = list.querySelector('[data-slot="tabs-indicator"]')!;
+    for (const c of [
+      "capsule-raised",
+      "rounded-pill",
+      "h-7",
+      "duration-nav",
+      "ease-spring",
+      "left-(--active-tab-left)",
+      "top-(--active-tab-top)",
+      "w-(--active-tab-width)",
+    ]) {
+      expect(capsule.className.split(/\s+/), c).toContain(c);
+    }
+  });
+
+  it("shows each count inside its tab, and marks the selected tab", () => {
+    render(<CategoryFilterCards {...props} selectedCategory="Tools" />);
+    expect(screen.getByRole("tab", { name: "All 12" })).toBeTruthy();
+    expect(screen.getByRole("tab", { name: "Skills 8" })).toBeTruthy();
+    const tools = screen.getByRole("tab", { name: "MCP servers 4" });
+    expect(tools.getAttribute("aria-selected")).toBe("true");
+    expect(tools.hasAttribute("data-active")).toBe(true);
+    expect(tools.className.split(/\s+/)).toContain("data-active:font-medium");
+    expect(within(tools).getByText("4").className.split(/\s+/)).toContain("text-ink-2");
+    expect(within(screen.getByRole("tab", { name: "Skills 8" })).getByText("8").className.split(/\s+/)).toContain("text-ink-3");
+  });
+
+  it("moves between tabs with the arrow keys, wrapping at both ends; each tab is a native button", async () => {
+    const onSelectCategory = vi.fn();
+    render(<CategoryFilterCards {...props} onSelectCategory={onSelectCategory} />);
+    const all = screen.getByRole("tab", { name: "All 12" });
+    const skills = screen.getByRole("tab", { name: "Skills 8" });
+    const tools = screen.getByRole("tab", { name: "MCP servers 4" });
+    // One tab stop: the selected tab.
+    expect(all.tabIndex).toBe(0);
+    expect(skills.tabIndex).toBe(-1);
+    // Base UI moves focus a microtask after the key, so each landing is awaited.
+    const press = async (from: HTMLElement, key: string, to: HTMLElement) => {
+      fireEvent.keyDown(from, { key });
+      await waitFor(() => expect(document.activeElement).toBe(to));
+    };
+    all.focus();
+    await press(all, "ArrowRight", skills);
+    // Focus alone does not select, as before.
+    expect(onSelectCategory).not.toHaveBeenCalled();
+    await press(skills, "ArrowLeft", all);
+    // The two steps a non-wrapping walk cannot take.
+    await press(all, "ArrowLeft", tools);
+    await press(tools, "ArrowRight", all);
+    // Enter and Space select through the native button: a browser fires
+    // click on them, and the click is what selects (the next test). happy-dom
+    // does not synthesise that click from a keydown, so what this environment
+    // can pin is that each tab IS a native button; the keys themselves are a
+    // check in the running app.
+    for (const tab of [all, skills, tools]) {
+      expect(tab.tagName).toBe("BUTTON");
+      expect(tab.getAttribute("type")).toBe("button");
+    }
+  });
+
+  it("selects on click, and a click on the selected tab goes back to All", () => {
+    const onSelectCategory = vi.fn();
+    const { rerender } = render(<CategoryFilterCards {...props} onSelectCategory={onSelectCategory} />);
+    fireEvent.click(screen.getByRole("tab", { name: "Skills 8" }));
+    expect(onSelectCategory).toHaveBeenLastCalledWith("Skills");
+    expect(onSelectCategory).toHaveBeenCalledTimes(1);
+    rerender(<CategoryFilterCards {...props} selectedCategory="Skills" onSelectCategory={onSelectCategory} />);
+    fireEvent.click(screen.getByRole("tab", { name: "Skills 8" }));
+    expect(onSelectCategory).toHaveBeenLastCalledWith(null);
+    expect(onSelectCategory).toHaveBeenCalledTimes(2);
+    fireEvent.click(screen.getByRole("tab", { name: "All 12" }));
+    expect(onSelectCategory).toHaveBeenLastCalledWith(null);
+  });
+
+  it("draws the 12px spinner for a count that has not arrived, while loading", () => {
+    render(<CategoryFilterCards {...props} loading skillsCount={undefined} />);
+    const skills = screen.getByRole("tab", { name: /^Skills/ });
+    expect(skills.querySelector("g.aim-loop")).toBeTruthy();
+    expect(skills.querySelector("svg")?.getAttribute("width")).toBe("12");
   });
 });

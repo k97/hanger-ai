@@ -127,7 +127,7 @@ function getAllSrcFiles(dir: string): string[] {
 //
 // Narrow on purpose: it suppresses only the sum signal, so a line that is
 // index math AND reduces, or AND reads inventory, AND is named `…Count`,
-// still fails on those. `SegmentedTrack` currently avoids the shape with a
+// still fails on those. `ReachCard` currently avoids the shape with a
 // ternary rather than relying on this, so nothing in `src/` exercises the
 // exemption — the table in "distinguishes index math from asset counting"
 // below is what keeps it honest.

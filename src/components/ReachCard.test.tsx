@@ -89,7 +89,7 @@ describe("ReachCard", () => {
   });
 
   /* One composite widget, not thirteen controls: a radiogroup whose radios
-     carry a roving tabIndex, the same model SegmentedTrack.tsx uses. Tab
+     carry a roving tabIndex, the same model the kind tabs use (ui/tabs.tsx). Tab
      reaches the group once and lands on the selected plate. */
   it("is one radiogroup of radios with a single tab stop", () => {
     render(<ReachCard reach={reach} />);

@@ -90,8 +90,8 @@ export default function ReachCard({ reach }: { reach: EngineReachInfo[] }) {
 
   /* Arrow keys move and select together, the way a radio group does — so
      stepping across the plates scrubs the answer beneath them. Wrapping is
-     written as a ternary rather than modulo arithmetic, matching
-     SegmentedTrack and keeping `.length` out of a sum. */
+     written as a ternary rather than modulo arithmetic, keeping `.length`
+     out of a sum. */
   const choose = (index: number) => {
     const next = ordered[index];
     if (!next) return;

@@ -218,9 +218,10 @@ describe("Cockpit Derived Token Contrast Check", () => {
    * expression. The selected capsule breaks that model twice over. Its surface
    * comes from the `capsule-raised` @utility, and no `.tsx` may ever spell
    * `bg-capsule` — that is why the utility exists (`index.css:151-156`). And,
-   * decisively, the surface sits on an absolutely positioned `<i>`
-   * (`SegmentedTrack.tsx:89`) while the text it backs is on sibling buttons
-   * (`:108`, `:112`); they are composited by z-index and never co-located in
+   * decisively, the surface sits on an absolutely positioned indicator
+   * (`ui/tabs.tsx` → `TabsIndicator`) while the text it backs is on sibling
+   * tabs (`TabsTrigger`, and the count in `CategoryFilterCards`); they are
+   * composited by z-index and never co-located in
    * one className. So teaching the scan to resolve @utility backgrounds — the
    * fix T12 proposed — would still not have found this pair. It has to be
    * named, which is what this does.

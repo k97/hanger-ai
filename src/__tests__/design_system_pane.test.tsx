@@ -29,7 +29,7 @@ const INVENTORY = [
   "HangerMark",
   "CategoryFilterCards",
   "Tooltip",
-  "SegmentedTrack",
+  "Tabs",
   "UnderlineTabs",
   "ViewControl",
   "OverflowMenu",

@@ -162,7 +162,9 @@ Tokens reach utilities through a Tailwind v4 `@theme` block
 (`src/styles/index.css:4-113`), which maps each CSS variable into a utility
 namespace — `--color-page`, `--color-plane`, `--color-state-danger` and so on
 (`index.css:6-17`). Utilities are therefore semantic: `bg-plane`,
-`text-ink-3`, `border-line`, `text-state-warning`.
+`text-ink-3`, `border-line`, `text-state-warning`. A second block,
+`@theme inline`, registers shadcn's semantic names (`bg-muted`,
+`border-border`, …) over the same tokens (§5, shadcn).
 
 ---
 
@@ -309,7 +311,8 @@ utility in a `.tsx` file (§7) — a caller reaches for `capsule-raised` and
 never spells `shadow` at all. `--color-capsule` separately registers
 `bg-capsule` for the bare surface (`index.css:38-41`), but nothing in `src/`
 uses it: `capsule-raised` already carries the surface, so no `.tsx` line has
-reason to. `SegmentedTrack`'s selected pill is the only caller (§5).
+reason to. The kind tabs' capsule, `TabsIndicator` (`ui/tabs.tsx`), is the
+only caller (§5).
 
 **The capsule's colour pair sits outside the contrast guard's reach, by
 construction, not by oversight.** `tokens_contrast.test.ts` finds every pair
@@ -613,7 +616,7 @@ The plates are one composite widget, not one control each: the card is a
 `role="radiogroup"` (`:111`), each plate a `role="radio"` with `aria-checked`
 and a roving `tabIndex` (`:133-140`), so Tab reaches the group once and lands
 on the selected plate while arrows move and select, Home and End jumping to the
-ends. That is the model `SegmentedTrack.tsx:82-101` already uses, with the role
+ends. That is the model the kind tabs use (Base UI's Tabs, `ui/tabs.tsx`), with the role
 changed because these plates are interleaved with the route labels that give
 them meaning and a tablist should own only tabs. Deliberately not
 `aria-pressed`, which is for a binary toggle — both of its uses in `src/` are
@@ -632,8 +635,9 @@ Design record (local-only, not tracked in this repo):
 
 ## 5. Component inventory
 
-52 non-test `.tsx` files, flat in `src/components/` — no subdirectory — one
-component per file. Views are suffixed `Pane`.
+65 non-test `.tsx` files flat in `src/components/`, one component per file,
+and one subdirectory, `src/components/ui/`, which holds shadcn's components
+(Tabs, below). Views are suffixed `Pane`.
 
 The "all default-exported, with an `interface <Name>Props` declared directly
 above" rule holds for most and has named exceptions, listed here so the rule
@@ -1247,8 +1251,8 @@ growing back, resetting
 the climb to `0` the same width it left (`:179-193`). Both are inert under
 `happy-dom`, the environment every component test runs in, for two different
 reasons: the render-time comparison never overflows because `scrollWidth`
-and `clientWidth` both read `0` there — the same limitation `SegmentedTrack`'s
-and `UnderlineTabs`' own geometry already carry (Surfaces and controls,
+and `clientWidth` both read `0` there — the same limitation the kind tabs'
+capsule and `UnderlineTabs`' own geometry already carry (Surfaces and controls,
 below) — while the `ResizeObserver` effect's own guard, `typeof
 ResizeObserver === "undefined"` (`:181`), does not even trip: `happy-dom`
 does define a `ResizeObserver` class, so `typeof` reads `"function"` and the
@@ -1890,39 +1894,53 @@ SVG canvas). Renders `<use href="#brand-…">`; nothing for any-agent;
 **`EngineLabel`** (`EngineLabel.tsx:4-22`) — `BrandIcon` + children in an
 `inline-flex items-center gap-1.5` (`:17`); the one icon-plus-name compound.
 
-**`SegmentedTrack`** (`SegmentedTrack.tsx`) — the category row's tablist:
-`segments: TrackSegment[]` (`{id, label, count?}`, `:4-10`; `count: null`
-draws no figure and no spinner; no caller passes it since Global's Engines
-tab went);
-`SegmentedTrackProps` adds `selectedId`, `onSelect`, `ariaLabel`, `loading?`
-(`:11-17`). `role="tablist"` on the outer element, one `role="tab"` per
-segment (`:82`, `:98`); roving focus — the selected tab is `tabIndex={0}`,
-every other `-1`, Left/Right/Home/End move focus without selecting,
-Enter/Space selects (`:46-78`, `:100-101`). A segment's own count sits
-beside its label; `count === undefined` under `loading` draws a spinner in
-its place rather than a stale zero (`:112-118`). The track scrolls rather
-than wraps at narrow widths — `overflow-x-auto [scrollbar-width:none]` on
-the outer element — as its last resort. Before that, a caller that passes
-`fitToContainer` from inside an `@container` gets segments that tighten
-from `px-4` to `px-3` below 576px and drop their counts below 512px
-(`hidden @[512px]:inline`); with the inspector open at the default window,
-Global's six tabs ran past the track's edge and cut "Subagents 302" off
-(F1, 2026-11-25). It is opt-in because a container query answers to the
-nearest container of any kind, and the other callers sit inside unrelated
-ones. Selecting a segment calls its own button's
-`scrollIntoView` so an off-screen selection brings itself on screen
-(`:40`). The selected segment carries a floating pill, `<i
-data-testid="track-capsule">`, styled `capsule-raised` (§3) and
-repositioned by measuring the selected button's own box in a
-`useLayoutEffect` (`:32-44`, `:86-91`) — a second idiom from
-`UnderlineTabs`' own sliding rule (below), at capsule geometry rather than
-an underline. No automated test asserts the capsule's resulting position:
-under `happy-dom`, `offsetTop`/`offsetLeft`/`offsetWidth` all read 0, the
-same limitation `UnderlineTabs`' indicator already carries — only a
-screenshot from a running build confirms the capsule actually slides
-(`.claude/rules/verifying-ui.md`; `SegmentedTrack.test.tsx` asserts the
-capsule's classes, `:20-22`, never its geometry). `CategoryFilterCards` is
-the first caller (below).
+**shadcn, on Base UI, in Hanger's tokens** (round 19,
+`docs/plans/2026-11-26-decisions-round-19.md`; set up by Task 1b of
+`docs/plans/2026-11-26-global-list.md`). `components.json` is T3 Code's
+setup (style `base-mira`, `iconLibrary: lucide`, `cssVariables`, no RSC)
+with plain-path aliases (`src/components/ui`, `src/lib/utils`): the repo has
+no `@/` path alias, and with an `@/` alias and none in `tsconfig.json`,
+`shadcn add` writes into a literal `@/` directory. So a component comes in
+with `bunx --bun shadcn@latest add <name>` from the repo root and lands in
+`src/components/ui/`, and then three things are done by hand. The registry's
+`import { cn } from "cn"` becomes `../../lib/utils`, and the `cn` package the
+CLI installs is removed. Any import between two `ui/` files, which the CLI
+writes as `src/components/ui/…`, becomes relative. And every class becomes a
+Hanger token. `cn` is `clsx` + `tailwind-merge`, extended with Hanger's size,
+leading and radius names (`src/lib/utils.ts`): unextended,
+`cn("text-small", "text-ink-2")` returns `"text-ink-2"`, reading the size as
+a colour (`src/lib/utils.test.ts`). shadcn's semantic variables are in
+`index.css`, each set to a Hanger token, in one `:root, .dark` block, and
+registered `@theme inline`; the block's declarations are the mapping. No new
+colour values. `shadcn init` was not run: it rewrites `--sidebar` and
+`--font-sans` and adds a global `@layer base`. `--accent` is not remapped:
+Hanger already has it (`var(--fill)`, the strong fill), so a shadcn
+component that uses `bg-accent` for a quiet hover is restyled to
+`hover:bg-plane-2` when it comes in. `cn` and `cva` are for `ui/`; Hanger's
+own components keep hoisted strings (Repeated variants, §6).
+
+**`Tabs`** (`ui/tabs.tsx`) — shadcn's Tabs on Base UI, restyled: `Tabs`
+(the root, `data-slot="tabs"`), `TabsList` (the plane track, `p-1
+rounded-pill bg-plane border border-line`, scrolling sideways with its
+scrollbar hidden as a last resort), `TabsTrigger` (`h-7 px-4 rounded-pill
+font-flex text-small`, `text-ink-2`, and `data-active:text-ink-1
+data-active:font-medium` on the active tab) and `TabsIndicator`, which is Base
+UI's indicator drawn as the raised capsule: `capsule-raised` (§3), at
+`top-(--active-tab-top) left-(--active-tab-left) w-(--active-tab-width)`,
+sliding on `transition-[left,width] duration-nav ease-spring`. Base UI
+measures the active tab and hands its box over as those variables, and it
+keeps the capsule `hidden` until there is a box. Base UI owns the behaviour
+`SegmentedTrack` wrote by hand until 2026-11-26. One tab stop on the active
+tab, ←/→ moving focus with wraparound, Home and End, no selection on focus
+alone (`activateOnFocus` is off), and Enter or Space selecting through the
+native `<button>`. The vertical and `line` variants, `dark:` overrides,
+focus-ring utilities and `TabsContent` were removed from the CLI's file.
+There is no `dark:` variant here, the global focus ring outranks any utility
+(§3, Focus), and nothing has a panel yet. Under `happy-dom` the
+capsule's box reads 0 and the indicator stays hidden, so its position is a
+screenshot claim. `CategoryFilterCards.test.tsx` pins its classes only. Base UI
+moves focus a microtask after an arrow key, so a test awaits each landing.
+`CategoryFilterCards` is the first caller (below).
 
 **`CategoryFilterCards`** (`CategoryFilterCards.tsx:5-15`) — per-category
 counts, `selectedCategory`, `onSelectCategory`, `loading`. `allCount` is
@@ -1930,11 +1948,19 @@ labelled "Backend-owned total for the All chip". `enginesTab?` adds
 Global's Engines segment straight after All (Karthik, 2026-11-25: All ·
 Engines · Skills · MCP servers · Rules · Subagents), with `count: null`
 and never hidden; a repository passes none. It no longer draws
-its own chips: it builds five category `TrackSegment`s, filters out empty
-ones by the hide-at-zero rule stated in its own doc comment — with one
-exemption for a zero-count Tools chip (`:57-69`) — and hands the result to
-one `SegmentedTrack` (above), from a `<section>` that is its `@container`
-and with `fitToContainer` set. The class strings that used to draw
+its own chips: it builds five category chips, filters out empty ones by
+the hide-at-zero rule stated in its own doc comment, with one exemption for
+a zero-count Tools chip, and draws them as `Tabs` (above). The root is
+rendered as the `<section>` that is its `@container` (`render={<section />}`),
+so the panes' class contracts still walk tablist → section → lane. Each
+`TabsTrigger` tightens to `px-3 @[576px]:px-4`, and its count drops below
+512px (`hidden @[512px]:inline`, `text-ink-2` on the selected tab, else
+`text-ink-3`; a count still loading draws the 12px spinner). With the
+inspector open at the default window, the tabs ran past the track's edge and
+cut "Subagents 302" off (F1, 2026-11-25). A press on the selected tab clears
+the filter. Base UI calls `onValueChange` only on a change, so the re-press is
+caught by the tab's own `onClick`. A selection from elsewhere scrolls its tab
+into view. The class strings that used to draw
 pressed/unpressed chips by hand, `chipBaseClass` / `chipPressedClass`, are
 gone with them; `chipClasses.ts`'s `chipBaseClass` serves an unrelated,
 non-tablist chip row (§6, Pane composition) — the two were never the same
@@ -2594,7 +2620,7 @@ group, not a tablist — it filters by place (All / Repo-level / Cross-repo),
 not by asset category — styled by `chipBaseClass` /
 `chipPressedCheckClass` from `chipClasses.ts` (Global's engine chips shared
 it until Task 7 deleted them), unrelated to the class strings
-`CategoryFilterCards` dropped (above); `SegmentedTrack` was never a
+`CategoryFilterCards` dropped (above); the kind tabs were never a
 candidate for this row.
 
 **`DiscoveryPane` has neither a strip nor a chip row.** Its category facet
@@ -2624,7 +2650,10 @@ selected by ternary — never `clsx`, never `cva`. `railBtnClass` /
 `railBtnActiveClass` (`IconRail.tsx:21-24`), `tbBtnClass` /
 `tbBtnPlaneClass` (`App.tsx:1148-1153`). `CategoryFilterCards` no longer
 belongs on this list — its `chipBaseClass` / `chipPressedClass` were deleted
-when it moved onto `SegmentedTrack` (§5). `chipClasses.ts` holds an
+when it moved onto a shared track, which is shadcn's `Tabs` since 2026-11-26
+(§5). The components in `src/components/ui/` are the exception to the idiom
+by convention: shadcn composes them with `cn()` and `cva`, and a later
+`shadcn add --diff` stays readable only if their shape stays shadcn's. `chipClasses.ts` holds an
 unrelated pair (`chipBaseClass`, `chipPressedCheckClass`), for Needs
 review's non-tablist chip row (Pane composition, above), each declared once
 there; its `chipPressedClass` went with Global's engine chips.
@@ -2899,7 +2928,7 @@ props from `src/data/designSystemFixtures.ts`: `GelMeter`, `MechanismGlyph`,
 `DisclosureBanner`, `Tooltip`, `AssetHeaderRow`/`AssetRow`, `SummaryStrip`,
 `ScanStatusIndicator`, `HangerMark`, `EmptyState`; and, since 2026-08-28,
 the twelve that had landed after the page without a specimen —
-`SegmentedTrack`, `UnderlineTabs`, `ViewControl`, `OverflowMenu`,
+`SegmentedTrack` (its specimen became `ui/tabs`'s on 2026-11-26), `UnderlineTabs`, `ViewControl`, `OverflowMenu`,
 `InfoPopover`, `FindingChip` under Controls, with the mini button tier
 (`miniButton.ts`: fill, tonal, outlined — the fill is the cap's open CTA)
 beside them; `InspectorCap`, `ListCard`, `ReachCard`, `OriginValue`,
@@ -2918,11 +2947,12 @@ sentence above was false: twelve components shipped without a specimen,
 nothing went red. `design_system_pane.test.tsx` pins that the page renders
 its own list, which cannot see a component the list never named.
 `src/__tests__/design-system-coverage.test.ts` reads the other side: every
-`src/components/*.tsx` must be imported by `DesignSystemPane.tsx` by its own
+`src/components/*.tsx`, and every `src/components/ui/*.tsx` under its path
+(`ui/tabs`), must be imported by `DesignSystemPane.tsx` by its own
 module, or sit on the test's allowlist with a reason — and an allowlisted
 component the page now imports, or whose file is gone, fails too. Rendering
 inside another specimen does not count (`ScanStamp` inside
-`ScanStatusIndicator`, `SegmentedTrack` inside `CategoryFilterCards`): the caption names the file,
+`ScanStatusIndicator`, `ui/tabs` inside `CategoryFilterCards`): the caption names the file,
 so a reader looking for a file finds it under its name.
 
 **Values are read, not written.** Token swatches read the running theme via
