@@ -1257,7 +1257,12 @@ describe("ProfilePane — Tools' own problem rows (Appendix A.3, A.4)", () => {
         ],
       },
     });
-    expect(screen.getByText("Zed · config format not yet supported")).toBeTruthy();
+    // Line 1 is the engine's name, so line 2 does not repeat it: the row
+    // once read "Zed / Zed · config format not yet supported".
+    const row = screen.getByTestId("mcp-config-problem-row");
+    expect(within(row).getByTestId("list-row-name").textContent).toBe("Zed");
+    expect(within(row).getByTestId("list-row-detail").textContent).toBe("Config format not yet supported");
+    expect(row.textContent!.split("Zed")).toHaveLength(2);
   });
 
   it("A.4 — unreadable, naming the path and the OS error", () => {
@@ -1381,7 +1386,7 @@ describe("ProfilePane — Tools' own problem rows (Appendix A.3, A.4)", () => {
         ],
       },
     });
-    expect(screen.getByText("Zed · config format not yet supported")).toBeTruthy();
+    expect(screen.getByText("Config format not yet supported")).toBeTruthy();
   });
 
   it("does not render a kind Appendix A has no row copy for here (DeclaredNothing)", () => {
@@ -1416,7 +1421,7 @@ describe("ProfilePane — Tools' own problem rows (Appendix A.3, A.4)", () => {
       },
     });
     expect(screen.queryAllByTestId("mcp-config-problem-row")).toHaveLength(1);
-    expect(screen.getByText("Zed · config format not yet supported")).toBeTruthy();
+    expect(screen.getByText("Config format not yet supported")).toBeTruthy();
     expect(screen.queryByText(/declares no MCP servers/)).toBeNull();
   });
 });

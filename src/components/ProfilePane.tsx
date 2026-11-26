@@ -463,11 +463,15 @@ function McpNoEnginesEmptyState({
  *  "parsed" is an editor fix, and collapsing them back to one sentence is
  *  exactly the defect Appendix A exists to undo. A `Unparseable` problem
  *  with no line omits the parenthetical outright — never an invented
- *  number, never an empty `()` or `(line )`. */
+ *  number, never an empty `()` or `(line )`.
+ *
+ *  `FormatUnread` names no engine: the row's line 1 is the engine's name
+ *  (`McpConfigProblemRow`), and the line once repeated it under itself,
+ *  so the row named its engine twice. */
 function configProblemLine(problem: ConfigProblemRow): string {
   switch (problem.kind) {
     case "FormatUnread":
-      return `${problem.engine} · config format not yet supported`;
+      return "Config format not yet supported";
     case "Unreadable":
       return `${problem.path} — couldn't be read (${problem.detail})`;
     case "Unparseable":
