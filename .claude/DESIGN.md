@@ -746,6 +746,29 @@ context's `stash:` keys) and its head reads "Switched off" with no figure,
 since `count` is every engine's. Pinned by `ProfilePaneIntegration.test.tsx`,
 `kept_inspector.test.tsx` and `engine_lens_pane.test.tsx`.
 
+**The Skills "Switched off" group** (`KeptSkillsGroup.tsx`, drawn by
+`ProfilePane.tsx` straight after the Skills group) — the skills Hanger is
+keeping while they are switched off for every engine (`get_kept_skills`,
+docs/ipc.md entry 24; `docs/plans/2026-11-26-skill-switch.md`). A kept
+skill's folder is out of the global store, so it is no row of the Skills
+group and in no figure from `get_asset_counts`: the Skills header keeps its
+own figure, and this group carries the backend's. It is the servers' group's
+shape: an `h3` (`groupLabelClass`) reading "Switched off · ‹keptSkills.count›"
+(`keptSkillsHead`), then one `<button>` per kept skill (`groupRowClass`,
+`NotLoadedGroup.tsx`) holding the skill's folder name and "Off for every
+engine" (`KEPT_SKILL_OFF_LINE`); no chip, no reach and no link state. A row
+calls `onOpenKeptSkill(key)` with its `kept-skill:` key; the row App names in
+`selectedKeptSkillKey` reads as selected (`bg-tint`, tinted name,
+`data-selected`). It shows on Skills and All, and a link-state filter hides
+it. A kept skill is off for every engine, so a picked engine keeps every row
+and drops only the figure, "Switched off". With only kept skills, neither the
+Skills empty state nor the whole-store plane wins: those predicates read
+`keptSkillsAny` (`keptSkills.count > 0`, a boolean) and `keptSkillsShown`
+(that, with no link-state filter). App reads the kept skills after every scan
+and, at once, after every switch (`useMcpSwitch`'s `onChanged`). Pinned by
+`ProfilePaneKeptSkills.test.tsx` and `kept_skills_inspector.test.tsx`; the
+Design system page shows it with two sample kept skills, one selected.
+
 **`EngineChipRow`** (`EngineChipRow.tsx`) — `engines`, `selected`,
 `onSelect`. Global's engine selector, on every tab, straight under the kind
 tabs and above `SummaryStrip`: ProfilePane draws it inside the tabs' block,
@@ -1387,6 +1410,31 @@ without the button. Once the switch succeeds App
 reads the kept list again (`useMcpSwitch`'s `onChanged`), the server leaves
 it, and nothing is selected. Pinned by `kept_inspector.test.tsx`.
 
+**A kept skill's view** (`KeptSkillDetail.tsx`, drawn by `Flyout.tsx` for its
+`keptSkill` prop) — `KeptServerDetail`'s sibling, with the same row shape.
+App holds a kept skill by the same selection key as a kept server
+(`selectedKeptKey`, a `kept-skill:` key; `selectedKeptSkill` resolves it
+against the latest `keptSkills`), so every place that clears one clears the
+other. It is set from a Skills "Switched off" row, or by `Flyout`'s
+`onSkillKept` when a store skill is switched off from its own header, so the
+kept panel takes the skill's place. The header is the skill's folder name and
+the header switch reading "Off" (below); the cap reads `Skill · Global` and
+offers nothing to open, copy, reveal or link. The body is one `ListCard` row
+in `McpServerDetail`'s `SECTION`: "Off for every engine" and the switch —
+`aria-pressed="false"`, named by the skill, `LayerSwitch` off, disabled only
+while its request runs — then, in `captionClass`, "Switched off ‹timeAgo›"
+(`switchedOffLine`, from `at_ms` at render), the kept line ("Moved out of the
+global store. Hanger keeps it and puts it back, with its links, when you
+switch it on.", `KEPT_SKILL_MECHANISM`), and when they hold, "There's a skill
+named ‹skill› in the global store again." (`back_in_store`, `backInStoreLine`)
+and "Hanger stopped partway through switching this off. Switch it on to put
+it back." (`interrupted`, `INTERRUPTED_LINE`). With `back_in_store` the switch
+still sends: the backend refuses with `already_there`, and the notice says
+so. Both switches send `useMcpSwitch.switchSkill` with the `kept-skill:` key
+and `enabled: true`. Once it succeeds App reads the kept list again, the skill
+leaves it, and nothing is selected. Pinned by `FlyoutKeptSkill.test.tsx` and
+`kept_skills_inspector.test.tsx`.
+
 **The transport row** (`Flyout.tsx`, `data-testid="inspector-transport"`). An MCP server's transport chip has its own row under the name (Karthik, 2026-11-26): in the title row a remote server's full URL could not shrink, squeezed the name to nothing and pushed the header switch out of view. The chip is `truncate` within the column's width, and the whole transport shows on hover in the shared `Tooltip` (`placement="bottom"`). Pinned by `FlyoutAllEnginesSwitch.test.tsx`.
 
 **The switch for every engine** (`Flyout.tsx`, the header row;
@@ -1422,6 +1470,40 @@ with no Undo. One Undo takes back every receipt of the group, last made
 first, with `undo_mcp_switch`; the first that fails shows its failure line
 and stops. Pinned by `allEnginesSwitch.test.ts`,
 `useMcpSwitchGroup.test.ts` and `FlyoutAllEnginesSwitch.test.tsx`.
+
+**A store skill's On/Off switch** (`Flyout.tsx`, the header row;
+`HeaderSwitch.tsx`; `docs/plans/2026-11-26-skill-switch.md`). `HeaderSwitch`
+is the switch above, extracted: `label`, `pressed` (`true`, `false` or
+`"mixed"`), `on` (the track), `stateWord`, `pending`, `onToggle` and `testId`,
+and `AllEnginesSwitch` is a wrapper that hands it the server's words, drawing
+byte for byte what it drew before (pinned by `FlyoutSkillSwitch.test.tsx`
+against the markup captured before the extraction). A selected skill asks
+`get_skill_switch` for its path on selection and again after every switch or
+Undo (the notice changes with each); nothing is drawn for a path until its
+own answer lands. A skill in the global store, answered with `read_only:
+null`, ends its title row in `HeaderSwitch` (`data-testid="skill-header-switch"`)
+reading "On", pressed, named and tipped "Switch ‹skill› off for every engine"
+(`skillSwitchLabel`, the folder name from the backend's `skill:` key),
+disabled and `aria-busy` while `busyKeyOf("skills", key)` is in
+`useMcpSwitch`'s `busyKeys`. A click sends `switchSkill` with the key and
+`enabled: false`. A skill the backend shows with no switch says why under its
+name in `captionClass` (`skillReadOnlyLine`, `data-testid="skill-read-only"`):
+inside another folder, another disk from the keep, or a tracked copy. A path
+outside the store gets neither. A kept skill's header carries the same switch
+reading "Off", named "Switch ‹skill› on for every engine". The notice after
+Off reads "‹skill› is off for every engine." and, when links were removed,
+"Hanger removed ‹n› links to it and will put them back."; after On, or the
+Undo of an Off, "‹skill› is back on for every engine.", followed by "Some
+links weren't put back because their folders are gone: ‹places›." when some
+were not (`skillSwitchedLine`, `linksNotRestoredLine`). Undo calls
+`undo_skill_switch`, chosen by the last switch's `kind`. Every successful
+skill switch, its Undo included, calls `onChanged`, App's rescan, which
+rebuilds ⌘K's search index from what it finds, so a skill switched off stops
+turning up in search (`useMcpSwitch.skill.test.ts`,
+`kept_skills_inspector.test.tsx`, and in Rust
+`a_rescan_after_off_drops_the_skill_from_search_and_on_brings_it_back`). The
+Design system page shows `HeaderSwitch` on three sample skills: On, Off and
+pending.
 
 `Flyout` is the asset inspector's coordinator and owns its own `<aside>`
 (@b383a08).
