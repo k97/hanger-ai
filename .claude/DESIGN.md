@@ -802,41 +802,86 @@ Selected, it takes `bg-tint` and the tinted name. Pinned by
 `engine_lens_pane.test.tsx`.
 
 **`GroupTicks`** (`GroupTicks.tsx`) — `groups`, `scrollRoot`. Tick marks in
-the list's left inset, one per group Global's list draws (layout G of
-`docs/plans/2026-11-26-global-top-prototypes.html`; round 13 q2), so a long
-list can be crossed in one click. A `<nav aria-label="Jump to a group">`,
-`absolute left-0.5 top-2.5` inside a `relative` wrapper ProfilePane puts
-around `asset-list-scroll`, which keeps its own classes. Each tick is a
-`w-3.5 h-2` button holding a `h-0.5` bar: `w-2.5 bg-line-2` at rest
-(`group-hover:bg-ink-3`), `w-3.5 bg-ink-1` with `aria-current="true"` for the
-group in view. The group in view is the last header that has passed into
-the top third of the list, or the first group before any has; one
-`IntersectionObserver`, rooted on the list with `rootMargin: "0px 0px -66%
-0px"`, says when to look again, and none is made where the environment has
-none. A tick's `aria-label` and its `Tooltip` are the header's own words,
-`groupHead(label, count)` (`{group} · {count}`, or the label alone where the
-header has no figure: an engine is picked, or the group is "Not loaded by
-‹engine›", `notLoadedHead`). ProfilePane reads each header's figure once
+the left margin of Global's lane, one per group the list draws, so a long
+list can be crossed in one click: T3 Code's timeline minimap
+(`TimelineMinimap.tsx`) at its size and place (Task 1 of
+`docs/plans/2026-11-26-global-list.md`; the mark checklist's "tick marks
+left of the content"). A `<nav aria-label="Jump to a group">`, `absolute
+left-3 top-1/2 -translate-y-1/2 z-[3]` inside a `relative` wrapper
+ProfilePane puts around `asset-list-scroll`, which keeps its own classes.
+Each tick is a `w-6 h-2` button holding a `w-6 h-0.5 rounded-pill` bar:
+`bg-line-2` at rest (`group-hover:bg-ink-3`), `bg-ink-2` with
+`aria-current="true"` for the group in view. ProfilePane draws it only while
+the lane is wide (48px padding, so 12px in leaves the 24px tick clear of the
+rows); below 640px the lane's padding drops to 12px and the ticks go. The
+group in view is the last header that has passed into the top third of the
+list, or the first group before any has; one `IntersectionObserver`, rooted
+on the list with `rootMargin: "0px 0px -66% 0px"`, says when to look again,
+and none is made where the environment has none. A tick's `aria-label` and
+its `Tooltip` are the header's own words, `groupHead(label, count)`
+(`{group} · {count}`, or the label alone where the header has no figure: an
+engine is picked, or the group is "Not loaded by ‹engine›",
+`notLoadedHead`). ProfilePane reads each header's figure once
 (`skillsHeadFigure` and its siblings) and prints both the header and the
 tick from it, so the two cannot disagree, and it passes only the groups it
 draws, in the order it draws them; with fewer than two there is nowhere to
 jump, and it draws nothing. A click calls `scrollIntoView({ block: "start"
 })` on `#group-‹key›` (`skills`, `kept-skills`, `tools`, `kept-tools`,
-`rules`, `subagents`, `not-loaded`): each `h3` carries its id and a
-scroll margin that clears whichever sticky header is stuck over it. Above
-the MCP servers header that is `AssetHeaderRow`, `h-8`, so `scroll-mt-8`.
-Below it, while it is drawn, it is the MCP servers header itself, which
-stays stuck to the end of the list: `pt-[11px]`, the View trigger (`p-1`
-round a 14px icon, 22px, taller than the head's 19.5px line), `pb-[7px]`
-and the 1px rule make 41px by its classes, so the groups after it take
-`scroll-mt-11` (`afterToolsScrollMargin`; `KeptSkillsGroup` and
-`NotLoadedGroup` take it as `scrollMarginClass`). The 41 is arithmetic
-from the classes, not a measurement. MCP servers' id is on an empty `span`
-just before `section-header-tools`, not on the header: that header is
-sticky, and once stuck it is already in view, so scrolling it into view
-would not move the list. No animation on the jump. Pinned by
-`GroupTicks.test.tsx` and `ProfilePaneGroupTicks.test.tsx`; the Design
-system page shows it beside four sample groups in a short scrolling box.
+`rules`, `subagents`, `not-loaded`): each head carries its id and a scroll
+margin, `scroll-mt-8` before the MCP servers head and `scroll-mt-11` after
+it (`afterToolsScrollMargin`; `KeptSkillsGroup` and `NotLoadedGroup` take
+it as `scrollMarginClass`). Those were measured for `AssetHeaderRow` and
+the old 41px MCP servers header. Task 1 removed the first and cut the
+second to a 32px quiet head, so they now overshoot by up to 12px; Task 3
+removes the sticky header and these margins together. MCP servers' id is on
+an empty `span` just before `section-header-tools`, not on the header: that
+header is still sticky, and once stuck it is already in view, so scrolling
+it into view would not move the list. No animation on the jump. Pinned by
+`GroupTicks.test.tsx`, `ProfilePaneGroupTicks.test.tsx` and
+`ProfilePaneList.test.tsx`; the Design system page shows it beside four
+sample groups in a short scrolling box.
+
+**`ListRow`** (`ListRow.tsx`) — `kind`, `name`, `chip?`, `detail?`,
+`figure?`, `figureTone?`, `reach`, `switchFor?`, `leadEngine?`, `muted?`,
+`selected`, `onSelect`. Every row of Global's list: skills, MCP servers,
+rules and subagents (Task 1 of `docs/plans/2026-11-26-global-list.md`),
+after T3 Code's two-line `PullRequestListRow`. The kind's 16px icon
+(`KIND_ICON`, shared with `InspectorCap`), then line 1 at `h-[22px]`: the
+name, `text-base-app font-medium` (13px, round 18 q3), `truncate`; and on
+the right, `shrink-0 whitespace-nowrap`, a server's transport chip
+(`max-w-40 truncate`, mono `text-micro`) and `EngineReachTiles`. Line 2,
+`mt-px`: the detail, `text-small text-ink-3 truncate`, and the figure,
+`ml-auto shrink-0 whitespace-nowrap tabular text-small`, in `ink-3` or its
+tone (`state-danger` / `state-warning`, medium). Line 2 draws only what
+exists, never a "—" (Review Focus 5). The row is `px-2.5 py-[7px]
+rounded-[6px]`, 1px from the next (`gap-px`); hover is `bg-plane`, selected
+is T3's `bg-page ring-1 ring-inset ring-line-2`. It takes focus
+(`tabIndex={0}`), shows it through the global `:focus-visible` ring, and
+selects on Enter (only its own key, so Enter on a tile switch stays the
+tile's) or a click; a selection made elsewhere scrolls it into view, as
+`AssetRow` did. `muted` (a file that will not parse) takes the name to
+`ink-3`. The words come from `listRowCopy.ts`: `listRowDetail` is a
+skill's or subagent's description, or a server's status sentence;
+`listRowFigure` is a server's token figure once an engine is picked or its
+tool count with All engines (round 18 q1), and for everything else the
+beyond-the-store words the table's column printed, with "Global only" where
+it printed "—" (round 18 q2). Pinned by `ListRow.test.tsx`,
+`listRowCopy.test.ts` and `ProfilePaneList.test.tsx`.
+
+**Global's lane and group heads** (`ProfilePane.tsx`, `laneClass`,
+`GroupHead`). The facet row and the list each sit in a lane, `mx-auto w-full
+max-w-[736px] px-12` (T3's `.chat-content-lane`), inside their own
+`px-[18px]`/`mx-[18px]` inset so the two line up. Below 640px of list width
+(`LANE_MIN_WIDTH`, T3's `minChatWidth`) the padding drops to `px-3` and the
+ticks go; a `ResizeObserver` on the list decides, and a zero width (no
+layout yet) is no answer. The list is flat on the page: no border, no
+column headers, no header-click sorting. A group head is T3's shelf header,
+`h-8 px-2.5 text-small font-medium text-ink-3`: the label, a `flex-1 h-px
+bg-line` hairline, the backend's figure in `font-normal tabular` (none with
+an engine picked), and the View control at the end of the first head on
+screen while the MCP servers rows are drawn. Heads after the first take
+`mt-2.5`. The MCP servers head is still wrapped in its sticky
+`section-header-tools` until Task 3.
 
 **`RepoPane`** (`RepoPane.tsx:36-69`) — the same shape plus `repoPath`,
 `onRefresh`, `onLinkFromProfile`, `linkedRepos?`, `onPromoteCandidates?`,
@@ -1795,8 +1840,8 @@ or three plus an ellipsis chip above that, reached-first; every engine is
 answered for in the inspector's `reach-detail` section (`AssetDetail.tsx`).
 Switch mode (`switchFor`, T2 of
 `docs/plans/2026-11-25-ia-engines-into-global.md`) is given only by Global's
-MCP servers rows (`ProfilePane`, through `AssetRow`'s card-variant
-`tileSwitchFor`); repo rows, the table variant and `AssetDetail` never pass
+MCP servers rows (`ProfilePane`, through `ListRow`'s `switchFor`); repo
+rows, `AssetRow` and `AssetDetail` never pass
 it. A tile whose engine's context (App's per-engine copy) holds an item whose
 key is one of the row's registrations becomes that engine's switch: a
 `<button aria-pressed>`, named and tipped with
@@ -1815,13 +1860,13 @@ engine that switches by name takes any of its items, preferring a switchable
 one, and any other engine holding two of them draws no switch
 (`switchTargets.ts` → `tileTarget`). No item, or no reply yet, draws the tile
 as before. `leadEngine` (the picked engine context's `engine_key`, given by
-every Global row while an engine is picked, through `AssetRow` in either
-variant) draws that engine's tile first,
+every Global row while an engine is picked, through `ListRow`) draws that
+engine's tile first,
 matched exactly, ahead of the reached-first order so the cap never
 hides it, and dims every other tile to `opacity-40` (`data-dimmed`); the
-dimmed tiles keep their switches. On the same rows the Tools column shows
-that engine's `costLabel` (`AssetItem.engineFigure`, at every width) and a
-read-only item's `readOnlyLine` takes the second line. Pinned by
+dimmed tiles keep their switches. On the same rows line 2's figure is
+that engine's `costLabel` (`AssetItem.engineFigure`) and a read-only item's
+`readOnlyLine` takes line 2's detail. Pinned by
 `EngineReachTiles.test.tsx`, `mcp_tile_switch.test.tsx`,
 `mcp_tile_switch_wiring.test.tsx` and `engine_lens_pane.test.tsx`.
 
@@ -1896,7 +1941,9 @@ non-tablist chip row (§6, Pane composition) — the two were never the same
 constants.
 
 **`AssetRow`** (`AssetRow.tsx:22-28`) — `item`, `isSelected?`,
-`showKindColumn?`, `onClick?`, `onLink?`, `onUnlink?`. **`AssetHeaderRow`**
+`showKindColumn?`, `onClick?`, `onLink?`, `onUnlink?`. A repository's rows,
+and Global's Agents group; Global's other rows are `ListRow` since Task 1 of
+`docs/plans/2026-11-26-global-list.md`. **`AssetHeaderRow`**
 (`AssetHeaderRow.tsx:6-11`) — `sortField`, `sortDirection`, `showKindColumn?`,
 `onSort`.
 
@@ -2485,10 +2532,14 @@ above it says none is needed here). On a repository the `SummaryStrip`
 follows, in `mx-[18px] mb-3.5` (`RepoPane.tsx:550`); Global draws no strip
 since Task 7 of `docs/plans/2026-11-26-overview-card.md`, so its track's
 block spaces it from the list. Then the
-list plane, flat per §3 — no `bg-plane` — rounding only its top corners and
-running off the bottom edge: `@container flex-1 min-h-0 overflow-y-auto
-mx-[18px] border border-line rounded-tl-plane rounded-tr-plane pb-1.5`
-(`ProfilePane.tsx:1178`, `RepoPane.tsx:725`) — identical in both panes now.
+list plane, flat per §3 — no `bg-plane`. On a repository it rounds only its
+top corners and runs off the bottom edge: `@container flex-1 min-h-0
+overflow-y-auto mx-[18px] border border-line rounded-tl-plane
+rounded-tr-plane pb-1.5` (`RepoPane.tsx`). Global's dropped the border and
+the corners in Task 1 of `docs/plans/2026-11-26-global-list.md`, `@container
+flex-1 min-h-0 overflow-y-auto mx-[18px] pb-1.5`, and holds a centred lane
+(Global's lane and group heads, above); Task 4 brings a repository's list
+the same way.
 Then the
 foot, `h-[30px] shrink-0 px-[18px] flex items-center gap-4 font-flex
 text-small text-ink-3` with the scan status pushed right by `ml-auto`
@@ -2501,7 +2552,10 @@ from (`ScanStatusIndicator.tsx:7-12`, `:27-33`). `NeedsReviewPane` passes no
 `undefined` is "this caller keeps no stamp", distinct from `null`, "nothing
 has been scanned yet", which has its own wording to print.
 
-*Two headers can sit inside that plane, and both are ruled off now.*
+*On a repository, two headers can sit inside that plane, and both are ruled
+off.* Global has neither since Task 1 of
+`docs/plans/2026-11-26-global-list.md`: no column labels, and its MCP
+servers head is a quiet group head.
 `AssetHeaderRow` carries `border-b border-line` under Name / Kind /
 Beyond the store (`AssetHeaderRow.tsx:50`). The MCP section writes its own
 header inline rather than sharing that one — "Reach" is meaningless for a

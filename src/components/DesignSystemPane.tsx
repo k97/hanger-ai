@@ -9,6 +9,7 @@ import DisclosureBanner from "./DisclosureBanner";
 import Tooltip from "./Tooltip";
 import AssetHeaderRow, { type SortField, type SortDirection } from "./AssetHeaderRow";
 import AssetRow from "./AssetRow";
+import ListRow from "./ListRow";
 import SummaryStrip from "./SummaryStrip";
 import OverviewCard, { type OverviewCardProps } from "./OverviewCard";
 import OverviewPopover from "./OverviewPopover";
@@ -259,7 +260,7 @@ function GroupTicksSpecimen() {
   return (
     <div className="relative max-w-md h-48 flex flex-col">
       <GroupTicks groups={SAMPLE_TICK_GROUPS} scrollRoot={list} />
-      <div ref={list} className="flex-1 min-h-0 overflow-y-auto ml-4.5 border border-line rounded-plane pb-1.5">
+      <div ref={list} className="flex-1 min-h-0 overflow-y-auto ml-12 border border-line rounded-plane pb-1.5">
         {SAMPLE_TICK_GROUPS.map((g) => (
           <section key={g.id}>
             <h3 id={g.id} className={`px-3.5 pt-2.5 pb-1 ${groupLabelClass}`}>
@@ -1223,6 +1224,32 @@ export default function DesignSystemPane({ section }: DesignSystemPaneProps) {
             </div>
           </Specimen>
 
+          <Specimen name="ListRow" file="ListRow.tsx" note="Global's two-line row, after T3 Code: name, then a server's transport and the engine marks; the description or status sentence below, and one figure on the right. Line 2 draws only what exists. Hover a row; the second is selected; the third won't parse">
+            <div className="max-w-[640px] flex flex-col gap-px">
+              <ListRow
+                kind="skill"
+                name="writing-great-skills"
+                detail="Write a skill an agent can follow"
+                figure="In 2 projects"
+                reach={SAMPLE_REACH.slice(0, 3)}
+                selected={false}
+                onSelect={() => {}}
+              />
+              <ListRow
+                kind="server"
+                name="chrome-devtools"
+                chip="stdio"
+                detail="Registered in 2 engines"
+                figure="12 tools"
+                reach={SAMPLE_REACH.slice(0, 2)}
+                switchFor={sampleTileSwitch("on")}
+                selected
+                onSelect={() => {}}
+              />
+              <ListRow kind="rule" name="AGENTS.md" figure="Global only" reach={SAMPLE_REACH.slice(0, 1)} muted selected={false} onSelect={() => {}} />
+            </div>
+          </Specimen>
+
           <Specimen name="ScanStatusIndicator" file="ScanStatusIndicator.tsx" note="the foot line's live progress">
             <ScanStatusIndicator status={SAMPLE_SCAN_STATUS} />
           </Specimen>
@@ -1329,7 +1356,7 @@ export default function DesignSystemPane({ section }: DesignSystemPaneProps) {
             </div>
           </Specimen>
 
-          <Specimen name="GroupTicks" file="GroupTicks.tsx" note="beside Global's list, one tick per group on screen and none for a single group: the dark, wider tick is the group in view; hover one for the header's own words, click it to bring that header to the top. Sample groups">
+          <Specimen name="GroupTicks" file="GroupTicks.tsx" note="in the left margin of Global's lane, 24 × 2 at T3's size, one tick per group on screen and none for a single group: the darker tick is the group in view; hover one for the header's own words, click it to bring that header to the top. Sample groups">
             <GroupTicksSpecimen />
           </Specimen>
 

@@ -102,7 +102,9 @@ export interface InspectorCapProps {
   forceShed?: 0 | 1 | 2;
 }
 
-const KIND_ICON: Record<IssueCategory, ComponentType<IconProps>> = {
+/** Each asset kind's icon. Exported for ListRow, whose rows lead with the
+ *  same mark the cap gives the asset once it is open. */
+export const KIND_ICON: Record<IssueCategory, ComponentType<IconProps>> = {
   Skills: SkillIcon,
   Tools: ServerIcon,
   Rules: DocumentTextIcon,

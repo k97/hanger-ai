@@ -75,7 +75,9 @@ describe("Avionics A6 Asset Table Spec Compliance", () => {
   // Column set ruled 2026-08-15 (item 8): the Global pane renders Reach and
   // Beyond the store in place of Engine and State; those two live on in the
   // repo pane's legacy variant.
-  it("1. Header row renders all four column labels when unfiltered", () => {
+  // Task 1 of docs/plans/2026-11-26-global-list.md: Global's table became
+  // two-line rows, and the header row went with the columns it named.
+  it("1. Global draws no column header row", () => {
     render(
       <ProfilePane
         inventory={sampleInventory}
@@ -85,24 +87,20 @@ describe("Avionics A6 Asset Table Spec Compliance", () => {
       />
     );
 
-    const header = screen.getByTestId("asset-header-row");
-    expect(header).not.toBeNull();
-    expect(header.textContent).toContain("Name");
-    expect(header.textContent).toContain("Kind");
-    expect(header.textContent).toContain("Reach");
-    expect(header.textContent).toContain("Beyond the store");
-    expect(header.textContent).not.toContain("Engine");
-    expect(header.textContent).not.toContain("State");
+    expect(screen.queryByTestId("asset-header-row")).toBeNull();
+    for (const label of ["Name", "Kind", "Reach", "Beyond the store", "Engine", "State"]) {
+      expect(screen.queryByText(label, { exact: true }), label).toBeNull();
+    }
   });
 
-  // Annotated rows carry a mechanism slot, not a state dot, so row order is
-  // read from the rows themselves (the name span is the row's first cell).
+  // Row order is read from the rows themselves, by ListRow's name.
   const rowNames = () =>
-    Array.from(document.querySelectorAll("div[data-selected]")).map(
-      (row) => row.querySelector("span.truncate")?.textContent?.trim()
-    );
+    Array.from(document.querySelectorAll("[data-testid='list-row-name']")).map((el) => el.textContent?.trim());
 
-  it("2. Clicking a header sorts; clicking again reverses. Assert row ORDER.", () => {
+  // Header-click sorting went with the header (Task 1 of
+  // docs/plans/2026-11-26-global-list.md); standalone, the rows keep name
+  // order, and App's persisted sort still orders them (3 and 4 below).
+  it("2. There is no header to click; standalone, rows are in name order", () => {
     render(
       <ProfilePane
         inventory={sampleInventory}
@@ -113,19 +111,8 @@ describe("Avionics A6 Asset Table Spec Compliance", () => {
       />
     );
 
-    // Initial Skills order (Name asc): Alpha Skill, Bravo Skill, Failed Skill
-    let names = rowNames();
-    expect(names[0]).toBe("Alpha Skill");
-    expect(names[2]).toBe("Failed Skill");
-
-    // Click Name header to toggle to descending
-    const nameHeader = screen.getByRole("button", { name: /Name/i });
-    fireEvent.click(nameHeader);
-
-    // Order reverses (Name desc): Failed Skill, Bravo Skill, Alpha Skill
-    names = rowNames();
-    expect(names[0]).toBe("Failed Skill");
-    expect(names[2]).toBe("Alpha Skill");
+    expect(screen.queryByRole("button", { name: /^Name/ })).toBeNull();
+    expect(rowNames()).toEqual(["Alpha Skill", "Bravo Skill", "Failed Skill"]);
   });
 
   it("3. Sort persists across a simulated restart", () => {
@@ -184,22 +171,21 @@ describe("Avionics A6 Asset Table Spec Compliance", () => {
     expect(names[2]).toBe("Alpha Skill");
   });
 
-  it("5. Kind column absent when filtered to a single category", () => {
+  it("5. A row names its kind by its icon, with no Kind word, on one category or All", () => {
     render(
       <ProfilePane
         inventory={sampleInventory}
-        selectedCategory="Skills"
         loading={false}
         onSelectAsset={() => {}}
         onLinkAsset={() => {}}
       />
     );
 
-    const header = screen.getByTestId("asset-header-row");
-    expect(header.textContent).toContain("Name");
-    expect(header.textContent).not.toContain("Kind");
-    expect(header.textContent).toContain("Reach");
-    expect(header.textContent).toContain("Beyond the store");
+    expect(screen.queryByText("Skill", { exact: true })).toBeNull();
+    expect(screen.queryByText("Tool", { exact: true })).toBeNull();
+    const kinds = Array.from(document.querySelectorAll("[data-testid='list-row']")).map((r) => r.getAttribute("data-kind"));
+    expect(kinds).toContain("skill");
+    expect(kinds).toContain("server");
   });
 
   it("6. An asset with NULL engine renders 'Any agent' in the legacy variant, not blank", () => {

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { invoke } from "@tauri-apps/api/core";
 import {
@@ -15,7 +15,9 @@ import {
 } from "./icons";
 import CategoryFilterCards, { CategoryType, TAB_LABELS } from "./CategoryFilterCards";
 import AssetRow, { AssetItem, AssetAnnotationView, cardChipClass, getSingularType } from "./AssetRow";
-import AssetHeaderRow, { SortField, SortDirection } from "./AssetHeaderRow";
+import type { SortField, SortDirection } from "./AssetHeaderRow";
+import ListRow, { type ListRowKind } from "./ListRow";
+import { listRowDetail, listRowFigure } from "../utils/listRowCopy";
 import ViewControl, { ServerGrouping, ServerSort } from "./ViewControl";
 import { Inventory, CategoryCounts } from "../App";
 import { filterProfileAssets } from "../utils/filterPredicate";
@@ -200,6 +202,51 @@ interface ProfilePaneProps {
    *  Pinned, the cap carries no button. */
   overviewPinned?: boolean;
   onToggleOverviewPin?: () => void;
+  /** Test-only. The lane's padding is measured off the list's width, which
+   *  `happy-dom` never lays out (every width is 0 and its ResizeObserver
+   *  never fires), so this lets a test draw the narrow lane. No production
+   *  call site passes it. */
+  forceLane?: "wide" | "narrow";
+}
+
+/** Below this list width the lane drops its 48px padding to 12px, and the
+ *  ticks, which need that margin, go (T3's `minChatWidth`, chatCanvasLayout.ts). */
+const LANE_MIN_WIDTH = 640;
+
+/** The centred lane Global's list sits in, after T3 Code's chat column
+ *  (`.chat-content-lane`, index.css:979-984): at most 736px, 48px padding
+ *  while there is room. The facet row above uses the same lane, so the two
+ *  line up. */
+const laneClass = (wide: boolean) => `mx-auto w-full max-w-[736px] ${wide ? "px-12" : "px-3"}`;
+
+/** A group's head, as T3 heads a shelf: the label, a 1px rule, then the
+ *  backend's figure (none with an engine picked), and an optional control
+ *  at the end. Not a column header: nothing under it is a column. The
+ *  heading is named in the words its tick uses (`groupHead`), and the
+ *  control sits outside it so it is no part of that name. */
+function GroupHead({
+  id,
+  label,
+  figure,
+  className = "",
+  trailing,
+}: {
+  id?: string;
+  label: string;
+  figure: number | null;
+  className?: string;
+  trailing?: ReactNode;
+}) {
+  return (
+    <div id={id} className={`${className} flex items-center gap-2 h-8 px-2.5 text-small font-medium text-ink-3 select-none`}>
+      <h3 aria-label={groupHead(label, figure)} className="flex-1 min-w-0 flex items-center gap-2">
+        <span className="shrink-0">{label}</span>
+        <span data-testid="group-head-rule" aria-hidden="true" className="flex-1 h-px bg-line" />
+        {figure !== null && <span className="shrink-0 font-normal tabular">{figure}</span>}
+      </h3>
+      {trailing}
+    </div>
+  );
 }
 
 /** A kept server's row: the card row's first line, then which engine it is
@@ -444,9 +491,7 @@ export default function ProfilePane({
   onRescan,
   sortField: propSortField,
   sortDirection: propSortDirection,
-  onSortChange,
   onSelectAsset,
-  onLinkAsset,
   onCategoryChange,
   unaccountedProcesses,
   mcpServers,
@@ -472,10 +517,14 @@ export default function ProfilePane({
   overviewButtonClass = "",
   overviewPinned = false,
   onToggleOverviewPin,
+  forceLane,
 }: ProfilePaneProps) {
   const [internalCategory, setInternalCategory] = useState<CategoryType | null>(null);
-  const [internalSortField, setInternalSortField] = useState<SortField>("name");
-  const [internalSortDirection, setInternalSortDirection] = useState<SortDirection>("asc");
+  // Header-click sorting went with the column headers (Task 1 of
+  // docs/plans/2026-11-26-global-list.md): the rows keep App's sort, or
+  // name order standalone.
+  const [internalSortField] = useState<SortField>("name");
+  const [internalSortDirection] = useState<SortDirection>("asc");
   // Same prop-or-internal-state shape as sortField/sortDirection above:
   // controlled when App.tsx passes a value, self-contained otherwise (every
   // fixture in mcp_card_row.test.tsx renders ProfilePane standalone).
@@ -485,7 +534,28 @@ export default function ProfilePane({
   // change so switching away from Tools and back never carries a stale
   // filter over from a different session's look at the list.
   const [mcpReviewOnly, setMcpReviewOnly] = useState(false);
-  const listRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLDivElement | null>(null);
+  // The list element, as state, so the lane's measurement starts when the
+  // list mounts (it is absent behind every empty state).
+  const [listEl, setListEl] = useState<HTMLDivElement | null>(null);
+  const setListNode = useCallback((el: HTMLDivElement | null) => {
+    listRef.current = el;
+    setListEl(el);
+  }, []);
+  const [measuredWide, setMeasuredWide] = useState(true);
+  useLayoutEffect(() => {
+    if (forceLane || !listEl) return;
+    // A zero width is happy-dom, or a list not yet laid out: no answer.
+    const apply = (width: number) => {
+      if (width > 0) setMeasuredWide(width >= LANE_MIN_WIDTH);
+    };
+    apply(listEl.clientWidth);
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver((entries) => apply(entries[0]?.contentRect.width ?? 0));
+    observer.observe(listEl);
+    return () => observer.disconnect();
+  }, [listEl, forceLane]);
+  const laneWide = forceLane ? forceLane === "wide" : measuredWide;
   // The engine Measure all is running for, if any.
   const [measuringFor, setMeasuringFor] = useState<string | null>(null);
   // The overview card's popover, from the content cap's button or ⌘E. It
@@ -546,19 +616,6 @@ export default function ProfilePane({
     setInternalCategory(cat);
     setMcpReviewOnly(false);
     onCategoryChange?.(cat);
-  };
-
-  const handleSort = (field: SortField) => {
-    if (onSortChange) {
-      onSortChange(field);
-    } else {
-      if (field === internalSortField) {
-        setInternalSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
-      } else {
-        setInternalSortField(field);
-        setInternalSortDirection("asc");
-      }
-    }
   };
 
   const handleServerGroupingChange = (grouping: ServerGrouping) => {
@@ -947,6 +1004,7 @@ export default function ProfilePane({
       path: s.path,
       engine: s.scope?.Global?.agent || s.scope?.Project?.agent || null,
       version: s.version,
+      description: s.description,
       details: s.source_origin ? `Origin: ${s.source_origin}` : "",
       isSymlink: s.is_symlink,
       parseStatus: s.parse_status,
@@ -1142,6 +1200,7 @@ export default function ProfilePane({
       category: "Subagents",
       path: sa.path,
       engine: sa.scope?.Global?.agent || sa.scope?.Project?.agent || null,
+      description: sa.description,
       details: `Declared Tools: ${sa.declared_tools.join(", ") || "None"}`,
       parseStatus: sa.parse_status,
       parseError: sa.parse_error,
@@ -1262,23 +1321,6 @@ export default function ProfilePane({
     sortDirection
   );
 
-  // Whether Tools is the ONLY section about to render. The shared
-  // `AssetHeaderRow` below is `sticky` over the whole scrollable list, not
-  // scoped to whichever section sits beneath it, so suppressing it had to
-  // key on what will actually be on screen — never on `selectedCategory`
-  // alone. `selectedCategory !== "Tools"` only caught the case where Tools
-  // was the exclusive FILTER; the default All view (`selectedCategory`
-  // null) with servers but nothing else let the header through anyway,
-  // Reach and Beyond the store pinned over card rows those columns do not
-  // describe. A mix of Tools with another category still needs the shared
-  // header for THAT category's rows (asset_table_avionics.test.tsx pins
-  // Skills+Tools together needing it), so suppression is scoped to the
-  // Tools-only case, not to Tools being present at all.
-  const nonToolsSectionVisible =
-    (selectedCategory === "Agents" && sortedAgents.length > 0) ||
-    (showSkills && sortedSkills.length > 0) ||
-    (showRules && sortedRules.length > 0) ||
-    (showSubagents && sortedSubagents.length > 0);
   // The Skills "Switched off" group, drawn once in one of two places: after
   // the Skills rows, or, with an engine picked and no Skills rows on screen,
   // just before "Not loaded by". Booleans, never a figure.
@@ -1290,11 +1332,12 @@ export default function ProfilePane({
   // figure, and the "Switched off" group follows it.
   const hasToolsContent = sortedTools.length > 0 || configProblemRows.length > 0 || keptShown;
   // A tick's jump lands its header below whatever sticky header is stuck
-  // over it. Above the MCP servers header that is AssetHeaderRow, `h-8`.
-  // Below it, once drawn, it is the MCP servers header itself, which stays
-  // stuck to the end of the list: `pt-[11px]`, the View trigger (`p-1`
-  // round a 14px icon, 22px, taller than the 19.5px head line), `pb-[7px]`
-  // and the 1px rule, 41px, so 44.
+  // over it. These margins were measured for AssetHeaderRow (`h-8`) and the
+  // MCP servers header as it was (41px). Task 1 of
+  // docs/plans/2026-11-26-global-list.md removed the first and cut the
+  // second to a 32px quiet head, so nothing is stuck above the first groups
+  // and these now land a header up to 12px lower than it needs to. Task 3
+  // removes the sticky header and these rules together.
   const toolsHeaderDrawn = showTools && hasToolsContent;
   const afterToolsScrollMargin = toolsHeaderDrawn ? "scroll-mt-11" : "scroll-mt-8";
   const keptSkillsGroup =
@@ -1307,7 +1350,6 @@ export default function ProfilePane({
         scrollMarginClass={keptSkillsLast ? afterToolsScrollMargin : "scroll-mt-8"}
       />
     ) : null;
-  const toolsOnlyView = showTools && hasToolsContent && !nonToolsSectionVisible;
 
   // Each group header's figure, read once so the header and its tick print
   // the same words: the backend's figure, none with an engine picked (the
@@ -1358,20 +1400,67 @@ export default function ProfilePane({
   // asset total (which stays backend-owned).
   const visibleCount = sortedSkills.length + sortedTools.length + sortedRules.length + sortedSubagents.length + (selectedCategory === "Agents" ? sortedAgents.length : 0);
 
+  // One row of the list: every Global skill, server, rule and subagent draws
+  // through ListRow (Task 1 of docs/plans/2026-11-26-global-list.md). Line
+  // 2's words come from listRowCopy; the marks are the backend's reach.
+  const listRow = (
+    item: AssetItem,
+    kind: ListRowKind,
+    annotation: AssetAnnotationView | null,
+    key: string,
+    onSelect: () => void,
+    switchFor?: (r: EngineReachInfo) => TileSwitch | null
+  ) => {
+    const figure = listRowFigure(item, annotation);
+    return (
+      <ListRow
+        key={key}
+        kind={kind}
+        name={item.name}
+        chip={item.transport ? transportChipLabel(item.transport) : undefined}
+        detail={listRowDetail(item)}
+        figure={figure?.text}
+        figureTone={figure?.tone}
+        reach={annotation?.reach ?? null}
+        switchFor={switchFor}
+        leadEngine={engineKey}
+        muted={item.parseStatus === "failed"}
+        selected={rowIsSelected(item)}
+        onSelect={onSelect}
+      />
+    );
+  };
+
+  // The View control: grouping and sort for the MCP servers rows, so it
+  // shows only while they do. It sits at the end of the first group head on
+  // screen, Skills on All, as T3 puts a list's view options (Task 1).
+  const viewControl =
+    showTools && hasToolsContent ? (
+      <ViewControl
+        grouping={serverGrouping}
+        sort={serverSort}
+        onGroupingChange={handleServerGroupingChange}
+        onSortChange={handleServerSortChange}
+      />
+    ) : undefined;
+  const viewControlOnSkills = showSkills && sortedSkills.length > 0;
+
   return (
     <div className="flex-1 flex flex-col min-h-0 overflow-hidden font-sans">
-      {/* Facet chips */}
+      {/* Facet chips, in the list's lane so they share the rows' left edge. */}
       <div className="px-[18px] pt-[18px] pb-3.5">
-        <CategoryFilterCards
-          selectedCategory={selectedCategory}
-          onSelectCategory={setSelectedCategory}
-          allCount={sumGlobalAssets(assetCounts)}
-          skillsCount={assetCounts?.byCategory.skill?.global}
-          toolsCount={assetCounts?.byCategory.tool?.global}
-          rulesCount={assetCounts?.byCategory.rule?.global}
-          subagentsCount={assetCounts?.byCategory.subagent?.global}
-          loading={loading}
-        />
+        <div className={laneClass(laneWide)}>
+          <CategoryFilterCards
+            selectedCategory={selectedCategory}
+            onSelectCategory={setSelectedCategory}
+            allCount={sumGlobalAssets(assetCounts)}
+            skillsCount={assetCounts?.byCategory.skill?.global}
+            toolsCount={assetCounts?.byCategory.tool?.global}
+            rulesCount={assetCounts?.byCategory.rule?.global}
+            subagentsCount={assetCounts?.byCategory.subagent?.global}
+            loading={loading}
+          />
+        </div>
       </div>
 
       {/* The overview card from the window bar (Task 5 of
@@ -1543,38 +1632,20 @@ export default function ProfilePane({
         )
       ) : (
         <>
-          {/* The list lives on its own plane */}
-          {/* Table background dropped by Karthik's ruling (2026-08-15):
-              flat on the page, edge drawn by the --line border alone. */}
-          {/* The ticks sit in the list's left inset, beside it, so the
-              wrapper holds them and the list keeps its own classes. */}
+          {/* The list, after T3 Code (Task 1 of
+              docs/plans/2026-11-26-global-list.md): flat on the page, in a
+              centred lane, two-line rows under quiet group heads, and no
+              column headers. The ticks sit in the lane's left margin, so the
+              wrapper holds them and the list keeps its own classes. They need
+              that margin, so they go when the lane narrows. */}
           <div className="relative flex-1 min-h-0 flex flex-col">
-          <GroupTicks groups={tickGroups} scrollRoot={listRef} />
+          {laneWide && <GroupTicks groups={tickGroups} scrollRoot={listRef} />}
           <div
-            ref={listRef}
+            ref={setListNode}
             data-testid="asset-list-scroll"
-            className="@container flex-1 min-h-0 overflow-y-auto mx-[18px] border border-line rounded-tl-plane rounded-tr-plane pb-1.5"
+            className="@container flex-1 min-h-0 overflow-y-auto mx-[18px] pb-1.5"
           >
-            {/* The MCP section carries its own column labels below (Registered
-                in / Tools) — Reach and Beyond the store describe Skills,
-                Rules, Agents and Subagents, never a server, so this header
-                stays out of the way entirely when Tools is the only section
-                on screen (§5.6, "a column that cannot apply must not
-                render"). Suppressed on `toolsOnlyView`, not on
-                `selectedCategory !== "Tools"`: this header is `sticky` over
-                the WHOLE list, so a default All view with servers but
-                nothing else let it through too — see `toolsOnlyView`'s own
-                comment above. */}
-            {!toolsOnlyView && (
-              <AssetHeaderRow
-                sortField={sortField}
-                sortDirection={sortDirection}
-                showKindColumn={!selectedCategory}
-                showReachColumns
-                onSort={handleSort}
-              />
-            )}
-
+           <div data-testid="list-lane" className={laneClass(laneWide)}>
             {/* Agents Group */}
             {selectedCategory === "Agents" && (
               <>
@@ -1598,22 +1669,19 @@ export default function ProfilePane({
             {/* Skills Group */}
             {showSkills && sortedSkills.length > 0 && (
               <>
-                <h3 id="group-skills" className={`scroll-mt-8 px-3.5 pt-[11px] pb-[5px] ${groupLabelClass}`}>
-                  {groupHead("Skills", skillsHeadFigure)}
-                </h3>
-                <div className="flex flex-col">
-                  {sortedSkills.map((item, idx) => (
-                    <AssetRow
-                      key={`skill-${item.path}-${idx}`}
-                      isSelected={rowIsSelected(item)}
-                      showKindColumn={!selectedCategory}
-                      item={item}
-                      annotation={annotationFor(item)}
-                      leadEngine={engineKey}
-                      onLink={() => onLinkAsset(item)}
-                      onClick={() => onSelectAsset({ name: item.name, category: "Skills", path: item.path })}
-                    />
-                  ))}
+                <GroupHead
+                  id="group-skills"
+                  label="Skills"
+                  figure={skillsHeadFigure}
+                  className="scroll-mt-8 mt-2.5 first:mt-0"
+                  trailing={viewControlOnSkills ? viewControl : undefined}
+                />
+                <div className="flex flex-col gap-px">
+                  {sortedSkills.map((item, idx) =>
+                    listRow(item, "skill", annotationFor(item), `skill-${item.path}-${idx}`, () =>
+                      onSelectAsset({ name: item.name, category: "Skills", path: item.path })
+                    )
+                  )}
                 </div>
               </>
             )}
@@ -1628,66 +1696,34 @@ export default function ProfilePane({
                 "Not loaded by" (round 13 q4, 2026-11-26). */}
             {!keptSkillsLast && keptSkillsGroup}
 
-            {/* Tools Group — card rows, not table rows (§5.6). This section
-                owns its own column labels rather than sharing the header
-                above: "Reach" is meaningless for a server (it does not have
-                a symlink or a tracked copy), so it reads "Registered in"
-                instead. In a Tools-only view the shared header above is
-                suppressed entirely (`toolsOnlyView`); in a mixed view the
-                shared header still renders for the OTHER sections, and this
-                inline header is what actually sits above these rows.
-
-                Sticky for the same reason `AssetHeaderRow` above is (§6.3
-                state 8, 50+ servers): with more rows than fit one screen,
-                nothing else on screen still names "Registered in" / "Tools"
-                once this header scrolls out of view. `top-0` + `z-[2]` +
-                `bg-page` mirrors `AssetHeaderRow`'s own sticky treatment
-                exactly — in a mixed view where both are present, a later
-                sticky element at the same offset naturally displaces the
-                earlier one as its own scroll position reaches the top, the
-                standard stacked-sticky-header behaviour, so this never
-                collides with `AssetHeaderRow` above it. */}
+            {/* MCP servers. Its head stays sticky until Task 3 of
+                docs/plans/2026-11-26-global-list.md takes that away; its
+                column labels went with the table, and the View control moved
+                to the first group head on screen. */}
             {showTools && hasToolsContent && (
               <>
                 {/* The tick's target, not the header: a stuck sticky header
                     is already "in view", so scrolling it into view would
                     not move the list. This sits where the header would. */}
-                <span id="group-tools" aria-hidden="true" className="block scroll-mt-8" />
-                <div
-                  data-testid="section-header-tools"
-                  className={`sticky top-0 z-[2] bg-page flex items-center gap-3 select-none px-3.5 pt-[11px] pb-[7px] border-b border-line ${groupLabelClass}`}
-                >
-                  {/* The Display control (§5.6) lives here, not in the facet
-                      row above: grouping and sort only ever affect these
-                      rows, so it's inert everywhere else that row appears. */}
-                  <ViewControl
-                    grouping={serverGrouping}
-                    sort={serverSort}
-                    onGroupingChange={handleServerGroupingChange}
-                    onSortChange={handleServerSortChange}
+                <span id="group-tools" aria-hidden="true" className="block scroll-mt-8 mt-2.5 first:mt-0" />
+                <div data-testid="section-header-tools" className="sticky top-0 z-[2] bg-page">
+                  <GroupHead
+                    label="MCP servers"
+                    figure={toolsHeadFigure}
+                    trailing={viewControlOnSkills ? undefined : viewControl}
                   />
-                  <h3 className="flex-1 truncate">{groupHead("MCP servers", toolsHeadFigure)}</h3>
-                  <span className="w-[100px] shrink-0 text-left">
-                    Registered in
-                  </span>
-                  <span className="hidden @[580px]:block w-[150px] shrink-0 text-left">
-                    Tools
-                  </span>
                 </div>
-                <div className="flex flex-col">
-                  {sortedTools.map((item, idx) => (
-                    <AssetRow
-                      key={`tool-${item.path}-${idx}`}
-                      variant="card"
-                      isSelected={rowIsSelected(item)}
-                      item={item}
-                      annotation={toolAnnotationFor(item)}
-                      tileSwitchFor={tileSwitchFor(item)}
-                      leadEngine={engineKey}
-                      onLink={() => onLinkAsset(item)}
-                      onClick={() => onSelectAsset({ id: item.id, name: item.name, category: "Tools", path: item.path })}
-                    />
-                  ))}
+                <div className="flex flex-col gap-px">
+                  {sortedTools.map((item, idx) =>
+                    listRow(
+                      item,
+                      "server",
+                      toolAnnotationFor(item),
+                      `tool-${item.path}-${idx}`,
+                      () => onSelectAsset({ id: item.id, name: item.name, category: "Tools", path: item.path }),
+                      tileSwitchFor(item)
+                    )
+                  )}
                   {/* Appendix A.3/A.4 (§6.3 states 5-7) — content rows next to
                       the server list, never a DisclosureBanner. Rendered from
                       whatever `mcpCoverage.problems` last carried, with no
@@ -1740,22 +1776,18 @@ export default function ProfilePane({
             {/* Rules Group */}
             {showRules && sortedRules.length > 0 && (
               <>
-                <h3 id="group-rules" className={`${afterToolsScrollMargin} px-3.5 pt-[11px] pb-[5px] ${groupLabelClass}`}>
-                  {groupHead("Rules", rulesHeadFigure)}
-                </h3>
-                <div className="flex flex-col">
-                  {sortedRules.map((item, idx) => (
-                    <AssetRow
-                      key={`rule-${item.path}-${idx}`}
-                      isSelected={rowIsSelected(item)}
-                      showKindColumn={!selectedCategory}
-                      item={item}
-                      annotation={annotationFor(item)}
-                      leadEngine={engineKey}
-                      onLink={() => onLinkAsset(item)}
-                      onClick={() => onSelectAsset({ name: item.name, category: "Rules", path: item.path })}
-                    />
-                  ))}
+                <GroupHead
+                  id="group-rules"
+                  label="Rules"
+                  figure={rulesHeadFigure}
+                  className={`${afterToolsScrollMargin} mt-2.5 first:mt-0`}
+                />
+                <div className="flex flex-col gap-px">
+                  {sortedRules.map((item, idx) =>
+                    listRow(item, "rule", annotationFor(item), `rule-${item.path}-${idx}`, () =>
+                      onSelectAsset({ name: item.name, category: "Rules", path: item.path })
+                    )
+                  )}
                 </div>
               </>
             )}
@@ -1763,22 +1795,18 @@ export default function ProfilePane({
             {/* Subagents Group */}
             {showSubagents && sortedSubagents.length > 0 && (
               <>
-                <h3 id="group-subagents" className={`${afterToolsScrollMargin} px-3.5 pt-[11px] pb-[5px] ${groupLabelClass}`}>
-                  {groupHead("Subagents", subagentsHeadFigure)}
-                </h3>
-                <div className="flex flex-col">
-                  {sortedSubagents.map((item, idx) => (
-                    <AssetRow
-                      key={`subagent-${item.path}-${idx}`}
-                      isSelected={rowIsSelected(item)}
-                      showKindColumn={!selectedCategory}
-                      item={item}
-                      annotation={annotationFor(item)}
-                      leadEngine={engineKey}
-                      onLink={() => onLinkAsset(item)}
-                      onClick={() => onSelectAsset({ name: item.name, category: "Subagents", path: item.path })}
-                    />
-                  ))}
+                <GroupHead
+                  id="group-subagents"
+                  label="Subagents"
+                  figure={subagentsHeadFigure}
+                  className={`${afterToolsScrollMargin} mt-2.5 first:mt-0`}
+                />
+                <div className="flex flex-col gap-px">
+                  {sortedSubagents.map((item, idx) =>
+                    listRow(item, "subagent", annotationFor(item), `subagent-${item.path}-${idx}`, () =>
+                      onSelectAsset({ name: item.name, category: "Subagents", path: item.path })
+                    )
+                  )}
                 </div>
               </>
             )}
@@ -1786,6 +1814,7 @@ export default function ProfilePane({
             {keptSkillsLast && keptSkillsGroup}
 
             {engine && notLoadedAny && <NotLoadedGroup engineName={engine.engine_name} rows={notLoadedRows} scrollMarginClass={afterToolsScrollMargin} />}
+           </div>
           </div>
           </div>
 

@@ -171,7 +171,12 @@ describe("ProfilePane Component-Level Filtering Integration", () => {
     // failing here. A separate `not.toMatch(/order-/)` was written and then
     // removed — the assertion below fails first, so nothing could ever have
     // made that line fire. Real paint order stays a screenshot claim.
-    const trackBox = track.parentElement!.parentElement!; // wrapper > section > tablist
+    // wrapper > lane > section > tablist. The lane, the list's own, went in
+    // between with Task 1 of docs/plans/2026-11-26-global-list.md, so the
+    // facets share the rows' left edge.
+    const lane = track.parentElement!.parentElement!;
+    expect(lane.className).toBe("mx-auto w-full max-w-[736px] px-12");
+    const trackBox = lane.parentElement!;
     // Cited verbatim by DESIGN.md -> Pane composition; change them together.
     // `pt-[18px]` since 2026-08-28 (same day, one ruling after `pt-3.5`):
     // the sheet's inset is uniform -- 18 from its top rule, the same 18 the
@@ -261,8 +266,11 @@ describe("ProfilePane Component-Level Filtering Integration", () => {
     fireEvent.click(screen.getAllByText("MCP servers").find((el) => el.closest("[tabindex]"))!.closest("[tabindex]")!);
     const spadesRow = screen.getByText("spades").closest("[data-selected]") as HTMLElement;
     expect(within(spadesRow).getByText("7 tools")).toBeTruthy();
+    // Withheld, the figure is absent, never a "—" (Review Focus 5 of
+    // docs/plans/2026-11-26-global-list.md).
     const tauriRow = screen.getByText("tauri").closest("[data-selected]") as HTMLElement;
-    expect(within(tauriRow).getByText("—")).toBeTruthy();
+    expect(within(tauriRow).queryByTestId("list-row-figure")).toBeNull();
+    expect(within(tauriRow).queryByText("—")).toBeNull();
   });
 
   it("clears the Review filter when the category changes, so it never carries back to Tools", () => {
@@ -1575,7 +1583,9 @@ describe("ProfilePane — servers switched off and kept by Hanger (Task A8)", ()
         onLinkAsset={vi.fn()}
       />
     );
-    expect(within(screen.getByTestId("section-header-tools")).getByRole("heading").textContent).toBe(
+    // The head draws label, hairline and figure apart since Task 1 of
+    // docs/plans/2026-11-26-global-list.md; the heading's name keeps the words.
+    expect(within(screen.getByTestId("section-header-tools")).getByRole("heading").getAttribute("aria-label")).toBe(
       "MCP servers · 1"
     );
   });

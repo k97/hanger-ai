@@ -81,9 +81,14 @@ describe("ProfilePane — group ticks", () => {
       ["group-kept-skills", "Switched off · 1"],
       ["group-rules", "Rules · 4"],
     ]) {
+      // The id is on the group head, which holds the heading (and, for the
+      // first, the View control) since Task 1 of
+      // docs/plans/2026-11-26-global-list.md; the kept group's own head is
+      // still the heading itself until Task 3.
       const header = document.getElementById(id);
-      expect(header?.tagName, id).toBe("H3");
-      expect(header?.textContent, id).toBe(text);
+      const heading = header?.tagName === "H3" ? header : header?.querySelector("h3");
+      expect(heading, id).toBeTruthy();
+      expect(heading!.getAttribute("aria-label") ?? heading!.textContent, id).toBe(text);
     }
   });
 

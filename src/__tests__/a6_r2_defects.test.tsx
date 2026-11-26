@@ -202,7 +202,7 @@ describe("Avionics A6-R2 Defect Tests", () => {
     expect(button?.textContent).not.toContain("7 7");
   });
 
-  it("7. ProfilePane renders the ruled Reach columns; RepoPane keeps Engine and State", () => {
+  it("7. ProfilePane renders no column headers; RepoPane keeps Engine and State", () => {
     const { container: profileContainer } = render(
       <ProfilePane
         inventory={mockInventory}
@@ -232,15 +232,12 @@ describe("Avionics A6-R2 Defect Tests", () => {
 
     // Ruled 2026-08-15 (item 8): the Global pane's columns became Reach and
     // Beyond the store; the repo pane keeps Engine and State until its own
-    // content is designed. The panes now differ on purpose.
-    const profileHeaders = getHeaderTitles(profileContainer);
+    // content is designed. Since Task 1 of docs/plans/2026-11-26-global-list.md
+    // Global has no columns at all, only two-line rows; Task 4 brings the
+    // repo pane the same way.
     const repoHeaders = getHeaderTitles(repoContainer);
 
-    expect(profileHeaders).toEqual(["Name", "Kind"]);
-    const profileHeaderText =
-      profileContainer.querySelector("[data-testid='asset-header-row']")?.textContent ?? "";
-    expect(profileHeaderText).toContain("Reach");
-    expect(profileHeaderText).toContain("Beyond the store");
+    expect(profileContainer.querySelector("[data-testid='asset-header-row']")).toBeNull();
     expect(repoHeaders).toEqual(["Name", "Kind", "Engine", "State"]);
   });
 

@@ -63,22 +63,25 @@ describe("the MCP card row", () => {
     expect(screen.getByText("Declared in 2 files that disagree")).toBeTruthy();
   });
 
-  it("puts the column labels on the section header, not on a row above every section", () => {
+  // Global's MCP servers head lost its column labels with the table (Task 1
+  // of docs/plans/2026-11-26-global-list.md): its rows are two-line rows
+  // whose marks and figure need no column to name them. A repository keeps
+  // its labels until Task 4.
+  it("gives Global's MCP servers head no column labels, only the group's name and figure", () => {
     render(<ProfilePane {...base} inventory={inventoryWithOneServer} />);
     const header = screen.getByTestId("section-header-tools");
-    expect(within(header).getByText("Registered in")).toBeTruthy();
-    expect(within(header).getByText("Tools")).toBeTruthy();
+    expect(within(header).queryByText("Registered in")).toBeNull();
+    expect(within(header).queryByText("Tools")).toBeNull();
+    expect(within(header).getByRole("heading", { level: 3, name: "MCP servers · 1" })).toBeTruthy();
   });
 
-  it("rules off its column labels the way the shared table header does", () => {
-    // The MCP tab has no `AssetHeaderRow` — `toolsOnlyView` suppresses it —
-    // so this inline header IS the table header there, and it was the one
-    // header on any tab with no separator under its column names (Karthik,
-    // 2026-08-29). A class contract: `happy-dom` paints no borders.
+  it("heads Global's MCP servers quietly, with a hairline in the head and no rule under it", () => {
+    // The rule under the labels (Karthik, 2026-08-29) went with the labels.
+    // A class contract: `happy-dom` paints no borders.
     render(<ProfilePane {...base} inventory={inventoryWithOneServer} />);
     const header = screen.getByTestId("section-header-tools");
-    expect(header.className).toContain("border-b");
-    expect(header.className).toContain("border-line");
+    expect(header.className).not.toContain("border-b");
+    expect(within(header).getByTestId("group-head-rule").className).toContain("bg-line");
   });
 
   it("does not render Beyond the store anywhere in the default view when Tools is the only section present", () => {
@@ -129,8 +132,10 @@ describe("the MCP card row", () => {
     );
     expect(screen.queryByTestId("asset-header-row")).toBeNull();
     const header = screen.getByTestId("section-header-tools");
-    expect(within(header).getByText("Registered in")).toBeTruthy();
-    expect(within(header).getByText("Tools")).toBeTruthy();
+    // No column labels on Global since Task 1 of
+    // docs/plans/2026-11-26-global-list.md.
+    expect(within(header).queryByText("Registered in")).toBeNull();
+    expect(within(header).queryByText("Tools")).toBeNull();
     expect(within(header).queryByText("Beyond the store")).toBeNull();
     expect(screen.getByText("tauri")).toBeTruthy();
   });
@@ -295,18 +300,22 @@ describe("the MCP card row", () => {
       expect(container.className).toContain("overflow-y-auto");
     });
 
-    it("the tile and tool-count columns keep their fixed width regardless of row count — the column never reflows", () => {
+    // Global's rows have no columns since Task 1 of
+    // docs/plans/2026-11-26-global-list.md. What stops the marks reflowing
+    // now is each row's right slot holding its own width, at any row count.
+    it("every row's marks hold their width regardless of row count — nothing reflows", () => {
       const { container: few } = render(
         <ProfilePane {...base} inventory={inventoryWithOneServer} scannedAt={new Date()} mcpServers={manyServerRows(3)} />
       );
       const { container: many } = render(
         <ProfilePane {...base} inventory={inventoryWithOneServer} scannedAt={new Date()} mcpServers={manyServerRows(55)} />
       );
-      const widthClass = (root: HTMLElement) =>
-        Array.from(root.querySelectorAll(".w-\\[100px\\]")).length > 0 &&
-        Array.from(root.querySelectorAll(".w-\\[150px\\]")).length > 0;
-      expect(widthClass(few)).toBe(true);
-      expect(widthClass(many)).toBe(true);
+      const held = (root: HTMLElement) => {
+        const trails = Array.from(root.querySelectorAll("[data-testid='list-row-trail']"));
+        return trails.length > 0 && trails.every((t) => t.className.includes("shrink-0") && t.className.includes("whitespace-nowrap"));
+      };
+      expect(held(few)).toBe(true);
+      expect(held(many)).toBe(true);
     });
   });
 
@@ -401,22 +410,21 @@ describe("the MCP card row", () => {
   // Class contract only (happy-dom applies no container queries). Registered
   // in carries the switches, so it outlives the Tools label at narrow widths
   // (F1, 2026-11-25); the rows stack their tool figure under the tiles.
-  it.each(["ProfilePane", "RepoPane"] as const)("%s keeps the Registered in label at every width and drops Tools when narrow", (pane) => {
-    if (pane === "ProfilePane") {
-      render(<ProfilePane {...base} inventory={inventoryWithOneServer} selectedCategory="Tools" />);
-    } else {
-      render(
-        <RepoPane
-          repoPath="/Users/test/Work"
-          inventory={inventoryWithOneRepoServer}
-          loading={false}
-          selectedCategory="Tools"
-          onRefresh={vi.fn()}
-          onSelectAsset={vi.fn()}
-          onLinkFromProfile={vi.fn()}
-        />
-      );
-    }
+  // ProfilePane left this test with its column labels (Task 1 of
+  // docs/plans/2026-11-26-global-list.md); a repository keeps them until
+  // Task 4.
+  it.each(["RepoPane"] as const)("%s keeps the Registered in label at every width and drops Tools when narrow", () => {
+    render(
+      <RepoPane
+        repoPath="/Users/test/Work"
+        inventory={inventoryWithOneRepoServer}
+        loading={false}
+        selectedCategory="Tools"
+        onRefresh={vi.fn()}
+        onSelectAsset={vi.fn()}
+        onLinkFromProfile={vi.fn()}
+      />
+    );
     const header = screen.getByTestId("section-header-tools");
     const registered = within(header).getByText("Registered in");
     expect(registered.className).not.toMatch(/(^|\s)hidden(\s|$)/);

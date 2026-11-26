@@ -77,7 +77,9 @@ describe("ProfilePane — Switched off, under Skills", () => {
 
   it("leaves the Skills figure to get_asset_counts", () => {
     renderPane({ keptSkills: kept([FIGMA, QUILL]) });
-    expect(screen.getByRole("heading", { name: /^Skills · / }).textContent).toBe("Skills · 1");
+    // The Skills head draws label, hairline and figure apart since Task 1 of
+    // docs/plans/2026-11-26-global-list.md; the heading's name keeps the words.
+    expect(screen.getByRole("heading", { name: /^Skills · / }).getAttribute("aria-label")).toBe("Skills · 1");
   });
 
   it("drops the figure when an engine is picked, as the MCP group does", () => {

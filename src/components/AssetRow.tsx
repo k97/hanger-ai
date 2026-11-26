@@ -28,6 +28,9 @@ export interface AssetItem {
   path: string;
   engine?: string | null;
   version?: string;
+  /** A skill's or subagent's own description, from its file
+   *  (`Skill.description`, `Subagent.description`): ListRow's line 2. */
+  description?: string;
   details?: string;
   drifted?: boolean;
   isSymlink?: boolean;

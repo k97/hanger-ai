@@ -17,11 +17,14 @@ export function groupHead(label: string, count: number | null): string {
 }
 
 /**
- * Tick marks beside Global's list, one per group on screen (layout G of
- * docs/plans/2026-11-26-global-top-prototypes.html; round 13 q2). A tick is a
- * 10×2 bar, 14 wide and `ink-1` for the group in view. Its name is the
- * header's own words, in the app's Tooltip, and a click scrolls that header to
- * the top. With fewer than two groups there is nowhere to jump, so it draws
+ * Tick marks beside Global's list, one per group on screen, at T3 Code's
+ * size and place (its TimelineMinimap; Task 1 of
+ * docs/plans/2026-11-26-global-list.md): 24 × 2 bars, 12px in from the list
+ * area's left edge and centred down it, the group in view in `ink-2`, the
+ * rest in `line-2`. ProfilePane draws them only while the lane's left
+ * margin is wide enough to hold them (48px). A tick's name is the header's
+ * own words, in the app's Tooltip, and a click scrolls that header to the
+ * top. With fewer than two groups there is nowhere to jump, so it draws
  * nothing.
  *
  * The group in view is the last header that has passed into the top third of
@@ -61,7 +64,7 @@ export default function GroupTicks({
   const current = groups.some((g) => g.id === activeId) ? activeId : groups[0].id;
 
   return (
-    <nav aria-label="Jump to a group" className="absolute left-0.5 top-2.5 flex flex-col">
+    <nav aria-label="Jump to a group" className="absolute left-3 top-1/2 -translate-y-1/2 z-[3] flex flex-col">
       {groups.map((g) => {
         const name = groupHead(g.label, g.count);
         const on = g.id === current;
@@ -72,11 +75,11 @@ export default function GroupTicks({
               aria-label={name}
               aria-current={on ? "true" : undefined}
               onClick={() => document.getElementById(g.id)?.scrollIntoView({ block: "start" })}
-              className="group flex items-center w-3.5 h-2 cursor-pointer"
+              className="group flex items-center w-6 h-2 cursor-pointer"
             >
               <span
-                className={`block h-0.5 transition-colors duration-hover ease-spring ${
-                  on ? "w-3.5 bg-ink-1" : "w-2.5 bg-line-2 group-hover:bg-ink-3"
+                className={`block w-6 h-0.5 rounded-pill transition-colors duration-hover ease-spring ${
+                  on ? "bg-ink-2" : "bg-line-2 group-hover:bg-ink-3"
                 }`}
               />
             </button>

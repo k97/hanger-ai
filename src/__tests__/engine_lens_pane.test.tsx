@@ -354,8 +354,11 @@ describe("with an engine picked, the list is what it reaches", () => {
 
   it("drops each section's store figure while filtered, and keeps it with All engines", () => {
     const { unmount } = render(<ProfilePane {...props()} />);
-    expect(screen.getByText("Skills · 4")).toBeTruthy();
-    expect(screen.getByText("MCP servers · 6")).toBeTruthy();
+    // The heads draw label, hairline and figure apart (Task 1 of
+    // docs/plans/2026-11-26-global-list.md); each heading is named in the
+    // words its tick uses.
+    expect(screen.getByRole("heading", { level: 3, name: "Skills · 4" })).toBeTruthy();
+    expect(screen.getByRole("heading", { level: 3, name: "MCP servers · 6" })).toBeTruthy();
     unmount();
     render(<ProfilePane {...props({ selectedEngine: "codex" })} />);
     expect(screen.queryByText(/^Skills · /)).toBeNull();
@@ -366,8 +369,10 @@ describe("with an engine picked, the list is what it reaches", () => {
   it("puts the group once, at the end of the list, on All", () => {
     render(<ProfilePane {...props({ selectedEngine: "codex" })} />);
     fireEvent.click(fold());
-    const scroll = screen.getByTestId("asset-list-scroll");
-    expect(scroll.lastElementChild).toBe(group());
+    // The list's rows sit in its lane since Task 1 of
+    // docs/plans/2026-11-26-global-list.md.
+    const lane = screen.getByTestId("list-lane");
+    expect(lane.lastElementChild).toBe(group());
     expect(notLoaded()).toEqual([
       "boltSkillNot linked",
       "cobaltSkillAnother engine's format",
