@@ -31,7 +31,9 @@
 //! - `links`: where one-by-one links to a skill are kept, and which they are.
 //! - `keep`: the private keep, one entry and one receipt per switched-off
 //!   skill.
+//! - `ops`: Off and On, in a fixed order, with a fixed set of refusal codes.
 
 pub mod keep;
 pub mod links;
+pub mod ops;
 pub mod tree;

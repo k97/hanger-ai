@@ -376,3 +376,273 @@ fn a_non_utf8_link_text_is_refused() {
     let ok = FoundLink { path: PathBuf::from("/nowhere/link"), text: "../x".into() };
     assert_eq!(LinkRecord::from_found(&ok).unwrap(), LinkRecord { path: "/nowhere/link".into(), text: "../x".into() });
 }
+
+// ---------------------------------------------------------------------------
+// Task 4: Off and On
+// ---------------------------------------------------------------------------
+
+use tauri_app_lib::skill_switch::ops::{self, Seams, SkillPlaces, SkillSwitchFailure, Step};
+
+/// A temp home, store and keep, as production lays them out.
+struct World {
+    dir: tempfile::TempDir,
+    home: PathBuf,
+    store: PathBuf,
+    places: SkillPlaces,
+}
+
+fn world(skills: &[&str]) -> World {
+    let dir = temp();
+    let home = dir.path().join("home");
+    let store = home.join(".agents/skills");
+    fs::create_dir_all(&store).unwrap();
+    for name in skills {
+        make_skill(&store.join(name));
+    }
+    let places = SkillPlaces {
+        home: home.clone(),
+        store: store.clone(),
+        keep: home.join("Library/Application Support/com.rkarthik.hanger/kept/skills"),
+        db_path: dir.path().join("hanger.db"),
+    };
+    World { dir, home, store, places }
+}
+
+impl World {
+    fn skill(&self, name: &str) -> PathBuf {
+        self.store.join(name)
+    }
+    fn kept(&self, id: &str, name: &str) -> PathBuf {
+        self.places.keep.join(id).join(name)
+    }
+    /// The whole temp folder, the keep included.
+    fn everything(&self) -> String {
+        fingerprint(self.dir.path()).unwrap()
+    }
+}
+
+fn read_link(path: &Path) -> PathBuf {
+    fs::read_link(path).unwrap_or_else(|e| panic!("{} is not a link: {e}", path.display()))
+}
+
+fn gone(path: &Path) -> bool {
+    fs::symlink_metadata(path).is_err()
+}
+
+#[test]
+fn off_moves_the_folder_and_removes_its_links_and_on_puts_back_every_byte() {
+    let w = world(&["x", "web-design-guidelines"]);
+    let links = [
+        (w.home.join(".cursor/skills/x"), w.skill("x").into_os_string()),
+        (w.home.join(".gemini/config/skills/x"), "../../../.agents/skills/x".into()),
+        (w.skill("web-design-guidelines/x"), w.skill("x").into_os_string()),
+    ];
+    for (at, text) in &links {
+        link(text, at);
+    }
+    let ino = fs::symlink_metadata(w.skill("x")).unwrap().ino();
+    let print = fingerprint(&w.skill("x")).unwrap();
+
+    let off = ops::switch_off(&w.places, &[], "x").expect("switched off");
+    assert_eq!((off.name.as_str(), off.links), ("x", 3));
+    assert!(gone(&w.skill("x")));
+    for (at, _) in &links {
+        assert!(gone(at), "{} was removed", at.display());
+    }
+    let receipt = keep::load(&w.places.keep, &off.id).expect("a receipt");
+    assert_eq!(receipt.stage, Stage::Kept);
+    assert_eq!(receipt.fingerprint.as_deref(), Some(print.as_str()));
+    assert_eq!(fs::symlink_metadata(w.kept(&off.id, "x")).unwrap().ino(), ino, "renamed, never copied");
+
+    let on = ops::switch_on(&w.places, &off.id).expect("switched on");
+    assert_eq!(on.links_not_restored, Vec::<String>::new());
+    assert_eq!(fs::symlink_metadata(w.skill("x")).unwrap().ino(), ino);
+    assert_eq!(fingerprint(&w.skill("x")).unwrap(), print);
+    for (at, text) in &links {
+        assert_eq!(read_link(at).into_os_string(), *text, "{} has its own text back", at.display());
+    }
+    assert!(gone(&w.places.keep.join(&off.id)), "the entry is gone");
+}
+
+#[test]
+fn a_skill_that_is_a_link_moves_as_a_link() {
+    let w = world(&[]);
+    let target = make_skill(&w.home.join("dotfiles/foo"));
+    let text = PathBuf::from("../../dotfiles/foo");
+    link(&text, &w.skill("foo"));
+    let target_print = fingerprint(&target).unwrap();
+
+    let off = ops::switch_off(&w.places, &[], "foo").expect("switched off");
+    assert!(gone(&w.skill("foo")));
+    let kept = w.kept(&off.id, "foo");
+    assert!(fs::symlink_metadata(&kept).unwrap().file_type().is_symlink(), "the link moved, not its target");
+    assert_eq!(read_link(&kept), text);
+    assert_eq!(keep::load(&w.places.keep, &off.id).unwrap().kind, EntryKind::Link);
+    assert_eq!(fingerprint(&target).unwrap(), target_print);
+
+    ops::switch_on(&w.places, &off.id).expect("switched on");
+    assert_eq!(read_link(&w.skill("foo")), text);
+    assert_eq!(fingerprint(&target).unwrap(), target_print);
+}
+
+#[test]
+fn on_refuses_when_the_name_is_back_in_the_store() {
+    let w = world(&["x"]);
+    let off = ops::switch_off(&w.places, &[], "x").unwrap();
+    make_skill(&w.skill("x"));
+    fs::write(w.skill("x/SKILL.md"), "reinstalled").unwrap();
+    let (store_print, kept_print) = (fingerprint(&w.skill("x")).unwrap(), fingerprint(&w.kept(&off.id, "x")).unwrap());
+    assert_eq!(ops::switch_on(&w.places, &off.id).unwrap_err(), SkillSwitchFailure::AlreadyThere);
+    assert_eq!(fingerprint(&w.skill("x")).unwrap(), store_print);
+    assert_eq!(fingerprint(&w.kept(&off.id, "x")).unwrap(), kept_print);
+}
+
+#[test]
+fn on_refuses_when_the_kept_folder_changed() {
+    let w = world(&["x"]);
+    let off = ops::switch_off(&w.places, &[], "x").unwrap();
+    fs::write(w.kept(&off.id, "x").join("SKILL.md"), "edited in the keep").unwrap();
+    let before = w.everything();
+    assert_eq!(ops::switch_on(&w.places, &off.id).unwrap_err(), SkillSwitchFailure::ChangedSinceKept);
+    assert_eq!(w.everything(), before, "nothing moved");
+    assert!(gone(&w.skill("x")));
+}
+
+#[test]
+fn a_second_off_of_one_name_keeps_both() {
+    let w = world(&["foo"]);
+    let first = ops::switch_off(&w.places, &[], "foo").unwrap();
+    make_skill(&w.skill("foo"));
+    fs::write(w.skill("foo/SKILL.md"), "second").unwrap();
+    let second = ops::switch_off(&w.places, &[], "foo").unwrap();
+    assert_ne!(first.id, second.id);
+    let kept: Vec<String> = keep::list(&w.places.keep).into_iter().map(|r| r.name).collect();
+    assert_eq!(kept, ["foo", "foo"]);
+    ops::switch_on(&w.places, &first.id).expect("the first comes back");
+    assert_eq!(ops::switch_on(&w.places, &second.id).unwrap_err(), SkillSwitchFailure::AlreadyThere);
+    assert_eq!(fs::read_to_string(w.kept(&second.id, "foo").join("SKILL.md")).unwrap(), "second");
+}
+
+#[test]
+fn on_refuses_when_a_link_place_is_taken() {
+    let w = world(&["x"]);
+    let at = w.home.join(".cursor/skills/x");
+    link(w.skill("x"), &at);
+    let off = ops::switch_off(&w.places, &[], "x").unwrap();
+    fs::write(&at, "mine").unwrap();
+    let before = w.everything();
+    assert_eq!(ops::switch_on(&w.places, &off.id).unwrap_err(), SkillSwitchFailure::LinkPlaceTaken);
+    assert_eq!(fs::read_to_string(&at).unwrap(), "mine");
+    assert_eq!(w.everything(), before, "nothing moved");
+}
+
+#[test]
+fn a_link_that_changed_before_removal_is_left_and_nothing_moves() {
+    let w = world(&["x", "y"]);
+    let first = w.home.join(".cursor/skills/x");
+    let second = w.home.join(".gemini/config/skills/x");
+    link(w.skill("x"), &first);
+    link("../../../.agents/skills/x", &second);
+    let print = fingerprint(&w.skill("x")).unwrap();
+    let repoint = || {
+        fs::remove_file(&second).unwrap();
+        symlink("../../../.agents/skills/y", &second).unwrap();
+    };
+    let seams = Seams { before_move: &repoint, ..Seams::default() };
+    assert_eq!(ops::switch_off_with(&w.places, &[], "x", seams).unwrap_err(), SkillSwitchFailure::ChangedSinceRead);
+    assert_eq!(fingerprint(&w.skill("x")).unwrap(), print, "the skill did not move");
+    assert_eq!(read_link(&first), w.skill("x"), "the link removed first was put back");
+    assert_eq!(read_link(&second), PathBuf::from("../../../.agents/skills/y"), "the changed link is left as it is");
+    assert!(keep::list(&w.places.keep).is_empty(), "the entry was removed");
+}
+
+#[test]
+fn another_volume_is_refused_before_anything_changes() {
+    let w = world(&["x"]);
+    link(w.skill("x"), &w.home.join(".cursor/skills/x"));
+    let before = w.everything();
+    let store = w.store.clone();
+    let volume = move |path: &Path| -> std::io::Result<u64> { Ok(if path.starts_with(&store) { 1 } else { 2 }) };
+    let seams = Seams { volume: &volume, ..Seams::default() };
+    assert_eq!(ops::switch_off_with(&w.places, &[], "x", seams).unwrap_err(), SkillSwitchFailure::OtherVolume);
+    assert_eq!(w.everything(), before);
+    assert!(gone(&w.places.keep), "the keep was not even made");
+}
+
+#[test]
+fn an_interrupted_off_is_listed_and_on_completes_it() {
+    for step in [Step::AfterReceipt, Step::AfterLinks, Step::AfterMove, Step::AfterRestoreMove] {
+        let w = world(&["x"]);
+        let links = [
+            (w.home.join(".cursor/skills/x"), w.skill("x").into_os_string()),
+            (w.home.join(".gemini/config/skills/x"), std::ffi::OsString::from("../../../.agents/skills/x")),
+        ];
+        for (at, text) in &links {
+            link(text, at);
+        }
+        let ino = fs::symlink_metadata(w.skill("x")).unwrap().ino();
+        let print = fingerprint(&w.skill("x")).unwrap();
+
+        let id = if step == Step::AfterRestoreMove {
+            let off = ops::switch_off(&w.places, &[], "x").unwrap();
+            let seams = Seams { stop_at: Some(step), ..Seams::default() };
+            assert!(ops::switch_on_with(&w.places, &off.id, seams).is_err(), "{step:?}: stopped");
+            off.id
+        } else {
+            let seams = Seams { stop_at: Some(step), ..Seams::default() };
+            assert!(ops::switch_off_with(&w.places, &[], "x", seams).is_err(), "{step:?}: stopped");
+            let listed = keep::list(&w.places.keep);
+            assert_eq!(listed.len(), 1, "{step:?}: the interrupted entry is listed");
+            assert_eq!(listed[0].stage, Stage::Moving, "{step:?}");
+            listed[0].id.clone()
+        };
+        if step == Step::AfterRestoreMove {
+            assert_eq!(keep::list(&w.places.keep)[0].stage, Stage::Restoring);
+        }
+
+        let on = ops::switch_on(&w.places, &id).unwrap_or_else(|e| panic!("{step:?}: on completes it: {e:?}"));
+        assert!(on.links_not_restored.is_empty(), "{step:?}");
+        assert_eq!(fs::symlink_metadata(w.skill("x")).unwrap().ino(), ino, "{step:?}");
+        assert_eq!(fingerprint(&w.skill("x")).unwrap(), print, "{step:?}");
+        for (at, text) in &links {
+            assert_eq!(read_link(at).into_os_string(), *text, "{step:?}: {}", at.display());
+        }
+        assert!(gone(&w.places.keep.join(&id)), "{step:?}: the entry is gone");
+        assert!(keep::list(&w.places.keep).is_empty(), "{step:?}");
+    }
+}
+
+#[test]
+fn a_link_whose_folder_is_gone_is_reported_not_made() {
+    let w = world(&["x"]);
+    let kept_here = w.home.join(".gemini/config/skills/x");
+    let deleted = w.home.join(".cursor/skills");
+    link(w.skill("x"), &deleted.join("x"));
+    link("../../../.agents/skills/x", &kept_here);
+    let off = ops::switch_off(&w.places, &[], "x").unwrap();
+    fs::remove_dir(&deleted).unwrap();
+    let on = ops::switch_on(&w.places, &off.id).expect("on puts the skill back");
+    assert!(w.skill("x").is_dir());
+    assert!(gone(&deleted), "the folder was not made");
+    assert_eq!(on.links_not_restored.len(), 1, "{:?}", on.links_not_restored);
+    assert!(on.links_not_restored[0].ends_with("/x"), "{:?}", on.links_not_restored);
+    assert!(!on.links_not_restored[0].contains(w.dir.path().to_str().unwrap()), "sanitised: {:?}", on.links_not_restored);
+    assert_eq!(read_link(&kept_here), PathBuf::from("../../../.agents/skills/x"));
+}
+
+#[test]
+fn names_that_could_escape_the_store_are_refused() {
+    let w = world(&["x"]);
+    fs::create_dir_all(w.store.join(".system/inner")).unwrap();
+    make_skill(&w.home.join(".agents/outside"));
+    let before = w.everything();
+    for name in ["..", "a/b", ".system", ".", "", "../outside", "x/references"] {
+        let refused = ops::switch_off(&w.places, &[], name).unwrap_err();
+        assert!(
+            matches!(refused, SkillSwitchFailure::NameRefused | SkillSwitchFailure::NotFound),
+            "{name:?} gave {refused:?}"
+        );
+    }
+    assert_eq!(ops::switch_off(&w.places, &[], "nope").unwrap_err(), SkillSwitchFailure::NotFound);
+    assert_eq!(w.everything(), before, "nothing anywhere changed");
+}
