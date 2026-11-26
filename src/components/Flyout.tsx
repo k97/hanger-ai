@@ -14,6 +14,7 @@ import type { AssetAnnotationView } from "./AssetRow";
 import McpServerDetail, { type RegistrationSwitch } from "./McpServerDetail";
 import LayerSwitch from "./LayerSwitch";
 import AllEnginesSwitch from "./AllEnginesSwitch";
+import Tooltip from "./Tooltip";
 import EngineLabel from "./EngineLabel";
 import ListCard from "./ListCard";
 import { busyKeyOf, type McpSwitch } from "../hooks/useMcpSwitch";
@@ -869,7 +870,7 @@ export default function Flyout({
           {!linking && !targetAsset && !keptServer && selectedBubble?.type === "agent" && (
             <BrandIcon engineKey={selectedBubble.id} engineName={selectedBubble.name} size={16} />
           )}
-          <h2 className="text-lg-app font-medium tracking-[-0.3px] text-ink-1 truncate max-w-[280px] font-sans">
+          <h2 className="min-w-0 text-lg-app font-medium tracking-[-0.3px] text-ink-1 truncate max-w-[280px] font-sans">
             {linking
               ? "Link to projects"
               : targetAsset
@@ -880,13 +881,6 @@ export default function Flyout({
               ? selectedBubble.name
               : "Asset Inspector"}
           </h2>
-          {/* Transport rides the heading rather than owning a row of its own —
-              one short token does not earn 18px of vertical padding. */}
-          {!linking && (mcpView || (!targetAsset && keptServer)) && (
-            <span className="shrink-0 text-small font-mono px-2 py-px rounded-pill bg-tint text-ink-1 whitespace-nowrap">
-              {mcpView ? mcpView.transport : keptServer?.transport}
-            </span>
-          )}
           {headerServer && headerState && (
             <AllEnginesSwitch
               server={headerServer}
@@ -896,6 +890,23 @@ export default function Flyout({
             />
           )}
         </div>
+        )}
+        {/* The transport has its own row under the name (Karthik, 2026-11-26).
+            In the title row a remote server's full URL could not shrink: it
+            squeezed the name to nothing and pushed the switch out of the
+            header. Here it is cut short with an ellipsis, and the whole
+            transport shows on hover. */}
+        {!linking && (mcpView || (!targetAsset && keptServer)) && (
+          <div className="flex min-w-0">
+            <Tooltip label={(mcpView ? mcpView.transport : keptServer?.transport) ?? ""} placement="bottom">
+              <span
+                data-testid="inspector-transport"
+                className="min-w-0 max-w-full truncate text-small font-mono px-2 py-px rounded-pill bg-tint text-ink-1 whitespace-nowrap"
+              >
+                {mcpView ? mcpView.transport : keptServer?.transport}
+              </span>
+            </Tooltip>
+          </div>
         )}
         {/* R2 (Karthik, 2026-08-28): the scope line reads below the title it
             describes, not above it in caps — the column's own `gap-1`

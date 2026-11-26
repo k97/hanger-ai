@@ -238,3 +238,28 @@ describe("Flyout — the switch for every engine in the server's header", () => 
     await waitFor(() => expect(within(header()).getByText("On")).toBeTruthy());
   });
 });
+
+// Karthik, 2026-11-26 (Agentation): a remote server's full URL chip sat in the
+// title row, could not shrink, squeezed the name to nothing and pushed the
+// switch out of the header. The chip now has its own row under the name, cut
+// short with an ellipsis, and the full transport shows on hover.
+describe("Flyout — the server header keeps its name and switch beside a long transport", () => {
+  it("draws the transport on its own row, truncating, with the name and switch on the row above", () => {
+    backend({ codex: "on", "claude-code": "on" });
+    render(<Harness contexts={[codex("on"), claude("on"), cursor]} />);
+    const title = within(header()).getByRole("heading", { level: 2 });
+    const titleRow = title.parentElement!;
+    const chip = within(header()).getByTestId("inspector-transport");
+    expect(titleRow.contains(chip)).toBe(false);
+    expect(titleRow.contains(headerSwitch())).toBe(true);
+    expect(chip.className).toMatch(/\btruncate\b/);
+    expect(title.className).toMatch(/\bmin-w-0\b/);
+  });
+
+  it("shows the full transport on hover", async () => {
+    backend({ codex: "on", "claude-code": "on" });
+    render(<Harness contexts={[codex("on"), claude("on"), cursor]} />);
+    fireEvent.pointerEnter(within(header()).getByTestId("inspector-transport"));
+    expect((await screen.findByTestId("tooltip")).textContent).toBe("stdio");
+  });
+});
