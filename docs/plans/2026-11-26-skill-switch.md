@@ -550,6 +550,28 @@ Nothing in this task runs without Karthik's go-ahead in the conversation at that
 ## Questions for Karthik
 
 :::question
+The 28 labels in "Proposed strings" above: approve them as written?
+
+None appears on screen until you approve. Tasks 7–10, the screens, wait on this; Tasks 1–6, the backend, don't need it.
+
+- [ ] Approve all 28 as written
+- [ ] Approve them, except the ones I've annotated in the table
+
+Recommended: Approve all 28 as written
+:::
+
+:::question
+Approve this plan, so the build can start?
+
+The build runs as before: one subagent per task on its own branch, each gated (red-first tests, the four checks) before it merges. Task 11, on your real machine, asks for your go-ahead before each write, and nothing is pushed without your word.
+
+- [ ] Approve, and start Tasks 1–6 (backend) now
+- [ ] Not yet, I've left notes
+
+Recommended: Approve, and start Tasks 1–6 (backend) now
+:::
+
+:::question
 Some skills link to other skills from inside their own folder. On this machine `web-design-guidelines` holds 64 links to its siblings: 57 work and 7 are already broken. Switching off a skill one of these points at, such as `figma`, would break that link. What should Hanger do?
 
 - [ ] Treat it like any other one-by-one link: remove it, record it, and put it back on On. This edits `web-design-guidelines`' folder while the skill is off.
