@@ -149,6 +149,11 @@ describe("App — the skill switch", () => {
     const panel = await aside();
     expect(await within(panel).findByRole("heading", { level: 2, name: "figma" })).toBeTruthy();
     await waitFor(() => expect(row.getAttribute("data-selected")).toBe("true"));
+    // The cap names a kept skill's kind and place, and offers nothing to open:
+    // it has no folder in the store.
+    const eyebrow = await screen.findByTestId("inspector-cap-eyebrow");
+    expect(eyebrow.textContent).toBe("Skill · Global");
+    expect(screen.queryByRole("button", { name: /^Open/ })).toBeNull();
 
     const scansBefore = calls("start_scan").length;
     const keptReadsBefore = calls("get_kept_skills").length;
