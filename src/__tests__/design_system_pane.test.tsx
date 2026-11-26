@@ -29,6 +29,7 @@ const INVENTORY = [
   "CategoryFilterCards",
   "Tooltip",
   "HoverCard",
+  "GroupTicks",
   "Tabs",
   "UnderlineTabs",
   "ViewControl",
@@ -102,6 +103,32 @@ describe("Design system — the system, rendered by the app that uses it", () =>
     fireEvent.mouseEnter(trigger);
 
     expect(await screen.findByTestId("ds-hover-card-content")).toBeTruthy();
+  });
+
+  it("keeps the GroupTicks specimen inside a static MessageScroller list", () => {
+    render(<DesignSystemPane section="components" />);
+    const nav = screen.getByRole("navigation", { name: "Jump to a group" });
+    const items = Array.from(document.querySelectorAll('[data-message-id^="ds-ticks-"]'));
+    const content = items[0]?.parentElement;
+    const children = Array.from(content?.children ?? []);
+    const spacers = children.filter((child) => child.hasAttribute("data-message-scroller-spacer"));
+    const contentItems = children.filter((child) => !child.hasAttribute("data-message-scroller-spacer"));
+
+    expect(within(nav).getAllByRole("button")).toHaveLength(4);
+    expect(content?.getAttribute("role")).toBe("list");
+    expect(content?.getAttribute("aria-live")).toBe("off");
+    expect(spacers).toHaveLength(1);
+    expect(spacers[0]?.getAttribute("aria-hidden")).toBe("true");
+    expect(spacers[0]?.hasAttribute("hidden")).toBe(true);
+    expect(contentItems.every((item) => item.getAttribute("role") === "listitem")).toBe(true);
+    expect(items.map((item) => item.getAttribute("data-message-id"))).toEqual([
+      "ds-ticks-skills",
+      "ds-ticks-tools",
+      "ds-ticks-rules",
+      "ds-ticks-subagents",
+    ]);
+    expect(items.every((item) => item.getAttribute("role") === "listitem")).toBe(true);
+    expect(screen.getByRole("region", { name: "Design system" })).toBeTruthy();
   });
 
   it("names tokens rather than values in source; values are read at runtime", () => {

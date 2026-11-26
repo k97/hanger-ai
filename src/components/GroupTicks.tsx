@@ -1,5 +1,5 @@
-import { useEffect, useState, type RefObject } from "react";
-import Tooltip from "./Tooltip";
+import { useMessageScroller, useMessageScrollerVisibility } from "@shadcn/react/message-scroller";
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "./ui/hover-card";
 
 export interface TickGroup {
   /** The group header's element id, `group-<key>`. */
@@ -23,45 +23,19 @@ export function groupHead(label: string, count: number | null): string {
  * area's left edge and centred down it, the group in view in `ink-2`, the
  * rest in `line-2`. ProfilePane draws them only while the lane's left
  * margin is wide enough to hold them (48px). A tick's name is the header's
- * own words, in the app's Tooltip, and a click scrolls that header to the
- * top. With fewer than two groups there is nowhere to jump, so it draws
- * nothing.
- *
- * The group in view is the last header that has passed into the top third of
- * `scrollRoot`, or the first group before any has. One IntersectionObserver,
- * rooted on the list and narrowed to that top third, says when to look again.
+ * own words, in a HoverCard, and a click jumps to the group's MessageScroller
+ * item. With fewer than two groups there is nowhere to jump, so it draws
+ * nothing. The first visible ticked item in MessageScroller's document-ordered
+ * visibility list is current; before any ticked item is visible, the first
+ * rendered group is current.
  */
-export default function GroupTicks({
-  groups,
-  scrollRoot,
-}: {
-  groups: TickGroup[];
-  scrollRoot: RefObject<HTMLElement | null>;
-}) {
-  const [activeId, setActiveId] = useState<string | null>(null);
-  const idsKey = groups.map((g) => g.id).join(" ");
-
-  useEffect(() => {
-    const root = scrollRoot.current;
-    if (!root || typeof IntersectionObserver === "undefined") return;
-    const ids = idsKey.split(" ");
-    const headers = ids.map((id) => document.getElementById(id)).filter((el): el is HTMLElement => el !== null);
-    const pick = () => {
-      const r = root.getBoundingClientRect();
-      const line = r.top + r.height / 3;
-      let current: string | null = null;
-      for (const el of headers) {
-        if (el.getBoundingClientRect().top <= line) current = el.id;
-      }
-      setActiveId(current);
-    };
-    const observer = new IntersectionObserver(pick, { root, rootMargin: "0px 0px -66% 0px" });
-    headers.forEach((el) => observer.observe(el));
-    return () => observer.disconnect();
-  }, [idsKey, scrollRoot]);
+export default function GroupTicks({ groups }: { groups: TickGroup[] }) {
+  const { visibleMessageIds } = useMessageScrollerVisibility();
+  const { scrollToMessage } = useMessageScroller();
 
   if (groups.length < 2) return null;
-  const current = groups.some((g) => g.id === activeId) ? activeId : groups[0].id;
+  const current =
+    visibleMessageIds.find((id) => groups.some((group) => group.id === id)) ?? groups[0].id;
 
   return (
     <nav aria-label="Jump to a group" className="absolute left-3 top-1/2 -translate-y-1/2 z-[3] flex flex-col">
@@ -69,21 +43,36 @@ export default function GroupTicks({
         const name = groupHead(g.label, g.count);
         const on = g.id === current;
         return (
-          <Tooltip key={g.id} label={name}>
-            <button
-              type="button"
-              aria-label={name}
-              aria-current={on ? "true" : undefined}
-              onClick={() => document.getElementById(g.id)?.scrollIntoView({ block: "start" })}
-              className="group flex items-center w-6 h-2 cursor-pointer"
+          <HoverCard key={g.id}>
+            <HoverCardTrigger
+              delay={100}
+              render={
+                <button
+                  type="button"
+                  aria-label={name}
+                  aria-current={on ? "true" : undefined}
+                  onClick={() => {
+                    scrollToMessage(g.id, { align: "start" });
+                  }}
+                  className="group flex items-center w-6 h-2 cursor-pointer"
+                />
+              }
             >
               <span
                 className={`block w-6 h-0.5 rounded-pill transition-colors duration-hover ease-spring ${
                   on ? "bg-ink-2" : "bg-line-2 group-hover:bg-ink-3"
                 }`}
               />
-            </button>
-          </Tooltip>
+            </HoverCardTrigger>
+            <HoverCardContent
+              side="right"
+              align="center"
+              sideOffset={8}
+              className="whitespace-nowrap px-3 py-2 text-small font-medium text-ink-3"
+            >
+              {name}
+            </HoverCardContent>
+          </HoverCard>
         );
       })}
     </nav>

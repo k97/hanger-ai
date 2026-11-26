@@ -202,30 +202,37 @@ describe("Global's group heads (Review Focus 3)", () => {
     expect(margined.map((el) => el.id || el.tagName)).toEqual([]);
   });
 
-  it("each tick scrolls its group's own head to the top", () => {
+  it("each tick names its group's stable MessageScroller item", () => {
     renderPane();
-    const spy = vi.spyOn(Element.prototype, "scrollIntoView").mockImplementation(function () {});
     const ticks = within(screen.getByRole("navigation", { name: "Jump to a group" })).getAllByRole("button");
-    expect(ticks.map((t) => t.getAttribute("aria-label"))).toEqual([
-      "Skills · 1",
-      "Switched off · 1",
-      "MCP servers · 1",
-      "Switched off · 1",
-      "Rules · 1",
-      "Subagents · 1",
-    ]);
-    for (const tick of ticks) {
-      spy.mockClear();
-      fireEvent.click(tick);
-      expect(spy).toHaveBeenCalledTimes(1);
-      const target = spy.mock.instances[0] as unknown as Element;
-      expect(spy.mock.calls[0][0]).toEqual({ block: "start" });
-      // The element jumped to is the head itself, holding the heading its
-      // tick is named for, not a spacer standing in for a stuck header.
-      const heading = target.tagName === "H3" ? target : target.querySelector("h3");
-      expect(heading, tick.getAttribute("aria-label")!).toBeTruthy();
-      expect(heading!.getAttribute("aria-label")).toBe(tick.getAttribute("aria-label"));
+    const list = screen.getByRole("list");
+    const tickGroups = [
+      ["group-skills", "Skills · 1"],
+      ["group-kept-skills", "Switched off · 1"],
+      ["group-tools", "MCP servers · 1"],
+      ["group-kept-tools", "Switched off · 1"],
+      ["group-rules", "Rules · 1"],
+      ["group-subagents", "Subagents · 1"],
+    ];
+
+    const children = Array.from(list.children);
+    const spacers = children.filter((child) => child.hasAttribute("data-message-scroller-spacer"));
+    const items = children.filter((child) => !child.hasAttribute("data-message-scroller-spacer"));
+    expect(ticks.map((tick) => tick.getAttribute("aria-label"))).toEqual(tickGroups.map(([, name]) => name));
+    expect(spacers).toHaveLength(1);
+    expect(spacers[0]?.getAttribute("aria-hidden")).toBe("true");
+    expect(spacers[0]?.hasAttribute("hidden")).toBe(true);
+    expect(items.every((item) => item.getAttribute("role") === "listitem")).toBe(true);
+    for (const [id, name] of tickGroups) {
+      const item = list.querySelector(`[data-message-id="${id}"]`);
+      expect(item, id).toBeTruthy();
+      expect(item!.getAttribute("role"), id).toBe("listitem");
+      const heading = item!.querySelector("h3");
+      expect(heading, id).toBeTruthy();
+      expect(heading!.getAttribute("aria-label"), id).toBe(name);
     }
+    expect(list.getAttribute("aria-live")).toBe("off");
+    expect(list.querySelector('[data-scroll-anchor="true"]')).toBeNull();
   });
 
   it("a group head's hairline is shadcn's Separator, in --line", () => {

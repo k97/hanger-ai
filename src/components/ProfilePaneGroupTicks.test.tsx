@@ -92,6 +92,49 @@ describe("ProfilePane — group ticks", () => {
     }
   });
 
+  it("uses static list semantics and stable group items", () => {
+    renderPane();
+    const content = screen.getByRole("list");
+    const children = Array.from(content.children);
+    const spacers = children.filter((child) => child.hasAttribute("data-message-scroller-spacer"));
+    const items = children.filter((child) => !child.hasAttribute("data-message-scroller-spacer"));
+
+    expect(content.getAttribute("aria-live")).toBe("off");
+    expect(spacers).toHaveLength(1);
+    expect(spacers[0]?.getAttribute("aria-hidden")).toBe("true");
+    expect(spacers[0]?.hasAttribute("hidden")).toBe(true);
+    expect(items.map((item) => item.getAttribute("data-message-id"))).toEqual([
+      "group-skills",
+      "group-kept-skills",
+      "group-rules",
+    ]);
+    expect(items.every((item) => item.getAttribute("role") === "listitem")).toBe(true);
+    expect(content.querySelector('[data-scroll-anchor="true"]')).toBeNull();
+    expect(screen.getByRole("region", { name: "Global" })).toBeTruthy();
+  });
+
+  it("gives the Agents-only section a stable item without adding it to the rail", () => {
+    renderPane({
+      inventory: {
+        ...inventory,
+        agents: [
+          {
+            id: "claude-code",
+            name: "Claude Code",
+            global_config_path: "/home/user/.claude",
+            project_footprints: [],
+          },
+        ],
+      },
+      selectedCategory: "Agents",
+    });
+    const item = screen.getByRole("list").querySelector('[data-message-id="group-agents"]');
+
+    expect(item?.getAttribute("role")).toBe("listitem");
+    expect(item?.querySelector("h3")?.textContent).toBe("Agents · 1");
+    expect(ticks()).toBeNull();
+  });
+
   // The two scroll-margin cases that stood here went with the sticky MCP
   // servers head (Task 3 of docs/plans/2026-11-26-global-list.md): no head
   // is stuck, so none needs a margin to clear one. global_groups.test.tsx

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { invoke } from "@tauri-apps/api/core";
+import { MessageScroller } from "@shadcn/react/message-scroller";
 import {
   Disc3Icon,
   GaugeIcon,
@@ -513,10 +514,6 @@ export default function ProfilePane({
   // change so switching away from Tools and back never carries a stale
   // filter over from a different session's look at the list.
   const [mcpReviewOnly, setMcpReviewOnly] = useState(false);
-  const listRef = useRef<HTMLDivElement | null>(null);
-  const setListNode = useCallback((el: HTMLDivElement | null) => {
-    listRef.current = el;
-  }, []);
   // One ResizeObserver, on the pane itself, which is always mounted (the
   // list is absent behind every empty state, and the card docks there too).
   // It decides the lane's padding and whether the overview card docks
@@ -1638,17 +1635,20 @@ export default function ProfilePane({
               column headers. The ticks sit in the lane's left margin, so the
               wrapper holds them and the list keeps its own classes. They need
               that margin, so they go when the lane narrows. */}
-          <div className="relative flex-1 min-h-0 flex flex-col">
-          {laneWide && <GroupTicks groups={tickGroups} scrollRoot={listRef} />}
-          <div
-            ref={setListNode}
+          <MessageScroller.Provider defaultScrollPosition="start" autoScroll={false}>
+          <MessageScroller.Root className="relative flex-1 min-h-0 flex flex-col">
+          {laneWide && <GroupTicks groups={tickGroups} />}
+          <MessageScroller.Viewport
+            role="region"
+            aria-label="Global"
             data-testid="asset-list-scroll"
             className="@container flex-1 min-h-0 overflow-y-auto mx-[18px] pb-1.5"
           >
-           <div className={laneBoxClass(dockedCardShown)}>
-           <div data-testid="list-lane" className={laneClass(laneWide)}>
+            <div className={laneBoxClass(dockedCardShown)}>
+            <MessageScroller.Content role="list" aria-live="off" data-testid="list-lane" className={laneClass(laneWide)}>
             {/* Agents Group */}
             {selectedCategory === "Agents" && (
+              <MessageScroller.Item messageId="group-agents" role="listitem">
               <>
                 <h3 className={`px-3.5 pt-[11px] pb-[5px] ${groupLabelClass}`}>Agents · {sortedAgents.length}</h3>
                 <div className="flex flex-col">
@@ -1659,10 +1659,17 @@ export default function ProfilePane({
                   )}
                 </div>
               </>
+              </MessageScroller.Item>
             )}
 
             {/* Skills Group */}
             {showSkills && sortedSkills.length > 0 && (
+              <MessageScroller.Item
+                key="group-skills"
+                messageId="group-skills"
+                role="listitem"
+                className="mt-2.5 first:mt-0"
+              >
               <>
                 <GroupHead
                   id="group-skills"
@@ -1679,6 +1686,7 @@ export default function ProfilePane({
                   )}
                 </div>
               </>
+              </MessageScroller.Item>
             )}
 
             {/* Switched off — skills Hanger is keeping while they are off for
@@ -1689,7 +1697,16 @@ export default function ProfilePane({
                 back on. With an engine picked that loads no skill there are
                 no Skills rows to follow, so it moves down to sit just before
                 "Not loaded by" (round 13 q4, 2026-11-26). */}
-            {!keptSkillsLast && keptSkillsGroup}
+            {!keptSkillsLast && keptSkillsGroup && (
+              <MessageScroller.Item
+                key="group-kept-skills"
+                messageId="group-kept-skills"
+                role="listitem"
+                className="mt-2.5 first:mt-0"
+              >
+                {keptSkillsGroup}
+              </MessageScroller.Item>
+            )}
 
             {/* MCP servers. A quiet head like the others, and no longer
                 sticky (Task 3 of docs/plans/2026-11-26-global-list.md): stuck,
@@ -1697,6 +1714,12 @@ export default function ProfilePane({
                 its own. Its column labels went with the table, and the View
                 control moved to the first group head on screen. */}
             {showTools && hasToolsContent && (
+              <MessageScroller.Item
+                key="group-tools"
+                messageId="group-tools"
+                role="listitem"
+                className="mt-2.5 first:mt-0"
+              >
               <>
                 <GroupHead
                   id="group-tools"
@@ -1728,6 +1751,7 @@ export default function ProfilePane({
                   ))}
                 </div>
               </>
+              </MessageScroller.Item>
             )}
 
             {/* Switched off — servers Hanger is keeping while they are off
@@ -1737,29 +1761,42 @@ export default function ProfilePane({
                 the backend's `count`. A row opens the server in the
                 inspector, where it can be switched back on. */}
             {showTools && keptShown && keptOff && (
-              <CollapsibleGroup
-                id="group-kept-tools"
-                testId="kept-tools-group"
-                label="Switched off"
-                figure={engine ? null : keptOff.count}
+              <MessageScroller.Item
+                key="group-kept-tools"
+                messageId="group-kept-tools"
+                role="listitem"
+                className="mt-2.5 first:mt-0"
               >
-                {keptRows.map((server) => (
-                  <ListRow
-                    key={server.key}
-                    kind="server"
-                    name={server.name}
-                    chip={transportChipLabel(server.transport)}
-                    detail={`Off for ${server.engine_name}`}
-                    reach={null}
-                    selected={server.key === selectedKeptKey}
-                    onSelect={() => onOpenKeptOff?.(server.key)}
-                  />
-                ))}
-              </CollapsibleGroup>
+                <CollapsibleGroup
+                  id="group-kept-tools"
+                  testId="kept-tools-group"
+                  label="Switched off"
+                  figure={engine ? null : keptOff.count}
+                >
+                  {keptRows.map((server) => (
+                    <ListRow
+                      key={server.key}
+                      kind="server"
+                      name={server.name}
+                      chip={transportChipLabel(server.transport)}
+                      detail={`Off for ${server.engine_name}`}
+                      reach={null}
+                      selected={server.key === selectedKeptKey}
+                      onSelect={() => onOpenKeptOff?.(server.key)}
+                    />
+                  ))}
+                </CollapsibleGroup>
+              </MessageScroller.Item>
             )}
 
             {/* Rules Group */}
             {showRules && sortedRules.length > 0 && (
+              <MessageScroller.Item
+                key="group-rules"
+                messageId="group-rules"
+                role="listitem"
+                className="mt-2.5 first:mt-0"
+              >
               <>
                 <GroupHead
                   id="group-rules"
@@ -1775,10 +1812,17 @@ export default function ProfilePane({
                   )}
                 </div>
               </>
+              </MessageScroller.Item>
             )}
 
             {/* Subagents Group */}
             {showSubagents && sortedSubagents.length > 0 && (
+              <MessageScroller.Item
+                key="group-subagents"
+                messageId="group-subagents"
+                role="listitem"
+                className="mt-2.5 first:mt-0"
+              >
               <>
                 <GroupHead
                   id="group-subagents"
@@ -1794,15 +1838,35 @@ export default function ProfilePane({
                   )}
                 </div>
               </>
+              </MessageScroller.Item>
             )}
 
-            {keptSkillsLast && keptSkillsGroup}
+            {keptSkillsLast && keptSkillsGroup && (
+              <MessageScroller.Item
+                key="group-kept-skills"
+                messageId="group-kept-skills"
+                role="listitem"
+                className="mt-2.5 first:mt-0"
+              >
+                {keptSkillsGroup}
+              </MessageScroller.Item>
+            )}
 
-            {engine && notLoadedAny && <NotLoadedGroup engineName={engine.engine_name} rows={notLoadedRows} />}
-           </div>
-           </div>
-          </div>
-          </div>
+            {engine && notLoadedAny && (
+              <MessageScroller.Item
+                key="group-not-loaded"
+                messageId="group-not-loaded"
+                role="listitem"
+                className="mt-2.5 first:mt-0"
+              >
+                <NotLoadedGroup engineName={engine.engine_name} rows={notLoadedRows} />
+              </MessageScroller.Item>
+            )}
+            </MessageScroller.Content>
+            </div>
+          </MessageScroller.Viewport>
+          </MessageScroller.Root>
+          </MessageScroller.Provider>
 
         </>
       )}

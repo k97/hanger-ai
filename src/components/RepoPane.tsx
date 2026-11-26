@@ -1,4 +1,5 @@
-import { useRef, useState } from "react";
+import { useState } from "react";
+import { MessageScroller } from "@shadcn/react/message-scroller";
 import {
   ExclamationTriangleIcon,
   FolderSyncIcon,
@@ -111,8 +112,6 @@ export default function RepoPane({
   const paneWidth = usePaneWidth(paneEl);
   const measuredWide = laneIsWide(paneWidth, paneWidth - 2 * LIST_INSET);
   const laneWide = forceLane ? forceLane === "wide" : measuredWide;
-  const listRef = useRef<HTMLDivElement | null>(null);
-
   const selectedCategory = propSelectedCategory ?? internalCategory;
   const sortField = propSortField ?? internalSortField;
   const sortDirection = propSortDirection ?? internalSortDirection;
@@ -752,16 +751,24 @@ export default function RepoPane({
               Engine and State columns' words. The ticks sit in the lane's
               left margin, so they go when the lane narrows. No overview
               card: it is Global's alone. */}
-          <div className="relative flex-1 min-h-0 flex flex-col">
-          {laneWide && <GroupTicks groups={tickGroups} scrollRoot={listRef} />}
-          <div
-            ref={listRef}
+          <MessageScroller.Provider defaultScrollPosition="start" autoScroll={false}>
+          <MessageScroller.Root className="relative flex-1 min-h-0 flex flex-col">
+          {laneWide && <GroupTicks groups={tickGroups} />}
+          <MessageScroller.Viewport
+            role="region"
+            aria-label={repoFolderName}
             data-testid="asset-list-scroll"
             className="@container flex-1 min-h-0 overflow-y-auto mx-[18px] pb-1.5"
           >
-           <div data-testid="list-lane" className={laneClass(laneWide)}>
+           <MessageScroller.Content role="list" aria-live="off" data-testid="list-lane" className={laneClass(laneWide)}>
             {/* Skills Group */}
             {showSkills && sortedSkills.length > 0 && (
+              <MessageScroller.Item
+                key="group-skills"
+                messageId="group-skills"
+                role="listitem"
+                className="mt-2.5 first:mt-0"
+              >
               <>
                 <GroupHead id="group-skills" label="Skills" figure={skillsHeadFigure} className="mt-2.5 first:mt-0" />
                 <div className="flex flex-col gap-px">
@@ -772,11 +779,18 @@ export default function RepoPane({
                   )}
                 </div>
               </>
+              </MessageScroller.Item>
             )}
 
             {/* MCP servers. A quiet head like the others: its column labels
                 went with the table. */}
             {showTools && sortedTools.length > 0 && (
+              <MessageScroller.Item
+                key="group-tools"
+                messageId="group-tools"
+                role="listitem"
+                className="mt-2.5 first:mt-0"
+              >
               <>
                 <GroupHead
                   id="group-tools"
@@ -793,10 +807,17 @@ export default function RepoPane({
                   )}
                 </div>
               </>
+              </MessageScroller.Item>
             )}
 
             {/* Rules Group */}
             {showRules && sortedRules.length > 0 && (
+              <MessageScroller.Item
+                key="group-rules"
+                messageId="group-rules"
+                role="listitem"
+                className="mt-2.5 first:mt-0"
+              >
               <>
                 <GroupHead id="group-rules" label="Rules" figure={rulesHeadFigure} className="mt-2.5 first:mt-0" />
                 <div className="flex flex-col gap-px">
@@ -807,10 +828,17 @@ export default function RepoPane({
                   )}
                 </div>
               </>
+              </MessageScroller.Item>
             )}
 
             {/* Subagents Group */}
             {showSubagents && sortedSubagents.length > 0 && (
+              <MessageScroller.Item
+                key="group-subagents"
+                messageId="group-subagents"
+                role="listitem"
+                className="mt-2.5 first:mt-0"
+              >
               <>
                 <GroupHead
                   id="group-subagents"
@@ -826,10 +854,12 @@ export default function RepoPane({
                   )}
                 </div>
               </>
+              </MessageScroller.Item>
             )}
-           </div>
-          </div>
-          </div>
+           </MessageScroller.Content>
+          </MessageScroller.Viewport>
+          </MessageScroller.Root>
+          </MessageScroller.Provider>
 
         </>
       )}

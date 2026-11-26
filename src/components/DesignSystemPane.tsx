@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ComponentType, type ReactNode } from "react";
+import { MessageScroller } from "@shadcn/react/message-scroller";
 import GelMeter from "./GelMeter";
 import MechanismGlyph, { type MechanismWord } from "./MechanismGlyph";
 import EngineReachTiles from "./EngineReachTiles";
@@ -263,25 +264,34 @@ const SAMPLE_TICK_GROUPS: (TickGroup & { rows: string[] })[] = [
 ];
 
 function GroupTicksSpecimen() {
-  const list = useRef<HTMLDivElement>(null);
   return (
-    <div className="relative max-w-md h-48 flex flex-col">
-      <GroupTicks groups={SAMPLE_TICK_GROUPS} scrollRoot={list} />
-      <div ref={list} className="flex-1 min-h-0 overflow-y-auto ml-12 border border-line rounded-plane pb-1.5">
-        {SAMPLE_TICK_GROUPS.map((g) => (
-          <section key={g.id}>
-            <h3 id={g.id} className={`px-3.5 pt-2.5 pb-1 ${groupLabelClass}`}>
-              {groupHead(g.label, g.count)}
-            </h3>
-            {g.rows.map((r) => (
-              <div key={r} className={`px-3.5 py-1.5 ${rowValueClass}`}>
-                {r}
-              </div>
+    <MessageScroller.Provider defaultScrollPosition="start" autoScroll={false}>
+      <MessageScroller.Root className="relative max-w-md h-48 flex flex-col">
+        <GroupTicks groups={SAMPLE_TICK_GROUPS} />
+        <MessageScroller.Viewport
+          role="region"
+          aria-label="Design system"
+          className="flex-1 min-h-0 overflow-y-auto ml-12 border border-line rounded-plane pb-1.5"
+        >
+          <MessageScroller.Content role="list" aria-live="off">
+            {SAMPLE_TICK_GROUPS.map((g) => (
+              <MessageScroller.Item key={g.id} messageId={g.id} role="listitem">
+                <section>
+                  <h3 id={g.id} className={`px-3.5 pt-2.5 pb-1 ${groupLabelClass}`}>
+                    {groupHead(g.label, g.count)}
+                  </h3>
+                  {g.rows.map((r) => (
+                    <div key={r} className={`px-3.5 py-1.5 ${rowValueClass}`}>
+                      {r}
+                    </div>
+                  ))}
+                </section>
+              </MessageScroller.Item>
             ))}
-          </section>
-        ))}
-      </div>
-    </div>
+          </MessageScroller.Content>
+        </MessageScroller.Viewport>
+      </MessageScroller.Root>
+    </MessageScroller.Provider>
   );
 }
 

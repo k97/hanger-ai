@@ -819,47 +819,44 @@ folds: both "Switched off" groups and "Not loaded by ‹engine›" (Task 3 of
 Base UI's `data-panel-open`. T3 hides its rule when a count follows; here it
 stays, as `GroupHead`'s does, so the folding heads and the static ones read
 as one family. The `<h3>` carries `id`, which its tick jumps to, and an
-`aria-label` in the tick's words (`groupHead`). The panel holds the rows
-`gap-px` apart and leaves the page while folded. No animation. The root
-takes `mt-2.5 first:mt-0`, as the static heads do. Pinned by
+`aria-label` in the tick's words (`groupHead`). It is the first child of a
+`MessageScroller.Item` whose `messageId` matches that existing id, so the tick
+jumps the item with `scrollToMessage({ align: "start" })` and the heading
+starts at the viewport edge. The panel holds the rows `gap-px` apart and
+leaves the page while folded. No animation. The root keeps
+`mt-2.5 first:mt-0`; inside an Item, `first:mt-0` leaves the Item's top margin
+as the one inter-group gap. Pinned by
 `global_groups.test.tsx`; the Design system page shows it with two sample
 rows.
 
-**`GroupTicks`** (`GroupTicks.tsx`) — `groups`, `scrollRoot`. Tick marks in
-the left margin of Global's lane, one per group the list draws, so a long
-list can be crossed in one click: T3 Code's timeline minimap
-(`TimelineMinimap.tsx`) at its size and place (Task 1 of
-`docs/plans/2026-11-26-global-list.md`; the mark checklist's "tick marks
-left of the content"). A `<nav aria-label="Jump to a group">`, `absolute
-left-3 top-1/2 -translate-y-1/2 z-[3]` inside a `relative` wrapper
-ProfilePane puts around `asset-list-scroll`, which keeps its own classes.
-Each tick is a `w-6 h-2` button holding a `w-6 h-0.5 rounded-pill` bar:
-`bg-line-2` at rest (`group-hover:bg-ink-3`), `bg-ink-2` with
-`aria-current="true"` for the group in view. ProfilePane draws it only while
-the lane is wide (48px padding, so 12px in leaves the 24px tick clear of the
-rows); below 640px the lane's padding drops to 12px and the ticks go. The
-group in view is the last header that has passed into the top third of the
-list, or the first group before any has; one `IntersectionObserver`, rooted
-on the list with `rootMargin: "0px 0px -66% 0px"`, says when to look again,
-and none is made where the environment has none. A tick's `aria-label` and
-its `Tooltip` are the header's own words, `groupHead(label, count)`
-(`{group} · {count}`, or the label alone where the header has no figure: an
-engine is picked, or the group is "Not loaded by ‹engine›",
-`notLoadedHead`). ProfilePane reads each header's figure once
-(`skillsHeadFigure` and its siblings) and prints both the header and the
-tick from it, so the two cannot disagree, and it passes only the groups it
-draws, in the order it draws them; with fewer than two there is nowhere to
-jump, and it draws nothing. A click calls `scrollIntoView({ block: "start"
-})` on `#group-‹key›` (`skills`, `kept-skills`, `tools`, `kept-tools`,
-`rules`, `subagents`, `not-loaded`): each head carries its id — the
-`GroupHead` row for a static group, the `<h3>` for a folding one — and no
-scroll margin, because no head on Global is sticky since Task 3, so nothing
-is stuck above a head for it to clear. The margins it carried until then
-(`scroll-mt-8`, `scroll-mt-11`) and the empty `span` that stood in for the
-stuck MCP servers head went with that head's stickiness. No animation on
-the jump. Pinned by `GroupTicks.test.tsx`, `ProfilePaneGroupTicks.test.tsx`,
-`ProfilePaneList.test.tsx` and `global_groups.test.tsx`; the Design system
-page shows it beside four sample groups in a short scrolling box.
+**`GroupTicks`** (`GroupTicks.tsx`) — `groups` only. The provider owns scroll
+state: `useMessageScrollerVisibility` supplies `visibleMessageIds` in document
+order, and the first id also present in `groups` is current; if none matches,
+the first rendered group is current. The group items keep the existing
+`group-*` ids as `messageId`; `scrollToMessage(id, { align: "start" })` targets
+the item whose first child is its existing heading. This replaces the
+`IntersectionObserver` and `scrollIntoView` implementation.
+
+The rail remains a `<nav aria-label="Jump to a group">` at
+`absolute left-3 top-1/2 -translate-y-1/2 z-[3]` inside the pane's relative
+wrapper. It draws one `w-6 h-2` button per tick group, holding a
+`w-6 h-0.5 rounded-pill` bar: `bg-line-2` at rest
+(`group-hover:bg-ink-3`), `bg-ink-2` with `aria-current="true"`. The 24 × 2
+ticks stay 12px in from the lane edge and disappear below the 48px wide-lane
+margin (below 640px). A tick's `aria-label` remains `groupHead(label, count)`
+(`{group} · {count}`, or just the label when there is no count). Its preview is
+shadcn's `ui/hover-card`: the same title/count, after 100ms, on the right with
+an 8px side offset. The card uses `bg-page`, `border-line`, `rounded-inner`
+and `shadow-overlay`, with no arrow or animation.
+
+The scroll content is a static `role="list"` with `aria-live="off"`; each
+application-supplied group Item is a `role="listitem"`. MessageScroller adds
+one internal spacer marked `hidden` and `aria-hidden`, which is not a list
+item. `GroupTicks` renders inside its provider in both panes and in the
+Design system's four-group specimen. Pinned by `GroupTicks.test.tsx`,
+`ProfilePaneGroupTicks.test.tsx`, `ProfilePaneList.test.tsx`,
+`RepoPaneList.test.tsx`, `global_groups.test.tsx` and
+`design_system_pane.test.tsx`.
 
 **`ListRow`** (`ListRow.tsx`) — `kind`, `name`, `chip?`, `detail?`,
 `figure?`, `figureTone?`, `reach`, `switchFor?`, `leadEngine?`, `muted?`,
