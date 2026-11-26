@@ -79,3 +79,16 @@ deliberately left unfixed.
   `docs/evidence/2026-11-25-engines-ui/50-release-first-launch-stuck-scanning.png`.
   Not reproduced or traced; the scan-status events between the scan task and
   the webview are the first suspect.
+- ProfilePane's group-header figures fall back to the rows on screen before
+  `get_asset_counts` answers: `skillsHeadFigure`, `toolsHeadFigure`,
+  `rulesHeadFigure` and `subagentsHeadFigure` read `assetCounts ? … :
+  sorted*.length`, and the headers and their GroupTicks ticks print that
+  figure. This predates the overview card: the headers carried the same
+  ternary inline before `feat(global): tick marks beside the list jump
+  between its groups` (2026-11-26) hoisted it so header and tick share one
+  source. `no-frontend-counting.test.ts` does not catch it. Its assignment
+  rule matches only identifiers containing `count` or `total` (`const
+  fooCount = rows.length`), and these are named `*HeadFigure`; its heading
+  rule matches only a bare `· {xs.length}` / `· ${xs.length}`, which the
+  inline ternary never was. Fix by drawing no figure until the backend
+  answers, and widen the guard in a separate, reported commit.

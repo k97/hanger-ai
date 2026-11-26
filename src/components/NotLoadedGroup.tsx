@@ -22,11 +22,19 @@ export interface NotLoadedRow {
   onOpen: () => void;
 }
 
+/** The group's head, which its tick beside the list repeats (GroupTicks). */
+export function notLoadedHead(engineName: string): string {
+  return `Not loaded by ${engineName}`;
+}
+
 interface NotLoadedGroupProps {
   engineName: string;
   rows: NotLoadedRow[];
   /** Folded until asked (Q4). Given, the fold is the caller's. */
   defaultOpen?: boolean;
+  /** Clears the sticky header stuck over the group when its tick jumps to
+   *  it (GroupTicks): ProfilePane's call, which knows what is above. */
+  scrollMarginClass?: "scroll-mt-8" | "scroll-mt-11";
 }
 
 /**
@@ -42,11 +50,16 @@ interface NotLoadedGroupProps {
  * a frontend count (`no-frontend-counting.test.ts`). The rows open their
  * asset in the inspector, where the cap's Link to… is the way to act.
  */
-export default function NotLoadedGroup({ engineName, rows, defaultOpen = false }: NotLoadedGroupProps) {
+export default function NotLoadedGroup({
+  engineName,
+  rows,
+  defaultOpen = false,
+  scrollMarginClass = "scroll-mt-8",
+}: NotLoadedGroupProps) {
   const [open, setOpen] = useState(defaultOpen);
   return (
     <div data-testid="not-loaded-group">
-      <h3 className={groupLabelClass}>
+      <h3 id="group-not-loaded" className={`${scrollMarginClass} ${groupLabelClass}`}>
         <button
           type="button"
           aria-expanded={open}
@@ -57,7 +70,7 @@ export default function NotLoadedGroup({ engineName, rows, defaultOpen = false }
             size={12}
             className={`shrink-0 transition-transform duration-hover ease-spring ${open ? "rotate-90" : ""}`}
           />
-          {`Not loaded by ${engineName}`}
+          {notLoadedHead(engineName)}
         </button>
       </h3>
       {open && (

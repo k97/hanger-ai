@@ -29,6 +29,7 @@ import HeroBand from "./HeroBand";
 import EngineChipRow from "./EngineChipRow";
 import NotLoadedGroup from "./NotLoadedGroup";
 import KeptSkillsGroup from "./KeptSkillsGroup";
+import GroupTicks, { groupHead, type TickGroup } from "./GroupTicks";
 import KeptSkillDetail from "./KeptSkillDetail";
 import { SearchPalettePanel } from "./SearchPalette";
 import { SwitchNoticePill } from "./SwitchNotice";
@@ -38,7 +39,7 @@ import AllEnginesSwitch from "./AllEnginesSwitch";
 import HeaderSwitch from "./HeaderSwitch";
 import MarkdownDoc from "./MarkdownDoc";
 import type { Block } from "../utils/skillDocument";
-import { captionClass, sectionHeadClass } from "./typeRoles";
+import { captionClass, groupLabelClass, rowValueClass, sectionHeadClass } from "./typeRoles";
 import { miniBtnClass, miniBtnFillClass, miniBtnTonalClass, miniSetClass } from "./miniButton";
 import * as Icons from "./icons";
 import {
@@ -238,6 +239,39 @@ function FavouriteHeartSpecimen() {
       name="Sample skill"
       onToggle={() => setFavourited((v) => !v)}
     />
+  );
+}
+
+/** Four sample groups, each with a few rows, in a short scrolling box so the
+ *  ticks have somewhere to jump. The ids are the specimen's own: the page
+ *  also draws KeptSkillsGroup and NotLoadedGroup, which carry Global's. */
+const SAMPLE_TICK_GROUPS: (TickGroup & { rows: string[] })[] = [
+  { id: "ds-ticks-skills", label: "Skills", count: 554, rows: ["zoom-out", "xlsx", "web-perf", "webgl-laser", "vercel-react-best-practices"] },
+  { id: "ds-ticks-tools", label: "MCP servers", count: 33, rows: ["figma", "linear", "playwright"] },
+  { id: "ds-ticks-rules", label: "Rules", count: 3, rows: ["house-style", "commit-messages", "review"] },
+  { id: "ds-ticks-subagents", label: "Subagents", count: 302, rows: ["code-reviewer", "planner", "researcher", "tester"] },
+];
+
+function GroupTicksSpecimen() {
+  const list = useRef<HTMLDivElement>(null);
+  return (
+    <div className="relative max-w-md h-48 flex flex-col">
+      <GroupTicks groups={SAMPLE_TICK_GROUPS} scrollRoot={list} />
+      <div ref={list} className="flex-1 min-h-0 overflow-y-auto ml-4.5 border border-line rounded-plane pb-1.5">
+        {SAMPLE_TICK_GROUPS.map((g) => (
+          <section key={g.id}>
+            <h3 id={g.id} className={`px-3.5 pt-2.5 pb-1 ${groupLabelClass}`}>
+              {groupHead(g.label, g.count)}
+            </h3>
+            {g.rows.map((r) => (
+              <div key={r} className={`px-3.5 py-1.5 ${rowValueClass}`}>
+                {r}
+              </div>
+            ))}
+          </section>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -1241,6 +1275,10 @@ export default function DesignSystemPane({ section }: DesignSystemPaneProps) {
             <div className="max-w-[534px] border border-line rounded-plane pb-1.5">
               <KeptSkillsGroup kept={SAMPLE_KEPT_SKILLS} showFigure selectedKey={SAMPLE_KEPT_SKILLS_SELECTED} />
             </div>
+          </Specimen>
+
+          <Specimen name="GroupTicks" file="GroupTicks.tsx" note="beside Global's list, one tick per group on screen and none for a single group: the dark, wider tick is the group in view; hover one for the header's own words, click it to bring that header to the top. Sample groups">
+            <GroupTicksSpecimen />
           </Specimen>
 
           <Specimen name="KeptSkillDetail" file="KeptSkillDetail.tsx" note="a kept skill's inspector body, under the header that holds its one switch: off for every engine, when it was switched off and what Hanger did with it; the second also says a skill of its name is back in the store and that the switch-off did not finish">

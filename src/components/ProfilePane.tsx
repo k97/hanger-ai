@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import {
   ExclamationCircleIcon,
@@ -26,7 +26,8 @@ import { sumGlobalAssets, categoryCountKey } from "../utils/globalAssetCount";
 import { groupLabelClass } from "./typeRoles";
 import SummaryStrip, { type EngineStripFigures, type StripReview } from "./SummaryStrip";
 import EngineChipRow from "./EngineChipRow";
-import NotLoadedGroup, { groupRowClass, type NotLoadedRow } from "./NotLoadedGroup";
+import NotLoadedGroup, { groupRowClass, notLoadedHead, type NotLoadedRow } from "./NotLoadedGroup";
+import GroupTicks, { groupHead, type TickGroup } from "./GroupTicks";
 import KeptSkillsGroup from "./KeptSkillsGroup";
 import type { KeptSkills } from "../types/skillSwitch";
 import { missTitle } from "./ReachCard";
@@ -458,6 +459,7 @@ export default function ProfilePane({
   // change so switching away from Tools and back never carries a stale
   // filter over from a different session's look at the list.
   const [mcpReviewOnly, setMcpReviewOnly] = useState(false);
+  const listRef = useRef<HTMLDivElement>(null);
   // The engine Measure all is running for, if any.
   const [measuringFor, setMeasuringFor] = useState<string | null>(null);
 
@@ -1251,15 +1253,6 @@ export default function ProfilePane({
   // The Skills "Switched off" group, drawn once in one of two places: after
   // the Skills rows, or, with an engine picked and no Skills rows on screen,
   // just before "Not loaded by". Booleans, never a figure.
-  const keptSkillsGroup =
-    showSkills && keptSkillsShown && keptSkills ? (
-      <KeptSkillsGroup
-        kept={keptSkills}
-        showFigure={!engine}
-        selectedKey={selectedKeptSkillKey}
-        onOpen={onOpenKeptSkill}
-      />
-    ) : null;
   const keptSkillsLast = engine !== null && !skillsAny;
   // The Tools group has something to show whenever there is a server row OR
   // a problem row — a machine with one unreadable config and zero working
@@ -1267,7 +1260,48 @@ export default function ProfilePane({
   // whose only servers are switched off and kept: its header says the real
   // figure, and the "Switched off" group follows it.
   const hasToolsContent = sortedTools.length > 0 || configProblemRows.length > 0 || keptShown;
+  // A tick's jump lands its header below whatever sticky header is stuck
+  // over it. Above the MCP servers header that is AssetHeaderRow, `h-8`.
+  // Below it, once drawn, it is the MCP servers header itself, which stays
+  // stuck to the end of the list: `pt-[11px]`, the View trigger (`p-1`
+  // round a 14px icon, 22px, taller than the 19.5px head line), `pb-[7px]`
+  // and the 1px rule, 41px, so 44.
+  const toolsHeaderDrawn = showTools && hasToolsContent;
+  const afterToolsScrollMargin = toolsHeaderDrawn ? "scroll-mt-11" : "scroll-mt-8";
+  const keptSkillsGroup =
+    showSkills && keptSkillsShown && keptSkills ? (
+      <KeptSkillsGroup
+        kept={keptSkills}
+        showFigure={!engine}
+        selectedKey={selectedKeptSkillKey}
+        onOpen={onOpenKeptSkill}
+        scrollMarginClass={keptSkillsLast ? afterToolsScrollMargin : "scroll-mt-8"}
+      />
+    ) : null;
   const toolsOnlyView = showTools && hasToolsContent && !nonToolsSectionVisible;
+
+  // Each group header's figure, read once so the header and its tick print
+  // the same words: the backend's figure, none with an engine picked (the
+  // headers' long-standing rule). Nothing here counts anything new.
+  const skillsHeadFigure = engine ? null : assetCounts ? (assetCounts.byCategory.skill?.global ?? 0) : sortedSkills.length;
+  const toolsHeadFigure = engine ? null : assetCounts ? (assetCounts.byCategory.tool?.global ?? 0) : sortedTools.length;
+  const rulesHeadFigure = engine ? null : assetCounts ? (assetCounts.byCategory.rule?.global ?? 0) : sortedRules.length;
+  const subagentsHeadFigure = engine ? null : assetCounts ? (assetCounts.byCategory.subagent?.global ?? 0) : sortedSubagents.length;
+  // The groups the list draws, in the order it draws them, for GroupTicks.
+  // Each condition is the one its group renders under below.
+  const tickGroups: TickGroup[] = [];
+  if (showSkills && sortedSkills.length > 0) tickGroups.push({ id: "group-skills", label: "Skills", count: skillsHeadFigure });
+  const keptSkillsTick: TickGroup | null =
+    keptSkillsGroup && keptSkills ? { id: "group-kept-skills", label: "Switched off", count: engine ? null : keptSkills.count } : null;
+  if (!keptSkillsLast && keptSkillsTick) tickGroups.push(keptSkillsTick);
+  if (showTools && hasToolsContent) tickGroups.push({ id: "group-tools", label: "MCP servers", count: toolsHeadFigure });
+  if (showTools && keptShown && keptOff)
+    tickGroups.push({ id: "group-kept-tools", label: "Switched off", count: engine ? null : keptOff.count });
+  if (showRules && sortedRules.length > 0) tickGroups.push({ id: "group-rules", label: "Rules", count: rulesHeadFigure });
+  if (showSubagents && sortedSubagents.length > 0)
+    tickGroups.push({ id: "group-subagents", label: "Subagents", count: subagentsHeadFigure });
+  if (keptSkillsLast && keptSkillsTick) tickGroups.push(keptSkillsTick);
+  if (engine && notLoadedAny) tickGroups.push({ id: "group-not-loaded", label: notLoadedHead(engine.engine_name), count: null });
 
   // Visible rows post-filter for the foot line — a display subset, never the
   // asset total (which stays backend-owned).
@@ -1457,7 +1491,12 @@ export default function ProfilePane({
           {/* The list lives on its own plane */}
           {/* Table background dropped by Karthik's ruling (2026-08-15):
               flat on the page, edge drawn by the --line border alone. */}
+          {/* The ticks sit in the list's left inset, beside it, so the
+              wrapper holds them and the list keeps its own classes. */}
+          <div className="relative flex-1 min-h-0 flex flex-col">
+          <GroupTicks groups={tickGroups} scrollRoot={listRef} />
           <div
+            ref={listRef}
             data-testid="asset-list-scroll"
             className="@container flex-1 min-h-0 overflow-y-auto mx-[18px] border border-line rounded-tl-plane rounded-tr-plane pb-1.5"
           >
@@ -1504,8 +1543,8 @@ export default function ProfilePane({
             {/* Skills Group */}
             {showSkills && sortedSkills.length > 0 && (
               <>
-                <h3 className={`px-3.5 pt-[11px] pb-[5px] ${groupLabelClass}`}>
-                  {engine ? "Skills" : `Skills · ${assetCounts ? (assetCounts.byCategory.skill?.global ?? 0) : sortedSkills.length}`}
+                <h3 id="group-skills" className={`scroll-mt-8 px-3.5 pt-[11px] pb-[5px] ${groupLabelClass}`}>
+                  {groupHead("Skills", skillsHeadFigure)}
                 </h3>
                 <div className="flex flex-col">
                   {sortedSkills.map((item, idx) => (
@@ -1555,6 +1594,10 @@ export default function ProfilePane({
                 collides with `AssetHeaderRow` above it. */}
             {showTools && hasToolsContent && (
               <>
+                {/* The tick's target, not the header: a stuck sticky header
+                    is already "in view", so scrolling it into view would
+                    not move the list. This sits where the header would. */}
+                <span id="group-tools" aria-hidden="true" className="block scroll-mt-8" />
                 <div
                   data-testid="section-header-tools"
                   className={`sticky top-0 z-[2] bg-page flex items-center gap-3 select-none px-3.5 pt-[11px] pb-[7px] border-b border-line ${groupLabelClass}`}
@@ -1568,11 +1611,7 @@ export default function ProfilePane({
                     onGroupingChange={handleServerGroupingChange}
                     onSortChange={handleServerSortChange}
                   />
-                  <h3 className="flex-1 truncate">
-                    {engine
-                      ? "MCP servers"
-                      : `MCP servers · ${assetCounts ? (assetCounts.byCategory.tool?.global ?? 0) : sortedTools.length}`}
-                  </h3>
+                  <h3 className="flex-1 truncate">{groupHead("MCP servers", toolsHeadFigure)}</h3>
                   <span className="w-[100px] shrink-0 text-left">
                     Registered in
                   </span>
@@ -1615,8 +1654,8 @@ export default function ProfilePane({
                 inspector, where it can be switched back on. */}
             {showTools && keptShown && keptOff && (
               <>
-                <h3 className={`px-3.5 pt-[11px] pb-[5px] ${groupLabelClass}`}>
-                  {engine ? "Switched off" : `Switched off · ${keptOff.count}`}
+                <h3 id="group-kept-tools" className={`scroll-mt-11 px-3.5 pt-[11px] pb-[5px] ${groupLabelClass}`}>
+                  {groupHead("Switched off", engine ? null : keptOff.count)}
                 </h3>
                 <div className="flex flex-col">
                   {keptRows.map((server) => {
@@ -1646,8 +1685,8 @@ export default function ProfilePane({
             {/* Rules Group */}
             {showRules && sortedRules.length > 0 && (
               <>
-                <h3 className={`px-3.5 pt-[11px] pb-[5px] ${groupLabelClass}`}>
-                  {engine ? "Rules" : `Rules · ${assetCounts ? (assetCounts.byCategory.rule?.global ?? 0) : sortedRules.length}`}
+                <h3 id="group-rules" className={`${afterToolsScrollMargin} px-3.5 pt-[11px] pb-[5px] ${groupLabelClass}`}>
+                  {groupHead("Rules", rulesHeadFigure)}
                 </h3>
                 <div className="flex flex-col">
                   {sortedRules.map((item, idx) => (
@@ -1669,10 +1708,8 @@ export default function ProfilePane({
             {/* Subagents Group */}
             {showSubagents && sortedSubagents.length > 0 && (
               <>
-                <h3 className={`px-3.5 pt-[11px] pb-[5px] ${groupLabelClass}`}>
-                  {engine
-                    ? "Subagents"
-                    : `Subagents · ${assetCounts ? (assetCounts.byCategory.subagent?.global ?? 0) : sortedSubagents.length}`}
+                <h3 id="group-subagents" className={`${afterToolsScrollMargin} px-3.5 pt-[11px] pb-[5px] ${groupLabelClass}`}>
+                  {groupHead("Subagents", subagentsHeadFigure)}
                 </h3>
                 <div className="flex flex-col">
                   {sortedSubagents.map((item, idx) => (
@@ -1693,7 +1730,8 @@ export default function ProfilePane({
 
             {keptSkillsLast && keptSkillsGroup}
 
-            {engine && notLoadedAny && <NotLoadedGroup engineName={engine.engine_name} rows={notLoadedRows} />}
+            {engine && notLoadedAny && <NotLoadedGroup engineName={engine.engine_name} rows={notLoadedRows} scrollMarginClass={afterToolsScrollMargin} />}
+          </div>
           </div>
 
         </>

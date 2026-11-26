@@ -20,6 +20,7 @@ export default function KeptSkillsGroup({
   showFigure,
   selectedKey,
   onOpen,
+  scrollMarginClass = "scroll-mt-8",
 }: {
   kept: KeptSkills;
   /** False when an engine is picked: the head reads "Switched off". */
@@ -27,10 +28,13 @@ export default function KeptSkillsGroup({
   /** The kept skill the inspector shows, whose row reads as selected. */
   selectedKey: string | null;
   onOpen?: (key: string) => void;
+  /** Clears the sticky header stuck over the group when its tick jumps to
+   *  it (GroupTicks): ProfilePane's call, which knows what is above. */
+  scrollMarginClass?: "scroll-mt-8" | "scroll-mt-11";
 }) {
   return (
     <div data-testid="kept-skills-group">
-      <h3 className={`px-3.5 pt-[11px] pb-[5px] ${groupLabelClass}`}>{keptSkillsHead(kept.count, showFigure)}</h3>
+      <h3 id="group-kept-skills" className={`${scrollMarginClass} px-3.5 pt-[11px] pb-[5px] ${groupLabelClass}`}>{keptSkillsHead(kept.count, showFigure)}</h3>
       <div className="flex flex-col">
         {kept.skills.map((skill) => {
           const selected = skill.key === selectedKey;

@@ -813,6 +813,43 @@ row opens its asset in the inspector; the cap's Link to… is the way to act.
 Selected, it takes `bg-tint` and the tinted name. Pinned by
 `engine_lens_pane.test.tsx`.
 
+**`GroupTicks`** (`GroupTicks.tsx`) — `groups`, `scrollRoot`. Tick marks in
+the list's left inset, one per group Global's list draws (layout G of
+`docs/plans/2026-11-26-global-top-prototypes.html`; round 13 q2), so a long
+list can be crossed in one click. A `<nav aria-label="Jump to a group">`,
+`absolute left-0.5 top-2.5` inside a `relative` wrapper ProfilePane puts
+around `asset-list-scroll`, which keeps its own classes. Each tick is a
+`w-3.5 h-2` button holding a `h-0.5` bar: `w-2.5 bg-line-2` at rest
+(`group-hover:bg-ink-3`), `w-3.5 bg-ink-1` with `aria-current="true"` for the
+group in view. The group in view is the last header that has passed into
+the top third of the list, or the first group before any has; one
+`IntersectionObserver`, rooted on the list with `rootMargin: "0px 0px -66%
+0px"`, says when to look again, and none is made where the environment has
+none. A tick's `aria-label` and its `Tooltip` are the header's own words,
+`groupHead(label, count)` (`{group} · {count}`, or the label alone where the
+header has no figure: an engine is picked, or the group is "Not loaded by
+‹engine›", `notLoadedHead`). ProfilePane reads each header's figure once
+(`skillsHeadFigure` and its siblings) and prints both the header and the
+tick from it, so the two cannot disagree, and it passes only the groups it
+draws, in the order it draws them; with fewer than two there is nowhere to
+jump, and it draws nothing. A click calls `scrollIntoView({ block: "start"
+})` on `#group-‹key›` (`skills`, `kept-skills`, `tools`, `kept-tools`,
+`rules`, `subagents`, `not-loaded`): each `h3` carries its id and a
+scroll margin that clears whichever sticky header is stuck over it. Above
+the MCP servers header that is `AssetHeaderRow`, `h-8`, so `scroll-mt-8`.
+Below it, while it is drawn, it is the MCP servers header itself, which
+stays stuck to the end of the list: `pt-[11px]`, the View trigger (`p-1`
+round a 14px icon, 22px, taller than the head's 19.5px line), `pb-[7px]`
+and the 1px rule make 41px by its classes, so the groups after it take
+`scroll-mt-11` (`afterToolsScrollMargin`; `KeptSkillsGroup` and
+`NotLoadedGroup` take it as `scrollMarginClass`). The 41 is arithmetic
+from the classes, not a measurement. MCP servers' id is on an empty `span`
+just before `section-header-tools`, not on the header: that header is
+sticky, and once stuck it is already in view, so scrolling it into view
+would not move the list. No animation on the jump. Pinned by
+`GroupTicks.test.tsx` and `ProfilePaneGroupTicks.test.tsx`; the Design
+system page shows it beside four sample groups in a short scrolling box.
+
 **`RepoPane`** (`RepoPane.tsx:36-69`) — the same shape plus `repoPath`,
 `onRefresh`, `onLinkFromProfile`, `linkedRepos?`, `onPromoteCandidates?`,
 and the same four under its own band's names: `issues?` / `onReview?`
