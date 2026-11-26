@@ -83,8 +83,8 @@ describe("ProfilePane — group ticks", () => {
     ]) {
       // The id is on the group head, which holds the heading (and, for the
       // first, the View control) since Task 1 of
-      // docs/plans/2026-11-26-global-list.md; the kept group's own head is
-      // still the heading itself until Task 3.
+      // docs/plans/2026-11-26-global-list.md; a folding group's id is on its
+      // heading (Task 3).
       const header = document.getElementById(id);
       const heading = header?.tagName === "H3" ? header : header?.querySelector("h3");
       expect(heading, id).toBeTruthy();
@@ -92,44 +92,11 @@ describe("ProfilePane — group ticks", () => {
     }
   });
 
-  it("gives every header it jumps to the sticky column header's scroll margin", () => {
-    renderPane();
-    for (const id of ["group-skills", "group-kept-skills", "group-rules"]) {
-      expect(document.getElementById(id)!.className, id).toContain("scroll-mt-8");
-    }
-  });
-
-  it("clears the stuck MCP servers header for a group drawn after it, and not for one before it", () => {
-    // With servers on screen the MCP servers header is drawn, and once stuck
-    // it is taller than the column header (11 + 22 + 7 + 1 px by its
-    // classes), so the groups after it need the larger margin.
-    const withServer: Inventory = {
-      ...inventory,
-      tools: [
-        {
-          id: "/home/user/.claude.json:lint",
-          name: "lint",
-          command: "npx",
-          transport: "stdio",
-          config_path: "/home/user/.claude.json",
-          scope: { Global: { agent: "claude-code" } },
-          owning_agent: "claude-code",
-        } as never,
-      ],
-    };
-    const withTool = {
-      total: 3,
-      byCategory: { skill: { global: 7, project: 0 }, tool: { global: 1, project: 0 }, rule: { global: 4, project: 0 } },
-    } as never;
-    renderPane({ inventory: withServer, assetCounts: withTool });
-    expect(screen.getByTestId("section-header-tools")).toBeTruthy();
-    const skills = document.getElementById("group-skills")!.className;
-    const rules = document.getElementById("group-rules")!.className;
-    expect(skills).toContain("scroll-mt-8");
-    expect(skills).not.toContain("scroll-mt-11");
-    expect(rules).toContain("scroll-mt-11");
-    expect(rules).not.toContain("scroll-mt-8");
-  });
+  // The two scroll-margin cases that stood here went with the sticky MCP
+  // servers head (Task 3 of docs/plans/2026-11-26-global-list.md): no head
+  // is stuck, so none needs a margin to clear one. global_groups.test.tsx
+  // pins that no group head carries one, and that each tick scrolls its own
+  // head into view.
 
   it("draws no ticks with one group on screen", () => {
     renderPane({ selectedCategory: "Rules" });

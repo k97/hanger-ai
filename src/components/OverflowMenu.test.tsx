@@ -1,11 +1,13 @@
 // @vitest-environment happy-dom
 import { render, screen, fireEvent, cleanup } from "@testing-library/react";
 import { describe, it, expect, afterEach } from "vitest";
-import OverflowMenu from "./OverflowMenu";
+import OverflowMenu, { type OverflowMenuTriggerProps } from "./OverflowMenu";
 
 afterEach(cleanup);
 
-function Trigger(props: { "aria-haspopup": "menu"; "aria-expanded": boolean; onClick: () => void }) {
+// Base UI's trigger props since Task 3 of docs/plans/2026-11-26-global-list.md
+// (OverflowMenu draws with ui/dropdown-menu).
+function Trigger(props: OverflowMenuTriggerProps) {
   return (
     <button type="button" {...props}>
       Trigger
@@ -45,7 +47,9 @@ describe("OverflowMenu", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: "Trigger" }));
     expect(screen.getByRole("menu", { name: "Actions" })).toBeTruthy();
-    fireEvent.keyDown(window, { key: "Escape" });
+    // At the document, where a keypress lands: Base UI listens there, not on
+    // `window`, which sits above it (Task 3).
+    fireEvent.keyDown(document.body, { key: "Escape" });
     expect(screen.queryByRole("menu", { name: "Actions" })).toBeNull();
   });
 
@@ -67,8 +71,8 @@ describe("OverflowMenu", () => {
   it("hangs the panel from its left edge when align=\"left\"", () => {
     // The value ViewControl actually ships, and the one nothing guarded:
     // hardcoding `right-0` regardless of `align` passed the whole suite.
-    // Asserting the absence of `right-0` too is what makes it a choice
-    // rather than a presence check — both classes could be emitted at once.
+    // Base UI positions the panel since Task 3, and says which edge it hung
+    // it from in `data-align`: "start" is the trigger's left edge.
     render(
       <OverflowMenu trigger={(p) => <Trigger {...p} />} ariaLabel="Actions" align="left">
         {() => <div>Item</div>}
@@ -76,8 +80,7 @@ describe("OverflowMenu", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: "Trigger" }));
     const menu = screen.getByRole("menu", { name: "Actions" });
-    expect(menu.className).toContain("left-0");
-    expect(menu.className).not.toContain("right-0");
+    expect(menu.getAttribute("data-align")).toBe("start");
   });
 
   it("hangs the panel from its right edge when align=\"right\"", () => {
@@ -88,8 +91,7 @@ describe("OverflowMenu", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: "Trigger" }));
     const menu = screen.getByRole("menu", { name: "Actions" });
-    expect(menu.className).toContain("right-0");
-    expect(menu.className).not.toContain("left-0");
+    expect(menu.getAttribute("data-align")).toBe("end");
   });
 
   it("puts exactly one padding utility on the panel", () => {

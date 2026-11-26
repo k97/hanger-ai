@@ -201,7 +201,8 @@ const aside = () =>
 const KEPT_LINE = "Removed from Engine K. Hanger keeps its configuration and puts it back when you switch it on.";
 
 /** The "Switched off" group's row for beta. */
-const keptRow = async () => (await screen.findByText("Off for Engine K")).closest("button") as HTMLElement;
+// A ListRow since Task 3 of docs/plans/2026-11-26-global-list.md, not a <button>.
+const keptRow = async () => (await screen.findByText("Off for Engine K")).closest("[data-testid='list-row']") as HTMLElement;
 
 beforeEach(() => {
   cleanup();

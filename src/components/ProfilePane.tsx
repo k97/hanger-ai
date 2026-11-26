@@ -2,7 +2,6 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNo
 import { createPortal } from "react-dom";
 import { invoke } from "@tauri-apps/api/core";
 import {
-  ExclamationCircleIcon,
   Disc3Icon,
   GaugeIcon,
   FolderClockIcon,
@@ -14,7 +13,7 @@ import {
   PlugZapIcon,
 } from "./icons";
 import CategoryFilterCards, { CategoryType, TAB_LABELS } from "./CategoryFilterCards";
-import AssetRow, { AssetItem, AssetAnnotationView, cardChipClass, getSingularType } from "./AssetRow";
+import AssetRow, { AssetItem, AssetAnnotationView } from "./AssetRow";
 import type { SortField, SortDirection } from "./AssetHeaderRow";
 import ListRow, { type ListRowKind } from "./ListRow";
 import { listRowDetail, listRowFigure } from "../utils/listRowCopy";
@@ -36,7 +35,9 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
 import { overviewButtonLabel } from "../utils/overviewCopy";
 import { shouldDockOverview } from "../utils/overviewLayout";
 import { isTextEntryTarget } from "../utils/textEntry";
-import NotLoadedGroup, { groupRowClass, notLoadedHead, type NotLoadedRow } from "./NotLoadedGroup";
+import NotLoadedGroup, { notLoadedHead, type NotLoadedRow } from "./NotLoadedGroup";
+import CollapsibleGroup from "./CollapsibleGroup";
+import { Separator } from "./ui/separator";
 import GroupTicks, { groupHead, type TickGroup } from "./GroupTicks";
 import KeptSkillsGroup from "./KeptSkillsGroup";
 import type { KeptSkills } from "../types/skillSwitch";
@@ -238,39 +239,46 @@ const LIST_INSET = 18;
  *  overview_dock.test.tsx. */
 const DOCKED_LANE_MARGIN = "ml-auto mr-[max(258px,calc((100%-736px)/2))]";
 
-/** A group's head, as T3 heads a shelf: the label, a 1px rule, then the
- *  backend's figure (none with an engine picked), and an optional control
- *  at the end. Not a column header: nothing under it is a column. The
- *  heading is named in the words its tick uses (`groupHead`), and the
- *  control sits outside it so it is no part of that name. */
+/** A group's head, as T3 heads a shelf: the label, a 1px rule
+ *  (`ui/separator`), then the backend's figure (none with an engine picked),
+ *  and an optional control at the end. Not a column header: nothing under
+ *  it is a column. The heading is named in the words its tick uses
+ *  (`groupHead`), and the control sits outside it so it is no part of that
+ *  name. Not sticky (Task 3 of docs/plans/2026-11-26-global-list.md): a
+ *  group's head scrolls away with its rows, as T3's do, so no head is left
+ *  over another group's rows, and a tick's jump lands it at the top with no
+ *  scroll margin. The folding groups use `CollapsibleGroup`, the same head
+ *  made a button. */
 function GroupHead({
   id,
   label,
   figure,
   className = "",
   trailing,
+  testId,
 }: {
   id?: string;
   label: string;
   figure: number | null;
   className?: string;
   trailing?: ReactNode;
+  testId?: string;
 }) {
   return (
-    <div id={id} className={`${className} flex items-center gap-2 h-8 px-2.5 text-small font-medium text-ink-3 select-none`}>
+    <div
+      id={id}
+      data-testid={testId}
+      className={`${className} flex items-center gap-2 h-8 px-2.5 text-small font-medium text-ink-3 select-none`}
+    >
       <h3 aria-label={groupHead(label, figure)} className="flex-1 min-w-0 flex items-center gap-2">
         <span className="shrink-0">{label}</span>
-        <span data-testid="group-head-rule" aria-hidden="true" className="flex-1 h-px bg-line" />
+        <Separator data-testid="group-head-rule" aria-hidden="true" className="flex-1" />
         {figure !== null && <span className="shrink-0 font-normal tabular">{figure}</span>}
       </h3>
       {trailing}
     </div>
   );
 }
-
-/** A kept server's row: the card row's first line, then which engine it is
- *  off for (`groupRowClass`, NotLoadedGroup.tsx, shared with that group). */
-const keptRowClass = groupRowClass;
 
 type McpCoverageProp = { checked_file_count: number; checked_engine_count: number; checked_files: string[] } | null;
 type EngineLocationsProp = { location_count: number; locations: string[] } | null;
@@ -478,18 +486,20 @@ function configProblemLine(problem: ConfigProblemRow): string {
 /** One row for Appendix A.3 or A.4 — content next to the server list, never
  *  a `DisclosureBanner`: a config problem is a finding about the scan that
  *  just ran, not a diagnostic about Hanger itself (`known-debt.md`'s
- *  DisclosureBanner rule is about the other kind). Not clickable — there is
- *  no asset behind it to open, only a file Hanger could not read or parse. */
+ *  DisclosureBanner rule is about the other kind). A `ListRow` like the
+ *  servers around it (Task 3 of docs/plans/2026-11-26-global-list.md): the
+ *  engine whose file it is on line 1, the Appendix line as it was as the
+ *  detail. Not clickable — there is no asset behind it to open, only a file
+ *  Hanger could not read or parse — so it is no stop in the tab order. */
 function McpConfigProblemRow({ problem }: { problem: ConfigProblemRow }) {
   return (
-    <div
-      data-testid="mcp-config-problem-row"
-      data-problem-kind={problem.kind}
-      className="flex items-center gap-2 px-3.5 py-2 border-t border-line"
-    >
-      <ExclamationCircleIcon className="text-ink-3 shrink-0" size={14} />
-      <span className="text-micro text-ink-3 truncate">{configProblemLine(problem)}</span>
-    </div>
+    <ListRow
+      testId="mcp-config-problem-row"
+      kind="problem"
+      name={problem.engine}
+      detail={configProblemLine(problem)}
+      reach={null}
+    />
   );
 }
 
@@ -1253,13 +1263,19 @@ export default function ProfilePane({
      the reason it gave. An MCP server is in it when the engine's context
      does not register it and its reach for the engine is a miss. Once, at
      the end of the list (NotLoadedGroup). */
-  const notLoadedRow = (item: AssetItem, annotation: AssetAnnotationView | null, chip: string): NotLoadedRow[] => {
+  const notLoadedRow = (
+    item: AssetItem,
+    annotation: AssetAnnotationView | null,
+    kind: NotLoadedRow["kind"],
+    chip?: string
+  ): NotLoadedRow[] => {
     const miss = reachFor(annotation);
     if (!miss || miss.reached) return [];
     const category = item.category as "Skills" | "Tools" | "Rules" | "Subagents";
     return [
       {
         key: `${category}:${item.id ?? item.path}`,
+        kind,
         name: item.name,
         chip,
         reason: missTitle(miss),
@@ -1268,16 +1284,17 @@ export default function ProfilePane({
       },
     ];
   };
-  const kindChip = (item: AssetItem) => getSingularType(item.category);
+  // Each row's kind is its ListRow icon, so only a server carries a chip,
+  // its transport, as on the MCP servers rows above.
   const notLoadedRows: NotLoadedRow[] = engine
     ? [
-        ...(showSkills ? allSkillRows.filter(missedByEngine) : []).flatMap((i) => notLoadedRow(i, annotationFor(i), kindChip(i))),
+        ...(showSkills ? allSkillRows.filter(missedByEngine) : []).flatMap((i) => notLoadedRow(i, annotationFor(i), "skill")),
         ...(showTools ? allToolRows.filter((i) => !inEngineFilter(registrationKeysOf(i))) : []).flatMap((i) =>
-          notLoadedRow(i, toolAnnotationFor(i), i.transport ? transportChipLabel(i.transport) : kindChip(i))
+          notLoadedRow(i, toolAnnotationFor(i), "server", i.transport ? transportChipLabel(i.transport) : undefined)
         ),
-        ...(showRules ? allRuleRows.filter(missedByEngine) : []).flatMap((i) => notLoadedRow(i, annotationFor(i), kindChip(i))),
+        ...(showRules ? allRuleRows.filter(missedByEngine) : []).flatMap((i) => notLoadedRow(i, annotationFor(i), "rule")),
         ...(showSubagents ? allSubagentRows.filter(missedByEngine) : []).flatMap((i) =>
-          notLoadedRow(i, annotationFor(i), kindChip(i))
+          notLoadedRow(i, annotationFor(i), "subagent")
         ),
       ]
     : [];
@@ -1369,15 +1386,6 @@ export default function ProfilePane({
   // whose only servers are switched off and kept: its header says the real
   // figure, and the "Switched off" group follows it.
   const hasToolsContent = sortedTools.length > 0 || configProblemRows.length > 0 || keptShown;
-  // A tick's jump lands its header below whatever sticky header is stuck
-  // over it. These margins were measured for AssetHeaderRow (`h-8`) and the
-  // MCP servers header as it was (41px). Task 1 of
-  // docs/plans/2026-11-26-global-list.md removed the first and cut the
-  // second to a 32px quiet head, so nothing is stuck above the first groups
-  // and these now land a header up to 12px lower than it needs to. Task 3
-  // removes the sticky header and these rules together.
-  const toolsHeaderDrawn = showTools && hasToolsContent;
-  const afterToolsScrollMargin = toolsHeaderDrawn ? "scroll-mt-11" : "scroll-mt-8";
   const keptSkillsGroup =
     showSkills && keptSkillsShown && keptSkills ? (
       <KeptSkillsGroup
@@ -1385,7 +1393,6 @@ export default function ProfilePane({
         showFigure={!engine}
         selectedKey={selectedKeptSkillKey}
         onOpen={onOpenKeptSkill}
-        scrollMarginClass={keptSkillsLast ? afterToolsScrollMargin : "scroll-mt-8"}
       />
     ) : null;
 
@@ -1721,7 +1728,7 @@ export default function ProfilePane({
                   id="group-skills"
                   label="Skills"
                   figure={skillsHeadFigure}
-                  className="scroll-mt-8 mt-2.5 first:mt-0"
+                  className="mt-2.5 first:mt-0"
                   trailing={viewControlOnSkills ? viewControl : undefined}
                 />
                 <div className="flex flex-col gap-px">
@@ -1744,23 +1751,21 @@ export default function ProfilePane({
                 "Not loaded by" (round 13 q4, 2026-11-26). */}
             {!keptSkillsLast && keptSkillsGroup}
 
-            {/* MCP servers. Its head stays sticky until Task 3 of
-                docs/plans/2026-11-26-global-list.md takes that away; its
-                column labels went with the table, and the View control moved
-                to the first group head on screen. */}
+            {/* MCP servers. A quiet head like the others, and no longer
+                sticky (Task 3 of docs/plans/2026-11-26-global-list.md): stuck,
+                it stayed over the Subagent rows once the list scrolled past
+                its own. Its column labels went with the table, and the View
+                control moved to the first group head on screen. */}
             {showTools && hasToolsContent && (
               <>
-                {/* The tick's target, not the header: a stuck sticky header
-                    is already "in view", so scrolling it into view would
-                    not move the list. This sits where the header would. */}
-                <span id="group-tools" aria-hidden="true" className="block scroll-mt-8 mt-2.5 first:mt-0" />
-                <div data-testid="section-header-tools" className="sticky top-0 z-[2] bg-page">
-                  <GroupHead
-                    label="MCP servers"
-                    figure={toolsHeadFigure}
-                    trailing={viewControlOnSkills ? undefined : viewControl}
-                  />
-                </div>
+                <GroupHead
+                  id="group-tools"
+                  testId="section-header-tools"
+                  label="MCP servers"
+                  figure={toolsHeadFigure}
+                  className="mt-2.5 first:mt-0"
+                  trailing={viewControlOnSkills ? undefined : viewControl}
+                />
                 <div className="flex flex-col gap-px">
                   {sortedTools.map((item, idx) =>
                     listRow(
@@ -1792,33 +1797,25 @@ export default function ProfilePane({
                 the backend's `count`. A row opens the server in the
                 inspector, where it can be switched back on. */}
             {showTools && keptShown && keptOff && (
-              <>
-                <h3 id="group-kept-tools" className={`scroll-mt-11 px-3.5 pt-[11px] pb-[5px] ${groupLabelClass}`}>
-                  {groupHead("Switched off", engine ? null : keptOff.count)}
-                </h3>
-                <div className="flex flex-col">
-                  {keptRows.map((server) => {
-                    const selected = server.key === selectedKeptKey;
-                    return (
-                    <button
-                      key={server.key}
-                      type="button"
-                      onClick={() => onOpenKeptOff?.(server.key)}
-                      data-selected={selected ? "true" : "false"}
-                      className={`${keptRowClass} ${selected ? "bg-tint" : "hover:bg-plane-2"}`}
-                    >
-                      <span className="flex items-center gap-1.5 min-w-0">
-                        <span className={`text-base-app truncate ${selected ? "text-tint-ink font-medium" : "text-ink-1"}`}>
-                          {server.name}
-                        </span>
-                        <span className={cardChipClass}>{transportChipLabel(server.transport)}</span>
-                      </span>
-                      <span className="text-small text-ink-3 truncate">Off for {server.engine_name}</span>
-                    </button>
-                    );
-                  })}
-                </div>
-              </>
+              <CollapsibleGroup
+                id="group-kept-tools"
+                testId="kept-tools-group"
+                label="Switched off"
+                figure={engine ? null : keptOff.count}
+              >
+                {keptRows.map((server) => (
+                  <ListRow
+                    key={server.key}
+                    kind="server"
+                    name={server.name}
+                    chip={transportChipLabel(server.transport)}
+                    detail={`Off for ${server.engine_name}`}
+                    reach={null}
+                    selected={server.key === selectedKeptKey}
+                    onSelect={() => onOpenKeptOff?.(server.key)}
+                  />
+                ))}
+              </CollapsibleGroup>
             )}
 
             {/* Rules Group */}
@@ -1828,7 +1825,7 @@ export default function ProfilePane({
                   id="group-rules"
                   label="Rules"
                   figure={rulesHeadFigure}
-                  className={`${afterToolsScrollMargin} mt-2.5 first:mt-0`}
+                  className="mt-2.5 first:mt-0"
                 />
                 <div className="flex flex-col gap-px">
                   {sortedRules.map((item, idx) =>
@@ -1847,7 +1844,7 @@ export default function ProfilePane({
                   id="group-subagents"
                   label="Subagents"
                   figure={subagentsHeadFigure}
-                  className={`${afterToolsScrollMargin} mt-2.5 first:mt-0`}
+                  className="mt-2.5 first:mt-0"
                 />
                 <div className="flex flex-col gap-px">
                   {sortedSubagents.map((item, idx) =>
@@ -1861,7 +1858,7 @@ export default function ProfilePane({
 
             {keptSkillsLast && keptSkillsGroup}
 
-            {engine && notLoadedAny && <NotLoadedGroup engineName={engine.engine_name} rows={notLoadedRows} scrollMarginClass={afterToolsScrollMargin} />}
+            {engine && notLoadedAny && <NotLoadedGroup engineName={engine.engine_name} rows={notLoadedRows} />}
            </div>
           </div>
           </div>

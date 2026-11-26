@@ -21,7 +21,11 @@ import { Toggle } from "./ui/toggle";
 import { Tooltip as UiTooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
 import UnderlineTabs from "./UnderlineTabs";
 import ViewControl, { type ServerGrouping, type ServerSort } from "./ViewControl";
-import OverflowMenu, { menuItemClass, MenuSeparator } from "./OverflowMenu";
+import OverflowMenu from "./OverflowMenu";
+import { DropdownMenuItem, DropdownMenuSeparator } from "./ui/dropdown-menu";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "./ui/collapsible";
+import { Separator } from "./ui/separator";
+import CollapsibleGroup from "./CollapsibleGroup";
 import InfoPopover from "./InfoPopover";
 import FindingChip from "./FindingChip";
 import FindingPopover from "./FindingPopover";
@@ -874,6 +878,16 @@ export default function DesignSystemPane({ section }: DesignSystemPaneProps) {
             </Popover>
           </Specimen>
 
+          <Specimen name="Collapsible · Separator" file="ui/collapsible.tsx" note="shadcn's Collapsible and Separator on Base UI, in Hanger's tokens: a trigger that folds its panel, with nothing moving; the 1px rule is --line">
+            <Collapsible defaultOpen className="w-[320px]">
+              <CollapsibleTrigger className="flex items-center gap-2 w-full h-8 text-small text-ink-3 hover:text-ink-1">
+                <span className="shrink-0">Sample fold</span>
+                <Separator className="flex-1" />
+              </CollapsibleTrigger>
+              <CollapsibleContent className="text-small text-ink-2">Whatever the panel holds draws its own layout.</CollapsibleContent>
+            </Collapsible>
+          </Specimen>
+
           <Specimen name="Tabs" file="ui/tabs.tsx" note="shadcn's Tabs on Base UI, in Hanger's tokens: the track under CategoryFilterCards; the capsule slides on the nav beat">
             <Tabs value={segment} onValueChange={(value) => setSegment(String(value))}>
               <TabsList aria-label="Sample segments">
@@ -901,7 +915,7 @@ export default function DesignSystemPane({ section }: DesignSystemPaneProps) {
             />
           </Specimen>
 
-          <Specimen name="OverflowMenu" file="OverflowMenu.tsx" note="the trigger is the caller's; an item closes the menu itself" unclipped>
+          <Specimen name="OverflowMenu" file="OverflowMenu.tsx" note="drawn with ui/dropdown-menu.tsx, shadcn's DropdownMenu on Base UI in Hanger's tokens: the trigger is the caller's; ↑/↓ move the --tint highlight, and picking an item closes the menu" unclipped>
             <OverflowMenu
               trigger={(triggerProps) => (
                 <button type="button" aria-label="Sample overflow menu" className={capButtonClass} {...triggerProps}>
@@ -912,18 +926,12 @@ export default function DesignSystemPane({ section }: DesignSystemPaneProps) {
               align="left"
               className="min-w-[184px] p-1"
             >
-              {(close) => (
+              {() => (
                 <>
-                  <button type="button" role="menuitem" onClick={close} className={menuItemClass}>
-                    Sample item one
-                  </button>
-                  <button type="button" role="menuitem" onClick={close} className={menuItemClass}>
-                    Sample item two
-                  </button>
-                  <MenuSeparator />
-                  <button type="button" role="menuitem" onClick={close} className={menuItemClass}>
-                    Sample item three
-                  </button>
+                  <DropdownMenuItem>Sample item one</DropdownMenuItem>
+                  <DropdownMenuItem>Sample item two</DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem>Sample item three</DropdownMenuItem>
                 </>
               )}
             </OverflowMenu>
@@ -1371,6 +1379,15 @@ export default function DesignSystemPane({ section }: DesignSystemPaneProps) {
             <div className="flex items-center gap-6">
               <ScanStamp scannedAt={scannedAt} className="font-flex text-micro text-ink-3" />
               <ScanStamp scannedAt={null} className="font-flex text-micro text-ink-3" />
+            </div>
+          </Specimen>
+
+          <Specimen name="CollapsibleGroup" file="CollapsibleGroup.tsx" note="a folding group on Global's list, after T3's shelf head: the label, a 1px rule, the figure where there is one, and a chevron that points down while open; the whole head is the button. Sample rows">
+            <div className="max-w-[534px]">
+              <CollapsibleGroup id="sample-collapsible-group" label="Sample group" figure={2}>
+                <ListRow kind="skill" name="sample-one" detail="Sample detail" reach={null} selected={false} onSelect={() => {}} />
+                <ListRow kind="rule" name="sample-two" detail="Sample detail" reach={null} selected={false} onSelect={() => {}} />
+              </CollapsibleGroup>
             </div>
           </Specimen>
 

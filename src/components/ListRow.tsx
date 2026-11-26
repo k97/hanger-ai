@@ -1,15 +1,19 @@
 import { useContext, useEffect, useRef, type KeyboardEvent } from "react";
 import EngineReachTiles, { type EngineReachInfo, type TileSwitch } from "./EngineReachTiles";
+import { ExclamationCircleIcon } from "./icons";
 import { KIND_ICON } from "./InspectorCap";
 import { SelectionOriginContext } from "./selectionOrigin";
 
-export type ListRowKind = "skill" | "rule" | "subagent" | "server";
+/** `problem`: an MCP config file Hanger could not read or parse, which is
+ *  no asset (Appendix A.3/A.4; Task 3 of docs/plans/2026-11-26-global-list.md). */
+export type ListRowKind = "skill" | "rule" | "subagent" | "server" | "problem";
 
 const ICON_FOR = {
   skill: KIND_ICON.Skills,
   rule: KIND_ICON.Rules,
   subagent: KIND_ICON.Subagents,
   server: KIND_ICON.Tools,
+  problem: ExclamationCircleIcon,
 } as const;
 
 /** A server's transport, beside its engine marks. Capped at 160px and cut
@@ -41,8 +45,13 @@ export interface ListRowProps {
   leadEngine?: string | null;
   /** A file that will not parse: the name recedes, as the table's did. */
   muted?: boolean;
-  selected: boolean;
-  onSelect: () => void;
+  selected?: boolean;
+  /** Absent: the row stands for nothing to open (a config problem), so it
+   *  is no stop in the tab order and takes no hover. */
+  onSelect?: () => void;
+  /** The caller's test id, where a group's rows keep their own
+   *  (`not-loaded-row`, `mcp-config-problem-row`). */
+  testId?: string;
 }
 
 /**
@@ -68,8 +77,9 @@ export default function ListRow({
   switchFor,
   leadEngine,
   muted = false,
-  selected,
+  selected = false,
   onSelect,
+  testId = "list-row",
 }: ListRowProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const origin = useContext(SelectionOriginContext);
@@ -85,7 +95,7 @@ export default function ListRow({
 
   // Only the row's own key: Enter on a tile switch inside it is the tile's.
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
-    if (e.key === "Enter" && e.target === e.currentTarget) {
+    if (e.key === "Enter" && e.target === e.currentTarget && onSelect) {
       e.preventDefault();
       onSelect();
     }
@@ -96,14 +106,14 @@ export default function ListRow({
   return (
     <div
       ref={rootRef}
-      data-testid="list-row"
+      data-testid={testId}
       data-kind={kind}
       data-selected={selected ? "true" : "false"}
-      tabIndex={0}
+      tabIndex={onSelect ? 0 : undefined}
       onClick={onSelect}
-      onKeyDown={onKeyDown}
-      className={`flex items-start gap-2.5 px-2.5 py-[7px] rounded-[6px] cursor-pointer font-sans transition-colors duration-hover ease-spring ${
-        selected ? "bg-page ring-1 ring-inset ring-line-2" : "hover:bg-plane"
+      onKeyDown={onSelect ? onKeyDown : undefined}
+      className={`flex items-start gap-2.5 px-2.5 py-[7px] rounded-[6px] font-sans transition-colors duration-hover ease-spring ${
+        selected ? "bg-page ring-1 ring-inset ring-line-2" : onSelect ? "cursor-pointer hover:bg-plane" : ""
       }`}
     >
       <span className="flex items-center h-[22px] shrink-0 text-ink-3">

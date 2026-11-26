@@ -306,7 +306,9 @@ describe("with an engine picked, the list is what it reaches", () => {
     fireEvent.click(fold());
     expect(fold().getAttribute("aria-expanded")).toBe("true");
     // drift has no verdict for this engine, so it is in neither list.
-    expect(notLoaded()).toEqual(["boltSkillNot linked", "cobaltSkillAnother engine's format"]);
+    // A skill's kind is its row's icon since Task 3 of
+    // docs/plans/2026-11-26-global-list.md; only a server carries a chip.
+    expect(notLoaded()).toEqual(["boltNot linked", "cobaltAnother engine's format"]);
   });
 
   it("with All engines every row shows and there is no Not loaded group", () => {
@@ -374,8 +376,8 @@ describe("with an engine picked, the list is what it reaches", () => {
     const lane = screen.getByTestId("list-lane");
     expect(lane.lastElementChild).toBe(group());
     expect(notLoaded()).toEqual([
-      "boltSkillNot linked",
-      "cobaltSkillAnother engine's format",
+      "boltNot linked",
+      "cobaltAnother engine's format",
       "deskstdioAnother engine's format",
       "spadesstdioAnother engine's format",
     ]);

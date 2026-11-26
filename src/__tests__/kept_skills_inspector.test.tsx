@@ -192,14 +192,14 @@ describe("App — the skill switch", () => {
     await completeScan(EMPTY);
     await waitFor(() => expect(commands()).toContain("get_kept_skills"));
     const group = await screen.findByTestId("kept-skills-group");
-    expect(within(group).getByRole("heading").textContent).toBe("Switched off · 1");
+    expect(within(group).getByRole("heading").getAttribute("aria-label")).toBe("Switched off · 1");
   });
 
   it("a Switched off row opens the kept skill; its switch puts it back, rescans and reads the kept skills again", async () => {
     keptReply = KEPT;
     render(<App />);
     await completeScan(EMPTY);
-    const row = (await screen.findByText("Off for every engine")).closest("button") as HTMLElement;
+    const row = (await screen.findByText("Off for every engine")).closest("[data-testid='list-row']") as HTMLElement;
     fireEvent.click(row);
     const panel = await aside();
     expect(await within(panel).findByRole("heading", { level: 2, name: "figma" })).toBeTruthy();

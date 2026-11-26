@@ -233,7 +233,7 @@ describe("⌘K's Switch actions", () => {
     render(<App />);
     await completeScan();
 
-    fireEvent.click((await screen.findByText("Off for Engine K")).closest("button") as HTMLElement);
+    fireEvent.click((await screen.findByText("Off for Engine K")).closest("[data-testid='list-row']") as HTMLElement);
     const pane = await waitFor(() => {
       const el = document.querySelector("aside");
       expect(el).not.toBeNull();

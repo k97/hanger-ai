@@ -1,6 +1,13 @@
-import { AdjustmentsHorizontalIcon, CheckIcon } from "./icons";
+import { AdjustmentsHorizontalIcon } from "./icons";
 import OverflowMenu, { menuItemClass, menuLabelClass } from "./OverflowMenu";
 import Tooltip from "./Tooltip";
+import {
+  DropdownMenuGroup,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+} from "./ui/dropdown-menu";
 
 /** Card rows have no clickable column headers, so the MCP section's grouping
  *  and sort live here instead of in `AssetHeaderRow` (spec §5.6: "the
@@ -49,10 +56,10 @@ const triggerClass =
  * facet row this used to live in, the trigger now sits at the row's own
  * left edge, and a right-anchored panel would run off the container.
  *
- * `animate-tip` reuses the tooltip's "nothing appears from nothing" scale —
- * the only entrance motion this design system has for a surface that opens
- * beside its own trigger rather than falling from the title bar or rising
- * from the foot.
+ * The panel is shadcn's DropdownMenu (`ui/dropdown-menu`, through
+ * `OverflowMenu`; Task 3 of docs/plans/2026-11-26-global-list.md): each
+ * section is a radio group under its label, the current option carries the
+ * check mark, ↑/↓ move between options, and picking one closes the menu.
  */
 export default function ViewControl({ grouping, sort, onGroupingChange, onSortChange }: ViewControlProps) {
   return (
@@ -69,45 +76,34 @@ export default function ViewControl({ grouping, sort, onGroupingChange, onSortCh
       className="w-[224px] p-1.5"
       data-testid="view-control-panel"
     >
-      {(close) => (
+      {() => (
         <>
-          <div className={menuLabelClass}>Rows</div>
-          {ROWS_OPTIONS.map((opt) => (
-            <button
-              key={opt.value}
-              type="button"
-              role="menuitemradio"
-              aria-checked={grouping === opt.value}
-              onClick={() => {
-                onGroupingChange(opt.value);
-                close();
-              }}
-              className={menuItemClass}
-            >
-              {opt.label}
-              {grouping === opt.value && <CheckIcon size={12} aria-hidden="true" />}
-            </button>
-          ))}
+          {/* Each label sits in its group, as Base UI's Menu requires; a
+              radio item closes the menu once picked, and its check mark is
+              the item's own indicator. */}
+          <DropdownMenuGroup>
+            <DropdownMenuLabel className={menuLabelClass}>Rows</DropdownMenuLabel>
+            <DropdownMenuRadioGroup value={grouping} onValueChange={(v) => onGroupingChange(v as ServerGrouping)}>
+              {ROWS_OPTIONS.map((opt) => (
+                <DropdownMenuRadioItem key={opt.value} value={opt.value} closeOnClick className={menuItemClass}>
+                  {opt.label}
+                </DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuRadioGroup>
+          </DropdownMenuGroup>
 
-          <div className="border-t border-line my-1.5" />
+          <DropdownMenuSeparator className="my-1.5" />
 
-          <div className={menuLabelClass}>Sort</div>
-          {SORT_OPTIONS.map((opt) => (
-            <button
-              key={opt.value}
-              type="button"
-              role="menuitemradio"
-              aria-checked={sort === opt.value}
-              onClick={() => {
-                onSortChange(opt.value);
-                close();
-              }}
-              className={menuItemClass}
-            >
-              {opt.label}
-              {sort === opt.value && <CheckIcon size={12} aria-hidden="true" />}
-            </button>
-          ))}
+          <DropdownMenuGroup>
+            <DropdownMenuLabel className={menuLabelClass}>Sort</DropdownMenuLabel>
+            <DropdownMenuRadioGroup value={sort} onValueChange={(v) => onSortChange(v as ServerSort)}>
+              {SORT_OPTIONS.map((opt) => (
+                <DropdownMenuRadioItem key={opt.value} value={opt.value} closeOnClick className={menuItemClass}>
+                  {opt.label}
+                </DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuRadioGroup>
+          </DropdownMenuGroup>
         </>
       )}
     </OverflowMenu>

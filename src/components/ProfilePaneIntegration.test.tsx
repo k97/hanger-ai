@@ -1562,8 +1562,8 @@ describe("ProfilePane — servers switched off and kept by Hanger (Task A8)", ()
         onLinkAsset={vi.fn()}
       />
     );
-    expect(groupHeading()?.textContent).toBe("Switched off · 1");
-    const row = screen.getByRole("button", { name: /beta/ });
+    expect(groupHeading()?.getAttribute("aria-label")).toBe("Switched off · 1");
+    const row = screen.getByText("beta").closest("[data-testid='list-row']") as HTMLElement;
     expect(within(row).getByText("stdio")).toBeTruthy();
     expect(within(row).getByText("Off for Engine K")).toBeTruthy();
     // No tool count and no reach: a kept server is in no file Hanger probes.
@@ -1618,7 +1618,7 @@ describe("ProfilePane — servers switched off and kept by Hanger (Task A8)", ()
         onLinkAsset={vi.fn()}
       />
     );
-    expect(groupHeading()?.textContent).toBe("Switched off · 3");
+    expect(groupHeading()?.getAttribute("aria-label")).toBe("Switched off · 3");
   });
 
   it("with only kept servers, MCP servers shows the group and not the zero-servers state", () => {
@@ -1636,7 +1636,7 @@ describe("ProfilePane — servers switched off and kept by Hanger (Task A8)", ()
         onLinkAsset={vi.fn()}
       />
     );
-    expect(groupHeading()?.textContent).toBe("Switched off · 1");
+    expect(groupHeading()?.getAttribute("aria-label")).toBe("Switched off · 1");
     expect(screen.queryByText("No MCP servers registered")).toBeNull();
     expect(screen.getByText("Off for Engine K")).toBeTruthy();
   });
@@ -1655,7 +1655,7 @@ describe("ProfilePane — servers switched off and kept by Hanger (Task A8)", ()
         onLinkAsset={vi.fn()}
       />
     );
-    expect(groupHeading()?.textContent).toBe("Switched off · 1");
+    expect(groupHeading()?.getAttribute("aria-label")).toBe("Switched off · 1");
     expect(screen.queryByText("Nothing in the global store yet")).toBeNull();
   });
 
@@ -1674,7 +1674,7 @@ describe("ProfilePane — servers switched off and kept by Hanger (Task A8)", ()
         onLinkAsset={vi.fn()}
       />
     );
-    expect(groupHeading()?.textContent).toBe("Switched off · 1");
+    expect(groupHeading()?.getAttribute("aria-label")).toBe("Switched off · 1");
     expect(screen.queryByTestId("scan-pending")).toBeNull();
   });
 
@@ -1693,7 +1693,7 @@ describe("ProfilePane — servers switched off and kept by Hanger (Task A8)", ()
         onLinkAsset={vi.fn()}
       />
     );
-    fireEvent.click(screen.getByRole("button", { name: /beta/ }));
+    fireEvent.click(screen.getByText("beta").closest("[data-testid='list-row']") as HTMLElement);
     expect(onOpenKeptOff).toHaveBeenCalledWith("stash:00000000-0000-4000-8000-000000000001");
   });
 

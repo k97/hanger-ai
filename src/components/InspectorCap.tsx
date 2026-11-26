@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, type ComponentType, type RefObject } from "react";
 import Tooltip from "./Tooltip";
 import FindingChip from "./FindingChip";
-import OverflowMenu, { menuActionClass, MenuSeparator } from "./OverflowMenu";
+import OverflowMenu, { menuActionClass } from "./OverflowMenu";
+import { DropdownMenuItem, DropdownMenuSeparator } from "./ui/dropdown-menu";
 import { miniBtnFillClass } from "./miniButton";
 import { kindLabel } from "../utils/assetProvenance";
 import { captionClass } from "./typeRoles";
@@ -322,30 +323,20 @@ export default function InspectorCap({
             align="right"
             className="min-w-[184px] p-1"
           >
-            {(close) => (
+            {() => (
               <>
                 {showLinkInMenu && onLink && (
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={() => {
-                      onLink();
-                      close();
-                    }}
+                  <DropdownMenuItem
+                    onClick={() => onLink()}
                     className={menuActionClass}
                   >
                     <LinkIcon size={14} aria-hidden="true" className="text-ink-3" />
                     <span>Link to…</span>
-                  </button>
+                  </DropdownMenuItem>
                 )}
                 {showReviewInMenu && (
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={() => {
-                      onReview(findings.issues[0]);
-                      close();
-                    }}
+                  <DropdownMenuItem
+                    onClick={() => onReview(findings.issues[0])}
                     className={menuActionClass}
                   >
                     <span className="w-3.5 grid place-items-center">
@@ -355,45 +346,32 @@ export default function InspectorCap({
                       />
                     </span>
                     <span>Needs review · {findings.count}</span>
-                  </button>
+                  </DropdownMenuItem>
                 )}
-                {(showLinkInMenu || showReviewInMenu) && <MenuSeparator />}
+                {(showLinkInMenu || showReviewInMenu) && <DropdownMenuSeparator />}
                 {onCopyPath && (
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={() => {
-                      onCopyPath();
-                      close();
-                    }}
+                  <DropdownMenuItem
+                    onClick={() => onCopyPath()}
                     className={menuActionClass}
                   >
                     <Square2StackIcon size={14} aria-hidden="true" className="text-ink-3" />
                     <span>Copy path</span>
-                  </button>
+                  </DropdownMenuItem>
                 )}
                 {onReveal && (
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={() => {
-                      onReveal();
-                      close();
-                    }}
+                  <DropdownMenuItem
+                    onClick={() => onReveal()}
                     className={menuActionClass}
                   >
                     <RevealInFileManagerIcon size={14} aria-hidden="true" className="text-ink-3" />
                     <span>Reveal in Finder</span>
-                  </button>
+                  </DropdownMenuItem>
                 )}
                 {showOpenInMenu && onOpenInEditor && (
-                  <button
-                    type="button"
-                    role="menuitem"
+                  <DropdownMenuItem
                     onClick={() => {
                       if (optionHeld && onPickEditor) onPickEditor();
                       else onOpenInEditor();
-                      close();
                     }}
                     className={menuActionClass}
                   >
@@ -407,7 +385,7 @@ export default function InspectorCap({
                         ? "Open with…"
                         : `Open with ${chosenEditor}`}
                     </span>
-                  </button>
+                  </DropdownMenuItem>
                 )}
               </>
             )}

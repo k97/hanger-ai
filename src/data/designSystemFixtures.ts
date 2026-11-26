@@ -277,8 +277,8 @@ export const SAMPLE_ENGINE_STRIP: EngineStripFigures = {
  *  in another engine's format. The reasons are ReachCard's (`missTitle`),
  *  from the sample reach's own misses. */
 export const SAMPLE_NOT_LOADED: NotLoadedRow[] = [
-  { key: "Skills:sample-1", name: "writing-great-skills", chip: "Skill", reason: missTitle(SAMPLE_REACH[2]), selected: false, onOpen: () => {} },
-  { key: "Tools:sample-2", name: "chrome-devtools", chip: "stdio", reason: missTitle(SAMPLE_REACH[3]), selected: false, onOpen: () => {} },
+  { key: "Skills:sample-1", kind: "skill", name: "writing-great-skills", reason: missTitle(SAMPLE_REACH[2]), selected: false, onOpen: () => {} },
+  { key: "Tools:sample-2", kind: "server", name: "chrome-devtools", chip: "stdio", reason: missTitle(SAMPLE_REACH[3]), selected: false, onOpen: () => {} },
 ];
 
 /** The two notices `useMcpSwitch` sets: a switch with its receipt, and a

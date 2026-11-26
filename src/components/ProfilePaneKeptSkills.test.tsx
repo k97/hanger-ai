@@ -69,10 +69,10 @@ function renderPane(over: Partial<Parameters<typeof ProfilePane>[0]> = {}) {
 describe("ProfilePane — Switched off, under Skills", () => {
   it("heads the group with the backend's count, on Skills and on All", () => {
     renderPane();
-    expect(head().textContent).toBe("Switched off · 1");
+    expect(head().getAttribute("aria-label")).toBe("Switched off · 1");
     cleanup();
     renderPane({ selectedCategory: undefined, keptSkills: kept([FIGMA, QUILL]) });
-    expect(head().textContent).toBe("Switched off · 2");
+    expect(head().getAttribute("aria-label")).toBe("Switched off · 2");
   });
 
   it("leaves the Skills figure to get_asset_counts", () => {
@@ -102,7 +102,7 @@ describe("ProfilePane — Switched off, under Skills", () => {
   it("each row shows the skill's name and that it is off for every engine, and opens its panel by key", () => {
     const onOpenKeptSkill = vi.fn();
     renderPane({ keptSkills: kept([FIGMA, QUILL]), onOpenKeptSkill });
-    const rows = within(group()!).getAllByRole("button");
+    const rows = within(group()!).getAllByTestId("list-row");
     expect(rows.map((r) => r.textContent)).toEqual(["figmaOff for every engine", "quillOff for every engine"]);
     fireEvent.click(rows[1]);
     expect(onOpenKeptSkill).toHaveBeenCalledWith(QUILL.key);
@@ -110,7 +110,7 @@ describe("ProfilePane — Switched off, under Skills", () => {
 
   it("reads the row the inspector shows as selected", () => {
     renderPane({ keptSkills: kept([FIGMA, QUILL]), selectedKeptSkillKey: QUILL.key });
-    const rows = within(group()!).getAllByRole("button");
+    const rows = within(group()!).getAllByTestId("list-row");
     expect(rows.map((r) => r.getAttribute("data-selected"))).toEqual(["false", "true"]);
   });
 
@@ -132,7 +132,7 @@ describe("ProfilePane — Switched off, under Skills", () => {
 
   it("with only kept skills, Skills shows the group and not the empty state", () => {
     renderPane({ inventory: nothing, assetCounts: zeroCounts, detectedEngines: [{ id: "claude-code", name: "Engine K" }] });
-    expect(head().textContent).toBe("Switched off · 1");
+    expect(head().getAttribute("aria-label")).toBe("Switched off · 1");
     expect(screen.queryByText(/^No skills/)).toBeNull();
   });
 
@@ -143,7 +143,7 @@ describe("ProfilePane — Switched off, under Skills", () => {
       selectedCategory: undefined,
       detectedEngines: [{ id: "claude-code", name: "Engine K" }],
     });
-    expect(head().textContent).toBe("Switched off · 1");
+    expect(head().getAttribute("aria-label")).toBe("Switched off · 1");
     expect(screen.queryByText("Nothing in the global store yet")).toBeNull();
   });
 });

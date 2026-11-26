@@ -56,7 +56,9 @@ describe("ViewControl", () => {
     const trigger = screen.getByRole("button", { name: "View" });
     fireEvent.click(trigger);
     expect(trigger.getAttribute("aria-expanded")).toBe("true");
-    fireEvent.keyDown(window, { key: "Escape" });
+    // At the document, where a keypress lands: the menu is Base UI's since
+    // Task 3 of docs/plans/2026-11-26-global-list.md, and it listens there.
+    fireEvent.keyDown(document.body, { key: "Escape" });
     expect(trigger.getAttribute("aria-expanded")).toBe("false");
     expect(onGroupingChange).not.toHaveBeenCalled();
     expect(onSortChange).not.toHaveBeenCalled();
@@ -65,9 +67,11 @@ describe("ViewControl", () => {
   it("marks the current grouping and sort as checked", () => {
     render(<ViewControl grouping="registration" sort="name" onGroupingChange={vi.fn()} onSortChange={vi.fn()} />);
     fireEvent.click(screen.getByRole("button", { name: "View" }));
-    expect(screen.getByText("One per registration").closest("button")?.getAttribute("aria-checked")).toBe("true");
-    expect(screen.getByText("One per server").closest("button")?.getAttribute("aria-checked")).toBe("false");
-    expect(screen.getByText("Name").closest("button")?.getAttribute("aria-checked")).toBe("true");
-    expect(screen.getByText("Needs attention first").closest("button")?.getAttribute("aria-checked")).toBe("false");
+    // Base UI's radio items are menu items, not <button>s (Task 3).
+    const item = (text: string) => screen.getByText(text).closest("[role='menuitemradio']");
+    expect(item("One per registration")?.getAttribute("aria-checked")).toBe("true");
+    expect(item("One per server")?.getAttribute("aria-checked")).toBe("false");
+    expect(item("Name")?.getAttribute("aria-checked")).toBe("true");
+    expect(item("Needs attention first")?.getAttribute("aria-checked")).toBe("false");
   });
 });

@@ -236,12 +236,13 @@ describe("the MCP card row", () => {
     });
   });
 
-  // §6.3 state 8 (50+ servers): sticky headers hold and the tile column does
-  // not reflow. A jsdom test cannot see CSS stickiness taking effect during
-  // scroll, so this pins the structural facts a rendered check CAN see —
-  // every row renders (no silent cap), the Tools section header carries the
-  // sticky classname, and the scroll container carries the overflow class
-  // sticky positioning depends on. The visual half is Task 14's screenshot.
+  // §6.3 state 8 (50+ servers): the tile column does not reflow. A jsdom
+  // test cannot see layout, so this pins the structural facts a rendered
+  // check CAN see — every row renders (no silent cap), the Tools section
+  // header is not sticky, and the scroll container scrolls. The header was
+  // sticky until Task 3 of docs/plans/2026-11-26-global-list.md: stuck, it
+  // stayed over the Subagent rows once the list scrolled past its own
+  // (Review Focus 3), and T3's group heads scroll with their rows.
   describe("state 8 — 50+ servers", () => {
     const manyServerRows = (n: number) =>
       Array.from({ length: n }, (_, i) => ({
@@ -271,7 +272,7 @@ describe("the MCP card row", () => {
       expect(screen.getAllByText(/^server-\d{3}$/)).toHaveLength(55);
     });
 
-    it("the Tools section header carries the sticky classname", () => {
+    it("the Tools section header is not sticky", () => {
       render(
         <ProfilePane
           {...base}
@@ -282,8 +283,8 @@ describe("the MCP card row", () => {
         />
       );
       const header = screen.getByTestId("section-header-tools");
-      expect(header.className).toContain("sticky");
-      expect(header.className).toContain("top-0");
+      expect(header.className).not.toContain("sticky");
+      expect(header.className).not.toContain("top-0");
     });
 
     it("the list's scroll container carries the overflow class sticky positioning requires", () => {

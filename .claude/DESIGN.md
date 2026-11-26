@@ -635,9 +635,10 @@ Design record (local-only, not tracked in this repo):
 
 ## 5. Component inventory
 
-65 non-test `.tsx` files flat in `src/components/`, one component per file,
+66 non-test `.tsx` files flat in `src/components/`, one component per file,
 and one subdirectory, `src/components/ui/`, which holds shadcn's components
-(Tabs, Popover, Toggle and Tooltip, below). Views are suffixed `Pane`.
+(Tabs, Popover, Toggle, Tooltip, Collapsible, DropdownMenu and Separator,
+below). Views are suffixed `Pane`.
 
 The "all default-exported, with an `interface <Name>Props` declared directly
 above" rule holds for most and has named exceptions, listed here so the rule
@@ -730,17 +731,17 @@ group) — the servers Hanger is keeping while they are switched off for an
 engine that switches by removing them (`get_kept_off_servers`, docs/ipc.md
 entry 19). No config file declares them, so they are no row of the MCP
 servers list and in no figure from `get_asset_counts`: the list's header
-keeps its own figure, and the group follows the Tools rows under its own
-`h3` (`groupLabelClass`, the other groups' shape) reading "Switched off ·
-‹keptOff.count›" — the backend's figure, never the rows'. Each row is a
-`<button>` (`keptRowClass`, which is `NotLoadedGroup.tsx` → `groupRowClass`): the name and the transport chip, drawn with
-`cardChipClass` (`AssetRow.tsx`, the card row's own chip) and, like it,
-showing only the domain (`transportChipLabel`, below), then "Off for
-‹engine_name›"; no reach tiles and no tool count, because the server is in
-no file. A row calls `onOpenKeptOff(key)` with its `stash:` key, and App
-opens the server in the inspector without a change of screen (T4 of the IA
-plan); the row App names in `selectedKeptKey` reads as selected, with the
-card row's `bg-tint` ground, tinted name and `data-selected`. It shows on MCP servers and All; a link-state filter
+keeps its own figure, and the group follows the Tools rows as a
+`CollapsibleGroup` (`data-testid="kept-tools-group"`, open by default,
+below), its head named "Switched off · ‹keptOff.count›" — the backend's
+figure, never the rows'. Each row is a `ListRow` (Task 3 of
+`docs/plans/2026-11-26-global-list.md`): the server's icon, the name and
+its transport chip, showing only the domain (`transportChipLabel`, below),
+then "Off for ‹engine_name›" as the detail; no reach tiles and no figure,
+because the server is in no file. A row calls `onOpenKeptOff(key)` with its
+`stash:` key, and App opens the server in the inspector without a change of
+screen (T4 of the IA plan); the row App names in `selectedKeptKey` reads as
+selected, `ListRow`'s selected ring and `data-selected`. It shows on MCP servers and All; a link-state filter
 hides it, since a kept server has no link state. With only kept servers,
 neither the zero-servers state nor the whole-store empty plane wins: every
 predicate that decides the plane reads `keptAny` (`keptOff.count > 0`, a
@@ -760,13 +761,13 @@ docs/ipc.md entry 24; `docs/plans/2026-11-26-skill-switch.md`). A kept
 skill's folder is out of the global store, so it is no row of the Skills
 group and in no figure from `get_asset_counts`: the Skills header keeps its
 own figure, and this group carries the backend's. It is the servers' group's
-shape: an `h3` (`groupLabelClass`) reading "Switched off · ‹keptSkills.count›"
-(`keptSkillsHead`), then one `<button>` per kept skill (`groupRowClass`,
-`NotLoadedGroup.tsx`) holding the skill's folder name and "Off for every
-engine" (`KEPT_SKILL_OFF_LINE`); no chip, no reach and no link state. A row
-calls `onOpenKeptSkill(key)` with its `kept-skill:` key; the row App names in
-`selectedKeptSkillKey` reads as selected (`bg-tint`, tinted name,
-`data-selected`). It shows on Skills and All, and a link-state filter hides
+shape: a `CollapsibleGroup` (open by default) whose head is named "Switched
+off · ‹keptSkills.count›", then one `ListRow` per kept skill (Task 3 of
+`docs/plans/2026-11-26-global-list.md`) holding the skill's folder name and,
+as its detail, "Off for every engine" (`KEPT_SKILL_OFF_LINE`); no chip, no
+reach and no link state. A row calls `onOpenKeptSkill(key)` with its
+`kept-skill:` key; the row App names in `selectedKeptSkillKey` reads as
+selected (`ListRow`'s selected ring, `data-selected`). It shows on Skills and All, and a link-state filter hides
 it. A kept skill is off for every engine, so a picked engine keeps every row
 and drops only the figure, "Switched off". With only kept skills, neither the
 Skills empty state nor the whole-store plane wins: those predicates read
@@ -790,20 +791,36 @@ All engines on the same tab. Pinned by `engine_lens.test.tsx` and
 **`NotLoadedGroup`** (`NotLoadedGroup.tsx`) — `engineName`, `rows`,
 `defaultOpen?`. "Not loaded by ‹engine›", once, at the end of Global's list
 while an engine is picked and the backend says it misses something there
-(Q4). The head is the "Switched off" group's `h3` (`groupLabelClass` at
-`px-3.5 pt-[11px] pb-[5px]`) made a fold: a full-width `<button
-aria-expanded>` with HeroBand's chevron (`ChevronRightIcon`, here at the
-12px chevron size, `rotate-90` open, `duration-hover ease-spring`), folded
-by default. **It carries no figure**: no backend command counts these, and a
-number made here would be a frontend count. Each row is a `groupRowClass`
-button, the "Switched off" row's shape: the name, a `cardChipClass` chip (an
-MCP server's `transportChipLabel`, otherwise the kind, `getSingularType`),
-then the reason in `text-small text-ink-3` — `ReachCard.tsx` → `missTitle`,
-the Reach card's own route title for a miss ("Not linked", "Another
-engine's format"), so the list and the inspector name one miss one way. A
-row opens its asset in the inspector; the cap's Link to… is the way to act.
-Selected, it takes `bg-tint` and the tinted name. Pinned by
-`engine_lens_pane.test.tsx`.
+(Q4). It is a `CollapsibleGroup` (below), folded by default. **It carries
+no figure**: no backend command counts these, and a number made here would
+be a frontend count. Each row is a `ListRow` (`data-testid="not-loaded-row"`;
+Task 3 of `docs/plans/2026-11-26-global-list.md`): the kind's icon, the
+name, an MCP server's `transportChipLabel` chip (the other kinds carry none:
+the icon names the kind, where a `getSingularType` chip did until Task 3),
+then the reason as the detail — `ReachCard.tsx` → `missTitle`, the Reach
+card's own route title for a miss ("Not linked", "Another engine's
+format"), so the list and the inspector name one miss one way. A row opens
+its asset in the inspector; the cap's Link to… is the way to act. Pinned by
+`engine_lens_pane.test.tsx` and `global_groups.test.tsx`.
+
+**`CollapsibleGroup`** (`CollapsibleGroup.tsx`) — `id`, `label`, `figure`,
+`defaultOpen?` (open), `testId?`, `children`. A group on Global's list that
+folds: both "Switched off" groups and "Not loaded by ‹engine›" (Task 3 of
+`docs/plans/2026-11-26-global-list.md`). shadcn's Collapsible
+(`ui/collapsible`, §5 shadcn) under T3 Code's quiet shelf head
+(`collapsible-section-header.tsx`), which is `GroupHead`'s shape made one
+`<button aria-expanded>`: `h-8 px-2.5 text-small font-medium text-ink-3`,
+`hover:text-ink-1`, the label, a 1px `ui/separator` rule, the figure in
+`font-normal tabular` (none where `figure` is null), and a 12px
+`ChevronRightIcon` at the end that turns down (`rotate-90`) while open, on
+Base UI's `data-panel-open`. T3 hides its rule when a count follows; here it
+stays, as `GroupHead`'s does, so the folding heads and the static ones read
+as one family. The `<h3>` carries `id`, which its tick jumps to, and an
+`aria-label` in the tick's words (`groupHead`). The panel holds the rows
+`gap-px` apart and leaves the page while folded. No animation. The root
+takes `mt-2.5 first:mt-0`, as the static heads do. Pinned by
+`global_groups.test.tsx`; the Design system page shows it with two sample
+rows.
 
 **`GroupTicks`** (`GroupTicks.tsx`) — `groups`, `scrollRoot`. Tick marks in
 the left margin of Global's lane, one per group the list draws, so a long
@@ -831,25 +848,28 @@ tick from it, so the two cannot disagree, and it passes only the groups it
 draws, in the order it draws them; with fewer than two there is nowhere to
 jump, and it draws nothing. A click calls `scrollIntoView({ block: "start"
 })` on `#group-‹key›` (`skills`, `kept-skills`, `tools`, `kept-tools`,
-`rules`, `subagents`, `not-loaded`): each head carries its id and a scroll
-margin, `scroll-mt-8` before the MCP servers head and `scroll-mt-11` after
-it (`afterToolsScrollMargin`; `KeptSkillsGroup` and `NotLoadedGroup` take
-it as `scrollMarginClass`). Those were measured for `AssetHeaderRow` and
-the old 41px MCP servers header. Task 1 removed the first and cut the
-second to a 32px quiet head, so they now overshoot by up to 12px; Task 3
-removes the sticky header and these margins together. MCP servers' id is on
-an empty `span` just before `section-header-tools`, not on the header: that
-header is still sticky, and once stuck it is already in view, so scrolling
-it into view would not move the list. No animation on the jump. Pinned by
-`GroupTicks.test.tsx`, `ProfilePaneGroupTicks.test.tsx` and
-`ProfilePaneList.test.tsx`; the Design system page shows it beside four
-sample groups in a short scrolling box.
+`rules`, `subagents`, `not-loaded`): each head carries its id — the
+`GroupHead` row for a static group, the `<h3>` for a folding one — and no
+scroll margin, because no head on Global is sticky since Task 3, so nothing
+is stuck above a head for it to clear. The margins it carried until then
+(`scroll-mt-8`, `scroll-mt-11`) and the empty `span` that stood in for the
+stuck MCP servers head went with that head's stickiness. No animation on
+the jump. Pinned by `GroupTicks.test.tsx`, `ProfilePaneGroupTicks.test.tsx`,
+`ProfilePaneList.test.tsx` and `global_groups.test.tsx`; the Design system
+page shows it beside four sample groups in a short scrolling box.
 
 **`ListRow`** (`ListRow.tsx`) — `kind`, `name`, `chip?`, `detail?`,
 `figure?`, `figureTone?`, `reach`, `switchFor?`, `leadEngine?`, `muted?`,
-`selected`, `onSelect`. Every row of Global's list: skills, MCP servers,
-rules and subagents (Task 1 of `docs/plans/2026-11-26-global-list.md`),
-after T3 Code's two-line `PullRequestListRow`. The kind's 16px icon
+`selected?`, `onSelect?`, `testId?`. Every row of Global's list: skills, MCP
+servers, rules and subagents (Task 1 of
+`docs/plans/2026-11-26-global-list.md`), and since Task 3 the kept skills,
+kept servers, Not loaded rows and config problems, after T3 Code's two-line
+`PullRequestListRow`. A config problem (Appendix A.3/A.4,
+`McpConfigProblemRow`) is kind `problem`, drawn with `ExclamationCircleIcon`:
+the engine's name on line 1, the Appendix sentence as the detail, no marks,
+and no `onSelect`, so it is no tab stop and takes no hover. `testId` keeps a
+group's own test id on its rows (`not-loaded-row`,
+`mcp-config-problem-row`). The kind's 16px icon
 (`KIND_ICON`, shared with `InspectorCap`), then line 1 at `h-[22px]`: the
 name, `text-base-app font-medium` (13px, round 18 q3), `truncate`; and on
 the right, `shrink-0 whitespace-nowrap`, a server's transport chip
@@ -880,12 +900,15 @@ max-w-[736px] px-12` (T3's `.chat-content-lane`), inside their own
 ticks go; a `ResizeObserver` on the list decides, and a zero width (no
 layout yet) is no answer. The list is flat on the page: no border, no
 column headers, no header-click sorting. A group head is T3's shelf header,
-`h-8 px-2.5 text-small font-medium text-ink-3`: the label, a `flex-1 h-px
-bg-line` hairline, the backend's figure in `font-normal tabular` (none with
-an engine picked), and the View control at the end of the first head on
-screen while the MCP servers rows are drawn. Heads after the first take
-`mt-2.5`. The MCP servers head is still wrapped in its sticky
-`section-header-tools` until Task 3.
+`h-8 px-2.5 text-small font-medium text-ink-3`: the label, a 1px rule
+(`ui/separator`, `flex-1`, `--line`), the backend's figure in `font-normal
+tabular` (none with an engine picked), and the View control at the end of
+the first head on screen while the MCP servers rows are drawn. Heads after
+the first take `mt-2.5`. **No head is sticky** (Task 3, Review Focus 3): the
+MCP servers head (`data-testid="section-header-tools"`) was, and once the
+list scrolled past its rows it sat over the Subagent rows with a stale
+"MCP servers 33". T3's heads scroll with their rows, and so do these. The
+folding groups draw the same head as `CollapsibleGroup`.
 
 **`RepoPane`** (`RepoPane.tsx:36-69`) — the same shape plus `repoPath`,
 `onRefresh`, `onLinkFromProfile`, `linkedRepos?`, `onPromoteCandidates?`,
@@ -1851,12 +1874,14 @@ button nor the card is drawn.
 
 **Who gets an Esc** (Task 6, Review Focus 4). Esc goes to the innermost thing
 open, and a fixed listener phase decides that, not the order the listeners
-were added in. `FindingPopover`, `OverflowMenu`, `InfoPopover`,
+were added in. `FindingPopover`, `InfoPopover`,
 `SearchPalette` and `Tooltip` (only while a tip is up) take Escape in the
 capture phase on `window` and call `preventDefault`. `OverviewPopover`'s
 Esc is Base UI's, in the bubble phase on `document`: it marks the Esc it
 uses, and `OverviewPopover` cancels one already marked, so Esc in its Needs
-review popover closes only that. App's Esc is last, in the bubble phase on
+review popover closes only that. `OverflowMenu`'s is Base UI's too since
+Task 3 of `docs/plans/2026-11-26-global-list.md` (`ui/dropdown-menu`), on
+`document`, marked the same way. App's Esc is last, in the bubble phase on
 `window`. On Global, with the inspector open and showing an asset, a bubble
 or a kept item, an unmarked Esc clears that selection (round 14 q4). It does
 nothing on other screens, and nothing to an Esc typed into an input, a
@@ -2009,6 +2034,40 @@ first caller is the overview card's button, whose trigger is a wrapping
 span so its props stay off the `Toggle`; Hanger's own `Tooltip` serves
 every other control until each is swapped (round 19).
 
+**`Collapsible`** (`ui/collapsible.tsx`) — shadcn's Collapsible on Base UI,
+added for Task 3 of `docs/plans/2026-11-26-global-list.md`: `Collapsible`
+(the root, `data-slot="collapsible"`), `CollapsibleTrigger` (a native
+`<button>` with `aria-expanded` and `data-panel-open` while open, plus
+`cursor-pointer`, as T3's has) and `CollapsibleContent` (Base UI's panel,
+which leaves the page while closed). No height animation: Hanger's groups
+open and close with nothing moving. Its caller is `CollapsibleGroup`.
+
+**`DropdownMenu`** (`ui/dropdown-menu.tsx`) — shadcn's DropdownMenu on Base
+UI, added for Task 3 of the same plan, restyled. `DropdownMenuContent`
+portals and positions the panel and draws Hanger's overlay surface:
+`bg-page text-ink-1 border border-line rounded-inner shadow-overlay`, with
+width and padding left to the caller, no ring and no enter or exit
+animation. `DropdownMenuItem` and `DropdownMenuRadioItem` are `h-7 px-1.5
+rounded-soft font-flex text-small text-ink-1`, highlighted with
+`data-highlighted:bg-tint`. shadcn's `focus:bg-accent` would be the strong
+fill here, so it is not used. A radio item's check is Hanger's `CheckIcon`
+at 12, in Base UI's indicator. `DropdownMenuLabel` (the 11px muted voice,
+inside its `DropdownMenuGroup`, as Base UI requires),
+`DropdownMenuRadioGroup` and `DropdownMenuSeparator` (`h-px mx-1.5 my-1
+bg-line`) complete it. The submenu, checkbox item, shortcut and inset parts,
+the `destructive` variant and the `dark:` rule were removed. Base UI owns
+the behaviour: a click opens it, ↑/↓, Home and End move the highlight, Enter
+or a click picks, and Esc (marked handled, on `document`) or a press
+outside closes it. Its caller is `OverflowMenu`.
+
+**`Separator`** (`ui/separator.tsx`) — shadcn's Separator on Base UI,
+`role="separator"`, in `--line` (shadcn's `--border` is not used). The
+CLI's `data-horizontal:` and `data-vertical:` variants come from shadcn's
+own stylesheet, which Hanger does not load, so orientation is read from
+Base UI's `data-orientation`. Global's group heads draw their 1px rule with
+it (`GroupHead`, `CollapsibleGroup`), `aria-hidden` there, as the hand-drawn
+`h-px bg-line` span was.
+
 **`CategoryFilterCards`** (`CategoryFilterCards.tsx:5-15`) — per-category
 counts, `selectedCategory`, `onSelectCategory`, `loading`. `allCount` is
 labelled "Backend-owned total for the All chip". `enginesTab?` adds
@@ -2144,21 +2203,26 @@ rendering a second stamp — a `title` read off a component that ticks is how
 a tooltip goes stale unseen. The words themselves — "moments ago" under a
 minute, then minutes, hours, days — are `timeAgo.ts` (`:2-11`).
 
-**`OverflowMenu`** (`OverflowMenu.tsx:39-87`, props `:17-30`) — the popover
-behind two different triggers: `ViewControl`'s "View" control and the
-inspector cap's ⋮. `trigger` is a render prop the caller uses to draw its own
-button, wired with the `aria-haspopup`/`aria-expanded`/`onClick` triple it
-must spread (`:19`); `ariaLabel` names the resulting `role="menu"`; `align`
-picks which edge the panel hangs from — `ViewControl` opens from its left
-edge, the cap's ⋮ from its right, inward, because the aside clips (`:22-23`);
-`children` is a render prop taking a `close` callback each item calls after
-acting (`:26`). The panel itself — `shadow-overlay`, `rounded-inner`,
-`animate-tip` — opens on click and closes on Escape or an outside
-pointerdown (`:50-66`). Extracted from `ViewControl`, which used to own this
-mechanism directly and is now its first caller (`b48b8c3`); `ViewControl`
-keeps `menuItemClass`/`menuLabelClass` as its own row styles (`:3-7`), the
-cap's menu items use `menuActionClass` instead (`:9-10`), and `MenuSeparator`
-(`:13-15`) is shared by both.
+**`OverflowMenu`** (`OverflowMenu.tsx`) — the menu behind two different
+triggers: `ViewControl`'s "View" control and the inspector cap's ⋮. Drawn
+with shadcn's DropdownMenu on Base UI since Task 3 of
+`docs/plans/2026-11-26-global-list.md` (`ui/dropdown-menu`, §5 shadcn).
+`trigger` is a render prop the caller uses to draw its own button, spreading
+the props Base UI hands it (`OverflowMenuTriggerProps`: its ARIA, handlers
+and ref); `ariaLabel` names the resulting `role="menu"`; `align` picks which
+edge the panel hangs from — `ViewControl` opens from its left edge, the
+cap's ⋮ from its right, inward, because the aside clips — as Base UI's
+`start`/`end`, 6px below; `children` is a render prop taking a `close`
+callback for a plain item, though `DropdownMenuItem`s close the menu
+themselves. Base UI opens it on a click, moves a `--tint` highlight with
+↑/↓, and closes it on Esc, a press outside or a picked item; the content
+renders only while open, as `OverviewPopover`'s does, so a closed menu
+leaves the page at once. `ViewControl` draws two `DropdownMenuGroup`s, each
+a `DropdownMenuLabel` (`menuLabelClass`) over a `DropdownMenuRadioGroup` of
+`DropdownMenuRadioItem`s (`menuItemClass`) that close on a pick, split by a
+`DropdownMenuSeparator`; the cap's items are `DropdownMenuItem`s
+(`menuActionClass`) with one separator. The test ids, labels and item names
+are the ones the hand-built menu had.
 
 **`SearchPalette`** (`SearchPalette.tsx:205-272`) — the ⌘K search palette: a
 full-screen wash (`:253-259`) behind a top-aligned, 560px panel (`:119-123`)
@@ -3003,8 +3067,11 @@ beside them; `InspectorCap`, `ListCard`, `ReachCard`, `OriginValue`,
 same day, `FindingPopover` under Controls (`DesignSystemPane.tsx:748-771`)
 and `HeroBand` under Components (`:1001-1018`). `OverviewCard` joined
 Components on 2026-11-26 with three specimens: an engine picked, All
-engines, and before the first scan. `McpEngineSummary`'s
-specimen left with the component it drew. Nothing on it is a picture, so nothing on it can drift from the
+engines, and before the first scan. Task 3 of
+`docs/plans/2026-11-26-global-list.md` added `CollapsibleGroup` under
+Composites and `ui/collapsible` with `ui/separator` under Controls; the
+OverflowMenu specimen draws its items with `ui/dropdown-menu`.
+`McpEngineSummary`'s specimen left with the component it drew. Nothing on it is a picture, so nothing on it can drift from the
 app; after a pull, one page shows every component in the current theme.
 
 **Every component is on the page, or says why not — enforced.** From
