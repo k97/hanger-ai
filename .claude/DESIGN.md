@@ -1387,6 +1387,39 @@ without the button. Once the switch succeeds App
 reads the kept list again (`useMcpSwitch`'s `onChanged`), the server leaves
 it, and nothing is selected. Pinned by `kept_inspector.test.tsx`.
 
+**The switch for every engine** (`Flyout.tsx`, the header row;
+`AllEnginesSwitch.tsx`). An MCP server's header — a declared server's or a
+kept one's — ends in one switch that covers every engine
+(`docs/plans/2026-11-25-decisions-round-5.md`, `-round-6.md`, approved
+2026-11-25), pushed right by `ml-auto` after the name and its transport chip,
+with its state word beside it in `captionClass`: "On" when every item it
+covers is on, "Off" when all are off, "On in some" otherwise — a word, never
+a count. It covers the items of exactly the server's name in App's one copy
+of the contexts that Hanger can switch (`read_only === null`), kept ones
+(`stash:` keys) included, one per engine that switches by name
+(`switchTargets.ts` → `serverSwitchTargets`); with none, no switch and no
+word. The button is the Registered in rows' (`switchBtnClass`, the shared
+`LayerSwitch`), named and tipped "Switch ‹server› off in every engine"
+(`allEnginesSwitchLabel`, through `Tooltip`), `aria-pressed` true, false, or
+`"mixed"` for On in some, whose track draws on; disabled and `aria-busy`
+while any item it covers is in `useMcpSwitch`'s `busyKeys`. A click sends
+`allEnginesRequests`: every covered item that is on goes off, or, when all
+are off, every one comes back on, each request `switchRequestFor`'s, through
+`useMcpSwitch.switchAll`, one at a time in context order. Each reply's
+context reaches App's copy as it lands (the hook's `onContext`, App's
+`recordContext`), so the Registered in rows, the tiles and ⌘K follow; the
+rescan and the kept list's re-read run once, after the group. The notice
+names the engines switched — "‹server› is off for Codex, Claude Code and
+Gemini." or, switching back on, "… is back on for …" (`groupSwitchedLine`) —
+then, after an off, "Still on for Cursor and VS Code. Hanger can't switch
+those yet." for engines that carry the server on and that Hanger can switch
+none of its items for (`stillOnEngines`, `stillOnLine`), then each refused
+engine's own failure line. Every request failing is the failure lines alone,
+with no Undo. One Undo takes back every receipt of the group, last made
+first, with `undo_mcp_switch`; the first that fails shows its failure line
+and stops. Pinned by `allEnginesSwitch.test.ts`,
+`useMcpSwitchGroup.test.ts` and `FlyoutAllEnginesSwitch.test.tsx`.
+
 `Flyout` is the asset inspector's coordinator and owns its own `<aside>`
 (@b383a08).
 
@@ -1980,6 +2013,14 @@ only the pill takes clicks (`pointer-events-auto`). The pill alone is the
 named export `SwitchNoticePill`, which takes its two labels as props, so the
 Design system page shows it under Composites with "Sample undo" and "Sample
 dismiss", never the app's own names (the `SearchPalettePanel` split).
+
+A group from the header's switch for every engine sets one notice for all
+its requests and one Undo for all its receipts (`useMcpSwitch.switchAll`;
+the notice keeps the shape above, its receipt fields naming the receipt the
+Undo starts with). **`AllEnginesSwitch`** (`AllEnginesSwitch.tsx`) —
+`server`, `state` (`"on" | "off" | "some"`), `pending`, `onToggle` — draws
+that switch and its word and nothing else; the Design system page shows it
+under Composites in a sample inspector header, once per state.
 
 **`DisclosureBanner`** (`DisclosureBanner.tsx:4-10`) — `variant: "warning" | "error" | "info"`,
 `summary`, `count`, `children`, `defaultOpen?`. Every variant sits on the same

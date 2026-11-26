@@ -1055,11 +1055,15 @@ export default function App() {
   // switched off becomes one, and "Switched off" should not wait for the
   // rescan to say so. Declared after `triggerScan` and before the onboarding
   // returns below, so the hook order never changes when onboarding resolves.
+  // A group (the inspector header's switch for every engine) hands each
+  // reply's context to `onContext` as it lands, so the rows follow one by
+  // one; `onChanged` runs once, after the group.
   const mcpSwitch = useMcpSwitch({
     onChanged: () => {
       triggerScan();
       void refreshKeptOff();
     },
+    onContext: recordContext,
   });
 
   // The engine Global is seen by (docs/plans/2026-11-25-ia-global-by-engine.md).

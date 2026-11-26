@@ -15,6 +15,8 @@
  */
 
 import type { SwitchFailure, ReadOnlyReason, ItemState, EngineContext } from "../types/engineContext";
+import type { AllEnginesState } from "./switchTargets";
+import { joinNames } from "./prose";
 
 type Names = { engine: string; server: string; file?: string };
 
@@ -106,6 +108,41 @@ const SWITCHED_LINES: Record<"off" | "on" | "undo_on" | "undo_off", (n: Names) =
 /** The notice after a switch or an Undo. */
 export function switchedLine(kind: "off" | "on" | "undo_on" | "undo_off", n: Names): string {
   return SWITCHED_LINES[kind](n);
+}
+
+/**
+ * The switch in a server's inspector header that covers every engine.
+ * "On", "Off" and "On in some" were approved in
+ * docs/plans/2026-11-25-decisions-round-5.md; the switch's name, the notice
+ * and the still-on line in -round-6.md, both 2026-11-25. "On in some" is a
+ * word, not "2 of 3": the app does not count.
+ */
+export const ON_IN_SOME = "On in some";
+
+export function allEnginesStateLabel(s: AllEnginesState): string {
+  return s === "some" ? ON_IN_SOME : stateLabel(s);
+}
+
+/** The header switch's accessible name and tooltip. */
+export function allEnginesSwitchLabel(server: string): string {
+  return `Switch ${server} off in every engine`;
+}
+
+/**
+ * The notice after a header click or its Undo: today's single-engine lines
+ * with every engine switched in place of one, joined with commas and "and".
+ */
+export function groupSwitchedLine(kind: "off" | "back_on" | "off_again", server: string, engines: string[]): string {
+  const list = joinNames(engines);
+  if (kind === "off") return `${server} is off for ${list}.`;
+  if (kind === "back_on") return `${server} is back on for ${list}.`;
+  return `${server} is off for ${list} again.`;
+}
+
+/** Added after a header switch-off for engines that still carry the server
+ *  on and that Hanger can't switch. */
+export function stillOnLine(engines: string[]): string {
+  return `Still on for ${joinNames(engines)}. Hanger can't switch those yet.`;
 }
 
 const MECHANISM_LINES: Record<"claude_kept" | "gemini_by_name", (n: Names) => string> = {

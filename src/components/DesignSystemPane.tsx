@@ -32,6 +32,7 @@ import { SearchPalettePanel } from "./SearchPalette";
 import { SwitchNoticePill } from "./SwitchNotice";
 import FavouriteHeart from "./FavouriteHeart";
 import LayerSwitch from "./LayerSwitch";
+import AllEnginesSwitch from "./AllEnginesSwitch";
 import MarkdownDoc from "./MarkdownDoc";
 import type { Block } from "../utils/skillDocument";
 import { captionClass, sectionHeadClass } from "./typeRoles";
@@ -89,6 +90,7 @@ import {
   SAMPLE_SEARCH_HITS,
   SAMPLE_SEGMENTS,
   SAMPLE_SWITCH_NOTICES,
+  SAMPLE_ALL_ENGINES_HEADERS,
   SAMPLE_TABS,
 } from "../data/designSystemFixtures";
 
@@ -245,6 +247,28 @@ function LayerSwitchSpecimen() {
         Sample switch
         <LayerSwitch on={on} />
       </button>
+    </div>
+  );
+}
+
+/** The MCP server inspector's header row with its switch for every engine,
+ *  in each of the three states. The title and transport chip classes are
+ *  `Flyout.tsx`'s header, repeated here as the pill pair is; each row names a
+ *  different sample server, so no two switches share a name. */
+const sampleHeaderTitleClass = "text-lg-app font-medium tracking-[-0.3px] text-ink-1 truncate max-w-[280px] font-sans";
+const sampleHeaderChipClass =
+  "shrink-0 text-small font-mono px-2 py-px rounded-pill bg-tint text-ink-1 whitespace-nowrap";
+
+function AllEnginesSwitchSpecimen() {
+  return (
+    <div className="w-[384px] flex flex-col gap-3">
+      {SAMPLE_ALL_ENGINES_HEADERS.map(({ server, transport, state }) => (
+        <div key={server} className="flex items-center gap-2 min-w-0">
+          <span className={sampleHeaderTitleClass}>{server}</span>
+          <span className={sampleHeaderChipClass}>{transport}</span>
+          <AllEnginesSwitch server={server} state={state} pending={false} onToggle={() => {}} />
+        </div>
+      ))}
     </div>
   );
 }
@@ -1194,6 +1218,10 @@ export default function DesignSystemPane({ section }: DesignSystemPaneProps) {
 
           <Specimen name="SearchPalette" file="SearchPalette.tsx" note="⌘K's panel without its wash; the rows are fixtures in the backend's order and the mark is the matched run — type, and nothing filters, because the backend ranks" unclipped>
             <SearchPaletteSpecimen />
+          </Specimen>
+
+          <Specimen name="AllEnginesSwitch" file="AllEnginesSwitch.tsx" note="the MCP server inspector's header with its switch for every engine: On, On in some, Off. The button is named for what it does, carries aria-pressed (mixed for On in some) and is disabled while its group runs; the switches here are samples and do nothing">
+            <AllEnginesSwitchSpecimen />
           </Specimen>
 
           <Specimen name="SwitchNotice" file="SwitchNotice.tsx" note="the pill without its fixed band and status region; a switch with its Undo, and a failure. It stays until dismissed or replaced, because it carries Undo — the buttons here are samples and do nothing">

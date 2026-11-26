@@ -13,11 +13,13 @@ import AssetDetail from "./AssetDetail";
 import type { AssetAnnotationView } from "./AssetRow";
 import McpServerDetail, { type RegistrationSwitch } from "./McpServerDetail";
 import LayerSwitch from "./LayerSwitch";
+import AllEnginesSwitch from "./AllEnginesSwitch";
 import EngineLabel from "./EngineLabel";
 import ListCard from "./ListCard";
 import { busyKeyOf, type McpSwitch } from "../hooks/useMcpSwitch";
 import type { EngineContext, KeptOffServer } from "../types/engineContext";
 import { alsoDeclaredLine, mechanismLine, SHOW_DECLARED, switchedOffLine } from "../utils/switchCopy";
+import { allEnginesRequests, allEnginesState, serverSwitchTargets, stillOnEngines } from "../utils/switchTargets";
 import { timeAgo } from "../utils/timeAgo";
 import BrandIcon from "./BrandIcon";
 import { buildMcpServerView, type ProcessMatch } from "../utils/mcpServerView";
@@ -773,6 +775,25 @@ export default function Flyout({
   };
 
 
+  /* The switch in the header that covers every engine
+     (docs/plans/2026-11-25-decisions-round-5.md): every item of the server's
+     name Hanger can switch, kept ones included, from App's one copy of the
+     contexts. No item, no switch. A click sends the group one request at a
+     time through the one switch state, which hands each reply's context to
+     App's copy, so the Registered in rows and the tiles follow. */
+  const headerServer = linking ? null : mcpView ? targetAsset!.name : keptServer ? keptServer.name : null;
+  const headerTargets = headerServer && switcher ? serverSwitchTargets(engineContexts ?? [], headerServer) : [];
+  const headerState = allEnginesState(headerTargets);
+  const headerPending = headerTargets.some((t) => switcher?.busyKeys.has(busyKeyOf(t.ctx.engine_id, t.item.key)));
+  const switchEveryEngine = () => {
+    if (!headerServer || !switcher) return;
+    void switcher.switchAll({
+      serverName: headerServer,
+      requests: allEnginesRequests(headerTargets),
+      stillOn: stillOnEngines(engineContexts ?? [], headerServer),
+    });
+  };
+
   /* Whether the eyebrow row has anything left to say. A selected asset's own
      kind · place moved to the cap, so `targetAsset` alone no longer earns
      the row; linking (the "Back to" nav), a bubble scope with no asset
@@ -865,6 +886,14 @@ export default function Flyout({
             <span className="shrink-0 text-small font-mono px-2 py-px rounded-pill bg-tint text-ink-1 whitespace-nowrap">
               {mcpView ? mcpView.transport : keptServer?.transport}
             </span>
+          )}
+          {headerServer && headerState && (
+            <AllEnginesSwitch
+              server={headerServer}
+              state={headerState}
+              pending={headerPending}
+              onToggle={switchEveryEngine}
+            />
           )}
         </div>
         )}

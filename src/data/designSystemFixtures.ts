@@ -18,6 +18,7 @@ import type { UnderlineTab } from "../components/UnderlineTabs";
 import type { SearchHit } from "../components/SearchPalette";
 import type { DetectedEditor } from "../components/EditorPicker";
 import type { SwitchNoticeState } from "../hooks/useMcpSwitch";
+import type { AllEnginesState } from "../utils/switchTargets";
 import {
   engineBandFigures,
   engineStripHeadline,
@@ -285,6 +286,14 @@ export const SAMPLE_SWITCH_NOTICES: SwitchNoticeState[] = [
     pending: false,
   },
   { kind: "failed", line: failureLine("changed_since_read", SAMPLE_SWITCH_NAMES) },
+];
+
+/** The inspector header's switch for every engine, once per state, each on
+ *  its own sample server. */
+export const SAMPLE_ALL_ENGINES_HEADERS: { server: string; transport: string; state: AllEnginesState }[] = [
+  { server: "chrome-devtools", transport: "stdio", state: "on" },
+  { server: "cua", transport: "stdio", state: "some" },
+  { server: "context7", transport: "mcp.context7.com", state: "off" },
 ];
 
 // The backend's match markers (private-use U+E000/U+E001), written as escapes

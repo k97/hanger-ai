@@ -30,6 +30,57 @@ export function switchRequestFor({ ctx, item }: SwitchTarget): SwitchRequest {
 }
 
 /**
+ * The items the switch in a server's inspector header covers
+ * (docs/plans/2026-11-25-decisions-round-5.md): every item of exactly that
+ * name Hanger can switch, kept ones (`stash:` keys) included, in context
+ * order and then item order. An engine that switches by name gives its first:
+ * one switch there covers every server of the name, and a second request
+ * would find it already as asked.
+ */
+export function serverSwitchTargets(contexts: readonly EngineContext[], server: string): SwitchTarget[] {
+  return contexts.flatMap((ctx) => {
+    const items = ctx.items.filter((item) => item.read_only === null && item.name === server);
+    return (ctx.switches_by_name ? items.slice(0, 1) : items).map((item) => ({ ctx, item }));
+  });
+}
+
+/** The header switch's state: every target on, every one off, or some of
+ *  each. A yes or a no over the items, never a count. */
+export type AllEnginesState = "on" | "off" | "some";
+
+/** `null` when there is nothing to switch, and then no switch is drawn. */
+export function allEnginesState(targets: readonly SwitchTarget[]): AllEnginesState | null {
+  if (targets.length === 0) return null;
+  const on = targets.some((t) => t.item.state === "on");
+  const off = targets.some((t) => t.item.state !== "on");
+  return on && off ? "some" : on ? "on" : "off";
+}
+
+/**
+ * What one header click asks for, as `switchRequestFor` asks each item: while
+ * any target is on, every one that is on goes off; when all are off, every
+ * one comes back on. In the targets' order, which is the order they are sent.
+ */
+export function allEnginesRequests(targets: readonly SwitchTarget[]): SwitchRequest[] {
+  const anyOn = targets.some((t) => t.item.state === "on");
+  return (anyOn ? targets.filter((t) => t.item.state === "on") : targets).map(switchRequestFor);
+}
+
+/**
+ * The engines a header switch-off leaves the server on in: those with an item
+ * of that name that is on and that Hanger can switch none of the server's
+ * items for. An engine Hanger switches some of is named as switched instead.
+ */
+export function stillOnEngines(contexts: readonly EngineContext[], server: string): string[] {
+  return contexts
+    .filter((ctx) => {
+      const named = ctx.items.filter((i) => i.name === server);
+      return named.some((i) => i.state === "on") && named.every((i) => i.read_only !== null);
+    })
+    .map((ctx) => ctx.engine_name);
+}
+
+/**
  * ⌘K: every item Hanger can switch whose name holds the query, in any case,
  * in context order. Nothing for an empty query.
  */

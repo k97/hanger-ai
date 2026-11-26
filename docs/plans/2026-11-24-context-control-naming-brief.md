@@ -184,3 +184,20 @@ Karthik approved these as his answers to `docs/plans/2026-11-25-decisions-round-
 **When `{file}` is unknown.** The backend sends no path for a kept server (it is in no file). Lines that name `{file}` then say whose config it is, "{engine}'s config" ("Hanger can't read Codex's config. Fix it in an editor and try again."), not "the file". Karthik chose this on 2026-11-25 (Q5 of the same file). It applies to `per_project_comes_next`, `file_unparseable`, `changed_since_read` and `unparseable`, the four lines with `{file}` in them. `not_undoable`'s "The file has changed since." names no path in any case and is unchanged.
 
 The strip's quiet line, "Skills · Rules · Subagents: Not measured" (Q1 of the same file), needs no ruling of its own: it is the kind tabs' labels joined by " · ", then the brief's "Not measured". Karthik confirmed that on 2026-11-25. A kind that gains a figure leaves the line for a segment of its own.
+
+## The switch for every engine, 2026-11-25
+
+Karthik approved these in [decisions round 5](2026-11-25-decisions-round-5.md) (the state words) and [round 6](2026-11-25-decisions-round-6.md) (the rest), both on 2026-11-25. They land with the switch in an MCP server's inspector header that covers every engine (`AllEnginesSwitch.tsx`, `switchCopy.ts`).
+
+| Where | String | True because |
+|---|---|---|
+| Beside the switch, every item it covers on | On | `allEnginesState`: every switchable item of the server's name is on. The existing state word |
+| Beside the switch, every item off | Off | Every one is off. The existing state word |
+| Beside the switch, some of each | On in some | Some on and some off. A word, not "2 of 3", which would be the app counting (`ON_IN_SOME`) |
+| The switch's accessible name and tooltip | Switch {server} off in every engine | `allEnginesSwitchLabel`. The same in every state; the state is `aria-pressed` (`mixed` for On in some) |
+| The notice after a click that switched off | {server} is off for {engines}. | `groupSwitchedLine("off")`: the engines whose request changed something, joined with commas and "and" (`joinNames`) |
+| The notice after a click that switched every one back on | {server} is back on for {engines}. | `groupSwitchedLine("back_on")`: today's "back on" form with the list |
+| Added after an off, for engines left on | Still on for {engines}. Hanger can't switch those yet. | `stillOnLine`, over `stillOnEngines`: engines with the server on and none of its items switchable |
+| Added for an engine that refused | Today's failure line for its code | `failureLine`, e.g. `would_not_come_back` for Claude Code's `tauri` |
+
+Two forms follow from approved ones and were not asked separately. Undoing a group that switched back on reads "{server} is off for {engines} again.", today's Undo line with the list; undoing an off uses the "back on" line above. When every request fails, the notice is the failure lines alone, one per engine, with no Undo.

@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { EngineContext, SwitchReply } from "../types/engineContext";
-import { failureLine, switchedLine } from "../utils/switchCopy";
+import { failureLine, groupSwitchedLine, stillOnLine, switchedLine } from "../utils/switchCopy";
 
 /**
  * The one place a server is switched off or on, and switched back.
@@ -37,11 +37,27 @@ export interface SwitchRequest {
   enabled: boolean;
 }
 
+/**
+ * One click of the switch in a server's inspector header, which covers every
+ * engine (docs/plans/2026-11-25-decisions-round-5.md): its requests, each
+ * built by `switchRequestFor` and all in one direction, and the engines that
+ * carry the server and that Hanger can't switch, named after an off.
+ */
+export interface GroupSwitchRequest {
+  serverName: string;
+  requests: readonly SwitchRequest[];
+  stillOn: readonly string[];
+}
+
 export interface McpSwitch {
   notice: SwitchNoticeState | null;
   /** `${engineId}\u0000${key}` for every switch with a request in flight. */
   busyKeys: ReadonlySet<string>;
   switchServer(a: SwitchRequest): Promise<EngineContext | null>;
+  /** Sends a group's requests one at a time and sets one notice for them. */
+  switchAll(a: GroupSwitchRequest): Promise<void>;
+  /** Undoes the last switch, or every receipt of the last group, last first.
+   *  A group's replies go to `onContext`, so it returns null for one. */
   undo(): Promise<EngineContext | null>;
   dismiss(): void;
 }
@@ -53,6 +69,26 @@ interface LastSwitch {
   file?: string;
   busyKey: string;
   /** The state the last change left the server in. */
+  lastEnabled: boolean;
+}
+
+/** One receipt of a group, with what its Undo line and failure line name. */
+interface GroupReceipt {
+  engineId: string;
+  engineName: string;
+  file?: string;
+  busyKey: string;
+  receiptId: string;
+}
+
+/** The last group: its receipts in the order they were made, and the state
+ *  they left the server in. */
+interface LastGroup {
+  serverName: string;
+  /** The engines the group switched, in the order first switched: what its
+   *  lines name, whichever way round an Undo runs. */
+  engines: string[];
+  receipts: GroupReceipt[];
   lastEnabled: boolean;
 }
 
@@ -72,7 +108,15 @@ function codeOf(err: unknown): string {
   return typeof err === "string" ? err : "";
 }
 
-export function useMcpSwitch({ onChanged }: { onChanged: () => void }): McpSwitch {
+export function useMcpSwitch({
+  onChanged,
+  onContext,
+}: {
+  onChanged: () => void;
+  /** Each reply's context in a group, as it lands, for App's one copy. A
+   *  single switch returns its own instead. */
+  onContext?: (ctx: EngineContext) => void;
+}): McpSwitch {
   const [notice, setNotice] = useState<SwitchNoticeState | null>(null);
   const [busyKeys, setBusyKeys] = useState<ReadonlySet<string>>(() => new Set());
   // The ref is the guard: two clicks in one frame both run before React
@@ -80,8 +124,13 @@ export function useMcpSwitch({ onChanged }: { onChanged: () => void }): McpSwitc
   const busyRef = useRef<Set<string>>(new Set());
   const noticeRef = useRef<SwitchNoticeState | null>(null);
   const lastRef = useRef<LastSwitch | null>(null);
+  // The last group, when the last thing switched was one; a single switch
+  // clears it, and a group clears `lastRef`, so Undo takes back the last.
+  const groupRef = useRef<LastGroup | null>(null);
   const onChangedRef = useRef(onChanged);
   onChangedRef.current = onChanged;
+  const onContextRef = useRef(onContext);
+  onContextRef.current = onContext;
 
   const show = useCallback((next: SwitchNoticeState | null) => {
     noticeRef.current = next;
@@ -114,6 +163,7 @@ export function useMcpSwitch({ onChanged }: { onChanged: () => void }): McpSwitc
         // Already as asked: nothing changed, so there is nothing to say,
         // undo or rescan.
         if (reply.receipt_id === null) return reply.context;
+        groupRef.current = null;
         lastRef.current = {
           engineName: a.engineName,
           serverName: a.serverName,
@@ -141,8 +191,146 @@ export function useMcpSwitch({ onChanged }: { onChanged: () => void }): McpSwitc
     [hold, release, show]
   );
 
+  /** Holds every key, or none when any is already held. */
+  const holdAll = useCallback(
+    (keys: readonly string[]): boolean => {
+      if (keys.some((k) => busyRef.current.has(k))) return false;
+      for (const k of keys) busyRef.current.add(k);
+      setBusyKeys(new Set(busyRef.current));
+      return true;
+    },
+    []
+  );
+
+  const releaseAll = useCallback((keys: readonly string[]) => {
+    for (const k of keys) busyRef.current.delete(k);
+    setBusyKeys(new Set(busyRef.current));
+  }, []);
+
+  const switchAll = useCallback(
+    async ({ serverName, requests, stillOn }: GroupSwitchRequest): Promise<void> => {
+      if (requests.length === 0) return;
+      const keys = requests.map((r) => busyKeyOf(r.engineId, r.key));
+      if (!holdAll(keys)) return;
+      const enabled = requests[0].enabled;
+      const receipts: GroupReceipt[] = [];
+      const failed: string[] = [];
+      let undoable = true;
+      try {
+        // One at a time: each engine's command writes that engine's file.
+        for (const [i, r] of requests.entries()) {
+          try {
+            const reply = await invoke<SwitchReply>("set_mcp_server_enabled", {
+              engineId: r.engineId,
+              key: r.key,
+              enabled: r.enabled,
+            });
+            onContextRef.current?.(reply.context);
+            if (reply.receipt_id === null) continue;
+            undoable = undoable && reply.undoable;
+            receipts.push({
+              engineId: r.engineId,
+              engineName: r.engineName,
+              file: r.file,
+              busyKey: keys[i],
+              receiptId: reply.receipt_id,
+            });
+          } catch (err) {
+            failed.push(failureLine(codeOf(err), { engine: r.engineName, server: serverName, file: r.file }));
+          }
+        }
+        if (receipts.length === 0) {
+          // Nothing changed: every one failed, or all were already as asked.
+          if (failed.length > 0) show({ kind: "failed", line: failed.join(" ") });
+          return;
+        }
+        lastRef.current = null;
+        const engines = [...new Set(receipts.map((x) => x.engineName))];
+        groupRef.current = { serverName, engines, receipts, lastEnabled: enabled };
+        const parts = [groupSwitchedLine(enabled ? "back_on" : "off", serverName, engines)];
+        if (!enabled && stillOn.length > 0) parts.push(stillOnLine([...stillOn]));
+        parts.push(...failed);
+        const lastReceipt = receipts[receipts.length - 1];
+        show({
+          kind: "done",
+          line: parts.join(" "),
+          // The receipt Undo starts with; it takes back the whole group.
+          receiptEngineId: lastReceipt.engineId,
+          receiptId: lastReceipt.receiptId,
+          undoable,
+          pending: false,
+        });
+        onChangedRef.current();
+      } finally {
+        releaseAll(keys);
+      }
+    },
+    [holdAll, releaseAll, show]
+  );
+
+  const undoGroup = useCallback(
+    async (current: Extract<SwitchNoticeState, { kind: "done" }>, group: LastGroup): Promise<null> => {
+      const keys = group.receipts.map((r) => r.busyKey);
+      if (!holdAll(keys)) return null;
+      show({ ...current, pending: true });
+      // Last made, first undone. The Undo's own receipts, in the order it
+      // made them, are what an Undo of this Undo takes back, last first.
+      const next: GroupReceipt[] = [];
+      let undoable = true;
+      let changed = false;
+      try {
+        for (const r of [...group.receipts].reverse()) {
+          try {
+            const reply = await invoke<SwitchReply>("undo_mcp_switch", {
+              engineId: r.engineId,
+              receiptId: r.receiptId,
+            });
+            changed = true;
+            onContextRef.current?.(reply.context);
+            if (reply.receipt_id === null) continue;
+            undoable = undoable && reply.undoable;
+            next.push({ ...r, receiptId: reply.receipt_id });
+          } catch (err) {
+            groupRef.current = null;
+            show({
+              kind: "failed",
+              line: failureLine(codeOf(err), { engine: r.engineName, server: group.serverName, file: r.file }),
+            });
+            return null;
+          }
+        }
+        const nowEnabled = !group.lastEnabled;
+        const line = groupSwitchedLine(nowEnabled ? "back_on" : "off_again", group.serverName, group.engines);
+        if (next.length === 0) {
+          groupRef.current = null;
+          show({ kind: "done", line, receiptEngineId: current.receiptEngineId, receiptId: null, undoable: false, pending: false });
+          return null;
+        }
+        groupRef.current = { ...group, receipts: next, lastEnabled: nowEnabled };
+        const lastReceipt = next[next.length - 1];
+        show({
+          kind: "done",
+          line,
+          receiptEngineId: lastReceipt.engineId,
+          receiptId: lastReceipt.receiptId,
+          undoable,
+          pending: false,
+        });
+        return null;
+      } finally {
+        if (changed) onChangedRef.current();
+        releaseAll(keys);
+      }
+    },
+    [holdAll, releaseAll, show]
+  );
+
   const undo = useCallback(async (): Promise<EngineContext | null> => {
     const current = noticeRef.current;
+    const group = groupRef.current;
+    if (group && current && current.kind === "done" && current.undoable && !current.pending) {
+      return undoGroup(current, group);
+    }
     const last = lastRef.current;
     if (!current || current.kind !== "done" || !current.undoable || current.pending) return null;
     if (current.receiptId === null || !last) return null;
@@ -172,9 +360,9 @@ export function useMcpSwitch({ onChanged }: { onChanged: () => void }): McpSwitc
     } finally {
       release(last.busyKey);
     }
-  }, [hold, release, show]);
+  }, [hold, release, show, undoGroup]);
 
   const dismiss = useCallback(() => show(null), [show]);
 
-  return { notice, busyKeys, switchServer, undo, dismiss };
+  return { notice, busyKeys, switchServer, switchAll, undo, dismiss };
 }
