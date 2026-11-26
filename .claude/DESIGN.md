@@ -1419,19 +1419,20 @@ other. It is set from a Skills "Switched off" row, or by `Flyout`'s
 `onSkillKept` when a store skill is switched off from its own header, so the
 kept panel takes the skill's place. The header is the skill's folder name and
 the header switch reading "Off" (below); the cap reads `Skill · Global` and
-offers nothing to open, copy, reveal or link. The body is one `ListCard` row
-in `McpServerDetail`'s `SECTION`: "Off for every engine" and the switch —
-`aria-pressed="false"`, named by the skill, `LayerSwitch` off, disabled only
-while its request runs — then, in `captionClass`, "Switched off ‹timeAgo›"
+offers nothing to open, copy, reveal or link. The header switch is the
+panel's one control: the body holds none (Karthik, 2026-11-26, two switches
+doing one thing). The body is one `ListCard` row in `McpServerDetail`'s
+`SECTION`: "Off for every engine" in `text-ink-2`, then, in `captionClass`,
+"Switched off ‹timeAgo›"
 (`switchedOffLine`, from `at_ms` at render), the kept line ("Moved out of the
 global store. Hanger keeps it and puts it back, with its links, when you
 switch it on.", `KEPT_SKILL_MECHANISM`), and when they hold, "There's a skill
 named ‹skill› in the global store again." (`back_in_store`, `backInStoreLine`)
 and "Hanger stopped partway through switching this off. Switch it on to put
-it back." (`interrupted`, `INTERRUPTED_LINE`). With `back_in_store` the switch
-still sends: the backend refuses with `already_there`, and the notice says
-so. Both switches send `useMcpSwitch.switchSkill` with the `kept-skill:` key
-and `enabled: true`. Once it succeeds App reads the kept list again, the skill
+it back." (`interrupted`, `INTERRUPTED_LINE`). With `back_in_store` the header
+switch still sends: the backend refuses with `already_there`, and the notice
+says so. It sends `useMcpSwitch.switchSkill` with the `kept-skill:` key and
+`enabled: true`, disabled only while that request runs. Once it succeeds App reads the kept list again, the skill
 leaves it, and nothing is selected. Pinned by `FlyoutKeptSkill.test.tsx` and
 `kept_skills_inspector.test.tsx`.
 

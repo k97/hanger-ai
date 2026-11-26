@@ -853,8 +853,8 @@ export default function Flyout({
     });
   };
 
-  /* A kept skill's header switch and its panel's switch put it back on by
-     its `kept-skill:` key, through the one switch state. */
+  /* A kept skill's header switch, its one switch, puts it back on by its
+     `kept-skill:` key, through the one switch state. */
   const shownKeptSkill = !linking && !targetAsset ? keptSkill : null;
   const keptSkillBusy = shownKeptSkill
     ? switcher?.busyKeys.has(busyKeyOf("skills", shownKeptSkill.key)) ?? false
@@ -1100,7 +1100,7 @@ export default function Flyout({
           onShowDeclared={onShowDeclared}
         />
       ) : shownKeptSkill && switcher ? (
-        <KeptSkillDetail skill={shownKeptSkill} busy={keptSkillBusy} onSwitchOn={switchKeptSkillOn} />
+        <KeptSkillDetail skill={shownKeptSkill} />
       ) : targetAsset ? (
         // Link to… lives in the cap now (App.tsx), not this panel's own
         // action row — AssetDetail no longer takes an onLink prop.

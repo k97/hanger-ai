@@ -89,17 +89,22 @@ describe("Flyout — a kept skill", () => {
     expect(within(panel()).queryByText(/stopped partway/)).toBeNull();
   });
 
-  it("the panel's switch turns it on by its kept-skill key", async () => {
+  it("the panel's body holds no switch: the header's is the one control (Karthik, 2026-11-26)", () => {
     render(<Harness skill={FIGMA} />);
-    fireEvent.click(within(panel()).getByRole("button", { name: "figma" }));
-    await waitFor(() => expect(invoke).toHaveBeenCalledWith("set_skill_enabled", { key: FIGMA.key, enabled: true }));
-    await screen.findByText("figma is back on for every engine.");
+    expect(panel().querySelectorAll("[aria-pressed]").length).toBe(0);
+    expect(within(panel()).queryByRole("button")).toBeNull();
+    expect(within(panel()).getByText("Off for every engine")).toBeTruthy();
   });
 
-  it("the header's switch does the same", async () => {
+  it("the header's switch turns it on by its kept-skill key", async () => {
     render(<Harness skill={FIGMA} />);
     fireEvent.click(within(header()).getByRole("button", { name: "Switch figma on for every engine" }));
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("set_skill_enabled", { key: FIGMA.key, enabled: true }));
+    await screen.findByText("figma is back on for every engine.");
+    fireEvent.click(screen.getByRole("button", { name: "Undo" }));
+    await waitFor(() =>
+      expect(invoke).toHaveBeenCalledWith("undo_skill_switch", { receiptId: ON_REPLY.receipt_id })
+    );
   });
 
   it("back in the store: says so, and the switch still sends, so the backend's refusal is what the notice says", async () => {
@@ -108,7 +113,7 @@ describe("Flyout — a kept skill", () => {
     );
     render(<Harness skill={{ ...FIGMA, back_in_store: true }} />);
     expect(within(panel()).getByText("There's a skill named figma in the global store again.")).toBeTruthy();
-    const button = within(panel()).getByRole("button", { name: "figma" }) as HTMLButtonElement;
+    const button = within(header()).getByRole("button", { name: "Switch figma on for every engine" }) as HTMLButtonElement;
     expect(button.disabled).toBe(false);
     fireEvent.click(button);
     await screen.findByText(

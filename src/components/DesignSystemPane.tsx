@@ -1243,11 +1243,11 @@ export default function DesignSystemPane({ section }: DesignSystemPaneProps) {
             </div>
           </Specimen>
 
-          <Specimen name="KeptSkillDetail" file="KeptSkillDetail.tsx" note="a kept skill's inspector body: the row with its switch, when it was switched off and what Hanger did with it; the second also says a skill of its name is back in the store and that the switch-off did not finish. The switches here are samples and do nothing">
+          <Specimen name="KeptSkillDetail" file="KeptSkillDetail.tsx" note="a kept skill's inspector body, under the header that holds its one switch: off for every engine, when it was switched off and what Hanger did with it; the second also says a skill of its name is back in the store and that the switch-off did not finish">
             <div className="max-w-[384px] flex flex-col gap-3">
               {SAMPLE_KEPT_SKILL_DETAILS.map((skill) => (
                 <div key={skill.key} className="border border-line rounded-plane flex">
-                  <KeptSkillDetail skill={skill} busy={false} onSwitchOn={() => {}} />
+                  <KeptSkillDetail skill={skill} />
                 </div>
               ))}
             </div>

@@ -157,7 +157,8 @@ describe("App — the skill switch", () => {
 
     const scansBefore = calls("start_scan").length;
     const keptReadsBefore = calls("get_kept_skills").length;
-    fireEvent.click(within(await within(panel).findByTestId("kept-skill-detail")).getByRole("button", { name: "figma" }));
+    expect(await within(panel).findByTestId("kept-skill-detail")).toBeTruthy();
+    fireEvent.click(within(panel).getByRole("button", { name: "Switch figma on for every engine" }));
     await screen.findByText("figma is back on for every engine.");
     expect(calls("set_skill_enabled")).toEqual([{ key: KEY, enabled: true }]);
     // The rescan that rebuilds the search index, and the kept list read again at once.
