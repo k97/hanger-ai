@@ -137,7 +137,27 @@ interface OverviewCardProps {
 - [ ] **Step 4:** Run them. Expected: PASS. Then run all four gates.
 - [ ] **Step 5:** Add the specimens (selected engine, All engines, empty) and the DESIGN.md paragraph. **Commit** `feat(global): the overview card`.
 
-### Task 4: useGlobalOverview, lifting the figures out of ProfilePane
+### Amendment (2026-11-26, after Task 3): portals, not a lifted hook
+
+Task 4's implementer found a problem with lifting the figures into App. They depend on state only ProfilePane holds: the internal kind tab (`internalCategory`, which every kind row's `onSelect` sets), the `mcpReviewOnly` toggle inside `review.actions`, and the scoped rows from `filterProfileAssets`. Lifting them means lifting that state, and about 20 standalone ProfilePane tests would break.
+
+**The replacement design.** ProfilePane keeps the figures and the state. App only provides two places to draw into, and ProfilePane draws the card there with `createPortal`.
+
+- App renders an empty `<span ref={setCapSlot} className="relative contents" />` in the content cap's trailing group (`App.tsx` ~`:2042`), on Global only. In Flyout's empty branch, while the card is pinned on Global, App renders `<div ref={setInspectorSlot} />` through Flyout's new `emptyState?: ReactNode` prop.
+- ProfilePane takes these props:
+  - `overviewSlots?: { cap: HTMLElement | null; inspector: HTMLElement | null }`
+  - `overviewPinned?: boolean`
+  - `onToggleOverviewPin?: () => void`
+- When the cap slot is present and the card isn't pinned, ProfilePane portals the button there.
+- When the button is open, ProfilePane portals the popover to `document.body`, `position: fixed`, under the button.
+- When pinned, ProfilePane portals `OverviewCard` into the inspector slot.
+- ⌘E is a `window` keydown in ProfilePane, so it exists only on Global.
+- App keeps what is App's: the `overview_pinned` pref and the Esc that clears the selection.
+- With no slots, as in standalone ProfilePane tests, the card isn't drawn anywhere, and the strip stays until Task 7.
+
+The task list changes accordingly. **Task 4 is withdrawn: no hook, and nothing moves.** **Task 5 becomes the slots, the button and the popover.** Its tests run through App. **Task 6 keeps its scope** (pinned and Esc) on the slot design. Tasks 7 and 8 are unchanged.
+
+### Task 4: useGlobalOverview, lifting the figures out of ProfilePane (withdrawn, see the amendment above)
 
 **Files:**
 - Create: `src/hooks/useGlobalOverview.ts` (+ `.test.ts`)
