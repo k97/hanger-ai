@@ -827,11 +827,21 @@ export default function App() {
 
         await refreshGlobalCounts();
         await refreshAnnotations();
-        await refreshMcpServers();
-        await refreshMcpCoverage();
-        await refreshKeptOff();
-        await refreshKeptSkills();
-        await refreshEngineContexts();
+        // The two MCP reads re-derive from disk and can be slow on a large
+        // machine; the kept servers, the kept skills and then every
+        // engine's context run beside them rather than after, in the same
+        // order and once per scan, so the overview card's Engines section
+        // does not wait on them (a docked card mid-scan had none in Task 3's
+        // screenshots of docs/plans/2026-11-26-global-list.md).
+        await Promise.all([
+          refreshMcpServers(),
+          refreshMcpCoverage(),
+          (async () => {
+            await refreshKeptOff();
+            await refreshKeptSkills();
+            await refreshEngineContexts();
+          })(),
+        ]);
 
         // If onboarding was incomplete, mark it complete now!
         setOnboardingComplete((prev) => {

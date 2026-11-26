@@ -33,7 +33,7 @@ import OverviewPopover from "./OverviewPopover";
 import { Toggle } from "./ui/toggle";
 import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
 import { overviewButtonLabel } from "../utils/overviewCopy";
-import { shouldDockOverview } from "../utils/overviewLayout";
+import { DOCKED_LANE_CLEARANCE, shouldDockOverview } from "../utils/overviewLayout";
 import { isTextEntryTarget } from "../utils/textEntry";
 import NotLoadedGroup, { notLoadedHead, type NotLoadedRow } from "./NotLoadedGroup";
 import CollapsibleGroup from "./CollapsibleGroup";
@@ -221,23 +221,23 @@ const LANE_MIN_WIDTH = 640;
 /** The centred lane Global's list sits in, after T3 Code's chat column
  *  (`.chat-content-lane`, index.css:979-984): at most 736px, 48px padding
  *  while there is room. The facet row above uses the same lane, so the two
- *  line up. */
-const laneClass = (wide: boolean, clearOfCard = false) =>
-  `${clearOfCard ? DOCKED_LANE_MARGIN : "mx-auto"} w-full max-w-[736px] ${wide ? "px-12" : "px-3"}`;
+ *  line up. Each lane is centred in a box (`laneBoxClass`): the whole list
+ *  area, or, beside the docked card, the part of it left of the card. */
+const laneClass = (wide: boolean) => `mx-auto w-full max-w-[736px] ${wide ? "px-12" : "px-3"}`;
 
 /** The list's inset from the pane's edge (`mx-[18px]`, `px-[18px]`). */
 const LIST_INSET = 18;
 
-/** The lane beside the docked card, as T3 places its column
- *  (chatCanvasLayout.ts): centred while that keeps clear of the card,
- *  otherwise moved left until it does. The rows' right edge stays
- *  `DOCKED_LANE_CLEARANCE` (324px) from the pane's: the card's 280, its
- *  12px gap and T3's 32px. The lane sits 18px in (`LIST_INSET`) and carries
- *  its 48px padding inside, so its own margin is 324 − 18 − 48 = 258px, or
- *  the centring margin, whichever is larger; `ml-auto` takes the rest. A
- *  literal, because Tailwind reads classes as text. Pinned by
- *  overview_dock.test.tsx. */
-const DOCKED_LANE_MARGIN = "ml-auto mr-[max(258px,calc((100%-736px)/2))]";
+/** The box the lane is centred in (for the kind tabs, the box around their
+ *  padded wrapper, whose 18px padding is the same inset). Docked, it ends
+ *  where T3 ends its column
+ *  (chatCanvasLayout.ts): 32px short of the card, so
+ *  `DOCKED_LANE_CLEARANCE` (324px: the card's 280, its 12px gap and the
+ *  32px) from the pane's right edge. The box sits inside the list's 18px
+ *  inset (`LIST_INSET`), so its own margin is 324 − 18 = 306px. At a 968px
+ *  pane it ends at 644, and the lane, centred in it, fills it. A literal,
+ *  because Tailwind reads classes as text. Pinned by overview_dock.test.tsx. */
+const laneBoxClass = (docked: boolean) => (docked ? "mr-[306px]" : "");
 
 /** A group's head, as T3 heads a shelf: the label, a 1px rule
  *  (`ui/separator`), then the backend's figure (none with an engine picked),
@@ -587,8 +587,6 @@ export default function ProfilePane({
     observer.observe(paneEl);
     return () => observer.disconnect();
   }, [paneEl]);
-  const measuredWide = paneWidth === 0 || paneWidth - 2 * LIST_INSET >= LANE_MIN_WIDTH;
-  const laneWide = forceLane ? forceLane === "wide" : measuredWide;
   // The engine Measure all is running for, if any.
   const [measuringFor, setMeasuringFor] = useState<string | null>(null);
   // The overview card: docked at the pane's top right when there is room
@@ -602,6 +600,13 @@ export default function ProfilePane({
   const overviewAvailable = capSlot !== null;
   const overviewDocked = forceDock ?? shouldDockOverview(paneWidth, inspectorOpen);
   const dockedCardShown = overviewAvailable && overviewDocked && !overviewHidden;
+  // The lane's area: the list less its insets, or, beside the docked card,
+  // the pane up to 32px short of the card, [0, cardLeft − 32] (Task 3's
+  // screenshots). The padding rule is the same on either: 48px, and the
+  // ticks, from 640px; 12px and no ticks below.
+  const laneArea = dockedCardShown ? paneWidth - DOCKED_LANE_CLEARANCE : paneWidth - 2 * LIST_INSET;
+  const measuredWide = paneWidth === 0 || laneArea >= LANE_MIN_WIDTH;
+  const laneWide = forceLane ? forceLane === "wide" : measuredWide;
   // The button's state: docked, whether the card shows; otherwise whether
   // the popover is open.
   const overviewOn = overviewDocked ? !overviewHidden : overviewOpen;
@@ -1486,8 +1491,9 @@ export default function ProfilePane({
   return (
     <div ref={setPaneEl} className="relative flex-1 flex flex-col min-h-0 overflow-hidden font-sans">
       {/* Facet chips, in the list's lane so they share the rows' left edge. */}
+      <div className={laneBoxClass(dockedCardShown)}>
       <div className="px-[18px] pt-[18px] pb-3.5">
-        <div className={laneClass(laneWide, dockedCardShown)}>
+        <div className={laneClass(laneWide)}>
           <CategoryFilterCards
             selectedCategory={selectedCategory}
             onSelectCategory={setSelectedCategory}
@@ -1499,6 +1505,7 @@ export default function ProfilePane({
             loading={loading}
           />
         </div>
+      </div>
       </div>
 
       {/* The overview card's button, portalled into App's cap slot: shadcn's
@@ -1537,7 +1544,7 @@ export default function ProfilePane({
         {overviewCard}
       </OverviewPopover>
       {/* Docked, as T3 docks its card: at the pane's top right, over the
-          list, which keeps clear of it (DOCKED_LANE_MARGIN). */}
+          list, whose lane box keeps clear of it (`laneBoxClass`). */}
       {dockedCardShown && (
         <div
           data-testid="overview-dock"
@@ -1700,7 +1707,8 @@ export default function ProfilePane({
             data-testid="asset-list-scroll"
             className="@container flex-1 min-h-0 overflow-y-auto mx-[18px] pb-1.5"
           >
-           <div data-testid="list-lane" className={laneClass(laneWide, dockedCardShown)}>
+           <div className={laneBoxClass(dockedCardShown)}>
+           <div data-testid="list-lane" className={laneClass(laneWide)}>
             {/* Agents Group */}
             {selectedCategory === "Agents" && (
               <>
@@ -1859,6 +1867,7 @@ export default function ProfilePane({
             {keptSkillsLast && keptSkillsGroup}
 
             {engine && notLoadedAny && <NotLoadedGroup engineName={engine.engine_name} rows={notLoadedRows} />}
+           </div>
            </div>
           </div>
           </div>

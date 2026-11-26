@@ -1835,18 +1835,31 @@ closed: a column of at least 560px, T3's 32px clearance, the 12px gap and the
 T3's 640px column and two 48px paddings, 1060px, until then). At Karthik's
 1,024px window the list is 968px with nothing selected, so the card docks; a
 row selected opens the inspector and sends it behind its button. Docked, the card sits in `absolute right-3 top-3
-z-10 w-[280px]`, scrolling past `calc(100% - 24px)`, and both lanes (the
-kind tabs' and the list's) trade `mx-auto` for `ml-auto
-mr-[max(258px,calc((100%-736px)/2))]`, as T3 places its column
-(`chatCanvasLayout.ts`): centred while that keeps clear, otherwise moved
-left until the rows' right edge is 324px (`DOCKED_LANE_CLEARANCE`) from
-the pane's, 32px clear of the card. 258 is 324 less the list's 18px inset
-and the lane's 48px padding. The same width sets the lane's padding: below
-640px of list it drops to `px-3` and the ticks go. App's `overview_hidden`
+z-10 w-[280px]`, scrolling past `calc(100% - 24px)`. Each lane (the kind
+tabs' and the list's) is centred in a box (`laneBoxClass`), and docked that
+box takes `mr-[306px]`, so it ends where T3 ends its column
+(`chatCanvasLayout.ts`), 32px short of the card: 324px
+(`DOCKED_LANE_CLEARANCE`) from the pane's right edge, less the list's 18px
+inset. The lane's area is then [0, cardLeft − 32], 644px at a 968px pane,
+and the lane, `mx-auto` with its 736px cap, fills it. The padding rule reads
+that area the way it reads the whole list undocked: from 640px the lane
+keeps `px-12` and the ticks; below, `px-3` and no ticks, so nothing in the
+list sits under them. Until Task 3's screenshots the lanes themselves took
+`ml-auto mr-[max(258px,…)]`; at 968 that over-constrained the lane, which
+lost its left padding, put the ticks on the row icons and clipped the first
+head. App's `overview_hidden`
 preference (shown by default, saved beside `inspector_open`) puts the docked
 card away; it hides nothing else. A popover open when the card docks
 closes. `forceDock` is the test-only override; `overview_dock.test.tsx` pins
 the contract, and where the card lands is a screenshot claim.
+
+The card's Engines section is `get_engine_contexts`, read once per scan on
+`scan://complete`. That read waited on `get_mcp_servers` and
+`get_mcp_coverage`, which re-derive from disk, so a docked card shown
+mid-scan had no Engines section (Task 3's screenshots; the popover frame
+was taken later, not drawn differently). Since then the kept servers, the
+kept skills and the contexts run in that order beside those two reads, not
+after them.
 
 **`OverviewPopover`** (`OverviewPopover.tsx`) — the overview card from the
 window bar when it cannot dock (Task 5 of

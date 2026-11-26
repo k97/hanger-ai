@@ -22,6 +22,9 @@ vi.mock("@tauri-apps/plugin-log", () => ({
 vi.mock("@tauri-apps/plugin-opener", () => ({ openUrl: vi.fn(), openPath: vi.fn(), revealItemInDir: vi.fn() }));
 
 let mockPreferences: Record<string, string> = {};
+/** Holds `get_mcp_servers` open, as a slow read on a large machine does, so
+ *  the reads App makes after it on scan://complete have not run. */
+let holdMcpServers = false;
 let eventListeners: Record<string, Function> = {};
 
 vi.mock("@tauri-apps/api/event", () => ({
@@ -83,6 +86,7 @@ vi.mock("@tauri-apps/api/core", () => ({
       };
     if (cmd === "get_asset_annotations") return [];
     if (cmd === "get_engine_contexts") return [CONTEXT];
+    if (cmd === "get_mcp_servers" && holdMcpServers) return new Promise(() => {});
     if (cmd === "get_mcp_processes") return [];
     if (cmd === "read_asset_body")
       return {
@@ -123,10 +127,31 @@ const paneProps = () => {
   };
 };
 const button = () => within(capSlot!).getByRole("button");
+/** The box each lane is centred in: the list's, and the kind tabs'. */
+const laneBoxes = () => [
+  screen.getByTestId("list-lane").parentElement!,
+  screen.getByRole("tablist").closest("section")!.parentElement!.parentElement!.parentElement!,
+];
+const ticks = () => screen.queryByRole("navigation", { name: "Jump to a group" });
+/** Two groups, so the ticks have somewhere to jump. */
+const twoGroups: Inventory = {
+  ...inventory,
+  rules: [
+    {
+      id: "rule-1",
+      name: "house-style",
+      description: "",
+      version: "",
+      path: "/home/user/.claude/rules/house-style.md",
+      scope: { Global: { agent: "claude-code" } },
+    },
+  ],
+} as unknown as Inventory;
 
 beforeEach(() => {
   cleanup();
   eventListeners = {};
+  holdMcpServers = false;
   mockPreferences = {
     onboarding_complete: "true",
     consent_crash: "true",
@@ -153,10 +178,9 @@ describe("docked (room for the card, no inspector)", () => {
     expect(dialog()).toBeNull();
   });
 
-  it("keeps the lane clear of the card: both lanes carry the docked margin", () => {
+  it("keeps the lane clear of the card: both lanes sit in a box that ends 324px from the pane's edge", () => {
     render(<ProfilePane {...paneProps()} forceDock />);
-    const lanes = [screen.getByTestId("list-lane"), screen.getByRole("tablist").closest("section")!.parentElement!];
-    for (const lane of lanes) expect(lane.className).toContain("mr-[max(258px,calc((100%-736px)/2))]");
+    for (const box of laneBoxes()) expect(box.className.split(/\s+/)).toContain("mr-[306px]");
   });
 
   it("shows the button pressed, labelled Hide overview  ⌘E, and a press asks App to hide the card", () => {
@@ -180,9 +204,43 @@ describe("docked (room for the card, no inspector)", () => {
   it("hidden, draws no card, gives the lane its centre back, and the button reads Show overview  ⌘E", () => {
     render(<ProfilePane {...paneProps()} forceDock overviewHidden />);
     expect(docked()).toBeNull();
-    expect(screen.getByTestId("list-lane").className).not.toContain("mr-[max(");
+    for (const box of laneBoxes()) expect(box.className).not.toContain("mr-[306px]");
     expect(button().getAttribute("aria-label")).toBe(SHOW);
     expect(button().getAttribute("aria-pressed")).toBe("false");
+  });
+});
+
+/** The docked lane, from the Task 3 screenshots: the lane had lost its
+ *  padding, the ticks sat on the row icons and "Skills" was clipped. Docked,
+ *  the lane lives left of the card, in [0, cardLeft − 32]: 968 − 12 − 280 −
+ *  32 = 644px at Karthik's 1,024px window. It is centred there with its
+ *  usual 736px cap, and its padding follows the undocked rule on that
+ *  area: 48px from 640px, 12px below, the ticks only with the 48px. Class
+ *  contracts on a measured width; where it lands is a screenshot claim. */
+describe("the docked lane keeps its margin", () => {
+  it("docked at 968, the lane's box ends at 644 (968 − 324, less the list's 18px inset: mr-[306px]) and keeps px-12 and the ticks", () => {
+    stubResizeObserver(968);
+    render(<ProfilePane {...paneProps()} inventory={twoGroups} />);
+    expect(docked()).not.toBeNull();
+    for (const box of laneBoxes()) expect(box.className.split(/\s+/)).toContain("mr-[306px]");
+    for (const lane of [screen.getByTestId("list-lane"), laneBoxes()[1].firstElementChild!.firstElementChild!]) {
+      const classes = lane.className.split(/\s+/);
+      expect(classes).toContain("mx-auto");
+      expect(classes).toContain("max-w-[736px]");
+      expect(classes).toContain("px-12");
+      expect(lane.className).not.toMatch(/(^|\s)m[lr]-/);
+    }
+    expect(ticks()).not.toBeNull();
+  });
+
+  it("in a docked area under 640px (924 − 324 = 600), the lane takes px-3 and there are no ticks", () => {
+    stubResizeObserver(924);
+    render(<ProfilePane {...paneProps()} inventory={twoGroups} forceDock />);
+    expect(docked()).not.toBeNull();
+    const classes = screen.getByTestId("list-lane").className.split(/\s+/);
+    expect(classes).toContain("px-3");
+    expect(classes).not.toContain("px-12");
+    expect(ticks()).toBeNull();
   });
 });
 
@@ -195,7 +253,7 @@ describe("not docked (Review Focus 2: the inspector open at 1024)", () => {
     const d = dialog();
     expect(d).not.toBeNull();
     expect(within(d!).getByTestId("overview-card")).toBeTruthy();
-    expect(screen.getByTestId("list-lane").className).not.toContain("mr-[max(");
+    for (const box of laneBoxes()) expect(box.className).not.toContain("mr-[306px]");
   });
 
   it("ignores overview_hidden: hidden only hides a docked card", () => {
@@ -270,6 +328,22 @@ describe("in App: the dock is measured, and overview_hidden persists", () => {
     await screen.findByText("Claude Math Skill");
     await waitFor(() => expect(within(cap()).getByRole("button", { name: named(SHOW) })).toBeTruthy());
     expect(docked()).toBeNull();
+  });
+
+  it("docked, the card holds the Engines head and one row per engine, without waiting on the scan's later reads", async () => {
+    // The Task 3 screenshots: docked mid-scan, the card had only the store
+    // and its actions. scan://complete read get_engine_contexts last, after
+    // waiting on get_mcp_servers; that read is held open here, as a slow
+    // read on a large machine holds it.
+    holdMcpServers = true;
+    stubResizeObserver(1400);
+    render(<App />);
+    await screen.findByText("Claude Math Skill");
+    await waitFor(() => expect(docked()).not.toBeNull());
+    const card = within(docked()!).getByTestId("overview-card");
+    await waitFor(() => expect(within(card).getByText("Engines")).toBeTruthy());
+    const rows = Array.from(card.querySelectorAll("[data-engine-name]")).map((r) => r.getAttribute("data-engine-name"));
+    expect(rows).toEqual(["All engines", "Engine K"]);
   });
 
   it("a narrow window keeps it behind the button", async () => {
