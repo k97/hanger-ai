@@ -33,7 +33,7 @@ export default function AllEnginesSwitch({
   pending: boolean;
   onToggle: () => void;
 }) {
-  const label = allEnginesSwitchLabel(server);
+  const label = allEnginesSwitchLabel(server, state);
   return (
     <span data-testid="all-engines-switch" className="ml-auto shrink-0 flex items-center gap-2">
       <Tooltip label={label} placement="bottom">

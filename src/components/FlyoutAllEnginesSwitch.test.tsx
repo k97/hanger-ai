@@ -130,7 +130,8 @@ function Harness({ contexts }: { contexts: EngineContext[] }) {
 }
 
 const header = () => screen.getByTestId("inspector-header");
-const headerSwitch = () => within(header()).getByRole("button", { name: "Switch cua off in every engine" });
+// Off everywhere, the switch says it turns cua on (Karthik, 2026-11-26).
+const headerSwitch = () => within(header()).getByRole("button", { name: /^Switch cua (off|on) in every engine$/ });
 const setCalls = () => invoke.mock.calls.filter(([c]) => c === "set_mcp_server_enabled").map(([, a]) => a);
 
 beforeEach(() => {
@@ -151,6 +152,7 @@ describe("Flyout — the switch for every engine in the server's header", () => 
     render(<Harness contexts={[codex("off"), claude("off"), cursor]} />);
     expect(headerSwitch().getAttribute("aria-pressed")).toBe("false");
     expect(within(header()).getByText("Off")).toBeTruthy();
+    expect(headerSwitch().getAttribute("aria-label")).toBe("Switch cua on in every engine");
   });
 
   it("reads On in some when they disagree, and says it is mixed", () => {

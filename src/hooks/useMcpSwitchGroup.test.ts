@@ -229,7 +229,7 @@ describe("useMcpSwitch — every engine at once", () => {
       "claude-code",
       "gemini",
     ]);
-    expect(result.current.notice).toMatchObject({ line: "cua is off for Codex, Claude Code and Gemini again." });
+    expect(result.current.notice).toMatchObject({ line: "cua is off for Codex, Claude Code and Gemini." });
   });
 
   it("an Undo that fails part way says so and stops", async () => {

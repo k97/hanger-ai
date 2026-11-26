@@ -123,9 +123,11 @@ export function allEnginesStateLabel(s: AllEnginesState): string {
   return s === "some" ? ON_IN_SOME : stateLabel(s);
 }
 
-/** The header switch's accessible name and tooltip. */
-export function allEnginesSwitchLabel(server: string): string {
-  return `Switch ${server} off in every engine`;
+/** The header switch's accessible name and tooltip. When the server is off
+ *  everywhere a click turns it back on, so the name says on (Karthik,
+ *  2026-11-26, slice 1 report Q1). */
+export function allEnginesSwitchLabel(server: string, state: AllEnginesState): string {
+  return state === "off" ? `Switch ${server} on in every engine` : `Switch ${server} off in every engine`;
 }
 
 /**
@@ -136,7 +138,9 @@ export function groupSwitchedLine(kind: "off" | "back_on" | "off_again", server:
   const list = joinNames(engines);
   if (kind === "off") return `${server} is off for ${list}.`;
   if (kind === "back_on") return `${server} is back on for ${list}.`;
-  return `${server} is off for ${list} again.`;
+  // Undoing a group that switched back on: the same line as switching off,
+  // with no "again" (Karthik, 2026-11-26, slice 1 report Q2).
+  return `${server} is off for ${list}.`;
 }
 
 /** Added after a header switch-off for engines that still carry the server

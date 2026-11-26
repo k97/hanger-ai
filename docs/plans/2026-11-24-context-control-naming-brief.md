@@ -194,10 +194,10 @@ Karthik approved these in [decisions round 5](2026-11-25-decisions-round-5.md) (
 | Beside the switch, every item it covers on | On | `allEnginesState`: every switchable item of the server's name is on. The existing state word |
 | Beside the switch, every item off | Off | Every one is off. The existing state word |
 | Beside the switch, some of each | On in some | Some on and some off. A word, not "2 of 3", which would be the app counting (`ON_IN_SOME`) |
-| The switch's accessible name and tooltip | Switch {server} off in every engine | `allEnginesSwitchLabel`. The same in every state; the state is `aria-pressed` (`mixed` for On in some) |
+| The switch's accessible name and tooltip | Switch {server} off in every engine; **Switch {server} on in every engine** when it is Off (Karthik, 2026-11-26) | `allEnginesSwitchLabel`. The state is `aria-pressed` (`mixed` for On in some) |
 | The notice after a click that switched off | {server} is off for {engines}. | `groupSwitchedLine("off")`: the engines whose request changed something, joined with commas and "and" (`joinNames`) |
 | The notice after a click that switched every one back on | {server} is back on for {engines}. | `groupSwitchedLine("back_on")`: today's "back on" form with the list |
 | Added after an off, for engines left on | Still on for {engines}. Hanger can't switch those yet. | `stillOnLine`, over `stillOnEngines`: engines with the server on and none of its items switchable |
 | Added for an engine that refused | Today's failure line for its code | `failureLine`, e.g. `would_not_come_back` for Claude Code's `tauri` |
 
-Two forms follow from approved ones and were not asked separately. Undoing a group that switched back on reads "{server} is off for {engines} again.", today's Undo line with the list; undoing an off uses the "back on" line above. When every request fails, the notice is the failure lines alone, one per engine, with no Undo.
+Two forms follow from approved ones and were not asked separately. Undoing a group that switched back on reads "{server} is off for {engines}." with no "again" (Karthik, 2026-11-26, slice 1 report Q2); undoing an off uses the "back on" line above. When every request fails, the notice is the failure lines alone, one per engine, with no Undo.

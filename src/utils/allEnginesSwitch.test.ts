@@ -128,7 +128,10 @@ describe("the header switch's words", () => {
   });
 
   it("names the switch", () => {
-    expect(allEnginesSwitchLabel("cua")).toBe("Switch cua off in every engine");
+    expect(allEnginesSwitchLabel("cua", "on")).toBe("Switch cua off in every engine");
+    expect(allEnginesSwitchLabel("cua", "some")).toBe("Switch cua off in every engine");
+    // Karthik, 2026-11-26 (slice 1 report Q1): when it is off everywhere a click turns it on.
+    expect(allEnginesSwitchLabel("cua", "off")).toBe("Switch cua on in every engine");
   });
 
   it("says which engines were switched, joined with commas and and", () => {
@@ -138,7 +141,7 @@ describe("the header switch's words", () => {
     expect(groupSwitchedLine("back_on", "cua", ["Codex", "Claude Code", "Gemini"])).toBe(
       "cua is back on for Codex, Claude Code and Gemini."
     );
-    expect(groupSwitchedLine("off_again", "cua", ["Codex", "Gemini"])).toBe("cua is off for Codex and Gemini again.");
+    expect(groupSwitchedLine("off_again", "cua", ["Codex", "Gemini"])).toBe("cua is off for Codex and Gemini."); // no "again" (Karthik, 2026-11-26, report Q2)
     expect(groupSwitchedLine("off", "cua", ["Codex"])).toBe("cua is off for Codex.");
   });
 
