@@ -11,6 +11,7 @@ import AssetHeaderRow, { type SortField, type SortDirection } from "./AssetHeade
 import AssetRow from "./AssetRow";
 import SummaryStrip from "./SummaryStrip";
 import OverviewCard, { type OverviewCardProps } from "./OverviewCard";
+import OverviewPopover from "./OverviewPopover";
 import { ScanStatusIndicator } from "./ScanStatusIndicator";
 import HangerMark from "./HangerMark";
 import SegmentedTrack from "./SegmentedTrack";
@@ -55,6 +56,7 @@ import {
   FolderClockIcon,
   FolderIcon,
   FolderSymlinkIcon,
+  GaugeIcon,
   GlobeAltIcon,
   LinkIcon,
   PanelRightIcon,
@@ -486,6 +488,9 @@ export default function DesignSystemPane({ section }: DesignSystemPaneProps) {
   const [sort, setSort] = useState<ServerSort>("attention");
   const [heroOpen, setHeroOpen] = useState(true);
   const [engine, setEngine] = useState<string | null>(null);
+  // The overview popover's specimen: its own sample trigger and open state.
+  const [overviewOpen, setOverviewOpen] = useState(false);
+  const overviewAnchorRef = useRef<HTMLButtonElement>(null);
   // The surfaces a finding popover clamps against, standing in for the
   // inspector column and a placecard.
   const capHostRef = useRef<HTMLDivElement>(null);
@@ -501,9 +506,9 @@ export default function DesignSystemPane({ section }: DesignSystemPaneProps) {
   };
 
   const scannedAt = new Date(Date.now() - 4 * 60_000);
-  // The overview card's three specimens share one sample: the props App's
-  // hook will hand the card (Task 4), with handlers that do nothing but the
-  // legend's.
+  // The overview card's specimens share one sample: the props ProfilePane
+  // hands the card from the figures its strip reads, with handlers that do
+  // nothing but the legend's.
   const overview: OverviewCardProps = {
     engines: SAMPLE_OVERVIEW_ENGINES,
     selectedEngineId: null,
@@ -1081,6 +1086,27 @@ export default function DesignSystemPane({ section }: DesignSystemPaneProps) {
                 review={null}
                 scan={{ scannedAt: null, scanning: false, onRescan: () => {} }}
               />
+            </div>
+          </Specimen>
+
+          <Specimen name="OverviewPopover" file="OverviewPopover.tsx" note="the card from the window bar: press the sample button. Fixed on the page, right-aligned under its trigger, with the overlay elevation; Esc or a click outside closes it, and nothing animates" unclipped>
+            <div className="flex items-center gap-2.5">
+              <Tooltip label="Sample overview" placement="bottom">
+                <button
+                  ref={overviewAnchorRef}
+                  type="button"
+                  aria-label="Sample overview"
+                  aria-haspopup="dialog"
+                  aria-expanded={overviewOpen}
+                  onClick={() => setOverviewOpen((v) => !v)}
+                  className={capButtonClass}
+                >
+                  <GaugeIcon size={16} aria-hidden="true" />
+                </button>
+              </Tooltip>
+              <OverviewPopover open={overviewOpen} onClose={() => setOverviewOpen(false)} anchorRef={overviewAnchorRef}>
+                <OverviewCard {...overview} />
+              </OverviewPopover>
             </div>
           </Specimen>
 

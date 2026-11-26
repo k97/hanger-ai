@@ -1,8 +1,10 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { invoke } from "@tauri-apps/api/core";
 import {
   ExclamationCircleIcon,
   Disc3Icon,
+  GaugeIcon,
   FolderClockIcon,
   PackageOpenIcon,
   FolderXIcon,
@@ -26,6 +28,10 @@ import { sumGlobalAssets, categoryCountKey } from "../utils/globalAssetCount";
 import { groupLabelClass } from "./typeRoles";
 import SummaryStrip, { type EngineStripFigures, type StripReview } from "./SummaryStrip";
 import EngineChipRow from "./EngineChipRow";
+import OverviewCard from "./OverviewCard";
+import OverviewPopover from "./OverviewPopover";
+import Tooltip from "./Tooltip";
+import { overviewButtonLabel } from "../utils/overviewCopy";
 import NotLoadedGroup, { groupRowClass, notLoadedHead, type NotLoadedRow } from "./NotLoadedGroup";
 import GroupTicks, { groupHead, type TickGroup } from "./GroupTicks";
 import KeptSkillsGroup from "./KeptSkillsGroup";
@@ -178,6 +184,22 @@ interface ProfilePaneProps {
   switcher?: McpSwitch;
   /** A tile switch's reply context, for App to take in place of its copy. */
   onEngineContext?: (ctx: EngineContext) => void;
+  /** Where App lets this pane draw the overview card (the amendment to
+   *  docs/plans/2026-11-26-overview-card.md: portals, not a lifted hook).
+   *  `cap` is an empty slot in the content cap's trailing group, on Global
+   *  only: the card's button goes there and its popover hangs from it.
+   *  `inspector` is the inspector's empty state while the card is pinned;
+   *  nothing mounts it until Task 6. With no slots, as standalone, the card
+   *  is drawn nowhere and the strip below is the only summary. */
+  overviewSlots?: { cap: HTMLElement | null; inspector: HTMLElement | null };
+  /** The content cap's button class, App's `tbBtnClass`, passed in rather
+   *  than copied: `tbbtn-duplicate.test.ts` allows two declarations, not
+   *  three. */
+  overviewButtonClass?: string;
+  /** Whether the card is pinned into the inspector (`overview_pinned`, App's,
+   *  from Task 6). Pinned, the cap carries no button. */
+  overviewPinned?: boolean;
+  onToggleOverviewPin?: () => void;
 }
 
 /** A kept server's row: the card row's first line, then which engine it is
@@ -446,6 +468,10 @@ export default function ProfilePane({
   engineContexts = null,
   switcher,
   onEngineContext,
+  overviewSlots,
+  overviewButtonClass = "",
+  overviewPinned = false,
+  onToggleOverviewPin,
 }: ProfilePaneProps) {
   const [internalCategory, setInternalCategory] = useState<CategoryType | null>(null);
   const [internalSortField, setInternalSortField] = useState<SortField>("name");
@@ -462,6 +488,27 @@ export default function ProfilePane({
   const listRef = useRef<HTMLDivElement>(null);
   // The engine Measure all is running for, if any.
   const [measuringFor, setMeasuringFor] = useState<string | null>(null);
+  // The overview card's popover, from the content cap's button or ⌘E. It
+  // exists only while App gives this pane a cap slot and the card is not
+  // pinned, so leaving Global (which unmounts this pane) closes it.
+  const [overviewOpen, setOverviewOpen] = useState(false);
+  const overviewButtonRef = useRef<HTMLButtonElement>(null);
+  const capSlot = overviewSlots?.cap ?? null;
+  const overviewAvailable = capSlot !== null && !overviewPinned;
+  // ⌘E toggles the card. A keystroke into a text field (search, rename) is
+  // typing, not a shortcut (Review Focus 3).
+  useEffect(() => {
+    if (!overviewAvailable) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey) || e.altKey || e.shiftKey || e.key.toLowerCase() !== "e") return;
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable || t.closest?.("[contenteditable]:not([contenteditable='false'])"))) return;
+      e.preventDefault();
+      setOverviewOpen((v) => !v);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [overviewAvailable]);
 
   // Lookup only — keyed by the backend's own asset_path. A row without an
   // entry renders empty annotation cells rather than a guessed state.
@@ -1347,6 +1394,47 @@ export default function ProfilePane({
           review={mcpMode ? mcpReview : assetReview}
         />
       </div>
+
+      {/* The overview card from the window bar (Task 5 of
+          docs/plans/2026-11-26-overview-card.md, as amended). The button is
+          portalled into App's cap slot and the popover onto document.body;
+          the card reads the same figures the strip above does, until Task 7
+          removes the strip. */}
+      {overviewAvailable &&
+        createPortal(
+          <Tooltip label={overviewButtonLabel(overviewOpen)} placement="bottom">
+            <button
+              ref={overviewButtonRef}
+              type="button"
+              aria-label={overviewButtonLabel(overviewOpen)}
+              aria-haspopup="dialog"
+              aria-expanded={overviewOpen}
+              onClick={() => setOverviewOpen((v) => !v)}
+              className={overviewButtonClass}
+            >
+              <GaugeIcon size={16} aria-hidden="true" />
+            </button>
+          </Tooltip>,
+          capSlot
+        )}
+      <OverviewPopover
+        open={overviewAvailable && overviewOpen}
+        onClose={() => setOverviewOpen(false)}
+        anchorRef={overviewButtonRef}
+      >
+        <OverviewCard
+          engines={engineContexts ?? []}
+          selectedEngineId={engine?.engine_id ?? null}
+          onSelectEngine={(id) => onSelectEngine?.(id)}
+          storeTotal={globalAssetsTotal}
+          linkLegend={{ counts: stripCounts, active: stateFilter, onFilter: (f) => onStateFilterChange?.(f) }}
+          engineFigures={engineFigures ?? null}
+          review={(mcpMode ? mcpReview : assetReview) ?? null}
+          scan={{ scannedAt: scannedAt ? scannedAt.getTime() : null, scanning: loading, onRescan: () => onRescan?.() }}
+          pinned={overviewPinned}
+          onTogglePin={() => onToggleOverviewPin?.()}
+        />
+      </OverviewPopover>
 
       {pendingState ? (
         /* Pending: no claim either way. Live root-by-root progress already

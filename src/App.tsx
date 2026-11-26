@@ -1105,6 +1105,14 @@ export default function App() {
   // offers no Switch action.
   const listedContexts = engineContexts ?? [];
 
+  // Where ProfilePane draws the overview card (the amendment to
+  // docs/plans/2026-11-26-overview-card.md: portals, not a lifted hook).
+  // The pane keeps the figures and their state; App only owns the places.
+  // `capSlot` is an empty span in the content cap, on Global only. Nothing
+  // mounts `inspectorSlot` until Task 6 gives Flyout its empty state.
+  const [capSlot, setCapSlot] = useState<HTMLElement | null>(null);
+  const [inspectorSlot] = useState<HTMLElement | null>(null);
+
   /** The servers a query names that Hanger can switch, at most eight. Each
    *  runs the switch the Engines pane's own button would, with the same
    *  request (`switchRequestFor`), after closing the palette. One whose name
@@ -2040,6 +2048,12 @@ export default function App() {
         <header data-tauri-drag-region className="relative h-9 shrink-0 flex items-center gap-2.5 select-none z-30 font-flex">
           {capDragOverlay}
           <div className="ml-auto flex items-center gap-1 pr-3">
+            {/* Global's overview button lands here, portalled by ProfilePane.
+                `contents` keeps the slot out of the row's layout, and the
+                button itself carries `relative` over the drag overlay. */}
+            {(selectedSidebarItem === "profile" || selectedSidebarItem.startsWith("global")) && (
+              <span ref={setCapSlot} data-testid="overview-cap-slot" className="contents" />
+            )}
             {/* The map view has no inspector column — its detail card lives
                 on the canvas — so its toolbar slot holds Rescan instead. */}
             {selectedSidebarItem === "linkmap" ? (
@@ -2161,6 +2175,12 @@ export default function App() {
               engines={engineRows}
               selectedEngine={selectedEngine}
               onSelectEngine={selectEngine}
+              overviewSlots={{ cap: capSlot, inspector: inspectorSlot }}
+              overviewButtonClass={tbBtnClass}
+              // Task 6 adds the `overview_pinned` pref; until then the card is
+              // never pinned and its pin does nothing.
+              overviewPinned={false}
+              onToggleOverviewPin={() => {}}
             />
           )}
 

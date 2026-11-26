@@ -1743,9 +1743,12 @@ second style.
 `docs/plans/2026-11-26-global-top-prototypes.html`): `engines`,
 `selectedEngineId`, `onSelectEngine`, `storeTotal`, `linkLegend`,
 `engineFigures`, `review`, `scan`, `pinned` and `onTogglePin`. It is purely
-presentational: it calls no command, and nothing renders it yet. The window
-bar's popover and the pinned inspector (Tasks 5 and 6) will both draw it. It
-draws no border or elevation of its own; the surface holding it does. Three
+presentational: it calls no command. ProfilePane renders it in
+`OverviewPopover`, from the figures its summary strip reads, so the two show
+the same values side by side until Task 7 removes the strip. Pinning it into
+the inspector lands with Task 6; until then App passes `pinned={false}` and a
+pin that does nothing. It draws no border or elevation of its own; the
+surface holding it does. Three
 sections, divided by `border-t border-line`, each headed by a `SectionHead`:
 the name in `font-medium text-ink-2`, the caption at the right in
 `text-small text-ink-3`, and, in whichever section comes first, the pin
@@ -1789,6 +1792,24 @@ Nothing in it opens or closes with an animation. No figure is counted:
 bars first, because names truncate and values never wrap (Review Focus 5).
 `happy-dom` lays nothing out, so `OverviewCard.test.tsx` pins that as a
 class contract and leaves the 384px geometry to a screenshot.
+
+**`OverviewPopover`** (`OverviewPopover.tsx`) — the overview card from the
+window bar (Task 5 of `docs/plans/2026-11-26-overview-card.md`, as amended:
+portals, not a lifted hook). App draws an empty `contents` span in the content
+cap's trailing group, on Global only, ahead of Toggle inspector, and hands it
+to ProfilePane as `overviewSlots.cap` with `tbBtnClass` as
+`overviewButtonClass` (passed, not copied: `tbbtn-duplicate.test.ts`).
+ProfilePane portals the button there: `GaugeIcon` at 16 in a `Tooltip`, named
+by `overviewButtonLabel` ("Show overview  ⌘E", "Hide overview  ⌘E"), with
+`aria-haspopup="dialog"` and `aria-expanded`. The panel is portalled to
+`document.body`, `fixed z-50 w-[350px] bg-page rounded-plane shadow-overlay`,
+its top 6px under the button and its right edge on the button's, measured once
+per opening. It is `role="dialog"`, `aria-label="Overview"`, and closes on Esc
+or a pointerdown outside both itself and the button. Nothing animates. ⌘E
+toggles it through a `window` keydown in ProfilePane, so the shortcut exists
+only on Global, and a keystroke whose target is an input, a textarea or
+contenteditable is left alone (Review Focus 3). With no cap slot, as in
+standalone ProfilePane tests, neither the button nor the panel is drawn.
 
 **`MechanismGlyph`** (`MechanismGlyph.tsx`) — the per-row attachment glyph:
 one of five backend words (`symlink | copy | drift | broken | none`), drawn

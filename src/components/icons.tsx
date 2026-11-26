@@ -300,7 +300,7 @@ function GaugeMark({ width, height, strokeWidth, ...props }: SVGProps<SVGSVGElem
   );
 }
 
-/** The Context section's row mark. */
+/** Global's overview button, in the content cap (OverviewPopover). */
 export const GaugeIcon = sized(GaugeMark);
 
 /* ── Animated marks — v5 (docs/v5-animate-icons/00-state-inventory.md).

@@ -87,9 +87,10 @@ function RankBar({ label, value, max }: { label: string; value: number | null; m
  * The overview card (docs/plans/2026-11-26-overview-card.md, Task 3): every
  * engine ranked by its tokens every session, then the chosen engine by kind
  * or, with All engines, the store's link state, then Needs review and
- * Rescan. Purely presentational — it calls nothing; the window bar's
- * popover and the pinned inspector both draw it from App's figures. It
- * draws no border or elevation of its own: whichever surface holds it does.
+ * Rescan. Purely presentational — it calls nothing. ProfilePane draws it
+ * from the figures its strip reads, into `OverviewPopover` from the window
+ * bar (Task 5); pinning it into the inspector lands with Task 6. It draws
+ * no border or elevation of its own: whichever surface holds it does.
  */
 export default function OverviewCard({
   engines,
