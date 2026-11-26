@@ -515,6 +515,19 @@ Nothing in this task runs without Karthik's go-ahead in the conversation at that
 
 ---
 
+## Task 11 result (2026-11-26, Karthik's go-ahead in round 11)
+
+Run on `animation-motion-design` through the dev app's MCP bridge (no mouse). State records: `docs/evidence/2026-11-26-skill-switch/{before,off,on,undo}.txt` (git-ignored).
+
+| Step | Result |
+|---|---|
+| Before | `~/.agents/skills/animation-motion-design`, inode 2320610, content fingerprint `4b70ddc0…`, 17 entries; one-by-one links from `~/.cursor/skills`, `~/.opencode/skills`, `~/.copilot/skills` |
+| Off | Notice "… is off for every engine. Hanger removed 3 links to it and will put them back." The folder is in the keep with the same inode and fingerprint (moved, not copied); all 3 links gone, none dangling; Claude Code, Codex and Gemini no longer see it; Skills 554 → 553; "Switched off · 1"; ⌘K no longer finds it; Needs review unchanged at 106 |
+| On | Path, inode, fingerprint, 17 entries and all 3 link texts identical to Before (`diff` empty); keep empty |
+| Off again, then Undo | Same as Off, then identical to Before; keep empty; Skills back to 554; ⌘K finds it again |
+
+Screenshots of the run came out blank (the window was not capturable at the time) and were dropped. While checking, the app showed "Switched off · 2" for MCP servers: Claude Code's `cua` and `cua-driver`, also off in Codex and Gemini, switched off with the every-engine header switch at 12:07 while Karthik was using the app. Unrelated to this run, and left as they are.
+
 ## Proposed strings (G1, for sign-off; none is final)
 
 `{skill}` is the folder's name, as the backend sends it. Figures come from the backend.
@@ -524,7 +537,7 @@ Nothing in this task runs without Karthik's go-ahead in the conversation at that
 | State word beside the header switch | On / Off | Already approved for servers (brief, Q2) |
 | Switch's accessible name and tooltip | Switch {skill} off for every engine / Switch {skill} on for every engine | The MCP header's form. Alternative: "Switch {skill} off everywhere" |
 | Notice after Off | {skill} is off for every engine. | |
-| Added when links were removed | Hanger removed {links} links to it and will put them back. | Only when `links_count > 0`. Singular: "1 link" |
+| Added when links were removed | Hanger removed {links} links to it and will put them back. | Only when `links_count > 0`. Singular (Karthik, 2026-11-26, round 11 Q2): "Hanger removed 1 link to the skill and will put it back." |
 | Notice after On, or Undo of an Off | {skill} is back on for every engine. | |
 | Notice after Undo of an On | {skill} is off for every engine. | The MCP rule: no "again" |
 | Added when some links weren't put back (Q3) | Some links weren't put back because their folders are gone: {places}. | `links_not_restored`, sanitised |

@@ -337,7 +337,7 @@ describe("the skill switch's copy", () => {
       "figma is off for every engine. Hanger removed 3 links to it and will put them back."
     );
     expect(skillSwitchedLine("off", "figma", 1)).toBe(
-      "figma is off for every engine. Hanger removed 1 link to it and will put them back."
+      "figma is off for every engine. Hanger removed 1 link to the skill and will put it back."
     );
     // Back on: the links are back, so nothing more is said about them.
     expect(skillSwitchedLine("back_on", "figma", 3)).toBe("figma is back on for every engine.");

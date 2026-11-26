@@ -340,8 +340,10 @@ export function skillSwitchedLine(kind: "off" | "back_on", skill: string, linksC
   if (kind === "back_on") return `${skill} is back on for every engine.`;
   const off = `${skill} is off for every engine.`;
   if (linksCount <= 0) return off;
-  const links = linksCount === 1 ? "1 link" : `${linksCount} links`;
-  return `${off} Hanger removed ${links} to it and will put them back.`;
+  // One link reads "1 link to the skill … put it back" (Karthik, 2026-11-26,
+  // round 11 Q2); more keep the approved plural.
+  if (linksCount === 1) return `${off} Hanger removed 1 link to the skill and will put it back.`;
+  return `${off} Hanger removed ${linksCount} links to it and will put them back.`;
 }
 
 /** Added when some links weren't put back (`links_not_restored`, Q3). */

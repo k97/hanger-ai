@@ -177,7 +177,7 @@ describe("App — the skill switch", () => {
     const button = await within(panel).findByRole("button", { name: "Switch figma off for every engine" });
     const scansBefore = calls("start_scan").length;
     fireEvent.click(button);
-    await screen.findByText("figma is off for every engine. Hanger removed 1 link to it and will put them back.");
+    await screen.findByText("figma is off for every engine. Hanger removed 1 link to the skill and will put it back.");
     expect(calls("set_skill_enabled")).toEqual([{ key: "skill:figma", enabled: false }]);
     await waitFor(() => expect(calls("start_scan").length).toBe(scansBefore + 1));
     expect(await within(panel).findByTestId("kept-skill-detail")).toBeTruthy();
