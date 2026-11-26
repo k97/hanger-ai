@@ -1,15 +1,27 @@
 import { useCallback, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { EngineContext, SwitchReply } from "../types/engineContext";
-import { failureLine, groupSwitchedLine, stillOnLine, switchedLine } from "../utils/switchCopy";
+import type { SkillSwitchReply } from "../types/skillSwitch";
+import {
+  failureLine,
+  groupSwitchedLine,
+  linksNotRestoredLine,
+  skillFailureLine,
+  skillSwitchedLine,
+  stillOnLine,
+  switchedLine,
+} from "../utils/switchCopy";
 
 /**
- * The one place a server is switched off or on, and switched back.
+ * The one place a server or a skill is switched off or on, and switched back.
  *
  * Every switch on screen calls this hook and nothing else calls
- * `set_mcp_server_enabled` or `undo_mcp_switch`, so there is one notice, one
- * receipt to undo, and one place that asks for the rescan that keeps the MCP
- * servers list and its counts true.
+ * `set_mcp_server_enabled`, `undo_mcp_switch`, `set_skill_enabled` or
+ * `undo_skill_switch`, so there is one notice, one receipt to undo, and one
+ * place that asks for the rescan that keeps the lists, their counts and ⌘K's
+ * search index true: a rescan rebuilds the index from what it finds, so a
+ * skill switched off stops turning up in search
+ * (docs/plans/2026-11-26-skill-switch.md, Task 7).
  */
 
 /** What the notice under the main column says. */
@@ -37,6 +49,17 @@ export interface SwitchRequest {
   enabled: boolean;
 }
 
+/** A skill switch: `skill:<name>` off, or `kept-skill:<uuid>` back on
+ *  (docs/ipc.md entry 22). */
+export interface SkillSwitchRequest {
+  key: string;
+  skillName: string;
+  enabled: boolean;
+}
+
+/** Skills have no engine; their busy keys and receipts sit under this one. */
+const SKILLS = "skills";
+
 /**
  * One click of the switch in a server's inspector header, which covers every
  * engine (docs/plans/2026-11-25-decisions-round-5.md): its requests, each
@@ -54,6 +77,9 @@ export interface McpSwitch {
   /** `${engineId}\u0000${key}` for every switch with a request in flight. */
   busyKeys: ReadonlySet<string>;
   switchServer(a: SwitchRequest): Promise<EngineContext | null>;
+  /** Switches a skill off or a kept skill back on. Its busy key is
+   *  `busyKeyOf("skills", key)`. */
+  switchSkill(a: SkillSwitchRequest): Promise<SkillSwitchReply | null>;
   /** Sends a group's requests one at a time and sets one notice for them. */
   switchAll(a: GroupSwitchRequest): Promise<void>;
   /** Undoes the last switch, or every receipt of the last group, last first.
@@ -62,15 +88,25 @@ export interface McpSwitch {
   dismiss(): void;
 }
 
-/** The last switch, so the Undo line and an Undo failure can name it. */
-interface LastSwitch {
-  engineName: string;
-  serverName: string;
-  file?: string;
-  busyKey: string;
-  /** The state the last change left the server in. */
-  lastEnabled: boolean;
-}
+/** The last switch, so the Undo line and an Undo failure can name it, and
+ *  Undo knows which command takes its receipt. */
+type LastSwitch =
+  | {
+      kind: "mcp";
+      engineName: string;
+      serverName: string;
+      file?: string;
+      busyKey: string;
+      /** The state the last change left the server in. */
+      lastEnabled: boolean;
+    }
+  | {
+      kind: "skill";
+      skillName: string;
+      busyKey: string;
+      /** The state the last change left the skill in. */
+      lastEnabled: boolean;
+    };
 
 /** One receipt of a group, with what its Undo line and failure line name. */
 interface GroupReceipt {
@@ -106,6 +142,13 @@ export function busyKeyOf(engineId: string, key: string): string {
  */
 function codeOf(err: unknown): string {
   return typeof err === "string" ? err : "";
+}
+
+/** The notice line after a skill switch or its Undo. */
+function skillLine(enabled: boolean, skillName: string, reply: SkillSwitchReply): string {
+  const parts = [skillSwitchedLine(enabled ? "back_on" : "off", skillName, reply.links_count)];
+  if (reply.links_not_restored.length > 0) parts.push(linksNotRestoredLine(reply.links_not_restored));
+  return parts.join(" ");
 }
 
 export function useMcpSwitch({
@@ -165,6 +208,7 @@ export function useMcpSwitch({
         if (reply.receipt_id === null) return reply.context;
         groupRef.current = null;
         lastRef.current = {
+          kind: "mcp",
           engineName: a.engineName,
           serverName: a.serverName,
           file: a.file,
@@ -183,6 +227,36 @@ export function useMcpSwitch({
         return reply.context;
       } catch (err) {
         show({ kind: "failed", line: failureLine(codeOf(err), names) });
+        return null;
+      } finally {
+        release(busyKey);
+      }
+    },
+    [hold, release, show]
+  );
+
+  const switchSkill = useCallback(
+    async (a: SkillSwitchRequest): Promise<SkillSwitchReply | null> => {
+      const busyKey = busyKeyOf(SKILLS, a.key);
+      if (!hold(busyKey)) return null;
+      try {
+        const reply = await invoke<SkillSwitchReply>("set_skill_enabled", { key: a.key, enabled: a.enabled });
+        // Already as asked: nothing changed, so nothing to say, undo or rescan.
+        if (reply.receipt_id === null) return reply;
+        groupRef.current = null;
+        lastRef.current = { kind: "skill", skillName: a.skillName, busyKey, lastEnabled: a.enabled };
+        show({
+          kind: "done",
+          line: skillLine(a.enabled, a.skillName, reply),
+          receiptEngineId: SKILLS,
+          receiptId: reply.receipt_id,
+          undoable: reply.undoable,
+          pending: false,
+        });
+        onChangedRef.current();
+        return reply;
+      } catch (err) {
+        show({ kind: "failed", line: skillFailureLine(codeOf(err), a.skillName) });
         return null;
       } finally {
         release(busyKey);
@@ -336,6 +410,27 @@ export function useMcpSwitch({
     if (current.receiptId === null || !last) return null;
     if (!hold(last.busyKey)) return null;
     show({ ...current, pending: true });
+    if (last.kind === "skill") {
+      try {
+        const reply = await invoke<SkillSwitchReply>("undo_skill_switch", { receiptId: current.receiptId });
+        const nowEnabled = !last.lastEnabled;
+        lastRef.current = { ...last, lastEnabled: nowEnabled };
+        show({
+          kind: "done",
+          line: skillLine(nowEnabled, last.skillName, reply),
+          receiptEngineId: SKILLS,
+          receiptId: reply.receipt_id,
+          undoable: reply.undoable,
+          pending: false,
+        });
+        onChangedRef.current();
+      } catch (err) {
+        show({ kind: "failed", line: skillFailureLine(codeOf(err), last.skillName) });
+      } finally {
+        release(last.busyKey);
+      }
+      return null;
+    }
     const names = { engine: last.engineName, server: last.serverName, file: last.file };
     try {
       const reply = await invoke<SwitchReply>("undo_mcp_switch", {
@@ -364,5 +459,5 @@ export function useMcpSwitch({
 
   const dismiss = useCallback(() => show(null), [show]);
 
-  return { notice, busyKeys, switchServer, switchAll, undo, dismiss };
+  return { notice, busyKeys, switchServer, switchSkill, switchAll, undo, dismiss };
 }

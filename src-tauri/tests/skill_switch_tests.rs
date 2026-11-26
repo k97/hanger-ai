@@ -1021,3 +1021,43 @@ fn back_in_store_is_reported() {
     assert!(kept.skills[0].back_in_store);
     assert_eq!(ops::set_enabled_for(&w.places, &[], &kept.skills[0].key, true).unwrap_err(), SkillSwitchFailure::AlreadyThere);
 }
+
+// ---------------------------------------------------------------------------
+// Search after a switch: a rescan's index rebuild drops a switched-off skill
+// ---------------------------------------------------------------------------
+
+use tauri_app_lib::search;
+
+fn skill_hits(w: &World, query: &str) -> Vec<String> {
+    search::search(&w.places.db_path, query, 50)
+        .expect("searched")
+        .hits
+        .into_iter()
+        .filter(|h| h.kind == "skill")
+        .map(|h| h.path)
+        .collect()
+}
+
+#[test]
+fn a_rescan_after_off_drops_the_skill_from_search_and_on_brings_it_back() {
+    let w = world(&["y"]);
+    fs::create_dir_all(w.skill("zebrafish")).unwrap();
+    fs::write(w.skill("zebrafish/SKILL.md"), "---\nname: zebrafish\ndescription: Herds zebrafish\n---\n# Zebrafish\n").unwrap();
+    let project = project(&w);
+    let inventory = scan(&w, &project);
+    search::index_inventory(&w.places.db_path, &inventory).unwrap();
+    assert_eq!(skill_hits(&w, "zebrafish").len(), 1, "indexed after the first scan");
+
+    let off = ops::switch_off(&w.places, &[project.clone()], "zebrafish").unwrap();
+    // The switch itself does not touch the index: until the rescan rebuilds
+    // it, the stale hit is still there. This is why the webview rescans.
+    assert_eq!(skill_hits(&w, "zebrafish").len(), 1, "the switch alone leaves the index as it was");
+    let inventory = scan(&w, &project);
+    search::index_inventory(&w.places.db_path, &inventory).unwrap();
+    assert!(skill_hits(&w, "zebrafish").is_empty(), "the rescan's rebuild dropped it");
+
+    ops::switch_on(&w.places, &off.id).unwrap();
+    let inventory = scan(&w, &project);
+    search::index_inventory(&w.places.db_path, &inventory).unwrap();
+    assert_eq!(skill_hits(&w, "zebrafish").len(), 1, "on and a rescan bring it back");
+}

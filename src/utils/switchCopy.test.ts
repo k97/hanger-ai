@@ -260,3 +260,113 @@ describe("an engine whose servers all run on the vendor's servers", () => {
     );
   });
 });
+
+// ---------------------------------------------------------------------------
+// The skill switch. Every expected string is copied from the "Proposed
+// strings" table of docs/plans/2026-11-26-skill-switch.md, approved by
+// Karthik on 2026-11-26 as written, with `{skill}` filled as "figma".
+// ---------------------------------------------------------------------------
+
+import {
+  skillSwitchedLine,
+  skillFailureLine,
+  skillReadOnlyLine,
+  skillSwitchLabel,
+  skillStateLabel,
+  linksNotRestoredLine,
+  isSkillSwitchFailure,
+  KEPT_SKILL_OFF_LINE,
+  KEPT_SKILL_MECHANISM,
+  keptSkillsHead,
+  backInStoreLine,
+  INTERRUPTED_LINE,
+} from "./switchCopy";
+import type { SkillReadOnly, SkillSwitchFailure } from "../types/skillSwitch";
+
+const SKILL_FAILURES: Record<SkillSwitchFailure, string> = {
+  not_found: "Hanger can't find figma in the global store any more.",
+  changed_since_read: "A link to figma changed while Hanger was working. Nothing was moved. Try again.",
+  already_there: "There's a skill named figma in the global store again. Hanger changed nothing and kept its copy.",
+  link_place_taken: "Something else is where a link to figma used to be. Hanger changed nothing and kept its copy.",
+  changed_since_kept: "figma changed while Hanger kept it, so Hanger left it in its keep.",
+  other_volume:
+    "The global store is on another disk from Hanger's keep, so Hanger can't move this skill without copying it.",
+  write_failed: "Hanger couldn't move figma. The list shows where things stand now.",
+  not_verified: "Hanger couldn't confirm figma came back unchanged, so it kept its record.",
+  not_undoable: "This can't be undone now. The skill has moved since.",
+  read_only: "Hanger can't switch this skill.",
+  name_refused: "Hanger won't move a skill with this name.",
+};
+
+const SKILL_READ_ONLY: Record<SkillReadOnly, string> = {
+  inside_another_folder:
+    "This skill is inside another folder in the global store. Hanger only switches the ones at the top.",
+  other_volume:
+    "The global store is on another disk from Hanger's keep, so Hanger can't move this skill without copying it.",
+  has_tracked_copies:
+    "Hanger copied this skill into a project and tracks that copy. Switching it off would lose track of it.",
+};
+
+describe("the skill switch's copy", () => {
+  it("every_skill_failure_code_has_a_line", () => {
+    for (const [code, line] of Object.entries(SKILL_FAILURES)) {
+      expect(skillFailureLine(code, "figma"), code).toBe(line);
+      expect(isSkillSwitchFailure(code), code).toBe(true);
+    }
+    expect(Object.keys(SKILL_FAILURES)).toHaveLength(11);
+  });
+
+  it("an_unknown_code_gets_the_fallback_line", () => {
+    for (const code of ["", "toString", "cli_failed", "something_new"]) {
+      expect(skillFailureLine(code, "figma"), code).toBe("Hanger couldn't make that change. Nothing was changed.");
+      expect(isSkillSwitchFailure(code), code).toBe(false);
+    }
+  });
+
+  it("has the table's line for every read-only reason", () => {
+    for (const [reason, line] of Object.entries(SKILL_READ_ONLY)) {
+      expect(skillReadOnlyLine(reason as SkillReadOnly)).toBe(line);
+    }
+    // "Failure: other_volume — Same as the read-only line".
+    expect(skillFailureLine("other_volume", "figma")).toBe(skillReadOnlyLine("other_volume"));
+  });
+
+  it("says what a switch did, and the links it removed, singular and plural", () => {
+    expect(skillSwitchedLine("off", "figma", 0)).toBe("figma is off for every engine.");
+    expect(skillSwitchedLine("off", "figma", 3)).toBe(
+      "figma is off for every engine. Hanger removed 3 links to it and will put them back."
+    );
+    expect(skillSwitchedLine("off", "figma", 1)).toBe(
+      "figma is off for every engine. Hanger removed 1 link to it and will put them back."
+    );
+    // Back on: the links are back, so nothing more is said about them.
+    expect(skillSwitchedLine("back_on", "figma", 3)).toBe("figma is back on for every engine.");
+  });
+
+  it("links_not_restored_adds_its_line", () => {
+    expect(linksNotRestoredLine(["~/Work/gone/.claude/skills/figma"])).toBe(
+      "Some links weren't put back because their folders are gone: ~/Work/gone/.claude/skills/figma."
+    );
+    expect(linksNotRestoredLine(["~/a/figma", "~/b/figma"])).toBe(
+      "Some links weren't put back because their folders are gone: ~/a/figma and ~/b/figma."
+    );
+  });
+
+  it("names the header switch by what a click does, and its state word", () => {
+    expect(skillSwitchLabel("figma", true)).toBe("Switch figma off for every engine");
+    expect(skillSwitchLabel("figma", false)).toBe("Switch figma on for every engine");
+    expect(skillStateLabel(true)).toBe("On");
+    expect(skillStateLabel(false)).toBe("Off");
+  });
+
+  it("has the kept group's and panel's lines", () => {
+    expect(keptSkillsHead(2, true)).toBe("Switched off · 2");
+    expect(keptSkillsHead(2, false)).toBe("Switched off");
+    expect(KEPT_SKILL_OFF_LINE).toBe("Off for every engine");
+    expect(KEPT_SKILL_MECHANISM).toBe(
+      "Moved out of the global store. Hanger keeps it and puts it back, with its links, when you switch it on."
+    );
+    expect(backInStoreLine("figma")).toBe("There's a skill named figma in the global store again.");
+    expect(INTERRUPTED_LINE).toBe("Hanger stopped partway through switching this off. Switch it on to put it back.");
+  });
+});

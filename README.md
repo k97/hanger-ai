@@ -159,7 +159,7 @@ gitleaks detect --source .      # and --no-git -c .gitleaks.toml
 
 <!-- hanger:tests:start -->
 
-161 frontend test files under `src/`, and 48 Rust integration test files under `src-tauri/tests/`.
+162 frontend test files under `src/`, and 48 Rust integration test files under `src-tauri/tests/`.
 
 <!-- hanger:tests:end -->
 

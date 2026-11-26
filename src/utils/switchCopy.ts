@@ -1,5 +1,6 @@
 /**
- * Every string the MCP server switch shows, keyed by the backend's codes.
+ * Every string the MCP server switch and the skill switch show, keyed by the
+ * backend's codes. The skill switch's lines are at the end of the file.
  *
  * The lines are the naming brief's
  * (`docs/plans/2026-11-24-context-control-naming-brief.md`), verbatim, plus
@@ -15,6 +16,7 @@
  */
 
 import type { SwitchFailure, ReadOnlyReason, ItemState, EngineContext } from "../types/engineContext";
+import type { SkillReadOnly, SkillSwitchFailure } from "../types/skillSwitch";
 import type { AllEnginesState } from "./switchTargets";
 import { joinNames } from "./prose";
 
@@ -273,3 +275,108 @@ export function engineBandFigures(ctx: EngineContext | null): {
   if (tokens === null) return { value: null, word: NOT_MEASURED, secondary };
   return { value: tokenFigure(tokens), word: "tokens", secondary };
 }
+
+// ---------------------------------------------------------------------------
+// The skill switch (docs/plans/2026-11-26-skill-switch.md, "Proposed
+// strings", approved by Karthik as written on 2026-11-26). `{skill}` is the
+// folder's name as the backend sends it; every figure is the backend's. The
+// failure and read-only lines are exhaustive `Record`s over the unions in
+// `../types/skillSwitch`, so a code added there fails `tsc` until it has a
+// line here.
+// ---------------------------------------------------------------------------
+
+const OTHER_VOLUME_LINE =
+  "The global store is on another disk from Hanger's keep, so Hanger can't move this skill without copying it.";
+
+const SKILL_READ_ONLY_LINES: Record<SkillReadOnly, string> = {
+  inside_another_folder:
+    "This skill is inside another folder in the global store. Hanger only switches the ones at the top.",
+  other_volume: OTHER_VOLUME_LINE,
+  has_tracked_copies:
+    "Hanger copied this skill into a project and tracks that copy. Switching it off would lose track of it.",
+};
+
+/** Why a skill in the global store shows no switch. */
+export function skillReadOnlyLine(r: SkillReadOnly): string {
+  return SKILL_READ_ONLY_LINES[r];
+}
+
+const SKILL_FAILURE_LINES: Record<SkillSwitchFailure, (skill: string) => string> = {
+  not_found: (s) => `Hanger can't find ${s} in the global store any more.`,
+  changed_since_read: (s) => `A link to ${s} changed while Hanger was working. Nothing was moved. Try again.`,
+  already_there: (s) =>
+    `There's a skill named ${s} in the global store again. Hanger changed nothing and kept its copy.`,
+  link_place_taken: (s) =>
+    `Something else is where a link to ${s} used to be. Hanger changed nothing and kept its copy.`,
+  changed_since_kept: (s) => `${s} changed while Hanger kept it, so Hanger left it in its keep.`,
+  other_volume: () => OTHER_VOLUME_LINE,
+  write_failed: (s) => `Hanger couldn't move ${s}. The list shows where things stand now.`,
+  not_verified: (s) => `Hanger couldn't confirm ${s} came back unchanged, so it kept its record.`,
+  not_undoable: () => "This can't be undone now. The skill has moved since.",
+  read_only: () => "Hanger can't switch this skill.",
+  name_refused: () => "Hanger won't move a skill with this name.",
+};
+
+/** Whether a rejection is one of the skill switch's codes. An own-key check,
+ *  so `"toString"` is not a code. */
+export function isSkillSwitchFailure(x: unknown): x is SkillSwitchFailure {
+  return typeof x === "string" && Object.prototype.hasOwnProperty.call(SKILL_FAILURE_LINES, x);
+}
+
+/** The line for a skill switch or Undo that did not happen. A code the
+ *  webview does not know gets the MCP switch's line that quotes nothing. */
+export function skillFailureLine(code: string, skill: string): string {
+  return isSkillSwitchFailure(code)
+    ? SKILL_FAILURE_LINES[code](skill)
+    : "Hanger couldn't make that change. Nothing was changed.";
+}
+
+/**
+ * The notice after a skill switch or its Undo. Off (a switch-off, or the
+ * Undo of a switch-on, with no "again") adds the links Hanger removed when
+ * there were any; back on says nothing of them, because they are back.
+ */
+export function skillSwitchedLine(kind: "off" | "back_on", skill: string, linksCount: number): string {
+  if (kind === "back_on") return `${skill} is back on for every engine.`;
+  const off = `${skill} is off for every engine.`;
+  if (linksCount <= 0) return off;
+  const links = linksCount === 1 ? "1 link" : `${linksCount} links`;
+  return `${off} Hanger removed ${links} to it and will put them back.`;
+}
+
+/** Added when some links weren't put back (`links_not_restored`, Q3). */
+export function linksNotRestoredLine(places: string[]): string {
+  return `Some links weren't put back because their folders are gone: ${joinNames(places)}.`;
+}
+
+/** The skill header switch's accessible name and tooltip: what a click
+ *  does, as the MCP header's is. */
+export function skillSwitchLabel(skill: string, on: boolean): string {
+  return `Switch ${skill} ${on ? "off" : "on"} for every engine`;
+}
+
+/** The state word beside the skill header switch. */
+export function skillStateLabel(on: boolean): string {
+  return stateLabel(on ? "on" : "off");
+}
+
+/** The Skills "Switched off" group's head: the backend's `count`, with no
+ *  figure when an engine is picked, as the MCP group does. */
+export function keptSkillsHead(count: number, withFigure: boolean): string {
+  return withFigure ? `Switched off · ${count}` : "Switched off";
+}
+
+/** A kept skill's row's second line, and the panel's row. */
+export const KEPT_SKILL_OFF_LINE = "Off for every engine";
+
+/** The kept skill panel's line on what happened to it. */
+export const KEPT_SKILL_MECHANISM =
+  "Moved out of the global store. Hanger keeps it and puts it back, with its links, when you switch it on.";
+
+/** A kept skill whose name is in the global store again (`back_in_store`). */
+export function backInStoreLine(skill: string): string {
+  return `There's a skill named ${skill} in the global store again.`;
+}
+
+/** A kept skill whose switch-off did not finish (`interrupted`). */
+export const INTERRUPTED_LINE = "Hanger stopped partway through switching this off. Switch it on to put it back.";
