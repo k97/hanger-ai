@@ -103,7 +103,7 @@ export function projectOverrideNote(row: McpServerRow): string | undefined {
  * ancestor-reach clause reads. Kept narrow — no `places` — so a fixture only
  * has to supply what this clause actually looks at, matching the shape
  * `AssetAnnotationView.beyond` already carries on the frontend
- * (`AssetRow.tsx`).
+ * (`listRowCopy.ts`).
  */
 export interface AncestorReachBeyond {
   kind: string;
@@ -118,8 +118,8 @@ export interface AncestorReachBeyond {
  * (`BeyondNote.count` / `.using_count`); this only compares them to pick a
  * branch, never subtracts — a subtraction here would derive a count in the
  * frontend (`.claude/rules/invariants.md`). The one place this wording is
- * written: `AssetRow.tsx`'s `beyondCell` (the table variant's own cell) calls
- * this too, so the two surfaces that can both show it never drift apart.
+ * written: `listRowCopy.ts`'s `listRowFigure` (a row's figure) calls this
+ * too, so the two surfaces that can both show it never drift apart.
  */
 export function ancestorReachNote(
   beyond: AncestorReachBeyond | null | undefined

@@ -413,9 +413,13 @@ describe("RepoPane — T4: counts without rows is pending, not a blank table", (
       screen.getByTestId("scan-pending").querySelector('path[d="M12 10v4h4"]')
     ).toBeTruthy();
     expect(screen.getByTestId("scan-pending").querySelector("g.aim-loop")).toBeTruthy();
-    // Never both on screen together — the bug this pins is precisely
+    // Never both on screen together — the bug this pinned was
     // `AssetHeaderRow`'s "Name" column rendering while nothing backs it.
+    // That header is gone (Task 4 of docs/plans/2026-11-26-global-list.md),
+    // so the list itself is what must stay off screen: no lane, no row.
     expect(screen.queryByText("Name")).toBeNull();
+    expect(screen.queryByTestId("list-lane")).toBeNull();
+    expect(screen.queryAllByTestId("list-row")).toHaveLength(0);
   });
 
   it("isRepoEmpty did not regress: a genuinely empty, finished, idle repository still claims the finding", () => {

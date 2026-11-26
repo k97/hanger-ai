@@ -7,8 +7,8 @@ import BrandIcon from "./BrandIcon";
 import CategoryFilterCards, { type CategoryType } from "./CategoryFilterCards";
 import DisclosureBanner from "./DisclosureBanner";
 import Tooltip from "./Tooltip";
-import AssetHeaderRow, { type SortField, type SortDirection } from "./AssetHeaderRow";
-import AssetRow from "./AssetRow";
+import GroupHead from "./GroupHead";
+import { repoRowDetail, repoRowFigure } from "../utils/listRowCopy";
 import ListRow from "./ListRow";
 import SummaryStrip from "./SummaryStrip";
 import OverviewCard, { type OverviewCardProps } from "./OverviewCard";
@@ -81,7 +81,6 @@ import type { StateFilter } from "../utils/linkStateCounts";
 import { skillStateLabel, skillSwitchLabel } from "../utils/switchCopy";
 import {
   type DesignSectionId,
-  SAMPLE_ANNOTATION,
   SAMPLE_ASSET,
   SAMPLE_ASSET_BROKEN,
   SAMPLE_ASSET_DRIFTED,
@@ -484,8 +483,6 @@ export default function DesignSystemPane({ section }: DesignSystemPaneProps) {
   // Local state so interactive specimens actually interact.
   const [stateFilter, setStateFilter] = useState<StateFilter>(null);
   const [category, setCategory] = useState<CategoryType | null>(null);
-  const [sortField, setSortField] = useState<SortField>("name");
-  const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
   const [replay, setReplay] = useState(0);
   const [selectedRow, setSelectedRow] = useState<string | null>(SAMPLE_ASSET.id ?? null);
   const [segment, setSegment] = useState(SAMPLE_SEGMENTS[0].id);
@@ -504,13 +501,6 @@ export default function DesignSystemPane({ section }: DesignSystemPaneProps) {
   const chipHostRef = useRef<HTMLDivElement>(null);
   const popoverHostRef = useRef<HTMLDivElement>(null);
 
-  const handleSort = (field: SortField) => {
-    if (field === sortField) setSortDirection((d) => (d === "asc" ? "desc" : "asc"));
-    else {
-      setSortField(field);
-      setSortDirection("asc");
-    }
-  };
 
   const scannedAt = new Date(Date.now() - 4 * 60_000);
   // The overview card's specimens share one sample: the props ProfilePane
@@ -1228,37 +1218,28 @@ export default function DesignSystemPane({ section }: DesignSystemPaneProps) {
             </div>
           </Specimen>
 
-          <Specimen name="AssetHeaderRow · AssetRow" file="AssetHeaderRow.tsx · AssetRow.tsx" note="legacy columns; sort the header, select a row">
-            <div className="flex flex-col">
-              <AssetHeaderRow
-                sortField={sortField}
-                sortDirection={sortDirection}
-                showKindColumn
-                onSort={handleSort}
-              />
-              {[SAMPLE_ASSET, SAMPLE_ASSET_DRIFTED, SAMPLE_ASSET_BROKEN].map((item) => (
-                <AssetRow
-                  key={item.id}
-                  item={item}
-                  showKindColumn
-                  isSelected={selectedRow === item.id}
-                  onClick={() => setSelectedRow(item.id ?? null)}
-                />
-              ))}
-            </div>
-          </Specimen>
-
-          <Specimen name="AssetRow with annotation" file="AssetRow.tsx" note="the Global pane's Reach and Beyond the store columns">
-            <div className="flex flex-col">
-              <AssetHeaderRow
-                sortField={sortField}
-                sortDirection={sortDirection}
-                showKindColumn
-                showReachColumns
-                onSort={handleSort}
-              />
-              <AssetRow item={SAMPLE_ASSET} showKindColumn annotation={SAMPLE_ANNOTATION} />
-              <AssetRow item={SAMPLE_ASSET_DRIFTED} showKindColumn annotation={null} />
+          <Specimen name="GroupHead · a repository's rows" file="GroupHead.tsx" note="a group's head on Global's list and a repository's, after T3's shelf head: the label, a 1px rule, the backend's figure. Under it, ListRows as a repository draws them: the Engine word on the left of line 2, the State word on the right, coloured for a drift or a file that won't parse. Select a row">
+            <div className="max-w-[640px] flex flex-col">
+              <GroupHead label="Sample group" figure={3} />
+              <div className="flex flex-col gap-px">
+                {[SAMPLE_ASSET, SAMPLE_ASSET_DRIFTED, SAMPLE_ASSET_BROKEN].map((item) => {
+                  const figure = repoRowFigure(item);
+                  return (
+                    <ListRow
+                      key={item.id}
+                      kind={item.category === "Rules" ? "rule" : item.category === "Subagents" ? "subagent" : "skill"}
+                      name={item.name}
+                      detail={repoRowDetail(item)}
+                      figure={figure.text}
+                      figureTone={figure.tone}
+                      reach={null}
+                      muted={item.parseStatus === "failed"}
+                      selected={selectedRow === item.id}
+                      onSelect={() => setSelectedRow(item.id ?? null)}
+                    />
+                  );
+                })}
+              </div>
             </div>
           </Specimen>
 

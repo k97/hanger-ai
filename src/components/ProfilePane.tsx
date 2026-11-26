@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { invoke } from "@tauri-apps/api/core";
 import {
@@ -13,15 +13,13 @@ import {
   PlugZapIcon,
 } from "./icons";
 import CategoryFilterCards, { CategoryType, TAB_LABELS } from "./CategoryFilterCards";
-import AssetRow, { AssetItem, AssetAnnotationView } from "./AssetRow";
-import type { SortField, SortDirection } from "./AssetHeaderRow";
 import ListRow, { type ListRowKind } from "./ListRow";
-import { listRowDetail, listRowFigure } from "../utils/listRowCopy";
+import { listRowDetail, listRowFigure, type AssetAnnotationView, type AssetItem } from "../utils/listRowCopy";
 import ViewControl, { ServerGrouping, ServerSort } from "./ViewControl";
 import { Inventory, CategoryCounts } from "../App";
 import { filterProfileAssets } from "../utils/filterPredicate";
 import { dedupeRegistrations } from "../utils/mcpRegistration";
-import { sortAssetItems } from "../utils/sortUtils";
+import { sortAssetItems, type SortField, type SortDirection } from "../utils/sortUtils";
 import { registrationKey } from "../utils/mcpRegistration";
 import { groupProcesses, type ProcessMatch } from "../utils/mcpServerView";
 import { ancestorReachNote, cardSecondLine, mergeReach, sortServerRows, transportChipLabel, type McpServerRow } from "../utils/serverRows";
@@ -37,8 +35,10 @@ import { DOCKED_LANE_CLEARANCE, shouldDockOverview } from "../utils/overviewLayo
 import { isTextEntryTarget } from "../utils/textEntry";
 import NotLoadedGroup, { notLoadedHead, type NotLoadedRow } from "./NotLoadedGroup";
 import CollapsibleGroup from "./CollapsibleGroup";
-import { Separator } from "./ui/separator";
-import GroupTicks, { groupHead, type TickGroup } from "./GroupTicks";
+import GroupTicks, { type TickGroup } from "./GroupTicks";
+import GroupHead from "./GroupHead";
+import { LIST_INSET, laneClass, laneIsWide } from "../utils/listLane";
+import { usePaneWidth } from "../hooks/usePaneWidth";
 import KeptSkillsGroup from "./KeptSkillsGroup";
 import type { KeptSkills } from "../types/skillSwitch";
 import { missTitle } from "./ReachCard";
@@ -214,20 +214,6 @@ interface ProfilePaneProps {
   forceDock?: boolean;
 }
 
-/** Below this list width the lane drops its 48px padding to 12px, and the
- *  ticks, which need that margin, go (T3's `minChatWidth`, chatCanvasLayout.ts). */
-const LANE_MIN_WIDTH = 640;
-
-/** The centred lane Global's list sits in, after T3 Code's chat column
- *  (`.chat-content-lane`, index.css:979-984): at most 736px, 48px padding
- *  while there is room. The facet row above uses the same lane, so the two
- *  line up. Each lane is centred in a box (`laneBoxClass`): the whole list
- *  area, or, beside the docked card, the part of it left of the card. */
-const laneClass = (wide: boolean) => `mx-auto w-full max-w-[736px] ${wide ? "px-12" : "px-3"}`;
-
-/** The list's inset from the pane's edge (`mx-[18px]`, `px-[18px]`). */
-const LIST_INSET = 18;
-
 /** The box the lane is centred in (for the kind tabs, the box around their
  *  padded wrapper, whose 18px padding is the same inset). Docked, it ends
  *  where T3 ends its column
@@ -238,47 +224,6 @@ const LIST_INSET = 18;
  *  pane it ends at 644, and the lane, centred in it, fills it. A literal,
  *  because Tailwind reads classes as text. Pinned by overview_dock.test.tsx. */
 const laneBoxClass = (docked: boolean) => (docked ? "mr-[306px]" : "");
-
-/** A group's head, as T3 heads a shelf: the label, a 1px rule
- *  (`ui/separator`), then the backend's figure (none with an engine picked),
- *  and an optional control at the end. Not a column header: nothing under
- *  it is a column. The heading is named in the words its tick uses
- *  (`groupHead`), and the control sits outside it so it is no part of that
- *  name. Not sticky (Task 3 of docs/plans/2026-11-26-global-list.md): a
- *  group's head scrolls away with its rows, as T3's do, so no head is left
- *  over another group's rows, and a tick's jump lands it at the top with no
- *  scroll margin. The folding groups use `CollapsibleGroup`, the same head
- *  made a button. */
-function GroupHead({
-  id,
-  label,
-  figure,
-  className = "",
-  trailing,
-  testId,
-}: {
-  id?: string;
-  label: string;
-  figure: number | null;
-  className?: string;
-  trailing?: ReactNode;
-  testId?: string;
-}) {
-  return (
-    <div
-      id={id}
-      data-testid={testId}
-      className={`${className} flex items-center gap-2 h-8 px-2.5 text-small font-medium text-ink-3 select-none`}
-    >
-      <h3 aria-label={groupHead(label, figure)} className="flex-1 min-w-0 flex items-center gap-2">
-        <span className="shrink-0">{label}</span>
-        <Separator data-testid="group-head-rule" aria-hidden="true" className="flex-1" />
-        {figure !== null && <span className="shrink-0 font-normal tabular">{figure}</span>}
-      </h3>
-      {trailing}
-    </div>
-  );
-}
 
 type McpCoverageProp = { checked_file_count: number; checked_engine_count: number; checked_files: string[] } | null;
 type EngineLocationsProp = { location_count: number; locations: string[] } | null;
@@ -579,18 +524,7 @@ export default function ProfilePane({
   // happy-dom, or a pane not yet laid out: no answer, so the lane stays
   // wide and the card stays behind its button.
   const [paneEl, setPaneEl] = useState<HTMLDivElement | null>(null);
-  const [paneWidth, setPaneWidth] = useState(0);
-  useLayoutEffect(() => {
-    if (!paneEl) return;
-    const apply = (width: number) => {
-      if (width > 0) setPaneWidth(width);
-    };
-    apply(paneEl.clientWidth);
-    if (typeof ResizeObserver === "undefined") return;
-    const observer = new ResizeObserver((entries) => apply(entries[0]?.contentRect.width ?? 0));
-    observer.observe(paneEl);
-    return () => observer.disconnect();
-  }, [paneEl]);
+  const paneWidth = usePaneWidth(paneEl);
   // The engine Measure all is running for, if any.
   const [measuringFor, setMeasuringFor] = useState<string | null>(null);
   // The overview card: docked at the pane's top right when there is room
@@ -609,7 +543,7 @@ export default function ProfilePane({
   // screenshots). The padding rule is the same on either: 48px, and the
   // ticks, from 640px; 12px and no ticks below.
   const laneArea = dockedCardShown ? paneWidth - DOCKED_LANE_CLEARANCE : paneWidth - 2 * LIST_INSET;
-  const measuredWide = paneWidth === 0 || laneArea >= LANE_MIN_WIDTH;
+  const measuredWide = laneIsWide(paneWidth, laneArea);
   const laneWide = forceLane ? forceLane === "wide" : measuredWide;
   // The button's state: docked, whether the card shows; otherwise whether
   // the popover is open.
@@ -1117,7 +1051,7 @@ export default function ProfilePane({
   // mode needs it before this point.)
   // Reach is keyed by REGISTRATION in `annotations`, but one grouped row
   // stands for every registration of a server name at once — looked up
-  // alongside the row so `toolAnnotationFor` below can hand `AssetRow` the
+  // alongside the row so `toolAnnotationFor` below can hand the row the
   // union rather than whichever single registration happened first.
   const groupedAnnotationById = new Map<string, AssetAnnotationView | null>();
   // Every registration a grouped row stands for, by the row's id: what its
@@ -1718,17 +1652,11 @@ export default function ProfilePane({
               <>
                 <h3 className={`px-3.5 pt-[11px] pb-[5px] ${groupLabelClass}`}>Agents · {sortedAgents.length}</h3>
                 <div className="flex flex-col">
-                  {sortedAgents.map((item) => (
-                    <AssetRow
-                      key={`agent-${item.name}`}
-                      isSelected={rowIsSelected(item)}
-                      showKindColumn={false}
-                      item={item}
-                      annotation={annotationFor(item)}
-                      leadEngine={engineKey}
-                      onClick={() => onSelectAsset({ name: item.name, category: "Agents", path: item.path })}
-                    />
-                  ))}
+                  {sortedAgents.map((item) =>
+                    listRow(item, "agent", annotationFor(item), `agent-${item.name}`, () =>
+                      onSelectAsset({ name: item.name, category: "Agents", path: item.path })
+                    )
+                  )}
                 </div>
               </>
             )}

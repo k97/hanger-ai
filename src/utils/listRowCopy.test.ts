@@ -1,6 +1,13 @@
 import { describe, it, expect } from "vitest";
-import { listRowDetail, listRowFigure } from "./listRowCopy";
-import type { AssetAnnotationView, AssetItem } from "../components/AssetRow";
+import {
+  getRowState,
+  listRowDetail,
+  listRowFigure,
+  repoRowDetail,
+  repoRowFigure,
+  type AssetAnnotationView,
+  type AssetItem,
+} from "./listRowCopy";
 
 /**
  * Line 2 of a Global row (Task 1 of docs/plans/2026-11-26-global-list.md):
@@ -68,6 +75,20 @@ describe("listRowFigure", () => {
     });
   });
 
+  // Moved from AssetRow.test.tsx with Task 4 (beyondCell's ancestor_reach
+  // branch, which listRowFigure carries). Backend-owned numbers, whole
+  // strings: a fragment match would pass whether or not the shadowed count
+  // rendered. Approved copy, Karthik 2026-08-29.
+  it("carries an ancestor-reach note, with its shadowed count or without", () => {
+    const item = skill({ category: "Rules" });
+    expect(listRowFigure(item, note({ kind: "ancestor_reach", count: 3, places: [], using_count: 2 }))).toEqual({
+      text: "Reaches 2 of 3 projects",
+    });
+    expect(listRowFigure(item, note({ kind: "ancestor_reach", count: 2, places: [], using_count: 2 }))).toEqual({
+      text: "Reaches 2 projects",
+    });
+  });
+
   it("names the only readers of a format-limited asset", () => {
     const reach = [
       { engine_id: 1, engine_key: "claude_code", engine_name: "Claude Code", reached: true },
@@ -90,5 +111,45 @@ describe("listRowFigure", () => {
     expect(listRowFigure(server({ toolCount: 12, engineFigure: "≈ 7,294 tokens" }), null)).toEqual({
       text: "≈ 7,294 tokens",
     });
+  });
+});
+
+/**
+ * A repository's row (Task 4): the Engine and State columns' words, moved
+ * to line 2 as they were. `getRowState` is AssetRow's, moved here unchanged
+ * in its words and its precedence.
+ */
+describe("getRowState", () => {
+  it("keeps the State column's words and precedence", () => {
+    expect(getRowState(skill({ parseStatus: "failed", drifted: true, isSymlink: true })).word).toBe("Won't parse");
+    expect(getRowState(skill({ linkState: "broken" })).word).toBe("Target missing");
+    expect(getRowState(skill({ drifted: true, isSymlink: true })).word).toBe("Drifted · review");
+    expect(getRowState(skill({ link_state: "foreign" })).word).toBe("Foreign");
+    expect(getRowState(skill({ isSymlink: true, sourcePath: "/x" })).word).toBe("Symlinked");
+    expect(getRowState(skill({ sourcePath: "/x" })).word).toBe("Tracked copy");
+    expect(getRowState(skill({ linkState: "linked" })).word).toBe("Linked");
+    expect(getRowState(skill()).word).toBe("Local only");
+  });
+
+  it("carries the colour its word had: danger, warning, or none", () => {
+    expect(getRowState(skill({ parseStatus: "failed" })).tone).toBe("danger");
+    expect(getRowState(skill({ drifted: true })).tone).toBe("warning");
+    expect(getRowState(skill({ link_state: "foreign" })).tone).toBe("warning");
+    expect(getRowState(skill({ isSymlink: true })).tone).toBeUndefined();
+    expect(getRowState(skill()).tone).toBeUndefined();
+  });
+});
+
+describe("a repository row's line 2", () => {
+  it("is the Engine column's word on the left", () => {
+    expect(repoRowDetail(skill({ engine: "Claude Code" }))).toBe("Claude Code");
+    expect(repoRowDetail(skill({ engine: null }))).toBe("Any agent");
+    expect(repoRowDetail(skill({ engine: "unknown" }))).toBe("Any agent");
+  });
+
+  it("is the State column's word on the right, in its colour", () => {
+    expect(repoRowFigure(skill({ isSymlink: true }))).toEqual({ text: "Symlinked" });
+    expect(repoRowFigure(skill({ parseStatus: "failed" }))).toEqual({ text: "Won't parse", tone: "danger" });
+    expect(repoRowFigure(skill({ drifted: true }))).toEqual({ text: "Drifted · review", tone: "warning" });
   });
 });

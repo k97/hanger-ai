@@ -7,7 +7,7 @@ vi.mock("@tauri-apps/api/core", () => ({
 }));
 
 import Flyout from "./Flyout";
-import type { AssetAnnotationView } from "./AssetRow";
+import type { AssetAnnotationView } from "../utils/listRowCopy";
 import { Inventory } from "../App";
 
 afterEach(cleanup);

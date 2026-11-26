@@ -2,7 +2,8 @@
 import { render, screen, fireEvent, cleanup } from "@testing-library/react";
 import { describe, it, expect, vi, afterEach } from "vitest";
 import ProfilePane from "../components/ProfilePane";
-import AssetRow from "../components/AssetRow";
+import ListRow from "../components/ListRow";
+import { repoRowDetail } from "../utils/listRowCopy";
 import { Inventory } from "../App";
 
 // Mock Tauri invoke for preference calls
@@ -188,21 +189,14 @@ describe("Avionics A6 Asset Table Spec Compliance", () => {
     expect(kinds).toContain("server");
   });
 
-  it("6. An asset with NULL engine renders 'Any agent' in the legacy variant, not blank", () => {
-    // The engine column left the Global pane by ruling; the behaviour lives
-    // on in the un-annotated variant the repo pane renders.
-    render(
-      <AssetRow
-        item={{
-          name: "Anyone Skill",
-          category: "Skills",
-          path: "/path/to/anyone/SKILL.md",
-          engine: null,
-        }}
-      />
-    );
+  it("6. An asset with NULL engine renders 'Any agent' on a repository's row, not blank", () => {
+    // The engine column left the Global pane by ruling; the word lives on as
+    // line 2's detail of a repository's row (Task 4 of
+    // docs/plans/2026-11-26-global-list.md retired the legacy variant).
+    const item = { name: "Anyone Skill", category: "Skills" as const, path: "/path/to/anyone/SKILL.md", engine: null };
+    render(<ListRow kind="skill" name={item.name} detail={repoRowDetail(item)} reach={null} selected={false} onSelect={() => {}} />);
 
-    expect(screen.getAllByText("Any agent").length).toBeGreaterThan(0);
+    expect(screen.getByTestId("list-row-detail").textContent).toBe("Any agent");
   });
 
   it("7. A parse-failed asset renders as a row with a dimmed name and no raw error text", () => {

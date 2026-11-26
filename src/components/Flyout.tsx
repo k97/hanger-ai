@@ -10,7 +10,7 @@ import {
 } from "./icons";
 import { Inventory } from "../App";
 import AssetDetail from "./AssetDetail";
-import type { AssetAnnotationView } from "./AssetRow";
+import type { AssetAnnotationView } from "../utils/listRowCopy";
 import McpServerDetail, { type RegistrationSwitch } from "./McpServerDetail";
 import LayerSwitch from "./LayerSwitch";
 import AllEnginesSwitch from "./AllEnginesSwitch";

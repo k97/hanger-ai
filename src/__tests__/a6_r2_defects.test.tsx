@@ -4,9 +4,18 @@ import { describe, it, expect, vi, afterEach } from "vitest";
 import RepoPane from "../components/RepoPane";
 import ProfilePane from "../components/ProfilePane";
 import CategoryFilterCards from "../components/CategoryFilterCards";
-import AssetRow from "../components/AssetRow";
+import ListRow from "../components/ListRow";
+import { repoRowDetail, type AssetItem } from "../utils/listRowCopy";
 import DisclosureBanner from "../components/DisclosureBanner";
 import { Inventory, CategoryCounts } from "../App";
+
+/** A repository row as RepoPane draws it: the Engine word is line 2's
+ *  detail (Task 4 of docs/plans/2026-11-26-global-list.md). Tests 3, 4 and
+ *  8 rendered the retired AssetRow's Engine column; they read the same word
+ *  off its new place. */
+const RepoRow = ({ item }: { item: AssetItem }) => (
+  <ListRow kind="skill" name={item.name} detail={repoRowDetail(item)} reach={null} selected={false} onSelect={() => {}} />
+);
 
 const mockInventory: Inventory = {
   skills: [
@@ -120,7 +129,7 @@ describe("Avionics A6-R2 Defect Tests", () => {
 
   it("3. A NULL-engine row renders 'Any agent' — exact string, and 'unknown' appears nowhere", () => {
     render(
-      <AssetRow
+      <RepoRow
         item={{
           name: "NullEngineSkill",
           category: "Skills",
@@ -137,7 +146,7 @@ describe("Avionics A6-R2 Defect Tests", () => {
 
   it("4. An engine-owned row renders the display name, not the key", () => {
     render(
-      <AssetRow
+      <RepoRow
         item={{
           name: "ClaudeSkill",
           category: "Skills",
@@ -202,7 +211,7 @@ describe("Avionics A6-R2 Defect Tests", () => {
     expect(button?.textContent).not.toContain("7 7");
   });
 
-  it("7. ProfilePane renders no column headers; RepoPane keeps Engine and State", () => {
+  it("7. Neither pane renders column headers", () => {
     const { container: profileContainer } = render(
       <ProfilePane
         inventory={mockInventory}
@@ -231,19 +240,23 @@ describe("Avionics A6-R2 Defect Tests", () => {
     };
 
     // Ruled 2026-08-15 (item 8): the Global pane's columns became Reach and
-    // Beyond the store; the repo pane keeps Engine and State until its own
-    // content is designed. Since Task 1 of docs/plans/2026-11-26-global-list.md
-    // Global has no columns at all, only two-line rows; Task 4 brings the
-    // repo pane the same way.
-    const repoHeaders = getHeaderTitles(repoContainer);
-
+    // Beyond the store, and the repo pane kept Engine and State until its own
+    // content was designed. Since Task 1 of docs/plans/2026-11-26-global-list.md
+    // Global has no columns at all, only two-line rows; since Task 4 the repo
+    // pane draws the same rows, its Engine and State words moved to line 2.
     expect(profileContainer.querySelector("[data-testid='asset-header-row']")).toBeNull();
-    expect(repoHeaders).toEqual(["Name", "Kind", "Engine", "State"]);
+    expect(repoContainer.querySelector("[data-testid='asset-header-row']")).toBeNull();
+    expect(getHeaderTitles(repoContainer)).toEqual([]);
+    // Not vacuous: the repository's rows are on screen, as ListRows.
+    expect(repoContainer.querySelectorAll("[data-testid='list-row']").length).toBeGreaterThan(0);
+    for (const label of ["Name", "Kind", "Engine", "State"]) {
+      expect(Array.from(repoContainer.querySelectorAll("button, span")).some((el) => el.textContent?.trim() === label), label).toBe(false);
+    }
   });
 
   it("8. An engine whose display_name differs from a title-cased key renders database value (Gemini / Antigravity)", () => {
     render(
-      <AssetRow
+      <RepoRow
         item={{
           name: "GeminiSkill",
           category: "Skills",

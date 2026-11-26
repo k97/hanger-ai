@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   ExclamationTriangleIcon,
   FolderSyncIcon,
@@ -7,20 +7,22 @@ import {
   SearchIcon,
   InboxIcon,
   RotateCcwIcon,
-  LoaderCircleIcon,
   InformationCircleIcon,
 } from "./icons";
-import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import CategoryFilterCards, { CategoryType } from "./CategoryFilterCards";
-import AssetRow, { AssetItem } from "./AssetRow";
-import AssetHeaderRow, { SortField, SortDirection } from "./AssetHeaderRow";
+import ListRow, { type ListRowKind } from "./ListRow";
+import GroupHead from "./GroupHead";
+import GroupTicks, { type TickGroup } from "./GroupTicks";
+import { repoRowDetail, repoRowFigure, type AssetItem } from "../utils/listRowCopy";
+import { LIST_INSET, laneClass, laneIsWide } from "../utils/listLane";
+import { usePaneWidth } from "../hooks/usePaneWidth";
 import { Inventory, CategoryCounts } from "../App";
 import { filterRepoAssets } from "../utils/filterPredicate";
-import { sortAssetItems } from "../utils/sortUtils";
+import { sortAssetItems, type SortField, type SortDirection } from "../utils/sortUtils";
 import { registrationKey } from "../utils/mcpRegistration";
 import { formatEngineLabel } from "../utils/engineUtils";
-import { groupLabelClass } from "./typeRoles";
+import { transportChipLabel } from "../utils/serverRows";
 import SummaryStrip, { type StripReview } from "./SummaryStrip";
 import HeroBand, { type HeroBandRow } from "./HeroBand";
 import ReviewPillActions from "./ReviewPillActions";
@@ -67,6 +69,10 @@ interface RepoPaneProps {
    *  it. Owned by App so the choice survives a rebuild of this pane. */
   enginesBandOpen?: boolean;
   onToggleEnginesBand?: () => void;
+  /** Test-only. The lane's padding is measured off the pane's width, which
+   *  `happy-dom` never lays out, so this lets a test draw the narrow lane,
+   *  as ProfilePane's own does. No production call site passes it. */
+  forceLane?: "wide" | "narrow";
 }
 
 export default function RepoPane({
@@ -82,7 +88,6 @@ export default function RepoPane({
   scannedAt = null,
   sortField: propSortField,
   sortDirection: propSortDirection,
-  onSortChange,
   onRefresh,
   onSelectAsset,
   onLinkFromProfile,
@@ -92,10 +97,21 @@ export default function RepoPane({
   onReview,
   enginesBandOpen = false,
   onToggleEnginesBand,
+  forceLane,
 }: RepoPaneProps) {
   const [internalCategory, setInternalCategory] = useState<CategoryType | null>(null);
-  const [internalSortField, setInternalSortField] = useState<SortField>("name");
-  const [internalSortDirection, setInternalSortDirection] = useState<SortDirection>("asc");
+  // Header-click sorting went with the column headers (Task 4 of
+  // docs/plans/2026-11-26-global-list.md), as it did on Global in Task 1:
+  // the rows keep App's sort, or name order standalone.
+  const [internalSortField] = useState<SortField>("name");
+  const [internalSortDirection] = useState<SortDirection>("asc");
+  // The lane's padding, and whether the ticks show, from the pane's width
+  // (one ResizeObserver, `usePaneWidth`), as on Global.
+  const [paneEl, setPaneEl] = useState<HTMLDivElement | null>(null);
+  const paneWidth = usePaneWidth(paneEl);
+  const measuredWide = laneIsWide(paneWidth, paneWidth - 2 * LIST_INSET);
+  const laneWide = forceLane ? forceLane === "wide" : measuredWide;
+  const listRef = useRef<HTMLDivElement | null>(null);
 
   const selectedCategory = propSelectedCategory ?? internalCategory;
   const sortField = propSortField ?? internalSortField;
@@ -107,46 +123,6 @@ export default function RepoPane({
   const setSelectedCategory = (cat: CategoryType | null) => {
     setInternalCategory(cat);
     onCategoryChange?.(cat);
-  };
-
-  const handleSort = (field: SortField) => {
-    if (onSortChange) {
-      onSortChange(field);
-    } else {
-      if (field === internalSortField) {
-        setInternalSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
-      } else {
-        setInternalSortField(field);
-        setInternalSortDirection("asc");
-      }
-    }
-  };
-
-  const [showUnlinkConfirm, setShowUnlinkConfirm] = useState(false);
-  const [assetToUnlink, setAssetToUnlink] = useState<{ name: string; path: string; category: string } | null>(null);
-  const [unlinkLoading, setUnlinkLoading] = useState(false);
-  const [unlinkError, setUnlinkError] = useState<string | null>(null);
-
-  const triggerUnlink = (name: string, path: string, category: string) => {
-    setAssetToUnlink({ name, path, category });
-    setUnlinkError(null);
-    setShowUnlinkConfirm(true);
-  };
-
-  const handleExecuteUnlink = async () => {
-    if (!assetToUnlink) return;
-    setUnlinkLoading(true);
-    setUnlinkError(null);
-    try {
-      await invoke("remove_deployed_asset", { targetPath: assetToUnlink.path });
-      onRefresh();
-      setShowUnlinkConfirm(false);
-      setAssetToUnlink(null);
-    } catch (err: any) {
-      setUnlinkError(String(err));
-    } finally {
-      setUnlinkLoading(false);
-    }
   };
 
   // The only remedy that works for a TCC-blocked folder: macOS infers
@@ -529,8 +505,47 @@ export default function RepoPane({
   // asset total (which stays backend-owned).
   const visibleCount = sortedSkills.length + sortedTools.length + sortedRules.length + sortedSubagents.length;
 
+  // Each group head's figure, read once so the head and its tick print the
+  // same words: the backend's figure, or the rows on screen before it
+  // answers, as these heads always read (known-debt.md: Global's group
+  // heads share the fallback).
+  const skillsHeadFigure = assetCounts ? (assetCounts.byCategory.skill?.total ?? 0) : sortedSkills.length;
+  const toolsHeadFigure = assetCounts ? (assetCounts.byCategory.tool?.total ?? 0) : sortedTools.length;
+  const rulesHeadFigure = assetCounts ? (assetCounts.byCategory.rule?.total ?? 0) : sortedRules.length;
+  const subagentsHeadFigure = assetCounts ? (assetCounts.byCategory.subagent?.total ?? 0) : sortedSubagents.length;
+  // The groups the list draws, in the order it draws them, for GroupTicks.
+  // Each condition is the one its group renders under below.
+  const tickGroups: TickGroup[] = [];
+  if (showSkills && sortedSkills.length > 0) tickGroups.push({ id: "group-skills", label: "Skills", count: skillsHeadFigure });
+  if (showTools && sortedTools.length > 0) tickGroups.push({ id: "group-tools", label: "MCP servers", count: toolsHeadFigure });
+  if (showRules && sortedRules.length > 0) tickGroups.push({ id: "group-rules", label: "Rules", count: rulesHeadFigure });
+  if (showSubagents && sortedSubagents.length > 0)
+    tickGroups.push({ id: "group-subagents", label: "Subagents", count: subagentsHeadFigure });
+
+  // One row of the list, drawn by Global's ListRow. A repository has no
+  // backend annotation, so there are no engine marks; line 2 is the Engine
+  // and State columns' words (`repoRowDetail`, `repoRowFigure`).
+  const listRow = (item: AssetItem, kind: ListRowKind, key: string, onSelect: () => void) => {
+    const figure = repoRowFigure(item);
+    return (
+      <ListRow
+        key={key}
+        kind={kind}
+        name={item.name}
+        chip={item.transport ? transportChipLabel(item.transport) : undefined}
+        detail={repoRowDetail(item)}
+        figure={figure.text}
+        figureTone={figure.tone}
+        reach={null}
+        muted={item.parseStatus === "failed"}
+        selected={Boolean(rowIsSelected(item))}
+        onSelect={onSelect}
+      />
+    );
+  };
+
   return (
-    <div className="flex-1 flex flex-col min-h-0 overflow-hidden bg-page font-sans">
+    <div ref={setPaneEl} className="flex-1 flex flex-col min-h-0 overflow-hidden bg-page font-sans">
       {/* Facet chips. No View control here (§5.6's "Rows" choice lives on
           ProfilePane only): `get_mcp_servers` is machine-global
           (`discover_machine`, not `discover_repo`), so there is no
@@ -730,73 +745,52 @@ export default function RepoPane({
         )
       ) : (
         <>
-          {/* The list lives on its own plane */}
-          {/* Table background dropped by Karthik's ruling (2026-08-15):
-              flat on the page, edge drawn by the --line border alone. */}
-          <div className="@container flex-1 min-h-0 overflow-y-auto mx-[18px] border border-line rounded-tl-plane rounded-tr-plane pb-1.5">
-            {/* The MCP section carries its own column labels below
-                (Registered in / Tools), so this header stays out of the way
-                entirely when Tools is the only section on screen — the same
-                treatment ProfilePane gets (§5.6). */}
-            {selectedCategory !== "Tools" && (
-              <AssetHeaderRow
-                sortField={sortField}
-                sortDirection={sortDirection}
-                showKindColumn={!selectedCategory}
-                onSort={handleSort}
-              />
-            )}
-
+          {/* The list, as Global draws it (Task 4 of
+              docs/plans/2026-11-26-global-list.md; round 18 q4): flat on the
+              page, in a centred lane, two-line rows under quiet group heads,
+              and no column headers. Line 2 is the repository's own: the
+              Engine and State columns' words. The ticks sit in the lane's
+              left margin, so they go when the lane narrows. No overview
+              card: it is Global's alone. */}
+          <div className="relative flex-1 min-h-0 flex flex-col">
+          {laneWide && <GroupTicks groups={tickGroups} scrollRoot={listRef} />}
+          <div
+            ref={listRef}
+            data-testid="asset-list-scroll"
+            className="@container flex-1 min-h-0 overflow-y-auto mx-[18px] pb-1.5"
+          >
+           <div data-testid="list-lane" className={laneClass(laneWide)}>
             {/* Skills Group */}
             {showSkills && sortedSkills.length > 0 && (
               <>
-                <h3 className={`px-3.5 pt-[11px] pb-[5px] ${groupLabelClass}`}>
-                  Skills · {assetCounts ? (assetCounts.byCategory.skill?.total ?? 0) : sortedSkills.length}
-                </h3>
-                <div className="flex flex-col">
-                  {sortedSkills.map((item, idx) => (
-                    <AssetRow
-                      key={`skill-${item.path}-${idx}`}
-                      isSelected={rowIsSelected(item)}
-                      showKindColumn={!selectedCategory}
-                      item={item}
-                      onUnlink={() => triggerUnlink(item.name, item.path, "Skills")}
-                      onClick={() => onSelectAsset({ name: item.name, category: "Skills", path: item.path })}
-                    />
-                  ))}
+                <GroupHead id="group-skills" label="Skills" figure={skillsHeadFigure} className="mt-2.5 first:mt-0" />
+                <div className="flex flex-col gap-px">
+                  {sortedSkills.map((item, idx) =>
+                    listRow(item, "skill", `skill-${item.path}-${idx}`, () =>
+                      onSelectAsset({ name: item.name, category: "Skills", path: item.path })
+                    )
+                  )}
                 </div>
               </>
             )}
 
-            {/* Tools Group — card rows, not table rows (§5.6), the same
-                treatment ProfilePane's Tools section gets. */}
+            {/* MCP servers. A quiet head like the others: its column labels
+                went with the table. */}
             {showTools && sortedTools.length > 0 && (
               <>
-                <div
-                  data-testid="section-header-tools"
-                  className={`flex items-center gap-3 select-none px-3.5 pt-[11px] pb-[7px] border-b border-line ${groupLabelClass}`}
-                >
-                  <h3 className="flex-1 truncate">
-                    MCP servers · {assetCounts ? (assetCounts.byCategory.tool?.total ?? 0) : sortedTools.length}
-                  </h3>
-                  <span className="w-[100px] shrink-0 text-left">
-                    Registered in
-                  </span>
-                  <span className="hidden @[580px]:block w-[150px] shrink-0 text-left">
-                    Tools
-                  </span>
-                </div>
-                <div className="flex flex-col">
-                  {sortedTools.map((item, idx) => (
-                    <AssetRow
-                      key={`tool-${item.path}-${idx}`}
-                      variant="card"
-                      isSelected={rowIsSelected(item)}
-                      item={item}
-                      onUnlink={() => triggerUnlink(item.name, item.path, "Tools")}
-                      onClick={() => onSelectAsset({ id: item.id, name: item.name, category: "Tools", path: item.path })}
-                    />
-                  ))}
+                <GroupHead
+                  id="group-tools"
+                  testId="section-header-tools"
+                  label="MCP servers"
+                  figure={toolsHeadFigure}
+                  className="mt-2.5 first:mt-0"
+                />
+                <div className="flex flex-col gap-px">
+                  {sortedTools.map((item, idx) =>
+                    listRow(item, "server", `tool-${item.path}-${idx}`, () =>
+                      onSelectAsset({ id: item.id, name: item.name, category: "Tools", path: item.path })
+                    )
+                  )}
                 </div>
               </>
             )}
@@ -804,20 +798,13 @@ export default function RepoPane({
             {/* Rules Group */}
             {showRules && sortedRules.length > 0 && (
               <>
-                <h3 className={`px-3.5 pt-[11px] pb-[5px] ${groupLabelClass}`}>
-                  Rules · {assetCounts ? (assetCounts.byCategory.rule?.total ?? 0) : sortedRules.length}
-                </h3>
-                <div className="flex flex-col">
-                  {sortedRules.map((item, idx) => (
-                    <AssetRow
-                      key={`rule-${item.path}-${idx}`}
-                      isSelected={rowIsSelected(item)}
-                      showKindColumn={!selectedCategory}
-                      item={item}
-                      onUnlink={() => triggerUnlink(item.name, item.path, "Rules")}
-                      onClick={() => onSelectAsset({ name: item.name, category: "Rules", path: item.path })}
-                    />
-                  ))}
+                <GroupHead id="group-rules" label="Rules" figure={rulesHeadFigure} className="mt-2.5 first:mt-0" />
+                <div className="flex flex-col gap-px">
+                  {sortedRules.map((item, idx) =>
+                    listRow(item, "rule", `rule-${item.path}-${idx}`, () =>
+                      onSelectAsset({ name: item.name, category: "Rules", path: item.path })
+                    )
+                  )}
                 </div>
               </>
             )}
@@ -825,80 +812,26 @@ export default function RepoPane({
             {/* Subagents Group */}
             {showSubagents && sortedSubagents.length > 0 && (
               <>
-                <h3 className={`px-3.5 pt-[11px] pb-[5px] ${groupLabelClass}`}>
-                  Subagents · {assetCounts ? (assetCounts.byCategory.subagent?.total ?? 0) : sortedSubagents.length}
-                </h3>
-                <div className="flex flex-col">
-                  {sortedSubagents.map((item, idx) => (
-                    <AssetRow
-                      key={`subagent-${item.path}-${idx}`}
-                      isSelected={rowIsSelected(item)}
-                      showKindColumn={!selectedCategory}
-                      item={item}
-                      onClick={() => onSelectAsset({ name: item.name, category: "Subagents", path: item.path })}
-                    />
-                  ))}
+                <GroupHead
+                  id="group-subagents"
+                  label="Subagents"
+                  figure={subagentsHeadFigure}
+                  className="mt-2.5 first:mt-0"
+                />
+                <div className="flex flex-col gap-px">
+                  {sortedSubagents.map((item, idx) =>
+                    listRow(item, "subagent", `subagent-${item.path}-${idx}`, () =>
+                      onSelectAsset({ name: item.name, category: "Subagents", path: item.path })
+                    )
+                  )}
                 </div>
               </>
             )}
+           </div>
+          </div>
           </div>
 
         </>
-      )}
-
-      {showUnlinkConfirm && assetToUnlink && (
-        <div className="fixed inset-0 bg-scrim flex items-center justify-center z-[100] animate-fade-in">
-          <div className="w-full max-w-sm bg-page rounded-plane border border-line p-[18px] relative flex flex-col gap-4 font-sans animate-drop">
-            <div className="flex justify-between items-center pb-2 border-b border-line">
-              <h3 className="text-base-app font-medium text-ink-1 flex items-center gap-1.5">
-                <ExclamationTriangleIcon className="text-state-warning" size={16} />
-                Unlink Asset
-              </h3>
-            </div>
-            <p className="text-small text-ink-2 leading-[1.65]">
-              Are you sure you want to unlink <span className="font-medium text-ink-1">{assetToUnlink.name}</span> from this repository?
-            </p>
-            <p className="text-micro text-ink-2 font-mono bg-plane p-2.5 rounded-inner break-all select-all">
-              {assetToUnlink.path}
-            </p>
-            <p className="text-micro text-ink-3 leading-[1.6]">
-              * Note: This deletes the file/symlink. If it is a hard copy, Hanger will backup the file to <span className="font-mono">.hanger/backups/</span> first.
-            </p>
-
-            {unlinkError && (
-              <div className="p-2.5 border border-line bg-plane text-state-danger text-micro rounded-inner font-mono break-all">
-                {unlinkError}
-              </div>
-            )}
-
-            <div className="flex gap-2 justify-end pt-2 border-t border-line">
-              <button
-                disabled={unlinkLoading}
-                onClick={handleExecuteUnlink}
-                className="px-4 h-[30px] rounded-pill bg-fill text-on-fill font-medium text-small cursor-pointer disabled:opacity-50 flex items-center gap-1.5 transition-transform duration-press ease-spring active:scale-[0.96]"
-              >
-                {unlinkLoading ? (
-                  <>
-                    <LoaderCircleIcon size={12} active />
-                    Unlinking...
-                  </>
-                ) : (
-                  "Yes, Unlink"
-                )}
-              </button>
-              <button
-                disabled={unlinkLoading}
-                onClick={() => {
-                  setShowUnlinkConfirm(false);
-                  setAssetToUnlink(null);
-                }}
-                className="px-4 h-[30px] rounded-pill border border-line-2 text-ink-2 hover:bg-plane-2 hover:text-ink-1 text-small font-medium cursor-pointer transition-colors duration-hover ease-spring"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
       )}
 
       {/* Foot line. Unconditional: scan progress needs a home in the empty

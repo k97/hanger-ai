@@ -7,7 +7,7 @@ import type { Inventory } from "../App";
 export type LinkState = "linked" | "drifted" | "broken" | "local";
 export type StateFilter = LinkState | "needs-review" | null;
 
-/** The classification an asset row carries; mirrors AssetRow's getRowState
+/** The classification an asset row carries; mirrors listRowCopy's getRowState
  *  so the rail badge, summary strip and rows can never disagree. Accepts
  *  both backend snake_case and AssetItem camelCase field spellings. */
 export interface ReviewableAsset {
@@ -22,7 +22,7 @@ export interface ReviewableAsset {
   sourcePath?: string;
 }
 
-/** Same precedence as AssetRow.getRowState: broken beats drifted beats linked. */
+/** Same precedence as listRowCopy's getRowState: broken beats drifted beats linked. */
 export function classifyAsset(asset: ReviewableAsset): LinkState {
   const state = asset.link_state ?? asset.linkState;
   if (state === "broken" || (asset.parse_status ?? asset.parseStatus) === "failed") {

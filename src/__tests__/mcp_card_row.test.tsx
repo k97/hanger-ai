@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { render, screen, cleanup, within } from "@testing-library/react";
 import { describe, it, expect, vi, afterEach } from "vitest";
-import AssetRow from "../components/AssetRow";
+import ListRow from "../components/ListRow";
 import ProfilePane from "../components/ProfilePane";
 import RepoPane from "../components/RepoPane";
 
@@ -43,19 +43,19 @@ const inventoryWithOneRepoServer = {
 } as any;
 
 describe("the MCP card row", () => {
+  // Rendered through ListRow since Task 4 of
+  // docs/plans/2026-11-26-global-list.md retired AssetRow's card variant:
+  // the agreement sentence is line 2's detail.
   it("renders a server as one card row with its agreement sentence", () => {
     render(
-      <AssetRow
-        variant="card"
-        item={{
-          id: "/home/.claude.json:tauri",
-          name: "tauri",
-          category: "Tools",
-          path: "/home/.claude.json",
-          transport: "stdio",
-          agreementLine: "Declared in 2 files that disagree",
-        } as any}
-        isSelected={false}
+      <ListRow
+        kind="server"
+        name="tauri"
+        chip="stdio"
+        detail="Declared in 2 files that disagree"
+        reach={null}
+        selected={false}
+        onSelect={() => {}}
       />
     );
     expect(screen.getByText("tauri")).toBeTruthy();
@@ -65,8 +65,8 @@ describe("the MCP card row", () => {
 
   // Global's MCP servers head lost its column labels with the table (Task 1
   // of docs/plans/2026-11-26-global-list.md): its rows are two-line rows
-  // whose marks and figure need no column to name them. A repository keeps
-  // its labels until Task 4.
+  // whose marks and figure need no column to name them. A repository's went
+  // the same way in Task 4.
   it("gives Global's MCP servers head no column labels, only the group's name and figure", () => {
     render(<ProfilePane {...base} inventory={inventoryWithOneServer} />);
     const header = screen.getByTestId("section-header-tools");
@@ -103,7 +103,9 @@ describe("the MCP card row", () => {
   it("gives RepoPane the same section header treatment as ProfilePane", () => {
     // Task 6's brief was corrected before dispatch specifically because an
     // earlier draft named only ProfilePane — RepoPane renders the identical
-    // structure and was left inconsistent. This is that pane.
+    // structure and was left inconsistent. This is that pane. Since Task 4
+    // of docs/plans/2026-11-26-global-list.md that treatment is Global's
+    // quiet head: no column labels, the group's name and figure.
     render(
       <RepoPane
         repoPath="/Users/test/Work"
@@ -115,9 +117,11 @@ describe("the MCP card row", () => {
       />
     );
     const header = screen.getByTestId("section-header-tools");
-    expect(within(header).getByText("Registered in")).toBeTruthy();
-    expect(within(header).getByText("Tools")).toBeTruthy();
+    expect(within(header).queryByText("Registered in")).toBeNull();
+    expect(within(header).queryByText("Tools")).toBeNull();
     expect(within(header).queryByText("Beyond the store")).toBeNull();
+    expect(within(header).getByRole("heading", { level: 3, name: "MCP servers · 1" })).toBeTruthy();
+    expect(header.className).not.toContain("border-b");
   });
 
   it("does not duplicate the header when the Tools chip is the active filter, ProfilePane", () => {
@@ -401,36 +405,10 @@ describe("the MCP card row", () => {
       />
     );
     expect(screen.queryByTestId("asset-header-row")).toBeNull();
+    expect(screen.getAllByTestId("section-header-tools")).toHaveLength(1);
     const header = screen.getByTestId("section-header-tools");
-    expect(within(header).getByText("Registered in")).toBeTruthy();
-    expect(within(header).getByText("Tools")).toBeTruthy();
+    expect(within(header).queryByText("Registered in")).toBeNull();
     expect(within(header).queryByText("Beyond the store")).toBeNull();
     expect(screen.getByText("tauri")).toBeTruthy();
-  });
-
-  // Class contract only (happy-dom applies no container queries). Registered
-  // in carries the switches, so it outlives the Tools label at narrow widths
-  // (F1, 2026-11-25); the rows stack their tool figure under the tiles.
-  // ProfilePane left this test with its column labels (Task 1 of
-  // docs/plans/2026-11-26-global-list.md); a repository keeps them until
-  // Task 4.
-  it.each(["RepoPane"] as const)("%s keeps the Registered in label at every width and drops Tools when narrow", () => {
-    render(
-      <RepoPane
-        repoPath="/Users/test/Work"
-        inventory={inventoryWithOneRepoServer}
-        loading={false}
-        selectedCategory="Tools"
-        onRefresh={vi.fn()}
-        onSelectAsset={vi.fn()}
-        onLinkFromProfile={vi.fn()}
-      />
-    );
-    const header = screen.getByTestId("section-header-tools");
-    const registered = within(header).getByText("Registered in");
-    expect(registered.className).not.toMatch(/(^|\s)hidden(\s|$)/);
-    const tools = within(header).getByText("Tools");
-    expect(tools.className).toContain("hidden");
-    expect(tools.className).toContain("@[580px]:block");
   });
 });

@@ -331,8 +331,10 @@ describe("Avionics A5 — Docked Right Inspector Integration", () => {
     fireEvent.click(await screen.findByRole("tab", { name: "Details" }));
     await screen.findByTitle("~/Work/demo/skills/inspector-skill-1");
 
-    // Filter by Tools category
-    const toolsFilter = screen.getByText("MCP servers");
+    // Filter by Tools category. The chip by its role: since Task 4 of
+    // docs/plans/2026-11-26-global-list.md the repository's MCP servers group
+    // head prints the same words in a span of its own.
+    const toolsFilter = screen.getByRole("tab", { name: /^MCP servers/ });
     fireEvent.click(toolsFilter);
 
     // The skill is still the subject: its path row is still on screen, and
@@ -584,11 +586,14 @@ describe("Avionics A5 — Docked Right Inspector Integration", () => {
     render(<App />);
 
     await screen.findByText("Nothing selected");
-    const toolsFilter = screen.getByText("MCP servers");
+    const toolsFilter = screen.getByRole("tab", { name: /^MCP servers/ });
     fireEvent.click(toolsFilter);
     await screen.findByText("Nothing selected");
 
-    // One "MCP servers" on screen: the filter chip. The eyebrow was a second.
-    expect(screen.getAllByText("MCP servers")).toHaveLength(1);
+    // One "MCP servers" outside the list: the filter chip. The eyebrow was a
+    // second. The list's own group head (GroupHead, Task 4 of
+    // docs/plans/2026-11-26-global-list.md) names its group, not the scope.
+    const outsideList = screen.getAllByText("MCP servers").filter((el) => !el.closest("[data-testid='list-lane']"));
+    expect(outsideList).toHaveLength(1);
   });
 });

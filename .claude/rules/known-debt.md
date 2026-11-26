@@ -41,12 +41,18 @@ deliberately left unfixed.
   folding Engines into Global (`docs/plans/2026-11-25-ia-engines-into-global.md`,
   "Sorted" › Hygiene). None is fixed. Claims marked † come from the cold read
   and have not been checked against the code since:
-  - `AssetRow` declares `onLink` and `onUnlink` but never renders them, so
-    RepoPane's "Unlink Asset" confirm modal can't be reached. Checked.
+  - Resolved by removal: `AssetRow` declared `onLink` and `onUnlink` but
+    never rendered them, so RepoPane's "Unlink Asset" confirm modal could
+    not be reached. Both went in Task 4 of
+    `docs/plans/2026-11-26-global-list.md`, `AssetRow` retired and the dead
+    modal with it; unlinking from a repository has no surface until one is
+    designed. The backend's `remove_deployed_asset` is untouched.
   - The Agents category has no tab in `CategoryFilterCards`, so ProfilePane's
     Agents group renders only from a saved `global:Agents` preference. Checked.
-  - A repo's MCP rows have no annotation and no tool count, so "Registered in"
-    is blank and Tools always reads "—". †
+  - A repo's MCP rows have no annotation and no tool count, so they draw no
+    engine marks and no tool figure (the "Registered in" and "Tools" columns
+    this once described went with Task 4 of
+    `docs/plans/2026-11-26-global-list.md`). †
   - The internal category id "Tools" leaks into ReviewInspector
     ("Broken link · Tools"). †
   - "Link an asset from Global" on an empty repo stages the repo, but the
@@ -80,7 +86,10 @@ deliberately left unfixed.
   Not reproduced or traced; the scan-status events between the scan task and
   the webview are the first suspect.
 - ProfilePane's group-header figures fall back to the rows on screen before
-  `get_asset_counts` answers: `skillsHeadFigure`, `toolsHeadFigure`,
+  `get_asset_counts` answers (and RepoPane's, the same way, hoisted into
+  `skillsHeadFigure` and its siblings by Task 4 of
+  `docs/plans/2026-11-26-global-list.md`; they read `assetCounts ? … :
+  sorted*.length` inline before it): `skillsHeadFigure`, `toolsHeadFigure`,
   `rulesHeadFigure` and `subagentsHeadFigure` read `assetCounts ? … :
   sorted*.length`, and the headers and their GroupTicks ticks print that
   figure. This predates the overview card: the headers carried the same

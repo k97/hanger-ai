@@ -100,10 +100,13 @@ describe("Per-repository count synchronization", () => {
       />
     );
 
-    expect(screen.getByText("Skills · 244")).toBeTruthy();
-    expect(screen.getByText("MCP servers · 10")).toBeTruthy();
-    expect(screen.getByText("Rules · 5")).toBeTruthy();
-    expect(screen.getByText("Subagents · 2")).toBeTruthy();
+    // Each head names its figure in its heading's name (GroupHead, Task 4 of
+    // docs/plans/2026-11-26-global-list.md): the label and the figure are
+    // two spans either side of a rule, so the words are the heading's name.
+    expect(screen.getByRole("heading", { level: 3, name: "Skills · 244" })).toBeTruthy();
+    expect(screen.getByRole("heading", { level: 3, name: "MCP servers · 10" })).toBeTruthy();
+    expect(screen.getByRole("heading", { level: 3, name: "Rules · 5" })).toBeTruthy();
+    expect(screen.getByRole("heading", { level: 3, name: "Subagents · 2" })).toBeTruthy();
   });
 
   it("RepoPane renders the engine breakdown as the hero band, including the Any agent bucket", () => {

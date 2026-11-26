@@ -1,11 +1,13 @@
 // @vitest-environment happy-dom
-import { describe, it, expect, vi, afterEach } from "vitest";
+import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
 import { render, screen, cleanup, fireEvent } from "@testing-library/react";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn(async () => undefined) }));
 
 import ListRow from "./ListRow";
 import type { EngineReachInfo } from "./EngineReachTiles";
+import { SelectionOriginContext } from "./selectionOrigin";
+import { cardSecondLine, type McpServerRow } from "../utils/serverRows";
 
 /**
  * Global's two-line row (Task 1 of docs/plans/2026-11-26-global-list.md),
@@ -118,5 +120,102 @@ describe("ListRow", () => {
     fireEvent.click(screen.getByTestId("reach-tile-claude_code"));
     expect(onToggle).toHaveBeenCalledTimes(1);
     expect(onSelect).not.toHaveBeenCalled();
+  });
+});
+
+// Moved from AssetRow.test.tsx with Task 4 of
+// docs/plans/2026-11-26-global-list.md, when AssetRow was retired: a
+// selection made elsewhere (the search palette's pick, a restored selection
+// on mount) must scroll its row into view; a plain click never needs to,
+// because the row is already on screen when it's clicked.
+describe("scrolls a selected row into view", () => {
+  let scrollIntoViewSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    scrollIntoViewSpy = vi.spyOn(Element.prototype, "scrollIntoView").mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    scrollIntoViewSpy.mockRestore();
+  });
+
+  it("calls scrollIntoView({ block: 'nearest' }) on the selected row", () => {
+    const { row } = renderRow({ selected: true });
+    expect(scrollIntoViewSpy).toHaveBeenCalledTimes(1);
+    expect(scrollIntoViewSpy).toHaveBeenCalledWith({ block: "nearest" });
+    expect(scrollIntoViewSpy.mock.instances[0]).toBe(row);
+  });
+
+  it("scrolls exactly once when a row becomes selected after mounting unselected", () => {
+    const props = { kind: "skill" as const, name: "deploy-helper", reach: null, onSelect: () => {} };
+    const { rerender } = render(<ListRow {...props} selected={false} />);
+    expect(scrollIntoViewSpy).not.toHaveBeenCalled();
+    rerender(<ListRow {...props} selected />);
+    expect(scrollIntoViewSpy).toHaveBeenCalledTimes(1);
+    expect(scrollIntoViewSpy).toHaveBeenCalledWith({ block: "nearest" });
+  });
+
+  it("never scrolls a row that is not selected", () => {
+    renderRow({ selected: false });
+    expect(scrollIntoViewSpy).not.toHaveBeenCalled();
+  });
+
+  // A search-palette pick centres its row instead of the click default of
+  // "nearest" (Karthik's ruling, 2026-08-29).
+  it("calls scrollIntoView({ block: 'center' }) when the selection's origin is search", () => {
+    render(
+      <SelectionOriginContext.Provider value="search">
+        <ListRow kind="skill" name="deploy-helper" reach={null} selected onSelect={() => {}} />
+      </SelectionOriginContext.Provider>
+    );
+    expect(scrollIntoViewSpy).toHaveBeenCalledTimes(1);
+    expect(scrollIntoViewSpy).toHaveBeenCalledWith({ block: "center" });
+  });
+});
+
+// Moved from AssetRow.test.tsx with Task 4: a server's line 2 is the whole
+// sentence `cardSecondLine` builds, the way ProfilePane builds
+// `item.agreementLine`, reach clause last.
+describe("a server's line 2 carries the ancestor-reach clause", () => {
+  function serverRow(overrides: Partial<McpServerRow> & Pick<McpServerRow, "name">): McpServerRow {
+    return {
+      transport: "stdio",
+      registration_count: 1,
+      distinct_spec_count: 1,
+      file_count: 1,
+      agreement: "Consistent",
+      aliased_with: [],
+      plugin: null,
+      registrations: [`/test/config.json:${overrides.name}`],
+      ...overrides,
+    };
+  }
+
+  it("as the third clause, after agreement and override", () => {
+    const detail = cardSecondLine(
+      serverRow({
+        name: "tauri",
+        registration_count: 2,
+        distinct_spec_count: 1,
+        file_count: 1,
+        agreement: "Duplicate",
+        project_override: "/Users/karthik/Work/hanger-ai",
+      }),
+      { kind: "ancestor_reach", count: 3, using_count: 2 }
+    );
+    renderRow({ name: "tauri", detail });
+    expect(screen.getByTestId("list-row-detail").textContent).toBe(
+      "Declared in 1 file by one engine · also declared for /Users/karthik/Work/hanger-ai — the version used there · Reaches 2 of 3 projects"
+    );
+  });
+
+  it("alone, when there is no agreement line and no override", () => {
+    const detail = cardSecondLine(serverRow({ name: "lonely-tool", registration_count: 1 }), {
+      kind: "ancestor_reach",
+      count: 3,
+      using_count: 3,
+    });
+    renderRow({ name: "lonely-tool", detail });
+    expect(screen.getByTestId("list-row-detail").textContent).toBe("Reaches 3 projects");
   });
 });

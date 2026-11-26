@@ -6,7 +6,7 @@
  * glyph), and the page marks each rendering "sample" so a 142 on that screen
  * is never mistaken for the store. Do not import from anywhere else.
  */
-import type { AssetItem, AssetAnnotationView } from "../components/AssetRow";
+import type { AssetItem } from "../utils/listRowCopy";
 import type { EngineReachInfo, TileSwitch } from "../components/EngineReachTiles";
 import type { StateCounts } from "../utils/linkStateCounts";
 import type { ScanStatus } from "../hooks/useScanStatus";
@@ -92,13 +92,6 @@ export function sampleTileSwitch(state: ItemState, readOnly: ReadOnlyReason | nu
   };
   return (r: EngineReachInfo): TileSwitch | null => (r.engine_key === "codex" ? t : null);
 }
-
-export const SAMPLE_ANNOTATION: AssetAnnotationView = {
-  asset_path: "/sample/skills/writing-great-skills/SKILL.md",
-  mechanism: "symlink",
-  reach: SAMPLE_REACH,
-  beyond: { kind: "projects", count: 2, places: ["metrics-board", "mei-recipes"] },
-};
 
 export const SAMPLE_ASSET: AssetItem = {
   id: "sample-1",

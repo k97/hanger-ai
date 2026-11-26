@@ -18,10 +18,6 @@ export const captionClass = "font-sans text-small text-ink-3 leading-caption";
  *  leading, one ink down from the name it explains. A description is what
  *  the model reads, so it is prose, not a caption (Karthik, 2026-08-29). */
 export const rowProseClass = "font-sans text-base-app text-ink-2 leading-body";
-/** Pane-list column headers (AssetHeaderRow): caption-size, medium, --ink-3 —
- *  sentence case, no shouting. Its only callers are the header row's four
- *  cells; not hoisted further until a second caller exists. */
-export const columnHeadClass = "text-small font-medium text-ink-3";
 /** A path or key in a *label* position -- grey, one step down, no
  *  `tabular` (a path is not a figure). Distinct from `rowMonoClass`,
  *  which is for values the user reads as numbers. */

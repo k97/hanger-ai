@@ -2,8 +2,8 @@
 import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
 import CategoryFilterCards from "../components/CategoryFilterCards";
-import AssetHeaderRow from "../components/AssetHeaderRow";
-import AssetRow from "../components/AssetRow";
+import ListRow from "../components/ListRow";
+import { repoRowDetail, repoRowFigure } from "../utils/listRowCopy";
 import Sidebar from "../components/Sidebar";
 
 describe("Avionics A9 — Narrow-Width Layout Tests", () => {
@@ -33,28 +33,11 @@ describe("Avionics A9 — Narrow-Width Layout Tests", () => {
     expect(screen.getByText("3")).toBeDefined();
   });
 
-  it("2. AssetHeaderRow and AssetRow carry container query classes for Engine and Kind column dropping", () => {
-    render(
-      <AssetHeaderRow
-        sortField="name"
-        sortDirection="asc"
-        showKindColumn={true}
-        onSort={() => {}}
-      />
-    );
-
-    const engineHeader = screen.getByText("Engine").parentElement;
-    const kindHeader = screen.getByText("Kind").parentElement;
-
-    // Assert container query classes for responsive column dropping
-    expect(engineHeader?.className).toContain("hidden");
-    expect(engineHeader?.className).toContain("@[580px]:flex");
-
-    expect(kindHeader?.className).toContain("hidden");
-    expect(kindHeader?.className).toContain("@[460px]:flex");
-  });
-
-  it("3. Name and State columns always render regardless of container query state", () => {
+  // Test 2 pinned the container queries that hid the Engine and Kind
+  // columns at narrow widths; the columns went with Task 4 of
+  // docs/plans/2026-11-26-global-list.md, and the test with them. A
+  // repository row's name and State word now share no width-gated cell.
+  it("3. A repository row's name and State word always render, at any width", () => {
     const item = {
       name: "my-test-skill",
       category: "Skills" as const,
@@ -63,11 +46,15 @@ describe("Avionics A9 — Narrow-Width Layout Tests", () => {
       linkState: "linked" as const,
     };
 
-    render(<AssetRow item={item} showKindColumn={true} />);
+    const figure = repoRowFigure(item);
+    render(
+      <ListRow kind="skill" name={item.name} detail={repoRowDetail(item)} figure={figure.text} reach={null} selected={false} onSelect={() => {}} />
+    );
 
-    // Name and State words must be present
+    // Name and State words must be present, and neither behind a container query
     expect(screen.getByText("my-test-skill")).toBeDefined();
-    expect(screen.getByText("Linked")).toBeDefined();
+    const state = screen.getByText("Linked");
+    expect(state.className).not.toMatch(/(^|\s)hidden(\s|$)|@\[/);
   });
 
   it("4. Sidebar action labels carry whitespace-nowrap to prevent 2-line text wrapping", () => {

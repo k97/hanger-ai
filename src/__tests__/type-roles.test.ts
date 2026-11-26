@@ -17,7 +17,7 @@ import { describe, expect, it } from "vitest";
 // fails its own check below rather than being silently forgiven. Allowlist
 // entries name a file, the exact line text, and a reason; an entry that
 // stops matching fails the run so the list cannot go stale.
-const ROLE_FILES = ["AssetDetail.tsx", "ReachCard.tsx", "McpServerDetail.tsx", "MarkdownDoc.tsx", "Flyout.tsx", "ReviewInspector.tsx", "ListCard.tsx", "InspectorCap.tsx", "Sidebar.tsx", "DiscoverySidebar.tsx", "ReviewSidebar.tsx", "DesignSystemSidebar.tsx", "DiscoveryPane.tsx", "AssetHeaderRow.tsx", "AssetRow.tsx", "SummaryStrip.tsx", "HeroBand.tsx"];
+const ROLE_FILES = ["AssetDetail.tsx", "ReachCard.tsx", "McpServerDetail.tsx", "MarkdownDoc.tsx", "Flyout.tsx", "ReviewInspector.tsx", "ListCard.tsx", "InspectorCap.tsx", "Sidebar.tsx", "DiscoverySidebar.tsx", "ReviewSidebar.tsx", "DesignSystemSidebar.tsx", "DiscoveryPane.tsx", "SummaryStrip.tsx", "HeroBand.tsx"];
 const ALLOW: { file: string; lineText: string; reason: string }[] = [
   { file: "src/App.tsx", lineText: 'bg-plane text-state-danger border border-line text-small leading-normal font-mono break-all animate-fade-in', reason: "pre-dates the roles; App.tsx pass pending" },
   { file: "src/App.tsx", lineText: 'bg-plane text-state-success border border-line text-small leading-normal animate-fade-in', reason: "pre-dates the roles; App.tsx pass pending" },
@@ -48,8 +48,6 @@ const ALLOW: { file: string; lineText: string; reason: string }[] = [
   { file: "src/components/LinkPanel.tsx", lineText: 'const helpClass = "text-micro text-ink-3 mt-2.5 leading-[1.6]"', reason: "pre-dates the roles; LinkPanel.tsx pass pending" },
   { file: "src/components/LinkPanel.tsx", lineText: '<p className="text-small text-ink-3 leading-[1.6]">', reason: "pre-dates the roles; LinkPanel.tsx pass pending" },
   { file: "src/components/LinkPanel.tsx", lineText: "mx-[12px] mt-3 flex items-start gap-2 text-state-warning text-small leading-[1.6]", reason: "pre-dates the roles; LinkPanel.tsx pass pending" },
-  { file: "src/components/RepoPane.tsx", lineText: '<p className="text-small text-ink-2 leading-[1.65]">', reason: "pre-dates the roles; RepoPane.tsx pass pending" },
-  { file: "src/components/RepoPane.tsx", lineText: '<p className="text-micro text-ink-3 leading-[1.6]">', reason: "pre-dates the roles; RepoPane.tsx pass pending" },
   // The 22 surviving `uppercase` sites the case check now reaches outside
   // ROLE_FILES, once the ROLE_FILES gate on CAPS was dropped (commit
   // "the guard's case check reaches every file", 2026-08-28).
@@ -100,8 +98,8 @@ describe("type roles", () => {
   // migrated file's regression masquerading as pre-existing debt -- the
   // allowlist exists for files whose pass has not happened yet, not for
   // files this migration already claims to own. Matched by exact basename:
-  // `f.endsWith(n)` would let e.g. a hypothetical "NotAssetRow.tsx" match
-  // ROLE_FILES' "AssetRow.tsx" entry, the same suffix-match bug the ALLOW
+  // `f.endsWith(n)` would let e.g. a hypothetical "NotSummaryStrip.tsx" match
+  // ROLE_FILES' "SummaryStrip.tsx" entry, the same suffix-match bug the ALLOW
   // lookup below still has for its own (full relative path) strings.
   const roleFileAllowHits: string[] = [];
   const used = new Set<number>();

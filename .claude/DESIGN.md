@@ -198,7 +198,7 @@ rulings recorded in `src/__tests__/type-roles.test.ts:9`, 2026-08-27):
 | Size | Role | Ink | Utility | Source |
 |---|---|---|---|---|
 | 13 | body — labels, values, prose, list names, tabs | `--ink-1` for values and prose, `--ink-3` for labels, `--ink-2` for a row's prose under its mono name | `text-base-app` | `rowLabelClass`, `rowValueClass`, `sectionHeadClass`, `groupLabelClass`, `rowProseClass` (`typeRoles.ts:7,9-10,14,20`) |
-| 12 | secondary — captions, mono values, paths, chips, counts, foot and stamp lines | `--ink-1` for `rowMonoClass` values, `--ink-2` / `--ink-3` for captions and grey mono labels | `text-small` | `captionClass`, `rowMonoClass`, `monoLabelClass`, `columnHeadClass` (`typeRoles.ts:15-16,20,24`) |
+| 12 | secondary — captions, mono values, paths, chips, counts, foot and stamp lines | `--ink-1` for `rowMonoClass` values, `--ink-2` / `--ink-3` for captions and grey mono labels | `text-small` | `captionClass`, `rowMonoClass`, `monoLabelClass` (`typeRoles.ts`); the pane lists' group heads (`GroupHead.tsx`) |
 | 11 | filled badges and chips | `--ink-3` | `text-micro` | e.g. the inspector list's scope pill (`Flyout.tsx:868`) |
 | 16 | titles and top content headings | `--ink-1` | `text-lg-app` | the inspector's title `h2` (`Flyout.tsx:654`), a document's `#` and `##` (`MarkdownDoc.tsx:89`); `###` and deeper step down to `sectionHeadClass` (`:93`) |
 | 32 | display — the big stat numeral | `--ink-1` | `text-display` | `SummaryStrip.tsx:191` |
@@ -213,11 +213,13 @@ the utilities `leading-body`, `leading-caption`, `leading-code`,
 `src/__tests__/leading-tokens.test.ts` pins both the token values and their
 `@theme` registration.
 
-Section heads inside the inspector, Discovery's tiers, and the pane list's
-column and group headers are sentence case, not the former 11px uppercase
+Section heads inside the inspector, Discovery's tiers, and the pane lists'
+group heads are sentence case, not the former 11px uppercase
 eyebrow — `text-base-app font-medium text-ink-1` (`sectionHeadClass`,
-`typeRoles.ts:7`; used at `DiscoveryPane.tsx:256` and `AssetHeaderRow.tsx:31`;
-Karthik's ruling R1, 2026-08-27). `src/__tests__/type-roles.test.ts` enforces
+`typeRoles.ts:7`; used at `DiscoveryPane.tsx:256`; Karthik's ruling R1,
+2026-08-27). The pane lists' group heads take the 12px secondary role,
+`text-small font-medium text-ink-3` (`GroupHead.tsx`); the column headers
+that carried it went with Task 4 of `docs/plans/2026-11-26-global-list.md`. `src/__tests__/type-roles.test.ts` enforces
 this going forward: it bans Tailwind's default size names, arbitrary or
 default leading utilities, and `uppercase` across the migrated files named in
 its `ROLE_FILES` list.
@@ -460,7 +462,7 @@ the rail (`IconRail.tsx:73`), sidebar rows (`Sidebar.tsx:154`), the
 inspector cap's kind icon (`InspectorCap.tsx:232`) and the titlebar panel
 toggles (`InspectorCap.tsx:410`) — 14 for row marks (`AssetDetail.tsx:275`'s
 identity rows, `MechanismGlyph.tsx:85`), and 12–13 for chevrons and inline
-marks (`AssetHeaderRow.tsx:36-38`, `Flyout.tsx:683`; `InspectorCap.tsx:289`
+marks (`Flyout.tsx:683`, `CollapsibleGroup.tsx`; `InspectorCap.tsx:289`
 carries a 13) (Karthik's ruling I2, 2026-08-28). A mark also takes the ink of
 the text beside it rather than a fixed shade of its own: the cap's kind icon
 sits in `--ink-3` (`InspectorCap.tsx:232,235`; ruling I3), and the row's
@@ -553,8 +555,9 @@ conditional, `:83` the 12px mark). `--line` (`.09` light / `.12` dark,
 
 The column draws at most four marks, and above four it draws three plus one
 ellipsis chip (`EngineReachTiles.tsx:37-38`), ordered reached-first
-(`:64`). The cell is `w-[100px]` and clips nothing (`AssetRow.tsx:183`), so
-the count is arithmetic, not taste: a slot is 16px on a `gap-1`, making N
+(`:64`). The marks sit in a row's right slot, `shrink-0 whitespace-nowrap`
+(`ListRow.tsx`, `list-row-trail`), which clips nothing, so the count is
+arithmetic, not taste: a slot is 16px on a `gap-1`, making N
 marks `20N − 4`. Four measure 76px; three plus the chip measure 84px; seven
 measured 133px in the running window and painted 21px over the Beyond the
 store column, hiding the project count there. The chip sits behind a
@@ -882,23 +885,42 @@ rounded-[6px]`, 1px from the next (`gap-px`); hover is `bg-plane`, selected
 is T3's `bg-page ring-1 ring-inset ring-line-2`. It takes focus
 (`tabIndex={0}`), shows it through the global `:focus-visible` ring, and
 selects on Enter (only its own key, so Enter on a tile switch stays the
-tile's) or a click; a selection made elsewhere scrolls it into view, as
-`AssetRow` did. `muted` (a file that will not parse) takes the name to
-`ink-3`. The words come from `listRowCopy.ts`: `listRowDetail` is a
+tile's) or a click; a selection made elsewhere scrolls it into view,
+`nearest` for a click and `center` for a palette pick, read from
+`SelectionOriginContext` (Karthik's ruling, 2026-08-29). `muted` (a file
+that will not parse) takes the name to `ink-3`. Kind `agent`
+(`CpuChipIcon`) draws Global's Agents group, reachable only from a saved
+`global:Agents` preference (`known-debt.md`), off the retired `AssetRow`
+since Task 4. **On a repository** (Task 4; round 18 q4) every row is a
+`ListRow` too, with no marks (a repository has no backend annotation) and
+line 2 the repository's own words, moved from the retired table's columns
+unchanged: the Engine word as the detail (`repoRowDetail`,
+`formatEngineLabel`: "Any agent" where no engine owns it) and the State
+word as the figure (`repoRowFigure`, from `getRowState`: "Symlinked",
+"Tracked copy", "Linked", "Local only", and in their tones "Won't parse"
+and "Target missing" (danger), "Drifted · review" and "Foreign"
+(warning)). The engine's brand mark the Engine column drew beside its name
+did not move: a detail is a string. The words come from `listRowCopy.ts`: `listRowDetail` is a
 skill's or subagent's description, or a server's status sentence;
 `listRowFigure` is a server's token figure once an engine is picked or its
 tool count with All engines (round 18 q1), and for everything else the
 beyond-the-store words the table's column printed, with "Global only" where
 it printed "—" (round 18 q2). Pinned by `ListRow.test.tsx`,
-`listRowCopy.test.ts` and `ProfilePaneList.test.tsx`.
+`listRowCopy.test.ts`, `ProfilePaneList.test.tsx` and
+`RepoPaneList.test.tsx`.
 
-**Global's lane and group heads** (`ProfilePane.tsx`, `laneClass`,
-`GroupHead`). The facet row and the list each sit in a lane, `mx-auto w-full
-max-w-[736px] px-12` (T3's `.chat-content-lane`), inside their own
-`px-[18px]`/`mx-[18px]` inset so the two line up. Below 640px of list width
-(`LANE_MIN_WIDTH`, T3's `minChatWidth`) the padding drops to `px-3` and the
-ticks go; a `ResizeObserver` on the list decides, and a zero width (no
-layout yet) is no answer. The list is flat on the page: no border, no
+**The lane and group heads, on Global and on a repository**
+(`utils/listLane.ts` → `laneClass`, `LANE_MIN_WIDTH`, `laneIsWide`;
+`GroupHead.tsx`; `hooks/usePaneWidth.ts`). On Global the facet row and the
+list each sit in a lane, `mx-auto w-full max-w-[736px] px-12` (T3's
+`.chat-content-lane`), inside their own `px-[18px]`/`mx-[18px]` inset so
+the two line up. On a repository (Task 4) only the list does: its facet
+row and summary strip keep their full-width blocks. Below 640px of lane
+area (`LANE_MIN_WIDTH`, T3's `minChatWidth`) the padding drops to `px-3` and
+the ticks go; one `ResizeObserver` on the pane decides (`usePaneWidth`,
+shared by both panes), and a zero width (no layout yet) is no answer. Each
+pane takes a test-only `forceLane`. A repository draws `GroupTicks` the
+same way, for its four groups, and no overview card: that is Global's. The list is flat on the page: no border, no
 column headers, no header-click sorting. A group head is T3's shelf header,
 `h-8 px-2.5 text-small font-medium text-ink-3`: the label, a 1px rule
 (`ui/separator`, `flex-1`, `--line`), the backend's figure in `font-normal
@@ -1921,7 +1943,7 @@ answered for in the inspector's `reach-detail` section (`AssetDetail.tsx`).
 Switch mode (`switchFor`, T2 of
 `docs/plans/2026-11-25-ia-engines-into-global.md`) is given only by Global's
 MCP servers rows (`ProfilePane`, through `ListRow`'s `switchFor`); repo
-rows, `AssetRow` and `AssetDetail` never pass
+rows, and `AssetDetail` never pass
 it. A tile whose engine's context (App's per-engine copy) holds an item whose
 key is one of the row's registrations becomes that engine's switch: a
 `<button aria-pressed>`, named and tipped with
@@ -2108,12 +2130,18 @@ gone with them; `chipClasses.ts`'s `chipBaseClass` serves an unrelated,
 non-tablist chip row (§6, Pane composition) — the two were never the same
 constants.
 
-**`AssetRow`** (`AssetRow.tsx:22-28`) — `item`, `isSelected?`,
-`showKindColumn?`, `onClick?`, `onLink?`, `onUnlink?`. A repository's rows,
-and Global's Agents group; Global's other rows are `ListRow` since Task 1 of
-`docs/plans/2026-11-26-global-list.md`. **`AssetHeaderRow`**
-(`AssetHeaderRow.tsx:6-11`) — `sortField`, `sortDirection`, `showKindColumn?`,
-`onSort`.
+**`GroupHead`** (`GroupHead.tsx`) — `id?`, `label`, `figure`,
+`className?`, `trailing?`, `testId?`. A static group's head on Global's
+list and a repository's: T3's shelf header, `h-8 px-2.5 text-small
+font-medium text-ink-3 select-none`, the label, a 1px `ui/separator` rule,
+the figure in `font-normal tabular` (none where `figure` is null), then
+`trailing` outside the `<h3>`, whose `aria-label` is `groupHead(label,
+figure)`. Not sticky. Moved out of `ProfilePane` in Task 4 of
+`docs/plans/2026-11-26-global-list.md`, when a repository became its
+second caller. `AssetRow` and `AssetHeaderRow`, the table rows and their
+sortable column header, were retired in the same task; the Unlink confirm
+modal they were meant to open on a repository, which no row ever rendered
+a way into (`known-debt.md`), went with them.
 
 **`Tooltip`** (`Tooltip.tsx:15-20`) — `label`, `placement?`, `children`. The
 child carries the same string as its `aria-label`, so the tip is hidden from
@@ -2249,9 +2277,9 @@ are debounced 80ms (`DEBOUNCE_MS`, `:76`) before they reach `search_assets`.
 The palette now speaks Hanger's own source-list voice rather than the
 borrowed command-menu idiom (Karthik's ruling, 2026-08-29): the head is a
 tonal pill field shaped like the sidebar's own rows, and the list beneath it
-stacks 46px `rounded-pill` rows that tint on selection exactly as an asset
+stacks 46px `rounded-pill` rows that tint on selection exactly as a sidebar
 row does (`Sidebar.tsx:230-235`'s `h-[46px] rounded-pill … duration-nav
-ease-spring`; `AssetRow.tsx:170`'s `isSelected ? "bg-tint" : rowClass`).
+ease-spring`).
 The head dropped the borderless 52px command-menu row for a `p-3` wrapper
 around a `relative h-[30px]` field (`:125-126`): the magnifier sits
 absolutely at `left-2.5`, vertically centred, at `size={12}` (`:127-131`),
@@ -2335,9 +2363,9 @@ panel through a controlled `tab` prop that neither panel copies into local
 state or reads only at mount, so an effect resetting `inspectorTab` to
 "primary" whenever `landingNonce` changes is enough to move an
 already-mounted panel, with no remount (`Flyout.tsx:143-157, 828, 839`); and
-`AssetRow` reads the selection's origin
+`ListRow` reads the selection's origin
 from `SelectionOriginContext` to choose `scrollIntoView`'s `block`, `"center"`
-for `"search"` and `"nearest"` otherwise (`AssetRow.tsx:163, 172`). As
+for `"search"` and `"nearest"` otherwise (`ListRow.tsx`). As
 committed, the list carries three copy states: "Results show up here once
 the first scan finishes." before the first scan, "Type to search names and
 what's inside." for an empty query, and "Nothing matches “{q}”." for a query
@@ -2705,14 +2733,10 @@ above it says none is needed here). On a repository the `SummaryStrip`
 follows, in `mx-[18px] mb-3.5` (`RepoPane.tsx:550`); Global draws no strip
 since Task 7 of `docs/plans/2026-11-26-overview-card.md`, so its track's
 block spaces it from the list. Then the
-list plane, flat per §3 — no `bg-plane`. On a repository it rounds only its
-top corners and runs off the bottom edge: `@container flex-1 min-h-0
-overflow-y-auto mx-[18px] border border-line rounded-tl-plane
-rounded-tr-plane pb-1.5` (`RepoPane.tsx`). Global's dropped the border and
-the corners in Task 1 of `docs/plans/2026-11-26-global-list.md`, `@container
-flex-1 min-h-0 overflow-y-auto mx-[18px] pb-1.5`, and holds a centred lane
-(Global's lane and group heads, above); Task 4 brings a repository's list
-the same way.
+list plane, flat per §3 — no `bg-plane`, and since Tasks 1 and 4 of
+`docs/plans/2026-11-26-global-list.md` no border or corners either, in both
+panes: `@container flex-1 min-h-0 overflow-y-auto mx-[18px] pb-1.5`,
+holding a centred lane (the lane and group heads, above).
 Then the
 foot, `h-[30px] shrink-0 px-[18px] flex items-center gap-4 font-flex
 text-small text-ink-3` with the scan status pushed right by `ml-auto`
@@ -2725,36 +2749,16 @@ from (`ScanStatusIndicator.tsx:7-12`, `:27-33`). `NeedsReviewPane` passes no
 `undefined` is "this caller keeps no stamp", distinct from `null`, "nothing
 has been scanned yet", which has its own wording to print.
 
-*On a repository, two headers can sit inside that plane, and both are ruled
-off.* Global has neither since Task 1 of
-`docs/plans/2026-11-26-global-list.md`: no column labels, and its MCP
-servers head is a quiet group head.
-`AssetHeaderRow` carries `border-b border-line` under Name / Kind /
-Beyond the store (`AssetHeaderRow.tsx:50`). The MCP section writes its own
-header inline rather than sharing that one — "Reach" is meaningless for a
-server, so its columns read "Registered in" / "Tools" — and on the MCP tab
-`toolsOnlyView` suppresses the shared header entirely, which left that tab
-the only one whose column names had no rule under them (Karthik,
-2026-08-29). It takes the same `border-b border-line` now, its `pb`
-going 5px to 7px so the rule is not tight against the labels
-(`ProfilePane.tsx:1264`, `RepoPane.tsx:777`; pinned by
-`mcp_card_row.test.tsx`). *Below 580px the Tools label goes and Registered
-in stays*, because the tiles under it are the switches (F1, 2026-11-25):
-the header's "Tools" is `hidden @[580px]:block`, and the card row's two
-right-hand cells sit in one `data-testid="card-columns"` wrapper that is a
-`flex-col` stack below 580px — the tool figure under the tiles, in the same
-100px — and the two columns the header names from 580px up. Stacked, a
-missing figure's dash is hidden, since no label there says what it stands
-for. The card row's transport chip names the domain a remote server lives
-on, plus its port, never the address (`transportChipLabel` in
+*No column header sits inside the plane*, on either pane: Global's went
+with Task 1 of `docs/plans/2026-11-26-global-list.md` and a repository's
+(`AssetHeaderRow`, Name / Kind / Engine / State, and the MCP section's
+Registered in / Tools) with Task 4. Each group is headed by a `GroupHead`
+and nothing else. A server's transport chip names the domain a remote
+server lives on, plus its port, never the address (`transportChipLabel` in
 `serverRows.ts`: "zohomcp.in", "localhost:3845"): a hosted server's path
 can carry an account id, and the full address squeezed the name off its row
 (F4, 2026-11-25). The inspector still shows the backend's sanitised address
-in full. `cardChipClass` is `min-w-0 max-w-[50%] truncate`, so a chip gives
-way before the name beside it does. In a mixed view both rules render, which is
-what a second set of column names deserves; the plain group labels —
-Agents, Skills, Rules, Subagents — still carry none, because the columns
-above them were already announced.
+in full. `ListRow`'s chip is `max-w-40 truncate`.
 
 **`NeedsReviewPane` keeps the pre-track order: strip, chip row, list plane,
 foot.** It was not touched by the reorder — it has no category to put on a
@@ -3072,7 +3076,7 @@ the sprite, Codex's dark twin included. Every
 component on the page is the real one, imported and rendered with sample
 props from `src/data/designSystemFixtures.ts`: `GelMeter`, `MechanismGlyph`,
 `EngineReachTiles`, `EngineLabel`/`BrandIcon`, `CategoryFilterCards`,
-`DisclosureBanner`, `Tooltip`, `AssetHeaderRow`/`AssetRow`, `SummaryStrip`,
+`DisclosureBanner`, `Tooltip`, `SummaryStrip`,
 `ScanStatusIndicator`, `HangerMark`, `EmptyState`; and, since 2026-08-28,
 the twelve that had landed after the page without a specimen —
 `SegmentedTrack` (its specimen became `ui/tabs`'s on 2026-11-26), `UnderlineTabs`, `ViewControl`, `OverflowMenu`,

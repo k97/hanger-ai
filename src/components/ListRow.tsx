@@ -1,18 +1,22 @@
 import { useContext, useEffect, useRef, type KeyboardEvent } from "react";
 import EngineReachTiles, { type EngineReachInfo, type TileSwitch } from "./EngineReachTiles";
-import { ExclamationCircleIcon } from "./icons";
+import { CpuChipIcon, ExclamationCircleIcon } from "./icons";
 import { KIND_ICON } from "./InspectorCap";
 import { SelectionOriginContext } from "./selectionOrigin";
 
 /** `problem`: an MCP config file Hanger could not read or parse, which is
- *  no asset (Appendix A.3/A.4; Task 3 of docs/plans/2026-11-26-global-list.md). */
-export type ListRowKind = "skill" | "rule" | "subagent" | "server" | "problem";
+ *  no asset (Appendix A.3/A.4; Task 3 of docs/plans/2026-11-26-global-list.md).
+ *  `agent`: a row of Global's Agents group, reachable only from a saved
+ *  `global:Agents` preference (known-debt.md), moved off the retired
+ *  AssetRow in Task 4. */
+export type ListRowKind = "skill" | "rule" | "subagent" | "server" | "agent" | "problem";
 
 const ICON_FOR = {
   skill: KIND_ICON.Skills,
   rule: KIND_ICON.Rules,
   subagent: KIND_ICON.Subagents,
   server: KIND_ICON.Tools,
+  agent: CpuChipIcon,
   problem: ExclamationCircleIcon,
 } as const;
 
@@ -55,7 +59,8 @@ export interface ListRowProps {
 }
 
 /**
- * One row of Global's list (Task 1 of docs/plans/2026-11-26-global-list.md),
+ * One row of Global's list (Task 1 of docs/plans/2026-11-26-global-list.md)
+ * and of a repository's (Task 4),
  * after T3 Code's two-line PullRequestListRow and its sidebar rows: the kind's
  * icon, then line 1, the name (13px medium, round 18 q3) and on the right the
  * transport chip and the engine marks; line 2, muted, the detail and on the
@@ -85,8 +90,8 @@ export default function ListRow({
   const origin = useContext(SelectionOriginContext);
 
   // A selection made elsewhere (the search palette, a restored selection)
-  // brings its row into view, as AssetRow's did: `nearest` never scrolls a
-  // row already on screen, and a palette pick centres it.
+  // brings its row into view: `nearest` never scrolls a row already on
+  // screen, and a palette pick centres it (Karthik's ruling, 2026-08-29).
   useEffect(() => {
     if (selected && typeof rootRef.current?.scrollIntoView === "function") {
       rootRef.current.scrollIntoView({ block: origin === "search" ? "center" : "nearest" });

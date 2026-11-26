@@ -77,9 +77,9 @@ import type { LinkGraph } from "./utils/linkMapLayout";
 import SidebarScanModal from "./components/SidebarScanModal";
 import Flyout from "./components/Flyout";
 import InspectorCap, { type InspectorCapAsset } from "./components/InspectorCap";
-import type { AssetAnnotationView } from "./components/AssetRow";
+import type { AssetAnnotationView } from "./utils/listRowCopy";
 import { SelectionOriginContext, type SelectionOrigin } from "./components/selectionOrigin";
-import { SortField, SortDirection } from "./components/AssetHeaderRow";
+import type { SortField, SortDirection } from "./utils/sortUtils";
 import type { ServerGrouping, ServerSort } from "./components/ViewControl";
 import { StateFilter } from "./utils/linkStateCounts";
 import { registrationKey } from "./utils/mcpRegistration";
@@ -331,7 +331,7 @@ export default function App() {
   // that exists only until then.
   const [sidebarRestored, setSidebarRestored] = useState(false);
   // Which kind of action made the current selection — a plain row click, or
-  // a search-palette pick — so AssetRow can land the two differently
+  // a search-palette pick — so ListRow can land the two differently
   // (Karthik's ruling, 2026-08-29). landingNonce ticks on every palette pick,
   // including a re-pick of the same asset, so Flyout's tab-reset effect
   // fires even when selectionOrigin itself does not change value.
@@ -1348,7 +1348,7 @@ export default function App() {
     // switches screens in the same tick, so the state read here would still
     // be the old one; the palette passes the target explicitly.
     screen: string = selectedSidebarItem,
-    // "click" for a row tap, "search" for a palette pick — read by AssetRow
+    // "click" for a row tap, "search" for a palette pick — read by ListRow
     // (via SelectionOriginContext) to decide how the picked row lands.
     origin: SelectionOrigin = "click"
   ) => {
@@ -1876,7 +1876,7 @@ export default function App() {
 
   return (
     // Provides the origin of the current selection — a row click vs. a
-    // search-palette pick — down to AssetRow, which lands the two
+    // search-palette pick — down to ListRow, which lands the two
     // differently (Karthik's ruling, 2026-08-29). Wraps the whole shell:
     // Provider adds no DOM node of its own, so this touches no layout class.
     <SelectionOriginContext.Provider value={selectionOrigin}>

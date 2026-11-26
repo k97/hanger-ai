@@ -37,7 +37,7 @@ import { engineLabel, originRow, provenanceOf, type OriginWire } from "../utils/
 import { scopeAgent, scopeKind, type Scope } from "../utils/scopeAccess";
 import EngineLabel from "./EngineLabel";
 import { abbreviateHome } from "../utils/prose";
-import type { AssetAnnotationView } from "./AssetRow";
+import type { AssetAnnotationView } from "../utils/listRowCopy";
 import {
   documentKindFor,
   formatJson,
