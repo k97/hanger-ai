@@ -266,7 +266,9 @@ describe("App — where the Switched off group sits", () => {
     expect(screen.queryByRole("heading", { level: 3, name: "Skills" })).toBeNull();
     expect(follows(kept, notLoaded)).toBe(true);
     expect(follows(tools, kept)).toBe(true);
-    expect(kept.nextElementSibling).toBe(notLoaded);
+    const keptItem = kept.closest('[data-message-id="group-kept-skills"]');
+    const notLoadedItem = notLoaded.closest('[data-message-id="group-not-loaded"]');
+    expect(keptItem?.nextElementSibling).toBe(notLoadedItem);
   });
 
   it("with an engine picked that loads a skill, it still follows the Skills rows", async () => {
@@ -282,7 +284,10 @@ describe("App — where the Switched off group sits", () => {
     const skillsHeading = screen.getByRole("heading", { level: 3, name: "Skills" });
     expect(follows(skillsHeading, kept)).toBe(true);
     expect(follows(kept, tools)).toBe(true);
-    expect(within(kept.previousElementSibling as HTMLElement).getByText("figma")).toBeTruthy();
+    const keptItem = kept.closest('[data-message-id="group-kept-skills"]');
+    const skillsItem = keptItem?.previousElementSibling;
+    expect(skillsItem?.getAttribute("data-message-id")).toBe("group-skills");
+    expect(within(skillsItem as HTMLElement).getByText("figma")).toBeTruthy();
     expect(screen.queryByTestId("not-loaded-group")).toBeNull();
   });
 
@@ -294,6 +299,9 @@ describe("App — where the Switched off group sits", () => {
     const kept = await screen.findByTestId("kept-skills-group");
     const tools = await screen.findByTestId("section-header-tools");
     expect(follows(kept, tools)).toBe(true);
-    expect(within(kept.previousElementSibling as HTMLElement).getByText("figma")).toBeTruthy();
+    const keptItem = kept.closest('[data-message-id="group-kept-skills"]');
+    const skillsItem = keptItem?.previousElementSibling;
+    expect(skillsItem?.getAttribute("data-message-id")).toBe("group-skills");
+    expect(within(skillsItem as HTMLElement).getByText("figma")).toBeTruthy();
   });
 });

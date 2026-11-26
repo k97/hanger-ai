@@ -371,10 +371,16 @@ describe("with an engine picked, the list is what it reaches", () => {
   it("puts the group once, at the end of the list, on All", () => {
     render(<ProfilePane {...props({ selectedEngine: "codex" })} />);
     fireEvent.click(fold());
-    // The list's rows sit in its lane since Task 1 of
-    // docs/plans/2026-11-26-global-list.md.
+    // Group sections are MessageScroller items; its hidden trailing spacer
+    // is library-owned and does not count as a list item.
     const lane = screen.getByTestId("list-lane");
-    expect(lane.lastElementChild).toBe(group());
+    const items = Array.from(lane.children).filter(
+      (child) => !child.hasAttribute("data-message-scroller-spacer")
+    );
+    const groupItem = lane.querySelector('[data-message-id="group-not-loaded"]');
+    expect(lane.querySelectorAll('[data-message-id="group-not-loaded"]')).toHaveLength(1);
+    expect(groupItem?.contains(group())).toBe(true);
+    expect(items[items.length - 1]).toBe(groupItem);
     expect(notLoaded()).toEqual([
       "boltNot linked",
       "cobaltAnother engine's format",
