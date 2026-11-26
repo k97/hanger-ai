@@ -10,6 +10,7 @@ import Tooltip from "./Tooltip";
 import AssetHeaderRow, { type SortField, type SortDirection } from "./AssetHeaderRow";
 import AssetRow from "./AssetRow";
 import SummaryStrip from "./SummaryStrip";
+import OverviewCard, { type OverviewCardProps } from "./OverviewCard";
 import { ScanStatusIndicator } from "./ScanStatusIndicator";
 import HangerMark from "./HangerMark";
 import SegmentedTrack from "./SegmentedTrack";
@@ -84,6 +85,7 @@ import {
   SAMPLE_ENGINES,
   SAMPLE_ENGINE_HEADLINE,
   SAMPLE_ENGINE_STRIP,
+  SAMPLE_OVERVIEW_ENGINES,
   SAMPLE_NOT_LOADED,
   SAMPLE_ORIGIN,
   SAMPLE_ORIGIN_BLOCKED,
@@ -499,6 +501,27 @@ export default function DesignSystemPane({ section }: DesignSystemPaneProps) {
   };
 
   const scannedAt = new Date(Date.now() - 4 * 60_000);
+  // The overview card's three specimens share one sample: the props App's
+  // hook will hand the card (Task 4), with handlers that do nothing but the
+  // legend's.
+  const overview: OverviewCardProps = {
+    engines: SAMPLE_OVERVIEW_ENGINES,
+    selectedEngineId: null,
+    onSelectEngine: () => {},
+    storeTotal: SAMPLE_COUNTS.total,
+    linkLegend: { counts: SAMPLE_COUNTS, active: stateFilter, onFilter: setStateFilter },
+    engineFigures: null,
+    review: {
+      count: 2,
+      lines: [
+        { severity: "warning", text: SAMPLE_REVIEW_ISSUE.problem, detail: SAMPLE_REVIEW_ISSUE.name },
+        { severity: "danger", text: SAMPLE_FINDING_LINES[1] },
+      ],
+    },
+    scan: { scannedAt: scannedAt.getTime(), scanning: false, onRescan: () => {} },
+    pinned: false,
+    onTogglePin: () => {},
+  };
 
   return (
     // The pane paints no ground of its own: <main>'s sheet is the ground, and a full-bleed bg-page here would square off the sheet's corner from inside (every screen carries the corner — Karthik, 2026-08-28).
@@ -1036,6 +1059,31 @@ export default function DesignSystemPane({ section }: DesignSystemPaneProps) {
             />
           </Specimen>
 
+          <Specimen name="OverviewCard · an engine picked" file="OverviewCard.tsx" note="Global's overview, from the window bar or pinned in the inspector: every engine ranked by its tokens every session on a rank-tone GelMeter scaled to the heaviest, Not measured last on a bare track; the picked engine by kind, only MCP measured in Phase 1; then Needs review and Rescan. The card draws no border or elevation of its own; this frame stands in for the popover's">
+            <div className="max-w-[350px] border border-line rounded-plane">
+              <OverviewCard {...overview} selectedEngineId={SAMPLE_OVERVIEW_ENGINES[2].engine_id} engineFigures={SAMPLE_ENGINE_STRIP} />
+            </div>
+          </Specimen>
+
+          <Specimen name="OverviewCard · All engines" file="OverviewCard.tsx" note="no engine picked: the second section is the global store with its total and the link-state meter and legend, whose toggles filter the list (round 14 q2)">
+            <div className="max-w-[350px] border border-line rounded-plane">
+              <OverviewCard {...overview} />
+            </div>
+          </Specimen>
+
+          <Specimen name="OverviewCard · before the first scan" file="OverviewCard.tsx" note="no engines listed yet: no Engines head over nothing, so the pin moves to the store's head; nothing scanned and nothing to review">
+            <div className="max-w-[350px] border border-line rounded-plane">
+              <OverviewCard
+                {...overview}
+                engines={[]}
+                storeTotal={0}
+                linkLegend={{ counts: { linked: 0, drifted: 0, broken: 0, local: 0, total: 0 }, active: null, onFilter: () => {} }}
+                review={null}
+                scan={{ scannedAt: null, scanning: false, onRescan: () => {} }}
+              />
+            </div>
+          </Specimen>
+
           <Specimen name="ReviewPillActions" file="ReviewPillActions.tsx" note="the review pill's action row; a duplicate among the issues withholds Show in list, and no issue at all renders nothing">
             <ReviewPillActions
               issues={[SAMPLE_REVIEW_ISSUE, { ...SAMPLE_REVIEW_ISSUE, id: "Skills:duplicate:/sample", kind: "duplicate" }]}
@@ -1044,7 +1092,7 @@ export default function DesignSystemPane({ section }: DesignSystemPaneProps) {
             />
           </Specimen>
 
-          <Specimen name="GelMeter" file="GelMeter.tsx" note="aqua marks the linked share only; the review split stays glass">
+          <Specimen name="GelMeter" file="GelMeter.tsx" note="aqua marks the linked share only; the review split stays glass; the rank tone is plain ink against a max, never aqua, and an empty segments list is the bare track">
             <div className="flex flex-col gap-4">
               <GelMeter
                 label={`${SAMPLE_COUNTS.linked} linked, ${SAMPLE_COUNTS.drifted} drifted, ${SAMPLE_COUNTS.broken} broken, ${SAMPLE_COUNTS.local} local only`}
@@ -1064,6 +1112,8 @@ export default function DesignSystemPane({ section }: DesignSystemPaneProps) {
                   { key: "parse", value: SAMPLE_REVIEW.parse, barClass: "bg-line" },
                 ]}
               />
+              <GelMeter tone="rank" max={12400} label="Ranked: 9,951 of the heaviest 12,400" segments={[{ key: "rank", value: 9951 }]} />
+              <GelMeter tone="rank" label="Ranked: not measured" segments={[]} />
             </div>
           </Specimen>
 

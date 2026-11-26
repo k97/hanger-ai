@@ -95,8 +95,10 @@ describe("Design system — the system, rendered by the app that uses it", () =>
     fireEvent.click(within(chips).getByRole("tab", { name: /^Skills/ }));
     expect(within(chips).getByRole("tab", { name: /^Skills/ }).getAttribute("aria-selected")).toBe("true");
 
-    fireEvent.click(screen.getByText("drifted"));
-    expect(screen.getByText("drifted").closest("button")!.getAttribute("aria-pressed")).toBe("true");
+    // The link-state legend draws twice on the page since the overview
+    // card's All engines specimen (2026-11-26): the strip's is the first.
+    fireEvent.click(screen.getAllByText("drifted")[0]);
+    expect(screen.getAllByText("drifted")[0].closest("button")!.getAttribute("aria-pressed")).toBe("true");
   });
 
   it("the switch specimen is a pressable button whose decorative track follows its state", () => {

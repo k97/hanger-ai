@@ -100,6 +100,65 @@ const SEGMENTS: Array<{ state: LinkState; aqua?: boolean; barClass: string; dotC
   },
 ];
 
+interface LinkStateLegendProps {
+  /** Backend-owned, as the strip's own `counts`. */
+  counts: StateCounts;
+  active: StateFilter;
+  /** A state, or `null` when the pressed one is pressed again. */
+  onFilter: (filter: StateFilter) => void;
+  /** Drawn at the end of the legend's row: the strip's Rescan and pill. */
+  trailing?: ReactNode;
+}
+
+/**
+ * The link-state meter and its legend: linked, drifted, broken, local only,
+ * each a toggle that filters the list. One drawing for the two places that
+ * show the store's link state — this strip with no engine picked, and the
+ * overview card's store section (round 14 q2,
+ * docs/plans/2026-11-26-decisions-round-14.md) — so the labels and the look
+ * cannot drift apart.
+ */
+export function LinkStateLegend({ counts, active, onFilter, trailing }: LinkStateLegendProps) {
+  const barLabel = `${counts.linked} linked, ${counts.drifted} drifted, ${counts.broken} broken, ${counts.local} local only`;
+  const toggle = (state: LinkState) => onFilter(active === state ? null : state);
+  return (
+    <>
+      {counts.total > 0 && (
+        <GelMeter
+          label={barLabel}
+          segments={SEGMENTS.map(({ state, aqua, barClass }) => ({
+            key: state,
+            value: counts[state],
+            barClass,
+            aqua,
+          }))}
+        />
+      )}
+
+      <div className="flex items-center gap-4 mt-2.5 flex-wrap">
+        {SEGMENTS.map(({ state, aqua, dotClass, label }) => (
+          <button
+            key={state}
+            onClick={() => toggle(state)}
+            aria-pressed={active === state}
+            className={`flex items-center gap-2 text-small font-flex cursor-pointer transition-colors duration-hover ease-spring ${
+              active === state ? "text-ink-1" : "text-ink-2 hover:text-ink-1"
+            }`}
+          >
+            <i
+              className={`w-2 h-2 rounded-pill shrink-0 ${dotClass}`}
+              style={aqua ? { backgroundImage: "var(--gel-aqua)" } : undefined}
+            />
+            <b className="font-medium tabular text-ink-1">{counts[state]}</b> {label(counts[state])}
+          </button>
+        ))}
+
+        {trailing}
+      </div>
+    </>
+  );
+}
+
 /** One large typographic anchor on the tinted plane. */
 export default function SummaryStrip({
   total,
@@ -117,7 +176,6 @@ export default function SummaryStrip({
   const [reviewOpen, setReviewOpen] = useState(false);
   const pillRef = useRef<HTMLSpanElement>(null);
   const sectionRef = useRef<HTMLElement>(null);
-  const barLabel = `${counts.linked} linked, ${counts.drifted} drifted, ${counts.broken} broken, ${counts.local} local only`;
   const stampText = useScanStampText(scannedAt);
   const measureCaptionId = useId();
   // A kind is drawn whole when it has a figure or a caption; the rest share
@@ -125,9 +183,6 @@ export default function SummaryStrip({
   const drawnWhole = (seg: StripSegment) => seg.measured || seg.caption !== undefined;
   const figured = engine ? engine.segments.filter(drawnWhole) : [];
   const unfigured = engine ? engine.segments.filter((seg) => !drawnWhole(seg)) : [];
-
-  const toggle = (state: LinkState) =>
-    onFilterState(activeStateFilter === state ? null : state);
 
   // Rescan is the one control both modes keep — unchanged in either. Its
   // tooltip is the age of the figure above it: the stamp that used to print
@@ -313,44 +368,18 @@ export default function SummaryStrip({
           </div>
         </>
       ) : (
-        <>
-          {counts.total > 0 && (
-            <GelMeter
-              label={barLabel}
-              segments={SEGMENTS.map(({ state, aqua, barClass }) => ({
-                key: state,
-                value: counts[state],
-                barClass,
-                aqua,
-              }))}
-            />
-          )}
-
-          <div className="flex items-center gap-4 mt-2.5 flex-wrap">
-            {SEGMENTS.map(({ state, aqua, dotClass, label }) => (
-              <button
-                key={state}
-                onClick={() => toggle(state)}
-                aria-pressed={activeStateFilter === state}
-                className={`flex items-center gap-2 text-small font-flex cursor-pointer transition-colors duration-hover ease-spring ${
-                  activeStateFilter === state ? "text-ink-1" : "text-ink-2 hover:text-ink-1"
-                }`}
-              >
-                <i
-                  className={`w-2 h-2 rounded-pill shrink-0 ${dotClass}`}
-                  style={aqua ? { backgroundImage: "var(--gel-aqua)" } : undefined}
-                />
-                <b className="font-medium tabular text-ink-1">{counts[state]}</b> {label(counts[state])}
-              </button>
-            ))}
-
+        <LinkStateLegend
+          counts={counts}
+          active={activeStateFilter}
+          onFilter={onFilterState}
+          trailing={
             <div className="ml-auto flex items-center gap-2">
               {rescanButton}
 
               {reviewPill}
             </div>
-          </div>
-        </>
+          }
+        />
       )}
 
       {children}

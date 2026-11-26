@@ -1617,6 +1617,13 @@ scope — never derived on the frontend" (`:37`), and Rescan lives here rather
 than in the toolbar because it is the control that changes the figure
 directly above it (`:45-48`).
 
+The link-state meter and legend are a named export, `LinkStateLegend`
+(`counts`, `active`, `onFilter`, `trailing?`), moved out of the strip's
+link-state branch unchanged on 2026-11-26. The strip passes its Rescan and
+pill as `trailing`; the overview card's store section draws the same export
+with nothing trailing (round 14 q2), so the two places that show the store's
+link state share one set of labels and one look.
+
 *The headline is one line, and `scannedAt` no longer prints in it.* The
 subtitle carries `min-w-0 truncate` and its own text as a `title` (`:194`)
 — a flex item's `min-width` is `auto`, so without `min-w-0` it refuses to
@@ -1718,6 +1725,70 @@ hand is a divergence, not a variant. The glass is painted with stacked
 gradients, not cast — `--overlay-shadow` belongs to the map's overlays and
 `--capsule-shadow` (§3) to the segmented track's capsule; neither elevation
 belongs to a bar.
+
+Two props since 2026-11-26, for the overview card (round 14 q1,
+`docs/plans/2026-11-26-decisions-round-14.md`). `tone?: "gel" | "rank"`:
+`gel` is the default above; `rank` paints each segment flat `bg-ink-1`, with
+no gloss and no aqua whatever a segment asks, because a ranked figure is
+compared with its neighbours and is no share of a whole. `max?: number`:
+given, a segment is sized as `value / max` of the track (`width`, capped at
+100%) instead of sharing it by `flex`, so a bar can be one engine's figure
+over the heaviest engine's. That is a width ratio, not a count. An empty
+`segments` list draws the bare track, which is how a figure Hanger has not
+measured reads: q1 chose that over a dashed track, so the meter has no
+second style.
+
+**`OverviewCard`** (`OverviewCard.tsx`) — Global's overview
+(`docs/plans/2026-11-26-overview-card.md`, Task 3, after layout F of
+`docs/plans/2026-11-26-global-top-prototypes.html`): `engines`,
+`selectedEngineId`, `onSelectEngine`, `storeTotal`, `linkLegend`,
+`engineFigures`, `review`, `scan`, `pinned` and `onTogglePin`. It is purely
+presentational: it calls no command, and nothing renders it yet. The window
+bar's popover and the pinned inspector (Tasks 5 and 6) will both draw it. It
+draws no border or elevation of its own; the surface holding it does. Three
+sections, divided by `border-t border-line`, each headed by a `SectionHead`:
+the name in `font-medium text-ink-2`, the caption at the right in
+`text-small text-ink-3`, and, in whichever section comes first, the pin
+(round 14 q3). The pin is a 22px `rounded-control` button with `PinIcon`, or
+`PinOffIcon` while pinned, named and tooltipped by `pinLabel`.
+
+- **Engines** · "tokens every session". "All engines" with the store
+  total, then every engine in `rankEngines` order (`overviewCopy.ts`):
+  heaviest `on_tokens_measured` first, no-figure engines last, and ties by
+  name. Each row is a button on prototype F's grid,
+  `grid-cols-[16px_128px_minmax(0,1fr)_80px]`, `h-7`, `rounded-control`:
+  the `BrandIcon` at 14, the name (`truncate`), a rank-tone `GelMeter`
+  scaled to the top engine's figure, and the value (`whitespace-nowrap`,
+  80px, right-aligned, `tabular`): `engineRowValue`'s "≈ 13.6k", or "Not
+  measured" in `text-ink-3` on a bare track. The picked row is `bg-tint`
+  with `aria-current="true"` and a `font-medium` name. The bar is
+  `aria-hidden`, since the row already reads its value. Before the first
+  scan has listed any engine the section is not drawn at all, so a head
+  never sits over nothing (Review Focus 1).
+- **The chosen engine**, when an engine is picked and `engineFigures` is
+  given. The head is the engine's name, with `engineBandFigures`' caption
+  ("11 of 17 servers measured", or the vendor-servers line). Under it,
+  `engineStripHeadline`'s figure in `text-lg-app font-medium tabular`, then
+  "tokens every session", or "Not measured" in its place. Then Measure all
+  (`miniBtnClass`, its caption as its `title` and `aria-describedby`, drawn
+  only with `onMeasure`). Then one button per kind
+  (`grid-cols-[110px_minmax(0,1fr)_80px]`, `aria-pressed` for its open
+  tab). Phase 1 measures MCP alone, so that kind's bar fills its track and
+  the other three are bare, reading "Not measured".
+- **The global store** · "{n} assets", with All engines picked (round 14
+  q2): `LinkStateLegend` from `SummaryStrip.tsx`, whose toggles filter the
+  list.
+- **Actions**: "Needs review" with its count, drawn only when `review` has
+  lines. It opens the same `FindingPopover` the strip's pill opens, from
+  the same `StripReview`, clamped to the card. Then Rescan, or "Scanning"
+  and disabled while a scan runs, with `useScanStampText`'s age at the
+  right. Both are 30px `rounded-control` rows that press to 0.97.
+
+Nothing in it opens or closes with an animation. No figure is counted:
+`rankEngines` sorts, and a bar is a ratio. A narrow inspector shortens the
+bars first, because names truncate and values never wrap (Review Focus 5).
+`happy-dom` lays nothing out, so `OverviewCard.test.tsx` pins that as a
+class contract and leaves the 384px geometry to a screenshot.
 
 **`MechanismGlyph`** (`MechanismGlyph.tsx`) — the per-row attachment glyph:
 one of five backend words (`symlink | copy | drift | broken | none`), drawn
@@ -2790,7 +2861,9 @@ the twelve that had landed after the page without a specimen —
 beside them; `InspectorCap`, `ListCard`, `ReachCard`, `OriginValue`,
 `ScanStamp`, `SearchPalette` under Components; plus the two that landed the
 same day, `FindingPopover` under Controls (`DesignSystemPane.tsx:748-771`)
-and `HeroBand` under Components (`:1001-1018`). `McpEngineSummary`'s
+and `HeroBand` under Components (`:1001-1018`). `OverviewCard` joined
+Components on 2026-11-26 with three specimens: an engine picked, All
+engines, and before the first scan. `McpEngineSummary`'s
 specimen left with the component it drew. Nothing on it is a picture, so nothing on it can drift from the
 app; after a pull, one page shows every component in the current theme.
 

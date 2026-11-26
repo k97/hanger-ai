@@ -19,6 +19,16 @@ interface GelMeterProps {
   segments: MeterSegment[];
   /** Read to assistive tech in place of the painted bar. */
   label: string;
+  /** `gel`, the default: the glossed gel, aqua where a segment asks.
+   *  `rank`: one plain --ink-1 bar with no gloss and no aqua, for a figure
+   *  ranked against its neighbours rather than a share of a whole — the
+   *  overview card's engines and kinds (round 14 q1,
+   *  docs/plans/2026-11-26-decisions-round-14.md). */
+  tone?: "gel" | "rank";
+  /** Given, each segment is sized as its value's share of `max` instead of
+   *  sharing the track with the others: a ranked bar is the engine's figure
+   *  over the heaviest engine's. A width ratio, not a count. */
+  max?: number;
 }
 
 /**
@@ -28,9 +38,11 @@ interface GelMeterProps {
  *
  * The glass is painted, not cast: stacked background-image gradients from
  * the tokens --gel-gloss, --gel-aqua and --bar-track, because the system
- * has exactly one elevation and this is not it.
+ * has exactly one elevation and this is not it. The rank tone is the one
+ * fill that is not glass: flat ink on the same track.
  */
-export default function GelMeter({ segments, label }: GelMeterProps) {
+export default function GelMeter({ segments, label, tone = "gel", max }: GelMeterProps) {
+  const rank = tone === "rank";
   return (
     <div
       role="img"
@@ -43,12 +55,18 @@ export default function GelMeter({ segments, label }: GelMeterProps) {
           value > 0 && (
             <span
               key={key}
-              className={`block h-full rounded-pill ${barClass ?? ""}`}
+              className={`block h-full rounded-pill ${rank ? "bg-ink-1" : barClass ?? ""}`}
               style={{
-                flex: value,
-                backgroundImage: aqua
-                  ? "var(--gel-gloss), var(--gel-aqua)"
-                  : "var(--gel-gloss)",
+                ...(max !== undefined && max > 0
+                  ? { width: `${Math.min(100, (value / max) * 100)}%` }
+                  : { flex: value }),
+                // Unset for the rank tone: flat ink, never the gloss or the
+                // aqua, whatever a segment asks for.
+                backgroundImage: rank
+                  ? undefined
+                  : aqua
+                    ? "var(--gel-gloss), var(--gel-aqua)"
+                    : "var(--gel-gloss)",
               }}
             />
           )

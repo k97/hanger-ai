@@ -214,7 +214,7 @@ export const MEASURE_ALL_CAPTION =
  * is 0, and "≈ 0" would claim a cost Hanger never read. With nothing on, the
  * 0 is true: nothing on is nothing loaded.
  */
-function measuredBudget(ctx: EngineContext | null): number | null {
+export function measuredBudget(ctx: EngineContext | null): number | null {
   if (ctx === null) return null;
   if (ctx.measured_on_count === 0 && ctx.on_count > 0) return null;
   return ctx.on_tokens_measured;

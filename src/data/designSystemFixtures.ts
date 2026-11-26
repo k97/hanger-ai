@@ -234,6 +234,17 @@ const SAMPLE_ENGINE_CONTEXT: EngineContext = {
   on_tokens_measured: 12400,
 };
 
+/** The overview card's engines, unsorted as `get_engine_contexts` sends
+ *  them: the card ranks. Claude Code is the strip's sample context above;
+ *  Claude.ai has servers on and none measured, so it reads "Not measured"
+ *  and ranks last with a bare track. */
+export const SAMPLE_OVERVIEW_ENGINES: EngineContext[] = [
+  { ...SAMPLE_ENGINE_CONTEXT, engine_id: "claude-ai", engine_key: "claude_ai", engine_name: "Claude.ai", on_count: 3, off_count: 0, measured_on_count: 0, on_tokens_measured: 0 },
+  { ...SAMPLE_ENGINE_CONTEXT, engine_id: "codex", engine_key: "codex", engine_name: "Codex", on_count: 9, off_count: 0, measured_on_count: 9, on_tokens_measured: 9951 },
+  SAMPLE_ENGINE_CONTEXT,
+  { ...SAMPLE_ENGINE_CONTEXT, engine_id: "gemini", engine_key: "gemini", engine_name: "Gemini CLI", on_count: 4, off_count: 0, measured_on_count: 4, on_tokens_measured: 7310 },
+];
+
 /** The strip's engine mode for that context, built as ProfilePane builds it:
  *  the headline and the MCP segment through `switchCopy`, the other kinds
  *  "Not measured" (Phase 1). */
