@@ -146,3 +146,14 @@ that tells the truth from the `tauri dev` app:
   "Hanger AI".** Filtering on the old name returns nothing, which reads as
   "no window" (2026-08-28). Match `kCGWindowOwnerName == "tauri-app"` and
   `kCGWindowIsOnscreen == 1`; the process is still `target/debug/tauri-app`.
+- **Drive the app through tauri-plugin-mcp-bridge 0.13+, not keystrokes.**
+  0.12's `manage_window focus` does nothing, and an unfocused WKWebView keeps
+  returning frames that lag the DOM — a capture can show the state before the
+  click. Focus, act, read DOM state, then capture; discard a frame that
+  disagrees. The plugin's OpenCode entry must be the command array
+  `["npx", "-y", "@hypothesi/tauri-mcp-server"]`.
+- **`webview_keyboard` Tab does not move focus in the Tauri webview.** It
+  reports success and leaves focus where it was. To prove a focus state, blur
+  to a known element, send one key so the modality is keyboard, call
+  `.focus()` on the target, then wait out a HoverCard's open delay before
+  reading the card.

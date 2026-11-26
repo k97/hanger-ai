@@ -64,9 +64,17 @@ first.
   subdirectories are local-only, and why `to-be-reviewed/` is not a spec.
 - [Design system](.claude/DESIGN.md) — derived from code with every statement
   cited, and a "Not implemented" section for what the code does not yet do.
+- [UI primitives](.claude/rules/ui-primitives.md) — shadcn tooling, the
+  MessageScroller item/spacer contract, and the local `cn`.
 
 Queued work with a defined finish line lives in [docs/TODO.md](docs/TODO.md);
 deferred work and unruled questions in [docs/roadmap.md](docs/roadmap.md).
+
+## Gates
+
+Run the `stage-gate` skill at each boundary, even when the work looks finished — dispatch a fresh reviewer, do not gate your own work: plan written → `--plan`, code written before push → `--dev`, merged → `--release`.
+
+Gate commits: auto
 
 ## Verification
 
