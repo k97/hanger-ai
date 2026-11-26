@@ -106,8 +106,8 @@ interface FlyoutProps {
   /** App's one switch state (`useMcpSwitch`). Without it the MCP server
    *  panel draws no switch. */
   switcher?: McpSwitch;
-  /** App's one copy of every engine's context (`get_engine_contexts`, read
-   *  once per scan and replaced by every switch's reply): what the MCP
+  /** App's one copy of every engine's context (`get_engine_contexts`, primed
+   *  on mount, refreshed once per scan and replaced by every switch's reply): what the MCP
    *  server panel's switches read. */
   engineContexts?: readonly EngineContext[];
   /** The MCP server panel's engine-name links, carried to it unchanged

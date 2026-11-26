@@ -1875,13 +1875,12 @@ card away; it hides nothing else. A popover open when the card docks
 closes. `forceDock` is the test-only override; `overview_dock.test.tsx` pins
 the contract, and where the card lands is a screenshot claim.
 
-The card's Engines section is `get_engine_contexts`, read once per scan on
-`scan://complete`. That read waited on `get_mcp_servers` and
-`get_mcp_coverage`, which re-derive from disk, so a docked card shown
-mid-scan had no Engines section (Task 3's screenshots; the popover frame
-was taken later, not drawn differently). Since then the kept servers, the
-kept skills and the contexts run in that order beside those two reads, not
-after them.
+The card's Engines section is `get_engine_contexts`, primed from the cache on
+App mount and refreshed once per scan on `scan://complete`. The mount read
+fills an empty store only; a late response cannot overwrite contexts from a
+scan or switch. The scan read runs beside `get_mcp_servers` and
+`get_mcp_coverage`, which re-derive from disk, so a docked card shown mid-scan
+has the Engines section from the mount cache.
 
 **`OverviewPopover`** (`OverviewPopover.tsx`) — the overview card from the
 window bar when it cannot dock (Task 5 of
@@ -2390,8 +2389,9 @@ actions are the only rows. A row the user reaches with the keys, the pointer
 or a click stays highlighted while the query stands; a row cmdk picks on its
 own is overruled. While any action is listed, neither the hint nor "Nothing
 matches" shows; before the first scan none are listed. App builds them from
-its one copy of the contexts (`get_engine_contexts`, read once per scan and
-replaced by every switch's reply), for the engines the overview card lists;
+its one copy of the contexts (`get_engine_contexts`, primed on mount,
+refreshed once per scan and replaced by every switch's reply), for the engines
+the overview card lists;
 opening the palette reads nothing. A non-empty query yields the items with
 `read_only === null` whose name contains it, any case, at most eight,
 labelled `paletteActionLabel` with the engine name as `detail`. Picking one

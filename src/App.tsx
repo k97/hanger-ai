@@ -872,6 +872,10 @@ export default function App() {
 
   const initializeApp = async () => {
     setLoading(true);
+    // Prime the overview's engine list from the cache while the first scan
+    // starts. The scan re-reads it on completion; this early read is what lets
+    // a docked card list its engines during the scan's initial stages.
+    void refreshEngineContexts(true);
     try {
       invoke<{ id: string; name: string }[]>("get_detected_engines")
         .then((engines) => setDetectedEngines(Array.isArray(engines) ? engines : []))
@@ -1060,14 +1064,18 @@ export default function App() {
   // Every engine's context (docs/ipc.md entry 20), the one copy each surface
   // that shows an engine's servers reads: the engine tiles on Global's rows
   // and the picked engine's filter, the MCP server inspector's switches and
-  // ⌘K's Switch actions. Read once per scan, right after the kept servers;
-  // a switch's, an Undo's or Measure all's reply replaces that engine's
+  // ⌘K's Switch actions. Prime from the cache on mount, then re-read once per
+  // scan, right after the kept servers. The mount result only fills an empty
+  // store, so a later scan or switch reply cannot be overwritten by it.
+  // A switch's, an Undo's or Measure all's reply replaces that engine's
   // entry at once (`recordContext`). A read that fails keeps what was there.
   const [engineContexts, setEngineContexts] = useState<EngineContext[] | null>(null);
-  const refreshEngineContexts = async () => {
+  const refreshEngineContexts = async (onlyIfEmpty = false) => {
     try {
       const reply = await invoke<EngineContext[]>("get_engine_contexts");
-      if (Array.isArray(reply)) setEngineContexts(reply);
+      if (Array.isArray(reply)) {
+        setEngineContexts((previous) => (onlyIfEmpty && previous !== null ? previous : reply));
+      }
     } catch {
       // The contexts stay as they were.
     }

@@ -113,20 +113,19 @@ describe("CategoryFilterCards", () => {
     expect(labels).toEqual(["All", "Skills", "MCP servers", "Rules"]);
   });
 
-  // Class contract only: happy-dom applies no container queries. With the
-  // inspector open the six tabs ran past the track's edge and cut
-  // "Subagents 302" off (F1, 2026-11-25). The track still scrolls as its
-  // last resort; before that, its segments tighten, then drop their counts
-  // (the strip below carries the figure for the selected tab).
-  it("tightens its segments, then drops their counts, as its own width narrows", () => {
+  // Class contract only: happy-dom applies no container queries. Counts are
+  // part of each choice at every width; the track scrolls as the last resort.
+  it("keeps counts visible and lets the tab track scroll in a narrow pane", () => {
     const { container } = render(<CategoryFilterCards {...props} />);
-    expect(container.querySelector("section")!.className).toContain("@container");
+    const root = container.querySelector("section")!;
+    expect(root.className).toContain("w-full");
+    expect(root.className).toContain("min-w-0");
     const skills = screen.getByRole("tab", { name: /^Skills/ });
-    expect(skills.className).toContain("px-3");
-    expect(skills.className).toContain("@[576px]:px-4");
+    expect(skills.className).toContain("shrink-0");
     const count = within(skills).getByText("8");
-    expect(count.className).toContain("hidden");
-    expect(count.className).toContain("@[512px]:inline");
+    expect(count.className.split(/\s+/)).not.toContain("hidden");
+    expect(count.className).not.toMatch(/@\[.*\]:inline/);
+    expect(screen.getByRole("tablist", { name: "Filter by category" }).className).toContain("overflow-x-auto");
   });
 });
 
@@ -163,12 +162,14 @@ describe("CategoryFilterCards on shadcn Tabs", () => {
       "h-7",
       "duration-nav",
       "ease-spring",
-      "left-(--active-tab-left)",
+      "left-0",
+      "translate-x-(--active-tab-left)",
       "top-(--active-tab-top)",
       "w-(--active-tab-width)",
     ]) {
       expect(capsule.className.split(/\s+/), c).toContain(c);
     }
+    expect(capsule.className).not.toContain("left-(--active-tab-left)");
   });
 
   it("shows each count inside its tab, and marks the selected tab", () => {

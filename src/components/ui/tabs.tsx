@@ -76,7 +76,7 @@ function TabsIndicator({ className, ...props }: TabsPrimitive.Indicator.Props) {
     <TabsPrimitive.Indicator
       data-slot="tabs-indicator"
       className={cn(
-        "absolute h-7 rounded-pill capsule-raised top-(--active-tab-top) left-(--active-tab-left) w-(--active-tab-width) transition-[left,width] duration-nav ease-spring",
+        "absolute left-0 h-7 rounded-pill capsule-raised top-(--active-tab-top) translate-x-(--active-tab-left) w-(--active-tab-width) transition-[translate,width] duration-nav ease-spring",
         className,
       )}
       {...props}

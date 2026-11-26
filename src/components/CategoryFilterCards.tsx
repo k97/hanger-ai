@@ -106,7 +106,7 @@ export default function CategoryFilterCards({
       value={selectedCategory ?? "all"}
       onValueChange={handleValueChange}
       render={<section />}
-      className="@container font-sans select-none shrink-0"
+      className="@container w-full min-w-0 font-sans select-none shrink-0"
     >
       <TabsList ref={listRef} aria-label="Filter by category">
         <TabsIndicator />
@@ -117,12 +117,12 @@ export default function CategoryFilterCards({
               key={chip.id ?? "all"}
               value={chip.id ?? "all"}
               onClick={() => handleTabClick(chip.id)}
-              // Below 576px of its own width the track tightens, and below
-              // 512px it drops the counts, before it falls back to scrolling.
+              // The track scrolls as a last resort; counts stay visible so
+              // the label retains the same width from the first measurement.
               className="px-3 @[576px]:px-4"
             >
               <span>{chip.label}</span>
-              <span className={`text-micro tabular hidden @[512px]:inline ${selected ? "text-ink-2" : "text-ink-3"}`}>
+              <span className={`text-micro tabular ${selected ? "text-ink-2" : "text-ink-3"}`}>
                 {chip.count === undefined && loading ? <LoaderCircleIcon size={12} active /> : (chip.count ?? 0)}
               </span>
             </TabsTrigger>

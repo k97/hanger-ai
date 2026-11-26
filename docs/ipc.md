@@ -459,7 +459,7 @@ A kept server holds no command, argument, env variable or header.
 
 ## 20. get_engine_contexts
 
-Returns every engine's context from one pass over the machine's config files: for each engine, exactly what `get_engine_context` returns for it. The webview reads this once per scan and keeps the one copy every surface reads. Reads config files and the probe cache, and starts no server.
+Returns every engine's context from one pass over the machine's config files: for each engine, exactly what `get_engine_context` returns for it. The webview primes the overview from the cache on mount, then re-reads this once per scan; it keeps the one copy every surface reads. Reads config files and the probe cache, and starts no server.
 
 - **Command Name:** `get_engine_contexts`
 - **Arguments:** None

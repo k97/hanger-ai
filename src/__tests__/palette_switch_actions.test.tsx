@@ -268,7 +268,7 @@ describe("⌘K's Switch actions", () => {
     await completeScan();
     openPalette();
     await screen.findByLabelText("Search assets");
-    await waitFor(() => expect(calls("get_engine_contexts")).toHaveLength(1));
+    await waitFor(() => expect(calls("get_engine_contexts")).toHaveLength(2));
     expect(switchGroup()).toBeNull();
     await type("   ");
     expect(switchGroup()).toBeNull();
@@ -291,10 +291,10 @@ describe("⌘K's Switch actions", () => {
     expect(actionLabels()).toEqual(Array.from({ length: 8 }, (_, i) => `Switch srv${i} off for Engine G`));
   });
 
-  it("reads no context when it opens: its actions come from the scan's one read", async () => {
+  it("reads no context when it opens: its actions come from the mount and scan cache reads", async () => {
     render(<App />);
     await completeScan();
-    expect(calls("get_engine_contexts")).toHaveLength(1);
+    expect(calls("get_engine_contexts")).toHaveLength(2);
 
     openPalette();
     await type("a");
@@ -306,7 +306,7 @@ describe("⌘K's Switch actions", () => {
     openPalette();
     await type("al");
     await waitFor(() => expect(switchGroup()).not.toBeNull());
-    expect(calls("get_engine_contexts")).toHaveLength(1);
+    expect(calls("get_engine_contexts")).toHaveLength(2);
     expect(calls("get_engine_context")).toEqual([]);
   });
 

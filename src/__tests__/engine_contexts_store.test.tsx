@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 /** App's one copy of every engine's context (Q1 of
- *  docs/plans/2026-11-25-t3-code-review.md). It is read once per scan, by
+ *  docs/plans/2026-11-25-t3-code-review.md). It is primed from cache on mount,
+ *  then read once per scan, by
  *  `get_engine_contexts`, and every surface that shows an engine's servers
  *  reads it: the engine tiles on Global's MCP servers rows, the MCP server
  *  inspector's switches and ⌘K's Switch actions. A switch's reply replaces
@@ -168,7 +169,19 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe("App keeps one copy of every engine's context", () => {
-  it("reads it once per scan, not once per engine per surface", async () => {
+  it("loads the cached engine contexts on mount before the first scan completes", async () => {
+    render(<App />);
+
+    await waitFor(() => expect(calls("get_engine_contexts")).toEqual([undefined]));
+    const overviewButton = await screen.findByRole("button", { name: /Show overview/ });
+    fireEvent.click(overviewButton);
+
+    const card = await screen.findByTestId("overview-card");
+    expect(await within(card).findByText("Engine C")).toBeTruthy();
+    expect(eventListeners["scan://complete"]).toBeDefined();
+  });
+
+  it("reads the cache on mount and once per scan, not once per engine per surface", async () => {
     render(<App />);
     await completeScan();
     const panel = await openInspector();
@@ -176,12 +189,12 @@ describe("App keeps one copy of every engine's context", () => {
     await openPalette("alpha");
     await screen.findByRole("option", { name: /^Switch alpha off for Engine C/ });
 
-    // The tile, the inspector and ⌘K are all drawn from one read.
-    expect(calls("get_engine_contexts")).toHaveLength(1);
+    // The tile, the inspector and ⌘K all read the same App-owned context store.
+    expect(calls("get_engine_contexts")).toHaveLength(2);
     expect(calls("get_engine_context")).toEqual([]);
 
     await completeScan();
-    await waitFor(() => expect(calls("get_engine_contexts")).toHaveLength(2));
+    await waitFor(() => expect(calls("get_engine_contexts")).toHaveLength(3));
     expect(calls("get_engine_context")).toEqual([]);
   });
 
@@ -199,7 +212,7 @@ describe("App keeps one copy of every engine's context", () => {
     await openPalette("alpha");
     expect(await screen.findByRole("option", { name: /^Switch alpha on for Engine C/ })).toBeTruthy();
     // The reply, not another read: the mock's reads still say alpha is on.
-    expect(calls("get_engine_contexts")).toHaveLength(1);
+    expect(calls("get_engine_contexts")).toHaveLength(2);
     expect(calls("get_engine_context")).toEqual([]);
   });
 });
