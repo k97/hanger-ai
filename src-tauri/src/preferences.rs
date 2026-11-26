@@ -1897,3 +1897,63 @@ pub fn get_probe_result(db_path: &Path, launch_hash: &str) -> Result<Option<Cach
         launch_mtime,
     }))
 }
+
+/// The rows of a folder at `?1` or anywhere under it, by path text. No LIKE:
+/// skill names hold `_`, which LIKE reads as any one character.
+const AT_OR_UNDER: &str = "(abs_path = ?1 OR substr(abs_path, 1, length(?1) + 1) = ?1 || '/')";
+
+/// Deletes the links rows of every asset at `folder` or under it, then those
+/// assets, in one BEGIN IMMEDIATE transaction. Matches by
+/// `abs_path = ?1 OR substr(abs_path, 1, length(?1) + 1) = ?1 || '/'` (no LIKE:
+/// skill names hold `_`). Returns the asset rows removed.
+///
+/// The skill switch's only write to the store (`skill_switch::ops`): the rows
+/// of the folder it has just moved out of the store, so a skill that is
+/// switched off is neither counted nor reported with a broken link while
+/// reaping is off. The next scan after On adds them back.
+pub fn forget_moved_folder(conn: &Connection, folder: &str) -> Result<usize, SanitisedError> {
+    let tx = rusqlite::Transaction::new_unchecked(conn, rusqlite::TransactionBehavior::Immediate)
+        .map_err(|_| SanitisedError("Failed to start the transaction".to_string()))?;
+    tx.execute(
+        &format!("DELETE FROM links WHERE asset_id IN (SELECT id FROM assets WHERE {AT_OR_UNDER})"),
+        params![folder],
+    )
+    .map_err(|_| SanitisedError("Failed to delete link rows".to_string()))?;
+    let removed = tx
+        .execute(&format!("DELETE FROM assets WHERE {AT_OR_UNDER}"), params![folder])
+        .map_err(|_| SanitisedError("Failed to delete asset rows".to_string()))?;
+    tx.commit().map_err(|_| SanitisedError("Failed to commit the transaction".to_string()))?;
+    Ok(removed)
+}
+
+/// Any copy or tracked_copy link, or deploy_checksums row, sourced at or under `folder`.
+pub fn has_tracked_copies(conn: &Connection, folder: &str) -> Result<bool, SanitisedError> {
+    let checksums_at_or_under = AT_OR_UNDER.replace("abs_path", "source_path");
+    conn.query_row(
+        &format!(
+            "SELECT EXISTS(
+                 SELECT 1 FROM links l JOIN assets a ON l.asset_id = a.id
+                 WHERE l.mechanism IN ('copy', 'tracked_copy') AND {}
+             ) OR EXISTS(SELECT 1 FROM deploy_checksums WHERE {checksums_at_or_under})",
+            AT_OR_UNDER.replace("abs_path", "a.abs_path"),
+        ),
+        params![folder],
+        |row| row.get(0),
+    )
+    .map_err(|_| SanitisedError("Failed to read tracked copies".to_string()))
+}
+
+/// The links table's dest_paths for assets at or under `folder`: what
+/// `skill_switch::links::find_links` takes as `recorded`.
+pub fn link_dests_under(conn: &Connection, folder: &str) -> Result<Vec<String>, SanitisedError> {
+    let mut stmt = conn
+        .prepare(&format!(
+            "SELECT l.dest_path FROM links l JOIN assets a ON l.asset_id = a.id WHERE {}",
+            AT_OR_UNDER.replace("abs_path", "a.abs_path"),
+        ))
+        .map_err(|_| SanitisedError("Failed to read link rows".to_string()))?;
+    let rows = stmt
+        .query_map(params![folder], |row| row.get::<_, String>(0))
+        .map_err(|_| SanitisedError("Failed to read link rows".to_string()))?;
+    rows.collect::<Result<Vec<_>, _>>().map_err(|_| SanitisedError("Failed to read link rows".to_string()))
+}

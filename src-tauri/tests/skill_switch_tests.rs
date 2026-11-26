@@ -646,3 +646,235 @@ fn names_that_could_escape_the_store_are_refused() {
     assert_eq!(ops::switch_off(&w.places, &[], "nope").unwrap_err(), SkillSwitchFailure::NotFound);
     assert_eq!(w.everything(), before, "nothing anywhere changed");
 }
+
+// ---------------------------------------------------------------------------
+// Task 5: what a scan and Needs review show while a skill is off
+// ---------------------------------------------------------------------------
+
+use tauri_app_lib::scanner::{count_assets, DirectoryScanner, Grouping, Scanner};
+
+/// The scanner finds its home through `HANGER_TEST_HOME`, one variable for
+/// the whole process: scans in this file take turns.
+static SCANNING: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+/// Scan `target` with the world's home into the world's one persisted
+/// database, as a Rescan does.
+fn scan(w: &World, target: &Path) -> tauri_app_lib::domain::Inventory {
+    let _turn = SCANNING.lock().unwrap_or_else(|p| p.into_inner());
+    std::env::set_var("HANGER_TEST_HOME", &w.home);
+    let scanner = DirectoryScanner {
+        db_path: w.places.db_path.clone(),
+        cancellation_token: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
+    };
+    let inventory = scanner.scan(target).expect("the temp home scans");
+    std::env::remove_var("HANGER_TEST_HOME");
+    inventory
+}
+
+fn counts(w: &World) -> tauri_app_lib::domain::AssetCounts {
+    count_assets(&w.places.db_path, None, Grouping::Grouped).expect("counted")
+}
+
+fn skill_total(w: &World) -> usize {
+    counts(w).skill.map(|c| c.total).unwrap_or(0)
+}
+
+/// A linked project under the temp home, with Claude Code reading the store
+/// through `~/.claude/skills -> ~/.agents/skills`, as on Karthik's machine:
+/// the scanner reaches the store's skills through that link.
+fn project(w: &World) -> PathBuf {
+    if fs::symlink_metadata(w.home.join(".claude/skills")).is_err() {
+        link(&w.store, &w.home.join(".claude/skills"));
+    }
+    let project = w.home.join("Work/app");
+    fs::create_dir_all(&project).unwrap();
+    project
+}
+
+#[test]
+fn a_switched_off_skill_leaves_the_skill_count_by_one() {
+    let w = world(&["x", "y", "z"]);
+    let project = project(&w);
+    scan(&w, &project);
+    let before = skill_total(&w);
+    assert!(before >= 3, "the store's skills are counted: {before}");
+    ops::switch_off(&w.places, &[project.clone()], "x").unwrap();
+    scan(&w, &project);
+    assert_eq!(skill_total(&w), before - 1);
+}
+
+use tauri_app_lib::domain::{resolve_state, LinkState};
+use tauri_app_lib::preferences::PreferencesStore;
+use tauri_app_lib::skill_switch::ops::SkillReadOnly;
+
+fn hydrated(w: &World) -> Vec<tauri_app_lib::domain::HydratedLink> {
+    PreferencesStore::new(&w.places.db_path).unwrap().get_hydrated_links().unwrap()
+}
+
+/// What Needs review reads a link's state from, at read time.
+fn state_now(link: &tauri_app_lib::domain::HydratedLink) -> LinkState {
+    let dest = Path::new(&link.dest_path);
+    let exists = fs::metadata(dest).is_ok();
+    let target = fs::read_link(dest).ok();
+    resolve_state(link, None, exists, target.as_deref())
+}
+
+fn links_to(w: &World, name: &str) -> Vec<tauri_app_lib::domain::HydratedLink> {
+    hydrated(w).into_iter().filter(|l| Path::new(&l.source_path).file_name() == Some(name.as_ref())).collect()
+}
+
+fn no_broken(inventory: &tauri_app_lib::domain::Inventory) -> bool {
+    inventory.skills.iter().all(|s| s.link_state != Some(LinkState::Broken))
+        && inventory.rules.iter().all(|s| s.link_state != Some(LinkState::Broken))
+        && inventory.subagents.iter().all(|s| s.link_state != Some(LinkState::Broken))
+        && inventory.tools.iter().all(|s| s.link_state != Some(LinkState::Broken))
+}
+
+#[test]
+fn other_kinds_are_unchanged_by_a_switch() {
+    let w = world(&["x", "y"]);
+    let project = project(&w);
+    for (rel, body) in [
+        (".claude/agents/probe.md", "---\nname: probe-agent\ndescription: A probe subagent\n---\n# Probe\n"),
+        (".claude/CLAUDE.md", "# Probe rules\n"),
+        (".claude.json", "{\"mcpServers\": {\"probe\": {\"command\": \"probe-server\"}}}"),
+    ] {
+        fs::create_dir_all(w.home.join(rel).parent().unwrap()).unwrap();
+        fs::write(w.home.join(rel), body).unwrap();
+    }
+    scan(&w, &project);
+    let before = counts(&w);
+    println!("before: {before:?}");
+    for (kind, count) in [("rule", &before.rule), ("subagent", &before.subagent), ("tool", &before.tool)] {
+        assert!(count.as_ref().is_some_and(|c| c.total > 0), "the {kind} probe is counted, so the comparison below means something");
+    }
+    ops::switch_off(&w.places, &[project.clone()], "x").unwrap();
+    scan(&w, &project);
+    let after = counts(&w);
+    println!("after: {after:?}");
+    assert_eq!(after.rule, before.rule);
+    assert_eq!(after.subagent, before.subagent);
+    assert_eq!(after.tool, before.tool);
+    assert_eq!(after.skill.unwrap().total, before.skill.unwrap().total - 1);
+}
+
+#[test]
+fn a_switched_off_skill_raises_no_review_issue() {
+    let w = world(&["x", "y"]);
+    let project = project(&w);
+    let at = project.join(".claude/skills/x");
+    link(w.skill("x"), &at);
+    scan(&w, &project);
+    assert_eq!(links_to(&w, "x").len(), 1, "the walk recorded the project's link: {:?}", hydrated(&w));
+
+    ops::switch_off(&w.places, &[project.clone()], "x").unwrap();
+    assert!(gone(&at), "the project's link was removed");
+    assert!(links_to(&w, "x").is_empty(), "its row went with the skill");
+    let inventory = scan(&w, &project);
+    assert!(links_to(&w, "x").is_empty());
+    for link in hydrated(&w) {
+        assert_ne!(state_now(&link), LinkState::Broken, "{link:?}");
+    }
+    assert!(no_broken(&inventory));
+}
+
+#[test]
+fn on_and_a_rescan_bring_the_row_and_the_link_row_back() {
+    let w = world(&["x", "y"]);
+    let project = project(&w);
+    let at = project.join(".claude/skills/x");
+    link(w.skill("x"), &at);
+    scan(&w, &project);
+    let before = skill_total(&w);
+    let state_before = links_to(&w, "x").iter().map(state_now).collect::<Vec<_>>();
+    assert_eq!(state_before.len(), 1);
+    let off = ops::switch_off(&w.places, &[project.clone()], "x").unwrap();
+    scan(&w, &project);
+    assert_eq!(skill_total(&w), before - 1);
+    ops::switch_on(&w.places, &off.id).unwrap();
+    scan(&w, &project);
+    assert_eq!(skill_total(&w), before);
+    let back = links_to(&w, "x");
+    assert_eq!(back.len(), 1, "{:?}", hydrated(&w));
+    assert_eq!(back.iter().map(state_now).collect::<Vec<_>>(), state_before, "the link reads as it did before Off");
+    assert_ne!(state_before[0], LinkState::Broken);
+}
+
+#[test]
+fn the_keep_is_never_scanned() {
+    let w = world(&["x", "y"]);
+    let project = project(&w);
+    scan(&w, &project);
+    ops::switch_off(&w.places, &[project.clone()], "x").unwrap();
+    assert!(w.places.keep.starts_with(&w.home), "the keep is at the production path, under the home");
+    let mut inventories = vec![scan(&w, &project)];
+    inventories.push(scan(&w, &w.home));
+    let keep_real = fs::canonicalize(&w.places.keep).unwrap();
+    for inventory in &inventories {
+        for skill in &inventory.skills {
+            assert!(!skill.path.contains("/kept/skills/"), "{} was scanned", skill.path);
+        }
+    }
+    let conn = rusqlite::Connection::open(&w.places.db_path).unwrap();
+    let rows: Vec<String> = conn
+        .prepare("SELECT abs_path FROM assets").unwrap()
+        .query_map([], |r| r.get(0)).unwrap().map(Result::unwrap).collect();
+    assert!(!rows.is_empty());
+    for row in rows {
+        assert!(!Path::new(&row).starts_with(&w.places.keep) && !Path::new(&row).starts_with(&keep_real), "{row} is in the keep");
+    }
+}
+
+#[test]
+fn nested_skills_have_no_switch() {
+    let w = world(&["claudeception"]);
+    make_skill(&w.skill("claudeception/examples/x"));
+    assert_eq!(ops::read_only_reason(&w.places, &w.skill("claudeception/examples/x")), Some(SkillReadOnly::InsideAnotherFolder));
+    assert_eq!(ops::read_only_reason(&w.places, &w.skill("claudeception")), None);
+}
+
+#[test]
+fn a_skill_with_a_tracked_copy_is_read_only() {
+    let w = world(&["copied", "checksummed", "plain"]);
+    let project = project(&w);
+    scan(&w, &project);
+    let prefs = PreferencesStore::new(&w.places.db_path).unwrap();
+    // The source as the scan recorded it.
+    let source = |name: &str| -> String {
+        let conn = rusqlite::Connection::open(&w.places.db_path).unwrap();
+        conn.query_row(
+            "SELECT abs_path FROM assets WHERE category = 'skill' AND substr(abs_path, -length(?1) - 1) = '/' || ?1",
+            [name],
+            |r| r.get(0),
+        )
+        .unwrap()
+    };
+    let dest = project.join(".claude/skills/copied");
+    make_skill(&dest);
+    let recorded = prefs.record_deploy_link(&source("copied"), dest.to_str().unwrap(), "tracked_copy", "h", 1).unwrap();
+    assert!(recorded.is_some(), "the copy is recorded as a link row");
+    prefs.set_deploy_checksum(&source("checksummed"), project.join("elsewhere").to_str().unwrap(), "h").unwrap();
+
+    assert_eq!(ops::read_only_reason(&w.places, &w.skill("copied")), Some(SkillReadOnly::HasTrackedCopies));
+    assert_eq!(ops::read_only_reason(&w.places, &w.skill("checksummed")), Some(SkillReadOnly::HasTrackedCopies));
+    assert_eq!(ops::read_only_reason(&w.places, &w.skill("plain")), None);
+
+    let before = fingerprint(&w.store).unwrap();
+    assert_eq!(ops::switch_off(&w.places, &[project.clone()], "copied").unwrap_err(), SkillSwitchFailure::ReadOnly);
+    assert_eq!(fingerprint(&w.store).unwrap(), before, "nothing moved");
+}
+
+#[test]
+fn nested_assets_go_with_their_folder() {
+    // `_` is a LIKE wildcard: a sibling that would match `my_skill%` stays.
+    let w = world(&["my_skill", "myXskill", "my_skill-extra"]);
+    make_skill(&w.skill("my_skill/examples/inner"));
+    make_skill(&w.skill("myXskill/examples/inner"));
+    let project = project(&w);
+    scan(&w, &project);
+    let before = skill_total(&w);
+    ops::switch_off(&w.places, &[project.clone()], "my_skill").unwrap();
+    assert_eq!(skill_total(&w), before - 2, "the skill and the one inside it, and nothing else");
+    scan(&w, &project);
+    assert_eq!(skill_total(&w), before - 2);
+}

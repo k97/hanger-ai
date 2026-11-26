@@ -9,14 +9,23 @@
 //! 1. The name: not empty, no `/`, not `.` or `..`, no leading `.`. Then
 //!    `<store>/<name>` must be a folder or a link, or the answer is
 //!    `NotFound`.
-//! 2. The store and the keep must be on one volume, or `OtherVolume`.
-//! 3. `links::find_links`.
+//! 2. The store and the keep must be on one volume, or `OtherVolume`. A
+//!    skill Hanger has copied into a project and tracks is `ReadOnly`
+//!    (`SkillReadOnly::HasTrackedCopies`).
+//! 3. `links::find_links`, over the fixed places and every link the store's
+//!    `links` table records for the skill.
 //! 4. `keep::create_entry`, at `Stage::Moving`, with every link recorded.
 //! 5. Each link is read again and removed. One whose text changed puts back
 //!    the links removed so far, removes the entry, and answers
 //!    `ChangedSinceRead`.
 //! 6. `tree::rename_no_replace` into `<keep>/<id>/<name>`.
 //! 7. `tree::fingerprint` in the keep, then `keep::update` to `Stage::Kept`.
+//! 8. `preferences::forget_moved_folder`: the store's rows for the folder
+//!    just moved, and their link rows, and nothing else. Reaping is off, so
+//!    without this the skill would still be counted, and a project's link to
+//!    it would read as broken. A failure here is logged by kind and does not
+//!    undo the move: a stale row is what a scan showed before this step
+//!    existed, not a loss.
 //!
 //! # On
 //!
@@ -39,6 +48,8 @@
 //! On then has nothing to move, and puts back whichever links are missing.
 //!
 //! One process-wide lock serialises every Off and On.
+//!
+//! This module logs one line, with no path, when step 8 of Off fails.
 
 use std::fs;
 use std::io;
@@ -52,7 +63,7 @@ use serde::Serialize;
 use super::keep::{self, EntryKind, KeepError, LinkRecord, SkillReceipt, Stage};
 use super::links::{find_links, link_places};
 use super::tree::{fingerprint, rename_no_replace, MoveError};
-use crate::preferences::sanitise_path;
+use crate::preferences::{forget_moved_folder, has_tracked_copies, link_dests_under, sanitise_path};
 
 /// The folders a switch reads and writes.
 #[derive(Debug, Clone)]
@@ -134,6 +145,118 @@ impl From<MoveError> for SkillSwitchFailure {
             MoveError::Exists => SkillSwitchFailure::AlreadyThere,
             MoveError::OtherVolume => SkillSwitchFailure::OtherVolume,
             MoveError::Io(_) => SkillSwitchFailure::WriteFailed,
+        }
+    }
+}
+
+/// Why a skill in the store is shown with no switch.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SkillReadOnly {
+    /// Not a direct child of the store: a skill inside another skill's
+    /// folder, such as `claudeception/examples/x`.
+    InsideAnotherFolder,
+    /// The store and the keep are on different volumes, so the skill would
+    /// have to be copied.
+    OtherVolume,
+    /// Hanger copied this skill into a project and tracks the copy by its
+    /// source path (Q4).
+    HasTrackedCopies,
+}
+
+/// Why `skill` has no switch, or `None` when it can be switched.
+///
+/// `skill` is a path in the store. A path that is not a direct child of the
+/// store, by its spelling or its canonical form, is `InsideAnotherFolder`;
+/// `switch_info_for` answers `None` before asking for one that is not in the
+/// store at all. Reads the filesystem's volume numbers and the store; writes
+/// nothing. A store that cannot be read gives no reason: a tracked copy is
+/// tracking that would be lost, not a skill.
+pub fn read_only_reason(places: &SkillPlaces, skill: &Path) -> Option<SkillReadOnly> {
+    let direct = skill.parent().is_some_and(|parent| {
+        parent == places.store
+            || matches!((fs::canonicalize(parent), fs::canonicalize(&places.store)), (Ok(a), Ok(b)) if a == b)
+    }) && skill.file_name().and_then(|name| name.to_str()).is_some_and(is_store_name);
+    if !direct {
+        return Some(SkillReadOnly::InsideAnotherFolder);
+    }
+    if let (Ok(store), Ok(keep)) = (volume_of(&places.store), volume_of(&nearest_existing(&places.keep))) {
+        if store != keep {
+            return Some(SkillReadOnly::OtherVolume);
+        }
+    }
+    if tracked_copies(places, skill) {
+        return Some(SkillReadOnly::HasTrackedCopies);
+    }
+    None
+}
+
+/// Hanger's store, opened for this switch. `None` when there is none yet:
+/// a switch never makes one.
+fn open_store(places: &SkillPlaces) -> Option<rusqlite::Connection> {
+    let conn = rusqlite::Connection::open_with_flags(&places.db_path, rusqlite::OpenFlags::SQLITE_OPEN_READ_WRITE).ok()?;
+    conn.execute_batch("PRAGMA foreign_keys = ON;").ok()?;
+    conn.busy_timeout(STORE_BUSY).ok()?;
+    Some(conn)
+}
+
+/// How long a switch waits for a scan's write lock: as long as the search
+/// index writers wait (`invariants.md`).
+const STORE_BUSY: std::time::Duration = std::time::Duration::from_secs(30);
+
+/// Each spelling the store may hold a path under the skill in: as spelled,
+/// and through the store's canonical path, with and without the `/private`
+/// that macOS puts in front of `/var` and `/tmp`.
+fn spellings(skill: &Path) -> Vec<String> {
+    let mut out: Vec<String> = Vec::new();
+    let mut add = |path: PathBuf| {
+        if let Some(text) = path.to_str() {
+            if !out.iter().any(|seen| seen == text) {
+                out.push(text.to_string());
+            }
+        }
+    };
+    add(skill.to_path_buf());
+    if let (Some(parent), Some(name)) = (skill.parent(), skill.file_name()) {
+        if let Ok(real) = fs::canonicalize(parent) {
+            let real = real.join(name);
+            if let Ok(stripped) = real.strip_prefix("/private") {
+                add(Path::new("/").join(stripped));
+            }
+            add(real);
+        }
+    }
+    out
+}
+
+fn tracked_copies(places: &SkillPlaces, skill: &Path) -> bool {
+    let Some(conn) = open_store(places) else { return false };
+    spellings(skill).iter().any(|folder| has_tracked_copies(&conn, folder).unwrap_or(false))
+}
+
+/// The links the store's `links` table records for anything at or under the
+/// skill.
+fn recorded_links(places: &SkillPlaces, skill: &Path) -> Vec<PathBuf> {
+    let Some(conn) = open_store(places) else { return Vec::new() };
+    let mut out: Vec<PathBuf> = Vec::new();
+    for folder in spellings(skill) {
+        for dest in link_dests_under(&conn, &folder).unwrap_or_default() {
+            let dest = PathBuf::from(dest);
+            if !out.contains(&dest) {
+                out.push(dest);
+            }
+        }
+    }
+    out
+}
+
+/// Step 8 of Off.
+fn forget(places: &SkillPlaces, skill: &Path) {
+    let Some(conn) = open_store(places) else { return };
+    for folder in spellings(skill) {
+        if forget_moved_folder(&conn, &folder).is_err() {
+            log::warn!("skill switch: the store still holds rows for a skill that was switched off");
+            return;
         }
     }
 }
@@ -234,9 +357,13 @@ pub fn switch_off_with(
     if store_volume != keep_volume {
         return Err(SkillSwitchFailure::OtherVolume);
     }
+    if tracked_copies(places, &skill) {
+        return Err(SkillSwitchFailure::ReadOnly);
+    }
 
     // 3.
-    let found = find_links(&skill, &link_places(&places.home, &places.store, projects), &[]);
+    let recorded = recorded_links(places, &skill);
+    let found = find_links(&skill, &link_places(&places.home, &places.store, projects), &recorded);
     let records = found.iter().map(LinkRecord::from_found).collect::<Result<Vec<_>, _>>()?;
 
     // 4.
@@ -300,6 +427,9 @@ pub fn switch_off_with(
     receipt.fingerprint = Some(fingerprint(&kept).map_err(|_| SkillSwitchFailure::WriteFailed)?);
     receipt.stage = Stage::Kept;
     keep::update(&places.keep, &receipt)?;
+
+    // 8.
+    forget(places, &skill);
 
     Ok(Switched { links: receipt.links.len(), id: receipt.id, name: receipt.name, links_not_restored: Vec::new() })
 }
