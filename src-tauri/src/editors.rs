@@ -8,28 +8,30 @@
 //! measured 6.12 ms for eight ids on the author's machine, 2026-08-29, no
 //! Spotlight dependency, `None` for a miss.
 //!
-//! `name` is what gets passed to `open -a` and what must appear verbatim in
-//! `capabilities/default.json` (`editor_capability_tests` pins the two
-//! together). It is an app NAME, never a path: `Application::App` compares
-//! byte-for-byte (`tauri-plugin-opener-2.5.4/src/scope.rs:67`), so a path
-//! entry would refuse any user whose editor lives outside `/Applications`.
+//! `name` is a display name and the key the webview sends back. It is never
+//! what gets opened. `open_in_editor` resolves it to the bundle LaunchServices
+//! found and runs `open -a <that path>`. Opening by name failed for any app
+//! installed under another filename: GitHub's runner keeps Xcode as
+//! `Xcode_26.6.app`, so `open -a "Xcode"` found nothing (round 8,
+//! 2026-11-26). The opener capability could not express "the app Hanger
+//! detected", because `Application::App` compares a fixed string byte for
+//! byte (`tauri-plugin-opener-2.7.3/src/scope.rs:67`). So the check lives
+//! here instead.
 
 use serde::Serialize;
 
 pub struct KnownEditor {
-    /// Passed to `open -a`, shown in the UI, and mirrored in the capability.
+    /// Shown in the UI and sent back by the webview to name the editor.
+    /// Never passed to `open`: `DetectedEditor::open_target` is.
     pub name: &'static str,
     /// Several when an editor ships channels or major versions under
     /// different identifiers.
     pub bundle_ids: &'static [&'static str],
 }
 
-/// **`name` must be the app's `.app` filename**, because `open -a <name>`
-/// resolves by it and the opener capability compares it byte-for-byte
-/// (`scope.rs:67`). A name that reads well but does not match the bundle is a
-/// menu item that silently does nothing —
-/// `every_table_name_matches_the_installed_app` catches that for whatever the
-/// developer has installed.
+/// `name` is the app's usual display name. It need not match the `.app`
+/// filename, because the app is opened by the path detection found
+/// (`every_detected_editor_opens_the_bundle_it_detected`).
 ///
 /// Bundle identifiers below are read from two sources, never from memory: the
 /// five originally verified against each app's own `Bundle.bundleIdentifier`
@@ -40,8 +42,8 @@ pub struct KnownEditor {
 ///
 /// Deliberately absent:
 /// - **Eclipse (11 variants) and Aptana** — every variant ships as
-///   `Eclipse.app`, so no single `name` can both identify the variant and
-///   satisfy `open -a`.
+///   `Eclipse.app`. They were left out while apps were opened by filename;
+///   now that the detected path is opened, adding them is a separate call.
 /// - **Fleet** — GitHub Desktop lists its identifier as `Fleet.app`, which is
 ///   a filename, not a bundle id; JetBrains also withdrew it 2025-12-22.
 /// - **Emacs** — `table_excludes_terminal_only_editors` bans the name. Adding
@@ -104,6 +106,78 @@ pub struct DetectedEditor {
     pub path: String,
 }
 
+impl DetectedEditor {
+    /// What `open -a` is given: the bundle LaunchServices found for this
+    /// editor's bundle id, by path. Not `name`, which is only a label.
+    pub fn open_target(&self) -> &str {
+        &self.path
+    }
+}
+
+/// The only paths an editor may be asked to open. It is the same glob the
+/// capability grants a plain `openPath`
+/// (`the_editor_scope_matches_the_capability_path_scope` keeps the two equal),
+/// and `open_in_editor` enforces it because that command bypasses the plugin's scope.
+pub const EDITOR_OPEN_SCOPE: &str = "$HOME/**";
+
+/// Why `open_in_editor` refused.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum OpenRefusal {
+    /// Not a `KNOWN_EDITORS` name: a path, a bundle id, any other app.
+    UnknownEditor(String),
+    /// In the table, but none of its bundle ids resolves on this Mac.
+    NotInstalled(String),
+    /// Outside `EDITOR_OPEN_SCOPE`, or not there at all.
+    OutsideScope(String),
+}
+
+impl std::fmt::Display for OpenRefusal {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::UnknownEditor(name) => write!(f, "{name:?} is not an editor Hanger knows"),
+            Self::NotInstalled(name) => write!(f, "{name} is not installed"),
+            Self::OutsideScope(path) => write!(f, "{path} is not under your home folder"),
+        }
+    }
+}
+
+/// Resolves the name the webview sent to the editor Hanger detected, or
+/// refuses. The name is matched exactly against the table before anything is
+/// resolved, so a path or bundle id from the webview never reaches
+/// LaunchServices or `open`. The bundle ids come from the table and the path
+/// from `resolve`, so nothing the webview sends picks the app.
+pub fn resolve_editor(
+    name: &str,
+    resolve: impl FnMut(&str) -> Option<String>,
+) -> Result<DetectedEditor, OpenRefusal> {
+    let editor = KNOWN_EDITORS
+        .iter()
+        .find(|e| e.name == name)
+        .ok_or_else(|| OpenRefusal::UnknownEditor(name.to_string()))?;
+    let (bundle_id, path) = first_installed(editor.bundle_ids, resolve)
+        .ok_or_else(|| OpenRefusal::NotInstalled(editor.name.to_string()))?;
+    Ok(DetectedEditor { name: editor.name.to_string(), bundle_id: bundle_id.to_string(), path })
+}
+
+/// `resolve_editor` against LaunchServices: the same lookup `detect()` makes.
+pub fn resolve_installed_editor(name: &str) -> Result<DetectedEditor, OpenRefusal> {
+    resolve_editor(name, application_path)
+}
+
+/// `EDITOR_OPEN_SCOPE` as Tauri's fs scope applies it. The path is
+/// canonicalised first, as `tauri/src/scope/fs.rs` →
+/// `try_resolve_symlink_and_canonicalize` does, so a symlink or `..` out of
+/// home is refused. `$HOME/**` with `requireLiteralLeadingDot: false`
+/// matches every descendant of home, dot directories included, but not home
+/// itself. A path that does not exist is refused: `open -a` skips the opener's
+/// own existence check.
+pub fn path_in_editor_scope(path: &std::path::Path, home: &std::path::Path) -> bool {
+    match std::fs::canonicalize(path) {
+        Ok(real) => real != home && real.starts_with(home),
+        Err(_) => false,
+    }
+}
+
 #[cfg(target_os = "macos")]
 fn application_path(bundle_id: &str) -> Option<String> {
     use objc2_app_kit::NSWorkspace;
@@ -161,6 +235,24 @@ pub fn detect_editors() -> Vec<DetectedEditor> {
 #[tauri::command]
 pub fn known_editor_names() -> Vec<String> {
     KNOWN_EDITORS.iter().map(|e| e.name.to_string()).collect()
+}
+
+/// Opens `path` in the editor named `editor`, using the app Hanger found
+/// rather than `open -a <name>`. Only a table editor that is installed here,
+/// and only a path inside `EDITOR_OPEN_SCOPE`, gets through.
+#[tauri::command]
+pub fn open_in_editor<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    path: String,
+    editor: String,
+) -> Result<(), String> {
+    use tauri::Manager;
+    let found = resolve_installed_editor(&editor).map_err(|r| r.to_string())?;
+    let home = app.path().home_dir().map_err(|e| e.to_string())?;
+    if !path_in_editor_scope(std::path::Path::new(&path), &home) {
+        return Err(OpenRefusal::OutsideScope(path).to_string());
+    }
+    tauri_plugin_opener::open_path(&path, Some(found.open_target())).map_err(|e| e.to_string())
 }
 
 /// `openPath` skips its own existence check once an app is named

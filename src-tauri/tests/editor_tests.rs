@@ -80,64 +80,37 @@ fn detection_never_returns_more_rows_than_the_table_has() {
     );
 }
 
-use std::collections::HashSet;
-
-/// The capability file is static config; the table is code. Nothing links
-/// them, so they drift — and drift here is SILENT: an editor missing from the
-/// capability is offered in the picker, chosen, and then refused by the scope
-/// with the rejection swallowed frontend-side. This guard is the link.
+/// The webview opens a path with a named app only through `open_in_editor`,
+/// which checks the name against what Hanger detected. An `app` entry here
+/// would be a second route that skips that check: `openPath(p, "Xcode")`
+/// runs `open -a "Xcode"` whether or not this Mac has it, and opens nothing
+/// when Xcode is installed under another filename. `"app": true` would let
+/// the webview open a path in any app at all.
 ///
-/// It must be able to fail. Delete any entry from the capability's `allow`
-/// list and this test goes red; that is the check to run before trusting it.
+/// Replaces `every_known_editor_is_allowed_by_the_capability` and its
+/// mirror, which kept one `app` entry per table name in step with the table.
 #[test]
-fn every_known_editor_is_allowed_by_the_capability() {
+fn the_capability_lets_the_webview_name_no_app() {
     let raw = std::fs::read_to_string(
         concat!(env!("CARGO_MANIFEST_DIR"), "/capabilities/default.json"),
     )
     .expect("capabilities/default.json must be readable");
     let parsed: serde_json::Value = serde_json::from_str(&raw).expect("valid JSON");
 
-    let mut allowed: HashSet<String> = HashSet::new();
+    let mut entries = 0;
     for permission in parsed["permissions"].as_array().expect("permissions array") {
         if permission["identifier"] == "opener:allow-open-path" {
             for entry in permission["allow"].as_array().expect("allow array") {
-                if let Some(app) = entry["app"].as_str() {
-                    allowed.insert(app.to_string());
-                }
+                entries += 1;
+                assert!(
+                    entry.get("app").is_none(),
+                    "opener:allow-open-path grants {entry} — editors open through \
+                     open_in_editor, never openPath with an app"
+                );
             }
         }
     }
-
-    for editor in KNOWN_EDITORS {
-        assert!(
-            allowed.contains(editor.name),
-            "{} is in KNOWN_EDITORS but not allowed by capabilities/default.json — \
-             it would be offered in the picker and then silently refused",
-            editor.name
-        );
-    }
-}
-
-/// The mirror: an allowlist entry with no table row is a permission granted
-/// for nothing, and usually means an editor was renamed on one side only.
-#[test]
-fn the_capability_allows_no_editor_the_table_does_not_know() {
-    let raw = std::fs::read_to_string(
-        concat!(env!("CARGO_MANIFEST_DIR"), "/capabilities/default.json"),
-    )
-    .expect("capabilities/default.json must be readable");
-    let parsed: serde_json::Value = serde_json::from_str(&raw).expect("valid JSON");
-
-    let known: HashSet<&str> = KNOWN_EDITORS.iter().map(|e| e.name).collect();
-    for permission in parsed["permissions"].as_array().expect("permissions array") {
-        if permission["identifier"] == "opener:allow-open-path" {
-            for entry in permission["allow"].as_array().expect("allow array") {
-                if let Some(app) = entry["app"].as_str() {
-                    assert!(known.contains(app), "capability allows {app}, which is not in KNOWN_EDITORS");
-                }
-            }
-        }
-    }
+    assert!(entries > 0, "no opener:allow-open-path entries: this test checked nothing");
 }
 
 /// Every Hanger asset lives under a dot-directory — `~/.agents/skills`,
@@ -190,29 +163,175 @@ fn the_opener_scope_reaches_dot_directories() {
     }
 }
 
-/// `open -a <name>` resolves by the app's `.app` filename, and the opener
-/// capability compares that same string byte-for-byte (`scope.rs:67`). So a
-/// table `name` that does not match the bundle is a menu item that silently
-/// does nothing — the failure mode this whole feature exists to remove.
+/// The bundle id an app on disk declares, read from its own `Info.plist`.
+/// `PlistBuddy` reads binary plists too, which is what most shipped apps carry.
+fn declared_bundle_id(app: &std::path::Path) -> Option<String> {
+    let out = std::process::Command::new("/usr/libexec/PlistBuddy")
+        .args(["-c", "Print :CFBundleIdentifier"])
+        .arg(app.join("Contents/Info.plist"))
+        .output()
+        .ok()?;
+    out.status
+        .success()
+        .then(|| String::from_utf8_lossy(&out.stdout).trim().to_string())
+}
+
+/// A fake app bundle on disk, named however the test likes, declaring `id`.
+fn fixture_app(dir: &std::path::Path, file_name: &str, id: &str) -> std::path::PathBuf {
+    let app = dir.join(file_name);
+    std::fs::create_dir_all(app.join("Contents")).unwrap();
+    std::fs::write(
+        app.join("Contents/Info.plist"),
+        format!(
+            "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n\
+             <plist version=\"1.0\"><dict>\
+             <key>CFBundleIdentifier</key><string>{id}</string>\
+             </dict></plist>\n"
+        ),
+    )
+    .unwrap();
+    app
+}
+
+/// Replaces `every_table_name_matches_the_installed_app`, which failed on
+/// GitHub's runner because its Xcode is installed as `Xcode_26.6.app`. That
+/// test asserted a property the opener should never have needed: that the
+/// table's display name is the app's filename. What must hold is that the
+/// app Hanger opens is the one it found — so for every editor this Mac has,
+/// the open target is the detected path, and that path is a bundle declaring
+/// the bundle id detection matched.
 ///
-/// This can only check what the developer actually has installed, which is
-/// the honest limit: it cannot prove the other entries right, but it catches
-/// a wrong one the moment someone with that editor runs the suite. GitHub
-/// Desktop's own list carries at least one such mismatch (`IntelliJ` against
-/// `IntelliJ IDEA.app`), which is why the entries above are not copied from
-/// it verbatim.
+/// On a machine with none of the table's editors this loop asserts nothing;
+/// `a_renamed_app_is_opened_by_the_path_hanger_found` is the case that always
+/// runs.
 #[test]
-fn every_table_name_matches_the_installed_app() {
+fn every_detected_editor_opens_the_bundle_it_detected() {
+    use tauri_app_lib::editors::resolve_installed_editor;
     for found in tauri_app_lib::editors::detect() {
-        let stem = std::path::Path::new(&found.path)
-            .file_stem()
-            .and_then(|s| s.to_str())
-            .unwrap_or_default();
+        let resolved = resolve_installed_editor(&found.name)
+            .unwrap_or_else(|r| panic!("{} was detected but refused: {r:?}", found.name));
         assert_eq!(
-            stem, found.name,
-            "table calls {} \"{}\" but the installed app is \"{}.app\" — `open -a \"{}\"` \
-             would not resolve, and the capability would refuse it",
-            found.bundle_id, found.name, stem, found.name
+            resolved.open_target(),
+            found.path,
+            "{} would be opened by something other than the app Hanger found",
+            found.name
+        );
+        assert_eq!(
+            declared_bundle_id(std::path::Path::new(resolved.open_target())).as_deref(),
+            Some(found.bundle_id.as_str()),
+            "{}'s open target {:?} is not the bundle {} that detection matched",
+            found.name,
+            resolved.open_target(),
+            found.bundle_id
         );
     }
+}
+
+/// The CI failure as a fixture: LaunchServices finds `com.apple.dt.Xcode` at
+/// `Xcode_26.6.app`. Hanger must open that bundle by its path — `open -a
+/// "Xcode"` resolves by filename and finds nothing — while still calling it
+/// "Xcode" on screen.
+#[test]
+fn a_renamed_app_is_opened_by_the_path_hanger_found() {
+    use tauri_app_lib::editors::resolve_editor;
+    let dir = tempfile::tempdir().unwrap();
+    let app = fixture_app(dir.path(), "Xcode_26.6.app", "com.apple.dt.Xcode");
+    let app_path = app.to_string_lossy().to_string();
+
+    let resolved = resolve_editor("Xcode", |id| {
+        (id == "com.apple.dt.Xcode").then(|| app_path.clone())
+    })
+    .expect("an installed Xcode must resolve, whatever its filename");
+
+    assert_eq!(resolved.open_target(), app_path, "opened by name, not by the app Hanger found");
+    assert_eq!(resolved.name, "Xcode", "the display name is the table's, not the filename");
+    assert_eq!(resolved.bundle_id, "com.apple.dt.Xcode");
+    assert_eq!(
+        declared_bundle_id(std::path::Path::new(resolved.open_target())).as_deref(),
+        Some("com.apple.dt.Xcode")
+    );
+}
+
+/// The webview names an editor; only a table name that LaunchServices
+/// resolved may be opened. A path, a bundle id, a near-miss name, or a table
+/// editor this Mac does not have is refused — even with a resolver that would
+/// say yes to anything, because the name is checked against the table before
+/// anything is resolved.
+#[test]
+fn an_editor_hanger_did_not_detect_is_refused() {
+    use tauri_app_lib::editors::{OpenRefusal, resolve_editor};
+
+    assert_eq!(
+        resolve_editor("Xcode", |_| None).map(|e| e.path),
+        Err(OpenRefusal::NotInstalled("Xcode".into())),
+        "a table editor that is not installed must be refused, not handed to `open`"
+    );
+
+    let says_yes = |id: &str| Some(format!("/Applications/{id}.app"));
+    for not_a_table_name in [
+        "/Applications/Calculator.app",
+        "/System/Applications/Utilities/Terminal.app",
+        "com.apple.dt.Xcode",
+        "com.apple.Terminal",
+        "Terminal",
+        "xcode",
+        "",
+    ] {
+        assert_eq!(
+            resolve_editor(not_a_table_name, says_yes).map(|e| e.path),
+            Err(OpenRefusal::UnknownEditor(not_a_table_name.into())),
+            "{not_a_table_name:?} is not an editor Hanger detected and must be refused"
+        );
+    }
+}
+
+/// The capability's `$HOME/**` scope, which `openPath` enforced, now has to
+/// be enforced by Hanger's own command. Same rule as Tauri's: the path is
+/// canonicalised first, so a symlink under home that points outside it is
+/// refused, and a dot directory is not.
+#[test]
+fn only_paths_under_home_may_be_opened_in_an_editor() {
+    use tauri_app_lib::editors::path_in_editor_scope;
+    let root = tempfile::tempdir().unwrap();
+    let home = root.path().join("home");
+    let outside = root.path().join("elsewhere");
+    std::fs::create_dir_all(home.join(".agents/skills/x")).unwrap();
+    std::fs::create_dir_all(&outside).unwrap();
+    std::fs::write(home.join(".mcp.json"), "{}").unwrap();
+    std::fs::write(outside.join("secret"), "").unwrap();
+    std::os::unix::fs::symlink(outside.join("secret"), home.join("escape")).unwrap();
+    let home = home.canonicalize().unwrap();
+
+    assert!(path_in_editor_scope(&home.join(".agents/skills/x"), &home));
+    assert!(path_in_editor_scope(&home.join(".mcp.json"), &home));
+
+    assert!(!path_in_editor_scope(&outside.join("secret"), &home), "a path outside home");
+    assert!(!path_in_editor_scope(&home.join("escape"), &home), "a symlink out of home");
+    assert!(
+        !path_in_editor_scope(&home.join(".agents/../../elsewhere/secret"), &home),
+        "a `..` walk out of home"
+    );
+    assert!(!path_in_editor_scope(&home.join("nope"), &home), "a path that does not exist");
+    assert!(!path_in_editor_scope(&home, &home), "home itself: `$HOME/**` does not match it");
+}
+
+/// The value the command enforces is the one the capability grants a plain
+/// `openPath`; if one moves, this goes red rather than the two scopes drifting.
+#[test]
+fn the_editor_scope_matches_the_capability_path_scope() {
+    let raw = std::fs::read_to_string(
+        concat!(env!("CARGO_MANIFEST_DIR"), "/capabilities/default.json"),
+    )
+    .expect("capabilities/default.json must be readable");
+    let parsed: serde_json::Value = serde_json::from_str(&raw).expect("valid JSON");
+    let plain: Vec<&str> = parsed["permissions"]
+        .as_array()
+        .expect("permissions array")
+        .iter()
+        .filter(|p| p["identifier"] == "opener:allow-open-path")
+        .flat_map(|p| p["allow"].as_array().expect("allow array").iter())
+        .filter(|e| e.get("app").is_none())
+        .filter_map(|e| e["path"].as_str())
+        .collect();
+    assert_eq!(plain, vec![tauri_app_lib::editors::EDITOR_OPEN_SCOPE]);
 }
