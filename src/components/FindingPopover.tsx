@@ -45,13 +45,18 @@ export default function FindingPopover({ open, onClose, lines, actions, align, e
       if (anchorRef.current && !anchorRef.current.contains(e.target as Node)) onClose();
     };
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key !== "Escape") return;
+      e.preventDefault();
+      onClose();
     };
+    // Capture phase, and marked handled: an Esc this closes is not also
+    // the overview popover's or App's, whichever listener was added first
+    // (Task 6 of docs/plans/2026-11-26-overview-card.md, Review Focus 4).
     window.addEventListener("pointerdown", onPointerDown);
-    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("keydown", onKeyDown, true);
     return () => {
       window.removeEventListener("pointerdown", onPointerDown);
-      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("keydown", onKeyDown, true);
     };
   }, [open, onClose, anchorRef]);
 

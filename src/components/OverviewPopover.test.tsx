@@ -46,7 +46,8 @@ describe("OverviewPopover", () => {
   it("closes on Esc", () => {
     const onClose = vi.fn();
     render(<Harness open onClose={onClose} />);
-    fireEvent.keyDown(window, { key: "Escape" });
+    // A real Esc targets the focused element or the body, never the window.
+    fireEvent.keyDown(document.body, { key: "Escape" });
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 

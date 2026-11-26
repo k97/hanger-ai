@@ -367,6 +367,10 @@ export default function App() {
   const [selectedIssue, setSelectedIssue] = useState<ReviewIssue | null>(null);
 
   const [inspectorOpen, setInspectorOpen] = useState<boolean>(false);
+  // Global's overview card pinned into the inspector's empty state
+  // (`overview_pinned`, Task 6 of docs/plans/2026-11-26-overview-card.md).
+  // Saved like `inspector_open`, beside it.
+  const [overviewPinned, setOverviewPinned] = useState<boolean>(false);
   // The project pane's hero band. Folded by default: the hero's job is the
   // headline, and the per-engine breakdown is the second question. Global's
   // band, and its `hosts_band_open` preference, went with the engine lens
@@ -940,6 +944,8 @@ export default function App() {
       if (inspectorPref === "true") {
         setInspectorOpen(true);
       }
+      const overviewPinnedPref = await invoke<string | null>("get_preference", { key: "overview_pinned" });
+      if (overviewPinnedPref === "true") setOverviewPinned(true);
       const enginesPref = await invoke<string | null>("get_preference", { key: "engines_band_open" });
       if (enginesPref === "true") setEnginesBandOpen(true);
       const inspectorWidthPref = await invoke<string | null>("get_preference", { key: "inspector_width" });
@@ -1108,10 +1114,11 @@ export default function App() {
   // Where ProfilePane draws the overview card (the amendment to
   // docs/plans/2026-11-26-overview-card.md: portals, not a lifted hook).
   // The pane keeps the figures and their state; App only owns the places.
-  // `capSlot` is an empty span in the content cap, on Global only. Nothing
-  // mounts `inspectorSlot` until Task 6 gives Flyout its empty state.
+  // `capSlot` is an empty span in the content cap, on Global only;
+  // `inspectorSlot` is the inspector's empty state on Global while the card
+  // is pinned (Flyout's `emptyState`).
   const [capSlot, setCapSlot] = useState<HTMLElement | null>(null);
-  const [inspectorSlot] = useState<HTMLElement | null>(null);
+  const [inspectorSlot, setInspectorSlot] = useState<HTMLElement | null>(null);
 
   /** The servers a query names that Hanger can switch, at most eight. Each
    *  runs the switch the Engines pane's own button would, with the same
@@ -1429,6 +1436,38 @@ export default function App() {
       invoke("set_preference", { key: "inspector_open", value: "true" }).catch(() => {});
     }
   };
+
+  /** The overview card's pin. Pinned, it fills the inspector's empty state,
+   *  so pinning opens a closed inspector to show it there. */
+  const toggleOverviewPin = () => {
+    const next = !overviewPinned;
+    setOverviewPinned(next);
+    invoke("set_preference", { key: "overview_pinned", value: String(next) }).catch(() => {});
+    if (next && !inspectorOpen) {
+      setInspectorOpen(true);
+      invoke("set_preference", { key: "inspector_open", value: "true" }).catch(() => {});
+    }
+  };
+
+  /* Esc on Global clears what the inspector is showing, so the pinned card
+     comes back (round 14 q4: Global only). Whatever else uses Esc marks it
+     handled with preventDefault, and this skips those: a menu, a popover,
+     the search palette, a tip, the overview popover. They run first however
+     the listeners were added. The primitives take Esc in the capture phase
+     on window, the overview popover in the bubble phase on document, and
+     this one in the bubble phase on window, the last stop a key event makes. */
+  const inspectorHasSubject = selectedAsset !== null || selectedBubble !== null || selectedKeptKey !== null;
+  useEffect(() => {
+    if (!isGlobalItem(selectedSidebarItem) || !inspectorOpen || !inspectorHasSubject) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== "Escape" || e.defaultPrevented) return;
+      setSelectedAsset(null);
+      setSelectedBubble(null);
+      setSelectedKeptKey(null);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [selectedSidebarItem, inspectorOpen, inspectorHasSubject]);
 
   /** "Show it" on a kept server some config file still declares: the
    *  declared server's own inspector, opened as its MCP row opens it. Found
@@ -2177,10 +2216,8 @@ export default function App() {
               onSelectEngine={selectEngine}
               overviewSlots={{ cap: capSlot, inspector: inspectorSlot }}
               overviewButtonClass={tbBtnClass}
-              // Task 6 adds the `overview_pinned` pref; until then the card is
-              // never pinned and its pin does nothing.
-              overviewPinned={false}
-              onToggleOverviewPin={() => {}}
+              overviewPinned={overviewPinned}
+              onToggleOverviewPin={toggleOverviewPin}
             />
           )}
 
@@ -2458,6 +2495,11 @@ export default function App() {
                 onSkillKept={selectKept}
                 onEngineContext={recordContext}
                 onShowDeclared={showDeclared}
+                emptyState={
+                  overviewPinned && isGlobalItem(selectedSidebarItem) ? (
+                    <div ref={setInspectorSlot} data-testid="overview-inspector-slot" className="flex-1 min-h-0 overflow-y-auto p-1.5" />
+                  ) : undefined
+                }
               />
             )}
           </div>

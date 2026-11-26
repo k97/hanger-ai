@@ -1745,10 +1745,15 @@ second style.
 `engineFigures`, `review`, `scan`, `pinned` and `onTogglePin`. It is purely
 presentational: it calls no command. ProfilePane renders it in
 `OverviewPopover`, from the figures its summary strip reads, so the two show
-the same values side by side until Task 7 removes the strip. Pinning it into
-the inspector lands with Task 6; until then App passes `pinned={false}` and a
-pin that does nothing. It draws no border or elevation of its own; the
-surface holding it does. Three
+the same values side by side until Task 7 removes the strip. Pinned (App's
+`overview_pinned` preference, saved beside `inspector_open`), it is the
+inspector's empty state on Global instead: App passes Flyout an `emptyState`
+holding `overviewSlots.inspector`, a `flex-1 min-h-0 overflow-y-auto p-1.5`
+div, and ProfilePane portals the card into it. Pinning opens a closed
+inspector, and pinning or unpinning closes the popover, so an unpinned card
+goes back to its window-bar button. Every other screen keeps "Nothing
+selected". It draws no border or elevation of its own; the surface holding it
+does. Three
 sections, divided by `border-t border-line`, each headed by a `SectionHead`:
 the name in `font-medium text-ink-2`, the caption at the right in
 `text-small text-ink-3`, and, in whichever section comes first, the pin
@@ -1809,7 +1814,20 @@ or a pointerdown outside both itself and the button. Nothing animates. ⌘E
 toggles it through a `window` keydown in ProfilePane, so the shortcut exists
 only on Global, and a keystroke whose target is an input, a textarea or
 contenteditable is left alone (Review Focus 3). With no cap slot, as in
-standalone ProfilePane tests, neither the button nor the panel is drawn.
+standalone ProfilePane tests, neither the button nor the panel is drawn. The
+button is not drawn while the card is pinned.
+
+**Who gets an Esc** (Task 6, Review Focus 4). Esc goes to the innermost thing
+open, and a fixed listener phase decides that, not the order the listeners
+were added in. `FindingPopover`, `OverflowMenu`, `InfoPopover`,
+`SearchPalette` and `Tooltip` (only while a tip is up) take Escape in the
+capture phase on `window` and call `preventDefault`. `OverviewPopover` takes
+it in the bubble phase on `document` and skips one already marked, so Esc in
+its Needs review popover closes only that. App's Esc is last, in the bubble
+phase on `window`. On Global, with the inspector open and showing an asset,
+a bubble or a kept item, an unmarked Esc clears that selection, so the pinned
+card comes back (round 14 q4). It does nothing on other screens.
+`escape_layering.test.tsx` and `overview_pinned.test.tsx` pin the order.
 
 **`MechanismGlyph`** (`MechanismGlyph.tsx`) — the per-row attachment glyph:
 one of five backend words (`symlink | copy | drift | broken | none`), drawn

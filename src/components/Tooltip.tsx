@@ -85,10 +85,15 @@ export default function Tooltip({ label, placement = "right", children }: Toolti
   useEffect(() => {
     if (!tip) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") hide();
+      if (e.key !== "Escape") return;
+      e.preventDefault();
+      hide();
     };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    // Capture phase, and marked handled, like every Esc owner (Task 6 of
+    // docs/plans/2026-11-26-overview-card.md). Listening only while a tip is
+    // up, it marks only an Esc that closed something.
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
   }, [tip]);
 
   // `place()` guesses from the anchor alone, before the tip's own width

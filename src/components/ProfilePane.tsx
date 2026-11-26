@@ -188,16 +188,17 @@ interface ProfilePaneProps {
    *  docs/plans/2026-11-26-overview-card.md: portals, not a lifted hook).
    *  `cap` is an empty slot in the content cap's trailing group, on Global
    *  only: the card's button goes there and its popover hangs from it.
-   *  `inspector` is the inspector's empty state while the card is pinned;
-   *  nothing mounts it until Task 6. With no slots, as standalone, the card
-   *  is drawn nowhere and the strip below is the only summary. */
+   *  `inspector` is the inspector's empty state while the card is pinned
+   *  (Flyout's `emptyState`): pinned, the card is drawn there. With no
+   *  slots, as standalone, the card is drawn nowhere and the strip below is
+   *  the only summary. */
   overviewSlots?: { cap: HTMLElement | null; inspector: HTMLElement | null };
   /** The content cap's button class, App's `tbBtnClass`, passed in rather
    *  than copied: `tbbtn-duplicate.test.ts` allows two declarations, not
    *  three. */
   overviewButtonClass?: string;
-  /** Whether the card is pinned into the inspector (`overview_pinned`, App's,
-   *  from Task 6). Pinned, the cap carries no button. */
+  /** Whether the card is pinned into the inspector (App's `overview_pinned`).
+   *  Pinned, the cap carries no button. */
   overviewPinned?: boolean;
   onToggleOverviewPin?: () => void;
 }
@@ -494,6 +495,7 @@ export default function ProfilePane({
   const [overviewOpen, setOverviewOpen] = useState(false);
   const overviewButtonRef = useRef<HTMLButtonElement>(null);
   const capSlot = overviewSlots?.cap ?? null;
+  const inspectorSlot = overviewSlots?.inspector ?? null;
   const overviewAvailable = capSlot !== null && !overviewPinned;
   // ⌘E toggles the card. A keystroke into a text field (search, rename) is
   // typing, not a shortcut (Review Focus 3).
@@ -1350,6 +1352,28 @@ export default function ProfilePane({
   if (keptSkillsLast && keptSkillsTick) tickGroups.push(keptSkillsTick);
   if (engine && notLoadedAny) tickGroups.push({ id: "group-not-loaded", label: notLoadedHead(engine.engine_name), count: null });
 
+  // The overview card, drawn from the same figures as the strip above it
+  // until Task 7: in the window bar's popover, or pinned in the inspector.
+  const overviewCard = (
+    <OverviewCard
+      engines={engineContexts ?? []}
+      selectedEngineId={engine?.engine_id ?? null}
+      onSelectEngine={(id) => onSelectEngine?.(id)}
+      storeTotal={globalAssetsTotal}
+      linkLegend={{ counts: stripCounts, active: stateFilter, onFilter: (f) => onStateFilterChange?.(f) }}
+      engineFigures={engineFigures ?? null}
+      review={(mcpMode ? mcpReview : assetReview) ?? null}
+      scan={{ scannedAt: scannedAt ? scannedAt.getTime() : null, scanning: loading, onRescan: () => onRescan?.() }}
+      pinned={overviewPinned}
+      // Pinning or unpinning closes the popover, so unpinning returns the
+      // card to its button rather than reopening it.
+      onTogglePin={() => {
+        setOverviewOpen(false);
+        onToggleOverviewPin?.();
+      }}
+    />
+  );
+
   // Visible rows post-filter for the foot line — a display subset, never the
   // asset total (which stays backend-owned).
   const visibleCount = sortedSkills.length + sortedTools.length + sortedRules.length + sortedSubagents.length + (selectedCategory === "Agents" ? sortedAgents.length : 0);
@@ -1422,19 +1446,9 @@ export default function ProfilePane({
         onClose={() => setOverviewOpen(false)}
         anchorRef={overviewButtonRef}
       >
-        <OverviewCard
-          engines={engineContexts ?? []}
-          selectedEngineId={engine?.engine_id ?? null}
-          onSelectEngine={(id) => onSelectEngine?.(id)}
-          storeTotal={globalAssetsTotal}
-          linkLegend={{ counts: stripCounts, active: stateFilter, onFilter: (f) => onStateFilterChange?.(f) }}
-          engineFigures={engineFigures ?? null}
-          review={(mcpMode ? mcpReview : assetReview) ?? null}
-          scan={{ scannedAt: scannedAt ? scannedAt.getTime() : null, scanning: loading, onRescan: () => onRescan?.() }}
-          pinned={overviewPinned}
-          onTogglePin={() => onToggleOverviewPin?.()}
-        />
+        {overviewCard}
       </OverviewPopover>
+      {overviewPinned && inspectorSlot && createPortal(overviewCard, inspectorSlot)}
 
       {pendingState ? (
         /* Pending: no claim either way. Live root-by-root progress already

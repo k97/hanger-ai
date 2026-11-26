@@ -17,8 +17,9 @@ export interface OverviewPopoverProps {
  * The overview card's window-bar popover (Task 5 of
  * docs/plans/2026-11-26-overview-card.md). Portalled to `document.body` and
  * `position: fixed`, right-aligned under its anchor, so no column's overflow
- * clips it. Esc closes it, and so does a pointerdown outside both the panel
- * and the anchor. It opens and closes with no animation.
+ * clips it. Esc closes it, unless something open inside it took the Esc
+ * first, and so does a pointerdown outside both the panel and the anchor. It
+ * opens and closes with no animation.
  */
 export default function OverviewPopover({ open, onClose, anchorRef, children }: OverviewPopoverProps) {
   const popRef = useRef<HTMLDivElement>(null);
@@ -41,14 +42,25 @@ export default function OverviewPopover({ open, onClose, anchorRef, children }: 
       if (popRef.current?.contains(t) || anchorRef.current?.contains(t)) return;
       onClose();
     };
+    // Esc goes to the innermost thing open. Everything that opens inside
+    // the card (FindingPopover, a menu, a tip) takes Esc in the capture
+    // phase on `window` and marks it handled, so it has run by the time this
+    // sees it, and this skips it. This listens in the bubble phase on
+    // `document`, which a key event reaches after the window's capture
+    // listeners and before its bubble ones: App's Esc (which clears
+    // Global's selection) is a window bubble listener, so it runs after this
+    // and skips the Esc this marks. Registration order never decides it: App
+    // adds its listener at mount, before this one exists.
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key !== "Escape" || e.defaultPrevented) return;
+      e.preventDefault();
+      onClose();
     };
     window.addEventListener("pointerdown", onPointerDown);
-    window.addEventListener("keydown", onKeyDown);
+    document.addEventListener("keydown", onKeyDown);
     return () => {
       window.removeEventListener("pointerdown", onPointerDown);
-      window.removeEventListener("keydown", onKeyDown);
+      document.removeEventListener("keydown", onKeyDown);
     };
   }, [open, onClose, anchorRef]);
 

@@ -378,10 +378,15 @@ export default function SearchPalette({ open, scannedAt, onClose, onPick, action
   useEffect(() => {
     if (!open) return;
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key !== "Escape") return;
+      e.preventDefault();
+      onClose();
     };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
+    // Capture phase, and marked handled: an Esc this closes is not also
+    // the overview popover's or App's, whichever listener was added first
+    // (Task 6 of docs/plans/2026-11-26-overview-card.md, Review Focus 4).
+    window.addEventListener("keydown", onKeyDown, true);
+    return () => window.removeEventListener("keydown", onKeyDown, true);
   }, [open, onClose]);
 
   if (!open) return null;

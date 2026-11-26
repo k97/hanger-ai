@@ -164,7 +164,8 @@ describe("⌘E and Esc", () => {
     expect(dialog()).toBeNull();
     pressCmdE();
     expect(dialog()).not.toBeNull();
-    fireEvent.keyDown(window, { key: "Escape" });
+    // A real Esc targets the focused element or the body, never the window.
+    fireEvent.keyDown(document.body, { key: "Escape" });
     expect(dialog()).toBeNull();
   });
 
