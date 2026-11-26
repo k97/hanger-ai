@@ -27,6 +27,8 @@ import { groupLabelClass } from "./typeRoles";
 import SummaryStrip, { type EngineStripFigures, type StripReview } from "./SummaryStrip";
 import EngineChipRow from "./EngineChipRow";
 import NotLoadedGroup, { groupRowClass, type NotLoadedRow } from "./NotLoadedGroup";
+import KeptSkillsGroup from "./KeptSkillsGroup";
+import type { KeptSkills } from "../types/skillSwitch";
 import { missTitle } from "./ReachCard";
 import ReviewPillActions from "./ReviewPillActions";
 import type { FindingLine } from "./FindingPopover";
@@ -155,6 +157,15 @@ interface ProfilePaneProps {
   onOpenKeptOff?: (key: string) => void;
   /** The kept server the inspector is showing, whose row reads as selected. */
   selectedKeptKey?: string | null;
+  /** The skills Hanger is keeping while they are switched off
+   *  (`get_kept_skills`, docs/ipc.md entry 24). Out of the store, they are
+   *  no row of the Skills group and in none of `get_asset_counts`' figures;
+   *  they show as their own group after it, with the backend's `count`. */
+  keptSkills?: KeptSkills | null;
+  /** A kept skill's row opens it in the inspector, by its `kept-skill:` key. */
+  onOpenKeptSkill?: (key: string) => void;
+  /** The kept skill the inspector is showing, whose row reads as selected. */
+  selectedKeptSkillKey?: string | null;
   /** Each listed engine's context, from App's one copy
    *  (`get_engine_contexts`, read once per scan). With
    *  `switcher`, it makes the MCP servers rows' engine tiles switches (T2 of
@@ -425,6 +436,9 @@ export default function ProfilePane({
   keptOff = null,
   onOpenKeptOff,
   selectedKeptKey = null,
+  keptSkills = null,
+  onOpenKeptSkill,
+  selectedKeptSkillKey = null,
   engines = null,
   selectedEngine = null,
   onSelectEngine,
@@ -584,8 +598,11 @@ export default function ProfilePane({
   // draw too: the "Switched off" group below the MCP servers. A boolean from
   // the backend's own figure, never a count taken here.
   const keptAny = keptOff !== null && keptOff.count > 0;
+  // So are kept skills: the Skills "Switched off" group. The same boolean.
+  const keptSkillsAny = keptSkills !== null && keptSkills.count > 0;
   const nothingToShow =
     !keptAny &&
+    !keptSkillsAny &&
     globalSkills.length === 0 &&
     globalTools.length === 0 &&
     globalRules.length === 0 &&
@@ -596,7 +613,7 @@ export default function ProfilePane({
   // `storeEmpty` stays the backend's figure: kept servers are in no count, so
   // with only kept servers it reads empty. The plane must not say so while
   // the group has rows to show.
-  const emptyState = storeEmpty && !keptAny && hasScanned && !loading;
+  const emptyState = storeEmpty && !keptAny && !keptSkillsAny && hasScanned && !loading;
 
   // Two different absences share the empty plane. "No developer agent
   // folders detected" was the only headline, and it was false whenever the
@@ -650,6 +667,11 @@ export default function ProfilePane({
   // is a boolean, never a figure.
   const keptRows = (keptOff?.servers ?? []).filter((server) => inEngineFilter([server.key]));
   const keptShown = keptAny && !filterActive && keptRows.length > 0;
+  // The Skills "Switched off" group, on Skills and All. A link-state filter
+  // hides it, as it hides the servers' group: a kept skill has no link state.
+  // A kept skill is off for every engine, so a picked engine keeps every row
+  // and drops only the figure.
+  const keptSkillsShown = keptSkillsAny && !filterActive;
 
   const filteredSkills = scopedSkills.filter(
     (s) => matchesStateFilter(s, stateFilter)
@@ -1149,7 +1171,7 @@ export default function ProfilePane({
   const subagentsAny = sortedSubagents.length > 0;
   const notLoadedAny = notLoadedRows.length > 0;
   const isCategoryEmpty =
-    (selectedCategory === "Skills" && !skillsAny && !notLoadedAny) ||
+    (selectedCategory === "Skills" && !skillsAny && !keptSkillsShown && !notLoadedAny) ||
     (selectedCategory === "Tools" && !toolsAny && configProblemRows.length === 0 && !keptShown && !notLoadedAny) ||
     (selectedCategory === "Rules" && !rulesAny && !notLoadedAny) ||
     (selectedCategory === "Agents" && agents.length === 0) ||
@@ -1179,6 +1201,7 @@ export default function ProfilePane({
     !toolsAny &&
     configProblemRows.length === 0 &&
     !keptShown &&
+    !keptSkillsShown &&
     !rulesAny &&
     !subagentsAny &&
     !notLoadedAny;
@@ -1486,6 +1509,21 @@ export default function ProfilePane({
                   ))}
                 </div>
               </>
+            )}
+
+            {/* Switched off — skills Hanger is keeping while they are off for
+                every engine. Out of the store, they are no row above and in
+                no figure from get_asset_counts, so the Skills header keeps its
+                own figure and this group carries the backend's `count`. A row
+                opens the skill in the inspector, where it can be switched
+                back on. */}
+            {showSkills && keptSkillsShown && keptSkills && (
+              <KeptSkillsGroup
+                kept={keptSkills}
+                showFigure={!engine}
+                selectedKey={selectedKeptSkillKey}
+                onOpen={onOpenKeptSkill}
+              />
             )}
 
             {/* Tools Group — card rows, not table rows (§5.6). This section

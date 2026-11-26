@@ -28,6 +28,8 @@ import ScanStamp from "./ScanStamp";
 import HeroBand from "./HeroBand";
 import EngineChipRow from "./EngineChipRow";
 import NotLoadedGroup from "./NotLoadedGroup";
+import KeptSkillsGroup from "./KeptSkillsGroup";
+import KeptSkillDetail from "./KeptSkillDetail";
 import { SearchPalettePanel } from "./SearchPalette";
 import { SwitchNoticePill } from "./SwitchNotice";
 import FavouriteHeart from "./FavouriteHeart";
@@ -94,6 +96,9 @@ import {
   SAMPLE_SWITCH_NOTICES,
   SAMPLE_ALL_ENGINES_HEADERS,
   SAMPLE_SKILL_HEADERS,
+  SAMPLE_KEPT_SKILLS,
+  SAMPLE_KEPT_SKILLS_SELECTED,
+  SAMPLE_KEPT_SKILL_DETAILS,
   SAMPLE_TABS,
 } from "../data/designSystemFixtures";
 
@@ -1229,6 +1234,22 @@ export default function DesignSystemPane({ section }: DesignSystemPaneProps) {
           <Specimen name="NotLoadedGroup" file="NotLoadedGroup.tsx" note="Not loaded by ‹engine›, at the end of Global's list: folded until asked, no figure, each row with ReachCard's reason; a row opens the inspector">
             <div className="max-w-[534px] border border-line rounded-plane pb-1.5">
               <NotLoadedGroup engineName={SAMPLE_ENGINES[1].engine_name} rows={SAMPLE_NOT_LOADED} defaultOpen />
+            </div>
+          </Specimen>
+
+          <Specimen name="KeptSkillsGroup" file="KeptSkillsGroup.tsx" note="Switched off, after the Skills group on Global: the backend's count in the head, no figure when an engine is picked, each row the skill's name and that it is off for every engine; a row opens the kept skill in the inspector. Sample skills; the rows do nothing">
+            <div className="max-w-[534px] border border-line rounded-plane pb-1.5">
+              <KeptSkillsGroup kept={SAMPLE_KEPT_SKILLS} showFigure selectedKey={SAMPLE_KEPT_SKILLS_SELECTED} />
+            </div>
+          </Specimen>
+
+          <Specimen name="KeptSkillDetail" file="KeptSkillDetail.tsx" note="a kept skill's inspector body: the row with its switch, when it was switched off and what Hanger did with it; the second also says a skill of its name is back in the store and that the switch-off did not finish. The switches here are samples and do nothing">
+            <div className="max-w-[384px] flex flex-col gap-3">
+              {SAMPLE_KEPT_SKILL_DETAILS.map((skill) => (
+                <div key={skill.key} className="border border-line rounded-plane flex">
+                  <KeptSkillDetail skill={skill} busy={false} onSwitchOn={() => {}} />
+                </div>
+              ))}
             </div>
           </Specimen>
 

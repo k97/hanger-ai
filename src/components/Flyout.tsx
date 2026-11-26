@@ -15,6 +15,7 @@ import McpServerDetail, { type RegistrationSwitch } from "./McpServerDetail";
 import LayerSwitch from "./LayerSwitch";
 import AllEnginesSwitch from "./AllEnginesSwitch";
 import HeaderSwitch from "./HeaderSwitch";
+import KeptSkillDetail from "./KeptSkillDetail";
 import Tooltip from "./Tooltip";
 import EngineLabel from "./EngineLabel";
 import ListCard from "./ListCard";
@@ -29,7 +30,7 @@ import {
   skillSwitchLabel,
   switchedOffLine,
 } from "../utils/switchCopy";
-import type { SkillSwitchInfo } from "../types/skillSwitch";
+import type { KeptSkill, SkillSwitchInfo } from "../types/skillSwitch";
 import { allEnginesRequests, allEnginesState, serverSwitchTargets, stillOnEngines } from "../utils/switchTargets";
 import { timeAgo } from "../utils/timeAgo";
 import BrandIcon from "./BrandIcon";
@@ -128,6 +129,10 @@ interface FlyoutProps {
    *  `kept-skill:` key, for App to open its panel in place of the skill,
    *  which is no longer in the store. */
   onSkillKept?: (key: string) => void;
+  /** A skill Hanger is keeping while it is switched off, selected from the
+   *  Skills "Switched off" group. Out of the store, it has no inventory
+   *  asset, so App passes it in place of `selectedAsset`, never with one. */
+  keptSkill?: KeptSkill | null;
 }
 
 interface RuleSection {
@@ -277,6 +282,7 @@ export default function Flyout({
   onEngineContext,
   onShowDeclared,
   onSkillKept,
+  keptSkill = null,
 }: FlyoutProps) {
   const [linking, setLinking] = useState<FlatAssetItem | null>(null);
 
@@ -847,6 +853,17 @@ export default function Flyout({
     });
   };
 
+  /* A kept skill's header switch and its panel's switch put it back on by
+     its `kept-skill:` key, through the one switch state. */
+  const shownKeptSkill = !linking && !targetAsset ? keptSkill : null;
+  const keptSkillBusy = shownKeptSkill
+    ? switcher?.busyKeys.has(busyKeyOf("skills", shownKeptSkill.key)) ?? false
+    : false;
+  const switchKeptSkillOn = () => {
+    if (!shownKeptSkill || !switcher) return;
+    void switcher.switchSkill({ key: shownKeptSkill.key, skillName: shownKeptSkill.name, enabled: true });
+  };
+
   /* Whether the eyebrow row has anything left to say. A selected asset's own
      kind · place moved to the cap, so `targetAsset` alone no longer earns
      the row; linking (the "Back to" nav), a bubble scope with no asset
@@ -855,7 +872,7 @@ export default function Flyout({
      `targetAsset`, since selecting an asset inside a layered project does
      not make the project stop being layered. */
   const eyebrowShown = Boolean(
-    linking || (!targetAsset && !keptServer && selectedBubble) || selectedProjectScan?.layered
+    linking || (!targetAsset && !keptServer && !keptSkill && selectedBubble) || selectedProjectScan?.layered
   );
 
   /* Whether a tab row (`UnderlineTabs`, via `AssetDetail` or
@@ -910,7 +927,7 @@ export default function Flyout({
           `UnderlineTabs.tsx`). The eyebrow-to-title step is this column's
           own `gap-1` rather than a margin the title row switches on and
           off. */}
-      {(linking || targetAsset || keptServer || selectedBubble) && (
+      {(linking || targetAsset || keptServer || keptSkill || selectedBubble) && (
       <div
         data-testid="inspector-header"
         className={`px-[18px] pt-[18px] pb-1.5 flex flex-col gap-1 shrink-0${
@@ -919,7 +936,7 @@ export default function Flyout({
       >
         {(
         <div className="flex items-center gap-2 min-w-0">
-          {!linking && !targetAsset && !keptServer && selectedBubble?.type === "agent" && (
+          {!linking && !targetAsset && !keptServer && !keptSkill && selectedBubble?.type === "agent" && (
             <BrandIcon engineKey={selectedBubble.id} engineName={selectedBubble.name} size={16} />
           )}
           <h2 className="min-w-0 text-lg-app font-medium tracking-[-0.3px] text-ink-1 truncate max-w-[280px] font-sans">
@@ -929,6 +946,8 @@ export default function Flyout({
               ? targetAsset.name
               : keptServer
               ? keptServer.name
+              : keptSkill
+              ? keptSkill.name
               : selectedBubble
               ? selectedBubble.name
               : "Asset Inspector"}
@@ -950,6 +969,17 @@ export default function Flyout({
               stateWord={skillStateLabel(true)}
               pending={skillPending}
               onToggle={switchSkillOff}
+            />
+          )}
+          {shownKeptSkill && switcher && (
+            <HeaderSwitch
+              testId="skill-header-switch"
+              label={skillSwitchLabel(shownKeptSkill.name, false)}
+              pressed={false}
+              on={false}
+              stateWord={skillStateLabel(false)}
+              pending={keptSkillBusy}
+              onToggle={switchKeptSkillOn}
             />
           )}
         </div>
@@ -1069,6 +1099,8 @@ export default function Flyout({
           onOpenEngine={onOpenEngine}
           onShowDeclared={onShowDeclared}
         />
+      ) : shownKeptSkill && switcher ? (
+        <KeptSkillDetail skill={shownKeptSkill} busy={keptSkillBusy} onSwitchOn={switchKeptSkillOn} />
       ) : targetAsset ? (
         // Link to… lives in the cap now (App.tsx), not this panel's own
         // action row — AssetDetail no longer takes an onLink prop.

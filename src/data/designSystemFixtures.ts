@@ -16,6 +16,7 @@ import type { HeroBandRow } from "../components/HeroBand";
 import type { TrackSegment } from "../components/SegmentedTrack";
 import type { UnderlineTab } from "../components/UnderlineTabs";
 import type { SearchHit } from "../components/SearchPalette";
+import type { KeptSkill, KeptSkills } from "../types/skillSwitch";
 import type { DetectedEditor } from "../components/EditorPicker";
 import type { SwitchNoticeState } from "../hooks/useMcpSwitch";
 import type { AllEnginesState } from "../utils/switchTargets";
@@ -303,6 +304,25 @@ export const SAMPLE_SKILL_HEADERS: { skill: string; on: boolean; pending: boolea
   { skill: "sample-skill-on", on: true, pending: false },
   { skill: "sample-skill-off", on: false, pending: false },
   { skill: "sample-skill-busy", on: true, pending: true },
+];
+
+/** The Skills "Switched off" group: two kept sample skills, the second the
+ *  one the inspector shows. `count` is the reply's, as the backend counts. */
+const SAMPLE_KEPT_AT = Date.now() - 4 * 60_000 - 5_000;
+export const SAMPLE_KEPT_SKILLS: KeptSkills = {
+  skills: [
+    { key: "kept-skill:sample-1", name: "sample-kept-skill", at_ms: SAMPLE_KEPT_AT, links_count: 2, interrupted: false, back_in_store: false },
+    { key: "kept-skill:sample-2", name: "sample-kept-other", at_ms: SAMPLE_KEPT_AT, links_count: 0, interrupted: false, back_in_store: false },
+  ],
+  count: 2,
+};
+export const SAMPLE_KEPT_SKILLS_SELECTED = "kept-skill:sample-2";
+
+/** A kept skill's panel, plain and with both of its warnings: a skill of its
+ *  name back in the store, and a switch-off that did not finish. */
+export const SAMPLE_KEPT_SKILL_DETAILS: KeptSkill[] = [
+  { key: "kept-skill:sample-3", name: "sample-panel-skill", at_ms: SAMPLE_KEPT_AT, links_count: 1, interrupted: false, back_in_store: false },
+  { key: "kept-skill:sample-4", name: "sample-panel-warned", at_ms: SAMPLE_KEPT_AT, links_count: 1, interrupted: true, back_in_store: true },
 ];
 
 // The backend's match markers (private-use U+E000/U+E001), written as escapes

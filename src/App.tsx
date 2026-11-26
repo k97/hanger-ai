@@ -94,6 +94,7 @@ import {
 import { unaccountedProcesses, type ProcessMatch } from "./utils/mcpServerView";
 import type { McpServerRow } from "./utils/serverRows";
 import type { EngineContext, KeptOff } from "./types/engineContext";
+import type { KeptSkills } from "./types/skillSwitch";
 import { paletteActionLabel } from "./utils/switchCopy";
 import { declaredNamed, switchRequestFor, switchableNamed } from "./utils/switchTargets";
 import { useMcpSwitch } from "./hooks/useMcpSwitch";
@@ -824,6 +825,7 @@ export default function App() {
         await refreshMcpServers();
         await refreshMcpCoverage();
         await refreshKeptOff();
+        await refreshKeptSkills();
         await refreshEngineContexts();
 
         // If onboarding was incomplete, mark it complete now!
@@ -1025,6 +1027,19 @@ export default function App() {
     }
   };
 
+  // The skills Hanger is keeping while they are switched off (docs/ipc.md
+  // entry 24). Out of the store, no scan finds them. Re-read on every scan,
+  // after the kept servers, and at once after every switch. The Skills
+  // "Switched off" group reads it.
+  const [keptSkills, setKeptSkills] = useState<KeptSkills | null>(null);
+  const refreshKeptSkills = async () => {
+    try {
+      setKeptSkills(await invoke<KeptSkills>("get_kept_skills"));
+    } catch {
+      setKeptSkills(null);
+    }
+  };
+
   // Every engine's context (docs/ipc.md entry 20), the one copy each surface
   // that shows an engine's servers reads: the engine tiles on Global's rows
   // and the picked engine's filter, the MCP server inspector's switches and
@@ -1051,7 +1066,10 @@ export default function App() {
 
   // The one switch state. A switch or an Undo that changed a file rescans,
   // as unlink and deploy do, so the MCP servers list and its counts stay
-  // true. It reads the kept servers again at once too: a Claude Code server
+  // true. A skill switch rescans the same way, and that rescan rebuilds ⌘K's
+  // search index from what it finds, so a skill switched off stops turning
+  // up in search (docs/plans/2026-11-26-skill-switch.md). It reads the kept
+  // servers and the kept skills again at once too: a Claude Code server
   // switched off becomes one, and "Switched off" should not wait for the
   // rescan to say so. Declared after `triggerScan` and before the onboarding
   // returns below, so the hook order never changes when onboarding resolves.
@@ -1062,6 +1080,7 @@ export default function App() {
     onChanged: () => {
       triggerScan();
       void refreshKeptOff();
+      void refreshKeptSkills();
     },
     onContext: recordContext,
   });
@@ -1126,6 +1145,13 @@ export default function App() {
   const [selectedKeptKey, setSelectedKeptKey] = useState<string | null>(null);
   const selectedKept = selectedKeptKey
     ? keptOff?.servers.find((s) => s.key === selectedKeptKey) ?? null
+    : null;
+  // A kept skill is held by the same key, its `kept-skill:` one, so every
+  // place that clears a kept server's selection clears a kept skill's too.
+  // Once it is switched back on and the list no longer holds it, nothing is
+  // selected.
+  const selectedKeptSkill = selectedKeptKey
+    ? keptSkills?.skills.find((s) => s.key === selectedKeptKey) ?? null
     : null;
   // What AssetDetail actually read, reported back once its body loads — a
   // skill's own path is the folder holding it, so the cap's Open in
@@ -1659,13 +1685,21 @@ export default function App() {
    */
   /* A kept server is an MCP server on Global with no file: the cap names its
    * kind and place and offers nothing to open, copy, reveal or link. */
+  /* A kept skill is a skill on Global with no folder in the store: the same,
+   * with its own kind. */
   const capAsset: InspectorCapAsset | null =
     selectedAsset && selectedAsset.category !== "Agents"
       ? { category: selectedAsset.category }
       : selectedKept
       ? { category: "Tools" }
+      : selectedKeptSkill
+      ? { category: "Skills" }
       : null;
-  const capPlace = selectedAsset ? provenanceOf(selectedAsset, inventory).place : selectedKept ? "Global" : "";
+  const capPlace = selectedAsset
+    ? provenanceOf(selectedAsset, inventory).place
+    : selectedKept || selectedKeptSkill
+    ? "Global"
+    : "";
 
   // The document AssetDetail actually read, once known — a skill's own path
   // is the folder holding it. Falls back to the asset's own path before the
@@ -2118,6 +2152,9 @@ export default function App() {
               keptOff={keptOff}
               onOpenKeptOff={selectKept}
               selectedKeptKey={selectedKept?.key ?? null}
+              keptSkills={keptSkills}
+              onOpenKeptSkill={selectKept}
+              selectedKeptSkillKey={selectedKeptSkill?.key ?? null}
               engineContexts={listedContexts}
               switcher={mcpSwitch}
               onEngineContext={recordContext}
@@ -2395,6 +2432,10 @@ export default function App() {
                 linkedEngines={engineRows?.map((e) => e.engine_id)}
                 onOpenEngine={openEngine}
                 keptServer={selectedKept}
+                keptSkill={selectedKeptSkill}
+                /* A store skill switched off from its header: its kept
+                   panel takes the skill's place in the inspector. */
+                onSkillKept={selectKept}
                 onEngineContext={recordContext}
                 onShowDeclared={showDeclared}
               />
