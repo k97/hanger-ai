@@ -19,10 +19,16 @@ building "Open in editor"; each would have shipped a dead feature.
   `Application::matches` maps an entry with no `app` key to
   `Self::Default => a.is_none()` (`scope_entry.rs` makes `Default` the serde
   default). So `{ "path": "$HOME/**" }` permits `openPath(p)` and rejects
-  `openPath(p, "Cursor")`. Add `{ "path": "…", "app": "<name>" }` per app, or
-  `"app": true` for any. Entries are compared byte-for-byte, so use the app
-  **name** (`"Visual Studio Code"`) — a path entry refuses anyone whose editor
-  lives outside `/Applications`.
+  `openPath(p, "Cursor")`. An `app` entry is a fixed string compared byte
+  for byte (`scope.rs:67`), and `open -a <name>` resolves by filename. So a
+  name entry fails anyone whose app has another filename (GitHub's runner
+  keeps `Xcode_26.6.app`), and a path entry fails anyone whose app lives
+  elsewhere. Neither can say "the app Hanger detected". So the capability
+  names **no** app. Editors open through `editors.rs` → `open_in_editor`,
+  which resolves a table name to the detected path and enforces `$HOME/**`
+  itself (round 8, 2026-11-26).
+  `editor_tests.rs::the_capability_lets_the_webview_name_no_app` pins this.
+  Never add `"app": true`: it lets the webview open a path in any app.
 - **`openPath` skips its own existence check once an app is named.**
   `open.rs:56` is `if with.is_none() { _ = path.metadata()?; }`. The
   one-argument call rejects on a bad path; the two-argument call does nothing

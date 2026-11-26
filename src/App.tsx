@@ -1148,7 +1148,7 @@ export default function App() {
   const [detectedEditors, setDetectedEditors] = useState<DetectedEditor[]>([]);
   const [pickerFor, setPickerFor] = useState<{ name: string; path: string } | null>(null);
   const [editorNotice, setEditorNotice] = useState<string | null>(null);
-  // Every editor the capability permits, installed or not. `detect_editors`
+  // Every editor in the backend's table, installed or not. `detect_editors`
   // returns only the installed ones, so this second command is what makes
   // "Choose an app…" able to accept an editor the user installed after
   // launch, without duplicating the backend's table in TypeScript.
