@@ -70,3 +70,12 @@ deliberately left unfixed.
   the dev app on 2026-11-25 after `get_engine_contexts` landed; not traced in
   `annotations.rs`. Whether Claude Code loads a connector depends on sign-in, so
   the fix needs a ruling on what "reached" means for vendor-hosted servers.
+- The release build's first launch on 2026-11-26 (opened with `open`, as Finder
+  does) stayed on "Scanning gemini-superpowers-antigravity · 1 queued" with 0
+  assets shown for over 8 minutes. The process had no children, every thread was
+  parked, and it used about 0.3 s of CPU in 4 minutes. The store already held
+  1,158 asset rows. Killed and reopened, it scanned normally within seconds and
+  switched a Claude Code server off and on. Evidence:
+  `docs/evidence/2026-11-25-engines-ui/50-release-first-launch-stuck-scanning.png`.
+  Not reproduced or traced; the scan-status events between the scan task and
+  the webview are the first suspect.
