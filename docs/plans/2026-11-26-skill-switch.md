@@ -1,5 +1,7 @@
 # Skill Switch Implementation Plan
 
+**Approved by Karthik, 2026-11-26, with no annotations:** the plan as written, every question's recommended answer (Q1–Q6), and all 28 proposed strings (G1 is cleared).
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Status:** draft for Karthik's review, 2026-11-26. Nothing is built. Tasks 1–6 need his approval of this plan and answers to the questions at the end. Tasks 7–10 also need his sign-off on the strings table (G1). Task 11 needs his go-ahead for each real write (H2).
