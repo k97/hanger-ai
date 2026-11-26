@@ -466,3 +466,130 @@ Returns every engine's context from one pass over the machine's config files: fo
 - **Response:** `EngineContext[]` (the schema under `get_engine_context`). This command does not fail.
 
 The list holds each engine that has an item: every engine the config files declare a server for, outside one project's local scope, in the order they were found; then Claude Code, if Hanger is keeping a server for it and it declares none. Any other engine's context has no items and is left out.
+
+---
+
+## 21. get_skill_switch
+
+Returns the On/Off switch for one skill in the global store, `~/.agents/skills`, or why it has none. The only skill-switch command that takes a path, because it only reads: metadata, Hanger's store, and nothing else.
+
+- **Command Name:** `get_skill_switch`
+- **Arguments:**
+  - `skillPath`: `string` (the skill's folder, as the inventory gives it)
+- **Response:** `SkillSwitchInfo | null`. `null` for a path that is not in the global store, for the store itself, and for a path where nothing is. This command does not fail.
+
+A path through a folder that resolves to the store, such as `~/.claude/skills/x` where `~/.claude/skills` links to the store, is the store's.
+
+### SkillSwitchInfo Schema
+- `key`: `string` (`"skill:<name>"`: what `set_skill_enabled` takes)
+- `read_only`: `"inside_another_folder" | "other_volume" | "has_tracked_copies" | null` (why there is no switch; `null` when there is one)
+
+| `read_only` | Meaning |
+|---|---|
+| `inside_another_folder` | The skill is inside another folder of the store, not at its top. |
+| `other_volume` | The store and Hanger's keep are on different disks, so the skill would have to be copied. |
+| `has_tracked_copies` | Hanger copied this skill into a project and tracks the copy by its source path. |
+
+---
+
+## 22. set_skill_enabled
+
+Switches a store skill off, or a kept one back on. Off moves the skill's folder into Hanger's keep, `<app data dir>/kept/skills/<uuid>/<name>`, with one rename, and removes the one-by-one links to it after recording each one's exact text. On renames it back to the same path and recreates each link from that text. Nothing is copied and nothing is overwritten (`docs/harness.md`, "Hanger moves skill folders").
+
+- **Command Name:** `set_skill_enabled`
+- **Arguments:**
+  - `key`: `string` (`"skill:<name>"` with `enabled: false`, or `"kept-skill:<uuid>"` with `enabled: true`)
+  - `enabled`: `boolean`
+- **Response:** `SkillSwitchReply` or `string` (a failure code, below)
+
+The key is not a path and is not trusted. `skill:<name>` must name a direct child of the store when it is used, and `kept-skill:<uuid>` must name a receipt in the keep that holds that id. A key asked for the state it is already in changes nothing and has `receipt_id: null`.
+
+### SkillSwitchReply Schema
+- `name`: `string` (the skill's folder name)
+- `receipt_id`: `string | null` (`"kept:<uuid>"` after Off, `"restored:<name>"` after On; what `undo_skill_switch` takes; `null` when nothing changed)
+- `undoable`: `boolean` (`true` exactly when `receipt_id` is a string)
+- `links_count`: `number` (the links removed, or recorded for putting back)
+- `links_not_restored`: `string[]` (links On could not put back because their folder is gone, each path with the home shown as `~`; no folder is made)
+- `kept`: `KeptSkills` (the keep after the switch)
+
+### Failure Codes
+The error is one of these strings and nothing else. It carries no path and nothing from a file.
+
+| Code | Meaning |
+|---|---|
+| `not_found` | No skill of that name is in the store, or no kept entry has that id. |
+| `read_only` | Hanger shows this skill and does not switch it (`SkillSwitchInfo.read_only`). |
+| `name_refused` | The name could reach outside the store, or a path or link text is not UTF-8. |
+| `changed_since_read` | A link changed while Hanger was working. Nothing was moved. |
+| `already_there` | A skill of that name is in the store again. Nothing was moved. |
+| `link_place_taken` | Something other than the link is where a link was. Nothing was moved. |
+| `changed_since_kept` | The kept skill is no longer what was kept. Nothing was moved. |
+| `other_volume` | The store and the keep are on different disks. |
+| `write_failed` | A move, a link or a receipt could not be written. |
+| `not_verified` | The skill came back and does not match what was kept. The keep's record stays. |
+| `not_undoable` | `undo_skill_switch` only: the receipt is not one Hanger can take back. |
+
+### Request Example
+```json
+{
+  "key": "skill:figma",
+  "enabled": false
+}
+```
+
+---
+
+## 23. undo_skill_switch
+
+Takes back one skill switch. `kept:<uuid>` switches the kept skill back on; `restored:<name>` switches the skill of that name off again, through every check Off makes. The reply carries a receipt id of its own, which undoes the Undo. The backend holds nothing between calls: the receipt is on disk, so an Undo still works after a rescan.
+
+- **Command Name:** `undo_skill_switch`
+- **Arguments:**
+  - `receiptId`: `string` (the `receipt_id` of a `SkillSwitchReply`)
+- **Response:** `SkillSwitchReply` or `string` (a failure code from the table under `set_skill_enabled`). A receipt id of any other shape, or one whose skill is no longer there to take back, is `not_undoable`.
+
+### Request Example
+```json
+{
+  "receiptId": "kept:00000000-0000-4000-8000-000000000001"
+}
+```
+
+---
+
+## 24. get_kept_skills
+
+Returns the skills Hanger is keeping while they are switched off. A kept skill is not in the store, so it is in no row of the Skills list and in no figure `get_asset_counts` returns; it comes back here instead, with a count of its own. Reads the keep. Writes nothing.
+
+- **Command Name:** `get_kept_skills`
+- **Arguments:** None
+- **Response:** `KeptSkills`. With nothing kept, or no keep folder, the list is empty and the count is `0`. This command does not fail.
+
+### KeptSkills Schema
+- `skills`: `KeptSkill[]` (newest first)
+- `count`: `number` (the number of kept skills: the "Switched off" figure)
+
+### KeptSkill Schema
+- `key`: `string` (`"kept-skill:<uuid>"`: what `set_skill_enabled` takes, with `enabled: true`)
+- `name`: `string`
+- `at_ms`: `number` (when it was switched off)
+- `links_count`: `number` (the links Hanger removed and will put back)
+- `interrupted`: `boolean` (Hanger stopped partway through switching it off or on; switching it on finishes the job)
+- `back_in_store`: `boolean` (a skill of that name is in the store again, so switching this one on refuses with `already_there`)
+
+### Response Example
+```json
+{
+  "skills": [
+    {
+      "key": "kept-skill:00000000-0000-4000-8000-000000000001",
+      "name": "figma",
+      "at_ms": 1795566217263,
+      "links_count": 1,
+      "interrupted": false,
+      "back_in_store": false
+    }
+  ],
+  "count": 1
+}
+```

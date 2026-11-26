@@ -168,6 +168,64 @@ No value from a config file crosses to the webview on the way: a reply is the
 engine's servers by name with their state, and a refusal is one code
 (`mcp::switch::ops` → `SwitchFailure`).
 
+## Hanger moves skill folders
+
+Since 2026-11-26 Hanger can switch a skill in the global store,
+`~/.agents/skills`, off for every engine and back on. Everything that does it
+is in one module, `src-tauri/src/skill_switch/`, behind four commands in
+`src-tauri/src/lib.rs` (`get_skill_switch`, `set_skill_enabled`,
+`undo_skill_switch`, `get_kept_skills`). No screen calls them yet. The plan is
+`docs/plans/2026-11-26-skill-switch.md`.
+
+**What moves, and where.**
+
+- *The skill's store entry,* `~/.agents/skills/<name>`, only when it is a
+  direct child of the store. Off renames it into Hanger's keep,
+  `<app data dir>/kept/skills/<uuid>/<name>`, and On renames it back to the
+  same path (`skill_switch::tree` → `rename_no_replace`, which is
+  `renamex_np` with `RENAME_EXCL`). It is never copied, so the folder keeps
+  its inode. An entry that is itself a link moves as the link; its target is
+  not touched. A store on another volume from the keep is refused.
+- *Its one-by-one links.* A link to that one skill
+  (`~/.cursor/skills/figma -> ~/.agents/skills/figma`) would dangle, so Off
+  records its path and exact `readlink` text, then removes it, and On
+  recreates it from that text. A recreated link is a new file: it has a new
+  inode and times, and loses any extended attributes. Hanger looks for these
+  links one level deep in a fixed list of folders
+  (`skill_switch::links` → `link_places`: each engine's skills folder, five
+  more measured on Karthik's machine, each linked project's skills folders,
+  and every top-level folder of the store) and at every link its `links`
+  table records. A link anywhere else is not found, and dangles while the
+  skill is off.
+- *Hanger's own records.* A receipt, `receipt.json` (0600), in each keep
+  entry (0700), written and synced before anything is removed
+  (`skill_switch::keep`). And in Hanger's store, Off deletes the `assets`
+  rows of the folder it has just moved and their `links` rows
+  (`preferences::forget_moved_folder`), so the skill is neither counted nor
+  shown with a broken link while reaping is off. The next scan after On adds
+  them back.
+
+**What it never touches.**
+
+- A folder that holds the whole store. `~/.claude/skills ->
+  ~/.agents/skills` and a project's `.agents/skills` link are containers, not
+  links to one skill, and are never searched or removed.
+- A link whose text changed between Hanger finding it and removing it: the
+  switch puts back what it removed and moves nothing.
+- Anything at the place it would write. On refuses while a skill of that
+  name is back in the store, while something else is where a link was, and
+  while the kept folder is not what was kept. It never makes a missing
+  folder for a link: it names that link instead.
+- A skill inside another skill's folder, and a skill Hanger has copied into
+  a project and tracks. Those are shown with no switch.
+- `~/.agents/skills-disabled/`, or any folder a user switched skills off in
+  by hand.
+
+No path and nothing from a skill's files crosses to the webview: a reply is
+the skill's name, counts and booleans, a link that was not put back is shown
+with the home as `~`, and a refusal is one code
+(`skill_switch::ops` → `SkillSwitchFailure`).
+
 ## What the model does not cover yet
 
 - **`~/.config/agents/skills/`** — Amp's user-level skills path. Amp's other

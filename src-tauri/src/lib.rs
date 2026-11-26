@@ -845,6 +845,84 @@ fn get_kept_off_servers(app: AppHandle) -> Result<mcp::switch::ops::KeptOff, Str
     Ok(mcp::switch::ops::kept_off_for(&switch_places(&app)))
 }
 
+/// Where the skill switch reads and writes: the home, the global store
+/// `~/.agents/skills` as spelled (links are matched against it and its
+/// canonical form, as `scanner` matches roots), Hanger's keep
+/// `<app data dir>/kept/skills`, and Hanger's store.
+///
+/// The data directory is found as [`get_db_path`] finds it, with the same
+/// fallback. If it cannot be resolved the keep comes out relative, and
+/// nothing is written to it: `skill_switch::keep` refuses a keep whose path
+/// is not absolute.
+fn skill_places(app: &AppHandle) -> skill_switch::ops::SkillPlaces {
+    let home = scanner::get_home_dir();
+    skill_switch::ops::SkillPlaces {
+        store: home.join(agents::SHARED_AGENTS_DIR).join("skills"),
+        keep: app
+            .path()
+            .app_data_dir()
+            .unwrap_or_else(|_| std::path::PathBuf::from("."))
+            .join("kept")
+            .join("skills"),
+        db_path: get_db_path(app),
+        home,
+    }
+}
+
+/// The linked projects, whose skills folders the switch searches for links.
+/// None, when the store cannot be read: the switch still runs, and finds the
+/// links in every other place.
+fn skill_switch_projects(app: &AppHandle) -> Vec<PathBuf> {
+    get_store(app)
+        .and_then(|store| store.get_linked_directories().map_err(|e| e.to_string()))
+        .map(|dirs| dirs.into_iter().map(PathBuf::from).collect())
+        .unwrap_or_default()
+}
+
+/// The switch for one skill: its key, or why it has none. `None` for a path
+/// that is not in the global store. Reads metadata and the store; writes
+/// nothing. The one skill command that takes a path, because it only reads.
+/// `(async)` for the reason `get_mcp_servers` gives.
+#[tauri::command(async)]
+fn get_skill_switch(
+    app: AppHandle,
+    skill_path: String,
+) -> Result<Option<skill_switch::ops::SkillSwitchInfo>, String> {
+    Ok(skill_switch::ops::switch_info_for(&skill_places(&app), Path::new(&skill_path)))
+}
+
+/// Switch a store skill off (`skill:<name>`, `false`) or a kept one back on
+/// (`kept-skill:<uuid>`, `true`). `Err` is a `SkillSwitchFailure` code such
+/// as `"already_there"`, and nothing else.
+#[tauri::command(async)]
+fn set_skill_enabled(
+    app: AppHandle,
+    key: String,
+    enabled: bool,
+) -> Result<skill_switch::ops::SkillSwitchReply, String> {
+    skill_switch::ops::set_enabled_for(&skill_places(&app), &skill_switch_projects(&app), &key, enabled)
+        .map_err(|failure| failure.code().to_string())
+}
+
+/// Take back one skill switch, by the `receipt_id` its reply carried. The
+/// reply carries a receipt id of its own, which undoes the Undo. `Err` is a
+/// `SkillSwitchFailure` code.
+#[tauri::command(async)]
+fn undo_skill_switch(
+    app: AppHandle,
+    receipt_id: String,
+) -> Result<skill_switch::ops::SkillSwitchReply, String> {
+    skill_switch::ops::undo_for(&skill_places(&app), &skill_switch_projects(&app), &receipt_id)
+        .map_err(|failure| failure.code().to_string())
+}
+
+/// The skills Hanger is keeping while they are switched off, with the count
+/// the "Switched off" group shows. Reads the keep; writes nothing.
+#[tauri::command(async)]
+fn get_kept_skills(app: AppHandle) -> Result<skill_switch::ops::KeptSkills, String> {
+    Ok(skill_switch::ops::kept_for(&skill_places(&app)))
+}
+
 /// One MCP registration's launch: `(registration_key, command, args)`, the
 /// shape `mcp::observe::match_processes` takes.
 pub type McpLaunch = (String, String, Vec<String>);
@@ -2235,6 +2313,10 @@ pub fn run() {
             undo_mcp_switch,
             measure_engine_context,
             get_kept_off_servers,
+            get_skill_switch,
+            set_skill_enabled,
+            undo_skill_switch,
+            get_kept_skills,
             get_linked_directories,
             run_scan,
             get_inventory,

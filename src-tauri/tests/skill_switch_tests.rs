@@ -878,3 +878,146 @@ fn nested_assets_go_with_their_folder() {
     scan(&w, &project);
     assert_eq!(skill_total(&w), before - 2);
 }
+
+// ---------------------------------------------------------------------------
+// Task 6: Undo, the kept list, and IPC
+// ---------------------------------------------------------------------------
+
+use tauri_app_lib::skill_switch::ops::{SkillSwitchInfo, SkillSwitchReply};
+
+fn off(w: &World, projects: &[PathBuf], name: &str) -> SkillSwitchReply {
+    ops::set_enabled_for(&w.places, projects, &format!("skill:{name}"), false).expect("switched off")
+}
+
+fn receipt_of(reply: &SkillSwitchReply) -> String {
+    reply.receipt_id.clone().expect("a receipt id")
+}
+
+#[test]
+fn off_then_undo_round_trips() {
+    let w = world(&["x"]);
+    let at = w.home.join(".cursor/skills/x");
+    link(w.skill("x"), &at);
+    let print = fingerprint(&w.skill("x")).unwrap();
+    let reply = off(&w, &[], "x");
+    assert_eq!((reply.name.as_str(), reply.undoable, reply.links_count), ("x", true, 1));
+    assert!(receipt_of(&reply).starts_with("kept:"));
+    assert_eq!(reply.kept.count, 1);
+    assert!(gone(&w.skill("x")) && gone(&at));
+
+    let back = ops::undo_for(&w.places, &[], &receipt_of(&reply)).expect("undone");
+    assert_eq!(receipt_of(&back), "restored:x");
+    assert!(back.undoable);
+    assert_eq!(back.kept.count, 0);
+    assert_eq!(fingerprint(&w.skill("x")).unwrap(), print);
+    assert_eq!(read_link(&at), w.skill("x"));
+}
+
+#[test]
+fn undo_of_an_undo_switches_off_again() {
+    let w = world(&["x"]);
+    let first = off(&w, &[], "x");
+    let back = ops::undo_for(&w.places, &[], &receipt_of(&first)).unwrap();
+    let again = ops::undo_for(&w.places, &[], &receipt_of(&back)).expect("off again");
+    assert!(receipt_of(&again).starts_with("kept:"));
+    assert_ne!(receipt_of(&again), receipt_of(&first), "a new entry");
+    assert!(gone(&w.skill("x")));
+    assert_eq!(again.kept.count, 1);
+    assert_eq!(ops::undo_for(&w.places, &[], &receipt_of(&first)).unwrap_err(), SkillSwitchFailure::NotUndoable, "the first entry is gone");
+    for refused in ["", "file:x", "kept:../x", "restored:../x", "stash:00000000-0000-4000-8000-000000000001"] {
+        assert!(ops::undo_for(&w.places, &[], refused).is_err(), "{refused:?}");
+    }
+    assert_eq!(ops::undo_for(&w.places, &[], "file:x").unwrap_err(), SkillSwitchFailure::NotUndoable);
+}
+
+#[test]
+fn undo_after_a_rescan_puts_it_back() {
+    let w = world(&["x", "y"]);
+    let project = project(&w);
+    let at = project.join(".claude/skills/x");
+    link(w.skill("x"), &at);
+    scan(&w, &project);
+    let before = skill_total(&w);
+    let reply = off(&w, &[project.clone()], "x");
+    scan(&w, &project);
+    assert_eq!(skill_total(&w), before - 1);
+    // The backend holds nothing between calls: the receipt on disk is enough.
+    ops::undo_for(&w.places, &[project.clone()], &receipt_of(&reply)).expect("undone after a rescan");
+    assert!(w.skill("x").is_dir());
+    assert_eq!(read_link(&at), w.skill("x"));
+    scan(&w, &project);
+    assert_eq!(skill_total(&w), before);
+}
+
+#[test]
+fn a_path_outside_the_store_has_no_switch() {
+    let w = world(&["x"]);
+    make_skill(&w.home.join("elsewhere/x"));
+    make_skill(&w.skill("x/examples/inner"));
+    assert_eq!(ops::switch_info_for(&w.places, &w.home.join("elsewhere/x")), None);
+    assert_eq!(ops::switch_info_for(&w.places, &w.home.join(".agents/skills-disabled/x")), None);
+    assert_eq!(ops::switch_info_for(&w.places, &w.store), None, "the store itself is no skill");
+    assert_eq!(ops::switch_info_for(&w.places, &w.skill("gone")), None);
+    assert_eq!(
+        ops::switch_info_for(&w.places, &w.skill("x")),
+        Some(SkillSwitchInfo { key: "skill:x".into(), read_only: None })
+    );
+    let nested = ops::switch_info_for(&w.places, &w.skill("x/examples/inner")).expect("a store skill");
+    assert_eq!(nested.read_only, Some(SkillReadOnly::InsideAnotherFolder));
+    assert_eq!(
+        ops::set_enabled_for(&w.places, &[], &nested.key, false).unwrap_err(),
+        SkillSwitchFailure::NameRefused,
+        "a nested skill's key does not switch"
+    );
+}
+
+#[test]
+fn a_key_that_is_a_path_is_refused() {
+    let w = world(&["x"]);
+    make_skill(&w.home.join(".agents/x"));
+    let before = w.everything();
+    for key in ["skill:../x", "skill:x/references", "skill:..", "skill:.system", "skill:"] {
+        assert_eq!(ops::set_enabled_for(&w.places, &[], key, false).unwrap_err(), SkillSwitchFailure::NameRefused, "{key}");
+    }
+    assert_eq!(ops::set_enabled_for(&w.places, &[], "kept-skill:../x", true).unwrap_err(), SkillSwitchFailure::NotFound);
+    assert_eq!(ops::set_enabled_for(&w.places, &[], "stash:x", false).unwrap_err(), SkillSwitchFailure::NotFound);
+    assert_eq!(w.everything(), before);
+    // Asking for the state it is already in changes nothing.
+    let same = ops::set_enabled_for(&w.places, &[], "skill:x", true).unwrap();
+    assert_eq!((same.receipt_id.as_deref(), same.undoable), (None, false));
+    assert_eq!(w.everything(), before);
+}
+
+#[test]
+fn kept_count_agrees_with_rows() {
+    let w = world(&["x", "y", "z"]);
+    off(&w, &[], "x");
+    off(&w, &[], "y");
+    let seams = Seams { stop_at: Some(Step::AfterLinks), ..Seams::default() };
+    assert!(ops::switch_off_with(&w.places, &[], "z", seams).is_err());
+    let kept = ops::kept_for(&w.places);
+    assert_eq!(kept.count, kept.skills.len());
+    assert_eq!(kept.count, 3);
+    let mut names: Vec<&str> = kept.skills.iter().map(|k| k.name.as_str()).collect();
+    names.sort_unstable();
+    assert_eq!(names, ["x", "y", "z"]);
+    assert!(kept.skills.iter().all(|k| k.key.starts_with("kept-skill:")));
+    assert_eq!(kept.skills.iter().filter(|k| k.interrupted).map(|k| k.name.as_str()).collect::<Vec<_>>(), ["z"]);
+    // A kept skill switched back on by its key.
+    let x = kept.skills.iter().find(|k| k.name == "x").unwrap();
+    let on = ops::set_enabled_for(&w.places, &[], &x.key, true).unwrap();
+    assert_eq!(on.receipt_id.as_deref(), Some("restored:x"));
+    assert_eq!(on.kept.count, 2);
+    assert_eq!(ops::kept_for(&w.places).count, 2);
+}
+
+#[test]
+fn back_in_store_is_reported() {
+    let w = world(&["x"]);
+    let reply = off(&w, &[], "x");
+    assert!(!reply.kept.skills[0].back_in_store);
+    make_skill(&w.skill("x"));
+    let kept = ops::kept_for(&w.places);
+    assert!(kept.skills[0].back_in_store);
+    assert_eq!(ops::set_enabled_for(&w.places, &[], &kept.skills[0].key, true).unwrap_err(), SkillSwitchFailure::AlreadyThere);
+}

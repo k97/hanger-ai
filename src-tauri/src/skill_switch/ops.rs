@@ -1,5 +1,17 @@
 //! Switch a store skill off into Hanger's keep, and back on.
 //!
+//! Four commands in `lib.rs` call this module and nothing else in
+//! `skill_switch`: `get_skill_switch` (`switch_info_for`),
+//! `set_skill_enabled` (`set_enabled_for`), `undo_skill_switch` (`undo_for`)
+//! and `get_kept_skills` (`kept_for`). Each is a thin wrapper.
+//!
+//! # A key is not a path
+//!
+//! `skill:<name>` is accepted only while `<name>` is a direct child of the
+//! store, and `kept-skill:<uuid>` only while the keep holds a receipt named for
+//! that id. Receipt ids are `kept:<uuid>`, undone by On, and
+//! `restored:<name>`, undone by Off. Anything else is refused with a code.
+//!
 //! Every folder is a parameter (`SkillPlaces`), so the tests in
 //! `tests/skill_switch_tests.rs` run against a temp folder and never the real
 //! home. This module logs nothing.
@@ -569,4 +581,186 @@ fn nearest_existing(path: &Path) -> PathBuf {
 
 fn now_ms() -> i64 {
     SystemTime::now().duration_since(UNIX_EPOCH).map(|since| since.as_millis() as i64).unwrap_or_default()
+}
+
+// ---------------------------------------------------------------------------
+// What the webview may ask: a skill's switch, the kept list, a switch, an Undo
+// ---------------------------------------------------------------------------
+
+/// A skill's switch, for its inspector header.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct SkillSwitchInfo {
+    /// `"skill:<name>"`: what `set_enabled_for` takes. A key is not a path:
+    /// the name must still be a direct child of the store when it is used.
+    pub key: String,
+    /// Why there is no switch, or `None` when there is one.
+    pub read_only: Option<SkillReadOnly>,
+}
+
+/// A skill Hanger is keeping while it is switched off.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct KeptSkill {
+    /// `"kept-skill:<uuid>"`.
+    pub key: String,
+    pub name: String,
+    pub at_ms: i64,
+    /// How many links Hanger removed and will put back.
+    pub links_count: usize,
+    /// Off or On did not finish (`stage != Kept`).
+    pub interrupted: bool,
+    /// `<store>/<name>` exists again, so On will refuse with `already_there`.
+    pub back_in_store: bool,
+}
+
+/// Every skill Hanger is keeping, with its count.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct KeptSkills {
+    /// Newest first.
+    pub skills: Vec<KeptSkill>,
+    /// `skills.len()`: the "Switched off" figure.
+    pub count: usize,
+}
+
+/// What a switch or an Undo hands back.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct SkillSwitchReply {
+    pub name: String,
+    /// `"kept:<uuid>"` after Off, `"restored:<name>"` after On; `None` when
+    /// nothing changed.
+    pub receipt_id: Option<String>,
+    pub undoable: bool,
+    pub links_count: usize,
+    /// Sanitised paths of links that could not be put back.
+    pub links_not_restored: Vec<String>,
+    pub kept: KeptSkills,
+}
+
+const SKILL_KEY: &str = "skill:";
+const KEPT_SKILL_KEY: &str = "kept-skill:";
+const KEPT: &str = "kept:";
+const RESTORED: &str = "restored:";
+
+/// The switch for the skill at `skill_path`, or `None` when it is not in the
+/// store: a path outside it, the store itself, or a path where nothing is.
+///
+/// A path through a folder that resolves to the store, such as
+/// `~/.claude/skills/x` where `~/.claude/skills` links to the store, is the
+/// store's. Reads metadata only.
+pub fn switch_info_for(places: &SkillPlaces, skill_path: &Path) -> Option<SkillSwitchInfo> {
+    fs::symlink_metadata(skill_path).ok()?;
+    let relative = under_store(places, skill_path)?;
+    let text = relative.to_str()?;
+    if text.is_empty() {
+        return None;
+    }
+    Some(SkillSwitchInfo { key: format!("{SKILL_KEY}{text}"), read_only: read_only_reason(places, skill_path) })
+}
+
+/// `path` relative to the store, by its spelling or through the canonical
+/// path of its folder.
+fn under_store(places: &SkillPlaces, path: &Path) -> Option<PathBuf> {
+    if let Ok(relative) = path.strip_prefix(&places.store) {
+        return Some(relative.to_path_buf());
+    }
+    let store = fs::canonicalize(&places.store).ok()?;
+    let parent = fs::canonicalize(path.parent()?).ok()?;
+    let real = parent.join(path.file_name()?);
+    real.strip_prefix(&store).ok().map(Path::to_path_buf)
+}
+
+/// Every kept skill, newest first.
+pub fn kept_for(places: &SkillPlaces) -> KeptSkills {
+    let skills: Vec<KeptSkill> = keep::list(&places.keep)
+        .into_iter()
+        .map(|receipt| KeptSkill {
+            key: format!("{KEPT_SKILL_KEY}{}", receipt.id),
+            back_in_store: is_store_name(&receipt.name) && fs::symlink_metadata(places.store.join(&receipt.name)).is_ok(),
+            interrupted: receipt.stage != Stage::Kept,
+            links_count: receipt.links.len(),
+            at_ms: receipt.at_ms,
+            name: receipt.name,
+        })
+        .collect();
+    KeptSkills { count: skills.len(), skills }
+}
+
+/// Switch a store skill off (`skill:<name>`, `enabled: false`) or a kept one
+/// on (`kept-skill:<uuid>`, `enabled: true`). Asking a key for the state it
+/// is already in changes nothing and has no receipt. Any other key is
+/// `NotFound`.
+pub fn set_enabled_for(
+    places: &SkillPlaces,
+    projects: &[PathBuf],
+    key: &str,
+    enabled: bool,
+) -> Result<SkillSwitchReply, SkillSwitchFailure> {
+    if let Some(name) = key.strip_prefix(SKILL_KEY) {
+        if !is_store_name(name) {
+            return Err(SkillSwitchFailure::NameRefused);
+        }
+        if enabled {
+            return Ok(unchanged(places, name));
+        }
+        let switched = switch_off(places, projects, name)?;
+        let receipt_id = format!("{KEPT}{}", switched.id);
+        return Ok(reply(places, switched, receipt_id));
+    }
+    if let Some(id) = key.strip_prefix(KEPT_SKILL_KEY) {
+        let receipt = keep::load(&places.keep, id).ok_or(SkillSwitchFailure::NotFound)?;
+        if !enabled {
+            return Ok(unchanged(places, &receipt.name));
+        }
+        let switched = switch_on(places, id)?;
+        let receipt_id = format!("{RESTORED}{}", switched.name);
+        return Ok(reply(places, switched, receipt_id));
+    }
+    Err(SkillSwitchFailure::NotFound)
+}
+
+/// Take back one switch, by the receipt id its reply carried: `kept:<uuid>`
+/// is switched back on, and `restored:<name>` is switched off again by name,
+/// through every check Off makes. Anything else, and anything that is no
+/// longer there to take back, is `NotUndoable`.
+pub fn undo_for(
+    places: &SkillPlaces,
+    projects: &[PathBuf],
+    receipt_id: &str,
+) -> Result<SkillSwitchReply, SkillSwitchFailure> {
+    let not_there = |failure: SkillSwitchFailure| match failure {
+        SkillSwitchFailure::NotFound | SkillSwitchFailure::NameRefused => SkillSwitchFailure::NotUndoable,
+        other => other,
+    };
+    if let Some(id) = receipt_id.strip_prefix(KEPT) {
+        let switched = switch_on(places, id).map_err(not_there)?;
+        let receipt_id = format!("{RESTORED}{}", switched.name);
+        return Ok(reply(places, switched, receipt_id));
+    }
+    if let Some(name) = receipt_id.strip_prefix(RESTORED) {
+        let switched = switch_off(places, projects, name).map_err(not_there)?;
+        let receipt_id = format!("{KEPT}{}", switched.id);
+        return Ok(reply(places, switched, receipt_id));
+    }
+    Err(SkillSwitchFailure::NotUndoable)
+}
+
+fn reply(places: &SkillPlaces, switched: Switched, receipt_id: String) -> SkillSwitchReply {
+    SkillSwitchReply {
+        name: switched.name,
+        receipt_id: Some(receipt_id),
+        undoable: true,
+        links_count: switched.links,
+        links_not_restored: switched.links_not_restored,
+        kept: kept_for(places),
+    }
+}
+
+fn unchanged(places: &SkillPlaces, name: &str) -> SkillSwitchReply {
+    SkillSwitchReply {
+        name: name.to_string(),
+        receipt_id: None,
+        undoable: false,
+        links_count: 0,
+        links_not_restored: Vec::new(),
+        kept: kept_for(places),
+    }
 }

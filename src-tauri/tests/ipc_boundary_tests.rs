@@ -322,3 +322,56 @@ async fn switch_replies_never_carry_a_config_value() {
     said.refusal(ops::set_enabled_for(&bench.places, &claude, "codex", &key, false, |_| None).await, SwitchFailure::WrongEngine);
     assert_eq!((said.replies, said.contexts, said.refusals), (4, 2, 3));
 }
+
+// The skill switch: what its four commands hand the webview.
+
+use tauri_app_lib::skill_switch::ops::{self as skill_ops, SkillPlaces};
+
+const SKILL_MARKER: &str = "SKILL_BODY_MARKER_7f3a";
+
+#[test]
+fn skill_switch_replies_carry_no_content_and_no_raw_home() {
+    let dir = tempfile::tempdir().unwrap();
+    let home = dir.path().join("home");
+    let store = home.join(".agents/skills");
+    let skill = store.join("marked");
+    fs::create_dir_all(&skill).unwrap();
+    fs::write(skill.join("SKILL.md"), format!("---\nname: marked\ndescription: {SKILL_MARKER}\n---\n{SKILL_MARKER}\n")).unwrap();
+    // A link to it, and a folder for it that will be gone at On.
+    let links = home.join(".cursor/skills");
+    fs::create_dir_all(&links).unwrap();
+    std::os::unix::fs::symlink(&skill, links.join("marked")).unwrap();
+    let places = SkillPlaces {
+        home: home.clone(),
+        store: store.clone(),
+        keep: home.join("Library/Application Support/com.rkarthik.hanger/kept/skills"),
+        db_path: dir.path().join("hanger.db"),
+    };
+    let raw_homes = [home.to_str().unwrap().to_string(), fs::canonicalize(&home).unwrap().to_str().unwrap().to_string()];
+    let mut seen = Vec::new();
+
+    let info = skill_ops::switch_info_for(&places, &skill);
+    seen.push(serde_json::to_string(&info).unwrap());
+    let off = skill_ops::set_enabled_for(&places, &[], "skill:marked", false).unwrap();
+    seen.push(serde_json::to_string(&off).unwrap());
+    seen.push(serde_json::to_string(&skill_ops::kept_for(&places)).unwrap());
+    fs::remove_dir(&links).unwrap();
+    let on = skill_ops::undo_for(&places, &[], off.receipt_id.as_deref().unwrap()).unwrap();
+    assert_eq!(on.links_not_restored.len(), 1, "the gone folder's link is named");
+    seen.push(serde_json::to_string(&on).unwrap());
+    let off_again = skill_ops::undo_for(&places, &[], on.receipt_id.as_deref().unwrap()).unwrap();
+    seen.push(serde_json::to_string(&off_again).unwrap());
+    fs::create_dir_all(&skill).unwrap();
+    let refused = skill_ops::undo_for(&places, &[], off_again.receipt_id.as_deref().unwrap()).unwrap_err();
+    seen.push(serde_json::to_string(&refused).unwrap());
+    seen.push(refused.code().to_string());
+    seen.push(skill_ops::set_enabled_for(&places, &[], "skill:../marked", false).unwrap_err().code().to_string());
+
+    assert_eq!(seen.len(), 8);
+    for text in &seen {
+        assert!(!text.contains(SKILL_MARKER), "a skill's content reached the webview: {text}");
+        for raw in &raw_homes {
+            assert!(!text.contains(raw.as_str()), "the raw home reached the webview: {text}");
+        }
+    }
+}
