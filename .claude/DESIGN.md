@@ -640,8 +640,8 @@ Design record (local-only, not tracked in this repo):
 
 66 non-test `.tsx` files flat in `src/components/`, one component per file,
 and one subdirectory, `src/components/ui/`, which holds shadcn's components
-(Tabs, Popover, Toggle, Tooltip, Collapsible, DropdownMenu and Separator,
-below). Views are suffixed `Pane`.
+(Tabs, Popover, Toggle, Tooltip, HoverCard, Collapsible, DropdownMenu and
+Separator, below). Views are suffixed `Pane`.
 
 The "all default-exported, with an `interface <Name>Props` declared directly
 above" rule holds for most and has named exceptions, listed here so the rule
@@ -2071,6 +2071,13 @@ first caller is the overview card's button, whose trigger is a wrapping
 span so its props stay off the `Toggle`; Hanger's own `Tooltip` serves
 every other control until each is swapped (round 19).
 
+**`HoverCard` (shadcn)** (`ui/hover-card.tsx`) — shadcn's HoverCard on Base
+UI's PreviewCard, restyled as Hanger's on-request overlay:
+`bg-page text-ink-1 border border-line rounded-inner shadow-overlay`. No arrow
+or animation. `HoverCardTrigger` opens after 100ms by default; placement and
+padding belong to the caller. `GroupTicks` uses a right-side preview with the
+group's existing title/count only; the Design system page has its own sample.
+
 **`Collapsible`** (`ui/collapsible.tsx`) — shadcn's Collapsible on Base UI,
 added for Task 3 of `docs/plans/2026-11-26-global-list.md`: `Collapsible`
 (the root, `data-slot="collapsible"`), `CollapsibleTrigger` (a native
@@ -3076,7 +3083,7 @@ the sprite, Codex's dark twin included. Every
 component on the page is the real one, imported and rendered with sample
 props from `src/data/designSystemFixtures.ts`: `GelMeter`, `MechanismGlyph`,
 `EngineReachTiles`, `EngineLabel`/`BrandIcon`, `CategoryFilterCards`,
-`DisclosureBanner`, `Tooltip`, `SummaryStrip`,
+`DisclosureBanner`, `Tooltip`, `ui/hover-card`, `SummaryStrip`,
 `ScanStatusIndicator`, `HangerMark`, `EmptyState`; and, since 2026-08-28,
 the twelve that had landed after the page without a specimen —
 `SegmentedTrack` (its specimen became `ui/tabs`'s on 2026-11-26), `UnderlineTabs`, `ViewControl`, `OverflowMenu`,

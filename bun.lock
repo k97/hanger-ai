@@ -9,6 +9,7 @@
         "@heroicons/react": "^2.2.0",
         "@lobehub/icons-static-svg": "1.94.0",
         "@sentry/react": "^10.78.0",
+        "@shadcn/react": "^0.3.1",
         "@tanstack/react-virtual": "^3.14.28",
         "@tauri-apps/api": "^2.12.5",
         "@tauri-apps/plugin-dialog": "~2.0.2",
@@ -290,6 +291,8 @@
     "@sentry/replay": ["@sentry/replay@10.78.0", "", { "dependencies": { "@sentry/browser-utils": "10.78.0", "@sentry/core": "10.78.0" } }, "sha512-W2TEKRmoZFvEK01u9+F6GKxQsH8xYFOF+A/+OaDoYqpBAj2zJ1oosLFvwbOS74eg3rDkmkEyWCm+p7M8JNk2oA=="],
 
     "@sentry/replay-canvas": ["@sentry/replay-canvas@10.78.0", "", { "dependencies": { "@sentry/core": "10.78.0", "@sentry/replay": "10.78.0" } }, "sha512-opwqU4kZFKxIaOcpHy237bvNzcc4wSGYOv76al7iwktHlnw7h1ggf048bHF9pIPOGxMEA9N/X+vHar6z8nCAtw=="],
+
+    "@shadcn/react": ["@shadcn/react@0.3.1", "", { "peerDependencies": { "@types/react": ">=19", "react": ">=19" }, "optionalPeers": ["@types/react", "react"] }, "sha512-2gOR0HDMtWeRsCZfNDaU0YDFdgH3zsDQ6lz67Fv/y/qjY9y+R8kJqAn6q56phqv7/zHi0wqURjntrNO9zL7vnQ=="],
 
     "@tailwindcss/node": ["@tailwindcss/node@4.3.5", "", { "dependencies": { "@jridgewell/remapping": "^2.3.5", "enhanced-resolve": "^5.24.5", "jiti": "^2.7.0", "lightningcss": "1.33.0", "magic-string": "^1.1.0", "source-map-js": "^1.2.1", "tailwindcss": "4.3.5" } }, "sha512-yT53FzV4ke0cr/BguDxhWMpm5MJu1O2muzk+tKw6lKHjODAsYArBbWwFbJiaksfzFv1tpkO9QHGzmfs1hJT66g=="],
 

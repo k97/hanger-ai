@@ -28,6 +28,7 @@ const INVENTORY = [
   "HangerMark",
   "CategoryFilterCards",
   "Tooltip",
+  "HoverCard",
   "Tabs",
   "UnderlineTabs",
   "ViewControl",
@@ -78,6 +79,29 @@ describe("Design system — the system, rendered by the app that uses it", () =>
       expect(within(figure).getByText("sample")).toBeTruthy();
     }
     expect(screen.getByText(/every figure on this page is sample data/)).toBeTruthy();
+  });
+
+  it("opens the HoverCard specimen on focus and shows only its group title and count", async () => {
+    render(<DesignSystemPane section="components" />);
+    const trigger = screen.getByRole("button", { name: "Skills · 7" });
+
+    fireEvent.focus(trigger);
+
+    const preview = await screen.findByTestId("ds-hover-card-content");
+    expect(preview.textContent).toBe("Skills · 7");
+    expect(preview.textContent).not.toContain("zoom-out");
+  });
+
+  it("opens the HoverCard specimen on pointer hover", async () => {
+    render(<DesignSystemPane section="components" />);
+    const trigger = screen.getByRole("button", { name: "Skills · 7" });
+
+    // Base UI's native mouseenter handler opens the preview; pointerenter
+    // establishes that this is a mouse rather than a touch interaction.
+    fireEvent.pointerEnter(trigger, { pointerType: "mouse" });
+    fireEvent.mouseEnter(trigger);
+
+    expect(await screen.findByTestId("ds-hover-card-content")).toBeTruthy();
   });
 
   it("names tokens rather than values in source; values are read at runtime", () => {

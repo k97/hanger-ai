@@ -17,6 +17,7 @@ import { ScanStatusIndicator } from "./ScanStatusIndicator";
 import HangerMark from "./HangerMark";
 import { Tabs, TabsIndicator, TabsList, TabsTrigger } from "./ui/tabs";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "./ui/hover-card";
 import { Toggle } from "./ui/toggle";
 import { Tooltip as UiTooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
 import UnderlineTabs from "./UnderlineTabs";
@@ -836,6 +837,25 @@ export default function DesignSystemPane({ section }: DesignSystemPaneProps) {
                 <HangerMark size={15} />
               </button>
             </Tooltip>
+          </Specimen>
+
+          <Specimen name="HoverCard" file="ui/hover-card.tsx" note="focus or hover the trigger">
+            <HoverCard>
+              <HoverCardTrigger
+                render={<button type="button" aria-label="Skills · 7" className={miniBtnClass} />}
+                delay={100}
+              >
+                Skills · 7
+              </HoverCardTrigger>
+              <HoverCardContent
+                side="right"
+                align="center"
+                sideOffset={8}
+                className="whitespace-nowrap px-3 py-2 text-small font-medium text-ink-3"
+              >
+                <span data-testid="ds-hover-card-content">Skills · 7</span>
+              </HoverCardContent>
+            </HoverCard>
           </Specimen>
 
           <Specimen name="FavouriteHeart" file="FavouriteHeart.tsx" note="click it; the pop and ring fire on the way in only, and never on the way back out">
