@@ -11,6 +11,7 @@ pub mod menu;
 pub mod provenance;
 pub mod scanner;
 pub mod search;
+pub mod skill_switch;
 pub mod telemetry;
 pub mod updates;
 mod transactional;
