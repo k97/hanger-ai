@@ -97,7 +97,7 @@ describe("RepoPane Linking Gestures Integration", () => {
     expect(handleLinkFromProfile).toHaveBeenCalledWith("/home/user/empty-project");
   });
 
-  it("the category track sits above the strip — the control above what it changes", () => {
+  it("the category track sits above the list — the control above what it changes", () => {
     render(
       <RepoPane
         repoPath="/home/user/project"
@@ -108,9 +108,12 @@ describe("RepoPane Linking Gestures Integration", () => {
         onLinkFromProfile={vi.fn()}
       />
     );
+    // The strip that sat between them is the overview card since Task 6 of
+    // docs/plans/2026-11-27-repo-view-parity.md, so the track is followed
+    // by the list it filters.
     const track = screen.getByRole("tablist", { name: "Filter by category" });
-    const strip = screen.getByLabelText("Inventory summary");
-    expect(track.compareDocumentPosition(strip) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    const list = screen.getByTestId("asset-list-scroll");
+    expect(track.compareDocumentPosition(list) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 
     // The line above reads MARKUP order, which is all happy-dom has — it lays
     // nothing out and has no paint order (verification.md). So `order-2` on
@@ -125,10 +128,6 @@ describe("RepoPane Linking Gestures Integration", () => {
     // removed — the assertion below fails first, so nothing could ever have
     // made that line fire. Real paint order stays a screenshot claim.
     const trackBox = track.parentElement!.parentElement!.parentElement!; // wrapper > lane > section > tablist
-    const stripBox = strip.parentElement!;
-    // Siblings under one flex column, which is the only arrangement in which
-    // an `order` utility would apply at all.
-    expect(trackBox.parentElement).toBe(stripBox.parentElement);
     // Cited verbatim by DESIGN.md -> Pane composition; change them together.
     // `pt-[18px]` since 2026-08-28 (same day, one ruling after `pt-3.5`):
     // the sheet's inset is uniform -- 18 from its top rule, the same 18 the
@@ -136,10 +135,13 @@ describe("RepoPane Linking Gestures Integration", () => {
     // pair as inconsistent next to Needs review, whose strip sits at 18 on
     // both sides. See src/__tests__/shell_first_gap.test.tsx.
     expect(trackBox.className).toBe("px-[18px] pt-[18px] pb-3.5");
-    expect(stripBox.className).toBe("mx-[18px] mb-3.5");
   });
 
   it("the strip follows the selected category: the repo's skill total and the skill noun", () => {
+    // The strip is the overview card's store section now: its head is the
+    // folder's name, its caption the tab's figure and noun (round 29 q4).
+    const cap = document.createElement("span");
+    document.body.appendChild(cap);
     const counts = { total: 9, byCategory: { skill: { total: 7, global: 0, project: 7 }, tool: { total: 0, global: 0, project: 0 } } };
     render(
       <RepoPane
@@ -150,12 +152,14 @@ describe("RepoPane Linking Gestures Integration", () => {
         onRefresh={vi.fn()}
         onSelectAsset={vi.fn()}
         onLinkFromProfile={vi.fn()}
+        overviewSlots={{ cap }}
+        forceDock
       />
     );
     fireEvent.click(screen.getAllByText("Skills").find((el) => el.closest("[tabindex]"))!.closest("[tabindex]")!);
-    const strip = screen.getByLabelText("Inventory summary");
-    expect(within(strip).getByText("7")).toBeTruthy();
-    expect(within(strip).getByText("skills in project")).toBeTruthy();
+    const card = screen.getByTestId("overview-card");
+    expect(within(card).getByText("project")).toBeTruthy();
+    expect(within(card).getByText("7 skills")).toBeTruthy();
   });
 });
 

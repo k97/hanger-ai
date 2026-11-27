@@ -104,7 +104,7 @@ describe("Avionics A3 Toolbar Verification", () => {
   it("renders no filesystem path string in the toolbar region", async () => {
     mockPreferences.selected_sidebar_item = "/Users/test/project-alpha";
     const { unmount } = render(<App />);
-    await screen.findByLabelText("Refresh scan");
+    await screen.findByLabelText("Show overview ⌘E"); // the repository is up: its overview button is in the cap
     // The breadcrumb names the repo by its basename, never its path. Since
     // 2026-08-28 the crumb lives in the sidebar cap (crumb_in_band.test.tsx),
     // so the name is asserted there; the banner must carry neither.

@@ -11,7 +11,9 @@ import type { Inventory, CategoryCounts } from "../App";
  * tick marks, two-line ListRows under quiet group heads, and no column
  * labels. Line 2 keeps the repository's own words: the Engine column's word
  * on the left and the State column's on the right, moved, not rewritten.
- * The summary strip stays; the overview card is Global's alone.
+ * Since Task 6 of docs/plans/2026-11-27-repo-view-parity.md the summary
+ * strip is gone: the overview card is the repository's summary too, drawn
+ * only into a cap slot, as on Global.
  */
 
 afterEach(() => cleanup());
@@ -112,6 +114,13 @@ function renderPane(over: Partial<ComponentProps<typeof RepoPane>> = {}) {
   );
   return { onSelectAsset, container };
 }
+
+/** A cap slot for the overview card's button, as App's content cap gives. */
+const slot = () => {
+  const cap = document.createElement("span");
+  document.body.appendChild(cap);
+  return { overviewSlots: { cap } };
+};
 
 const rowNamed = (name: string) =>
   screen.getAllByTestId("list-row").find((r) => within(r).getByTestId("list-row-name").textContent === name)!;
@@ -269,10 +278,22 @@ describe("a repository's list", () => {
     expect((container.firstElementChild as HTMLElement).className.split(/\s+/)).toContain("relative");
   });
 
-  it("keeps the summary strip, and draws no overview card", () => {
-    renderPane();
-    expect(screen.getByText("assets in project")).toBeTruthy();
-    expect(screen.queryByTestId("overview-dock")).toBeNull();
-    expect(screen.queryByRole("dialog")).toBeNull();
+  it("draws the overview card docked, headed by the repository, with no summary strip", () => {
+    renderPane({ ...slot(), forceDock: true });
+    const dock = screen.getByTestId("overview-dock");
+    expect(within(dock).getByText("project")).toBeTruthy();
+    expect(document.querySelector('section[aria-label="Inventory summary"]')).toBeNull();
+  });
+
+  it("keeps the macOS access panel inside the lane box when the card docks", () => {
+    const blocked: Inventory = {
+      ...inventory,
+      project_scans: [
+        { path: ROOT, layered: false, rule_chains: {}, parse_warnings: [`macOS blocked access to ${ROOT}`] },
+      ] as unknown as Inventory["project_scans"],
+    };
+    renderPane({ ...slot(), forceDock: true, inventory: blocked });
+    const panel = screen.getByText("macOS Folder Scan Access Denied");
+    expect(panel.closest('[class~="mr-[306px]"]')).not.toBeNull();
   });
 });

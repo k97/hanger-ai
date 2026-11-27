@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { render, screen, fireEvent, waitFor, cleanup } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, cleanup, within } from "@testing-library/react";
 import { open } from "@tauri-apps/plugin-dialog";
 import RepoPane from "./RepoPane";
 import { Inventory } from "../App";
@@ -52,6 +52,11 @@ describe("RepoPane TCC Warnings Relocation", () => {
     const handleSelectAsset = vi.fn();
     const handleRefresh = vi.fn();
     const handleLinkFromProfile = vi.fn();
+    // The review pill is the overview card's Needs review row since Task 6
+    // of docs/plans/2026-11-27-repo-view-parity.md; docked, the card draws
+    // in the pane.
+    const cap = document.createElement("span");
+    document.body.appendChild(cap);
 
     render(
       <RepoPane
@@ -61,6 +66,8 @@ describe("RepoPane TCC Warnings Relocation", () => {
         onRefresh={handleRefresh}
         onSelectAsset={handleSelectAsset}
         onLinkFromProfile={handleLinkFromProfile}
+        overviewSlots={{ cap }}
+        forceDock
       />
     );
 
@@ -85,7 +92,7 @@ describe("RepoPane TCC Warnings Relocation", () => {
     // denied" is a chmod problem, and the machine-scope Cline denial (despite
     // containing "macOS blocked access to" mid-string) does not start with
     // it, so it cannot hijack a panel that renders this project's own path.
-    fireEvent.click(screen.getByText("Needs review 3"));
+    fireEvent.click(within(screen.getByTestId("overview-card")).getByRole("button", { name: /^Needs review\s*3$/ }));
     expect(screen.getByText("Permission denied: /home/user/project/vendored")).toBeDefined();
     expect(screen.getByText("Malformed frontmatter in skill at /home/user/project/SKILL.md")).toBeDefined();
     expect(

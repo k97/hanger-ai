@@ -913,16 +913,21 @@ list each sit in a lane, `mx-auto w-full max-w-[736px] px-12` (T3's
 `.chat-content-lane`), inside their own `px-[18px]`/`mx-[18px]` inset so
 the two line up. On a repository the facet row sits in the same lane
 (`RepoPane`'s `CategoryFilterCards` block, `px-[18px] pt-[18px] pb-3.5`
-around `laneClass(laneWide)`), so the tabs share the rows' left edge; its
-summary strip keeps its full-width block. Neither pane paints a ground of
+around `laneClass(laneWide)`), so the tabs share the rows' left edge. On
+both panes the facet block and the list sit in `laneBoxClass`, so the lane
+keeps 32px clear of a docked overview card; on a repository the macOS
+access panel takes the same margin on itself, since a wrapper would void
+its block's 45% height cap. Neither pane paints a ground of
 its own: both roots are `relative flex-1 flex flex-col min-h-0
 overflow-hidden font-sans`, so the sheet's corner shows and a docked card
 anchors to the pane. Below 640px of lane
 area (`LANE_MIN_WIDTH`, T3's `minChatWidth`) the padding drops to `px-3` and
 the ticks go; one `ResizeObserver` on the pane decides (`usePaneWidth`,
 shared by both panes), and a zero width (no layout yet) is no answer. Each
-pane takes a test-only `forceLane`. A repository draws `GroupTicks` the
-same way, for its four groups, and no overview card: that is Global's. The list is flat on the page: no border, no
+pane takes a test-only `forceLane`, and a test-only `forceDock`. A
+repository draws `GroupTicks` the same way, for its four groups, and its
+overview card docks or opens from the cap exactly as Global's does
+(`OverviewHost`). The list is flat on the page: no border, no
 column headers, no header-click sorting. A group head is T3's shelf header,
 `h-8 px-2.5 text-small font-medium text-ink-3`: the label, a 1px rule
 (`ui/separator`, `flex-1`, `--line`), the backend's figure in `font-normal
@@ -934,10 +939,14 @@ list scrolled past its rows it sat over the Subagent rows with a stale
 "MCP servers 33". T3's heads scroll with their rows, and so do these. The
 folding groups draw the same head as `CollapsibleGroup`.
 
-**`RepoPane`** (`RepoPane.tsx:36-69`) — the same shape plus `repoPath`,
-`onRefresh`, `onLinkFromProfile`, `linkedRepos?`, `onPromoteCandidates?`,
-and the same four under its own band's names: `issues?` / `onReview?`
-(`:63-64`), `enginesBandOpen?` / `onToggleEnginesBand?` (`:67-68`).
+**`RepoPane`** (`RepoPane.tsx` → `RepoPaneProps`) — the same shape plus
+`repoPath`, `onRefresh`, `onLinkFromProfile`, `linkedRepos?`,
+`onPromoteCandidates?` and `issues?` / `onReview?`, and Global's overview
+props: `overviewSlots?`, `inspectorOpen?`, `overviewHidden?` /
+`onToggleOverviewHidden?` (the one `overview_hidden` preference), with
+test-only `forceLane` and `forceDock`. App keys it by the repository's root
+(`key={repoPaneRoot}`), so another repository opens on All with the card's
+popover closed; a tab change within one repository is not a remount.
 
 **`NeedsReviewPane`** (`NeedsReviewPane.tsx:11-29`) — `issues`, `counts`,
 `kind`, `place`, `selectedId`, `onSelectKind`, `onSelectPlace`,
@@ -1016,22 +1025,28 @@ answered / not yet asked / can't be asked, which said whether Hanger had
 asked each server rather than whether anything was up. The four coverage
 counts went with `get_mcp_engine_summary` on 2026-11-25.
 
-**The band is what the per-engine prose became, on a project pane.**
-`HeroBand` (Surfaces and controls, below) renders in the strip's `children`
-slot. Global's "By engine" band (T3 of
-`docs/plans/2026-11-25-ia-engines-into-global.md`) is gone: the engine chips
-took its slot on every tab, then moved above the strip (Q2 of
-`docs/plans/2026-11-25-decisions-round-2.md`), then into the overview card
-(Task 7 of `docs/plans/2026-11-26-overview-card.md`), and its row filter
-became the engine lens (`ProfilePane`, above). "By engine" on a project pane, one row per
-engine with its asset count, sorted `none` last then count descending
-(`RepoPane.tsx:243-253`, rendered `:565-573`). The project pane's subtitle
-lost its engine tail when the band arrived — a count of engine kinds beside
-a count of assets read as one figure (`RepoPane.tsx:236-241`).
+**A repository's summary is the overview card too**, since Task 6 of
+`docs/plans/2026-11-27-repo-view-parity.md` (round 29, layout A), which
+took its `SummaryStrip` and `HeroBand` off the screen. The card's first
+section is "By engine": one row per engine with its asset count ("96
+assets", "1 asset"), not buttons and no All engines row, sorted `none` last
+then count descending (`RepoPane.tsx` → `engineRows`). The store section is
+headed by the folder's name, its caption the assets on All and the tab's own
+noun on a kind tab ("48 skills", "9 MCP servers"). Then the nested
+repositories, then Needs review and Rescan. No engine is picked, so the card
+never shows an engine's budget, and a figure is withheld only while it is a
+zero before a finished scan. Global's "By engine" band (T3 of
+`docs/plans/2026-11-25-ia-engines-into-global.md`) went earlier: the engine
+chips took its slot, then the overview card did (Task 7 of
+`docs/plans/2026-11-26-overview-card.md`), and its row filter became the
+engine lens (`ProfilePane`, above). No engine tail on the store caption — a
+count of engine kinds beside a count of assets read as one figure.
 
 **Three `DisclosureBanner` rows were retired on 2026-08-28.** Undeclared MCP
 processes and the scan's own warnings became lines in the review pill's
-popover; the nested-repo notice became the engine band's foot row.
+popover; the nested-repo notice became the engine band's foot row, and
+since Task 6 of `docs/plans/2026-11-27-repo-view-parity.md` the overview
+card's own section.
 
 - Undeclared processes, on every Global tab rather than only MCP servers:
   one line per group, "Running with no config behind it.", with the pid or
@@ -1044,19 +1059,15 @@ popover; the nested-repo notice became the engine band's foot row.
   skipped something it could not read.", the warning itself as the detail
   (`RepoPane.tsx:287-291`). The macOS TCC panel is untouched and still
   stands above the list plane (`RepoPane.tsx:594`).
-- Nested repositories: the band's full-width foot row, because the thing
-  they qualify is the per-engine tally directly above them — the count, the
-  paths, the depth-cap note and `Promote…` (`RepoPane.tsx:314-349`). The rows
-above it are withheld on a category tab, where the per-engine figures are
-root-wide and the hero's numeral is not (`:259-262`); the foot stays. What
-that leaves on a category tab is a band whose collapsed line is the bare
-label "By engine" with no marks after it, and a foot whose copy still says
-"towards this row" of rows that are not drawn — `HeroBand` cannot tell rows
-withheld from counts not yet arrived (`HeroBand.tsx`, the `rows.length`
-gate), and the fix that resolves it is a per-category `engines` field on
-`get_asset_counts`, which does not exist. Karthik's ruling, 2026-08-29,
-taken as the honest shape until that field lands; he may reverse it from the
-running app.
+- Nested repositories: the overview card's own section above its actions,
+  "3 nested repos are counted in ‹folder›" / "1 nested repo is counted in
+  ‹folder›", with the paths (scrolling inside the card past 120px; nothing
+  folds), the depth-cap note and `Promote…` (`RepoPane.tsx` → `nestedFoot`).
+  On a kind tab the engine rows above it are withheld, because the
+  per-engine figures are root-wide and the tab's are not; the section stays,
+  since it is about the folder. Narrowing the rows needs a per-category
+  `engines` field on `get_asset_counts`, which does not exist. Karthik's
+  ruling, 2026-08-29, kept by Review Focus 2 of the parity plan.
 
 **The pill's figure is the lines it shows.** `StripReview.count` is counted
 where the lines are built and allowlisted there — `reviewLineCount` and
@@ -2748,13 +2759,15 @@ the spacer and the link-map inset together.
 The panes no longer share one vertical order — `ProfilePane` and `RepoPane`
 gained a track above their strip (`2de751a`) that the other two never had.
 
-**`ProfilePane` and `RepoPane`: track, strip, list plane, foot.** The
+**`ProfilePane` and `RepoPane`: track, list plane, foot.** The
 category track (`CategoryFilterCards`, above) opens the pane in
 `px-[18px] pt-[18px] pb-3.5`, inside a centred lane (`laneClass`) on both
-panes (`ProfilePane`'s facet block; `RepoPane`'s, the same classes). On a
-repository the `SummaryStrip` follows, in `mx-[18px] mb-3.5`; Global draws
-no strip since Task 7 of `docs/plans/2026-11-26-overview-card.md`, so its
-track's block spaces it from the list. Then the
+panes (`ProfilePane`'s facet block; `RepoPane`'s, the same classes).
+Neither draws a strip: Global's became the overview card in Task 7 of
+`docs/plans/2026-11-26-overview-card.md`, a repository's in Task 6 of
+`docs/plans/2026-11-27-repo-view-parity.md`, so the track's block spaces it
+from the list, with `RepoPane`'s macOS access panel between them when it is
+drawn. Then the
 list plane, flat per §3 — no `bg-plane`, and since Tasks 1 and 4 of
 `docs/plans/2026-11-26-global-list.md` no border or corners either, in both
 panes: `@container flex-1 min-h-0 overflow-y-auto mx-[18px] pb-1.5`,

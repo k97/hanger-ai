@@ -6,10 +6,10 @@
 // case — one ordinary project, zero nested repos — would pay a modal flash for
 // a question that never comes.
 //
-// Since 2026-08-28 the notice is the hero band's foot row rather than a
-// DisclosureBanner of its own — the thing it qualifies is the per-engine
-// tally directly above it. The band is what folds now, so "collapsed by
-// default" is asserted against `enginesBandOpen`.
+// Since 2026-08-28 the notice left its DisclosureBanner for the hero band's
+// foot row, and since Task 6 of docs/plans/2026-11-27-repo-view-parity.md it
+// is the overview card's own section above the actions (round 29, layout A).
+// Nothing folds (round 28 q6), so the tests read the card docked.
 
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { render, screen, cleanup, fireEvent } from "@testing-library/react";
@@ -46,10 +46,16 @@ function inventoryWith(
   } as unknown as Inventory;
 }
 
+/** A cap slot for the card's button; docked, the card draws in the pane. */
+const docked = () => {
+  const cap = document.createElement("span");
+  document.body.appendChild(cap);
+  return { overviewSlots: { cap }, forceDock: true };
+};
+
 function renderPane(
   inventory: Inventory,
-  linkedRepos: string[] = ["/Users/k/Work"],
-  enginesBandOpen = true
+  linkedRepos: string[] = ["/Users/k/Work"]
 ) {
   return render(
     <RepoPane
@@ -62,8 +68,7 @@ function renderPane(
       onSelectAsset={() => {}}
       onLinkFromProfile={() => {}}
       onPromoteCandidates={() => {}}
-      enginesBandOpen={enginesBandOpen}
-      onToggleEnginesBand={() => {}}
+      {...docked()}
     />
   );
 }
@@ -79,7 +84,7 @@ describe("nested repository notice", () => {
         "/Users/k/Work/repo3",
       ])
     );
-    expect(screen.getByText("3 nested repos count towards this row")).toBeDefined();
+    expect(screen.getByText("3 nested repos are counted in Work")).toBeDefined();
   });
 
   /* Minor 8 (final review, 2026-08-28): the paths were joined with " · " into
@@ -106,7 +111,7 @@ describe("nested repository notice", () => {
 
   it("uses the singular form for one candidate", () => {
     renderPane(inventoryWith(["/Users/k/Work/repo1"]));
-    expect(screen.getByText("1 nested repo counts towards this row")).toBeDefined();
+    expect(screen.getByText("1 nested repo is counted in Work")).toBeDefined();
   });
 
   it("subtracts candidates that are already linked", () => {
@@ -114,7 +119,7 @@ describe("nested repository notice", () => {
       inventoryWith(["/Users/k/Work/repo1", "/Users/k/Work/repo2"]),
       ["/Users/k/Work", "/Users/k/Work/repo1"]
     );
-    expect(screen.getByText("1 nested repo counts towards this row")).toBeDefined();
+    expect(screen.getByText("1 nested repo is counted in Work")).toBeDefined();
   });
 
   it("shows nothing when every candidate is already linked", () => {
@@ -142,16 +147,6 @@ describe("nested repository notice", () => {
     expect(screen.queryByText(/stopped at 6 levels/i)).toBeNull();
   });
 
-  it("ships folded so the notice stays non-intrusive", () => {
-    const { unmount } = renderPane(inventoryWith(["/Users/k/Work/repo1"]), undefined, false);
-    // The foot row lives inside the band; folded, none of it is in the DOM.
-    expect(screen.queryByTestId("hero-band-foot")).toBeNull();
-    expect(screen.queryByText("/Users/k/Work/repo1")).toBeNull();
-    unmount();
-    renderPane(inventoryWith(["/Users/k/Work/repo1"]));
-    expect(screen.getByText("/Users/k/Work/repo1")).toBeDefined();
-  });
-
   it("hands the unlinked candidates to the promote action", () => {
     const onPromote = vi.fn();
     render(
@@ -165,8 +160,7 @@ describe("nested repository notice", () => {
         onSelectAsset={() => {}}
         onLinkFromProfile={() => {}}
         onPromoteCandidates={onPromote}
-        enginesBandOpen
-        onToggleEnginesBand={() => {}}
+        {...docked()}
       />
     );
     fireEvent.click(screen.getByText("Promote…"));

@@ -4,12 +4,13 @@ import * as path from "path";
 import { BLOCK_GAP } from "./spacingContract";
 
 /**
- * The two content panes stack the same four blocks, and space them the same.
+ * The two content panes stack the same blocks, and space them the same.
  *
  * Global (`ProfilePane`) and My machine (`RepoPane`) both lay out: a facet
- * row, a summary strip (RepoPane only since Task 7 of
- * docs/plans/2026-11-26-overview-card.md; Global's is the overview card),
- * optional disclosure cards, and the list. Every gap
+ * row, optional disclosure cards, and the list. The summary strip that sat
+ * under the facets is the overview card on both (Global since Task 7 of
+ * docs/plans/2026-11-26-overview-card.md, a repository since Task 6 of
+ * docs/plans/2026-11-27-repo-view-parity.md). Every gap
  * between them is one value, and the horizontal inset is one value.
  *
  * They were not. Measured at 2x in the running app, Global drew 16px between
@@ -37,14 +38,12 @@ function read(rel: string): string {
 const INSET = "18px";
 
 describe("pane block rhythm", () => {
-  it("gives the summary strip its wrapper class on a repository, and Global draws none", () => {
-    // Global's strip is the overview card since Task 7 of
-    // docs/plans/2026-11-26-overview-card.md, so the strip block is
-    // RepoPane's alone; ProfilePane must not grow one back.
-    const m = read("src/components/RepoPane.tsx").match(/<div className="(mx-\[[^\]]+\][^"]*)">\s*<SummaryStrip/);
-    expect(m, "src/components/RepoPane.tsx: summary strip wrapper").toBeTruthy();
-    expect(m![1]).toBe(`mx-[${INSET}] mb-${BLOCK_GAP}`);
-    expect(read("src/components/ProfilePane.tsx")).not.toMatch(/<SummaryStrip\b/);
+  it("draws no summary strip in either pane", () => {
+    // Both strips are the overview card: Global's since Task 7 of
+    // docs/plans/2026-11-26-overview-card.md, a repository's since Task 6 of
+    // docs/plans/2026-11-27-repo-view-parity.md. Neither pane may grow one
+    // back.
+    for (const pane of PANES) expect(read(pane), pane).not.toMatch(/<SummaryStrip\b/);
   });
 
   it("keeps the list card free of a top margin, in both panes", () => {

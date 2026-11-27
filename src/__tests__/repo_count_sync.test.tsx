@@ -6,6 +6,16 @@ import path from "path";
 import RepoPane from "../components/RepoPane";
 import { Inventory, CategoryCounts } from "../App";
 
+/** The engine breakdown is the overview card's first section since Task 6
+ *  of docs/plans/2026-11-27-repo-view-parity.md. The card draws only into a
+ *  cap slot; docked, it draws in the pane. */
+const docked = () => {
+  const cap = document.createElement("span");
+  document.body.appendChild(cap);
+  return { overviewSlots: { cap }, forceDock: true };
+};
+const engineRow = (name: string) => document.querySelector(`[data-testid="overview-card"] [data-engine-name="${name}"]`) as HTMLElement;
+
 // Ground truth inventory fixture representing assets from src-tauri/tests/fixtures/project
 const fixtureInventory: Inventory = {
   agents: [],
@@ -109,7 +119,7 @@ describe("Per-repository count synchronization", () => {
     expect(screen.getByRole("heading", { level: 3, name: "Subagents · 2" })).toBeTruthy();
   });
 
-  it("RepoPane renders the engine breakdown as the hero band, including the Any agent bucket", () => {
+  it("RepoPane renders the engine breakdown in the overview card, including the Any agent bucket", () => {
     const mockCounts: CategoryCounts = {
       total: 261,
       byCategory: {
@@ -134,28 +144,28 @@ describe("Per-repository count synchronization", () => {
         onRefresh={() => {}}
         onSelectAsset={() => {}}
         onLinkFromProfile={() => {}}
-        enginesBandOpen
-        onToggleEnginesBand={() => {}}
+        {...docked()}
       />
     );
 
-    // The standalone Engines line is gone; the breakdown is the hero's band.
+    // The standalone Engines line is gone; the breakdown is the card's
+    // "By engine" section.
     expect(screen.queryByText("Engines")).toBeNull();
-    expect(screen.getByTestId("hero-band-toggle").textContent).toContain("By engine");
+    expect(screen.getByTestId("overview-card").textContent).toContain("By engine");
 
-    const claude = screen.getByTestId("hero-band-row-Claude Code");
+    const claude = engineRow("Claude Code");
     expect(claude.textContent).toContain("Claude Code");
     expect(claude.textContent).toContain("200");
-    expect(screen.getByTestId("hero-band-row-Cursor").textContent).toContain("17");
-    expect(screen.getByTestId("hero-band-row-none").textContent).toContain("Any agent");
-    expect(screen.getByTestId("hero-band-row-none").textContent).toContain("44");
+    expect(engineRow("Cursor").textContent).toContain("17");
+    expect(engineRow("Any agent").textContent).toContain("Any agent");
+    expect(engineRow("Any agent").textContent).toContain("44");
 
     // Paired with the label: the mark in the Claude Code row must resolve to
     // that engine specifically, not just be present.
     expect(claude.querySelector("svg")?.getAttribute("data-brand")).toBe("claude_code");
   });
 
-  it("the band sorts named engines descending and places Any agent last regardless of count size", () => {
+  it("the card sorts named engines descending and places Any agent last regardless of count size", () => {
     const mockCounts: CategoryCounts = {
       total: 280,
       byCategory: {},
@@ -175,19 +185,14 @@ describe("Per-repository count synchronization", () => {
         onRefresh={() => {}}
         onSelectAsset={() => {}}
         onLinkFromProfile={() => {}}
-        enginesBandOpen
-        onToggleEnginesBand={() => {}}
+        {...docked()}
       />
     );
 
-    const ids = Array.from(container.querySelectorAll("[data-testid^='hero-band-row-']")).map(
-      (el) => el.getAttribute("data-testid")
+    const ids = Array.from(container.querySelectorAll("[data-testid='overview-card'] [data-engine-name]")).map(
+      (el) => el.getAttribute("data-engine-name")
     );
-    expect(ids).toEqual([
-      "hero-band-row-Claude Code",
-      "hero-band-row-Gemini / Antigravity",
-      "hero-band-row-none",
-    ]);
+    expect(ids).toEqual(["Claude Code", "Gemini / Antigravity", "Any agent"]);
   });
 
   it("verifies App.tsx passes assetCounts prop through to RepoPane", () => {

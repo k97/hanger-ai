@@ -24,8 +24,10 @@ import { sortAssetItems, type SortField, type SortDirection } from "../utils/sor
 import { registrationKey } from "../utils/mcpRegistration";
 import { formatEngineLabel } from "../utils/engineUtils";
 import { transportChipLabel } from "../utils/serverRows";
-import SummaryStrip, { type StripReview } from "./SummaryStrip";
-import HeroBand, { type HeroBandRow } from "./HeroBand";
+import { type StripReview } from "./SummaryStrip";
+import OverviewCard, { type EngineCountRow } from "./OverviewCard";
+import OverviewHost from "./OverviewHost";
+import { DOCKED_LANE_CLEARANCE, laneBoxClass, shouldDockOverview } from "../utils/overviewLayout";
 import ReviewPillActions from "./ReviewPillActions";
 import type { FindingLine } from "./FindingPopover";
 import { miniBtnClass } from "./miniButton";
@@ -66,14 +68,23 @@ interface RepoPaneProps {
    *  alongside the scan warnings that used to have a banner of their own. */
   issues?: ReviewIssue[];
   onReview?: (issue: ReviewIssue | null) => void;
-  /** The band under the hero, folded or open, and the toggle that persists
-   *  it. Owned by App so the choice survives a rebuild of this pane. */
-  enginesBandOpen?: boolean;
-  onToggleEnginesBand?: () => void;
+  /** Where App lets this pane put the overview card's button: an empty
+   *  slot in the content cap, as on Global. With no slot, as standalone,
+   *  the card is drawn nowhere. */
+  overviewSlots?: { cap: HTMLElement | null };
+  /** Whether the inspector column is open. The card never docks beside it
+   *  (`shouldDockOverview`). */
+  inspectorOpen?: boolean;
+  /** App's `overview_hidden`, the one preference Global's card reads too. */
+  overviewHidden?: boolean;
+  onToggleOverviewHidden?: () => void;
   /** Test-only. The lane's padding is measured off the pane's width, which
    *  `happy-dom` never lays out, so this lets a test draw the narrow lane,
    *  as ProfilePane's own does. No production call site passes it. */
   forceLane?: "wide" | "narrow";
+  /** Test-only, for the same reason: whether the overview card docks. No
+   *  production call site passes it. */
+  forceDock?: boolean;
 }
 
 export default function RepoPane({
@@ -96,9 +107,12 @@ export default function RepoPane({
   onPromoteCandidates,
   issues = [],
   onReview,
-  enginesBandOpen = false,
-  onToggleEnginesBand,
+  overviewSlots,
+  inspectorOpen = false,
+  overviewHidden = false,
+  onToggleOverviewHidden,
   forceLane,
+  forceDock,
 }: RepoPaneProps) {
   const [internalCategory, setInternalCategory] = useState<CategoryType | null>(null);
   // Header-click sorting went with the column headers (Task 4 of
@@ -110,7 +124,13 @@ export default function RepoPane({
   // (one ResizeObserver, `usePaneWidth`), as on Global.
   const [paneEl, setPaneEl] = useState<HTMLDivElement | null>(null);
   const paneWidth = usePaneWidth(paneEl);
-  const measuredWide = laneIsWide(paneWidth, paneWidth - 2 * LIST_INSET);
+  // The overview card docks or opens from the cap, exactly as on Global
+  // (ProfilePane), and the lane keeps 32px clear of a docked card.
+  const capSlot = overviewSlots?.cap ?? null;
+  const overviewDocked = forceDock ?? shouldDockOverview(paneWidth, inspectorOpen);
+  const dockedCardShown = capSlot !== null && overviewDocked && !overviewHidden;
+  const laneArea = dockedCardShown ? paneWidth - DOCKED_LANE_CLEARANCE : paneWidth - 2 * LIST_INSET;
+  const measuredWide = laneIsWide(paneWidth, laneArea);
   const laneWide = forceLane ? forceLane === "wide" : measuredWide;
   const selectedCategory = propSelectedCategory ?? internalCategory;
   const sortField = propSortField ?? internalSortField;
@@ -198,10 +218,10 @@ export default function RepoPane({
     (sa) => matchesStateFilter(sa, stateFilter)
   );
 
-  // Strip data: backend-owned total, frontend-derived state split. A
-  // selected category narrows both to that category's own figures rather
-  // than the repo's whole total — `categoryCountKey` is the same
-  // category-to-field map ProfilePane's strip uses.
+  // The card's store section: backend-owned total, frontend-derived state
+  // split. A selected category narrows both to that category's own figures
+  // rather than the repo's whole total — `categoryCountKey` is the same
+  // category-to-field map ProfilePane uses.
   const repoFolderName = repoPath.split("/").pop() || repoPath;
   const kindKey = selectedCategory ? categoryCountKey(selectedCategory) : null;
   const stripTotal =
@@ -209,18 +229,18 @@ export default function RepoPane({
       ? assetCounts?.total ?? 0
       : assetCounts?.byCategory[kindKey]?.total ?? 0;
   const stripCounts = linkStateCounts(inventory, { kind: "repo", root: repoPath }, selectedCategory);
-  // No engine tail: the per-engine breakdown is the hero's band now, and a
-  // count of engine kinds beside a count of assets read as one figure.
-  const stripSubtitle =
+  // On a kind tab the caption names the kind, "48 skills" (round 29 q4); on
+  // All the card prints its own "N assets".
+  const storeCaption =
     selectedCategory === null
-      ? `assets in ${repoFolderName}`
-      : `${categoryNoun(selectedCategory)} in ${repoFolderName}`;
+      ? undefined
+      : `${stripTotal.toLocaleString("en-US")} ${categoryNoun(selectedCategory, stripTotal === 1 ? "one" : "many")}`;
 
-  /* The band's rows — the sort the Engines line used: `none` last, then
-     count descending.
+  /* The card's engine rows — the sort the Engines line used: `none` last,
+     then count descending.
 
      Empty on a category tab (Karthik's reviewer's ruling, final review
-     2026-08-28). `assetCounts.engines` is flattened across every category:
+     2026-08-28; Review Focus 2 of docs/plans/2026-11-27-repo-view-parity.md). `assetCounts.engines` is flattened across every category:
      `count_assets` groups by (category, scope, engine) and then accumulates
      the engine map with no category key (`scanner.rs:63-64`), and there is
      no per-category engine figure to ask for. Left in place, the Skills tab
@@ -229,10 +249,10 @@ export default function RepoPane({
      proximity is what made it a claim. The subtitle's `· N engines` tail
      came off for the same reason.
 
-     The band itself stays for the nested-repo foot, which is about the root
-     and true on every tab. Narrowing the rows properly needs a new backend
-     field; hiding them is the honest, reversible half. */
-  const engineRows: HeroBandRow[] =
+     The nested-repo section stays, since it is about the root and true on
+     every tab. Narrowing the rows properly needs a new backend field;
+     hiding them is the honest, reversible half. */
+  const engineRows: EngineCountRow[] =
     selectedCategory !== null
       ? []
       : Object.entries(assetCounts?.engines ?? {})
@@ -242,7 +262,6 @@ export default function RepoPane({
             engineKey: key,
             engineName: formatEngineLabel(key),
             value: count,
-            word: count === 1 ? "asset" : "assets",
           }));
 
   // The pill's lines: this repository's issues, then the warnings the scan
@@ -284,48 +303,53 @@ export default function RepoPane({
     ),
   };
 
-  // Nested repositories are the band's last row rather than a banner: the
-  // thing they qualify is the per-engine tally directly above them.
+  // Nested repositories are the card's own section above its actions
+  // (round 29, layout A), rather than a banner.
   // Hoisted rather than inlined so the figure that reaches the screen stays
   // visible to `no-frontend-counting`'s detector, which reads a line for a
   // count-named assignment: as a bare `unlinkedCandidates.length` inside the
   // plural fork it matched nothing, and an allowlist entry for it would have
   // gone stale on the spot.
   const nestedCount = unlinkedCandidates.length; // allowlisted: nested repository paths, not assets
+  // Laid out as G1's option A drew it: the line and its paths beside the
+  // icon, the paths scrolling inside the card past 120px (no fold, round 28
+  // q6), and Promote… on a foot of its own.
   const nestedFoot = nestedCount > 0 && (
     <>
-      <InformationCircleIcon size={14} className="shrink-0 text-ink-3" />
-      <span className="flex flex-col min-w-0">
-        <span className="text-small text-ink-2">
-          {nestedCount === 1
-            ? "1 nested repo counts towards this row"
-            : `${nestedCount} nested repos count towards this row`}
+      <div className="flex gap-2.5 px-2.5 pt-1">
+        <InformationCircleIcon size={14} className="shrink-0 text-ink-3" />
+        <span className="flex flex-col gap-px min-w-0">
+          <span className="text-small text-ink-2">
+            {nestedCount === 1
+              ? `1 nested repo is counted in ${repoFolderName}`
+              : `${nestedCount} nested repos are counted in ${repoFolderName}`}
+          </span>
+          {/* One line per path, as the banner had them. Joined into a single
+              `truncate` span, every path after the first was clipped off the
+              end of one line on any root with more than one nested repository
+              (final review, 2026-08-28, Minor 8). `break-all` because a path
+              has no spaces to wrap at. */}
+          <span className="flex flex-col max-h-[120px] overflow-y-auto">
+            {unlinkedCandidates.map((path) => (
+              <span key={path} className="text-micro font-mono text-ink-3 break-all">
+                {path}
+              </span>
+            ))}
+          </span>
+          {depthCapped && (
+            <span className={`${captionClass} mt-1`}>
+              This is a broad folder, so the search stopped at 6 levels — repositories deeper than
+              that are not listed.
+            </span>
+          )}
         </span>
-        {/* One line per path, as the banner had them. Joined into a single
-            `truncate` span, every path after the first was clipped off the
-            end of one line on any root with more than one nested repository
-            (final review, 2026-08-28, Minor 8). `break-all` because a path
-            has no spaces to wrap at. */}
-        {unlinkedCandidates.map((path) => (
-          <span key={path} className="text-micro font-mono text-ink-3 break-all">
-            {path}
-          </span>
-        ))}
-        {depthCapped && (
-          <span className={captionClass}>
-            This is a broad folder, so the search stopped at 6 levels — repositories deeper than
-            that are not listed.
-          </span>
-        )}
-      </span>
+      </div>
       {onPromoteCandidates && (
-        <button
-          type="button"
-          onClick={() => onPromoteCandidates(unlinkedCandidates)}
-          className={`${miniBtnClass} ml-auto`}
-        >
-          Promote…
-        </button>
+        <div className="flex justify-end px-2.5 pt-2">
+          <button type="button" onClick={() => onPromoteCandidates(unlinkedCandidates)} className={miniBtnClass}>
+            Promote…
+          </button>
+        </div>
       )}
     </>
   );
@@ -548,6 +572,29 @@ export default function RepoPane({
     );
   };
 
+  // The overview card, the repository's summary since Task 6 of
+  // docs/plans/2026-11-27-repo-view-parity.md: its engines' asset counts,
+  // the folder's own link state, the nested repositories, then Needs review
+  // and Rescan. No engine to pick, so never an engine's budget. A figure
+  // the backend has given is shown; only a zero before a finished scan is
+  // withheld.
+  const overviewCard = (
+    <OverviewCard
+      engines={[]}
+      selectedEngineId={null}
+      storeHead={repoFolderName}
+      storeTotal={stripTotal}
+      storeCaption={storeCaption}
+      pending={!assetCounts || (stripTotal === 0 && (loading || !hasScanned))}
+      engineCounts={engineRows}
+      linkLegend={{ counts: stripCounts, active: stateFilter, onFilter: (f) => onStateFilterChange?.(f) }}
+      engineFigures={null}
+      review={review}
+      scan={{ scannedAt: scannedAt ? scannedAt.getTime() : null, scanning: loading, onRescan: onRefresh }}
+      notice={nestedFoot || undefined}
+    />
+  );
+
   return (
     <div ref={setPaneEl} className="relative flex-1 flex flex-col min-h-0 overflow-hidden font-sans">
       {/* Facet chips. No View control here (§5.6's "Rows" choice lives on
@@ -555,7 +602,9 @@ export default function RepoPane({
           (`discover_machine`, not `discover_repo`), so there is no
           repo-scoped grouping for a control here to drive — this pane's
           Tools rows stay per-registration regardless, and a control that
-          cannot regroup its own rows would be inert chrome, not a fix. */}
+          cannot regroup its own rows would be inert chrome, not a fix. In
+          the list's lane box, as on Global, so a docked card keeps clear. */}
+      <div className={laneBoxClass(dockedCardShown)}>
       <div className="px-[18px] pt-[18px] pb-3.5">
         {/* No `?? 0` here. The chip distinguishes "not counted yet"
             (undefined) from "empty" (0) so it can keep a chip through a scan
@@ -575,43 +624,25 @@ export default function RepoPane({
           />
         </div>
       </div>
-
-      {/* Inventory summary strip */}
-      <div className="mx-[18px] mb-3.5">
-        <SummaryStrip
-          total={stripTotal}
-          subtitle={stripSubtitle}
-          scannedAt={scannedAt}
-          scanning={loading}
-          counts={stripCounts}
-          activeStateFilter={stateFilter}
-          onFilterState={(f) => onStateFilterChange?.(f)}
-          onRescan={onRefresh}
-          review={review}
-        >
-          {/* `|| nestedFoot`: on a root whose assets carry no engine at all
-              the rows are empty, and the nested-repo notice would otherwise
-              have nowhere left to render. */}
-          {(engineRows.length > 0 || nestedFoot) && (
-            <HeroBand
-              label="By engine"
-              open={enginesBandOpen}
-              onToggle={() => onToggleEnginesBand?.()}
-              rows={engineRows}
-              foot={nestedFoot || undefined}
-            />
-          )}
-        </SummaryStrip>
       </div>
+
+      <OverviewHost
+        card={overviewCard}
+        capSlot={capSlot}
+        docked={overviewDocked}
+        hidden={overviewHidden}
+        onToggleHidden={onToggleOverviewHidden}
+      />
 
       {/* Anything needing attention, above the list plane. The Engines line,
           the scan warnings and the nested repositories have all moved into
-          the hero — the band's rows, the review pill's popover, and the
-          band's foot row. */}
+          the overview card: its engine rows, its Needs review row, and its
+          nested-repository section. The panel takes the lane box's margin
+          itself: a wrapper would void this block's 45% height cap. */}
       <div className="px-[18px] pb-3.5 flex flex-col gap-2.5 empty:hidden shrink-0 max-h-[45%] overflow-y-auto">
         {/* macOS Permission denied TCC Fix Panel */}
         {tccWarnings.length > 0 && (
-          <div className="flex flex-col gap-3 p-3.5 border border-line rounded-inner leading-relaxed animate-fade-in">
+          <div className={`flex flex-col gap-3 p-3.5 border border-line rounded-inner leading-relaxed animate-fade-in ${laneBoxClass(dockedCardShown)}`}>
             <div className="flex gap-2 text-state-danger">
               <ExclamationTriangleIcon className="shrink-0 mt-0.5" size={16} />
               <div className="flex flex-col gap-1 min-w-0">
@@ -754,8 +785,8 @@ export default function RepoPane({
               page, in a centred lane, two-line rows under quiet group heads,
               and no column headers. Line 2 is the repository's own: the
               Engine and State columns' words. The ticks sit in the lane's
-              left margin, so they go when the lane narrows. No overview
-              card: it is Global's alone. */}
+              left margin, so they go when the lane narrows. The lane box
+              ends 32px short of a docked overview card, as on Global. */}
           <MessageScroller.Provider defaultScrollPosition="start" autoScroll={false}>
           <MessageScroller.Root className="relative flex-1 min-h-0 flex flex-col">
           {laneWide && <GroupTicks groups={tickGroups} />}
@@ -765,6 +796,7 @@ export default function RepoPane({
             data-testid="asset-list-scroll"
             className="@container flex-1 min-h-0 overflow-y-auto mx-[18px] pb-1.5"
           >
+           <div className={laneBoxClass(dockedCardShown)}>
            <MessageScroller.Content role="list" aria-live="off" data-testid="list-lane" className={laneClass(laneWide)}>
             {/* Skills Group */}
             {showSkills && sortedSkills.length > 0 && (
@@ -862,6 +894,7 @@ export default function RepoPane({
               </MessageScroller.Item>
             )}
            </MessageScroller.Content>
+           </div>
           </MessageScroller.Viewport>
           </MessageScroller.Root>
           </MessageScroller.Provider>
