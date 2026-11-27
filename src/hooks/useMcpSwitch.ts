@@ -1,5 +1,6 @@
 import { useCallback, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import posthog, { isPostHogConfigured } from "../posthog";
 import type { EngineContext, SwitchReply } from "../types/engineContext";
 import type { SkillSwitchReply } from "../types/skillSwitch";
 import {
@@ -223,6 +224,9 @@ export function useMcpSwitch({
           undoable: reply.undoable,
           pending: false,
         });
+        if (isPostHogConfigured) {
+          posthog.capture("mcp_server_switch_changed", { enabled: a.enabled, scope: "single" });
+        }
         onChangedRef.current();
         return reply.context;
       } catch (err) {
@@ -253,6 +257,9 @@ export function useMcpSwitch({
           undoable: reply.undoable,
           pending: false,
         });
+        if (isPostHogConfigured) {
+          posthog.capture("skill_switch_changed", { enabled: a.enabled });
+        }
         onChangedRef.current();
         return reply;
       } catch (err) {
@@ -334,6 +341,12 @@ export function useMcpSwitch({
           undoable,
           pending: false,
         });
+        if (isPostHogConfigured) {
+          posthog.capture("mcp_server_switch_changed", {
+            enabled,
+            scope: "group",
+          });
+        }
         onChangedRef.current();
       } finally {
         releaseAll(keys);

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import posthog, { isPostHogConfigured } from "../posthog";
 import { XMarkIcon, MagnifyingGlassIcon, FolderIcon } from "./icons";
 
 interface SidebarScanModalProps {
@@ -81,6 +82,9 @@ export default function SidebarScanModal({
       const done = linked.length > 0 ? ` Linked before failing: ${linked.join(", ")}.` : "";
       setError(`${String(err)}${done}`);
     } finally {
+      if (linked.length > 0 && isPostHogConfigured) {
+        posthog.capture("repositories_linked");
+      }
       setLinking(false);
     }
   };

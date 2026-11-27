@@ -5,6 +5,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { save, open } from "@tauri-apps/plugin-dialog";
 import { info, warn, error } from "@tauri-apps/plugin-log";
 import { screenNameFor } from "./utils/screenName";
+import { posthogAppLogger, setPostHogConsent } from "./posthog";
 
 function forwardConsole() {
   if (typeof window === "undefined") return;
@@ -824,6 +825,8 @@ export default function App() {
         setScanning(false);
         setLoading(false);
         setLastScanAt(new Date());
+        // No counts: they come from the backend (`get_asset_counts`), never the webview.
+        posthogAppLogger.info("hanger scan completed", {});
 
         await refreshGlobalCounts();
         await refreshAnnotations();
@@ -858,6 +861,7 @@ export default function App() {
         setError(payload.error);
         setScanning(false);
         setLoading(false);
+        posthogAppLogger.warn("hanger scan failed", { source: "scan" });
       });
     };
 
@@ -892,12 +896,16 @@ export default function App() {
       const crash = await invoke<string | null>("get_preference", { key: "consent_crash" });
       const usage = await invoke<string | null>("get_preference", { key: "consent_usage" });
 
-      setConsentCrash(crash === "true");
+      const crashEnabled = crash === "true";
       // `null` means the preference row has never been written, which is the
       // default-on case. An explicit stored value always wins, so a user who
       // declined stays declined.
-      setConsentUsage(usage === null ? true : usage === "true");
-      setOnboardingComplete(onboarding === "true");
+      const usageEnabled = usage === null ? true : usage === "true";
+      setConsentCrash(crashEnabled);
+      setConsentUsage(usageEnabled);
+      const onboardingFinished = onboarding === "true";
+      setPostHogConsent(onboardingFinished && usageEnabled, onboardingFinished && crashEnabled);
+      setOnboardingComplete(onboardingFinished);
 
       // Load persistent layout state (selection & width)
       const activeItem = await invoke<string | null>("get_preference", { key: "selected_sidebar_item" });
@@ -916,6 +924,9 @@ export default function App() {
         setSelectedSidebarItem(activeItem);
       }
       setSidebarRestored(true);
+      posthogAppLogger.info("hanger renderer initialized", {
+        onboarding_state: onboarding === "true" ? "complete" : "incomplete",
+      });
       // The engine Global was last seen by; "" is All engines. Checked
       // against the list at render time, not here: the list arrives with the
       // first scan.
@@ -1620,6 +1631,7 @@ export default function App() {
                 await invoke("set_preference", { key: "consent_crash", value: consentCrash ? "true" : "false" });
                 await invoke("set_preference", { key: "consent_usage", value: consentUsage ? "true" : "false" });
                 await invoke("set_preference", { key: "onboarding_complete", value: "true" });
+                setPostHogConsent(consentUsage, consentCrash);
                 setOnboardingComplete(true);
                 setSelectedSidebarItem("profile");
                 await invoke("set_preference", { key: "selected_sidebar_item", value: "profile" });
@@ -2735,6 +2747,7 @@ export default function App() {
                       onChange={async (e) => {
                         const val = e.target.checked;
                         setConsentCrash(val);
+                        setPostHogConsent(consentUsage, val);
                         await invoke("set_preference", { key: "consent_crash", value: val ? "true" : "false" });
                       }}
                       className="w-4 h-4 accent-[var(--fill)] cursor-pointer"
@@ -2748,6 +2761,7 @@ export default function App() {
                       onChange={async (e) => {
                         const val = e.target.checked;
                         setConsentUsage(val);
+                        setPostHogConsent(val, consentCrash);
                         await invoke("set_preference", { key: "consent_usage", value: val ? "true" : "false" });
                       }}
                       className="w-4 h-4 accent-[var(--fill)] cursor-pointer"

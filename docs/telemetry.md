@@ -150,6 +150,38 @@ paths, names, or file content.**
 
 ---
 
+## 2b. PostHog (webview)
+
+Added 2026-11-27 alongside GA4 and Sentry, not in place of them; whether it
+replaces either is an open TODO.
+
+- **Build-time binding:** `src/posthog.ts` reads `VITE_POSTHOG_KEY` and
+  `VITE_POSTHOG_HOST`, which `release.yml` passes from repository secrets of
+  the same names. Without both, PostHog is never initialised and every call
+  site is a no-op.
+- **Consent:** the SDK starts opted out. `setPostHogConsent(usage, crash)` is
+  called once onboarding is complete and whenever either Settings toggle
+  changes. `before_send` passes `$exception` only with crash consent and every
+  other event only with usage consent.
+- **Off by configuration** (pinned by `src/posthog.test.ts`): autocapture,
+  rage clicks, dead clicks, heatmaps, page views and page leaves, performance
+  capture, session recording, surveys, web experiments, feature flags, and
+  loading any remote script. Clicked text in Hanger is asset names, server
+  names and file paths, so nothing is read from the DOM.
+- **Events:** `mcp_server_switch_changed` (`enabled`, `scope`), `skill_switch_changed` (`enabled`),
+  `asset_link_completed` (`asset_category`, `mechanism`,
+  `all_landed`), `repositories_linked`,
+  `discovery_directory_opened` (`directory_mark`, a catalogue id). No path,
+  asset name, server name or URL is sent.
+- **Logs:** `hanger renderer initialized` (`onboarding_state`),
+  `hanger scan completed` (no attributes), `hanger scan failed`.
+- **Exceptions:** unhandled errors and rejections, and React root errors via
+  `captureException` before the existing Sentry handler. Console errors are not
+  captured.
+- **Identity:** the SDK's own anonymous id, persisted in the webview. Revoking
+  usage consent opts out of capture; unlike GA4's `telemetry_client_id`, the
+  id is not deleted.
+
 ## 3. Consent Revocation Event Ordering
 
 To ensure compliance, revoking usage consent follows a strict transactional sequence:
