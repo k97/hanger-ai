@@ -83,8 +83,19 @@ deliberately left unfixed.
   1,158 asset rows. Killed and reopened, it scanned normally within seconds and
   switched a Claude Code server off and on. Evidence:
   `docs/evidence/2026-11-25-engines-ui/50-release-first-launch-stuck-scanning.png`.
-  Not reproduced or traced; the scan-status events between the scan task and
-  the webview are the first suspect.
+  Traced 2026-11-27: not a scan defect. The root is
+  `~/Documents/gemini-superpowers-antigravity`, and the first read of a
+  `~/Documents` path from an app macOS has not seen raises the Documents
+  permission prompt and holds the call until it is answered. A fresh local
+  release build reproduced it: the prompt appeared, and `sample` showed the
+  scan thread in `scanner::is_broad_root` → `std::fs::read_dir` →
+  `__open_nocancel` (`project_pass`, called from `scan_targets`). Answering it
+  let the scan finish. On 2026-11-26 the app was opened by a session driving
+  the screen, so the prompt most likely sat unseen. A local build is ad-hoc
+  signed under a new code identity each time, so it asks again; the CI-signed
+  release asks once per install. Still open, and a product question rather than
+  a defect: while the prompt waits, every asset stays hidden, because results
+  land only on `scan://complete`.
 - ProfilePane's group-header figures fall back to the rows on screen before
   `get_asset_counts` answers (and RepoPane's, the same way, hoisted into
   `skillsHeadFigure` and its siblings by Task 4 of
