@@ -2,6 +2,8 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+> **Reconciled 2026-11-28** after the `--plan` review (`docs/reviews/2026-11-28-plan-2026-11-28-mcp-phase2-plan.md`), applying `docs/plans/research/2026-11-28-reconciliation-rulings.md` R3 (this plan owns `Ask`, the filing functions, `Preview`, the tools and Gate N) and the P1 fixes: the ambiguity test uses names of 129+ characters; the withheld rule is a character allowlist; `scanned` and `measure` become `pub(crate)`; Task 6 regenerates the README; an in-app Undo leaves the proposal reading `undone`; skills switch on and off directly (Q10). To serve P3, P4 and P8 without a later rename, `Preview.to` is `Option<ItemState>` and `Status::Applied` carries an optional `stopped_at`. Every shared name is in `docs/plans/research/2026-11-28-cross-plan-interfaces.md`.
+
 **Goal:** A user's engine asks Hanger's MCP server to switch one server or skill on or off, or to undo an earlier proposal. The server files a proposal and changes nothing. Hanger's window shows Hanger's own statement of the change, a person approves or declines it, and the app applies it through the existing switch code, with a receipt and an Undo.
 
 **Architecture:** The server (`src-tauri/src/mcp_server/`) resolves the model's public ids against the live context and writes one 0600 JSON file per proposal under `<data>/mcp/proposals`. That folder is the only thing it writes. The app polls `list_mcp_proposals`. `approve.rs` builds each preview from Hanger's own reading of the files and, on approval, calls `mcp::switch::ops` or `skill_switch::ops` unchanged, in the app's own process. `Ask` is the closed, extend-only enum of what a model may request.
@@ -39,8 +41,8 @@
 
 | # | Correction | Where |
 |---|---|---|
-| 1 | `public_key` collides: two names sharing 127 characters, and a path outside home sanitising to its basename | Task 2: resolve against the live context, exactly one match or `ambiguous`; the real key is stored |
-| 2 | No tool gives a `skill:` key | Task 2: the skill tool takes `asset_id` as `find_assets` returns it, resolved through `switch_info_for` |
+| 1 | `public_key` collides: two names over 128 characters sharing their first 127, and a path outside home sanitising to its basename | Task 2: resolve against the live context, exactly one match or `ambiguous`; the real key is stored |
+| 2 | No tool gives a `skill:` key | Task 2: the skill tool takes `asset_id` as `find_assets` returns it (`~/.agents/skills/<name>`). Off resolves through `switch_info_for`; on resolves the same name among `kept_for`'s kept skills |
 | 3 | `Undo { receipt_id }` lets a model name any receipt | Task 2: `propose_undo(proposal_id)`; the receipt is read from that proposal's own file |
 | 4 | Preview assumed `edit::set_enabled` on the config | Task 4: all four `SWITCHES` rows (Codex, Claude Code, Gemini CLI's state file, Antigravity CLI) and skills |
 | 5 | Wrappers left out `skill_switch_projects(&app)` | Task 5: `decide_mcp_proposal` passes it |
@@ -50,7 +52,7 @@
 
 ## Cross-plan interfaces
 
-Every name below exists on `main` today (`e673e20`). This plan calls each one unchanged and defines none of them.
+Every consumed name below exists on `main` today (checked at `c45a702`). This plan calls each one unchanged and defines none of them. The full table, with every consumer, is `docs/plans/research/2026-11-28-cross-plan-interfaces.md`.
 
 - **P2 (slice 2) owns `mcp::switch::ops`, `context`, `edit` (flags) and `SWITCHES`.** This plan uses:
   - `ops::context_for(&SwitchPlaces, &str, P) -> EngineContext`;
@@ -61,18 +63,28 @@ Every name below exists on `main` today (`e673e20`). This plan calls each one un
   - `context::ItemState`, `ContextItem`, `context::dialect_of` (`pub(crate)`), `context::STASH_KEY`;
   - `edit::set_enabled`, `edit::gemini_set_enabled`;
   - `registry::switch_for`.
-  - P2 keeps these source-compatible (design §5). When P2's target type adds project items, a project item a model proposes previews as `Unavailable { code: "not_found" }` and can still be declined. That fails safe. Moving `approve::preview` onto P2's resolver is a follow-up once P2 merges.
-- **P4a owns `mcp::switch::apply`.** This plan uses `apply::latest_receipts(&Path) -> Vec<Receipt>` and `Receipt { id, path, backup_file, .. }`, unchanged.
+  - P2 keeps these source-compatible (design §5): `set_enabled_for` becomes `set_enabled_at(Target::Machine { key })` and `undo_for` becomes `undo_at(None, …)`, with signatures unchanged. Project items (`Target::InProject`) appear only in P2's `context_in`, which this plan never builds, so a model cannot name one: an unknown key is `NotFound`. Moving `approve::preview` onto P2's resolver is a follow-up once P2 merges.
+- **P4a owns `mcp::switch::apply`.** This plan uses `apply::latest_receipts(&Path) -> Vec<Receipt>` and `Receipt { id, path, backup_file, .. }`, unchanged. After P4 Task 1, `apply::undo` routes a key receipt to `apply::undo_key` (R1); only P2's per-project Claude switch makes one, and a model can't propose that, so this plan's previews never meet one.
 - **P3 owns `mcp::switch::vendor`.** This plan uses `vendor::claude_stashed(&Path) -> Vec<StashedServer>` (for `id` and `name`), unchanged.
-- **P5 owns `skill_switch`.** This plan uses:
+- **P5 owns `skill_switch`.** This plan uses, unchanged (P5 Task 1 pins them):
   - `skill_switch::ops::switch_info_for(&SkillPlaces, &Path) -> Option<SkillSwitchInfo>`;
-  - `set_enabled_for(&SkillPlaces, &[PathBuf], key: &str, enabled: bool) -> Result<SkillSwitchReply, SkillSwitchFailure>`;
+  - `set_enabled_for(&SkillPlaces, &[PathBuf], key: &str, enabled: bool) -> Result<SkillSwitchReply, SkillSwitchFailure>`: `skill:<name>` off, `kept-skill:<uuid>` on;
   - `undo_for(&SkillPlaces, &[PathBuf], receipt_id: &str)`;
   - `kept_for(&SkillPlaces) -> KeptSkills`.
 - **P7 (T19) owns `engine_status`.** This plan uses `lib.rs` → `claude_cli_for(engine_id)`, which calls `engine_status::resolve::search_path` and `resolve_in`, as it does today.
 - **Unowned, used as is:** `discover::discover_machine_at`, `discover::engine_display_name` (`pub(crate)`), `agents::engine_base`, `domain::RegistrationKey`, `preferences::sanitise_path`.
+- **Unowned shared file:** `src/hooks/useMcpSwitch.ts`. P1 (`decideProposal`), P2 (`project`) and P4 (`loadProfile`) all modify it. Merge order follows the waves, P1 → P2 → P4; whichever lands second rebases onto the first.
 
-**What this plan owns and others extend** (design §5): `mcp_server`, the proposal queue, `Proposal`, `Ask`, `Status`, `approve.rs`, `list_mcp_proposals`, `decide_mcp_proposal` and the approval surface. P3 adds `Ask` variants for remove and add (by Registry id or an existing entry). P4b adds `ApplyProfile`. P8 adds agent mode and read proposals. Each later plan adds its own variant, its own filing function, its own preview arm and its own decide arm. None of them renames or removes a variant or a field. Task 1's wire-shape test enforces that.
+**What this plan owns and others extend** (design §5, ruling R3). The names below are the ones every sibling plan uses:
+
+- `mcp_server`, the proposal queue, and `proposals::{Proposal, Ask, Status, save, load, waiting, sweep, Filed, ProposalState, EXPIRES_AFTER_MS, MAX_WAITING, FORGET_AFTER_MS}`.
+- `Ask`, tagged by `verb`. P1's variants are `Server`, `Skill` and `Undo`. **P3** adds `Add { engine_id, from_key }`, `Remove { engine_id, key }` and `AddFromRegistry { engine_id, registry_name, version }`. **P4b** adds `ApplyProfile { profile, everything_else_off }`. **P8** adds `Read { tool, id }`.
+- One filing function per verb, each `(p: &ServerPlaces, …, asked_by: Option<&'static str>, now_ms: i64) -> Result<Fresh<Filed>, Refusal>`: P1's `propose_server`, `propose_skill`, `propose_undo` and `get_proposal`; P3's `propose_add`, `propose_remove`, `propose_registry_add`; P4b's `propose_profile`; P8's `propose_read`.
+- The tools in `TOOLS` (`mcp_server/mod.rs`): `propose_server_switch`, `propose_skill_switch`, `propose_undo`, `get_proposal`; working names until Gate N.
+- `approve::{Preview, PreviewTarget, Change, PendingProposals, pending, decide, engine_of, undo_approved}`, `list_mcp_proposals`, `decide_mcp_proposal`, `undo_mcp_proposal`, and the approval surface. `Preview { …, to: Option<ItemState>, target: PreviewTarget, change: Change }`: `to` is `None` for a verb that is not on or off (P3's add and remove, P4b's profile, P8's read). P4b adds `PreviewTarget::Profile`, P8 adds `PreviewTarget::Read`. `Change` is not extended: P3 uses `Lines`, `Command` and `Withheld`, P4b `Lines`, P8 `Nothing`.
+- `Status::Applied { receipt_id, stopped_at }`: `stopped_at` is `None` for every P1 verb and is left out of the wire when `None`. P4b sets it to the failure code where a partial profile load stopped.
+
+Each later plan adds its own variant, its own filing function, its own preview arm and its own decide arm. None of them renames or removes a variant or a field. Task 1's wire-shape test enforces that.
 
 ## File structure
 
@@ -82,7 +94,7 @@ Every name below exists on `main` today (`e673e20`). This plan calls each one un
 - `src-tauri/src/mcp_server/tools.rs`: modify. Adds the `Refusal` variants and makes `public_key` `pub(crate)`.
 - `src-tauri/src/mcp_server/mod.rs`: modify. Four tools, `Spec.choices`, `run` gains `asked_by`, and the module doc.
 - `src-tauri/src/mcp_server/strings.rs`: modify. Gate N's strings.
-- `src-tauri/src/lib.rs`: modify. Two commands, `generate_handler!` and a `server_places(app)` helper.
+- `src-tauri/src/lib.rs`: modify. Three commands, `generate_handler!` and a `server_places(app)` helper.
 - `src-tauri/tests/mcp_proposal_tests.rs`: create. `mcp_server_protocol_tests.rs` and `ipc_boundary_tests.rs` are modified.
 - `docs/mcp-server.md`, `docs/ipc.md`, `README.md` (generated figures) and `.claude/DESIGN.md` (the new surface's paragraph).
 - Frontend:
@@ -107,6 +119,7 @@ Every name below exists on `main` today (`e673e20`). This plan calls each one un
   - **The rewritten `strings::INSTRUCTIONS`.** "Nothing here changes a file" goes false.
   - **The rewritten `docs/mcp-server.md`.** "Five tools" and "never changes a file" go false.
   - **The band:** its name, Approve and Decline, and the line for each `Change` kind (lines, withheld, command, skill move, nothing, unavailable).
+  - **The state words** a model reads back through `get_proposal`, `undone` included.
   - **The pill's waiting line**, which names the item and the engine. The asked-by wording is "Claude Code asks…" when `asked_by` maps and "An engine asks…" when it does not.
   - **The ⌘K action.**
   - **The decide failure codes** `not_waiting` and `expired`, as words.
@@ -131,8 +144,8 @@ Lands the owned interfaces first, before any tool or command uses them.
 - Produces, in `proposals.rs`:
   - `pub const EXPIRES_AFTER_MS: i64 = 600_000; pub const MAX_WAITING: usize = 5; pub const FORGET_AFTER_MS: i64 = 86_400_000;`
   - `#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)] pub struct Proposal { pub id: String, pub at_ms: i64, pub asked_by: Option<String>, pub ask: Ask, pub status: Status }`. `id` is a UUID v4. `asked_by` is an engine id from Task 3's fixed table, never client text.
-  - `#[serde(tag = "verb", rename_all = "snake_case")] pub enum Ask { Server { engine_id: String, key: String, enabled: bool }, Skill { key: String, enabled: bool }, Undo { of: String } }`. `key` is the real resolved key, `skill:<name>` for a skill. `of` is a proposal id.
-  - `#[serde(tag = "state", rename_all = "snake_case")] pub enum Status { Waiting, Applied { receipt_id: Option<String> }, Declined, Expired, Failed { code: String } }`. `Expired` is derived on read and never written.
+  - `#[serde(tag = "verb", rename_all = "snake_case")] pub enum Ask { Server { engine_id: String, key: String, enabled: bool }, Skill { key: String, enabled: bool }, Undo { of: String } }`. `key` is the real resolved key: `skill:<name>` for a skill going off, `kept-skill:<uuid>` for one coming back on. `of` is a proposal id.
+  - `#[serde(tag = "state", rename_all = "snake_case")] pub enum Status { Waiting, Applied { receipt_id: Option<String>, #[serde(default, skip_serializing_if = "Option::is_none")] stopped_at: Option<String> }, Undone { receipt_id: Option<String> }, Declined, Expired, Failed { code: String } }`. `Expired` is derived on read and never written. `Undone` is written when the change a proposal applied is taken back, by the in-app Undo (`undo_approved`, Task 5) or by an approved `Undo` proposal; its `receipt_id` is the Undo's own. `stopped_at` is always `None` here; P4b sets it for a partial profile load.
   - `pub fn save(dir: &Path, p: &Proposal) -> std::io::Result<()>` refuses a relative `dir`. It makes `dir` 0700 if missing and writes `<id>.json` as 0600 through a temp file in `dir` and a rename.
   - `pub fn load(dir: &Path, id: &str, now_ms: i64) -> Option<Proposal>` returns `None` unless `uuid::Uuid::parse_str(id)` succeeds, before any filesystem call. A `Waiting` older than `EXPIRES_AFTER_MS` reads `Expired`.
   - `pub fn waiting(dir: &Path, now_ms: i64) -> Vec<Proposal>` lists unexpired `Waiting` proposals, oldest first. It skips files that don't parse and names that aren't `<uuid>.json`.
@@ -140,7 +153,7 @@ Lands the owned interfaces first, before any tool or command uses them.
 
 - [ ] **Step 0: Per-kind baseline**, read-only. Run `sqlite3 -readonly "$HOME/Library/Application Support/com.rkarthik.hanger/hanger.db" "select category, scope, count(*) from assets group by category, scope order by category, scope;"`. Paste the output into the task report.
 - [ ] **Step 1: Write the failing tests** in `mcp_proposal_tests.rs`, each on a `tempfile` folder:
-  - `the_ask_wire_shape_is_pinned`: `serde_json::to_value` of each `Ask` and `Status` variant equals a literal. For example `Ask::Server{engine_id:"codex",key:"/h/.codex/config.toml:github",enabled:false}` is `{"verb":"server","engine_id":"codex","key":"/h/.codex/config.toml:github","enabled":false}`, and `Status::Applied{receipt_id:Some("file:1")}` is `{"state":"applied","receipt_id":"file:1"}`. Deserialising each literal gives the variant back.
+  - `the_ask_wire_shape_is_pinned`: `serde_json::to_value` of each `Ask` and `Status` variant equals a literal. For example `Ask::Server{engine_id:"codex",key:"/h/.codex/config.toml:github",enabled:false}` is `{"verb":"server","engine_id":"codex","key":"/h/.codex/config.toml:github","enabled":false}`, and `Status::Applied{receipt_id:Some("file:1"),stopped_at:None}` is `{"state":"applied","receipt_id":"file:1"}` (no `stopped_at` key). `Status::Applied{receipt_id:Some("profile-load:u"),stopped_at:Some("write_failed")}` is `{"state":"applied","receipt_id":"profile-load:u","stopped_at":"write_failed"}`, and `Status::Undone{receipt_id:Some("file:2")}` is `{"state":"undone","receipt_id":"file:2"}`. Deserialising each literal gives the variant back.
   - `a_proposal_carries_no_free_text`: the serialised `Proposal` has exactly the keys `id`, `at_ms`, `asked_by`, `ask` and `status`.
   - `proposal_files_are_0600_in_a_0700_folder`: after `save` into a missing `dir`, the mode of `dir` is `0o700` and the file's is `0o600`.
   - `a_relative_folder_is_refused`: `save(Path::new("rel/p"), …)` is `Err`, and `rel` is not created.
@@ -164,9 +177,9 @@ Lands the owned interfaces first, before any tool or command uses them.
 - Consumes: Task 1, `ops::context_for`, `skill_switch::ops::switch_info_for`, and `tools::scanned` and `measure`.
 - Produces:
   - `tools::Refusal` gains `Ambiguous`, `ReadOnly`, `AlreadySo`, `QueueFull` and `NotUndoable`, with codes `ambiguous`, `read_only`, `already_so`, `queue_full` and `not_undoable`. `strings::refusal` gets one arm each, from Gate N.
-  - `tools::public_key` becomes `pub(crate)`.
+  - `tools::public_key`, `tools::scanned` and `tools::measure` become `pub(crate)`, so `proposals.rs` can call them. All three are private `fn`s on `main` today. P8's agent mode calls the same three.
   - `pub struct Filed { pub id: String, pub expires_at_ms: i64 }`, `Serialize`.
-  - `pub struct ProposalState { pub id: String, pub state: String, pub failure_code: Option<String>, pub undoable: bool }`, `Serialize`. `state` is `Status`'s tag. `undoable` is `Applied` with `Some` receipt on a non-`Undo` ask.
+  - `pub struct ProposalState { pub id: String, pub state: String, pub failure_code: Option<String>, pub undoable: bool }`, `Serialize`. `state` is `Status`'s tag. `undoable` is `Applied` with `Some` receipt on a non-`Undo` ask; an `Undone` proposal is not undoable.
   - `pub fn propose_server(p: &ServerPlaces, engine_id: &str, key: &str, enabled: bool, asked_by: Option<&'static str>, now_ms: i64) -> Result<Fresh<Filed>, Refusal>`
   - `pub fn propose_skill(p: &ServerPlaces, asset_id: &str, enabled: bool, asked_by: Option<&'static str>, now_ms: i64) -> Result<Fresh<Filed>, Refusal>`
   - `pub fn propose_undo(p: &ServerPlaces, proposal_id: &str, asked_by: Option<&'static str>, now_ms: i64) -> Result<Fresh<Filed>, Refusal>`
@@ -179,27 +192,26 @@ Lands the owned interfaces first, before any tool or command uses them.
     4. `(state == On) == enabled` is `AlreadySo`.
     5. `waiting(...).len() >= MAX_WAITING` is `QueueFull`.
     6. Otherwise save `Ask::Server { engine_id, key: item.key (the real one), enabled }`.
-  - **`propose_skill`:**
+  - **`propose_skill`** (Q10 grants on and off, so both are filed directly):
     1. `asset_id` must start with `~/` and have no `..` component, or it is `NotFound`.
-    2. `p.home.join(rest)` goes to `switch_info_for`. `None` is `NotFound`.
-    3. `read_only` is `ReadOnly`.
-    4. `enabled == true` is `AlreadySo`, because a skill find_assets lists is in the store, so on. A kept skill comes back on only through `propose_undo`.
-    5. Then the queue check, and `Ask::Skill { key: info.key, enabled: false }`.
+    2. **Off:** `p.home.join(rest)` goes to `switch_info_for`. `None` is `NotFound`. `read_only` is `ReadOnly`. Then the queue check, and `Ask::Skill { key: info.key, enabled: false }`.
+    3. **On:** if `switch_info_for` finds the skill in the store, it is `AlreadySo`. Otherwise `rest` must be `.agents/skills/<name>` (the store's own spelling, the id `find_assets` gave before the skill went off), and `<name>` is looked up among `kept_for(&p.skills)`'s skills that are neither `interrupted` nor `back_in_store`. No match is `NotFound`; more than one is `Ambiguous`. Then the queue check, and `Ask::Skill { key: <that kept skill's "kept-skill:<uuid>">, enabled: true }`.
   - **`propose_undo`:**
     1. `load` gives `None`, which is `NotFound`.
-    2. An `Undo` ask, or a status other than `Applied { receipt_id: Some(_) }`, is `NotUndoable`.
+    2. An `Undo` ask, or a status other than `Applied { receipt_id: Some(_), .. }`, is `NotUndoable`. An `Undone` proposal is `NotUndoable`.
     3. Then the queue check, and `Ask::Undo { of }`.
   - **`get_proposal`:** `load`. `None` is `NotFound`.
 
 - [ ] **Step 1: Write the failing tests.** Server cases use a fixture home with a Codex `config.toml` and an Antigravity `.gemini/config/mcp_config.json`, run in the child with the store marked scanned. Copy `mcp_server_boundary_tests.rs` → `marked()`.
   - `a_server_key_is_resolved_to_the_real_key_and_stored`: `propose_server(p, "codex", "~/.codex/config.toml:github", false, None, 1)` writes one file. Its `ask.key` equals `<canonical home>/.codex/config.toml:github`, and starts with `/`, not `~`.
   - `a_key_differing_by_one_byte_is_not_found`: `"~/.codex/config.toml:githuB"` gives `Err(NotFound)`, and the folder holds no file.
-  - `two_names_sharing_127_characters_are_ambiguous`: two servers named `"a".repeat(127) + "x"` and `"a".repeat(127) + "y"`, asked by their shared public id, give `Err(Ambiguous)` and no file.
+  - `two_long_names_sharing_127_characters_are_ambiguous`: two servers named `"a".repeat(127) + "xy"` and `"a".repeat(127) + "yz"` (129 characters each; `public_name` cuts only names longer than `NAME_CAP = 128`). First assert that both `public_name`s are equal, then ask by that shared public id: `Err(Ambiguous)`, and no file.
   - `another_engines_key_is_not_found`: the Codex key asked under `"antigravity"` gives `Err(NotFound)`.
   - `a_server_already_off_is_already_so`: a fixture with `enabled = false` gives `Err(AlreadySo)`.
   - `a_read_only_item_is_refused`: a server declared for an engine with no `SWITCHES` row gives `Err(ReadOnly)`.
   - `a_skill_asset_id_resolves_through_the_store`: `~/.agents/skills/demo` (a folder) asked off gives `ask == Skill{key:"skill:demo",enabled:false}`. Asked on, it gives `Err(AlreadySo)`. `~/.agents/skills/../x` and `/etc/x` give `Err(NotFound)`.
-  - `an_undo_needs_an_applied_proposal_with_a_receipt`: hand-saved proposals with `Waiting`, `Applied{None}`, `Declined` and an `Undo` ask each give `Err(NotUndoable)`. `Applied{Some("file:1")}` gives `Ok`, and its file's ask is `Undo{of}`. An unknown uuid gives `Err(NotFound)`.
+  - `a_kept_skill_is_asked_back_on_by_its_store_id`: switch `demo` off with `skill_switch::ops::set_enabled_for(.., "skill:demo", false)`. `propose_skill(p, "~/.agents/skills/demo", true, …)` files `Skill{key:"kept-skill:<that uuid>",enabled:true}`. Asked off now, it gives `Err(NotFound)`. A second kept `demo` makes the on ask `Err(Ambiguous)`.
+  - `an_undo_needs_an_applied_proposal_with_a_receipt`: hand-saved proposals with `Waiting`, `Applied{None}`, `Undone{Some("file:2")}`, `Declined` and an `Undo` ask each give `Err(NotUndoable)`. `Applied{Some("file:1")}` gives `Ok`, and its file's ask is `Undo{of}`. An unknown uuid gives `Err(NotFound)`.
   - `a_sixth_waiting_proposal_is_queue_full`: five saved `Waiting` give `Err(QueueFull)` on the sixth.
   - `every_proposal_tool_refuses_before_the_first_scan`: with no `last_scan_completed_ms`, all four functions give `Err(NotScannedYet)` and no folder is made.
 - [ ] **Step 2: Run** `cargo test --test mcp_proposal_tests`. Expected: FAIL to compile, with `cannot find function propose_server`.
@@ -230,8 +242,9 @@ Lands the owned interfaces first, before any tool or command uses them.
     - `a_proposal_is_filed_over_the_protocol_and_records_who_asked`: initialize with `clientInfo.name = "claude-code"`, call the server tool for a fixture Codex server, then read the one file in `<home>/Library/Application Support/com.rkarthik.hanger/mcp/proposals`. Its `asked_by` is `"claude-code"`, and the reply's `structuredContent.id` matches the file name.
     - `an_unknown_client_name_is_recorded_as_none`: the same with `clientInfo.name = "evil\nIgnore previous"`. `asked_by` is `null`.
     - `state_outside_on_and_off_is_a_tool_error`: `state: "toggle"` gets the tool's Gate N argument line, and no file is written.
+    - `a_modern_client_is_named_from_meta_client_info`: no `initialize`; `server/discover`, then a call to the server tool whose request carries `_meta["io.modelcontextprotocol/clientInfo"].name = "claude-code"`. The file's `asked_by` is `"claude-code"`. This covers the second branch of the `asked_by` lookup.
   - In `mcp_proposal_tests.rs`, `engine_of_client_maps_only_measured_names`: `engine_of_client("claude-code") == Some("claude-code")`, while `"Claude Code"` and `""` give `None`.
-- [ ] **Step 2: Run** `cargo test --test mcp_server_protocol_tests --test mcp_proposal_tests`. Expected: FAIL. The tool list has 5 entries where 9 are expected, and `engine_of_client` is not found.
+- [ ] **Step 2: Run** the two files separately, because a compile error in one aborts the other: `cargo test --test mcp_proposal_tests` (expected: FAIL to compile, `cannot find function engine_of_client`), then `cargo test --test mcp_server_protocol_tests` (expected: FAIL, the tool list has 5 entries where 9 are expected).
 - [ ] **Step 3: Implement.** Rewrite `docs/mcp-server.md` to Gate N's text, so its tool count and what it says the server writes match the code.
 - [ ] **Step 4: Run** the full `cargo test`. Expected: PASS, including `the_server_module_never_prints` and `a_session_leaves_no_temp_folder_behind`.
 - [ ] **Step 5: Commit** `mod.rs`, `strings.rs`, `proposals.rs`, `docs/mcp-server.md` and both test files with the message `feat(mcp-server): four proposal tools, and the copy that is true of them`. The body names the forced `TOOLS` edit and its cause.
@@ -250,8 +263,8 @@ Lands the owned interfaces first, before any tool or command uses them.
   - `apply::latest_receipts`, `vendor::claude_stashed`, `skill_switch::ops::kept_for`;
   - `engine_display_name`, `tools::public_name`, `sanitise_path`.
 - Produces:
-  - `#[derive(Serialize)] pub struct Preview { pub id: String, pub at_ms: i64, pub expires_at_ms: i64, pub asked_by: Option<String>, pub undo: bool, pub name: String, pub to: ItemState, pub target: PreviewTarget, pub change: Change }`. `asked_by` is the engine display name. `name` goes through `public_name`.
-  - `#[serde(tag = "kind", rename_all = "snake_case")] pub enum PreviewTarget { Server { engine_id: String, engine_name: String, config_path: String }, Skill }`. `config_path` is sanitised.
+  - `#[derive(Serialize)] pub struct Preview { pub id: String, pub at_ms: i64, pub expires_at_ms: i64, pub asked_by: Option<String>, pub undo: bool, pub name: String, pub to: Option<ItemState>, pub target: PreviewTarget, pub change: Change }`. `asked_by` is the engine display name. `name` goes through `public_name`. `to` is `Some` for every P1 verb, and `None` for a verb that is not on or off (P3's add and remove, P4b's profile, P8's read).
+  - `#[serde(tag = "kind", rename_all = "snake_case")] pub enum PreviewTarget { Server { engine_id: String, engine_name: String, config_path: String }, Skill }`. `config_path` is sanitised. P4b adds `Profile`, P8 adds `Read`.
   - `#[serde(tag = "type", rename_all = "snake_case")] pub enum Change { Lines { lines: Vec<String> }, Withheld, Command { argv: Vec<String> }, MoveSkill, Nothing, Unavailable { code: String } }`
   - `#[derive(Serialize)] pub struct PendingProposals { pub proposals: Vec<Preview>, pub count: usize }`
   - `pub fn pending(p: &ServerPlaces, now_ms: i64) -> PendingProposals`: runs `sweep`, then previews every `waiting` proposal, oldest first. `count` is `proposals.len()`, computed here.
@@ -271,27 +284,28 @@ Lands the owned interfaces first, before any tool or command uses them.
     - `kept:<id>` (Claude): the `add-json` argv, with the name from `claude_stashed`.
     - `restored:<name>`: the `remove` argv.
     - A skill's `kept:` or `restored:`: `MoveSkill`.
-    - `to` is the opposite of the undone ask's `enabled`.
-  - **The withheld rule** (an algorithm the signature leaves open). For each changed line, delete every occurrence of the server's name and of its lowercase form. Then every remaining run of ASCII letters and underscores must be one of `enabled`, `disabled`, `true`, `false`, `mcp_servers` or `mcpServers`. If any line fails, the whole change is `Withheld`.
+    - `to` is `Some` of the opposite of the undone ask's `enabled`.
+  - **The withheld rule** (an allowlist, the security-critical algorithm here). For each changed line, before its `- `/`+ ` prefix is added: delete every occurrence of the server's name and of its lowercase form, then delete every occurrence of the six allowed words `enabled`, `disabled`, `true`, `false`, `mcp_servers` and `mcpServers`. What remains may hold only whitespace and the characters `{`, `}`, `[`, `]`, `"`, `:`, `,`, `=` and `.`. Any other character, a digit, any other punctuation or any non-ASCII character, fails the line. If any line fails, the whole change is `Withheld`.
   - **Nothing to write** is `Nothing`. An item that no longer resolves is `Unavailable { code }`, with `ops`'s or the skill switch's code.
 
 - [ ] **Step 1: Write the failing tests** (child process, fixture home):
-  - `a_codex_off_previews_one_added_flag_line`: `change == Lines{lines:["+ enabled = false"]}`, `to == Off`, and `target.config_path` starts with `~/`.
+  - `a_codex_off_previews_one_added_flag_line`: `change == Lines{lines:["+ enabled = false"]}`, `to == Some(Off)`, and `target.config_path` starts with `~/`.
   - `an_antigravity_off_previews_its_disabled_key`: `Lines` with one `+` line containing `"disabled": true`.
   - `a_gemini_off_previews_its_state_file`: with no state file, `Lines`, and every line passes the withheld rule.
   - `a_claude_code_preview_is_the_literal_argv_and_no_entry`: off gives `Command{argv:["claude","mcp","remove","github","--scope","user"]}`. On for a `stash:` key gives the `add-json` argv, and none of the kept entry's four markers appear anywhere in the serialised `PendingProposals`.
   - `a_line_holding_more_than_the_flag_is_withheld`: a JSON one-line entry with `"env":{"T":"MARKER_ONE_LINE"}` gives `change == Withheld`, and `MARKER_ONE_LINE` is absent from the serialised value.
-  - `an_undo_previews_the_reverse`: a `file:` receipt made by a real `ops::set_enabled_for` in the fixture gives `Lines{["- enabled = false"]}` with `to == On`.
+  - `the_withheld_rule_is_an_allowlist`: the rule, called on single lines, withholds `"t": "0123-4567"` (digits and a hyphen), `"t": "$%^&"` (punctuation), `"ключ": "x"` (non-ASCII) and `"t": 12345`, and passes `enabled = false`, `"disabled": true,` and `[mcp_servers.github]` for a server named `github`.
+  - `an_undo_previews_the_reverse`: a `file:` receipt made by a real `ops::set_enabled_for` in the fixture gives `Lines{["- enabled = false"]}` with `to == Some(On)`.
   - `pending_counts_in_the_backend_and_drops_expired`: three saved, one older than 10 minutes. `count == 2`.
 - [ ] **Step 2: Run** `cargo test --test mcp_proposal_tests`. Expected: FAIL to compile, with `unresolved import tauri_app_lib::mcp_server::approve`.
 - [ ] **Step 3: Implement** as above.
 - [ ] **Step 4: Run** the full `cargo test`. Expected: PASS.
 - [ ] **Step 5: Commit** `approve.rs`, `mod.rs` and `mcp_proposal_tests.rs` with the message `feat(mcp-server): preview each waiting proposal in Hanger's own words`.
 
-### Task 5: Decide, and the two commands
+### Task 5: Decide, Undo, and the three commands
 
 **Files:**
-- Modify: `src-tauri/src/mcp_server/approve.rs`, `src-tauri/src/lib.rs`, `docs/ipc.md` (two sections appended after the last numbered one), `README.md` (`ipc` figure)
+- Modify: `src-tauri/src/mcp_server/approve.rs`, `src-tauri/src/lib.rs`, `docs/ipc.md` (three sections appended after the last numbered one), `README.md` (`ipc` figure)
 - Test: `src-tauri/tests/mcp_proposal_tests.rs`, `src-tauri/tests/ipc_boundary_tests.rs`
 
 **Interfaces:**
@@ -303,11 +317,14 @@ Lands the owned interfaces first, before any tool or command uses them.
     - `None` is `Err("not_found")`, `Expired` is `Err("expired")`, and any other non-`Waiting` status is `Err("not_waiting")`.
     - A decline saves `Declined`.
     - An approval dispatches `Server` to `ops::set_enabled_for` and `Skill` to `skill_switch::ops::set_enabled_for`. `Undo` goes to the matching `undo_for` with the receipt from `of`'s `Applied`.
-    - `Ok(reply)` saves `Applied { receipt_id: reply.receipt_id }`. A failure saves `Failed { code }` and returns `Err(code)`, with the switch's own code.
+    - `Ok(reply)` saves `Applied { receipt_id: reply.receipt_id, stopped_at: None }`. A failure saves `Failed { code }` and returns `Err(code)`, with the switch's own code.
+    - An approved `Undo { of }` that succeeds also saves `of`'s proposal as `Undone { receipt_id }`, under the same lock.
+  - `pub async fn undo_approved(p: &ServerPlaces, cli: &ClaudeCli, projects: &[PathBuf], id: &str, now_ms: i64) -> Result<Proposal, String>`: the in-app Undo of an approved proposal. Under `DECIDING`, it `load`s; anything but `Applied { receipt_id: Some(r), .. }` on a non-`Undo` ask is `Err("not_undoable")`. It calls the matching `undo_for` with `r`, then saves `Undone { receipt_id: <the Undo's receipt> }` and returns it. A failure returns the switch's code and leaves the proposal `Applied`. This is how a proposal reads as undone after the person's own Undo, so a model's later `propose_undo` is refused rather than previewing a state that no longer exists.
   - `lib.rs`:
     - `fn server_places(app: &AppHandle) -> ServerPlaces`, which is `server_places_in(&scanner::get_home_dir(), Path::new("/"), &app_data_dir)` with `switch_places`'s `"."` fallback;
-    - `#[tauri::command(async)] fn list_mcp_proposals(app) -> Result<PendingProposals, String>`;
-    - `#[tauri::command] async fn decide_mcp_proposal(app, id: String, approve: bool) -> Result<Proposal, String>`, which builds `cli` from `claude_cli_for(engine_of(..).unwrap_or_default())` and `projects` from `skill_switch_projects(&app)`.
+    - `#[tauri::command(async)] fn list_mcp_proposals(app) -> Result<PendingProposals, String>`. It runs `sweep`, so this read also deletes proposal files older than a day. Its doc comment and its `docs/ipc.md` section say so;
+    - `#[tauri::command] async fn decide_mcp_proposal(app, id: String, approve: bool) -> Result<Proposal, String>`, which builds `cli` from `claude_cli_for(engine_of(..).unwrap_or_default())` and `projects` from `skill_switch_projects(&app)`;
+    - `#[tauri::command] async fn undo_mcp_proposal(app, id: String) -> Result<Proposal, String>`, built the same way, calling `undo_approved`.
 
 - [ ] **Step 1: Write the failing tests** (child process, fixture home):
   - `approving_a_codex_proposal_switches_it_and_records_the_receipt`: the status becomes `Applied{receipt_id:Some(r)}` with `r` starting `file:`. The config gains exactly the line `enabled = false`.
@@ -317,12 +334,14 @@ Lands the owned interfaces first, before any tool or command uses them.
   - `a_proposal_whose_server_changed_since_is_failed_not_applied`: remove the server from the file between filing and approval. The result is `Err("not_found")`, and the file reads `Failed{code:"not_found"}`.
   - `a_proposal_already_satisfied_applies_with_no_receipt`: set the flag by hand first. The result is `Applied{receipt_id:None}`.
   - `a_second_decide_is_not_waiting_and_writes_nothing`: two `decide` calls joined at once. Exactly one `Ok`, and the other `Err("not_waiting")`. `apply::latest_receipts` grows by 1.
-  - `an_undo_proposal_takes_back_the_receipt`: approve an off, `propose_undo`, approve it. The config's bytes equal the original.
+  - `an_undo_proposal_takes_back_the_receipt`: approve an off, `propose_undo`, approve it. The config's bytes equal the original, and the first proposal reads `Undone`.
+  - `the_in_app_undo_leaves_the_proposal_undone`: approve an off, then `undo_approved`. The config's bytes equal the original, the proposal reads `Undone{receipt_id:Some(_)}`, `get_proposal` gives `undoable: false`, and `propose_undo` on it gives `Err(NotUndoable)`. A second `undo_approved` gives `Err("not_undoable")`.
   - `a_skill_proposal_moves_it_to_the_keep_and_undo_brings_it_back`, with `projects = []`.
+  - `a_skill_asked_back_on_comes_out_of_the_keep`: switch `demo` off by hand, approve `propose_skill(.., true)`. `~/.agents/skills/demo` exists again and the proposal reads `Applied{Some(_)}`.
   - `a_claude_code_approval_runs_the_previewed_argv`: with a fake `claude` built as `mcp_switch_tests.rs`'s bench builds it (argv logged one per line), `"claude"` followed by the logged argv equals the preview's `argv`.
   - In `ipc_boundary_tests.rs`, `proposal_previews_never_carry_a_config_value`: fixture configs carry the four switch markers on lines next to the flag, plus one JSON one-line entry with a fifth marker. The serialised `PendingProposals` and every `Proposal` returned by `decide` hold none of the five markers and no raw home path.
 - [ ] **Step 2: Run** `cargo test --test mcp_proposal_tests --test ipc_boundary_tests`. Expected: FAIL to compile, with `cannot find function decide`.
-- [ ] **Step 3: Implement.** Add the two `docs/ipc.md` sections in the file's existing shape, with the schemas, the failure codes `not_found`, `expired`, `not_waiting` and every `SwitchFailure`/`SkillSwitchFailure` code, and one example each. Run `~/.bun/bin/bun run src/__tests__/readmeCounts.ts`. The `ipc` figure rises by 2 and "three events" is unchanged.
+- [ ] **Step 3: Implement.** Add the three `docs/ipc.md` sections, numbered from the next free number at commit time, in the file's existing shape, with the schemas, the failure codes `not_found`, `expired`, `not_waiting`, `not_undoable` and every `SwitchFailure`/`SkillSwitchFailure` code, and one example each. Run `~/.bun/bin/bun run src/__tests__/readmeCounts.ts`. The `ipc` figure rises by 3 over the tip it merges onto, and "three events" is unchanged.
 - [ ] **Step 4: Run** the four gates. Expected: `cargo test` passes, `npx vitest run` passes (including `readme-sync.test.ts`), `bunx tsc --noEmit` exits 0, and both `gitleaks` commands report no leaks.
 - [ ] **Step 5: Commit** `approve.rs`, `lib.rs`, both test files, `docs/ipc.md` and `README.md` with the message `feat(mcp-server): the app applies an approved proposal through the existing switch`.
 
@@ -351,11 +370,11 @@ Lands the owned interfaces first, before any tool or command uses them.
   - `.claude/DESIGN.md` (the new component's paragraph, and the `SwitchNotice` paragraph if the pill changes).
 
 **Interfaces:**
-- Consumes: `list_mcp_proposals` and `decide_mcp_proposal` (Task 5).
+- Consumes: `list_mcp_proposals`, `decide_mcp_proposal` and `undo_mcp_proposal` (Task 5).
 - Produces:
-  - `src/types/mcpProposals.ts`: `Preview`, `PreviewTarget` and `Change` as discriminated unions on `kind` and `type`, mirroring Task 4 exactly. No optional fields stand in for a variant (`verification.md`, a fixture built from the type). Also `PendingProposals` and `Proposal`.
+  - `src/types/mcpProposals.ts`: `Preview`, `PreviewTarget` and `Change` as discriminated unions on `kind` and `type`, mirroring Task 4 exactly, with `to: ItemState | null`. No optional fields stand in for a variant (`verification.md`, a fixture built from the type). Also `PendingProposals`, `Proposal`, and `Status` as a union on `state`, `undone` included.
   - `useMcpProposals(): { pending: PendingProposals | null }`, with `POLL_MS = 3000`. It polls only while `document.visibilityState === "visible"`, once more on window `focus`, and stops on unmount.
-  - `useMcpSwitch` gains `decideProposal(p: Preview, approve: boolean): Promise<void>`. An approval reuses the existing notice: a `done` notice with the receipt, its engine (`target.engine_id` for a server), Undo through the existing `undo_mcp_switch`/`undo_skill_switch` path, and `onChanged()`. A rejection shows `failureLine`/`skillFailureLine` for the code. The hook's doc comment lists `decide_mcp_proposal` among the commands only it calls.
+  - `useMcpSwitch` gains `decideProposal(p: Preview, approve: boolean): Promise<void>`. An approval reuses the existing notice: a `done` notice with the receipt, its engine (`target.engine_id` for a server), and `onChanged()`. The notice's Undo calls `undo_mcp_proposal({ id })`, not `undo_mcp_switch`/`undo_skill_switch`, so the proposal reads `undone` afterwards. A rejection shows `failureLine`/`skillFailureLine` for the code. The hook's doc comment lists `decide_mcp_proposal` and `undo_mcp_proposal` among the commands only it calls.
 
 - [ ] **Step 1: Write the failing Vitest tests:**
   - `useMcpProposals` with fake timers calls `invoke("list_mcp_proposals")` at 0, 3000 and 6000 ms while visible, not at all while hidden, and once on `focus`.
@@ -363,13 +382,13 @@ Lands the owned interfaces first, before any tool or command uses them.
   - It renders each `Lines` line verbatim, the `Command` argv joined by spaces, and Gate N's line for `Withheld`, `MoveSkill`, `Nothing` and `Unavailable`.
   - The figure shown is `pending.count`, not `.length`. `no-frontend-counting.test.ts` stays green.
   - Approve and Decline call `decide_mcp_proposal` with `{ id, approve: true }` and `{ id, approve: false }`.
-  - After an approved server proposal, the notice carries Undo, and Undo calls `undo_mcp_switch` with the returned receipt.
+  - After an approved server proposal, the notice carries Undo, and Undo calls `undo_mcp_proposal` with the proposal's id, never `undo_mcp_switch`.
   - The ⌘K action appears only when `count > 0`.
 - [ ] **Step 2: Run** `npx vitest run src/hooks/useMcpProposals.test.ts <G3 component tests>` from the repo root. Expected: FAIL, with the modules not found.
 - [ ] **Step 3: Implement** per Gate G3. Use tokens and type roles only (`no-off-token-styles`, `type-roles`). If `src/App.tsx` is committed from the shared main checkout, stage it by hunk.
-- [ ] **Step 4: Run** the four gates. Expected: all pass.
+- [ ] **Step 4: Regenerate the README.** This task adds frontend test files, so the `tests` figure moves: run `~/.bun/bin/bun run src/__tests__/readmeCounts.ts`, then `npx vitest run src/__tests__/readme-sync.test.ts` from the repo root. Expected: PASS. Then run the four gates. Expected: all pass.
 - [ ] **Step 5: Screenshots** from the running dev app, per `verifying-ui.md`: filter by the dev pid, read the theme from the store first and name it, and drive the app through the MCP bridge. Produce the proposal by calling the server tool through the dev binary's `mcp` subcommand, with a JSON-RPC client like the `Session` in `mcp_server_protocol_tests.rs`. That reads the configs and writes only the proposal file. Never hand-write a proposal file. Pick a server Karthik names, and Decline or Undo before the capture ends. Capture a waiting proposal, after Approve with the Undo pill showing, and after Decline, in both themes. Save them under `docs/evidence/2026-11-28-mcp-phase2/`.
-- [ ] **Step 6: Commit** the listed files with the message `feat(approval): waiting proposals, approved in Hanger's window`.
+- [ ] **Step 6: Commit** the listed files and `README.md` with the message `feat(approval): waiting proposals, approved in Hanger's window`.
 
 ## Gate G4 / Task 7: Live proof of a write and its Undo, per kind (STOP for Karthik)
 
@@ -400,8 +419,10 @@ Every step is verified by its artefact, never by an answer (design §7, "round 3
 
 ## Known limits, stated rather than built
 
-- **A skill a person switched off in Hanger can't be switched back on by a model.** No tool lists kept skills. The model can only undo a proposal that switched one off. A tool for that would be a new read tool and needs its own brief.
+- **A model names a kept skill by the id it had in the store.** No tool lists kept skills, so a model that never saw the skill in `find_assets` can't find its id. A listing tool would be a new read tool and needs its own brief.
 - **No undo of an undo through the model.** Filing the original switch again does the same thing.
 - **Elicitation is deferred.** It was measured only in Claude Code (research §3).
 - **Proposal files are deleted a day after filing.** A model's Undo of an older proposal reads `not_found`. P4a's Recent changes is the long-lived Undo.
+- **A key-level receipt never reaches a preview.** After P4 Task 1, `apply::undo` routes a key receipt to `undo_key`. Only P2's per-project Claude switch writes one, and no P1 tool can propose a project item, so no `Undo` preview diffs one. If a later plan lets a model propose a project switch, its Undo preview needs a key-level arm.
+- **`useMcpSwitch.ts` has no owner in design §5.** P1, P2 and P4 all modify it; merge order follows the waves (P1 → P2 → P4).
 - **The proposals folder is not a trust boundary.** Anything that can write under the user's data directory can plant a file there. It still needs a person's approval, and every field is checked again by the switch code at approval.

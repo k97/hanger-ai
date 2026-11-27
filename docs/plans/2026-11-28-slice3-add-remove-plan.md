@@ -2,6 +2,8 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+> **Reconciled 2026-11-28** after the `--plan` review (`docs/reviews/2026-11-28-plan-2026-11-28-slice3-add-remove-plan.md`), applying `docs/plans/research/2026-11-28-reconciliation-rulings.md` R2 (Claude Code `add-json` and `remove` write P4's `apply::CommandReceipt` with the reverse command, replacing this plan's own change records), R3 (Task 18 uses P1's names: one filing function per verb, `Preview { target, change }`, `Ask` tagged by `verb`), R4 (Tasks 12 and 17 use P2's `Target`, `ReadOnlyReason::RepoFileTracked`, `refused_files` and `project` argument; Task 17 waits on P2's Task 5, which follows Claude's live check), R5 (P7 edits `src/utils/reviewIssues.ts` first and Task 10 rebases onto it) and the P3 fixes: Task 9's derive compiles; `from_entry` passes URLs to the secret check (query and `user:pass`). Copying literal values **waits on round 44 Q8**; the recommended option is built as the provisional default. Shared names: `docs/plans/research/2026-11-28-cross-plan-interfaces.md`.
+
 **Goal:** A person can add an MCP server to an engine by hand, from the official MCP Registry at a pinned version, or by copying an existing entry, and can remove one. Every write is atomic with a receipt and an Undo. Needs review shows two new findings, a plaintext secret and an unpinned package. A model gets the same verbs through the approval queue.
 
 **Architecture:** Add and remove are dialect writes behind `apply::safe_replace`. Claude Code writes go through `vendor` (`claude mcp add-json` on stdin, `claude mcp remove`). One neutral entry type (`NewServer`) carries variable *names* only. It comes from the form, from a Registry record, or from an existing entry, and is rendered per engine. One detector module serves the write-time check and the scan-time finding. The scan-time finding runs at `dialect::parse` and keeps only `{key, pattern}`. Part A (wave 1, track F) touches no `ops`. Part B waits on P2's `ops` target, and its last task waits on P1's `Ask`.
@@ -13,16 +15,17 @@
 ## Global Constraints
 
 - Answer Q2: add and remove write at user scope by default. A repository file is written only when git does not track it; otherwise Hanger says why it can't write there.
-- Answer Q3: the form never takes a literal secret, only a variable name in the engine's spelling. An engine that can't expand one is told to add the secret by hand. **Decision here:** `NewServer` carries no literal env or header value at all, secret or not. A user who needs a literal adds it by hand.
+- Answer Q3: the form never takes a literal secret, only a variable name in the engine's spelling. An engine that can't expand one is told to add the secret by hand. `NewServer`, which crosses IPC and fills the form, carries no literal env or header value at all, so no value ever reaches the window or a model.
+- **Copying literal values waits on round 44 Q8.** Provisional default (the recommended option): a copy (`copy_for`) carries over the source's literal env and header values that `findings::secret_findings` finds nothing in, file to file inside the backend. The value never reaches the window or a model, and a preview shows only the key name. A literal the detector flags refuses the copy (`secret_in_entry`). If Karthik picks "drop every literal", `copy_for` refuses any source holding a literal (`source_has_values`) instead, and the `literals_of` step below is skipped.
 - Answer Q4: the scanner reads env and header values at the parse boundary and keeps only `{key, pattern name}`. `docs/scanning.md` §7 is amended in the same commit.
 - Answer Q5: the first cut is the four `SWITCHES` engines (Claude Code, Codex, Gemini CLI, Antigravity CLI). Each one writes only after its own live check lands its `ENTRY_WRITES` row. Every other host stays read-only.
-- Answer Q6: a vendor-CLI write records a receipt holding the reverse command, and Undo runs it.
+- Answer Q6: a vendor-CLI write records a receipt holding the reverse command, and Undo runs it. The receipt is P4's `apply::CommandReceipt` (ruling R2). A Claude remove's reverse needs the removed entry, which can hold a credential: the entry stays in the stash folder, and the receipt names only the stash record (`reverse_stdin_stash`), never the entry.
 - Answer Q10: a model may ask for add and remove, by Registry id or by an existing entry. It never sends an entry body (Answer 7: no free text in a proposal).
 - Registry: base `https://registry.modelcontextprotocol.io/v0.1`, `version=latest`, keep only `status == "active"`, exact versions only. `npm` becomes `npx -y <id>@<ver>` and `pypi` becomes `uvx <id>==<ver>`. Remotes (`streamable-http`, `sse`) become a URL entry (design §4.3; the dispatch summary names only the two package types). Any other type is refused with a reason.
 - Secrets never cross IPC, reach a model, or reach a preview. Never read credential files. Live checks run only with a throwaway `HOME`.
 - The store schema never moves: findings are computed at scan time and ride on the in-memory `Tool`. Nothing is persisted.
 - Counts come from the backend (`invariants.md`). Tokens-only styling. No blocking dialogs.
-- Shared machinery (design §5): `ops`, `SWITCHES` and `context` belong to P2. `apply` belongs to 4a and is called unchanged. `Ask` and the queue belong to P1. This plan owns `vendor`, `edit::entries`, `entry`, `findings`, `official_registry` and `ENTRY_WRITES`.
+- Shared machinery (design §5): `ops`, `SWITCHES` and `context` belong to P2. `apply`, including `CommandReceipt`, belongs to 4a and is called unchanged. `Ask` and the queue belong to P1. This plan owns `vendor`, `edit::entries`, `entry`, `findings`, `official_registry` and `ENTRY_WRITES`. `src/utils/reviewIssues.ts` is shared with P7, which edits it first (ruling R5).
 - Gitleaks: no test source holds a literal token. Build fixture secrets at runtime, e.g. `format!("ghp_{}", "a".repeat(36))`.
 - Every commit names its paths explicitly, runs in its own Bash call, and has no `-n` anywhere in that call. New files are `git add`ed in a separate call first.
 
@@ -55,11 +58,14 @@ pub struct HeaderRef { pub name: String, pub var: String, pub scheme: HeaderSche
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)] #[serde(rename_all = "snake_case")]
 pub enum HeaderScheme { Bearer, Raw }                            // Bearer only on `Authorization`
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum EntryError { NameRefused, VarRefused, BearerNotAuthorization, EnvRenameUnsupported, UrlUnconfirmed, UrlTransportUnsupported, SourceHasValues, SecretInEntry, UnsupportedHost }
+pub enum EntryError { NameRefused, VarRefused, BearerNotAuthorization, EnvRenameUnsupported, UrlUnconfirmed, UrlTransportUnsupported, SourceHasValues, SecretInEntry, UrlHasCredentials, UnsupportedHost }
 pub fn name_is_refused(name: &str) -> bool;                      // vendor's rule: empty, leading '-', control char
 pub fn check(server: &NewServer) -> Result<(), EntryError>;      // names, vars ([A-Za-z_][A-Za-z0-9_]*), Bearer rule
 pub fn render(host_id: &str, server: &NewServer) -> Result<serde_json::Value, EntryError>;   // Task 2
-pub fn from_entry(entry: &serde_json::Value, dialect: Dialect) -> Result<NewServer, EntryError>; // Task 4, name filled by caller
+pub fn from_entry(entry: &serde_json::Value, dialect: Dialect) -> Result<NewServer, EntryError>; // Task 4, name filled by caller; references only
+/// Backend-only, never serialised: the source's literal env and header values the detector finds nothing in (round 44 Q8's provisional default).
+pub struct Literals { pub env: Vec<(String, String)>, pub headers: Vec<(String, String)> }
+pub fn literals_of(entry: &serde_json::Value, dialect: Dialect) -> Result<Literals, EntryError>; // Task 4; SecretInEntry if the detector flags any
 ```
 
 `src-tauri/src/mcp/switch/edit/entries.rs`, declared by one line `pub mod entries;` in `edit.rs` (Task 3):
@@ -74,12 +80,13 @@ pub fn entry_of(body: &str, dialect: Dialect, name: &str) -> Result<serde_json::
 `src-tauri/src/mcp/findings.rs` (Tasks 5–6):
 
 ```rust
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)] #[serde(rename_all = "snake_case")]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)] #[serde(rename_all = "snake_case")]
 pub enum Check { PlaintextSecret, UnpinnedPackage }
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-pub struct ConfigFinding { pub check: Check, pub key: String, pub pattern: &'static str }
+// Serialize and Deserialize, with owned strings, because `domain::Tool` derives both and carries these (Task 9).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ConfigFinding { pub check: Check, pub key: String, pub pattern: String }
 pub fn secret_findings<'a>(pairs: impl IntoIterator<Item = (&'a str, &'a str)>) -> Vec<ConfigFinding>;
-pub fn launch_pairs(args: &[String], url: Option<&str>) -> Vec<(String, String)>; // `--flag value`, `--flag=value`, url query
+pub fn launch_pairs(args: &[String], url: Option<&str>) -> Vec<(String, String)>; // `--flag value`, `--flag=value`, url query, and url userinfo as ("userinfo", "<user:pass>")
 pub fn unpinned_finding(command: &str, args: &[String]) -> Option<ConfigFinding>;
 pub fn is_exact_version(v: &str) -> bool;   // ^\d+\.\d+\.\d+([-+][0-9A-Za-z.-]+)?$
 ```
@@ -112,31 +119,32 @@ pub const ENTRY_WRITES: &[EntryRow] = &[];   // a row lands only with its live c
 pub fn entry_write_for(host_id: &str, tier: ScopeTier) -> Option<&'static EntryRow>;
 ```
 
-`vendor.rs` (Task 11), consumed by 4a's Recent changes:
+`vendor.rs` (Task 11). Every write records P4's `apply::CommandReceipt` (ruling R2); P4's Recent changes lists it, and P5's `undo_vendor_change` runs its reverse through `claude_reverse`:
 
 ```rust
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-pub struct ClaudeChange { pub id: String, pub name: String, pub action: &'static str /* "added"|"removed" */, pub at_ms: i64 }
-pub async fn claude_add(config: &Path, name: &str, entry_json: &str, stash: &Path, cli: &Path, path_env: &str) -> Result<ClaudeChange, SwitchError>;
-pub async fn claude_remove(config: &Path, name: &str, stash: &Path, cli: &Path, path_env: &str) -> Result<ClaudeChange, SwitchError>;
-pub async fn claude_undo_change(config: &Path, change_id: &str, stash: &Path, cli: &Path, path_env: &str) -> Result<ClaudeChange, SwitchError>;
-pub fn claude_changes(stash: &Path) -> Vec<ClaudeChange>;   // newest first
+pub async fn claude_add(config: &Path, name: &str, entry_json: &str, stash: &Path, receipts: &Path, cli: &Path, path_env: &str) -> Result<CommandReceipt, SwitchError>;
+pub async fn claude_remove(config: &Path, name: &str, stash: &Path, receipts: &Path, cli: &Path, path_env: &str) -> Result<CommandReceipt, SwitchError>;
+/// Run a Claude Code MCP receipt's reverse: `mcp remove` for an add, `mcp add-json` with the stash record on stdin for a remove. Records the reverse's own receipt, whose reverse is the original write.
+pub async fn claude_reverse(config: &Path, receipt: &CommandReceipt, stash: &Path, receipts: &Path, cli: &Path, path_env: &str) -> Result<CommandReceipt, SwitchError>;
 ```
 
-Records live at `<stash>/claude-code/changes/<uuid>.json`, 0600, in a 0700 folder:
-`{id, name, action, at_ms, entry?}`. `entry` is present only for `removed` (the reverse command needs it), and it is never serialised out. `claude_stashed` reads top-level files only, so a removed server is never listed as kept off. Undo ids: `added:<uuid>` (reverse: `claude mcp remove`) and `removed:<uuid>` (reverse: `add-json` from the record).
+Receipts: `program: Claude`. An add records `what: "claude-code · add · <name>"`, `reverse_args: ["mcp","remove",<name>,"--scope","user"]`, `reverse_stdin_stash: None`. A remove first keeps the entry in a stash record at `<stash>/claude-code/removed/<uuid>.json` (0600 in a 0700 folder; `claude_stashed` reads top-level files only, so a removed server is never listed as kept off), then records `what: "claude-code · remove · <name>"`, `reverse_args: ["mcp","add-json",<name>,"-","--scope","user"]`, `reverse_stdin_stash: Some(<that uuid>)`. Receipt ids are `cmd:<uuid>`. The entry never leaves the stash folder.
 
 ## Cross-plan interfaces (assumed, not defined here)
 
-| Name and type assumed | Owner | Used by |
+Every name here matches its owner's plan; the full table is `docs/plans/research/2026-11-28-cross-plan-interfaces.md`.
+
+| Name and type | Owner | Used by |
 |---|---|---|
-| P2's `ops` target type, assumed `ops::Target`, with a machine-item and a project-item variant resolved only from discovery. This plan adds a `NewEntry { host_id, tier, path }` variant | **P2** | Tasks 12, 17. Wait for P2's merge |
-| P2's tracked-file check, assumed `ops::git_tracks(path: &Path) -> bool`, and its `ReadOnlyReason` for a tracked repo file | **P2** | Task 17 |
-| P2's way to name a repository (the repo view is the picker), assumed `repo_key: String` resolved against the project pass | **P2** | Task 17 |
-| `Ask` enum, `propose`, `Preview { …, changed_lines }`, `approve.rs`, `decide_mcp_proposal`, the tool-naming brief, all in `src-tauri/src/mcp_server/proposals.rs` and `approve.rs` | **P1** | Task 18. Wait for P1's merge |
+| `ops::Target<'a> { Machine { key: &'a str }, InProject { project: &'a KnownProject, key: &'a str } }`, landed in P2's Task 2. This plan adds a `NewEntry { host_id, tier, path }` variant and no field to the existing ones | **P2** | Tasks 12, 17. Wait for P2's Task 2 |
+| `project::refused_files(real: &Path, files: &[PathBuf]) -> Vec<PathBuf>` (async, fail-closed: "couldn't ask git" is refused) and `ReadOnlyReason::RepoFileTracked`. | **P2**, Task 5, which starts only after Claude Code's live check (P2 Task 4 Step 6) is accepted | Task 17 |
+| The repository, named by the `project: Option<String>` argument on P2's switch commands and resolved to a `project::KnownProject` by `KnownProject::among` over `preferences::get_linked_directories`. | **P2**, Task 2 | Task 17 |
+| `Ask` (`#[serde(tag = "verb")]`), extended only; one filing function per verb, each `(p: &ServerPlaces, …, asked_by: Option<&'static str>, now_ms: i64) -> Result<Fresh<Filed>, Refusal>`; `tools::public_key` (`pub(crate)`) and P1's exactly-one-match rule; `Preview { id, at_ms, expires_at_ms, asked_by, undo, name, to: Option<ItemState>, target: PreviewTarget, change: Change }` with `Change::{Lines { lines }, Withheld, Command { argv }, …}` and `PreviewTarget::Server { engine_id, engine_name, config_path }`; `approve::decide`; `decide_mcp_proposal`; the tool table `TOOLS` in `mcp_server/mod.rs`; P1's Gate N (the batched naming round) | **P1** | Task 18. Wait for P1's merge |
 | `apply::safe_replace`, `apply::undo`, `Receipt`, called unchanged | **4a** | Tasks 12, 17 |
-| 4a's Recent changes reads `vendor::claude_changes` beside `latest_receipts` | **4a consumes from this plan** | Task 11 lands it; message 4a on `SendMessage` |
-| `skill_switch`, `engine_status::run::run_capture` (signature frozen, no cwd) | P5 / T19 | `vendor` calls `run_capture` unchanged |
+| `apply::CommandReceipt { id, at_ms, what, program: ReverseProgram, reverse_args, reverse_stdin_stash }`, `record_command`, `load_command`, `command_receipts_dir` | **4a**, Task 3b (ruling R2) | Task 11. Wait for P4's Task 3b |
+| `vendor_cli::undo(receipt: &CommandReceipt, ctx: &UndoContext)` and the IPC `undo_vendor_change`. Task 11 adds one arm: a `Claude` receipt whose `reverse_args[0] == "mcp"` calls `vendor::claude_reverse` | **P5** (Task 4) | Task 11. Tell P5 before editing its file |
+| `src/utils/reviewIssues.ts`, `NeedsReviewPane.tsx`, `ReviewSidebar.tsx`: P7's Task 10 adds `signed_out` and `settings_unreadable` first | **P7 first, then this plan** (ruling R5) | Task 10 rebases onto P7's Task 10 |
+| `skill_switch`, `engine_status::run::run_capture` (signature frozen, no cwd) | P5 / P7 | `vendor` calls `run_capture` unchanged |
 
 If a P1 or P2 name differs once that plan lands, use theirs and edit this table in the same commit.
 
@@ -209,11 +217,11 @@ Each task that adds a test file regenerates the README `tests` region (`~/.bun/b
 
 **Files:** Modify `entry.rs`. Test: `mcp_entry_tests.rs`.
 
-**Interfaces:** Produces `from_entry(entry, dialect) -> Result<NewServer, EntryError>`. It reads values only to recognise a reference, keeps the variable name, and drops the rest.
+**Interfaces:** Produces `from_entry(entry, dialect) -> Result<NewServer, EntryError>`. It reads values only to recognise a reference, keeps the variable name, and drops the rest. Also `literals_of(entry, dialect) -> Result<Literals, EntryError>` (round 44 Q8, provisional default): the literal env and header values the detector passes, held in a backend-only struct that derives no `Serialize`. Both check the launch's arguments **and its URL**: `launch_pairs(args, url)`'s query pairs, and any `user:pass@` userinfo, which is refused outright (`UrlHasCredentials`).
 
-- [ ] **Step 1: Write the failing tests.** `from_entry_keeps_references`: `{"command":"npx","args":["-y","p@1.0.0"],"env":{"K":"${V}","L":"$W"}}` gives env `[{K,V},{L,W}]`. Codex `{"command":"x","env_vars":["T"],"bearer_token_env_var":"B","url":…}` is handled likewise. `a_literal_value_is_refused`: `{"env":{"LOG_LEVEL":"debug"}}`, a Codex `env` table and Codex `http_headers` each give `Err(SourceHasValues)`. `a_secret_looking_argument_is_refused`: args `["--api-key", <runtime-built sk- token>]` give `Err(SecretInEntry)`. So does any args where `redact::redact_launch(command, args)` differs from the plain join.
+- [ ] **Step 1: Write the failing tests.** `from_entry_keeps_references`: `{"command":"npx","args":["-y","p@1.0.0"],"env":{"K":"${V}","L":"$W"}}` gives env `[{K,V},{L,W}]`. Codex `{"command":"x","env_vars":["T"],"bearer_token_env_var":"B","url":…}` is handled likewise. `a_literal_is_left_out_of_the_new_server`: `{"env":{"LOG_LEVEL":"debug"}}` gives a `NewServer` with no env, and `literals_of` gives `env == [("LOG_LEVEL","debug")]` (round 44 Q8's provisional default; under "drop every literal", `from_entry` gives `Err(SourceHasValues)` instead). `a_secret_looking_argument_is_refused`: args `["--api-key", <runtime-built sk- token>]` give `Err(SecretInEntry)`. So does any args where `redact::redact_launch(command, args)` differs from the plain join. `a_secret_in_a_url_is_refused`: a `url` of `https://x.example/mcp?api_key=<runtime-built sk- token>` gives `Err(SecretInEntry)`, and `https://user:pass@x.example/mcp` gives `Err(UrlHasCredentials)`. `a_literal_the_detector_flags_is_refused`: `{"env":{"GITHUB_TOKEN":<runtime-built ghp_ token>}}` gives `literals_of` → `Err(SecretInEntry)`.
 - [ ] **Step 2: Run.** Expected: FAIL, `cannot find function from_entry`.
-- [ ] **Step 3: Implement.** Check args with `findings::secret_findings(launch_pairs(args, None))`. Until Task 5 lands, it's the redact check alone. Task 5 adds the detector call and a test case.
+- [ ] **Step 3: Implement.** Check args and the URL with `findings::secret_findings(launch_pairs(args, url))`, and refuse URL userinfo with `url::Url`'s `username()`/`password()`. Until Task 5 lands, it's the redact check and the userinfo check alone. Task 5 adds the detector call and a test case.
 - [ ] **Step 4: Run.** Expected: PASS.
 - [ ] **Step 5: Commit** `entry.rs`, `mcp_entry_tests.rs`: `feat(mcp): read an existing entry for copy only when it holds no values`.
 
@@ -224,9 +232,9 @@ Each task that adds a test file regenerates the README `tests` region (`~/.bun/b
 **Interfaces:** Produces `Check`, `ConfigFinding`, `secret_findings` and `launch_pairs`.
 
 - [ ] **Step 1: Write the failing tests.** These port mcpick's `src/utils/secrets.ts` (26 cases in `secrets.test.ts`, commit `225b5a2`): the 8 value patterns by their mcpick names, the key-name rule `(TOKEN|SECRET|PASSWORD|API[-_]?KEY)` giving `sensitive-key-value` only when no value pattern matched, and the placeholder skips (`${…}`, `<…>`, `x+`, `changeme`/`placeholder`/…/`none`, `your…`, shorter than 4). Every token is built at runtime. Plus:
-  - `launch_pairs_reads_flags_and_query`: `["--api-key","v1","--token=v2","pos"]` with URL `https://x.example/mcp?api_key=v3&region=eu` gives `[("--api-key","v1"),("--token","v2"),("api_key","v3"),("region","eu")]`.
+  - `launch_pairs_reads_flags_and_query`: `["--api-key","v1","--token=v2","pos"]` with URL `https://x.example/mcp?api_key=v3&region=eu` gives `[("--api-key","v1"),("--token","v2"),("api_key","v3"),("region","eu")]`. With `https://u:p@x.example/mcp` it adds `("userinfo","u:p")`.
   - `a_finding_never_holds_the_value`: the serialised `ConfigFinding` has exactly the keys `check`, `key` and `pattern`, and its JSON does not contain the token.
-  - `from_entry` gains the case: args `["--key", <ghp_ token>]` give `SecretInEntry`.
+  - `from_entry` gains the cases: args `["--key", <ghp_ token>]` give `SecretInEntry`, and so does a `url` whose query holds one.
 - [ ] **Step 2: Run** `cargo test --test mcp_findings_tests`. Expected: FAIL, unresolved import `mcp::findings`.
 - [ ] **Step 3: Implement.** Compile patterns once (`std::sync::LazyLock`). The module doc carries mcpick's MIT notice, as `switch/mod.rs` does.
 - [ ] **Step 4: Run** both test files. Expected: PASS. Then plant the value `"sk-abcdefghijk"` under key `X` with the `api-key-sk` pattern deleted, and watch `api_key_sk_is_found` go red. Revert by inverse edit.
@@ -257,7 +265,7 @@ Each task that adds a test file regenerates the README `tests` region (`~/.bun/b
 **Interfaces:** Consumes `findings::is_exact_version` and `entry::NewServer`. Produces the items listed under "Interfaces this plan owns".
 
 - [ ] **Step 1: Write the failing tests.**
-  - `npm_maps_to_a_pinned_npx`: `io.github.example/weather`, npm `@example/weather-mcp` `1.4.2`, env `WEATHER_API_KEY` (isSecret) → `NewServer{name:"weather", Command{npx,["-y","@example/weather-mcp@1.4.2"]}, env:[{WEATHER_API_KEY,WEATHER_API_KEY}]}`.
+  - `npm_maps_to_a_pinned_npx`: `io.github.example/weather`, npm `@example/weather-mcp` `1.4.2`, env `WEATHER_API_KEY` (isSecret) → `NewServer{name:"weather", Command{npx,["-y","@example/weather-mcp@1.4.2"]}, env:[{WEATHER_API_KEY,WEATHER_API_KEY}]}`. The name rule: the last `/`-separated segment of `registry_name`. Two Registry names sharing a last segment give the same suggested name; the form's name field is editable, and an add of a declared name is refused `already_there`.
   - `pypi_maps_to_a_pinned_uvx`: `mcp-server-time` `0.6.2` → `uvx ["mcp-server-time==0.6.2"]`.
   - `a_remote_maps_to_a_url_entry`: streamable-http → `Url{…,StreamableHttp}`; a required header `Authorization` → `HeaderRef{Authorization, var:"AUTHORIZATION", Raw}`.
   - `a_package_wins_over_a_remote`: npm, then pypi, then a remote.
@@ -277,18 +285,18 @@ Each task that adds a test file regenerates the README `tests` region (`~/.bun/b
 
 ### Task 8: GATE G-N, the naming brief (stops for Karthik)
 
-This brief is part of design §7's single batched naming round. Its labels: the add action, remove, copy ("Copy to…"), Registry search (field, results, "no results", the refusal reasons per `RegistryRefusal`), the form's fields (name, command, arguments, URL, environment variable, the variable it reads, header, Bearer), the scope choice ("your user settings" vs "this repository"), the two finding categories and their Problem strings, their `NeedsReviewPane` legend words, and the words for each new failure code. The new codes are `no_entry_write`, `refs_unconfirmed`, `env_rename_unsupported`, `url_unconfirmed`, `url_transport_unsupported`, `secret_in_entry`, `source_has_values`, `already_there` (reused), `registry_unreachable`, and the five Registry refusals. One line on the form must say that an engine opened from Finder doesn't see shell variables.
+This brief is a section of design §7's single batched naming round (the file that round names; P1's Gate N and P7's G1 write into the same one). Its labels: the add action, remove, copy ("Copy to…"), Registry search (field, results, "no results", the refusal reasons per `RegistryRefusal`), the form's fields (name, command, arguments, URL, environment variable, the variable it reads, header, Bearer), the scope choice ("your user settings" vs "this repository"), the two finding categories and their Problem strings, their `NeedsReviewPane` legend words, and the words for each new failure code. The new codes are `no_entry_write`, `refs_unconfirmed`, `env_rename_unsupported`, `url_unconfirmed`, `url_transport_unsupported`, `secret_in_entry`, `source_has_values`, `already_there` (reused), `registry_unreachable`, and the five Registry refusals. One line on the form must say that an engine opened from Finder doesn't see shell variables.
 
-- [ ] Write the brief at `docs/plans/2026-11-28-slice3-naming-brief.md`, researched against what VS Code, Cursor and mcpick call these. Run `/humanizer` on every string.
+- [ ] Write this plan's section of the batched brief (or `docs/plans/2026-11-28-slice3-naming-brief.md` only if no batched file exists when this task starts), researched against what VS Code, Cursor and mcpick call these. Include the copy for round 44 Q8's answer (a copy that carries non-secret values, shown by key name only). Run `/humanizer` on every string.
 - [ ] **STOP.** Karthik signs off string by string. Read his answer from the conversation, never infer it. Nothing in Tasks 10, 13 and 15 renders a string before this.
 
 ### Task 9: Findings at the parse boundary and in the inventory (§7 amended)
 
-Placed in Part B by the dispatch. It has no code dependency on P2, but it touches `dialect.rs`, where P2 adds its Claude per-project reads, so it merges after P2.
+Placed in Part B by the dispatch. It has no code dependency on P2. It touches `dialect.rs`, where P2's Task 5 changes `servers_from_toml_table` (P2 reads Claude's per-project lists in `context.rs`, not here); whichever merges second rebases.
 
 **Files:** Modify `src-tauri/src/mcp/dialect.rs`, `src-tauri/src/domain.rs`, `src-tauri/src/scanner.rs`, `docs/scanning.md` §7. Add the mechanical `findings: vec![]` to every literal. By grep on `main` at `e673e20`, that is **19** `McpServer {` literals across 6 files and **9** `Tool {` literals (`scanner.rs` ×2, `domain.rs` ×1, and one each in `registration_key_tests.rs`, `mcp_server_tests.rs`, `mcp_scanner_tests.rs`, `mcp_server_protocol_tests.rs`, `ipc_boundary_tests.rs`, `search_tests.rs`). Re-grep before editing. Tests: `mcp_findings_tests.rs` and `ipc_boundary_tests.rs`.
 
-**Interfaces:** Produces `McpServer.findings: Vec<ConfigFinding>` and `Tool.findings: Vec<ConfigFinding>` (serialised, `skip_serializing_if = Vec::is_empty`).
+**Interfaces:** Produces `McpServer.findings: Vec<ConfigFinding>` and `Tool.findings: Vec<ConfigFinding>` (serialised, `#[serde(default, skip_serializing_if = "Vec::is_empty")]`). `domain::Tool` derives `Serialize, Deserialize`, which is why `ConfigFinding` and `Check` derive both and `pattern` is a `String` (see "Interfaces this plan owns").
 
 - [ ] **Step 1: Write the failing tests.**
   - `parse_flags_a_plaintext_env_value`: `McpServers` `{"mcpServers":{"a":{"command":"x","env":{"GITHUB_TOKEN":<ghp_ token>}}}}` gives `findings == [{PlaintextSecret,"GITHUB_TOKEN","github-personal-access-token"}]`.
@@ -303,7 +311,7 @@ Placed in Part B by the dispatch. It has no code dependency on P2, but it touche
 
 ### Task 10: Needs review shows the two findings
 
-**Waits on:** Tasks 8 and 9.
+**Waits on:** Tasks 8 and 9, and P7's Task 10 (ruling R5: P7 adds `signed_out` and `settings_unreadable` to `reviewIssues.ts`, `NeedsReviewPane`'s `LEGEND` and `ReviewSidebar` first; this task rebases onto it and names it in the commit body).
 
 **Files:** Modify `src/utils/reviewIssues.ts`, `src/App.tsx`'s `Tool` type (stage by hunk; a peer holds uncommitted edits in this file), `src/components/NeedsReviewPane.tsx` (`LEGEND`, the aria label) and `src/components/ReviewSidebar.tsx`. Test: `src/utils/reviewIssues.test.ts`.
 
@@ -313,37 +321,38 @@ Placed in Part B by the dispatch. It has no code dependency on P2, but it touche
   - `a_tool_with_no_findings_adds_no_issue`.
   - `a_parse_failure_still_outranks`: SEVERITY order is broken, drifted, parse, secret, unpinned, duplicate.
 - [ ] **Step 2: Run** `npx vitest run src/utils/reviewIssues.test.ts` from the repo root. Expected: FAIL.
-- [ ] **Step 3: Implement.** `IssueKind` gains `"secret" | "unpinned"`, and `ReviewCounts` gains the two fields, counted in the existing loop. Strings come only from G-N.
+- [ ] **Step 3: Implement.** `IssueKind` gains `"secret" | "unpinned"`, and `ReviewCounts` gains the two fields, counted in the existing loop. This is the existing, design-blessed exception to "counts come from the backend" (§4.3, "as it maps drift today"): `deriveReviewIssues` already tallies drift and parse issues in that loop, and these two are tallied the same way. Strings come only from G-N.
 - [ ] **Step 4: Run** `npx vitest run`, `bunx tsc --noEmit` (report the exit code), then a screenshot of Needs review in the dev app per `verifying-ui.md`. Use a throwaway fixture file holding a runtime-written fake token, never a real config. Name the theme in the evidence file.
 - [ ] **Step 5: Commit** by explicit path. For `src/App.tsx`, use `shared-checkout.md`'s exact-blob recipe. Message: `feat(review): show plaintext secrets and unpinned launches in Needs review`.
 
 ### Task 11: Claude Code add and remove through `vendor`
 
-**Waits on:** P2's merge (Track W). `vendor` is ours, but `ops` maps its errors.
+**Waits on:** P4's Task 3b (`apply::CommandReceipt`, ruling R2). The tests are vendor-only and need no `ops`, so this task does not wait on P2 and can run in wave 1 once Task 3b lands.
 
-**Files:** Modify `src-tauri/src/mcp/switch/vendor.rs`. Test: `mcp_switch_tests.rs`, using its `#!/bin/sh` fake `claude` (section "Claude Code, switched through its own command").
+**Files:** Modify `src-tauri/src/mcp/switch/vendor.rs` and P5's `src-tauri/src/vendor_cli/mod.rs` (one arm in `undo`, after telling P5; only if P5's Task 4 is on `main`, else P5 adds it from this task's `SendMessage`). Test: `mcp_switch_tests.rs`, using its `#!/bin/sh` fake `claude` (section "Claude Code, switched through its own command").
 
-**Interfaces:** Produces `claude_add`, `claude_remove`, `claude_undo_change`, `claude_changes` and `ClaudeChange`.
+**Interfaces:** Produces `claude_add`, `claude_remove` and `claude_reverse` (see "Interfaces this plan owns"). Consumes P4's `CommandReceipt`, `ReverseProgram::Claude`, `record_command` and `load_command`.
 
 - [ ] **Step 1: Write the failing tests.**
   - `claude_add_runs_add_json_with_the_entry_on_stdin`: the config gains the entry, the argv is exactly `mcp add-json weather - --scope user`, and the entry is absent from argv.
   - `claude_add_refuses_a_declared_name`: `AlreadyThere`, and the fake's call log is empty.
-  - `claude_add_refuses_an_entry_add_json_would_change`: the fake drops `description`. Result `WouldNotComeBack`, the real config is byte-identical, and no change record exists.
-  - `claude_remove_is_recorded_and_not_kept_off`: `claude_stashed` is empty, and `claude_changes` lists one `removed` record.
-  - `undo_of_a_remove_gives_the_entry_back` and `undo_of_an_add_removes_it`.
-  - `change_records_are_0600_in_a_0700_folder_and_an_add_holds_no_entry`.
+  - `claude_add_refuses_an_entry_add_json_would_change`: the fake drops `description`. Result `WouldNotComeBack`, the real config is byte-identical, and no receipt exists.
+  - `claude_add_records_its_reverse`: `load_command(receipts, &r.id)` has `program: Claude`, `reverse_args == ["mcp","remove","weather","--scope","user"]`, `reverse_stdin_stash: None`.
+  - `claude_remove_keeps_the_entry_in_the_stash_and_not_in_the_receipt`: `claude_stashed` is empty; the receipt has `reverse_args == ["mcp","add-json","weather","-","--scope","user"]` and `reverse_stdin_stash: Some(id)`; `<stash>/claude-code/removed/<id>.json` holds the entry; the receipt file's text holds none of the entry's four switch markers.
+  - `reversing_a_remove_gives_the_entry_back` and `reversing_an_add_removes_it`, each through `claude_reverse`, each recording a receipt whose own reverse is the original write.
+  - `stash_records_and_receipts_are_0600_in_0700_folders`.
 - [ ] **Step 2: Run** `cargo test --test mcp_switch_tests claude_`. Expected: FAIL, `cannot find function claude_add`.
-- [ ] **Step 3: Implement** by reusing `comes_back`, `read_entry`, `keep` and `Scratch`. The pre-flight runs for add and for remove, so a removed entry provably comes back. The record is written and synced **before** the command, as `claude_off` keeps. "The file decides, never the command" holds for both. Extend the module doc's tables. The `README` and `docs/ipc.md` text "Hanger never writes `.claude.json`" stays true.
+- [ ] **Step 3: Implement** by reusing `comes_back`, `read_entry`, `keep` and `Scratch`. The pre-flight runs for add and for remove, so a removed entry provably comes back. The stash record and the receipt are written and synced **before** the command, as `claude_off` keeps. "The file decides, never the command" holds for both. Extend the module doc's tables, and correct its sentence that Hanger never writes `.claude.json` together with P2 (whose per-project switch makes it false): say it in one place, in `vendor.rs`'s module doc, true of both plans. Neither `README.md` nor `docs/ipc.md` carries that sentence (grep checked 2026-11-28).
 - [ ] **Step 4: Run** the file. Expected: PASS.
-- [ ] **Step 5: Commit** `vendor.rs`, `mcp_switch_tests.rs`: `feat(mcp): add and remove a Claude Code server through its own command, with an Undo`. Then `SendMessage` 4a with `claude_changes`' signature.
+- [ ] **Step 5: Commit** `vendor.rs` and `mcp_switch_tests.rs` (and `vendor_cli/mod.rs` if this task added the arm): `feat(mcp): add and remove a Claude Code server through its own command, with a receipt holding its reverse`. Then `SendMessage` P4 (Recent changes will list these receipts) and P5 (the `mcp` arm of `vendor_cli::undo`).
 
 ### Task 12: `ops` add, remove and copy, and `ENTRY_WRITES`
 
-**Waits on:** P2's `ops` target merged (the serial spine, design §6 B).
+**Waits on:** P2's Task 2 (`ops::Target`) merged (the serial spine, design §6 B), and Task 11.
 
 **Files:** Modify `src-tauri/src/mcp/switch/ops.rs`, `src-tauri/src/mcp/registry.rs`, `src-tauri/src/mcp/discover.rs` (make `home_base_for` `pub(crate)`) and `src/__tests__/brand-coverage.test.ts`. Tests: `mcp_switch_tests.rs`, `ipc_boundary_tests.rs`.
 
-**Interfaces:** Consumes P2's `Target`, `entry::*`, `edit::entries::*`, `findings::*`, `vendor::claude_*` and `apply` (unchanged).
+**Interfaces:** Consumes P2's `Target`, `entry::*` (`literals_of` included), `edit::entries::*`, `findings::*`, `vendor::claude_add`/`claude_remove`/`claude_reverse` and `apply` (unchanged).
 Produces:
 - `add_for(places, cli, engine_id, server: NewServer, probe_of) -> Result<SwitchReply, SwitchFailure>`
 - `remove_for(places, cli, engine_id, key, probe_of) -> Result<SwitchReply, SwitchFailure>`
@@ -352,7 +361,7 @@ Produces:
 - `check_entry(&NewServer) -> Vec<ConfigFinding>`
 - `#[doc(hidden)]` `_with(rows: &[EntryRow], …)` twins for the three writers
 - New `SwitchFailure` variants with codes: `NoEntryWrite`, `RefsUnconfirmed`, `EnvRenameUnsupported`, `UrlUnconfirmed`, `UrlTransportUnsupported`, `SecretInEntry`, `SourceHasValues`
-- `undo_for` accepts `added:`/`removed:` ids and `file:` receipts for a file named by this engine's `ENTRY_WRITES` rows.
+- `undo_for` accepts `cmd:<uuid>` ids for `claude-code` (loaded with `apply::load_command` and handed to `vendor::claude_reverse`, the same function P5's `undo_vendor_change` reaches), and `file:` receipts for a file named by this engine's `ENTRY_WRITES` rows. So the form's own Undo stays `undo_mcp_switch`.
 
 - [ ] **Step 1: Write the failing tests**, all through the `_with` twins with a test row, against a temp home:
   - `add_for_writes_a_codex_entry_and_undo_takes_it_out`: `~/.codex/config.toml` gains `[mcp_servers.weather]`, the receipt is `file:`, and `undo_for` restores the bytes exactly.
@@ -364,10 +373,12 @@ Produces:
   - `remove_for_takes_out_a_server_by_key_and_undo_restores_it` (Codex and Antigravity).
   - `remove_for_refuses_a_key_from_another_engine` → `wrong_engine`; an unknown key → `not_found`.
   - `copy_for_copies_a_claude_entry_into_codex` (the entry holds `${GITHUB_TOKEN}` under key `GITHUB_TOKEN`).
-  - `copy_for_refuses_a_source_holding_a_literal` → `source_has_values`.
+  - `copy_for_carries_a_non_secret_literal_file_to_file` (round 44 Q8, provisional default): a Claude source with `{"LOG_LEVEL":"debug"}` copied into Gemini writes `"LOG_LEVEL": "debug"` in the target file, and the `SwitchReply` serialises no `debug`. Under "drop every literal" this test is replaced by `copy_for_refuses_a_source_holding_a_literal` → `source_has_values`.
+  - `copy_for_refuses_a_source_whose_literal_is_a_secret` → `secret_in_entry`.
+  - `add_for_refuses_when_the_config_folder_is_missing`: with no `~/.gemini/` folder, the add is `Err(WriteFailed)` from `apply`'s `NO_FOLDER`, and nothing is created.
   - `check_entry_warns_on_an_unpinned_launch`.
   - In `ipc_boundary_tests.rs`, `entry_replies_never_carry_a_config_value`: the four switch markers sit in a source entry, and none reaches any `SwitchReply` or `NewServer` returned.
-  - In `brand-coverage.test.ts`, `every ENTRY_WRITES host is a HOSTS id`, plus a floor of `0`, raised by every Task 16 round.
+  - In `brand-coverage.test.ts`, `every ENTRY_WRITES host is a HOSTS id`, plus a floor of `0`, raised by every Task 16 round. This lands in the same commit as the `ENTRY_WRITES` table (design §5: tables keyed to `HOSTS` get their coverage assertion "in the same commit").
 - [ ] **Step 2: Run** `cargo test --test mcp_switch_tests --test ipc_boundary_tests`. Expected: FAIL, `cannot find function add_for`.
 - [ ] **Step 3: Implement.**
   - The target of an add is P2's `Target`, extended with `NewEntry`. The path comes from `ENTRY_WRITES.file`, resolved through `discover::home_base_for` (so `CODEX_HOME` and `CLAUDE_CONFIG_DIR` are honoured as discovery honours them), and never from the webview.
@@ -375,15 +386,17 @@ Produces:
   - Order: `entry::check`, the row, `render`, the row's `env_refs`/`header_refs`/`urls`, `findings::secret_findings(launch_pairs)`, `add_server`, `safe_replace` with `Format::Toml` or `Format::Jsonc`.
   - Claude Code goes to `vendor`.
   - Gemini's state file is left alone on remove; a stale key there is harmless and is noted in the doc.
+  - An add whose config folder is missing (`~/.gemini/` itself) is refused through `apply`'s `NO_FOLDER`; Hanger doesn't create an engine's folder.
+  - A copy writes `literals_of`'s values into the rendered entry inside `ops`, after `render`, so they never enter a `NewServer`.
   - Extend `ops`' module doc tables.
 - [ ] **Step 4: Run** the full `cargo test`, `npx vitest run src/__tests__/brand-coverage.test.ts`, then the four gates. Re-capture per-kind counts; they must equal the baseline.
-- [ ] **Step 5: Commit** production with its tests: `feat(mcp): add, remove and copy a server behind a confirmed-engine table`. The `brand-coverage.test.ts` change is a new assertion, not a forced edit, so it goes in its own commit: `test(guard): ENTRY_WRITES names only known hosts`.
+- [ ] **Step 5: Commit** production with its tests and the `brand-coverage.test.ts` assertion and floor, in one commit (design §5): `feat(mcp): add, remove and copy a server behind a confirmed-engine table`. The body names the guard addition and why it rides in this commit.
 
 ### Task 13: Commands and the webview contract
 
 **Waits on:** Tasks 7, 8 and 12.
 
-**Files:** Modify `src-tauri/src/lib.rs` (`generate_handler!`), `docs/ipc.md` (six sections), `README.md` (the `ipc` and `tests` regions), `src/types/engineContext.ts` (the codes union) and `src/utils/switchCopy.ts` (words from G-N). Tests: `ipc_boundary_tests.rs`, `src/utils/switchCopy.test.ts`.
+**Files:** Modify `src-tauri/src/lib.rs` (`generate_handler!`), `docs/ipc.md` (six sections, at the next free numbers at commit time), `README.md` (the `ipc` and `tests` regions, regenerated; the `ipc` figure rises by 6 over the tip), `src/types/engineContext.ts` (the codes union) and `src/utils/switchCopy.ts` (words from G-N). Tests: `ipc_boundary_tests.rs`, `src/utils/switchCopy.test.ts`.
 
 **Interfaces:** Thin wrappers built from `switch_places` and `claude_cli_for`:
 - `search_mcp_registry(query, cursor) -> Result<RegistrySearch, String>`
@@ -436,40 +449,45 @@ Order, per Answer Q5: Claude Code, Codex, Gemini CLI, Antigravity CLI. Each roun
 
 ### Task 17: Repository scope for Codex and Gemini CLI, untracked files only (Answer Q2)
 
-**Waits on:** P2's `git_tracks`, its read-only reason, and its repository key. Then Task 16's Codex and Gemini rows.
+**Waits on:** P2's Task 5, which lands `project::refused_files` and starts only after Claude Code's live check (P2 Task 4 Step 6) is accepted, so this task sits behind that human gate. Then Task 16's Codex and Gemini rows.
 
-**Files:** `ops.rs`, `registry.rs` (`Project` rows for `.codex/config.toml` and `.gemini/settings.json`), `lib.rs` (`repo_key` argument, or a sibling command, matching P2's shape), the form's scope control from G-L, `docs/ipc.md`. Tests: `mcp_switch_tests.rs`, `mcp_entry_live.rs`.
+**Files:** `ops.rs`, `registry.rs` (`Project` rows for `.codex/config.toml` and `.gemini/settings.json`), `lib.rs` (a `project: Option<String>` argument on `add_mcp_server` and `remove_mcp_server`, resolved with P2's `KnownProject::among` over `preferences::get_linked_directories`; no match is `Err("not_found")`), the form's scope control from G-L, `docs/ipc.md`. Tests: `mcp_switch_tests.rs`, `mcp_entry_live.rs`.
 
-Claude Code project scope is out: `run_capture` takes no working directory, and T19 has frozen its signature.
+Claude Code project scope is out by the vendor-CLI ruling: Claude Code entries are written only through `claude mcp … --scope user`, and a project-scope `claude mcp` write is not part of it. (A repo's `.mcp.json` is a plain `McpServers` file, so file format is not the reason.)
 
 - [ ] **Step 1: Write the failing tests.**
   - `a_project_add_writes_an_untracked_file`: a temp git repo where `.codex/config.toml` is absent gains the file.
-  - `a_project_add_refuses_a_tracked_file`: the file is committed, the add gives P2's code, and the bytes are unchanged.
+  - `a_project_add_refuses_a_tracked_file`: the file is committed; `refused_files` returns it, the add is `Err(ReadOnly)` with the item's reason `RepoFileTracked`, and the bytes are unchanged.
   - `a_project_remove_by_key_refuses_a_tracked_file`.
 - [ ] **Step 2: Run.** Expected: FAIL.
-- [ ] **Step 3: Implement** on P2's project target.
+- [ ] **Step 3: Implement** on P2's `Target::InProject { project, .. }` and this plan's `Target::NewEntry`, calling `refused_files(project.real_path(), &[path])` before every write and every Undo.
 - [ ] **Step 4:** Live check in a throwaway repo under a throwaway `HOME`, for both the tracked and the untracked case, with the same artefacts as Task 16. **STOP for Karthik**, then land the rows.
 - [ ] **Step 5: Commit**: `feat(mcp): add a server to a repository's own config when git does not track it`.
 
 ### Task 18: The model's verbs in `Ask` (wave 3)
 
-**Waits on:** P1 merged (Track Q). P1 owns `Ask`, so this extends it and never replaces it.
+**Waits on:** P1 merged (Track Q). P1 owns `Ask`, so this extends it and never replaces it (ruling R3).
 
-**Files:** `src-tauri/src/mcp_server/proposals.rs`, `approve.rs`, `mod.rs` (three tools), `docs/mcp-server.md`, `docs/ipc.md`. Test: `src-tauri/tests/mcp_proposal_tests.rs`.
+**Files:** `src-tauri/src/mcp_server/proposals.rs`, `approve.rs`, `mod.rs` (three tools in `TOOLS`), `strings.rs`, P1's `src/types/mcpProposals.ts` only if a new target arm is needed (it isn't: these previews use `PreviewTarget::Server`), `docs/mcp-server.md`, `docs/ipc.md`. Test: `src-tauri/tests/mcp_proposal_tests.rs`.
 
-**Interfaces:** Adds `Ask::Add { engine_id, from_key }`, `Ask::Remove { engine_id, key }` and `Ask::AddFromRegistry { engine_id, registry_name, version }`. There is no entry body and no free text. Tool names come from P1's G1-style brief.
-
-Previews:
-- An add shows the lines the file gains. They can hold no value, because a copy source with values is refused and Registry entries carry references only. For Claude Code, the preview is the argv `claude mcp add-json <name> - --scope user` and a note that the entry goes on stdin.
-- A remove shows only `<name>` and the file. It never shows the removed lines, which may hold a secret.
+**Interfaces** (P1's committed names):
+- `Ask::Add { engine_id: String, from_key: String }`, `Ask::Remove { engine_id: String, key: String }` and `Ask::AddFromRegistry { engine_id: String, registry_name: String, version: String }`. Wire, under P1's `#[serde(tag = "verb", rename_all = "snake_case")]`: `{"verb":"add","engine_id":…,"from_key":…}`, `{"verb":"remove",…}`, `{"verb":"add_from_registry",…}`. There is no entry body and no free text. `from_key` and `key` are stored as the real resolved keys.
+- One filing function per verb, each `(p: &ServerPlaces, …, asked_by: Option<&'static str>, now_ms: i64) -> Result<Fresh<Filed>, Refusal>`, each running `scanned(p)?` first: `propose_add(p, engine_id, from_key, …)`, `propose_remove(p, engine_id, key, …)` and `propose_registry_add(p, engine_id, registry_name, version, …)`. A model's `from_key`/`key` is a public id, resolved the way P1 resolves one: the items of `context_for` whose `public_key(&item.key)` equals it, exactly one match or `NotFound`/`Ambiguous`. `version` must pass `is_exact_version`. Then P1's queue check.
+- Tools in `TOOLS`, working names until P1's Gate N: `propose_server_add(engine_id, from_key)`, `propose_server_remove(engine_id, key)`, `propose_registry_add(engine_id, registry_name, version)`.
+- Preview arms, in P1's `Preview` with `to: None` (neither verb is on or off), `name` the server's name through `public_name`, and `target: PreviewTarget::Server { engine_id, engine_name, config_path }`:
+  - An add to a file host: `change: Change::Lines { lines }`, the lines the file gains (`+ ` prefix), run through P1's withheld rule; a line that fails it makes the change `Withheld`. They hold no value: a copy source with a secret is refused, its non-secret literals (round 44 Q8) appear by key name only because the add preview renders the entry with each literal replaced by its key, and Registry entries carry references only. For Claude Code: `change: Change::Command { argv: ["claude","mcp","add-json",<name>,"-","--scope","user"] }`; the entry goes on stdin and none of it is shown.
+  - A remove from a file host: `change: Change::Withheld`, because the removed lines may hold a secret; the band says only the name and the file. For Claude Code: `Change::Command { argv: ["claude","mcp","remove",<name>,"--scope","user"] }`.
+- Decide arms: `approve::decide` calls `ops::copy_for`, `ops::remove_for` and `ops::add_for` (fed by `official_registry::entry`), and records P1's `Status::Applied { receipt_id, stopped_at: None }`.
 
 - [ ] **Step 1: Write the failing tests.**
+  - `the_ask_wire_shape_is_pinned` extended with the three literals above.
   - `a_registry_add_is_revalidated_at_approval`: the stub's record turns deprecated between propose and approve, giving `Failed{code:"not_active"}`.
-  - `a_remove_preview_carries_no_entry_text`: the four markers are absent.
-  - `an_add_from_a_source_with_values_is_refused_at_propose`.
+  - `a_remove_preview_carries_no_entry_text`: the four markers are absent, and `change` is `Withheld` (file host) or `Command` (Claude Code).
+  - `an_add_from_a_source_with_a_secret_is_refused_at_propose`: `Err` with no file written.
   - `an_ask_carries_no_free_text`: the serialised keys are exactly the listed ones.
-- [ ] **Step 2: Run** `cargo test --test mcp_proposal_tests`. Expected: FAIL.
-- [ ] **Step 3: Implement.** `approve.rs` calls `ops::copy_for`, `ops::remove_for` and `ops::add_for` (fed by `official_registry::entry`).
+  - `a_public_id_shared_by_two_servers_is_ambiguous`: two servers whose names share their first 127 of 129+ characters give `Err(Ambiguous)`.
+- [ ] **Step 2: Run** `cargo test --test mcp_proposal_tests`. Expected: FAIL (no variant `Add`).
+- [ ] **Step 3: Implement.** Tell P1 on `SendMessage` before editing its files.
 - [ ] **Step 4:** Run the four gates. Then do a live check with Karthik in his engine: a proposed Registry add, approved, then its Undo. Keep the transcript and the config diff. **STOP for Karthik.** T23 is not triggered: a proposal holds no model-written text. If a preview would ever render text a model wrote, stop and ask in Plannotator first.
 - [ ] **Step 5: Commit**: `feat(mcp-server): a model may propose adding and removing a server`.
 
@@ -495,4 +513,11 @@ Previews:
 
 ## Out of scope
 
-The other 13 `HOSTS` (each one waits for its own live check, in a later plan). Claude Code local or project scope. Gemini and Antigravity URL entries, until `dialect` reads `httpUrl`/`serverUrl`. Literal env or header values in the form. Registry `default` values. The `mcp_server` `findings` tool (P1's, on Karthik's word). Hanger adding its own server (server plan Decision 8, a follow-on). Hash-change and `curl | sh` findings (`docs/roadmap.md`). A Keychain launcher. A remove for a server kept off in the Claude stash.
+The other 13 `HOSTS` (each one waits for its own live check, in a later plan). Claude Code local or project scope (the vendor-CLI ruling covers `--scope user` writes only; Karthik can widen it). Gemini and Antigravity URL entries, until `dialect` reads `httpUrl`/`serverUrl`. Literal env or header values in the form (a copy may carry non-secret ones file to file, round 44 Q8). Registry `default` values. The `mcp_server` `findings` tool (P1's, on Karthik's word). Hanger adding its own server (server plan Decision 8, a follow-on). Hash-change and `curl | sh` findings (`docs/roadmap.md`). A Keychain launcher. A remove for a server kept off in the Claude stash.
+
+## Known limits
+
+- **mcpick's case count and commit `225b5a2`** were not checked by the review; Task 5's port should cite what it actually copied.
+- **Two Registry names sharing a last segment** suggest the same server name; the person renames in the form, and a model's `propose_registry_add` of a declared name is refused `already_there`.
+- **`deriveReviewIssues` tallies `secret` and `unpinned` in the webview**, the existing exception design §4.3 blesses; `no-frontend-counting.test.ts` is unaffected because the tally lives in that file's allowed loop.
+- **Literal values copied file to file** (round 44 Q8's provisional default) are never shown, so a person approves a copy without seeing them; the preview lists their keys.

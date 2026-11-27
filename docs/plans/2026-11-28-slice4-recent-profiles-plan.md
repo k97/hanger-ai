@@ -2,6 +2,8 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+> **Reconciled 2026-11-28** after the `--plan` review (`docs/reviews/2026-11-28-plan-2026-11-28-slice4-recent-profiles-plan.md`), applying `docs/plans/research/2026-11-28-reconciliation-rulings.md` R1 (this plan's key-level Undo, `KeyEdit { key_path, member, present }`, `set_member`, `undo_key` and `file:` ids, is the one P2 calls), R2 (this plan owns the one vendor-CLI receipt, `apply::CommandReceipt` with `record_command`, `load_command`, `command_receipts` and `command_receipts_dir`, landed in the new Task 3b, which replaces the receipt shape this plan had assumed; Undo goes through P5's `undo_vendor_change`), R3 (Task 10 uses P1's committed names) and the P4 fixes: a profile load approved through P1's queue resolves `claude` through P7's `ENGINE_CLIS`; a partial load records `Applied` with the receipts that landed plus `stopped_at`; key-level writes keep their pre-write copy for Undo safety, and Recent changes never offers a restore for `~/.claude.json` (Q9). Shared names: `docs/plans/research/2026-11-28-cross-plan-interfaces.md`.
+
 **Goal:** Give every write Hanger makes a lasting, machine-wide history with Undo and restore (4a), and let a person save and load named sets of MCP server states across the whole machine with one Undo (4b).
 
 **Architecture:** 4a owns `mcp::switch::apply`. It lands three things there first: a key-level write and Undo for one name in a JSON list (consumed by P2 for `~/.claude.json`), an age floor on retention, and `restore_backup`. A new `recent` module then lists apply receipts, the Claude Code stash and the skill keep, and reaches Undo and restore without going through `ops`. 4b is a new `profiles` module. Profiles are files under `<data>/profiles/`. A load plans against `ops::contexts_for`, calls `ops::set_enabled_for` at the machine tiers in a fixed order, stops at the first failure, and records its receipts in a load record so one Undo walks them last-first.
@@ -15,7 +17,7 @@
 - `Receipt` (`apply.rs`) keeps every field, name and type. Callers of `safe_replace`, `safe_replace_with`, `undo` and `latest_receipts` compile unchanged.
 - No new `ApplyError` variant. `ops`' `From<ApplyError>` matches it in full, and `ops` is P2's.
 - Retention: "20 copies per file, none deleted before 30 days" (Q9). `KEPT_PER_FILE = 20`.
-- "A file the engine keeps rewriting (`~/.claude.json`) can be undone by key but not restored from an old copy" (Q9).
+- "A file the engine keeps rewriting (`~/.claude.json`) can be undone by key but not restored from an old copy" (Q9). A key-level write still keeps its pre-write copy, on purpose: it is what Undo-safety checks compare against, and `backup_file: Some` keeps a key receipt apart from "the write created the file". `restore_backup` refuses every key receipt, so Recent changes never offers a restore for `~/.claude.json`.
 - "A profile covers the whole machine and holds servers only. Servers it doesn't name are left alone, and 'turn everything else off' is a checkbox in the preview" (Q8). Profiles never add a server.
 - "Profiles are files under `<data>/profiles/`, with no migration." The store schema never moves.
 - No value from a config file crosses IPC, reaches SQLite, or is logged. Paths cross IPC only through `preferences::sanitise_path`.
@@ -37,32 +39,40 @@
 
 ## What this plan owns
 
-`mcp::switch::apply` (design §5). The interfaces land in Tasks 1 to 3, before anything else in this plan, and are stated exactly in Task 1's Interfaces block. Everyone else calls `apply` unchanged.
+`mcp::switch::apply` (design §5). The interfaces land in Tasks 1 to 3b, before anything else in this plan, and are stated exactly in Tasks 1 and 3b's Interfaces blocks. Everyone else calls `apply` unchanged. Two of them are consumed by other plans:
+
+- the key-level write and Undo (Task 1): P2 calls `set_member`/`set_member_with`, and reaches `undo_key` through `apply::undo` (ruling R1);
+- the command receipt (Task 3b): P3 and P5 write it, and Recent changes lists it (ruling R2).
 
 New modules owned here: `src-tauri/src/recent.rs`, `src-tauri/src/profiles.rs`.
 
 ## Cross-plan interfaces
 
-| Name and type assumed | Owner | Status |
+Every name here matches its owner's plan; the full table is `docs/plans/research/2026-11-28-cross-plan-interfaces.md`.
+
+| Name and type | Owner | Status |
 |---|---|---|
 | `ops::contexts_for(&SwitchPlaces, probe_of) -> Vec<EngineContext>`, `ops::set_enabled_for(&SwitchPlaces, &ClaudeCli, engine_id, key, enabled, probe_of) -> Result<SwitchReply, SwitchFailure>`, `ops::undo_for(...)`, `ops::kept_off_for(&SwitchPlaces) -> KeptOff`, `SwitchFailure::code()`, `impl From<ApplyError> for SwitchFailure`, `ContextItem { key, name, tier, state, read_only }` | P2 (slice 2) | On `main` now. P2 keeps the signatures source-compatible (design §5). After P2, contexts may hold `tier == "project"` items; 4b filters them out |
-| The `what` an `ops` switch writes into a receipt: `"<engine_id> · <name> · on"` or `"… · off"`, extra ` · `-separated segments allowed after the third | P2 | On `main` now (`ops::switch`). Task 4's first test pins it against a real `ops` switch, so a change reddens there |
-| P2 writes Claude Code's per-project key through `apply::set_member` with `key_path = ["projects", <realpath>, "disabledMcpServers"]`, `member = <server name>`, `present = !enabled`, and adds `~/.claude.json` to `ops::written_for` for `claude-code`, so `undo_for`'s `file:` route reaches `apply::undo` | P2 | Waiting on P2. Recent changes reaches the key Undo without it (Task 4) |
+| The `what` an `ops` switch writes into a receipt: `"<engine_id> · <name> · on"` or `"… · off"`, extra ` · `-separated segments allowed after the third. P2's project writes add `in project` as a fourth | P2 | On `main` now (`ops::switch`). Task 4's first test pins it against a real `ops` switch, so a change reddens there |
+| P2 writes Claude Code's per-project key through this plan's `apply::set_member` with `key_path = ["projects", <realpath>, "disabledMcpServers"]`, `member = <server name>`, `present = !enabled`, threads its race seam into `set_member_with`, and adds `~/.claude.json` to `ops::written_for` for `claude-code`, so `undo_for`'s `file:` route reaches `apply::undo` and so `undo_key` | P2 consumes from this plan (R1) | Waiting on P2's Task 4. Recent changes reaches the key Undo without it (Task 4) |
 | `skill_switch::ops::kept_for(&SkillPlaces) -> KeptSkills` (`KeptSkill { key: "kept-skill:<uuid>", name, at_ms, interrupted, back_in_store }`), `undo_skill_switch` taking `"kept:<uuid>"` | P5 (owns `skill_switch`) | On `main` now; called unchanged |
-| Vendor-CLI receipts (Q6). Assumed: folder `<data>/vendor/receipts/`, one `<uuid>.json` each, 0600. `VendorReceipt { id: String, at_ms: i64, tool: String /* "gh" or "claude" */, engine_id: Option<String>, what: String /* ids only */, reverse_argv: Vec<String> /* no secret values */ }`. `pub fn vendor_receipts(dir: &Path) -> Vec<VendorReceipt>`, newest first. IPC `undo_vendor_change(receipt_id: String)` runs the reverse command and returns the reverse's own receipt id | P3 and P5 both write them. Design §5 names no owner; whichever lands first owns the shape and the other matches it | Waiting on P3/P5. Task 9 |
-| `Ask` (`#[serde(tag = "verb")]`), `Proposal`, `Status::Applied { receipt_id: Option<String> }`, `Filed`, `Refusal`, `Fresh<_>`, `ServerPlaces`, `PreviewTarget`, `approve::decide`, `proposals::waiting`/`save`, `MAX_WAITING`. P1's plan: "P4b adds `ApplyProfile`" with its own variant, filing function, preview arm and decide arm | P1 (MCP phase 2) | Waiting on P1. Task 10 |
+| `apply::CommandReceipt`, `ReverseProgram`, `record_command`, `load_command`, `command_receipts`, `command_receipts_dir` (Task 3b) | **This plan** (R2) | P3's Claude Code `add-json` and `remove` (P3 Task 11) and P5's `gh skill` and `claude plugin` writes (P5 Tasks 4, 15) record them. Tell both on `SendMessage` when Task 3b lands |
+| IPC `undo_vendor_change(receipt_id: String) -> UndoReply`, which runs any `CommandReceipt`'s reverse | P5 (Task 5) | Task 9's Undo route. Waiting on P5's Task 5 |
+| `Ask` (`#[serde(tag = "verb")]`), `Proposal`, `Status::Applied { receipt_id: Option<String>, stopped_at: Option<String> }`, `Filed`, `Refusal`, `Fresh<_>`, `ServerPlaces`, `Preview { …, name, to: Option<ItemState>, target: PreviewTarget, change: Change }`, `Change::Lines`, `approve::decide`, `approve::engine_of`, `proposals::waiting`/`save`, `MAX_WAITING`, and the tool table `TOOLS` in `mcp_server/mod.rs`. P1's plan: "P4b adds `ApplyProfile`" with its own variant, filing function, preview arm and decide arm | P1 (MCP phase 2) | Waiting on P1. Task 10 |
+| `engine_status::clis::cli_for("claude-code")` and `resolve::resolve_in`, to find `claude` for a load approved through the queue | P7 (T19) | Waiting on P7's Task 1. Task 10 |
 | The overview card's engine section and its slot for the profile control (`OverviewCard`, `OverviewHost`) | P7 (T19) | Waiting on P7's card landing and the combined card layout round. Task 8 |
+| `src/hooks/useMcpSwitch.ts` | Unowned; merge order P1 → P2 → P4 | Task 8 rebases onto P1's and P2's changes |
 
 ## File structure
 
-- Modify `src-tauri/src/mcp/switch/apply.rs`: key-level write and Undo, retention age floor, `restore_backup`, `history`. Module doc updated: `ops` is no longer its only caller.
-- Modify `src-tauri/src/mcp/switch/mod.rs`: one doc line, "the first four are called only by `ops`" becomes "… only by `ops`, and `apply` also by `crate::recent`". Doc-only; tell P2 on `SendMessage` before editing, since P2 owns the module's code.
+- Modify `src-tauri/src/mcp/switch/apply.rs`: key-level write and Undo, retention age floor, `restore_backup`, `history`, and the command receipt. Module doc updated: `ops` is no longer its only caller.
+- Modify `src-tauri/src/mcp/switch/mod.rs`: one doc line, "are called only by the fifth, `ops`, and `ops` only by five commands in …". Both halves go stale: `apply` is also called by `crate::recent`, and `ops` also by `crate::profiles`. Task 4 corrects the first half and Task 7 the second. Doc-only; tell P2 on `SendMessage` before each edit, since P2 owns the module's code.
 - Create `src-tauri/src/recent.rs`: the Recent changes list, its Undo and its restore.
 - Create `src-tauri/src/profiles.rs`: profile files, plan, load, load records, Undo of a load.
 - Modify `src-tauri/src/lib.rs`: `pub mod recent; pub mod profiles;`, nine commands, `generate_handler!`.
-- Create `src-tauri/tests/apply_history_tests.rs`, `src-tauri/tests/recent_changes_tests.rs`, `src-tauri/tests/profiles_tests.rs`. New files, so P2 and P3's edits to `mcp_switch_tests.rs` don't meet these.
+- Create `src-tauri/tests/apply_history_tests.rs`, `src-tauri/tests/command_receipt_tests.rs`, `src-tauri/tests/recent_changes_tests.rs`, `src-tauri/tests/profiles_tests.rs`. New files, so P2 and P3's edits to `mcp_switch_tests.rs` don't meet these.
 - Modify `src-tauri/tests/mcp_switch_tests.rs`: two eviction tests only (Task 2's forced edit).
-- Modify `docs/ipc.md` (sections 25 to 33), `README.md` (generated `ipc` region only).
+- Modify `docs/ipc.md` (nine sections, each numbered from the next free number at commit time), `README.md` (generated `ipc` and `tests` regions).
 - Create, after the layout rounds: `src/components/RecentChanges.tsx`, `src/hooks/useRecentChanges.ts`, `src/components/ProfileControl.tsx`, `src/components/ProfilePreview.tsx`, and their tests. Modify `src/hooks/useMcpSwitch.ts`, `src/components/DesignSystemPane.tsx`, `src/data/designSystemFixtures.ts`, `.claude/DESIGN.md`.
 
 ---
@@ -172,7 +182,7 @@ pub fn member_text(text: &str, key_path: &[String], member: &str, present: bool)
 - Test: `src-tauri/tests/apply_history_tests.rs`
 
 **Interfaces:**
-- Produces: `const KEPT_AT_LEAST_MS: i64 = 30 * 24 * 60 * 60 * 1000;`. `evict` deletes a backup and its receipt exactly when it is outside its file's newest `KEPT_PER_FILE` and `now_ms() - receipt.at_ms > KEPT_AT_LEAST_MS`, with the real clock. A future-dated receipt is never deleted.
+- Produces: `const KEPT_AT_LEAST_MS: i64 = 30 * 24 * 60 * 60 * 1000;`. `evict` deletes a backup and its receipt exactly when it is outside its file's newest `KEPT_PER_FILE` and `now_ms() - receipt.at_ms > KEPT_AT_LEAST_MS`, with the real clock. A future-dated receipt is never deleted. As today, only receipts that kept a backup count toward a file's newest `KEPT_PER_FILE` (`evict`'s `held` counter); a created-file receipt (`backup_file: None`) neither counts nor is evicted by count.
 
 - [ ] **Step 1: The forced edit, committed alone.** `the_twenty_first_backup_evicts_the_oldest` and `eviction_removes_the_receipt_with_its_backup_and_leaves_other_files_alone` write with today's clock and expect eviction. Under the new rule nothing that young is evicted, so both would go red. Change their writes from `replace(...)` to `apply::safe_replace_with(..., Seams { at_ms: 1_000 + n, verify: &accept })`, keeping each test's order of stamps (in the second test the quiet file's first write takes the lowest stamp). Assertions unchanged. Run `cd src-tauri && cargo test --test mcp_switch_tests evict`. Expected: PASS on the old code. Commit alone: `git add src-tauri/tests/mcp_switch_tests.rs`, then in its own call `git commit -m "test(apply): date the eviction tests' writes in 1970, ahead of the 30-day floor" -- src-tauri/tests/mcp_switch_tests.rs`. The body names the cause: the Q9 age floor in the next commit.
 - [ ] **Step 2: Write the failing tests** in `apply_history_tests.rs`:
@@ -225,6 +235,69 @@ pub fn history(backups: &Path) -> Vec<HistoryEntry>;
 - [ ] **Step 3: Implement.** The module doc gains a "# Restore" section.
 - [ ] **Step 4: Run** the file and the full `cargo test`. Expected: PASS.
 - [ ] **Step 5: Commit** `apply.rs` and `apply_history_tests.rs`: `feat(apply): restore any kept copy, as a write of its own`.
+
+### Task 3b: The command receipt, one type for every vendor-CLI write (Q6, ruling R2)
+
+Lands before P3's Task 11 and P5's Task 4, which both wait on it. This plan defines the type and its store; it runs no command. P5's `vendor_cli::undo` runs the reverse.
+
+**Files:**
+- Modify: `src-tauri/src/mcp/switch/apply.rs`
+- Test: `src-tauri/tests/command_receipt_tests.rs` (new)
+
+**Interfaces:**
+- Produces, in `src-tauri/src/mcp/switch/apply.rs`. **This is the shape P3 and P5 write.**
+
+```rust
+/// Which program runs a receipt's reverse.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ReverseProgram { Gh, Claude, SkillSwitch }
+
+/// A write made through a vendor's own CLI (Q6): what was done, and the
+/// command that takes it back. Ids and argv only, never a config value.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CommandReceipt {
+    /// "cmd:<uuid>".
+    pub id: String,
+    pub at_ms: i64,
+    /// "<engine_id or tool> · <verb> · <name>", ids only, e.g.
+    /// "claude-code · remove · github", "gh skill · install · pdf".
+    pub what: String,
+    pub program: ReverseProgram,
+    /// argv after the program. Empty: this write has no Undo.
+    pub reverse_args: Vec<String>,
+    /// A stash record whose kept entry goes on the reverse's stdin (a Claude
+    /// Code remove's `add-json`). The entry itself stays in the stash, one of
+    /// the anti-goal's two named places, and is never in a receipt.
+    pub reverse_stdin_stash: Option<String>,
+}
+
+/// `<data>/commands`.
+pub fn command_receipts_dir(data_dir: &Path) -> PathBuf;
+/// Writes `<dir>/<uuid>.json`, 0600 in a 0700 folder, temp file and rename.
+/// Callers record before they reply. A relative `dir` is refused.
+pub fn record_command(dir: &Path, receipt: &CommandReceipt) -> Result<(), ApplyError>;
+/// `None` unless `id` is `cmd:<uuid>` with a uuid that parses, checked
+/// before any filesystem call.
+pub fn load_command(dir: &Path, id: &str) -> Option<CommandReceipt>;
+/// Every receipt, newest first. Skips files that don't parse and names that
+/// aren't `<uuid>.json`.
+pub fn command_receipts(dir: &Path) -> Vec<CommandReceipt>;
+```
+
+- Retention: none in this task. `shortcut: command receipts are never swept; add KEPT_AT_LEAST_MS's rule when <data>/commands grows past a few hundred files.`
+
+- [ ] **Step 1: Write the failing tests** in `command_receipt_tests.rs`:
+  - `a_command_receipt_round_trips_and_is_0600_in_a_0700_folder`: `record_command` into a missing `dir`, then `load_command(dir, &r.id) == Some(r)`; modes `0o700` and `0o600`.
+  - `the_wire_shape_is_pinned`: `serde_json::to_value` of a receipt with `program: SkillSwitch`, `reverse_args: ["skill:pdf"]`, `reverse_stdin_stash: None` equals a literal with exactly the keys `id`, `at_ms`, `what`, `program`, `reverse_args`, `reverse_stdin_stash`, and `program == "skill_switch"`.
+  - `an_id_that_is_not_one_touches_no_file`: plant `secret.json` beside the folder; `load_command(dir, "cmd:../secret")`, `load_command(dir, "file:<uuid>")` and `load_command(dir, "x")` are `None`.
+  - `receipts_list_newest_first_and_skip_junk`: three receipts at 30, 10, 20 and a `junk.json`; ids come back 30, 20, 10.
+  - `a_relative_folder_is_refused`.
+- [ ] **Step 2: Run** `cd src-tauri && cargo test --test command_receipt_tests`. Expected: FAIL to compile, with `cannot find type \`CommandReceipt\` in module \`apply\``.
+- [ ] **Step 3: Implement.** The module doc gains a "# Command receipts" section: Q6, ids and argv only, the stash rule.
+- [ ] **Step 4: Run** the file, then the full `cargo test`. Expected: PASS. Regenerate the README `tests` figure with `~/.bun/bin/bun run src/__tests__/readmeCounts.ts`, then `npx vitest run src/__tests__/readme-sync.test.ts` from the repo root.
+- [ ] **Step 5: Commit** `apply.rs`, `command_receipt_tests.rs` and `README.md`: `feat(apply): one receipt for a write made through a vendor's own CLI, holding its reverse`.
+- [ ] **Step 6: Tell P3 and P5** on `SendMessage` that the type has landed, with the SHA (`git cat-file -t` first) and this Interfaces block.
 
 ### Task 4: The Recent changes list, its Undo and restore (backend and IPC)
 
@@ -298,9 +371,9 @@ pub fn restore(switch: &SwitchPlaces, skills: &SkillPlaces, id: &str) -> Result<
   - `only_receipt_ids_are_undone_or_restored_here`: `recent::undo(.., "kept:x")`, `recent::restore(.., "file:nope")` and `recent::undo(.., "../../etc")` each give `Err(SwitchFailure::NotUndoable)`, and no file under the home changes.
   - `nothing_from_a_config_file_reaches_recent_changes`: `serde_json::to_string(&recent::list(..))` holds none of `SWITCH_MARKERS`.
 - [ ] **Step 2: Run** `cd src-tauri && cargo test --test recent_changes_tests`. Expected: FAIL to compile, with `unresolved import \`tauri_app_lib::recent\``.
-- [ ] **Step 3: Implement** `recent.rs` and the three commands. Send P2 a `SendMessage` naming the one `mod.rs` doc line, then edit it.
-- [ ] **Step 4: Docs.** Add `docs/ipc.md` sections 25 to 27 (`get_recent_changes`, `undo_recent_change`, `restore_backup`) in the file's format, with codes. Regenerate the figures: `~/.bun/bin/bun run src/__tests__/readmeCounts.ts`.
-- [ ] **Step 5: Run** the file, the full `cargo test` from `src-tauri/`, then from the repo root `npx vitest run src/__tests__/readme-sync.test.ts`. Expected: PASS, with the README's `ipc` line at 55 commands.
+- [ ] **Step 3: Implement** `recent.rs` and the three commands. Send P2 a `SendMessage` naming the `mod.rs` doc line, then correct its first half (`apply` is also called by `crate::recent`).
+- [ ] **Step 4: Docs.** Add three `docs/ipc.md` sections (`get_recent_changes`, `undo_recent_change`, `restore_backup`), numbered from the next free number at commit time, in the file's format, with codes. Regenerate the figures: `~/.bun/bin/bun run src/__tests__/readmeCounts.ts`.
+- [ ] **Step 5: Run** the file, the full `cargo test` from `src-tauri/`, then from the repo root `npx vitest run src/__tests__/readme-sync.test.ts`. Expected: PASS, with the README's `ipc` figure 3 above the tip this merges onto (P1, P2, P3 and P5 also add commands; no absolute total is pinned here).
 - [ ] **Step 6: Commit** `recent.rs`, `lib.rs`, `mod.rs`, `recent_changes_tests.rs`, `docs/ipc.md` and `README.md`: `feat(recent): every write Hanger made, newest first, with Undo and restore`.
 
 ### Gate N: naming brief (stop for Karthik)
@@ -398,8 +471,8 @@ pub fn delete(dir: &Path, name: &str) -> Result<(), ProfileError>;
   - `list_and_delete`: `list` is `[ProfileSummary { name: "Coding", saved_at_ms: 5, server_count: 4 }]`. A `junk.json` holding `{` is skipped. `delete("Coding")` empties the list, and `delete("Nope")` gives `Err(NotFound)`.
 - [ ] **Step 2: Run** `cd src-tauri && cargo test --test profiles_tests`. Expected: FAIL to compile, with `unresolved import \`tauri_app_lib::profiles\``.
 - [ ] **Step 3: Implement.**
-- [ ] **Step 4: Docs.** Add `docs/ipc.md` §28 to 30, then `~/.bun/bin/bun run src/__tests__/readmeCounts.ts`.
-- [ ] **Step 5: Run** the file, the full `cargo test`, and `npx vitest run src/__tests__/readme-sync.test.ts` from the repo root. Expected: PASS, with the README at 58 commands.
+- [ ] **Step 4: Docs.** Add three `docs/ipc.md` sections at the next free numbers, then `~/.bun/bin/bun run src/__tests__/readmeCounts.ts`.
+- [ ] **Step 5: Run** the file, the full `cargo test`, and `npx vitest run src/__tests__/readme-sync.test.ts` from the repo root. Expected: PASS, with the `ipc` figure 3 above the tip.
 - [ ] **Step 6: Commit** `profiles.rs`, `lib.rs`, `profiles_tests.rs`, `docs/ipc.md` and `README.md`: `feat(profiles): save the machine's server states as a named file`.
 
 ### Task 7: Preview, load, and Undo of a load
@@ -464,7 +537,7 @@ pub fn loads_dir(data_dir: &Path) -> PathBuf;
 - IPC: `preview_profile(app, name, everything_else_off: bool) -> ProfilePlan`, `load_profile(app, name, everything_else_off: bool) -> ProfileLoad`, `undo_profile_load(app, load_id: String) -> ProfileLoad`. `Err` is `ProfileError::code()`.
 
 - [ ] **Step 1: Write the failing tests** on Task 6's bench, with no `claude` (`ClaudeCli { program: None, .. }`):
-  - `a_preview_sorts_changes_and_skips_by_reason`: profile `[{antigravity,delta,false},{codex,alpha,false},{gemini,gamma,true},{codex,ghost,false},{codex,beta,false}]`, plus an OpenCode server `omega` declared in the bench and named `{opencode,omega,false}`. `changes` are `[codex alpha off, gemini gamma on, antigravity delta off]` by `(engine_id, name, enabled)`. `skipped` is `[{codex, ghost, NotDeclared}, {opencode, omega, ReadOnly{EngineNotConfirmed}}]`. `change_count: 3`, `already_count: 1`, `skipped_count: 2`.
+  - `a_preview_sorts_changes_and_skips_by_reason`: profile `[{antigravity,delta,false},{codex,alpha,false},{gemini,gamma,true},{codex,ghost,false},{codex,beta,false}]`, plus an OpenCode server `omega` declared in the bench and named `{opencode,omega,false}`. `changes` are `[codex alpha off, gemini gamma on, antigravity delta off]`, in Task 6's fixed order (engines by their `SWITCHES` index, then names by byte order). `skipped` is `[{codex, ghost, NotDeclared}, {opencode, omega, ReadOnly{EngineNotConfirmed}}]`. `change_count: 3`, `already_count: 1`, `skipped_count: 2`.
   - `everything_else_off_adds_the_unnamed_on_servers`: a profile `[{gemini,gamma,true}]` with the flag set plans `[codex alpha off, gemini gamma on, antigravity delta off]`, and without it plans `[gemini gamma on]`.
   - `a_load_applies_in_order_and_one_undo_puts_every_file_back`: the profile from the first test. `landed` engine ids are `["codex", "gemini", "antigravity"]`, every `receipt_id` starts with `"file:"`, `failed: None`, and the three files show the profile's states. `undo_load(load_id)` makes the Codex and Antigravity files byte-identical to before and puts Gemini's state file back as it was. Its own `load_id` is `Some`, and a second `undo_load` of that id reapplies the profile.
   - `a_load_stops_at_the_first_failure`: make `.gemini` mode `0o500`, so the state file's temp file cannot be made beside it (restore the mode in the test's teardown). `landed` is `[codex alpha]`, `failed` is `{engine_id: "gemini", name: "gamma", code: "write_failed"}`, `not_attempted_count: 1`, and the Antigravity file's bytes are unchanged. `undo_load` restores the Codex bytes.
@@ -472,9 +545,9 @@ pub fn loads_dir(data_dir: &Path) -> PathBuf;
   - `a_load_id_that_is_not_one_touches_no_file`: `undo_load(.., "profile-load:../x")` and `undo_load(.., "file:abc")` give `Err(NotFound)`.
 - [ ] **Step 2: Run** `cd src-tauri && cargo test --test profiles_tests`. Expected: FAIL to compile, with `cannot find function \`plan\` in module \`profiles\``.
 - [ ] **Step 3: Implement**, then the three commands.
-- [ ] **Step 4: Docs.** Add `docs/ipc.md` §31 to 33, then `~/.bun/bin/bun run src/__tests__/readmeCounts.ts`.
-- [ ] **Step 5: Run** the file, the full `cargo test`, and `npx vitest run src/__tests__/readme-sync.test.ts`. Expected: PASS, with the README at 61 commands.
-- [ ] **Step 6: Commit** `profiles.rs`, `lib.rs`, `profiles_tests.rs`, `docs/ipc.md` and `README.md`: `feat(profiles): preview and load a profile in a fixed order, with one Undo`.
+- [ ] **Step 4: Docs.** Add three `docs/ipc.md` sections at the next free numbers, then `~/.bun/bin/bun run src/__tests__/readmeCounts.ts`. Send P2 a `SendMessage`, then correct the second half of the `mod.rs` doc line (`ops` is also called by `crate::profiles`).
+- [ ] **Step 5: Run** the file, the full `cargo test`, and `npx vitest run src/__tests__/readme-sync.test.ts`. Expected: PASS, with the `ipc` figure 3 above the tip.
+- [ ] **Step 6: Commit** `profiles.rs`, `lib.rs`, `src-tauri/src/mcp/switch/mod.rs` (doc line), `profiles_tests.rs`, `docs/ipc.md` and `README.md`: `feat(profiles): preview and load a profile in a fixed order, with one Undo`.
 
 ### Gate L2: the profile control in the combined card layout round (stop for Karthik)
 
@@ -508,37 +581,38 @@ pub fn loads_dir(data_dir: &Path) -> PathBuf;
 - [ ] Artefacts in `docs/evidence/2026-11-28-slice4/`: the profile file (`cat`, which holds names and booleans only); `claude mcp list` before, after the load, and after the Undo; `diff` of `~/.codex/config.toml` against its pre-check copy (identical after the Undo); the load record; `ls` of `<data>/switch/stash`; a screenshot of the preview and of the notice, with the theme named; how long the load took.
 - [ ] **STOP.** Read every artefact before accepting "done".
 
-### Task 9: Vendor-CLI receipts in Recent changes (waiting on P3/P5)
+### Task 9: Command receipts in Recent changes (rows after Task 3b; Undo waits on P5's Task 5)
 
 **Files:** Modify `src-tauri/src/recent.rs`, `src/hooks/useRecentChanges.ts`, `src/components/RecentChanges.tsx`, their tests, `docs/ipc.md`.
 
-**Interfaces:** Consumes the assumed `VendorReceipt`, `vendor_receipts` and `undo_vendor_change` (Cross-plan interfaces). If the owner's landed shape differs, use the landed shape and say so in the report.
+**Interfaces:** Consumes this plan's own `apply::command_receipts` and `command_receipts_dir` (Task 3b), and P5's IPC `undo_vendor_change(receipt_id: String) -> UndoReply` (P5 Task 5, ruling R2). Rows appear as soon as P3 (Claude Code `add-json` and `remove`) or P5 (`gh skill`, `claude plugin`) record receipts.
 
-- [ ] **Step 0:** Confirm the shape on `main` (`grep -rn "struct VendorReceipt" src-tauri/src`). If it is absent, stop: this task waits.
-- [ ] **Step 1: Failing tests.** `recent_changes_tests.rs` → `a_vendor_cli_write_is_listed_with_its_reverse_as_undo`: a planted receipt lists `source: VendorCli`, `engine_id` as recorded, `undoable: true`, `restorable: false`, and no element of `reverse_argv` appears in the serialised list. `RecentChanges.test.tsx` → `a_vendor_row_undoes_through_undo_vendor_change`.
+- [ ] **Step 0:** Confirm P5's command is on `main` (`grep -n "fn undo_vendor_change" src-tauri/src/lib.rs`). If it is absent, land the listing (Steps 1 to 3 without the Undo route, rows `undoable: false`) and stop before the Undo route.
+- [ ] **Step 1: Failing tests.** `recent_changes_tests.rs` → `a_command_receipt_is_listed_with_its_reverse_as_undo`: a `CommandReceipt` recorded with `record_command` (`what: "claude-code · remove · github"`, `program: Claude`, `reverse_args: ["mcp","add-json","github","-","--scope","user"]`, `reverse_stdin_stash: Some(<id>)`) lists `source: VendorCli`, `id: "cmd:<uuid>"`, `engine_id: Some("claude-code")`, `name: Some("github")`, `undoable: true`, `restorable: false`, and no element of `reverse_args` and no stash id appears in the serialised list. `a_command_receipt_with_no_reverse_is_not_undoable`: empty `reverse_args` lists `undoable: false`. `RecentChanges.test.tsx` → `a_vendor_row_undoes_through_undo_vendor_change`.
 - [ ] **Step 2: Run** both. Expected: FAIL (no `VendorCli` variant).
-- [ ] **Step 3: Implement**: `ChangeSource::VendorCli`; Undo routes to `undo_vendor_change({ receiptId })`. Restore is never offered (Q10 and Q6: there is no copy to restore).
+- [ ] **Step 3: Implement**: `ChangeSource::VendorCli`, listed from `command_receipts(command_receipts_dir(data_dir))`, merged newest first. Engine and name come from `what` as for file receipts; a first segment that isn't a `host_by_id` id (`gh skill`) gives `engine_id: None`. `undoable` is `!reverse_args.is_empty()`. Undo routes to `undo_vendor_change({ receiptId })`. Restore is never offered (Q6, Q10: there is no copy to restore). `recent::undo` still accepts only `file:` ids; `cmd:` ids go to P5's command.
 - [ ] **Step 4: Run** `cargo test` and `npx vitest run`. Expected: PASS.
 - [ ] **Step 5: Commit**: `feat(recent): list vendor-CLI writes with their reverse command as Undo`.
 
-### Task 10: `Ask::ApplyProfile` (waiting on P1)
+### Task 10: `Ask::ApplyProfile` (waiting on P1 and P7)
 
-**Files:** Modify P1's `src-tauri/src/mcp_server/proposals.rs`, `approve.rs`, the propose-tool table in `tools.rs` and `strings.rs`, and P1's `mcp_proposal_tests.rs` (wire-shape literals).
+**Files:** Modify P1's `src-tauri/src/mcp_server/proposals.rs`, `approve.rs`, the tool table `TOOLS` in `mcp_server/mod.rs` and `strings.rs`, `src-tauri/src/lib.rs` (`decide_mcp_proposal`'s CLI), P1's `src/types/mcpProposals.ts` and its band (the `Profile` target), and P1's `mcp_proposal_tests.rs` (wire-shape literals).
 
-**Interfaces:**
-- Consumes P1's `Ask`, `Proposal`, `Status`, `Filed`, `Fresh`, `Refusal`, `ServerPlaces`, `PreviewTarget`, `approve::decide`, and `MAX_WAITING`, as landed on `main`.
+**Interfaces** (P1's committed names, ruling R3):
+- Consumes P1's `Ask`, `Proposal`, `Status::Applied { receipt_id, stopped_at }`, `Filed`, `Fresh`, `Refusal`, `ServerPlaces`, `Preview`, `PreviewTarget`, `Change::Lines`, `approve::decide`, `approve::engine_of`, `proposals::waiting`/`save` and `MAX_WAITING`; P7's `engine_status::clis::cli_for` and `resolve::resolve_in`.
 - Produces:
   - `Ask::ApplyProfile { profile: String, everything_else_off: bool }`, wire `{"verb":"apply_profile","profile":"Coding","everything_else_off":false}`.
-  - `pub fn propose_profile(p: &ServerPlaces, profile: &str, everything_else_off: bool, asked_by: Option<&'static str>, now_ms: i64) -> Result<Fresh<Filed>, Refusal>`. `profile` must equal a `profiles::list` name byte for byte, else `NotFound`. A plan with `change_count == 0` is `AlreadySo`. Then the queue check.
-  - A `PreviewTarget::Profile { profile, change_count, skipped_count }` arm built from `profiles::preview`.
-  - A decide arm calling `profiles::load`, recording `Status::Applied { receipt_id: load_id }`. P1's `Undo { of }` of it calls `profiles::undo_load`.
+  - `pub fn propose_profile(p: &ServerPlaces, profile: &str, everything_else_off: bool, asked_by: Option<&'static str>, now_ms: i64) -> Result<Fresh<Filed>, Refusal>`. It runs `scanned(p)?` first. `profile` must equal a `profiles::list` name byte for byte, else `NotFound`. A plan with `change_count == 0` is `AlreadySo`. Then the queue check.
+  - The tool `propose_profile_load(profile, everything_else_off)` in `TOOLS` (working name until P1's Gate N).
+  - A preview arm: `name` = the profile's name, `to: None`, `target: PreviewTarget::Profile { profile, change_count, skipped_count }`, and `change: Change::Lines { lines }` with one line per planned switch, `"<engine name> · <server> · on|off"`, names through `public_name`, all from `profiles::preview`.
+  - A decide arm calling `profiles::load`. It builds its own `ClaudeCli` from P7's `cli_for("claude-code")` and `resolve_in(cli.bin, &search_path().await)`, so a kept Claude Code server can come back on; `engine_of` answers `"claude-code"` for an `ApplyProfile` proposal, so `decide_mcp_proposal` builds the same CLI. A load where anything landed records `Status::Applied { receipt_id: load_id, stopped_at }`, with `stopped_at` the failed switch's code (`None` when nothing failed), so the model's `propose_undo` can take back what landed. A load where nothing landed and one failed records `Failed { code }`. P1's `Undo { of }` of it calls `profiles::undo_load`.
   - Restore stays out of `Ask`, per Q10.
 
-- [ ] **Step 0:** Confirm P1 has merged (`grep -n "pub enum Ask" src-tauri/src/mcp_server/proposals.rs`). If not, stop: this task waits. Tell P1 on `SendMessage` before editing its files.
-- [ ] **Step 1: Failing tests** in `mcp_proposal_tests.rs`: `the_ask_wire_shape_is_pinned` extended with the literal above; `a_profile_proposal_names_an_existing_profile` (`"Nope"` is `Err(NotFound)`, with no file written); `approving_a_profile_proposal_loads_it_and_its_undo_walks_it_back` (fixture as in Task 7's first load test).
+- [ ] **Step 0:** Confirm P1 and P7 have merged (`grep -n "pub enum Ask" src-tauri/src/mcp_server/proposals.rs` and `grep -n "pub fn cli_for" src-tauri/src/engine_status/clis.rs`). If not, stop: this task waits. Tell P1 on `SendMessage` before editing its files.
+- [ ] **Step 1: Failing tests** in `mcp_proposal_tests.rs`: `the_ask_wire_shape_is_pinned` extended with the literal above; `a_profile_proposal_names_an_existing_profile` (`"Nope"` is `Err(NotFound)`, with no file written); `approving_a_profile_proposal_loads_it_and_its_undo_walks_it_back` (fixture as in Task 7's first load test); `a_partial_load_is_applied_with_stopped_at` (fixture as `a_load_stops_at_the_first_failure`: status `Applied { receipt_id: Some("profile-load:…"), stopped_at: Some("write_failed") }`, then `propose_undo` files and its approval restores the Codex bytes); `a_profile_load_finds_claude_through_engine_clis` (a fake `claude` on the path brings a kept Claude Code server back on).
 - [ ] **Step 2: Run** `cd src-tauri && cargo test --test mcp_proposal_tests`. Expected: FAIL (no variant `ApplyProfile`).
-- [ ] **Step 3: Implement.** P1's Gate N strings carry this tool's description.
-- [ ] **Step 4: Run** the full `cargo test`, plus P8's `agent_tools_hold_only_what_q10_allows` if it is on `main`. Expected: PASS.
+- [ ] **Step 3: Implement.** P1's Gate N strings carry this tool's description. Add the `Profile` arm to `src/types/mcpProposals.ts` and the band, with a Vitest case.
+- [ ] **Step 4: Run** the full `cargo test` and `npx vitest run`, plus P8's `agent_tools_hold_only_what_q10_allows` if it is on `main`. Expected: PASS.
 - [ ] **Step 5: Commit**: `feat(mcp-server): a model may ask to load a profile, approved in Hanger's window`.
 
 ### Task 11: Close the track
@@ -564,3 +638,10 @@ pub fn loads_dir(data_dir: &Path) -> PathBuf;
 | `stage-gate --dev` / `--release` | Before push / after merge | Task 11 |
 
 Tasks 1 to 4, 6 and 7 are backend-only. No screenshot is evidence for them; their tests are.
+
+## Known limits
+
+- **Command receipts are never swept.** Task 3b leaves retention for later (`shortcut:` comment).
+- **Recent changes doesn't cover deploys** (`transactional::write_transactional`'s `.hanger/backups`) or a Claude Code server switched back on, which leaves no entry. Gate N's copy says so.
+- **Each plan adds IPC commands**, so the README `ipc` total depends on merge order. Every docs step here regenerates and expects +3 over the tip, never an absolute figure.
+- **A key-level write keeps a whole copy of `~/.claude.json`** for at least 30 days (Task 2's floor). It is never restored (Q9); it exists for Undo safety and `history`.
