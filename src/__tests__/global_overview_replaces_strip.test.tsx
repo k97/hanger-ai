@@ -2,7 +2,8 @@
 /** Task 7 of docs/plans/2026-11-26-overview-card.md: the overview card
  *  replaces Global's engine chips and inventory summary. The card holds the
  *  engines, the store's link state, Needs review and Rescan, so Global draws
- *  no chip row and no strip. A repository keeps its summary strip. */
+ *  no chip row and no strip. A repository draws the same card in place of
+ *  its strip (Task 6 of docs/plans/2026-11-27-repo-view-parity.md). */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, waitFor, cleanup, act, within } from "@testing-library/react";
 import App from "../App";
@@ -110,10 +111,13 @@ describe("the overview card replaces the chips and the summary", () => {
   });
 
   it("a repository still has its summary", async () => {
+    // Its summary is the overview card too, since Task 6 of
+    // docs/plans/2026-11-27-repo-view-parity.md.
     mockPreferences.selected_sidebar_item = REPO;
     render(<App />);
     await completeScan();
-    await waitFor(() => expect(document.querySelector('section[aria-label="Inventory summary"]')).not.toBeNull());
-    expect(within(cap()).queryByRole("button", { name: "Show overview ⌘E" })).toBeNull();
+    await screen.findByText("Repo Skill");
+    await waitFor(() => expect(within(cap()).getByRole("button", { name: "Show overview ⌘E" })).toBeTruthy());
+    expect(document.querySelector('section[aria-label="Inventory summary"]')).toBeNull();
   });
 });

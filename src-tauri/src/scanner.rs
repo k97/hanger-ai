@@ -328,6 +328,7 @@ pub fn get_engine_key(id_str: &str) -> Option<&'static str> {
         "claude-code" | "claude_code" => Some("claude_code"),
         "codex" => Some("codex"),
         "gemini" => Some("gemini"),
+        "antigravity" => Some("antigravity"),
         "cursor" => Some("cursor"),
         "copilot" => Some("copilot"),
         "kiro" => Some("kiro"),
@@ -713,6 +714,7 @@ fn agent_id_static(agent_id: &str) -> &'static str {
         "claude-code" | "claude_code" => "claude-code",
         "codex" => "codex",
         "gemini" => "gemini",
+        "antigravity" => "antigravity",
         _ => "",
     }
 }
@@ -1550,17 +1552,15 @@ impl DirectoryScanner {
                 agent_subagent_paths.push(g_path_buf.join("agents"));
                 
                 if agent.id == "gemini" {
-                    let home = get_home_dir();
-                    let p1 = home.join(".gemini/agents");
+                    let p1 = get_home_dir().join(".gemini/agents");
                     if !agent_subagent_paths.contains(&p1) {
                         agent_subagent_paths.push(p1);
                     }
-                    let p2 = home.join(".gemini/config/agents");
-                    if !agent_subagent_paths.contains(&p2) {
-                        agent_subagent_paths.push(p2);
-                    }
-                    
-                    let plugins_dir = home.join(".gemini/config/plugins");
+                }
+                // Antigravity CLI's own `agents/` is the generic push above;
+                // its plugins each carry an `agents/` folder of their own.
+                if agent.id == "antigravity" {
+                    let plugins_dir = g_path_buf.join("plugins");
                     if plugins_dir.exists() && plugins_dir.is_dir() {
                         if let Ok(entries) = fs::read_dir(plugins_dir) {
                             for entry in entries.flatten() {

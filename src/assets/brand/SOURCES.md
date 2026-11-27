@@ -12,7 +12,8 @@ not tracked in this repo): `docs/superpowers/specs/2026-08-15-brand-icons-design
 | Claude Code | `icons/claudecode-color.svg` |
 | Codex | `icons/codex-color.svg` |
 | Codex — dark-mode mark, used in place of the row above on `--page` dark | `icons/codex.svg` |
-| Gemini (CLI / Antigravity) | `icons/gemini-color.svg` |
+| Gemini CLI | `icons/gemini-color.svg` |
+| Antigravity CLI | `icons/antigravity-color.svg` |
 | Claude Desktop, Claude.ai | `icons/claude-color.svg` |
 | Cursor | `icons/cursor.svg` |
 | Windsurf | `icons/windsurf.svg` |

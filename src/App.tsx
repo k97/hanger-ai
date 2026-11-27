@@ -373,11 +373,6 @@ export default function App() {
   // (`overview_hidden`, Task 2 of docs/plans/2026-11-26-global-list.md).
   // Shown by default; saved like `inspector_open`, beside it.
   const [overviewHidden, setOverviewHidden] = useState<boolean>(false);
-  // The project pane's hero band. Folded by default: the hero's job is the
-  // headline, and the per-engine breakdown is the second question. Global's
-  // band, and its `hosts_band_open` preference, went with the engine lens
-  // (docs/plans/2026-11-25-ia-global-by-engine.md).
-  const [enginesBandOpen, setEnginesBandOpen] = useState(false);
   // The floor, and the starting width. INSPECTOR_MIN_WIDTH in
   // utils/inspectorLayout.ts says why it is where it is.
   const [inspectorWidth, setInspectorWidth] = useState<number>(INSPECTOR_MIN_WIDTH);
@@ -583,13 +578,6 @@ export default function App() {
   };
 
   const toggleInspectorExpanded = () => setInspectorExpanded((prev) => !prev);
-
-  const toggleEnginesBand = () =>
-    setEnginesBandOpen((prev) => {
-      const next = !prev;
-      invoke("set_preference", { key: "engines_band_open", value: String(next) }).catch(() => {});
-      return next;
-    });
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -972,8 +960,6 @@ export default function App() {
       }
       const overviewHiddenPref = await invoke<string | null>("get_preference", { key: "overview_hidden" });
       if (overviewHiddenPref === "true") setOverviewHidden(true);
-      const enginesPref = await invoke<string | null>("get_preference", { key: "engines_band_open" });
-      if (enginesPref === "true") setEnginesBandOpen(true);
       const inspectorWidthPref = await invoke<string | null>("get_preference", { key: "inspector_width" });
       if (inspectorWidthPref) {
         const w = parseInt(inspectorWidthPref, 10);
@@ -1471,8 +1457,10 @@ export default function App() {
     invoke("set_preference", { key: "overview_hidden", value: String(next) }).catch(() => {});
   };
 
-  /* Esc on Global clears what the inspector is showing (round 14 q4:
-     Global only). Whatever else uses Esc marks it handled with
+  /* Esc on Global or a repository clears what the inspector is showing
+     (round 14 q4 ruled Global only; Q4 of
+     docs/plans/2026-11-27-repo-view-parity.md, Answers 4, added
+     repositories). Whatever else uses Esc marks it handled with
      preventDefault, and this skips those: a menu, a popover, the search
      palette, a tip, the overview popover. They run first however the
      listeners were added. The primitives take Esc in the capture phase on
@@ -1481,7 +1469,8 @@ export default function App() {
      key event makes. */
   const inspectorHasSubject = selectedAsset !== null || selectedBubble !== null || selectedKeptKey !== null;
   useEffect(() => {
-    if (!isGlobalItem(selectedSidebarItem) || !inspectorOpen || !inspectorHasSubject) return;
+    const onRepo = selectedSidebarItem.startsWith("/") || selectedSidebarItem.startsWith("~");
+    if (!(isGlobalItem(selectedSidebarItem) || onRepo) || !inspectorOpen || !inspectorHasSubject) return;
     const onKeyDown = (e: KeyboardEvent) => {
       // Esc typed into a field is the field's (search, rename), not a
       // request to drop the subject.
@@ -2113,10 +2102,14 @@ export default function App() {
         <header data-tauri-drag-region className="relative h-9 shrink-0 flex items-center gap-2.5 select-none z-30 font-flex">
           {capDragOverlay}
           <div className="ml-auto flex items-center gap-1 pr-3">
-            {/* Global's overview button lands here, portalled by ProfilePane.
-                `contents` keeps the slot out of the row's layout, and the
-                button itself carries `relative` over the drag overlay. */}
-            {(selectedSidebarItem === "profile" || selectedSidebarItem.startsWith("global")) && (
+            {/* The overview button lands here, portalled by ProfilePane on
+                Global and by RepoPane on a repository. `contents` keeps the
+                slot out of the row's layout, and the button itself carries
+                `relative` over the drag overlay. */}
+            {(selectedSidebarItem === "profile" ||
+              selectedSidebarItem.startsWith("global") ||
+              selectedSidebarItem.startsWith("/") ||
+              selectedSidebarItem.startsWith("~")) && (
               <span ref={setCapSlot} data-testid="overview-cap-slot" className="contents" />
             )}
             {/* The map view has no inspector column — its detail card lives
@@ -2337,6 +2330,10 @@ export default function App() {
 
           {(selectedSidebarItem.startsWith("/") || selectedSidebarItem.startsWith("~")) && (
             <RepoPane
+              /* Keyed by the root, not the sidebar item: a new repository
+                 remounts the pane, so its tab and the card's popover reset
+                 together; a tab change within one repository does not. */
+              key={repoPaneRoot}
               repoPath={repoPaneRoot}
               selectedCategory={
                 selectedSidebarItem.includes(":")
@@ -2358,8 +2355,10 @@ export default function App() {
               onLinkFromProfile={handleLinkFromProfile}
               linkedRepos={linkedDirectories}
               onPromoteCandidates={(candidates) => setPromoteCandidates(candidates)}
-              enginesBandOpen={enginesBandOpen}
-              onToggleEnginesBand={toggleEnginesBand}
+              overviewSlots={{ cap: capSlot }}
+              inspectorOpen={inspectorOpen}
+              overviewHidden={overviewHidden}
+              onToggleOverviewHidden={toggleOverviewHidden}
               issues={review.issues.filter((i) => i.whereKeys.includes(repoPaneRoot))}
               onReview={routeToReview}
             />

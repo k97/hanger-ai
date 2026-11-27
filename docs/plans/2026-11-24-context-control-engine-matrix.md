@@ -10,6 +10,7 @@ Task 1 of [the context-control plan](2026-11-24-context-control.md). Measured on
 |---|---|---|---|---|
 | Codex | codex-cli 0.171.0 | `enabled = false` in the server's `[mcp_servers.<name>]` table | `codex mcp list` → `disabled` | Switchable |
 | Gemini CLI | 0.56.0 | `{"<name>": {"enabled": false}}` in `~/.gemini/mcp-server-enablement.json` | `gemini mcp list` → `Disabled` | Switchable, through that file |
+| Antigravity CLI | agy 1.5.18 | `"disabled": true` in the server's entry in `~/.gemini/config/mcp_config.json`; `"enabled"` is ignored | `agy mcp list` → `disabled` (2026-11-27) | Switchable, Global only |
 | Claude Code | 2.1.331 | `claude mcp remove`, config kept by Hanger; `claude mcp add-json` restores it | `claude mcp list`, and a byte-equal round trip | Switchable, user scope |
 | OpenCode | v2.4.1 | `"enabled": false` on the server | `opencode debug config` only; `opencode mcp list` could not be isolated | **Open — Karthik rules** |
 | Cursor, Claude Desktop, Zed, VS Code | — | The vendor documents a toggle in the app and no key in the file | Not checked | Read-only (decision 11) |
@@ -91,6 +92,55 @@ Two properties to carry into the code:
 - In an untrusted folder Gemini lists every server as Disabled, whatever this file says. That is the trust gate already recorded in `docs/roadmap.md`, not a switch.
 
 Karthik's real `~/.gemini/` has four servers and no enablement file today.
+
+## Antigravity CLI: a disabled key in the entry is honoured; enabled is ignored
+
+Added 2026-11-27 by [the Antigravity engine plan](2026-11-27-antigravity-engine.md), which carries the full evidence; the transcript below is copied from it, abridged where it was. Measured there with `agy` 1.5.18 against a throwaway home `$S`; no real config file was written.
+
+```
+$ cat $S/.gemini/config/mcp_config.json
+{"mcpServers":{"alpha":{"command":"/usr/bin/true"},"beta":{"command":"/usr/bin/true","disabled":true},"gamma":{"command":"/usr/bin/true","enabled":false}}}
+$ cat $S/.gemini/antigravity/mcp_config.json
+{"mcpServers":{"legacy":{"command":"/usr/bin/true"}}}
+$ cat $S/.gemini/settings.json
+{"mcpServers":{"gemini-only":{"command":"/usr/bin/true"}}}
+$ cat $S/.gemini/mcp-server-enablement.json
+{"alpha":{"enabled":false}}
+$ HOME=$S agy mcp list
+NAME   TYPE   STATUS    COMMAND/URL
+alpha  stdio  enabled   /usr/bin/true
+beta   stdio  disabled  /usr/bin/true
+gamma  stdio  enabled   /usr/bin/true
+exit=0
+$ HOME=$S agy mcp disable alpha
+Disabled MCP server "alpha"
+exit=0
+$ HOME=$S agy mcp enable alpha
+Enabled MCP server "alpha"
+exit=0
+$ HOME=$S gemini mcp list
+...
+○ gemini-only: /usr/bin/true  (stdio) - Disabled
+exit=0
+```
+
+A second home, for the values Hanger writes and for a stub entry:
+
+```
+$ cat $S/.gemini/config/mcp_config.json
+{"mcpServers":{"off":{"command":"/usr/bin/true","disabled":true},"on-false":{"command":"/usr/bin/true","disabled":false},"absent":{"command":"/usr/bin/true"},"str":{"command":"/usr/bin/true","disabled":"true"},"ghost":{"disabled":true}}}
+$ HOME=$S agy mcp list
+NAME      TYPE   STATUS    COMMAND/URL
+absent    stdio  enabled   /usr/bin/true
+ghost     stdio  disabled  
+off       stdio  disabled  /usr/bin/true
+on-false  stdio  enabled   /usr/bin/true
+exit=0
+```
+
+So `agy` reads `~/.gemini/config/mcp_config.json` alone: not `~/.gemini/antigravity/mcp_config.json`, not Gemini CLI's settings, and not Gemini CLI's state file (`alpha` lists `enabled` although that file says off). `"disabled": true` is off; `"disabled": false` and an absent key are on; `"enabled": false` is ignored; a non-boolean `disabled` drops the server from the list; `agy mcp disable` of an undeclared name writes a stub `{"disabled": true}`. Gemini CLI 0.56.0 does not read Antigravity's file. The two engines' MCP files are disjoint.
+
+What Hanger does with it: a `SWITCHES` row of `SwitchKind::DisabledKey` at Global (`e6a3cc2`), and DisabledKey reads and writes `disabled` alone (Karthik's ruling, Q6 of the plan). Not established: that a running `agy` session, not `mcp list`, skips a disabled server. That is Karthik's live check, Task 5 of the plan.
 
 ## Claude Code — a flag is ignored; remove and restore round-trips
 

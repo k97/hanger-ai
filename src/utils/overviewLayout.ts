@@ -34,3 +34,14 @@ export const OVERVIEW_DOCK_MIN_WIDTH = MIN_DOCKED_COLUMN + DOCKED_LANE_CLEARANCE
 export function shouldDockOverview(listWidth: number, inspectorOpen: boolean): boolean {
   return listWidth >= OVERVIEW_DOCK_MIN_WIDTH && !inspectorOpen;
 }
+
+/** The box the lane is centred in (for the kind tabs, the box around their
+ *  padded wrapper, whose 18px padding is the same inset). Docked, it ends
+ *  where T3 ends its column
+ *  (chatCanvasLayout.ts): 32px short of the card, so
+ *  `DOCKED_LANE_CLEARANCE` (324px: the card's 280, its 12px gap and the
+ *  32px) from the pane's right edge. The box sits inside the list's 18px
+ *  inset (`LIST_INSET`), so its own margin is 324 − 18 = 306px. At a 968px
+ *  pane it ends at 644, and the lane, centred in it, fills it. A literal,
+ *  because Tailwind reads classes as text. Pinned by overview_dock.test.tsx. */
+export const laneBoxClass = (docked: boolean): string => (docked ? "mr-[306px]" : "");

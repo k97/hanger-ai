@@ -6,7 +6,10 @@ import type { BrandId } from "./brands";
 const ALIASES: Record<BrandId, string[]> = {
   claude_code: ["claude_code", "claude-code", "claude", "Claude Code"],
   codex: ["codex", "Codex", "OpenAI Codex"],
-  gemini: ["gemini", "gemini-cli", "geminicli", "antigravity", "Gemini CLI", "Gemini / Antigravity"],
+  // "Gemini / Antigravity" was the one engine's label before the split
+  // (2026-11-27); a store holding it still draws the Gemini mark.
+  gemini: ["gemini", "gemini-cli", "geminicli", "Gemini CLI", "Gemini / Antigravity"],
+  antigravity: ["antigravity", "Antigravity CLI"],
   claude_desktop: ["claude_desktop", "claude-desktop", "Claude Desktop"],
   claude_ai: ["claude_ai", "claude-ai", "Claude.ai"],
   vscode: ["vscode", "VS Code", "Visual Studio Code"],
@@ -37,6 +40,7 @@ describe("BRANDS", () => {
   it("has exactly the current brand set, each with a real svg", () => {
     expect([...BRAND_IDS].sort()).toEqual([
       "amp",
+      "antigravity",
       "claude_ai",
       "claude_code",
       "claude_desktop",

@@ -1,0 +1,287 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Repository overview card: layout options</title>
+<style>
+  /* Hanger's tokens, copied as values from src/styles/tokens.css (:root and .dark), which
+     src/styles/index.css maps into Tailwind's @theme. Static prototype, no build. */
+  :root, .light{
+    --page:#ffffff; --plane:#f7f7f7; --plane-2:#efefef; --tint:#e8e8e8; --tint-plane:#e0e0e0;
+    --line:rgba(0,0,0,.09); --line-2:rgba(0,0,0,.20); --ink-1:#000000; --ink-2:#4d4d4d; --ink-3:#636363;
+    --fill:#1f1f1f; --on-fill:#ffffff; --sidebar:rgba(252,252,252,.65); --sidebar-sel:#e6e6e6;
+    --state-success:#0f7a52; --state-warning:#8a5a00; --state-danger:#b3261e;
+    --gel-aqua:linear-gradient(180deg,#6fe3e0 0%,#00c3bf 55%,#00a19e 100%);
+    --bar-track:rgba(0,0,0,.04);
+    --overlay-shadow:0 0 3px rgba(0,0,0,.05),0 11px 34px rgba(0,0,0,.16);
+    --capsule-shadow:0 1px 2px rgba(0,0,0,.10),0 2px 6px rgba(0,0,0,.06);
+    --frost-blur:16px;
+    --font-flex:-apple-system,BlinkMacSystemFont,system-ui,sans-serif; --font-mono:ui-monospace,"SF Mono",Menlo,monospace;
+    --fs-micro:11px; --fs-small:12px; --fs-base:13px; --fs-lg:16px; --fs-display:32px;
+    --lh-body:20px; --lh-caption:16px;
+    --radius-plane:16px; --radius-inner:12px; --radius-soft:10px; --radius-control:8px; --radius-pill:9999px;
+    --desk:#dcdcdc;
+  }
+  .dark{
+    --page:#141414; --plane:#1c1c1c; --plane-2:#232323; --tint:#2c2c2c; --tint-plane:#303030;
+    --line:rgba(255,255,255,.12); --line-2:rgba(255,255,255,.22); --ink-1:#ffffff; --ink-2:#b0b0b0; --ink-3:#8c8c8c;
+    --fill:#ececec; --on-fill:#000000; --sidebar:rgba(42,42,42,.92); --sidebar-sel:#4a4a4a;
+    --state-success:#4ec08c; --state-warning:#d9a441; --state-danger:#e8635b;
+    --gel-aqua:linear-gradient(180deg,#3ee6e2 0%,#12b3af 55%,#0b8a87 100%);
+    --bar-track:rgba(255,255,255,.05);
+    --overlay-shadow:0 0 3px rgba(0,0,0,.4),0 11px 34px rgba(0,0,0,.55);
+    --capsule-shadow:0 1px 2px rgba(0,0,0,.6);
+    --desk:#3a3a3a;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:#dcdcdc;color:#000;font:13px/1.4 var(--font-flex);-webkit-font-smoothing:antialiased}
+  .doc{max-width:1100px;margin:0 auto;padding:32px 24px 80px}
+  .doc>h1{font-size:22px;font-weight:600;letter-spacing:-.3px;margin:0 0 6px}
+  .doc>p,.doc li{color:#4d4d4d;max-width:80ch}
+  .doc>h2{font-size:18px;margin:48px 0 4px}
+  .frame{margin:28px 0 0}
+  .frame>h3{font-size:14px;font-weight:600;margin:0 0 4px}
+  .frame>.why{color:#4d4d4d;max-width:84ch;margin:0 0 10px;font-size:12px}
+  .tag{display:inline-block;font-size:11px;font-weight:600;padding:1px 7px;border-radius:99px;background:#1f1f1f;color:#fff;margin-left:6px;vertical-align:2px}
+  .tag.g{background:#e8e8e8;color:#000}
+  body.shot{background:#dcdcdc}
+  body.shot .doc{padding:20px;max-width:none}
+  body.shot .doc>*:not(#frames),body.shot .frame:not(.target),body.shot .frame>h3,body.shot .frame>.why{display:none}
+  body.shot .frame{margin:0} body.shot #frames>h2{display:none}
+
+  /* window and shell */
+  .win{background:var(--sidebar-sel);background:var(--desk);border-radius:12px;box-shadow:0 18px 50px rgba(0,0,0,.25);overflow:hidden;display:grid;position:relative;height:700px;color:var(--ink-1);font-family:var(--font-flex);font-size:var(--fs-base)}
+  .win .shell{position:absolute;inset:0;background:var(--plane)}
+  .win>.grid{position:relative;display:grid;height:100%}
+  .rail{display:flex;flex-direction:column;align-items:center;gap:14px;padding-top:44px}
+  .rail i{width:20px;height:20px;border-radius:6px;background:var(--line-2);opacity:.6}.rail i.on{background:var(--ink-2);opacity:.85}
+  .lights{position:absolute;left:14px;top:14px;display:flex;gap:7px;z-index:3}.lights i{width:12px;height:12px;border-radius:50%;background:#ff5f57}.lights i:nth-child(2){background:#febc2e}.lights i:nth-child(3){background:#28c840}
+  .sheet{background:var(--page);border-radius:var(--radius-plane) var(--radius-plane) 0 0;margin-top:8px;display:grid;grid-template-rows:40px 1fr;min-width:0;min-height:0;position:relative}
+  .sheet.leads{border-top-right-radius:0}
+  .cap{display:flex;align-items:center;gap:8px;padding:0 10px 0 18px;border-bottom:1px solid transparent}
+  .cap .crumb{font-weight:500;color:var(--ink-1)}
+  .cap .crumb small{font-weight:400;color:var(--ink-3);font-family:var(--font-mono);font-size:var(--fs-small);margin-left:8px}
+  .cap .slot{margin-left:auto;display:flex;gap:4px}
+  .tbtn{width:28px;height:28px;border-radius:var(--radius-control);display:grid;place-items:center;color:var(--ink-2)}
+  .tbtn.on{background:var(--tint);color:var(--ink-1)}
+  .body{position:relative;min-height:0;overflow:hidden}
+  .lane{padding:0 18px 0 18px;display:flex;flex-direction:column;gap:12px;height:100%}
+  .lane.docked{margin-right:306px;padding-right:0}
+  .insp{background:var(--page);border-radius:var(--radius-plane) var(--radius-plane) 0 0;margin:8px 8px 0 8px;padding:18px;color:var(--ink-3);font-size:var(--fs-small)}
+  .insp b{display:block;color:var(--ink-1);font-size:var(--fs-base);font-weight:500;margin-bottom:6px}
+
+  /* kind tabs in the lane */
+  .tabs{display:flex;gap:2px;padding-top:4px}
+  .tabs span{height:28px;display:inline-flex;align-items:center;gap:6px;padding:0 10px;border-radius:var(--radius-pill);color:var(--ink-2);white-space:nowrap}
+  .tabs span.on{background:var(--tint);color:var(--ink-1);font-weight:500}
+  .tabs small{color:var(--ink-3);font-size:var(--fs-small);font-variant-numeric:tabular-nums}
+
+  /* list */
+  .gh{display:flex;align-items:center;gap:6px;padding:6px 0 4px;font-weight:500;color:var(--ink-1)}
+  .gh small{color:var(--ink-3);font-weight:400;font-variant-numeric:tabular-nums}
+  .row{display:flex;align-items:center;gap:10px;min-height:44px;padding:4px 10px;border-radius:var(--radius-control)}
+  .row .t{display:flex;flex-direction:column;min-width:0}
+  .row .t b{font-weight:400;color:var(--ink-1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .row .t span{font-size:var(--fs-small);color:var(--ink-3);line-height:var(--lh-caption)}
+  .row .st{margin-left:auto;display:flex;align-items:center;gap:6px;font-size:var(--fs-small);color:var(--ink-2)}
+  .dot{width:8px;height:8px;border-radius:99px;display:inline-block;flex:none}
+  .dot.linked{background-image:var(--gel-aqua)}.dot.drifted{background:var(--state-warning)}.dot.broken{background:var(--state-danger)}.dot.local{border:2px solid var(--line-2)}
+  .empty{margin-top:40px;text-align:center;color:var(--ink-3)}
+  .empty b{display:block;color:var(--ink-1);font-size:var(--fs-lg);font-weight:500;margin-bottom:4px}
+
+  /* B's notice: a ListRow-shaped line above the list */
+  .notice{display:flex;align-items:flex-start;gap:10px;padding:10px;border:1px solid var(--line);border-radius:var(--radius-inner)}
+  .notice .t{display:flex;flex-direction:column;min-width:0;gap:1px}
+  .notice .t>span:first-child{font-size:var(--fs-small);color:var(--ink-2)}
+  .notice .mini{margin-left:auto}
+
+  /* macOS access panel, as RepoPane draws it */
+  .tcc{display:flex;flex-direction:column;gap:12px;padding:14px;border:1px solid var(--line);border-radius:var(--radius-inner)}
+  .tcc .h{display:flex;gap:8px;color:var(--state-danger)}
+  .tcc .h b{font-size:var(--fs-small);font-weight:500;display:block}
+  .tcc .h code{font:var(--fs-micro) var(--font-mono);color:var(--ink-2)}
+  .tcc p{margin:0;font-size:var(--fs-small);color:var(--ink-2);line-height:1.6}
+  .tcc .acts{display:flex;gap:8px}
+  .pbtn{height:30px;padding:0 16px;border-radius:var(--radius-pill);background:var(--fill);color:var(--on-fill);font-size:var(--fs-small);font-weight:500;display:inline-flex;align-items:center}
+  .obtn{height:30px;padding:0 16px;border-radius:var(--radius-pill);border:1px solid var(--line-2);color:var(--ink-2);font-size:var(--fs-small);font-weight:500;display:inline-flex;align-items:center;gap:6px}
+
+  /* the overview card: OverviewCard.tsx's classes, as CSS */
+  .card{width:280px;display:flex;flex-direction:column;border-radius:var(--radius-plane);border:1px solid var(--line);background:color-mix(in srgb,var(--page) 86%,transparent);backdrop-filter:blur(var(--frost-blur));-webkit-backdrop-filter:blur(var(--frost-blur))}
+  .card.dock{position:absolute;right:12px;top:12px;z-index:4}
+  .card.pop{position:absolute;z-index:6;box-shadow:var(--overlay-shadow)}
+  .sec{padding:8px 8px 10px}               /* SECTION: px-2 pt-2 pb-2.5 */
+  .sec+.sec,.acts-sec{border-top:1px solid var(--line)}
+  .sh{display:flex;align-items:center;gap:8px;min-height:32px;padding:0 10px;font-size:var(--fs-micro);font-weight:500;color:var(--ink-3)}   /* SectionHead */
+  .sh span:first-child{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .sh .cap2{margin-left:auto;font-weight:400;white-space:nowrap}
+  .erow{display:grid;grid-template-columns:14px minmax(0,1fr) auto;align-items:center;gap:10px;height:32px;padding:0 10px;border-radius:var(--radius-control)}  /* ROW + ENGINE_GRID, not a button */
+  .erow .n{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--ink-1)}
+  .erow .v{text-align:right;font-size:var(--fs-small);font-variant-numeric:tabular-nums;white-space:nowrap;color:var(--ink-2)}
+  .g{width:14px;height:14px;border-radius:4px;display:inline-grid;place-items:center;font:600 9px/1 var(--font-flex);color:#fff;flex:none}
+  .cc{background:#d97757}.cx{background:#5b6bf5;border-radius:50%}.cu{background:#111;outline:1px solid var(--line-2)}.any{background:transparent;border:1.5px solid var(--ink-3);border-radius:50%}
+  .legend{padding:6px 10px 0}
+  .meter{display:flex;height:10px;gap:3px;padding:1px;border-radius:var(--radius-pill);border:1px solid var(--line);background:var(--bar-track)}
+  .meter i{display:block;height:100%;border-radius:var(--radius-pill)}
+  .lg{display:flex;flex-wrap:wrap;gap:6px 16px;margin-top:10px;font-size:var(--fs-small);color:var(--ink-2)}
+  .lg span{display:inline-flex;align-items:center;gap:8px}
+  .lg b{font-weight:500;color:var(--ink-1);font-variant-numeric:tabular-nums}
+  .nest{display:flex;gap:10px;padding:4px 10px 0}
+  .nest .t{display:flex;flex-direction:column;min-width:0;gap:1px}
+  .nest .t>span:first-child{font-size:var(--fs-small);color:var(--ink-2)}
+  .paths{max-height:120px;overflow-y:auto;display:flex;flex-direction:column}
+  .path{font:var(--fs-micro) var(--font-mono);color:var(--ink-3);word-break:break-all}
+  .depth{font-size:var(--fs-small);color:var(--ink-3);line-height:var(--lh-caption);margin-top:4px}
+  .nest-foot{display:flex;justify-content:flex-end;padding:8px 10px 0}
+  .mini{height:24px;padding:0 9px;border:1px solid var(--line-2);border-radius:var(--radius-control);background:var(--page);font-size:var(--fs-small);color:var(--ink-1);display:inline-flex;align-items:center;white-space:nowrap;flex:none}
+  .acts-sec{padding:8px}
+  .arow{display:flex;align-items:center;gap:10px;height:32px;padding:0 10px;border-radius:var(--radius-control);color:var(--ink-1)}
+  .arow .r{margin-left:auto;font-size:var(--fs-small);color:var(--ink-3);font-variant-numeric:tabular-nums}
+  .ic{color:var(--ink-2);flex:none}
+  .ic svg,.tbtn svg{display:block}
+  .pin{position:absolute;font:600 11px/1 var(--font-flex);background:#ff3b30;color:#fff;padding:3px 6px;border-radius:99px;z-index:9}
+</style>
+</head>
+<body>
+<div class="doc">
+  <h1>A repository's overview card: three layouts</h1>
+  <p>Gate G1 of <code>docs/plans/2026-11-27-repo-view-parity.md</code> (Task 4). The card replaces the summary strip and its "By engine" band (round 28 answers, q1). Every frame is the card at its true 280px, drawn with the classes of <code>OverviewCard.tsx</code> as CSS and the token values of <code>src/styles/tokens.css</code>. Docked frames sit beside a 560px lane, the narrowest the dock allows (round 21); popover frames use the 1,024px window with a row selected, where the card hangs under the cap button.</p>
+  <p>Sample data, not this machine's: a repository called <code>storefront</code> with 212 assets, three engines and assets that name none ("Any agent"), and three nested repositories. Strings are the naming brief's candidates (<code>docs/plans/2026-11-27-repo-view-parity-naming-brief.md</code>), not yet approved.</p>
+  <ul>
+    <li><b>A</b>: By engine first, then the repository's store section, then nested repositories as a card section above the actions.</li>
+    <li><b>B</b>: the same card without the nested section; nested repositories become a row-shaped notice at the top of the lane, above the list.</li>
+    <li><b>C</b>: no engine section. This is the third answer to round 28's q2, which you did not pick; it is drawn because the brief asked for it, so you can see what the engine rows cost in height.</li>
+  </ul>
+  <p>Each option shows four states, light then dark: the All tab, the Skills tab (engine rows hidden, because the engine figures cover every kind, <code>e0bc07d</code>), a repository macOS has blocked (the access panel stays inside the lane, clear of the card), and the popover.</p>
+  <div id="frames"></div>
+</div>
+
+<script>
+(function () {
+  const I = {
+    info: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.71" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg>',
+    warn: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.71" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4 2.8 20h18.4L12 4Z"/><path d="M12 10v4M12 17h.01"/></svg>',
+    warn16: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4 2.8 20h18.4L12 4Z"/><path d="M12 10v4M12 17h.01"/></svg>',
+    rescan: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.71" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>',
+    overview: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M14 4v16"/></svg>',
+  };
+  const REPO = "storefront", PATH = "~/Work/Projects/storefront";
+  const ENGINES = [["cc", "Claude Code", 96], ["cx", "Codex", 41], ["cu", "Cursor", 12], ["any", "Any agent", 63]];
+  const NESTED = [PATH + "/packages/checkout", PATH + "/packages/design-tokens", PATH + "/tools/release-notes"];
+  const assets = (n) => n.toLocaleString("en-US") + (n === 1 ? " asset" : " assets");
+
+  function engines() {
+    return '<section class="sec"><div class="sh"><span>By engine</span></div>' +
+      ENGINES.map(([k, name, n]) => '<div class="erow"><span class="g ' + k + '"></span><span class="n">' + name + '</span><span class="v">' + assets(n) + '</span></div>').join("") +
+      '</section>';
+  }
+  function store(caption, counts) {
+    const [l, d, b, o] = counts, total = l + d + b + o;
+    const meter = total === 0 ? "" : '<div class="meter">' +
+      [[l, "background-image:var(--gel-aqua)"], [d, "background:var(--state-warning)"], [b, "background:var(--state-danger)"], [o, "background:var(--line)"]]
+        .filter(([v]) => v > 0).map(([v, s]) => '<i style="flex:' + v + ' 1 0;' + s + '"></i>').join("") + '</div>';
+    return '<section class="sec"><div class="sh"><span>' + REPO + '</span><span class="cap2">' + caption + '</span></div><div class="legend">' + meter +
+      '<div class="lg"><span><i class="dot linked"></i><b>' + l + '</b> linked</span><span><i class="dot drifted"></i><b>' + d + '</b> drifted</span><span><i class="dot broken"></i><b>' + b + '</b> broken</span><span><i class="dot local"></i><b>' + o + '</b> local only</span></div></div></section>';
+  }
+  function nestedBody() {
+    return '<span class="ic">' + I.info + '</span><span class="t"><span>' + NESTED.length + ' nested repos are counted in ' + REPO + '</span><span class="paths">' +
+      NESTED.map((p) => '<span class="path">' + p + '</span>').join("") + '</span></span>';
+  }
+  function nestedSection() {
+    return '<section class="sec"><div class="nest">' + nestedBody() + '</div><div class="nest-foot"><span class="mini">Promote…</span></div></section>';
+  }
+  function actions(review) {
+    return '<div class="acts-sec">' +
+      (review ? '<div class="arow"><span class="ic">' + I.warn + '</span><span>Needs review</span><span class="r">' + review + '</span></div>' : "") +
+      '<div class="arow"><span class="ic">' + I.rescan + '</span><span>Rescan</span><span class="r">2 min ago</span></div></div>';
+  }
+  function card(opt, state, cls) {
+    const tab = state === "tab", blocked = state === "blocked";
+    let html = "";
+    if (!blocked && !tab && opt !== "C") html += engines();
+    if (blocked) html += store(assets(0), [0, 0, 0, 0]);
+    else if (tab) html += store("48 skills", [11, 2, 0, 35]);
+    else html += store(assets(212), [38, 4, 1, 169]);
+    if (!blocked && opt !== "B") html += nestedSection();
+    html += actions(blocked ? 0 : tab ? 1 : 3);
+    return '<div class="card ' + cls + '" data-testid="overview-card">' + html + '</div>';
+  }
+  function list(state) {
+    if (state === "blocked") return '<div class="empty"><b>Nothing in ' + REPO + ' yet</b></div>';
+    const rows = [["checkout-flow", "Claude Code", "linked"], ["release-notes", "Any agent", "local"], ["pr-review", "Codex", "drifted"], ["design-tokens", "Claude Code", "local"], ["write-migration", "Any agent", "local"], ["bundle-audit", "Cursor", "linked"]];
+    const r = rows.map(([n, e, s]) => '<div class="row"><span class="t"><b>' + n + '</b><span>' + e + '</span></span><span class="st"><i class="dot ' + s + '"></i>' + (s === "local" ? "local only" : s) + '</span></div>').join("");
+    return '<div><div class="gh">Skills <small>· 48</small></div>' + r + '</div>' +
+      (state === "tab" ? "" : '<div><div class="gh">MCP servers <small>· 9</small></div><div class="row"><span class="t"><b>playwright</b><span>Claude Code</span></span><span class="st"><i class="dot local"></i>local only</span></div></div>');
+  }
+  function tabs(state) {
+    const z = state === "blocked";
+    const t = [["All", z ? 0 : 212], ["Skills", z ? 0 : 48], ["MCP servers", z ? 0 : 9], ["Rules", z ? 0 : 143], ["Subagents", z ? 0 : 12]];
+    return '<div class="tabs">' + t.map(([n, c], i) => '<span class="' + ((state === "tab" ? i === 1 : i === 0) ? "on" : "") + '">' + n + ' <small>' + c + '</small></span>').join("") + '</div>';
+  }
+  function tcc() {
+    return '<div class="tcc"><div class="h"><span>' + I.warn16 + '</span><span><b>macOS Folder Scan Access Denied</b><code>' + PATH + '</code></span></div>' +
+      '<p>macOS is blocking Hanger from reading this folder. Choose it again to restore access: macOS counts picking a folder as permission to read it.</p>' +
+      '<div class="acts"><span class="pbtn">Choose Folder Again</span><span class="obtn">' + I.rescan + 'Retry Scan</span></div></div>';
+  }
+  function notice() {
+    return '<div class="notice">' + nestedBody() + '<span class="mini">Promote…</span></div>';
+  }
+  function lane(opt, state, docked) {
+    return '<div class="lane' + (docked ? " docked" : "") + '">' + tabs(state) +
+      (state === "blocked" ? tcc() : "") +
+      (opt === "B" && state !== "blocked" ? notice() : "") +
+      list(state) + '</div>';
+  }
+  function win(opt, state, mode, theme) {
+    const docked = mode === "docked";
+    const cols = docked ? "56px 884px" : "56px 584px 384px";
+    const width = docked ? 940 : 1024;
+    const capBtn = '<span class="tbtn on" title="' + (docked ? "Hide overview  ⌘E" : "Hide overview  ⌘E") + '">' + I.overview + '</span>';
+    const sheet = '<div class="sheet' + (docked ? "" : " leads") + '"><div class="cap"><span class="crumb">' + REPO + '<small>' + PATH + '</small></span><span class="slot">' + capBtn + '</span></div>' +
+      '<div class="body">' + lane(opt, state, docked) + (docked ? card(opt, state, "dock") : "") + '</div></div>';
+    const insp = docked ? "" : '<div class="insp"><b>checkout-flow</b>The inspector, open on a selected row. With it open the lane is too narrow to dock, so the card opens from the cap button.</div>';
+    // Popover: right-aligned under the cap button (align end, 6px gap). The button's right edge is the sheet's right edge less 10px.
+    const pop = docked ? "" : card(opt, state, "pop").replace('class="card pop"', 'class="card pop" style="left:' + (56 + 584 - 10 - 280) + 'px;top:' + (8 + 6 + 34) + 'px"');
+    return '<div class="win ' + theme + '" style="width:' + width + 'px"><div class="shell"></div><div class="lights"><i></i><i></i><i></i></div>' +
+      '<div class="grid" style="grid-template-columns:' + cols + '"><div class="rail"><i></i><i class="on"></i><i></i><i></i></div>' + sheet + insp + '</div>' + pop + '</div>';
+  }
+
+  const LABEL = { A: "By engine, store, nested section", B: "Nested repos as a notice above the list", C: "No engine section" };
+  const STATES = [
+    ["all", "docked", "All tab, docked"],
+    ["tab", "docked", "Skills tab, docked: no engine rows"],
+    ["blocked", "docked", "macOS blocked the folder, docked"],
+    ["all", "popover", "All tab, popover (a row selected)"],
+  ];
+  const WHY = {
+    all: { A: "Four sections, top to bottom: By engine (not buttons, no All engines row), the repository's own store section headed by its folder name, nested repositories with their paths (the list scrolls inside the card past 120px), and the actions.",
+           B: "The card matches Global's section order exactly, one engine section, one store section, the actions; the nested repositories leave the card and read as a row at the head of the lane, where the list they change begins.",
+           C: "The shortest card: the store section first. The per-engine counts the band carries today are lost." },
+    tab: "On a kind tab the engine rows go, as the band's do today, and the store caption names the kind. The nested-repository line stays: it is about the folder, so it is true on every tab.",
+    blocked: "The access panel sits inside the lane box (306px clear of the right edge), so the docked card cannot cover Choose Folder Again. With no counts there are no engine rows, so A and C draw the same card here.",
+    popover: "With the inspector open the lane is 584px, too narrow to dock, so the card opens from the cap button with the overlay elevation.",
+  };
+  let out = "";
+  for (const opt of ["A", "B", "C"]) {
+    out += '<h2>Option ' + opt + ' · ' + LABEL[opt] + (opt === "A" ? '<span class="tag">recommended</span>' : opt === "C" ? '<span class="tag g">not your q2 answer</span>' : "") + '</h2>';
+    for (const theme of ["light", "dark"]) {
+      for (const [state, mode, title] of STATES) {
+        const id = "opt-" + opt.toLowerCase() + "-" + state + "-" + mode + "-" + theme;
+        const why = typeof WHY[state] === "string" ? WHY[state] : WHY[state][opt];
+        out += '<div class="frame" id="' + id + '"><h3>' + opt + ' · ' + title + ' · ' + theme + '</h3><p class="why">' + why + '</p>' + win(opt, state, mode, theme) + '</div>';
+      }
+    }
+  }
+  document.getElementById("frames").innerHTML = out;
+
+  // #shot=<frame id> shows that one frame alone, for the PNGs.
+  const m = location.hash.match(/shot=([\w-]+)/);
+  if (m) {
+    document.body.classList.add("shot");
+    const f = document.getElementById(m[1]);
+    if (f) f.classList.add("target");
+  }
+})();
+</script>
+</body>
+</html>

@@ -105,6 +105,11 @@ describe("Avionics A6-R2 Defect Tests", () => {
 
   it("2. Exactly one rescan/refresh control exists in RepoPane", () => {
     const onRefresh = vi.fn();
+    // Rescan is in the overview card since Task 6 of
+    // docs/plans/2026-11-27-repo-view-parity.md, and the card draws only
+    // into a cap slot; docked, it draws in the pane.
+    const cap = document.createElement("span");
+    document.body.appendChild(cap);
     const { container } = render(
       <RepoPane
         repoPath="~/Work/Project"
@@ -114,14 +119,17 @@ describe("Avionics A6-R2 Defect Tests", () => {
         onRefresh={onRefresh}
         onSelectAsset={vi.fn()}
         onLinkFromProfile={vi.fn()}
+        overviewSlots={{ cap }}
+        forceDock
       />
     );
 
-    // Rescan now lives in the summary strip rather than the toolbar — it is the
-    // control that changes the figure it sits under. The rule the original test
+    // Rescan lives in the overview card rather than the toolbar — it is the
+    // control that changes the figures it sits under. The rule the original test
     // protected still holds: exactly one, never two competing affordances.
-    const refreshButtons = container.querySelectorAll(
-      "button[aria-label*='Rescan'], button[aria-label*='Refresh']"
+    // The card's row is named by its text, not an aria-label, so both count.
+    const refreshButtons = Array.from(container.querySelectorAll("button")).filter((b) =>
+      /Rescan|Refresh/.test(`${b.getAttribute("aria-label") ?? ""} ${b.textContent ?? ""}`)
     );
     expect(refreshButtons.length).toBe(1);
     expect(refreshButtons[0].textContent).toContain("Rescan");

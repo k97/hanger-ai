@@ -12,7 +12,6 @@ import type { StateCounts } from "../utils/linkStateCounts";
 import type { ScanStatus } from "../hooks/useScanStatus";
 import type { AssetFindings, ReviewIssue } from "../utils/reviewIssues";
 import { originRow, type OriginRowView } from "../utils/assetProvenance";
-import type { HeroBandRow } from "../components/HeroBand";
 import type { UnderlineTab } from "../components/UnderlineTabs";
 import type { SearchHit } from "../components/SearchPalette";
 import type { KeptSkill, KeptSkills } from "../types/skillSwitch";
@@ -27,7 +26,7 @@ import {
   switchedLine,
 } from "../utils/switchCopy";
 import type { EngineContext, EngineListEntry, ItemState, ReadOnlyReason } from "../types/engineContext";
-import type { EngineStripFigures } from "../components/OverviewCard";
+import type { EngineCountRow, EngineStripFigures } from "../components/OverviewCard";
 import { TAB_LABELS } from "../components/CategoryFilterCards";
 import type { NotLoadedRow } from "../components/NotLoadedGroup";
 import { missTitle } from "../components/ReachCard";
@@ -193,15 +192,6 @@ export const SAMPLE_ORIGIN: OriginRowView = originRow(
 
 export const SAMPLE_ORIGIN_BLOCKED: OriginRowView = originRow(null, true)!;
 
-/** A project pane's "By engine" band, one row per engine with its asset
- *  count, as RepoPane builds it. Global's own band went with the engine lens
- *  (docs/plans/2026-11-25-ia-global-by-engine.md). */
-export const SAMPLE_ENGINE_BAND_ROWS: HeroBandRow[] = [
-  { key: "Claude Code", engineKey: "Claude Code", engineName: "Claude Code", value: 41, word: "assets" },
-  { key: "Codex", engineKey: "Codex", engineName: "Codex", value: 12, word: "assets" },
-  { key: "none", engineKey: "none", engineName: "Any agent", value: 1, word: "asset" },
-];
-
 /** Sample engines, in `get_engine_contexts`' order. */
 export const SAMPLE_ENGINES: EngineListEntry[] = [
   { engine_id: "claude-code", engine_name: "Claude Code" },
@@ -241,6 +231,12 @@ export const SAMPLE_OVERVIEW_ENGINES: EngineContext[] = [
  *  ProfilePane builds it: the MCP segment through `switchCopy`, the other
  *  kinds "Not measured" (Phase 1). */
 const SAMPLE_MCP_SEGMENT = engineBandFigures(SAMPLE_ENGINE_CONTEXT);
+/** A repository card's "By engine" rows: counts the backend would own. */
+export const SAMPLE_REPO_ENGINE_COUNTS: EngineCountRow[] = [
+  { key: "claude_code", engineKey: "claude_code", engineName: "Claude Code", value: 96 },
+  { key: "codex", engineKey: "codex", engineName: "Codex", value: 1 },
+];
+
 export const SAMPLE_ENGINE_STRIP: EngineStripFigures = {
   segments: [
     {

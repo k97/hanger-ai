@@ -914,7 +914,7 @@ usage now goes to two services and crashes to two. `docs/telemetry.md` §2 and
 
 **Done when:** one service per purpose, or a stated reason to keep both.
 
-## T22 — Antigravity's MCP servers are invisible to Hanger
+## T22 — Antigravity's MCP servers are invisible to Hanger — CLOSED
 
 Found 2026-11-27 while checking a lead from
 `docs/plans/2026-11-27-harness-model-layer-research.md`. The Antigravity CLI
@@ -931,6 +931,19 @@ does not, switching a server off "for Gemini" does nothing for Antigravity.
 **Done when:** Antigravity's config is a source in `registry.rs`, and the
 Gemini switch is proven against `agy` or documented as Gemini CLI only.
 
+**Closed 2026-11-27 by `docs/plans/2026-11-27-antigravity-engine.md`.** The
+file named above is not the one `agy` reads: it reads
+`~/.gemini/config/mcp_config.json`, and nothing else (measured on a throwaway
+home). Antigravity CLI is now its own engine and MCP host, with that file as
+a Global source (`77134a5`); on this machine that adds 11 skills and 4 MCP
+servers and moves 2 subagents from Gemini CLI, per a scan of a copy of the
+store. The Gemini switch does nothing for `agy`, which ignores
+`~/.gemini/mcp-server-enablement.json`; Antigravity CLI has its own switch, a
+`disabled` key in the entry (`e6a3cc2`), and its own mark (`60472a8`). The
+engine matrix has the evidence; what the first cut leaves unread is in
+`docs/roadmap.md`. Not yet done: Karthik's live check that a running `agy`
+session skips a switched-off server (Task 5 of the plan).
+
 ## T23 — Ask again: A2UI or Hanger's own format for model output
 
 Karthik, 2026-11-27 (decisions round 28, Q2): decide the format for model
@@ -944,3 +957,39 @@ Hanger's own. Check first whether `@a2ui/react` works with React 19.
 author asks Karthik this question in Plannotator before the task starts.
 
 **Done when:** he has ruled, and the ruling is recorded in that plan.
+
+## T24 — Gemini CLI is detected by `~/.gemini`, which `agy` creates
+
+Found 2026-11-27 by `docs/plans/2026-11-27-antigravity-engine.md` (Q4,
+accepted for that plan by Karthik). `agy` creates `~/.gemini/config` on its
+first run, and so `~/.gemini`: an empty throwaway home held `.gemini/config`
+after `agy mcp list`. Gemini CLI is detected by `~/.gemini` existing
+(`scanner.rs` → `get_global_agents_with_denials`), so an Antigravity-only
+machine shows a Gemini CLI engine for a program that is not installed. The
+reverse does not happen: `gemini mcp list` (0.56.0) on an empty home created
+`~/.gemini/history/`, `~/.gemini/projects.json` and `~/.gemini/tmp/`, and no
+`~/.gemini/config`. A first interactive `gemini` run was not measured.
+
+The fix is detecting Gemini CLI by a file such as `~/.gemini/settings.json`.
+`AgentConfig` has no field for a detection file beside a root today
+(`detect_files` is read only when no root exists).
+
+**Done when:** an Antigravity-only home shows no Gemini CLI engine, pinned by
+a test.
+
+## T25 — A repository's nested-paths list can't be scrolled with the keyboard
+
+Found by the repo-view parity plan's final review on 2026-11-27 and parked
+there; Karthik ruled it a TODO in decisions round 32, Q3. On a repository
+with nested repos, the overview card's notice lists their paths in a column
+capped at 120px with `overflow-y-auto` (`RepoPane.tsx` → `nestedFoot`). The
+column has no `tabIndex`, so a keyboard user can't scroll it past roughly ten
+paths. The paths are still reachable through Promote… and a screen reader
+reads them all.
+
+**First step:** a naming brief for the column's accessible name
+(`.claude/rules/ui-copy.md`). Making it focusable needs one, and the string
+is new.
+
+**Done when:** the column takes focus and scrolls with the arrow keys, its
+name has Karthik's sign-off, and a test pins `tabIndex` and the name.

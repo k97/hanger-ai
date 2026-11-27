@@ -4,12 +4,13 @@ import { render, screen, fireEvent, waitFor, cleanup, within } from "@testing-li
 import App from "../App";
 
 /**
- * The hero band's own wiring, in the only place that calls `invoke`.
+ * The review pill's wiring, in the only place that calls `invoke`.
  *
- * `ProfilePane` and `RepoPane` default `issues` to `[]` and both band-open
- * props to `false`, which is what keeps sixteen existing fixtures compiling —
- * and which also means a wrong preference key or a wrong `whereKeys` filter
- * renders no pill and no open band while every component test stays green. A
+ * `ProfilePane` and `RepoPane` default `issues` to `[]`, which is what keeps
+ * sixteen existing fixtures compiling — and which also means a wrong
+ * `whereKeys` filter renders no pill while every component test stays green.
+ * The band's fold and its `engines_band_open` preference went with the band
+ * (Task 6 of docs/plans/2026-11-27-repo-view-parity.md). A
  * control that cannot fail is decoration; these are the assertions that can.
  * `repo_count_sync.test.tsx` is the precedent for pinning App wiring this way.
  */
@@ -100,32 +101,10 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
-describe("the band's fold is a preference, under the keys App actually reads", () => {
-  it("engines_band_open opens the project pane's band at startup, and the toggle writes it back", async () => {
-    mockPreferences = { ...basePrefs, selected_sidebar_item: "/Users/test/repo", engines_band_open: "true" };
-    render(<App />);
-    // Open at startup: a wrong key on the read leaves the band folded, and
-    // its rows are not in the DOM at all.
-    await waitFor(() => expect(screen.getByTestId("hero-band-row-Claude Code")).toBeTruthy());
-    expect(screen.getByTestId("hero-band-toggle").getAttribute("aria-expanded")).toBe("true");
-
-    fireEvent.click(screen.getByTestId("hero-band-toggle"));
-    // A wrong key on the WRITE leaves this one at its startup value.
-    await waitFor(() => expect(mockPreferences["engines_band_open"]).toBe("false"));
-  });
-
-  it("folded is the default when neither preference is set", async () => {
-    mockPreferences = { ...basePrefs, selected_sidebar_item: "/Users/test/repo" };
-    render(<App />);
-    await waitFor(() => expect(screen.getByTestId("hero-band-toggle")).toBeTruthy());
-    expect(screen.getByTestId("hero-band-toggle").getAttribute("aria-expanded")).toBe("false");
-    expect(screen.queryByTestId("hero-band-row-Claude Code")).toBeNull();
-  });
-});
-
-/** Global's pill is in the overview card since Task 7 of
- *  docs/plans/2026-11-26-overview-card.md, opened from the content cap. */
-const openGlobalCard = async () => {
+/** Each pane's pill is in its overview card: Global's since Task 7 of
+ *  docs/plans/2026-11-26-overview-card.md, a repository's since Task 6 of
+ *  docs/plans/2026-11-27-repo-view-parity.md, opened from the content cap. */
+const openCard = async () => {
   fireEvent.click(await screen.findByLabelText("Show overview ⌘E"));
   return screen.getByRole("dialog", { name: "Overview" });
 };
@@ -139,7 +118,7 @@ describe("each pane's pill gets only the issues that belong to it", () => {
     // Two global issues (global-skill, GLOBAL.md); the repo's is filtered out
     // by `whereKeys.includes("global")`. Passing `review.issues` unfiltered
     // would read 3.
-    const card = await openGlobalCard();
+    const card = await openCard();
     fireEvent.click(await waitFor(() => cardPill(card, 2)));
     const text = screen.getAllByTestId("finding-popover-line").map((l) => l.textContent).join(" ");
     expect(text).toContain("global-skill");
@@ -152,7 +131,7 @@ describe("each pane's pill gets only the issues that belong to it", () => {
     render(<App />);
     // Only GLOBAL.md is a Rules issue. Without the category narrowing this
     // reads "Needs review 2" while the tab shows one kind of asset.
-    const card = await openGlobalCard();
+    const card = await openCard();
     fireEvent.click(await waitFor(() => cardPill(card, 1)));
     expect(screen.getByTestId("finding-popover-line").textContent).toContain("GLOBAL.md");
   });
@@ -163,8 +142,8 @@ describe("each pane's pill gets only the issues that belong to it", () => {
     // `whereKeys` for a project asset is its root path (`placeKey`,
     // reviewIssues.ts). Filtering on the wrong string — the sidebar item with
     // its category suffix, say — yields no pill at all.
-    await waitFor(() => expect(screen.getByText("Needs review 1")).toBeTruthy());
-    fireEvent.click(screen.getByText("Needs review 1"));
+    const card = await openCard();
+    fireEvent.click(await waitFor(() => cardPill(card, 1)));
     const line = screen.getByTestId("finding-popover-line");
     expect(line.textContent).toContain("repo-skill");
     expect(line.textContent).not.toContain("global-skill");

@@ -22,9 +22,12 @@ use std::path::{Component, Path, PathBuf};
 use crate::agents::{engine_base, AGENT_CONFIGS};
 
 /// Home-relative folders that hold one-by-one links to store skills on this
-/// machine and that no `AGENT_CONFIGS` row names a skills folder for.
-/// Measured 2026-11-26 (`docs/plans/2026-11-26-skill-switch.md`, "Real-machine
-/// facts").
+/// machine and that no `AGENT_CONFIGS` row named a skills folder for when
+/// measured, 2026-11-26 (`docs/plans/2026-11-26-skill-switch.md`, "Real-machine
+/// facts"). Since 2026-11-27 the `antigravity` row names `.gemini/config/skills`
+/// at home, so step 1 of `link_places` yields it too and the duplicate is
+/// listed once. It stays here for step 3: that row has no project root, and
+/// this list is what searches a linked project's `.gemini/config/skills`.
 pub const EXTRA_LINK_PLACES: &[&str] = &[
     ".cursor/skills",
     ".copilot/skills",

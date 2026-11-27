@@ -35,7 +35,7 @@ vi.mock("@tauri-apps/api/core", () => ({
       if (args?.key) mockPreferences[args.key] = String(args.value);
       return null;
     }
-    if (cmd === "get_linked_directories") return [];
+    if (cmd === "get_linked_directories") return ["/home/user/project"];
     if (cmd === "get_asset_counts") return { total: 0, byCategory: {}, engines: {} };
     if (cmd === "get_inventory")
       return { agents: [], skills: [], tools: [], rules: [], subagents: [], project_scans: [] };
@@ -170,7 +170,7 @@ describe("The content sheet", () => {
   // to be removed"). The sheet is <main>'s, so the class is there on every
   // screen by construction; what can hide it is a pane painting its own
   // full-bleed --page ground over the curve. Four did.
-  for (const screen of ["profile", "linkmap", "discovery", "engines", "review", "design"]) {
+  for (const screen of ["profile", "linkmap", "discovery", "engines", "review", "design", "/home/user/project"]) {
     it(`${screen}: the sheet leads with the corner when the source list is collapsed, and the pane paints no ground over it`, async () => {
       mockPreferences.selected_sidebar_item = screen;
       mockPreferences.sidebar_collapsed = "true";
