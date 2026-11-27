@@ -103,7 +103,8 @@ pub struct McpSource {
 pub const HOSTS: &[McpHost] = &[
     McpHost { id: "claude-code", display_name: "Claude Code", kind: HostKind::Agent },
     McpHost { id: "codex", display_name: "Codex", kind: HostKind::Agent },
-    McpHost { id: "gemini", display_name: "Gemini / Antigravity", kind: HostKind::Agent },
+    McpHost { id: "gemini", display_name: "Gemini CLI", kind: HostKind::Agent },
+    McpHost { id: "antigravity", display_name: "Antigravity CLI", kind: HostKind::Agent },
     McpHost { id: "claude-desktop", display_name: "Claude Desktop", kind: HostKind::McpHost },
     McpHost { id: "vscode", display_name: "VS Code", kind: HostKind::McpHost },
     McpHost { id: "cursor", display_name: "Cursor", kind: HostKind::McpHost },
@@ -177,6 +178,11 @@ pub const SOURCES: &[McpSource] = &[
     // them rather than suppressing (gemini-cli docs/cli/enterprise.md,
     // fetched 2026-08-27), so listing it alongside the others is accurate.
     McpSource { host_id: "gemini", location: SystemAbsolute, path: "Library/Application Support/GeminiCli/settings.json", tier: Global, dialect: McpServers },
+
+    // Antigravity CLI. `agy` 1.5.18 lists the servers in this file and no
+    // other: not `~/.gemini/antigravity/mcp_config.json`, not Gemini CLI's
+    // settings (docs/plans/2026-11-27-antigravity-engine.md, Evidence).
+    McpSource { host_id: "antigravity", location: HomeRelative, path: ".gemini/config/mcp_config.json", tier: Global, dialect: McpServers },
 
     // Claude Desktop
     McpSource { host_id: "claude-desktop", location: HomeRelative, path: "Library/Application Support/Claude/claude_desktop_config.json", tier: Global, dialect: McpServers },

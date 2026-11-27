@@ -37,7 +37,7 @@ describe("engine and host labels", () => {
     // A floor, not a count: the regex above is the thing most likely to
     // under-collect after a reformat, and an empty list would otherwise pass
     // this file while proving nothing. Counted from registry.rs HOSTS.
-    expect(ids.length, "registry.rs HOSTS under-collected — check the regex").toBeGreaterThanOrEqual(16);
+    expect(ids.length, "registry.rs HOSTS under-collected — check the regex").toBeGreaterThanOrEqual(17);
 
     const raw = ids.filter((id) => hostLabel(id) === id);
     expect(
@@ -48,7 +48,7 @@ describe("engine and host labels", () => {
 
   it("every agent the backend can attribute an asset to has a display name", () => {
     const ids = scopeAgentIds();
-    expect(ids.length, "agents.rs tables under-collected — check the regexes").toBeGreaterThanOrEqual(13);
+    expect(ids.length, "agents.rs tables under-collected — check the regexes").toBeGreaterThanOrEqual(14);
 
     const raw = ids.filter(
       (id) => engineLabel({ scope: { Global: { agent: id } } } as never) === id,

@@ -79,6 +79,7 @@ export function engineLabel(asset: ScopedAsset): string {
     "claude-code": "Claude Code",
     claude_code: "Claude Code",
     gemini: "Gemini CLI",
+    antigravity: "Antigravity CLI",
     codex: "Codex",
     cursor: "Cursor",
     copilot: "GitHub Copilot",

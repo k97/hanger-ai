@@ -66,7 +66,7 @@ export const BRANDS: Record<BrandId, BrandMark> = {
   // vendor's own monochrome mark (ruling 2026-08-16).
   codex: { svg: codexSvg, darkSvg: codexMonoSvg, ink: false, source: "lobe" },
   // The sparkle, not the CLI tile: the tile is illegible at 12px and the
-  // label already says "Gemini / Antigravity" (ruling 2026-08-15).
+  // label already says "Gemini CLI" (ruling 2026-08-15).
   gemini: { svg: geminiSvg, ink: false, source: "lobe" },
   claude_desktop: { svg: claudeSvg, ink: false, source: "lobe" },
   claude_ai: { svg: claudeSvg, ink: false, source: "lobe" },
@@ -92,7 +92,7 @@ export const BRAND_IDS = Object.keys(BRANDS) as readonly BrandId[];
 /** Anything unmapped draws this. Not a brand; never in BRANDS. */
 export const GENERIC_MARK: BrandMark = { svg: genericSvg, ink: true, source: "vendored" };
 
-/** Lowercase, letters and digits only: "Gemini / Antigravity" -> "geminiantigravity". */
+/** Lowercase, letters and digits only: "Gemini CLI" -> "geminicli". */
 export function normaliseBrandKey(key: string): string {
   return key.toLowerCase().replace(/[^a-z0-9]/g, "");
 }
