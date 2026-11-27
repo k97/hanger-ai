@@ -1,5 +1,6 @@
 import { useCallback, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import posthog, { isPostHogConfigured } from "../posthog";
 import type { EngineContext, SwitchReply } from "../types/engineContext";
 import type { SkillSwitchReply } from "../types/skillSwitch";
 import {
@@ -223,6 +224,14 @@ export function useMcpSwitch({
           undoable: reply.undoable,
           pending: false,
         });
+        if (isPostHogConfigured) {
+          posthog.capture("mcp_server_switch_completed", {
+            enabled: a.enabled,
+            scope: "single",
+            affected_engine_count: 1,
+            undoable: reply.undoable,
+          });
+        }
         onChangedRef.current();
         return reply.context;
       } catch (err) {
@@ -253,6 +262,13 @@ export function useMcpSwitch({
           undoable: reply.undoable,
           pending: false,
         });
+        if (isPostHogConfigured) {
+          posthog.capture("skill_switch_completed", {
+            enabled: a.enabled,
+            linked_asset_count: reply.links_count,
+            undoable: reply.undoable,
+          });
+        }
         onChangedRef.current();
         return reply;
       } catch (err) {
@@ -334,6 +350,15 @@ export function useMcpSwitch({
           undoable,
           pending: false,
         });
+        if (isPostHogConfigured) {
+          posthog.capture("mcp_server_switch_completed", {
+            enabled,
+            scope: "group",
+            affected_engine_count: receipts.length,
+            failed_engine_count: failed.length,
+            undoable,
+          });
+        }
         onChangedRef.current();
       } finally {
         releaseAll(keys);
@@ -375,6 +400,13 @@ export function useMcpSwitch({
         }
         const nowEnabled = !group.lastEnabled;
         const line = groupSwitchedLine(nowEnabled ? "back_on" : "off_again", group.serverName, group.engines);
+        if (isPostHogConfigured) {
+          posthog.capture("configuration_switch_undone", {
+            configuration_type: "mcp_server",
+            scope: "group",
+            affected_engine_count: group.receipts.length,
+          });
+        }
         if (next.length === 0) {
           groupRef.current = null;
           show({ kind: "done", line, receiptEngineId: current.receiptEngineId, receiptId: null, undoable: false, pending: false });
@@ -423,6 +455,12 @@ export function useMcpSwitch({
           undoable: reply.undoable,
           pending: false,
         });
+        if (isPostHogConfigured) {
+          posthog.capture("configuration_switch_undone", {
+            configuration_type: "skill",
+            scope: "single",
+          });
+        }
         onChangedRef.current();
       } catch (err) {
         show({ kind: "failed", line: skillFailureLine(codeOf(err), last.skillName) });
@@ -447,6 +485,12 @@ export function useMcpSwitch({
         undoable: reply.undoable,
         pending: false,
       });
+      if (isPostHogConfigured) {
+        posthog.capture("configuration_switch_undone", {
+          configuration_type: "mcp_server",
+          scope: "single",
+        });
+      }
       onChangedRef.current();
       return reply.context;
     } catch (err) {

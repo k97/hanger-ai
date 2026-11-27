@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
+import posthog, { isPostHogConfigured } from "../posthog";
 import { ArrowTopRightOnSquareIcon, Square2StackIcon } from "./icons";
 import {
   CATALOGUE_CHECKED,
@@ -177,13 +178,19 @@ export default function DiscoveryPane({
     }).catch(() => {});
   };
 
-  const leave = (url: string) => {
-    openUrl(url).catch(() => {});
+  const leave = (dir: Directory) => {
+    if (isPostHogConfigured) {
+      posthog.capture("discovery_directory_opened", {
+        directory_tier: dir.tier,
+        confirmation_required: confirmBeforeOpening,
+      });
+    }
+    openUrl(dir.url).catch(() => {});
   };
 
   const requestOpen = (dir: Directory) => {
     if (!confirmBeforeOpening) {
-      leave(dir.url);
+      leave(dir);
       return;
     }
     setRemember(false);
@@ -192,7 +199,7 @@ export default function DiscoveryPane({
 
   const confirmOpen = () => {
     if (remember) setConfirmPreference(false);
-    if (pending) leave(pending.url);
+    if (pending) leave(pending);
     setPending(null);
   };
 

@@ -1,4 +1,5 @@
 import "./instrument";
+import "./posthog";
 
 import React, { lazy, Suspense } from "react";
 import ReactDOM from "react-dom/client";

@@ -5,6 +5,8 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { save, open } from "@tauri-apps/plugin-dialog";
 import { info, warn, error } from "@tauri-apps/plugin-log";
 import { screenNameFor } from "./utils/screenName";
+import posthog, { isPostHogConfigured } from "./posthog";
+import { posthogLog } from "./posthogLogs";
 
 function forwardConsole() {
   if (typeof window === "undefined") return;
@@ -824,6 +826,11 @@ export default function App() {
         setScanning(false);
         setLoading(false);
         setLastScanAt(new Date());
+        posthogLog.info("scan completed", {
+          agent_count: payload.inventory.agents.length,
+          mcp_server_count: payload.inventory.tools.length,
+          skill_count: payload.inventory.skills.length,
+        });
 
         await refreshGlobalCounts();
         await refreshAnnotations();
@@ -1620,6 +1627,16 @@ export default function App() {
                 await invoke("set_preference", { key: "consent_crash", value: consentCrash ? "true" : "false" });
                 await invoke("set_preference", { key: "consent_usage", value: consentUsage ? "true" : "false" });
                 await invoke("set_preference", { key: "onboarding_complete", value: "true" });
+                if (isPostHogConfigured) {
+                  posthog.capture("onboarding_completed", {
+                    usage_analytics_enabled: consentUsage,
+                    crash_reporting_enabled: consentCrash,
+                  });
+                }
+                posthogLog.info("onboarding preferences saved", {
+                  crash_reporting_enabled: consentCrash,
+                  usage_analytics_enabled: consentUsage,
+                });
                 setOnboardingComplete(true);
                 setSelectedSidebarItem("profile");
                 await invoke("set_preference", { key: "selected_sidebar_item", value: "profile" });
