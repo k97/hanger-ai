@@ -435,3 +435,21 @@ fn a_long_multi_line_server_name_leaves_flattened_and_capped_in_keys_and_ids() {
     let reach = f.one(serde_json::json!(["reach", id]));
     assert_eq!(reach["Ok"]["result"]["asset_path"], serde_json::json!(id), "{reach}");
 }
+
+/// Antigravity CLI is its own engine (main, fb189ac): its servers are read
+/// from `~/.gemini/config/mcp_config.json`.
+#[test]
+fn list_engines_and_engine_context_read_an_antigravity_cli_server() {
+    let f = fixture(true, true, &[]);
+    let config = f.home.join(".gemini/config/mcp_config.json");
+    fs::create_dir_all(config.parent().unwrap()).unwrap();
+    fs::write(&config, r#"{"mcpServers":{"agy-alpha":{"command":"agy-alpha-server"}}}"#).unwrap();
+    let r = f.run(serde_json::json!([["list_engines"], ["engine_context", "antigravity"]]), &[]);
+    let mcp = r[0]["Ok"]["result"]["mcp"].as_array().unwrap_or_else(|| panic!("{}", r[0]));
+    let agy = mcp.iter().find(|m| m["engine_id"] == "antigravity").unwrap_or_else(|| panic!("no antigravity summary: {}", r[0]));
+    assert_eq!(agy["engine_name"], "Antigravity CLI");
+    assert_eq!(agy["on_count"], 1);
+    let items = r[1]["Ok"]["result"]["items"].as_array().unwrap_or_else(|| panic!("{}", r[1]));
+    let found: Vec<(&str, &str)> = items.iter().map(|i| (i["name"].as_str().unwrap(), i["key"].as_str().unwrap())).collect();
+    assert_eq!(found, vec![("agy-alpha", "~/.gemini/config/mcp_config.json:agy-alpha")]);
+}
