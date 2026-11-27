@@ -1457,8 +1457,10 @@ export default function App() {
     invoke("set_preference", { key: "overview_hidden", value: String(next) }).catch(() => {});
   };
 
-  /* Esc on Global clears what the inspector is showing (round 14 q4:
-     Global only). Whatever else uses Esc marks it handled with
+  /* Esc on Global or a repository clears what the inspector is showing
+     (round 14 q4 ruled Global only; Q4 of
+     docs/plans/2026-11-27-repo-view-parity.md, Answers 4, added
+     repositories). Whatever else uses Esc marks it handled with
      preventDefault, and this skips those: a menu, a popover, the search
      palette, a tip, the overview popover. They run first however the
      listeners were added. The primitives take Esc in the capture phase on
@@ -1467,7 +1469,8 @@ export default function App() {
      key event makes. */
   const inspectorHasSubject = selectedAsset !== null || selectedBubble !== null || selectedKeptKey !== null;
   useEffect(() => {
-    if (!isGlobalItem(selectedSidebarItem) || !inspectorOpen || !inspectorHasSubject) return;
+    const onRepo = selectedSidebarItem.startsWith("/") || selectedSidebarItem.startsWith("~");
+    if (!(isGlobalItem(selectedSidebarItem) || onRepo) || !inspectorOpen || !inspectorHasSubject) return;
     const onKeyDown = (e: KeyboardEvent) => {
       // Esc typed into a field is the field's (search, rename), not a
       // request to drop the subject.

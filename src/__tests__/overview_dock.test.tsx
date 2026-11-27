@@ -60,6 +60,14 @@ const inventory: Inventory = {
       path: "/home/user/.claude/skills/math",
       scope: { Global: { agent: "claude-code" } },
     },
+    {
+      id: "skill-2",
+      name: "Repo Skill",
+      description: "",
+      version: "1.0.0",
+      path: "/home/user/repo/.claude/skills/r",
+      scope: { Project: { agent: "claude-code", root: "/home/user/repo" } },
+    },
   ],
   tools: [],
   rules: [],
@@ -363,6 +371,19 @@ describe("the Esc rule still clears the selection on Global", () => {
     mockPreferences.inspector_open = "true";
     render(<App />);
     fireEvent.click(await screen.findByText("Claude Math Skill"));
+    const inspecting = () => screen.queryByRole("tablist", { name: "Inspector view" }) !== null;
+    await waitFor(() => expect(inspecting()).toBe(true));
+    act(() => {
+      fireEvent.keyDown(document.body, { key: "Escape" });
+    });
+    await waitFor(() => expect(inspecting()).toBe(false));
+  });
+
+  it("on a repository, Esc drops the selection too", async () => {
+    mockPreferences.inspector_open = "true";
+    mockPreferences.selected_sidebar_item = "/home/user/repo";
+    render(<App />);
+    fireEvent.click(await screen.findByText("Repo Skill"));
     const inspecting = () => screen.queryByRole("tablist", { name: "Inspector view" }) !== null;
     await waitFor(() => expect(inspecting()).toBe(true));
     act(() => {
