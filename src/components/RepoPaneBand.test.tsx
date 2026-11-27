@@ -84,6 +84,14 @@ describe("RepoPane's overview card", () => {
     expect(within(card()).getByRole("button", { name: /Scanning/ })).toBeTruthy();
     expect(screen.queryByText(/\d+ assets?/)).toBeNull();
   });
+
+  // The other half of `pending`: counts arrived, but they are zero and the
+  // scan has not finished. A zero then is not a finding.
+  it("withholds a zero total while the scan has not finished, though counts are present", () => {
+    render(<RepoPane {...base} {...docked()} loading scannedAt={null} assetCounts={{ total: 0, byCategory: {}, engines: {} }} />);
+    expect(within(card()).getByRole("button", { name: /Scanning/ })).toBeTruthy();
+    expect(screen.queryByText(/\d+ assets?/)).toBeNull();
+  });
 });
 
 describe("RepoPane hero band and pill", () => {
