@@ -77,6 +77,17 @@ fn codex_is_switchable_at_both_scopes() {
     }
 }
 
+/// `agy` 1.5.18 lists a server whose entry says `"disabled": true` as
+/// `disabled`, at the global file only: the workspace file was not measured
+/// (docs/plans/2026-11-27-antigravity-engine.md, "How agy switches a server").
+#[test]
+fn antigravity_is_switched_by_a_disabled_key_at_global_only() {
+    assert_eq!(kind_at("antigravity", ScopeTier::Global), Some(SwitchKind::DisabledKey));
+    for tier in [ScopeTier::Project, ScopeTier::Local, ScopeTier::User] {
+        assert!(registry::switch_for("antigravity", tier).is_none(), "antigravity at {:?}", tier);
+    }
+}
+
 #[test]
 fn gemini_is_never_switched_by_a_key_in_the_file() {
     // Positive first: a table with no gemini row would pass the loop below
@@ -421,9 +432,12 @@ fn read_flag_reads_both_spellings() {
         ("enabled_on", Some(true)),
         ("disabled_off", Some(true)),
     ];
-    // Either spelling is read whichever key the engine is switched by.
+    // An EnabledKey engine reads either spelling. A DisabledKey engine reads
+    // `disabled` alone: `agy` ignores `enabled` (Karthik's ruling,
+    // 2026-11-27, Q6 of docs/plans/2026-11-27-antigravity-engine.md).
     for kind in [SwitchKind::EnabledKey, SwitchKind::DisabledKey] {
         for (name, flag) in expected {
+            let flag = if kind == SwitchKind::DisabledKey && name.starts_with("enabled_") { None } else { flag };
             assert_eq!(edit::read_flag(toml, Dialect::CodexToml, kind, name), Ok(flag), "toml {name} under {kind:?}");
             assert_eq!(edit::read_flag(json, Dialect::McpServers, kind, name), Ok(flag), "json {name} under {kind:?}");
         }
@@ -538,19 +552,50 @@ fn a_server_switched_off_and_on_again_ends_with_its_flag_saying_on() {
     assert_eq!(edit::read_flag(&on, Dialect::McpServers, SwitchKind::DisabledKey, "remote"), Ok(None));
 }
 
-/// mcpick `client-config.ts` → `set_server_enabled`, the `'enabled' in config`
-/// branch: an entry that already carries `enabled` keeps that key and has it
-/// set, even for an engine switched by `disabled`.
+/// Where this port leaves mcpick (`client-config.ts` → `set_server_enabled`,
+/// the `'enabled' in config` branch, which keeps and sets `enabled`): an
+/// engine switched by `disabled` gets `disabled` written even when the entry
+/// already carries `enabled`, which is left as it was. `agy` ignores
+/// `enabled` (Karthik's ruling, 2026-11-27, Q6 of
+/// docs/plans/2026-11-27-antigravity-engine.md).
 #[test]
-fn an_entry_that_already_says_enabled_keeps_that_key() {
+fn an_entry_that_already_says_enabled_is_switched_by_disabled() {
     let body = r#"{"servers":{"memory":{"command":"npx","enabled":true}}}"#;
 
     let off = switch_off(body, Dialect::VsCodeServers, SwitchKind::DisabledKey, "memory");
-    assert_eq!(off, r#"{"servers":{"memory":{"command":"npx","enabled":false}}}"#);
+    assert_eq!(off, r#"{"servers":{"memory":{"disabled": true,"command":"npx","enabled":true}}}"#);
 
     let toml = "[mcp_servers.memory]\ncommand = \"npx\"\nenabled = true\n";
     let off = switch_off(toml, Dialect::CodexToml, SwitchKind::DisabledKey, "memory");
-    assert_eq!(off, "[mcp_servers.memory]\ncommand = \"npx\"\nenabled = false\n");
+    assert_eq!(off, "[mcp_servers.memory]\ncommand = \"npx\"\nenabled = true\ndisabled = true\n");
+}
+
+/// `agy` ignores `enabled`: `"enabled": false` lists as `enabled` (plan
+/// 2026-11-27-antigravity-engine, `gamma`). So a DisabledKey engine reads
+/// `disabled` alone, and an entry that says `enabled: false` is on.
+#[test]
+fn an_antigravity_entry_that_says_enabled_false_still_reads_on() {
+    let body = r#"{"mcpServers":{"g":{"command":"x","enabled":false}}}"#;
+    assert_eq!(edit::read_flag(body, Dialect::McpServers, SwitchKind::DisabledKey, "g"), Ok(None));
+}
+
+/// And switching it off writes `disabled`, the key `agy` reads, leaving the
+/// `enabled` it ignores where it was.
+#[test]
+fn switching_it_off_writes_disabled() {
+    let body = r#"{"mcpServers":{"g":{"command":"x","enabled":false}}}"#;
+    let off = switch_off(body, Dialect::McpServers, SwitchKind::DisabledKey, "g");
+    assert_eq!(off, r#"{"mcpServers":{"g":{"disabled": true,"command":"x","enabled":false}}}"#);
+}
+
+/// `agy mcp disable <name>` on a name the file does not declare writes a
+/// stub `{"disabled": true}` with no command (plan 2026-11-27-antigravity-
+/// engine, `ghost`). Reading the file must not fail over it.
+#[test]
+fn a_stub_entry_with_no_command_does_not_fail_the_file() {
+    let body = r#"{"mcpServers":{"ghost":{"disabled":true},"alpha":{"command":"x"}}}"#;
+    assert!(read_names(body, Dialect::McpServers).contains(&"alpha".to_string()));
+    assert_eq!(edit::read_flag(body, Dialect::McpServers, SwitchKind::DisabledKey, "ghost"), Ok(Some(false)));
 }
 
 /// mcpick `client-config.ts` → `set_server_enabled` (`delete config.disabled`)
@@ -4058,6 +4103,31 @@ async fn switching_to_the_state_a_server_already_has_writes_nothing() {
     assert!(!machine.home().join(".gemini/mcp-server-enablement.json").exists());
 
     assert!(!machine.backups().exists(), "nothing was written, so nothing was backed up");
+}
+
+/// `cua` is declared by both engines here, as on Karthik's machine. Each
+/// engine's switch writes its own file and leaves the other's alone.
+#[tokio::test]
+async fn antigravity_off_writes_disabled_and_leaves_the_gemini_state_file_alone() {
+    let settings_body = r#"{"mcpServers":{"cua":{"command":"/usr/bin/true"}}}"#;
+    let config_body = r#"{"mcpServers":{"cua":{"command":"/usr/bin/true"}}}"#;
+    let machine = machine(&[(".gemini/settings.json", settings_body), (".gemini/config/mcp_config.json", config_body)]);
+    let places = machine.places();
+    let settings = machine.home().join(".gemini/settings.json");
+    let config = machine.home().join(".gemini/config/mcp_config.json");
+    let state_file = machine.home().join(".gemini/mcp-server-enablement.json");
+
+    ops_set(&places, &no_cli(), "antigravity", &key_in(&config, "cua"), false).await.expect("antigravity off");
+    let after_off = fs::read_to_string(&config).unwrap();
+    assert!(after_off.contains(r#""disabled": true"#), "{after_off}");
+    assert_eq!(edit::read_flag(&after_off, Dialect::McpServers, SwitchKind::DisabledKey, "cua"), Ok(Some(false)));
+    assert!(!state_file.exists(), "the Antigravity switch wrote Gemini CLI's state file");
+    assert_eq!(fs::read_to_string(&settings).unwrap(), settings_body);
+
+    ops_set(&places, &no_cli(), "gemini", &key_in(&settings, "cua"), false).await.expect("gemini off");
+    let state: serde_json::Value = serde_json::from_str(&fs::read_to_string(&state_file).unwrap()).unwrap();
+    assert_eq!(state, serde_json::json!({"cua": {"enabled": false}}));
+    assert_eq!(fs::read_to_string(&config).unwrap(), after_off, "the Gemini switch touched mcp_config.json");
 }
 
 // --- What a key has to be ----------------------------------------------------

@@ -323,10 +323,15 @@ pub enum SwitchKind {
     /// `"disabled": true` in the server's object.
     ///
     /// The other spelling of the same idea, and the one the engine matrix's
-    /// check sheets try by hand for Cursor, Claude Desktop and VS Code. No
-    /// row in `SWITCHES` uses it: the same matrix shows Gemini CLI rejecting
-    /// this key and Claude Code ignoring it, so a host gets it only after its
-    /// own check passes.
+    /// check sheets try by hand for Cursor, Claude Desktop and VS Code. The
+    /// same matrix shows Gemini CLI rejecting this key and Claude Code
+    /// ignoring it, so a host gets it only after its own check passes.
+    /// Antigravity CLI's did (engine matrix, "Antigravity CLI").
+    ///
+    /// Only `disabled` is read and written: `agy` ignores `enabled`, listing
+    /// `"enabled": false` as enabled (Karthik's ruling, 2026-11-27, Q6 of
+    /// `docs/plans/2026-11-27-antigravity-engine.md`). A future host that
+    /// honours both spellings gets a kind of its own.
     DisabledKey,
     /// `claude mcp remove` / `claude mcp add-json`, config kept in Hanger's stash.
     ///
@@ -378,6 +383,12 @@ pub const SWITCHES: &[SwitchRow] = &[
     // file is keyed by name: a switch offered on one project's server would
     // reach every project's server of that name (ruling 18 in the plan).
     SwitchRow { host_id: "gemini", kind: SwitchKind::GeminiEnablementFile, tiers: &[Global], confirmed: "gemini 0.56.0, 2026-11-24" },
+    // "Antigravity CLI: a disabled key in the entry is honoured; enabled is
+    // ignored". `agy mcp list` on a throwaway home listed `"disabled": true`
+    // as disabled and `"disabled": false` as enabled. Global only: the
+    // workspace `.agents/mcp_config.json` is not a source yet, and `mcp list`
+    // did not show it when measured.
+    SwitchRow { host_id: "antigravity", kind: SwitchKind::DisabledKey, tiers: &[Global], confirmed: "agy 1.5.18, 2026-11-27" },
     // OpenCode has no row. Its config reader accepts `"enabled": false`, but
     // `opencode mcp list` could not be isolated to confirm it (engine matrix,
     // "OpenCode").
