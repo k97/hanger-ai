@@ -1,3 +1,4 @@
+import posthog, { isPostHogConfigured } from "./posthog";
 import "./instrument";
 
 import React, { lazy, Suspense } from "react";
@@ -16,10 +17,20 @@ const Agentation = import.meta.env.DEV
   ? lazy(() => import("agentation").then((m) => ({ default: m.Agentation })))
   : null;
 
+const sentryErrorHandler = reactErrorHandler();
+
+const reportReactError = (error: Error, errorInfo: React.ErrorInfo) => {
+  if (isPostHogConfigured) {
+    posthog.captureException(error);
+  }
+
+  sentryErrorHandler(error, errorInfo);
+};
+
 ReactDOM.createRoot(document.getElementById("root")!, {
-  onUncaughtError: reactErrorHandler(),
-  onCaughtError: reactErrorHandler(),
-  onRecoverableError: reactErrorHandler(),
+  onUncaughtError: reportReactError,
+  onCaughtError: reportReactError,
+  onRecoverableError: reportReactError,
 }).render(
   <React.StrictMode>
     {/* Sits beside App, not inside it: App early-returns for the loading and

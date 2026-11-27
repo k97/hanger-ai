@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import posthog, { isPostHogConfigured } from "../posthog";
 import { CheckIcon, ExclamationTriangleIcon, FileTextIcon, Link2Icon, UnlinkIcon } from "./icons";
 import {
   actionable,
@@ -233,8 +234,16 @@ export default function LinkPanel({
 
     setRunning(false);
     const anyFailed = Object.values(landed).some((outcome) => !outcome.ok);
+    const successfulDestinationCount = Object.values(landed).filter((outcome) => outcome.ok).length;
     if (anyFailed) {
       setFailure("Some destinations were left unchanged. Each row says what happened.");
+    }
+    if (successfulDestinationCount > 0 && isPostHogConfigured) {
+      posthog.capture("asset_link_completed", {
+        asset_category: asset.category,
+        mechanism,
+        destination_count: successfulDestinationCount,
+      });
     }
     onLinked();
   };
