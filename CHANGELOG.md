@@ -13,6 +13,17 @@ internal-refactor commits are omitted.
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-11-27
+
+- **PostHog, alongside GA4 and Sentry** ([#2](https://github.com/k97/hanger-ai/pull/2)).
+  Named product events with usage consent, unhandled exceptions with crash
+  consent; nothing captured from the DOM, no session recording, no remote
+  scripts. The SDK starts opted out, and its logs are written only with usage
+  consent. Keys come from the `VITE_POSTHOG_KEY` and `VITE_POSTHOG_HOST`
+  release secrets. Every event and field: `docs/telemetry.md` §2b.
+
+Curated notes: `docs/release-notes/0.7.1.md`.
+
 ## [0.7.0] - 2026-11-27
 
 MCP servers and skills switch off and on per engine, and the overview card
