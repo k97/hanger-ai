@@ -3,8 +3,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const init = vi.fn();
 const optIn = vi.fn();
 const optOut = vi.fn();
+const logInfo = vi.fn();
+const logWarn = vi.fn();
 vi.mock("posthog-js", () => ({
-  default: { init, opt_in_capturing: optIn, opt_out_capturing: optOut },
+  default: {
+    init,
+    opt_in_capturing: optIn,
+    opt_out_capturing: optOut,
+    logger: { info: logInfo, warn: logWarn },
+  },
 }));
 
 type BeforeSend = (event: { event: string }) => { event: string } | null;
@@ -66,5 +73,26 @@ describe("PostHog in Hanger", () => {
 
     mod.setPostHogConsent(false, false);
     expect(optOut).toHaveBeenCalledTimes(2);
+  });
+
+  // Logs travel through PostHog's logs extension, not the event pipeline, so
+  // before_send is not relied on: the wrapper itself refuses without usage consent.
+  it("writes a log only with usage consent", async () => {
+    const { mod } = await load();
+    logInfo.mockClear();
+    logWarn.mockClear();
+
+    mod.posthogAppLogger.info("hanger scan completed", {});
+    mod.posthogAppLogger.warn("hanger scan failed", {});
+    mod.setPostHogConsent(false, true);
+    mod.posthogAppLogger.info("hanger scan completed", {});
+    expect(logInfo).not.toHaveBeenCalled();
+    expect(logWarn).not.toHaveBeenCalled();
+
+    mod.setPostHogConsent(true, false);
+    mod.posthogAppLogger.info("hanger scan completed", {});
+    mod.posthogAppLogger.warn("hanger scan failed", {});
+    expect(logInfo).toHaveBeenCalledTimes(1);
+    expect(logWarn).toHaveBeenCalledTimes(1);
   });
 });

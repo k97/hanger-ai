@@ -174,7 +174,11 @@ replaces either is an open TODO.
   `discovery_directory_opened` (`directory_mark`, a catalogue id). No path,
   asset name, server name or URL is sent.
 - **Logs:** `hanger renderer initialized` (`onboarding_state`),
-  `hanger scan completed` (no attributes), `hanger scan failed`.
+  `hanger scan completed` (no attributes), `hanger scan failed`. Written only
+  with usage consent, checked in `posthogAppLogger` itself, because logs go
+  through PostHog's logs extension rather than `before_send`. That extension
+  loads as a remote script, which is turned off, so logs may never send at
+  all: unverified.
 - **Exceptions:** unhandled errors and rejections, and React root errors via
   `captureException` before the existing Sentry handler. Console errors are not
   captured.

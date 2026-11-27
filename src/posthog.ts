@@ -68,12 +68,13 @@ export function setPostHogConsent(usage: boolean, crash: boolean) {
 type LogAttributes = Record<string, string | number | boolean>;
 
 // Purpose-built records only: existing console and Tauri-plugin logs remain local.
+// Logs go through PostHog's logs extension, not before_send, so consent is checked here.
 export const posthogAppLogger = {
   info(message: string, attributes: LogAttributes) {
-    if (isPostHogConfigured) posthog.logger.info(message, attributes);
+    if (isPostHogConfigured && usageConsent) posthog.logger.info(message, attributes);
   },
   warn(message: string, attributes: LogAttributes) {
-    if (isPostHogConfigured) posthog.logger.warn(message, attributes);
+    if (isPostHogConfigured && usageConsent) posthog.logger.warn(message, attributes);
   },
 };
 
