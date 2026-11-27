@@ -337,6 +337,29 @@ describe("OverviewCard · T3's size and anatomy (Task 2)", () => {
       expect(screen.getByText("1 asset")).toBeTruthy();
     });
 
+    /* Task 6 fix round 1: the repository card drew "Any agent" as "A..".
+       BrandIcon draws nothing for any-agent, so the row's grid lost its
+       first cell and the name fell into the 14px mark column. happy-dom lays
+       nothing out, so this pins the cause, not the pixels: every row keeps
+       three cells, the name in the second, whether or not a mark draws. */
+    it("keeps an Any agent row's name in the name column, though it has no mark", () => {
+      const { container } = render(
+        <OverviewCard
+          {...props({
+            engineCounts: [
+              { key: "a", engineKey: "claude_code", engineName: "Claude Code", value: 96 },
+              { key: "none", engineKey: "none", engineName: "Any agent", value: 89 },
+            ],
+          })}
+        />
+      );
+      for (const row of Array.from(container.querySelectorAll<HTMLElement>("[data-engine-name]"))) {
+        expect(row.children, row.dataset.engineName).toHaveLength(3);
+        expect(row.children[1].getAttribute("data-cell"), row.dataset.engineName).toBe("name");
+        expect(row.children[1].textContent).toBe(row.dataset.engineName);
+      }
+    });
+
     it("heads the store section with storeHead in place of The global store", () => {
       render(<OverviewCard {...props({ storeHead: "hanger-ai" })} />);
       expect(screen.getByText("hanger-ai")).toBeTruthy();

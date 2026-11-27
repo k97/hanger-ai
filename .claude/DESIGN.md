@@ -1825,7 +1825,9 @@ size at normal weight.
   heaviest `on_tokens_measured` first, no-figure engines last, and ties by
   name. Each row is a 32px button, T3's row: `h-8 px-2.5 gap-2.5
   rounded-control text-base-app` on `grid-cols-[14px_minmax(0,1fr)_auto]`:
-  the `BrandIcon` at 14, the name (`truncate`), and the value
+  the `BrandIcon` at 14 in a cell drawn even when the mark is not (any-agent
+  has none; without the cell the name fell into the 14px column as "A.."),
+  the name (`truncate`), and the value
   (`whitespace-nowrap`, right-aligned, `text-small tabular`):
   `engineRowValue`'s "≈ 13.6k", or "Not measured" in `text-ink-3`. No bar,
   as in `approved-HI.png`. The picked row is `bg-tint` with

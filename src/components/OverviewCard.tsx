@@ -113,6 +113,17 @@ const ACTION_ROW =
 /** T3's section: 8px in, the --line border between sections. */
 const SECTION = "px-2 pt-2 pb-2.5";
 
+/** An engine row's first grid cell. BrandIcon draws nothing for any-agent,
+ *  and a missing cell would shift the name into the 14px mark column ("A.."),
+ *  so the cell is drawn whether or not a mark is. */
+function MarkCell({ engineKey, engineName }: { engineKey: string; engineName: string }) {
+  return (
+    <span className="flex">
+      <BrandIcon engineKey={engineKey} engineName={engineName} size={14} />
+    </span>
+  );
+}
+
 /** A section's head, as T3 heads one: 11px, medium, muted, 32px tall, its
  *  caption at the right. */
 function SectionHead({ id, name, caption }: { id: string; name: string; caption?: string }) {
@@ -194,7 +205,7 @@ export default function OverviewCard({
           <div role="group" aria-labelledby={enginesHeadId}>
             {engineCounts.map((row) => (
               <div key={row.key} data-engine-name={row.engineName} className={`${ROW} ${ENGINE_GRID}`}>
-                <BrandIcon engineKey={row.engineKey} engineName={row.engineName} size={14} />
+                <MarkCell engineKey={row.engineKey} engineName={row.engineName} />
                 <span data-cell="name" className="truncate text-ink-1">
                   {row.engineName}
                 </span>
@@ -238,7 +249,7 @@ export default function OverviewCard({
                   onClick={() => onSelectEngine?.(ctx.engine_id)}
                   className={`${ROW} ${ENGINE_GRID} ${rowTone(selected)}`}
                 >
-                  <BrandIcon engineKey={ctx.engine_id} engineName={ctx.engine_name} size={14} />
+                  <MarkCell engineKey={ctx.engine_id} engineName={ctx.engine_name} />
                   <span data-cell="name" className={`truncate text-ink-1 ${selected ? "font-medium" : ""}`}>
                     {ctx.engine_name}
                   </span>
