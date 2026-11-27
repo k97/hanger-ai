@@ -21,24 +21,25 @@ use tauri_app_lib::preferences::{PreferencesStore, LAST_SCAN_KEY};
 
 const BUILT: &str = env!("CARGO_BIN_EXE_tauri-app");
 
-/// The built binary, copied once to a temp path. Another session's capture
-/// script finds its dev app with `pgrep -f target/debug/tauri-app`, so these
-/// servers must not run from that path.
-fn bin() -> &'static Path {
-    static COPY: std::sync::OnceLock<PathBuf> = std::sync::OnceLock::new();
-    COPY.get_or_init(|| {
-        let dir = std::env::temp_dir().join(format!("hanger-mcp-protocol-{}", std::process::id()));
-        fs::create_dir_all(&dir).unwrap();
-        let copy = dir.join("hanger-mcp-under-test");
-        // A hard link costs no space and leaves nothing to clean up; a copy
-        // only where the temp dir is on another volume.
-        let _ = fs::remove_file(&copy);
-        if fs::hard_link(BUILT, &copy).is_err() {
-            fs::copy(BUILT, &copy).unwrap();
-        }
-        copy
-    })
+/// The built binary, hard-linked into a temp folder that goes when this
+/// value drops. Another session's capture script finds its dev app with
+/// `pgrep -f target/debug/tauri-app`, so these servers must not run from
+/// that path.
+struct Bin {
+    _dir: tempfile::TempDir,
+    path: PathBuf,
 }
+
+fn bin() -> Bin {
+    let dir = tempfile::Builder::new().prefix("hanger-mcp-protocol-").tempdir().unwrap();
+    let path = dir.path().join("hanger-mcp-under-test");
+    // A copy only where the temp dir is on another volume.
+    if fs::hard_link(BUILT, &path).is_err() {
+        fs::copy(BUILT, &path).unwrap();
+    }
+    Bin { _dir: dir, path }
+}
+
 const TOOLS: [&str; 5] = ["list_engines", "engine_context", "find_assets", "reach", "findings"];
 
 fn scanned_home() -> (tempfile::TempDir, PathBuf) {
@@ -55,11 +56,14 @@ struct Session {
     stdin: Option<ChildStdin>,
     lines: mpsc::Receiver<String>,
     seen: Vec<String>,
+    // Last, so it drops after `drop` has killed the child.
+    _bin: Bin,
 }
 
 impl Session {
-    fn start(bin: &Path, home: &Path) -> Session {
-        let mut child = Command::new(bin)
+    fn start(home: &Path) -> Session {
+        let bin = bin();
+        let mut child = Command::new(&bin.path)
             .arg("mcp")
             .env_clear()
             .env("HOME", home)
@@ -79,7 +83,7 @@ impl Session {
                 }
             }
         });
-        Session { child, stdin, lines, seen: Vec::new() }
+        Session { child, stdin, lines, seen: Vec::new(), _bin: bin }
     }
 
     fn send(&mut self, message: Value) {
@@ -108,8 +112,8 @@ impl Session {
     }
 
     /// A legacy-era session: `initialize`, then `notifications/initialized`.
-    fn initialized(bin: &Path, home: &Path) -> Session {
-        let mut s = Session::start(bin, home);
+    fn initialized(home: &Path) -> Session {
+        let mut s = Session::start(home);
         let init = s.request(
             1,
             "initialize",
@@ -141,7 +145,7 @@ fn only_the_mcp_argument_starts_the_server() {
 #[test]
 fn a_legacy_client_initializes_lists_and_calls() {
     let (_dir, home) = scanned_home();
-    let mut s = Session::initialized(bin(), &home);
+    let mut s = Session::initialized(&home);
     let list = s.request(2, "tools/list", json!({}));
     assert_eq!(tool_names(&list), TOOLS);
     for tool in list["result"]["tools"].as_array().unwrap() {
@@ -161,7 +165,7 @@ fn a_legacy_client_initializes_lists_and_calls() {
 #[test]
 fn a_modern_client_discovers_then_lists() {
     let (_dir, home) = scanned_home();
-    let mut s = Session::start(bin(), &home);
+    let mut s = Session::start(&home);
     let meta = json!({
         "io.modelcontextprotocol/protocolVersion": "2026-07-28",
         "io.modelcontextprotocol/clientInfo": { "name": "test", "version": "0" },
@@ -176,9 +180,10 @@ fn a_modern_client_discovers_then_lists() {
 
 #[test]
 fn hangers_own_probe_measures_hangers_own_server() {
+    let bin = bin();
     let probed = tokio::runtime::Runtime::new()
         .unwrap()
-        .block_on(tauri_app_lib::mcp::probe::probe(bin().to_str().unwrap(), &["mcp".to_string()], Duration::from_secs(10)));
+        .block_on(tauri_app_lib::mcp::probe::probe(bin.path.to_str().unwrap(), &["mcp".to_string()], Duration::from_secs(10)));
     assert_eq!(probed.error, None);
     let names: Vec<&str> = probed.tools.iter().map(|t| t.name.as_str()).collect();
     assert_eq!(names, TOOLS);
@@ -187,7 +192,7 @@ fn hangers_own_probe_measures_hangers_own_server() {
 #[test]
 fn a_refusal_is_a_tool_error_not_a_protocol_error() {
     let (_dir, home) = scanned_home();
-    let mut s = Session::initialized(bin(), &home);
+    let mut s = Session::initialized(&home);
     let call = s.request(2, "tools/call", json!({ "name": "find_assets", "arguments": { "query": "x", "limit": 0 } }));
     assert!(call.get("error").is_none(), "{call}");
     assert_eq!(call["result"]["isError"], true, "{call}");
@@ -197,7 +202,7 @@ fn a_refusal_is_a_tool_error_not_a_protocol_error() {
 #[test]
 fn every_stdout_line_is_one_json_rpc_message() {
     let (_dir, home) = scanned_home();
-    let mut s = Session::initialized(bin(), &home);
+    let mut s = Session::initialized(&home);
     s.request(2, "tools/list", json!({}));
     s.request(3, "tools/call", json!({ "name": "list_engines", "arguments": {} }));
     s.request(4, "tools/call", json!({ "name": "findings", "arguments": {} }));
@@ -216,7 +221,7 @@ fn every_stdout_line_is_one_json_rpc_message() {
 #[test]
 fn the_server_exits_when_stdin_closes() {
     let (_dir, home) = scanned_home();
-    let mut s = Session::initialized(bin(), &home);
+    let mut s = Session::initialized(&home);
     drop(s.stdin.take());
     let deadline = Instant::now() + Duration::from_secs(2);
     loop {
@@ -278,7 +283,7 @@ fn call(s: &mut Session, id: i64, name: &str, arguments: Value) -> Value {
 #[test]
 fn an_unknown_key_is_a_tool_error_naming_what_the_tool_takes() {
     let (_dir, home) = home_with_data();
-    let mut s = Session::initialized(bin(), &home);
+    let mut s = Session::initialized(&home);
     let r = call(&mut s, 2, "engine_context", json!({ "engine_id": "codex", "extra": 1 }));
     assert_tool_error(&r, ENGINE_CONTEXT_ARGS);
 }
@@ -286,7 +291,7 @@ fn an_unknown_key_is_a_tool_error_naming_what_the_tool_takes() {
 #[test]
 fn a_misspelled_key_is_refused_for_every_tool() {
     let (_dir, home) = home_with_data();
-    let mut s = Session::initialized(bin(), &home);
+    let mut s = Session::initialized(&home);
     let cases = [
         ("list_engines", json!({ "engine": "codex" }), LIST_ENGINES_ARGS),
         ("findings", json!({ "scope": "global" }), FINDINGS_ARGS),
@@ -303,7 +308,7 @@ fn a_misspelled_key_is_refused_for_every_tool() {
 #[test]
 fn a_wrong_type_or_an_out_of_range_limit_is_a_tool_error() {
     let (_dir, home) = home_with_data();
-    let mut s = Session::initialized(bin(), &home);
+    let mut s = Session::initialized(&home);
     assert_tool_error(&call(&mut s, 2, "engine_context", json!({ "engine_id": 7 })), ENGINE_CONTEXT_ARGS);
     assert_tool_error(&call(&mut s, 3, "find_assets", json!({ "query": "solo", "limit": "5" })), FIND_ASSETS_ARGS);
     assert_tool_error(&call(&mut s, 4, "find_assets", json!({ "query": "solo", "limit": 51 })), FIND_ASSETS_ARGS);
@@ -313,7 +318,7 @@ fn a_wrong_type_or_an_out_of_range_limit_is_a_tool_error() {
 #[test]
 fn the_find_assets_limit_is_bounded_in_the_schema() {
     let (_dir, home) = scanned_home();
-    let mut s = Session::initialized(bin(), &home);
+    let mut s = Session::initialized(&home);
     let list = s.request(2, "tools/list", json!({}));
     let find = list["result"]["tools"].as_array().unwrap().iter().find(|t| t["name"] == "find_assets").unwrap().clone();
     let limit = &find["inputSchema"]["properties"]["limit"];
@@ -326,7 +331,7 @@ fn the_find_assets_limit_is_bounded_in_the_schema() {
 #[test]
 fn an_unknown_tool_is_a_protocol_error_naming_it() {
     let (_dir, home) = scanned_home();
-    let mut s = Session::initialized(bin(), &home);
+    let mut s = Session::initialized(&home);
     let r = call(&mut s, 2, "nope", json!({}));
     assert!(r.get("result").is_none(), "{r}");
     assert_eq!(r["error"]["message"], "Unknown tool: nope", "{r}");
@@ -335,7 +340,7 @@ fn an_unknown_tool_is_a_protocol_error_naming_it() {
 #[test]
 fn the_thirty_first_call_in_ten_seconds_is_told_to_slow_down() {
     let (_dir, home) = scanned_home();
-    let mut s = Session::initialized(bin(), &home);
+    let mut s = Session::initialized(&home);
     for id in 0..30 {
         let r = call(&mut s, 100 + id, "findings", json!({}));
         assert_eq!(r["result"]["isError"], false, "call {id}: {r}");
@@ -347,7 +352,7 @@ fn the_thirty_first_call_in_ten_seconds_is_told_to_slow_down() {
 #[test]
 fn engine_context_and_reach_answer_over_the_protocol() {
     let (_dir, home) = home_with_data();
-    let mut s = Session::initialized(bin(), &home);
+    let mut s = Session::initialized(&home);
     let ctx = call(&mut s, 2, "engine_context", json!({ "engine_id": "codex" }));
     assert_eq!(ctx["result"]["isError"], false, "{ctx}");
     let names: Vec<&str> = ctx["result"]["structuredContent"]["result"]["items"].as_array().unwrap().iter().map(|i| i["name"].as_str().unwrap()).collect();
@@ -355,4 +360,42 @@ fn engine_context_and_reach_answer_over_the_protocol() {
     let reach = call(&mut s, 3, "reach", json!({ "asset_path": "~/.agents/skills/solo" }));
     assert_eq!(reach["result"]["isError"], false, "{reach}");
     assert_eq!(reach["result"]["structuredContent"]["result"]["asset_path"], "~/.agents/skills/solo", "{reach}");
+}
+
+#[test]
+fn a_limit_of_1_and_of_50_is_accepted_and_0_and_51_are_refused() {
+    let (_dir, home) = home_with_data();
+    let mut s = Session::initialized(&home);
+    for (id, limit) in [(2, 1), (3, 50)] {
+        let r = call(&mut s, id, "find_assets", json!({ "query": "solo", "limit": limit }));
+        assert_eq!(r["result"]["isError"], false, "limit {limit}: {r}");
+    }
+    for (id, limit) in [(4, 0), (5, 51)] {
+        assert_tool_error(&call(&mut s, id, "find_assets", json!({ "query": "solo", "limit": limit })), FIND_ASSETS_ARGS);
+    }
+}
+
+#[test]
+fn a_limit_sent_to_a_tool_that_takes_none_gets_that_tools_line() {
+    let (_dir, home) = home_with_data();
+    let mut s = Session::initialized(&home);
+    let cases = [
+        ("list_engines", json!({ "limit": 5 }), LIST_ENGINES_ARGS),
+        ("findings", json!({ "limit": 5 }), FINDINGS_ARGS),
+        ("engine_context", json!({ "engine_id": "codex", "limit": 5 }), ENGINE_CONTEXT_ARGS),
+        ("reach", json!({ "asset_path": "~/.agents/skills/solo", "limit": 5 }), REACH_ARGS),
+    ];
+    for (i, (name, args, text)) in cases.into_iter().enumerate() {
+        assert_tool_error(&call(&mut s, 10 + i as i64, name, args), text);
+    }
+}
+
+#[test]
+fn a_session_leaves_no_temp_folder_behind() {
+    let (_dir, home) = scanned_home();
+    let s = Session::initialized(&home);
+    let folder = s._bin.path.parent().unwrap().to_path_buf();
+    assert!(folder.exists());
+    drop(s);
+    assert!(!folder.exists(), "{} is still there", folder.display());
 }
