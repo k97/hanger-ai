@@ -11,7 +11,18 @@ that tells the truth from the `tauri dev` app:
   process whose unix id is <pid>) to true'`, wait ~1s, then capture. Static
   content captures fine occluded.
 - The first synthetic click on an unfocused window only activates it; the
-  click itself is swallowed. Re-focus immediately before each click.
+  click itself is swallowed. Re-focus immediately before each click. (A real
+  first click now acts, since `acceptFirstMouse` on 2026-11-28; `cliclick`
+  still does not.)
+- **Pointer behaviour (drag, first click) is proven only by real presses.**
+  Synthetic input lied three ways on 2026-11-28: `cliclick` never reached an
+  unfocused window's page; a drag that paused 150 ms after the press passed
+  while a hand, which moves at once, failed 22 of 30; and a drag aimed at one
+  window landed in another that covered it. Measure Karthik's presses with a
+  listen-only `CGEventTap` (press, release, window origin) beside a
+  capture-phase `mousedown` recorder in the page; where a synthetic check is
+  all you have, post CGEvent down/dragged/up with no hold, after resolving the
+  topmost window at that point.
 - **A capture by window id is not evidence that your click reached that
   window.** `screencapture -l<windowid>` captures the window even when another
   app covers it, but synthetic clicks go to whatever is topmost at those screen
