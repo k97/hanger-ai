@@ -32,6 +32,9 @@ The port is pinned with `strictPort` because Tauri loads it by absolute URL —
 a floating port breaks `tauri dev`. Prerequisites, environment variables and
 storage locations: [docs/setup.md](docs/setup.md).
 
+To let an engine's model ask Hanger about your harness, add Hanger's own MCP
+server to it: [docs/mcp-server.md](docs/mcp-server.md).
+
 ## How it works
 
 A scan writes rows. Reach and link state are not among them — those are
