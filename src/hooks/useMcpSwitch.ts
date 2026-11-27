@@ -345,7 +345,6 @@ export function useMcpSwitch({
           posthog.capture("mcp_server_switch_changed", {
             enabled,
             scope: "group",
-            changed_engine_count: receipts.length,
           });
         }
         onChangedRef.current();

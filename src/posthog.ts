@@ -10,6 +10,22 @@ if (posthogKey && posthogHost) {
   posthog.init(posthogKey, {
     api_host: posthogHost,
     defaults: "2026-08-30",
+    // Only the named events below and consented exceptions leave the app. Clicked
+    // text in Hanger is asset names, server names and file paths, so nothing is
+    // captured from the DOM, and no remote script is loaded into the webview.
+    autocapture: false,
+    rageclick: false,
+    capture_dead_clicks: false,
+    capture_heatmaps: false,
+    capture_pageview: false,
+    capture_pageleave: false,
+    capture_performance: false,
+    disable_session_recording: true,
+    disable_surveys: true,
+    disable_web_experiments: true,
+    disable_external_dependency_loading: true,
+    advanced_disable_flags: true,
+    person_profiles: "identified_only",
     logs: {
       serviceName: "hanger-desktop-renderer",
       environment: import.meta.env.MODE,

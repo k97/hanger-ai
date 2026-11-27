@@ -19,7 +19,7 @@ const Agentation = import.meta.env.DEV
 
 const sentryErrorHandler = reactErrorHandler();
 
-const reportReactError = (error: Error, errorInfo: React.ErrorInfo) => {
+const reportReactError = (error: unknown, errorInfo: React.ErrorInfo) => {
   if (isPostHogConfigured) {
     posthog.captureException(error);
   }

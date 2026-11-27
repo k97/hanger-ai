@@ -83,7 +83,7 @@ export default function SidebarScanModal({
       setError(`${String(err)}${done}`);
     } finally {
       if (linked.length > 0 && isPostHogConfigured) {
-        posthog.capture("repositories_linked", { repository_count: linked.length });
+        posthog.capture("repositories_linked");
       }
       setLinking(false);
     }

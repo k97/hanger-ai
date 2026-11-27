@@ -234,15 +234,15 @@ export default function LinkPanel({
 
     setRunning(false);
     const anyFailed = Object.values(landed).some((outcome) => !outcome.ok);
-    const successfulDestinationCount = Object.values(landed).filter((outcome) => outcome.ok).length;
+    const anyLanded = Object.values(landed).some((outcome) => outcome.ok);
     if (anyFailed) {
       setFailure("Some destinations were left unchanged. Each row says what happened.");
     }
-    if (successfulDestinationCount > 0 && isPostHogConfigured) {
+    if (anyLanded && isPostHogConfigured) {
       posthog.capture("asset_link_completed", {
         asset_category: asset.category,
         mechanism,
-        destination_count: successfulDestinationCount,
+        all_landed: !anyFailed,
       });
     }
     onLinked();

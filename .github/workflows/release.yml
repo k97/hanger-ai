@@ -37,6 +37,8 @@ jobs:
           if [ -z "${{ secrets.SENTRY_DSN }}" ]; then echo "Warning: SENTRY_DSN is absent"; fi
           if [ -z "${{ secrets.GA4_MEASUREMENT_ID }}" ]; then echo "Warning: GA4_MEASUREMENT_ID is absent"; fi
           if [ -z "${{ secrets.GA4_API_SECRET }}" ]; then echo "Warning: GA4_API_SECRET is absent"; fi
+          if [ -z "${{ secrets.VITE_POSTHOG_KEY }}" ]; then echo "Warning: VITE_POSTHOG_KEY is absent"; fi
+          if [ -z "${{ secrets.VITE_POSTHOG_HOST }}" ]; then echo "Warning: VITE_POSTHOG_HOST is absent"; fi
 
           if [ ${#MISSING_SECRETS[@]} -ne 0 ]; then
             echo "::error::LOUD FAILURE: The following required signing/updater secrets are missing: ${MISSING_SECRETS[*]}"
@@ -131,6 +133,8 @@ jobs:
           VITE_SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
           GA4_MEASUREMENT_ID: ${{ secrets.GA4_MEASUREMENT_ID }}
           GA4_API_SECRET: ${{ secrets.GA4_API_SECRET }}
+          VITE_POSTHOG_KEY: ${{ secrets.VITE_POSTHOG_KEY }}
+          VITE_POSTHOG_HOST: ${{ secrets.VITE_POSTHOG_HOST }}
         with:
           tagName: ${{ (github.event.inputs.dry_run == 'true') && '' || github.ref_name }}
           releaseName: 'Release ${{ github.ref_name }}'

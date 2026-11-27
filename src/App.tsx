@@ -825,11 +825,8 @@ export default function App() {
         setScanning(false);
         setLoading(false);
         setLastScanAt(new Date());
-        posthogAppLogger.info("hanger scan completed", {
-          skill_count: payload.inventory?.skills?.length ?? 0,
-          agent_count: payload.inventory?.agents?.length ?? 0,
-          tool_count: payload.inventory?.tools?.length ?? 0,
-        });
+        // No counts: they come from the backend (`get_asset_counts`), never the webview.
+        posthogAppLogger.info("hanger scan completed", {});
 
         await refreshGlobalCounts();
         await refreshAnnotations();
