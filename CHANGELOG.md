@@ -13,6 +13,35 @@ internal-refactor commits are omitted.
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-11-27
+
+MCP servers and skills switch off and on per engine, and the overview card
+shows what each engine's servers cost every session.
+
+- **Switch an MCP server per engine.** Codex through its `enabled` key (global
+  and project config), Gemini CLI through its enablement file, Claude Code
+  through `claude mcp` for its user config (`mcp/registry.rs` → `SWITCHES`).
+  Every write is backed up, replaced in one step, read back and undoable. A
+  header switch covers every engine; ⌘K switches by exact name. Switched-off
+  servers stay listed in their own group.
+- **Switch a store skill.** Off moves its folder into Hanger's keep and removes
+  the links to it; On restores both. Undo as for servers.
+- **The overview card.** Engines ranked by MCP tokens every session, the chosen
+  engine by kind, measured coverage, Measure all on request. Docks on Global when
+  there's room, otherwise opens from the window bar or ⌘E.
+- **Global and repositories.** Two-line rows in a centred column, with tick marks
+  that jump between groups and show each group's name and count.
+- **Scans.** The global pass runs once per scan, writes go through one
+  connection, and opening a server panel no longer rescans.
+- **Fixes.** VS Code servers read from their current location; editors open by
+  their detected path; a panel never starts a server every engine has switched
+  off; an engine with nothing measured says so rather than ≈ 0.
+
+Curated notes: `docs/release-notes/0.7.0.md`.
+
+**Not exhaustive.** 80 feature and fix commits landed between `v0.6.0` and this
+release; this entry covers what a user can see, not each commit.
+
 ## [0.6.0] - 2026-08-30
 
 Assets open in your editor, Cmd+K finds anything by name, and Hanger sees the
