@@ -944,3 +944,20 @@ Hanger's own. Check first whether `@a2ui/react` works with React 19.
 author asks Karthik this question in Plannotator before the task starts.
 
 **Done when:** he has ruled, and the ruling is recorded in that plan.
+
+## T25 — A repository's nested-paths list can't be scrolled with the keyboard
+
+Found by the repo-view parity plan's final review on 2026-11-27 and parked
+there; Karthik ruled it a TODO in decisions round 32, Q3. On a repository
+with nested repos, the overview card's notice lists their paths in a column
+capped at 120px with `overflow-y-auto` (`RepoPane.tsx` → `nestedFoot`). The
+column has no `tabIndex`, so a keyboard user can't scroll it past roughly ten
+paths. The paths are still reachable through Promote… and a screen reader
+reads them all.
+
+**First step:** a naming brief for the column's accessible name
+(`.claude/rules/ui-copy.md`). Making it focusable needs one, and the string
+is new.
+
+**Done when:** the column takes focus and scrolls with the arrow keys, its
+name has Karthik's sign-off, and a test pins `tabIndex` and the name.
