@@ -27,6 +27,7 @@ vi.mock("@tauri-apps/plugin-log", () => ({
 }));
 
 let mockPreferences: Record<string, string> = {};
+let linkedDirectories: string[] = [];
 let eventListeners: Record<string, Function> = {};
 
 vi.mock("@tauri-apps/api/event", () => ({
@@ -62,7 +63,7 @@ vi.mock("@tauri-apps/api/core", () => ({
       if (args?.key) mockPreferences[args.key] = String(args.value);
       return null;
     }
-    if (cmd === "get_linked_directories") return [];
+    if (cmd === "get_linked_directories") return linkedDirectories;
     if (cmd === "get_asset_counts") return { total: 0, byCategory: {}, engines: {} };
     if (cmd === "get_asset_annotations") return [];
     if (cmd === "get_engine_contexts") return CONTEXTS;
@@ -101,6 +102,7 @@ beforeEach(() => {
   cleanup();
   eventListeners = {};
   vi.mocked(invoke).mockClear();
+  linkedDirectories = [];
   mockPreferences = {
     onboarding_complete: "true",
     consent_crash: "true",
@@ -181,6 +183,44 @@ describe("the overview button in the content cap", () => {
     fireEvent.click(hide);
     expect(dialog()).toBeNull();
     expect(overviewButton()).toBeTruthy();
+  });
+});
+
+describe("on a repository", () => {
+  const REPO_A = "/home/user/alpha";
+  const REPO_B = "/home/user/beta";
+  /** A repository's row in the source list, by its folder's name. */
+  const sourceRow = (name: string) =>
+    within(screen.getByTestId("sidebar")).getByText(name).closest("[tabindex]") as HTMLElement;
+
+  it("is on a repository too, and its popover closes when the repository is left", async () => {
+    notDocked();
+    linkedDirectories = [REPO_A];
+    mockPreferences.selected_sidebar_item = REPO_A;
+    render(<App />);
+    await completeScan();
+    fireEvent.click(await waitFor(() => overviewButton()));
+    expect(dialog()).not.toBeNull();
+    fireEvent.click(within(screen.getByTestId("icon-rail")).getByRole("button", { name: "Discovery" }));
+    await waitFor(() => expect(dialog()).toBeNull());
+  });
+
+  it("going from one repository to another closes the popover and opens the next on All", async () => {
+    notDocked();
+    linkedDirectories = [REPO_A, REPO_B];
+    mockPreferences.selected_sidebar_item = REPO_A;
+    render(<App />);
+    await completeScan();
+    const tab = (name: RegExp) => screen.getByRole("tab", { name });
+    await waitFor(() => expect(tab(/^Skills/)).toBeTruthy());
+    fireEvent.click(tab(/^Skills/));
+    await waitFor(() => expect(tab(/^Skills/).getAttribute("aria-selected")).toBe("true"));
+    fireEvent.click(await waitFor(() => overviewButton()));
+    expect(dialog()).not.toBeNull();
+    fireEvent.click(await waitFor(() => sourceRow("beta")));
+    await waitFor(() => expect(mockPreferences.selected_sidebar_item).toBe(REPO_B));
+    await waitFor(() => expect(dialog()).toBeNull());
+    expect(tab(/^All/).getAttribute("aria-selected")).toBe("true");
   });
 });
 

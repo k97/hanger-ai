@@ -54,6 +54,11 @@ describe("the overview card's strings (round 14 q5)", () => {
     expect(storeAssetsLabel(1158)).toBe("1,158 assets");
   });
 
+  it("says 1 asset, and 2 assets", () => {
+    expect(storeAssetsLabel(1)).toBe("1 asset");
+    expect(storeAssetsLabel(2)).toBe("2 assets");
+  });
+
   it("prints an engine's figure compact, or Not measured", () => {
     expect(engineRowValue(CLAUDE_CODE)).toBe("≈ 13.6k");
     expect(engineRowValue(CODEX)).toBe("≈ 10.0k");

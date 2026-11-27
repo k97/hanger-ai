@@ -15,6 +15,9 @@ import { measuredBudget, NOT_MEASURED_FIGURE } from "./switchCopy";
 export const ENGINES_HEAD = "Engines";
 export const ENGINES_CAPTION = "tokens every session";
 
+/** A repository card's first section: the engines that reach it, by count. */
+export const ENGINE_COUNTS_HEAD = "By engine";
+
 /** The row above the engines, which picks none of them. */
 export const ALL_ENGINES = "All engines";
 
@@ -29,7 +32,7 @@ export function overviewButtonLabel(open: boolean): string {
 
 /** The store total, as the old summary's backend-owned figure. */
 export function storeAssetsLabel(n: number): string {
-  return `${n.toLocaleString("en-US")} assets`;
+  return `${n.toLocaleString("en-US")} ${n === 1 ? "asset" : "assets"}`;
 }
 
 /**

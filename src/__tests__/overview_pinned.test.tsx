@@ -220,15 +220,15 @@ describe("Esc typed into a text field", () => {
   });
 });
 
-describe("Esc is Global's alone (round 14 q4)", () => {
-  it("on a repository screen, Esc leaves the selection alone", async () => {
+/* Round 14 q4 ruled Esc Global's alone; Q4 of
+   docs/plans/2026-11-27-repo-view-parity.md (Answers 4) overruled it. */
+describe("Esc is Global's and a repository's (repo-view-parity Q4)", () => {
+  it("on a repository screen, Esc drops the selection", async () => {
     mockPreferences.selected_sidebar_item = REPO;
     render(<App />);
     fireEvent.click(await waitFor(() => table().getByText("Work Repo Skill")));
     await waitFor(() => expect(inspecting()).toBe(true));
     pressEsc(document.body);
-    // Give any listener a chance to act before asserting it did not.
-    await new Promise((r) => setTimeout(r, 0));
-    expect(inspecting()).toBe(true);
+    await waitFor(() => expect(inspecting()).toBe(false));
   });
 });

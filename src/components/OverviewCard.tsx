@@ -1,4 +1,4 @@
-import { useId, useRef, useState } from "react";
+import { useId, useRef, useState, type ReactNode } from "react";
 import GelMeter from "./GelMeter";
 import BrandIcon from "./BrandIcon";
 import FindingPopover from "./FindingPopover";
@@ -13,6 +13,7 @@ import {
   ALL_ENGINES,
   ENGINES_CAPTION,
   ENGINES_HEAD,
+  ENGINE_COUNTS_HEAD,
   STORE_HEAD,
   engineRowValue,
   rankEngines,
@@ -54,14 +55,37 @@ export interface EngineStripFigures {
   measureCaption: string;
 }
 
+/** One engine's asset count on a repository's card. The card formats the
+ *  figure; the backend owns it. */
+export interface EngineCountRow {
+  key: string;
+  engineKey: string;
+  engineName: string;
+  value: number;
+}
+
 export interface OverviewCardProps {
   /** App's `engineContexts`, in `get_engine_contexts`' order: the card ranks. */
   engines: EngineContext[];
   /** `null` is All engines. */
   selectedEngineId: string | null;
-  onSelectEngine: (id: string | null) => void;
+  /** Absent on a repository's card, which has no engine to pick. */
+  onSelectEngine?: (id: string | null) => void;
   /** The old summary's backend-owned total. */
   storeTotal: number;
+  /** The store section's head; `STORE_HEAD` by default. A repository passes
+   *  its folder's name. */
+  storeHead?: string;
+  /** Replaces `storeAssetsLabel(storeTotal)` as that section's caption
+   *  (a tab's own noun, "48 skills"). `pending` still wins. */
+  storeCaption?: string;
+  /** Given, the first section lists these rows (none a button, no All
+   *  engines row) and `engines` is ignored. Empty draws no section. */
+  engineCounts?: EngineCountRow[];
+  /** Its own bordered section between the store and the actions. */
+  notice?: ReactNode;
+  /** True before the answer is in: no asset figure is printed anywhere. */
+  pending?: boolean;
   /** The link-state meter and legend, drawn with All engines picked. */
   linkLegend: { counts: StateCounts; active: StateFilter; onFilter: (s: StateFilter) => void };
   /** The chosen engine's kinds and Measure all, as the strip's engine mode
@@ -88,6 +112,17 @@ const ACTION_ROW =
   "w-full h-8 flex items-center gap-2.5 px-2.5 rounded-control text-left text-base-app text-ink-1 cursor-pointer transition-[background-color,transform] duration-hover ease-spring hover:bg-plane-2 active:scale-[0.97] disabled:cursor-default disabled:opacity-50";
 /** T3's section: 8px in, the --line border between sections. */
 const SECTION = "px-2 pt-2 pb-2.5";
+
+/** An engine row's first grid cell. BrandIcon draws nothing for any-agent,
+ *  and a missing cell would shift the name into the 14px mark column ("A.."),
+ *  so the cell is drawn whether or not a mark is. */
+function MarkCell({ engineKey, engineName }: { engineKey: string; engineName: string }) {
+  return (
+    <span className="flex">
+      <BrandIcon engineKey={engineKey} engineName={engineName} size={14} />
+    </span>
+  );
+}
 
 /** A section's head, as T3 heads one: 11px, medium, muted, 32px tall, its
  *  caption at the right. */
@@ -130,6 +165,11 @@ export default function OverviewCard({
   selectedEngineId,
   onSelectEngine,
   storeTotal,
+  storeHead = STORE_HEAD,
+  storeCaption,
+  engineCounts,
+  notice,
+  pending = false,
   linkLegend,
   engineFigures,
   review,
@@ -144,7 +184,7 @@ export default function OverviewCard({
   const stampText = useScanStampText(scan.scannedAt === null ? null : new Date(scan.scannedAt));
 
   const ranked = rankEngines(engines);
-  const hasEngines = ranked.length > 0;
+  const hasEngines = engineCounts ? engineCounts.length > 0 : ranked.length > 0;
   const chosen = selectedEngineId === null ? null : engines.find((e) => e.engine_id === selectedEngineId) ?? null;
   const showEngine = chosen !== null && engineFigures !== null;
 
@@ -159,7 +199,25 @@ export default function OverviewCard({
       {/* Engines. Before the first scan has listed any, the section is not
           drawn at all: a head over nothing would read as "no engines"
           (Review Focus 1). */}
-      {hasEngines && (
+      {engineCounts && hasEngines && (
+        <section aria-labelledby={enginesHeadId} className={SECTION}>
+          <SectionHead id={enginesHeadId} name={ENGINE_COUNTS_HEAD} />
+          <div role="group" aria-labelledby={enginesHeadId}>
+            {engineCounts.map((row) => (
+              <div key={row.key} data-engine-name={row.engineName} className={`${ROW} ${ENGINE_GRID}`}>
+                <MarkCell engineKey={row.engineKey} engineName={row.engineName} />
+                <span data-cell="name" className="truncate text-ink-1">
+                  {row.engineName}
+                </span>
+                <span data-cell="value" className={`${VALUE} text-ink-2`}>
+                  {pending ? "" : storeAssetsLabel(row.value)}
+                </span>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+      {!engineCounts && hasEngines && (
         <section aria-labelledby={enginesHeadId} className={SECTION}>
           <SectionHead id={enginesHeadId} name={ENGINES_HEAD} caption={ENGINES_CAPTION} />
           <div role="group" aria-labelledby={enginesHeadId}>
@@ -167,7 +225,7 @@ export default function OverviewCard({
               type="button"
               data-engine-name={ALL_ENGINES}
               aria-current={selectedEngineId === null ? "true" : undefined}
-              onClick={() => onSelectEngine(null)}
+              onClick={() => onSelectEngine?.(null)}
               className={`${ROW} ${ENGINE_GRID} ${rowTone(selectedEngineId === null)}`}
             >
               <span />
@@ -175,7 +233,7 @@ export default function OverviewCard({
                 {ALL_ENGINES}
               </span>
               <span data-cell="value" className={`${VALUE} text-ink-2`}>
-                {storeAssetsLabel(storeTotal)}
+                {pending ? "" : storeAssetsLabel(storeTotal)}
               </span>
             </button>
             {ranked.map((ctx) => {
@@ -188,10 +246,10 @@ export default function OverviewCard({
                   type="button"
                   data-engine-name={ctx.engine_name}
                   aria-current={selected ? "true" : undefined}
-                  onClick={() => onSelectEngine(ctx.engine_id)}
+                  onClick={() => onSelectEngine?.(ctx.engine_id)}
                   className={`${ROW} ${ENGINE_GRID} ${rowTone(selected)}`}
                 >
-                  <BrandIcon engineKey={ctx.engine_id} engineName={ctx.engine_name} size={14} />
+                  <MarkCell engineKey={ctx.engine_id} engineName={ctx.engine_name} />
                   <span data-cell="name" className={`truncate text-ink-1 ${selected ? "font-medium" : ""}`}>
                     {ctx.engine_name}
                   </span>
@@ -215,12 +273,14 @@ export default function OverviewCard({
         />
       ) : (
         <section aria-labelledby={secondHeadId} className={`${SECTION} ${hasEngines ? "border-t border-line" : ""}`}>
-          <SectionHead id={secondHeadId} name={STORE_HEAD} caption={storeAssetsLabel(storeTotal)} />
+          <SectionHead id={secondHeadId} name={storeHead} caption={pending ? undefined : (storeCaption ?? storeAssetsLabel(storeTotal))} />
           <div className="px-2.5 pt-1.5">
             <LinkStateLegend counts={linkLegend.counts} active={linkLegend.active} onFilter={linkLegend.onFilter} />
           </div>
         </section>
       )}
+
+      {notice && <div className="px-2 py-2 border-t border-line">{notice}</div>}
 
       {/* Actions. Needs review opens the same FindingPopover the strip's
           pill does, from the same `review`; Rescan carries the scan's age
