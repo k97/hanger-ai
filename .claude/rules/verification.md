@@ -107,6 +107,12 @@ Nothing else is evidence.
   wiped the spec, plan and ledger, and reported that to Karthik before checking
   `pwd`. Nothing had been deleted. Use absolute paths, or `cd` to the root in
   the same command.
+- **A live proof against the real store reads what older builds wrote.** A
+  key the branch's own build writes is absent until that build has run.
+  Hanger's MCP server refuses ("hasn't finished a scan") until an app that
+  writes `last_scan_completed_ms` has finished one scan; the first Gate G2
+  run on 2026-11-27 was spent on that refusal. Before a live proof, run the
+  branch's dev app through one scan and read the key from the store.
 - **A commit SHA you did not resolve is not a citation.** Writing release
   notes on 2026-08-26 this session invented `1e2d5ff` for a changelog entry —
   a plausible-looking hex string for a commit that does not exist. `git
@@ -186,6 +192,13 @@ rejected without review.
   fabricated evidence.
 - His confirmation applies only to the items he named. Extending a partial
   confirmation to unnamed checklist items is fabricated sign-off.
+- **His answer is not his result; the artefact is.** A hands-on check
+  answered "done" leaves a trace — a changed config, a backup, an exported
+  file, a registered server. Read it before proceeding. Twice on 2026-11-27
+  (rounds 33 and 37) "done" came back with the config unchanged, no switch
+  backups, an empty export folder and no `hanger` server in any Claude Code
+  scope. When the trace is missing, say so, and offer to run the step on his
+  explicit word (round 38); never merge on the answer.
 - A checkpoint with any verification item marked incomplete is not merged
   until he accepts the gap in writing.
 - Self-instrumentation and reading your own runtime logs is encouraged for

@@ -149,9 +149,14 @@ that tells the truth from the `tauri dev` app:
 - **Drive the app through tauri-plugin-mcp-bridge 0.13+, not keystrokes.**
   0.12's `manage_window focus` does nothing, and an unfocused WKWebView keeps
   returning frames that lag the DOM — a capture can show the state before the
-  click. Focus, act, read DOM state, then capture; discard a frame that
-  disagrees. The plugin's OpenCode entry must be the command array
-  `["npx", "-y", "@hypothesi/tauri-mcp-server"]`.
+  click. Focus, act, read DOM state, then capture. A frame that disagrees
+  with the DOM (an `aria-pressed` the frame does not show) is discarded:
+  bring the window frontmost and recapture. In 0.13 `execute_js` takes an
+  expression script; a bare top-level `return` times out. The client's entry
+  must be a command plus args, `["npx", "-y", "@hypothesi/tauri-mcp-server"]`
+  — OpenCode's array, or Claude Code's `command`/`args`. The whole string as
+  `command` fails to spawn (ENOENT) while the bridge itself listens: check
+  `lsof -nP -iTCP:9223 -sTCP:LISTEN` before blaming the app.
 - **`webview_keyboard` Tab does not move focus in the Tauri webview.** It
   reports success and leaves focus where it was. To prove a focus state, blur
   to a known element, send one key so the modality is keyboard, call

@@ -10,7 +10,10 @@
   write the line properly in the app's voice, show him the result.
 - **Copy must be literally true of the code.** "Results appear as roots
   finish" shipped and was false — inventory lands only on `scan://complete`.
-  Read what the code does before describing it.
+  Read what the code does before describing it. A claim of absence ("X is
+  not read") goes false when a sibling branch adds X, so at each merge grep
+  the merged tree's strings, model-facing ones included, for claims the
+  other branch falsifies (the Antigravity sentence, round 39, 2026-11-27).
 - **Empty is a finding; pending is not.** No pane asserts an absence before
   `scannedAt` is set. `.claude/DESIGN.md` → Panes has the states and the
   final strings.
