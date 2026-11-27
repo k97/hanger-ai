@@ -97,7 +97,7 @@ const counts: CategoryCounts = {
 
 function renderPane(over: Partial<ComponentProps<typeof RepoPane>> = {}) {
   const onSelectAsset = vi.fn();
-  render(
+  const { container } = render(
     <RepoPane
       repoPath={ROOT}
       inventory={inventory}
@@ -110,7 +110,7 @@ function renderPane(over: Partial<ComponentProps<typeof RepoPane>> = {}) {
       {...over}
     />
   );
-  return { onSelectAsset };
+  return { onSelectAsset, container };
 }
 
 const rowNamed = (name: string) =>
@@ -252,6 +252,21 @@ describe("a repository's list", () => {
     expect(lane).toContain("px-3");
     expect(lane).not.toContain("px-12");
     expect(screen.queryByRole("navigation", { name: "Jump to a group" })).toBeNull();
+  });
+
+  it("puts the kind tabs in the list's lane, so they share the rows' left edge", () => {
+    renderPane();
+    const box = screen.getByRole("tablist").closest('[class*="max-w-[736px]"]');
+    expect(box).not.toBeNull();
+    expect(box!.className).toContain("px-12");
+  });
+  it("narrows the tabs' lane with the list's", () => {
+    renderPane({ forceLane: "narrow" });
+    expect(screen.getByRole("tablist").closest('[class*="max-w-[736px]"]')!.className).toContain("px-3");
+  });
+  it("is its own positioned box, so a docked card anchors to the pane and not to the window", () => {
+    const { container } = renderPane();
+    expect((container.firstElementChild as HTMLElement).className.split(/\s+/)).toContain("relative");
   });
 
   it("keeps the summary strip, and draws no overview card", () => {

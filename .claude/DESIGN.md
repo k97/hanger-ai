@@ -911,8 +911,13 @@ it printed "—" (round 18 q2). Pinned by `ListRow.test.tsx`,
 `GroupHead.tsx`; `hooks/usePaneWidth.ts`). On Global the facet row and the
 list each sit in a lane, `mx-auto w-full max-w-[736px] px-12` (T3's
 `.chat-content-lane`), inside their own `px-[18px]`/`mx-[18px]` inset so
-the two line up. On a repository (Task 4) only the list does: its facet
-row and summary strip keep their full-width blocks. Below 640px of lane
+the two line up. On a repository the facet row sits in the same lane
+(`RepoPane`'s `CategoryFilterCards` block, `px-[18px] pt-[18px] pb-3.5`
+around `laneClass(laneWide)`), so the tabs share the rows' left edge; its
+summary strip keeps its full-width block. Neither pane paints a ground of
+its own: both roots are `relative flex-1 flex flex-col min-h-0
+overflow-hidden font-sans`, so the sheet's corner shows and a docked card
+anchors to the pane. Below 640px of lane
 area (`LANE_MIN_WIDTH`, T3's `minChatWidth`) the padding drops to `px-3` and
 the ticks go; one `ResizeObserver` on the pane decides (`usePaneWidth`,
 shared by both panes), and a zero width (no layout yet) is no answer. Each
@@ -2730,13 +2735,11 @@ gained a track above their strip (`2de751a`) that the other two never had.
 
 **`ProfilePane` and `RepoPane`: track, strip, list plane, foot.** The
 category track (`CategoryFilterCards`, above) opens the pane in
-`px-[18px] pt-1.5 pb-3.5` (`ProfilePane.tsx:987`; `RepoPane.tsx:529`, where
-it is nested one level deeper in a `min-w-0 flex-1` wrapper, so the
-track can shrink beside a control that does not exist yet — the comment
-above it says none is needed here). On a repository the `SummaryStrip`
-follows, in `mx-[18px] mb-3.5` (`RepoPane.tsx:550`); Global draws no strip
-since Task 7 of `docs/plans/2026-11-26-overview-card.md`, so its track's
-block spaces it from the list. Then the
+`px-[18px] pt-[18px] pb-3.5`, inside a centred lane (`laneClass`) on both
+panes (`ProfilePane`'s facet block; `RepoPane`'s, the same classes). On a
+repository the `SummaryStrip` follows, in `mx-[18px] mb-3.5`; Global draws
+no strip since Task 7 of `docs/plans/2026-11-26-overview-card.md`, so its
+track's block spaces it from the list. Then the
 list plane, flat per §3 — no `bg-plane`, and since Tasks 1 and 4 of
 `docs/plans/2026-11-26-global-list.md` no border or corners either, in both
 panes: `@container flex-1 min-h-0 overflow-y-auto mx-[18px] pb-1.5`,
@@ -2744,7 +2747,7 @@ holding a centred lane (the lane and group heads, above).
 Then the
 foot, `h-[30px] shrink-0 px-[18px] flex items-center gap-4 font-flex
 text-small text-ink-3` with the scan status pushed right by `ml-auto`
-(`ProfilePane.tsx:1360`, `RepoPane.tsx:895`). That right-hand slot holds one
+(`ProfilePane` and `RepoPane`'s last child). That right-hand slot holds one
 fact at a time: `ScanStatusIndicator` draws live progress while a scan runs,
 and since 2026-08-29 falls back to the `ScanStamp` both panes now pass it —
 how old the figure in the hero above is, which is where that stamp moved

@@ -124,7 +124,7 @@ describe("RepoPane Linking Gestures Integration", () => {
     // failing here. A separate `not.toMatch(/order-/)` was written and then
     // removed — the assertion below fails first, so nothing could ever have
     // made that line fire. Real paint order stays a screenshot claim.
-    const trackBox = track.parentElement!.parentElement!.parentElement!; // wrapper > flex-1 wrapper > section > tablist
+    const trackBox = track.parentElement!.parentElement!.parentElement!; // wrapper > lane > section > tablist
     const stripBox = strip.parentElement!;
     // Siblings under one flex column, which is the only arrangement in which
     // an `order` utility would apply at all.
@@ -135,7 +135,7 @@ describe("RepoPane Linking Gestures Integration", () => {
     // content keeps from its left edge -- because Karthik read the 14/18
     // pair as inconsistent next to Needs review, whose strip sits at 18 on
     // both sides. See src/__tests__/shell_first_gap.test.tsx.
-    expect(trackBox.className).toBe("px-[18px] pt-[18px] pb-3.5 flex items-center gap-3");
+    expect(trackBox.className).toBe("px-[18px] pt-[18px] pb-3.5");
     expect(stripBox.className).toBe("mx-[18px] mb-3.5");
   });
 

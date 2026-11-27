@@ -544,20 +544,20 @@ export default function RepoPane({
   };
 
   return (
-    <div ref={setPaneEl} className="flex-1 flex flex-col min-h-0 overflow-hidden bg-page font-sans">
+    <div ref={setPaneEl} className="relative flex-1 flex flex-col min-h-0 overflow-hidden font-sans">
       {/* Facet chips. No View control here (§5.6's "Rows" choice lives on
           ProfilePane only): `get_mcp_servers` is machine-global
           (`discover_machine`, not `discover_repo`), so there is no
           repo-scoped grouping for a control here to drive — this pane's
           Tools rows stay per-registration regardless, and a control that
           cannot regroup its own rows would be inert chrome, not a fix. */}
-      <div className="px-[18px] pt-[18px] pb-3.5 flex items-center gap-3">
+      <div className="px-[18px] pt-[18px] pb-3.5">
         {/* No `?? 0` here. The chip distinguishes "not counted yet"
             (undefined) from "empty" (0) so it can keep a chip through a scan
             and hide it only on a known zero. Collapsing undefined to 0 erased
             that distinction and would blank the whole filter row whenever
             assetCounts is absent. ProfilePane already passes these through. */}
-        <div className="min-w-0 flex-1">
+        <div className={laneClass(laneWide)}>
           <CategoryFilterCards
             allCount={assetCounts?.total}
             skillsCount={assetCounts?.byCategory.skill?.total}
