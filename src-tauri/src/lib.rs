@@ -7,6 +7,7 @@ pub mod editors;
 pub mod engine_status;
 pub mod linkmap;
 pub mod mcp;
+pub mod mcp_server;
 pub mod menu;
 pub mod provenance;
 pub mod scanner;
@@ -713,17 +714,8 @@ pub async fn probe_and_index(
 /// nothing is written to them: `mcp::switch::apply` and `mcp::switch::vendor`
 /// each refuse a folder whose path is not absolute.
 fn switch_places(app: &AppHandle) -> mcp::switch::ops::SwitchPlaces {
-    let switch = app
-        .path()
-        .app_data_dir()
-        .unwrap_or_else(|_| std::path::PathBuf::from("."))
-        .join("switch");
-    mcp::switch::ops::SwitchPlaces {
-        home: scanner::get_home_dir(),
-        system: std::path::PathBuf::from("/"),
-        backups: switch.join("backups"),
-        stash: switch.join("stash"),
-    }
+    let data_dir = app.path().app_data_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
+    mcp::switch::ops::SwitchPlaces::under(scanner::get_home_dir(), std::path::PathBuf::from("/"), &data_dir)
 }
 
 /// Claude Code's `claude`, found the way the user's terminal finds it.
@@ -856,18 +848,8 @@ fn get_kept_off_servers(app: AppHandle) -> Result<mcp::switch::ops::KeptOff, Str
 /// nothing is written to it: `skill_switch::keep` refuses a keep whose path
 /// is not absolute.
 fn skill_places(app: &AppHandle) -> skill_switch::ops::SkillPlaces {
-    let home = scanner::get_home_dir();
-    skill_switch::ops::SkillPlaces {
-        store: home.join(agents::SHARED_AGENTS_DIR).join("skills"),
-        keep: app
-            .path()
-            .app_data_dir()
-            .unwrap_or_else(|_| std::path::PathBuf::from("."))
-            .join("kept")
-            .join("skills"),
-        db_path: get_db_path(app),
-        home,
-    }
+    let data_dir = app.path().app_data_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
+    skill_switch::ops::SkillPlaces::under(scanner::get_home_dir(), &data_dir)
 }
 
 /// The linked projects, whose skills folders the switch searches for links.

@@ -120,6 +120,15 @@ pub struct SwitchPlaces {
     pub stash: PathBuf,
 }
 
+impl SwitchPlaces {
+    /// The places with Hanger's two folders under `data_dir`:
+    /// `switch/backups` and `switch/stash`.
+    pub fn under(home: PathBuf, system: PathBuf, data_dir: &Path) -> SwitchPlaces {
+        let switch = data_dir.join("switch");
+        SwitchPlaces { home, system, backups: switch.join("backups"), stash: switch.join("stash") }
+    }
+}
+
 /// Claude Code's own command, as the user's terminal would find it.
 #[derive(Debug, Clone)]
 pub struct ClaudeCli {

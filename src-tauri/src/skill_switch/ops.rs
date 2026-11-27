@@ -90,6 +90,19 @@ pub struct SkillPlaces {
     pub db_path: PathBuf,
 }
 
+impl SkillPlaces {
+    /// The places for `home`, with Hanger's keep and store under `data_dir`:
+    /// `kept/skills` and `hanger.db`.
+    pub fn under(home: PathBuf, data_dir: &Path) -> SkillPlaces {
+        SkillPlaces {
+            store: home.join(crate::agents::SHARED_AGENTS_DIR).join("skills"),
+            keep: data_dir.join("kept").join("skills"),
+            db_path: data_dir.join("hanger.db"),
+            home,
+        }
+    }
+}
+
 /// Why a switch, or an Undo, did not happen.
 ///
 /// A code and nothing else: no variant carries a path or anything from a
