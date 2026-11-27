@@ -14,7 +14,7 @@ use rusqlite::Connection;
 use serde::Serialize;
 
 use crate::annotations::asset_annotations_on;
-use crate::domain::AssetCounts;
+use crate::domain::{AssetCounts, RegistrationKey};
 use crate::mcp::switch::context::{EngineContext, Measured};
 use crate::mcp::switch::ops::{cached_measure_on, context_for, contexts_for};
 use crate::mcp_server::places::ServerPlaces;
@@ -98,7 +98,9 @@ fn public_path(value: &str) -> String {
 /// first `:` (the split `annotations.rs` makes) through `public_name`.
 fn public_key(value: &str) -> String {
     match value.split_once(':') {
-        Some((path, name)) if path.starts_with('/') => format!("{}:{}", public_path(path), public_name(name)),
+        Some((path, name)) if path.starts_with('/') => {
+            RegistrationKey::new(&public_path(path), &public_name(name)).as_str().to_string()
+        }
         _ => public_path(value),
     }
 }
