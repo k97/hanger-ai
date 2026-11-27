@@ -175,3 +175,9 @@ Your Question 9 ruling was "Antigravity is not read" until T22 lands. Literally,
 
 Recommended: "Antigravity's MCP servers are not read." in the instructions and `list_engines`
 :::
+
+## Answers (Karthik, 2026-11-27, in Plannotator)
+
+1. Tool names: **`list_engines`, `engine_context`, `find_assets`, `reach`, `findings`** (the plan's names, not the brief's `get_`/`list_` renames). The descriptions in Q4, Q6 and Q7 apply to `engine_context`, `reach` and `findings` respectively.
+2. to 9. **As written** (the recommendations): the five titles, the five descriptions, the four store refusals and the three argument refusals.
+10. **"Antigravity's MCP servers are not read."** in the instructions and `list_engines`. When T22 (`fix/antigravity-source`) merges, whichever branch merges second removes it (Karthik's MCP plan ruling Q9).
