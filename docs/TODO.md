@@ -930,3 +930,17 @@ does not, switching a server off "for Gemini" does nothing for Antigravity.
 
 **Done when:** Antigravity's config is a source in `registry.rs`, and the
 Gemini switch is proven against `agy` or documented as Gemini CLI only.
+
+## T23 — Ask again: A2UI or Hanger's own format for model output
+
+Karthik, 2026-11-27 (decisions round 28, Q2): decide the format for model
+output that reaches the screen when the first model-filled card is built, and
+**do not forget to ask him again then**. The options and the research are in
+`docs/plans/2026-11-27-harness-model-layer-research.md` → "A2UI and AG-UI":
+an A2UI catalogue of Hanger's specimened components, or a typed JSON format of
+Hanger's own. Check first whether `@a2ui/react` works with React 19.
+
+**Trigger:** any plan or task that renders model output on screen. Its
+author asks Karthik this question in Plannotator before the task starts.
+
+**Done when:** he has ruled, and the ruling is recorded in that plan.
