@@ -61,8 +61,7 @@ export default function OverviewHost({
           Toggle with its Tooltip (Task 2 of
           docs/plans/2026-11-26-global-list.md). Docked, it shows and hides
           the card; otherwise it opens the popover, portalled onto
-          document.body. The wrapper's `relative` lifts it over the cap's
-          drag overlay. */}
+          document.body. */}
       {available &&
         createPortal(
           <Tooltip>

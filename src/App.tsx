@@ -1637,10 +1637,6 @@ export default function App() {
   }
 
   // Toolbar control voice: quiet 27px pills, tonal tint when pressed.
-  // `relative` lifts each control above its cap's drag overlay: Tauri only
-  // starts a window drag when the pointer's exact target carries
-  // data-tauri-drag-region, so the caps lay an overlay under everything
-  // inert and the controls must sit above it to stay clickable.
   // shrink-0 on every variant: the sidebar cap deliberately overflows its
   // 56px rail when collapsed (below), and without it the flex squeeze that
   // overflow depends on falls through to the icon and shrinks the glyph
@@ -1652,17 +1648,14 @@ export default function App() {
   const tbBtnPlaneClass =
     "relative h-[27px] min-w-[27px] px-2 rounded-pill inline-flex items-center justify-center shrink-0 text-ink-2 hover:bg-tint-plane hover:text-ink-1 transition-colors duration-hover ease-spring cursor-pointer";
 
-  // Every cap shares this: an inert layer that owns window dragging, so the
-  // pointer can land anywhere in the 40px strip that is not a control. Each
-  // cap row is also `data-tauri-drag-region="deep"`, so painted children —
-  // the crumb, the inspector cap's title — drag too; drag.js still refuses
-  // the drag on buttons, links, form fields, tabindex and the eight
-  // interactive ARIA roles it lists. Anything else that must not drag — the
-  // finding popover is role="dialog" — opts out with data-tauri-drag-region="false"
+  // Window dragging: each cap row is `data-tauri-drag-region="deep"`, so the
+  // pointer can land anywhere in the strip — empty space, the crumb, the
+  // inspector cap's title — and drag the window. drag.js still refuses the
+  // drag on buttons, links, form fields, tabindex and the eight interactive
+  // ARIA roles it lists. Anything else that must not drag — the finding
+  // popover is role="dialog" — opts out with data-tauri-drag-region="false"
   // (Karthik, 2026-11-28: "patchy ... near titles"; cap_drag_deep.test.tsx).
-  const capDragOverlay = (
-    <div data-tauri-drag-region className="absolute inset-0" aria-hidden="true" />
-  );
+  // The rows once also carried an exact-target overlay; "deep" made it dead.
 
   // The inspector column resizes as one surface regardless of which body it
   // is showing. There is no ceiling: the drag resists at main-content's own
@@ -1926,7 +1919,6 @@ export default function App() {
             the column so the whole 40px band drags; its contents overflow the
             56px rail when collapsed. */}
         <div data-tauri-drag-region="deep" className="relative z-40 h-9 shrink-0 flex items-center select-none">
-          {capDragOverlay}
           <div className="w-[76px] shrink-0" aria-hidden="true" />
           {selectedSidebarItem !== "linkmap" && (
             <Tooltip label="Toggle sidebar  ⌘⌥S" placement="bottom">
@@ -2106,12 +2098,10 @@ export default function App() {
             column. A <header> on purpose — it is the content column's banner,
             and the toolbar guards assert against that landmark. */}
         <header data-tauri-drag-region="deep" className="relative h-9 shrink-0 flex items-center gap-2.5 select-none z-30 font-flex">
-          {capDragOverlay}
           <div className="ml-auto flex items-center gap-1 pr-3">
             {/* The overview button lands here, portalled by ProfilePane on
                 Global and by RepoPane on a repository. `contents` keeps the
-                slot out of the row's layout, and the button itself carries
-                `relative` over the drag overlay. */}
+                slot out of the row's layout. */}
             {(selectedSidebarItem === "profile" ||
               selectedSidebarItem.startsWith("global") ||
               selectedSidebarItem.startsWith("/") ||
@@ -2432,10 +2422,9 @@ export default function App() {
               controls) now carries the selected asset's identity too: a
               kind glyph, an eyebrow, a finding chip, then
               Link to… and the overflow menu, ahead of the same Expand/Hide
-              pair. `capDragOverlay` stays first so the row is still
-              draggable everywhere the cap itself has nothing painted. */}
+              pair. The row is a deep drag region, so it drags everywhere
+              except on those controls. */}
           <div data-tauri-drag-region="deep" className="relative h-9 shrink-0">
-            {capDragOverlay}
             <InspectorCap
               asset={capAsset}
               place={capPlace}

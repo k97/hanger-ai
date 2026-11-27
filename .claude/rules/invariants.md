@@ -84,8 +84,12 @@ ancestor carrying the attribute never counts. So any positioned element that
 covers a cap's drag overlay kills dragging for the whole strip, silently and
 untestably: `happy-dom` has no paint order, so no test can catch it. Phase 2b
 broke every inspector drag this way by putting `relative` on a full-width row
-above the overlay. Keep drag-region children individually positioned and their
-container unpositioned, or use `data-tauri-drag-region="deep"`.
+above the overlay. Since 2026-11-28 the caps use `data-tauri-drag-region="deep"`
+and carry no overlay (`cap_drag_deep.test.tsx` fails on any bare region the app
+renders); "deep" has its own trap — any non-control popup rendered inside a cap
+drags the window unless it opts out with `data-tauri-drag-region="false"`, as
+`FindingPopover` does. A bare attribute anywhere else still needs its children
+individually positioned and its container unpositioned.
 
 **The global focus ring is unlayered, and so must any opt-out be.**
 `index.css` draws the one focus ring with a bare `:focus-visible` rule

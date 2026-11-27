@@ -94,6 +94,13 @@ describe("The band drags the window from anywhere that is not a control", () => 
     }
     expect(startsDrag(screen.getByRole("button", { name: "Expand inspector" }))).toBe(false);
   });
+
+  it("carries no bare drag region: with deep rows, an exact-target overlay is dead weight", async () => {
+    render(<App />);
+    await screen.findByRole("button", { name: /toggle sidebar/i });
+    const bare = document.querySelectorAll('[data-tauri-drag-region=""], [data-tauri-drag-region="true"]');
+    expect(Array.from(bare).map((el) => el.outerHTML.slice(0, 80))).toEqual([]);
+  });
 });
 
 /** A drag must also work while another app is frontmost. Without
