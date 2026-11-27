@@ -913,3 +913,20 @@ usage now goes to two services and crashes to two. `docs/telemetry.md` §2 and
 §2b describe each.
 
 **Done when:** one service per purpose, or a stated reason to keep both.
+
+## T22 — Antigravity's MCP servers are invisible to Hanger
+
+Found 2026-11-27 while checking a lead from
+`docs/plans/2026-11-27-harness-model-layer-research.md`. The Antigravity CLI
+(`agy` 1.5.18, `~/.local/bin/agy`) keeps its MCP servers in
+`~/.gemini/antigravity/mcp_config.json`, with per-server folders under
+`~/.gemini/antigravity-cli/mcp/`. Neither `mcp/registry.rs` (`HOSTS`,
+`SOURCES`) nor `agents.rs` mentions `antigravity`, although the engine is named
+"Gemini / Antigravity". So those servers appear nowhere in Hanger.
+
+Untested: whether `agy` also honours `~/.gemini/mcp-server-enablement.json`,
+the file Hanger's Gemini switch writes (`mcp/registry.rs` → `SWITCHES`). If it
+does not, switching a server off "for Gemini" does nothing for Antigravity.
+
+**Done when:** Antigravity's config is a source in `registry.rs`, and the
+Gemini switch is proven against `agy` or documented as Gemini CLI only.
