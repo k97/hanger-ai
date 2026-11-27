@@ -20,6 +20,7 @@ mod transactional;
 pub mod preferences;
 pub mod watcher;
 pub mod scan;
+pub mod window_drag;
 
 use domain::Inventory;
 use scanner::DirectoryScanner;
@@ -2247,6 +2248,10 @@ pub fn run() {
                 // redraw requested after it runs first and re-applies nothing;
                 // set the title synchronously through AppKit instead, then ask
                 // for the redraw, so the re-apply follows the re-layout.
+                // Before any press can reach the band: the drag needs the real
+                // mouse-down cached as AppKit delivers it (window_drag.rs).
+                #[cfg(target_os = "macos")]
+                window_drag::install_press_monitor();
                 #[cfg(target_os = "macos")]
                 match (window.ns_window(), window.ns_view()) {
                     (Ok(ns_window), Ok(ns_view)) => {
@@ -2346,7 +2351,8 @@ pub fn run() {
             get_known_engines,
             get_known_engine_locations,
             copy_diagnostics,
-            report_unmapped_engine
+            report_unmapped_engine,
+            window_drag::start_window_drag
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

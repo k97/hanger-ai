@@ -77,19 +77,20 @@ shipped: `observe` was fixed for two leak shapes and never learned the header
 handling its sibling already had, under a comment asserting parity that no test
 exercised. Adding a rule to one side without the other is the failure mode.
 
-**A bare `data-tauri-drag-region` fires only on the pointer's exact target.**
-Tauri's injected `drag.js` ends with
-`if (attr === '' || attr === 'true') return el === composedPath[0]` — an
-ancestor carrying the attribute never counts. So any positioned element that
-covers a cap's drag overlay kills dragging for the whole strip, silently and
-untestably: `happy-dom` has no paint order, so no test can catch it. Phase 2b
-broke every inspector drag this way by putting `relative` on a full-width row
-above the overlay. Since 2026-11-28 the caps use `data-tauri-drag-region="deep"`
-and carry no overlay (`cap_drag_deep.test.tsx` fails on any bare region the app
-renders); "deep" has its own trap — any non-control popup rendered inside a cap
-drags the window unless it opts out with `data-tauri-drag-region="false"`, as
-`FindingPopover` does. A bare attribute anywhere else still needs its children
-individually positioned and its container unpositioned.
+**Window dragging does not use Tauri's `data-tauri-drag-region`.** It failed
+twice in ways no test could see. A bare attribute fires only on the pointer's
+exact target (drag.js: `return el === composedPath[0]`), so any positioned
+element covering the cap's drag overlay killed dragging for the whole strip —
+Phase 2b broke every inspector drag that way. And on macOS drag.js asks Rust to
+drag after the press has been dispatched, so tao finds no mouse-down for the
+Window Server: on 2026-11-28, 30 real presses all reached the page and asked
+for a drag, and the window moved on 8 (tao#1371). The cap rows now take
+`onCapMouseDown`/`onCapMouseUp` (`windowDrag.ts`) and call `start_window_drag`
+(`window_drag.rs`), which drags with the press a native event monitor cached as
+it arrived. `cap_window_drag.test.tsx` fails if any element opts back in to
+Tauri's drag. The trap that remains: React events bubble through the DOM a cap
+renders, so a non-control popup inside a cap moves the window unless it opts
+out with `data-tauri-drag-region="false"`, as `FindingPopover` does.
 
 **The global focus ring is unlayered, and so must any opt-out be.**
 `index.css` draws the one focus ring with a bare `:focus-visible` rule

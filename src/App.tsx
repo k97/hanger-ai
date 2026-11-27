@@ -107,6 +107,7 @@ import EditorPicker, { type DetectedEditor } from "./components/EditorPicker";
 import EditorSetting from "./components/EditorSetting";
 import DisclosureBanner from "./components/DisclosureBanner";
 import { captionClass } from "./components/typeRoles";
+import { onCapMouseDown, onCapMouseUp } from "./windowDrag";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import {
   deriveReviewIssues,
@@ -1648,14 +1649,16 @@ export default function App() {
   const tbBtnPlaneClass =
     "relative h-[27px] min-w-[27px] px-2 rounded-pill inline-flex items-center justify-center shrink-0 text-ink-2 hover:bg-tint-plane hover:text-ink-1 transition-colors duration-hover ease-spring cursor-pointer";
 
-  // Window dragging: each cap row is `data-tauri-drag-region="deep"`, so the
-  // pointer can land anywhere in the strip — empty space, the crumb, the
-  // inspector cap's title — and drag the window. drag.js still refuses the
-  // drag on buttons, links, form fields, tabindex and the eight interactive
-  // ARIA roles it lists. Anything else that must not drag — the finding
-  // popover is role="dialog" — opts out with data-tauri-drag-region="false"
-  // (Karthik, 2026-11-28: "patchy ... near titles"; cap_drag_deep.test.tsx).
-  // The rows once also carried an exact-target overlay; "deep" made it dead.
+  // Window dragging: each cap row takes onCapMouseDown/onCapMouseUp
+  // (windowDrag.ts), so a press anywhere in the strip — empty space, the
+  // crumb, the inspector cap's title — moves the window, through
+  // start_window_drag, which drags with the press cached natively as it
+  // arrived (window_drag.rs). Buttons, links, form fields, tabindex and the
+  // eight interactive ARIA roles drag.js lists still refuse; anything else that
+  // must not drag — the finding popover is role="dialog" — opts out with
+  // data-tauri-drag-region="false". Tauri's own `data-tauri-drag-region`
+  // drag is not used: on macOS it asked for the drag too late, and most drags
+  // did nothing (Karthik, 2026-11-28: "patchy"; cap_window_drag.test.tsx).
 
   // The inspector column resizes as one surface regardless of which body it
   // is showing. There is no ceiling: the drag resists at main-content's own
@@ -1918,7 +1921,7 @@ export default function App() {
             window drag instead of reopening the sidebar. The cap stretches to
             the column so the whole 40px band drags; its contents overflow the
             56px rail when collapsed. */}
-        <div data-tauri-drag-region="deep" className="relative z-40 h-9 shrink-0 flex items-center select-none">
+        <div onMouseDown={onCapMouseDown} onMouseUp={onCapMouseUp} className="relative z-40 h-9 shrink-0 flex items-center select-none">
           <div className="w-[76px] shrink-0" aria-hidden="true" />
           {selectedSidebarItem !== "linkmap" && (
             <Tooltip label="Toggle sidebar  ⌘⌥S" placement="bottom">
@@ -2097,7 +2100,7 @@ export default function App() {
             the sidebar cap since 2026-08-28, so it does not move with this
             column. A <header> on purpose — it is the content column's banner,
             and the toolbar guards assert against that landmark. */}
-        <header data-tauri-drag-region="deep" className="relative h-9 shrink-0 flex items-center gap-2.5 select-none z-30 font-flex">
+        <header onMouseDown={onCapMouseDown} onMouseUp={onCapMouseUp} className="relative h-9 shrink-0 flex items-center gap-2.5 select-none z-30 font-flex">
           <div className="ml-auto flex items-center gap-1 pr-3">
             {/* The overview button lands here, portalled by ProfilePane on
                 Global and by RepoPane on a repository. `contents` keeps the
@@ -2422,9 +2425,9 @@ export default function App() {
               controls) now carries the selected asset's identity too: a
               kind glyph, an eyebrow, a finding chip, then
               Link to… and the overflow menu, ahead of the same Expand/Hide
-              pair. The row is a deep drag region, so it drags everywhere
-              except on those controls. */}
-          <div data-tauri-drag-region="deep" className="relative h-9 shrink-0">
+              pair. A press anywhere in the row moves the window except on
+              those controls (windowDrag.ts). */}
+          <div onMouseDown={onCapMouseDown} onMouseUp={onCapMouseUp} className="relative h-9 shrink-0">
             <InspectorCap
               asset={capAsset}
               place={capPlace}

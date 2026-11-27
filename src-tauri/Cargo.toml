@@ -63,6 +63,8 @@ rmcp = { version = "3.12", default-features = false, features = ["server", "tran
 # Already in the tree via tauri; naming them here just makes them reachable.
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = "0.6"
+# The handler type for NSEvent local monitors (window_drag.rs); already in the tree via objc2-app-kit.
+block2 = "0.6"
 objc2-foundation = "0.3"
 objc2-app-kit = { version = "0.3", features = ["NSApplication", "NSImage", "NSResponder", "NSView", "NSWindow", "NSWorkspace"] }
 
