@@ -23,12 +23,16 @@ Five tools. These are the descriptions the engine's model reads:
 
 ## What never leaves it
 
-No launch command, argument, environment name or value, header, file body,
-skill description or parser message. Paths are written from `~/`, never with
-your home folder spelled out. Names are cut at 128 characters, with line
-breaks and other control characters turned into spaces, because a skill's
-name is whatever its file says. `src-tauri/tests/mcp_server_boundary_tests.rs`
-checks all of this.
+No launch command, argument, environment name or value, skill description,
+skill body, tool description or parser message. Paths are written from `~/`,
+never with your home folder spelled out.
+`src-tauri/tests/mcp_server_boundary_tests.rs` plants each of these in a
+fixture and checks that no reply carries one.
+
+Names are cut at 128 characters, with line breaks and other control
+characters turned into spaces, because a skill's name is whatever its file
+says. `src-tauri/tests/mcp_server_tests.rs` checks that
+(`public_name_strips_control_characters_and_caps_at_128`).
 
 ## Adding it
 
