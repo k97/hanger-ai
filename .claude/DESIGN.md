@@ -1834,6 +1834,16 @@ size at normal weight.
   its value). Phase 1 measures MCP alone, so that kind's bar fills its
   track and ends in the tick, and the other three are bare, reading "Not
   measured".
+- **A repository's figures** (Task 5 of
+  `docs/plans/2026-11-27-repo-view-parity.md`, layout A). Given
+  `engineCounts`, the first section is headed "By engine" with no caption
+  and `engines` is ignored: one non-button row per entry (`BrandIcon`, name,
+  `storeAssetsLabel`'s "96 assets" or "1 asset"), no All engines row, and
+  `onSelectEngine` may be absent. `storeHead` replaces "The global store"
+  (the folder's name), `storeCaption` replaces the "{n} assets" caption, and
+  `pending` prints no figure anywhere: head, legend and Rescan stay. `notice`
+  is its own `border-t border-line` section between the store and the
+  actions.
 - **The global store** · "{n} assets", with All engines picked (round 14
   q2): `LinkStateLegend` from `SummaryStrip.tsx`, whose toggles filter the
   list.

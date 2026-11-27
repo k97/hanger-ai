@@ -319,4 +319,63 @@ describe("OverviewCard · T3's size and anatomy (Task 2)", () => {
     render(<OverviewCard {...props({ engines: [] })} />);
     expect(screen.queryByRole("button", { name: /pin/i })).toBeNull();
   });
+  describe("carrying a repository's figures", () => {
+    const rows = [
+      { key: "a", engineKey: "claude_code", engineName: "Claude Code", value: 96 },
+      { key: "b", engineKey: "codex", engineName: "Codex", value: 1 },
+      { key: "none", engineKey: "none", engineName: "none", value: 4 },
+    ];
+
+    it("with engineCounts, lists each engine's asset count and offers no engine to pick", () => {
+      const { container } = render(<OverviewCard {...props({ engineCounts: rows, onSelectEngine: undefined })} />);
+      expect(container.querySelector("[aria-current]")).toBeNull();
+      expect(screen.queryByText("All engines")).toBeNull();
+      expect(screen.getByText("By engine")).toBeTruthy();
+      const names = Array.from(container.querySelectorAll("[data-engine-name]")).map((e) => e.getAttribute("data-engine-name"));
+      expect(names).toEqual(["Claude Code", "Codex", "none"]);
+      expect(screen.getByText("96 assets")).toBeTruthy();
+      expect(screen.getByText("1 asset")).toBeTruthy();
+    });
+
+    it("heads the store section with storeHead in place of The global store", () => {
+      render(<OverviewCard {...props({ storeHead: "hanger-ai" })} />);
+      expect(screen.getByText("hanger-ai")).toBeTruthy();
+      expect(screen.queryByText("The global store")).toBeNull();
+    });
+
+    it("captions the store section with storeCaption when given", () => {
+      render(<OverviewCard {...props({ storeCaption: "48 skills", engines: [] })} />);
+      expect(screen.getByText("48 skills")).toBeTruthy();
+      expect(screen.queryByText("892 assets")).toBeNull();
+    });
+
+    it("draws the notice between the store section and the actions", () => {
+      render(<OverviewCard {...props({ notice: <p>Not scanned yet</p> })} />);
+      const notice = screen.getByText("Not scanned yet");
+      const store = screen.getByText("The global store");
+      const rescan = screen.getByRole("button", { name: /^Rescan/ });
+      expect(store.compareDocumentPosition(notice) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      expect(notice.compareDocumentPosition(rescan) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    });
+
+    it("pending, prints no asset figure anywhere, and still draws the head, the legend and Rescan", () => {
+      render(<OverviewCard {...props({ pending: true, storeTotal: 0, storeCaption: "0 skills" })} />);
+      expect(screen.queryByText(/\d+ assets?/)).toBeNull();
+      expect(screen.queryByText("0 skills")).toBeNull();
+      cleanup();
+      render(<OverviewCard {...props({ pending: true, storeTotal: 0, engineCounts: rows })} />);
+      expect(screen.queryByText(/\d+ assets?/)).toBeNull();
+      expect(screen.getByText("The global store")).toBeTruthy();
+      expect(screen.getByRole("button", { name: /^Rescan/ })).toBeTruthy();
+    });
+
+    it("renders with no onSelectEngine", () => {
+      render(<OverviewCard {...props({ engineCounts: rows, onSelectEngine: undefined })} />);
+      const card = screen.getByTestId("overview-card");
+      expect(card.querySelector("[data-engine-name]")!.tagName).not.toBe("BUTTON");
+      cleanup();
+      render(<OverviewCard {...props({ onSelectEngine: undefined })} />);
+      fireEvent.click(screen.getByText("Codex"));
+    });
+  });
 });

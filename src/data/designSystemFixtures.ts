@@ -27,7 +27,7 @@ import {
   switchedLine,
 } from "../utils/switchCopy";
 import type { EngineContext, EngineListEntry, ItemState, ReadOnlyReason } from "../types/engineContext";
-import type { EngineStripFigures } from "../components/OverviewCard";
+import type { EngineCountRow, EngineStripFigures } from "../components/OverviewCard";
 import { TAB_LABELS } from "../components/CategoryFilterCards";
 import type { NotLoadedRow } from "../components/NotLoadedGroup";
 import { missTitle } from "../components/ReachCard";
@@ -241,6 +241,12 @@ export const SAMPLE_OVERVIEW_ENGINES: EngineContext[] = [
  *  ProfilePane builds it: the MCP segment through `switchCopy`, the other
  *  kinds "Not measured" (Phase 1). */
 const SAMPLE_MCP_SEGMENT = engineBandFigures(SAMPLE_ENGINE_CONTEXT);
+/** A repository card's "By engine" rows: counts the backend would own. */
+export const SAMPLE_REPO_ENGINE_COUNTS: EngineCountRow[] = [
+  { key: "claude_code", engineKey: "claude_code", engineName: "Claude Code", value: 96 },
+  { key: "codex", engineKey: "codex", engineName: "Codex", value: 1 },
+];
+
 export const SAMPLE_ENGINE_STRIP: EngineStripFigures = {
   segments: [
     {

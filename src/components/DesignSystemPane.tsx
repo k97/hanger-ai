@@ -95,6 +95,7 @@ import {
   SAMPLE_ENGINE_BAND_ROWS,
   SAMPLE_ENGINES,
   SAMPLE_ENGINE_STRIP,
+  SAMPLE_REPO_ENGINE_COUNTS,
   SAMPLE_OVERVIEW_ENGINES,
   SAMPLE_NOT_LOADED,
   SAMPLE_ORIGIN,
@@ -1114,6 +1115,18 @@ export default function DesignSystemPane({ section }: DesignSystemPaneProps) {
           <Specimen name="OverviewCard · All engines" file="OverviewCard.tsx" note="no engine picked: the second section is the global store with its total and the link-state meter and legend, whose toggles filter the list (round 14 q2)">
             <div>
               <OverviewCard {...overview} />
+            </div>
+          </Specimen>
+
+          <Specimen name="OverviewCard · a repository" file="OverviewCard.tsx" note="a repository's figures: By engine lists the engines that reach it with their asset counts, none a button and no All engines row; the store section is headed by the folder's name; a notice, when given, is its own bordered section above the actions">
+            <div>
+              <OverviewCard
+                {...overview}
+                onSelectEngine={undefined}
+                engineCounts={SAMPLE_REPO_ENGINE_COUNTS}
+                storeHead="hanger-ai"
+                notice={<p className="px-2.5 text-small text-ink-2">Linked from the global store.</p>}
+              />
             </div>
           </Specimen>
 
