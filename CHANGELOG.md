@@ -13,6 +13,23 @@ internal-refactor commits are omitted.
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-11-27
+
+- **Hanger's own MCP server, read-only** ([717a61e](https://github.com/k97/hanger-ai/commit/717a61e), [6875c5d](https://github.com/k97/hanger-ai/commit/6875c5d)).
+  `"Hanger AI" mcp` serves five tools over stdio: `list_engines`,
+  `engine_context`, `find_assets`, `reach` and `findings`. It reads the store
+  read-only, changes no file, and answers only after a build that has it
+  finishes a scan. Setup: `docs/mcp-server.md`.
+- **Antigravity CLI is its own engine** ([77134a5](https://github.com/k97/hanger-ai/commit/77134a5), [e6a3cc2](https://github.com/k97/hanger-ai/commit/e6a3cc2), [60472a8](https://github.com/k97/hanger-ai/commit/60472a8)),
+  read from `~/.gemini/config`, with a `disabled`-key switch and its own mark.
+  Deploying one of its skills to a repository now refuses, because it has no
+  project folder.
+- **Repositories carry the overview card** ([f840cce](https://github.com/k97/hanger-ai/commit/f840cce), [1b1421f](https://github.com/k97/hanger-ai/commit/1b1421f), [dc7d9bb](https://github.com/k97/hanger-ai/commit/dc7d9bb), [b1ee307](https://github.com/k97/hanger-ai/commit/b1ee307)),
+  docked or behind ⌘E, in place of the summary strip; Esc clears the
+  inspector, as on Global.
+
+Curated notes: `docs/release-notes/0.8.0.md`.
+
 ## [0.7.1] - 2026-11-27
 
 - **PostHog, alongside GA4 and Sentry** ([#2](https://github.com/k97/hanger-ai/pull/2)).
