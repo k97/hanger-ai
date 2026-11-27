@@ -201,7 +201,7 @@ rulings recorded in `src/__tests__/type-roles.test.ts:9`, 2026-08-27):
 | 12 | secondary — captions, mono values, paths, chips, counts, foot and stamp lines | `--ink-1` for `rowMonoClass` values, `--ink-2` / `--ink-3` for captions and grey mono labels | `text-small` | `captionClass`, `rowMonoClass`, `monoLabelClass` (`typeRoles.ts`); the pane lists' group heads (`GroupHead.tsx`) |
 | 11 | filled badges and chips | `--ink-3` | `text-micro` | e.g. the inspector list's scope pill (`Flyout.tsx:868`) |
 | 16 | titles and top content headings | `--ink-1` | `text-lg-app` | the inspector's title `h2` (`Flyout.tsx:654`), a document's `#` and `##` (`MarkdownDoc.tsx:89`); `###` and deeper step down to `sectionHeadClass` (`:93`) |
-| 32 | display — the big stat numeral | `--ink-1` | `text-display` | `OverviewCard.tsx`, `NeedsReviewPane.tsx` |
+| 32 | display — the big stat numeral | `--ink-1` | `text-display` | `NeedsReviewPane.tsx` |
 
 Four leadings sit beside the scale as tokens, not arbitrary per-call values —
 `--lh-body: 20px`, `--lh-caption: 16px`, `--lh-code: 18px`, `--lh-display: 35px`
@@ -209,7 +209,7 @@ Four leadings sit beside the scale as tokens, not arbitrary per-call values —
 `--leading-code`, `--leading-display` (`index.css:109-112`) and consumed as
 the utilities `leading-body`, `leading-caption`, `leading-code`,
 `leading-display` — the last for the 32px stat figure
-(`OverviewCard.tsx`, `NeedsReviewPane.tsx`, `DesignSystemPane.tsx`).
+(`NeedsReviewPane.tsx`, `DesignSystemPane.tsx`).
 `src/__tests__/leading-tokens.test.ts` pins both the token values and their
 `@theme` registration.
 
@@ -283,7 +283,7 @@ the toolbar buttons, the filter chips (`CategoryFilterCards.tsx:17`).
 Card surfaces on content panes — the summary strip, list/table containers,
 empty-state placeholders, the link map canvas — carry no fill: the `--line`
 border and radius draw the edge alone (Karthik's ruling, 2026-08-15; e.g.
-`OverviewCard.tsx`, `ProfilePane.tsx`, `NeedsReviewPane.tsx`,
+`ProfilePane.tsx`, `NeedsReviewPane.tsx`,
 `DiscoveryPane.tsx`, `LinkMapPane.tsx`). Sticky table headers are `bg-page`
 so rows scrolling beneath stay hidden. `--plane` remains the fill of the
 shell's left column (rail + source list), of control chrome (the filter
@@ -1710,8 +1710,8 @@ anatomy since Task 2 of `docs/plans/2026-11-26-global-list.md`, after
 `ThreadDetailsCard.tsx`, `ThreadDetailsSection.tsx` and
 `threadDetailsPanelStyles.ts`): `engines`, `selectedEngineId`,
 `onSelectEngine`, `storeTotal`, `linkLegend`, `engineFigures`, `review` and
-`scan`. It is purely presentational: it calls no command. ProfilePane decides
-whether it docks; `OverviewHost` draws it at the pane's top right when there
+`scan`. It is purely presentational: it calls no command. ProfilePane and RepoPane
+each decide whether it docks; `OverviewHost` draws it at the pane's top right when there
 is room, or in `OverviewPopover` (both below). It draws its own frame, T3's: `w-[280px]
 rounded-plane border border-line bg-page/86 backdrop-blur-frost`, the page
 token at 86% over the 16px `--frost-blur` (tokens.css, registered as
@@ -1818,8 +1818,8 @@ window bar when it cannot dock (Task 5 of
 `docs/plans/2026-11-26-overview-card.md`, as amended: portals, not a lifted
 hook; on shadcn's Popover since Task 2 of
 `docs/plans/2026-11-26-global-list.md`). App draws an empty `contents` span
-in the content cap's trailing group, on Global only, ahead of Toggle
-inspector, and hands it to ProfilePane as `overviewSlots.cap`, which passes
+in the content cap's trailing group, on Global and on a repository, ahead of
+Toggle inspector, and hands it to ProfilePane or RepoPane as `overviewSlots.cap`, which passes
 it to `OverviewHost` (`OverviewHost.tsx`, which owns everything below). It
 portals the button there: `GaugeIcon` at 16 in shadcn's `Toggle`, inside a
 `relative flex shrink-0` span that is the `Tooltip`'s trigger (as T3 wraps
@@ -2775,8 +2775,9 @@ the `<ul>` rather than the panel, so the caller's action row stays visible
 while the lines scroll. Modal bodies cap differently: `max-h-[85vh]` for the
 shell and `max-h-[350px]` for its inner list (`SidebarScanModal.tsx:94`,
 `:160`). The repo pane's notice stack — TCC only now that the scan warnings
-and the nested repos have left for the hero — caps at `max-h-[45%]`
-(`RepoPane.tsx:581`).
+have left for the hero and the nested repositories for the overview card —
+caps at `max-h-[45%]` (`RepoPane.tsx` → the notice stack). The card's nested
+paths cap at 120px and scroll inside the card (`RepoPane.tsx` → `nestedFoot`).
 
 ---
 
@@ -2908,7 +2909,8 @@ comment saying two-line rows mean 17–20 tools exceed a panel and that
 "DESIGN.md fixes" it (@b383a08). No such rule exists in any design source: the
 component caps its own list at `max-h-[240px]` locally, `DisclosureBanner`
 independently caps at 240px (`:88-89`), and the modal and repo pane cap at other
-values entirely (`SidebarScanModal.tsx:94`, `:160`, `RepoPane.tsx:581`). The
+values entirely (`SidebarScanModal.tsx:94`, `:160`, `RepoPane.tsx` → the notice stack, and the overview card's 120px
+nested-paths list in `nestedFoot`). The
 240px agreement between three files is emergent, not specified. That comment is
 a forward reference to a document that did not define it.
 
