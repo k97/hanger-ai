@@ -233,7 +233,10 @@ fn the_config_sweep_keeps_the_antigravity_host() {
 /// Per-kind counts for `shared-asset-machinery.md`, without writing the real
 /// store: copy it, print the counts the copy holds (main's last scan), run
 /// this branch's machine pass against the real home into the copy, and print
-/// them again. Run by hand (plan Task 1 Step 9):
+/// them again. Reaping is off by default (`HANGER_ENABLE_REAP`), so the copy
+/// keeps every row main's scan wrote: the diff shows additions and moves
+/// between engines, never losses. A row this branch would stop finding still
+/// counts in "after". Run by hand (plan Task 1 Step 9):
 /// `cargo test --test antigravity_engine_tests real_machine_counts_on_a_store_copy -- --ignored --nocapture`
 #[test]
 #[ignore]

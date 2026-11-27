@@ -420,10 +420,9 @@ pub fn engine_for_path(path: &Path) -> Option<&'static AgentConfig> {
 /// Some(_)` (claude-code, codex, antigravity, kiro, opencode) has a distinct
 /// leaf root component name — `.claude`, `.config/claude`, `.codex`,
 /// `.gemini/config`, `.kiro`, `.config/opencode`, `.opencode` — so no two
-/// configs' needles can both
-/// match the same path: `match_run` requires the *whole* needle to equal a
-/// contiguous run of components, and none of these needles is a component-
-/// wise suffix of another. It would stop being safe the moment two
+/// configs' needles can both match the same path: `match_run` requires the
+/// *whole* needle to equal a contiguous run of components, and none of these
+/// needles is a component-wise suffix of another. It would stop being safe the moment two
 /// subagent-bearing configs shared a root whose last path segment is the same
 /// string (e.g. a future agent rooted at plain `opencode` without the dot, or
 /// two configs both rooted at a bare `agents`-adjacent name) — at that point

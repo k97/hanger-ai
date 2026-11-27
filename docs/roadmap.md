@@ -302,6 +302,7 @@ Recorded 2026-11-27 by [the Antigravity engine plan](plans/2026-11-27-antigravit
 - **`~/.gemini/antigravity-cli/skills/`.** A CLI-only skills folder in the vendor docs. Absent on this machine.
 - **The workspace `<repo>/.agents/mcp_config.json`.** Vendor docs only, and `agy mcp list` did not show it when measured, so it is no `SOURCES` row and Antigravity's switch is Global only.
 - **`mcp/observe.rs` → `host_for_process_name`.** No match for `agy`, whose process name was not measured, so a running Antigravity server is not attributed to it.
+- **An entry whose `disabled` is not a boolean.** `agy mcp list` drops it from the list altogether (`"disabled": "true"`, `str` in the plan's Evidence). Hanger's `edit::read_flag` reads such a flag as absent, so `mcp/switch/context.rs` lists the server as on with a switch, and the switch then refuses with `FLAG_IS_NOT_A_BOOLEAN` (`mcp/switch/edit.rs`): on screen with a switch that fails, while `agy` hides it. (The plan's Evidence expected `FileUnparseable` here; that reason is not reached for a non-boolean flag.)
 - **Deploying an Antigravity skill to a repository refuses**, "Antigravity CLI declares no project directory to deploy into" (`lib.rs` → `resolve_target_path`): its workspace is the shared `.agents/`. Before the split the same skill deployed to `<repo>/.gemini/`, where neither engine reads it.
 
 ## Profiles (slice 4): named sets of on/off states
