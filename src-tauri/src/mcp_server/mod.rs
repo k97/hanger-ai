@@ -4,3 +4,5 @@
 //! engine's config. Plan: `docs/plans/2026-11-27-hanger-mcp-server.md`.
 
 pub mod places;
+pub mod limit;
+pub mod tools;
