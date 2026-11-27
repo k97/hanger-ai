@@ -84,6 +84,17 @@ describe("RepoPane hero band and pill", () => {
     expect(screen.getAllByTestId(/^hero-band-row-/).length).toBeGreaterThan(0);
   });
 
+  it("a category tab narrows this repository's review lines to that kind; scan warnings stay", () => {
+    const skill = { id: "s1", name: "math", category: "Skills", kind: "broken", problem: "Target is gone", path: "/Users/test/proj/math", whereLabel: "proj", whereKeys: ["/Users/test/proj"], crossRepo: false };
+    const rule = { id: "r1", name: "style.md", category: "Rules", kind: "broken", problem: "Rule target is gone", path: "/Users/test/proj/style.md", whereLabel: "proj", whereKeys: ["/Users/test/proj"], crossRepo: false };
+    render(<RepoPane {...base} selectedCategory="Skills" issues={[skill, rule] as never} />);
+    fireEvent.click(screen.getByText("Needs review 2"));
+    const text = screen.getAllByTestId("finding-popover-line").map((l) => l.textContent).join("\n");
+    expect(text).toContain("math");
+    expect(text).toContain("The scan skipped something it could not read.");
+    expect(text).not.toContain("style.md");
+  });
+
   it("the subtitle no longer counts engines", () => {
     render(<RepoPane {...base} />);
     expect(screen.queryByText(/· 1 engine/)).toBeNull();

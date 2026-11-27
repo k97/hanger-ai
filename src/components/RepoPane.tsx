@@ -253,8 +253,13 @@ export default function RepoPane({
      here too. Two surfaces reading the same issue must not paint it two
      colours (coordinator review, 2026-08-28, finding 2), and the rule is
      read rather than restated (final review, 2026-08-28, Important 1). */
+  // The tab on screen narrows the issues, as on Global; warnings are about
+  // the root and stay on every tab.
+  const tabIssues = issues.filter(
+    (i) => selectedCategory === null || i.category === selectedCategory,
+  );
   const reviewLines: FindingLine[] = [
-    ...issues.map((i) => ({
+    ...tabIssues.map((i) => ({
       severity: issueSeverity(i),
       text: i.problem,
       detail: i.name,
@@ -271,7 +276,7 @@ export default function RepoPane({
     lines: reviewLines,
     actions: (
       <ReviewPillActions
-        issues={issues}
+        issues={tabIssues}
         stateFilter={stateFilter}
         onStateFilterChange={onStateFilterChange}
         onReview={onReview}
