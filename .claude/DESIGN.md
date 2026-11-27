@@ -1795,9 +1795,9 @@ anatomy since Task 2 of `docs/plans/2026-11-26-global-list.md`, after
 `ThreadDetailsCard.tsx`, `ThreadDetailsSection.tsx` and
 `threadDetailsPanelStyles.ts`): `engines`, `selectedEngineId`,
 `onSelectEngine`, `storeTotal`, `linkLegend`, `engineFigures`, `review` and
-`scan`. It is purely presentational: it calls no command. ProfilePane docks
-it at the pane's top right when there is room, or renders it in
-`OverviewPopover` (both below). It draws its own frame, T3's: `w-[280px]
+`scan`. It is purely presentational: it calls no command. ProfilePane decides
+whether it docks; `OverviewHost` draws it at the pane's top right when there
+is room, or in `OverviewPopover` (both below). It draws its own frame, T3's: `w-[280px]
 rounded-plane border border-line bg-page/86 backdrop-blur-frost`, the page
 token at 86% over the 16px `--frost-blur` (tokens.css, registered as
 `--blur-frost`), after T3's `dropdown-glass`. It casts no elevation; the
@@ -1849,7 +1849,7 @@ wrap (Review Focus 5). `happy-dom` lays nothing out, so
 `OverviewCard.test.tsx` pins the sizes as a class contract and leaves the
 geometry to a screenshot.
 
-**The docked card** (`ProfilePane.tsx`, Task 2 of
+**The docked card** (`ProfilePane.tsx` decides, `OverviewHost.tsx` draws; Task 2 of
 `docs/plans/2026-11-26-global-list.md`). One `ResizeObserver`, on the pane
 itself (always mounted; the list is not, behind an empty state), gives the
 pane's width. `shouldDockOverview(width, inspectorOpen)` in
@@ -1858,9 +1858,11 @@ closed: a column of at least 560px, T3's 32px clearance, the 12px gap and the
 280px card (round 21, `docs/plans/2026-11-26-decisions-round-21.md`; it was
 T3's 640px column and two 48px paddings, 1060px, until then). At Karthik's
 1,024px window the list is 968px with nothing selected, so the card docks; a
-row selected opens the inspector and sends it behind its button. Docked, the card sits in `absolute right-3 top-3
+row selected opens the inspector and sends it behind its button. Docked,
+`OverviewHost` puts the card in `absolute right-3 top-3
 z-10 w-[280px]`, scrolling past `calc(100% - 24px)`. Each lane (the kind
-tabs' and the list's) is centred in a box (`laneBoxClass`), and docked that
+tabs' and the list's) is centred in a box (`laneBoxClass`, from
+`utils/overviewLayout.ts`), and docked that
 box takes `mr-[306px]`, so it ends where T3 ends its column
 (`chatCanvasLayout.ts`), 32px short of the card: 324px
 (`DOCKED_LANE_CLEARANCE`) from the pane's right edge, less the list's 18px
@@ -1873,8 +1875,8 @@ list sits under them. Until Task 3's screenshots the lanes themselves took
 lost its left padding, put the ticks on the row icons and clipped the first
 head. App's `overview_hidden`
 preference (shown by default, saved beside `inspector_open`) puts the docked
-card away; it hides nothing else. A popover open when the card docks
-closes. `forceDock` is the test-only override; `overview_dock.test.tsx` pins
+card away; it hides nothing else. `OverviewHost` owns the popover's open state and
+closes a popover open when the card docks. `forceDock` is the test-only override; `overview_dock.test.tsx` pins
 the contract, and where the card lands is a screenshot claim.
 
 The card's Engines section is `get_engine_contexts`, primed from the cache on
@@ -1907,9 +1909,9 @@ press outside. A press on the button itself is cancelled as an outside
 press, so the button's own click toggles it. It renders only while open:
 Base UI would otherwise keep a closed popup a frame, for exit animations it
 does not have. ⌘E does what the button does, through a `window` keydown in
-`OverviewHost`, so the shortcut exists only where a pane gives it a cap slot, and a keystroke whose
-target is an input, a textarea or contenteditable is left alone (Review
-Focus 3). With no cap slot, as in standalone ProfilePane tests, neither the
+`OverviewHost`, so the shortcut exists only where a pane gives it a cap
+slot, and a keystroke whose target is an input, a textarea or
+contenteditable is left alone (Review Focus 3). With no cap slot, as in standalone ProfilePane tests, neither the
 button nor the card is drawn. The pane keeps whether the card docks
 (`shouldDockOverview`) and `laneBoxClass`, which both live in
 `utils/overviewLayout.ts`.

@@ -41,7 +41,8 @@ const key = (target: Element | Window, init: KeyboardEventInit) => fireEvent.key
 describe("OverviewHost", () => {
   it("draws nothing, and ignores ⌘E, without a cap slot", () => {
     render(<Harness slot={false} docked={false} />);
-    key(window, { key: "e", metaKey: true });
+    // fireEvent returns false once a listener has called preventDefault.
+    expect(fireEvent.keyDown(window, { key: "e", metaKey: true })).toBe(true);
     expect(screen.queryByRole("button")).toBeNull();
     expect(screen.queryByRole("dialog")).toBeNull();
     expect(screen.queryByTestId("the-card")).toBeNull();
