@@ -26,6 +26,11 @@ pub fn count_assets(db_path: &Path, root: Option<&str>, grouping: Grouping) -> R
 
     let conn = store.connect()
         .map_err(|e| format!("Failed to connect to database: {}", e))?;
+    count_assets_on(&conn, root, grouping)
+}
+
+/// `count_assets` on a connection the caller holds.
+pub fn count_assets_on(conn: &rusqlite::Connection, root: Option<&str>, grouping: Grouping) -> Result<AssetCounts, String> {
 
     // Row counts, grouped by (category, scope, engine_id): correct as-is for
     // skill/rule/subagent under either grouping (one file, one row, nothing
@@ -89,7 +94,7 @@ pub fn count_assets(db_path: &Path, root: Option<&str>, grouping: Grouping) -> R
         // on the development machine, summed to 4 while the list it backs
         // renders 1 row — the 23-vs-7 defect at a smaller scale. Distinct
         // counting for tools has to run across the whole selection instead.
-        tool = count_distinct_tools(&conn, root)?;
+        tool = count_distinct_tools(conn, root)?;
     }
 
     let total_assets = skill.as_ref().map(|c| c.total).unwrap_or(0)

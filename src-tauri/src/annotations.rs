@@ -111,6 +111,13 @@ fn reads_shared_dir(engine_key: &str) -> bool {
 /// are not annotated here; the repo pane keeps its own columns by ruling.
 pub fn asset_annotations(db_path: &Path) -> Result<Vec<AssetAnnotation>, String> {
     let conn = Connection::open(db_path).map_err(|e| e.to_string())?;
+    asset_annotations_on(&conn)
+}
+
+/// `asset_annotations` on a connection the caller holds. Every row it needs
+/// is read, and every statement dropped, before the first filesystem call,
+/// so a reader in another process holds no lock while files are read.
+pub fn asset_annotations_on(conn: &Connection) -> Result<Vec<AssetAnnotation>, String> {
 
     let roots: Vec<RootRow> = {
         let mut stmt = conn
@@ -145,6 +152,34 @@ pub fn asset_annotations(db_path: &Path) -> Result<Vec<AssetAnnotation>, String>
             .collect();
         rows
     };
+
+    let assets: Vec<AssetRow> = {
+        let mut stmt = conn
+            .prepare(
+                "SELECT a.id, a.root_id, a.engine_id, a.category, a.name, a.abs_path
+                 FROM assets a JOIN roots r ON r.id = a.root_id
+                 WHERE r.kind = 'engine_global'
+                 ORDER BY a.id",
+            )
+            .map_err(|e| e.to_string())?;
+        let rows: Vec<AssetRow> = stmt
+            .query_map([], |r| {
+                Ok(AssetRow {
+                    id: r.get(0)?,
+                    root_id: r.get(1)?,
+                    engine_id: r.get(2)?,
+                    category: r.get(3)?,
+                    name: r.get(4)?,
+                    abs_path: r.get(5)?,
+                })
+            })
+            .map_err(|e| e.to_string())?
+            .flatten()
+            .collect();
+        rows
+    };
+
+    let mut links_by_asset = stored_links(conn)?;
 
     // Every engine's key, by id, captured before the reach-tiles filter below
     // narrows `engines` to the ones with a directory root or the shared-dir
@@ -225,32 +260,6 @@ pub fn asset_annotations(db_path: &Path) -> Result<Vec<AssetAnnotation>, String>
         }
     }
 
-    let assets: Vec<AssetRow> = {
-        let mut stmt = conn
-            .prepare(
-                "SELECT a.id, a.root_id, a.engine_id, a.category, a.name, a.abs_path
-                 FROM assets a JOIN roots r ON r.id = a.root_id
-                 WHERE r.kind = 'engine_global'
-                 ORDER BY a.id",
-            )
-            .map_err(|e| e.to_string())?;
-        let rows: Vec<AssetRow> = stmt
-            .query_map([], |r| {
-                Ok(AssetRow {
-                    id: r.get(0)?,
-                    root_id: r.get(1)?,
-                    engine_id: r.get(2)?,
-                    category: r.get(3)?,
-                    name: r.get(4)?,
-                    abs_path: r.get(5)?,
-                })
-            })
-            .map_err(|e| e.to_string())?
-            .flatten()
-            .collect();
-        rows
-    };
-
     let root_by_id: BTreeMap<i64, &RootRow> = roots.iter().map(|r| (r.id, r)).collect();
 
     // ---- Project reachability through directory links, from the
@@ -308,7 +317,7 @@ pub fn asset_annotations(db_path: &Path) -> Result<Vec<AssetAnnotation>, String>
 
     let mut out = Vec::with_capacity(assets.len());
     for asset in &assets {
-        let links = asset_links(&conn, asset)?;
+        let links = judge_links(links_by_asset.remove(&asset.id).unwrap_or_default());
         let dir_places: Vec<String> = {
             let mut places: Vec<String> = project_mounts
                 .iter()
@@ -364,26 +373,32 @@ pub fn asset_annotations(db_path: &Path) -> Result<Vec<AssetAnnotation>, String>
     Ok(out)
 }
 
-/// The asset's link rows, each judged against the live filesystem.
-fn asset_links(conn: &Connection, asset: &AssetRow) -> Result<Vec<LinkRow>, String> {
+/// The link rows of every asset under an engine_global root, by asset id,
+/// each asset's in link-id order, with the destination root's label.
+fn stored_links(conn: &Connection) -> Result<BTreeMap<i64, Vec<(HydratedLink, String)>>, String> {
     let mut stmt = conn
         .prepare(
             "SELECT l.id, l.dest_root_id, l.dest_path, l.mechanism, l.source_hash,
-                    l.dest_hash, l.created_at, l.last_verified_at, r.label
-             FROM links l JOIN roots r ON r.id = l.dest_root_id
-             WHERE l.asset_id = ?1
-             ORDER BY l.id",
+                    l.dest_hash, l.created_at, l.last_verified_at, r.label,
+                    l.asset_id, a.abs_path
+             FROM links l
+             JOIN roots r ON r.id = l.dest_root_id
+             JOIN assets a ON a.id = l.asset_id
+             JOIN roots ar ON ar.id = a.root_id
+             WHERE ar.kind = 'engine_global'
+             ORDER BY l.asset_id, l.id",
         )
         .map_err(|e| e.to_string())?;
 
-    let raw: Vec<(HydratedLink, String)> = stmt
-        .query_map([asset.id], |r| {
+    let mut out: BTreeMap<i64, Vec<(HydratedLink, String)>> = BTreeMap::new();
+    let rows = stmt
+        .query_map([], |r| {
             let mechanism: String = r.get(3)?;
             Ok((mechanism, HydratedLink {
                 id: r.get(0)?,
-                asset_id: asset.id,
+                asset_id: r.get(9)?,
                 dest_root_id: r.get(1)?,
-                source_path: asset.abs_path.clone(),
+                source_path: r.get(10)?,
                 dest_path: r.get(2)?,
                 mechanism: Mechanism::Symlink, // patched below from the string
                 source_hash: r.get(4)?,
@@ -404,9 +419,15 @@ fn asset_links(conn: &Connection, asset: &AssetRow) -> Result<Vec<LinkRow>, Stri
                 _ => return None,
             };
             Some((link, label))
-        })
-        .collect();
+        });
+    for (link, label) in rows {
+        out.entry(link.asset_id).or_default().push((link, label));
+    }
+    Ok(out)
+}
 
+/// One asset's link rows, each judged against the live filesystem.
+fn judge_links(raw: Vec<(HydratedLink, String)>) -> Vec<LinkRow> {
     // Hash the source lazily: only copy mechanisms compare hashes, and the
     // hash is of the file as it is right now — read time, not scan time.
     let mut source_hash_now: Option<Option<String>> = None;
@@ -429,7 +450,7 @@ fn asset_links(conn: &Connection, asset: &AssetRow) -> Result<Vec<LinkRow>, Stri
         let state = resolve_state(&link, hash_now.as_deref(), dest_exists, symlink_target.as_deref());
         out.push(LinkRow { mechanism: link.mechanism.clone(), state, dest_label });
     }
-    Ok(out)
+    out
 }
 
 /// Glyph precedence: broken > drift > symlink > copy > none. Foreign — a

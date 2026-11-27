@@ -267,12 +267,19 @@ pub fn fts_query(raw: &str) -> Option<String> {
 }
 
 pub fn search(db_path: &Path, query: &str, limit: usize) -> Result<SearchResponse, SanitisedError> {
+    if fts_query(query).is_none() {
+        return Ok(SearchResponse { hits: vec![], total: 0 });
+    }
+    let store = PreferencesStore::new(db_path)?;
+    let conn = store.connect()?;
+    search_on(&conn, query, limit)
+}
+
+/// `search` on a connection the caller holds.
+pub fn search_on(conn: &Connection, query: &str, limit: usize) -> Result<SearchResponse, SanitisedError> {
     let Some(fts) = fts_query(query) else {
         return Ok(SearchResponse { hits: vec![], total: 0 });
     };
-    let store = PreferencesStore::new(db_path)?;
-    let conn = store.connect()?;
-
     let total: i64 = conn
         .query_row(
             "SELECT count(*) FROM asset_search WHERE asset_search MATCH ?1",

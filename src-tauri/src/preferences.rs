@@ -2,6 +2,16 @@ use rusqlite::{params, Connection, OptionalExtension};
 use std::fs;
 use std::path::{Path, PathBuf};
 
+/// The `PRAGMA user_version` a store reaches through `init_db`. Read by
+/// `store_read`, which refuses a store at any other version rather than
+/// migrating it. The migration steps keep their own literals: the v8 step
+/// reading this constant would make a v9 bump write 9 there and skip v9.
+pub const STORE_VERSION: i32 = 8;
+
+/// The preference `lib.rs` → `finish_scan` writes when a scan completes:
+/// milliseconds since the epoch. Absent until the first scan finishes.
+pub const LAST_SCAN_KEY: &str = "last_scan_completed_ms";
+
 pub struct SanitisedError(pub String);
 
 impl std::fmt::Debug for SanitisedError {
@@ -1844,7 +1854,11 @@ pub fn put_probe_result(
 pub fn get_probe_result(db_path: &Path, launch_hash: &str) -> Result<Option<CachedProbe>, SanitisedError> {
     let store = PreferencesStore::new(db_path)?;
     let conn = store.connect()?;
+    get_probe_result_on(&conn, launch_hash)
+}
 
+/// `get_probe_result` on a connection the caller holds.
+pub fn get_probe_result_on(conn: &Connection, launch_hash: &str) -> Result<Option<CachedProbe>, SanitisedError> {
     let row = conn
         .query_row(
             "SELECT server_version, protocol_version, capabilities, tools, error, verified_at, ttl_ms, launch_mtime

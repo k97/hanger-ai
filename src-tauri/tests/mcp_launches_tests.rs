@@ -290,3 +290,37 @@ fn with_no_directory_linked_the_machine_servers_are_still_matched() {
     assert_eq!(matches.len(), 1);
     assert_eq!(matches[0].registration_keys, vec![key_of(&inventory, "alpha")]);
 }
+
+/// When the last completed scan finished, kept in the store so a second
+/// process (Hanger's own MCP server) can tell "scanned and found nothing"
+/// from "never scanned".
+#[test]
+fn a_finished_scan_records_when_it_finished() {
+    let _guard = ENV_MUTEX.get_or_init(|| Mutex::new(())).lock().unwrap_or_else(|e| e.into_inner());
+    let _home = TestHome;
+    let f = fixture(true);
+    let launches = McpLaunches::default();
+    let last_scan = || -> Option<i64> {
+        PreferencesStore::new(&f.db_path())
+            .unwrap()
+            .get_preference(tauri_app_lib::preferences::LAST_SCAN_KEY)
+            .unwrap()
+            .map(|v| v.parse().unwrap())
+    };
+    let now_ms = || SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_millis() as i64;
+    assert_eq!(last_scan(), None, "a fresh store has no scan recorded");
+
+    f.start_scan(&launches);
+    let recorded = last_scan().expect("the post-step records the scan");
+    assert!((now_ms() - recorded).abs() < 5_000, "recorded {recorded}, now {}", now_ms());
+
+    PreferencesStore::new(&f.db_path())
+        .unwrap()
+        .connect()
+        .unwrap()
+        .execute("DELETE FROM preferences WHERE key = ?1", [tauri_app_lib::preferences::LAST_SCAN_KEY])
+        .unwrap();
+    finish_scan(&launches, &f.db_path(), &Inventory::default());
+    let recorded = last_scan().expect("an empty scan is still a scan");
+    assert!((now_ms() - recorded).abs() < 5_000, "recorded {recorded}, now {}", now_ms());
+}

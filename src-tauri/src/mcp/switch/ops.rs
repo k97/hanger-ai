@@ -345,7 +345,15 @@ where
 /// What the probe cache holds for one launch, as a context wants it. `None`:
 /// nobody has asked that server yet.
 pub fn cached_measure(db_path: &Path, launch_key: &str) -> Option<Measured> {
-    let cached = crate::preferences::get_probe_result(db_path, launch_key).ok().flatten()?;
+    measured(crate::preferences::get_probe_result(db_path, launch_key).ok().flatten()?)
+}
+
+/// `cached_measure` on a connection the caller holds.
+pub fn cached_measure_on(conn: &rusqlite::Connection, launch_key: &str) -> Option<Measured> {
+    measured(crate::preferences::get_probe_result_on(conn, launch_key).ok().flatten()?)
+}
+
+fn measured(cached: crate::preferences::CachedProbe) -> Option<Measured> {
     let cost = crate::mcp::probe::tool_cost(&cached.result);
     Some(Measured { estimated_tokens: cost.estimated_tokens, tool_count: cost.tool_count })
 }

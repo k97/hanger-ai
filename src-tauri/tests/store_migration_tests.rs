@@ -837,3 +837,15 @@ fn v8_creates_the_asset_search_index_on_a_v7_store() {
     drop(conn);
     let _again = PreferencesStore::new(&db_path).unwrap();
 }
+
+/// `STORE_VERSION` names the version `init_db` brings a store to. Nothing else
+/// ties the constant to the migrations: the v8 step writes its own literal, so
+/// that bumping the constant for a v9 step cannot make the v8 step skip it.
+#[test]
+fn store_version_is_the_version_a_fresh_store_reaches() {
+    let dir = tempfile::tempdir().unwrap();
+    let db_path = dir.path().join("hanger.db");
+    let store = PreferencesStore::new(&db_path).unwrap();
+    let version: i32 = store.connect().unwrap().query_row("PRAGMA user_version", [], |r| r.get(0)).unwrap();
+    assert_eq!(version, tauri_app_lib::preferences::STORE_VERSION);
+}

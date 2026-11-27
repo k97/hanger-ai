@@ -11,6 +11,7 @@ pub mod menu;
 pub mod provenance;
 pub mod scanner;
 pub mod search;
+pub mod store_read;
 pub mod skill_switch;
 pub mod telemetry;
 pub mod updates;
@@ -961,13 +962,25 @@ impl McpLaunches {
 
 /// What `start_scan` does with a completed scan's inventory before it reports
 /// `scan://complete`, without the `AppHandle`: record its MCP launches for
-/// `get_mcp_processes`, then rebuild the search index from it. An index that
-/// fails to rebuild is logged, not fatal, as before.
+/// `get_mcp_processes`, rebuild the search index from it, then record when
+/// the scan finished (`preferences::LAST_SCAN_KEY`), so that a second
+/// process can tell a scan that found nothing from no scan at all. An index
+/// or a timestamp that fails to write is logged, not fatal.
 pub fn finish_scan(launches: &McpLaunches, db_path: &Path, inventory: &Inventory) {
     launches.record(inventory);
 
     if let Err(e) = search::index_inventory(db_path, inventory) {
         log::warn!("search index not rebuilt: {}", e);
+    }
+
+    let now_ms = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis() as i64)
+        .unwrap_or(0);
+    if let Err(e) = PreferencesStore::new(db_path)
+        .and_then(|store| store.set_preference(preferences::LAST_SCAN_KEY, &now_ms.to_string()))
+    {
+        log::warn!("scan completion not recorded: {}", e);
     }
 }
 
