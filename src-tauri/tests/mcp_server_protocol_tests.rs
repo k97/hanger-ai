@@ -30,7 +30,12 @@ fn bin() -> &'static Path {
         let dir = std::env::temp_dir().join(format!("hanger-mcp-protocol-{}", std::process::id()));
         fs::create_dir_all(&dir).unwrap();
         let copy = dir.join("hanger-mcp-under-test");
-        fs::copy(BUILT, &copy).unwrap();
+        // A hard link costs no space and leaves nothing to clean up; a copy
+        // only where the temp dir is on another volume.
+        let _ = fs::remove_file(&copy);
+        if fs::hard_link(BUILT, &copy).is_err() {
+            fs::copy(BUILT, &copy).unwrap();
+        }
         copy
     })
 }
