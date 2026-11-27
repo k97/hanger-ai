@@ -859,3 +859,57 @@ what each needs to become a destination rather than a line: a
 are disclosed where they are found and the route is deferred.
 
 **Done when:** every line the pill's popover can show has somewhere to go.
+
+## T18 — Context control: slices 2 to 6
+
+Slice 1 (MCP servers off and on per engine) and the skill switch from slice 5
+shipped in v0.7.0. The rest of `docs/plans/2026-11-24-context-control.md` →
+"Later slices" is unbuilt:
+
+2. Per-project overrides of global servers: Claude Code's per-project lists
+   and a project picker.
+3. Add and remove servers, add from the official MCP Registry with a pinned
+   version, and Needs review findings for plaintext secrets and unpinned
+   packages (mcpick's `doctor` checks).
+4. Profiles (named on/off sets) and the backup and restore UI over the
+   receipts the switch already keeps.
+5. The rest of skills: update and install through `gh skill`, then Claude
+   plugins, marketplaces, hooks and cache.
+6. The gateway: mid-session switching through `tools/list_changed`.
+
+**Blocked on:** the model-integration research (T20). Karthik, 2026-11-27:
+research and plan Hanger as a harness first, then see which of these slices
+that plan covers.
+
+**Done when:** each slice is built, folded into the T20 plan, or ruled out.
+
+## T19 — Engine status for the CLIs, then the apps
+
+`docs/plans/2026-11-24-tool-manager-phase-a.md`: version, update available,
+sign-in and settings for Claude Code, Codex, Gemini CLI and OpenCode, then the
+apps. Its Tasks 2 and 3 exist as `engine_status` (`search_path`,
+`run_capture`); the rest is unbuilt, and the plan predates the Engines tab
+becoming the overview card, so its UI tasks need re-planning against Global.
+
+**Done when:** the CLIs and the apps report all four facts, or the T20 plan
+replaces this one.
+
+## T20 — Research: Hanger as a harness, with a model in it
+
+Karthik, 2026-11-27: after the PRs, research and then plan how a model is
+integrated into Hanger so it becomes the harness, not only its interface. He
+has several ideas to bring. The 2026-11-24 ruling is the starting point, not
+the answer: phase B's agent is a headless run of an installed engine
+(`claude -p`, `codex exec`), scoped to the selected tool, needing approval to
+read outside that scope and for every write.
+
+**Done when:** a research note and a plan are written and Karthik has ruled on
+it, including which of T18 and T19 it absorbs.
+
+## T21 — Does PostHog replace GA4 and Sentry?
+
+PostHog landed in `add3527` alongside both (Karthik's ruling, 2026-11-27), so
+usage now goes to two services and crashes to two. `docs/telemetry.md` §2 and
+§2b describe each.
+
+**Done when:** one service per purpose, or a stated reason to keep both.
