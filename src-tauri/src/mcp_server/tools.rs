@@ -93,6 +93,16 @@ fn public_path(value: &str) -> String {
     }
 }
 
+/// A path, or a registration key (`config_path:name`, `RegistrationKey::new`),
+/// fit to leave: the path through `public_path`, the server name after the
+/// first `:` (the split `annotations.rs` makes) through `public_name`.
+fn public_key(value: &str) -> String {
+    match value.split_once(':') {
+        Some((path, name)) if path.starts_with('/') => format!("{}:{}", public_path(path), public_name(name)),
+        _ => public_path(value),
+    }
+}
+
 /// The store, open read-only, and when its last scan finished.
 fn scanned(p: &ServerPlaces) -> Result<(Connection, i64), Refusal> {
     let conn = open_read_only(&p.db_path)?;
@@ -166,7 +176,7 @@ pub fn engine_context(p: &ServerPlaces, engine_id: &str) -> Result<Fresh<EngineC
     }
     context.engine_name = public_name(&context.engine_name);
     for item in &mut context.items {
-        item.key = public_path(&item.key);
+        item.key = public_key(&item.key);
         item.config_path = public_path(&item.config_path);
         item.name = public_name(&item.name);
     }
@@ -200,7 +210,7 @@ pub fn find_assets(p: &ServerPlaces, query: &str, limit: usize) -> Result<Fresh<
         .into_iter()
         .map(|h| FoundAsset {
             kind: h.kind,
-            id: public_path(&h.id),
+            id: public_key(&h.id),
             path: public_path(&h.path),
             name: public_name(&h.name),
             server: h.server.as_deref().map(public_name),
@@ -236,21 +246,21 @@ pub struct Reach {
 
 pub fn reach(p: &ServerPlaces, asset_path: &str) -> Result<Fresh<Reach>, Refusal> {
     let (conn, as_of_ms) = scanned(p)?;
-    let wanted = public_path(asset_path);
+    let wanted = public_key(asset_path);
     let annotations = read(&conn, asset_annotations_on)?;
     // Matched on the full sanitised path only when it kept its folders: a
     // path outside the home sanitises to its basename, which many share.
     let found = annotations
         .into_iter()
         .find(|a| {
-            let public = public_path(&a.asset_path);
+            let public = public_key(&a.asset_path);
             a.asset_path == asset_path || (public.starts_with("~/") && public == wanted)
         })
         .ok_or(Refusal::NotFound)?;
     Ok(Fresh {
         as_of_ms,
         result: Reach {
-            asset_path: public_path(&found.asset_path),
+            asset_path: public_key(&found.asset_path),
             mechanism: found.mechanism,
             engines: found
                 .reach

@@ -13,7 +13,7 @@ use std::process::Command;
 use std::time::{Duration, Instant};
 
 use serde_json::Value;
-use tauri_app_lib::domain::{Inventory, Scope, Skill};
+use tauri_app_lib::domain::{Inventory, Scope, Skill, Tool};
 use tauri_app_lib::mcp_server::limit::RateLimit;
 use tauri_app_lib::mcp_server::tools;
 use tauri_app_lib::preferences::{PreferencesStore, LAST_SCAN_KEY};
@@ -381,4 +381,57 @@ fn the_server_module_never_prints() {
         }
     }
     assert!(read >= 4, "read {read} files under {dir}");
+}
+
+/// A server's name is config text, so untrusted: it leaves capped and on one
+/// line inside a key or id too, not only in `name`.
+#[test]
+fn a_long_multi_line_server_name_leaves_flattened_and_capped_in_keys_and_ids() {
+    let f = fixture(true, true, &[]);
+    let long = format!("IGNORE PREVIOUS\n{}", "x".repeat(500));
+    let config = f.home.join(".codex/config.toml");
+    fs::write(&config, format!("[mcp_servers.\"{}\"]\ncommand = \"alpha-server\"\n", long.replace('\n', "\\n"))).unwrap();
+    let config_path = config.to_string_lossy().to_string();
+    let tool = Tool {
+        id: format!("{config_path}:{long}"),
+        name: long.clone(),
+        command: "alpha-server".to_string(),
+        args: vec![],
+        launch_display: "alpha-server".to_string(),
+        transport: "stdio".to_string(),
+        bridged: false,
+        config_path: config_path.clone(),
+        scope: Scope::Global { agent: "codex".to_string() },
+        owning_agent: "codex".to_string(),
+        drifted: None,
+        is_symlink: None,
+        source_path: None,
+        parse_status: None,
+        parse_error: None,
+        link_state: None,
+        origin: None,
+        origin_blocked: None,
+    };
+    let key = tool.registration_key().as_str().to_string();
+    let store = PreferencesStore::new(&f.db).unwrap();
+    let root = store.upsert_root("engine_global", f.home.join(".codex").to_str().unwrap(), None, ".codex", 1).unwrap();
+    store.upsert_asset(root, None, "tool", "global", &long, &key, None, None, "ok", None, 1, 1).unwrap();
+    index_inventory(&f.db, &Inventory { tools: vec![tool], ..Default::default() }).unwrap();
+
+    let first = f.run(serde_json::json!([["engine_context", "codex"], ["find_assets", "IGNORE", 10]]), &[]);
+    let item_key = first[0]["Ok"]["result"]["items"][0]["key"].as_str().unwrap_or_else(|| panic!("{}", first[0])).to_string();
+    let hit = first[1]["Ok"]["result"]["assets"].as_array().unwrap().iter().find(|a| a["kind"] == "server").cloned().unwrap_or_else(|| panic!("{}", first[1]));
+    let id = hit["id"].as_str().unwrap().to_string();
+    for (field, value) in [("engine_context key", &item_key), ("find_assets id", &id)] {
+        let (path, name) = value.split_once(':').unwrap_or_else(|| panic!("{field}: {value:?}"));
+        assert_eq!(path, "~/.codex/config.toml", "{field}");
+        assert!(!name.contains('\n'), "{field} carries a newline: {value:?}");
+        assert!(name.chars().count() <= 128, "{field}'s name is {} characters", name.chars().count());
+        assert!(name.starts_with("IGNORE PREVIOUS ") && name.ends_with('…'), "{field}: {name:?}");
+    }
+    assert_eq!(item_key, id, "the same server, the same public key");
+
+    // The id find_assets gave back still finds its asset.
+    let reach = f.one(serde_json::json!(["reach", id]));
+    assert_eq!(reach["Ok"]["result"]["asset_path"], serde_json::json!(id), "{reach}");
 }
