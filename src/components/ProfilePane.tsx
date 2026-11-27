@@ -1,10 +1,8 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import { useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { MessageScroller } from "@shadcn/react/message-scroller";
 import {
   Disc3Icon,
-  GaugeIcon,
   FolderClockIcon,
   PackageOpenIcon,
   FolderXIcon,
@@ -28,12 +26,8 @@ import { sumGlobalAssets } from "../utils/globalAssetCount";
 import { groupLabelClass } from "./typeRoles";
 import type { StripReview } from "./SummaryStrip";
 import OverviewCard, { type EngineStripFigures } from "./OverviewCard";
-import OverviewPopover from "./OverviewPopover";
-import { Toggle } from "./ui/toggle";
-import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
-import { overviewButtonLabel } from "../utils/overviewCopy";
-import { DOCKED_LANE_CLEARANCE, shouldDockOverview } from "../utils/overviewLayout";
-import { isTextEntryTarget } from "../utils/textEntry";
+import OverviewHost from "./OverviewHost";
+import { DOCKED_LANE_CLEARANCE, laneBoxClass, shouldDockOverview } from "../utils/overviewLayout";
 import NotLoadedGroup, { notLoadedHead, type NotLoadedRow } from "./NotLoadedGroup";
 import CollapsibleGroup from "./CollapsibleGroup";
 import GroupTicks, { type TickGroup } from "./GroupTicks";
@@ -214,17 +208,6 @@ interface ProfilePaneProps {
    *  site passes it. */
   forceDock?: boolean;
 }
-
-/** The box the lane is centred in (for the kind tabs, the box around their
- *  padded wrapper, whose 18px padding is the same inset). Docked, it ends
- *  where T3 ends its column
- *  (chatCanvasLayout.ts): 32px short of the card, so
- *  `DOCKED_LANE_CLEARANCE` (324px: the card's 280, its 12px gap and the
- *  32px) from the pane's right edge. The box sits inside the list's 18px
- *  inset (`LIST_INSET`), so its own margin is 324 − 18 = 306px. At a 968px
- *  pane it ends at 644, and the lane, centred in it, fills it. A literal,
- *  because Tailwind reads classes as text. Pinned by overview_dock.test.tsx. */
-const laneBoxClass = (docked: boolean) => (docked ? "mr-[306px]" : "");
 
 type McpCoverageProp = { checked_file_count: number; checked_engine_count: number; checked_files: string[] } | null;
 type EngineLocationsProp = { location_count: number; locations: string[] } | null;
@@ -527,14 +510,11 @@ export default function ProfilePane({
   // The overview card: docked at the pane's top right when there is room
   // and no inspector, or behind the content cap's button as a popover (Task
   // 2 of docs/plans/2026-11-26-global-list.md; round 16 q2: the app
-  // decides, as T3 does). Either exists only while App gives this pane a
-  // cap slot, so leaving Global (which unmounts this pane) closes it.
-  const [overviewOpen, setOverviewOpen] = useState(false);
-  const overviewButtonRef = useRef<HTMLButtonElement>(null);
+  // decides, as T3 does). OverviewHost draws either while App gives this
+  // pane a cap slot, so leaving Global (which unmounts this pane) closes it.
   const capSlot = overviewSlots?.cap ?? null;
-  const overviewAvailable = capSlot !== null;
   const overviewDocked = forceDock ?? shouldDockOverview(paneWidth, inspectorOpen);
-  const dockedCardShown = overviewAvailable && overviewDocked && !overviewHidden;
+  const dockedCardShown = capSlot !== null && overviewDocked && !overviewHidden;
   // The lane's area: the list less its insets, or, beside the docked card,
   // the pane up to 32px short of the card, [0, cardLeft − 32] (Task 3's
   // screenshots). The padding rule is the same on either: 48px, and the
@@ -542,32 +522,6 @@ export default function ProfilePane({
   const laneArea = dockedCardShown ? paneWidth - DOCKED_LANE_CLEARANCE : paneWidth - 2 * LIST_INSET;
   const measuredWide = laneIsWide(paneWidth, laneArea);
   const laneWide = forceLane ? forceLane === "wide" : measuredWide;
-  // The button's state: docked, whether the card shows; otherwise whether
-  // the popover is open.
-  const overviewOn = overviewDocked ? !overviewHidden : overviewOpen;
-  const toggleOverview = useCallback(() => {
-    if (overviewDocked) onToggleOverviewHidden?.();
-    else setOverviewOpen((v) => !v);
-  }, [overviewDocked, onToggleOverviewHidden]);
-  // A popover open when the card docks closes, so it cannot reopen unasked
-  // when the window narrows again (T3's ThreadDetailsCard does the same).
-  useEffect(() => {
-    if (overviewDocked) setOverviewOpen(false);
-  }, [overviewDocked]);
-  // ⌘E does what the button does. A keystroke into a text field (search,
-  // rename) is typing, not a shortcut (Review Focus 3).
-  useEffect(() => {
-    if (!overviewAvailable) return;
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (!(e.metaKey || e.ctrlKey) || e.altKey || e.shiftKey || e.key.toLowerCase() !== "e") return;
-      if (isTextEntryTarget(e.target)) return;
-      e.preventDefault();
-      toggleOverview();
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [overviewAvailable, toggleOverview]);
-
   // Lookup only — keyed by the backend's own asset_path. A row without an
   // entry renders empty annotation cells rather than a guessed state.
   const annotationByAssetPath = new Map<string, AssetAnnotationView>(
@@ -1443,51 +1397,13 @@ export default function ProfilePane({
       </div>
       </div>
 
-      {/* The overview card's button, portalled into App's cap slot: shadcn's
-          Toggle with its Tooltip (Task 2 of
-          docs/plans/2026-11-26-global-list.md). Docked, it shows and hides
-          the card; otherwise it opens the popover, portalled onto
-          document.body. The wrapper's `relative` lifts it over the cap's
-          drag overlay. */}
-      {overviewAvailable &&
-        createPortal(
-          <Tooltip>
-            {/* The tip hangs from a wrapper, as T3 wraps its toggles
-                (PanelLayoutControls.tsx), so the trigger's props do not
-                land on the Toggle itself. */}
-            <TooltipTrigger render={<span className="relative flex shrink-0" />}>
-              <Toggle
-                ref={overviewButtonRef}
-                pressed={overviewOn}
-                onPressedChange={toggleOverview}
-                aria-label={overviewButtonLabel(overviewOn)}
-                aria-haspopup={overviewDocked ? undefined : "dialog"}
-                aria-expanded={overviewDocked ? undefined : overviewOpen}
-              >
-                <GaugeIcon size={16} aria-hidden="true" />
-              </Toggle>
-            </TooltipTrigger>
-            <TooltipContent side="bottom">{overviewButtonLabel(overviewOn)}</TooltipContent>
-          </Tooltip>,
-          capSlot
-        )}
-      <OverviewPopover
-        open={overviewAvailable && !overviewDocked && overviewOpen}
-        onClose={() => setOverviewOpen(false)}
-        anchorRef={overviewButtonRef}
-      >
-        {overviewCard}
-      </OverviewPopover>
-      {/* Docked, as T3 docks its card: at the pane's top right, over the
-          list, whose lane box keeps clear of it (`laneBoxClass`). */}
-      {dockedCardShown && (
-        <div
-          data-testid="overview-dock"
-          className="absolute right-3 top-3 z-10 w-[280px] max-h-[calc(100%-24px)] overflow-y-auto rounded-plane"
-        >
-          {overviewCard}
-        </div>
-      )}
+      <OverviewHost
+        card={overviewCard}
+        capSlot={capSlot}
+        docked={overviewDocked}
+        hidden={overviewHidden}
+        onToggleHidden={onToggleOverviewHidden}
+      />
 
       {pendingState ? (
         /* Pending: no claim either way. Live root-by-root progress already

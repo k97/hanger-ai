@@ -1890,7 +1890,8 @@ window bar when it cannot dock (Task 5 of
 hook; on shadcn's Popover since Task 2 of
 `docs/plans/2026-11-26-global-list.md`). App draws an empty `contents` span
 in the content cap's trailing group, on Global only, ahead of Toggle
-inspector, and hands it to ProfilePane as `overviewSlots.cap`. ProfilePane
+inspector, and hands it to ProfilePane as `overviewSlots.cap`, which passes
+it to `OverviewHost` (`OverviewHost.tsx`, which owns everything below). It
 portals the button there: `GaugeIcon` at 16 in shadcn's `Toggle`, inside a
 `relative flex shrink-0` span that is the `Tooltip`'s trigger (as T3 wraps
 its toggles, so the trigger's props stay off the button), named and
@@ -1906,10 +1907,12 @@ press outside. A press on the button itself is cancelled as an outside
 press, so the button's own click toggles it. It renders only while open:
 Base UI would otherwise keep a closed popup a frame, for exit animations it
 does not have. ⌘E does what the button does, through a `window` keydown in
-ProfilePane, so the shortcut exists only on Global, and a keystroke whose
+`OverviewHost`, so the shortcut exists only where a pane gives it a cap slot, and a keystroke whose
 target is an input, a textarea or contenteditable is left alone (Review
 Focus 3). With no cap slot, as in standalone ProfilePane tests, neither the
-button nor the card is drawn.
+button nor the card is drawn. The pane keeps whether the card docks
+(`shouldDockOverview`) and `laneBoxClass`, which both live in
+`utils/overviewLayout.ts`.
 
 **Who gets an Esc** (Task 6, Review Focus 4). Esc goes to the innermost thing
 open, and a fixed listener phase decides that, not the order the listeners

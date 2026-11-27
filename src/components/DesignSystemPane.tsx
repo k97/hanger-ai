@@ -14,6 +14,7 @@ import ListRow from "./ListRow";
 import SummaryStrip from "./SummaryStrip";
 import OverviewCard, { type OverviewCardProps } from "./OverviewCard";
 import OverviewPopover from "./OverviewPopover";
+import OverviewHost from "./OverviewHost";
 import { ScanStatusIndicator } from "./ScanStatusIndicator";
 import HangerMark from "./HangerMark";
 import { Tabs, TabsIndicator, TabsList, TabsTrigger } from "./ui/tabs";
@@ -506,6 +507,7 @@ export default function DesignSystemPane({ section }: DesignSystemPaneProps) {
   // The Toggle specimen's pressed state.
   const [togglePressed, setTogglePressed] = useState(true);
   const overviewAnchorRef = useRef<HTMLButtonElement>(null);
+  const [hostSlot, setHostSlot] = useState<HTMLElement | null>(null);
   // The surfaces a finding popover clamps against, standing in for the
   // inspector column and a placecard.
   const capHostRef = useRef<HTMLDivElement>(null);
@@ -1148,6 +1150,13 @@ export default function DesignSystemPane({ section }: DesignSystemPaneProps) {
               <OverviewPopover open={overviewOpen} onClose={() => setOverviewOpen(false)} anchorRef={overviewAnchorRef}>
                 <OverviewCard {...overview} />
               </OverviewPopover>
+            </div>
+          </Specimen>
+
+          <Specimen name="OverviewHost" file="OverviewHost.tsx" note="the overview card's chrome in one component: the window-bar button (portalled into a cap slot), the popover it opens when the card does not dock, the docked frame, and ⌘E. This sample is not docked, so the button opens the popover">
+            <div className="flex items-center gap-2.5">
+              <span ref={setHostSlot} className="flex shrink-0" />
+              <OverviewHost card={<OverviewCard {...overview} />} capSlot={hostSlot} docked={false} hidden={false} />
             </div>
           </Specimen>
 
