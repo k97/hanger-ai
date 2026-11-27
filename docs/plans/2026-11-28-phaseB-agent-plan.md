@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-> **Reconciled 2026-11-28** after the `--plan` review (`docs/reviews/2026-11-28-plan-2026-11-28-phaseB-agent-plan.md`), applying `docs/plans/research/2026-11-28-reconciliation-rulings.md` R3 (restated against P1's committed names: one filing function per verb, `Preview { target, change }`, `Ask` tagged by `verb`, the tools `propose_server_switch` and `propose_skill_switch`; `AGENT_TOOLS` includes the skill tool), R5 (P7 produces `engine_status::auth::{parse_auth, AuthState}` for this plan) and the P8 fixes, two of them Karthik's own calls in the rulings file: an agent run may have at most 2 proposals waiting at once, counted inside P1's queue cap of 5, and gets `slow_down` over it; the Claude child runs with `HOME` set to its run folder, and only the agent-mode server sees the real home. `Ask::Read` **ruled in round 44 Q3 (the recommended option)** and the `apiKeyHelper` fallback **ruled in round 44 Q4 (the recommended option)**; each is built to the recommended option as the provisional default. The review's mechanical findings are fixed in place. Shared names: `docs/plans/research/2026-11-28-cross-plan-interfaces.md`.
+> **Reconciled 2026-11-28** after the `--plan` review (`docs/reviews/2026-11-28-plan-2026-11-28-phaseB-agent-plan.md`), applying `docs/plans/research/2026-11-28-reconciliation-rulings.md` R3 (restated against P1's committed names: one filing function per verb, `Preview { target, change }`, `Ask` tagged by `verb`, the tools `propose_server_switch` and `propose_skill_switch`; `AGENT_TOOLS` includes the skill tool), R5 (P7 produces `engine_status::auth::{parse_auth, AuthState}` for this plan) and the P8 fixes, two of them Karthik's own calls in the rulings file: an agent run may have at most 2 proposals waiting at once, counted inside P1's queue cap of 5, and gets `slow_down` over it; the Claude child runs with `HOME` set to its run folder, and only the agent-mode server sees the real home. `Ask::Read` **ruled in round 44 Q3 (the recommended option)** and the `apiKeyHelper` fallback is **dropped (ruled in round 44 Q4)**; both are built to the ruled option. The review's mechanical findings are fixed in place. Shared names: `docs/plans/research/2026-11-28-cross-plan-interfaces.md`.
 
 **Goal:** Let a person ask a question about the selected engine, asset or the whole machine, and have Hanger answer it by running the user's own Claude Code once, headless, with Hanger's MCP server as its only tool and every write or out-of-scope read waiting as a proposal for the person to approve.
 
@@ -15,7 +15,7 @@
 ## Global Constraints
 
 - Claude only, run as `--bare -p --tools "" --strict-mcp-config`, with Hanger's server in agent mode as its only tool (design §4.8). Codex is not built; only its spike is (Task 2).
-- **Q11:** "Phase B reads `ANTHROPIC_API_KEY` from the login shell at spawn and never stores it, falling back to the user's `apiKeyHelper`." **The fallback ruled in round 44 Q4 (the recommended option)** (a helper on Claude's command line is visible to `ps` and can hold a literal key). Provisional default, the recommended option: drop the fallback. Phase B needs `ANTHROPIC_API_KEY` in the login shell and says so when it's missing.
+- **Q11:** "Phase B reads `ANTHROPIC_API_KEY` from the login shell at spawn and never stores it, falling back to the user's `apiKeyHelper`." **The fallback is dropped (ruled in round 44 Q4)**: a helper on Claude's command line is visible to `ps` and can hold a literal key. Phase B needs `ANTHROPIC_API_KEY` in the login shell and says so when it's missing.
 - **Q10:** "A model may ask for on and off, Undo, add and remove (by Registry id or an existing entry), and loading a profile. It may not ask to restore an old copy or to install or update skills and plugins."
 - Model-layer ruling 1: no default engine; "the user picks". Ruling 2: Claude only via `--bare` with the user's own key; Anthropic is asked before any subscription route.
 - The model sees only the sanitised view: phase 1's tool replies (`tools.rs`: names through `public_name`, paths through `sanitise_path`, no launch command, argument, env name or value, file text, or parser message). Phase B adds no tool that returns file text.
@@ -43,7 +43,7 @@ Hanger's choices, not rulings. Karthik can veto any at `stage-gate --plan`.
    In agent mode, `list_engines` is always answered. `engine_context(e)` and `reach(a)` are answered when the id is in scope, and otherwise file a read proposal. "In scope" uses P1's rule for public ids, not bare membership: the id is resolved against the live data (`context_for` items, the store's assets), exactly one item must match, and that item's real key must be in the scope. Two items sharing a public id (`public_key`'s 127-character collision, or a path outside home sanitising to its basename) are never answered without a proposal. `find_assets` and `findings` are always answered, with out-of-scope items dropped and one `outside_scope_count` added per reply (the sum across lists). The join key is `public_key(abs_path)` against `asset_ids` (`tools::Finding` carries only `{category, name, path}`, so its sanitised `path` is matched through the same `public_key`). Every count already in the reply (`FoundAssets.total`, `Findings`' three `*_count` fields) is recomputed after filtering, so no figure counts what was dropped. A query is model text, so it is never put in a proposal for a person to read (Answer 7, T23).
 2. **Waiting inside the call.** An agent-mode proposal tool polls the proposal file every 1 s for up to `AGENT_WAIT = 120 s` before returning `waiting`. An approved read is granted for the rest of that run, kept in the server process's memory.
 3. **Limits:** `RUN_TIMEOUT = 600 s` (P1's proposal expiry), `MAX_TURNS = 12`, `MAX_BUDGET_USD = "0.50"`, `QUESTION_CAP = 2000` characters. One run at a time. **At most 2 of a run's proposals wait at once** (`MAX_WAITING_PER_RUN = 2`, Karthik's call in the rulings file), counted inside P1's global `MAX_WAITING = 5`, so the user's own engines always keep 3 slots. A third is refused with `Refusal::SlowDown` (code `slow_down`), added by this plan, and the run continues. The count is the run's ids in `<run>/filed` that `proposals::waiting` still lists. P1's `queue_full` still applies on top when the global queue is full.
-4. **The `apiKeyHelper` fallback ruled in round 44 Q4 (the recommended option).** Provisional default, the recommended option: **no fallback**. `KeySource` is `Shell` or `None`, and readiness says the key is missing. If Karthik picks "keep it, passing only the path to your own settings file", Hanger passes `--settings <path of the user's own settings.json>` and never the helper's text; if he picks "keep it as planned", Hanger passes `--settings '{"apiKeyHelper": <value>}'`, accepting that `ps` shows it. A helper named in Hanger's preferences stays out either way: it would put a possibly secret command at rest in Hanger, the anti-goal.
+4. **No `apiKeyHelper` fallback (ruled in round 44 Q4).** `KeySource` is `Shell` or `None`, and readiness says the key is missing. Hanger never reads, passes or names a helper. A helper named in Hanger's preferences is out too: it would put a possibly secret command at rest in Hanger, the anti-goal.
 5. **No `--include-partial-messages`.** The surface shows progress (tool calls and proposals by Hanger's own names) and then the final answer. There is no run history UI; records are for audit. `shortcut:` records are never pruned; add retention when a history view needs it.
 6. **Cancel leaves waiting proposals in the queue.** They expire after P1's 10 minutes, and approving one still applies the person's own decision.
 7. **Minimum Claude Code** is the version Task 1 proves (`MIN_CLAUDE`), compared with P7's `parse_version`. Older versions get a "needs an update" state, not a guess.
@@ -71,7 +71,7 @@ Each name below is the owning plan's own spelling (ruling R3); the full table is
   - `run_capture`'s signature stays frozen. **Phase B adds the streaming sibling** in a new file `engine_status/stream.rs` (owner table: "phase B's streaming sibling of `run_capture`").
 - **P3 (slice 3), add and remove propose tools** `propose_server_add`, `propose_server_remove` and `propose_registry_add` (filing `Ask::Add`, `Ask::Remove`, `Ask::AddFromRegistry`). Optional. When they are on `main` at Task 6, they go in `AGENT_TOOLS`. When they land later, P3 adds them there in its own commit.
 - **P4 (4b), the `propose_profile_load` tool** (filing `Ask::ApplyProfile`). The same as P3.
-- **Batched naming round (§7).** Phase B's entries are in Task 3.
+- **Naming round (§7).** Phase B appends its section to `docs/plans/2026-11-28-naming-round.md` in Task 3.
 
 ## Review Focus
 
@@ -103,7 +103,7 @@ Each name below is the owning plan's own spelling (ruling R3); the full table is
 - [ ] **Step 4: Keyed runs.**
   - (a) Stdin "call ping". The tool is called and not denied by Manual mode: no `permission_denied` event.
   - (b) Stdin "call slow". Record whether a 130 s call completes, or what error appears. If it times out, repeat with `MCP_TOOL_TIMEOUT=150000` in the env and record the result. This sets whether `AGENT_WAIT = 120 s` holds.
-  - (c) Only if round 44 Q4 keeps the helper fallback: with `ANTHROPIC_API_KEY` **unset** and the key exported under another name, `HANGER_SPIKE_KEY` (Claude runs the helper as its own child, so the helper's environment is Claude's), pass `--settings '{"apiKeyHelper":"printf %s \"$HANGER_SPIKE_KEY\""}'`. Record whether `--bare` authenticates through it. Under Q4's provisional default (no fallback) this run is skipped.
+  - (c) Not run: round 44 Q4 dropped the `apiKeyHelper` fallback.
   - (d) `--append-system-prompt "<placeholder>"` is accepted under `--bare`.
   - (e) Record `claude --version`. That is `MIN_CLAUDE`.
   - (f) Save one full stream per run, sanitised to shapes only.
@@ -131,9 +131,9 @@ Planned only as a spike. Codex's inclusion is a later plan, after Karthik reads 
 - [ ] **Step 4: Verify** that the section ends in one line, "Codex's built-in tools can / cannot be stripped with these flags on codex-cli <version>", with the evidence above it. Report that line to Karthik. Nothing in this plan builds on it.
 - [ ] **Step 5: Commit** the results file: `docs(research): phase B spike B, stripping Codex's built-in tools`.
 
-### Task 3: Gate: Phase B's entries in the batched naming brief (human gate, stop for Karthik)
+### Task 3: Gate: Phase B's section of the naming round (human gate, stop for Karthik)
 
-**Files:** Phase B's section of the batched naming brief that design §7 schedules. Its path is set by whoever runs the round.
+**Files:** Modify `docs/plans/2026-11-28-naming-round.md` (append Phase B's section; the orchestrator owns the file).
 
 - [ ] **Step 1:** Draft names and strings, with research behind each, for:
   - agent mode's `INSTRUCTIONS` (it must not say "Nothing here changes a file");
@@ -144,14 +144,14 @@ Planned only as a spike. Codex's inclusion is a later plan, after Karthik reads 
   - the approval band's line for a read proposal, in the shape "Hanger's agent asks to read <engine>'s MCP servers". An agent-filed **write** reads with P1's asked-by wording ("Claude Code asks…"), because `asked_by` comes from `clientInfo`; the brief's copy must be true of both;
   - the surface's name.
 - [ ] **Step 2:** Run `/humanizer` on every string.
-- [ ] **Step 3: Stop.** Karthik signs off in writing. Record his answers in the brief file. Tasks 5 and 6 copy those strings verbatim into `mcp_server/strings.rs`, as phase 1 did.
+- [ ] **Step 3: Stop.** Karthik signs off in writing. Record his answers under Phase B's section of the naming-round file. Tasks 5 and 6 copy those strings verbatim into `mcp_server/strings.rs`, as phase 1 did.
 
 ### Task 4: Wait gate: prerequisites, and the per-kind baseline (no code)
 
 - [ ] **Step 1: Verify on `main`** with `git log -1 main` and greps:
   - P1 is merged: `grep -n "pub enum Ask" src-tauri/src/mcp_server/proposals.rs`, `grep -n "pub fn propose_server" src-tauri/src/mcp_server/proposals.rs` and `grep -n "fn decide_mcp_proposal" src-tauri/src/lib.rs` each print a line.
   - P7 is merged: `grep -rn "pub fn cli_for" src-tauri/src/engine_status/`, `grep -rn "fn parse_version" src-tauri/src/engine_status/` and `grep -rn "pub fn parse_auth" src-tauri/src/engine_status/` each print a line.
-  - Round 44 Q3 (read proposals) and Q4 (the helper) are answered, or the provisional defaults are confirmed to stand.
+  - Round 44 Q3 (read proposals) is answered, or its provisional default is confirmed to stand. Q4 is ruled: no helper fallback.
   - Task 1's results file names `MIN_CLAUDE`, and Task 2's results file has its one-line verdict.
   - Task 3 is signed off.
 
@@ -251,11 +251,10 @@ Q10's list doesn't name a read, and `Ask` can only grow. **Round 44 Q3** asks wh
 
 **Interfaces:**
 - Produces:
-  - `#[derive(Serialize)] #[serde(rename_all = "snake_case")] pub enum KeySource { Shell, None }`. It is the only key fact that crosses IPC. A `Helper` variant is added only if round 44 Q4 keeps the fallback.
+  - `#[derive(Serialize)] #[serde(rename_all = "snake_case")] pub enum KeySource { Shell, None }`. It is the only key fact that crosses IPC.
   - `pub async fn key_from_shell(shell: &Path, timeout: Duration) -> Option<String>`. It works the way `resolve::path_from_shell` does: `-l -i -c`, markers `__HANGER_KEY_START__`/`__HANGER_KEY_END__`, and the value between the last start marker and the end marker that follows. Empty means `None`. **Never cached**: there is no `OnceCell`.
   - `pub struct SpawnAuth` with private fields, no `Debug`, `Serialize` or `Display`. It holds the key, passed as the `ANTHROPIC_API_KEY` env.
   - `pub async fn spawn_auth(shell: &Path, timeout: Duration) -> (KeySource, Option<SpawnAuth>)`.
-  - **Only if round 44 Q4 keeps the fallback:** `pub fn helper_from_settings(claude_dir: &Path) -> Option<String>` (reads only the top-level `apiKeyHelper` string, a parse failure is `None`), `KeySource::Helper`, and `spawn_auth` gains `claude_dir`, the shell first and the helper second. Under "pass the path", `SpawnAuth` holds the settings file's path, never its text.
 
 - [ ] **Step 1: Write the failing tests.** Each uses a fake shell script in a temp folder, as `engine_status_tests.rs` does.
   - `a_key_set_in_zshrc_behind_a_banner_is_read`: the fake prints `Welcome\n__HANGER_KEY_START__sk-ant-test-0000__HANGER_KEY_END__`, and the result is `Some("sk-ant-test-0000")`.
@@ -264,7 +263,7 @@ Q10's list doesn't name a read, and `Ask` can only grow. **Round 44 Q3** asks wh
   - `the_key_is_never_cached`: two calls run the fake twice.
   - `an_empty_key_is_none`.
   - `no_key_is_none`: an empty shell result gives `(KeySource::None, None)`.
-  - Only if round 44 Q4 keeps the fallback: `the_helper_is_read_from_settings_and_nothing_else` (settings `{"apiKeyHelper":"/usr/local/bin/get-key","env":{"ANTHROPIC_API_KEY":"sk-ant-in-settings"}}` gives `Some("/usr/local/bin/get-key")`) and `shell_wins_over_helper`.
+  - `settings_are_never_read_for_a_key`: with a settings file in the fixture's Claude folder holding `apiKeyHelper` and an `ANTHROPIC_API_KEY` in its `env`, `spawn_auth` still gives `(KeySource::None, None)`.
   - `spawn_auth_cannot_be_printed`: a `compile_fail` doc test on `SpawnAuth` (`format!("{:?}", auth)`), run by `cargo test --doc` and so by the `cargo test` gate.
 - [ ] **Step 2: Run** `cargo test --test agent_key_tests`. Expected: compile error ``unresolved module `tauri_app_lib::agent` ``.
 - [ ] **Step 3: Implement** with `run::run_capture`. Error paths carry no value.
@@ -320,7 +319,8 @@ Q10's list doesn't name a read, and `Ask` can only grow. **Round 44 Q3** asks wh
 **Interfaces:**
 - Consumes: Task 7's `SpawnAuth`; Task 6's `AGENT_TOOLS`.
 - Produces:
-  - `pub fn claude_argv(app_exe: &Path, run_id: &str, real_home: &Path, auth: &SpawnAuth) -> Vec<String>`. The mcp-config gives the agent-mode server `"env": {"HOME": <real_home>}`, because the Claude child itself runs with `HOME` set to the run folder (Decision 9);
+  - `pub fn write_mcp_config(run_dir: &Path, app_exe: &Path, run_id: &str, real_home: &Path) -> std::io::Result<PathBuf>`. It writes the agent-mode server's config to `<run_dir>/mcp-config.json` as a 0600 file, through a temp file and a rename, and gives the server `"env": {"HOME": <real_home>}`, because the Claude child itself runs with `HOME` set to the run folder (Decision 9). It refuses a relative `run_dir`;
+  - `pub fn claude_argv(mcp_config: &Path, auth: &SpawnAuth) -> Vec<String>`. It passes `--mcp-config <that path>`, so no home path, and no JSON, is on the command line;
   - `pub enum AgentEvent` (`Serialize`, tagged `kind`, snake_case), with variants:
     - `Started { run_id: String }`
     - `ToolCalled { tool: String }`, only names in `AGENT_TOOLS` with the `mcp__hanger__` prefix stripped; any other name ends the run as `Finished { outcome: Failed { code: "unexpected_tool" } }`, and Task 10 cancels the child on it
@@ -333,9 +333,10 @@ Q10's list doesn't name a read, and `Ask` can only grow. **Round 44 Q3** asks wh
 
 - [ ] **Step 1: Write the failing tests.**
   - `claude_argv_is_exactly_this`: with the key auth, the argv equals
-    `["--bare","-p","--tools","","--strict-mcp-config","--mcp-config","{\"mcpServers\":{\"hanger\":{\"command\":\"<exe>\",\"args\":[\"mcp\",\"--agent\",\"<id>\"],\"env\":{\"HOME\":\"<real home>\"}}}}","--allowedTools","mcp__hanger__*","--append-system-prompt","<Task 3's prompt>","--output-format","stream-json","--verbose","--no-session-persistence","--max-turns","12","--max-budget-usd","0.50"]`,
+    `["--bare","-p","--tools","","--strict-mcp-config","--mcp-config","<run>/mcp-config.json","--allowedTools","mcp__hanger__*","--append-system-prompt","<Task 3's prompt>","--output-format","stream-json","--verbose","--no-session-persistence","--max-turns","12","--max-budget-usd","0.50"]`,
     with Task 1's corrections applied if it found any. The prompt goes on stdin, not in argv.
-  - `the_key_never_rides_in_argv`: key auth's argv contains no `sk-ant`. Only if round 44 Q4 keeps the fallback: `the_helper_rides_in_settings` (under "pass the path", the appended pair is `["--settings","<path of the user's settings.json>"]` and no helper text appears; under "as planned", it is `["--settings","{\"apiKeyHelper\":\"/usr/local/bin/get-key\"}"]`).
+  - `the_mcp_config_is_a_0600_file_and_no_home_is_in_argv`: `write_mcp_config` into a temp run folder gives a file of mode `0o600` whose JSON is `{"mcpServers":{"hanger":{"command":"<exe>","args":["mcp","--agent","<id>"],"env":{"HOME":"<real home>"}}}}`; a relative `run_dir` is `Err`; and `claude_argv`'s output contains neither the real home nor `{`.
+  - `the_key_never_rides_in_argv`: key auth's argv contains no `sk-ant`. The argv has no `--settings` and no `apiKeyHelper`.
   - `init_then_tool_then_result_parse_to_events`: on fixture `ping.jsonl`, the sequence is `ToolCalled{tool:"ping"}`, then `Finished{outcome: Answered, turns: Some(n), cost_usd_estimate: Some(x)}` with n and x from the fixture.
   - `a_tool_outside_agent_tools_is_refused`: `mcp__other__x` maps to `Finished{outcome: Failed{code:"unexpected_tool"}}`.
   - `budget_and_turn_caps_are_outcomes`: the `result` subtypes `error_max_budget_usd` and `error_max_turns` map to `BudgetReached` and `TurnsReached`.
@@ -391,7 +392,7 @@ Q10's list doesn't name a read, and `Ask` can only grow. **Round 44 Q3** asks wh
   - `a_run_starts_in_an_empty_cwd_under_the_data_dir`: the fake prints `$PWD` into a fixture event, and it equals `<runs>/<id>/cwd`, which held no file at spawn.
   - `the_child_gets_the_key_in_env_and_nowhere_else`: the fake exits 3 unless `$ANTHROPIC_API_KEY == sk-ant-test-0000`. The outcome is `Answered`. `sk-ant-test-0000` appears in no event, in `record.json`, in `scope.json`, in `filed`, or in the argv the fake logs.
   - `the_child_gets_the_login_shell_path`.
-  - `the_child_runs_with_the_run_folder_as_home`: the fake prints `$HOME`, and it equals `<runs>/<id>`; after the run, no file under the fixture's real home has changed, and the fake's logged mcp-config gives the server the real home.
+  - `the_child_runs_with_the_run_folder_as_home`: the fake prints `$HOME`, and it equals `<runs>/<id>`; after the run, no file under the fixture's real home has changed, and the mcp-config file in the run folder (mode 0600) gives the server the real home, while the fake's logged argv holds the path and no home.
   - `a_stale_key_in_hangers_own_environment_never_reaches_the_child`: with `ANTHROPIC_API_KEY=sk-ant-stale` in the test process and `KeySource::None`, the fake's `env` has no `ANTHROPIC_API_KEY`.
   - `scope_for_an_engine_holds_its_items_and_reaching_assets`, on a fixture store.
   - `the_record_holds_hashes_not_text`: `question_sha256` is the hex SHA-256 of the question, and the record JSON does not contain the question.
@@ -403,7 +404,8 @@ Q10's list doesn't name a read, and `Ask` can only grow. **Round 44 Q3** asks wh
   - `the_agent_code_never_reaches_telemetry`: the files under `src-tauri/src/agent/` and `src-tauri/src/mcp_server/agent.rs` contain no match for `crate::telemetry` or `telemetry::` (a doc comment saying "never imports telemetry" stays green). Plant `use crate::telemetry;`, see it fail, and revert by inverse edit.
   - In `ipc_boundary_tests.rs`, `agent_readiness_and_events_never_carry_a_key_or_helper`.
 - [ ] **Step 2: Run** `cargo test --test agent_run_tests` and `cargo test --test ipc_boundary_tests`. Expected: compile error ``unresolved import `tauri_app_lib::agent::run` ``.
-- [ ] **Step 3: Implement.** The commands are thin wrappers over `agent::run`, built from `get_db_path`, `app_data_dir` and `server_places`. Add the three `docs/ipc.md` sections. Add the brand-coverage source and floor. Regenerate the README.
+- [ ] **Step 3: Implement.** `agent::run` calls `write_mcp_config` into the run folder before it spawns, and passes the returned path to `claude_argv`. The commands are thin wrappers over `agent::run`, built from `get_db_path`, `app_data_dir` and `server_places`. Add the three `docs/ipc.md` sections. Add the brand-coverage source and floor. Regenerate the README.
+- [ ] **Step 3b: Regenerate the README figures.** This task adds a test file, so the `tests` figure moves. Run `~/.bun/bin/bun run src/__tests__/readmeCounts.ts`, then `npx vitest run src/__tests__/readme-sync.test.ts` from the repo root. Expected: PASS. Add `README.md` to the commit.
 - [ ] **Step 4: Run** all four gates. Expected: PASS. Plant `"not-an-engine"` in `AGENT_ENGINES` and run `npx vitest run src/__tests__/brand-coverage.test.ts`: expected FAIL. Revert by inverse edit.
 - [ ] **Step 5: Commit** the listed files: `feat(agent): one headless Claude run per question, streamed over a Channel, recorded by hash`.
 
@@ -492,6 +494,7 @@ Q10's list doesn't name a read, and `Ask` can only grow. **Round 44 Q3** asks wh
   - Tokens and type roles only (`no-off-token-styles.test.ts`, `type-roles.test.ts`).
 - [ ] **Step 2: Run** `npx vitest run <file>` from the repo root. Expected: red, with the module not found.
 - [ ] **Step 3: Implement** per Task 12.
+- [ ] **Step 3b: Regenerate the README figures.** This task adds a test file, so the `tests` figure moves. Run `~/.bun/bin/bun run src/__tests__/readmeCounts.ts`, then `npx vitest run src/__tests__/readme-sync.test.ts` from the repo root. Expected: PASS. Add `README.md` to the commit.
 - [ ] **Step 4: Run** the four gates. Expected: PASS.
 - [ ] **Step 5: Screenshots** from the running dev app, per `verifying-ui.md`: filter by the dev pid, read the theme from the store, and name it. Capture each Task 12 state that can be reached without a key (picker, not installed or no key, ready), saved under `docs/evidence/phaseB/`. The keyed states are Task 15's.
 - [ ] **Step 6: Commit** the component files, the specimen, `DESIGN.md`, `src/types/mcpProposals.ts` and the band's file: `feat(agent): ask Hanger's agent from the inspector`. From this track's own worktree, by explicit path. From the shared main checkout with `src/App.tsx` touched: the Global Constraints' exact-blob recipe and a bare `git commit`, then build the commit in a detached worktree and run `npx vitest run` there.
@@ -524,5 +527,5 @@ Q10's list doesn't name a read, and `Ask` can only grow. **Round 44 Q3** asks wh
 - **An agent-filed write reads "Claude Code asks…"** in P1's band, because `asked_by` comes from `clientInfo` and `Proposal` gains no origin field (Decision 8). Only reads say "Hanger's agent asks".
 - **Which `authMethod` value means "subscription"** is unmeasured (P7's note), so the "signed in with a subscription" copy keys on a value Task 1 or a live sign-in must confirm.
 - **T23's timing:** design §4.8 says T23 is ruled "before its first build task", while §7 and the plan brief say before the first UI task. This plan follows §7 (Task 11).
-- **The real home reaches the server through argv** (the mcp-config's `env`), visible to `ps`. A home path is not a secret, but it is machine-identifying.
-- **Under round 44 Q3's "no" or Q4's "keep it as planned"**, Tasks 5 to 10 change as each task states; the provisional defaults are what is planned in full.
+- **The real home is in the mcp-config file**, a 0600 file in the run folder (the mcp-config's `env`). It is not on Claude's command line, so `ps` does not show it. The run folder holds it until the run's record is written.
+- **Under round 44 Q3's "no"**, Tasks 5 to 10 change as each task states; the provisional default is what is planned in full.

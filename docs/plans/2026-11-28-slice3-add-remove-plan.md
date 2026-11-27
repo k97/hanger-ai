@@ -221,7 +221,7 @@ Each task that adds a test file regenerates the README `tests` region (`~/.bun/b
 
 - [ ] **Step 1: Write the failing tests.** `from_entry_keeps_references`: `{"command":"npx","args":["-y","p@1.0.0"],"env":{"K":"${V}","L":"$W"}}` gives env `[{K,V},{L,W}]`. Codex `{"command":"x","env_vars":["T"],"bearer_token_env_var":"B","url":…}` is handled likewise. `a_literal_is_left_out_of_the_new_server`: `{"env":{"LOG_LEVEL":"debug"}}` gives a `NewServer` with no env, and `literals_of` gives `env == [("LOG_LEVEL","debug")]` (round 44 Q8's provisional default; under "drop every literal", `from_entry` gives `Err(SourceHasValues)` instead). `a_secret_looking_argument_is_refused`: args `["--api-key", <runtime-built sk- token>]` give `Err(SecretInEntry)`. So does any args where `redact::redact_launch(command, args)` differs from the plain join. `a_secret_in_a_url_is_refused`: a `url` of `https://x.example/mcp?api_key=<runtime-built sk- token>` gives `Err(SecretInEntry)`, and `https://user:pass@x.example/mcp` gives `Err(UrlHasCredentials)`. `a_literal_the_detector_flags_is_refused`: `{"env":{"GITHUB_TOKEN":<runtime-built ghp_ token>}}` gives `literals_of` → `Err(SecretInEntry)`.
 - [ ] **Step 2: Run.** Expected: FAIL, `cannot find function from_entry`.
-- [ ] **Step 3: Implement.** Check args and the URL with `findings::secret_findings(launch_pairs(args, url))`, and refuse URL userinfo with `url::Url`'s `username()`/`password()`. Until Task 5 lands, it's the redact check and the userinfo check alone. Task 5 adds the detector call and a test case.
+- [ ] **Step 3: Implement.** Check args and the URL with `findings::secret_findings(launch_pairs(args, url))`, and refuse URL userinfo with `reqwest::Url`'s `username()`/`password()` (`reqwest::Url` is re-exported by the direct dependency `reqwest = 0.12`; the `url` crate is only transitive, so add no dependency). Until Task 5 lands, it's the redact check and the userinfo check alone. Task 5 adds the detector call and a test case.
 - [ ] **Step 4: Run.** Expected: PASS.
 - [ ] **Step 5: Commit** `entry.rs`, `mcp_entry_tests.rs`: `feat(mcp): read an existing entry for copy only when it holds no values`.
 
@@ -275,7 +275,7 @@ Each task that adds a test file regenerates the README `tests` region (`~/.bun/b
   - `entry_encodes_the_name`: the request line is `GET /v0.1/servers/io.github.example%2Fweather/versions/1.4.2`.
   - Failures: a 500 → `BadStatus`; a stub that never answers, with the timeout shortened through a `#[doc(hidden)]` `_within` twin → `Unreachable`; non-JSON → `Unparseable`.
 - [ ] **Step 2: Run** `cargo test --test mcp_official_registry_tests`. Expected: FAIL, unresolved import.
-- [ ] **Step 3: Implement** with `reqwest::Client` and `REGISTRY_TIMEOUT`. The name goes through `Url::path_segments_mut` so `/` becomes `%2F`. The user agent is a fixed generic string, `Hanger`. No error carries response text.
+- [ ] **Step 3: Implement** with `reqwest::Client` and `REGISTRY_TIMEOUT`. The name goes through `reqwest::Url::path_segments_mut` so `/` becomes `%2F`. The user agent is a fixed generic string, `Hanger`. No error carries response text.
 - [ ] **Step 4: Run.** Expected: PASS.
 - [ ] **Step 5: Commit** the listed files and `README.md`: `feat(mcp): read the official MCP Registry and map a record to a pinned entry`.
 
@@ -285,9 +285,9 @@ Each task that adds a test file regenerates the README `tests` region (`~/.bun/b
 
 ### Task 8: GATE G-N, the naming brief (stops for Karthik)
 
-This brief is a section of design §7's single batched naming round (the file that round names; P1's Gate N and P7's G1 write into the same one). Its labels: the add action, remove, copy ("Copy to…"), Registry search (field, results, "no results", the refusal reasons per `RegistryRefusal`), the form's fields (name, command, arguments, URL, environment variable, the variable it reads, header, Bearer), the scope choice ("your user settings" vs "this repository"), the two finding categories and their Problem strings, their `NeedsReviewPane` legend words, and the words for each new failure code. The new codes are `no_entry_write`, `refs_unconfirmed`, `env_rename_unsupported`, `url_unconfirmed`, `url_transport_unsupported`, `secret_in_entry`, `source_has_values`, `already_there` (reused), `registry_unreachable`, and the five Registry refusals. One line on the form must say that an engine opened from Finder doesn't see shell variables.
+This brief is a section of design §7's naming round, in `docs/plans/2026-11-28-naming-round.md` (P1's Gate N and P7's G1 append to the same file). Its labels: the add action, remove, copy ("Copy to…"), Registry search (field, results, "no results", the refusal reasons per `RegistryRefusal`), the form's fields (name, command, arguments, URL, environment variable, the variable it reads, header, Bearer), the scope choice ("your user settings" vs "this repository"), the two finding categories and their Problem strings, their `NeedsReviewPane` legend words, and the words for each new failure code. The new codes are `no_entry_write`, `refs_unconfirmed`, `env_rename_unsupported`, `url_unconfirmed`, `url_transport_unsupported`, `secret_in_entry`, `source_has_values`, `already_there` (reused), `registry_unreachable`, and the five Registry refusals. One line on the form must say that an engine opened from Finder doesn't see shell variables.
 
-- [ ] Write this plan's section of the batched brief (or `docs/plans/2026-11-28-slice3-naming-brief.md` only if no batched file exists when this task starts), researched against what VS Code, Cursor and mcpick call these. Include the copy for round 44 Q8's answer (a copy that carries non-secret values, shown by key name only). Run `/humanizer` on every string.
+- [ ] Append this plan's section to `docs/plans/2026-11-28-naming-round.md` and stop for sign-off, researched against what VS Code, Cursor and mcpick call these. Include the copy for round 44 Q8's answer (a copy that carries non-secret values, shown by key name only). Run `/humanizer` on every string.
 - [ ] **STOP.** Karthik signs off string by string. Read his answer from the conversation, never infer it. Nothing in Tasks 10, 13 and 15 renders a string before this.
 
 ### Task 9: Findings at the parse boundary and in the inventory (§7 amended)
@@ -428,6 +428,7 @@ Undo stays `undo_mcp_switch`. The human "copy" is `get_mcp_server_entry` filling
 - [ ] **Step 1: Write the failing tests** for each component. Submitting calls `add_mcp_server` with exactly the `NewServer` built from the fields. No field exists for a variable's value (assert that no `input` is labelled for one). A refused Registry row has no Add button and shows its reason. Remove shows the receipt's Undo. A `check_mcp_server_entry` warning renders before submit. Counts shown come from the backend only.
 - [ ] **Step 2: Run** the component tests. Expected: FAIL.
 - [ ] **Step 3: Implement.** Use type roles, tokens and the sheet corner per `DESIGN.md`. Errors go through `switchCopy`.
+- [ ] **Step 3b: Regenerate the README figures.** This task adds a test file, so the `tests` figure moves. Run `~/.bun/bin/bun run src/__tests__/readmeCounts.ts`, then `npx vitest run src/__tests__/readme-sync.test.ts` from the repo root. Expected: PASS. Add `README.md` to the commit.
 - [ ] **Step 4: Run** the four gates, then take screenshots from the dev app (`verifying-ui.md`: pid filter, title `Hanger AI (dev)`, frontmost, the theme read from the store). At this point `ENTRY_WRITES` is empty, so the evidence shows the form and its `no_entry_write` refusal. A successful add is shown in Task 16.
 - [ ] **Step 5: Commit**: `feat(mcp): a form to add a server by hand, from the Registry or from another engine`.
 
@@ -445,6 +446,7 @@ Order, per Answer Q5: Claude Code, Codex, Gemini CLI, Antigravity CLI. Each roun
   - For Claude Code and Codex, a URL entry to `http://127.0.0.1:9/mcp` with a Bearer header reference, listed back, which proves `urls` and `header_refs`.
 - [ ] **Step 2: STOP.** Karthik reads the artefacts. His "done" is not the result; the files are (`verification.md`, Human-gated steps).
 - [ ] **Step 3:** On his word, add the row with `confirmed: "<cli> <version>, <date>"`. Each bool is true only where Step 1 showed it. Raise the floor. Then take a dev-app screenshot of a successful add into a throwaway `HANGER_TEST_HOME` instance. If a peer's dev app is running, ask Karthik before starting a second one.
+- [ ] **Step 3b: Regenerate the README figures (first round only, when `mcp_entry_live.rs` is created).** This task adds a test file, so the `tests` figure moves. Run `~/.bun/bin/bun run src/__tests__/readmeCounts.ts`, then `npx vitest run src/__tests__/readme-sync.test.ts` from the repo root. Expected: PASS. Add `README.md` to the commit.
 - [ ] **Step 4:** Run `cargo test` and `npx vitest run`, then commit: `feat(mcp): <engine> adds and removes servers, confirmed by its own listing`.
 
 ### Task 17: Repository scope for Codex and Gemini CLI, untracked files only (Answer Q2)
@@ -503,7 +505,7 @@ Claude Code project scope is out by the vendor-CLI ruling: Claude Code entries a
 
 | Gate | Where | Verified by |
 |---|---|---|
-| G-N naming brief and `/humanizer` (add, remove, copy, Registry search, finding categories, codes) | Task 8, before Tasks 10, 13 and 15; part of the design's batched naming round | Karthik's sign-off in the conversation |
+| G-N naming brief and `/humanizer` (add, remove, copy, Registry search, finding categories, codes) | Task 8, before Tasks 10, 13 and 15; appended to `docs/plans/2026-11-28-naming-round.md` | Karthik's sign-off in the conversation |
 | G-L layout options at true width (add form, Registry results, Copy/Remove entry points) | Task 14, before Task 15 | His pick, in the conversation |
 | G-V live check per engine in a throwaway `HOME`: Claude Code, Codex, Gemini CLI, Antigravity CLI | Task 16, four rounds; each lands one `ENTRY_WRITES` row | Config diffs, the engine's own `mcp list`/`mcp get`, `seen` file, receipts, screenshot |
 | Repository-scope live check (tracked and untracked) | Task 17 | The same artefacts in a throwaway repo |

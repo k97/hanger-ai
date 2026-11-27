@@ -137,6 +137,7 @@ Measured 2026-11-28. Any CLI run used a throwaway `HOME`; no credential file was
 - [ ] **Step 6: Extend `brand-coverage.test.ts`** with a source `"engine_status/clis.rs ENGINE_CLIS"`, read as `block(read("src-tauri/src/engine_status/clis.rs"), "pub const ENGINE_CLIS", "];", …)`, with ids matched by `/engine_id: "([^"]+)"/g`. Add floor `5`. Add an assertion that every id from that source is also an `agents.rs AGENT_CONFIGS` id. Update the comment's tally line.
 - [ ] **Step 7: Prove the guard fires.** In a detached worktree (`git worktree add --detach /tmp/t19-plant HEAD` plus a symlinked `node_modules`, never the watched tree), change one `engine_id` to `"cursor"` (a `HOSTS` id with a brand mark, and not an `AGENT_CONFIGS` id, so only the new subset assertion can go red) and run `npx vitest run src/__tests__/brand-coverage.test.ts`. Expected: FAIL naming `cursor` in the `AGENT_CONFIGS`-subset assertion, and no other assertion failing. Delete one row instead. Expected: FAIL on the floor (`yielded only 4 ids, expected at least 5`). Paste both outputs, then remove the worktree.
 - [ ] **Step 8: Docs.** Add a section to `docs/harness.md`, "Engines are managed, not a fifth kind": the four kinds stand, and an engine's CLI is a managed object with version, update, sign-in and settings, tabled in `engine_status::clis` → `ENGINE_CLIS` (cite the symbol). Add a top banner to `docs/plans/2026-11-24-tool-manager-phase-a.md`: "Superseded 2026-11-28 by `docs/plans/2026-11-28-t19-engine-status-plan.md`, whose first section says which parts survive."
+- [ ] **Step 8b: Regenerate the README figures.** This task adds a test file, so the `tests` figure moves. Run `~/.bun/bin/bun run src/__tests__/readmeCounts.ts`, then `npx vitest run src/__tests__/readme-sync.test.ts` from the repo root. Expected: PASS. Add `README.md` to the commit.
 - [ ] **Step 9: Run all four gates.**
 - [ ] **Step 10: Commit** `feat(engines): five engine CLIs become a table, with version parsing`, with the two modules, `mod.rs`, the test file, `brand-coverage.test.ts`, `docs/harness.md` and the old plan. The body names the guard edit, says why it was required (design §5, "Tables keyed to them … get a coverage assertion and floor"), and records Step 7's plant.
 
@@ -208,7 +209,7 @@ Measured 2026-11-28. Any CLI run used a throwaway `HOME`; no credential file was
 
 No code. Blocks Tasks 9 and 10. It runs alongside Tasks 5–8.
 
-- [ ] **Step 1:** Write T19's section into the batched naming round (design §7, "one batched naming brief"). If no batched file exists when this task starts, write `docs/plans/2026-11-28-t19-engine-status-naming-brief.md` in the shape of `docs/plans/2026-11-27-repo-view-parity-naming-brief.md`. Research each term against how the vendors and comparable tools name it, and give two or three candidates with a recommendation for each of:
+- [ ] **Step 1:** Append T19's section to `docs/plans/2026-11-28-naming-round.md` and stop for sign-off (design §7), in the shape of `docs/plans/2026-11-27-repo-view-parity-naming-brief.md`. Research each term against how the vendors and comparable tools name it, and give two or three candidates with a recommendation for each of:
   - the three row labels (working: Version, Sign-in, Settings);
   - the states:
     - "Not installed" and "Not reported";
@@ -223,8 +224,8 @@ No code. Blocks Tasks 9 and 10. It runs alongside Tasks 5–8.
   - the off preference's label and description, which must say it is a daily request to the npm registry;
   - the Needs review category name, and the two finding lines.
 - [ ] **Step 2:** Run every string through `/humanizer`. Check each against the code: copy must be literally true. For example, "checked today" is true only once `checked_at_ms` is within today.
-- [ ] **Step 3: STOP for Karthik.** Ask through Plannotator. The artefact is his sign-off recorded in the brief file, string by string. An answer without the recorded strings does not open the gate (`verification.md`, "His answer is not his result").
-- [ ] **Step 4: Commit** the brief: `docs(plans): T19 status naming brief, signed off`.
+- [ ] **Step 3: STOP for Karthik.** Ask through Plannotator. The artefact is his sign-off recorded in T19's section of the naming-round file, string by string. An answer without the recorded strings does not open the gate (`verification.md`, "His answer is not his result").
+- [ ] **Step 4: Commit** the naming-round file: `docs(plans): T19 status naming brief, signed off`.
 
 ### Task 4: HUMAN GATE G2, the combined card layout round (stops for Karthik; its result binds five plans)
 
@@ -364,6 +365,7 @@ No production code. It runs right after Task 2, before anyone builds on the card
 - [ ] **Step 2: Run** `cd src-tauri && cargo test --test engine_latest_tests`. Expected: FAIL with ``unresolved import `tauri_app_lib::engine_status::latest` ``.
 - [ ] **Step 3: Implement** `latest.rs` and the `setup` call.
 - [ ] **Step 4: Run.** Expected: PASS, 8 tests.
+- [ ] **Step 4b: Regenerate the README figures.** This task adds a test file, so the `tests` figure moves. Run `~/.bun/bin/bun run src/__tests__/readmeCounts.ts`, then `npx vitest run src/__tests__/readme-sync.test.ts` from the repo root. Expected: PASS. Add `README.md` to the commit.
 - [ ] **Step 5: Four gates; commit** `feat(engines): check each CLI's channel on npm once a day, cached, with an off switch`.
 
 ### Task 8: Gather status, one IPC command beside `get_engine_contexts`, and the types
@@ -453,6 +455,7 @@ No production code. It runs right after Task 2, before anyone builds on the card
     - the Settings row writes `"off"` and then `"on"`.
 - [ ] **Step 2: Run** `npx vitest run src/components/OverviewCard.test.tsx src/__tests__/engine_status_wiring.test.tsx`. Expected: FAIL (the new props and command are not used).
 - [ ] **Step 3: Implement** to the ruling: tokens and `typeRoles` only, `strokeFor` icons, no count computed in the webview.
+- [ ] **Step 3b: Regenerate the README figures.** This task adds a test file, so the `tests` figure moves. Run `~/.bun/bin/bun run src/__tests__/readmeCounts.ts`, then `npx vitest run src/__tests__/readme-sync.test.ts` from the repo root. Expected: PASS. Add `README.md` to the commit.
 - [ ] **Step 4: Run** the two files; expected PASS. Then run the four gates. The guards that must stay green with no new allowlist entry: `no-frontend-counting`, `no-off-token-styles`, `type-roles`, `no-hardcoded-engine-copy` and `design-system-coverage`.
 - [ ] **Step 5: Screenshot** the dev app per `verifying-ui.md` (dev pid, owner `tauri-app`, window ≥ 900×600, theme read from the store and named): Claude Code picked, one engine with an update, one Not reported. happy-dom cannot see layout, so the frame is the evidence for placement.
 - [ ] **Step 6: Commit** `feat(engines): Status rows on the overview card's engine section`, by the Global Constraints' `App.tsx` recipe: exact blob for `src/App.tsx`, `git add` for the rest, `git diff --cached --name-only`, then a bare `git commit` in its own call with no paths and no `-n`. Then build the commit in a detached worktree and run `npx vitest run` there.
@@ -498,7 +501,7 @@ No production code. It runs right after Task 2, before anyone builds on the card
 
 | Gate | Task | Blocks | Artefact that opens it |
 |---|---|---|---|
-| G1: naming brief for the Status rows, the states, the off preference and the finding category | Task 3 | Tasks 9, 10 | Signed-off strings recorded in the brief file |
+| G1: naming brief for the Status rows, the states, the off preference and the finding category | Task 3 | Tasks 9, 10 | Signed-off strings recorded in T19's section of `docs/plans/2026-11-28-naming-round.md` |
 | G2: combined card layout round (T19 Status rows, P2 repository row action, P5b skill figures, P6 applies line, P4b profile control) | Task 4, right after the interface tasks | Task 9, and the card tasks of P2, P5b, P6, P4b | `docs/plans/2026-11-28-card-layout-round.md` with his ruling verbatim, plus the options HTML and PNGs |
 | G3: live check on a Finder-launched build | Task 11 | Closing T19 | Built-app screenshots per engine, plus store reads of `engine_latest:*` before and after a refresh |
 

@@ -89,7 +89,7 @@ Every name here matches its owner's plan; the full table is `docs/plans/research
   - The `edit/` folder and its `pub mod` lines (Task 3). P3 adds `pub mod entries;` itself, after telling this plan's session. P3's parse-boundary detector shares `dialect.rs` with Task 5's one-function change in `servers_from_toml_table`; whichever merges second rebases.
 - **Produced for P1 (MCP phase 2) and P4b:** `set_enabled_for`, `undo_for`, `context_for`, `contexts_for` unchanged in signature and behaviour.
 - **Unowned shared file:** `src/hooks/useMcpSwitch.ts`. P1 (`decideProposal`), this plan (`project`, Task 8) and P4 (`loadProfile`) modify it, in that merge order.
-- **The batched naming round (design §7):** Task 7's strings join it if it is open, otherwise they get their own brief.
+- **The batched naming round (design §7):** Task 7 appends its section to `docs/plans/2026-11-28-naming-round.md` and stops for sign-off.
 
 ---
 
@@ -268,12 +268,12 @@ Claude's list is edited by P4's `apply::member_text` (ruling R1), so this plan w
 ### Task 7: Naming brief for "Off in this repo" and the five reasons (stops for Karthik)
 
 **Files:**
-- Create: `docs/plans/2026-11-28-slice2-naming-brief.md`, or a section in the batched round's brief if it is open.
+- Modify: `docs/plans/2026-11-28-naming-round.md` (append this track's section).
 
-- [ ] **Step 1:** Write the brief: the action label ("Off in this repo"), its undo/on form, and one line each for `no_per_project_switch`, `off_everywhere`, `not_opened_here_yet`, `needs_trust`, `repo_file_tracked`, each true of the code (Task 1's decisions; `repo_file_tracked` must also cover "couldn't check"). Research each against `switchCopy.ts`' existing lines, the engines' own words (`claude mcp list`'s "Disabled for this project", Gemini's "Blocked"), and the app's nouns (`ui-copy.md`).
+- [ ] **Step 1:** Append this plan's section to the naming round file: the action label ("Off in this repo"), its undo/on form, and one line each for `no_per_project_switch`, `off_everywhere`, `not_opened_here_yet`, `needs_trust`, `repo_file_tracked`, each true of the code (Task 1's decisions; `repo_file_tracked` must also cover "couldn't check"). Research each against `switchCopy.ts`' existing lines, the engines' own words (`claude mcp list`'s "Disabled for this project", Gemini's "Blocked"), and the app's nouns (`ui-copy.md`).
 - [ ] **Step 2:** `/humanizer` pass on every string.
-- [ ] **Step 3:** Ask Karthik in Plannotator and wait. Record his ruled strings verbatim in the brief. Nothing in Tasks 8–9 is written before this.
-- [ ] **Step 4: Commit** the brief by explicit path.
+- [ ] **Step 3:** Ask Karthik in Plannotator and wait. Record his ruled strings verbatim in the section. Nothing in Tasks 8–9 is written before this.
+- [ ] **Step 4: Commit** the naming-round file by explicit path.
 
 ### Task 8: The webview's types and copy
 
@@ -304,6 +304,7 @@ Claude's list is edited by P4's `apply::member_text` (ruling R1), so this plan w
 - [ ] **Step 1: Write the failing tests:** on a repo pane whose project contexts hold `beta` `On` and switchable for Claude Code, the row shows the ruled action; clicking it invokes `set_mcp_server_enabled` with `project: repoPath`; a reply with `beta` `Off` shows the ruled off state and an Undo; an item with `read_only: "needs_trust"` shows Task 7's line and no action. No figure is derived in the frontend (`no-frontend-counting.test.ts` stays green without an allowlist entry).
 - [ ] **Step 2: Run and watch them fail**, with the exact `npx vitest run <file>` command. Expected: the action not found.
 - [ ] **Step 3: Implement** per the round.
+- [ ] **Step 3b: Regenerate the README figures.** This task adds a test file, so the `tests` figure moves. Run `~/.bun/bin/bun run src/__tests__/readmeCounts.ts`, then `npx vitest run src/__tests__/readme-sync.test.ts` from the repo root. Expected: PASS. Add `README.md` to the commit.
 - [ ] **Step 4:** All four gates.
 - [ ] **Step 5: Commit** by explicit path: `feat(repo): switch a server off in this repo`.
 - [ ] **Step 6: Screenshot (stops for Karthik).** On the dev build (`verifying-ui.md`: dev pid, window ≥ 900×600, title `Hanger AI (dev)`, theme read from the store), capture the repo row before, after "Off in this repo", and after Undo, each corroborated by the `jq` line of Task 1 Step 1. Karthik accepts or rejects.

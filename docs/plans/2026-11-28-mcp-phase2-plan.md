@@ -108,22 +108,7 @@ Each later plan adds its own variant, its own filing function, its own preview a
 
 ## Gate P: `stage-gate --plan` (fresh reviewer, not the author)
 
-- [ ] A fresh reviewer runs `stage-gate --plan` on this file. Its findings are fixed before Gate N.
-
-## Gate N: naming brief, P1's part of the batched round (STOP for Karthik)
-
-- [ ] Write P1's entries in the batched naming brief (design §7, "one batched naming brief"). Research each first-time label against the app's nouns (`ui-copy.md`, `src/utils/prose.ts`). Entries:
-  - **The four tool names, titles, descriptions and argument lines.** The working names are `propose_server_switch(engine_id, key, state)`, `propose_skill_switch(asset_id, state)`, `propose_undo(proposal_id)` and `get_proposal(proposal_id)`, with `state` one of `on` and `off`.
-  - **The filing note** each `propose_*` reply carries: waiting in Hanger's window, open Hanger if it is closed, expires in 10 minutes.
-  - **The refusal texts:** `ambiguous`, `read_only`, `already_so`, `queue_full`, `not_undoable`, plus `not_found` reworded for proposal ids.
-  - **The rewritten `strings::INSTRUCTIONS`.** "Nothing here changes a file" goes false.
-  - **The rewritten `docs/mcp-server.md`.** "Five tools" and "never changes a file" go false.
-  - **The band:** its name, Approve and Decline, and the line for each `Change` kind (lines, withheld, command, skill move, nothing, unavailable).
-  - **The state words** a model reads back through `get_proposal`, `undone` included.
-  - **The pill's waiting line**, which names the item and the engine. The asked-by wording is "Claude Code asks…" when `asked_by` maps and "An engine asks…" when it does not.
-  - **The ⌘K action.**
-  - **The decide failure codes** `not_waiting` and `expired`, as words.
-- [ ] `/humanizer` on every string. Karthik signs off. Record his answers under "Answers (Gate N)" at the end of this file. `strings.rs` takes them verbatim.
+- [ ] A fresh reviewer runs `stage-gate --plan` on this file. Its findings are fixed before Task 1 starts.
 
 ---
 
@@ -166,6 +151,25 @@ Lands the owned interfaces first, before any tool or command uses them.
 - [ ] **Step 4: Run** the file, then the full `cargo test` from `src-tauri/`. Expected: PASS. `mcp_server_tests` is unchanged and green.
 - [ ] **Step 5: Regenerate the README.** Run `~/.bun/bin/bun run src/__tests__/readmeCounts.ts` (a new file under `src-tauri/tests/`), then `npx vitest run src/__tests__/readme-sync.test.ts` from the repo root. Expected: PASS.
 - [ ] **Step 6: Commit** `src-tauri/src/mcp_server/places.rs`, `proposals.rs`, `mod.rs`, `src-tauri/tests/mcp_proposal_tests.rs` and `README.md` with the message `feat(mcp-server): the proposal record, its 0600 file and its folder`.
+
+## Gate N: naming brief, P1's section of the naming round (STOP for Karthik)
+
+Sits after Task 1 and before Task 2: Task 1 adds no strings, and Task 2 is the first that does.
+
+- [ ] Append P1's section to `docs/plans/2026-11-28-naming-round.md` and stop for sign-off in Plannotator on that section. Research each first-time label against the app's nouns (`ui-copy.md`, `src/utils/prose.ts`). Entries:
+  - **The four tool names, titles, descriptions and argument lines.** The working names are `propose_server_switch(engine_id, key, state)`, `propose_skill_switch(asset_id, state)`, `propose_undo(proposal_id)` and `get_proposal(proposal_id)`, with `state` one of `on` and `off`.
+  - **The filing note** each `propose_*` reply carries: waiting in Hanger's window, open Hanger if it is closed, expires in 10 minutes.
+  - **The refusal texts:** `ambiguous`, `read_only`, `already_so`, `queue_full`, `not_undoable`, plus `not_found` reworded for proposal ids.
+  - **The rewritten `strings::INSTRUCTIONS`.** "Nothing here changes a file" goes false.
+  - **The rewritten `docs/mcp-server.md`.** "Five tools" and "never changes a file" go false.
+  - **The band:** its name, Approve and Decline, and the line for each `Change` kind (lines, withheld, command, skill move, nothing, unavailable).
+  - **The state words** a model reads back through `get_proposal`, `undone` included.
+  - **The pill's waiting line**, which names the item and the engine. The asked-by wording is "Claude Code asks…" when `asked_by` maps and "An engine asks…" when it does not.
+  - **The ⌘K action.**
+  - **The decide failure codes** `not_waiting` and `expired`, as words.
+- [ ] `/humanizer` on every string. Karthik signs off. Record his answers under "Answers (Gate N)" at the end of this file. `strings.rs` takes them verbatim.
+
+---
 
 ### Task 2: Filing a proposal: public ids resolved to real keys
 
@@ -410,8 +414,8 @@ Every step is verified by its artefact, never by an answer (design §7, "round 3
 
 | Gate | Who | Sits | Verified by |
 |---|---|---|---|
-| P: `stage-gate --plan` | fresh reviewer | before Gate N | the review's findings, fixed |
-| N: naming brief, P1's part of the batched round, plus `/humanizer` | **Karthik** | before Task 1 (Task 2 lands refusal texts, Task 3 the tool copy) | his answers recorded in this file |
+| P: `stage-gate --plan` | fresh reviewer | before Task 1 | the review's findings, fixed |
+| N: naming brief, P1's section of `docs/plans/2026-11-28-naming-round.md`, plus `/humanizer` | **Karthik** | after Task 1, before Task 2 (Task 1 adds no strings; Task 2 lands refusal texts, Task 3 the tool copy) | his answers recorded in this file |
 | G3: layout options at true width for the band, pill and ⌘K | **Karthik** | after Task 5, before Task 6 | his pick recorded in this file |
 | T23 in Plannotator | **Karthik** | only if G3's pick would show model-written text | his ruling |
 | G4: a live write and its Undo, server and skill | **Karthik** drives his engine | after Task 6 | proposal files, config diffs, `ls` of the keep, transcript, screenshots, per-kind counts |

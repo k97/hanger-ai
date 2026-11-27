@@ -39,7 +39,7 @@ that names what was dropped.
 | `ops::kept_off_for`, `cached_measure`, `cached_measure_on`, `uses_claude_cli`, `SwitchFailure::code`, `SwitchPlaces`, `ClaudeCli` | P2 | unchanged | P1, P4 | yes |
 | `ops::Target<'a>` | P2 (Task 2) | `pub enum Target<'a> { Machine { key: &'a str }, InProject { project: &'a KnownProject, key: &'a str } }`; P3 adds `NewEntry { host_id, tier, path }`, no field on the others | P3 | new |
 | `ops::set_enabled_at` / `undo_at` | P2 (Task 2) | `set_enabled_at<P>(places, cli, engine_id, target: Target<'_>, enabled, probe_of)`; `undo_at<P>(places, cli, engine_id, project: Option<&KnownProject>, receipt_id, probe_of)`; `undo_at` re-runs `refused_files` on a project file before undoing it (Q2) | P3 | new |
-| `ops::context_in` / `contexts_in` | P2 (Task 1) | `pub async fn context_in<P>(places, engine_id, project: &KnownProject, probe_of: P) -> EngineContext`; `contexts_in` likewise. `get_engine_context` and `get_engine_contexts` become `async fn` commands | P3, P7 (card, repo view) | new |
+| `ops::context_in` / `contexts_in` | P2 (Task 1) | `pub async fn context_in<P>(places, engine_id, project: &KnownProject, probe_of: P) -> EngineContext`; `contexts_in` likewise. `get_engine_context` and `get_engine_contexts` become `async fn` commands | P2 only (no other plan names it) | new |
 | `project::KnownProject` | P2 (Task 1) | `KnownProject::among(candidate: &str, roots: &[String]) -> Option<KnownProject>`; `real_path(&self) -> &Path`. Roots are `preferences::get_linked_directories` | P3 | new |
 | `project` IPC argument | P2 (Task 2) | `project: Option<String>` on `get_engine_context`, `get_engine_contexts`, `set_mcp_server_enabled`, `undo_mcp_switch`; no match is `Err("not_found")` | P3 (Task 17) | new |
 | `project::refused_files` | P2 (Task 5, after Claude's live check in Task 4) | `pub async fn refused_files(real: &Path, files: &[PathBuf]) -> Vec<PathBuf>`; fail-closed: "couldn't ask git" is refused | P3 (Task 17) | new |
@@ -76,7 +76,7 @@ that names what was dropped.
 | `engine_status::run::run_capture` | P7 (frozen) | `run_capture(program, args, stdin, envs, timeout) -> Option<Captured>` | P2, P3, P5, P8 | yes, `run.rs:45` |
 | `engine_status::resolve::{search_path, resolve_in}` | P7 | `search_path() -> String` (async); `resolve_in(bin, path) -> Option<PathBuf>` | P2, P5, P8 | yes, `resolve.rs:45,126` |
 | `engine_status::stream::run_streaming` | P8 (Task 8) | sibling of `run_capture`, which stays untouched | P8 only | new |
-| `get_engine_status` (IPC), `EngineStatus` | P7 (Task 8) | `get_engine_status(force_check: bool) -> EngineStatusReply` | P6 (note only), P8 (readiness) | new |
+| `get_engine_status` (IPC), `EngineStatus` | P7 (Task 8) | `get_engine_status(force_check: bool) -> EngineStatusReply` | P7 only (P8 calls `cli_for`, `parse_version` and `parse_auth` directly; P6 does not name it) | new |
 | Overview card and the combined layout round | P7 (Task 4) | ruling file `docs/plans/2026-11-28-card-layout-round.md` | P2 (Task 9), P4 (Gate L2), P5 (Task 13), P6 (Task 10) | new |
 | `src/utils/reviewIssues.ts` | shared: P7 first, then P3 | P7 Task 10 adds `signed_out`, `settings_unreadable`; P3 Task 10 rebases onto it and adds `secret`, `unpinned` | P3, P7 | yes (file) |
 | `src/hooks/useMcpSwitch.ts` | unowned; merge order P1 → P2 → P4 | P1 `decideProposal`; P2 `project`; P4 `loadProfile` | P1, P2, P4 | yes (file) |

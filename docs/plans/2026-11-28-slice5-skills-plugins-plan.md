@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-> **Reconciled 2026-11-28** after the `--plan` review (`docs/reviews/2026-11-28-plan-2026-11-28-slice5-skills-plugins-plan.md`), applying `docs/plans/research/2026-11-28-reconciliation-rulings.md` R2 (P4 owns the one vendor-CLI receipt, `apply::CommandReceipt`, landed in P4's Task 3b; this plan writes it for `gh skill` and `claude plugin`, and its `undo_vendor_change` runs any receipt's reverse, keeping that name) and the "every plan" rule for the review's mechanical findings. Three of this plan's open questions are now round 44's: the Undo of `gh skill install` (**ruled in round 44 Q5 (the recommended option)**), plugin update with no Undo (**ruled in round 44 Q6 (the recommended option)**) and what the Skills figure shows (**ruled in round 44 Q7 (the recommended option)**). Each is built to the recommended option as the provisional default. Shared names: `docs/plans/research/2026-11-28-cross-plan-interfaces.md`.
+> **Reconciled 2026-11-28** after the `--plan` review (`docs/reviews/2026-11-28-plan-2026-11-28-slice5-skills-plugins-plan.md`), applying `docs/plans/research/2026-11-28-reconciliation-rulings.md` R2 (P4 owns the one vendor-CLI receipt, `apply::CommandReceipt`, landed in P4's Task 3b; this plan writes it for `gh skill` and `claude plugin`, and its `undo_vendor_change` runs any receipt's reverse, keeping that name) and the "every plan" rule for the review's mechanical findings. Three of this plan's open questions are now round 44's: the Undo of `gh skill install` (ruled in round 44 Q5: it switches the skill off into the keep), plugin update (ruled in round 44 Q6: it ships without an Undo, and the confirmation says so) and what the Skills figure shows (ruled in round 44 Q7: the capped figure, with a note). Each is built as ruled. Shared names: `docs/plans/research/2026-11-28-cross-plan-interfaces.md`.
 
 **Goal:** Install, update, search and preview skills through `gh skill` into the one folder Hanger can switch (5a), give the overview card a skill figure that leaves out what Claude Code leaves out (5b), and run Claude Code's plugin and marketplace life cycle through `claude plugin`, with hooks and cache read-only (5c).
 
@@ -25,7 +25,7 @@
 - Failures cross IPC as codes only. `run_capture` discards stderr, and stdout is parsed, never forwarded, except for `gh skill preview`, whose stdout is the skill's public text.
 - The store schema doesn't move (`STORE_VERSION = 8`). No piece of this plan needs a migration. If one turns out to, stop and ask.
 - Counts come from the backend: every list reply carries its own `count`. Styling is tokens only, type comes from `typeRoles.ts`, and nothing uses blocking dialogs (`invariants.md`).
-- Every new label goes through the batched naming brief (Task 6), and every string gets a `/humanizer` pass.
+- Every new label goes through this plan's section of `docs/plans/2026-11-28-naming-round.md` (Task 6), and every string gets a `/humanizer` pass.
 - Commit steps use explicit paths, run in their own Bash call, and contain no `-n` anywhere. New files are `git add`ed first. Explicit paths are right in Track K's own worktree, where nobody else edits `lib.rs`, `docs/ipc.md` or `README.md`. In the shared main checkout they are wrong for any file a peer also holds edits in (`lib.rs`, `docs/ipc.md`, `README.md`, `src/App.tsx`): stage such a file as an exact blob, check `git diff --cached --name-only`, then run a bare `git commit` (`shared-checkout.md`).
 - Each new Tauri command gets a `docs/ipc.md` entry, numbered from the next free number at commit time (P1, P2, P3 and P4 add entries too), and the README figures are regenerated with `~/.bun/bin/bun run src/__tests__/readmeCounts.ts` in the same commit.
 
@@ -77,10 +77,10 @@ If P4 or P7 lands a different name or shape, map to it in the waiting task and t
 
 Provided by this plan: `skill_switch::ops::install_slot` (Task 1); `set_enabled_for`, `undo_for` and `switch_info_for`, unchanged and pinned (Task 1); `vendor_cli::undo(receipt: &CommandReceipt, ctx: &UndoContext) -> Result<UndoReply, VendorFailure>`; and the IPC `undo_vendor_change(receipt_id: String) -> UndoReply`, which runs any receipt's reverse and which P4's Recent changes calls (ruling R2 keeps the name).
 
-**Two Q6 cases, now round 44's questions:**
+**Two Q6 cases, ruled in round 44:**
 
-- `gh skill` (2.102.0) has no uninstall subcommand. Its subcommands are `install`, `list`, `preview`, `publish`, `search` and `update`. **Waits on round 44 Q5.** Provisional default (the recommended option): the reverse of an install is a skill switch-off into Hanger's keep (`ReverseProgram::SkillSwitch`, args `["skill:<name>"]`), itself undoable. If Karthik picks "delete the installed folder" or "no Undo", Task 4's install receipt changes before Task 4 commits.
-- `claude plugin update` (2.1.332) has no documented way back to the previous version. **Waits on round 44 Q6.** Provisional default (the recommended option): ship update, record the receipt with empty `reverse_args` so no Undo is offered, and say in the confirmation that an update can't be undone. If Karthik picks "hold updates", Task 15 leaves update out.
+- `gh skill` (2.102.0) has no uninstall subcommand. Its subcommands are `install`, `list`, `preview`, `publish`, `search` and `update`. Ruled in round 44 Q5: the reverse of an install is a skill switch-off into Hanger's keep (`ReverseProgram::SkillSwitch`, args `["skill:<name>"]`), itself undoable.
+- `claude plugin update` (2.1.332) has no documented way back to the previous version. Ruled in round 44 Q6: ship update, record the receipt with empty `reverse_args` so no Undo is offered, and say in the confirmation that an update can't be undone.
 
 ---
 
@@ -192,6 +192,7 @@ Each module doc names the rule: argv only, codes only, and no logging of argumen
 
 Run: `cd src-tauri && cargo test --test gh_skill_tests`. Expected: all pass.
 
+- [ ] **Step 6b: Regenerate the README figures.** This task adds a test file, so the `tests` figure moves. Run `~/.bun/bin/bun run src/__tests__/readmeCounts.ts`, then `npx vitest run src/__tests__/readme-sync.test.ts` from the repo root. Expected: PASS. Add `README.md` to the commit.
 - [ ] **Step 7: Commit**
 
 ```bash
@@ -247,7 +248,7 @@ git commit -m "feat(vendor-cli): install and update a skill through gh into the 
 
 ---
 
-### Task 4: Receipts and Undo for `gh skill` writes. **Waits on P4's Task 3b (`CommandReceipt`) and round 44 Q5.**
+### Task 4: Receipts and Undo for `gh skill` writes. **Waits on P4's Task 3b (`CommandReceipt`).**
 
 **Files:**
 - Modify: `src-tauri/src/vendor_cli/mod.rs`, `src-tauri/src/vendor_cli/gh_skill.rs`
@@ -257,7 +258,7 @@ git commit -m "feat(vendor-cli): install and update a skill through gh into the 
 - Consumes: P4's `CommandReceipt`, `ReverseProgram`, `record_command` and `load_command` (Cross-plan interfaces). Step 0: `grep -n "pub struct CommandReceipt" src-tauri/src/mcp/switch/apply.rs` prints a line, or this task waits.
 - Produces:
   - `install` and `update` gain a `receipts: &Path` parameter. After a successful write, each records a receipt before it replies and puts its id in `receipt_id`.
-    - Install (round 44 Q5's provisional default): `what = "gh skill · install · <name>"`, `program = SkillSwitch`, `reverse_args = ["skill:<name>"]`, but only when `read_only == None`. Otherwise `reverse_args` is empty.
+    - Install (round 44 Q5): `what = "gh skill · install · <name>"`, `program = SkillSwitch`, `reverse_args = ["skill:<name>"]`, but only when `read_only == None`. Otherwise `reverse_args` is empty.
     - Update with `changed`: `what = "gh skill · update · <name>"`, `program = Gh`, `reverse_args = ["skill","install",<repo from source_url>,"<name>@<previous_version>","--agent","universal","--scope","user","--force"]`. With no `previous_version`, `reverse_args` is empty. An update that changed nothing records no receipt.
   - `pub struct UndoContext { gh: Cli, claude: Cli, places: SkillPlaces, projects: Vec<PathBuf>, receipts: PathBuf }`, `pub struct UndoReply { receipt_id: Option<String> }`, and `pub async fn undo(receipt: &CommandReceipt, ctx: &UndoContext) -> Result<UndoReply, VendorFailure>`. Empty `reverse_args` gives `NotUndoable`. `SkillSwitch` calls `skill_switch::ops::set_enabled_for(.., key, false)`, and the skill keep's own receipt is the Undo's receipt. `Gh` and `Claude` run `reverse_args` and record a receipt for the reverse whose own reverse is the original write. Receipts are files on disk, so Undo can't tell which flags Hanger wrote: each arg must either pass `safe_arg` or be in a fixed allowlist of flags for that program and verb (`ALLOWED_FLAGS: &[(ReverseProgram, &str /* verb */, &[&str])]`, e.g. `gh` `install`: `--agent`, `--scope`, `--force`, and the values `universal`, `user`; `claude` `plugin`: `--scope`, `--keep-data`, `--json`, `user`). Anything else is `RefusedValue` and nothing runs. A `Claude` receipt whose `reverse_args[0] == "mcp"` is P3's: this task's `undo` returns `NotUndoable` for it until P3's Task 11 adds the arm that calls `vendor::claude_reverse`.
 
@@ -331,9 +332,9 @@ git commit -m "feat(skills): commands to list, search, preview, install, update 
 
 ---
 
-### Task 6: STOP for Karthik. The naming brief (one batched round with every track).
+### Task 6: STOP for Karthik. The naming brief (appended to `docs/plans/2026-11-28-naming-round.md`).
 
-- [ ] **Step 1: Write the brief.** For each label, it gives the research (what `gh`, Claude Code's `/plugin` UI, VS Code's Extensions view and Raycast call it), two or three candidates and a recommendation. Labels covered:
+- [ ] **Step 1: Append the brief** to the naming-round file as this plan's section. For each label, it gives the research (what `gh`, Claude Code's `/plugin` UI, VS Code's Extensions view and Raycast call it), two or three candidates and a recommendation. Labels covered:
   - Plugins, and Marketplaces
   - Install, Update, Uninstall
   - Turn on and off for a plugin, against Enable and Disable
@@ -345,7 +346,7 @@ git commit -m "feat(skills): commands to list, search, preview, install, update 
   - "Needs setup in Claude Code" for `hasUserConfig`
   - The Skills row's figure on the card, and the "Not measured" line for the other engines. The brief names why the card's figure and the inspector's per-skill "always on" figure differ: the card applies Claude Code's caps (round 44 Q7), the inspector doesn't
   - The read-only note for an install that landed read-only
-- [ ] **Step 2: Carry round 44's rulings into the copy.** Q5 (install's Undo) and Q6 (plugin update with no Undo) are asked in round 44, not here. Write the strings for whichever option Karthik picked, or for the provisional default if he hasn't answered, and mark those strings provisional in the brief.
+- [ ] **Step 2: Carry round 44's rulings into the copy.** Q5 (install's Undo switches the skill off into the keep), Q6 (plugin update has no Undo, and the confirmation says so) and Q7 (the capped figure, with a note) are ruled in round 44. Write the strings for those answers.
 - [ ] **Step 3: Send it through Plannotator** (`annotate --gate`) and stop. **The artefact is his annotated answer file.** Record the rulings in this plan's Task 6 before Task 8 starts. Every final string then gets a `/humanizer` pass.
 
 ### Task 7: STOP for Karthik. Layout options for the skill surface.
@@ -376,6 +377,7 @@ git commit -m "feat(skills): commands to list, search, preview, install, update 
 - [ ] **Step 3:** Implement. Tokens only, type roles, no `window.confirm`.
 - [ ] **Step 4:** Run the same command (expected: pass), then `npx vitest run src/__tests__/design-system-coverage.test.ts src/__tests__/no-frontend-counting.test.ts src/__tests__/no-off-token-styles.test.ts src/__tests__/type-roles.test.ts` (expected: pass), then `bunx tsc --noEmit` (expected: exit 0).
 - [ ] **Step 5: Screenshot.** Per `verifying-ui.md`: filter by the dev pid, take the window that is at least 900×600, assert the title `Hanger AI (dev)`, name the theme read from the store, and save frames to `docs/evidence/2026-11-28-slice5/`. Only the states a throwaway-`HOME` dev run can reach are captured: `Ready` and `NotSignedIn`. `NotInstalled` isn't reliably reachable (`search_path` widens PATH, which likely still holds `/opt/homebrew/bin`) and `NoSkillCommand` needs an older `gh`; those two are covered by the Vitest cases in Step 1 only, and the report says so. Never a mocked web build.
+- [ ] **Step 5b: Regenerate the README figures.** This task adds a test file, so the `tests` figure moves. Run `~/.bun/bin/bun run src/__tests__/readmeCounts.ts`, then `npx vitest run src/__tests__/readme-sync.test.ts` from the repo root. Expected: PASS. Add `README.md` to the commit.
 - [ ] **Step 6: Commit** the new files and the changed paths. `App.tsx`, if it's touched at all, is staged by hunk.
 
 ### Task 9: STOP for Karthik. One real `gh skill install`, verified by artefact.
@@ -392,7 +394,7 @@ git commit -m "feat(skills): commands to list, search, preview, install, update 
 
 ### Task 10: STOP for Karthik. H1, the live session check.
 
-The budget's rules come from the docs (code.claude.com/docs/en/skills, read 2026-11-28, including the part after 100k characters the research missed: Claude Code caps the whole listing at `skillListingBudgetFraction` of the context window, 1% by default, and past that drops the descriptions of the skills used least; `skillListingMaxDescChars` sets the per-skill cap, 1,536 by default). This check runs before any 5b code. **What the card shows ruled in round 44 Q7 (the recommended option).** Provisional default (the recommended option): what Claude actually loads, the sum capped the way Claude caps it, with a note when descriptions are being dropped, confirmed by this live check.
+The budget's rules come from the docs (code.claude.com/docs/en/skills, read 2026-11-28, including the part after 100k characters the research missed: Claude Code caps the whole listing at `skillListingBudgetFraction` of the context window, 1% by default, and past that drops the descriptions of the skills used least; `skillListingMaxDescChars` sets the per-skill cap, 1,536 by default). This check runs before any 5b code. **What the card shows, ruled in round 44 Q7:** the capped figure, what Claude actually loads (the sum capped the way Claude caps it), with a note when descriptions are being dropped, confirmed by this live check.
 
 - [ ] **Step 1:** In a throwaway folder `H=$(mktemp -d)`, write `$H/.claude/skills/<n>/SKILL.md` for six skills:
   - `h1-alpha`: description `H1PROBE-ALPHA`
@@ -445,6 +447,7 @@ The budget's rules come from the docs (code.claude.com/docs/en/skills, read 2026
 - [ ] **Step 2:** Run `cd src-tauri && cargo test --test skill_budget_tests`. Expected: `unresolved import \`tauri_app_lib::skill_budget\``.
 - [ ] **Step 3:** Implement.
 - [ ] **Step 4:** Run `cd src-tauri && cargo test --test skill_budget_tests` (expected: pass), then `cd src-tauri && cargo test --test scanner_tests` (expected: pass).
+- [ ] **Step 4b: Regenerate the README figures.** This task adds a test file, so the `tests` figure moves. Run `~/.bun/bin/bun run src/__tests__/readmeCounts.ts`, then `npx vitest run src/__tests__/readme-sync.test.ts` from the repo root. Expected: PASS. Add `README.md` to the commit.
 - [ ] **Step 5: Commit**
 
 ```bash
@@ -452,16 +455,17 @@ git add src-tauri/src/skill_budget.rs src-tauri/tests/skill_budget_tests.rs
 git commit -m "feat(budget): Claude Code's listing rules for one skill" -- src-tauri/src/skill_budget.rs src-tauri/src/scanner.rs src-tauri/src/lib.rs src-tauri/tests/skill_budget_tests.rs
 ```
 
-### Task 12: The per-engine skill budget command
+### Task 12: The per-engine skill budget command. **Waits on round 45 Q1: how the context-window size behind the 1% cap is found.**
 
 **Files:** Modify `src-tauri/src/skill_budget.rs`, `src-tauri/src/lib.rs`, `docs/ipc.md`, `README.md`. Test `src-tauri/tests/skill_budget_tests.rs`.
 
 **Interfaces:**
 - `pub struct SkillBudget { engine_id: String, skills_counted: usize, estimated_tokens: Option<u64>, over_cap: bool }`
-- `pub fn claude_budget(conn: &Connection, settings_path: &Path) -> SkillBudget`. `AssetAnnotation` has no category (`{ asset_path, mechanism, reach, beyond }`), so the skills are the `annotations::asset_annotations_on(conn)` rows whose `asset_path` joins to an `assets` row of category `skill`, and whose `reach` has `engine_key == "claude_code"` and `reached`. `asset_annotations_on` reads only `engine_global` roots, which is right for a user-level figure; the doc comment says so. A skill's `abs_path` is its folder, so its file is `<abs_path>/SKILL.md`. Skills are deduplicated by the canonical path of that file and summed with `listing_bytes`. **Round 44 Q7, provisional default:** the sum is capped at `budget_fraction × CONTEXT_WINDOW_TOKENS × 4` characters, and `over_cap` is true when the uncapped sum passed it (the card adds its "descriptions are being dropped" note). `CONTEXT_WINDOW_TOKENS` is a constant from Task 10's overflow probe, with `// shortcut: one context window for every model; read the model's own when Hanger can`. `estimated_tokens = capped bytes / 4`. A settings file that exists but doesn't parse gives `estimated_tokens: None`, so the row reads "Not measured" rather than an over-count. If Karthik picks "the plain sum, labelled at most" instead, `over_cap` stays and the cap is not applied.
+- `pub fn claude_budget(conn: &Connection, settings_path: &Path) -> SkillBudget`. `AssetAnnotation` has no category (`{ asset_path, mechanism, reach, beyond }`), so the skills are the `annotations::asset_annotations_on(conn)` rows whose `asset_path` joins to an `assets` row of category `skill`, and whose `reach` has `engine_key == "claude_code"` and `reached`. `asset_annotations_on` reads only `engine_global` roots, which is right for a user-level figure; the doc comment says so. A skill's `abs_path` is its folder, so its file is `<abs_path>/SKILL.md`. Skills are deduplicated by the canonical path of that file and summed with `listing_bytes`. **Round 44 Q7:** the sum is capped at `budget_fraction × CONTEXT_WINDOW_TOKENS × 4` characters, and `over_cap` is true when the uncapped sum passed it (the card adds its "descriptions are being dropped" note). `CONTEXT_WINDOW_TOKENS` stands for the context-window size behind the cap; how that size is found is round 45 Q1, and Step 0 below stops for it. `estimated_tokens = capped bytes / 4`. A settings file that exists but doesn't parse gives `estimated_tokens: None`, so the row reads "Not measured" rather than an over-count.
 - Settings come from `agents::engine_base(home, ".claude").join("settings.json")`. `// shortcut: user settings only; project, local and managed settings also set skillOverrides; upgrade when the card gains a per-project view.` Plugin skills aren't skill rows, and the docs say `skillOverrides` doesn't touch them, so they're outside this figure. 5c shows plugins separately.
 - Command `get_skill_budgets() -> Vec<SkillBudget>` (`(async)`), holding one entry, `"claude-code"`. Other engines' listing rules weren't researched, so they keep "Not measured". One `docs/ipc.md` entry at the next free number.
 
+- [ ] **Step 0: STOP for Karthik.** Waits on round 45 Q1: how the context-window size behind the 1% cap is found. Read his recorded answer to round 45 Q1 and build the cap from that source, never from a constant chosen here. Nothing below is written before this.
 - [ ] **Step 1: Write the failing tests.** Build the store as `asset_annotations_tests.rs` does.
   - `budget_sums_reached_skills`: two skills, 4 and 1,537 bytes, give `skills_counted == 2` and `estimated_tokens == Some(385)`
   - `a_skill_reached_through_two_roots_counts_once`
@@ -477,7 +481,7 @@ git commit -m "feat(budget): Claude Code's listing rules for one skill" -- src-t
 git commit -m "feat(budget): get_skill_budgets sums Claude Code's skill listing" -- src-tauri/src/skill_budget.rs src-tauri/src/lib.rs src-tauri/tests/skill_budget_tests.rs docs/ipc.md README.md
 ```
 
-### Task 13: The Skills figure on the overview card. **Waits on T19's card merging, the combined layout round (T19 runs it; this plan supplies the Skills row), Task 10 and round 44 Q7.**
+### Task 13: The Skills figure on the overview card. **Waits on T19's card merging, the combined layout round (T19 runs it; this plan supplies the Skills row), Task 10 and Task 12.**
 
 - [ ] **Step 1:** Write a failing `OverviewCard.test.tsx` case: with `get_skill_budgets` answering `[{engine_id: "claude-code", skills_counted: 2, estimated_tokens: 385, over_cap: false}]`, Claude Code's Skills row shows the ruled figure for 385. With `over_cap: true` it also shows the ruled "descriptions are being dropped" note. Another engine's Skills row still shows `"Not measured"`, as does `estimated_tokens: null`.
 - [ ] **Step 2:** Run `npx vitest run src/components/OverviewCard.test.tsx`. Expected: FAIL.
@@ -510,7 +514,7 @@ git commit -m "feat(budget): get_skill_budgets sums Claude Code's skill listing"
 - [ ] **Step 4:** Implement, add the command, the IPC entry and the README regen, then re-run the tests. Expected: pass.
 - [ ] **Step 5:** Commit with explicit paths, `git add` for the new files first.
 
-### Task 15: Plugin and marketplace writes, with receipts. **Waits on P4's Task 3b (as Task 4), Task 6's rulings and round 44 Q6.**
+### Task 15: Plugin and marketplace writes, with receipts. **Waits on P4's Task 3b (as Task 4) and Task 6's rulings.**
 
 **Interfaces:**
 - `#[serde(rename_all = "snake_case")] pub enum PluginVerb { Install, Uninstall, Update, Enable, Disable }`
@@ -519,7 +523,7 @@ git commit -m "feat(budget): get_skill_budgets sums Claude Code's skill listing"
   - install `[plugin,install,id]`, with reverse uninstall `[plugin,uninstall,id,--scope,user,--keep-data,--json]`
   - uninstall `[plugin,uninstall,id,--keep-data]`, with reverse install
   - enable and disable, each the other's reverse
-  - update `[plugin,update,id]`, with an empty reverse, and the confirmation says an update can't be undone (round 44 Q6's provisional default; if Karthik picks "hold updates", the verb is left out entirely)
+  - update `[plugin,update,id]`, with an empty reverse, and the confirmation says an update can't be undone (round 44 Q6)
 - `pub async fn add_marketplace(claude, home, receipts, source: &str)`. `source` is `owner/repo` (`valid_repo`) or an `https://` URL that passes `safe_arg`; anything else gives `RefusedValue`. The new name is the one in `marketplace list` after the add but not before, and the reverse is `[plugin,marketplace,remove,<name>,--scope,user,--json]`.
 - `pub async fn remove_marketplace(claude, home, receipts, name: &str)`. Any installed plugin whose id ends `@<name>` gives `MarketplaceInUse`. The reverse is `add <source as listed before the remove> --scope user --json`.
 - `vendor_cli::undo` gains the `Claude` arm.
@@ -565,6 +569,7 @@ git commit -m "feat(budget): get_skill_budgets sums Claude Code's skill listing"
 - [ ] **Step 2:** Run `npx vitest run <those files>`. Expected: FAIL.
 - [ ] **Step 3:** Implement with specimens in `DesignSystemPane.tsx`.
 - [ ] **Step 4:** Run the files, the four guard tests from Task 8 and `bunx tsc --noEmit`. Expected: all pass, exit 0. Take screenshots per `verifying-ui.md`.
+- [ ] **Step 4b: Regenerate the README figures.** This task adds a test file, so the `tests` figure moves. Run `~/.bun/bin/bun run src/__tests__/readmeCounts.ts`, then `npx vitest run src/__tests__/readme-sync.test.ts` from the repo root. Expected: PASS. Add `README.md` to the commit.
 - [ ] **Step 5:** Commit, with `App.tsx` by hunk only.
 
 ### Task 18: Close
@@ -580,10 +585,11 @@ git commit -m "feat(budget): get_skill_budgets sums Claude Code's skill listing"
 | Gate | Where | Verified by |
 |---|---|---|
 | Search fixture captured in his own terminal | Task 2 Step 2 | The fixture file, parsed |
-| Naming brief: Plugins, Marketplaces, install, update and plugin verbs, every status and failure line, the Skills figure; strings for round 44 Q5, Q6 and Q7's answers | Task 6 (the batched round with all tracks) | His annotated Plannotator file |
+| Naming brief: Plugins, Marketplaces, install, update and plugin verbs, every status and failure line, the Skills figure; strings for round 44 Q5, Q6 and Q7's answers | Task 6 (appended to `docs/plans/2026-11-28-naming-round.md`) | His annotated Plannotator file |
 | Layout options at true width, skill surface | Task 7 | His recorded pick |
 | One real `gh skill install`, its Undo, and Update if possible | Task 9 | Folder, frontmatter, receipt, store counts, screenshot |
 | H1, the live Claude Code session, with the overflow probe | Task 10, before any 5b code | Session transcript grep, `/context` output |
+| Round 45 Q1: how the context-window size behind the 1% cap is found | Task 12 Step 0 | His recorded answer |
 | Combined overview-card layout round | Before Task 13 (T19 runs it) | His recorded pick |
 | Layout options at true width, Plugins pane | Task 16 | His recorded pick |
 | `stage-gate --dev` before push | Task 18 | Reviewer report |
@@ -599,7 +605,7 @@ Left out on purpose:
 ## Known limits
 
 - **The update's reverse is proven at fixture level only** until a remote `gh skill install` gives a real `version`: `install <name>@<version>` accepting that value, and a versioned reinstall leaving `pinned` unchanged, are unchecked (Task 9 Step 4 reports the gap if nothing updates).
-- **The budget assumes one context window** (`CONTEXT_WINDOW_TOKENS`) and reads only `~/.claude/settings.json`. Project, local and managed settings, the `SLASH_COMMAND_TOOL_CHAR_BUDGET` variable (invisible to an app opened from Finder) and which skills Claude invokes least are not read, so which descriptions are dropped is not modelled; only the total is capped.
+- **How the context window is found waits on round 45 Q1** (Task 12 Step 0). The budget reads only `~/.claude/settings.json`. Project, local and managed settings, the `SLASH_COMMAND_TOOL_CHAR_BUDGET` variable (invisible to an app opened from Finder) and which skills Claude invokes least are not read, so which descriptions are dropped is not modelled; only the total is capped.
 - **Two `GhStatus` states are proven by Vitest only** (`NotInstalled`, `NoSkillCommand`); a throwaway-`HOME` dev run can't reach them.
 - **Undo's flag allowlist is per program and verb.** A reverse a future CLI version needs a new flag for is refused until the allowlist gains it.
 - **Not checked against `--help`:** `claude plugin uninstall --keep-data`, `--prune`, `--json` on enable and disable, and `marketplace remove --scope user`. Task 14 Step 1's fixtures settle them.

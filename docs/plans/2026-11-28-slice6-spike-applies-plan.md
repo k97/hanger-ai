@@ -64,7 +64,7 @@ Every name here matches its owner's plan; the full table is `docs/plans/research
 - **P2 owns `registry::SWITCHES`** (read only here): the run set is its host ids at run time. If P2 has added `PROJECT_SWITCHES` rows by then, runs still use the tiers listed under "Run protocol".
 - **P2 owns `ops::set_enabled_for` and `undo_for`**, called unchanged by Task 1b's harness.
 - **P7 (T19) owns the overview card** (`OverviewCard`, `OverviewHost`, the engine section's Status rows), and the **combined layout round** (`docs/plans/2026-11-28-card-layout-round.md`) decides where the applies line sits. **Task 10 waits for both.** P7's `EngineStatus.version` is available to version-gate the line; this plan doesn't use it (no version gating).
-- **The batched naming round (design §7):** Task 7's strings join it if it is still open. Otherwise they get their own brief.
+- **The batched naming round (design §7):** Task 7 appends its section to `docs/plans/2026-11-28-naming-round.md` and stops for sign-off.
 
 ## Review Focus
 
@@ -151,7 +151,7 @@ Per engine (and per mode for Claude Code), with `RUN=<engine>-<version>[-<mode>]
 | Antigravity CLI | `agy mcp add spike $PY $S $D` | `agy mcp remove spike` | the settings "Refresh" the research names |
 
 1. **Go-ahead (stops for Karthik).** Ask in Plannotator: "Run the `list_changed` spike on <engine> <version> now? It adds a `spike` server at <tier>, switches it with Hanger's switch code, and removes it. Hanger (release and dev) must stay quit until it's removed." Record his answer verbatim in the run notes. With no yes, nothing below happens.
-2. Confirm no Hanger is running: `pgrep -f "target/debug/tauri-app"` and `pgrep -x "Hanger AI"` print nothing (round 44 Q1). Take the per-kind counts and append them to `/tmp/hanger-spike/counts.txt` under `$RUN before`, and paste them into the run notes.
+2. Confirm no Hanger is running, before every run: `pgrep -f "tauri dev"`, `pgrep -f "target/debug/tauri-app"` and `pgrep -x "Hanger AI"` all print nothing (round 44 Q1). A running `tauri dev` relaunches the app whenever `cargo` rebuilds, and a relaunched app scans while `spike` is registered. So build the harness binary now, before step 3 registers `spike`: `cd src-tauri && cargo test --test spike_switch_live --no-run`. Step 8 then runs that prebuilt binary and nothing rebuilds mid-run. Take the per-kind counts and append them to `/tmp/hanger-spike/counts.txt` under `$RUN before`, and paste them into the run notes.
 3. `mkdir -p $D $W` and write `A` to `$D/flip`. Add the server. `<cli> mcp list | grep -E '^spike'` shows it, and that line is the artefact.
 4. Start an interactive session in `$W`. Prompt: "List the spike server's tools by exact name, then call spike_alpha." The log needs a `start`, a `tools/list` reply and `tools/call` `spike_alpha` from the session's pid. Note **(a)** from the `protocol` field.
 5. **Added:** write `B` to `$D/flip`, wait 5 s. **(b)** Did a `recv tools/list` follow the `send` within 5 s? Prompt: "Call spike_beta now. If you have no tool by that name, reply exactly NO SUCH TOOL." **(c)** passes if the log shows `tools/call` `spike_beta` with `offered: true`.
@@ -216,12 +216,12 @@ Per engine (and per mode for Claude Code), with `RUN=<engine>-<version>[-<mode>]
 ### Task 7: Naming brief for the applies lines (stops for Karthik)
 
 **Files:**
-- Create: `docs/plans/2026-11-28-slice6-applies-naming-brief.md`, or a section in the batched round's brief if that round is still open.
+- Modify: `docs/plans/2026-11-28-naming-round.md` (append this track's section).
 
-- [ ] **Step 1: Write the brief.** It needs one line per observed code, for the overview card's engine row, with `{engine}` from the backend. Research how Cursor, VS Code, Zed and Claude Code word "takes effect" or "restart to apply" in their own UI, and cite each source. Each line must be literally true of Task 6's table: if Codex is `next_session`, its line can't say "now". Skip a code no engine observed.
-- [ ] **Step 2: `/humanizer` pass** on every line, with before and after shown in the brief.
-- [ ] **Step 3: STOP for Karthik's sign-off.** Record his ruled strings verbatim in the brief. His wording is direction, not the string (`ui-copy.md`), so the final line goes back to him if it changed.
-- [ ] **Step 4: Commit** the brief by explicit path.
+- [ ] **Step 1: Append the brief** as this plan's section of the naming round file. It needs one line per observed code, for the overview card's engine row, with `{engine}` from the backend. Research how Cursor, VS Code, Zed and Claude Code word "takes effect" or "restart to apply" in their own UI, and cite each source. Each line must be literally true of Task 6's table: if Codex is `next_session`, its line can't say "now". Skip a code no engine observed.
+- [ ] **Step 2: `/humanizer` pass** on every line, with before and after shown in the section.
+- [ ] **Step 3: STOP for Karthik's sign-off.** Record his ruled strings verbatim in the section. His wording is direction, not the string (`ui-copy.md`), so the final line goes back to him if it changed.
+- [ ] **Step 4: Commit** the naming-round file by explicit path.
 
 ### Task 8: The applies code in `EngineContext` (waits on P2's Task 1)
 

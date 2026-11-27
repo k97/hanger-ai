@@ -171,6 +171,7 @@ pub fn member_text(text: &str, key_path: &[String], member: &str, present: bool)
 - [ ] **Step 2: Run** `cd src-tauri && cargo test --test apply_history_tests`. Expected: FAIL to compile, with `cannot find function \`set_member\` in module \`apply\`` (E0425) and `cannot find type \`KeyEdit\``.
 - [ ] **Step 3: Implement** the Interfaces above in `apply.rs`. The receipt is written by `keep` taking an `Option<&KeyEdit>`; `listed` gains a sibling that parses `KeyReceipt` with `key: Option<KeyEdit>` (serde `default`). Update the module doc: a "Key-level writes" section, and "`ops` is its only caller" corrected.
 - [ ] **Step 4: Run** the file, then the full `cargo test` from `src-tauri/`. Expected: PASS. `mcp_switch_tests` and `ipc_boundary_tests` are unchanged and green.
+- [ ] **Step 4b: Regenerate the README figures.** This task adds a test file, so the `tests` figure moves. Run `~/.bun/bin/bun run src/__tests__/readmeCounts.ts`, then `npx vitest run src/__tests__/readme-sync.test.ts` from the repo root. Expected: PASS. Add `README.md` to the commit.
 - [ ] **Step 5: Commit.** `git add src-tauri/src/mcp/switch/apply.rs src-tauri/tests/apply_history_tests.rs` in one call, then in its own call `git commit -m "feat(apply): write and undo one name in a JSON list, surviving the engine's own rewrites" -- src-tauri/src/mcp/switch/apply.rs src-tauri/tests/apply_history_tests.rs`.
 - [ ] **Step 6: Tell P2** on `SendMessage` that the interface has landed, with the commit SHA (resolved with `git cat-file -t`) and the Interfaces block above.
 
@@ -378,7 +379,7 @@ pub fn restore(switch: &SwitchPlaces, skills: &SkillPlaces, id: &str) -> Result<
 
 ### Gate N: naming brief (stop for Karthik)
 
-- [ ] Contribute this plan's entries to the batched naming round (design §7: "one batched naming brief"). Research each label, with precedents from the engines, mcpick and macOS:
+- [ ] Append this plan's section to `docs/plans/2026-11-28-naming-round.md` and stop for sign-off (design §7). Research each label, with precedents from the engines, mcpick and macOS:
   - The **profile noun**. Not "Profile": the pane was renamed "Global" away from it, the file is still `ProfilePane.tsx`, and Codex's `--profile <name>` is a config overlay. The research's candidates: Preset, Setup, Loadout. Check whether Claude Code or Gemini CLI use any candidate (the research did not check).
   - **"Recent changes"**, and the verbs Undo and Restore with the restore warning ("later edits to this file are overwritten"). The warning says what is overwritten, and that the restore can be undone.
   - Every other string Tasks 5 and 8 render: row lines per `source`/`via`/`direction`, the not-undoable reasons, the key row's project, the preview's three groups and the "turn everything else off" checkbox, the save field, the notice line after a load and after its Undo, and each `SwitchFailure` and profile error code shown.
@@ -410,6 +411,7 @@ pub fn restore(switch: &SwitchPlaces, skills: &SkillPlaces, id: &str) -> Result<
   - `nothing_is_said_before_the_list_arrives`: with `changes === null`, no empty-state line renders ("empty is a finding; pending is not").
 - [ ] **Step 2: Run** `npx vitest run src/components/RecentChanges.test.tsx` from the repo root. Expected: FAIL, because `RecentChanges` cannot be resolved.
 - [ ] **Step 3: Implement**, with the Gate N strings. Add a specimen to `DesignSystemPane.tsx` with a fixture in `designSystemFixtures.ts`, and a `.claude/DESIGN.md` paragraph citing the component by symbol.
+- [ ] **Step 3b: Regenerate the README figures.** This task adds a test file, so the `tests` figure moves. Run `~/.bun/bin/bun run src/__tests__/readmeCounts.ts`, then `npx vitest run src/__tests__/readme-sync.test.ts` from the repo root. Expected: PASS. Add `README.md` to the commit.
 - [ ] **Step 4: Run** `npx vitest run`, then `bunx tsc --noEmit` (report the exit code). Expected: PASS, exit 0, `design-system-coverage` and `no-off-token-styles` green.
 - [ ] **Step 5: Commit** the files above by explicit path, with `src/App.tsx` by hunk if touched: `feat(recent): the Recent changes list, with Undo and a confirmed restore`.
 
@@ -572,6 +574,7 @@ pub fn loads_dir(data_dir: &Path) -> PathBuf;
   - `save_shows_the_name_error_without_a_dialog`: `save_profile` rejecting with `"already_there"` shows the Gate N line inline, with a replace option, and `window.confirm` is never called.
 - [ ] **Step 2: Run** `npx vitest run src/hooks/useMcpSwitch.test.ts src/components/ProfilePreview.test.tsx src/components/ProfileControl.test.tsx`. Expected: FAIL (`loadProfile is not a function`; components not found).
 - [ ] **Step 3: Implement**, with a Design system specimen and a `DESIGN.md` paragraph.
+- [ ] **Step 3b: Regenerate the README figures.** This task adds a test file, so the `tests` figure moves. Run `~/.bun/bin/bun run src/__tests__/readmeCounts.ts`, then `npx vitest run src/__tests__/readme-sync.test.ts` from the repo root. Expected: PASS. Add `README.md` to the commit.
 - [ ] **Step 4: Run** `npx vitest run` and `bunx tsc --noEmit`. Expected: PASS, exit 0.
 - [ ] **Step 5: Commit** by explicit path, with `src/App.tsx` by hunk if touched: `feat(profiles): save and load a profile from the card, with a preview and one Undo`.
 
@@ -629,7 +632,7 @@ pub fn loads_dir(data_dir: &Path) -> PathBuf;
 | Gate | What stops | Sits |
 |---|---|---|
 | Plan gate | `stage-gate --plan` on this file, by a fresh reviewer | Before Task 1 |
-| N: naming brief | The profile noun (not "Profile"), "Recent changes", Undo/Restore and the restore warning, every rendered string, each through `/humanizer`; Karthik signs off | Batched round, after Task 4, before Tasks 5 and 8 |
+| N: naming brief | The profile noun (not "Profile"), "Recent changes", Undo/Restore and the restore warning, every rendered string, each through `/humanizer`; Karthik signs off | Appended to `docs/plans/2026-11-28-naming-round.md`, after Task 4, before Tasks 5 and 8 |
 | L1: Recent changes layout | Options at true width; Karthik picks | After Gate N, before Task 5 |
 | L2: profile control, combined card round | This plan's part of the card round (with S, W, K, P6), after P7's card lands | Before Task 8 |
 | V1: live check, Recent changes | Codex switch, Undo, restore and its Undo, by file diff, backups listing and screenshot; Claude Code key Undo after P2 merges, by `claude mcp get` | After Task 5 |
