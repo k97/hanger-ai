@@ -365,3 +365,20 @@ fn public_name_strips_control_characters_and_caps_at_128() {
     assert!(cut.ends_with('…'));
     assert_eq!(tools::public_name(&"z".repeat(128)), "z".repeat(128), "exactly 128 is not cut");
 }
+
+/// stdout belongs to the protocol: one stray line breaks the engine's
+/// connection. Nothing under `src/mcp_server/` may print.
+#[test]
+fn the_server_module_never_prints() {
+    let dir = concat!(env!("CARGO_MANIFEST_DIR"), "/src/mcp_server");
+    let mut read = 0;
+    for entry in fs::read_dir(dir).unwrap() {
+        let path = entry.unwrap().path();
+        let text = fs::read_to_string(&path).unwrap();
+        read += 1;
+        for (n, line) in text.lines().enumerate() {
+            assert!(!line.contains("println!") && !line.contains("print!("), "{}:{} prints: {line}", path.display(), n + 1);
+        }
+    }
+    assert!(read >= 4, "read {read} files under {dir}");
+}

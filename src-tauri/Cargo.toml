@@ -54,6 +54,10 @@ tauri-plugin-log = "2.9.0"
 tauri-plugin-clipboard-manager = "2"
 tauri-plugin-updater = "2"
 tauri-plugin-mcp-bridge = "0.13"
+# Hanger's own MCP server (src/mcp_server), the official Rust SDK. `server`
+# is the handler and service; `transport-io` is stdio. No `macros`: the five
+# tools are declared by hand, so each keeps its title and a fixed schema.
+rmcp = { version = "3.12", default-features = false, features = ["server", "transport-io"] }
 
 # AppKit access for the dev-only Dock icon override (see src/dev_icon.rs).
 # Already in the tree via tauri; naming them here just makes them reachable.
