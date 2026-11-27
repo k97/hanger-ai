@@ -97,8 +97,8 @@ hanger mark in the rail and nothing else; the token's own comment forbids it
 as a UI state. `--gel-aqua` (`tokens.css:38`, `:179`) is a brand-family
 gradient painted by `GelMeter` and by the legend dots beside it that mirror
 its segments, and marks only a share that is actually true: the linked
-share in the asset strip's meter, and nothing else — `SummaryStrip.tsx:64`
-is the one segment carrying `aqua`, `:233` the legend dot that mirrors it —
+share in the link-state meter, and nothing else — `SummaryStrip.tsx` →
+`SEGMENTS` has the one segment carrying `aqua`, and the legend dot that mirrors it —
 never an all-quiet or empty state (Karthik's ruling, 2026-08-15).
 
 **That ruling's MCP extension is withdrawn, 2026-08-28.** From `a066c9e`
@@ -201,15 +201,15 @@ rulings recorded in `src/__tests__/type-roles.test.ts:9`, 2026-08-27):
 | 12 | secondary — captions, mono values, paths, chips, counts, foot and stamp lines | `--ink-1` for `rowMonoClass` values, `--ink-2` / `--ink-3` for captions and grey mono labels | `text-small` | `captionClass`, `rowMonoClass`, `monoLabelClass` (`typeRoles.ts`); the pane lists' group heads (`GroupHead.tsx`) |
 | 11 | filled badges and chips | `--ink-3` | `text-micro` | e.g. the inspector list's scope pill (`Flyout.tsx:868`) |
 | 16 | titles and top content headings | `--ink-1` | `text-lg-app` | the inspector's title `h2` (`Flyout.tsx:654`), a document's `#` and `##` (`MarkdownDoc.tsx:89`); `###` and deeper step down to `sectionHeadClass` (`:93`) |
-| 32 | display — the big stat numeral | `--ink-1` | `text-display` | `SummaryStrip.tsx:191` |
+| 32 | display — the big stat numeral | `--ink-1` | `text-display` | `OverviewCard.tsx`, `NeedsReviewPane.tsx` |
 
 Four leadings sit beside the scale as tokens, not arbitrary per-call values —
 `--lh-body: 20px`, `--lh-caption: 16px`, `--lh-code: 18px`, `--lh-display: 35px`
 (`tokens.css:80-83`), registered as `--leading-body`, `--leading-caption`,
 `--leading-code`, `--leading-display` (`index.css:109-112`) and consumed as
 the utilities `leading-body`, `leading-caption`, `leading-code`,
-`leading-display` — the last for the 32px strip figure
-(`SummaryStrip.tsx:191`, `NeedsReviewPane.tsx:101`, `DesignSystemPane.tsx:233`).
+`leading-display` — the last for the 32px stat figure
+(`OverviewCard.tsx`, `NeedsReviewPane.tsx`, `DesignSystemPane.tsx`).
 `src/__tests__/leading-tokens.test.ts` pins both the token values and their
 `@theme` registration.
 
@@ -283,7 +283,7 @@ the toolbar buttons, the filter chips (`CategoryFilterCards.tsx:17`).
 Card surfaces on content panes — the summary strip, list/table containers,
 empty-state placeholders, the link map canvas — carry no fill: the `--line`
 border and radius draw the edge alone (Karthik's ruling, 2026-08-15; e.g.
-`SummaryStrip.tsx`, `ProfilePane.tsx`, `NeedsReviewPane.tsx`,
+`OverviewCard.tsx`, `ProfilePane.tsx`, `NeedsReviewPane.tsx`,
 `DiscoveryPane.tsx`, `LinkMapPane.tsx`). Sticky table headers are `bg-page`
 so rows scrolling beneath stay hidden. `--plane` remains the fill of the
 shell's left column (rail + source list), of control chrome (the filter
@@ -1009,7 +1009,7 @@ Pinned by `ProfilePaneIntegration.test.tsx`, `RepoPaneIntegration.test.tsx`,
 
 **The Global pane's summary is the overview card** (`OverviewCard`,
 Surfaces and controls, below) since Task 7 of
-`docs/plans/2026-11-26-overview-card.md`: Global draws no `SummaryStrip`.
+`docs/plans/2026-11-26-overview-card.md`: Global draws no summary strip.
 With All engines the card's second section is the store, its total and the
 link-state legend; with an engine picked it is that engine's budget, from
 `switchCopy.ts` → `engineStripHeadline` and `engineBandFigures`, with MCP
@@ -1027,7 +1027,7 @@ counts went with `get_mcp_engine_summary` on 2026-11-25.
 
 **A repository's summary is the overview card too**, since Task 6 of
 `docs/plans/2026-11-27-repo-view-parity.md` (round 29, layout A), which
-took its `SummaryStrip` and `HeroBand` off the screen. The card's first
+took the summary strip and the hero band off the screen (both retired in Task 7). The card's first
 section is "By engine": one row per engine with its asset count ("96
 assets", "1 asset"), not buttons and no All engines row, sorted `none` last
 then count descending (`RepoPane.tsx` → `engineRows`). The store section is
@@ -1058,7 +1058,7 @@ card's own section.
 - Scan warnings, on a project pane: one line per non-TCC warning, "The scan
   skipped something it could not read.", the warning itself as the detail
   (`RepoPane.tsx:287-291`). The macOS TCC panel is untouched and still
-  stands above the list plane (`RepoPane.tsx:594`).
+  stands above the list plane (`RepoPane.tsx` → the TCC panel).
 - Nested repositories: the overview card's own section above its actions,
   "3 nested repos are counted in ‹folder›" / "1 nested repo is counted in
   ‹folder›", with the paths (scrolling inside the card past 120px; nothing
@@ -1657,116 +1657,20 @@ map view's toolbar slot holds Rescan instead of the inspector toggle
 
 ### Surfaces and controls
 
-**`SummaryStrip`** (`SummaryStrip.tsx`) — `total`, `subtitle`,
-`scannedAt`, `scanning`, `counts`, `activeStateFilter`, `onFilterState`,
-`onRescan?`, `review?: StripReview` and `children?: ReactNode`. A
-repository's summary; Global's is the overview card since Task 7 of
-`docs/plans/2026-11-26-overview-card.md`, and the strip's engine mode
-(`engine?: EngineStripFigures`, one engine's budget by kind) went with it:
-nothing else passed it, and the card's engine section draws those figures
-now. `EngineStripFigures` and `StripSegment` moved to `OverviewCard.tsx`.
-`total` is a figure or `null`, which leaves the numeral out. `children` is
-the slot a project pane's band renders into. `review` is `StripReview` —
+**`LinkStateLegend`** and **`StripReview`** (`SummaryStrip.tsx`) — what is
+left of the summary strip. `SummaryStrip` and `HeroBand` were retired in Task
+7 of `docs/plans/2026-11-27-repo-view-parity.md` once the overview card drew
+a repository's summary too; the file keeps the two exports that card, the
+Global pane and the repository pane still import. `LinkStateLegend`
+(`counts`, `active`, `onFilter`, `trailing?`) is the link-state meter and its
+legend, each of linked, drifted, broken and local only a toggle that filters
+the list. The overview card's store section draws it with nothing trailing
+(round 14 q2), so every place that shows the store's link state shares one
+set of labels and one look. `StripReview` is the Needs review pill's shape —
 `count`, `lines`, `actions?` — where `count` is "counted where the lines are
 built, and allowlisted there, never derived here", and every action is a
-button the caller puts inside the popover. Two contracts are stated in the
-props themselves: `total` is "Backend-owned asset total for the scope —
-never derived on the frontend", and Rescan lives here rather than in the
-toolbar because it is the control that changes the figure directly above
-it.
-
-The link-state meter and legend are a named export, `LinkStateLegend`
-(`counts`, `active`, `onFilter`, `trailing?`), moved out of the strip's
-link-state branch unchanged on 2026-11-26. The strip passes its Rescan and
-pill as `trailing`; the overview card's store section draws the same export
-with nothing trailing (round 14 q2), so the two places that show the store's
-link state share one set of labels and one look.
-
-*The headline is one line, and `scannedAt` no longer prints in it.* The
-subtitle carries `min-w-0 truncate` and its own text as a `title` (`:194`)
-— a flex item's `min-width` is `auto`, so without `min-w-0` it refuses to
-shrink below its text and the row wraps, which made the whole banner a line
-taller as the pane narrowed. The `ScanStamp` that used to close that row
-went to the foot line on 2026-08-29 (Karthik's ruling); the strip keeps the
-age as Rescan's `title` instead, through `useScanStampText` (`:93`, `:116`),
-so the control that changes the figure is also where its age is reachable.
-Rescan and the pill were tried in this row the same day and sent back down
-to the legend row, where they were — the position is pinned by
-`summary_strip.test.tsx` now rather than assumed.
-
-*Below 640px both controls shrink.* The `<section>` carries `@container`
-(`:182`); Rescan's label sits in a `hidden @[640px]:inline` span
-(`:120-122`) and the button widens from a 30px circle to `min-w-[108px]` at
-the same threshold (`:117`), while the pill carries both spellings and
-shows one — "Needs review ‹n›" wide, "Review ‹n›" narrow (`:148-153`,
-Karthik's ruling, 2026-08-29). 640 is where the legend, Rescan and the pill
-stop fitting on one row: measured off the running app at 1024×700, legend
-362px + Rescan 108 + pill 127, plus the gaps and the strip's `px-4`.
-Shrunk, the same row fits down to about 533px, which covers the default
-window with the inspector open. The pill takes no `aria-label`: its
-accessible name is whichever spelling is displayed, which is the property
-to keep (WCAG 2.5.3), and one would also make it a second
-`getByLabelText(/^Needs review/)` match beside the rail's nav item.
-`happy-dom` lays nothing out and applies no CSS, so
-`summary_strip.test.tsx` pins all of this as a class contract — the widths,
-and which spelling is read, are settled by screenshot
-(`verification.md`).
-
-**`HeroBand`** (`HeroBand.tsx:29-38`) — `label`, `open`, `onToggle`, `rows`,
-`note?`, `foot?`, `trailing?`. The hero's foldable band, drawn inside
-`SummaryStrip`'s `children` slot: "By engine" on a project pane (Karthik's
-ruling, 2026-08-28; the component's own docstring). It was Global's MCP hero
-band too until the engine lens replaced it with the engine chips
-(`docs/plans/2026-11-25-ia-global-by-engine.md`); `filter` and `trailing`
-have no caller since.
-
-*Anatomy.* A `mt-3 pt-3 border-t border-line` band beneath the strip's second
-row, opened by a 26px button that takes the header line's width less
-`trailing` — controls that cannot sit inside the fold's own button, which
-the Global hero used for its filter chip and Measure all — carrying a chevron that
-rotates 90° when open, the label, and then one of two things (`:43-64`).
-Collapsed, that is one line: every row's 13px `BrandIcon` beside its figure
-in `rowMonoClass` (`:55-62`). Open, it is the `note` beside the label (`:53`)
-and, beneath, the inspector's key-value rows without the card — a
-`grid-cols-1 @[680px]:grid-cols-2 gap-x-6` of `min-h-8 py-[7px] border-t
-border-line` rows, each mark, name in `text-base-app` (with the name as its
-own `title`, for when it is cut), optional `secondary` caption, and the
-figure with its unit word pushed right by `ml-auto`. The band is its own
-`@container`: two columns at the default window with the inspector open cut
-every engine name to "Cla…" (F1, 2026-11-25), so it takes one column until
-it is 680px wide. The grid's opening line drops its top border — the first
-row always, the second only at two columns (`@[680px]:border-t-0`). `foot`
-is a `col-span-full` last row for something that is not a row of figures —
-the project pane's nested-repo notice and its `Promote…`. Class contracts in
-`HeroBand.test.tsx`; the widths are settled by screenshot.
-
-*A row is `HeroBandRow`* — `key`, `engineKey`, `engineName`, `secondary?`,
-`value: number | string | null`, `word`, `filter?`. A string `value` is a
-figure already formatted ("≈ 12,400"). With `filter` the open row is a
-`<button>` with `aria-pressed`, `bg-tint` while pressed and `hover:bg-plane-2`
-otherwise, disabled when its `onPress` is null. `engineKey` reaches `BrandIcon`
-untouched: hyphenated MCP host ids and underscored asset engine keys are both
-correct and neither is normalised here (`:16-18`). A `null` `value` renders
-an em dash in both states, with `word` saying what is unknown ("Not
-measured") — never a zero the screen would have to explain away.
-
-*States.* Two, and the fold is all of it. `open` is a prop, persisted by App
-as `engines_band_open`, so the choice survives a rebuild of the pane
-(`hosts_band_open`, Global's, is no longer read or written). A project
-pane's rows have no hover state and none is a destination; there the fold is
-the only control.
-
-*Tokens.* `border-line` for every rule, `text-ink-1` for the label and the
-names, `captionClass` for the note, the secondary and the unit word,
-`rowMonoClass` for the figures, `text-ink-3` for the chevron, with
-`duration-hover ease-spring` on its rotation (`:50`). No ground of its own:
-the band is a rule and rows on the hero's plane.
-
-*Deliberately absent: "+N more".* The collapsed line shows every row rather
-than the first few and a remainder, because a remainder is a count the
-frontend made and every figure on screen is a backend field
-(`invariants.md`). The docstring says so where the decision would otherwise
-look like an oversight (`:11-12`).
+button the caller puts inside the popover. The legend's two filter cases are
+pinned by `summary_strip.test.tsx`.
 
 **`GelMeter`** (`GelMeter.tsx`) — the design system's one meter: a glassy
 retro-Aqua gel on a recessed track (`--gel-gloss`, `--gel-aqua`,
@@ -1776,8 +1680,8 @@ sets the segment's flex share, zero-count segments are omitted, and `aqua`
 may mark only a share that is actually true — the linked share, and nothing
 else since the MCP extension was withdrawn on 2026-08-28 (§1). `GelMeter`'s
 own comment has not caught up: it still names an answered share as a second
-permitted use (`GelMeter.tsx:10-14`), and nothing passes it one. Both strips draw through it
-(`SummaryStrip.tsx`, `NeedsReviewPane.tsx`); a proportional bar styled by
+permitted use (`GelMeter.tsx:10-14`), and nothing passes it one. Both draw through it
+(`SummaryStrip.tsx` → `LinkStateLegend`, `NeedsReviewPane.tsx`); a proportional bar styled by
 hand is a divergence, not a variant. The glass is painted with stacked
 gradients, not cast — `--overlay-shadow` belongs to the map's overlays and
 `--capsule-shadow` (§3) to the segmented track's capsule; neither elevation
@@ -2261,8 +2165,8 @@ only branch a test here ever runs. The shift is settled by a screenshot at a
 window narrow enough to force it, not by the suite.
 
 *`top` is the gap under the trigger.* 30 by default, for the 26px chip; the
-strip's 30px pill passes 34 for the same 4px gap (`:29-31`,
-`SummaryStrip.tsx:154-164`).
+strip's 30px pill passed 34 for the same 4px gap (`:29-31`) before
+the strip was retired.
 
 *The 240px cap is on the list, not the panel* (`:101-106`), so the caller's
 action row stays visible while a long list scrolls — one root can raise
@@ -2991,7 +2895,7 @@ above). Nothing detects that either.
 **And since 2026-08-28 the rule has no production caller to govern.**
 `ProfilePane` lost its undeclared-processes banner and `RepoPane` its
 scan-warnings and nested-repos pair; those diagnostics are the review pill's
-popover lines and the hero band's foot row now (§5, Panes). The only
+popover lines and the overview card's own sections now (§5, Panes). The only
 `<DisclosureBanner>` left anywhere in `src/components/` is the design-system
 page's own specimen (`DesignSystemPane.tsx:859-871`), which renders in dev
 builds only. That is the fact recorded here; what follows from it is not
@@ -3113,7 +3017,7 @@ the sprite, Codex's dark twin included. Every
 component on the page is the real one, imported and rendered with sample
 props from `src/data/designSystemFixtures.ts`: `GelMeter`, `MechanismGlyph`,
 `EngineReachTiles`, `EngineLabel`/`BrandIcon`, `CategoryFilterCards`,
-`DisclosureBanner`, `Tooltip`, `ui/hover-card`, `SummaryStrip`,
+`DisclosureBanner`, `Tooltip`, `ui/hover-card`, `LinkStateLegend`,
 `ScanStatusIndicator`, `HangerMark`, `EmptyState`; and, since 2026-08-28,
 the twelve that had landed after the page without a specimen —
 `SegmentedTrack` (its specimen became `ui/tabs`'s on 2026-11-26), `UnderlineTabs`, `ViewControl`, `OverflowMenu`,
@@ -3122,7 +3026,7 @@ the twelve that had landed after the page without a specimen —
 beside them; `InspectorCap`, `ListCard`, `ReachCard`, `OriginValue`,
 `ScanStamp`, `SearchPalette` under Components; plus the two that landed the
 same day, `FindingPopover` under Controls (`DesignSystemPane.tsx:748-771`)
-and `HeroBand` under Components (`:1001-1018`). `OverviewCard` joined
+and, until Task 7 retired it, `HeroBand` under Components. `OverviewCard` joined
 Components on 2026-11-26 with three specimens: an engine picked, All
 engines, and before the first scan. Task 3 of
 `docs/plans/2026-11-26-global-list.md` added `CollapsibleGroup` under

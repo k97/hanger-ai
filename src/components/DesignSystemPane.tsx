@@ -11,7 +11,7 @@ import Tooltip from "./Tooltip";
 import GroupHead from "./GroupHead";
 import { repoRowDetail, repoRowFigure } from "../utils/listRowCopy";
 import ListRow from "./ListRow";
-import SummaryStrip from "./SummaryStrip";
+import { LinkStateLegend } from "./SummaryStrip";
 import OverviewCard, { type OverviewCardProps } from "./OverviewCard";
 import OverviewPopover from "./OverviewPopover";
 import OverviewHost from "./OverviewHost";
@@ -38,7 +38,6 @@ import ReachCard from "./ReachCard";
 import ReviewPillActions from "./ReviewPillActions";
 import OriginValue from "./OriginValue";
 import ScanStamp from "./ScanStamp";
-import HeroBand from "./HeroBand";
 import NotLoadedGroup from "./NotLoadedGroup";
 import KeptSkillsGroup from "./KeptSkillsGroup";
 import GroupTicks, { groupHead, type TickGroup } from "./GroupTicks";
@@ -92,7 +91,6 @@ import {
   SAMPLE_EDITORS,
   SAMPLE_FINDINGS,
   SAMPLE_FINDING_LINES,
-  SAMPLE_ENGINE_BAND_ROWS,
   SAMPLE_ENGINES,
   SAMPLE_ENGINE_STRIP,
   SAMPLE_REPO_ENGINE_COUNTS,
@@ -502,7 +500,6 @@ export default function DesignSystemPane({ section }: DesignSystemPaneProps) {
   const [tab, setTab] = useState(SAMPLE_TABS[0].id);
   const [grouping, setGrouping] = useState<ServerGrouping>("server");
   const [sort, setSort] = useState<ServerSort>("attention");
-  const [heroOpen, setHeroOpen] = useState(true);
   // The overview popover's specimen: its own sample trigger and open state.
   const [overviewOpen, setOverviewOpen] = useState(false);
   // The Toggle specimen's pressed state.
@@ -1078,32 +1075,8 @@ export default function DesignSystemPane({ section }: DesignSystemPaneProps) {
           label="Composites"
           lede="Imported, not imitated. Each specimen is the component the panes render, fed sample props; captions name the file."
         >
-          <Specimen name="SummaryStrip" file="SummaryStrip.tsx" note="a repository's summary: the total, the strip's GelMeter and link-state legend, whose toggles filter the list; Needs review opens the popover. Global's is the overview card since Task 7">
-            <SummaryStrip
-              total={SAMPLE_COUNTS.total}
-              subtitle="assets in sample-repo · 6 engines"
-              scannedAt={scannedAt}
-              scanning={false}
-              counts={SAMPLE_COUNTS}
-              activeStateFilter={stateFilter}
-              onFilterState={setStateFilter}
-              onRescan={() => {}}
-              review={{
-                count: 2,
-                lines: [
-                  { severity: "warning", text: SAMPLE_REVIEW_ISSUE.problem, detail: SAMPLE_REVIEW_ISSUE.name },
-                  { severity: "danger", text: SAMPLE_FINDING_LINES[1] },
-                ],
-                actions: (
-                  <ReviewPillActions
-                    issues={[SAMPLE_REVIEW_ISSUE]}
-                    stateFilter={stateFilter}
-                    onStateFilterChange={setStateFilter}
-                    onReview={() => {}}
-                  />
-                ),
-              }}
-            />
+          <Specimen name="LinkStateLegend" file="SummaryStrip.tsx" note="the link-state meter and its legend, in the overview card's store section and a repository's card: GelMeter above linked, drifted, broken and local only, each a toggle that filters the list">
+            <LinkStateLegend counts={SAMPLE_COUNTS} active={stateFilter} onFilter={setStateFilter} />
           </Specimen>
 
           <Specimen name="OverviewCard · an engine picked" file="OverviewCard.tsx" note="Global's overview, at T3's size: 280px, frosted, a --line border, docked at the list's top right when there is room or in the window bar's popover. Every engine as a 32px row, ranked by its tokens every session, Not measured last; the picked engine by kind on 24px meter rows, a 3px line-tone GelMeter with an end tick, only MCP measured in Phase 1; then Needs review and Rescan">
@@ -1447,17 +1420,6 @@ export default function DesignSystemPane({ section }: DesignSystemPaneProps) {
                   <KeptSkillDetail skill={skill} />
                 </div>
               ))}
-            </div>
-          </Specimen>
-
-          <Specimen name="HeroBand" file="HeroBand.tsx" note="the hero's foldable band, by engine on a project pane, in assets; press the row to fold it">
-            <div className="max-w-[384px] p-3 border border-line rounded-inner">
-              <HeroBand
-                label="By engine"
-                open={heroOpen}
-                onToggle={() => setHeroOpen((v) => !v)}
-                rows={SAMPLE_ENGINE_BAND_ROWS}
-              />
             </div>
           </Specimen>
 

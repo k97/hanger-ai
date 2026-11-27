@@ -16,7 +16,7 @@ vi.mock("@tauri-apps/api/event", () => ({
  *  A component added to the app and not to this list is not on the page —
  *  that is the omission this pins, and the reason the list is explicit. */
 const INVENTORY = [
-  "SummaryStrip",
+  "LinkStateLegend",
   "ReviewPillActions",
   "GelMeter",
   "MechanismGlyph",
@@ -44,7 +44,6 @@ const INVENTORY = [
   "ReachCard",
   "OriginValue",
   "ScanStamp",
-  "HeroBand",
   "SearchPalette",
   "SwitchNotice",
 ];
