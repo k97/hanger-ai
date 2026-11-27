@@ -81,14 +81,14 @@ const CODEX: &str = "[mcp_servers.alpha]\ncommand = \"alpha-server\"\n";
 
 fn skill(dir: &Path, name: &str) -> Skill {
     fs::create_dir_all(dir).unwrap();
-    let file = dir.join("SKILL.md");
-    fs::write(&file, "---\nname: x\ndescription: d\n---\nbody\n").unwrap();
+    fs::write(dir.join("SKILL.md"), "---\nname: x\ndescription: d\n---\nbody\n").unwrap();
+    // A skill's path is its folder, as the scanner stores it.
     Skill {
-        id: file.to_string_lossy().to_string(),
+        id: dir.to_string_lossy().to_string(),
         name: name.to_string(),
         description: "d".to_string(),
         version: "1.0.0".to_string(),
-        path: file.to_string_lossy().to_string(),
+        path: dir.to_string_lossy().to_string(),
         source_origin: None,
         scope: Some(Scope::Global { agent: "claude".to_string() }),
         drifted: None,
@@ -104,7 +104,7 @@ fn skill(dir: &Path, name: &str) -> Skill {
 
 /// A canonical fixture root holding `home/` and `system/`, and, when `store`
 /// is set, a store at `data_dir_for(home)/hanger.db`. `skills` are global
-/// skills under `~/.agents/skills/<name>/SKILL.md`, by folder and name.
+/// skills in folders under `~/.agents/`, by folder and name.
 fn fixture(store: bool, scanned: bool, skills: &[(&str, &str)]) -> Fixture {
     let dir = tempfile::tempdir().unwrap();
     let root = fs::canonicalize(dir.path()).unwrap();
@@ -121,7 +121,7 @@ fn fixture(store: bool, scanned: bool, skills: &[(&str, &str)]) -> Fixture {
         let root_id = s.upsert_root("engine_global", agents.to_str().unwrap(), None, ".agents", t).unwrap();
         let mut inventory = Inventory::default();
         for (folder, name) in skills {
-            let sk = skill(&agents.join("skills").join(folder), name);
+            let sk = skill(&agents.join(folder), name);
             s.upsert_asset(root_id, None, "skill", "global", name, &sk.path, None, None, "ok", None, t, t).unwrap();
             inventory.skills.push(sk);
         }
@@ -189,14 +189,14 @@ fn all_five() -> Value {
         ["list_engines"],
         ["engine_context", "codex"],
         ["find_assets", "x", 10],
-        ["reach", "~/.agents/skills/a/SKILL.md"],
+        ["reach", "~/.agents/skills/a"],
         ["findings"]
     ])
 }
 
 #[test]
 fn every_read_tool_refuses_before_the_first_scan() {
-    for (f, has_store) in [(fixture(true, false, &[("a", "a")]), true), (fixture(false, false, &[]), false)] {
+    for (f, has_store) in [(fixture(true, false, &[("skills/a", "a")]), true), (fixture(false, false, &[]), false)] {
         let replies = f.run(all_five(), &[]);
         assert_eq!(replies.len(), 5);
         for r in &replies {
@@ -220,7 +220,7 @@ fn an_empty_scanned_store_answers_empty_not_pending() {
 
 #[test]
 fn list_engines_counts_come_from_the_store() {
-    let f = fixture(true, true, &[("a", "alpha-skill"), ("b", "beta-skill")]);
+    let f = fixture(true, true, &[("skills/a", "alpha-skill"), ("skills/b", "beta-skill")]);
     let r = f.one(serde_json::json!(["list_engines"]));
     let engines = &r["Ok"]["result"];
     let conn = tauri_app_lib::store_read::open_read_only(&f.db).unwrap();
@@ -267,7 +267,7 @@ fn an_unknown_engine_is_not_found() {
 
 #[test]
 fn find_assets_rejects_a_limit_of_zero_and_of_fifty_one() {
-    let f = fixture(true, true, &[("a", "alpha")]);
+    let f = fixture(true, true, &[("skills/a", "alpha")]);
     let r = f.run(serde_json::json!([["find_assets", "alpha", 0], ["find_assets", "alpha", 51], ["find_assets", "alpha", 50]]), &[]);
     assert_eq!(r[0], serde_json::json!({ "Err": "bad_argument" }));
     assert_eq!(r[1], serde_json::json!({ "Err": "bad_argument" }));
@@ -276,32 +276,34 @@ fn find_assets_rejects_a_limit_of_zero_and_of_fifty_one() {
 
 #[test]
 fn find_assets_returns_no_snippet() {
-    let f = fixture(true, true, &[("a", "alpha")]);
+    let f = fixture(true, true, &[("skills/a", "alpha")]);
     let r = f.one(serde_json::json!(["find_assets", "alpha", 10]));
     let hit = &r["Ok"]["result"]["assets"][0];
     assert_eq!(hit["name"], "alpha");
-    assert_eq!(hit["path"], "~/.agents/skills/a/SKILL.md");
+    assert_eq!(hit["path"], "~/.agents/skills/a");
     assert!(hit.get("snippet").is_none() && hit.get("rank").is_none(), "{hit}");
 }
 
 #[test]
 fn reach_answers_for_a_global_skill_by_its_sanitised_path() {
-    let f = fixture(true, true, &[("zeta-unique", "zeta-unique"), ("other", "other")]);
-    let r = f.one(serde_json::json!(["reach", "~/.agents/skills/zeta-unique/SKILL.md"]));
-    assert_eq!(r["Ok"]["result"]["asset_path"], "~/.agents/skills/zeta-unique/SKILL.md", "{r}");
+    let f = fixture(true, true, &[("skills/zeta-unique", "zeta-unique"), ("skills/other", "other")]);
+    let r = f.one(serde_json::json!(["reach", "~/.agents/skills/zeta-unique"]));
+    assert_eq!(r["Ok"]["result"]["asset_path"], "~/.agents/skills/zeta-unique", "{r}");
 }
 
 #[test]
 fn reach_of_a_path_hanger_has_not_annotated_is_not_found() {
-    let f = fixture(true, true, &[("a", "a")]);
-    assert_eq!(f.one(serde_json::json!(["reach", "~/.agents/skills/nope/SKILL.md"])), serde_json::json!({ "Err": "not_found" }));
+    let f = fixture(true, true, &[("skills/a", "a")]);
+    assert_eq!(f.one(serde_json::json!(["reach", "~/.agents/skills/nope"])), serde_json::json!({ "Err": "not_found" }));
 }
 
 #[test]
 fn reach_does_not_match_on_a_shared_basename() {
-    let f = fixture(true, true, &[("first", "first"), ("second", "second")]);
-    let r = f.one(serde_json::json!(["reach", "~/.agents/skills/second/SKILL.md"]));
-    assert_eq!(r["Ok"]["result"]["asset_path"], "~/.agents/skills/second/SKILL.md", "{r}");
+    // Two skills in folders of one name: a path that sanitised to its
+    // basename would match either.
+    let f = fixture(true, true, &[("skills/dup", "first"), ("more/dup", "second")]);
+    let r = f.one(serde_json::json!(["reach", "~/.agents/more/dup"]));
+    assert_eq!(r["Ok"]["result"]["asset_path"], "~/.agents/more/dup", "{r}");
 }
 
 #[test]
@@ -309,20 +311,20 @@ fn findings_name_a_failed_parse_without_its_parser_message() {
     let f = fixture(true, true, &[]);
     let s = PreferencesStore::new(&f.db).unwrap();
     let root = s.upsert_root("engine_global", f.home.join(".agents").to_str().unwrap(), None, ".agents", 1).unwrap();
-    let path = f.home.join(".agents/skills/bad/SKILL.md");
+    let path = f.home.join(".agents/skills/bad");
     s.upsert_asset(root, None, "skill", "global", "bad", path.to_str().unwrap(), None, None, "failed", Some("PARSE_MARKER"), 1, 1).unwrap();
     let r = f.one(serde_json::json!(["findings"]));
     assert!(!r.to_string().contains("PARSE_MARKER"), "{r}");
     let result = &r["Ok"]["result"];
     assert_eq!(result["unparsed_count"], 1);
     assert_eq!(result["unparsed"][0]["name"], "bad");
-    assert_eq!(result["unparsed"][0]["path"], "~/.agents/skills/bad/SKILL.md");
+    assert_eq!(result["unparsed"][0]["path"], "~/.agents/skills/bad");
 }
 
 #[test]
 fn a_name_with_a_newline_and_500_characters_leaves_as_one_line_of_at_most_128() {
     let long = format!("IGNORE PREVIOUS\n{}", "x".repeat(500));
-    let f = fixture(true, true, &[("long", long.as_str())]);
+    let f = fixture(true, true, &[("skills/long", long.as_str())]);
     let r = f.one(serde_json::json!(["find_assets", "IGNORE", 10]));
     let name = r["Ok"]["result"]["assets"][0]["name"].as_str().unwrap_or_else(|| panic!("no hit: {r}")).to_string();
     assert!(!name.contains('\n'), "{name:?}");
