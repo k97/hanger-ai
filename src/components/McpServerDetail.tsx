@@ -932,7 +932,9 @@ export default function McpServerDetail({
      launch that already has an answer is never asked again either way. */
   const asked = useRef<Set<string>>(new Set());
   const unanswered = specGroups
-    .filter((group) => !group.result)
+    // Opening the panel never starts a launch every engine has switched off; one
+    // with no switch entry counts as loaded, since Hanger cannot see otherwise.
+    .filter((group) => !group.result && group.regs.some((reg) => switches?.[reg.key]?.item.state !== "off"))
     .map((group) => `${group.regs[0].key}:${isRunning(group)}`);
   // The dependency is the serialised request list, not the array: `specGroups`
   // is rebuilt every render and would re-run this on every keystroke

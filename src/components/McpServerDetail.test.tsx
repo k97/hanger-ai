@@ -1556,6 +1556,54 @@ describe("McpServerDetail — lazy on open", () => {
     expect(onAutoProbe).toHaveBeenCalledWith("cc-user", false);
   });
 
+  // A switch entry shaped as `get_engine_context` sends an item (docs/ipc.md entry 15).
+  const offSwitch = (key: string, tier: "user" | "global") => ({
+    engineId: "claude-code",
+    engineName: "Claude Code",
+    busy: false,
+    item: {
+      key,
+      name: "spades-audio",
+      tier,
+      config_path: "~/.claude.json",
+      state: "off" as const,
+      read_only: null,
+      estimated_tokens: null,
+      tool_count: null,
+    },
+  });
+
+  it("never starts a launch that every one of its registrations has switched off", () => {
+    const onAutoProbe = vi.fn();
+    render(
+      <Harness
+        server={base}
+        onAutoProbe={onAutoProbe}
+        switches={{
+          "cc-user": offSwitch("cc-user", "user"),
+          "cc-global": offSwitch("cc-global", "global"),
+          "cd-global": offSwitch("cd-global", "global"),
+        }}
+      />
+    );
+    expect(onAutoProbe).not.toHaveBeenCalled();
+  });
+
+  it("still asks when one registration of the launch has no switch, because Hanger cannot know it is off", () => {
+    const onAutoProbe = vi.fn();
+    render(
+      <Harness
+        server={base}
+        onAutoProbe={onAutoProbe}
+        switches={{
+          "cc-user": offSwitch("cc-user", "user"),
+          "cc-global": offSwitch("cc-global", "global"),
+        }}
+      />
+    );
+    expect(onAutoProbe).toHaveBeenCalledTimes(1);
+  });
+
   it("asks one launch at a time when a server's hosts disagree, never both at once", () => {
     // Two versions of one server, both stopped, both about to be started by
     // Hanger in the same tick. For a port-bound or singleton server that is
