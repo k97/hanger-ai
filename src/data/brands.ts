@@ -11,6 +11,7 @@ import claudeCodeSvg from "@lobehub/icons-static-svg/icons/claudecode-color.svg?
 import codexSvg from "@lobehub/icons-static-svg/icons/codex-color.svg?raw";
 import codexMonoSvg from "@lobehub/icons-static-svg/icons/codex.svg?raw";
 import geminiSvg from "@lobehub/icons-static-svg/icons/gemini-color.svg?raw";
+import antigravitySvg from "@lobehub/icons-static-svg/icons/antigravity-color.svg?raw";
 import claudeSvg from "@lobehub/icons-static-svg/icons/claude-color.svg?raw";
 import cursorSvg from "@lobehub/icons-static-svg/icons/cursor.svg?raw";
 import windsurfSvg from "@lobehub/icons-static-svg/icons/windsurf.svg?raw";
@@ -31,6 +32,7 @@ export type BrandId =
   | "claude_code"
   | "codex"
   | "gemini"
+  | "antigravity"
   | "claude_desktop"
   | "claude_ai"
   | "vscode"
@@ -68,6 +70,10 @@ export const BRANDS: Record<BrandId, BrandMark> = {
   // The sparkle, not the CLI tile: the tile is illegible at 12px and the
   // label already says "Gemini CLI" (ruling 2026-08-15).
   gemini: { svg: geminiSvg, ink: false, source: "lobe" },
+  // The colour mark (Karthik's ruling, 2026-11-27, Q7 of
+  // docs/plans/2026-11-27-antigravity-engine.md). It carries a <mask> and
+  // blur <filter>s; svgSymbol.ts prefixes their ids like any other file.
+  antigravity: { svg: antigravitySvg, ink: false, source: "lobe" },
   claude_desktop: { svg: claudeSvg, ink: false, source: "lobe" },
   claude_ai: { svg: claudeSvg, ink: false, source: "lobe" },
   vscode: { svg: vscodeSvg, ink: false, source: "vendored" },
@@ -107,8 +113,11 @@ const ALIASES: Record<string, BrandId> = {
   openaicodex: "codex",
   gemini: "gemini",
   geminicli: "gemini",
+  // The one engine's label before the split (2026-11-27), still in any store
+  // that has not rescanned since.
   geminiantigravity: "gemini",
-  antigravity: "gemini",
+  antigravity: "antigravity",
+  antigravitycli: "antigravity",
   claudedesktop: "claude_desktop",
   claudeai: "claude_ai",
   vscode: "vscode",
