@@ -15,10 +15,10 @@ it hasn't, rather than reporting an empty machine.
 
 Five tools. These are the descriptions the engine's model reads:
 
-- **`list_engines`**: Lists the engines Hanger finds on this Mac. For each engine that declares MCP servers, says how many are on and how many are off, and what the ones Hanger has measured cost in tokens. Engine folders and config files are read when you call this; the asset totals come from Hanger's last scan. Antigravity's MCP servers are not read.
+- **`list_engines`**: Lists the engines Hanger finds on this Mac. For each engine that declares MCP servers, says how many are on and how many are off, and what the ones Hanger has measured cost in tokens. Engine folders and config files are read when you call this; the asset totals come from Hanger's last scan.
 - **`engine_context`**: Lists one engine's MCP servers: each server's name, its config file, whether it is on, and its tool count and token cost if Hanger has measured it. Reads the engine's config files when you call this. Launch commands, arguments and environment values are left out. Takes an engine_id from list_engines.
 - **`find_assets`**: Searches the names and text of the skills, rules, subagents and MCP servers in Hanger's last scan, and the tools of servers Hanger has measured. Returns up to 50 matches, each with its kind, name, path and where it lives. The matching text is not returned. Paths start with ~/.
-- **`reach`**: Says which engines read one asset in an engine's global folder, and through which folder link. Takes the asset's path as find_assets returns it. Assets in project folders aren't covered. Uses Hanger's last scan, and checks links on disk when you call it.
+- **`reach`**: Says which engines read one asset in an engine's global folder, and through which folder link. Takes the asset's id as find_assets returns it. Assets in project folders aren't covered. Uses Hanger's last scan, and checks links on disk when you call it.
 - **`findings`**: Lists broken and drifted links in engines' global folders, and files Hanger couldn't parse in any folder, from Hanger's last scan. Duplicates and drift in project folders are left out, so this is less than Hanger's Needs review list. Parser messages are not returned.
 
 ## What never leaves it

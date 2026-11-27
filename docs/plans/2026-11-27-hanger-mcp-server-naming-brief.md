@@ -59,7 +59,7 @@ Recommended: Set these five titles
 
 Where: `tools/list` → `description` of `list_engines`. Models read it to decide when to call the tool.
 Before: (new)
-After: "Lists the engines Hanger finds on this Mac. For each engine that declares MCP servers, says how many are on and how many are off, and what the ones Hanger has measured cost in tokens. Engine folders and config files are read when you call this; the asset totals come from Hanger's last scan. Antigravity's MCP servers are not read."
+After: "Lists the engines Hanger finds on this Mac. For each engine that declares MCP servers, says how many are on and how many are off, and what the ones Hanger has measured cost in tokens. Engine folders and config files are read when you call this; the asset totals come from Hanger's last scan." *(amended 2026-11-27, round 39: the Antigravity sentence is deleted)*
 
 - [ ] As written — says which half is live and which half is the last scan
 - [ ] Shorter: "Lists the engines on this Mac, their MCP servers on and off, and Hanger's asset totals." — reads easier, hides that the totals can be older than the server counts
@@ -100,7 +100,7 @@ Recommended: As written
 
 Where: `tools/list` → `description` of the tool the plan calls `reach`.
 Before: (new)
-After: "Says which engines read one asset in an engine's global folder, and through which folder link. Takes the asset's path as find_assets returns it. Assets in project folders aren't covered. Uses Hanger's last scan, and checks links on disk when you call it."
+After: "Says which engines read one asset in an engine's global folder, and through which folder link. Takes the asset's id as find_assets returns it. Assets in project folders aren't covered. Uses Hanger's last scan, and checks links on disk when you call it." *(amended 2026-11-27, round 39: "path" became "id", and the argument is `asset_id`)*
 
 - [ ] As written — "global folder" is the limit the annotations have (`annotations.rs`: project assets are not annotated)
 - [ ] Leave out the project-folder sentence — a project asset then answers "not found" with no reason given
@@ -149,7 +149,7 @@ Where: as above, for `not_found`, `bad_argument` and `slow_down`.
 Before: (new)
 After:
 - `not_found`: "Hanger has nothing under that engine id or path. list_engines and find_assets give ones it knows."
-- `bad_argument`: "limit must be from 1 to 50."
+- `bad_argument`: "Those arguments don't fit find_assets. It takes query, the text to search for, and an optional limit from 1 to 50." *(amended 2026-11-27, round 34: only find_assets' limit can be out of range, and it is checked with the other arguments, so this reads as that check does)*
 - `slow_down`: "More than 30 calls in 10 seconds. Wait a few seconds, then try again."
 
 `bad_argument` names `limit` because it is the only bounded argument in phase 1; a phase 2 argument brings its own wording back here. `slow_down` states the limit Task 3 builds (`RateLimit` at 30 per 10 s).
@@ -165,7 +165,7 @@ What do the server's instructions say, and how is the Antigravity gap worded?
 
 Where: the `instructions` field of the server's `initialize` / `server/discover` result. Engines that use it put it in the model's context once per session.
 Before: (new)
-After: "Read-only answers about the AI engines on this Mac and their skills, rules, subagents and MCP servers, from Hanger's store and the engines' config files. Most answers come from Hanger's last scan, and every reply carries as_of_ms, the time that scan finished. Paths start with ~/. Nothing here changes a file. Antigravity's MCP servers are not read."
+After: "Read-only answers about the AI engines on this Mac and their skills, rules, subagents and MCP servers, from Hanger's store and the engines' config files. Most answers come from Hanger's last scan, and every reply carries as_of_ms, the time that scan finished. Paths start with ~/. Nothing here changes a file." *(amended 2026-11-27, round 39: the Antigravity sentence is deleted)*
 
 Your Question 9 ruling was "Antigravity is not read" until T22 lands. Literally, Hanger does read part of Antigravity today: the engine in this tree is "Gemini / Antigravity" (`registry.rs` `HOSTS`, `agents.rs`), and its skills under `~/.gemini/skills` are scanned (`agents.rs` → `AGENT_CONFIGS`, `skills: Some("skills")`). What is unread is `~/.gemini/antigravity/mcp_config.json`, the Antigravity CLI's MCP servers (`docs/TODO.md` T22). "Antigravity is not read" would be false of those skills. The line appears in the instructions and in `list_engines`, the two places a model forms its picture of the machine, and T22's author removes both in T22's commit.
 
@@ -181,3 +181,20 @@ Recommended: "Antigravity's MCP servers are not read." in the instructions and `
 1. Tool names: **`list_engines`, `engine_context`, `find_assets`, `reach`, `findings`** (the plan's names, not the brief's `get_`/`list_` renames). The descriptions in Q4, Q6 and Q7 apply to `engine_context`, `reach` and `findings` respectively.
 2. to 9. **As written** (the recommendations): the five titles, the five descriptions, the four store refusals and the three argument refusals.
 10. **"Antigravity's MCP servers are not read."** in the instructions and `list_engines`. When T22 (`fix/antigravity-source`) merges, whichever branch merges second removes it (Karthik's MCP plan ruling Q9).
+
+## Amendments after sign-off
+
+`src-tauri/src/mcp_server/strings.rs` matches this brief word for word,
+including these lines, which no question above carried.
+
+**Round 34** (`docs/plans/2026-11-27-decisions-round-34.md`, amended 2026-11-27, round 39 for `reach`). What a call whose arguments don't fit its tool reads, as a tool error:
+
+- `list_engines`: "Those arguments don't fit list_engines. It takes none."
+- `engine_context`: "Those arguments don't fit engine_context. It takes engine_id, an id from list_engines."
+- `find_assets`: "Those arguments don't fit find_assets. It takes query, the text to search for, and an optional limit from 1 to 50."
+- `reach`: "Those arguments don't fit reach. It takes asset_id, an id as find_assets returns it." *(amended 2026-11-27, round 39)*
+- `findings`: "Those arguments don't fit findings. It takes none."
+
+A call to a tool that doesn't exist stays a protocol error: "Unknown tool: <name>" (round 34).
+
+**Round 39** (`docs/plans/2026-11-27-decisions-round-39.md`). `reach`'s argument is `asset_id`, and its description says "id". The Antigravity sentence is deleted from `list_engines` and the instructions, with nothing in its place.
