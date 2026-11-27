@@ -16,8 +16,11 @@
 import * as fs from "fs";
 import * as path from "path";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, cleanup } from "@testing-library/react";
+import { render, screen, cleanup, fireEvent } from "@testing-library/react";
+import { createRef } from "react";
 import App from "../App";
+import InspectorCap from "../components/InspectorCap";
+import type { AssetFindings } from "../utils/reviewIssues";
 
 let mockPreferences: Record<string, string> = {};
 
@@ -103,5 +106,53 @@ describe("The main window takes the first mouse", () => {
   it("declares acceptFirstMouse, so a background window drags on the first press", () => {
     const conf = JSON.parse(fs.readFileSync(path.join(process.cwd(), "src-tauri", "tauri.conf.json"), "utf8"));
     expect(conf.app.windows[0].acceptFirstMouse).toBe(true);
+  });
+});
+
+/** "deep" reaches everything rendered inside a cap, and the finding chip's
+ *  popover is rendered inside the inspector cap, not portalled. Its root is
+ *  role="dialog", which drag.js does not count as a control, so without an
+ *  opt-out a press on a finding's text dragged the window and a double-click
+ *  zoomed it (--dev review of 7c4efd4, finding 1). */
+describe("The finding popover inside the inspector cap", () => {
+  it("does not drag the window: its text and its body refuse the drag", () => {
+    const findings: AssetFindings = {
+      issues: [{
+        id: "Skills:broken:/repo/.claude/skills/code-review/SKILL.md",
+        name: "code-review",
+        category: "Skills",
+        kind: "broken",
+        problem: "Target missing",
+        path: "/repo/.claude/skills/code-review/SKILL.md",
+        whereLabel: "Global",
+        whereKeys: ["global"],
+        crossRepo: false,
+      }],
+      count: 1,
+      severity: "warning",
+    };
+    const host = createRef<HTMLDivElement>();
+    render(
+      <div ref={host} data-tauri-drag-region="deep">
+        <InspectorCap
+          asset={{ category: "Skills" }}
+          place="Global"
+          findings={findings}
+          inspectorExpanded={false}
+          clampTo={host}
+          onLink={vi.fn()}
+          onOpenInEditor={vi.fn()}
+          onCopyPath={vi.fn()}
+          onReveal={vi.fn()}
+          onReview={vi.fn()}
+          onToggleExpanded={vi.fn()}
+          onToggleInspector={vi.fn()}
+        />
+      </div>,
+    );
+    fireEvent.click(document.querySelector('button[aria-haspopup="dialog"]')!);
+    const popover = screen.getByTestId("finding-popover");
+    expect(startsDrag(popover)).toBe(false);
+    expect(startsDrag(screen.getByText("Target missing"))).toBe(false);
   });
 });

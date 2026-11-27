@@ -1656,7 +1656,9 @@ export default function App() {
   // pointer can land anywhere in the 40px strip that is not a control. Each
   // cap row is also `data-tauri-drag-region="deep"`, so painted children —
   // the crumb, the inspector cap's title — drag too; drag.js still refuses
-  // the drag on buttons, links and anything with a role or tabindex
+  // the drag on buttons, links, form fields, tabindex and the eight
+  // interactive ARIA roles it lists. Anything else that must not drag — the
+  // finding popover is role="dialog" — opts out with data-tauri-drag-region="false"
   // (Karthik, 2026-11-28: "patchy ... near titles"; cap_drag_deep.test.tsx).
   const capDragOverlay = (
     <div data-tauri-drag-region className="absolute inset-0" aria-hidden="true" />

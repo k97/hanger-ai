@@ -98,6 +98,9 @@ export default function FindingPopover({ open, onClose, lines, actions, align, e
       role="dialog"
       aria-label={ariaLabel}
       data-testid="finding-popover"
+      // Rendered inside the inspector cap, whose row is a "deep" drag region;
+      // drag.js does not treat role="dialog" as a control, so opt out here.
+      data-tauri-drag-region="false"
       style={style}
       className={`absolute z-40 w-[264px] p-3 flex flex-col gap-2.5 bg-page border border-line rounded-inner ${side} before:content-[''] before:absolute before:-top-1.5 ${arrow} before:w-2.5 before:h-2.5 before:bg-page before:border-l before:border-t before:border-line before:rotate-45 ${
         elevated ? "shadow-overlay" : ""
