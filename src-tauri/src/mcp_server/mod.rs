@@ -63,61 +63,84 @@ struct HangerServer {
     limit: Arc<Mutex<RateLimit>>,
 }
 
-/// A JSON Schema object with `required` string properties and optional
-/// integer ones, accepting nothing else.
-fn schema(strings: &[&str], integers: &[&str]) -> JsonObject {
-    let mut properties = serde_json::Map::new();
-    for s in strings {
-        properties.insert(s.to_string(), json!({ "type": "string" }));
-    }
-    for i in integers {
-        properties.insert(i.to_string(), json!({ "type": "integer" }));
-    }
-    let mut out = serde_json::Map::new();
-    out.insert("type".into(), json!("object"));
-    if !properties.is_empty() {
-        out.insert("properties".into(), Value::Object(properties));
-        out.insert("required".into(), json!(strings));
-    }
-    out.insert("additionalProperties".into(), json!(false));
-    out
+/// One tool: its strings, the arguments it takes, and what it runs. The
+/// schema, the argument check and the dispatch are all read from here.
+struct Spec {
+    text: strings::ToolText,
+    /// Required string arguments.
+    required: &'static [&'static str],
+    /// Whether it takes the optional integer `limit`, from 1 to `MAX_LIMIT`.
+    limit: bool,
+    /// Runs on arguments that `fits` has passed.
+    run: fn(&ServerPlaces, &JsonObject) -> Result<Value, Refusal>,
+}
+
+const MAX_LIMIT: u64 = 50;
+
+fn text_arg(args: &JsonObject, key: &str) -> String {
+    args.get(key).and_then(Value::as_str).unwrap_or_default().to_string()
 }
 
 /// The five tools, in the order `tools/list` returns them.
-fn tool_list() -> Vec<Tool> {
-    use strings::*;
-    [
-        (LIST_ENGINES, schema(&[], &[])),
-        (ENGINE_CONTEXT, schema(&["engine_id"], &[])),
-        (FIND_ASSETS, schema(&["query"], &["limit"])),
-        (REACH, schema(&["asset_path"], &[])),
-        (FINDINGS, schema(&[], &[])),
-    ]
-    .into_iter()
-    .map(|((name, title, description), input)| Tool::new(name, description, input).with_title(title))
-    .collect()
-}
+const TOOLS: [Spec; 5] = [
+    Spec { text: strings::LIST_ENGINES, required: &[], limit: false, run: |p, _| to_value(tools::list_engines(p)) },
+    Spec {
+        text: strings::ENGINE_CONTEXT,
+        required: &["engine_id"],
+        limit: false,
+        run: |p, a| to_value(tools::engine_context(p, &text_arg(a, "engine_id"))),
+    },
+    Spec {
+        text: strings::FIND_ASSETS,
+        required: &["query"],
+        limit: true,
+        // Omitted: the 50 the description promises at most.
+        run: |p, a| {
+            let limit = a.get("limit").and_then(Value::as_u64).unwrap_or(MAX_LIMIT) as usize;
+            to_value(tools::find_assets(p, &text_arg(a, "query"), limit))
+        },
+    },
+    Spec {
+        text: strings::REACH,
+        required: &["asset_path"],
+        limit: false,
+        run: |p, a| to_value(tools::reach(p, &text_arg(a, "asset_path"))),
+    },
+    Spec { text: strings::FINDINGS, required: &[], limit: false, run: |p, _| to_value(tools::findings(p)) },
+];
 
-fn refused(r: Refusal) -> CallToolResult {
-    CallToolResult::error(vec![ContentBlock::text(strings::refusal(r))])
-}
-
-/// The arguments a tool's schema allows, or a protocol error when they do
-/// not fit it (the spec's "malformed request").
-struct Args(JsonObject);
-
-impl Args {
-    fn check(arguments: Option<JsonObject>, allowed: &[&str]) -> Result<Args, ErrorData> {
-        let args = arguments.unwrap_or_default();
-        if args.keys().any(|k| !allowed.contains(&k.as_str())) {
-            return Err(ErrorData::invalid_params("Invalid params", None));
+impl Spec {
+    /// The tool's input schema: its string arguments required, `limit`
+    /// bounded, nothing else accepted.
+    fn schema(&self) -> JsonObject {
+        let mut properties = serde_json::Map::new();
+        for key in self.required {
+            properties.insert(key.to_string(), json!({ "type": "string" }));
         }
-        Ok(Args(args))
+        if self.limit {
+            properties.insert("limit".into(), json!({ "type": "integer", "minimum": 1, "maximum": MAX_LIMIT }));
+        }
+        let mut out = serde_json::Map::new();
+        out.insert("type".into(), json!("object"));
+        if !properties.is_empty() {
+            out.insert("properties".into(), Value::Object(properties));
+            out.insert("required".into(), json!(self.required));
+        }
+        out.insert("additionalProperties".into(), json!(false));
+        out
     }
 
-    fn text(&self, key: &str) -> Result<String, ErrorData> {
-        self.0.get(key).and_then(Value::as_str).map(str::to_string).ok_or_else(|| ErrorData::invalid_params("Invalid params", None))
+    /// Whether `args` fit the schema above.
+    fn fits(&self, args: &JsonObject) -> bool {
+        let known = |k: &str| self.required.contains(&k) || (self.limit && k == "limit");
+        args.keys().all(|k| known(k))
+            && self.required.iter().all(|k| args.get(*k).is_some_and(Value::is_string))
+            && args.get("limit").is_none_or(|v| v.as_u64().is_some_and(|n| (1..=MAX_LIMIT).contains(&n)))
     }
+}
+
+fn refused(text: &str) -> CallToolResult {
+    CallToolResult::error(vec![ContentBlock::text(text.to_string())])
 }
 
 impl ServerHandler for HangerServer {
@@ -132,7 +155,14 @@ impl ServerHandler for HangerServer {
         _request: Option<PaginatedRequestParams>,
         _context: RequestContext<RoleServer>,
     ) -> Result<ListToolsResult, ErrorData> {
-        Ok(ListToolsResult::with_all_items(tool_list()))
+        let tools = TOOLS
+            .iter()
+            .map(|t| {
+                let (name, title, description, _) = t.text;
+                Tool::new(name, description, t.schema()).with_title(title)
+            })
+            .collect();
+        Ok(ListToolsResult::with_all_items(tools))
     }
 
     async fn call_tool(
@@ -140,48 +170,28 @@ impl ServerHandler for HangerServer {
         request: CallToolRequestParams,
         _context: RequestContext<RoleServer>,
     ) -> Result<CallToolResponse, ErrorData> {
-        let name = request.name.to_string();
-        let allowed: &[&str] = match name.as_str() {
-            "list_engines" | "findings" => &[],
-            "engine_context" => &["engine_id"],
-            "find_assets" => &["query", "limit"],
-            "reach" => &["asset_path"],
-            _ => return Err(ErrorData::invalid_params("Unknown tool", None)),
+        let Some(spec) = TOOLS.iter().find(|t| t.text.0 == request.name) else {
+            // The spec keeps an unknown tool a protocol error (round 34).
+            let message = format!("Unknown tool: {}", tools::public_name(&request.name));
+            return Err(ErrorData::invalid_params(message, None));
         };
-        let args = Args::check(request.arguments, allowed)?;
+        let args = request.arguments.unwrap_or_default();
+        if !spec.fits(&args) {
+            // An input error is a tool result, so the model can fix its call.
+            return Ok(CallToolResponse::Complete(refused(spec.text.3)));
+        }
         // shortcut: a lock poisoned by a panic keeps limiting; a panic here is a bug anyway.
         let allowed_now = self.limit.lock().unwrap_or_else(|e| e.into_inner()).allow(Instant::now());
         if !allowed_now {
-            return Ok(CallToolResponse::Complete(refused(Refusal::SlowDown)));
+            return Ok(CallToolResponse::Complete(refused(strings::refusal(Refusal::SlowDown))));
         }
-        let call: Box<dyn FnOnce(&ServerPlaces) -> Result<Value, Refusal> + Send> = match name.as_str() {
-            "list_engines" => Box::new(|p| to_value(tools::list_engines(p))),
-            "findings" => Box::new(|p| to_value(tools::findings(p))),
-            "engine_context" => {
-                let id = args.text("engine_id")?;
-                Box::new(move |p| to_value(tools::engine_context(p, &id)))
-            }
-            "find_assets" => {
-                let query = args.text("query")?;
-                // Omitted: the 50 the description promises at most.
-                let limit = match args.0.get("limit") {
-                    None => 50,
-                    Some(v) => v.as_u64().map(|n| n as usize).unwrap_or(0),
-                };
-                Box::new(move |p| to_value(tools::find_assets(p, &query, limit)))
-            }
-            _ => {
-                let path = args.text("asset_path")?;
-                Box::new(move |p| to_value(tools::reach(p, &path)))
-            }
-        };
-        let places = self.places.clone();
-        let answer = tokio::task::spawn_blocking(move || call(&places))
+        let (places, run) = (self.places.clone(), spec.run);
+        let answer = tokio::task::spawn_blocking(move || run(&places, &args))
             .await
             .unwrap_or(Err(Refusal::Unreadable));
         Ok(CallToolResponse::Complete(match answer {
             Ok(value) => CallToolResult::structured(value),
-            Err(r) => refused(r),
+            Err(r) => refused(strings::refusal(r)),
         }))
     }
 }

@@ -19,7 +19,21 @@ use tauri_app_lib::mcp_server::places::data_dir_for;
 use tauri_app_lib::mcp_server::run_from_args;
 use tauri_app_lib::preferences::{PreferencesStore, LAST_SCAN_KEY};
 
-const BIN: &str = env!("CARGO_BIN_EXE_tauri-app");
+const BUILT: &str = env!("CARGO_BIN_EXE_tauri-app");
+
+/// The built binary, copied once to a temp path. Another session's capture
+/// script finds its dev app with `pgrep -f target/debug/tauri-app`, so these
+/// servers must not run from that path.
+fn bin() -> &'static Path {
+    static COPY: std::sync::OnceLock<PathBuf> = std::sync::OnceLock::new();
+    COPY.get_or_init(|| {
+        let dir = std::env::temp_dir().join(format!("hanger-mcp-protocol-{}", std::process::id()));
+        fs::create_dir_all(&dir).unwrap();
+        let copy = dir.join("hanger-mcp-under-test");
+        fs::copy(BUILT, &copy).unwrap();
+        copy
+    })
+}
 const TOOLS: [&str; 5] = ["list_engines", "engine_context", "find_assets", "reach", "findings"];
 
 fn scanned_home() -> (tempfile::TempDir, PathBuf) {
@@ -122,7 +136,7 @@ fn only_the_mcp_argument_starts_the_server() {
 #[test]
 fn a_legacy_client_initializes_lists_and_calls() {
     let (_dir, home) = scanned_home();
-    let mut s = Session::initialized(Path::new(BIN), &home);
+    let mut s = Session::initialized(bin(), &home);
     let list = s.request(2, "tools/list", json!({}));
     assert_eq!(tool_names(&list), TOOLS);
     for tool in list["result"]["tools"].as_array().unwrap() {
@@ -142,7 +156,7 @@ fn a_legacy_client_initializes_lists_and_calls() {
 #[test]
 fn a_modern_client_discovers_then_lists() {
     let (_dir, home) = scanned_home();
-    let mut s = Session::start(Path::new(BIN), &home);
+    let mut s = Session::start(bin(), &home);
     let meta = json!({
         "io.modelcontextprotocol/protocolVersion": "2026-07-28",
         "io.modelcontextprotocol/clientInfo": { "name": "test", "version": "0" },
@@ -159,7 +173,7 @@ fn a_modern_client_discovers_then_lists() {
 fn hangers_own_probe_measures_hangers_own_server() {
     let probed = tokio::runtime::Runtime::new()
         .unwrap()
-        .block_on(tauri_app_lib::mcp::probe::probe(BIN, &["mcp".to_string()], Duration::from_secs(10)));
+        .block_on(tauri_app_lib::mcp::probe::probe(bin().to_str().unwrap(), &["mcp".to_string()], Duration::from_secs(10)));
     assert_eq!(probed.error, None);
     let names: Vec<&str> = probed.tools.iter().map(|t| t.name.as_str()).collect();
     assert_eq!(names, TOOLS);
@@ -168,17 +182,17 @@ fn hangers_own_probe_measures_hangers_own_server() {
 #[test]
 fn a_refusal_is_a_tool_error_not_a_protocol_error() {
     let (_dir, home) = scanned_home();
-    let mut s = Session::initialized(Path::new(BIN), &home);
+    let mut s = Session::initialized(bin(), &home);
     let call = s.request(2, "tools/call", json!({ "name": "find_assets", "arguments": { "query": "x", "limit": 0 } }));
     assert!(call.get("error").is_none(), "{call}");
     assert_eq!(call["result"]["isError"], true, "{call}");
-    assert_eq!(call["result"]["content"][0]["text"], "limit must be from 1 to 50.");
+    assert_eq!(call["result"]["content"][0]["text"], FIND_ASSETS_ARGS);
 }
 
 #[test]
 fn every_stdout_line_is_one_json_rpc_message() {
     let (_dir, home) = scanned_home();
-    let mut s = Session::initialized(Path::new(BIN), &home);
+    let mut s = Session::initialized(bin(), &home);
     s.request(2, "tools/list", json!({}));
     s.request(3, "tools/call", json!({ "name": "list_engines", "arguments": {} }));
     s.request(4, "tools/call", json!({ "name": "findings", "arguments": {} }));
@@ -197,7 +211,7 @@ fn every_stdout_line_is_one_json_rpc_message() {
 #[test]
 fn the_server_exits_when_stdin_closes() {
     let (_dir, home) = scanned_home();
-    let mut s = Session::initialized(Path::new(BIN), &home);
+    let mut s = Session::initialized(bin(), &home);
     drop(s.stdin.take());
     let deadline = Instant::now() + Duration::from_secs(2);
     loop {
@@ -215,10 +229,125 @@ fn the_server_launches_from_a_path_with_a_space() {
     let dir = tempfile::tempdir().unwrap();
     let bin = dir.path().join("Hanger AI").join("Hanger AI");
     fs::create_dir_all(bin.parent().unwrap()).unwrap();
-    fs::copy(BIN, &bin).unwrap();
+    fs::copy(BUILT, &bin).unwrap();
     let probed = tokio::runtime::Runtime::new()
         .unwrap()
         .block_on(tauri_app_lib::mcp::probe::probe(bin.to_str().unwrap(), &["mcp".to_string()], Duration::from_secs(10)));
     assert_eq!(probed.error, None);
     assert_eq!(probed.tools.len(), TOOLS.len());
+}
+
+// ---- Arguments, unknown tools and the rate limit, over the protocol.
+
+const LIST_ENGINES_ARGS: &str = "Those arguments don't fit list_engines. It takes none.";
+const FINDINGS_ARGS: &str = "Those arguments don't fit findings. It takes none.";
+const ENGINE_CONTEXT_ARGS: &str = "Those arguments don't fit engine_context. It takes engine_id, an id from list_engines.";
+const FIND_ASSETS_ARGS: &str = "Those arguments don't fit find_assets. It takes query, the text to search for, and an optional limit from 1 to 50.";
+const REACH_ARGS: &str = "Those arguments don't fit reach. It takes asset_path, a path as find_assets returns it.";
+
+/// A scanned store holding one global skill, and a Codex config declaring
+/// one server, so `engine_context` and `reach` have something real to say.
+fn home_with_data() -> (tempfile::TempDir, PathBuf) {
+    let (dir, home) = scanned_home();
+    fs::create_dir_all(home.join(".codex")).unwrap();
+    fs::write(home.join(".codex/config.toml"), "[mcp_servers.alpha]\ncommand = \"alpha-server\"\n").unwrap();
+    let skill = home.join(".agents/skills/solo");
+    fs::create_dir_all(&skill).unwrap();
+    let store = PreferencesStore::new(&data_dir_for(&home).join("hanger.db")).unwrap();
+    let root = store.upsert_root("engine_global", home.join(".agents").to_str().unwrap(), None, ".agents", 1).unwrap();
+    store.upsert_asset(root, None, "skill", "global", "solo", skill.to_str().unwrap(), None, None, "ok", None, 1, 1).unwrap();
+    (dir, home)
+}
+
+/// A tool error carrying `text`, never a protocol error.
+fn assert_tool_error(call: &Value, text: &str) {
+    assert!(call.get("error").is_none(), "a protocol error: {call}");
+    assert_eq!(call["result"]["isError"], true, "{call}");
+    assert_eq!(call["result"]["content"][0]["text"], text, "{call}");
+}
+
+fn call(s: &mut Session, id: i64, name: &str, arguments: Value) -> Value {
+    s.request(id, "tools/call", json!({ "name": name, "arguments": arguments }))
+}
+
+#[test]
+fn an_unknown_key_is_a_tool_error_naming_what_the_tool_takes() {
+    let (_dir, home) = home_with_data();
+    let mut s = Session::initialized(bin(), &home);
+    let r = call(&mut s, 2, "engine_context", json!({ "engine_id": "codex", "extra": 1 }));
+    assert_tool_error(&r, ENGINE_CONTEXT_ARGS);
+}
+
+#[test]
+fn a_misspelled_key_is_refused_for_every_tool() {
+    let (_dir, home) = home_with_data();
+    let mut s = Session::initialized(bin(), &home);
+    let cases = [
+        ("list_engines", json!({ "engine": "codex" }), LIST_ENGINES_ARGS),
+        ("findings", json!({ "scope": "global" }), FINDINGS_ARGS),
+        ("engine_context", json!({ "engine": "codex" }), ENGINE_CONTEXT_ARGS),
+        ("find_assets", json!({ "querry": "solo" }), FIND_ASSETS_ARGS),
+        ("reach", json!({ "assetpath": "~/.agents/skills/solo" }), REACH_ARGS),
+    ];
+    for (i, (name, args, text)) in cases.into_iter().enumerate() {
+        let r = call(&mut s, 10 + i as i64, name, args);
+        assert_tool_error(&r, text);
+    }
+}
+
+#[test]
+fn a_wrong_type_or_an_out_of_range_limit_is_a_tool_error() {
+    let (_dir, home) = home_with_data();
+    let mut s = Session::initialized(bin(), &home);
+    assert_tool_error(&call(&mut s, 2, "engine_context", json!({ "engine_id": 7 })), ENGINE_CONTEXT_ARGS);
+    assert_tool_error(&call(&mut s, 3, "find_assets", json!({ "query": "solo", "limit": "5" })), FIND_ASSETS_ARGS);
+    assert_tool_error(&call(&mut s, 4, "find_assets", json!({ "query": "solo", "limit": 51 })), FIND_ASSETS_ARGS);
+    assert_tool_error(&call(&mut s, 5, "reach", json!({})), REACH_ARGS);
+}
+
+#[test]
+fn the_find_assets_limit_is_bounded_in_the_schema() {
+    let (_dir, home) = scanned_home();
+    let mut s = Session::initialized(bin(), &home);
+    let list = s.request(2, "tools/list", json!({}));
+    let find = list["result"]["tools"].as_array().unwrap().iter().find(|t| t["name"] == "find_assets").unwrap().clone();
+    let limit = &find["inputSchema"]["properties"]["limit"];
+    assert_eq!(limit["type"], "integer", "{find}");
+    assert_eq!(limit["minimum"], 1, "{find}");
+    assert_eq!(limit["maximum"], 50, "{find}");
+    assert_eq!(find["inputSchema"]["required"], json!(["query"]), "{find}");
+}
+
+#[test]
+fn an_unknown_tool_is_a_protocol_error_naming_it() {
+    let (_dir, home) = scanned_home();
+    let mut s = Session::initialized(bin(), &home);
+    let r = call(&mut s, 2, "nope", json!({}));
+    assert!(r.get("result").is_none(), "{r}");
+    assert_eq!(r["error"]["message"], "Unknown tool: nope", "{r}");
+}
+
+#[test]
+fn the_thirty_first_call_in_ten_seconds_is_told_to_slow_down() {
+    let (_dir, home) = scanned_home();
+    let mut s = Session::initialized(bin(), &home);
+    for id in 0..30 {
+        let r = call(&mut s, 100 + id, "findings", json!({}));
+        assert_eq!(r["result"]["isError"], false, "call {id}: {r}");
+    }
+    let r = call(&mut s, 200, "findings", json!({}));
+    assert_tool_error(&r, "More than 30 calls in 10 seconds. Wait a few seconds, then try again.");
+}
+
+#[test]
+fn engine_context_and_reach_answer_over_the_protocol() {
+    let (_dir, home) = home_with_data();
+    let mut s = Session::initialized(bin(), &home);
+    let ctx = call(&mut s, 2, "engine_context", json!({ "engine_id": "codex" }));
+    assert_eq!(ctx["result"]["isError"], false, "{ctx}");
+    let names: Vec<&str> = ctx["result"]["structuredContent"]["result"]["items"].as_array().unwrap().iter().map(|i| i["name"].as_str().unwrap()).collect();
+    assert_eq!(names, ["alpha"], "{ctx}");
+    let reach = call(&mut s, 3, "reach", json!({ "asset_path": "~/.agents/skills/solo" }));
+    assert_eq!(reach["result"]["isError"], false, "{reach}");
+    assert_eq!(reach["result"]["structuredContent"]["result"]["asset_path"], "~/.agents/skills/solo", "{reach}");
 }
