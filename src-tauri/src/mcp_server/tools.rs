@@ -96,6 +96,7 @@ fn public_path(value: &str) -> String {
 /// A path, or a registration key (`config_path:name`, `RegistrationKey::new`),
 /// fit to leave: the path through `public_path`, the server name after the
 /// first `:` (the split `annotations.rs` makes) through `public_name`.
+// shortcut: two names in one config sharing their first 127 characters share one id, and `reach` answers for the first; disambiguate if a real config ever does that.
 fn public_key(value: &str) -> String {
     match value.split_once(':') {
         Some((path, name)) if path.starts_with('/') => {
