@@ -102,9 +102,9 @@ const TOOLS: [Spec; 5] = [
     },
     Spec {
         text: strings::REACH,
-        required: &["asset_path"],
+        required: &["asset_id"],
         limit: false,
-        run: |p, a| to_value(tools::reach(p, &text_arg(a, "asset_path"))),
+        run: |p, a| to_value(tools::reach(p, &text_arg(a, "asset_id"))),
     },
     Spec { text: strings::FINDINGS, required: &[], limit: false, run: |p, _| to_value(tools::findings(p)) },
 ];

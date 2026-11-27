@@ -246,9 +246,9 @@ pub struct Reach {
     pub beyond: Option<Beyond>,
 }
 
-pub fn reach(p: &ServerPlaces, asset_path: &str) -> Result<Fresh<Reach>, Refusal> {
+pub fn reach(p: &ServerPlaces, asset_id: &str) -> Result<Fresh<Reach>, Refusal> {
     let (conn, as_of_ms) = scanned(p)?;
-    let wanted = public_key(asset_path);
+    let wanted = public_key(asset_id);
     let annotations = read(&conn, asset_annotations_on)?;
     // Matched on the full sanitised path only when it kept its folders: a
     // path outside the home sanitises to its basename, which many share.
@@ -256,7 +256,7 @@ pub fn reach(p: &ServerPlaces, asset_path: &str) -> Result<Fresh<Reach>, Refusal
         .into_iter()
         .find(|a| {
             let public = public_key(&a.asset_path);
-            a.asset_path == asset_path || (public.starts_with("~/") && public == wanted)
+            a.asset_path == asset_id || (public.starts_with("~/") && public == wanted)
         })
         .ok_or(Refusal::NotFound)?;
     Ok(Fresh {

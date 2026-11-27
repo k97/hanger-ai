@@ -3,12 +3,10 @@
 //! "Answers"). Change one only through that brief.
 //!
 //! The argument lines (the fourth field of each tool) are Karthik's round 34
-//! answer (`docs/plans/2026-11-27-decisions-round-34.md`).
-//!
-//! The Antigravity sentence is true until T22 (`fix/antigravity-source`)
-//! lands; whichever branch merges second removes it from `LIST_ENGINES`,
-//! from `INSTRUCTIONS`, and from `docs/mcp-server.md`, which repeats the
-//! `list_engines` description (plan ruling Q9).
+//! answer (`docs/plans/2026-11-27-decisions-round-34.md`); `reach`'s
+//! description and argument line are amended by round 39
+//! (`docs/plans/2026-11-27-decisions-round-39.md`). `docs/mcp-server.md`
+//! repeats the five descriptions.
 
 use super::tools::Refusal;
 
@@ -18,7 +16,7 @@ pub type ToolText = (&'static str, &'static str, &'static str, &'static str);
 pub const LIST_ENGINES: ToolText = (
     "list_engines",
     "Engines on this Mac",
-    "Lists the engines Hanger finds on this Mac. For each engine that declares MCP servers, says how many are on and how many are off, and what the ones Hanger has measured cost in tokens. Engine folders and config files are read when you call this; the asset totals come from Hanger's last scan. Antigravity's MCP servers are not read.",
+    "Lists the engines Hanger finds on this Mac. For each engine that declares MCP servers, says how many are on and how many are off, and what the ones Hanger has measured cost in tokens. Engine folders and config files are read when you call this; the asset totals come from Hanger's last scan.",
     "Those arguments don't fit list_engines. It takes none.",
 );
 pub const ENGINE_CONTEXT: ToolText = (
@@ -36,8 +34,8 @@ pub const FIND_ASSETS: ToolText = (
 pub const REACH: ToolText = (
     "reach",
     "Which engines read an asset",
-    "Says which engines read one asset in an engine's global folder, and through which folder link. Takes the asset's path as find_assets returns it. Assets in project folders aren't covered. Uses Hanger's last scan, and checks links on disk when you call it.",
-    "Those arguments don't fit reach. It takes asset_path, a path as find_assets returns it.",
+    "Says which engines read one asset in an engine's global folder, and through which folder link. Takes the asset's id as find_assets returns it. Assets in project folders aren't covered. Uses Hanger's last scan, and checks links on disk when you call it.",
+    "Those arguments don't fit reach. It takes asset_id, an id as find_assets returns it.",
 );
 pub const FINDINGS: ToolText = (
     "findings",
@@ -46,7 +44,7 @@ pub const FINDINGS: ToolText = (
     "Those arguments don't fit findings. It takes none.",
 );
 
-pub const INSTRUCTIONS: &str = "Read-only answers about the AI engines on this Mac and their skills, rules, subagents and MCP servers, from Hanger's store and the engines' config files. Most answers come from Hanger's last scan, and every reply carries as_of_ms, the time that scan finished. Paths start with ~/. Nothing here changes a file. Antigravity's MCP servers are not read.";
+pub const INSTRUCTIONS: &str = "Read-only answers about the AI engines on this Mac and their skills, rules, subagents and MCP servers, from Hanger's store and the engines' config files. Most answers come from Hanger's last scan, and every reply carries as_of_ms, the time that scan finished. Paths start with ~/. Nothing here changes a file.";
 
 pub fn refusal(r: Refusal) -> &'static str {
     match r {

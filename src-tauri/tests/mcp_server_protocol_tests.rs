@@ -17,7 +17,9 @@ use std::time::{Duration, Instant};
 use serde_json::{json, Value};
 use tauri_app_lib::mcp_server::places::data_dir_for;
 use tauri_app_lib::mcp_server::run_from_args;
+use tauri_app_lib::domain::{Inventory, Scope, Tool};
 use tauri_app_lib::preferences::{PreferencesStore, LAST_SCAN_KEY};
+use tauri_app_lib::search::index_inventory;
 
 const BUILT: &str = env!("CARGO_BIN_EXE_tauri-app");
 
@@ -253,7 +255,7 @@ const LIST_ENGINES_ARGS: &str = "Those arguments don't fit list_engines. It take
 const FINDINGS_ARGS: &str = "Those arguments don't fit findings. It takes none.";
 const ENGINE_CONTEXT_ARGS: &str = "Those arguments don't fit engine_context. It takes engine_id, an id from list_engines.";
 const FIND_ASSETS_ARGS: &str = "Those arguments don't fit find_assets. It takes query, the text to search for, and an optional limit from 1 to 50.";
-const REACH_ARGS: &str = "Those arguments don't fit reach. It takes asset_path, a path as find_assets returns it.";
+const REACH_ARGS: &str = "Those arguments don't fit reach. It takes asset_id, an id as find_assets returns it.";
 
 /// A scanned store holding one global skill, and a Codex config declaring
 /// one server, so `engine_context` and `reach` have something real to say.
@@ -297,7 +299,7 @@ fn a_misspelled_key_is_refused_for_every_tool() {
         ("findings", json!({ "scope": "global" }), FINDINGS_ARGS),
         ("engine_context", json!({ "engine": "codex" }), ENGINE_CONTEXT_ARGS),
         ("find_assets", json!({ "querry": "solo" }), FIND_ASSETS_ARGS),
-        ("reach", json!({ "assetpath": "~/.agents/skills/solo" }), REACH_ARGS),
+        ("reach", json!({ "assetid": "~/.agents/skills/solo" }), REACH_ARGS),
     ];
     for (i, (name, args, text)) in cases.into_iter().enumerate() {
         let r = call(&mut s, 10 + i as i64, name, args);
@@ -357,7 +359,7 @@ fn engine_context_and_reach_answer_over_the_protocol() {
     assert_eq!(ctx["result"]["isError"], false, "{ctx}");
     let names: Vec<&str> = ctx["result"]["structuredContent"]["result"]["items"].as_array().unwrap().iter().map(|i| i["name"].as_str().unwrap()).collect();
     assert_eq!(names, ["alpha"], "{ctx}");
-    let reach = call(&mut s, 3, "reach", json!({ "asset_path": "~/.agents/skills/solo" }));
+    let reach = call(&mut s, 3, "reach", json!({ "asset_id": "~/.agents/skills/solo" }));
     assert_eq!(reach["result"]["isError"], false, "{reach}");
     assert_eq!(reach["result"]["structuredContent"]["result"]["asset_path"], "~/.agents/skills/solo", "{reach}");
 }
@@ -383,7 +385,7 @@ fn a_limit_sent_to_a_tool_that_takes_none_gets_that_tools_line() {
         ("list_engines", json!({ "limit": 5 }), LIST_ENGINES_ARGS),
         ("findings", json!({ "limit": 5 }), FINDINGS_ARGS),
         ("engine_context", json!({ "engine_id": "codex", "limit": 5 }), ENGINE_CONTEXT_ARGS),
-        ("reach", json!({ "asset_path": "~/.agents/skills/solo", "limit": 5 }), REACH_ARGS),
+        ("reach", json!({ "asset_id": "~/.agents/skills/solo", "limit": 5 }), REACH_ARGS),
     ];
     for (i, (name, args, text)) in cases.into_iter().enumerate() {
         assert_tool_error(&call(&mut s, 10 + i as i64, name, args), text);
@@ -398,4 +400,53 @@ fn a_session_leaves_no_temp_folder_behind() {
     assert!(folder.exists());
     drop(s);
     assert!(!folder.exists(), "{} is still there", folder.display());
+}
+
+/// Round 39: reach takes the `id` find_assets returns, and for a server that
+/// is `config_path:name`, not its `path`.
+#[test]
+fn reach_answers_for_a_server_by_the_id_find_assets_gave() {
+    let (_dir, home) = home_with_data();
+    let config = home.join(".codex/config.toml").to_string_lossy().to_string();
+    let tool = Tool {
+        id: format!("{config}:alpha"),
+        name: "alpha".to_string(),
+        command: "alpha-server".to_string(),
+        args: vec![],
+        launch_display: "alpha-server".to_string(),
+        transport: "stdio".to_string(),
+        bridged: false,
+        config_path: config.clone(),
+        scope: Scope::Global { agent: "codex".to_string() },
+        owning_agent: "codex".to_string(),
+        drifted: None,
+        is_symlink: None,
+        source_path: None,
+        parse_status: None,
+        parse_error: None,
+        link_state: None,
+        origin: None,
+        origin_blocked: None,
+    };
+    let key = tool.registration_key().as_str().to_string();
+    let db = data_dir_for(&home).join("hanger.db");
+    let store = PreferencesStore::new(&db).unwrap();
+    let root = store.upsert_root("engine_global", home.join(".codex").to_str().unwrap(), None, ".codex", 1).unwrap();
+    store.upsert_asset(root, None, "tool", "global", "alpha", &key, None, None, "ok", None, 1, 1).unwrap();
+    index_inventory(&db, &Inventory { tools: vec![tool], ..Default::default() }).unwrap();
+
+    let mut s = Session::initialized(&home);
+    let found = call(&mut s, 2, "find_assets", json!({ "query": "alpha" }));
+    let hit = found["result"]["structuredContent"]["result"]["assets"].as_array().unwrap_or_else(|| panic!("{found}"))
+        .iter().find(|a| a["kind"] == "server").cloned().unwrap_or_else(|| panic!("no server hit: {found}"));
+    let id = hit["id"].as_str().unwrap().to_string();
+    assert_eq!(id, "~/.codex/config.toml:alpha");
+    assert_ne!(hit["path"], hit["id"], "a server's path is its config file, not its id");
+
+    let reach = call(&mut s, 3, "reach", json!({ "asset_id": id }));
+    assert_eq!(reach["result"]["isError"], false, "{reach}");
+    assert_eq!(reach["result"]["structuredContent"]["result"]["asset_path"], json!(id), "{reach}");
+
+    // The old key is gone.
+    assert_tool_error(&call(&mut s, 4, "reach", json!({ "asset_path": id })), REACH_ARGS);
 }
