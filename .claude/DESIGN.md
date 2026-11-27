@@ -2548,7 +2548,7 @@ against it, not recomputed by formula.
 **The inspector cap's content changed this phase; its height did not.** The
 identity row, the finding chip and the overflow menu were added ahead of the
 same Expand/Collapse and Toggle inspector pair the cap always carried
-(`InspectorCap`, §5); the wrapping `<div data-tauri-drag-region
+(`InspectorCap`, §5); the wrapping `<div data-tauri-drag-region="deep"
 className="relative h-9 shrink-0">` around it kept the cap's height exactly as it was
 before the cap grew a component of its own (`App.tsx:1781`, and the removed
 cap it replaced carried the same height — Both inspectors open on their

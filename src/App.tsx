@@ -1653,7 +1653,11 @@ export default function App() {
     "relative h-[27px] min-w-[27px] px-2 rounded-pill inline-flex items-center justify-center shrink-0 text-ink-2 hover:bg-tint-plane hover:text-ink-1 transition-colors duration-hover ease-spring cursor-pointer";
 
   // Every cap shares this: an inert layer that owns window dragging, so the
-  // pointer can land anywhere in the 40px strip that is not a control.
+  // pointer can land anywhere in the 40px strip that is not a control. Each
+  // cap row is also `data-tauri-drag-region="deep"`, so painted children —
+  // the crumb, the inspector cap's title — drag too; drag.js still refuses
+  // the drag on buttons, links and anything with a role or tabindex
+  // (Karthik, 2026-11-28: "patchy ... near titles"; cap_drag_deep.test.tsx).
   const capDragOverlay = (
     <div data-tauri-drag-region className="absolute inset-0" aria-hidden="true" />
   );
@@ -1919,7 +1923,7 @@ export default function App() {
             window drag instead of reopening the sidebar. The cap stretches to
             the column so the whole 40px band drags; its contents overflow the
             56px rail when collapsed. */}
-        <div data-tauri-drag-region className="relative z-40 h-9 shrink-0 flex items-center select-none">
+        <div data-tauri-drag-region="deep" className="relative z-40 h-9 shrink-0 flex items-center select-none">
           {capDragOverlay}
           <div className="w-[76px] shrink-0" aria-hidden="true" />
           {selectedSidebarItem !== "linkmap" && (
@@ -2099,7 +2103,7 @@ export default function App() {
             the sidebar cap since 2026-08-28, so it does not move with this
             column. A <header> on purpose — it is the content column's banner,
             and the toolbar guards assert against that landmark. */}
-        <header data-tauri-drag-region className="relative h-9 shrink-0 flex items-center gap-2.5 select-none z-30 font-flex">
+        <header data-tauri-drag-region="deep" className="relative h-9 shrink-0 flex items-center gap-2.5 select-none z-30 font-flex">
           {capDragOverlay}
           <div className="ml-auto flex items-center gap-1 pr-3">
             {/* The overview button lands here, portalled by ProfilePane on
@@ -2428,7 +2432,7 @@ export default function App() {
               Link to… and the overflow menu, ahead of the same Expand/Hide
               pair. `capDragOverlay` stays first so the row is still
               draggable everywhere the cap itself has nothing painted. */}
-          <div data-tauri-drag-region className="relative h-9 shrink-0">
+          <div data-tauri-drag-region="deep" className="relative h-9 shrink-0">
             {capDragOverlay}
             <InspectorCap
               asset={capAsset}
