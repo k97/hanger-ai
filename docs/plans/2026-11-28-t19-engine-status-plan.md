@@ -61,7 +61,7 @@ Measured 2026-11-28. Any CLI run used a throwaway `HOME`; no credential file was
 - Network: only `GET https://registry.npmjs.org/-/package/<package>/dist-tags`, 10 s timeout, reqwest default headers, nothing about the machine in it.
 - Child processes go only through `engine_status::run::run_capture`, whose signature is frozen. The existing calls in `src-tauri/tests/engine_status_tests.rs` pin all five parameters: changing the signature breaks their compilation. Timeout 5 s; programs come from `resolve::resolve_in` with `resolve::search_path()`.
 - No secret, token, email or credential file is logged, stored or sent over IPC, and no credential file is read. One settings file is read to a string: `claude_channel` reads `~/.claude/settings.json` (which can carry `env` values) to deserialise one field; the rest is dropped unlogged, as the scanner already does with MCP configs. Development probes run under a throwaway `HOME` only.
-- `EngineContext`, `context.rs` and `get_engine_contexts` are unchanged; T19's reply is a sibling.
+- T19 changes neither `EngineContext`, `context.rs` nor `get_engine_contexts`; its reply is a sibling. (P2 makes `get_engine_contexts` async; T19 doesn't depend on whether it is sync.)
 - `ENGINE_CLIS` gets a coverage assertion and a floor of 5 in `brand-coverage.test.ts` in the commit that creates it.
 - Counts come from the backend; the webview computes no count (`no-frontend-counting.test.ts`). Engine names come from the backend (`no-hardcoded-engine-copy.test.ts`). Tokens and type roles only. No blocking dialogs.
 - Every new string waits for Task 3's sign-off. Every addition to the card waits for Task 4's result.
