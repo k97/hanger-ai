@@ -1930,3 +1930,55 @@ fn vscode_does_not_walk_ancestors_for_mcp_json() {
     assert_eq!(hosts_of("parent-probe"), vec!["claude-code"], "a parent's .mcp.json is Claude Code's only");
     assert_eq!(hosts_of("root-probe"), vec!["claude-code", "vscode"], "the root's is read for both");
 }
+
+/// `agy` 1.5.18 reads `~/.gemini/config/mcp_config.json` and nothing else:
+/// not the older `~/.gemini/antigravity/mcp_config.json`, and not Gemini
+/// CLI's `~/.gemini/settings.json` (docs/plans/2026-11-27-antigravity-engine.md,
+/// Evidence, facts 1-3).
+#[test]
+fn antigravity_reads_only_its_config_file() {
+    use tauri_app_lib::mcp::discover;
+    let home = tempfile::tempdir().unwrap();
+    let write = |rel: &str, body: &str| {
+        let p = home.path().join(rel);
+        std::fs::create_dir_all(p.parent().unwrap()).unwrap();
+        std::fs::write(p, body).unwrap();
+    };
+    write(
+        ".gemini/config/mcp_config.json",
+        r#"{"mcpServers":{"alpha":{"command":"/usr/bin/true"},"beta":{"command":"/usr/bin/true"}}}"#,
+    );
+    write(
+        ".gemini/antigravity/mcp_config.json",
+        r#"{"mcpServers":{"legacy":{"command":"/usr/bin/true"}}}"#,
+    );
+    write(
+        ".gemini/settings.json",
+        r#"{"mcpServers":{"gemini-only":{"command":"/usr/bin/true"}}}"#,
+    );
+    let system = tempfile::tempdir().unwrap(); // nothing system-wide
+    let result = discover::discover_machine_at(home.path(), system.path());
+
+    let mut antigravity: Vec<&str> = result
+        .registrations
+        .iter()
+        .filter(|r| r.host_id == "antigravity")
+        .map(|r| {
+            assert_eq!(r.tier, ScopeTier::Global, "{} is not Global", r.server.name);
+            r.server.name.as_str()
+        })
+        .collect();
+    antigravity.sort();
+    assert_eq!(antigravity, vec!["alpha", "beta"]);
+    assert!(
+        result.registrations.iter().all(|r| r.server.name != "legacy"),
+        "~/.gemini/antigravity/mcp_config.json is not read by agy"
+    );
+    let gemini_only: Vec<&str> = result
+        .registrations
+        .iter()
+        .filter(|r| r.server.name == "gemini-only")
+        .map(|r| r.host_id)
+        .collect();
+    assert_eq!(gemini_only, vec!["gemini"]);
+}

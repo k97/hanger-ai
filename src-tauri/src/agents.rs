@@ -133,12 +133,30 @@ pub const AGENT_CONFIGS: &[AgentConfig] = &[
     },
     AgentConfig {
         id: "gemini",
-        name: "Gemini / Antigravity",
+        name: "Gemini CLI",
         global_roots: &[".gemini"],
         project_roots: &[".gemini"],
         skills: Some("skills"),
         rules: None,
         subagents: None,
+        reads_agents_dir: true,
+        detect_files: &[],
+    },
+    // Antigravity CLI (`agy`) reads `~/.gemini/config`, inside Gemini CLI's
+    // `~/.gemini`; the longer root wins in `engine_for_path`, so the split is
+    // by directory. Its workspace is the shared `.agents/`, so it owns no
+    // project directory. `reads_agents_dir` rests on `agy`'s own changelog
+    // (1.5.16, "discovery of user-global skills in ~/.agents/skills") and the
+    // vendor docs, not a measurement (Karthik's ruling, 2026-11-27, Q2 of
+    // docs/plans/2026-11-27-antigravity-engine.md).
+    AgentConfig {
+        id: "antigravity",
+        name: "Antigravity CLI",
+        global_roots: &[".gemini/config"],
+        project_roots: &[],
+        skills: Some("skills"),
+        rules: Some("rules"),
+        subagents: Some("agents"),
         reads_agents_dir: true,
         detect_files: &[],
     },
@@ -399,12 +417,12 @@ pub fn engine_for_path(path: &Path) -> Option<&'static AgentConfig> {
 /// Unlike `engine_for_path`, this returns on the first `(config, root)` pair
 /// whose `root/subagents` needle matches, rather than preferring the longest
 /// match. That is safe today only because every config with `subagents:
-/// Some(_)` (claude-code, codex, kiro, opencode) has a distinct leaf root
-/// component name — `.claude`, `.config/claude`, `.codex`, `.kiro`,
-/// `.config/opencode`, `.opencode` — so no two configs' needles can both
-/// match the same path: `match_run` requires the *whole* needle to equal a
-/// contiguous run of components, and none of these needles is a component-
-/// wise suffix of another. It would stop being safe the moment two
+/// Some(_)` (claude-code, codex, antigravity, kiro, opencode) has a distinct
+/// leaf root component name — `.claude`, `.config/claude`, `.codex`,
+/// `.gemini/config`, `.kiro`, `.config/opencode`, `.opencode` — so no two
+/// configs' needles can both match the same path: `match_run` requires the
+/// *whole* needle to equal a contiguous run of components, and none of these
+/// needles is a component-wise suffix of another. It would stop being safe the moment two
 /// subagent-bearing configs shared a root whose last path segment is the same
 /// string (e.g. a future agent rooted at plain `opencode` without the dot, or
 /// two configs both rooted at a bare `agents`-adjacent name) — at that point
@@ -414,7 +432,9 @@ pub fn engine_for_path(path: &Path) -> Option<&'static AgentConfig> {
 /// either. Roo Code, Kilo Code and Cline — the remaining rows the agent-
 /// detection plan adds after this one — all declare `subagents: None`, so
 /// the property above survives the rest of the plan as written, not only
-/// this snapshot of the table.
+/// this snapshot of the table. It grew once since, on 2026-11-27, by
+/// Antigravity CLI: its needle `.gemini/config/agents` is no component-wise
+/// suffix of another, and Gemini CLI (`.gemini`) declares no subagents.
 pub fn subagent_owner_for_path(path: &Path) -> Option<&'static AgentConfig> {
     let comps = components(path);
     if comps.is_empty() || comps.iter().any(|c| *c == SHARED_AGENTS_DIR) {

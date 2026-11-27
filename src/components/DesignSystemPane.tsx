@@ -1223,6 +1223,7 @@ export default function DesignSystemPane({ section }: DesignSystemPaneProps) {
                 <BrandIcon engineKey="claude" size={16} />
                 <BrandIcon engineKey="codex" size={16} />
                 <BrandIcon engineKey="gemini" size={16} />
+                <BrandIcon engineKey="antigravity" size={16} />
                 <BrandIcon engineKey="claude_desktop" size={16} />
                 <BrandIcon engineKey="vscode" size={16} />
               </span>

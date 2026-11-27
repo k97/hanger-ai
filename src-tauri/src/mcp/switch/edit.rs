@@ -18,9 +18,11 @@
 //!
 //! - `SwitchKind::EnabledKey` writes `enabled = <bool>` and removes a
 //!   `disabled` key left on that entry.
-//! - `SwitchKind::DisabledKey` writes `disabled = <!bool>`, unless the entry
-//!   already carries `enabled`: then that key is kept and set, and `disabled`
-//!   is removed.
+//! - `SwitchKind::DisabledKey` reads and writes `disabled = <!bool>` alone,
+//!   whatever `enabled` the entry carries. This is where the port departs
+//!   from mcpick, which keeps and sets an `enabled` already there: `agy`, the
+//!   one DisabledKey engine measured, ignores `enabled` (Karthik's ruling,
+//!   2026-11-27, Q6 of `docs/plans/2026-11-27-antigravity-engine.md`).
 //! - Switching on an entry that has neither key returns the text unchanged,
 //!   and so does any switch whose flag already says what was asked. So a file
 //!   that was never switched stays byte-identical, and off-then-on gives the
@@ -262,7 +264,7 @@ fn reading(kind: SwitchKind, flags: Flags) -> Option<bool> {
         _ => None,
     };
     match kind {
-        SwitchKind::DisabledKey => disabled.or(enabled),
+        SwitchKind::DisabledKey => disabled,
         _ => enabled.or(disabled),
     }
 }
@@ -280,12 +282,11 @@ fn change(kind: SwitchKind, flags: Flags, enabled: bool) -> Result<Change, EditE
     if flags.enabled == Held::Other || flags.disabled == Held::Other {
         return Err(EditError::Unparseable(FLAG_IS_NOT_A_BOOLEAN.to_string()));
     }
-    let (key, held, value, drop_disabled) =
-        if kind == SwitchKind::EnabledKey || flags.enabled != Held::Absent {
-            ("enabled", flags.enabled, enabled, flags.disabled != Held::Absent)
-        } else {
-            ("disabled", flags.disabled, !enabled, false)
-        };
+    let (key, held, value, drop_disabled) = if kind == SwitchKind::DisabledKey {
+        ("disabled", flags.disabled, !enabled, false)
+    } else {
+        ("enabled", flags.enabled, enabled, flags.disabled != Held::Absent)
+    };
     let already_says_it = held == Held::Bool(value);
     let on_with_no_flag = enabled && held == Held::Absent;
     if !drop_disabled && (already_says_it || on_with_no_flag) {

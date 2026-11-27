@@ -36,9 +36,9 @@ describe("brand coverage", () => {
   it("finds the registries it reads", () => {
     const ids = backendEngineIds();
     const distinct = new Set(ids.map((x) => x.id));
-    // 16 hosts + 11 agents + 13 canonical keys + 2 rule-file owners,
-    // overlapping to 18 distinct.
-    expect(distinct.size).toBeGreaterThanOrEqual(18);
+    // 17 hosts + 12 agents + 14 canonical keys + 2 rule-file owners,
+    // overlapping to 19 distinct.
+    expect(distinct.size).toBeGreaterThanOrEqual(19);
     expect(distinct.has("windsurf")).toBe(true);
     expect(distinct.has("copilot")).toBe(true);
 
@@ -46,8 +46,8 @@ describe("brand coverage", () => {
     // struct array reformatted enough to break one of the regexes above)
     // fails loudly here instead of hiding behind ids the other sources also
     // yield. Counted directly from the Rust files, not guessed: registry.rs
-    // HOSTS has 16 McpHost entries, agents.rs AGENT_CONFIGS has 11,
-    // get_engine_key's match arms yield 13 Some(...) results, and agents.rs
+    // HOSTS has 17 McpHost entries, agents.rs AGENT_CONFIGS has 12,
+    // get_engine_key's match arms yield 14 Some(...) results, and agents.rs
     // RULE_FILE_OWNERS has 2 tuples (the filename-attributed rules engines,
     // cursor and copilot — moved here from scanner.rs's old string-literal
     // upsert_engine calls).
@@ -56,9 +56,9 @@ describe("brand coverage", () => {
     // the real count is not a floor: it is four spare rows a reformat can
     // silently drop.
     const floors: Record<string, number> = {
-      "registry.rs HOSTS": 16,
-      "agents.rs AGENT_CONFIGS": 11,
-      "scanner.rs get_engine_key": 13,
+      "registry.rs HOSTS": 17,
+      "agents.rs AGENT_CONFIGS": 12,
+      "scanner.rs get_engine_key": 14,
       "agents.rs RULE_FILE_OWNERS": 2,
     };
     for (const [source, floor] of Object.entries(floors)) {

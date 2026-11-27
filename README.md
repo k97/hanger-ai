@@ -128,9 +128,9 @@ after a scan.
 
 <!-- hanger:coverage:start -->
 
-**Engines with directories of their own (11).** Claude Code, Codex, Gemini / Antigravity, Kiro, Trae, OpenCode, Amp, Zed, Roo Code, Kilo Code and Cline.
+**Engines with directories of their own (12).** Claude Code, Codex, Gemini CLI, Antigravity CLI, Kiro, Trae, OpenCode, Amp, Zed, Roo Code, Kilo Code and Cline.
 
-**MCP hosts (16).** Claude Code, Codex, Gemini / Antigravity, Claude Desktop, VS Code, Cursor, Devin Desktop, Zed, Claude.ai, Kiro, Trae, OpenCode, Amp, Roo Code, Kilo Code and Cline.
+**MCP hosts (17).** Claude Code, Codex, Gemini CLI, Antigravity CLI, Claude Desktop, VS Code, Cursor, Devin Desktop, Zed, Claude.ai, Kiro, Trae, OpenCode, Amp, Roo Code, Kilo Code and Cline.
 
 <!-- hanger:coverage:end -->
 
@@ -159,7 +159,7 @@ gitleaks detect --source .      # and --no-git -c .gitleaks.toml
 
 <!-- hanger:tests:start -->
 
-184 frontend test files under `src/`, and 48 Rust integration test files under `src-tauri/tests/`.
+184 frontend test files under `src/`, and 49 Rust integration test files under `src-tauri/tests/`.
 
 <!-- hanger:tests:end -->
 

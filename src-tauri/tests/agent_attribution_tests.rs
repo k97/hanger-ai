@@ -564,3 +564,16 @@ fn clines_global_storage_path_is_declared_not_guessed() {
         "Cline's globalStorage extension id must be declared explicitly"
     );
 }
+
+#[test]
+fn antigravity_owns_its_config_dir_and_gemini_keeps_the_rest() {
+    let home = Path::new("/Users/u");
+    let owner = |rel: &str| engine_for_path(&home.join(rel)).map(|c| c.id);
+    assert_eq!(owner(".gemini/config/skills/paseo/SKILL.md"), Some("antigravity"));
+    assert_eq!(owner(".gemini/config/agents/a.md"), Some("antigravity"));
+    assert_eq!(owner(".gemini/config/mcp_config.json"), Some("antigravity"));
+    assert_eq!(owner(".gemini/skills/x/SKILL.md"), Some("gemini"));
+    assert_eq!(owner(".gemini/GEMINI.md"), Some("gemini"));
+    assert_eq!(owner(".gemini/settings.json"), Some("gemini"));
+    assert_eq!(owner(".agents/skills/x/SKILL.md"), None);
+}
