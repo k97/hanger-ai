@@ -330,6 +330,10 @@ describe("InspectorCap", () => {
    * App.tsx's cap row), which is what actually keeps the controls clickable.
    * This test only pins the class; verifying the drag itself requires a
    * running build (`verifying-ui.md`).
+   *
+   * Since 2026-11-28 (73ae322) the cap row is `data-tauri-drag-region="deep"`
+   * and `capDragOverlay` is gone, so a `relative` root would no longer stop
+   * the drag. The contract stays until Karthik rules on retiring it.
    */
   it("[class contract] the cap's root is not itself `relative` — that painted it over its own drag overlay", () => {
     const host = createRef<HTMLDivElement>();
