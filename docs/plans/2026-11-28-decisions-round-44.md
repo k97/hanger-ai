@@ -117,3 +117,7 @@ Each track runs task by task, with a fresh review after every task. Each one sto
 
 Recommended: Yes
 :::
+
+## Answers (Karthik, 2026-11-28)
+
+All nine took the recommendation: (1) quit Hanger for each spike run; (2) Claude Code's default mode is enough; (3) add `Read`; (4) drop the `apiKeyHelper` fallback, so phase B needs `ANTHROPIC_API_KEY` and says so when it's missing; (5) Undo of a `gh skill install` switches the skill off into the keep; (6) plugin updates ship without an Undo and say so; (7) the Skills figure is what Claude actually loads, capped, with a note, confirmed live; (8) copying keeps literal values the detector finds no secret in, file to file, never shown; (9) wave 1 starts after the re-review.
