@@ -993,3 +993,35 @@ is new.
 
 **Done when:** the column takes focus and scrolls with the arrow keys, its
 name has Karthik's sign-off, and a test pins `tabIndex` and the name.
+
+## T26 — Window drag follow-ups from the `2654ba8` review
+
+The title band now drags through `start_window_drag` (`window_drag.rs`,
+`windowDrag.ts`), not Tauri's `data-tauri-drag-region`. Its `--dev` review
+(`docs/reviews/2026-11-28-dev-main-2.md`) shipped it with three non-blocking
+points. Karthik, 2026-11-28: record them, fix later.
+
+1. **Double-click zoom works but is glitchy.** Karthik's words after trying
+   it in the dev app. Not traced. The likely cause: the first press of the
+   double-click now starts a real window drag, which it mostly failed to do
+   before, so the zoom on the second release follows a drag that already
+   began. Measure first, as the drag itself was measured on 2026-11-28: a
+   listen-only `CGEventTap` logging each press and release with the
+   window's origin, beside a capture-phase `mousedown` recorder in the page
+   (through the MCP bridge). Synthetic `cliclick` input does not reproduce
+   real presses; use real ones.
+2. **A hand-moved drag is not kept below the menu bar.** When the pointer
+   has left the press point, `window_drag.rs` moves the window itself with
+   an unconstrained `setFrameOrigin`, so a fast upward drag near the top of
+   the screen could tuck the band under the menu bar, which the native drag
+   prevents. Not seen in use so far. Fix by clamping to the screen's
+   `visibleFrame`.
+3. **`core:window:allow-start-dragging` is now unused.** Nothing in the
+   webview opts in to Tauri's drag region any more, and the non-macOS
+   fallback calls `start_dragging` from Rust, which needs no capability.
+   Karthik agreed to remove it. Remove the line from
+   `src-tauri/capabilities/default.json` in its own commit and say so.
+
+**Done when:** double-click zoom is smooth in a running build (Karthik's
+call), an upward drag near the top of the screen stops below the menu bar,
+and the capability line is gone with the gates green.
